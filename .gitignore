@@ -1,0 +1,50 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/**/build/
+!**/src/**/out/
+
+# Kotlin
+*.kotlin_module
+.kotlin/
+
+# IntelliJ IDEA / JetBrains
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# Eclipse
+.classpath
+.project
+.settings/
+bin/
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Logs
+*.log
+logs/
+
+# Local environment / secrets
+.env
+.env.local
+*.local
+local.properties
+
+# Application runtime artifacts
+# Embedded H2 file DB configured in Exposed.kt (r2dbc:h2:file:///./h2)
+h2.mv.db
+h2.trace.db
+*.mv.db
+*.trace.db

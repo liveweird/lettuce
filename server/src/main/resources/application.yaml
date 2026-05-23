@@ -1,0 +1,18 @@
+ktor:
+  deployment:
+    port: 8080
+  application:
+    modules:
+      - ch.nokillswit.HttpKt.configureHttp
+      - ch.nokillswit.MonitoringKt.configureMonitoring
+      - ch.nokillswit.SerializationKt.configureSerialization
+      - ch.nokillswit.SecurityKt.configureSecurity
+      - ch.nokillswit.WebsocketsKt.configureWebsockets
+      - ch.nokillswit.DIKt.configureDependencyInjection
+      - ch.nokillswit.ServerOpenTelemetryKt.configureOpenTelemetry
+      - ch.nokillswit.AutoHeadResponseKt.configureAutoHeadResponse
+      - ch.nokillswit.PostgresKt.configurePostgres
+      - ch.nokillswit.ExposedKt.configureExposed
+      - ch.nokillswit.ResourcesKt.configureResources
+      - ch.nokillswit.RequestValidationKt.configureRequestValidation
+      - ch.nokillswit.RoutingKt.configureRouting
