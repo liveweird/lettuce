@@ -1,4 +1,5 @@
 ktor:
+  development: true
   deployment:
     port: 8080
   application:
@@ -13,6 +14,14 @@ ktor:
       - ch.nokillswit.AutoHeadResponseKt.configureAutoHeadResponse
       - ch.nokillswit.PostgresKt.configurePostgres
       - ch.nokillswit.ExposedKt.configureExposed
+      - ch.nokillswit.AuthKt.configureAuth
       - ch.nokillswit.ResourcesKt.configureResources
       - ch.nokillswit.RequestValidationKt.configureRequestValidation
       - ch.nokillswit.RoutingKt.configureRouting
+
+jwt:
+  secret: "$JWT_SECRET:secret"
+  issuer: "$JWT_ISSUER:http://0.0.0.0:8080/"
+  audience: "$JWT_AUDIENCE:lettuce-api"
+  realm: "$JWT_REALM:lettuce-api"
+  expiresInSeconds: "$JWT_EXPIRES_IN_SECONDS:3600"

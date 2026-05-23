@@ -36,20 +36,22 @@ fun Application.configureHttp() {
     install(DefaultHeaders) {
         header("X-Engine", "Ktor") // will send this header with each response
     }
-    install(HSTS) {
-        includeSubDomains = true
-    }
-    install(HttpsRedirect) {
+    if (!developmentMode) {
+        install(HSTS) {
+            includeSubDomains = true
+        }
+        install(HttpsRedirect) {
             // The port to redirect to. By default 443, the default HTTPS port.
             sslPort = 443
             // 301 Moved Permanently, or 302 Found redirect.
             permanentRedirect = true
         }
+    }
     routing {
         openAPI(path = "openapi") {
             /*
              Documentation source configuration goes here.
-    
+
              This can be from file (documentation.yaml), or it can be served dynamically from your sources using the
              `describe {}` API on routes.  When `openApi` enabled in Gradle, these calls will be automatically injected
              based on your code and comments.
@@ -60,7 +62,7 @@ fun Application.configureHttp() {
         swaggerUI(path = "openapi") {
             /*
              Documentation source configuration goes here.
-    
+
              This can be from file (documentation.yaml), or it can be served dynamically from your sources using the
              `describe {}` API on routes.  When `openApi` enabled in Gradle, these calls will be automatically injected
              based on your code and comments.

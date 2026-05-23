@@ -8,34 +8,49 @@ import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
 import io.ktor.server.response.*
 import io.ktor.server.sessions.*
+import io.ktor.util.AttributeKey
+
+data class JwtConfig(
+    val secret: String,
+    val issuer: String,
+    val audience: String,
+    val realm: String,
+    val expiresInSeconds: Long,
+)
+
+val JwtConfigKey = AttributeKey<JwtConfig>("JwtConfig")
 
 fun Application.configureSecurity() {
     install(CSRF) {
         // tests Origin is an expected value
         allowOrigin("http://localhost:8080")
-    
+
         // tests Origin matches Host header
         originMatchesHost()
-    
+
         // custom header checks
         checkHeader("X-CSRF-Token")
     }
-    val jwtAudience = "jwt-audience"
-    val jwtDomain = "https://jwt-provider-domain/"
-    val jwtRealm = "ktor sample app"
-    val jwtSecret = "secret"
+    val jwtConfig = JwtConfig(
+        secret = environment.config.property("jwt.secret").getString(),
+        issuer = environment.config.property("jwt.issuer").getString(),
+        audience = environment.config.property("jwt.audience").getString(),
+        realm = environment.config.property("jwt.realm").getString(),
+        expiresInSeconds = environment.config.property("jwt.expiresInSeconds").getString().toLong(),
+    )
+    attributes.put(JwtConfigKey, jwtConfig)
     authentication {
         jwt {
-            realm = jwtRealm
+            realm = jwtConfig.realm
             verifier(
                 JWT
-                    .require(Algorithm.HMAC256(jwtSecret))
-                    .withAudience(jwtAudience)
-                    .withIssuer(jwtDomain)
+                    .require(Algorithm.HMAC256(jwtConfig.secret))
+                    .withAudience(jwtConfig.audience)
+                    .withIssuer(jwtConfig.issuer)
                     .build()
             )
             validate { credential ->
-                if (credential.payload.audience.contains(jwtAudience)) JWTPrincipal(credential.payload) else null
+                if (credential.payload.audience.contains(jwtConfig.audience)) JWTPrincipal(credential.payload) else null
             }
         }
     }

@@ -10,12 +10,19 @@ import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 
 @Serializable
-data class ExposedUser(val name: String, val age: Int)
+data class ExposedUser(
+    val name: String,
+    val age: Int,
+    val email: String,
+    val passwordHash: String,
+)
 
 class ExposedUserService(val database: R2dbcDatabase) {
     object Users : UIntIdTable() {
         val name = varchar("name", length = 50)
         val age = integer("age")
+        val email = varchar("email", length = 254).uniqueIndex()
+        val passwordHash = varchar("password_hash", length = 255)
     }
 
     suspend fun createSchema() {
@@ -28,6 +35,8 @@ class ExposedUserService(val database: R2dbcDatabase) {
         val newRecord = Users.insert {
             it[name] = user.name
             it[age] = user.age
+            it[email] = user.email
+            it[passwordHash] = user.passwordHash
         }
         newRecord[Users.id].value
     }
@@ -36,7 +45,16 @@ class ExposedUserService(val database: R2dbcDatabase) {
         return suspendTransaction(database) {
             Users.selectAll()
                 .where { Users.id eq id }
-                .map { ExposedUser(it[Users.name], it[Users.age]) }
+                .map { ExposedUser(it[Users.name], it[Users.age], it[Users.email], it[Users.passwordHash]) }
+                .singleOrNull()
+        }
+    }
+
+    suspend fun findByEmail(email: String): ExposedUser? {
+        return suspendTransaction(database) {
+            Users.selectAll()
+                .where { Users.email eq email }
+                .map { ExposedUser(it[Users.name], it[Users.age], it[Users.email], it[Users.passwordHash]) }
                 .singleOrNull()
         }
     }
@@ -46,6 +64,8 @@ class ExposedUserService(val database: R2dbcDatabase) {
             Users.update({ Users.id eq id }) {
                 it[name] = user.name
                 it[age] = user.age
+                it[email] = user.email
+                it[passwordHash] = user.passwordHash
             }
         }
     }

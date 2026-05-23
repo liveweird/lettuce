@@ -48,3 +48,6 @@ h2.mv.db
 h2.trace.db
 *.mv.db
 *.trace.db
+
+# Generated API docs (swagger-codegen output)
+server/docs/
