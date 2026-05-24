@@ -13,11 +13,13 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.put
+import io.ktor.client.request.request
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
@@ -25,6 +27,7 @@ import io.ktor.server.testing.testApplication
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -147,5 +150,225 @@ class TeamRoutesTest {
 
         val response = client.put("/teams/${team.id}/members/$managerId")
         assertEquals(HttpStatusCode.BadRequest, response.status, response.bodyAsText())
+    }
+
+    @Test
+    fun `update replaces name, manager, and members`() = testApplication {
+        usePostgresTestcontainer()
+        val ownerEmail = uniqueEmail("owner")
+        val mgr1 = TestUsers.seed(email = ownerEmail, password = "pw")
+        val mgr2 = TestUsers.seed(email = uniqueEmail("mgr2"), password = "pw")
+        val m1 = TestUsers.seed(email = uniqueEmail("m1"), password = "pw")
+        val m2 = TestUsers.seed(email = uniqueEmail("m2"), password = "pw")
+        val m3 = TestUsers.seed(email = uniqueEmail("m3"), password = "pw")
+
+        val client = authedClient(ownerEmail, "pw")
+        val team = client.post("/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "Before", managerId = mgr1, memberIds = listOf(m1, m2)))
+        }.body<TeamResponse>()
+
+        val updateResponse = client.put("/teams/${team.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "After", managerId = mgr2, memberIds = listOf(m2, m3)))
+        }
+        assertEquals(HttpStatusCode.NoContent, updateResponse.status)
+
+        val after = client.get("/teams/${team.id}").body<TeamResponse>()
+        assertEquals("After", after.name)
+        assertEquals(mgr2, after.managerId)
+        assertEquals(listOf(m2, m3).sorted(), after.memberIds.sorted())
+    }
+
+    @Test
+    fun `update with empty members is rejected`() = testApplication {
+        usePostgresTestcontainer()
+        val ownerEmail = uniqueEmail("owner")
+        val managerId = TestUsers.seed(email = ownerEmail, password = "pw")
+        val memberA = TestUsers.seed(email = uniqueEmail("a"), password = "pw")
+
+        val client = authedClient(ownerEmail, "pw")
+        val team = client.post("/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "T", managerId = managerId, memberIds = listOf(memberA)))
+        }.body<TeamResponse>()
+
+        val response = client.put("/teams/${team.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "T", managerId = managerId, memberIds = emptyList()))
+        }
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+    }
+
+    @Test
+    fun `update with manager in members is rejected`() = testApplication {
+        usePostgresTestcontainer()
+        val ownerEmail = uniqueEmail("owner")
+        val managerId = TestUsers.seed(email = ownerEmail, password = "pw")
+        val memberA = TestUsers.seed(email = uniqueEmail("a"), password = "pw")
+
+        val client = authedClient(ownerEmail, "pw")
+        val team = client.post("/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "T", managerId = managerId, memberIds = listOf(memberA)))
+        }.body<TeamResponse>()
+
+        val response = client.put("/teams/${team.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "T", managerId = managerId, memberIds = listOf(managerId, memberA)))
+        }
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+    }
+
+    @Test
+    fun `update with duplicate members is rejected`() = testApplication {
+        usePostgresTestcontainer()
+        val ownerEmail = uniqueEmail("owner")
+        val managerId = TestUsers.seed(email = ownerEmail, password = "pw")
+        val memberA = TestUsers.seed(email = uniqueEmail("a"), password = "pw")
+        val memberB = TestUsers.seed(email = uniqueEmail("b"), password = "pw")
+
+        val client = authedClient(ownerEmail, "pw")
+        val team = client.post("/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "T", managerId = managerId, memberIds = listOf(memberA)))
+        }.body<TeamResponse>()
+
+        val response = client.put("/teams/${team.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "T", managerId = managerId, memberIds = listOf(memberA, memberA, memberB)))
+        }
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+    }
+
+    @Test
+    fun `delete removes the team and subsequent GET returns 404`() = testApplication {
+        usePostgresTestcontainer()
+        val ownerEmail = uniqueEmail("owner")
+        val managerId = TestUsers.seed(email = ownerEmail, password = "pw")
+        val memberA = TestUsers.seed(email = uniqueEmail("a"), password = "pw")
+
+        val client = authedClient(ownerEmail, "pw")
+        val team = client.post("/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "T", managerId = managerId, memberIds = listOf(memberA)))
+        }.body<TeamResponse>()
+
+        val deleteResponse = client.delete("/teams/${team.id}")
+        assertEquals(HttpStatusCode.NoContent, deleteResponse.status)
+
+        val getResponse = client.get("/teams/${team.id}")
+        assertEquals(HttpStatusCode.NotFound, getResponse.status)
+    }
+
+    @Test
+    fun `get for nonexistent team returns 404`() = testApplication {
+        usePostgresTestcontainer()
+        val ownerEmail = uniqueEmail("owner")
+        TestUsers.seed(email = ownerEmail, password = "pw")
+        val client = authedClient(ownerEmail, "pw")
+
+        val response = client.get("/teams/999999")
+        assertEquals(HttpStatusCode.NotFound, response.status)
+    }
+
+    @Test
+    fun `create with duplicate memberIds is rejected`() = testApplication {
+        usePostgresTestcontainer()
+        val ownerEmail = uniqueEmail("owner")
+        val managerId = TestUsers.seed(email = ownerEmail, password = "pw")
+        val memberA = TestUsers.seed(email = uniqueEmail("a"), password = "pw")
+
+        val client = authedClient(ownerEmail, "pw")
+        val response = client.post("/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "Dup", managerId = managerId, memberIds = listOf(memberA, memberA)))
+        }
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+    }
+
+    @Test
+    fun `team endpoints require authentication`() = testApplication {
+        usePostgresTestcontainer()
+        val client = jsonClient()
+        val endpoints = listOf(
+            HttpMethod.Post to "/teams",
+            HttpMethod.Get to "/teams/1",
+            HttpMethod.Put to "/teams/1",
+            HttpMethod.Delete to "/teams/1",
+            HttpMethod.Put to "/teams/1/members/2",
+            HttpMethod.Delete to "/teams/1/members/2",
+        )
+        for ((verb, path) in endpoints) {
+            val response = client.request(path) { method = verb }
+            assertEquals(
+                HttpStatusCode.Unauthorized,
+                response.status,
+                "$verb $path expected 401, got ${response.status}",
+            )
+        }
+    }
+
+    @Test
+    fun `re-adding an existing member is a no-op`() = testApplication {
+        usePostgresTestcontainer()
+        val ownerEmail = uniqueEmail("owner")
+        val managerId = TestUsers.seed(email = ownerEmail, password = "pw")
+        val memberA = TestUsers.seed(email = uniqueEmail("a"), password = "pw")
+
+        val client = authedClient(ownerEmail, "pw")
+        val team = client.post("/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "T", managerId = managerId, memberIds = listOf(memberA)))
+        }.body<TeamResponse>()
+
+        val first = client.put("/teams/${team.id}/members/$memberA")
+        assertEquals(HttpStatusCode.NoContent, first.status)
+        val second = client.put("/teams/${team.id}/members/$memberA")
+        assertEquals(HttpStatusCode.NoContent, second.status)
+
+        val after = client.get("/teams/${team.id}").body<TeamResponse>()
+        assertEquals(listOf(memberA), after.memberIds)
+    }
+
+    @Test
+    fun `deleting a member user cascades the membership row`() = testApplication {
+        usePostgresTestcontainer()
+        val ownerEmail = uniqueEmail("owner")
+        val managerId = TestUsers.seed(email = ownerEmail, password = "pw")
+        val memberA = TestUsers.seed(email = uniqueEmail("a"), password = "pw")
+        val memberB = TestUsers.seed(email = uniqueEmail("b"), password = "pw")
+
+        val client = authedClient(ownerEmail, "pw")
+        val team = client.post("/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "T", managerId = managerId, memberIds = listOf(memberA, memberB)))
+        }.body<TeamResponse>()
+
+        val deleteUser = client.delete("/users/$memberA")
+        assertEquals(HttpStatusCode.NoContent, deleteUser.status)
+
+        val after = client.get("/teams/${team.id}").body<TeamResponse>()
+        assertEquals(listOf(memberB), after.memberIds)
+    }
+
+    @Test
+    fun `deleting a user who manages a team is rejected`() = testApplication {
+        usePostgresTestcontainer()
+        val ownerEmail = uniqueEmail("owner")
+        val managerId = TestUsers.seed(email = ownerEmail, password = "pw")
+        val memberA = TestUsers.seed(email = uniqueEmail("a"), password = "pw")
+
+        val client = authedClient(ownerEmail, "pw")
+        val team = client.post("/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "T", managerId = managerId, memberIds = listOf(memberA)))
+        }.body<TeamResponse>()
+
+        val blocked = client.delete("/users/$managerId")
+        assertNotEquals(HttpStatusCode.NoContent, blocked.status)
+
+        assertEquals(HttpStatusCode.NoContent, client.delete("/teams/${team.id}").status)
+        assertEquals(HttpStatusCode.NoContent, client.delete("/users/$managerId").status)
     }
 }
