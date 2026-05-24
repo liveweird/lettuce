@@ -35,7 +35,7 @@ ch.nokillswit
 ├── plugins/            cross-cutting Ktor wiring (configureXxx that only `install` plugins)
 ├── infra/db/           Flyway migrations + R2DBC connection bootstrap
 ├── auth/               POST /login + password hashing
-└── users/              /users/* CRUD + ExposedUserService + Users table
+└── users/              /users/* CRUD + UserService + Users table
 ```
 
 Routing is feature-local: each feature package registers its own routes from its `configureXxx` module. `plugins/Routing.kt` is a catch-all for non-feature endpoints (`/`, `/ws`, `/json/kotlinx-serialization`, `/session/increment`).
@@ -47,7 +47,7 @@ Module load order in `application.yaml` matters for inter-module attribute reads
 PostgreSQL is the only database. Connection settings come from the `postgres:` block in `application.yaml` (env-overridable via `POSTGRES_JDBC_URL`, `POSTGRES_R2DBC_URL`, `POSTGRES_USER`, `POSTGRES_PASSWORD`); defaults match the `docker compose up postgres` service. There is one persistence stack:
 
 - **Flyway** (`infra/db/Flyway.kt`) — runs schema migrations from `server/src/main/resources/db/migration/` at startup via the Java API, opening a short-lived JDBC connection. Migrations are the single source of truth for schema; do not call `SchemaUtils.create` anywhere.
-- **Exposed + R2DBC** (`infra/db/Database.kt` + `users/UsersService.kt`) — runtime DB access. `Database.kt` connects the `R2dbcDatabase` and publishes `UserServiceKey`; the service itself lives next to the feature it serves. The Exposed table objects (e.g. `ExposedUserService.Users`) are used for queries only, not DDL.
+- **Exposed + R2DBC** (`infra/db/Database.kt` + `users/UserService.kt`) — runtime DB access. `Database.kt` connects the `R2dbcDatabase` and publishes `UserServiceKey`; the service itself lives next to the feature it serves. The Exposed table objects (e.g. `UserService.Users`) are used for queries only, not DDL.
 
 The `org.postgresql:postgresql` JDBC driver is on the classpath solely for Flyway; runtime queries go through R2DBC.
 

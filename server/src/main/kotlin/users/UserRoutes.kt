@@ -32,7 +32,7 @@ fun Application.configureUserRoutes() {
         authenticate {
             post<Users> {
                 val req = call.receive<UserRequest>()
-                val user = ExposedUser(req.name, req.age, req.email, hashPassword(req.password))
+                val user = User(req.name, req.age, req.email, hashPassword(req.password))
                 val id = userService.create(user)
                 call.response.header(HttpHeaders.Location, call.application.href(Users.Id(id = id)))
                 call.respond(HttpStatusCode.Created, user.toResponse(id))
@@ -47,7 +47,7 @@ fun Application.configureUserRoutes() {
             }
             put<Users.Id> { route ->
                 val req = call.receive<UserRequest>()
-                val user = ExposedUser(req.name, req.age, req.email, hashPassword(req.password))
+                val user = User(req.name, req.age, req.email, hashPassword(req.password))
                 userService.update(route.id, user)
                 call.respond(HttpStatusCode.NoContent)
             }

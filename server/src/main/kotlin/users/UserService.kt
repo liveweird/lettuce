@@ -9,9 +9,9 @@ import org.jetbrains.exposed.v1.r2dbc.*
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 
-val UserServiceKey = AttributeKey<ExposedUserService>("ExposedUserService")
+val UserServiceKey = AttributeKey<UserService>("UserService")
 
-class ExposedUserService(val database: R2dbcDatabase) {
+class UserService(val database: R2dbcDatabase) {
     object Users : UIntIdTable() {
         val name = varchar("name", length = 50)
         val age = integer("age")
@@ -19,7 +19,7 @@ class ExposedUserService(val database: R2dbcDatabase) {
         val passwordHash = varchar("password_hash", length = 255)
     }
 
-    suspend fun create(user: ExposedUser): UInt = suspendTransaction(database) {
+    suspend fun create(user: User): UInt = suspendTransaction(database) {
         val newRecord = Users.insert {
             it[name] = user.name
             it[age] = user.age
@@ -29,25 +29,25 @@ class ExposedUserService(val database: R2dbcDatabase) {
         newRecord[Users.id].value
     }
 
-    suspend fun read(id: UInt): ExposedUser? {
+    suspend fun read(id: UInt): User? {
         return suspendTransaction(database) {
             Users.selectAll()
                 .where { Users.id eq id }
-                .map { ExposedUser(it[Users.name], it[Users.age], it[Users.email], it[Users.passwordHash]) }
+                .map { User(it[Users.name], it[Users.age], it[Users.email], it[Users.passwordHash]) }
                 .singleOrNull()
         }
     }
 
-    suspend fun findByEmail(email: String): ExposedUser? {
+    suspend fun findByEmail(email: String): User? {
         return suspendTransaction(database) {
             Users.selectAll()
                 .where { Users.email eq email }
-                .map { ExposedUser(it[Users.name], it[Users.age], it[Users.email], it[Users.passwordHash]) }
+                .map { User(it[Users.name], it[Users.age], it[Users.email], it[Users.passwordHash]) }
                 .singleOrNull()
         }
     }
 
-    suspend fun update(id: UInt, user: ExposedUser) {
+    suspend fun update(id: UInt, user: User) {
         suspendTransaction(database) {
             Users.update({ Users.id eq id }) {
                 it[name] = user.name

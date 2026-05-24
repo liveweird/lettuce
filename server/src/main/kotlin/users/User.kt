@@ -3,7 +3,7 @@ package ch.nokillswit.users
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class ExposedUser(
+data class User(
     val name: String,
     val age: Int,
     val email: String,
@@ -26,4 +26,4 @@ data class UserResponse(
     val email: String,
 )
 
-fun ExposedUser.toResponse(id: UInt) = UserResponse(id, name, age, email)
+fun User.toResponse(id: UInt) = UserResponse(id, name, age, email)

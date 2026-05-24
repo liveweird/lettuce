@@ -1,6 +1,6 @@
 package ch.nokillswit.infra.db
 
-import ch.nokillswit.users.ExposedUserService
+import ch.nokillswit.users.UserService
 import ch.nokillswit.users.UserServiceKey
 import io.ktor.server.application.*
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
@@ -11,5 +11,5 @@ suspend fun Application.configureDatabase() {
         user = environment.config.property("postgres.user").getString(),
         password = environment.config.property("postgres.password").getString(),
     )
-    attributes.put(UserServiceKey, ExposedUserService(database))
+    attributes.put(UserServiceKey, UserService(database))
 }

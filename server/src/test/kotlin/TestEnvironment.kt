@@ -1,8 +1,8 @@
 package ch.nokillswit
 
 import ch.nokillswit.auth.hashPassword
-import ch.nokillswit.users.ExposedUser
-import ch.nokillswit.users.ExposedUserService
+import ch.nokillswit.users.User
+import ch.nokillswit.users.UserService
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.serialization.kotlinx.json.json
@@ -32,8 +32,8 @@ fun ApplicationTestBuilder.jsonClient(): HttpClient = createClient {
 }
 
 object TestUsers {
-    private val service: ExposedUserService by lazy {
-        ExposedUserService(
+    private val service: UserService by lazy {
+        UserService(
             R2dbcDatabase.connect(
                 url = PostgresTestSupport.r2dbcUrl,
                 user = PostgresTestSupport.user,
@@ -48,6 +48,6 @@ object TestUsers {
         name: String = "Test",
         age: Int = 30,
     ): UInt = service.create(
-        ExposedUser(name = name, age = age, email = email, passwordHash = hashPassword(password, cost = 4))
+        User(name = name, age = age, email = email, passwordHash = hashPassword(password, cost = 4))
     )
 }
