@@ -1,4 +1,4 @@
-package ch.nokillswit
+package ch.nokillswit.infra.db
 
 import io.ktor.server.application.*
 import org.flywaydb.core.Flyway

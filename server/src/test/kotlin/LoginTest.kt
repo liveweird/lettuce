@@ -1,5 +1,8 @@
 package ch.nokillswit
 
+import ch.nokillswit.auth.LoginRequest
+import ch.nokillswit.auth.LoginResponse
+import ch.nokillswit.users.ExposedUser
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import io.ktor.client.call.body

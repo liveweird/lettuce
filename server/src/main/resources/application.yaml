@@ -4,20 +4,27 @@ ktor:
     port: 8080
   application:
     modules:
-      - ch.nokillswit.HttpKt.configureHttp
-      - ch.nokillswit.MonitoringKt.configureMonitoring
-      - ch.nokillswit.SerializationKt.configureSerialization
-      - ch.nokillswit.SecurityKt.configureSecurity
-      - ch.nokillswit.WebsocketsKt.configureWebsockets
-      - ch.nokillswit.DIKt.configureDependencyInjection
-      - ch.nokillswit.ServerOpenTelemetryKt.configureOpenTelemetry
-      - ch.nokillswit.AutoHeadResponseKt.configureAutoHeadResponse
-      - ch.nokillswit.FlywayKt.configureFlyway
-      - ch.nokillswit.ExposedKt.configureExposed
-      - ch.nokillswit.AuthKt.configureAuth
-      - ch.nokillswit.ResourcesKt.configureResources
-      - ch.nokillswit.RequestValidationKt.configureRequestValidation
-      - ch.nokillswit.RoutingKt.configureRouting
+      # — base plugins
+      - ch.nokillswit.plugins.HttpKt.configureHttp
+      - ch.nokillswit.plugins.MonitoringKt.configureMonitoring
+      - ch.nokillswit.plugins.SerializationKt.configureSerialization
+      - ch.nokillswit.plugins.SecurityKt.configureSecurity
+      - ch.nokillswit.plugins.SessionsKt.configureSessions
+      - ch.nokillswit.plugins.WebsocketsKt.configureWebsockets
+      - ch.nokillswit.plugins.DIKt.configureDependencyInjection
+      - ch.nokillswit.plugins.OpenTelemetryKt.configureOpenTelemetry
+      - ch.nokillswit.plugins.AutoHeadResponseKt.configureAutoHeadResponse
+      - ch.nokillswit.plugins.RequestValidationKt.configureRequestValidation
+      - ch.nokillswit.plugins.ResourcesKt.configureResources
+      # — infrastructure
+      - ch.nokillswit.infra.db.FlywayKt.configureFlyway
+      - ch.nokillswit.infra.db.DatabaseKt.configureDatabase
+      # — features
+      - ch.nokillswit.users.UserRoutesKt.configureUserRoutes
+      - ch.nokillswit.auth.AuthRoutesKt.configureAuthRoutes
+      - ch.nokillswit.articles.ArticlesKt.configureArticles
+      # — catch-all router
+      - ch.nokillswit.plugins.RoutingKt.configureRouting
 
 jwt:
   secret: "$JWT_SECRET:secret"

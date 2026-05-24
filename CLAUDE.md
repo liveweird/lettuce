@@ -25,26 +25,40 @@ Group is `ch.nokillswit`, version `1.0.0-SNAPSHOT` (set in root `build.gradle.kt
 
 ### Server bootstrap model
 
-`server/src/main/kotlin/main.kt` just delegates to `io.ktor.server.netty.EngineMain`. The application is wired declaratively in `server/src/main/resources/application.yaml` under `ktor.application.modules` — each entry is a fully-qualified extension function on `Application` (e.g. `ch.nokillswit.HttpKt.configureHttp`). To add a new cross-cutting concern, create a new `configureXxx()` extension and register it in `application.yaml`; do not call it from `main.kt`.
+`server/src/main/kotlin/main.kt` just delegates to `io.ktor.server.netty.EngineMain`. The application is wired declaratively in `server/src/main/resources/application.yaml` under `ktor.application.modules` — each entry is a fully-qualified extension function on `Application` (e.g. `ch.nokillswit.plugins.HttpKt.configureHttp`). To add a new cross-cutting concern, create a new `configureXxx()` extension under `plugins/` and register it in `application.yaml`; do not call it from `main.kt`.
 
-Modules currently registered (in load order): `configureHttp`, `configureMonitoring`, `configureSerialization`, `configureSecurity`, `configureWebsockets`, `configureDependencyInjection`, `configureOpenTelemetry`, `configureAutoHeadResponse`, `configureFlyway`, `configureExposed`, `configureAuth`, `configureResources`, `configureRequestValidation`, `configureRouting`. `configureExposed` installs the `/users/*` routes directly, so routes are spread across multiple files rather than being centralized in `Routing.kt`.
+### Package layout
+
+```
+ch.nokillswit
+├── main.kt
+├── plugins/            cross-cutting Ktor wiring (configureXxx that only `install` plugins)
+├── infra/db/           Flyway migrations + R2DBC connection bootstrap
+├── auth/               POST /login + password hashing
+├── users/              /users/* CRUD + ExposedUserService + Users table
+└── articles/           /articles resource
+```
+
+Routing is feature-local: each feature package registers its own routes from its `configureXxx` module. `plugins/Routing.kt` is a catch-all for non-feature endpoints (`/`, `/ws`, `/json/kotlinx-serialization`, `/session/increment`).
+
+Module load order in `application.yaml` matters for inter-module attribute reads: `configureSecurity` puts `JwtConfigKey` in `attributes`; `configureDatabase` puts `UserServiceKey`. `configureAuthRoutes` and `configureUserRoutes` read both, so they must run after both. Current order: plugins → `infra/db` (Flyway, then Database) → features (users, auth, articles) → catch-all `configureRouting`.
 
 ### Persistence
 
 PostgreSQL is the only database. Connection settings come from the `postgres:` block in `application.yaml` (env-overridable via `POSTGRES_JDBC_URL`, `POSTGRES_R2DBC_URL`, `POSTGRES_USER`, `POSTGRES_PASSWORD`); defaults match the `docker compose up postgres` service. There is one persistence stack:
 
-- **Flyway** (`Flyway.kt`) — runs schema migrations from `server/src/main/resources/db/migration/` at startup via the Java API, opening a short-lived JDBC connection. Migrations are the single source of truth for schema; do not call `SchemaUtils.create` anywhere.
-- **Exposed + R2DBC** (`Exposed.kt`, `UsersService.kt`) — runtime DB access. Exposed v1 with `exposed-r2dbc` over the Postgres R2DBC driver, exposing `/users/*`. The Exposed table objects (e.g. `ExposedUserService.Users`) are used for queries only, not DDL.
+- **Flyway** (`infra/db/Flyway.kt`) — runs schema migrations from `server/src/main/resources/db/migration/` at startup via the Java API, opening a short-lived JDBC connection. Migrations are the single source of truth for schema; do not call `SchemaUtils.create` anywhere.
+- **Exposed + R2DBC** (`infra/db/Database.kt` + `users/UsersService.kt`) — runtime DB access. `Database.kt` connects the `R2dbcDatabase` and publishes `UserServiceKey`; the service itself lives next to the feature it serves. The Exposed table objects (e.g. `ExposedUserService.Users`) are used for queries only, not DDL.
 
 The `org.postgresql:postgresql` JDBC driver is on the classpath solely for Flyway; runtime queries go through R2DBC.
 
 ### Security defaults are template placeholders
 
-`Security.kt` uses a hard-coded HMAC256 secret (`"secret"`), audience, and issuer for JWT, and CORS in `Http.kt` calls `anyHost()`. These are starter values and must be replaced before any non-development use.
+`plugins/Security.kt` uses a hard-coded HMAC256 secret (`"secret"`), audience, and issuer for JWT, and CORS in `plugins/Http.kt` calls `anyHost()`. CSRF install is gated behind `security.csrf.enabled` (default `true`); tests set it to `false` because the configured `originMatchesHost()` + `allowOrigin("http://localhost:8080")` combo is unsatisfiable from the Ktor test client. All of these are starter values and must be replaced before any non-development use.
 
 ### Observability
 
-`ServerOpenTelemetry.kt` installs `KtorServerTelemetry` and obtains the SDK via `getOpenTelemetry("ktor-sample")` from the `core` module. `Monitoring.kt` separately installs Dropwizard metrics (logged via SLF4J every 10s) and the `CallId` plugin using `X-Request-Id`. Metrics OTel exporter is explicitly disabled in `core/.../OpenTelemetry.kt` (`otel.metrics.exporter=none`); only traces are exported.
+`plugins/OpenTelemetry.kt` installs `KtorServerTelemetry` and obtains the SDK via `getOpenTelemetry("ktor-sample")` from the `core` module. `plugins/Monitoring.kt` separately installs Dropwizard metrics (logged via SLF4J every 10s) and the `CallId` plugin using `X-Request-Id`. Metrics OTel exporter is explicitly disabled in `core/.../OpenTelemetry.kt` (`otel.metrics.exporter=none`); only traces are exported.
 
 ### Testing
 

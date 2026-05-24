@@ -1,4 +1,4 @@
-package ch.nokillswit
+package ch.nokillswit.plugins
 
 import io.ktor.server.application.*
 import com.codahale.metrics.*

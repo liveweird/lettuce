@@ -1,6 +1,8 @@
 package ch.nokillswit
 
 import at.favre.lib.crypto.bcrypt.BCrypt
+import ch.nokillswit.users.ExposedUser
+import ch.nokillswit.users.ExposedUserService
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.serialization.kotlinx.json.json

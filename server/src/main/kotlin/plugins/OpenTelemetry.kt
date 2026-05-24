@@ -1,5 +1,6 @@
-package ch.nokillswit
+package ch.nokillswit.plugins
 
+import ch.nokillswit.getOpenTelemetry
 import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.application.*

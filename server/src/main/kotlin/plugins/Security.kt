@@ -1,13 +1,11 @@
-package ch.nokillswit
+package ch.nokillswit.plugins
 
-import io.ktor.server.application.*
-import io.ktor.server.plugins.csrf.*
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
+import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
-import io.ktor.server.response.*
-import io.ktor.server.sessions.*
+import io.ktor.server.plugins.csrf.*
 import io.ktor.util.AttributeKey
 
 data class JwtConfig(
@@ -40,8 +38,7 @@ fun Application.configureSecurity() {
         jwt {
             realm = jwtConfig.realm
             verifier(
-                JWT
-                    .require(Algorithm.HMAC256(jwtConfig.secret))
+                JWT.require(Algorithm.HMAC256(jwtConfig.secret))
                     .withAudience(jwtConfig.audience)
                     .withIssuer(jwtConfig.issuer)
                     .build()
@@ -49,11 +46,6 @@ fun Application.configureSecurity() {
             validate { credential ->
                 if (credential.payload.audience.contains(jwtConfig.audience)) JWTPrincipal(credential.payload) else null
             }
-        }
-    }
-    install(Sessions) {
-        cookie<MySession>("MY_SESSION") {
-            cookie.extensions["SameSite"] = "lax"
         }
     }
 }

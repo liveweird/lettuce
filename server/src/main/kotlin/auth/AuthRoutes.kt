@@ -1,6 +1,7 @@
-package ch.nokillswit
+package ch.nokillswit.auth
 
-import at.favre.lib.crypto.bcrypt.BCrypt
+import ch.nokillswit.plugins.JwtConfigKey
+import ch.nokillswit.users.UserServiceKey
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import io.ktor.http.HttpStatusCode
@@ -18,10 +19,7 @@ data class LoginRequest(val email: String, val password: String)
 @Serializable
 data class LoginResponse(val token: String, val expiresAt: Long)
 
-private fun verifyPassword(plain: String, hash: String): Boolean =
-    BCrypt.verifyer().verify(plain.toCharArray(), hash).verified
-
-fun Application.configureAuth() {
+fun Application.configureAuthRoutes() {
     val jwtConfig = attributes[JwtConfigKey]
     val userService = attributes[UserServiceKey]
 

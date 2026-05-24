@@ -1,21 +1,15 @@
-package ch.nokillswit
+package ch.nokillswit.users
 
+import io.ktor.util.AttributeKey
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.singleOrNull
-import kotlinx.serialization.Serializable
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.core.dao.id.UIntIdTable
 import org.jetbrains.exposed.v1.r2dbc.*
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 
-@Serializable
-data class ExposedUser(
-    val name: String,
-    val age: Int,
-    val email: String,
-    val passwordHash: String,
-)
+val UserServiceKey = AttributeKey<ExposedUserService>("ExposedUserService")
 
 class ExposedUserService(val database: R2dbcDatabase) {
     object Users : UIntIdTable() {
@@ -67,5 +61,4 @@ class ExposedUserService(val database: R2dbcDatabase) {
     suspend fun delete(id: UInt) {
         suspendTransaction(database) { Users.deleteWhere { Users.id.eq(id) } }
     }
-
 }

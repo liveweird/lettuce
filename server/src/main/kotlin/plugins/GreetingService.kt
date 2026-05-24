@@ -1,4 +1,4 @@
-package ch.nokillswit
+package ch.nokillswit.plugins
 
 fun interface GreetingService {
     fun sayHello(): String

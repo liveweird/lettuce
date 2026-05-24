@@ -1,27 +1,18 @@
-package ch.nokillswit
+package ch.nokillswit.plugins
 
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import io.ktor.resources.*
-import io.ktor.server.resources.*
-import io.ktor.server.resources.Resources
-import kotlinx.serialization.Serializable
+import io.ktor.server.sessions.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
-import java.time.Duration
-import io.ktor.server.sessions.*
 
 fun Application.configureRouting() {
     routing {
         get("/") {
             call.respondText("Hello, World!")
         }
-        get<Articles> { article ->
-            // Get all articles ...
-            call.respond("List of articles sorted starting from ${article.sort}")
-        }
-        webSocket("/ws") { // websocketSession
+        webSocket("/ws") {
             for (frame in incoming) {
                 if (frame is Frame.Text) {
                     val text = frame.readText()
