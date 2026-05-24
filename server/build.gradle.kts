@@ -43,11 +43,15 @@ dependencies {
     implementation(ktorLibs.server.websockets)
     implementation(libs.exposed.core)
     implementation(libs.exposed.r2dbc)
+    implementation(libs.flyway.core)
+    implementation(libs.flyway.database.postgresql)
     implementation(libs.h2database.h2)
     implementation(libs.h2database.r2dbc)
     implementation(libs.logback.classic)
     implementation(libs.postgresql)
+    implementation(libs.r2dbc.postgresql)
 
     testImplementation(kotlin("test"))
     testImplementation(ktorLibs.server.testHost)
+    testImplementation(libs.testcontainers.postgresql)
 }

@@ -12,6 +12,7 @@ ktor:
       - ch.nokillswit.DIKt.configureDependencyInjection
       - ch.nokillswit.ServerOpenTelemetryKt.configureOpenTelemetry
       - ch.nokillswit.AutoHeadResponseKt.configureAutoHeadResponse
+      - ch.nokillswit.FlywayKt.configureFlyway
       - ch.nokillswit.PostgresKt.configurePostgres
       - ch.nokillswit.ExposedKt.configureExposed
       - ch.nokillswit.AuthKt.configureAuth
@@ -25,3 +26,9 @@ jwt:
   audience: "$JWT_AUDIENCE:lettuce-api"
   realm: "$JWT_REALM:lettuce-api"
   expiresInSeconds: "$JWT_EXPIRES_IN_SECONDS:3600"
+
+postgres:
+  jdbcUrl: "$POSTGRES_JDBC_URL:jdbc:postgresql://localhost:5432/lettuce"
+  r2dbcUrl: "$POSTGRES_R2DBC_URL:r2dbc:postgresql://localhost:5432/lettuce"
+  user: "$POSTGRES_USER:lettuce"
+  password: "$POSTGRES_PASSWORD:lettuce"

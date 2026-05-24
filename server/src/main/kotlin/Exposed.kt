@@ -17,13 +17,11 @@ val UserServiceKey = AttributeKey<ExposedUserService>("ExposedUserService")
 
 suspend fun Application.configureExposed() {
     val database = R2dbcDatabase.connect(
-        url = "r2dbc:h2:file:///./h2",
-        user = "root",
-        password = "",
+        url = environment.config.property("postgres.r2dbcUrl").getString(),
+        user = environment.config.property("postgres.user").getString(),
+        password = environment.config.property("postgres.password").getString(),
     )
-    val userService = ExposedUserService(database).also {
-        it.createSchema()
-    }
+    val userService = ExposedUserService(database)
     attributes.put(UserServiceKey, userService)
 
     routing {

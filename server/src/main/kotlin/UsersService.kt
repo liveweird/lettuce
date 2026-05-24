@@ -25,12 +25,6 @@ class ExposedUserService(val database: R2dbcDatabase) {
         val passwordHash = varchar("password_hash", length = 255)
     }
 
-    suspend fun createSchema() {
-        suspendTransaction(database) {
-            SchemaUtils.create(Users)
-        }
-    }
-
     suspend fun create(user: ExposedUser): UInt = suspendTransaction(database) {
         val newRecord = Users.insert {
             it[name] = user.name
