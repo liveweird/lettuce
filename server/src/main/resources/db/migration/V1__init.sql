@@ -1,9 +1,3 @@
-CREATE TABLE cities (
-    id         SERIAL PRIMARY KEY,
-    name       VARCHAR(255),
-    population INT
-);
-
 CREATE TABLE users (
     id            BIGSERIAL PRIMARY KEY,
     name          VARCHAR(50)  NOT NULL,

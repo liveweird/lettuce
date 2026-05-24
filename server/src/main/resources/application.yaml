@@ -13,7 +13,6 @@ ktor:
       - ch.nokillswit.ServerOpenTelemetryKt.configureOpenTelemetry
       - ch.nokillswit.AutoHeadResponseKt.configureAutoHeadResponse
       - ch.nokillswit.FlywayKt.configureFlyway
-      - ch.nokillswit.PostgresKt.configurePostgres
       - ch.nokillswit.ExposedKt.configureExposed
       - ch.nokillswit.AuthKt.configureAuth
       - ch.nokillswit.ResourcesKt.configureResources

@@ -27,14 +27,16 @@ Group is `ch.nokillswit`, version `1.0.0-SNAPSHOT` (set in root `build.gradle.kt
 
 `server/src/main/kotlin/main.kt` just delegates to `io.ktor.server.netty.EngineMain`. The application is wired declaratively in `server/src/main/resources/application.yaml` under `ktor.application.modules` — each entry is a fully-qualified extension function on `Application` (e.g. `ch.nokillswit.HttpKt.configureHttp`). To add a new cross-cutting concern, create a new `configureXxx()` extension and register it in `application.yaml`; do not call it from `main.kt`.
 
-Modules currently registered (in load order): `configureHttp`, `configureMonitoring`, `configureSerialization`, `configureSecurity`, `configureWebsockets`, `configureDependencyInjection`, `configureOpenTelemetry`, `configureAutoHeadResponse`, `configurePostgres`, `configureExposed`, `configureResources`, `configureRequestValidation`, `configureRouting`. Several of these install routes directly (notably `configurePostgres` registers `/cities/*` and `configureExposed` registers `/users/*`), so routes are spread across multiple files rather than being centralized in `Routing.kt`.
+Modules currently registered (in load order): `configureHttp`, `configureMonitoring`, `configureSerialization`, `configureSecurity`, `configureWebsockets`, `configureDependencyInjection`, `configureOpenTelemetry`, `configureAutoHeadResponse`, `configureFlyway`, `configureExposed`, `configureAuth`, `configureResources`, `configureRequestValidation`, `configureRouting`. `configureExposed` installs the `/users/*` routes directly, so routes are spread across multiple files rather than being centralized in `Routing.kt`.
 
-### Two parallel persistence stacks (intentional, both wired)
+### Persistence
 
-- `Postgres.kt` + `CitySchema.kt` — raw JDBC against a `Connection`, exposing `/cities/*`. `connectToPostgres(embedded = true)` currently hard-codes the embedded H2 in-memory database; switching to real Postgres requires flipping that flag and supplying `postgres.url`, `postgres.user`, `postgres.password` in `application.yaml`.
-- `Exposed.kt` + `UsersService.kt` — Exposed v1 with the **R2DBC** driver (`exposed-r2dbc`) over H2, exposing `/users/*`. URL is hard-coded to `r2dbc:h2:file:///./h2` and schema is created at startup via `SchemaUtils.create`.
+PostgreSQL is the only database. Connection settings come from the `postgres:` block in `application.yaml` (env-overridable via `POSTGRES_JDBC_URL`, `POSTGRES_R2DBC_URL`, `POSTGRES_USER`, `POSTGRES_PASSWORD`); defaults match the `docker compose up postgres` service. There is one persistence stack:
 
-These two stacks coexist as templates — they don't share a connection, transaction manager, or schema.
+- **Flyway** (`Flyway.kt`) — runs schema migrations from `server/src/main/resources/db/migration/` at startup via the Java API, opening a short-lived JDBC connection. Migrations are the single source of truth for schema; do not call `SchemaUtils.create` anywhere.
+- **Exposed + R2DBC** (`Exposed.kt`, `UsersService.kt`) — runtime DB access. Exposed v1 with `exposed-r2dbc` over the Postgres R2DBC driver, exposing `/users/*`. The Exposed table objects (e.g. `ExposedUserService.Users`) are used for queries only, not DDL.
+
+The `org.postgresql:postgresql` JDBC driver is on the classpath solely for Flyway; runtime queries go through R2DBC.
 
 ### Security defaults are template placeholders
 
@@ -46,4 +48,4 @@ These two stacks coexist as templates — they don't share a connection, transac
 
 ### Testing
 
-`server/src/test/kotlin/ServerTest.kt` uses `io.ktor.server.testing.testApplication` and calls a `configure()` helper which is not defined in the test file — it's expected to come from Ktor's test host loading `application.yaml`. When adding tests, follow the same pattern (`testApplication { configure(); ... }`) so the full module chain runs.
+`server/src/test/kotlin/ServerTest.kt` uses `io.ktor.server.testing.testApplication` and overrides the `postgres.*` config keys via `MapApplicationConfig` to point at a Testcontainers `PostgreSQLContainer` started lazily by `PostgresTestSupport`. Running tests requires a working Docker daemon (Docker Desktop, OrbStack, etc.). When adding tests, replicate the `environment { config = ApplicationConfig("application.yaml").mergeWith(MapApplicationConfig(...)) }` block so the app boots against the test container rather than a real database.
