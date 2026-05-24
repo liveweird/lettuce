@@ -21,15 +21,12 @@ data class JwtConfig(
 val JwtConfigKey = AttributeKey<JwtConfig>("JwtConfig")
 
 fun Application.configureSecurity() {
-    install(CSRF) {
-        // tests Origin is an expected value
-        allowOrigin("http://localhost:8080")
-
-        // tests Origin matches Host header
-        originMatchesHost()
-
-        // custom header checks
-        checkHeader("X-CSRF-Token")
+    if (environment.config.propertyOrNull("security.csrf.enabled")?.getString()?.toBoolean() != false) {
+        install(CSRF) {
+            allowOrigin("http://localhost:8080")
+            originMatchesHost()
+            checkHeader("X-CSRF-Token")
+        }
     }
     val jwtConfig = JwtConfig(
         secret = environment.config.property("jwt.secret").getString(),

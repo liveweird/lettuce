@@ -1,4 +1,5 @@
 [versions]
+bcrypt = "0.10.2"
 exposed = "1.2.0"
 flyway = "11.7.2"
 kotlin = "2.3.21"
@@ -10,6 +11,7 @@ r2dbc-postgresql = "1.0.7.RELEASE"
 testcontainers = "1.21.4"
 
 [libraries]
+bcrypt = { module = "at.favre.lib:bcrypt", version.ref = "bcrypt" }
 exposed-core = { module = "org.jetbrains.exposed:exposed-core", version.ref = "exposed" }
 exposed-r2dbc = { module = "org.jetbrains.exposed:exposed-r2dbc", version.ref = "exposed" }
 flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }

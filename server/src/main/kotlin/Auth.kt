@@ -1,5 +1,6 @@
 package ch.nokillswit
 
+import at.favre.lib.crypto.bcrypt.BCrypt
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import io.ktor.http.HttpStatusCode
@@ -17,9 +18,8 @@ data class LoginRequest(val email: String, val password: String)
 @Serializable
 data class LoginResponse(val token: String, val expiresAt: Long)
 
-// Plug your hashing library (e.g. BCrypt/Argon2) in here.
 private fun verifyPassword(plain: String, hash: String): Boolean =
-    TODO("Implement password verification against the stored hash")
+    BCrypt.verifyer().verify(plain.toCharArray(), hash).verified
 
 fun Application.configureAuth() {
     val jwtConfig = attributes[JwtConfigKey]

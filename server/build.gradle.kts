@@ -41,6 +41,7 @@ dependencies {
     implementation(ktorLibs.server.sessions)
     implementation(ktorLibs.server.swagger)
     implementation(ktorLibs.server.websockets)
+    implementation(libs.bcrypt)
     implementation(libs.exposed.core)
     implementation(libs.exposed.r2dbc)
     implementation(libs.flyway.core)
@@ -50,6 +51,7 @@ dependencies {
     implementation(libs.r2dbc.postgresql)
 
     testImplementation(kotlin("test"))
+    testImplementation(ktorLibs.client.contentNegotiation)
     testImplementation(ktorLibs.server.testHost)
     testImplementation(libs.testcontainers.postgresql)
 }
