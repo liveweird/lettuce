@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(ktorLibs.plugins.ktor)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.kover)
 }
 
 
@@ -12,6 +13,20 @@ application {
 
 kotlin {
     jvmToolchain(21)
+}
+
+kover {
+    reports {
+        verify {
+            rule {
+                minBound(70)
+            }
+        }
+    }
+}
+
+tasks.named("check") {
+    dependsOn(tasks.named("koverVerify"))
 }
 dependencies {
     implementation(project(":core"))
