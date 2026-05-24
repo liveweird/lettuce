@@ -1,5 +1,7 @@
 package ch.nokillswit.infra.db
 
+import ch.nokillswit.teams.TeamService
+import ch.nokillswit.teams.TeamServiceKey
 import ch.nokillswit.users.UserService
 import ch.nokillswit.users.UserServiceKey
 import io.ktor.server.application.*
@@ -12,4 +14,5 @@ suspend fun Application.configureDatabase() {
         password = environment.config.property("postgres.password").getString(),
     )
     attributes.put(UserServiceKey, UserService(database))
+    attributes.put(TeamServiceKey, TeamService(database))
 }

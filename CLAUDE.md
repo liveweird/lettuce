@@ -35,7 +35,8 @@ ch.nokillswit
 ├── plugins/            cross-cutting Ktor wiring (configureXxx that only `install` plugins)
 ├── infra/db/           Flyway migrations + R2DBC connection bootstrap
 ├── auth/               POST /login + password hashing
-└── users/              /users/* CRUD + UserService + Users table
+├── users/              /users/* CRUD + UserService + Users table
+└── teams/              /teams/* CRUD + member sub-resource + TeamService + Teams/TeamMembers tables
 ```
 
 Routing is feature-local: each feature package registers its own routes from its `configureXxx` module. `plugins/Routing.kt` is a catch-all for non-feature endpoints (`/`, `/ws`, `/json/kotlinx-serialization`, `/session/increment`).

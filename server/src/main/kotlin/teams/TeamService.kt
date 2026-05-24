@@ -1,0 +1,130 @@
+package ch.nokillswit.teams
+
+import ch.nokillswit.users.UserService
+import io.ktor.server.plugins.BadRequestException
+import io.ktor.util.AttributeKey
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.singleOrNull
+import kotlinx.coroutines.flow.toList
+import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.core.dao.id.UIntIdTable
+import org.jetbrains.exposed.v1.r2dbc.*
+import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
+import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
+
+val TeamServiceKey = AttributeKey<TeamService>("TeamService")
+
+class TeamService(val database: R2dbcDatabase) {
+    object Teams : UIntIdTable() {
+        val name = varchar("name", length = 100)
+        val managerId = reference("manager_id", UserService.Users)
+    }
+
+    object TeamMembers : Table("team_members") {
+        val teamId = reference("team_id", Teams)
+        val userId = reference("user_id", UserService.Users)
+        override val primaryKey = PrimaryKey(teamId, userId)
+    }
+
+    suspend fun create(team: Team): UInt = suspendTransaction(database) {
+        validateMembership(team)
+        val newRecord = Teams.insert {
+            it[name] = team.name
+            it[managerId] = team.managerId
+        }
+        val teamId = newRecord[Teams.id].value
+        insertMembers(teamId, team.memberIds)
+        teamId
+    }
+
+    suspend fun read(id: UInt): Team? = suspendTransaction(database) {
+        val row = Teams.selectAll()
+            .where { Teams.id eq id }
+            .singleOrNull()
+            ?: return@suspendTransaction null
+        val memberIds = TeamMembers.selectAll()
+            .where { TeamMembers.teamId eq id }
+            .map { it[TeamMembers.userId].value }
+            .toList()
+        Team(
+            name = row[Teams.name],
+            managerId = row[Teams.managerId].value,
+            memberIds = memberIds,
+        )
+    }
+
+    suspend fun update(id: UInt, team: Team) {
+        suspendTransaction(database) {
+            validateMembership(team)
+            Teams.update({ Teams.id eq id }) {
+                it[name] = team.name
+                it[managerId] = team.managerId
+            }
+            TeamMembers.deleteWhere { TeamMembers.teamId eq id }
+            insertMembers(id, team.memberIds)
+        }
+    }
+
+    suspend fun delete(id: UInt) {
+        suspendTransaction(database) { Teams.deleteWhere { Teams.id eq id } }
+    }
+
+    suspend fun addMember(teamId: UInt, userId: UInt) {
+        suspendTransaction(database) {
+            val managerId = Teams.selectAll()
+                .where { Teams.id eq teamId }
+                .singleOrNull()
+                ?.get(Teams.managerId)?.value
+                ?: throw BadRequestException("Team $teamId not found")
+            if (userId == managerId) {
+                throw BadRequestException("Manager cannot also be a standard member")
+            }
+            val alreadyMember = TeamMembers.selectAll()
+                .where { (TeamMembers.teamId eq teamId) and (TeamMembers.userId eq userId) }
+                .singleOrNull() != null
+            if (!alreadyMember) {
+                TeamMembers.insert {
+                    it[TeamMembers.teamId] = teamId
+                    it[TeamMembers.userId] = userId
+                }
+            }
+        }
+    }
+
+    suspend fun removeMember(teamId: UInt, userId: UInt) {
+        suspendTransaction(database) {
+            val currentMembers = TeamMembers.selectAll()
+                .where { TeamMembers.teamId eq teamId }
+                .map { it[TeamMembers.userId].value }
+                .toList()
+            if (userId !in currentMembers) return@suspendTransaction
+            if (currentMembers.size == 1) {
+                throw BadRequestException("Team must have at least one standard member")
+            }
+            TeamMembers.deleteWhere {
+                (TeamMembers.teamId eq teamId) and (TeamMembers.userId eq userId)
+            }
+        }
+    }
+
+    private fun validateMembership(team: Team) {
+        if (team.memberIds.isEmpty()) {
+            throw BadRequestException("Team must have at least one standard member")
+        }
+        if (team.memberIds.distinct().size != team.memberIds.size) {
+            throw BadRequestException("Duplicate memberIds")
+        }
+        if (team.managerId in team.memberIds) {
+            throw BadRequestException("Manager cannot also be a standard member")
+        }
+    }
+
+    private suspend fun insertMembers(teamId: UInt, memberIds: List<UInt>) {
+        memberIds.forEach { uid ->
+            TeamMembers.insert {
+                it[TeamMembers.teamId] = teamId
+                it[TeamMembers.userId] = uid
+            }
+        }
+    }
+}
