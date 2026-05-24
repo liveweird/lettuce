@@ -1,6 +1,6 @@
 package ch.nokillswit
 
-import at.favre.lib.crypto.bcrypt.BCrypt
+import ch.nokillswit.auth.hashPassword
 import ch.nokillswit.users.ExposedUser
 import ch.nokillswit.users.ExposedUserService
 import io.ktor.client.HttpClient
@@ -42,14 +42,12 @@ object TestUsers {
         )
     }
 
-    fun hash(plain: String): String = BCrypt.withDefaults().hashToString(4, plain.toCharArray())
-
     suspend fun seed(
         email: String,
         password: String,
         name: String = "Test",
         age: Int = 30,
     ): UInt = service.create(
-        ExposedUser(name = name, age = age, email = email, passwordHash = hash(password))
+        ExposedUser(name = name, age = age, email = email, passwordHash = hashPassword(password, cost = 4))
     )
 }

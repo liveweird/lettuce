@@ -35,13 +35,12 @@ ch.nokillswit
 ├── plugins/            cross-cutting Ktor wiring (configureXxx that only `install` plugins)
 ├── infra/db/           Flyway migrations + R2DBC connection bootstrap
 ├── auth/               POST /login + password hashing
-├── users/              /users/* CRUD + ExposedUserService + Users table
-└── articles/           /articles resource
+└── users/              /users/* CRUD + ExposedUserService + Users table
 ```
 
 Routing is feature-local: each feature package registers its own routes from its `configureXxx` module. `plugins/Routing.kt` is a catch-all for non-feature endpoints (`/`, `/ws`, `/json/kotlinx-serialization`, `/session/increment`).
 
-Module load order in `application.yaml` matters for inter-module attribute reads: `configureSecurity` puts `JwtConfigKey` in `attributes`; `configureDatabase` puts `UserServiceKey`. `configureAuthRoutes` and `configureUserRoutes` read both, so they must run after both. Current order: plugins → `infra/db` (Flyway, then Database) → features (users, auth, articles) → catch-all `configureRouting`.
+Module load order in `application.yaml` matters for inter-module attribute reads: `configureSecurity` puts `JwtConfigKey` in `attributes`; `configureDatabase` puts `UserServiceKey`. `configureAuthRoutes` and `configureUserRoutes` read both, so they must run after both. Current order: plugins → `infra/db` (Flyway, then Database) → features (users, auth) → catch-all `configureRouting`.
 
 ### Persistence
 

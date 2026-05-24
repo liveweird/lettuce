@@ -9,3 +9,21 @@ data class ExposedUser(
     val email: String,
     val passwordHash: String,
 )
+
+@Serializable
+data class UserRequest(
+    val name: String,
+    val age: Int,
+    val email: String,
+    val password: String,
+)
+
+@Serializable
+data class UserResponse(
+    val id: UInt,
+    val name: String,
+    val age: Int,
+    val email: String,
+)
+
+fun ExposedUser.toResponse(id: UInt) = UserResponse(id, name, age, email)
