@@ -1,0 +1,52 @@
+import "@testing-library/jest-dom/vitest";
+import { afterEach } from "vitest";
+import { cleanup } from "@testing-library/react";
+
+if (typeof globalThis.localStorage === "undefined") {
+  const store = new Map<string, string>();
+  const localStorageMock: Storage = {
+    get length() {
+      return store.size;
+    },
+    key: (index: number) => Array.from(store.keys())[index] ?? null,
+    getItem: (key: string) => (store.has(key) ? store.get(key)! : null),
+    setItem: (key: string, value: string) => {
+      store.set(key, String(value));
+    },
+    removeItem: (key: string) => {
+      store.delete(key);
+    },
+    clear: () => {
+      store.clear();
+    },
+  };
+  Object.defineProperty(globalThis, "localStorage", {
+    value: localStorageMock,
+    configurable: true,
+  });
+  if (typeof window !== "undefined") {
+    Object.defineProperty(window, "localStorage", {
+      value: localStorageMock,
+      configurable: true,
+    });
+  }
+}
+
+if (typeof window !== "undefined" && !window.matchMedia) {
+  window.matchMedia = (query: string) =>
+    ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }) as MediaQueryList;
+}
+
+afterEach(() => {
+  cleanup();
+  localStorage.clear();
+});

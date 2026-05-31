@@ -1,122 +1,132 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import {
+  ActionIcon,
+  AppShell,
+  Burger,
+  Button,
+  Group,
+  NavLink,
+  Text,
+  useMantineColorScheme,
+  useComputedColorScheme,
+} from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
+import {
+  IconLayoutDashboard,
+  IconMessageCircle,
+  IconMoon,
+  IconSun,
+  IconUsers,
+  IconUsersGroup,
+} from "@tabler/icons-react";
+import {
+  NavLink as RouterNavLink,
+  Outlet,
+  Route,
+  Routes,
+  useNavigate,
+} from "react-router-dom";
+import { logout } from "./api/client";
+import { notifyAuthChange, useAuth } from "./auth";
+import Dashboard from "./pages/Dashboard";
+import Feedback from "./pages/Feedback";
+import Login from "./pages/Login";
+import Teams from "./pages/Teams";
+import Users from "./pages/Users";
 
-function App() {
-  const [count, setCount] = useState(0)
+const NAV_ITEMS: ReadonlyArray<{
+  to: string;
+  label: string;
+  icon: typeof IconLayoutDashboard;
+}> = [
+  { to: "/", label: "Dashboard", icon: IconLayoutDashboard },
+  { to: "/users", label: "Users", icon: IconUsers },
+  { to: "/teams", label: "Teams", icon: IconUsersGroup },
+  { to: "/feedback", label: "Feedback", icon: IconMessageCircle },
+];
 
+function ColorSchemeToggle() {
+  const { setColorScheme } = useMantineColorScheme();
+  const computed = useComputedColorScheme("light", { getInitialValueInEffect: true });
+  const next = computed === "dark" ? "light" : "dark";
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+    <ActionIcon
+      variant="default"
+      size="lg"
+      aria-label="Toggle color scheme"
+      onClick={() => setColorScheme(next)}
+    >
+      {computed === "dark" ? <IconSun size={18} /> : <IconMoon size={18} />}
+    </ActionIcon>
+  );
 }
 
-export default App
+function Shell() {
+  const [opened, { toggle, close }] = useDisclosure();
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+
+  async function handleLogout() {
+    await logout();
+    notifyAuthChange();
+    navigate("/login");
+  }
+
+  return (
+    <AppShell
+      header={{ height: 56 }}
+      navbar={{ width: 240, breakpoint: "sm", collapsed: { mobile: !opened } }}
+      padding="md"
+    >
+      <AppShell.Header>
+        <Group h="100%" px="md" justify="space-between">
+          <Group gap="sm">
+            <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
+            <Text fw={600} size="lg">
+              Lettuce
+            </Text>
+          </Group>
+          <Group gap="sm">
+            <ColorSchemeToggle />
+            {isAuthenticated && (
+              <Button variant="default" size="sm" onClick={handleLogout}>
+                Logout
+              </Button>
+            )}
+          </Group>
+        </Group>
+      </AppShell.Header>
+
+      <AppShell.Navbar p="sm">
+        {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+          <NavLink
+            key={to}
+            component={RouterNavLink}
+            to={to}
+            end={to === "/"}
+            label={label}
+            leftSection={<Icon size={18} stroke={1.5} />}
+            onClick={close}
+          />
+        ))}
+      </AppShell.Navbar>
+
+      <AppShell.Main>
+        <Outlet />
+      </AppShell.Main>
+    </AppShell>
+  );
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route element={<Shell />}>
+        <Route index element={<Dashboard />} />
+        <Route path="users" element={<Users />} />
+        <Route path="teams" element={<Teams />} />
+        <Route path="feedback" element={<Feedback />} />
+      </Route>
+    </Routes>
+  );
+}
