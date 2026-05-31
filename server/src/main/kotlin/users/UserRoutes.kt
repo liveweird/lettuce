@@ -48,8 +48,12 @@ fun Application.configureUserRoutes() {
             put<Users.Id> { route ->
                 val req = call.receive<UserRequest>()
                 val user = User(req.name, req.age, req.email, hashPassword(req.password))
-                userService.update(route.id, user)
-                call.respond(HttpStatusCode.NoContent)
+                val updated = userService.update(route.id, user)
+                if (updated == 0) {
+                    call.respond(HttpStatusCode.NotFound)
+                } else {
+                    call.respond(HttpStatusCode.NoContent)
+                }
             }
             delete<Users.Id> { route ->
                 userService.delete(route.id)

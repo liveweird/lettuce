@@ -1,5 +1,6 @@
 package ch.nokillswit.plugins
 
+import ch.nokillswit.auth.TokenBlocklistServiceKey
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import io.ktor.server.application.*
@@ -44,7 +45,10 @@ fun Application.configureSecurity() {
                     .build()
             )
             validate { credential ->
-                if (credential.payload.audience.contains(jwtConfig.audience)) JWTPrincipal(credential.payload) else null
+                val audOk = credential.payload.audience.contains(jwtConfig.audience)
+                val jti = credential.payload.id
+                val revoked = jti != null && application.attributes[TokenBlocklistServiceKey].isRevoked(jti)
+                if (audOk && !revoked) JWTPrincipal(credential.payload) else null
             }
         }
     }

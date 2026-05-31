@@ -54,6 +54,7 @@ dependencies {
     implementation(ktorLibs.server.resources)
     implementation(ktorLibs.server.routingOpenapi)
     implementation(ktorLibs.server.sessions)
+    implementation(ktorLibs.server.statusPages)
     implementation(ktorLibs.server.swagger)
     implementation(ktorLibs.server.websockets)
     implementation(libs.bcrypt)

@@ -1,5 +1,6 @@
 package ch.nokillswit
 
+import ch.nokillswit.auth.TokenBlocklistService
 import ch.nokillswit.auth.hashPassword
 import ch.nokillswit.users.User
 import ch.nokillswit.users.UserService
@@ -31,16 +32,16 @@ fun ApplicationTestBuilder.jsonClient(): HttpClient = createClient {
     install(ContentNegotiation) { json() }
 }
 
+private val sharedTestDatabase: R2dbcDatabase by lazy {
+    R2dbcDatabase.connect(
+        url = PostgresTestSupport.r2dbcUrl,
+        user = PostgresTestSupport.user,
+        password = PostgresTestSupport.password,
+    )
+}
+
 object TestUsers {
-    private val service: UserService by lazy {
-        UserService(
-            R2dbcDatabase.connect(
-                url = PostgresTestSupport.r2dbcUrl,
-                user = PostgresTestSupport.user,
-                password = PostgresTestSupport.password,
-            )
-        )
-    }
+    private val service: UserService by lazy { UserService(sharedTestDatabase) }
 
     suspend fun seed(
         email: String,
@@ -50,4 +51,8 @@ object TestUsers {
     ): UInt = service.create(
         User(name = name, age = age, email = email, passwordHash = hashPassword(password, cost = 4))
     )
+}
+
+object TestBlocklist {
+    val service: TokenBlocklistService by lazy { TokenBlocklistService(sharedTestDatabase) }
 }

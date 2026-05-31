@@ -47,14 +47,12 @@ class UserService(val database: R2dbcDatabase) {
         }
     }
 
-    suspend fun update(id: UInt, user: User) {
-        suspendTransaction(database) {
-            Users.update({ Users.id eq id }) {
-                it[name] = user.name
-                it[age] = user.age
-                it[email] = user.email
-                it[passwordHash] = user.passwordHash
-            }
+    suspend fun update(id: UInt, user: User): Int = suspendTransaction(database) {
+        Users.update({ Users.id eq id }) {
+            it[name] = user.name
+            it[age] = user.age
+            it[email] = user.email
+            it[passwordHash] = user.passwordHash
         }
     }
 
