@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Alert,
   Button,
@@ -10,30 +10,46 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
+import { isEmail, isNotEmpty, useForm } from "@mantine/form";
 import { ApiError, login } from "../api/client";
-import { notifyAuthChange } from "../auth";
+import { consumeSignedOut, notifyAuthChange } from "../auth";
+
+type LocationState = { from?: { pathname?: string } } | null;
 
 export default function Login() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const location = useLocation();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [signedOut, setSignedOut] = useState<boolean>(() => consumeSignedOut());
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
+  const form = useForm({
+    initialValues: { email: "", password: "" },
+    validate: {
+      email: isEmail("Enter a valid email"),
+      password: isNotEmpty("Password is required"),
+    },
+  });
+
+  async function onSubmit(values: { email: string; password: string }) {
     setError(null);
+    setSignedOut(false);
     setSubmitting(true);
     try {
-      await login({ email, password });
+      await login(values);
       notifyAuthChange();
-      navigate("/");
+      const from = (location.state as LocationState)?.from?.pathname;
+      navigate(from ?? "/", { replace: true });
     } catch (err) {
-      const message =
-        err instanceof ApiError
-          ? `Login failed (${err.status})`
-          : "Login failed";
-      setError(message);
+      if (err instanceof ApiError) {
+        setError(
+          err.status === 401
+            ? "Invalid email or password"
+            : `Login failed (${err.status})`,
+        );
+      } else {
+        setError("Login failed. Check your connection and try again.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -42,7 +58,7 @@ export default function Login() {
   return (
     <Center h="100vh" p="md">
       <Paper withBorder shadow="sm" p="xl" radius="md" w={360}>
-        <form onSubmit={onSubmit}>
+        <form onSubmit={form.onSubmit(onSubmit)} noValidate>
           <Stack>
             <Title order={3} ta="center">
               Sign in
@@ -50,17 +66,20 @@ export default function Login() {
             <TextInput
               label="Email"
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.currentTarget.value)}
-              required
               autoFocus
+              autoComplete="email"
+              {...form.getInputProps("email")}
             />
             <PasswordInput
               label="Password"
-              value={password}
-              onChange={(e) => setPassword(e.currentTarget.value)}
-              required
+              autoComplete="current-password"
+              {...form.getInputProps("password")}
             />
+            {signedOut && !form.isDirty() && !error && (
+              <Alert color="blue" variant="light">
+                You've been signed out.
+              </Alert>
+            )}
             {error && (
               <Alert color="red" variant="light">
                 {error}

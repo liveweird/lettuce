@@ -26,7 +26,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { logout } from "./api/client";
-import { notifyAuthChange, useAuth } from "./auth";
+import { RedirectIfAuthed, RequireAuth, flagSignedOut, notifyAuthChange } from "./auth";
 import Dashboard from "./pages/Dashboard";
 import Feedback from "./pages/Feedback";
 import Login from "./pages/Login";
@@ -63,12 +63,12 @@ function ColorSchemeToggle() {
 function Shell() {
   const [opened, { toggle, close }] = useDisclosure();
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
 
   async function handleLogout() {
     await logout();
+    flagSignedOut();
+    navigate("/login", { replace: true });
     notifyAuthChange();
-    navigate("/login");
   }
 
   return (
@@ -87,11 +87,9 @@ function Shell() {
           </Group>
           <Group gap="sm">
             <ColorSchemeToggle />
-            {isAuthenticated && (
-              <Button variant="default" size="sm" onClick={handleLogout}>
-                Logout
-              </Button>
-            )}
+            <Button variant="default" size="sm" onClick={handleLogout}>
+              Logout
+            </Button>
           </Group>
         </Group>
       </AppShell.Header>
@@ -120,12 +118,21 @@ function Shell() {
 export default function App() {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route element={<Shell />}>
-        <Route index element={<Dashboard />} />
-        <Route path="users" element={<Users />} />
-        <Route path="teams" element={<Teams />} />
-        <Route path="feedback" element={<Feedback />} />
+      <Route
+        path="/login"
+        element={
+          <RedirectIfAuthed>
+            <Login />
+          </RedirectIfAuthed>
+        }
+      />
+      <Route element={<RequireAuth />}>
+        <Route element={<Shell />}>
+          <Route index element={<Dashboard />} />
+          <Route path="users" element={<Users />} />
+          <Route path="teams" element={<Teams />} />
+          <Route path="feedback" element={<Feedback />} />
+        </Route>
       </Route>
     </Routes>
   );
