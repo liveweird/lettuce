@@ -53,6 +53,47 @@ PostgreSQL is the only database. Connection settings come from the `postgres:` b
 
 The `org.postgresql:postgresql` JDBC driver is on the classpath solely for Flyway; runtime queries go through R2DBC.
 
+### List endpoint conventions
+
+No `GET` collection routes exist yet — every list endpoint added from here on follows the rules below. The OpenAPI spec is the contract; document the query params for each list endpoint there.
+
+**Pagination — offset, in the body envelope.**
+
+- Query params: `page` (1-based, default `1`, must be ≥ 1) and `pageSize` (default `20`, max `100`). Out-of-range values → `400` + `ApiError`.
+- Response is always an envelope, never a bare array:
+  ```json
+  { "items": [ ... ], "page": 1, "pageSize": 20, "total": 137 }
+  ```
+- `total` is the row count after filters but before pagination. Count and page rows run in the same `suspendTransaction { ... }` so they stay consistent.
+- Cursor pagination is not the default; add it only per-endpoint when stable ordering under heavy concurrent writes is actually needed, and document the cursor format in that endpoint's OpenAPI definition.
+
+**Sorting — `sort` with leading `-` for descending.**
+
+- `sort=field` (asc) or `sort=-field` (desc). Multi-field is comma-separated, leftmost wins: `sort=-createdAt,id`.
+- Each endpoint declares an explicit whitelist of sortable fields in its `*Routes.kt`; unknown field → `400`.
+- Always append `id` ascending as a deterministic tiebreaker so paging is stable.
+- Default sort, if the client sends none, is `id` ascending — state it in the OpenAPI description.
+
+**Filtering — whitelisted equality, plus a few operators where needed.**
+
+- Equality on whitelisted fields: `?status=DRAFT&providerId=42`. Unknown fields → `400`.
+- Repeating a key means `IN`: `?status=DRAFT&status=SENT` → `status IN ('DRAFT', 'SENT')`.
+- Range/operator filters use bracket suffixes — only the ones a given endpoint actually needs:
+  - `field[gte]`, `field[gt]`, `field[lte]`, `field[lt]` for ordered types (timestamps, numbers).
+  - No `[like]`, no `[ne]`, no `[in]` (use repetition for `IN`). Keep the operator surface tiny.
+- Free-text search uses a single `q` param. The endpoint decides which columns `q` searches (e.g. users: `name`, `email`); document the searched columns in OpenAPI.
+- Booleans are `true`/`false`. Enums use their string name. Malformed values → `400`.
+
+**Naming and OpenAPI plumbing.**
+
+- Param names are `camelCase` to match existing JSON bodies (`pageSize`, not `page_size`).
+- Add reusable parameters `Page`, `PageSize`, `Sort`, `Q` to `#/components/parameters` in `documentation.yaml`, then `$ref` them from each list path. Per-endpoint sortable/filterable fields go in that path's `parameters` list with a `description` listing the whitelist.
+- Pagination envelopes are one schema per resource (`UserPage`, `TeamPage`, …) wrapping the existing `*Response[]` — keep them next to the resource's other schemas.
+
+**Implementation.**
+
+- When the first list endpoint lands, add a small `infra/paging/` helper that parses `page`/`pageSize`/`sort` from `ApplicationCall.request.queryParameters`, validates against per-endpoint whitelists, and applies `.limit(...).offset(...)` + `.orderBy(...)` to an Exposed `Query`. Validation failures throw a typed exception that `StatusPages` maps to `400` + `ApiError`.
+
 ### Security defaults are template placeholders
 
 `plugins/Security.kt` uses a hard-coded HMAC256 secret (`"secret"`), audience, and issuer for JWT, and CORS in `plugins/Http.kt` calls `anyHost()`. CSRF install is gated behind `security.csrf.enabled` (default `true`); tests set it to `false` because the configured `originMatchesHost()` + `allowOrigin("http://localhost:8080")` combo is unsatisfiable from the Ktor test client. All of these are starter values and must be replaced before any non-development use.
