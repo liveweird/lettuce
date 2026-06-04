@@ -1,6 +1,7 @@
 package ch.nokillswit.auth
 
 import ch.nokillswit.plugins.JwtConfigKey
+import ch.nokillswit.users.UserRole
 import ch.nokillswit.users.UserServiceKey
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
@@ -21,7 +22,12 @@ import java.util.UUID
 data class LoginRequest(val email: String, val password: String)
 
 @Serializable
-data class LoginResponse(val token: String, val expiresAt: Long)
+data class LoginResponse(
+    val token: String,
+    val expiresAt: Long,
+    val userId: UInt,
+    val role: UserRole,
+)
 
 fun Application.configureAuthRoutes() {
     val jwtConfig = attributes[JwtConfigKey]
@@ -31,20 +37,23 @@ fun Application.configureAuthRoutes() {
     routing {
         post("/login") {
             val req = call.receive<LoginRequest>()
-            val user = userService.findByEmail(req.email)
-            if (user == null || !verifyPassword(req.password, user.passwordHash)) {
+            val record = userService.findWithIdByEmail(req.email)
+            if (record == null || !verifyPassword(req.password, record.second.passwordHash)) {
                 call.respond(HttpStatusCode.Unauthorized)
                 return@post
             }
+            val (userId, user) = record
             val expiresAt = System.currentTimeMillis() + jwtConfig.expiresInSeconds * 1000
             val token = JWT.create()
                 .withAudience(jwtConfig.audience)
                 .withIssuer(jwtConfig.issuer)
                 .withJWTId(UUID.randomUUID().toString())
                 .withClaim("email", user.email)
+                .withClaim("userId", userId.toLong())
+                .withClaim("role", user.role.name)
                 .withExpiresAt(Date(expiresAt))
                 .sign(Algorithm.HMAC256(jwtConfig.secret))
-            call.respond(LoginResponse(token = token, expiresAt = expiresAt))
+            call.respond(LoginResponse(token = token, expiresAt = expiresAt, userId = userId, role = user.role))
         }
         authenticate {
             post("/logout") {

@@ -1,6 +1,9 @@
 package ch.nokillswit.users
 
 import ch.nokillswit.auth.hashPassword
+import ch.nokillswit.authz.caller
+import ch.nokillswit.authz.requireAdmin
+import ch.nokillswit.authz.requireSelfOrAdmin
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
@@ -31,13 +34,21 @@ fun Application.configureUserRoutes() {
     routing {
         authenticate {
             post<Users> {
+                requireAdmin(call.caller())
                 val req = call.receive<UserRequest>()
-                val user = User(req.name, req.age, req.email, hashPassword(req.password))
+                val user = User(
+                    name = req.name,
+                    age = req.age,
+                    email = req.email,
+                    passwordHash = hashPassword(req.password),
+                    role = req.role ?: UserRole.USER,
+                )
                 val id = userService.create(user)
                 call.response.header(HttpHeaders.Location, call.application.href(Users.Id(id = id)))
                 call.respond(HttpStatusCode.Created, user.toResponse(id))
             }
             get<Users.Id> { route ->
+                requireSelfOrAdmin(call.caller(), route.id)
                 val user = userService.read(route.id)
                 if (user != null) {
                     call.respond(HttpStatusCode.OK, user.toResponse(route.id))
@@ -46,8 +57,27 @@ fun Application.configureUserRoutes() {
                 }
             }
             put<Users.Id> { route ->
+                val caller = call.caller()
+                requireSelfOrAdmin(caller, route.id)
                 val req = call.receive<UserRequest>()
-                val user = User(req.name, req.age, req.email, hashPassword(req.password))
+                val existing = userService.read(route.id)
+                if (existing == null) {
+                    call.respond(HttpStatusCode.NotFound)
+                    return@put
+                }
+                val nextRole = when {
+                    req.role == null -> existing.role
+                    caller.role == UserRole.ADMIN -> req.role
+                    req.role == existing.role -> existing.role
+                    else -> throw ch.nokillswit.authz.ForbiddenException("Only admins may change a user's role")
+                }
+                val user = User(
+                    name = req.name,
+                    age = req.age,
+                    email = req.email,
+                    passwordHash = hashPassword(req.password),
+                    role = nextRole,
+                )
                 val updated = userService.update(route.id, user)
                 if (updated == 0) {
                     call.respond(HttpStatusCode.NotFound)
@@ -56,6 +86,7 @@ fun Application.configureUserRoutes() {
                 }
             }
             delete<Users.Id> { route ->
+                requireAdmin(call.caller())
                 userService.delete(route.id)
                 call.respond(HttpStatusCode.NoContent)
             }

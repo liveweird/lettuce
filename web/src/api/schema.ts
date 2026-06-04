@@ -101,7 +101,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create a user */
+        /**
+         * Create a user
+         * @description Requires ADMIN. If the request body omits `role`, the new user defaults to `USER`.
+         */
         post: {
             parameters: {
                 query?: never;
@@ -131,7 +134,18 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Caller is not ADMIN */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
                 };
                 /** @description Email already in use */
                 409: {
@@ -159,7 +173,10 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** Fetch a user by id */
+        /**
+         * Fetch a user by id
+         * @description Requires the caller to be the target user, or to be ADMIN.
+         */
         get: {
             parameters: {
                 query?: never;
@@ -187,6 +204,15 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description Caller is not the target user and not ADMIN */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
                 /** @description Not found */
                 404: {
                     headers: {
@@ -196,7 +222,12 @@ export interface paths {
                 };
             };
         };
-        /** Replace a user */
+        /**
+         * Replace a user
+         * @description Requires the caller to be the target user, or to be ADMIN.
+         *     Only ADMIN may change a user's `role`; a non-ADMIN caller must either
+         *     omit `role` or send the value the user already has, otherwise the request is rejected with 403.
+         */
         put: {
             parameters: {
                 query?: never;
@@ -226,6 +257,15 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description Caller is not the target user and not ADMIN */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
                 /** @description Not found */
                 404: {
                     headers: {
@@ -245,7 +285,10 @@ export interface paths {
             };
         };
         post?: never;
-        /** Delete a user */
+        /**
+         * Delete a user
+         * @description Requires ADMIN.
+         */
         delete: {
             parameters: {
                 query?: never;
@@ -271,6 +314,15 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description Caller is not ADMIN */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
             };
         };
         options?: never;
@@ -287,7 +339,12 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create a team */
+        /**
+         * Create a team
+         * @description Any authenticated user may create a team, but the `managerId` in
+         *     the request body must equal the caller's own user id (ADMIN may
+         *     designate any user).
+         */
         post: {
             parameters: {
                 query?: never;
@@ -325,6 +382,15 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description Caller attempted to set `managerId` to another user without being ADMIN */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -342,7 +408,10 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** Fetch a team */
+        /**
+         * Fetch a team
+         * @description Any authenticated user may read.
+         */
         get: {
             parameters: {
                 query?: never;
@@ -379,7 +448,10 @@ export interface paths {
                 };
             };
         };
-        /** Replace a team */
+        /**
+         * Replace a team
+         * @description Requires the caller to be the team's current manager, or to be ADMIN.
+         */
         put: {
             parameters: {
                 query?: never;
@@ -416,10 +488,29 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description Caller is not the team's manager and not ADMIN */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
             };
         };
         post?: never;
-        /** Delete a team */
+        /**
+         * Delete a team
+         * @description Requires the caller to be the team's current manager, or to be ADMIN.
+         */
         delete: {
             parameters: {
                 query?: never;
@@ -445,6 +536,22 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description Caller is not the team's manager and not ADMIN */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
             };
         };
         options?: never;
@@ -463,7 +570,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Add a member to the team (idempotent) */
+        /**
+         * Add a member to the team (idempotent)
+         * @description Requires the caller to be the team's current manager, or to be ADMIN.
+         */
         put: {
             parameters: {
                 query?: never;
@@ -497,10 +607,29 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description Caller is not the team's manager and not ADMIN */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Team not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
             };
         };
         post?: never;
-        /** Remove a member from the team */
+        /**
+         * Remove a member from the team
+         * @description Requires the caller to be the team's current manager, or to be ADMIN.
+         */
         delete: {
             parameters: {
                 query?: never;
@@ -534,6 +663,22 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description Caller is not the team's manager and not ADMIN */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Team not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
             };
         };
         options?: never;
@@ -550,7 +695,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create a feedback record */
+        /**
+         * Create a feedback record
+         * @description Any authenticated user may create a feedback record.
+         */
         post: {
             parameters: {
                 query?: never;
@@ -605,7 +753,16 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** Fetch a feedback record */
+        /**
+         * Fetch a feedback record
+         * @description Authorization is derived from the record's `visibility` and the caller's
+         *     relationship to the row:
+         *     - `PROVIDER_SUBJECT`:           provider or subject may read.
+         *     - `PROVIDER_REQUESTER`:         provider or requester may read.
+         *     - `PROVIDER_REQUESTER_SUBJECT`: provider, requester or subject may read.
+         *     - `PUBLIC`:                     any authenticated user may read.
+         *     ADMIN may read any record.
+         */
         get: {
             parameters: {
                 query?: never;
@@ -633,6 +790,15 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description Caller's relationship to the row does not satisfy `visibility` */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
                 /** @description Not found */
                 404: {
                     headers: {
@@ -642,7 +808,10 @@ export interface paths {
                 };
             };
         };
-        /** Replace a feedback record */
+        /**
+         * Replace a feedback record
+         * @description Only the record's provider (or ADMIN) may modify a feedback.
+         */
         put: {
             parameters: {
                 query?: never;
@@ -679,10 +848,29 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description Caller is not the feedback's provider and not ADMIN */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
             };
         };
         post?: never;
-        /** Delete a feedback record */
+        /**
+         * Delete a feedback record
+         * @description Only the record's provider (or ADMIN) may delete a feedback.
+         */
         delete: {
             parameters: {
                 query?: never;
@@ -708,6 +896,15 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description Caller is not the feedback's provider and not ADMIN */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
             };
         };
         options?: never;
@@ -731,6 +928,13 @@ export interface components {
              * @description Token expiry as Unix epoch milliseconds
              */
             expiresAt: number;
+            /** Format: int64 */
+            userId: number;
+            /**
+             * @description Global role of the authenticated user.
+             * @enum {string}
+             */
+            role: "ADMIN" | "USER";
         };
         UserRequest: {
             name: string;
@@ -738,6 +942,13 @@ export interface components {
             /** Format: email */
             email: string;
             password: string;
+            /**
+             * @description Honoured only when the caller is ADMIN. Non-ADMIN callers must omit this
+             *     field or send the value the user already has, otherwise the request is
+             *     rejected with 403. Omitted on create defaults to USER.
+             * @enum {string}
+             */
+            role?: "ADMIN" | "USER";
         };
         UserResponse: {
             /** Format: int64 */
@@ -746,6 +957,11 @@ export interface components {
             age: number;
             /** Format: email */
             email: string;
+            /**
+             * @description Global role.
+             * @enum {string}
+             */
+            role: "ADMIN" | "USER";
         };
         TeamRequest: {
             name: string;

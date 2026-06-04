@@ -1,5 +1,7 @@
 package ch.nokillswit.plugins
 
+import ch.nokillswit.authz.ForbiddenException
+import ch.nokillswit.authz.UnauthorizedException
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*
 import io.ktor.server.plugins.statuspages.StatusPages
@@ -28,6 +30,12 @@ private suspend fun ApplicationCall.respondConflict() {
 
 fun Application.configureErrorHandling() {
     install(StatusPages) {
+        exception<UnauthorizedException> { call, cause ->
+            call.respond(HttpStatusCode.Unauthorized, ApiError("unauthorized", cause.message ?: "Unauthorized"))
+        }
+        exception<ForbiddenException> { call, cause ->
+            call.respond(HttpStatusCode.Forbidden, ApiError("forbidden", cause.message ?: "Forbidden"))
+        }
         exception<ExposedSQLException> { call, cause ->
             if (cause.isUniqueViolation()) call.respondConflict() else throw cause
         }

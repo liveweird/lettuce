@@ -28,6 +28,14 @@ ktor:
       # — catch-all router
       - ch.nokillswit.plugins.RoutingKt.configureRouting
 
+security:
+  csrf:
+    # TEMPLATE PLACEHOLDER — CSRF protection is off by default because this API
+    # authenticates via bearer JWT in the Authorization header, which browsers
+    # do not auto-attach to cross-origin requests. Enable only if you move to
+    # cookie-based session auth.
+    enabled: "$SECURITY_CSRF_ENABLED:false"
+
 jwt:
   secret: "$JWT_SECRET:secret"
   issuer: "$JWT_ISSUER:http://0.0.0.0:8080/"

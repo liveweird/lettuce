@@ -96,7 +96,28 @@ No `GET` collection routes exist yet — every list endpoint added from here on 
 
 ### Security defaults are template placeholders
 
-`plugins/Security.kt` uses a hard-coded HMAC256 secret (`"secret"`), audience, and issuer for JWT, and CORS in `plugins/Http.kt` calls `anyHost()`. CSRF install is gated behind `security.csrf.enabled` (default `true`); tests set it to `false` because the configured `originMatchesHost()` + `allowOrigin("http://localhost:8080")` combo is unsatisfiable from the Ktor test client. All of these are starter values and must be replaced before any non-development use.
+`plugins/Security.kt` uses a hard-coded HMAC256 secret (`"secret"`), audience, and issuer for JWT, and CORS in `plugins/Http.kt` calls `anyHost()`. CSRF install is gated behind `security.csrf.enabled` (default **`false`** in `application.yaml`, env-overridable via `SECURITY_CSRF_ENABLED`); the configured `originMatchesHost()` + `allowOrigin("http://localhost:8080")` + `checkHeader("X-CSRF-Token")` combo is unsatisfiable from both the Ktor test client and the dev SPA on `:5173`, and CSRF protection is anyway moot for this app's bearer-JWT auth model — browsers do not auto-attach `Authorization` headers, so cross-site forms cannot forge an authenticated request. Re-enable only if you move to cookie-based session auth and fix the allow-list accordingly. All of these are starter values and must be replaced before any non-development use.
+
+**Default admin.** Migration `V6__seed_admin.sql` inserts a single bootstrap administrator on first boot: `admin@lettuce.local` / `changeme` (role `ADMIN`). The migration is idempotent via `ON CONFLICT (email) DO NOTHING`, so removing the row deletes the bootstrap account permanently. Replace or delete this user before any non-development use.
+
+### Authorization model
+
+Layered RBAC. Implemented in the `server/src/main/kotlin/authz/` package.
+
+- **Global roles** live on `users.role` (`ADMIN` / `USER`, added by `V5__add_user_role.sql`). `ADMIN` bypasses every per-resource check. New users default to `USER`; only an `ADMIN` may set or change the field via the API.
+- **Login** issues a JWT carrying `email`, `userId`, and `role` claims; `LoginResponse` exposes `userId` and `role` to the frontend.
+- **Guards** in `authz/Guards.kt` are plain `suspend fun` calls used at the top of each route handler — there is no Ktor plugin or DSL. Each route reads `call.caller()` (which parses the JWT claims into a `CallerPrincipal`) and then invokes the relevant guard.
+- **Resource rules**:
+  - `POST /users`, `DELETE /users/{id}` → ADMIN only.
+  - `GET /users/{id}`, `PUT /users/{id}` → caller must be the target user or ADMIN; only ADMIN may change `role`.
+  - `POST /teams` → caller must designate themselves as `managerId` (ADMIN may designate anyone).
+  - `GET /teams/{id}` → any authenticated user.
+  - `PUT /teams/{id}`, `DELETE /teams/{id}`, member sub-resource mutations → the team's current `manager_id` or ADMIN.
+  - `POST /feedbacks` → any authenticated user.
+  - `GET /feedbacks/{id}` → enforced from `FeedbackVisibility` and the caller's relationship to the row (provider / subject / requester); ADMIN bypasses.
+  - `PUT/DELETE /feedbacks/{id}` → the row's `provider_id` or ADMIN.
+- **Exceptions**: `UnauthorizedException` (→ 401) and `ForbiddenException` (→ 403) are mapped to `ApiError` in `plugins/ErrorHandling.kt`.
+- **Tests**: `server/src/test/kotlin/AuthorizationTest.kt` covers the 401/403 paths and the full `FeedbackVisibility` matrix. The shared `TestUsers.seed` helper defaults to `role = ADMIN` so older tests keep working without modification; pass `role = UserRole.USER` when you need a non-privileged caller.
 
 ### Observability
 

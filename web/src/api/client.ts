@@ -2,6 +2,10 @@ import type { paths } from "./schema";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 const TOKEN_KEY = "lettuce.auth.token";
+const ROLE_KEY = "lettuce.auth.role";
+const USER_ID_KEY = "lettuce.auth.userId";
+
+export type UserRole = "ADMIN" | "USER";
 
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
@@ -10,6 +14,28 @@ export function getToken(): string | null {
 export function setToken(token: string | null): void {
   if (token === null) localStorage.removeItem(TOKEN_KEY);
   else localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function getRole(): UserRole | null {
+  const raw = localStorage.getItem(ROLE_KEY);
+  return raw === "ADMIN" || raw === "USER" ? raw : null;
+}
+
+export function getUserId(): number | null {
+  const raw = localStorage.getItem(USER_ID_KEY);
+  if (raw === null) return null;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function isAdmin(): boolean {
+  return getRole() === "ADMIN";
+}
+
+function clearSession(): void {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(ROLE_KEY);
+  localStorage.removeItem(USER_ID_KEY);
 }
 
 type LoginBody = paths["/login"]["post"]["requestBody"]["content"]["application/json"];
@@ -24,6 +50,8 @@ export async function login(credentials: LoginBody): Promise<LoginOk> {
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   const data = (await res.json()) as LoginOk;
   setToken(data.token);
+  localStorage.setItem(ROLE_KEY, data.role);
+  localStorage.setItem(USER_ID_KEY, String(data.userId));
   return data;
 }
 
@@ -34,7 +62,7 @@ export async function logout(): Promise<void> {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
   });
-  setToken(null);
+  clearSession();
 }
 
 export async function authedFetch(path: string, init: RequestInit = {}): Promise<Response> {
@@ -43,7 +71,7 @@ export async function authedFetch(path: string, init: RequestInit = {}): Promise
   if (token) headers.set("Authorization", `Bearer ${token}`);
   if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
-  if (res.status === 401) setToken(null);
+  if (res.status === 401) clearSession();
   return res;
 }
 

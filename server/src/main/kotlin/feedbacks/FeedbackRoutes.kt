@@ -1,5 +1,8 @@
 package ch.nokillswit.feedbacks
 
+import ch.nokillswit.authz.caller
+import ch.nokillswit.authz.requireFeedbackRead
+import ch.nokillswit.authz.requireFeedbackWrite
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
@@ -33,6 +36,7 @@ fun Application.configureFeedbackRoutes() {
     routing {
         authenticate {
             post<Feedbacks> {
+                call.caller()
                 val feedback = call.receive<Feedback>()
                 val id = try {
                     feedbackService.create(feedback)
@@ -45,14 +49,23 @@ fun Application.configureFeedbackRoutes() {
                 call.respond(HttpStatusCode.Created, feedback.toResponse(id))
             }
             get<Feedbacks.Id> { route ->
+                val caller = call.caller()
                 val feedback = feedbackService.read(route.id)
-                if (feedback != null) {
-                    call.respond(HttpStatusCode.OK, feedback.toResponse(route.id))
-                } else {
+                if (feedback == null) {
                     call.respond(HttpStatusCode.NotFound)
+                    return@get
                 }
+                requireFeedbackRead(caller, feedback)
+                call.respond(HttpStatusCode.OK, feedback.toResponse(route.id))
             }
             put<Feedbacks.Id> { route ->
+                val caller = call.caller()
+                val existing = feedbackService.read(route.id)
+                if (existing == null) {
+                    call.respond(HttpStatusCode.NotFound)
+                    return@put
+                }
+                requireFeedbackWrite(caller, existing)
                 val feedback = call.receive<Feedback>()
                 try {
                     feedbackService.update(route.id, feedback)
@@ -64,6 +77,13 @@ fun Application.configureFeedbackRoutes() {
                 call.respond(HttpStatusCode.NoContent)
             }
             delete<Feedbacks.Id> { route ->
+                val caller = call.caller()
+                val existing = feedbackService.read(route.id)
+                if (existing == null) {
+                    call.respond(HttpStatusCode.NoContent)
+                    return@delete
+                }
+                requireFeedbackWrite(caller, existing)
                 feedbackService.delete(route.id)
                 call.respond(HttpStatusCode.NoContent)
             }

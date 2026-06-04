@@ -17,6 +17,7 @@ class UserService(val database: R2dbcDatabase) {
         val age = integer("age")
         val email = varchar("email", length = 254).uniqueIndex()
         val passwordHash = varchar("password_hash", length = 255)
+        val role = varchar("role", length = 20)
     }
 
     suspend fun create(user: User): UInt = suspendTransaction(database) {
@@ -25,6 +26,7 @@ class UserService(val database: R2dbcDatabase) {
             it[age] = user.age
             it[email] = user.email
             it[passwordHash] = user.passwordHash
+            it[role] = user.role.name
         }
         newRecord[Users.id].value
     }
@@ -33,7 +35,7 @@ class UserService(val database: R2dbcDatabase) {
         return suspendTransaction(database) {
             Users.selectAll()
                 .where { Users.id eq id }
-                .map { User(it[Users.name], it[Users.age], it[Users.email], it[Users.passwordHash]) }
+                .map { it.toUser() }
                 .singleOrNull()
         }
     }
@@ -42,7 +44,16 @@ class UserService(val database: R2dbcDatabase) {
         return suspendTransaction(database) {
             Users.selectAll()
                 .where { Users.email eq email }
-                .map { User(it[Users.name], it[Users.age], it[Users.email], it[Users.passwordHash]) }
+                .map { it.toUser() }
+                .singleOrNull()
+        }
+    }
+
+    suspend fun findWithIdByEmail(email: String): Pair<UInt, User>? {
+        return suspendTransaction(database) {
+            Users.selectAll()
+                .where { Users.email eq email }
+                .map { it[Users.id].value to it.toUser() }
                 .singleOrNull()
         }
     }
@@ -53,10 +64,19 @@ class UserService(val database: R2dbcDatabase) {
             it[age] = user.age
             it[email] = user.email
             it[passwordHash] = user.passwordHash
+            it[role] = user.role.name
         }
     }
 
     suspend fun delete(id: UInt) {
         suspendTransaction(database) { Users.deleteWhere { Users.id.eq(id) } }
     }
+
+    private fun ResultRow.toUser() = User(
+        name = this[Users.name],
+        age = this[Users.age],
+        email = this[Users.email],
+        passwordHash = this[Users.passwordHash],
+        role = UserRole.valueOf(this[Users.role]),
+    )
 }

@@ -3,6 +3,7 @@ package ch.nokillswit
 import ch.nokillswit.auth.TokenBlocklistService
 import ch.nokillswit.auth.hashPassword
 import ch.nokillswit.users.User
+import ch.nokillswit.users.UserRole
 import ch.nokillswit.users.UserService
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -48,8 +49,15 @@ object TestUsers {
         password: String,
         name: String = "Test",
         age: Int = 30,
+        role: UserRole = UserRole.ADMIN,
     ): UInt = service.create(
-        User(name = name, age = age, email = email, passwordHash = hashPassword(password, cost = 4))
+        User(
+            name = name,
+            age = age,
+            email = email,
+            passwordHash = hashPassword(password, cost = 4),
+            role = role,
+        )
     )
 }
 

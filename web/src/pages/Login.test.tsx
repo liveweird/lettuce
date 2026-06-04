@@ -16,10 +16,10 @@ describe("Login page", () => {
   test("stores the token on successful login", async () => {
     const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
     mockFetch.mockResolvedValueOnce(
-      new Response(JSON.stringify({ token: "abc.def.ghi" }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }),
+      new Response(
+        JSON.stringify({ token: "abc.def.ghi", expiresAt: 0, userId: 1, role: "USER" }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
     );
 
     const user = userEvent.setup();
@@ -99,10 +99,10 @@ describe("Login page", () => {
   test("returns the user to the page they tried to reach before login", async () => {
     const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
     mockFetch.mockResolvedValueOnce(
-      new Response(JSON.stringify({ token: "abc.def.ghi" }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }),
+      new Response(
+        JSON.stringify({ token: "abc.def.ghi", expiresAt: 0, userId: 1, role: "USER" }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
     );
 
     const user = userEvent.setup();

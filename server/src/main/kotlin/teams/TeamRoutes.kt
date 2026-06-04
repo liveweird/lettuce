@@ -1,5 +1,8 @@
 package ch.nokillswit.teams
 
+import ch.nokillswit.authz.caller
+import ch.nokillswit.authz.requireSelfOrAdmin
+import ch.nokillswit.authz.requireTeamManagerOrAdmin
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
@@ -34,12 +37,15 @@ fun Application.configureTeamRoutes() {
     routing {
         authenticate {
             post<Teams> {
+                val caller = call.caller()
                 val team = call.receive<Team>()
+                requireSelfOrAdmin(caller, team.managerId)
                 val id = teamService.create(team)
                 call.response.header(HttpHeaders.Location, call.application.href(Teams.Id(id = id)))
                 call.respond(HttpStatusCode.Created, team.toResponse(id))
             }
             get<Teams.Id> { route ->
+                call.caller()
                 val team = teamService.read(route.id)
                 if (team != null) {
                     call.respond(HttpStatusCode.OK, team.toResponse(route.id))
@@ -48,19 +54,47 @@ fun Application.configureTeamRoutes() {
                 }
             }
             put<Teams.Id> { route ->
+                val caller = call.caller()
+                val existing = teamService.read(route.id)
+                if (existing == null) {
+                    call.respond(HttpStatusCode.NotFound)
+                    return@put
+                }
+                requireTeamManagerOrAdmin(caller, existing.managerId)
                 val team = call.receive<Team>()
                 teamService.update(route.id, team)
                 call.respond(HttpStatusCode.NoContent)
             }
             delete<Teams.Id> { route ->
+                val caller = call.caller()
+                val existing = teamService.read(route.id)
+                if (existing == null) {
+                    call.respond(HttpStatusCode.NotFound)
+                    return@delete
+                }
+                requireTeamManagerOrAdmin(caller, existing.managerId)
                 teamService.delete(route.id)
                 call.respond(HttpStatusCode.NoContent)
             }
             put<Teams.Id.Member> { route ->
+                val caller = call.caller()
+                val existing = teamService.read(route.parent.id)
+                if (existing == null) {
+                    call.respond(HttpStatusCode.NotFound)
+                    return@put
+                }
+                requireTeamManagerOrAdmin(caller, existing.managerId)
                 teamService.addMember(route.parent.id, route.userId)
                 call.respond(HttpStatusCode.NoContent)
             }
             delete<Teams.Id.Member> { route ->
+                val caller = call.caller()
+                val existing = teamService.read(route.parent.id)
+                if (existing == null) {
+                    call.respond(HttpStatusCode.NotFound)
+                    return@delete
+                }
+                requireTeamManagerOrAdmin(caller, existing.managerId)
                 teamService.removeMember(route.parent.id, route.userId)
                 call.respond(HttpStatusCode.NoContent)
             }
