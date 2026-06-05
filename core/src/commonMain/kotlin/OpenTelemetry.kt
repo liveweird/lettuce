@@ -6,6 +6,7 @@ import io.opentelemetry.semconv.ServiceAttributes
 
 fun getOpenTelemetry(serviceName: String): OpenTelemetry {
     System.setProperty("otel.metrics.exporter", "none")
+    System.setProperty("otel.traces.exporter", "none")
     return AutoConfiguredOpenTelemetrySdk.builder().addResourceCustomizer { oldResource, _ ->
         oldResource.toBuilder()
             .putAll(oldResource.attributes)
