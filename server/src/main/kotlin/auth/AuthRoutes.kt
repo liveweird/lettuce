@@ -35,7 +35,7 @@ fun Application.configureAuthRoutes() {
     val blocklist = attributes[TokenBlocklistServiceKey]
 
     routing {
-        post("/login") {
+        post("/api/login") {
             val req = call.receive<LoginRequest>()
             val record = userService.findWithIdByEmail(req.email)
             if (record == null || !verifyPassword(req.password, record.second.passwordHash)) {
@@ -56,7 +56,7 @@ fun Application.configureAuthRoutes() {
             call.respond(LoginResponse(token = token, expiresAt = expiresAt, userId = userId, role = user.role))
         }
         authenticate {
-            post("/logout") {
+            post("/api/logout") {
                 val principal = call.principal<JWTPrincipal>()!!
                 val jti = principal.payload.id
                 val exp = principal.payload.expiresAt?.time ?: System.currentTimeMillis()

@@ -23,7 +23,7 @@ import io.ktor.server.routing.routing
 import kotlinx.serialization.Serializable
 
 @Serializable
-@Resource("/users")
+@Resource("/api/users")
 class Users {
     @Serializable
     @Resource("{id}")

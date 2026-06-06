@@ -23,7 +23,7 @@ import io.r2dbc.spi.R2dbcException
 import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 
 @Serializable
-@Resource("/feedbacks")
+@Resource("/api/feedbacks")
 class Feedbacks {
     @Serializable
     @Resource("{id}")

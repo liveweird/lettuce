@@ -38,7 +38,7 @@ class UserRoutesTest {
 
     private suspend fun ApplicationTestBuilder.authedClient(email: String, password: String): HttpClient {
         val client = jsonClient()
-        val token = client.post("/login") {
+        val token = client.post("/api/login") {
             contentType(ContentType.Application.Json)
             setBody(LoginRequest(email, password))
         }.body<LoginResponse>().token
@@ -58,7 +58,7 @@ class UserRoutesTest {
 
         val client = authedClient(callerEmail, "pw")
         val newEmail = uniqueEmail("created")
-        val response = client.post("/users") {
+        val response = client.post("/api/users") {
             contentType(ContentType.Application.Json)
             setBody(UserRequest(name = "Alice", email = newEmail, password = "secret"))
         }
@@ -69,7 +69,7 @@ class UserRoutesTest {
         assertEquals(newEmail, body.email)
         val location = response.headers[HttpHeaders.Location]
         assertNotNull(location)
-        assertTrue(location.endsWith("/users/${body.id}"), "Location was $location")
+        assertTrue(location.endsWith("/api/users/${body.id}"), "Location was $location")
     }
 
     @Test
@@ -80,12 +80,12 @@ class UserRoutesTest {
 
         val client = authedClient(callerEmail, "pw")
         val newEmail = uniqueEmail("bob")
-        val created = client.post("/users") {
+        val created = client.post("/api/users") {
             contentType(ContentType.Application.Json)
             setBody(UserRequest(name = "Bob", email = newEmail, password = "pw"))
         }.body<UserResponse>()
 
-        val read = client.get("/users/${created.id}")
+        val read = client.get("/api/users/${created.id}")
         assertEquals(HttpStatusCode.OK, read.status)
         assertEquals(created, read.body<UserResponse>())
     }
@@ -96,7 +96,7 @@ class UserRoutesTest {
         val callerEmail = uniqueEmail("caller")
         TestUsers.seed(email = callerEmail, password = "pw")
 
-        val response = authedClient(callerEmail, "pw").get("/users/999999")
+        val response = authedClient(callerEmail, "pw").get("/api/users/999999")
         assertEquals(HttpStatusCode.NotFound, response.status)
     }
 
@@ -108,19 +108,19 @@ class UserRoutesTest {
 
         val client = authedClient(callerEmail, "pw")
         val originalEmail = uniqueEmail("orig")
-        val created = client.post("/users") {
+        val created = client.post("/api/users") {
             contentType(ContentType.Application.Json)
             setBody(UserRequest(name = "Old", email = originalEmail, password = "pw"))
         }.body<UserResponse>()
 
         val updatedEmail = uniqueEmail("upd")
-        val put = client.put("/users/${created.id}") {
+        val put = client.put("/api/users/${created.id}") {
             contentType(ContentType.Application.Json)
             setBody(UserRequest(name = "New", email = updatedEmail, password = "pw"))
         }
         assertEquals(HttpStatusCode.NoContent, put.status)
 
-        val read = client.get("/users/${created.id}").body<UserResponse>()
+        val read = client.get("/api/users/${created.id}").body<UserResponse>()
         assertEquals("New", read.name)
         assertEquals(updatedEmail, read.email)
     }
@@ -131,7 +131,7 @@ class UserRoutesTest {
         val callerEmail = uniqueEmail("caller")
         TestUsers.seed(email = callerEmail, password = "pw")
 
-        val response = authedClient(callerEmail, "pw").put("/users/999999") {
+        val response = authedClient(callerEmail, "pw").put("/api/users/999999") {
             contentType(ContentType.Application.Json)
             setBody(UserRequest(name = "Ghost", email = uniqueEmail("ghost"), password = "pw"))
         }
@@ -145,15 +145,15 @@ class UserRoutesTest {
         TestUsers.seed(email = callerEmail, password = "pw")
 
         val client = authedClient(callerEmail, "pw")
-        val created = client.post("/users") {
+        val created = client.post("/api/users") {
             contentType(ContentType.Application.Json)
             setBody(UserRequest(name = "Doomed", email = uniqueEmail("doomed"), password = "pw"))
         }.body<UserResponse>()
 
-        val delete = client.delete("/users/${created.id}")
+        val delete = client.delete("/api/users/${created.id}")
         assertEquals(HttpStatusCode.NoContent, delete.status)
 
-        val read = client.get("/users/${created.id}")
+        val read = client.get("/api/users/${created.id}")
         assertEquals(HttpStatusCode.NotFound, read.status)
     }
 
@@ -162,10 +162,10 @@ class UserRoutesTest {
         usePostgresTestcontainer()
         val client = jsonClient()
         val endpoints = listOf(
-            HttpMethod.Post to "/users",
-            HttpMethod.Get to "/users/1",
-            HttpMethod.Put to "/users/1",
-            HttpMethod.Delete to "/users/1",
+            HttpMethod.Post to "/api/users",
+            HttpMethod.Get to "/api/users/1",
+            HttpMethod.Put to "/api/users/1",
+            HttpMethod.Delete to "/api/users/1",
         )
         for ((verb, path) in endpoints) {
             val response = client.request(path) { method = verb }
@@ -185,13 +185,13 @@ class UserRoutesTest {
 
         val client = authedClient(callerEmail, "pw")
         val sharedEmail = uniqueEmail("dup")
-        val first = client.post("/users") {
+        val first = client.post("/api/users") {
             contentType(ContentType.Application.Json)
             setBody(UserRequest(name = "First", email = sharedEmail, password = "pw"))
         }
         assertEquals(HttpStatusCode.Created, first.status)
 
-        val second = client.post("/users") {
+        val second = client.post("/api/users") {
             contentType(ContentType.Application.Json)
             setBody(UserRequest(name = "Second", email = sharedEmail, password = "pw"))
         }
@@ -208,16 +208,16 @@ class UserRoutesTest {
         val client = authedClient(callerEmail, "pw")
         val emailA = uniqueEmail("a")
         val emailB = uniqueEmail("b")
-        client.post("/users") {
+        client.post("/api/users") {
             contentType(ContentType.Application.Json)
             setBody(UserRequest(name = "A", email = emailA, password = "pw"))
         }
-        val userB = client.post("/users") {
+        val userB = client.post("/api/users") {
             contentType(ContentType.Application.Json)
             setBody(UserRequest(name = "B", email = emailB, password = "pw"))
         }.body<UserResponse>()
 
-        val response = client.put("/users/${userB.id}") {
+        val response = client.put("/api/users/${userB.id}") {
             contentType(ContentType.Application.Json)
             setBody(UserRequest(name = "B", email = emailA, password = "pw"))
         }
@@ -233,13 +233,13 @@ class UserRoutesTest {
         val client = authedClient(callerEmail, "pw")
         val tag = UUID.randomUUID().toString().substring(0, 8)
         repeat(3) { i ->
-            client.post("/users") {
+            client.post("/api/users") {
                 contentType(ContentType.Application.Json)
                 setBody(UserRequest(name = "list-$tag-$i", email = uniqueEmail("list-$tag-$i"), password = "pw"))
             }
         }
 
-        val response = client.get("/users?name=list-$tag")
+        val response = client.get("/api/users?name=list-$tag")
         assertEquals(HttpStatusCode.OK, response.status)
         val page = response.body<UserPageResponse>()
         assertEquals(1, page.page)
@@ -257,13 +257,13 @@ class UserRoutesTest {
         val client = authedClient(callerEmail, "pw")
         val tag = UUID.randomUUID().toString().substring(0, 8)
         listOf("bravo", "alpha", "charlie").forEach { stem ->
-            client.post("/users") {
+            client.post("/api/users") {
                 contentType(ContentType.Application.Json)
                 setBody(UserRequest(name = "sort-$tag-$stem", email = uniqueEmail("sort-$tag-$stem"), password = "pw"))
             }
         }
 
-        val response = client.get("/users?name=sort-$tag&sort=-name")
+        val response = client.get("/api/users?name=sort-$tag&sort=-name")
         assertEquals(HttpStatusCode.OK, response.status)
         val page = response.body<UserPageResponse>()
         assertEquals(listOf("sort-$tag-charlie", "sort-$tag-bravo", "sort-$tag-alpha"), page.items.map { it.name })
@@ -276,16 +276,16 @@ class UserRoutesTest {
         TestUsers.seed(email = callerEmail, password = "pw")
         val client = authedClient(callerEmail, "pw")
         val tag = UUID.randomUUID().toString().substring(0, 8)
-        client.post("/users") {
+        client.post("/api/users") {
             contentType(ContentType.Application.Json)
             setBody(UserRequest(name = "Alicia-$tag", email = uniqueEmail("alicia-$tag"), password = "pw"))
         }
-        client.post("/users") {
+        client.post("/api/users") {
             contentType(ContentType.Application.Json)
             setBody(UserRequest(name = "Bob-$tag", email = uniqueEmail("bob-$tag"), password = "pw"))
         }
 
-        val response = client.get("/users?name=ALICIA-$tag")
+        val response = client.get("/api/users?name=ALICIA-$tag")
         val page = response.body<UserPageResponse>()
         assertEquals(1L, page.total)
         assertEquals("Alicia-$tag", page.items.single().name)
@@ -298,16 +298,16 @@ class UserRoutesTest {
         TestUsers.seed(email = callerEmail, password = "pw")
         val client = authedClient(callerEmail, "pw")
         val tag = UUID.randomUUID().toString().substring(0, 8)
-        client.post("/users") {
+        client.post("/api/users") {
             contentType(ContentType.Application.Json)
             setBody(UserRequest(name = "X-$tag", email = "match-$tag@example.org", password = "pw"))
         }
-        client.post("/users") {
+        client.post("/api/users") {
             contentType(ContentType.Application.Json)
             setBody(UserRequest(name = "Y-$tag", email = "miss-$tag@other.org", password = "pw"))
         }
 
-        val page = client.get("/users?email=match-$tag").body<UserPageResponse>()
+        val page = client.get("/api/users?email=match-$tag").body<UserPageResponse>()
         assertEquals(1L, page.total)
         assertEquals("match-$tag@example.org", page.items.single().email)
     }
@@ -319,20 +319,20 @@ class UserRoutesTest {
         TestUsers.seed(email = callerEmail, password = "pw")
         val client = authedClient(callerEmail, "pw")
         val tag = UUID.randomUUID().toString().substring(0, 8)
-        client.post("/users") {
+        client.post("/api/users") {
             contentType(ContentType.Application.Json)
             setBody(UserRequest(name = "role-$tag-admin", email = uniqueEmail("ra-$tag"), password = "pw", role = UserRole.ADMIN))
         }
-        client.post("/users") {
+        client.post("/api/users") {
             contentType(ContentType.Application.Json)
             setBody(UserRequest(name = "role-$tag-user", email = uniqueEmail("ru-$tag"), password = "pw", role = UserRole.USER))
         }
 
-        val admins = client.get("/users?name=role-$tag&role=ADMIN").body<UserPageResponse>()
+        val admins = client.get("/api/users?name=role-$tag&role=ADMIN").body<UserPageResponse>()
         assertEquals(1L, admins.total)
         assertEquals(UserRole.ADMIN, admins.items.single().role)
 
-        val users = client.get("/users?name=role-$tag&role=USER").body<UserPageResponse>()
+        val users = client.get("/api/users?name=role-$tag&role=USER").body<UserPageResponse>()
         assertEquals(1L, users.total)
         assertEquals(UserRole.USER, users.items.single().role)
     }
@@ -345,21 +345,21 @@ class UserRoutesTest {
         val client = authedClient(callerEmail, "pw")
         val tag = UUID.randomUUID().toString().substring(0, 8)
         repeat(5) { i ->
-            client.post("/users") {
+            client.post("/api/users") {
                 contentType(ContentType.Application.Json)
                 setBody(UserRequest(name = "page-$tag-$i", email = uniqueEmail("page-$tag-$i"), password = "pw"))
             }
         }
 
-        val pageOne = client.get("/users?name=page-$tag&sort=name&page=1&pageSize=2").body<UserPageResponse>()
+        val pageOne = client.get("/api/users?name=page-$tag&sort=name&page=1&pageSize=2").body<UserPageResponse>()
         assertEquals(5L, pageOne.total)
         assertEquals(2, pageOne.items.size)
         assertEquals(listOf("page-$tag-0", "page-$tag-1"), pageOne.items.map { it.name })
 
-        val pageTwo = client.get("/users?name=page-$tag&sort=name&page=2&pageSize=2").body<UserPageResponse>()
+        val pageTwo = client.get("/api/users?name=page-$tag&sort=name&page=2&pageSize=2").body<UserPageResponse>()
         assertEquals(listOf("page-$tag-2", "page-$tag-3"), pageTwo.items.map { it.name })
 
-        val pageThree = client.get("/users?name=page-$tag&sort=name&page=3&pageSize=2").body<UserPageResponse>()
+        val pageThree = client.get("/api/users?name=page-$tag&sort=name&page=3&pageSize=2").body<UserPageResponse>()
         assertEquals(listOf("page-$tag-4"), pageThree.items.map { it.name })
     }
 
@@ -368,7 +368,7 @@ class UserRoutesTest {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
         TestUsers.seed(email = callerEmail, password = "pw")
-        val response = authedClient(callerEmail, "pw").get("/users?sort=passwordHash")
+        val response = authedClient(callerEmail, "pw").get("/api/users?sort=passwordHash")
         assertEquals(HttpStatusCode.BadRequest, response.status)
         assertEquals("bad_request", response.body<ApiError>().error)
     }
@@ -378,7 +378,7 @@ class UserRoutesTest {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
         TestUsers.seed(email = callerEmail, password = "pw")
-        val response = authedClient(callerEmail, "pw").get("/users?role=ROOT")
+        val response = authedClient(callerEmail, "pw").get("/api/users?role=ROOT")
         assertEquals(HttpStatusCode.BadRequest, response.status)
         assertEquals("bad_request", response.body<ApiError>().error)
     }
@@ -388,14 +388,14 @@ class UserRoutesTest {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
         TestUsers.seed(email = callerEmail, password = "pw")
-        val response = authedClient(callerEmail, "pw").get("/users?pageSize=200")
+        val response = authedClient(callerEmail, "pw").get("/api/users?pageSize=200")
         assertEquals(HttpStatusCode.BadRequest, response.status)
     }
 
     @Test
     fun `GET users without authentication returns 401`() = testApplication {
         usePostgresTestcontainer()
-        val response = jsonClient().get("/users")
+        val response = jsonClient().get("/api/users")
         assertEquals(HttpStatusCode.Unauthorized, response.status)
     }
 
@@ -408,12 +408,12 @@ class UserRoutesTest {
         val client = authedClient(callerEmail, "pw")
         val newEmail = uniqueEmail("login-me")
         val plainPassword = "correct-horse-battery-staple"
-        client.post("/users") {
+        client.post("/api/users") {
             contentType(ContentType.Application.Json)
             setBody(UserRequest(name = "Eve", email = newEmail, password = plainPassword))
         }
 
-        val loginResponse = jsonClient().post("/login") {
+        val loginResponse = jsonClient().post("/api/login") {
             contentType(ContentType.Application.Json)
             setBody(LoginRequest(newEmail, plainPassword))
         }

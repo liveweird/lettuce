@@ -38,11 +38,11 @@ function clearSession(): void {
   localStorage.removeItem(USER_ID_KEY);
 }
 
-type LoginBody = paths["/login"]["post"]["requestBody"]["content"]["application/json"];
-type LoginOk = paths["/login"]["post"]["responses"]["200"]["content"]["application/json"];
+type LoginBody = paths["/api/login"]["post"]["requestBody"]["content"]["application/json"];
+type LoginOk = paths["/api/login"]["post"]["responses"]["200"]["content"]["application/json"];
 
 export async function login(credentials: LoginBody): Promise<LoginOk> {
-  const res = await fetch(`${API_BASE}/login`, {
+  const res = await fetch(`${API_BASE}/api/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(credentials),
@@ -58,14 +58,14 @@ export async function login(credentials: LoginBody): Promise<LoginOk> {
 export async function logout(): Promise<void> {
   const token = getToken();
   if (!token) return;
-  await fetch(`${API_BASE}/logout`, {
+  await fetch(`${API_BASE}/api/logout`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
   });
   clearSession();
 }
 
-export type UserPage = paths["/users"]["get"]["responses"]["200"]["content"]["application/json"];
+export type UserPage = paths["/api/users"]["get"]["responses"]["200"]["content"]["application/json"];
 
 export type UserListQuery = {
   page: number;
@@ -84,7 +84,7 @@ export async function listUsers(q: UserListQuery): Promise<UserPage> {
   if (q.name) params.set("name", q.name);
   if (q.email) params.set("email", q.email);
   if (q.role) params.set("role", q.role);
-  const res = await authedFetch(`/users?${params.toString()}`);
+  const res = await authedFetch(`/api/users?${params.toString()}`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json()) as UserPage;
 }

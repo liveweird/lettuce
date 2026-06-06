@@ -20,7 +20,7 @@ import io.ktor.server.routing.routing
 import kotlinx.serialization.Serializable
 
 @Serializable
-@Resource("/teams")
+@Resource("/api/teams")
 class Teams {
     @Serializable
     @Resource("{id}")

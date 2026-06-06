@@ -35,9 +35,9 @@ ch.nokillswit
 ├── main.kt
 ├── plugins/            cross-cutting Ktor wiring (configureXxx that only `install` plugins)
 ├── infra/db/           Flyway migrations + R2DBC connection bootstrap
-├── auth/               POST /login + password hashing
-├── users/              /users/* CRUD + UserService + Users table
-└── teams/              /teams/* CRUD + member sub-resource + TeamService + Teams/TeamMembers tables
+├── auth/               POST /api/login + password hashing
+├── users/              /api/users/* CRUD + UserService + Users table
+└── teams/              /api/teams/* CRUD + member sub-resource + TeamService + Teams/TeamMembers tables
 ```
 
 Routing is feature-local: each feature package registers its own routes from its `configureXxx` module. `plugins/Routing.kt` is a catch-all for non-feature endpoints (`/`, `/ws`, `/json/kotlinx-serialization`, `/session/increment`).
@@ -82,7 +82,7 @@ No `GET` collection routes exist yet — every list endpoint added from here on 
   - `field[gte]`, `field[gt]`, `field[lte]`, `field[lt]` for ordered types (timestamps, numbers).
   - No `[like]`, no `[ne]`, no `[in]` (use repetition for `IN`). Keep the operator surface tiny.
 - Free-text search uses a single `q` param. The endpoint decides which columns `q` searches (e.g. users: `name`, `email`); document the searched columns in OpenAPI.
-- Per-column substring search is also allowed when a UI genuinely needs per-column matching that `q` cannot express. The filter param uses the column name directly (e.g. `?name=ali`), is case-insensitive `contains`, and must be documented per-endpoint. First example: `GET /users` uses `name` and `email` this way. Reach for `q` first; promote to per-column only when the UI requires it.
+- Per-column substring search is also allowed when a UI genuinely needs per-column matching that `q` cannot express. The filter param uses the column name directly (e.g. `?name=ali`), is case-insensitive `contains`, and must be documented per-endpoint. First example: `GET /api/users` uses `name` and `email` this way. Reach for `q` first; promote to per-column only when the UI requires it.
 - Booleans are `true`/`false`. Enums use their string name. Malformed values → `400`.
 
 **Naming and OpenAPI plumbing.**
@@ -109,14 +109,14 @@ Layered RBAC. Implemented in the `server/src/main/kotlin/authz/` package.
 - **Login** issues a JWT carrying `email`, `userId`, and `role` claims; `LoginResponse` exposes `userId` and `role` to the frontend.
 - **Guards** in `authz/Guards.kt` are plain `suspend fun` calls used at the top of each route handler — there is no Ktor plugin or DSL. Each route reads `call.caller()` (which parses the JWT claims into a `CallerPrincipal`) and then invokes the relevant guard.
 - **Resource rules**:
-  - `POST /users`, `DELETE /users/{id}` → ADMIN only.
-  - `GET /users/{id}`, `PUT /users/{id}` → caller must be the target user or ADMIN; only ADMIN may change `role`.
-  - `POST /teams` → caller must designate themselves as `managerId` (ADMIN may designate anyone).
-  - `GET /teams/{id}` → any authenticated user.
-  - `PUT /teams/{id}`, `DELETE /teams/{id}`, member sub-resource mutations → the team's current `manager_id` or ADMIN.
-  - `POST /feedbacks` → any authenticated user.
-  - `GET /feedbacks/{id}` → enforced from `FeedbackVisibility` and the caller's relationship to the row (provider / subject / requester); ADMIN bypasses.
-  - `PUT/DELETE /feedbacks/{id}` → the row's `provider_id` or ADMIN.
+  - `POST /api/users`, `DELETE /api/users/{id}` → ADMIN only.
+  - `GET /api/users/{id}`, `PUT /api/users/{id}` → caller must be the target user or ADMIN; only ADMIN may change `role`.
+  - `POST /api/teams` → caller must designate themselves as `managerId` (ADMIN may designate anyone).
+  - `GET /api/teams/{id}` → any authenticated user.
+  - `PUT /api/teams/{id}`, `DELETE /api/teams/{id}`, member sub-resource mutations → the team's current `manager_id` or ADMIN.
+  - `POST /api/feedbacks` → any authenticated user.
+  - `GET /api/feedbacks/{id}` → enforced from `FeedbackVisibility` and the caller's relationship to the row (provider / subject / requester); ADMIN bypasses.
+  - `PUT/DELETE /api/feedbacks/{id}` → the row's `provider_id` or ADMIN.
 - **Exceptions**: `UnauthorizedException` (→ 401) and `ForbiddenException` (→ 403) are mapped to `ApiError` in `plugins/ErrorHandling.kt`.
 - **Tests**: `server/src/test/kotlin/AuthorizationTest.kt` covers the 401/403 paths and the full `FeedbackVisibility` matrix. The shared `TestUsers.seed` helper defaults to `role = ADMIN` so older tests keep working without modification; pass `role = UserRole.USER` when you need a non-privileged caller.
 
@@ -132,7 +132,7 @@ Layered RBAC. Implemented in the `server/src/main/kotlin/authz/` package.
 
 Vite + React 19 + TypeScript SPA. The Gradle and npm toolchains are disjoint — never invoke npm from Gradle or vice versa.
 
-- Dev server: `cd web && npm run dev` (port 5173). Vite proxies `/login`, `/logout`, `/users`, `/teams`, `/feedbacks` → `http://localhost:8080` so the SPA can use relative paths.
+- Dev server: `cd web && npm run dev` (port 5173). All backend routes live under the `/api/` namespace (`/api/login`, `/api/logout`, `/api/users`, `/api/teams`, `/api/feedbacks`, …) and Vite proxies the single `/api` subtree → `http://localhost:8080`. Any other path is served as `index.html` so React Router owns the SPA URL space and browser reloads don't collide with API routes.
 - Production build: `cd web && npm run build` → static files in `web/dist`.
 - Regenerate API types: `cd web && npm run gen:api`. Reads `server/src/main/resources/openapi/documentation.yaml` directly (no server needed) and writes `web/src/api/schema.ts`. Run this after editing the OpenAPI spec; commit the regenerated `schema.ts`.
 

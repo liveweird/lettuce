@@ -39,7 +39,7 @@ class AuthorizationTest {
 
     private suspend fun ApplicationTestBuilder.authedClient(email: String, password: String): HttpClient {
         val client = jsonClient()
-        val token = client.post("/login") {
+        val token = client.post("/api/login") {
             contentType(ContentType.Application.Json)
             setBody(LoginRequest(email, password))
         }.body<LoginResponse>().token
@@ -57,7 +57,7 @@ class AuthorizationTest {
         val email = uniqueEmail("login")
         val id = TestUsers.seed(email = email, password = "pw", role = UserRole.USER)
 
-        val response = jsonClient().post("/login") {
+        val response = jsonClient().post("/api/login") {
             contentType(ContentType.Application.Json)
             setBody(LoginRequest(email, "pw"))
         }
@@ -75,7 +75,7 @@ class AuthorizationTest {
         TestUsers.seed(email = email, password = "pw", role = UserRole.USER)
 
         val client = authedClient(email, "pw")
-        val response = client.post("/users") {
+        val response = client.post("/api/users") {
             contentType(ContentType.Application.Json)
             setBody(UserRequest("Sneaky", uniqueEmail("new"), "pw"))
         }
@@ -89,13 +89,13 @@ class AuthorizationTest {
         TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
         val client = authedClient(adminEmail, "pw")
 
-        val plain = client.post("/users") {
+        val plain = client.post("/api/users") {
             contentType(ContentType.Application.Json)
             setBody(UserRequest("Plain", uniqueEmail("plain"), "pw"))
         }.body<UserResponse>()
         assertEquals(UserRole.USER, plain.role)
 
-        val elevated = client.post("/users") {
+        val elevated = client.post("/api/users") {
             contentType(ContentType.Application.Json)
             setBody(UserRequest("Boss", uniqueEmail("boss"), "pw", role = UserRole.ADMIN))
         }.body<UserResponse>()
@@ -110,8 +110,8 @@ class AuthorizationTest {
         val bobId = TestUsers.seed(email = uniqueEmail("bob"), password = "pw", role = UserRole.USER)
 
         val aliceClient = authedClient(aliceEmail, "pw")
-        assertEquals(HttpStatusCode.OK, aliceClient.get("/users/$aliceId").status)
-        assertEquals(HttpStatusCode.Forbidden, aliceClient.get("/users/$bobId").status)
+        assertEquals(HttpStatusCode.OK, aliceClient.get("/api/users/$aliceId").status)
+        assertEquals(HttpStatusCode.Forbidden, aliceClient.get("/api/users/$bobId").status)
     }
 
     @Test
@@ -121,7 +121,7 @@ class AuthorizationTest {
         val id = TestUsers.seed(email = email, password = "pw", role = UserRole.USER)
         val client = authedClient(email, "pw")
 
-        val response = client.put("/users/$id") {
+        val response = client.put("/api/users/$id") {
             contentType(ContentType.Application.Json)
             setBody(UserRequest("Alice", email, "pw", role = UserRole.ADMIN))
         }
@@ -135,12 +135,12 @@ class AuthorizationTest {
         val id = TestUsers.seed(email = email, password = "pw", role = UserRole.USER)
         val client = authedClient(email, "pw")
 
-        val response = client.put("/users/$id") {
+        val response = client.put("/api/users/$id") {
             contentType(ContentType.Application.Json)
             setBody(UserRequest("Alice", email, "pw"))
         }
         assertEquals(HttpStatusCode.NoContent, response.status)
-        val read = client.get("/users/$id").body<UserResponse>()
+        val read = client.get("/api/users/$id").body<UserResponse>()
         assertEquals("Alice", read.name)
         assertEquals(UserRole.USER, read.role)
     }
@@ -152,7 +152,7 @@ class AuthorizationTest {
         TestUsers.seed(email = aliceEmail, password = "pw", role = UserRole.USER)
         val victim = TestUsers.seed(email = uniqueEmail("victim"), password = "pw", role = UserRole.USER)
 
-        val response = authedClient(aliceEmail, "pw").delete("/users/$victim")
+        val response = authedClient(aliceEmail, "pw").delete("/api/users/$victim")
         assertEquals(HttpStatusCode.Forbidden, response.status)
     }
 
@@ -164,7 +164,7 @@ class AuthorizationTest {
         val otherMgr = TestUsers.seed(email = uniqueEmail("mgr"), password = "pw", role = UserRole.USER)
         val member = TestUsers.seed(email = uniqueEmail("m"), password = "pw", role = UserRole.USER)
 
-        val response = authedClient(aliceEmail, "pw").post("/teams") {
+        val response = authedClient(aliceEmail, "pw").post("/api/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "Sneaky", managerId = otherMgr, memberIds = listOf(member)))
         }
@@ -182,7 +182,7 @@ class AuthorizationTest {
         val newcomer = TestUsers.seed(email = uniqueEmail("n"), password = "pw", role = UserRole.USER)
 
         val mgrClient = authedClient(mgrEmail, "pw")
-        val team = mgrClient.post("/teams") {
+        val team = mgrClient.post("/api/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "T", managerId = mgrId, memberIds = listOf(member)))
         }.body<TeamResponse>()
@@ -190,20 +190,20 @@ class AuthorizationTest {
         val otherClient = authedClient(otherEmail, "pw")
         assertEquals(
             HttpStatusCode.Forbidden,
-            otherClient.put("/teams/${team.id}") {
+            otherClient.put("/api/teams/${team.id}") {
                 contentType(ContentType.Application.Json)
                 setBody(Team(name = "Hijack", managerId = mgrId, memberIds = listOf(member)))
             }.status,
         )
         assertEquals(
             HttpStatusCode.Forbidden,
-            otherClient.put("/teams/${team.id}/members/$newcomer").status,
+            otherClient.put("/api/teams/${team.id}/members/$newcomer").status,
         )
         assertEquals(
             HttpStatusCode.Forbidden,
-            otherClient.delete("/teams/${team.id}/members/$member").status,
+            otherClient.delete("/api/teams/${team.id}/members/$member").status,
         )
-        assertEquals(HttpStatusCode.Forbidden, otherClient.delete("/teams/${team.id}").status)
+        assertEquals(HttpStatusCode.Forbidden, otherClient.delete("/api/teams/${team.id}").status)
     }
 
     @Test
@@ -215,12 +215,12 @@ class AuthorizationTest {
         TestUsers.seed(email = onlooker, password = "pw", role = UserRole.USER)
         val member = TestUsers.seed(email = uniqueEmail("m"), password = "pw", role = UserRole.USER)
 
-        val team = authedClient(mgrEmail, "pw").post("/teams") {
+        val team = authedClient(mgrEmail, "pw").post("/api/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "Public", managerId = mgrId, memberIds = listOf(member)))
         }.body<TeamResponse>()
 
-        val response = authedClient(onlooker, "pw").get("/teams/${team.id}")
+        val response = authedClient(onlooker, "pw").get("/api/teams/${team.id}")
         assertEquals(HttpStatusCode.OK, response.status)
     }
 
@@ -246,7 +246,7 @@ class AuthorizationTest {
         val adminClient = authedClient(adminEmail, "pw")
 
         suspend fun createWith(visibility: FeedbackVisibility): UInt {
-            val created = providerClient.post("/feedbacks") {
+            val created = providerClient.post("/api/feedbacks") {
                 contentType(ContentType.Application.Json)
                 setBody(
                     Feedback(
@@ -303,7 +303,7 @@ class AuthorizationTest {
                 "admin" to adminClient,
             )
             for ((label, c) in actors) {
-                val response = c.get("/feedbacks/$id")
+                val response = c.get("/api/feedbacks/$id")
                 assertEquals(
                     expectations.getValue(label),
                     response.status,
@@ -322,7 +322,7 @@ class AuthorizationTest {
         val subjectId = TestUsers.seed(email = subjectEmail, password = "pw", role = UserRole.USER)
 
         val providerClient = authedClient(providerEmail, "pw")
-        val created = providerClient.post("/feedbacks") {
+        val created = providerClient.post("/api/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -335,7 +335,7 @@ class AuthorizationTest {
         }.body<FeedbackResponse>()
 
         val subjectClient = authedClient(subjectEmail, "pw")
-        val put = subjectClient.put("/feedbacks/${created.id}") {
+        val put = subjectClient.put("/api/feedbacks/${created.id}") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -349,7 +349,7 @@ class AuthorizationTest {
         }
         assertEquals(HttpStatusCode.Forbidden, put.status)
 
-        val delete = subjectClient.delete("/feedbacks/${created.id}")
+        val delete = subjectClient.delete("/api/feedbacks/${created.id}")
         assertEquals(HttpStatusCode.Forbidden, delete.status)
     }
 }

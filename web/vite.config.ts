@@ -6,11 +6,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/login': 'http://localhost:8080',
-      '/logout': 'http://localhost:8080',
-      '/users': 'http://localhost:8080',
-      '/teams': 'http://localhost:8080',
-      '/feedbacks': 'http://localhost:8080',
+      '/api': 'http://localhost:8080',
     },
   },
   test: {

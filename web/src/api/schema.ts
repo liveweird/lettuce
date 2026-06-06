@@ -4,7 +4,7 @@
  */
 
 export interface paths {
-    "/login": {
+    "/api/login": {
         parameters: {
             query?: never;
             header?: never;
@@ -51,7 +51,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/logout": {
+    "/api/logout": {
         parameters: {
             query?: never;
             header?: never;
@@ -92,7 +92,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/users": {
+    "/api/users": {
         parameters: {
             query?: never;
             header?: never;
@@ -234,7 +234,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/users/{id}": {
+    "/api/users/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -400,7 +400,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/teams": {
+    "/api/teams": {
         parameters: {
             query?: never;
             header?: never;
@@ -469,7 +469,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/teams/{id}": {
+    "/api/teams/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -629,7 +629,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/teams/{id}/members/{userId}": {
+    "/api/teams/{id}/members/{userId}": {
         parameters: {
             query?: never;
             header?: never;
@@ -756,7 +756,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/feedbacks": {
+    "/api/feedbacks": {
         parameters: {
             query?: never;
             header?: never;
@@ -814,7 +814,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/feedbacks/{id}": {
+    "/api/feedbacks/{id}": {
         parameters: {
             query?: never;
             header?: never;

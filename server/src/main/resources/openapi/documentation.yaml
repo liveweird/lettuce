@@ -30,7 +30,7 @@ tags:
   - name: feedbacks
 
 paths:
-  /login:
+  /api/login:
     post:
       tags: [auth]
       summary: Exchange credentials for a JWT
@@ -51,7 +51,7 @@ paths:
         '401':
           description: Unknown email or wrong password
 
-  /logout:
+  /api/logout:
     post:
       tags: [auth]
       summary: Revoke the bearer token (server-side denylist)
@@ -61,7 +61,7 @@ paths:
         '401':
           description: Missing or invalid token
 
-  /users:
+  /api/users:
     get:
       tags: [users]
       summary: List users
@@ -142,7 +142,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiError'
 
-  /users/{id}:
+  /api/users/{id}:
     parameters:
       - $ref: '#/components/parameters/UserId'
     get:
@@ -192,7 +192,7 @@ paths:
         '401': { description: Missing or invalid token }
         '403': { description: Caller is not ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
 
-  /teams:
+  /api/teams:
     post:
       tags: [teams]
       summary: Create a team
@@ -220,7 +220,7 @@ paths:
         '401': { description: Missing or invalid token }
         '403': { description: Caller attempted to set `managerId` to another user without being ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
 
-  /teams/{id}:
+  /api/teams/{id}:
     parameters:
       - $ref: '#/components/parameters/TeamId'
     get:
@@ -262,7 +262,7 @@ paths:
         '403': { description: Caller is not the team's manager and not ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
         '404': { description: Not found }
 
-  /teams/{id}/members/{userId}:
+  /api/teams/{id}/members/{userId}:
     parameters:
       - $ref: '#/components/parameters/TeamId'
       - $ref: '#/components/parameters/UserIdInPath'
@@ -287,7 +287,7 @@ paths:
         '403': { description: Caller is not the team's manager and not ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
         '404': { description: Team not found }
 
-  /feedbacks:
+  /api/feedbacks:
     post:
       tags: [feedbacks]
       summary: Create a feedback record
@@ -311,7 +311,7 @@ paths:
         '400': { description: Validation error or referenced user does not exist }
         '401': { description: Missing or invalid token }
 
-  /feedbacks/{id}:
+  /api/feedbacks/{id}:
     parameters:
       - $ref: '#/components/parameters/FeedbackId'
     get:
