@@ -15,6 +15,7 @@ import {
   IconMessageCircle,
   IconMoon,
   IconSun,
+  IconUserCircle,
   IconUsers,
   IconUsersGroup,
 } from "@tabler/icons-react";
@@ -25,7 +26,8 @@ import {
   Routes,
   useNavigate,
 } from "react-router-dom";
-import { logout } from "./api/client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getCurrentUser, getUserId, logout } from "./api/client";
 import { RedirectIfAuthed, RequireAuth, flagSignedOut, notifyAuthChange } from "./auth";
 import Dashboard from "./pages/Dashboard";
 import Feedback from "./pages/Feedback";
@@ -44,6 +46,26 @@ const NAV_ITEMS: ReadonlyArray<{
   { to: "/teams", label: "Teams", icon: IconUsersGroup },
   { to: "/feedback", label: "Feedback", icon: IconMessageCircle },
 ];
+
+function HeaderUser() {
+  const userId = getUserId();
+  const { data } = useQuery({
+    queryKey: ["currentUser", userId],
+    queryFn: getCurrentUser,
+    enabled: userId !== null,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+  if (!data) return null;
+  return (
+    <Group gap="xs" wrap="nowrap">
+      <IconUserCircle size={18} stroke={1.5} />
+      <Text size="sm" fw={500} truncate maw={160}>
+        {data.name}
+      </Text>
+    </Group>
+  );
+}
 
 function ColorSchemeToggle() {
   const { setColorScheme } = useMantineColorScheme();
@@ -64,9 +86,11 @@ function ColorSchemeToggle() {
 function Shell() {
   const [opened, { toggle, close }] = useDisclosure();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   async function handleLogout() {
     await logout();
+    queryClient.clear();
     flagSignedOut();
     navigate("/login", { replace: true });
     notifyAuthChange();
@@ -87,6 +111,7 @@ function Shell() {
             </Text>
           </Group>
           <Group gap="sm">
+            <HeaderUser />
             <ColorSchemeToggle />
             <Button variant="default" size="sm" onClick={handleLogout}>
               Logout

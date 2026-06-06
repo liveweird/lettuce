@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter } from "react-router-dom";
@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App";
 
 const TOKEN_KEY = "lettuce.auth.token";
+const USER_ID_KEY = "lettuce.auth.userId";
 
 function renderApp(route: string) {
   const queryClient = new QueryClient({
@@ -24,8 +25,14 @@ function renderApp(route: string) {
 }
 
 describe("App shell", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn());
+  });
+
   afterEach(() => {
+    vi.unstubAllGlobals();
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_ID_KEY);
   });
 
   describe("when authenticated", () => {
@@ -55,6 +62,25 @@ describe("App shell", () => {
       expect(
         screen.getByRole("button", { name: /logout/i }),
       ).toBeInTheDocument();
+    });
+
+    test("shows the signed-in user's name in the header", async () => {
+      localStorage.setItem(USER_ID_KEY, "7");
+      const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+      mockFetch.mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ id: 7, name: "Alice", email: "alice@example.com", role: "USER" }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+
+      renderApp("/");
+
+      expect(await screen.findByText("Alice")).toBeInTheDocument();
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/api/users/7",
+        expect.any(Object),
+      );
     });
   });
 

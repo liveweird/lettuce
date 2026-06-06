@@ -76,6 +76,16 @@ export type UserListQuery = {
   role?: UserRole;
 };
 
+export type CurrentUser = paths["/api/users/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
+
+export async function getCurrentUser(): Promise<CurrentUser> {
+  const id = getUserId();
+  if (id === null) throw new ApiError(401, null);
+  const res = await authedFetch(`/api/users/${id}`);
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return (await res.json()) as CurrentUser;
+}
+
 export type CreateUserBody = paths["/api/users"]["post"]["requestBody"]["content"]["application/json"];
 export type CreateUserResponse = paths["/api/users"]["post"]["responses"]["201"]["content"]["application/json"];
 
