@@ -30,6 +30,7 @@ import { RedirectIfAuthed, RequireAuth, flagSignedOut, notifyAuthChange } from "
 import Dashboard from "./pages/Dashboard";
 import Feedback from "./pages/Feedback";
 import Login from "./pages/Login";
+import CreateUser from "./pages/CreateUser";
 import Teams from "./pages/Teams";
 import Users from "./pages/Users";
 
@@ -130,6 +131,7 @@ export default function App() {
         <Route element={<Shell />}>
           <Route index element={<Dashboard />} />
           <Route path="users" element={<Users />} />
+          <Route path="users/new" element={<CreateUser />} />
           <Route path="teams" element={<Teams />} />
           <Route path="feedback" element={<Feedback />} />
         </Route>

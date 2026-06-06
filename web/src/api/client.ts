@@ -76,6 +76,18 @@ export type UserListQuery = {
   role?: UserRole;
 };
 
+export type CreateUserBody = paths["/api/users"]["post"]["requestBody"]["content"]["application/json"];
+export type CreateUserResponse = paths["/api/users"]["post"]["responses"]["201"]["content"]["application/json"];
+
+export async function createUser(req: CreateUserBody): Promise<CreateUserResponse> {
+  const res = await authedFetch("/api/users", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return (await res.json()) as CreateUserResponse;
+}
+
 export async function listUsers(q: UserListQuery): Promise<UserPage> {
   const params = new URLSearchParams();
   params.set("page", String(q.page));
