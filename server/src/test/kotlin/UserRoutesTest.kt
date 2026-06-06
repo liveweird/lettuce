@@ -3,8 +3,10 @@ package ch.nokillswit
 import ch.nokillswit.auth.LoginRequest
 import ch.nokillswit.auth.LoginResponse
 import ch.nokillswit.plugins.ApiError
+import ch.nokillswit.users.UserPageResponse
 import ch.nokillswit.users.UserRequest
 import ch.nokillswit.users.UserResponse
+import ch.nokillswit.users.UserRole
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.DefaultRequest
@@ -223,6 +225,180 @@ class UserRoutesTest {
         }
         assertEquals(HttpStatusCode.Conflict, response.status)
         assertEquals("conflict", response.body<ApiError>().error)
+    }
+
+    @Test
+    fun `GET users returns paginated envelope with defaults`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("caller")
+        TestUsers.seed(email = callerEmail, password = "pw")
+        val client = authedClient(callerEmail, "pw")
+        val tag = UUID.randomUUID().toString().substring(0, 8)
+        repeat(3) { i ->
+            client.post("/users") {
+                contentType(ContentType.Application.Json)
+                setBody(UserRequest(name = "list-$tag-$i", age = 30, email = uniqueEmail("list-$tag-$i"), password = "pw"))
+            }
+        }
+
+        val response = client.get("/users?name=list-$tag")
+        assertEquals(HttpStatusCode.OK, response.status)
+        val page = response.body<UserPageResponse>()
+        assertEquals(1, page.page)
+        assertEquals(20, page.pageSize)
+        assertEquals(3L, page.total)
+        assertEquals(3, page.items.size)
+        assertEquals(listOf("list-$tag-0", "list-$tag-1", "list-$tag-2"), page.items.map { it.name })
+    }
+
+    @Test
+    fun `GET users supports sort by name descending`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("caller")
+        TestUsers.seed(email = callerEmail, password = "pw")
+        val client = authedClient(callerEmail, "pw")
+        val tag = UUID.randomUUID().toString().substring(0, 8)
+        listOf("bravo", "alpha", "charlie").forEach { stem ->
+            client.post("/users") {
+                contentType(ContentType.Application.Json)
+                setBody(UserRequest(name = "sort-$tag-$stem", age = 30, email = uniqueEmail("sort-$tag-$stem"), password = "pw"))
+            }
+        }
+
+        val response = client.get("/users?name=sort-$tag&sort=-name")
+        assertEquals(HttpStatusCode.OK, response.status)
+        val page = response.body<UserPageResponse>()
+        assertEquals(listOf("sort-$tag-charlie", "sort-$tag-bravo", "sort-$tag-alpha"), page.items.map { it.name })
+    }
+
+    @Test
+    fun `GET users supports name substring filter case-insensitive`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("caller")
+        TestUsers.seed(email = callerEmail, password = "pw")
+        val client = authedClient(callerEmail, "pw")
+        val tag = UUID.randomUUID().toString().substring(0, 8)
+        client.post("/users") {
+            contentType(ContentType.Application.Json)
+            setBody(UserRequest(name = "Alicia-$tag", age = 30, email = uniqueEmail("alicia-$tag"), password = "pw"))
+        }
+        client.post("/users") {
+            contentType(ContentType.Application.Json)
+            setBody(UserRequest(name = "Bob-$tag", age = 30, email = uniqueEmail("bob-$tag"), password = "pw"))
+        }
+
+        val response = client.get("/users?name=ALICIA-$tag")
+        val page = response.body<UserPageResponse>()
+        assertEquals(1L, page.total)
+        assertEquals("Alicia-$tag", page.items.single().name)
+    }
+
+    @Test
+    fun `GET users supports email substring filter`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("caller")
+        TestUsers.seed(email = callerEmail, password = "pw")
+        val client = authedClient(callerEmail, "pw")
+        val tag = UUID.randomUUID().toString().substring(0, 8)
+        client.post("/users") {
+            contentType(ContentType.Application.Json)
+            setBody(UserRequest(name = "X-$tag", age = 30, email = "match-$tag@example.org", password = "pw"))
+        }
+        client.post("/users") {
+            contentType(ContentType.Application.Json)
+            setBody(UserRequest(name = "Y-$tag", age = 30, email = "miss-$tag@other.org", password = "pw"))
+        }
+
+        val page = client.get("/users?email=match-$tag").body<UserPageResponse>()
+        assertEquals(1L, page.total)
+        assertEquals("match-$tag@example.org", page.items.single().email)
+    }
+
+    @Test
+    fun `GET users supports role filter`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("caller")
+        TestUsers.seed(email = callerEmail, password = "pw")
+        val client = authedClient(callerEmail, "pw")
+        val tag = UUID.randomUUID().toString().substring(0, 8)
+        client.post("/users") {
+            contentType(ContentType.Application.Json)
+            setBody(UserRequest(name = "role-$tag-admin", age = 30, email = uniqueEmail("ra-$tag"), password = "pw", role = UserRole.ADMIN))
+        }
+        client.post("/users") {
+            contentType(ContentType.Application.Json)
+            setBody(UserRequest(name = "role-$tag-user", age = 30, email = uniqueEmail("ru-$tag"), password = "pw", role = UserRole.USER))
+        }
+
+        val admins = client.get("/users?name=role-$tag&role=ADMIN").body<UserPageResponse>()
+        assertEquals(1L, admins.total)
+        assertEquals(UserRole.ADMIN, admins.items.single().role)
+
+        val users = client.get("/users?name=role-$tag&role=USER").body<UserPageResponse>()
+        assertEquals(1L, users.total)
+        assertEquals(UserRole.USER, users.items.single().role)
+    }
+
+    @Test
+    fun `GET users paginates correctly`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("caller")
+        TestUsers.seed(email = callerEmail, password = "pw")
+        val client = authedClient(callerEmail, "pw")
+        val tag = UUID.randomUUID().toString().substring(0, 8)
+        repeat(5) { i ->
+            client.post("/users") {
+                contentType(ContentType.Application.Json)
+                setBody(UserRequest(name = "page-$tag-$i", age = 30, email = uniqueEmail("page-$tag-$i"), password = "pw"))
+            }
+        }
+
+        val pageOne = client.get("/users?name=page-$tag&sort=name&page=1&pageSize=2").body<UserPageResponse>()
+        assertEquals(5L, pageOne.total)
+        assertEquals(2, pageOne.items.size)
+        assertEquals(listOf("page-$tag-0", "page-$tag-1"), pageOne.items.map { it.name })
+
+        val pageTwo = client.get("/users?name=page-$tag&sort=name&page=2&pageSize=2").body<UserPageResponse>()
+        assertEquals(listOf("page-$tag-2", "page-$tag-3"), pageTwo.items.map { it.name })
+
+        val pageThree = client.get("/users?name=page-$tag&sort=name&page=3&pageSize=2").body<UserPageResponse>()
+        assertEquals(listOf("page-$tag-4"), pageThree.items.map { it.name })
+    }
+
+    @Test
+    fun `GET users with unknown sort field returns 400`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("caller")
+        TestUsers.seed(email = callerEmail, password = "pw")
+        val response = authedClient(callerEmail, "pw").get("/users?sort=age")
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertEquals("bad_request", response.body<ApiError>().error)
+    }
+
+    @Test
+    fun `GET users with bogus role returns 400`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("caller")
+        TestUsers.seed(email = callerEmail, password = "pw")
+        val response = authedClient(callerEmail, "pw").get("/users?role=ROOT")
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertEquals("bad_request", response.body<ApiError>().error)
+    }
+
+    @Test
+    fun `GET users with pageSize over max returns 400`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("caller")
+        TestUsers.seed(email = callerEmail, password = "pw")
+        val response = authedClient(callerEmail, "pw").get("/users?pageSize=200")
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+    }
+
+    @Test
+    fun `GET users without authentication returns 401`() = testApplication {
+        usePostgresTestcontainer()
+        val response = jsonClient().get("/users")
+        assertEquals(HttpStatusCode.Unauthorized, response.status)
     }
 
     @Test

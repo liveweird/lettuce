@@ -4,11 +4,13 @@ import ch.nokillswit.auth.hashPassword
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAdmin
 import ch.nokillswit.authz.requireSelfOrAdmin
+import ch.nokillswit.infra.paging.parsePaging
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
 import io.ktor.server.application.*
 import io.ktor.server.auth.authenticate
+import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.request.receive
 import io.ktor.server.resources.delete
 import io.ktor.server.resources.get
@@ -33,6 +35,31 @@ fun Application.configureUserRoutes() {
 
     routing {
         authenticate {
+            get<Users> {
+                call.caller()
+                val paging = call.parsePaging(sortable = setOf("id", "name", "email", "role"))
+                val params = call.request.queryParameters
+                val roleFilter = params["role"]?.takeIf { it.isNotBlank() }?.let { raw ->
+                    runCatching { UserRole.valueOf(raw) }.getOrElse {
+                        throw BadRequestException("Unknown role: $raw (allowed: ${UserRole.entries.joinToString { it.name }})")
+                    }
+                }
+                val filter = UserListFilter(
+                    name = params["name"]?.takeIf { it.isNotBlank() },
+                    email = params["email"]?.takeIf { it.isNotBlank() },
+                    role = roleFilter,
+                )
+                val result = userService.list(filter, paging)
+                call.respond(
+                    HttpStatusCode.OK,
+                    UserPageResponse(
+                        items = result.items,
+                        page = paging.page,
+                        pageSize = paging.pageSize,
+                        total = result.total,
+                    ),
+                )
+            }
             post<Users> {
                 requireAdmin(call.caller())
                 val req = call.receive<UserRequest>()

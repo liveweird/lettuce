@@ -65,6 +65,30 @@ export async function logout(): Promise<void> {
   clearSession();
 }
 
+export type UserPage = paths["/users"]["get"]["responses"]["200"]["content"]["application/json"];
+
+export type UserListQuery = {
+  page: number;
+  pageSize: number;
+  sort?: string;
+  name?: string;
+  email?: string;
+  role?: UserRole;
+};
+
+export async function listUsers(q: UserListQuery): Promise<UserPage> {
+  const params = new URLSearchParams();
+  params.set("page", String(q.page));
+  params.set("pageSize", String(q.pageSize));
+  if (q.sort) params.set("sort", q.sort);
+  if (q.name) params.set("name", q.name);
+  if (q.email) params.set("email", q.email);
+  if (q.role) params.set("role", q.role);
+  const res = await authedFetch(`/users?${params.toString()}`);
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return (await res.json()) as UserPage;
+}
+
 export async function authedFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const token = getToken();
   const headers = new Headers(init.headers);

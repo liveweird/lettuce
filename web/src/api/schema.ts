@@ -99,7 +99,77 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List users
+         * @description Any authenticated user may list. Supports offset pagination, sorting and filtering.
+         *
+         *     - Sortable fields: `id`, `name`, `email`, `role`. Default sort is `id` ascending.
+         *       `id` ascending is always appended as a deterministic tiebreaker.
+         *     - Filters (all optional, all whitelisted):
+         *       - `name` — case-insensitive substring match against `name`.
+         *       - `email` — case-insensitive substring match against `email`.
+         *       - `role` — exact match, `ADMIN` or `USER`.
+         *     - The `q` free-text param defined elsewhere is not used by this endpoint.
+         *
+         *     Malformed query parameters (unknown sort field, unknown role, out-of-range page/pageSize)
+         *     respond with `400` and an `ApiError` body.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description 1-based page index. Defaults to 1. */
+                    page?: components["parameters"]["Page"];
+                    /** @description Rows per page. Defaults to 20, maximum 100. */
+                    pageSize?: components["parameters"]["PageSize"];
+                    /**
+                     * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
+                     *     comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
+                     *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
+                     *     always appended as a deterministic tiebreaker.
+                     */
+                    sort?: components["parameters"]["Sort"];
+                    /** @description Case-insensitive substring match against the user's name. */
+                    name?: string;
+                    /** @description Case-insensitive substring match against the user's email. */
+                    email?: string;
+                    /** @description Exact match against the user's global role. */
+                    role?: "ADMIN" | "USER";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description A page of users */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UserPage"];
+                    };
+                };
+                /** @description Malformed query parameters */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
         put?: never;
         /**
          * Create a user
@@ -963,6 +1033,16 @@ export interface components {
              */
             role: "ADMIN" | "USER";
         };
+        UserPage: {
+            items: components["schemas"]["UserResponse"][];
+            page: number;
+            pageSize: number;
+            /**
+             * Format: int64
+             * @description Row count after filters, before pagination.
+             */
+            total: number;
+        };
         TeamRequest: {
             name: string;
             /** Format: int64 */
@@ -1018,6 +1098,17 @@ export interface components {
         UserIdInPath: number;
         TeamId: number;
         FeedbackId: number;
+        /** @description 1-based page index. Defaults to 1. */
+        Page: number;
+        /** @description Rows per page. Defaults to 20, maximum 100. */
+        PageSize: number;
+        /**
+         * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
+         *     comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
+         *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
+         *     always appended as a deterministic tiebreaker.
+         */
+        Sort: string;
     };
     requestBodies: never;
     headers: never;

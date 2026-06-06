@@ -82,6 +82,7 @@ No `GET` collection routes exist yet — every list endpoint added from here on 
   - `field[gte]`, `field[gt]`, `field[lte]`, `field[lt]` for ordered types (timestamps, numbers).
   - No `[like]`, no `[ne]`, no `[in]` (use repetition for `IN`). Keep the operator surface tiny.
 - Free-text search uses a single `q` param. The endpoint decides which columns `q` searches (e.g. users: `name`, `email`); document the searched columns in OpenAPI.
+- Per-column substring search is also allowed when a UI genuinely needs per-column matching that `q` cannot express. The filter param uses the column name directly (e.g. `?name=ali`), is case-insensitive `contains`, and must be documented per-endpoint. First example: `GET /users` uses `name` and `email` this way. Reach for `q` first; promote to per-column only when the UI requires it.
 - Booleans are `true`/`false`. Enums use their string name. Malformed values → `400`.
 
 **Naming and OpenAPI plumbing.**

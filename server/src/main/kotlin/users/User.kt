@@ -32,4 +32,12 @@ data class UserResponse(
     val role: UserRole,
 )
 
+@Serializable
+data class UserPageResponse(
+    val items: List<UserResponse>,
+    val page: Int,
+    val pageSize: Int,
+    val total: Long,
+)
+
 fun User.toResponse(id: UInt) = UserResponse(id, name, age, email, role)

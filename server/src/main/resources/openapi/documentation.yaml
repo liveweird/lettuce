@@ -62,6 +62,55 @@ paths:
           description: Missing or invalid token
 
   /users:
+    get:
+      tags: [users]
+      summary: List users
+      description: |
+        Any authenticated user may list. Supports offset pagination, sorting and filtering.
+
+        - Sortable fields: `id`, `name`, `email`, `role`. Default sort is `id` ascending.
+          `id` ascending is always appended as a deterministic tiebreaker.
+        - Filters (all optional, all whitelisted):
+          - `name` — case-insensitive substring match against `name`.
+          - `email` — case-insensitive substring match against `email`.
+          - `role` — exact match, `ADMIN` or `USER`.
+        - The `q` free-text param defined elsewhere is not used by this endpoint.
+
+        Malformed query parameters (unknown sort field, unknown role, out-of-range page/pageSize)
+        respond with `400` and an `ApiError` body.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Sort'
+        - name: name
+          in: query
+          required: false
+          schema: { type: string }
+          description: Case-insensitive substring match against the user's name.
+        - name: email
+          in: query
+          required: false
+          schema: { type: string }
+          description: Case-insensitive substring match against the user's email.
+        - name: role
+          in: query
+          required: false
+          schema: { type: string, enum: [ADMIN, USER] }
+          description: Exact match against the user's global role.
+      responses:
+        '200':
+          description: A page of users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPage'
+        '400':
+          description: Malformed query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
     post:
       tags: [users]
       summary: Create a user
@@ -339,6 +388,28 @@ components:
       in: path
       required: true
       schema: { type: integer, format: int64, minimum: 0 }
+    Page:
+      name: page
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, default: 1 }
+      description: 1-based page index. Defaults to 1.
+    PageSize:
+      name: pageSize
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      description: Rows per page. Defaults to 20, maximum 100.
+    Sort:
+      name: sort
+      in: query
+      required: false
+      schema: { type: string }
+      description: |
+        Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
+        comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
+        sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
+        always appended as a deterministic tiebreaker.
 
   schemas:
     LoginRequest:
@@ -391,6 +462,22 @@ components:
           type: string
           enum: [ADMIN, USER]
           description: Global role.
+
+    UserPage:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserResponse'
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1, maximum: 100 }
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Row count after filters, before pagination.
 
     TeamRequest:
       type: object

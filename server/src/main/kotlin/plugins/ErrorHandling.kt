@@ -4,6 +4,7 @@ import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.UnauthorizedException
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*
+import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.response.respond
 import io.r2dbc.spi.R2dbcException
@@ -30,6 +31,9 @@ private suspend fun ApplicationCall.respondConflict() {
 
 fun Application.configureErrorHandling() {
     install(StatusPages) {
+        exception<BadRequestException> { call, cause ->
+            call.respond(HttpStatusCode.BadRequest, ApiError("bad_request", cause.message ?: "Bad request"))
+        }
         exception<UnauthorizedException> { call, cause ->
             call.respond(HttpStatusCode.Unauthorized, ApiError("unauthorized", cause.message ?: "Unauthorized"))
         }
