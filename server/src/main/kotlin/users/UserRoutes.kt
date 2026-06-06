@@ -65,7 +65,6 @@ fun Application.configureUserRoutes() {
                 val req = call.receive<UserRequest>()
                 val user = User(
                     name = req.name,
-                    age = req.age,
                     email = req.email,
                     passwordHash = hashPassword(req.password),
                     role = req.role ?: UserRole.USER,
@@ -100,7 +99,6 @@ fun Application.configureUserRoutes() {
                 }
                 val user = User(
                     name = req.name,
-                    age = req.age,
                     email = req.email,
                     passwordHash = hashPassword(req.password),
                     role = nextRole,

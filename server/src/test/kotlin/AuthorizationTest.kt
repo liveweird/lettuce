@@ -77,7 +77,7 @@ class AuthorizationTest {
         val client = authedClient(email, "pw")
         val response = client.post("/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest("Sneaky", 30, uniqueEmail("new"), "pw"))
+            setBody(UserRequest("Sneaky", uniqueEmail("new"), "pw"))
         }
         assertEquals(HttpStatusCode.Forbidden, response.status)
     }
@@ -91,13 +91,13 @@ class AuthorizationTest {
 
         val plain = client.post("/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest("Plain", 30, uniqueEmail("plain"), "pw"))
+            setBody(UserRequest("Plain", uniqueEmail("plain"), "pw"))
         }.body<UserResponse>()
         assertEquals(UserRole.USER, plain.role)
 
         val elevated = client.post("/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest("Boss", 30, uniqueEmail("boss"), "pw", role = UserRole.ADMIN))
+            setBody(UserRequest("Boss", uniqueEmail("boss"), "pw", role = UserRole.ADMIN))
         }.body<UserResponse>()
         assertEquals(UserRole.ADMIN, elevated.role)
     }
@@ -123,7 +123,7 @@ class AuthorizationTest {
 
         val response = client.put("/users/$id") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest("Alice", 30, email, "pw", role = UserRole.ADMIN))
+            setBody(UserRequest("Alice", email, "pw", role = UserRole.ADMIN))
         }
         assertEquals(HttpStatusCode.Forbidden, response.status)
     }
@@ -137,11 +137,11 @@ class AuthorizationTest {
 
         val response = client.put("/users/$id") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest("Alice", 31, email, "pw"))
+            setBody(UserRequest("Alice", email, "pw"))
         }
         assertEquals(HttpStatusCode.NoContent, response.status)
         val read = client.get("/users/$id").body<UserResponse>()
-        assertEquals(31, read.age)
+        assertEquals("Alice", read.name)
         assertEquals(UserRole.USER, read.role)
     }
 

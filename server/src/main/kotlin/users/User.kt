@@ -8,7 +8,6 @@ enum class UserRole { ADMIN, USER }
 @Serializable
 data class User(
     val name: String,
-    val age: Int,
     val email: String,
     val passwordHash: String,
     val role: UserRole = UserRole.USER,
@@ -17,7 +16,6 @@ data class User(
 @Serializable
 data class UserRequest(
     val name: String,
-    val age: Int,
     val email: String,
     val password: String,
     val role: UserRole? = null,
@@ -27,7 +25,6 @@ data class UserRequest(
 data class UserResponse(
     val id: UInt,
     val name: String,
-    val age: Int,
     val email: String,
     val role: UserRole,
 )
@@ -40,4 +37,4 @@ data class UserPageResponse(
     val total: Long,
 )
 
-fun User.toResponse(id: UInt) = UserResponse(id, name, age, email, role)
+fun User.toResponse(id: UInt) = UserResponse(id, name, email, role)

@@ -1008,7 +1008,6 @@ export interface components {
         };
         UserRequest: {
             name: string;
-            age: number;
             /** Format: email */
             email: string;
             password: string;
@@ -1024,7 +1023,6 @@ export interface components {
             /** Format: int64 */
             id: number;
             name: string;
-            age: number;
             /** Format: email */
             email: string;
             /**

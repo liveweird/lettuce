@@ -60,13 +60,12 @@ class UserRoutesTest {
         val newEmail = uniqueEmail("created")
         val response = client.post("/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "Alice", age = 30, email = newEmail, password = "secret"))
+            setBody(UserRequest(name = "Alice", email = newEmail, password = "secret"))
         }
 
         assertEquals(HttpStatusCode.Created, response.status)
         val body = response.body<UserResponse>()
         assertEquals("Alice", body.name)
-        assertEquals(30, body.age)
         assertEquals(newEmail, body.email)
         val location = response.headers[HttpHeaders.Location]
         assertNotNull(location)
@@ -83,7 +82,7 @@ class UserRoutesTest {
         val newEmail = uniqueEmail("bob")
         val created = client.post("/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "Bob", age = 25, email = newEmail, password = "pw"))
+            setBody(UserRequest(name = "Bob", email = newEmail, password = "pw"))
         }.body<UserResponse>()
 
         val read = client.get("/users/${created.id}")
@@ -102,7 +101,7 @@ class UserRoutesTest {
     }
 
     @Test
-    fun `PUT users id updates name age and email`() = testApplication {
+    fun `PUT users id updates name and email`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
         TestUsers.seed(email = callerEmail, password = "pw")
@@ -111,19 +110,18 @@ class UserRoutesTest {
         val originalEmail = uniqueEmail("orig")
         val created = client.post("/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "Old", age = 20, email = originalEmail, password = "pw"))
+            setBody(UserRequest(name = "Old", email = originalEmail, password = "pw"))
         }.body<UserResponse>()
 
         val updatedEmail = uniqueEmail("upd")
         val put = client.put("/users/${created.id}") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "New", age = 40, email = updatedEmail, password = "pw"))
+            setBody(UserRequest(name = "New", email = updatedEmail, password = "pw"))
         }
         assertEquals(HttpStatusCode.NoContent, put.status)
 
         val read = client.get("/users/${created.id}").body<UserResponse>()
         assertEquals("New", read.name)
-        assertEquals(40, read.age)
         assertEquals(updatedEmail, read.email)
     }
 
@@ -135,7 +133,7 @@ class UserRoutesTest {
 
         val response = authedClient(callerEmail, "pw").put("/users/999999") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "Ghost", age = 99, email = uniqueEmail("ghost"), password = "pw"))
+            setBody(UserRequest(name = "Ghost", email = uniqueEmail("ghost"), password = "pw"))
         }
         assertEquals(HttpStatusCode.NotFound, response.status)
     }
@@ -149,7 +147,7 @@ class UserRoutesTest {
         val client = authedClient(callerEmail, "pw")
         val created = client.post("/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "Doomed", age = 30, email = uniqueEmail("doomed"), password = "pw"))
+            setBody(UserRequest(name = "Doomed", email = uniqueEmail("doomed"), password = "pw"))
         }.body<UserResponse>()
 
         val delete = client.delete("/users/${created.id}")
@@ -189,13 +187,13 @@ class UserRoutesTest {
         val sharedEmail = uniqueEmail("dup")
         val first = client.post("/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "First", age = 30, email = sharedEmail, password = "pw"))
+            setBody(UserRequest(name = "First", email = sharedEmail, password = "pw"))
         }
         assertEquals(HttpStatusCode.Created, first.status)
 
         val second = client.post("/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "Second", age = 30, email = sharedEmail, password = "pw"))
+            setBody(UserRequest(name = "Second", email = sharedEmail, password = "pw"))
         }
         assertEquals(HttpStatusCode.Conflict, second.status)
         assertEquals("conflict", second.body<ApiError>().error)
@@ -212,16 +210,16 @@ class UserRoutesTest {
         val emailB = uniqueEmail("b")
         client.post("/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "A", age = 30, email = emailA, password = "pw"))
+            setBody(UserRequest(name = "A", email = emailA, password = "pw"))
         }
         val userB = client.post("/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "B", age = 30, email = emailB, password = "pw"))
+            setBody(UserRequest(name = "B", email = emailB, password = "pw"))
         }.body<UserResponse>()
 
         val response = client.put("/users/${userB.id}") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "B", age = 30, email = emailA, password = "pw"))
+            setBody(UserRequest(name = "B", email = emailA, password = "pw"))
         }
         assertEquals(HttpStatusCode.Conflict, response.status)
         assertEquals("conflict", response.body<ApiError>().error)
@@ -237,7 +235,7 @@ class UserRoutesTest {
         repeat(3) { i ->
             client.post("/users") {
                 contentType(ContentType.Application.Json)
-                setBody(UserRequest(name = "list-$tag-$i", age = 30, email = uniqueEmail("list-$tag-$i"), password = "pw"))
+                setBody(UserRequest(name = "list-$tag-$i", email = uniqueEmail("list-$tag-$i"), password = "pw"))
             }
         }
 
@@ -261,7 +259,7 @@ class UserRoutesTest {
         listOf("bravo", "alpha", "charlie").forEach { stem ->
             client.post("/users") {
                 contentType(ContentType.Application.Json)
-                setBody(UserRequest(name = "sort-$tag-$stem", age = 30, email = uniqueEmail("sort-$tag-$stem"), password = "pw"))
+                setBody(UserRequest(name = "sort-$tag-$stem", email = uniqueEmail("sort-$tag-$stem"), password = "pw"))
             }
         }
 
@@ -280,11 +278,11 @@ class UserRoutesTest {
         val tag = UUID.randomUUID().toString().substring(0, 8)
         client.post("/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "Alicia-$tag", age = 30, email = uniqueEmail("alicia-$tag"), password = "pw"))
+            setBody(UserRequest(name = "Alicia-$tag", email = uniqueEmail("alicia-$tag"), password = "pw"))
         }
         client.post("/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "Bob-$tag", age = 30, email = uniqueEmail("bob-$tag"), password = "pw"))
+            setBody(UserRequest(name = "Bob-$tag", email = uniqueEmail("bob-$tag"), password = "pw"))
         }
 
         val response = client.get("/users?name=ALICIA-$tag")
@@ -302,11 +300,11 @@ class UserRoutesTest {
         val tag = UUID.randomUUID().toString().substring(0, 8)
         client.post("/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "X-$tag", age = 30, email = "match-$tag@example.org", password = "pw"))
+            setBody(UserRequest(name = "X-$tag", email = "match-$tag@example.org", password = "pw"))
         }
         client.post("/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "Y-$tag", age = 30, email = "miss-$tag@other.org", password = "pw"))
+            setBody(UserRequest(name = "Y-$tag", email = "miss-$tag@other.org", password = "pw"))
         }
 
         val page = client.get("/users?email=match-$tag").body<UserPageResponse>()
@@ -323,11 +321,11 @@ class UserRoutesTest {
         val tag = UUID.randomUUID().toString().substring(0, 8)
         client.post("/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "role-$tag-admin", age = 30, email = uniqueEmail("ra-$tag"), password = "pw", role = UserRole.ADMIN))
+            setBody(UserRequest(name = "role-$tag-admin", email = uniqueEmail("ra-$tag"), password = "pw", role = UserRole.ADMIN))
         }
         client.post("/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "role-$tag-user", age = 30, email = uniqueEmail("ru-$tag"), password = "pw", role = UserRole.USER))
+            setBody(UserRequest(name = "role-$tag-user", email = uniqueEmail("ru-$tag"), password = "pw", role = UserRole.USER))
         }
 
         val admins = client.get("/users?name=role-$tag&role=ADMIN").body<UserPageResponse>()
@@ -349,7 +347,7 @@ class UserRoutesTest {
         repeat(5) { i ->
             client.post("/users") {
                 contentType(ContentType.Application.Json)
-                setBody(UserRequest(name = "page-$tag-$i", age = 30, email = uniqueEmail("page-$tag-$i"), password = "pw"))
+                setBody(UserRequest(name = "page-$tag-$i", email = uniqueEmail("page-$tag-$i"), password = "pw"))
             }
         }
 
@@ -370,7 +368,7 @@ class UserRoutesTest {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
         TestUsers.seed(email = callerEmail, password = "pw")
-        val response = authedClient(callerEmail, "pw").get("/users?sort=age")
+        val response = authedClient(callerEmail, "pw").get("/users?sort=passwordHash")
         assertEquals(HttpStatusCode.BadRequest, response.status)
         assertEquals("bad_request", response.body<ApiError>().error)
     }
@@ -412,7 +410,7 @@ class UserRoutesTest {
         val plainPassword = "correct-horse-battery-staple"
         client.post("/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "Eve", age = 33, email = newEmail, password = plainPassword))
+            setBody(UserRequest(name = "Eve", email = newEmail, password = plainPassword))
         }
 
         val loginResponse = jsonClient().post("/login") {

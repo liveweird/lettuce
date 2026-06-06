@@ -48,12 +48,10 @@ object TestUsers {
         email: String,
         password: String,
         name: String = "Test",
-        age: Int = 30,
         role: UserRole = UserRole.ADMIN,
     ): UInt = service.create(
         User(
             name = name,
-            age = age,
             email = email,
             passwordHash = hashPassword(password, cost = 4),
             role = role,

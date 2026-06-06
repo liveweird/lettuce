@@ -35,7 +35,6 @@ private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
 class UserService(val database: R2dbcDatabase) {
     object Users : UIntIdTable() {
         val name = varchar("name", length = 50)
-        val age = integer("age")
         val email = varchar("email", length = 254).uniqueIndex()
         val passwordHash = varchar("password_hash", length = 255)
         val role = varchar("role", length = 20)
@@ -44,7 +43,6 @@ class UserService(val database: R2dbcDatabase) {
     suspend fun create(user: User): UInt = suspendTransaction(database) {
         val newRecord = Users.insert {
             it[name] = user.name
-            it[age] = user.age
             it[email] = user.email
             it[passwordHash] = user.passwordHash
             it[role] = user.role.name
@@ -82,7 +80,6 @@ class UserService(val database: R2dbcDatabase) {
     suspend fun update(id: UInt, user: User): Int = suspendTransaction(database) {
         Users.update({ Users.id eq id }) {
             it[name] = user.name
-            it[age] = user.age
             it[email] = user.email
             it[passwordHash] = user.passwordHash
             it[role] = user.role.name
@@ -104,7 +101,6 @@ class UserService(val database: R2dbcDatabase) {
                     UserResponse(
                         id = row[Users.id].value,
                         name = row[Users.name],
-                        age = row[Users.age],
                         email = row[Users.email],
                         role = UserRole.valueOf(row[Users.role]),
                     )
@@ -137,7 +133,6 @@ class UserService(val database: R2dbcDatabase) {
 
     private fun ResultRow.toUser() = User(
         name = this[Users.name],
-        age = this[Users.age],
         email = this[Users.email],
         passwordHash = this[Users.passwordHash],
         role = UserRole.valueOf(this[Users.role]),
