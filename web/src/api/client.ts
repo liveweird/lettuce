@@ -98,6 +98,11 @@ export async function createUser(req: CreateUserBody): Promise<CreateUserRespons
   return (await res.json()) as CreateUserResponse;
 }
 
+export async function deleteUser(id: number): Promise<void> {
+  const res = await authedFetch(`/api/users/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
 export async function listUsers(q: UserListQuery): Promise<UserPage> {
   const params = new URLSearchParams();
   params.set("page", String(q.page));

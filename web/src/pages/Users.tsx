@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
 import {
   Alert,
   Button,
   Center,
   Group,
   Loader,
+  Modal,
   Pagination,
   Select,
   Stack,
@@ -15,15 +16,36 @@ import {
   Title,
   UnstyledButton,
 } from "@mantine/core";
-import { useDebouncedValue } from "@mantine/hooks";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { IconArrowDown, IconArrowUp, IconArrowsSort, IconPlus } from "@tabler/icons-react";
-import { isAdmin, listUsers, type UserRole } from "../api/client";
+import { useDebouncedValue, useDisclosure } from "@mantine/hooks";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import {
+  IconArrowDown,
+  IconArrowUp,
+  IconArrowsSort,
+  IconPlus,
+  IconTrash,
+} from "@tabler/icons-react";
+import {
+  deleteUser,
+  getUserId,
+  isAdmin,
+  listUsers,
+  logout,
+  type UserRole,
+} from "../api/client";
+import { flagSignedOut, notifyAuthChange } from "../auth";
 
 const PAGE_SIZE = 20;
 
 type SortField = "name" | "email" | "role";
 type SortDir = "asc" | "desc";
+
+type UserRow = { id: number; name: string; email: string };
 
 const ROLE_OPTIONS = [
   { value: "", label: "Any" },
@@ -64,6 +86,12 @@ export default function Users() {
   const [nameFilter, setNameFilter] = useState("");
   const [emailFilter, setEmailFilter] = useState("");
   const [roleFilter, setRoleFilter] = useState<UserRole | "">("");
+  const [target, setTarget] = useState<UserRow | null>(null);
+  const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false);
+
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const admin = isAdmin();
 
   const [debouncedName] = useDebouncedValue(nameFilter, 300);
   const [debouncedEmail] = useDebouncedValue(emailFilter, 300);
@@ -88,6 +116,23 @@ export default function Users() {
     placeholderData: keepPreviousData,
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => deleteUser(id).then(() => id),
+    onSuccess: async (deletedId) => {
+      closeConfirm();
+      setTarget(null);
+      if (deletedId === getUserId()) {
+        await logout();
+        queryClient.clear();
+        flagSignedOut();
+        navigate("/login", { replace: true });
+        notifyAuthChange();
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+
   function toggleSort(field: SortField) {
     if (field === sortField) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -97,8 +142,26 @@ export default function Users() {
     }
   }
 
+  function requestDelete(row: UserRow) {
+    setTarget(row);
+    deleteMutation.reset();
+    openConfirm();
+  }
+
+  function cancelDelete() {
+    if (deleteMutation.isPending) return;
+    closeConfirm();
+    setTarget(null);
+    deleteMutation.reset();
+  }
+
+  function confirmDelete() {
+    if (target) deleteMutation.mutate(target.id);
+  }
+
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const columnCount = admin ? 4 : 3;
 
   return (
     <Stack gap="md">
@@ -162,12 +225,13 @@ export default function Users() {
                 onToggle={toggleSort}
               />
             </Table.Th>
+            {admin && <Table.Th aria-label="Actions" style={{ width: 1 }} />}
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
           {isLoading && !data ? (
             <Table.Tr>
-              <Table.Td colSpan={3}>
+              <Table.Td colSpan={columnCount}>
                 <Center py="md">
                   <Loader size="sm" />
                 </Center>
@@ -179,11 +243,25 @@ export default function Users() {
                 <Table.Td>{u.name}</Table.Td>
                 <Table.Td>{u.email}</Table.Td>
                 <Table.Td>{u.role}</Table.Td>
+                {admin && (
+                  <Table.Td>
+                    <Button
+                      color="red"
+                      variant="subtle"
+                      size="xs"
+                      leftSection={<IconTrash size={14} />}
+                      onClick={() => requestDelete({ id: u.id, name: u.name, email: u.email })}
+                      aria-label={`Delete ${u.name}`}
+                    >
+                      Delete
+                    </Button>
+                  </Table.Td>
+                )}
               </Table.Tr>
             ))
           ) : (
             <Table.Tr>
-              <Table.Td colSpan={3}>
+              <Table.Td colSpan={columnCount}>
                 <Text c="dimmed" ta="center">
                   No users
                 </Text>
@@ -206,7 +284,7 @@ export default function Users() {
         />
       </Group>
 
-      {isAdmin() && (
+      {admin && (
         <Group justify="flex-end">
           <Button
             component={RouterLink}
@@ -217,6 +295,40 @@ export default function Users() {
           </Button>
         </Group>
       )}
+
+      <Modal
+        opened={confirmOpen}
+        onClose={cancelDelete}
+        title="Delete user?"
+        centered
+      >
+        <Stack gap="md">
+          {target && (
+            <Text>
+              Delete user <strong>{target.name}</strong> ({target.email})? This cannot be undone.
+            </Text>
+          )}
+          {deleteMutation.isError && (
+            <Alert color="red" title="Failed to delete user">
+              {deleteMutation.error instanceof Error
+                ? deleteMutation.error.message
+                : "Unknown error"}
+            </Alert>
+          )}
+          <Group justify="flex-end" gap="sm">
+            <Button variant="default" onClick={cancelDelete} disabled={deleteMutation.isPending}>
+              Cancel
+            </Button>
+            <Button
+              color="red"
+              onClick={confirmDelete}
+              loading={deleteMutation.isPending}
+            >
+              Delete
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Stack>
   );
 }
