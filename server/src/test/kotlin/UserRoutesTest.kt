@@ -158,6 +158,95 @@ class UserRoutesTest {
     }
 
     @Test
+    fun `DELETE users id hides the user from listings`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("caller")
+        TestUsers.seed(email = callerEmail, password = "pw")
+
+        val client = authedClient(callerEmail, "pw")
+        val tag = UUID.randomUUID().toString().substring(0, 8)
+        val keeper = client.post("/api/users") {
+            contentType(ContentType.Application.Json)
+            setBody(UserRequest(name = "keep-$tag", email = uniqueEmail("keep-$tag"), password = "pw"))
+        }.body<UserResponse>()
+        val doomed = client.post("/api/users") {
+            contentType(ContentType.Application.Json)
+            setBody(UserRequest(name = "drop-$tag", email = uniqueEmail("drop-$tag"), password = "pw"))
+        }.body<UserResponse>()
+
+        val before = client.get("/api/users?name=$tag").body<UserPageResponse>()
+        assertEquals(2L, before.total)
+
+        assertEquals(HttpStatusCode.NoContent, client.delete("/api/users/${doomed.id}").status)
+
+        val after = client.get("/api/users?name=$tag").body<UserPageResponse>()
+        assertEquals(1L, after.total)
+        assertEquals(keeper.id, after.items.single().id)
+    }
+
+    @Test
+    fun `DELETE users id prevents the deleted user from logging in`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("caller")
+        TestUsers.seed(email = callerEmail, password = "pw")
+        val client = authedClient(callerEmail, "pw")
+        val victimEmail = uniqueEmail("victim")
+        val victim = client.post("/api/users") {
+            contentType(ContentType.Application.Json)
+            setBody(UserRequest(name = "Victim", email = victimEmail, password = "secret"))
+        }.body<UserResponse>()
+
+        val loginBefore = jsonClient().post("/api/login") {
+            contentType(ContentType.Application.Json)
+            setBody(LoginRequest(victimEmail, "secret"))
+        }
+        assertEquals(HttpStatusCode.OK, loginBefore.status)
+
+        assertEquals(HttpStatusCode.NoContent, client.delete("/api/users/${victim.id}").status)
+
+        val loginAfter = jsonClient().post("/api/login") {
+            contentType(ContentType.Application.Json)
+            setBody(LoginRequest(victimEmail, "secret"))
+        }
+        assertEquals(HttpStatusCode.Unauthorized, loginAfter.status)
+    }
+
+    @Test
+    fun `PUT users id on a soft-deleted user returns 404`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("caller")
+        TestUsers.seed(email = callerEmail, password = "pw")
+        val client = authedClient(callerEmail, "pw")
+        val created = client.post("/api/users") {
+            contentType(ContentType.Application.Json)
+            setBody(UserRequest(name = "Ghost", email = uniqueEmail("ghost"), password = "pw"))
+        }.body<UserResponse>()
+
+        assertEquals(HttpStatusCode.NoContent, client.delete("/api/users/${created.id}").status)
+
+        val put = client.put("/api/users/${created.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(UserRequest(name = "Resurrected", email = uniqueEmail("res"), password = "pw"))
+        }
+        assertEquals(HttpStatusCode.NotFound, put.status)
+    }
+
+    @Test
+    fun `DELETE users id is idempotent`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("caller")
+        TestUsers.seed(email = callerEmail, password = "pw")
+        val client = authedClient(callerEmail, "pw")
+        val created = client.post("/api/users") {
+            contentType(ContentType.Application.Json)
+            setBody(UserRequest(name = "Twice", email = uniqueEmail("twice"), password = "pw"))
+        }.body<UserResponse>()
+
+        assertEquals(HttpStatusCode.NoContent, client.delete("/api/users/${created.id}").status)
+        assertEquals(HttpStatusCode.NoContent, client.delete("/api/users/${created.id}").status)
+    }
+
+    @Test
     fun `user endpoints require authentication`() = testApplication {
         usePostgresTestcontainer()
         val client = jsonClient()

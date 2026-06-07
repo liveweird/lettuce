@@ -80,7 +80,7 @@ describe("Login page", () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { route: "/" });
 
-    await user.click(screen.getByRole("button", { name: /logout/i }));
+    await user.click(await screen.findByRole("button", { name: /logout/i }));
 
     expect(
       await screen.findByText(/you've been signed out/i),

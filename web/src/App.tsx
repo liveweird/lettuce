@@ -1,9 +1,12 @@
+import { lazy, Suspense } from "react";
 import {
   ActionIcon,
   AppShell,
   Burger,
   Button,
+  Center,
   Group,
+  Loader,
   NavLink,
   Text,
   useMantineColorScheme,
@@ -29,12 +32,20 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getCurrentUser, getUserId, logout } from "./api/client";
 import { RedirectIfAuthed, RequireAuth, flagSignedOut, notifyAuthChange } from "./auth";
-import Dashboard from "./pages/Dashboard";
-import Feedback from "./pages/Feedback";
-import Login from "./pages/Login";
-import CreateUser from "./pages/CreateUser";
-import Teams from "./pages/Teams";
-import Users from "./pages/Users";
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Feedback = lazy(() => import("./pages/Feedback"));
+const Login = lazy(() => import("./pages/Login"));
+const CreateUser = lazy(() => import("./pages/CreateUser"));
+const Teams = lazy(() => import("./pages/Teams"));
+const Users = lazy(() => import("./pages/Users"));
+
+function RouteFallback() {
+  return (
+    <Center mih={200}>
+      <Loader />
+    </Center>
+  );
+}
 
 const NAV_ITEMS: ReadonlyArray<{
   to: string;
@@ -143,24 +154,26 @@ function Shell() {
 
 export default function App() {
   return (
-    <Routes>
-      <Route
-        path="/login"
-        element={
-          <RedirectIfAuthed>
-            <Login />
-          </RedirectIfAuthed>
-        }
-      />
-      <Route element={<RequireAuth />}>
-        <Route element={<Shell />}>
-          <Route index element={<Dashboard />} />
-          <Route path="users" element={<Users />} />
-          <Route path="users/new" element={<CreateUser />} />
-          <Route path="teams" element={<Teams />} />
-          <Route path="feedback" element={<Feedback />} />
+    <Suspense fallback={<RouteFallback />}>
+      <Routes>
+        <Route
+          path="/login"
+          element={
+            <RedirectIfAuthed>
+              <Login />
+            </RedirectIfAuthed>
+          }
+        />
+        <Route element={<RequireAuth />}>
+          <Route element={<Shell />}>
+            <Route index element={<Dashboard />} />
+            <Route path="users" element={<Users />} />
+            <Route path="users/new" element={<CreateUser />} />
+            <Route path="teams" element={<Teams />} />
+            <Route path="feedback" element={<Feedback />} />
+          </Route>
         </Route>
-      </Route>
-    </Routes>
+      </Routes>
+    </Suspense>
   );
 }

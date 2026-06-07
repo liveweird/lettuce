@@ -38,6 +38,7 @@ class UserService(val database: R2dbcDatabase) {
         val email = varchar("email", length = 254).uniqueIndex()
         val passwordHash = varchar("password_hash", length = 255)
         val role = varchar("role", length = 20)
+        val markedAsDeleted = bool("marked_as_deleted").default(false)
     }
 
     suspend fun create(user: User): UInt = suspendTransaction(database) {
@@ -53,7 +54,7 @@ class UserService(val database: R2dbcDatabase) {
     suspend fun read(id: UInt): User? {
         return suspendTransaction(database) {
             Users.selectAll()
-                .where { Users.id eq id }
+                .where { (Users.id eq id) and active() }
                 .map { it.toUser() }
                 .singleOrNull()
         }
@@ -62,7 +63,7 @@ class UserService(val database: R2dbcDatabase) {
     suspend fun findByEmail(email: String): User? {
         return suspendTransaction(database) {
             Users.selectAll()
-                .where { Users.email eq email }
+                .where { (Users.email eq email) and active() }
                 .map { it.toUser() }
                 .singleOrNull()
         }
@@ -71,14 +72,14 @@ class UserService(val database: R2dbcDatabase) {
     suspend fun findWithIdByEmail(email: String): Pair<UInt, User>? {
         return suspendTransaction(database) {
             Users.selectAll()
-                .where { Users.email eq email }
+                .where { (Users.email eq email) and active() }
                 .map { it[Users.id].value to it.toUser() }
                 .singleOrNull()
         }
     }
 
     suspend fun update(id: UInt, user: User): Int = suspendTransaction(database) {
-        Users.update({ Users.id eq id }) {
+        Users.update({ (Users.id eq id) and (Users.markedAsDeleted eq false) }) {
             it[name] = user.name
             it[email] = user.email
             it[passwordHash] = user.passwordHash
@@ -86,13 +87,15 @@ class UserService(val database: R2dbcDatabase) {
         }
     }
 
-    suspend fun delete(id: UInt) {
-        suspendTransaction(database) { Users.deleteWhere { Users.id.eq(id) } }
+    suspend fun delete(id: UInt): Int = suspendTransaction(database) {
+        Users.update({ (Users.id eq id) and (Users.markedAsDeleted eq false) }) {
+            it[markedAsDeleted] = true
+        }
     }
 
     suspend fun list(filter: UserListFilter, paging: PageRequest): UserListResult =
         suspendTransaction(database) {
-            val predicate: Op<Boolean> = buildPredicate(filter)
+            val predicate: Op<Boolean> = buildPredicate(filter) and active()
             val total = Users.selectAll().where { predicate }.count()
             val rows = Users.selectAll()
                 .where { predicate }
@@ -108,6 +111,8 @@ class UserService(val database: R2dbcDatabase) {
                 .toList()
             UserListResult(items = rows, total = total)
         }
+
+    private fun active(): Op<Boolean> = Users.markedAsDeleted eq false
 
     private fun buildPredicate(filter: UserListFilter): Op<Boolean> {
         var op: Op<Boolean> = Op.TRUE

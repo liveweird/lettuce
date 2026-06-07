@@ -157,6 +157,23 @@ class AuthorizationTest {
     }
 
     @Test
+    fun `admin can DELETE own account and afterwards cannot log in`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        val adminId = TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+
+        val client = authedClient(adminEmail, "pw")
+        val deleted = client.delete("/api/users/$adminId")
+        assertEquals(HttpStatusCode.NoContent, deleted.status)
+
+        val loginAgain = jsonClient().post("/api/login") {
+            contentType(ContentType.Application.Json)
+            setBody(LoginRequest(adminEmail, "pw"))
+        }
+        assertEquals(HttpStatusCode.Unauthorized, loginAgain.status)
+    }
+
+    @Test
     fun `non-admin cannot create a team naming someone else as manager`() = testApplication {
         usePostgresTestcontainer()
         val aliceEmail = uniqueEmail("alice")

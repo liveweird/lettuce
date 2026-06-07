@@ -40,27 +40,27 @@ describe("App shell", () => {
       localStorage.setItem(TOKEN_KEY, "fake-token");
     });
 
-    test("renders the brand and the dashboard at /", () => {
+    test("renders the brand and the dashboard at /", async () => {
       renderApp("/");
-      expect(screen.getByText("Lettuce")).toBeInTheDocument();
       expect(
-        screen.getByRole("heading", { level: 2, name: "Dashboard" }),
+        await screen.findByRole("heading", { level: 2, name: "Dashboard" }),
       ).toBeInTheDocument();
+      expect(screen.getByText("Lettuce")).toBeInTheDocument();
     });
 
     test("navigating via the navbar swaps the main content", async () => {
       const user = userEvent.setup();
       renderApp("/");
-      await user.click(screen.getByRole("link", { name: /users/i }));
+      await user.click(await screen.findByRole("link", { name: /users/i }));
       expect(
-        screen.getByRole("heading", { level: 2, name: "Users" }),
+        await screen.findByRole("heading", { level: 2, name: "Users" }),
       ).toBeInTheDocument();
     });
 
-    test("shows the logout button", () => {
+    test("shows the logout button", async () => {
       renderApp("/");
       expect(
-        screen.getByRole("button", { name: /logout/i }),
+        await screen.findByRole("button", { name: /logout/i }),
       ).toBeInTheDocument();
     });
 
@@ -85,20 +85,20 @@ describe("App shell", () => {
   });
 
   describe("when not authenticated", () => {
-    test("redirects from / to the login screen", () => {
+    test("redirects from / to the login screen", async () => {
       renderApp("/");
       expect(
-        screen.getByRole("heading", { level: 3, name: /sign in/i }),
+        await screen.findByRole("heading", { level: 3, name: /sign in/i }),
       ).toBeInTheDocument();
       expect(
         screen.queryByRole("heading", { level: 2, name: "Dashboard" }),
       ).not.toBeInTheDocument();
     });
 
-    test("redirects from a protected route to the login screen", () => {
+    test("redirects from a protected route to the login screen", async () => {
       renderApp("/teams");
       expect(
-        screen.getByRole("heading", { level: 3, name: /sign in/i }),
+        await screen.findByRole("heading", { level: 3, name: /sign in/i }),
       ).toBeInTheDocument();
       expect(
         screen.queryByRole("heading", { level: 2, name: "Teams" }),

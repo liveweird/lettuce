@@ -27,7 +27,6 @@ import io.ktor.server.testing.testApplication
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -332,7 +331,7 @@ class TeamRoutesTest {
     }
 
     @Test
-    fun `deleting a member user cascades the membership row`() = testApplication {
+    fun `soft-deleting a member user preserves the membership row`() = testApplication {
         usePostgresTestcontainer()
         val ownerEmail = uniqueEmail("owner")
         val managerId = TestUsers.seed(email = ownerEmail, password = "pw")
@@ -349,11 +348,11 @@ class TeamRoutesTest {
         assertEquals(HttpStatusCode.NoContent, deleteUser.status)
 
         val after = client.get("/api/teams/${team.id}").body<TeamResponse>()
-        assertEquals(listOf(memberB), after.memberIds)
+        assertEquals(listOf(memberA, memberB).sorted(), after.memberIds.sorted())
     }
 
     @Test
-    fun `deleting a user who manages a team is rejected`() = testApplication {
+    fun `soft-deleting a team manager preserves the team`() = testApplication {
         usePostgresTestcontainer()
         val ownerEmail = uniqueEmail("owner")
         val managerId = TestUsers.seed(email = ownerEmail, password = "pw")
@@ -365,10 +364,9 @@ class TeamRoutesTest {
             setBody(Team(name = "T", managerId = managerId, memberIds = listOf(memberA)))
         }.body<TeamResponse>()
 
-        val blocked = client.delete("/api/users/$managerId")
-        assertNotEquals(HttpStatusCode.NoContent, blocked.status)
-
-        assertEquals(HttpStatusCode.NoContent, client.delete("/api/teams/${team.id}").status)
         assertEquals(HttpStatusCode.NoContent, client.delete("/api/users/$managerId").status)
+
+        val after = client.get("/api/teams/${team.id}").body<TeamResponse>()
+        assertEquals(managerId, after.managerId)
     }
 }

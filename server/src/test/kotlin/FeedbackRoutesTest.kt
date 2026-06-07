@@ -28,7 +28,6 @@ import io.ktor.server.testing.testApplication
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -382,7 +381,7 @@ class FeedbackRoutesTest {
     }
 
     @Test
-    fun `deleting subject user while feedback exists is rejected`() = testApplication {
+    fun `soft-deleting subject user preserves feedback rows`() = testApplication {
         usePostgresTestcontainer()
         val t = seedTriad()
         val client = authedClient(t.providerEmail, "pw")
@@ -399,15 +398,15 @@ class FeedbackRoutesTest {
             )
         }.body<FeedbackResponse>()
 
-        val blocked = client.delete("/api/users/${t.subjectId}")
-        assertNotEquals(HttpStatusCode.NoContent, blocked.status)
-
-        assertEquals(HttpStatusCode.NoContent, client.delete("/api/feedbacks/${created.id}").status)
         assertEquals(HttpStatusCode.NoContent, client.delete("/api/users/${t.subjectId}").status)
+
+        val after = client.get("/api/feedbacks/${created.id}").body<FeedbackResponse>()
+        assertEquals(t.subjectId, after.subjectId)
+        assertEquals(t.providerId, after.providerId)
     }
 
     @Test
-    fun `deleting requester user nullifies requester_id`() = testApplication {
+    fun `soft-deleting requester user preserves requester_id on feedback`() = testApplication {
         usePostgresTestcontainer()
         val t = seedTriad()
         val client = authedClient(t.providerEmail, "pw")
@@ -427,7 +426,7 @@ class FeedbackRoutesTest {
 
         assertEquals(HttpStatusCode.NoContent, client.delete("/api/users/${t.requesterId}").status)
         val after = client.get("/api/feedbacks/${created.id}").body<FeedbackResponse>()
-        assertNull(after.requesterId)
+        assertEquals(t.requesterId, after.requesterId)
         assertEquals(t.subjectId, after.subjectId)
         assertEquals(t.providerId, after.providerId)
     }
