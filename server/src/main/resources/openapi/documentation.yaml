@@ -195,6 +195,51 @@ paths:
         '403': { description: Caller is not ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
 
   /api/teams:
+    get:
+      tags: [teams]
+      summary: List teams
+      description: |
+        Any authenticated user may list. Supports offset pagination, sorting, and filtering.
+
+        - Sortable fields: `id`, `name`. Default sort is `id` ascending; `id` ascending
+          is always appended as a deterministic tiebreaker.
+        - Filters (all optional):
+          - `name` — case-insensitive substring match against the team's name.
+          - `managerId` — exact match against the team's manager id.
+
+        Each returned item includes the manager's `name` resolved via join so the UI
+        does not need an N+1 lookup.
+
+        Malformed query parameters (unknown sort field, non-numeric managerId,
+        out-of-range page/pageSize) respond with `400` and an `ApiError` body.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Sort'
+        - name: name
+          in: query
+          required: false
+          schema: { type: string }
+          description: Case-insensitive substring match against the team's name.
+        - name: managerId
+          in: query
+          required: false
+          schema: { type: integer, format: int64, minimum: 0 }
+          description: Exact match against the team's manager id.
+      responses:
+        '200':
+          description: A page of teams
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamPage'
+        '400':
+          description: Malformed query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
     post:
       tags: [teams]
       summary: Create a team
@@ -513,6 +558,31 @@ components:
         memberIds:
           type: array
           items: { type: integer, format: int64, minimum: 0 }
+
+    TeamListItem:
+      type: object
+      required: [id, name, managerId, managerName]
+      properties:
+        id: { type: integer, format: int64, minimum: 0 }
+        name: { type: string }
+        managerId: { type: integer, format: int64, minimum: 0 }
+        managerName: { type: string }
+
+    TeamPage:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamListItem'
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1, maximum: 100 }
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Row count after filters, before pagination.
 
     FeedbackRequest:
       type: object

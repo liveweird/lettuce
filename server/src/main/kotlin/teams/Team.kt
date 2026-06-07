@@ -18,3 +18,19 @@ data class TeamResponse(
 )
 
 fun Team.toResponse(id: UInt) = TeamResponse(id, name, managerId, memberIds)
+
+@Serializable
+data class TeamListItem(
+    val id: UInt,
+    val name: String,
+    val managerId: UInt,
+    val managerName: String,
+)
+
+@Serializable
+data class TeamPageResponse(
+    val items: List<TeamListItem>,
+    val page: Int,
+    val pageSize: Int,
+    val total: Long,
+)

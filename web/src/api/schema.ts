@@ -409,7 +409,76 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List teams
+         * @description Any authenticated user may list. Supports offset pagination, sorting, and filtering.
+         *
+         *     - Sortable fields: `id`, `name`. Default sort is `id` ascending; `id` ascending
+         *       is always appended as a deterministic tiebreaker.
+         *     - Filters (all optional):
+         *       - `name` — case-insensitive substring match against the team's name.
+         *       - `managerId` — exact match against the team's manager id.
+         *
+         *     Each returned item includes the manager's `name` resolved via join so the UI
+         *     does not need an N+1 lookup.
+         *
+         *     Malformed query parameters (unknown sort field, non-numeric managerId,
+         *     out-of-range page/pageSize) respond with `400` and an `ApiError` body.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description 1-based page index. Defaults to 1. */
+                    page?: components["parameters"]["Page"];
+                    /** @description Rows per page. Defaults to 20, maximum 100. */
+                    pageSize?: components["parameters"]["PageSize"];
+                    /**
+                     * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
+                     *     comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
+                     *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
+                     *     always appended as a deterministic tiebreaker.
+                     */
+                    sort?: components["parameters"]["Sort"];
+                    /** @description Case-insensitive substring match against the team's name. */
+                    name?: string;
+                    /** @description Exact match against the team's manager id. */
+                    managerId?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description A page of teams */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TeamPage"];
+                    };
+                };
+                /** @description Malformed query parameters */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
         put?: never;
         /**
          * Create a team
@@ -1068,6 +1137,24 @@ export interface components {
             /** Format: int64 */
             managerId: number;
             memberIds: number[];
+        };
+        TeamListItem: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /** Format: int64 */
+            managerId: number;
+            managerName: string;
+        };
+        TeamPage: {
+            items: components["schemas"]["TeamListItem"][];
+            page: number;
+            pageSize: number;
+            /**
+             * Format: int64
+             * @description Row count after filters, before pagination.
+             */
+            total: number;
         };
         FeedbackRequest: {
             /** Format: int64 */

@@ -133,6 +133,28 @@ export async function listUsers(q: UserListQuery): Promise<UserPage> {
   return (await res.json()) as UserPage;
 }
 
+export type TeamPage = paths["/api/teams"]["get"]["responses"]["200"]["content"]["application/json"];
+
+export type TeamListQuery = {
+  page: number;
+  pageSize: number;
+  sort?: string;
+  name?: string;
+  managerId?: number;
+};
+
+export async function listTeams(q: TeamListQuery): Promise<TeamPage> {
+  const params = new URLSearchParams();
+  params.set("page", String(q.page));
+  params.set("pageSize", String(q.pageSize));
+  if (q.sort) params.set("sort", q.sort);
+  if (q.name) params.set("name", q.name);
+  if (q.managerId != null) params.set("managerId", String(q.managerId));
+  const res = await authedFetch(`/api/teams?${params.toString()}`);
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return (await res.json()) as TeamPage;
+}
+
 export async function authedFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const token = getToken();
   const headers = new Headers(init.headers);

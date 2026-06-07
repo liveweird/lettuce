@@ -3,11 +3,13 @@ package ch.nokillswit.teams
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireSelfOrAdmin
 import ch.nokillswit.authz.requireTeamManagerOrAdmin
+import ch.nokillswit.infra.paging.parsePaging
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
 import io.ktor.server.application.*
 import io.ktor.server.auth.authenticate
+import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.request.receive
 import io.ktor.server.resources.delete
 import io.ktor.server.resources.get
@@ -36,6 +38,29 @@ fun Application.configureTeamRoutes() {
 
     routing {
         authenticate {
+            get<Teams> {
+                call.caller()
+                val paging = call.parsePaging(sortable = setOf("id", "name"))
+                val params = call.request.queryParameters
+                val managerIdFilter = params["managerId"]?.takeIf { it.isNotBlank() }?.let { raw ->
+                    raw.toUIntOrNull()
+                        ?: throw BadRequestException("managerId must be a non-negative integer")
+                }
+                val filter = TeamListFilter(
+                    name = params["name"]?.takeIf { it.isNotBlank() },
+                    managerId = managerIdFilter,
+                )
+                val result = teamService.list(filter, paging)
+                call.respond(
+                    HttpStatusCode.OK,
+                    TeamPageResponse(
+                        items = result.items,
+                        page = paging.page,
+                        pageSize = paging.pageSize,
+                        total = result.total,
+                    ),
+                )
+            }
             post<Teams> {
                 val caller = call.caller()
                 val team = call.receive<Team>()

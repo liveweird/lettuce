@@ -2,7 +2,9 @@ package ch.nokillswit
 
 import ch.nokillswit.auth.LoginRequest
 import ch.nokillswit.auth.LoginResponse
+import ch.nokillswit.plugins.ApiError
 import ch.nokillswit.teams.Team
+import ch.nokillswit.teams.TeamPageResponse
 import ch.nokillswit.teams.TeamResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -368,5 +370,133 @@ class TeamRoutesTest {
 
         val after = client.get("/api/teams/${team.id}").body<TeamResponse>()
         assertEquals(managerId, after.managerId)
+    }
+
+    @Test
+    fun `GET teams returns paginated envelope with manager names`() = testApplication {
+        usePostgresTestcontainer()
+        val managerEmail = uniqueEmail("mgr")
+        val managerId = TestUsers.seed(email = managerEmail, password = "pw", name = "Mona")
+        val memberA = TestUsers.seed(email = uniqueEmail("a"), password = "pw")
+
+        val client = authedClient(managerEmail, "pw")
+        val tag = UUID.randomUUID().toString().substring(0, 8)
+        repeat(3) { i ->
+            client.post("/api/teams") {
+                contentType(ContentType.Application.Json)
+                setBody(Team(name = "list-$tag-$i", managerId = managerId, memberIds = listOf(memberA)))
+            }
+        }
+
+        val response = client.get("/api/teams?name=list-$tag")
+        assertEquals(HttpStatusCode.OK, response.status)
+        val page = response.body<TeamPageResponse>()
+        assertEquals(1, page.page)
+        assertEquals(20, page.pageSize)
+        assertEquals(3L, page.total)
+        assertEquals(3, page.items.size)
+        assertTrue(page.items.all { it.managerId == managerId })
+        assertTrue(page.items.all { it.managerName == "Mona" })
+    }
+
+    @Test
+    fun `GET teams supports filter by managerId`() = testApplication {
+        usePostgresTestcontainer()
+        val tag = UUID.randomUUID().toString().substring(0, 8)
+        val ownerEmail = uniqueEmail("owner-$tag")
+        val ownerId = TestUsers.seed(email = ownerEmail, password = "pw", name = "Owner-$tag")
+        val otherMgrEmail = uniqueEmail("other-$tag")
+        val otherMgrId = TestUsers.seed(email = otherMgrEmail, password = "pw", name = "Other-$tag")
+        val memberA = TestUsers.seed(email = uniqueEmail("m-$tag"), password = "pw")
+
+        val ownerClient = authedClient(ownerEmail, "pw")
+        ownerClient.post("/api/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "owned-$tag", managerId = ownerId, memberIds = listOf(memberA)))
+        }
+        val otherClient = authedClient(otherMgrEmail, "pw")
+        otherClient.post("/api/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "other-$tag", managerId = otherMgrId, memberIds = listOf(memberA)))
+        }
+
+        val page = ownerClient.get("/api/teams?name=$tag&managerId=$ownerId").body<TeamPageResponse>()
+        assertEquals(1L, page.total)
+        assertEquals("owned-$tag", page.items.single().name)
+        assertEquals(ownerId, page.items.single().managerId)
+    }
+
+    @Test
+    fun `GET teams supports sort by name descending`() = testApplication {
+        usePostgresTestcontainer()
+        val managerEmail = uniqueEmail("mgr")
+        val managerId = TestUsers.seed(email = managerEmail, password = "pw")
+        val memberA = TestUsers.seed(email = uniqueEmail("a"), password = "pw")
+        val client = authedClient(managerEmail, "pw")
+        val tag = UUID.randomUUID().toString().substring(0, 8)
+        listOf("bravo", "alpha", "charlie").forEach { stem ->
+            client.post("/api/teams") {
+                contentType(ContentType.Application.Json)
+                setBody(Team(name = "sort-$tag-$stem", managerId = managerId, memberIds = listOf(memberA)))
+            }
+        }
+
+        val page = client.get("/api/teams?name=sort-$tag&sort=-name").body<TeamPageResponse>()
+        assertEquals(
+            listOf("sort-$tag-charlie", "sort-$tag-bravo", "sort-$tag-alpha"),
+            page.items.map { it.name },
+        )
+    }
+
+    @Test
+    fun `GET teams paginates correctly`() = testApplication {
+        usePostgresTestcontainer()
+        val managerEmail = uniqueEmail("mgr")
+        val managerId = TestUsers.seed(email = managerEmail, password = "pw")
+        val memberA = TestUsers.seed(email = uniqueEmail("a"), password = "pw")
+        val client = authedClient(managerEmail, "pw")
+        val tag = UUID.randomUUID().toString().substring(0, 8)
+        repeat(5) { i ->
+            client.post("/api/teams") {
+                contentType(ContentType.Application.Json)
+                setBody(Team(name = "page-$tag-$i", managerId = managerId, memberIds = listOf(memberA)))
+            }
+        }
+
+        val pageOne = client.get("/api/teams?name=page-$tag&sort=name&page=1&pageSize=2").body<TeamPageResponse>()
+        assertEquals(5L, pageOne.total)
+        assertEquals(listOf("page-$tag-0", "page-$tag-1"), pageOne.items.map { it.name })
+
+        val pageTwo = client.get("/api/teams?name=page-$tag&sort=name&page=2&pageSize=2").body<TeamPageResponse>()
+        assertEquals(listOf("page-$tag-2", "page-$tag-3"), pageTwo.items.map { it.name })
+
+        val pageThree = client.get("/api/teams?name=page-$tag&sort=name&page=3&pageSize=2").body<TeamPageResponse>()
+        assertEquals(listOf("page-$tag-4"), pageThree.items.map { it.name })
+    }
+
+    @Test
+    fun `GET teams with unknown sort field returns 400`() = testApplication {
+        usePostgresTestcontainer()
+        val managerEmail = uniqueEmail("mgr")
+        TestUsers.seed(email = managerEmail, password = "pw")
+        val response = authedClient(managerEmail, "pw").get("/api/teams?sort=manager_id")
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertEquals("bad_request", response.body<ApiError>().error)
+    }
+
+    @Test
+    fun `GET teams with non-numeric managerId returns 400`() = testApplication {
+        usePostgresTestcontainer()
+        val managerEmail = uniqueEmail("mgr")
+        TestUsers.seed(email = managerEmail, password = "pw")
+        val response = authedClient(managerEmail, "pw").get("/api/teams?managerId=abc")
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+    }
+
+    @Test
+    fun `GET teams without authentication returns 401`() = testApplication {
+        usePostgresTestcontainer()
+        val response = jsonClient().get("/api/teams")
+        assertEquals(HttpStatusCode.Unauthorized, response.status)
     }
 }

@@ -1,5 +1,7 @@
 package ch.nokillswit.teams
 
+import ch.nokillswit.infra.paging.PageRequest
+import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.users.UserService
 import io.ktor.server.plugins.BadRequestException
 import io.ktor.util.AttributeKey
@@ -13,6 +15,21 @@ import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 
 val TeamServiceKey = AttributeKey<TeamService>("TeamService")
+
+data class TeamListFilter(
+    val name: String? = null,
+    val managerId: UInt? = null,
+)
+
+data class TeamListResult(
+    val items: List<TeamListItem>,
+    val total: Long,
+)
+
+private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
+    "id" to TeamService.Teams.id,
+    "name" to TeamService.Teams.name,
+)
 
 class TeamService(val database: R2dbcDatabase) {
     object Teams : UIntIdTable() {
@@ -105,6 +122,51 @@ class TeamService(val database: R2dbcDatabase) {
                 (TeamMembers.teamId eq teamId) and (TeamMembers.userId eq userId)
             }
         }
+    }
+
+    suspend fun list(filter: TeamListFilter, paging: PageRequest): TeamListResult =
+        suspendTransaction(database) {
+            val predicate: Op<Boolean> = buildPredicate(filter)
+            val join = Teams innerJoin UserService.Users
+            val total = join.selectAll().where { predicate }.count()
+            val rows = join
+                .select(
+                    Teams.id,
+                    Teams.name,
+                    Teams.managerId,
+                    UserService.Users.name,
+                )
+                .where { predicate }
+                .applyPaging(paging, SORTABLE_COLUMNS)
+                .map { row ->
+                    TeamListItem(
+                        id = row[Teams.id].value,
+                        name = row[Teams.name],
+                        managerId = row[Teams.managerId].value,
+                        managerName = row[UserService.Users.name],
+                    )
+                }
+                .toList()
+            TeamListResult(items = rows, total = total)
+        }
+
+    private fun buildPredicate(filter: TeamListFilter): Op<Boolean> {
+        var op: Op<Boolean> = Op.TRUE
+        filter.name?.takeIf { it.isNotBlank() }?.let {
+            op = op and (Teams.name.lowerCase() like containsPattern(it))
+        }
+        filter.managerId?.let {
+            op = op and (Teams.managerId eq it)
+        }
+        return op
+    }
+
+    private fun containsPattern(raw: String): LikePattern {
+        val escaped = raw.lowercase()
+            .replace("\\", "\\\\")
+            .replace("%", "\\%")
+            .replace("_", "\\_")
+        return LikePattern("%$escaped%", escapeChar = '\\')
     }
 
     private fun validateMembership(team: Team) {
