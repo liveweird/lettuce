@@ -161,8 +161,10 @@ paths:
         '404': { description: Not found }
     put:
       tags: [users]
-      summary: Replace a user
+      summary: Update a user
       description: |
+        Updates a user's `name`, `email`, and `role`. The password cannot be
+        changed via this endpoint and the existing password is preserved.
         Requires the caller to be the target user, or to be ADMIN.
         Only ADMIN may change a user's `role`; a non-ADMIN caller must either
         omit `role` or send the value the user already has, otherwise the request is rejected with 403.
@@ -171,7 +173,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UserRequest'
+              $ref: '#/components/schemas/UserUpdateRequest'
       responses:
         '204': { description: Updated }
         '401': { description: Missing or invalid token }
@@ -448,6 +450,20 @@ components:
             Honoured only when the caller is ADMIN. Non-ADMIN callers must omit this
             field or send the value the user already has, otherwise the request is
             rejected with 403. Omitted on create defaults to USER.
+
+    UserUpdateRequest:
+      type: object
+      required: [name, email]
+      properties:
+        name: { type: string, maxLength: 50 }
+        email: { type: string, format: email, maxLength: 254 }
+        role:
+          type: string
+          enum: [ADMIN, USER]
+          description: |
+            Honoured only when the caller is ADMIN. Non-ADMIN callers must omit this
+            field or send the value the user already has, otherwise the request is
+            rejected with 403. Omitting it keeps the user's current role.
 
     UserResponse:
       type: object

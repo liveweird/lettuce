@@ -5,6 +5,7 @@ import ch.nokillswit.auth.LoginResponse
 import ch.nokillswit.plugins.ApiError
 import ch.nokillswit.users.UserPageResponse
 import ch.nokillswit.users.UserRequest
+import ch.nokillswit.users.UserUpdateRequest
 import ch.nokillswit.users.UserResponse
 import ch.nokillswit.users.UserRole
 import io.ktor.client.HttpClient
@@ -116,13 +117,67 @@ class UserRoutesTest {
         val updatedEmail = uniqueEmail("upd")
         val put = client.put("/api/users/${created.id}") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "New", email = updatedEmail, password = "pw"))
+            setBody(UserUpdateRequest(name = "New", email = updatedEmail))
         }
         assertEquals(HttpStatusCode.NoContent, put.status)
 
         val read = client.get("/api/users/${created.id}").body<UserResponse>()
         assertEquals("New", read.name)
         assertEquals(updatedEmail, read.email)
+    }
+
+    @Test
+    fun `PUT users id preserves the password so login still works`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("caller")
+        TestUsers.seed(email = callerEmail, password = "pw")
+
+        val client = authedClient(callerEmail, "pw")
+        val originalPassword = "horse-battery-staple"
+        val originalEmail = uniqueEmail("pwd")
+        val created = client.post("/api/users") {
+            contentType(ContentType.Application.Json)
+            setBody(UserRequest(name = "Pat", email = originalEmail, password = originalPassword))
+        }.body<UserResponse>()
+
+        val newEmail = uniqueEmail("pwd-renamed")
+        val put = client.put("/api/users/${created.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(UserUpdateRequest(name = "Patrick", email = newEmail))
+        }
+        assertEquals(HttpStatusCode.NoContent, put.status)
+
+        val login = jsonClient().post("/api/login") {
+            contentType(ContentType.Application.Json)
+            setBody(LoginRequest(newEmail, originalPassword))
+        }
+        assertEquals(HttpStatusCode.OK, login.status)
+        assertTrue(login.body<LoginResponse>().token.isNotBlank())
+    }
+
+    @Test
+    fun `PUT users id lets admin change another user's role`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        val targetId = TestUsers.seed(
+            email = uniqueEmail("target"),
+            password = "pw",
+            role = UserRole.USER,
+        )
+
+        val client = authedClient(adminEmail, "pw")
+        val read = client.get("/api/users/$targetId").body<UserResponse>()
+        assertEquals(UserRole.USER, read.role)
+
+        val put = client.put("/api/users/$targetId") {
+            contentType(ContentType.Application.Json)
+            setBody(UserUpdateRequest(name = read.name, email = read.email, role = UserRole.ADMIN))
+        }
+        assertEquals(HttpStatusCode.NoContent, put.status)
+
+        val after = client.get("/api/users/$targetId").body<UserResponse>()
+        assertEquals(UserRole.ADMIN, after.role)
     }
 
     @Test
@@ -133,7 +188,7 @@ class UserRoutesTest {
 
         val response = authedClient(callerEmail, "pw").put("/api/users/999999") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "Ghost", email = uniqueEmail("ghost"), password = "pw"))
+            setBody(UserUpdateRequest(name = "Ghost", email = uniqueEmail("ghost")))
         }
         assertEquals(HttpStatusCode.NotFound, response.status)
     }
@@ -226,7 +281,7 @@ class UserRoutesTest {
 
         val put = client.put("/api/users/${created.id}") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "Resurrected", email = uniqueEmail("res"), password = "pw"))
+            setBody(UserUpdateRequest(name = "Resurrected", email = uniqueEmail("res")))
         }
         assertEquals(HttpStatusCode.NotFound, put.status)
     }
@@ -308,7 +363,7 @@ class UserRoutesTest {
 
         val response = client.put("/api/users/${userB.id}") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "B", email = emailA, password = "pw"))
+            setBody(UserUpdateRequest(name = "B", email = emailA))
         }
         assertEquals(HttpStatusCode.Conflict, response.status)
         assertEquals("conflict", response.body<ApiError>().error)

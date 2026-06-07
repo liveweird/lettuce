@@ -22,6 +22,13 @@ data class UserRequest(
 )
 
 @Serializable
+data class UserUpdateRequest(
+    val name: String,
+    val email: String,
+    val role: UserRole? = null,
+)
+
+@Serializable
 data class UserResponse(
     val id: UInt,
     val name: String,

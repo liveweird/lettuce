@@ -293,8 +293,10 @@ export interface paths {
             };
         };
         /**
-         * Replace a user
-         * @description Requires the caller to be the target user, or to be ADMIN.
+         * Update a user
+         * @description Updates a user's `name`, `email`, and `role`. The password cannot be
+         *     changed via this endpoint and the existing password is preserved.
+         *     Requires the caller to be the target user, or to be ADMIN.
          *     Only ADMIN may change a user's `role`; a non-ADMIN caller must either
          *     omit `role` or send the value the user already has, otherwise the request is rejected with 403.
          */
@@ -309,7 +311,7 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["UserRequest"];
+                    "application/json": components["schemas"]["UserUpdateRequest"];
                 };
             };
             responses: {
@@ -1015,6 +1017,18 @@ export interface components {
              * @description Honoured only when the caller is ADMIN. Non-ADMIN callers must omit this
              *     field or send the value the user already has, otherwise the request is
              *     rejected with 403. Omitted on create defaults to USER.
+             * @enum {string}
+             */
+            role?: "ADMIN" | "USER";
+        };
+        UserUpdateRequest: {
+            name: string;
+            /** Format: email */
+            email: string;
+            /**
+             * @description Honoured only when the caller is ADMIN. Non-ADMIN callers must omit this
+             *     field or send the value the user already has, otherwise the request is
+             *     rejected with 403. Omitting it keeps the user's current role.
              * @enum {string}
              */
             role?: "ADMIN" | "USER";

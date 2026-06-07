@@ -80,13 +80,25 @@ describe("Users page", () => {
     expect(screen.getAllByRole("button", { name: /^delete /i })).toHaveLength(2);
   });
 
-  test("non-admin does not see Delete buttons or Actions column", async () => {
+  test("admin sees an Edit link per row pointing at /users/:id/edit", async () => {
+    mockListThen(mockFetch);
+    renderUsers();
+
+    await screen.findByText("Alice");
+    const editLinks = screen.getAllByRole("link", { name: /^edit /i });
+    expect(editLinks).toHaveLength(2);
+    expect(editLinks[0]).toHaveAttribute("href", "/users/1/edit");
+    expect(editLinks[1]).toHaveAttribute("href", "/users/2/edit");
+  });
+
+  test("non-admin does not see Edit or Delete actions", async () => {
     localStorage.setItem(ROLE_KEY, "USER");
     mockListThen(mockFetch);
     renderUsers();
 
     await screen.findByText("Alice");
     expect(screen.queryByRole("button", { name: /^delete /i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^edit /i })).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/actions/i)).not.toBeInTheDocument();
   });
 

@@ -98,6 +98,23 @@ export async function createUser(req: CreateUserBody): Promise<CreateUserRespons
   return (await res.json()) as CreateUserResponse;
 }
 
+export type UpdateUserBody =
+  paths["/api/users/{id}"]["put"]["requestBody"]["content"]["application/json"];
+
+export async function getUser(id: number): Promise<CurrentUser> {
+  const res = await authedFetch(`/api/users/${id}`);
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return (await res.json()) as CurrentUser;
+}
+
+export async function updateUser(id: number, body: UpdateUserBody): Promise<void> {
+  const res = await authedFetch(`/api/users/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
 export async function deleteUser(id: number): Promise<void> {
   const res = await authedFetch(`/api/users/${id}`, { method: "DELETE" });
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));

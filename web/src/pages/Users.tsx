@@ -27,6 +27,7 @@ import {
   IconArrowDown,
   IconArrowUp,
   IconArrowsSort,
+  IconPencil,
   IconPlus,
   IconTrash,
 } from "@tabler/icons-react";
@@ -245,16 +246,29 @@ export default function Users() {
                 <Table.Td>{u.role}</Table.Td>
                 {admin && (
                   <Table.Td>
-                    <Button
-                      color="red"
-                      variant="subtle"
-                      size="xs"
-                      leftSection={<IconTrash size={14} />}
-                      onClick={() => requestDelete({ id: u.id, name: u.name, email: u.email })}
-                      aria-label={`Delete ${u.name}`}
-                    >
-                      Delete
-                    </Button>
+                    <Group gap="xs" wrap="nowrap">
+                      <Button
+                        component={RouterLink}
+                        to={`/users/${u.id}/edit`}
+                        color="blue"
+                        variant="subtle"
+                        size="xs"
+                        leftSection={<IconPencil size={14} />}
+                        aria-label={`Edit ${u.name}`}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        color="red"
+                        variant="subtle"
+                        size="xs"
+                        leftSection={<IconTrash size={14} />}
+                        onClick={() => requestDelete({ id: u.id, name: u.name, email: u.email })}
+                        aria-label={`Delete ${u.name}`}
+                      >
+                        Delete
+                      </Button>
+                    </Group>
                   </Table.Td>
                 )}
               </Table.Tr>

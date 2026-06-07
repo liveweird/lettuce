@@ -85,7 +85,7 @@ fun Application.configureUserRoutes() {
             put<Users.Id> { route ->
                 val caller = call.caller()
                 requireSelfOrAdmin(caller, route.id)
-                val req = call.receive<UserRequest>()
+                val req = call.receive<UserUpdateRequest>()
                 val existing = userService.read(route.id)
                 if (existing == null) {
                     call.respond(HttpStatusCode.NotFound)
@@ -100,7 +100,7 @@ fun Application.configureUserRoutes() {
                 val user = User(
                     name = req.name,
                     email = req.email,
-                    passwordHash = hashPassword(req.password),
+                    passwordHash = existing.passwordHash,
                     role = nextRole,
                 )
                 val updated = userService.update(route.id, user)

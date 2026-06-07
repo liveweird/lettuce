@@ -9,6 +9,7 @@ import ch.nokillswit.feedbacks.FeedbackVisibility
 import ch.nokillswit.teams.Team
 import ch.nokillswit.teams.TeamResponse
 import ch.nokillswit.users.UserRequest
+import ch.nokillswit.users.UserUpdateRequest
 import ch.nokillswit.users.UserResponse
 import ch.nokillswit.users.UserRole
 import io.ktor.client.HttpClient
@@ -123,7 +124,7 @@ class AuthorizationTest {
 
         val response = client.put("/api/users/$id") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest("Alice", email, "pw", role = UserRole.ADMIN))
+            setBody(UserUpdateRequest("Alice", email, role = UserRole.ADMIN))
         }
         assertEquals(HttpStatusCode.Forbidden, response.status)
     }
@@ -137,7 +138,7 @@ class AuthorizationTest {
 
         val response = client.put("/api/users/$id") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest("Alice", email, "pw"))
+            setBody(UserUpdateRequest("Alice", email))
         }
         assertEquals(HttpStatusCode.NoContent, response.status)
         val read = client.get("/api/users/$id").body<UserResponse>()
