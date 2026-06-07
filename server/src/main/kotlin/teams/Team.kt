@@ -25,6 +25,7 @@ data class TeamListItem(
     val name: String,
     val managerId: UInt,
     val managerName: String,
+    val managerDeleted: Boolean,
 )
 
 @Serializable

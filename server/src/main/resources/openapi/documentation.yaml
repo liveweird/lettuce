@@ -564,12 +564,15 @@ components:
 
     TeamListItem:
       type: object
-      required: [id, name, managerId, managerName]
+      required: [id, name, managerId, managerName, managerDeleted]
       properties:
         id: { type: integer, format: int64, minimum: 0 }
         name: { type: string }
         managerId: { type: integer, format: int64, minimum: 0 }
         managerName: { type: string }
+        managerDeleted:
+          type: boolean
+          description: True when the user referenced by `managerId` has been soft-deleted.
 
     TeamPage:
       type: object

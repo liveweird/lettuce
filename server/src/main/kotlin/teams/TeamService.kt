@@ -132,6 +132,7 @@ class TeamService(val database: R2dbcDatabase) {
                     Teams.name,
                     Teams.managerId,
                     UserService.Users.name,
+                    UserService.Users.markedAsDeleted,
                 )
                 .where { predicate }
                 .applyPaging(paging, SORTABLE_COLUMNS)
@@ -141,6 +142,7 @@ class TeamService(val database: R2dbcDatabase) {
                         name = row[Teams.name],
                         managerId = row[Teams.managerId].value,
                         managerName = row[UserService.Users.name],
+                        managerDeleted = row[UserService.Users.markedAsDeleted],
                     )
                 }
                 .toList()

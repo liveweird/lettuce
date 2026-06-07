@@ -166,7 +166,10 @@ export default function Teams() {
             data.items.map((t) => (
               <Table.Tr key={t.id}>
                 <Table.Td>{t.name}</Table.Td>
-                <Table.Td>{t.managerName}</Table.Td>
+                <Table.Td>
+                  {t.managerName}
+                  {t.managerDeleted ? " (deleted)" : ""}
+                </Table.Td>
               </Table.Tr>
             ))
           ) : (

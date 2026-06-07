@@ -18,8 +18,22 @@ function jsonResponse(status: number, body: unknown): Response {
   });
 }
 
-function teamsPage(items: Array<{ id: number; name: string; managerId: number; managerName: string }>, total = items.length) {
-  return jsonResponse(200, { items, page: 1, pageSize: 20, total });
+function teamsPage(
+  items: Array<{
+    id: number;
+    name: string;
+    managerId: number;
+    managerName: string;
+    managerDeleted?: boolean;
+  }>,
+  total = items.length,
+) {
+  return jsonResponse(200, {
+    items: items.map((t) => ({ managerDeleted: false, ...t })),
+    page: 1,
+    pageSize: 20,
+    total,
+  });
 }
 
 function usersPage(items: Array<{ id: number; name: string; email: string; role: "ADMIN" | "USER" }>) {
@@ -171,5 +185,16 @@ describe("Teams page", () => {
 
     await screen.findByRole("cell", { name: "Platform" });
     expect(screen.queryByRole("link", { name: /create team/i })).not.toBeInTheDocument();
+  });
+
+  test("shows '(deleted)' suffix when the manager is soft-deleted", async () => {
+    setupMocks(mockFetch, () =>
+      teamsPage([
+        { id: 99, name: "Orphan", managerId: 42, managerName: "Zed", managerDeleted: true },
+      ]),
+    );
+    renderTeams();
+
+    expect(await screen.findByRole("cell", { name: /^Zed \(deleted\)$/ })).toBeInTheDocument();
   });
 });

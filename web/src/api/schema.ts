@@ -1149,6 +1149,8 @@ export interface components {
             /** Format: int64 */
             managerId: number;
             managerName: string;
+            /** @description True when the user referenced by `managerId` has been soft-deleted. */
+            managerDeleted: boolean;
         };
         TeamPage: {
             items: components["schemas"]["TeamListItem"][];

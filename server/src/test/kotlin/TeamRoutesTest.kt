@@ -6,6 +6,7 @@ import ch.nokillswit.plugins.ApiError
 import ch.nokillswit.teams.Team
 import ch.nokillswit.teams.TeamPageResponse
 import ch.nokillswit.teams.TeamResponse
+import ch.nokillswit.users.UserRole
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.DefaultRequest
@@ -431,6 +432,41 @@ class TeamRoutesTest {
         assertEquals(3, page.items.size)
         assertTrue(page.items.all { it.managerId == managerId })
         assertTrue(page.items.all { it.managerName == "Mona" })
+        assertTrue(page.items.all { !it.managerDeleted })
+    }
+
+    @Test
+    fun `GET teams marks managers that have been soft-deleted`() = testApplication {
+        usePostgresTestcontainer()
+        val tag = UUID.randomUUID().toString().substring(0, 8)
+        val adminEmail = uniqueEmail("admin-$tag")
+        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN, name = "Admin-$tag")
+        val doomedEmail = uniqueEmail("doomed-$tag")
+        val doomedId = TestUsers.seed(email = doomedEmail, password = "pw", name = "Doomed-$tag")
+        val survivorEmail = uniqueEmail("alive-$tag")
+        val survivorId = TestUsers.seed(email = survivorEmail, password = "pw", name = "Alive-$tag")
+        val memberA = TestUsers.seed(email = uniqueEmail("m-$tag"), password = "pw")
+
+        val admin = authedClient(adminEmail, "pw")
+        admin.post("/api/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "team-doomed-$tag", managerId = doomedId, memberIds = listOf(memberA)))
+        }
+        admin.post("/api/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "team-alive-$tag", managerId = survivorId, memberIds = listOf(memberA)))
+        }
+
+        assertEquals(HttpStatusCode.NoContent, admin.delete("/api/users/$doomedId").status)
+
+        val page = admin.get("/api/teams?name=team-").body<TeamPageResponse>()
+        val itemsByName = page.items.associateBy { it.name }
+        val doomedTeam = itemsByName["team-doomed-$tag"]
+        val aliveTeam = itemsByName["team-alive-$tag"]
+        assertEquals("Doomed-$tag", doomedTeam?.managerName)
+        assertEquals(true, doomedTeam?.managerDeleted)
+        assertEquals("Alive-$tag", aliveTeam?.managerName)
+        assertEquals(false, aliveTeam?.managerDeleted)
     }
 
     @Test
