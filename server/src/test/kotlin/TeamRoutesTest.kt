@@ -569,4 +569,73 @@ class TeamRoutesTest {
         val response = jsonClient().get("/api/teams")
         assertEquals(HttpStatusCode.Unauthorized, response.status)
     }
+
+    @Test
+    fun `DELETE teams id hides the team from listings`() = testApplication {
+        usePostgresTestcontainer()
+        val managerEmail = uniqueEmail("mgr")
+        val managerId = TestUsers.seed(email = managerEmail, password = "pw")
+        val memberA = TestUsers.seed(email = uniqueEmail("a"), password = "pw")
+        val client = authedClient(managerEmail, "pw")
+        val tag = UUID.randomUUID().toString().substring(0, 8)
+        val keeper = client.post("/api/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "keep-$tag", managerId = managerId, memberIds = listOf(memberA)))
+        }.body<TeamResponse>()
+        val doomed = client.post("/api/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "drop-$tag", managerId = managerId, memberIds = listOf(memberA)))
+        }.body<TeamResponse>()
+
+        val before = client.get("/api/teams?name=$tag").body<TeamPageResponse>()
+        assertEquals(2L, before.total)
+
+        assertEquals(HttpStatusCode.NoContent, client.delete("/api/teams/${doomed.id}").status)
+
+        val after = client.get("/api/teams?name=$tag").body<TeamPageResponse>()
+        assertEquals(1L, after.total)
+        assertEquals(keeper.id, after.items.single().id)
+
+        assertEquals(HttpStatusCode.NotFound, client.get("/api/teams/${doomed.id}").status)
+    }
+
+    @Test
+    fun `PUT teams id on a soft-deleted team returns 404`() = testApplication {
+        usePostgresTestcontainer()
+        val managerEmail = uniqueEmail("mgr")
+        val managerId = TestUsers.seed(email = managerEmail, password = "pw")
+        val memberA = TestUsers.seed(email = uniqueEmail("a"), password = "pw")
+        val client = authedClient(managerEmail, "pw")
+        val team = client.post("/api/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "Ephemeral", managerId = managerId, memberIds = listOf(memberA)))
+        }.body<TeamResponse>()
+
+        assertEquals(HttpStatusCode.NoContent, client.delete("/api/teams/${team.id}").status)
+
+        val put = client.put("/api/teams/${team.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "Resurrected", managerId = managerId, memberIds = listOf(memberA)))
+        }
+        assertEquals(HttpStatusCode.NotFound, put.status)
+    }
+
+    @Test
+    fun `Member sub-resource on a soft-deleted team returns 404`() = testApplication {
+        usePostgresTestcontainer()
+        val managerEmail = uniqueEmail("mgr")
+        val managerId = TestUsers.seed(email = managerEmail, password = "pw")
+        val memberA = TestUsers.seed(email = uniqueEmail("a"), password = "pw")
+        val memberB = TestUsers.seed(email = uniqueEmail("b"), password = "pw")
+        val client = authedClient(managerEmail, "pw")
+        val team = client.post("/api/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "Ghost", managerId = managerId, memberIds = listOf(memberA)))
+        }.body<TeamResponse>()
+
+        assertEquals(HttpStatusCode.NoContent, client.delete("/api/teams/${team.id}").status)
+
+        val addAfter = client.put("/api/teams/${team.id}/members/$memberB")
+        assertEquals(HttpStatusCode.NotFound, addAfter.status)
+    }
 }

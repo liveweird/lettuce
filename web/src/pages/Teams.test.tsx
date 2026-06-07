@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -196,5 +196,100 @@ describe("Teams page", () => {
     renderTeams();
 
     expect(await screen.findByRole("cell", { name: /^Zed \(deleted\)$/ })).toBeInTheDocument();
+  });
+
+  test("admin sees a Delete button in each row", async () => {
+    setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
+    renderTeams();
+
+    await screen.findByRole("cell", { name: "Platform" });
+    expect(screen.getAllByRole("button", { name: /^delete /i })).toHaveLength(2);
+  });
+
+  test("non-admin does not see Delete buttons", async () => {
+    localStorage.setItem(ROLE_KEY, "USER");
+    setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
+    renderTeams();
+
+    await screen.findByRole("cell", { name: "Platform" });
+    expect(screen.queryByRole("button", { name: /^delete /i })).not.toBeInTheDocument();
+  });
+
+  test("Cancel in the confirmation modal closes it without calling DELETE", async () => {
+    setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
+    const user = userEvent.setup();
+    renderTeams();
+
+    await user.click(await screen.findByRole("button", { name: /delete mobile/i }));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /cancel/i }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    const deleteCall = mockFetch.mock.calls.find(
+      ([, init]) => (init as RequestInit | undefined)?.method === "DELETE",
+    );
+    expect(deleteCall).toBeUndefined();
+  });
+
+  test("confirming triggers DELETE and refetches the list", async () => {
+    let teamGetCount = 0;
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      if (url.startsWith("/api/users?")) {
+        return Promise.resolve(usersPage(SEED_MANAGERS));
+      }
+      if (method === "DELETE" && /^\/api\/teams\/\d+$/.test(url)) {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      if (url.startsWith("/api/teams?")) {
+        teamGetCount++;
+        const items = teamGetCount === 1 ? SEED_TEAMS : [SEED_TEAMS[0]];
+        return Promise.resolve(teamsPage(items));
+      }
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    const user = userEvent.setup();
+    renderTeams();
+
+    await user.click(await screen.findByRole("button", { name: /delete mobile/i }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
+
+    await waitFor(() => expect(screen.queryByRole("cell", { name: "Mobile" })).not.toBeInTheDocument());
+
+    const deleteCall = mockFetch.mock.calls.find(
+      ([url, init]) =>
+        (init as RequestInit | undefined)?.method === "DELETE" &&
+        typeof url === "string" &&
+        url === "/api/teams/2",
+    );
+    expect(deleteCall).toBeDefined();
+    expect(teamGetCount).toBeGreaterThanOrEqual(2);
+  });
+
+  test("server error surfaces an alert and keeps the modal open", async () => {
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      if (url.startsWith("/api/users?")) {
+        return Promise.resolve(usersPage(SEED_MANAGERS));
+      }
+      if (method === "DELETE" && /^\/api\/teams\/\d+$/.test(url)) {
+        return Promise.resolve(jsonResponse(500, { error: "internal", message: "boom" }));
+      }
+      if (url.startsWith("/api/teams?")) {
+        return Promise.resolve(teamsPage(SEED_TEAMS));
+      }
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    const user = userEvent.setup();
+    renderTeams();
+
+    await user.click(await screen.findByRole("button", { name: /delete mobile/i }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
+
+    expect(await within(dialog).findByText(/failed to delete team/i)).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 });

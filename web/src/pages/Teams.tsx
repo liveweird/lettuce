@@ -6,6 +6,7 @@ import {
   Center,
   Group,
   Loader,
+  Modal,
   Pagination,
   Select,
   Stack,
@@ -15,10 +16,21 @@ import {
   Title,
   UnstyledButton,
 } from "@mantine/core";
-import { useDebouncedValue } from "@mantine/hooks";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { IconArrowDown, IconArrowUp, IconArrowsSort, IconPlus } from "@tabler/icons-react";
-import { isAdmin, listTeams, listUsers } from "../api/client";
+import { useDebouncedValue, useDisclosure } from "@mantine/hooks";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import {
+  IconArrowDown,
+  IconArrowUp,
+  IconArrowsSort,
+  IconPlus,
+  IconTrash,
+} from "@tabler/icons-react";
+import { deleteTeam, isAdmin, listTeams, listUsers } from "../api/client";
 
 const PAGE_SIZE = 20;
 // TODO: switch to async search when user count exceeds 100.
@@ -26,6 +38,8 @@ const MANAGER_PICKER_PAGE_SIZE = 100;
 
 type SortField = "name";
 type SortDir = "asc" | "desc";
+
+type TeamRow = { id: number; name: string; managerName: string };
 
 function SortHeader({
   field,
@@ -59,6 +73,11 @@ export default function Teams() {
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [nameFilter, setNameFilter] = useState("");
   const [managerIdFilter, setManagerIdFilter] = useState<number | null>(null);
+  const [target, setTarget] = useState<TeamRow | null>(null);
+  const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false);
+
+  const queryClient = useQueryClient();
+  const admin = isAdmin();
 
   const [debouncedName] = useDebouncedValue(nameFilter, 300);
 
@@ -96,6 +115,15 @@ export default function Teams() {
     [managerPool],
   );
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => deleteTeam(id),
+    onSuccess: async () => {
+      closeConfirm();
+      setTarget(null);
+      await queryClient.invalidateQueries({ queryKey: ["teams"] });
+    },
+  });
+
   function toggleSort(field: SortField) {
     if (field === sortField) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -105,8 +133,26 @@ export default function Teams() {
     }
   }
 
+  function requestDelete(row: TeamRow) {
+    setTarget(row);
+    deleteMutation.reset();
+    openConfirm();
+  }
+
+  function cancelDelete() {
+    if (deleteMutation.isPending) return;
+    closeConfirm();
+    setTarget(null);
+    deleteMutation.reset();
+  }
+
+  function confirmDelete() {
+    if (target) deleteMutation.mutate(target.id);
+  }
+
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const columnCount = admin ? 3 : 2;
 
   return (
     <Stack gap="md">
@@ -151,12 +197,13 @@ export default function Teams() {
               />
             </Table.Th>
             <Table.Th>Manager</Table.Th>
+            {admin && <Table.Th aria-label="Actions" style={{ width: 1 }} />}
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
           {isLoading && !data ? (
             <Table.Tr>
-              <Table.Td colSpan={2}>
+              <Table.Td colSpan={columnCount}>
                 <Center py="md">
                   <Loader size="sm" />
                 </Center>
@@ -170,11 +217,27 @@ export default function Teams() {
                   {t.managerName}
                   {t.managerDeleted ? " (deleted)" : ""}
                 </Table.Td>
+                {admin && (
+                  <Table.Td>
+                    <Button
+                      color="red"
+                      variant="subtle"
+                      size="xs"
+                      leftSection={<IconTrash size={14} />}
+                      onClick={() =>
+                        requestDelete({ id: t.id, name: t.name, managerName: t.managerName })
+                      }
+                      aria-label={`Delete ${t.name}`}
+                    >
+                      Delete
+                    </Button>
+                  </Table.Td>
+                )}
               </Table.Tr>
             ))
           ) : (
             <Table.Tr>
-              <Table.Td colSpan={2}>
+              <Table.Td colSpan={columnCount}>
                 <Text c="dimmed" ta="center">
                   No teams
                 </Text>
@@ -197,7 +260,7 @@ export default function Teams() {
         />
       </Group>
 
-      {isAdmin() && (
+      {admin && (
         <Group justify="flex-end">
           <Button
             component={RouterLink}
@@ -208,6 +271,37 @@ export default function Teams() {
           </Button>
         </Group>
       )}
+
+      <Modal
+        opened={confirmOpen}
+        onClose={cancelDelete}
+        title="Delete team?"
+        centered
+      >
+        <Stack gap="md">
+          {target && (
+            <Text>
+              Delete team <strong>{target.name}</strong> (managed by {target.managerName})? This
+              cannot be undone.
+            </Text>
+          )}
+          {deleteMutation.isError && (
+            <Alert color="red" title="Failed to delete team">
+              {deleteMutation.error instanceof Error
+                ? deleteMutation.error.message
+                : "Unknown error"}
+            </Alert>
+          )}
+          <Group justify="flex-end" gap="sm">
+            <Button variant="default" onClick={cancelDelete} disabled={deleteMutation.isPending}>
+              Cancel
+            </Button>
+            <Button color="red" onClick={confirmDelete} loading={deleteMutation.isPending}>
+              Delete
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Stack>
   );
 }

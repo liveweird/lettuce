@@ -157,6 +157,11 @@ export async function createTeam(req: CreateTeamBody): Promise<CreateTeamRespons
   return (await res.json()) as CreateTeamResponse;
 }
 
+export async function deleteTeam(id: number): Promise<void> {
+  const res = await authedFetch(`/api/teams/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
 export async function listTeams(q: TeamListQuery): Promise<TeamPage> {
   const params = new URLSearchParams();
   params.set("page", String(q.page));

@@ -35,6 +35,7 @@ class TeamService(val database: R2dbcDatabase) {
     object Teams : UIntIdTable() {
         val name = varchar("name", length = 100)
         val managerId = reference("manager_id", UserService.Users)
+        val markedAsDeleted = bool("marked_as_deleted").default(false)
     }
 
     object TeamMembers : Table("team_members") {
@@ -56,7 +57,7 @@ class TeamService(val database: R2dbcDatabase) {
 
     suspend fun read(id: UInt): Team? = suspendTransaction(database) {
         val row = Teams.selectAll()
-            .where { Teams.id eq id }
+            .where { (Teams.id eq id) and active() }
             .singleOrNull()
             ?: return@suspendTransaction null
         val memberIds = TeamMembers.selectAll()
@@ -82,8 +83,10 @@ class TeamService(val database: R2dbcDatabase) {
         }
     }
 
-    suspend fun delete(id: UInt) {
-        suspendTransaction(database) { Teams.deleteWhere { Teams.id eq id } }
+    suspend fun delete(id: UInt): Int = suspendTransaction(database) {
+        Teams.update({ (Teams.id eq id) and (Teams.markedAsDeleted eq false) }) {
+            it[markedAsDeleted] = true
+        }
     }
 
     suspend fun addMember(teamId: UInt, userId: UInt) {
@@ -123,7 +126,7 @@ class TeamService(val database: R2dbcDatabase) {
 
     suspend fun list(filter: TeamListFilter, paging: PageRequest): TeamListResult =
         suspendTransaction(database) {
-            val predicate: Op<Boolean> = buildPredicate(filter)
+            val predicate: Op<Boolean> = buildPredicate(filter) and active()
             val join = Teams innerJoin UserService.Users
             val total = join.selectAll().where { predicate }.count()
             val rows = join
@@ -148,6 +151,8 @@ class TeamService(val database: R2dbcDatabase) {
                 .toList()
             TeamListResult(items = rows, total = total)
         }
+
+    private fun active(): Op<Boolean> = Teams.markedAsDeleted eq false
 
     private fun buildPredicate(filter: TeamListFilter): Op<Boolean> {
         var op: Op<Boolean> = Op.TRUE
