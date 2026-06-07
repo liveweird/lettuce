@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
+  Button,
   Center,
   Group,
   Loader,
@@ -15,8 +17,8 @@ import {
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { IconArrowDown, IconArrowUp, IconArrowsSort } from "@tabler/icons-react";
-import { listTeams, listUsers } from "../api/client";
+import { IconArrowDown, IconArrowUp, IconArrowsSort, IconPlus } from "@tabler/icons-react";
+import { isAdmin, listTeams, listUsers } from "../api/client";
 
 const PAGE_SIZE = 20;
 // TODO: switch to async search when user count exceeds 100.
@@ -191,6 +193,18 @@ export default function Teams() {
           withEdges
         />
       </Group>
+
+      {isAdmin() && (
+        <Group justify="flex-end">
+          <Button
+            component={RouterLink}
+            to="/teams/new"
+            leftSection={<IconPlus size={16} />}
+          >
+            Create team
+          </Button>
+        </Group>
+      )}
     </Stack>
   );
 }

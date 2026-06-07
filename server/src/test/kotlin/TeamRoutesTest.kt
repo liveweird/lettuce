@@ -19,6 +19,8 @@ import io.ktor.client.request.request
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
@@ -93,7 +95,7 @@ class TeamRoutesTest {
     }
 
     @Test
-    fun `empty member list is rejected`() = testApplication {
+    fun `POST teams accepts an empty member list`() = testApplication {
         usePostgresTestcontainer()
         val email = uniqueEmail("mgr")
         val managerId = TestUsers.seed(email = email, password = "pw")
@@ -103,7 +105,34 @@ class TeamRoutesTest {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "Empty", managerId = managerId, memberIds = emptyList()))
         }
-        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertEquals(HttpStatusCode.Created, response.status)
+        val created = response.body<TeamResponse>()
+        assertTrue(created.memberIds.isEmpty())
+
+        val read = client.get("/api/teams/${created.id}").body<TeamResponse>()
+        assertTrue(read.memberIds.isEmpty())
+    }
+
+    @Test
+    fun `POST teams with only name and managerId succeeds`() = testApplication {
+        usePostgresTestcontainer()
+        val email = uniqueEmail("mgr")
+        val managerId = TestUsers.seed(email = email, password = "pw")
+
+        val client = authedClient(email, "pw")
+        // Body deliberately omits memberIds to exercise the Kotlin default.
+        val response = client.post("/api/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject {
+                put("name", "Minimal")
+                put("managerId", managerId.toLong())
+            })
+        }
+        assertEquals(HttpStatusCode.Created, response.status)
+        val created = response.body<TeamResponse>()
+        assertEquals("Minimal", created.name)
+        assertEquals(managerId, created.managerId)
+        assertTrue(created.memberIds.isEmpty())
     }
 
     @Test
@@ -133,7 +162,9 @@ class TeamRoutesTest {
 
         client.delete("/api/teams/${team.id}/members/$memberB")
         val lastRemoveResponse = client.delete("/api/teams/${team.id}/members/$memberC")
-        assertEquals(HttpStatusCode.BadRequest, lastRemoveResponse.status)
+        assertEquals(HttpStatusCode.NoContent, lastRemoveResponse.status)
+        val afterAll = client.get("/api/teams/${team.id}").body<TeamResponse>()
+        assertTrue(afterAll.memberIds.isEmpty())
     }
 
     @Test
@@ -182,7 +213,7 @@ class TeamRoutesTest {
     }
 
     @Test
-    fun `update with empty members is rejected`() = testApplication {
+    fun `PUT teams accepts an empty member list`() = testApplication {
         usePostgresTestcontainer()
         val ownerEmail = uniqueEmail("owner")
         val managerId = TestUsers.seed(email = ownerEmail, password = "pw")
@@ -198,7 +229,10 @@ class TeamRoutesTest {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "T", managerId = managerId, memberIds = emptyList()))
         }
-        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertEquals(HttpStatusCode.NoContent, response.status)
+
+        val after = client.get("/api/teams/${team.id}").body<TeamResponse>()
+        assertTrue(after.memberIds.isEmpty())
     }
 
     @Test

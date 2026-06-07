@@ -1,0 +1,147 @@
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { render, screen, waitFor } from "@testing-library/react";
+import { MantineProvider } from "@mantine/core";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import CreateTeam from "./CreateTeam";
+
+const TOKEN_KEY = "lettuce.auth.token";
+const ROLE_KEY = "lettuce.auth.role";
+
+function PathProbe() {
+  const location = useLocation();
+  return <div data-testid="probe">{location.pathname}</div>;
+}
+
+function renderCreateTeam() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <MantineProvider>
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/teams/new"]}>
+          <Routes>
+            <Route path="/teams/new" element={<CreateTeam />} />
+            <Route path="/teams" element={<PathProbe />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
+    </MantineProvider>,
+  );
+}
+
+function jsonResponse(status: number, body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+const MANAGER_POOL = [
+  { id: 10, name: "Alice Manager", email: "alice@example.com", role: "ADMIN" as const },
+  { id: 11, name: "Bob Manager", email: "bob@example.com", role: "USER" as const },
+];
+
+function setupMocks(mockFetch: ReturnType<typeof vi.fn>) {
+  mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+    const method = init?.method ?? "GET";
+    if (method === "GET" && url.startsWith("/api/users?")) {
+      return Promise.resolve(
+        jsonResponse(200, {
+          items: MANAGER_POOL,
+          page: 1,
+          pageSize: 100,
+          total: MANAGER_POOL.length,
+        }),
+      );
+    }
+    return Promise.resolve(jsonResponse(500, {}));
+  });
+}
+
+describe("CreateTeam page", () => {
+  let mockFetch: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
+    localStorage.setItem(TOKEN_KEY, "fake-token");
+    localStorage.setItem(ROLE_KEY, "ADMIN");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  test("admin sees the form with name + manager fields and a prefetched manager pool", async () => {
+    setupMocks(mockFetch);
+    renderCreateTeam();
+
+    expect(await screen.findByRole("heading", { name: /create team/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/name/i)).toBeInTheDocument();
+    const managerInput = screen.getByLabelText(/manager/i, { selector: "input" });
+    expect(managerInput).toBeInTheDocument();
+
+    // Manager picker enables once the user pool prefetch lands.
+    await waitFor(() => expect(managerInput).not.toBeDisabled());
+
+    // The pool fetch must hit /api/users with pageSize=100.
+    const userCall = mockFetch.mock.calls.find(
+      ([url]) => typeof url === "string" && url.startsWith("/api/users?") && url.includes("pageSize=100"),
+    );
+    expect(userCall).toBeDefined();
+  });
+
+  test("client-side validation blocks an empty submission (both fields required)", async () => {
+    setupMocks(mockFetch);
+    const user = userEvent.setup();
+    renderCreateTeam();
+
+    await waitFor(() => {
+      const sel = screen.getByLabelText(/manager/i, { selector: "input" }) as HTMLInputElement;
+      expect(sel).not.toBeDisabled();
+    });
+
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+
+    expect(await screen.findByText(/name must be 1–100 characters/i)).toBeInTheDocument();
+    expect(screen.getByText(/manager is required/i)).toBeInTheDocument();
+
+    const postCall = mockFetch.mock.calls.find(
+      ([url, init]) => init?.method === "POST" && url === "/api/teams",
+    );
+    expect(postCall).toBeUndefined();
+    expect(screen.queryByTestId("probe")).not.toBeInTheDocument();
+  });
+
+  test("validation still blocks when only the name is filled (manager required)", async () => {
+    setupMocks(mockFetch);
+    const user = userEvent.setup();
+    renderCreateTeam();
+
+    await waitFor(() => {
+      const sel = screen.getByLabelText(/manager/i, { selector: "input" }) as HTMLInputElement;
+      expect(sel).not.toBeDisabled();
+    });
+
+    await user.type(screen.getByLabelText(/name/i), "Platform");
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+
+    expect(await screen.findByText(/manager is required/i)).toBeInTheDocument();
+    expect(screen.queryByText(/name must be/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("probe")).not.toBeInTheDocument();
+    expect(
+      mockFetch.mock.calls.find(([url, init]) => init?.method === "POST" && url === "/api/teams"),
+    ).toBeUndefined();
+  });
+
+  test("non-admin is redirected to /teams without fetching", () => {
+    localStorage.setItem(ROLE_KEY, "USER");
+    renderCreateTeam();
+    expect(screen.getByTestId("probe")).toHaveTextContent("/teams");
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+});

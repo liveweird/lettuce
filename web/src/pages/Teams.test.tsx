@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Teams from "./Teams";
 
 const TOKEN_KEY = "lettuce.auth.token";
+const ROLE_KEY = "lettuce.auth.role";
 
 type FetchMock = ReturnType<typeof vi.fn>;
 
@@ -72,6 +73,7 @@ describe("Teams page", () => {
     mockFetch = vi.fn();
     vi.stubGlobal("fetch", mockFetch);
     localStorage.setItem(TOKEN_KEY, "fake-token");
+    localStorage.setItem(ROLE_KEY, "ADMIN");
   });
 
   afterEach(() => {
@@ -151,5 +153,23 @@ describe("Teams page", () => {
     renderTeams();
 
     expect(await screen.findByText(/no teams/i)).toBeInTheDocument();
+  });
+
+  test("admin sees a 'Create team' link below the table pointing at /teams/new", async () => {
+    setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
+    renderTeams();
+
+    await screen.findByRole("cell", { name: "Platform" });
+    const link = screen.getByRole("link", { name: /create team/i });
+    expect(link).toHaveAttribute("href", "/teams/new");
+  });
+
+  test("non-admin does not see a 'Create team' link", async () => {
+    localStorage.setItem(ROLE_KEY, "USER");
+    setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
+    renderTeams();
+
+    await screen.findByRole("cell", { name: "Platform" });
+    expect(screen.queryByRole("link", { name: /create team/i })).not.toBeInTheDocument();
   });
 });

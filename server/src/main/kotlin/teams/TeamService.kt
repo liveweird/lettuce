@@ -115,9 +115,6 @@ class TeamService(val database: R2dbcDatabase) {
                 .map { it[TeamMembers.userId].value }
                 .toList()
             if (userId !in currentMembers) return@suspendTransaction
-            if (currentMembers.size == 1) {
-                throw BadRequestException("Team must have at least one standard member")
-            }
             TeamMembers.deleteWhere {
                 (TeamMembers.teamId eq teamId) and (TeamMembers.userId eq userId)
             }
@@ -170,9 +167,6 @@ class TeamService(val database: R2dbcDatabase) {
     }
 
     private fun validateMembership(team: Team) {
-        if (team.memberIds.isEmpty()) {
-            throw BadRequestException("Team must have at least one standard member")
-        }
         if (team.memberIds.distinct().size != team.memberIds.size) {
             throw BadRequestException("Duplicate memberIds")
         }

@@ -1128,7 +1128,11 @@ export interface components {
             name: string;
             /** Format: int64 */
             managerId: number;
-            memberIds: number[];
+            /**
+             * @description Defaults to an empty list when omitted. Zero-member teams are allowed;
+             *     members can be added later via the `/api/teams/{id}/members/{userId}` sub-resource.
+             */
+            memberIds?: number[];
         };
         TeamResponse: {
             /** Format: int64 */

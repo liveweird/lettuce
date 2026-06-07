@@ -263,7 +263,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TeamResponse'
-        '400': { description: Validation error (e.g. manager in member list, duplicate members, empty member list) }
+        '400': { description: Validation error (e.g. manager in member list, duplicate members) }
         '401': { description: Missing or invalid token }
         '403': { description: Caller attempted to set `managerId` to another user without being ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
 
@@ -540,12 +540,15 @@ components:
 
     TeamRequest:
       type: object
-      required: [name, managerId, memberIds]
+      required: [name, managerId]
       properties:
         name: { type: string }
         managerId: { type: integer, format: int64, minimum: 0 }
         memberIds:
           type: array
+          description: |
+            Defaults to an empty list when omitted. Zero-member teams are allowed;
+            members can be added later via the `/api/teams/{id}/members/{userId}` sub-resource.
           items: { type: integer, format: int64, minimum: 0 }
 
     TeamResponse:

@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 data class Team(
     val name: String,
     val managerId: UInt,
-    val memberIds: List<UInt>,
+    val memberIds: List<UInt> = emptyList(),
 )
 
 @Serializable

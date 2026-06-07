@@ -37,6 +37,7 @@ const Feedback = lazy(() => import("./pages/Feedback"));
 const Login = lazy(() => import("./pages/Login"));
 const CreateUser = lazy(() => import("./pages/CreateUser"));
 const EditUser = lazy(() => import("./pages/EditUser"));
+const CreateTeam = lazy(() => import("./pages/CreateTeam"));
 const Teams = lazy(() => import("./pages/Teams"));
 const Users = lazy(() => import("./pages/Users"));
 
@@ -172,6 +173,7 @@ export default function App() {
             <Route path="users/new" element={<CreateUser />} />
             <Route path="users/:id/edit" element={<EditUser />} />
             <Route path="teams" element={<Teams />} />
+            <Route path="teams/new" element={<CreateTeam />} />
             <Route path="feedback" element={<Feedback />} />
           </Route>
         </Route>

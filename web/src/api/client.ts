@@ -143,6 +143,20 @@ export type TeamListQuery = {
   managerId?: number;
 };
 
+export type CreateTeamBody =
+  paths["/api/teams"]["post"]["requestBody"]["content"]["application/json"];
+export type CreateTeamResponse =
+  paths["/api/teams"]["post"]["responses"]["201"]["content"]["application/json"];
+
+export async function createTeam(req: CreateTeamBody): Promise<CreateTeamResponse> {
+  const res = await authedFetch("/api/teams", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return (await res.json()) as CreateTeamResponse;
+}
+
 export async function listTeams(q: TeamListQuery): Promise<TeamPage> {
   const params = new URLSearchParams();
   params.set("page", String(q.page));
