@@ -48,10 +48,12 @@ type SortDir = "asc" | "desc";
 
 type UserRow = { id: number; name: string; email: string };
 
-const ROLE_OPTIONS = [
-  { value: "ADMIN", label: "Admin" },
-  { value: "USER", label: "User" },
-];
+const ROLE_LABEL: Record<UserRole, string> = { ADMIN: "Admin", USER: "User" };
+
+const ROLE_OPTIONS = (Object.keys(ROLE_LABEL) as UserRole[]).map((value) => ({
+  value,
+  label: ROLE_LABEL[value],
+}));
 
 function SortHeader({
   field,
@@ -243,7 +245,7 @@ export default function Users() {
               <Table.Tr key={u.id}>
                 <Table.Td>{u.name}</Table.Td>
                 <Table.Td>{u.email}</Table.Td>
-                <Table.Td>{u.role}</Table.Td>
+                <Table.Td>{ROLE_LABEL[u.role]}</Table.Td>
                 {admin && (
                   <Table.Td>
                     <Group gap="xs" wrap="nowrap">
