@@ -49,7 +49,6 @@ type SortDir = "asc" | "desc";
 type UserRow = { id: number; name: string; email: string };
 
 const ROLE_OPTIONS = [
-  { value: "", label: "Any" },
   { value: "ADMIN", label: "Admin" },
   { value: "USER", label: "User" },
 ];
@@ -86,7 +85,7 @@ export default function Users() {
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [nameFilter, setNameFilter] = useState("");
   const [emailFilter, setEmailFilter] = useState("");
-  const [roleFilter, setRoleFilter] = useState<UserRole | "">("");
+  const [roleFilter, setRoleFilter] = useState<UserRole | null>(null);
   const [target, setTarget] = useState<UserRow | null>(null);
   const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false);
 
@@ -112,7 +111,7 @@ export default function Users() {
         sort: sortParam,
         name: debouncedName || undefined,
         email: debouncedEmail || undefined,
-        role: roleFilter || undefined,
+        role: roleFilter ?? undefined,
       }),
     placeholderData: keepPreviousData,
   });
@@ -183,10 +182,11 @@ export default function Users() {
         />
         <Select
           label="Role"
+          placeholder="Any"
           data={ROLE_OPTIONS}
           value={roleFilter}
-          onChange={(v) => setRoleFilter((v ?? "") as UserRole | "")}
-          allowDeselect={false}
+          onChange={(v) => setRoleFilter((v as UserRole | null) ?? null)}
+          clearable
         />
       </Group>
 
