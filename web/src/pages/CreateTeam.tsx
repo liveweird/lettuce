@@ -3,6 +3,7 @@ import { Link as RouterLink, Navigate, useNavigate } from "react-router-dom";
 import {
   Alert,
   Button,
+  CloseButton,
   Container,
   Group,
   Paper,
@@ -93,6 +94,18 @@ export default function CreateTeam() {
               label="Name"
               autoFocus
               maxLength={100}
+              rightSection={
+                form.values.name ? (
+                  <CloseButton
+                    size="sm"
+                    aria-label="Clear name"
+                    tabIndex={-1}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => form.setFieldValue("name", "")}
+                  />
+                ) : null
+              }
+              rightSectionPointerEvents="auto"
               {...form.getInputProps("name")}
             />
             <Select

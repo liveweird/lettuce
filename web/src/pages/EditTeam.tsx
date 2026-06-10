@@ -9,6 +9,7 @@ import {
   Alert,
   Button,
   Center,
+  CloseButton,
   Container,
   Group,
   Loader,
@@ -154,6 +155,18 @@ export default function EditTeam() {
                   label="Name"
                   autoFocus
                   maxLength={100}
+                  rightSection={
+                    form.values.name ? (
+                      <CloseButton
+                        size="sm"
+                        aria-label="Clear name"
+                        tabIndex={-1}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => form.setFieldValue("name", "")}
+                      />
+                    ) : null
+                  }
+                  rightSectionPointerEvents="auto"
                   {...form.getInputProps("name")}
                 />
                 <Select

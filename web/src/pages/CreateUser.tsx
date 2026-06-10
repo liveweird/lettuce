@@ -3,6 +3,7 @@ import { Link as RouterLink, Navigate, useNavigate } from "react-router-dom";
 import {
   Alert,
   Button,
+  CloseButton,
   Container,
   Group,
   Paper,
@@ -82,6 +83,18 @@ export default function CreateUser() {
               label="Name"
               autoFocus
               maxLength={50}
+              rightSection={
+                form.values.name ? (
+                  <CloseButton
+                    size="sm"
+                    aria-label="Clear name"
+                    tabIndex={-1}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => form.setFieldValue("name", "")}
+                  />
+                ) : null
+              }
+              rightSectionPointerEvents="auto"
               {...form.getInputProps("name")}
             />
             <TextInput
@@ -89,6 +102,18 @@ export default function CreateUser() {
               type="email"
               autoComplete="email"
               maxLength={254}
+              rightSection={
+                form.values.email ? (
+                  <CloseButton
+                    size="sm"
+                    aria-label="Clear email"
+                    tabIndex={-1}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => form.setFieldValue("email", "")}
+                  />
+                ) : null
+              }
+              rightSectionPointerEvents="auto"
               {...form.getInputProps("email")}
             />
             <Select

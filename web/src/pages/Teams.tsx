@@ -4,6 +4,7 @@ import {
   Alert,
   Button,
   Center,
+  CloseButton,
   Group,
   Loader,
   Modal,
@@ -166,6 +167,18 @@ export default function Teams() {
           placeholder="contains…"
           value={nameFilter}
           onChange={(e) => setNameFilter(e.currentTarget.value)}
+          rightSection={
+            nameFilter ? (
+              <CloseButton
+                size="sm"
+                aria-label="Clear name filter"
+                tabIndex={-1}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setNameFilter("")}
+              />
+            ) : null
+          }
+          rightSectionPointerEvents="auto"
         />
         <Select
           label="Manager"

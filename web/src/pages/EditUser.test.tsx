@@ -63,9 +63,9 @@ describe("EditUser page", () => {
     const user = userEvent.setup();
     renderEditUser(7);
 
-    const nameInput = (await screen.findByLabelText(/name/i)) as HTMLInputElement;
+    const nameInput = (await screen.findByLabelText("Name")) as HTMLInputElement;
     await waitFor(() => expect(nameInput.value).toBe("Alice"));
-    expect((screen.getByLabelText(/email/i) as HTMLInputElement).value).toBe(
+    expect((screen.getByLabelText("Email") as HTMLInputElement).value).toBe(
       "alice@example.com",
     );
 
@@ -102,7 +102,7 @@ describe("EditUser page", () => {
     renderEditUser(7);
 
     await screen.findByDisplayValue("Alice");
-    const emailInput = screen.getByLabelText(/email/i) as HTMLInputElement;
+    const emailInput = screen.getByLabelText("Email") as HTMLInputElement;
     await user.clear(emailInput);
     await user.type(emailInput, "taken@example.com");
     await user.click(screen.getByRole("button", { name: /^save$/i }));
@@ -154,8 +154,8 @@ describe("EditUser page", () => {
     const user = userEvent.setup();
     renderEditUser(7);
 
-    const nameInput = (await screen.findByLabelText(/name/i)) as HTMLInputElement;
-    const emailInput = screen.getByLabelText(/email/i) as HTMLInputElement;
+    const nameInput = (await screen.findByLabelText("Name")) as HTMLInputElement;
+    const emailInput = screen.getByLabelText("Email") as HTMLInputElement;
     await user.clear(nameInput);
     await user.clear(emailInput);
     await user.click(screen.getByRole("button", { name: /^save$/i }));

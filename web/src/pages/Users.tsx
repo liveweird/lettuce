@@ -4,6 +4,7 @@ import {
   Alert,
   Button,
   Center,
+  CloseButton,
   Group,
   Loader,
   Modal,
@@ -176,12 +177,36 @@ export default function Users() {
           placeholder="contains…"
           value={nameFilter}
           onChange={(e) => setNameFilter(e.currentTarget.value)}
+          rightSection={
+            nameFilter ? (
+              <CloseButton
+                size="sm"
+                aria-label="Clear name filter"
+                tabIndex={-1}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setNameFilter("")}
+              />
+            ) : null
+          }
+          rightSectionPointerEvents="auto"
         />
         <TextInput
           label="Email"
           placeholder="contains…"
           value={emailFilter}
           onChange={(e) => setEmailFilter(e.currentTarget.value)}
+          rightSection={
+            emailFilter ? (
+              <CloseButton
+                size="sm"
+                aria-label="Clear email filter"
+                tabIndex={-1}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setEmailFilter("")}
+              />
+            ) : null
+          }
+          rightSectionPointerEvents="auto"
         />
         <Select
           label="Role"
