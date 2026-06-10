@@ -27,6 +27,7 @@ import {
   IconArrowDown,
   IconArrowUp,
   IconArrowsSort,
+  IconPencil,
   IconPlus,
   IconTrash,
 } from "@tabler/icons-react";
@@ -220,18 +221,31 @@ export default function Teams() {
                 </Table.Td>
                 {admin && (
                   <Table.Td>
-                    <Button
-                      color="red"
-                      variant="subtle"
-                      size="xs"
-                      leftSection={<IconTrash size={14} />}
-                      onClick={() =>
-                        requestDelete({ id: t.id, name: t.name, managerName: t.managerName })
-                      }
-                      aria-label={`Delete ${t.name}`}
-                    >
-                      Delete
-                    </Button>
+                    <Group gap="xs" wrap="nowrap">
+                      <Button
+                        component={RouterLink}
+                        to={`/teams/${t.id}/edit`}
+                        color="blue"
+                        variant="subtle"
+                        size="xs"
+                        leftSection={<IconPencil size={14} />}
+                        aria-label={`Edit ${t.name}`}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        color="red"
+                        variant="subtle"
+                        size="xs"
+                        leftSection={<IconTrash size={14} />}
+                        onClick={() =>
+                          requestDelete({ id: t.id, name: t.name, managerName: t.managerName })
+                        }
+                        aria-label={`Delete ${t.name}`}
+                      >
+                        Delete
+                      </Button>
+                    </Group>
                   </Table.Td>
                 )}
               </Table.Tr>

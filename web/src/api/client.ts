@@ -162,6 +162,25 @@ export async function deleteTeam(id: number): Promise<void> {
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
+export type TeamResponse =
+  paths["/api/teams/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
+export type UpdateTeamBody =
+  paths["/api/teams/{id}"]["put"]["requestBody"]["content"]["application/json"];
+
+export async function getTeam(id: number): Promise<TeamResponse> {
+  const res = await authedFetch(`/api/teams/${id}`);
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return (await res.json()) as TeamResponse;
+}
+
+export async function updateTeam(id: number, body: UpdateTeamBody): Promise<void> {
+  const res = await authedFetch(`/api/teams/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
 export async function listTeams(q: TeamListQuery): Promise<TeamPage> {
   const params = new URLSearchParams();
   params.set("page", String(q.page));
