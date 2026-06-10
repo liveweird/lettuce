@@ -42,7 +42,8 @@ import {
 } from "../api/client";
 import { flagSignedOut, notifyAuthChange } from "../auth";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE_OPTIONS = [20, 40, 60] as const;
+const DEFAULT_PAGE_SIZE = 20;
 
 type SortField = "name" | "email" | "role";
 type SortDir = "asc" | "desc";
@@ -84,6 +85,7 @@ function SortHeader({
 
 export default function Users() {
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [nameFilter, setNameFilter] = useState("");
@@ -107,11 +109,11 @@ export default function Users() {
   const sortParam = `${sortDir === "desc" ? "-" : ""}${sortField}`;
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["users", page, sortParam, debouncedName, debouncedEmail, roleFilter],
+    queryKey: ["users", page, pageSize, sortParam, debouncedName, debouncedEmail, roleFilter],
     queryFn: () =>
       listUsers({
         page,
-        pageSize: PAGE_SIZE,
+        pageSize,
         sort: sortParam,
         name: debouncedName || undefined,
         email: debouncedEmail || undefined,
@@ -164,7 +166,7 @@ export default function Users() {
   }
 
   const total = data?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const columnCount = admin ? 4 : 3;
 
   return (
@@ -317,13 +319,28 @@ export default function Users() {
         <Text size="sm" c="dimmed">
           {total} total
         </Text>
-        <Pagination
-          value={page}
-          onChange={setPage}
-          total={totalPages}
-          siblings={1}
-          withEdges
-        />
+        <Group gap="sm" align="center">
+          <Select
+            size="xs"
+            aria-label="Rows per page"
+            data={PAGE_SIZE_OPTIONS.map((n) => ({ value: String(n), label: `${n} / page` }))}
+            value={String(pageSize)}
+            onChange={(v) => {
+              if (!v) return;
+              setPageSize(Number(v));
+              setPage(1);
+            }}
+            allowDeselect={false}
+            w={110}
+          />
+          <Pagination
+            value={page}
+            onChange={setPage}
+            total={totalPages}
+            siblings={1}
+            withEdges
+          />
+        </Group>
       </Group>
 
       {admin && (
