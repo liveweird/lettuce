@@ -82,6 +82,7 @@ export default function Teams() {
   const [debouncedName] = useDebouncedValue(nameFilter, 300);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1);
   }, [debouncedName, managerIdFilter, sortField, sortDir]);
 

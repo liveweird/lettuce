@@ -99,6 +99,7 @@ export default function Users() {
   const [debouncedEmail] = useDebouncedValue(emailFilter, 300);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1);
   }, [debouncedName, debouncedEmail, roleFilter, sortField, sortDir]);
 

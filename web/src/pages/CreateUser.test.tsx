@@ -35,7 +35,7 @@ function renderCreateUser() {
 async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/name/i), "Alice");
   await user.type(screen.getByLabelText(/email/i), "alice@example.com");
-  await user.type(screen.getByLabelText(/password/i), "hunter2!");
+  await user.type(screen.getByLabelText("Password"), "hunter2!");
 }
 
 describe("CreateUser page", () => {
@@ -136,7 +136,7 @@ describe("CreateUser page", () => {
 
     await user.type(screen.getByLabelText(/name/i), "Alice");
     await user.type(screen.getByLabelText(/email/i), "alice@example.com");
-    await user.type(screen.getByLabelText(/password/i), "short");
+    await user.type(screen.getByLabelText("Password"), "short");
     await user.click(screen.getByRole("button", { name: /^create$/i }));
 
     expect(await screen.findByText(/password must be at least 8 characters/i)).toBeInTheDocument();

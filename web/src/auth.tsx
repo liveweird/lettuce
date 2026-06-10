@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { useSyncExternalStore, type ReactElement } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { getToken } from "./api/client";
