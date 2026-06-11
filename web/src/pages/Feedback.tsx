@@ -2,6 +2,7 @@ import { Stack, Tabs, Text, Title } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { getUserId, listTeams } from "../api/client";
+import FeedbackReceived from "./FeedbackReceived";
 
 const TABS = ["received", "provided", "team"] as const;
 type FeedbackTab = (typeof TABS)[number];
@@ -38,7 +39,7 @@ export default function Feedback() {
   return (
     <Stack gap="md">
       <Title order={2}>Feedback</Title>
-      <Tabs value={activeTab} onChange={selectTab}>
+      <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
           <Tabs.Tab value="received">Received</Tabs.Tab>
           <Tabs.Tab value="provided">Provided</Tabs.Tab>
@@ -46,7 +47,7 @@ export default function Feedback() {
         </Tabs.List>
 
         <Tabs.Panel value="received" pt="md">
-          <Text c="dimmed">Feedback you have received will appear here.</Text>
+          <FeedbackReceived />
         </Tabs.Panel>
         <Tabs.Panel value="provided" pt="md">
           <Text c="dimmed">Feedback you have provided will appear here.</Text>

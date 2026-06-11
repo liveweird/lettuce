@@ -25,6 +25,18 @@ function teamsPage(total: number): Response {
   return jsonResponse(200, { items, page: 1, pageSize: 1, total });
 }
 
+function emptyFeedbacksPage(): Response {
+  return jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 });
+}
+
+function mockApi(mockFetch: FetchMock, managedTeams: number) {
+  mockFetch.mockImplementation((url: string) =>
+    Promise.resolve(
+      String(url).startsWith("/api/feedbacks") ? emptyFeedbacksPage() : teamsPage(managedTeams),
+    ),
+  );
+}
+
 function LocationProbe() {
   const location = useLocation();
   return <div data-testid="location">{location.pathname + location.search}</div>;
@@ -57,7 +69,7 @@ describe("Feedback page", () => {
   });
 
   test("non-manager sees only Received and Provided tabs", async () => {
-    mockFetch.mockResolvedValue(teamsPage(0));
+    mockApi(mockFetch, 0);
     renderFeedback();
 
     expect(screen.getByRole("tab", { name: "Received" })).toBeInTheDocument();
@@ -73,14 +85,14 @@ describe("Feedback page", () => {
   });
 
   test("manager sees the My team tab", async () => {
-    mockFetch.mockResolvedValue(teamsPage(1));
+    mockApi(mockFetch, 1);
     renderFeedback();
 
     expect(await screen.findByRole("tab", { name: "My team" })).toBeInTheDocument();
   });
 
   test("Received is active by default and clicking Provided switches tab and URL", async () => {
-    mockFetch.mockResolvedValue(teamsPage(0));
+    mockApi(mockFetch, 0);
     const user = userEvent.setup();
     renderFeedback();
 
@@ -93,14 +105,14 @@ describe("Feedback page", () => {
   });
 
   test("?tab=provided in the URL activates the Provided tab on load", async () => {
-    mockFetch.mockResolvedValue(teamsPage(0));
+    mockApi(mockFetch, 0);
     renderFeedback("/feedback?tab=provided");
 
     expect(screen.getByRole("tab", { name: "Provided" })).toHaveAttribute("aria-selected", "true");
   });
 
   test("?tab=team activates My team for a manager", async () => {
-    mockFetch.mockResolvedValue(teamsPage(1));
+    mockApi(mockFetch, 1);
     renderFeedback("/feedback?tab=team");
 
     const teamTab = await screen.findByRole("tab", { name: "My team" });
@@ -108,7 +120,7 @@ describe("Feedback page", () => {
   });
 
   test("?tab=team falls back to Received for a non-manager", async () => {
-    mockFetch.mockResolvedValue(teamsPage(0));
+    mockApi(mockFetch, 0);
     renderFeedback("/feedback?tab=team");
 
     await waitFor(() => expect(mockFetch).toHaveBeenCalled());
@@ -117,7 +129,7 @@ describe("Feedback page", () => {
   });
 
   test("an unknown ?tab= value falls back to Received", async () => {
-    mockFetch.mockResolvedValue(teamsPage(0));
+    mockApi(mockFetch, 0);
     renderFeedback("/feedback?tab=bogus");
 
     expect(screen.getByRole("tab", { name: "Received" })).toHaveAttribute("aria-selected", "true");

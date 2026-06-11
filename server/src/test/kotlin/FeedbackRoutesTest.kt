@@ -3,9 +3,11 @@ package ch.nokillswit
 import ch.nokillswit.auth.LoginRequest
 import ch.nokillswit.auth.LoginResponse
 import ch.nokillswit.feedbacks.Feedback
+import ch.nokillswit.feedbacks.FeedbackPageResponse
 import ch.nokillswit.feedbacks.FeedbackResponse
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
+import ch.nokillswit.users.UserRole
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.DefaultRequest
@@ -366,6 +368,7 @@ class FeedbackRoutesTest {
         val client = jsonClient()
         val endpoints = listOf(
             HttpMethod.Post to "/api/feedbacks",
+            HttpMethod.Get to "/api/feedbacks",
             HttpMethod.Get to "/api/feedbacks/1",
             HttpMethod.Put to "/api/feedbacks/1",
             HttpMethod.Delete to "/api/feedbacks/1",
@@ -377,6 +380,183 @@ class FeedbackRoutesTest {
                 response.status,
                 "$verb $path expected 401, got ${response.status}",
             )
+        }
+    }
+
+    private suspend fun HttpClient.createFeedback(
+        subjectId: UInt,
+        providerId: UInt,
+        visibility: FeedbackVisibility,
+        status: FeedbackStatus = FeedbackStatus.SENT,
+        requesterId: UInt? = null,
+        content: String = "",
+    ): FeedbackResponse = post("/api/feedbacks") {
+        contentType(ContentType.Application.Json)
+        setBody(
+            Feedback(
+                requesterId = requesterId,
+                subjectId = subjectId,
+                providerId = providerId,
+                visibility = visibility,
+                status = status,
+                content = content,
+            )
+        )
+    }.body<FeedbackResponse>()
+
+    @Test
+    fun `list received returns only caller-as-subject rows with subject-readable visibilities`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("subject")
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw")
+        val requesterId = TestUsers.seed(email = uniqueEmail("requester"), password = "pw")
+        val otherSubjectId = TestUsers.seed(email = uniqueEmail("other"), password = "pw")
+        val client = authedClient(callerEmail, "pw")
+
+        val visible = listOf(
+            client.createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC),
+            client.createFeedback(callerId, providerId, FeedbackVisibility.PROVIDER_SUBJECT),
+            client.createFeedback(callerId, providerId, FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT, requesterId = requesterId),
+        )
+        // Excluded: subject may not read PROVIDER_REQUESTER; other rows belong to a different subject.
+        client.createFeedback(callerId, providerId, FeedbackVisibility.PROVIDER_REQUESTER, requesterId = requesterId)
+        client.createFeedback(otherSubjectId, providerId, FeedbackVisibility.PUBLIC)
+
+        val response = client.get("/api/feedbacks")
+        assertEquals(HttpStatusCode.OK, response.status)
+        val page = response.body<FeedbackPageResponse>()
+        assertEquals(3, page.total)
+        assertEquals(visible.map { it.id }.sorted(), page.items.map { it.id }.sorted())
+        assertTrue(page.items.none { it.visibility == FeedbackVisibility.PROVIDER_REQUESTER })
+    }
+
+    @Test
+    fun `list received resolves joined names and null requester`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("subject")
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw", name = "Paula Provider")
+        val requesterId = TestUsers.seed(email = uniqueEmail("requester"), password = "pw", name = "Rita Requester")
+        val client = authedClient(callerEmail, "pw")
+
+        val withRequester = client.createFeedback(
+            callerId, providerId, FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT, requesterId = requesterId,
+        )
+        val withoutRequester = client.createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC)
+
+        val page = client.get("/api/feedbacks").body<FeedbackPageResponse>()
+        val itemWith = page.items.single { it.id == withRequester.id }
+        assertEquals("Rita Requester", itemWith.requesterName)
+        assertEquals(requesterId, itemWith.requesterId)
+        assertEquals("Paula Provider", itemWith.providerName)
+        assertEquals(providerId, itemWith.providerId)
+        val itemWithout = page.items.single { it.id == withoutRequester.id }
+        assertNull(itemWithout.requesterId)
+        assertNull(itemWithout.requesterName)
+        assertEquals(false, itemWithout.requesterDeleted)
+    }
+
+    @Test
+    fun `list received caps contentPreview at 200 characters`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("subject")
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw")
+        val client = authedClient(callerEmail, "pw")
+
+        client.createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC, content = "x".repeat(300))
+
+        val page = client.get("/api/feedbacks").body<FeedbackPageResponse>()
+        assertEquals(200, page.items.single().contentPreview.length)
+    }
+
+    @Test
+    fun `list received filters by names visibility and status`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("subject")
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val aliceId = TestUsers.seed(email = uniqueEmail("alice"), password = "pw", name = "Alice Provider")
+        val bobId = TestUsers.seed(email = uniqueEmail("bob"), password = "pw", name = "Bob Provider")
+        val requesterId = TestUsers.seed(email = uniqueEmail("carol"), password = "pw", name = "Carol Requester")
+        val client = authedClient(callerEmail, "pw")
+
+        val fromAlice = client.createFeedback(callerId, aliceId, FeedbackVisibility.PUBLIC, status = FeedbackStatus.SENT)
+        val fromBob = client.createFeedback(
+            callerId, bobId, FeedbackVisibility.PROVIDER_SUBJECT,
+            status = FeedbackStatus.DRAFT, requesterId = requesterId,
+        )
+
+        val byProvider = client.get("/api/feedbacks?providerName=ALICE").body<FeedbackPageResponse>()
+        assertEquals(listOf(fromAlice.id), byProvider.items.map { it.id })
+        assertEquals(1, byProvider.total)
+
+        val byRequester = client.get("/api/feedbacks?requesterName=carol").body<FeedbackPageResponse>()
+        assertEquals(listOf(fromBob.id), byRequester.items.map { it.id })
+
+        val byVisibility = client.get("/api/feedbacks?visibility=PUBLIC").body<FeedbackPageResponse>()
+        assertEquals(listOf(fromAlice.id), byVisibility.items.map { it.id })
+
+        val byStatus = client.get("/api/feedbacks?status=DRAFT").body<FeedbackPageResponse>()
+        assertEquals(listOf(fromBob.id), byStatus.items.map { it.id })
+    }
+
+    @Test
+    fun `list received sorts by providerName descending and defaults to id ascending`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("subject")
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val aliceId = TestUsers.seed(email = uniqueEmail("alice"), password = "pw", name = "Alice Provider")
+        val bobId = TestUsers.seed(email = uniqueEmail("bob"), password = "pw", name = "Bob Provider")
+        val client = authedClient(callerEmail, "pw")
+
+        val fromBob = client.createFeedback(callerId, bobId, FeedbackVisibility.PUBLIC)
+        val fromAlice = client.createFeedback(callerId, aliceId, FeedbackVisibility.PUBLIC)
+
+        val desc = client.get("/api/feedbacks?sort=-providerName").body<FeedbackPageResponse>()
+        assertEquals(listOf(fromBob.id, fromAlice.id), desc.items.map { it.id })
+
+        val byDefault = client.get("/api/feedbacks").body<FeedbackPageResponse>()
+        assertEquals(listOf(fromBob.id, fromAlice.id).sorted(), byDefault.items.map { it.id })
+    }
+
+    @Test
+    fun `list received paginates with stable pages`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("subject")
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw")
+        val client = authedClient(callerEmail, "pw")
+
+        val created = (1..5).map {
+            client.createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC).id
+        }
+
+        val pages = (1..3).map { p ->
+            client.get("/api/feedbacks?pageSize=2&page=$p").body<FeedbackPageResponse>()
+        }
+        assertTrue(pages.all { it.total == 5L })
+        assertEquals(listOf(2, 2, 1), pages.map { it.items.size })
+        assertEquals(created.sorted(), pages.flatMap { it.items.map { item -> item.id } })
+    }
+
+    @Test
+    fun `list received rejects malformed query parameters`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("subject")
+        TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val client = authedClient(callerEmail, "pw")
+
+        val badRequests = listOf(
+            "/api/feedbacks?sort=content",
+            "/api/feedbacks?visibility=BOGUS",
+            "/api/feedbacks?status=BOGUS",
+            "/api/feedbacks?view=provided",
+            "/api/feedbacks?pageSize=200",
+            "/api/feedbacks?page=0",
+        )
+        for (url in badRequests) {
+            assertEquals(HttpStatusCode.BadRequest, client.get(url).status, "Expected 400 for $url")
         }
     }
 

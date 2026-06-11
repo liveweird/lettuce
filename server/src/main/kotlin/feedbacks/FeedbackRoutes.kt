@@ -3,6 +3,7 @@ package ch.nokillswit.feedbacks
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireFeedbackRead
 import ch.nokillswit.authz.requireFeedbackWrite
+import ch.nokillswit.infra.paging.parsePaging
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
@@ -35,6 +36,47 @@ fun Application.configureFeedbackRoutes() {
 
     routing {
         authenticate {
+            get<Feedbacks> {
+                val caller = call.caller()
+                val params = call.request.queryParameters
+                val view = params["view"]?.takeIf { it.isNotBlank() } ?: "received"
+                if (view != "received") {
+                    throw BadRequestException("Unknown view: $view (allowed: received)")
+                }
+                val paging = call.parsePaging(
+                    sortable = setOf("id", "requesterName", "providerName", "visibility", "status"),
+                )
+                val visibilityFilter = params["visibility"]?.takeIf { it.isNotBlank() }?.let { raw ->
+                    runCatching { FeedbackVisibility.valueOf(raw) }.getOrElse {
+                        throw BadRequestException(
+                            "Unknown visibility: $raw (allowed: ${FeedbackVisibility.entries.joinToString { it.name }})",
+                        )
+                    }
+                }
+                val statusFilter = params["status"]?.takeIf { it.isNotBlank() }?.let { raw ->
+                    runCatching { FeedbackStatus.valueOf(raw) }.getOrElse {
+                        throw BadRequestException(
+                            "Unknown status: $raw (allowed: ${FeedbackStatus.entries.joinToString { it.name }})",
+                        )
+                    }
+                }
+                val filter = FeedbackListFilter(
+                    requesterName = params["requesterName"]?.takeIf { it.isNotBlank() },
+                    providerName = params["providerName"]?.takeIf { it.isNotBlank() },
+                    visibility = visibilityFilter,
+                    status = statusFilter,
+                )
+                val result = feedbackService.listReceived(caller.userId, filter, paging)
+                call.respond(
+                    HttpStatusCode.OK,
+                    FeedbackPageResponse(
+                        items = result.items,
+                        page = paging.page,
+                        pageSize = paging.pageSize,
+                        total = result.total,
+                    ),
+                )
+            }
             post<Feedbacks> {
                 call.caller()
                 val feedback = call.receive<Feedback>()

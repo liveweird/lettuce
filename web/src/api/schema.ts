@@ -834,7 +834,93 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List feedbacks for the caller
+         * @description Lists feedback records scoped by `view`. Scoping is always relative to the caller,
+         *     including ADMIN callers.
+         *
+         *     - `view=received` (the default and currently the only view): rows where the caller is
+         *       the subject AND `visibility` is `PROVIDER_SUBJECT`, `PROVIDER_REQUESTER_SUBJECT` or
+         *       `PUBLIC` — i.e. the rows the subject is allowed to read. `PROVIDER_REQUESTER` rows
+         *       never appear in this view.
+         *
+         *     Supports offset pagination, sorting and filtering.
+         *
+         *     - Sortable fields: `id`, `requesterName`, `providerName`, `visibility`, `status`.
+         *       Default sort is `id` ascending. `id` ascending is always appended as a deterministic
+         *       tiebreaker.
+         *     - Filters (all optional, all whitelisted):
+         *       - `requesterName` — case-insensitive substring match against the requester's name.
+         *         Rows without a requester never match when this filter is set.
+         *       - `providerName` — case-insensitive substring match against the provider's name.
+         *       - `visibility` — exact match against the visibility enum.
+         *       - `status` — exact match against the status enum.
+         *     - `content` is returned as `contentPreview`, capped at 200 characters; it is neither
+         *       sortable nor filterable.
+         *
+         *     Malformed query parameters (unknown view, unknown sort field, unknown enum value,
+         *     out-of-range page/pageSize) respond with `400` and an `ApiError` body.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description 1-based page index. Defaults to 1. */
+                    page?: components["parameters"]["Page"];
+                    /** @description Rows per page. Defaults to 20, maximum 100. */
+                    pageSize?: components["parameters"]["PageSize"];
+                    /**
+                     * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
+                     *     comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
+                     *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
+                     *     always appended as a deterministic tiebreaker.
+                     */
+                    sort?: components["parameters"]["Sort"];
+                    /** @description Which caller-relative slice of feedbacks to list. */
+                    view?: "received";
+                    /** @description Case-insensitive substring match against the requester's name. */
+                    requesterName?: string;
+                    /** @description Case-insensitive substring match against the provider's name. */
+                    providerName?: string;
+                    /** @description Exact match against the record's visibility. */
+                    visibility?: "PROVIDER_SUBJECT" | "PROVIDER_REQUESTER" | "PROVIDER_REQUESTER_SUBJECT" | "PUBLIC";
+                    /** @description Exact match against the record's status. */
+                    status?: "REQUESTED" | "DRAFT" | "SENT" | "WITHDRAWN";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description A page of feedbacks */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FeedbackPage"];
+                    };
+                };
+                /** @description Malformed query parameters */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
         put?: never;
         /**
          * Create a feedback record
@@ -1190,6 +1276,37 @@ export interface components {
             /** @enum {string} */
             status: "REQUESTED" | "DRAFT" | "SENT" | "WITHDRAWN";
             content: string;
+        };
+        FeedbackListItem: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            requesterId?: number | null;
+            /** @description Null when the record has no requester. */
+            requesterName?: string | null;
+            /** @description True when the user referenced by `requesterId` has been soft-deleted. False when there is no requester. */
+            requesterDeleted: boolean;
+            /** Format: int64 */
+            providerId: number;
+            providerName: string;
+            /** @description True when the user referenced by `providerId` has been soft-deleted. */
+            providerDeleted: boolean;
+            /** @enum {string} */
+            visibility: "PROVIDER_SUBJECT" | "PROVIDER_REQUESTER" | "PROVIDER_REQUESTER_SUBJECT" | "PUBLIC";
+            /** @enum {string} */
+            status: "REQUESTED" | "DRAFT" | "SENT" | "WITHDRAWN";
+            /** @description First 200 characters of `content`. */
+            contentPreview: string;
+        };
+        FeedbackPage: {
+            items: components["schemas"]["FeedbackListItem"][];
+            page: number;
+            pageSize: number;
+            /**
+             * Format: int64
+             * @description Row count after filters, before pagination.
+             */
+            total: number;
         };
         ApiError: {
             /** @example conflict */

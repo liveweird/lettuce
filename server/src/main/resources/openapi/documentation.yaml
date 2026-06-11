@@ -335,6 +335,81 @@ paths:
         '404': { description: Team not found }
 
   /api/feedbacks:
+    get:
+      tags: [feedbacks]
+      summary: List feedbacks for the caller
+      description: |
+        Lists feedback records scoped by `view`. Scoping is always relative to the caller,
+        including ADMIN callers.
+
+        - `view=received` (the default and currently the only view): rows where the caller is
+          the subject AND `visibility` is `PROVIDER_SUBJECT`, `PROVIDER_REQUESTER_SUBJECT` or
+          `PUBLIC` — i.e. the rows the subject is allowed to read. `PROVIDER_REQUESTER` rows
+          never appear in this view.
+
+        Supports offset pagination, sorting and filtering.
+
+        - Sortable fields: `id`, `requesterName`, `providerName`, `visibility`, `status`.
+          Default sort is `id` ascending. `id` ascending is always appended as a deterministic
+          tiebreaker.
+        - Filters (all optional, all whitelisted):
+          - `requesterName` — case-insensitive substring match against the requester's name.
+            Rows without a requester never match when this filter is set.
+          - `providerName` — case-insensitive substring match against the provider's name.
+          - `visibility` — exact match against the visibility enum.
+          - `status` — exact match against the status enum.
+        - `content` is returned as `contentPreview`, capped at 200 characters; it is neither
+          sortable nor filterable.
+
+        Malformed query parameters (unknown view, unknown sort field, unknown enum value,
+        out-of-range page/pageSize) respond with `400` and an `ApiError` body.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Sort'
+        - name: view
+          in: query
+          required: false
+          schema: { type: string, enum: [received], default: received }
+          description: Which caller-relative slice of feedbacks to list.
+        - name: requesterName
+          in: query
+          required: false
+          schema: { type: string }
+          description: Case-insensitive substring match against the requester's name.
+        - name: providerName
+          in: query
+          required: false
+          schema: { type: string }
+          description: Case-insensitive substring match against the provider's name.
+        - name: visibility
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [PROVIDER_SUBJECT, PROVIDER_REQUESTER, PROVIDER_REQUESTER_SUBJECT, PUBLIC]
+          description: Exact match against the record's visibility.
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [REQUESTED, DRAFT, SENT, WITHDRAWN]
+          description: Exact match against the record's status.
+      responses:
+        '200':
+          description: A page of feedbacks
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackPage'
+        '400':
+          description: Malformed query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
     post:
       tags: [feedbacks]
       summary: Create a feedback record
@@ -628,6 +703,54 @@ components:
           type: string
           enum: [REQUESTED, DRAFT, SENT, WITHDRAWN]
         content: { type: string }
+
+    FeedbackListItem:
+      type: object
+      required: [id, requesterDeleted, providerId, providerName, providerDeleted, visibility, status, contentPreview]
+      properties:
+        id: { type: integer, format: int64, minimum: 0 }
+        requesterId:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        requesterName:
+          type: string
+          nullable: true
+          description: Null when the record has no requester.
+        requesterDeleted:
+          type: boolean
+          description: True when the user referenced by `requesterId` has been soft-deleted. False when there is no requester.
+        providerId: { type: integer, format: int64, minimum: 0 }
+        providerName: { type: string }
+        providerDeleted:
+          type: boolean
+          description: True when the user referenced by `providerId` has been soft-deleted.
+        visibility:
+          type: string
+          enum: [PROVIDER_SUBJECT, PROVIDER_REQUESTER, PROVIDER_REQUESTER_SUBJECT, PUBLIC]
+        status:
+          type: string
+          enum: [REQUESTED, DRAFT, SENT, WITHDRAWN]
+        contentPreview:
+          type: string
+          description: First 200 characters of `content`.
+
+    FeedbackPage:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeedbackListItem'
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1, maximum: 100 }
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Row count after filters, before pagination.
 
     ApiError:
       type: object

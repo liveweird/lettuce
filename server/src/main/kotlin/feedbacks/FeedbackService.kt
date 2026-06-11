@@ -1,10 +1,13 @@
 package ch.nokillswit.feedbacks
 
+import ch.nokillswit.infra.paging.PageRequest
+import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.users.UserService
 import io.ktor.server.plugins.BadRequestException
 import io.ktor.util.AttributeKey
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.singleOrNull
+import kotlinx.coroutines.flow.toList
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.core.dao.id.UIntIdTable
 import org.jetbrains.exposed.v1.r2dbc.*
@@ -12,6 +15,37 @@ import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
 val FeedbackServiceKey = AttributeKey<FeedbackService>("FeedbackService")
+
+data class FeedbackListFilter(
+    val requesterName: String? = null,
+    val providerName: String? = null,
+    val visibility: FeedbackVisibility? = null,
+    val status: FeedbackStatus? = null,
+)
+
+data class FeedbackListResult(
+    val items: List<FeedbackListItem>,
+    val total: Long,
+)
+
+private val requesterUsers = UserService.Users.alias("requester_users")
+private val providerUsers = UserService.Users.alias("provider_users")
+
+private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
+    "id" to FeedbackService.Feedbacks.id,
+    "requesterName" to requesterUsers[UserService.Users.name],
+    "providerName" to providerUsers[UserService.Users.name],
+    "visibility" to FeedbackService.Feedbacks.visibility,
+    "status" to FeedbackService.Feedbacks.status,
+)
+
+private val RECEIVED_VISIBILITIES = listOf(
+    FeedbackVisibility.PROVIDER_SUBJECT,
+    FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
+    FeedbackVisibility.PUBLIC,
+)
+
+const val CONTENT_PREVIEW_LENGTH = 200
 
 class FeedbackService(val database: R2dbcDatabase) {
     object Feedbacks : UIntIdTable("feedbacks") {
@@ -82,6 +116,82 @@ class FeedbackService(val database: R2dbcDatabase) {
 
     suspend fun delete(id: UInt) {
         suspendTransaction(database) { Feedbacks.deleteWhere { Feedbacks.id eq id } }
+    }
+
+    suspend fun listReceived(
+        subjectUserId: UInt,
+        filter: FeedbackListFilter,
+        paging: PageRequest,
+    ): FeedbackListResult = suspendTransaction(database) {
+        val predicate: Op<Boolean> = (Feedbacks.subjectId eq subjectUserId) and
+            (Feedbacks.visibility inList RECEIVED_VISIBILITIES) and
+            buildPredicate(filter)
+        val join = Feedbacks
+            .join(
+                providerUsers,
+                JoinType.INNER,
+                onColumn = Feedbacks.providerId,
+                otherColumn = providerUsers[UserService.Users.id],
+            )
+            .join(
+                requesterUsers,
+                JoinType.LEFT,
+                onColumn = Feedbacks.requesterId,
+                otherColumn = requesterUsers[UserService.Users.id],
+            )
+        val total = join.selectAll().where { predicate }.count()
+        val rows = join
+            .select(
+                Feedbacks.id,
+                Feedbacks.requesterId,
+                Feedbacks.providerId,
+                Feedbacks.visibility,
+                Feedbacks.status,
+                Feedbacks.content,
+                requesterUsers[UserService.Users.name],
+                requesterUsers[UserService.Users.markedAsDeleted],
+                providerUsers[UserService.Users.name],
+                providerUsers[UserService.Users.markedAsDeleted],
+            )
+            .where { predicate }
+            .applyPaging(paging, SORTABLE_COLUMNS)
+            .map { row ->
+                FeedbackListItem(
+                    id = row[Feedbacks.id].value,
+                    requesterId = row[Feedbacks.requesterId]?.value,
+                    requesterName = row.getOrNull(requesterUsers[UserService.Users.name]),
+                    requesterDeleted = row.getOrNull(requesterUsers[UserService.Users.markedAsDeleted]) ?: false,
+                    providerId = row[Feedbacks.providerId].value,
+                    providerName = row[providerUsers[UserService.Users.name]],
+                    providerDeleted = row[providerUsers[UserService.Users.markedAsDeleted]],
+                    visibility = row[Feedbacks.visibility],
+                    status = row[Feedbacks.status],
+                    contentPreview = row[Feedbacks.content].take(CONTENT_PREVIEW_LENGTH),
+                )
+            }
+            .toList()
+        FeedbackListResult(items = rows, total = total)
+    }
+
+    private fun buildPredicate(filter: FeedbackListFilter): Op<Boolean> {
+        var op: Op<Boolean> = Op.TRUE
+        filter.requesterName?.takeIf { it.isNotBlank() }?.let {
+            op = op and (requesterUsers[UserService.Users.name].lowerCase() like containsPattern(it))
+        }
+        filter.providerName?.takeIf { it.isNotBlank() }?.let {
+            op = op and (providerUsers[UserService.Users.name].lowerCase() like containsPattern(it))
+        }
+        filter.visibility?.let { op = op and (Feedbacks.visibility eq it) }
+        filter.status?.let { op = op and (Feedbacks.status eq it) }
+        return op
+    }
+
+    private fun containsPattern(raw: String): LikePattern {
+        val escaped = raw.lowercase()
+            .replace("\\", "\\\\")
+            .replace("%", "\\%")
+            .replace("_", "\\_")
+        return LikePattern("%$escaped%", escapeChar = '\\')
     }
 
     private fun validate(current: Feedback?, next: Feedback) {

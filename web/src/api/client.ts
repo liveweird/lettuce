@@ -193,6 +193,42 @@ export async function listTeams(q: TeamListQuery): Promise<TeamPage> {
   return (await res.json()) as TeamPage;
 }
 
+export type FeedbackPage =
+  paths["/api/feedbacks"]["get"]["responses"]["200"]["content"]["application/json"];
+
+export type FeedbackVisibility =
+  | "PROVIDER_SUBJECT"
+  | "PROVIDER_REQUESTER"
+  | "PROVIDER_REQUESTER_SUBJECT"
+  | "PUBLIC";
+export type FeedbackStatus = "REQUESTED" | "DRAFT" | "SENT" | "WITHDRAWN";
+
+export type FeedbackListQuery = {
+  view: "received";
+  page: number;
+  pageSize: number;
+  sort?: string;
+  requesterName?: string;
+  providerName?: string;
+  visibility?: FeedbackVisibility;
+  status?: FeedbackStatus;
+};
+
+export async function listFeedbacks(q: FeedbackListQuery): Promise<FeedbackPage> {
+  const params = new URLSearchParams();
+  params.set("view", q.view);
+  params.set("page", String(q.page));
+  params.set("pageSize", String(q.pageSize));
+  if (q.sort) params.set("sort", q.sort);
+  if (q.requesterName) params.set("requesterName", q.requesterName);
+  if (q.providerName) params.set("providerName", q.providerName);
+  if (q.visibility) params.set("visibility", q.visibility);
+  if (q.status) params.set("status", q.status);
+  const res = await authedFetch(`/api/feedbacks?${params.toString()}`);
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return (await res.json()) as FeedbackPage;
+}
+
 export async function authedFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const token = getToken();
   const headers = new Headers(init.headers);
