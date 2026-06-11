@@ -203,12 +203,15 @@ export type FeedbackVisibility =
   | "PUBLIC";
 export type FeedbackStatus = "REQUESTED" | "DRAFT" | "SENT" | "WITHDRAWN";
 
+export type FeedbackListView = "received" | "provided";
+
 export type FeedbackListQuery = {
-  view: "received";
+  view: FeedbackListView;
   page: number;
   pageSize: number;
   sort?: string;
   requesterName?: string;
+  subjectName?: string;
   providerName?: string;
   visibility?: FeedbackVisibility;
   status?: FeedbackStatus;
@@ -221,6 +224,7 @@ export async function listFeedbacks(q: FeedbackListQuery): Promise<FeedbackPage>
   params.set("pageSize", String(q.pageSize));
   if (q.sort) params.set("sort", q.sort);
   if (q.requesterName) params.set("requesterName", q.requesterName);
+  if (q.subjectName) params.set("subjectName", q.subjectName);
   if (q.providerName) params.set("providerName", q.providerName);
   if (q.visibility) params.set("visibility", q.visibility);
   if (q.status) params.set("status", q.status);

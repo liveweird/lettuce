@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { fireEvent, renderWithProviders, screen, waitFor, within } from "../test/render";
-import FeedbackReceived from "./FeedbackReceived";
+import FeedbackTable from "./FeedbackTable";
 
 const TOKEN_KEY = "lettuce.auth.token";
 const ROLE_KEY = "lettuce.auth.role";
@@ -14,6 +14,9 @@ type FeedbackItem = {
   requesterId: number | null;
   requesterName: string | null;
   requesterDeleted: boolean;
+  subjectId: number;
+  subjectName: string;
+  subjectDeleted: boolean;
   providerId: number;
   providerName: string;
   providerDeleted: boolean;
@@ -39,6 +42,9 @@ const SEED_FEEDBACKS: FeedbackItem[] = [
     requesterId: 9,
     requesterName: "Carol Requester",
     requesterDeleted: false,
+    subjectId: 7,
+    subjectName: "Sam Subject",
+    subjectDeleted: false,
     providerId: 10,
     providerName: "Alice Provider",
     providerDeleted: false,
@@ -51,6 +57,9 @@ const SEED_FEEDBACKS: FeedbackItem[] = [
     requesterId: null,
     requesterName: null,
     requesterDeleted: false,
+    subjectId: 8,
+    subjectName: "Tina Subject",
+    subjectDeleted: true,
     providerId: 11,
     providerName: "Bob Provider",
     providerDeleted: true,
@@ -74,7 +83,7 @@ function feedbackUrls(mockFetch: FetchMock): string[] {
     .filter((url) => url.startsWith("/api/feedbacks"));
 }
 
-describe("FeedbackReceived table", () => {
+describe("FeedbackTable (received view)", () => {
   let mockFetch: FetchMock;
 
   beforeEach(() => {
@@ -92,7 +101,7 @@ describe("FeedbackReceived table", () => {
 
   test("renders rows with names, visibility, status and content preview", async () => {
     setupMocks(mockFetch);
-    renderWithProviders(<FeedbackReceived />);
+    renderWithProviders(<FeedbackTable view="received" />);
 
     expect(await screen.findByRole("cell", { name: "Carol Requester" })).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "Alice Provider" })).toBeInTheDocument();
@@ -109,7 +118,7 @@ describe("FeedbackReceived table", () => {
 
   test("renders an em-dash for a missing requester and a (deleted) suffix", async () => {
     setupMocks(mockFetch);
-    renderWithProviders(<FeedbackReceived />);
+    renderWithProviders(<FeedbackTable view="received" />);
 
     expect(await screen.findByRole("cell", { name: "—" })).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "Bob Provider (deleted)" })).toBeInTheDocument();
@@ -118,7 +127,7 @@ describe("FeedbackReceived table", () => {
   test("typing in the Requester filter triggers a refetch with requesterName=", async () => {
     setupMocks(mockFetch);
     const user = userEvent.setup();
-    renderWithProviders(<FeedbackReceived />);
+    renderWithProviders(<FeedbackTable view="received" />);
 
     await screen.findByRole("cell", { name: "Alice Provider" });
     await user.type(screen.getByLabelText(/requester/i), "caro");
@@ -135,7 +144,7 @@ describe("FeedbackReceived table", () => {
 
   test("selecting Visibility and Status adds the corresponding params", async () => {
     setupMocks(mockFetch);
-    renderWithProviders(<FeedbackReceived />);
+    renderWithProviders(<FeedbackTable view="received" />);
 
     await screen.findByRole("cell", { name: "Alice Provider" });
 
@@ -155,7 +164,7 @@ describe("FeedbackReceived table", () => {
 
   test("visibility filter offers only the three subject-readable values", async () => {
     setupMocks(mockFetch);
-    renderWithProviders(<FeedbackReceived />);
+    renderWithProviders(<FeedbackTable view="received" />);
 
     fireEvent.click(screen.getByLabelText("Visibility", { selector: "input" }));
     const options = await screen.findAllByRole("option");
@@ -169,7 +178,7 @@ describe("FeedbackReceived table", () => {
   test("clicking the Provider header toggles sort between asc and desc", async () => {
     setupMocks(mockFetch);
     const user = userEvent.setup();
-    renderWithProviders(<FeedbackReceived />);
+    renderWithProviders(<FeedbackTable view="received" />);
 
     await screen.findByRole("cell", { name: "Alice Provider" });
     expect(feedbackUrls(mockFetch)[0]).toContain("sort=providerName");
@@ -188,7 +197,7 @@ describe("FeedbackReceived table", () => {
   test("pagination and page size controls update the query", async () => {
     setupMocks(mockFetch, feedbacksPage(SEED_FEEDBACKS, 45));
     const user = userEvent.setup();
-    renderWithProviders(<FeedbackReceived />);
+    renderWithProviders(<FeedbackTable view="received" />);
 
     await screen.findByRole("cell", { name: "Alice Provider" });
     expect(screen.getByText("45 total")).toBeInTheDocument();
@@ -209,25 +218,98 @@ describe("FeedbackReceived table", () => {
 
   test("shows empty state when there is no feedback", async () => {
     setupMocks(mockFetch, feedbacksPage([]));
-    renderWithProviders(<FeedbackReceived />);
+    renderWithProviders(<FeedbackTable view="received" />);
 
     expect(await screen.findByText(/no feedback/i)).toBeInTheDocument();
   });
 
   test("shows an error alert when the request fails", async () => {
     setupMocks(mockFetch, jsonResponse(500, { error: "internal", message: "boom" }));
-    renderWithProviders(<FeedbackReceived />);
+    renderWithProviders(<FeedbackTable view="received" />);
 
     expect(await screen.findByText(/failed to load feedbacks/i)).toBeInTheDocument();
   });
 
   test("within() sanity: rows are ordered as returned by the API", async () => {
     setupMocks(mockFetch);
-    renderWithProviders(<FeedbackReceived />);
+    renderWithProviders(<FeedbackTable view="received" />);
 
     await screen.findByRole("cell", { name: "Alice Provider" });
     const rows = screen.getAllByRole("row").slice(1);
     expect(within(rows[0]).getByText("Alice Provider")).toBeInTheDocument();
     expect(within(rows[1]).getByText("Bob Provider (deleted)")).toBeInTheDocument();
+  });
+});
+
+describe("FeedbackTable (provided view)", () => {
+  let mockFetch: FetchMock;
+
+  beforeEach(() => {
+    mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
+    localStorage.setItem(TOKEN_KEY, "fake-token");
+    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(USER_ID_KEY, "7");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  test("shows the Subject column, fetches view=provided and defaults to sort=subjectName", async () => {
+    setupMocks(mockFetch);
+    renderWithProviders(<FeedbackTable view="provided" />);
+
+    expect(await screen.findByRole("cell", { name: "Sam Subject" })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "Tina Subject (deleted)" })).toBeInTheDocument();
+    expect(screen.queryByRole("cell", { name: "Alice Provider" })).not.toBeInTheDocument();
+
+    const urls = feedbackUrls(mockFetch);
+    expect(urls[0]).toContain("view=provided");
+    expect(urls[0]).toContain("sort=subjectName");
+  });
+
+  test("typing in the Subject filter triggers a refetch with subjectName=", async () => {
+    setupMocks(mockFetch);
+    const user = userEvent.setup();
+    renderWithProviders(<FeedbackTable view="provided" />);
+
+    await screen.findByRole("cell", { name: "Sam Subject" });
+    await user.type(screen.getByLabelText("Subject"), "tina");
+
+    await waitFor(
+      () => {
+        expect(feedbackUrls(mockFetch).some((url) => url.includes("subjectName=tina"))).toBe(true);
+      },
+      { timeout: 1500 },
+    );
+  });
+
+  test("visibility filter offers all four values", async () => {
+    setupMocks(mockFetch);
+    renderWithProviders(<FeedbackTable view="provided" />);
+
+    fireEvent.click(screen.getByLabelText("Visibility", { selector: "input" }));
+    const options = await screen.findAllByRole("option");
+    expect(options.map((o) => o.textContent)).toEqual([
+      "Provider + subject",
+      "Provider + requester",
+      "Provider + requester + subject",
+      "Public",
+    ]);
+  });
+
+  test("clicking the Subject header toggles to sort=-subjectName", async () => {
+    setupMocks(mockFetch);
+    const user = userEvent.setup();
+    renderWithProviders(<FeedbackTable view="provided" />);
+
+    await screen.findByRole("cell", { name: "Sam Subject" });
+    await user.click(screen.getByRole("button", { name: /subject/i }));
+
+    await waitFor(() => {
+      expect(feedbackUrls(mockFetch).some((url) => url.includes("sort=-subjectName"))).toBe(true);
+    });
   });
 });

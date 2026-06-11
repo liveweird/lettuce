@@ -342,19 +342,21 @@ paths:
         Lists feedback records scoped by `view`. Scoping is always relative to the caller,
         including ADMIN callers.
 
-        - `view=received` (the default and currently the only view): rows where the caller is
-          the subject AND `visibility` is `PROVIDER_SUBJECT`, `PROVIDER_REQUESTER_SUBJECT` or
-          `PUBLIC` — i.e. the rows the subject is allowed to read. `PROVIDER_REQUESTER` rows
-          never appear in this view.
+        - `view=received` (the default): rows where the caller is the subject AND `visibility`
+          is `PROVIDER_SUBJECT`, `PROVIDER_REQUESTER_SUBJECT` or `PUBLIC` — i.e. the rows the
+          subject is allowed to read. `PROVIDER_REQUESTER` rows never appear in this view.
+        - `view=provided`: rows where the caller is the provider, regardless of visibility
+          (a provider may always read their own records).
 
         Supports offset pagination, sorting and filtering.
 
-        - Sortable fields: `id`, `requesterName`, `providerName`, `visibility`, `status`.
-          Default sort is `id` ascending. `id` ascending is always appended as a deterministic
-          tiebreaker.
+        - Sortable fields: `id`, `requesterName`, `subjectName`, `providerName`, `visibility`,
+          `status`. Default sort is `id` ascending. `id` ascending is always appended as a
+          deterministic tiebreaker.
         - Filters (all optional, all whitelisted):
           - `requesterName` — case-insensitive substring match against the requester's name.
             Rows without a requester never match when this filter is set.
+          - `subjectName` — case-insensitive substring match against the subject's name.
           - `providerName` — case-insensitive substring match against the provider's name.
           - `visibility` — exact match against the visibility enum.
           - `status` — exact match against the status enum.
@@ -370,13 +372,18 @@ paths:
         - name: view
           in: query
           required: false
-          schema: { type: string, enum: [received], default: received }
+          schema: { type: string, enum: [received, provided], default: received }
           description: Which caller-relative slice of feedbacks to list.
         - name: requesterName
           in: query
           required: false
           schema: { type: string }
           description: Case-insensitive substring match against the requester's name.
+        - name: subjectName
+          in: query
+          required: false
+          schema: { type: string }
+          description: Case-insensitive substring match against the subject's name.
         - name: providerName
           in: query
           required: false
@@ -706,7 +713,7 @@ components:
 
     FeedbackListItem:
       type: object
-      required: [id, requesterDeleted, providerId, providerName, providerDeleted, visibility, status, contentPreview]
+      required: [id, requesterDeleted, subjectId, subjectName, subjectDeleted, providerId, providerName, providerDeleted, visibility, status, contentPreview]
       properties:
         id: { type: integer, format: int64, minimum: 0 }
         requesterId:
@@ -721,6 +728,11 @@ components:
         requesterDeleted:
           type: boolean
           description: True when the user referenced by `requesterId` has been soft-deleted. False when there is no requester.
+        subjectId: { type: integer, format: int64, minimum: 0 }
+        subjectName: { type: string }
+        subjectDeleted:
+          type: boolean
+          description: True when the user referenced by `subjectId` has been soft-deleted.
         providerId: { type: integer, format: int64, minimum: 0 }
         providerName: { type: string }
         providerDeleted:

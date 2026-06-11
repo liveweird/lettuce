@@ -839,19 +839,21 @@ export interface paths {
          * @description Lists feedback records scoped by `view`. Scoping is always relative to the caller,
          *     including ADMIN callers.
          *
-         *     - `view=received` (the default and currently the only view): rows where the caller is
-         *       the subject AND `visibility` is `PROVIDER_SUBJECT`, `PROVIDER_REQUESTER_SUBJECT` or
-         *       `PUBLIC` — i.e. the rows the subject is allowed to read. `PROVIDER_REQUESTER` rows
-         *       never appear in this view.
+         *     - `view=received` (the default): rows where the caller is the subject AND `visibility`
+         *       is `PROVIDER_SUBJECT`, `PROVIDER_REQUESTER_SUBJECT` or `PUBLIC` — i.e. the rows the
+         *       subject is allowed to read. `PROVIDER_REQUESTER` rows never appear in this view.
+         *     - `view=provided`: rows where the caller is the provider, regardless of visibility
+         *       (a provider may always read their own records).
          *
          *     Supports offset pagination, sorting and filtering.
          *
-         *     - Sortable fields: `id`, `requesterName`, `providerName`, `visibility`, `status`.
-         *       Default sort is `id` ascending. `id` ascending is always appended as a deterministic
-         *       tiebreaker.
+         *     - Sortable fields: `id`, `requesterName`, `subjectName`, `providerName`, `visibility`,
+         *       `status`. Default sort is `id` ascending. `id` ascending is always appended as a
+         *       deterministic tiebreaker.
          *     - Filters (all optional, all whitelisted):
          *       - `requesterName` — case-insensitive substring match against the requester's name.
          *         Rows without a requester never match when this filter is set.
+         *       - `subjectName` — case-insensitive substring match against the subject's name.
          *       - `providerName` — case-insensitive substring match against the provider's name.
          *       - `visibility` — exact match against the visibility enum.
          *       - `status` — exact match against the status enum.
@@ -876,9 +878,11 @@ export interface paths {
                      */
                     sort?: components["parameters"]["Sort"];
                     /** @description Which caller-relative slice of feedbacks to list. */
-                    view?: "received";
+                    view?: "received" | "provided";
                     /** @description Case-insensitive substring match against the requester's name. */
                     requesterName?: string;
+                    /** @description Case-insensitive substring match against the subject's name. */
+                    subjectName?: string;
                     /** @description Case-insensitive substring match against the provider's name. */
                     providerName?: string;
                     /** @description Exact match against the record's visibility. */
@@ -1286,6 +1290,11 @@ export interface components {
             requesterName?: string | null;
             /** @description True when the user referenced by `requesterId` has been soft-deleted. False when there is no requester. */
             requesterDeleted: boolean;
+            /** Format: int64 */
+            subjectId: number;
+            subjectName: string;
+            /** @description True when the user referenced by `subjectId` has been soft-deleted. */
+            subjectDeleted: boolean;
             /** Format: int64 */
             providerId: number;
             providerName: string;

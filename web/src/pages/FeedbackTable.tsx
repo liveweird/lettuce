@@ -18,6 +18,8 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { IconArrowDown, IconArrowUp, IconArrowsSort } from "@tabler/icons-react";
 import {
   listFeedbacks,
+  type FeedbackListView,
+  type FeedbackPage,
   type FeedbackStatus,
   type FeedbackVisibility,
 } from "../api/client";
@@ -25,8 +27,10 @@ import {
 const PAGE_SIZE_OPTIONS = [20, 40, 60] as const;
 const DEFAULT_PAGE_SIZE = 20;
 
-type SortField = "requesterName" | "providerName" | "visibility" | "status";
+type SortField = "requesterName" | "subjectName" | "providerName" | "visibility" | "status";
 type SortDir = "asc" | "desc";
+
+type FeedbackRow = FeedbackPage["items"][number];
 
 const VISIBILITY_LABEL: Record<FeedbackVisibility, string> = {
   PROVIDER_SUBJECT: "Provider + subject",
@@ -35,10 +39,9 @@ const VISIBILITY_LABEL: Record<FeedbackVisibility, string> = {
   PUBLIC: "Public",
 };
 
-// Only the visibilities a subject is allowed to see ever appear in this view.
-const VISIBILITY_FILTER_OPTIONS = (
-  ["PROVIDER_SUBJECT", "PROVIDER_REQUESTER_SUBJECT", "PUBLIC"] as const
-).map((value) => ({ value, label: VISIBILITY_LABEL[value] }));
+function visibilityOptions(values: readonly FeedbackVisibility[]) {
+  return values.map((value) => ({ value, label: VISIBILITY_LABEL[value] }));
+}
 
 const STATUS_LABEL: Record<FeedbackStatus, string> = {
   REQUESTED: "Requested",
@@ -51,6 +54,44 @@ const STATUS_OPTIONS = (Object.keys(STATUS_LABEL) as FeedbackStatus[]).map((valu
   value,
   label: STATUS_LABEL[value],
 }));
+
+// Per-view differences: the second person column (the first is always the requester)
+// and which visibilities can actually occur in the result set.
+const VIEW_CONFIG: Record<
+  FeedbackListView,
+  {
+    personLabel: string;
+    personField: "subjectName" | "providerName";
+    personName: (f: FeedbackRow) => string;
+    personDeleted: (f: FeedbackRow) => boolean;
+    visibilityOptions: { value: FeedbackVisibility; label: string }[];
+  }
+> = {
+  received: {
+    personLabel: "Provider",
+    personField: "providerName",
+    personName: (f) => f.providerName,
+    personDeleted: (f) => f.providerDeleted,
+    // Only the visibilities a subject is allowed to see ever appear in this view.
+    visibilityOptions: visibilityOptions([
+      "PROVIDER_SUBJECT",
+      "PROVIDER_REQUESTER_SUBJECT",
+      "PUBLIC",
+    ]),
+  },
+  provided: {
+    personLabel: "Subject",
+    personField: "subjectName",
+    personName: (f) => f.subjectName,
+    personDeleted: (f) => f.subjectDeleted,
+    visibilityOptions: visibilityOptions([
+      "PROVIDER_SUBJECT",
+      "PROVIDER_REQUESTER",
+      "PROVIDER_REQUESTER_SUBJECT",
+      "PUBLIC",
+    ]),
+  },
+};
 
 function SortHeader({
   field,
@@ -83,46 +124,48 @@ function userName(name: string | null | undefined, deleted: boolean): string {
   return deleted ? `${name} (deleted)` : name;
 }
 
-export default function FeedbackReceived() {
+export default function FeedbackTable({ view }: { view: FeedbackListView }) {
+  const config = VIEW_CONFIG[view];
+
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
-  const [sortField, setSortField] = useState<SortField>("providerName");
+  const [sortField, setSortField] = useState<SortField>(config.personField);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [requesterFilter, setRequesterFilter] = useState("");
-  const [providerFilter, setProviderFilter] = useState("");
+  const [personFilter, setPersonFilter] = useState("");
   const [visibilityFilter, setVisibilityFilter] = useState<FeedbackVisibility | null>(null);
   const [statusFilter, setStatusFilter] = useState<FeedbackStatus | null>(null);
 
   const [debouncedRequester] = useDebouncedValue(requesterFilter, 300);
-  const [debouncedProvider] = useDebouncedValue(providerFilter, 300);
+  const [debouncedPerson] = useDebouncedValue(personFilter, 300);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1);
-  }, [debouncedRequester, debouncedProvider, visibilityFilter, statusFilter, sortField, sortDir]);
+  }, [debouncedRequester, debouncedPerson, visibilityFilter, statusFilter, sortField, sortDir]);
 
   const sortParam = `${sortDir === "desc" ? "-" : ""}${sortField}`;
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: [
       "feedbacks",
-      "received",
+      view,
       page,
       pageSize,
       sortParam,
       debouncedRequester,
-      debouncedProvider,
+      debouncedPerson,
       visibilityFilter,
       statusFilter,
     ],
     queryFn: () =>
       listFeedbacks({
-        view: "received",
+        view,
         page,
         pageSize,
         sort: sortParam,
         requesterName: debouncedRequester || undefined,
-        providerName: debouncedProvider || undefined,
+        [config.personField]: debouncedPerson || undefined,
         visibility: visibilityFilter ?? undefined,
         status: statusFilter ?? undefined,
       }),
@@ -163,18 +206,18 @@ export default function FeedbackReceived() {
           rightSectionPointerEvents="auto"
         />
         <TextInput
-          label="Provider"
+          label={config.personLabel}
           placeholder="contains…"
-          value={providerFilter}
-          onChange={(e) => setProviderFilter(e.currentTarget.value)}
+          value={personFilter}
+          onChange={(e) => setPersonFilter(e.currentTarget.value)}
           rightSection={
-            providerFilter ? (
+            personFilter ? (
               <CloseButton
                 size="sm"
-                aria-label="Clear provider filter"
+                aria-label={`Clear ${config.personLabel.toLowerCase()} filter`}
                 tabIndex={-1}
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setProviderFilter("")}
+                onClick={() => setPersonFilter("")}
               />
             ) : null
           }
@@ -183,7 +226,7 @@ export default function FeedbackReceived() {
         <Select
           label="Visibility"
           placeholder="Any"
-          data={VISIBILITY_FILTER_OPTIONS}
+          data={config.visibilityOptions}
           value={visibilityFilter}
           onChange={(v) => setVisibilityFilter((v as FeedbackVisibility | null) ?? null)}
           clearable
@@ -218,8 +261,8 @@ export default function FeedbackReceived() {
             </Table.Th>
             <Table.Th>
               <SortHeader
-                field="providerName"
-                label="Provider"
+                field={config.personField}
+                label={config.personLabel}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
@@ -261,7 +304,7 @@ export default function FeedbackReceived() {
                 <Table.Td c={f.requesterName == null ? "dimmed" : undefined}>
                   {userName(f.requesterName, f.requesterDeleted)}
                 </Table.Td>
-                <Table.Td>{userName(f.providerName, f.providerDeleted)}</Table.Td>
+                <Table.Td>{userName(config.personName(f), config.personDeleted(f))}</Table.Td>
                 <Table.Td>{VISIBILITY_LABEL[f.visibility]}</Table.Td>
                 <Table.Td>{STATUS_LABEL[f.status]}</Table.Td>
                 <Table.Td

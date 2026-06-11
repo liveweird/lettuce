@@ -16,8 +16,11 @@ import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
 val FeedbackServiceKey = AttributeKey<FeedbackService>("FeedbackService")
 
+enum class FeedbackListView { RECEIVED, PROVIDED }
+
 data class FeedbackListFilter(
     val requesterName: String? = null,
+    val subjectName: String? = null,
     val providerName: String? = null,
     val visibility: FeedbackVisibility? = null,
     val status: FeedbackStatus? = null,
@@ -29,11 +32,13 @@ data class FeedbackListResult(
 )
 
 private val requesterUsers = UserService.Users.alias("requester_users")
+private val subjectUsers = UserService.Users.alias("subject_users")
 private val providerUsers = UserService.Users.alias("provider_users")
 
 private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
     "id" to FeedbackService.Feedbacks.id,
     "requesterName" to requesterUsers[UserService.Users.name],
+    "subjectName" to subjectUsers[UserService.Users.name],
     "providerName" to providerUsers[UserService.Users.name],
     "visibility" to FeedbackService.Feedbacks.visibility,
     "status" to FeedbackService.Feedbacks.status,
@@ -118,15 +123,25 @@ class FeedbackService(val database: R2dbcDatabase) {
         suspendTransaction(database) { Feedbacks.deleteWhere { Feedbacks.id eq id } }
     }
 
-    suspend fun listReceived(
-        subjectUserId: UInt,
+    suspend fun list(
+        view: FeedbackListView,
+        callerUserId: UInt,
         filter: FeedbackListFilter,
         paging: PageRequest,
     ): FeedbackListResult = suspendTransaction(database) {
-        val predicate: Op<Boolean> = (Feedbacks.subjectId eq subjectUserId) and
-            (Feedbacks.visibility inList RECEIVED_VISIBILITIES) and
-            buildPredicate(filter)
+        val scope: Op<Boolean> = when (view) {
+            FeedbackListView.RECEIVED -> (Feedbacks.subjectId eq callerUserId) and
+                (Feedbacks.visibility inList RECEIVED_VISIBILITIES)
+            FeedbackListView.PROVIDED -> Feedbacks.providerId eq callerUserId
+        }
+        val predicate: Op<Boolean> = scope and buildPredicate(filter)
         val join = Feedbacks
+            .join(
+                subjectUsers,
+                JoinType.INNER,
+                onColumn = Feedbacks.subjectId,
+                otherColumn = subjectUsers[UserService.Users.id],
+            )
             .join(
                 providerUsers,
                 JoinType.INNER,
@@ -144,12 +159,15 @@ class FeedbackService(val database: R2dbcDatabase) {
             .select(
                 Feedbacks.id,
                 Feedbacks.requesterId,
+                Feedbacks.subjectId,
                 Feedbacks.providerId,
                 Feedbacks.visibility,
                 Feedbacks.status,
                 Feedbacks.content,
                 requesterUsers[UserService.Users.name],
                 requesterUsers[UserService.Users.markedAsDeleted],
+                subjectUsers[UserService.Users.name],
+                subjectUsers[UserService.Users.markedAsDeleted],
                 providerUsers[UserService.Users.name],
                 providerUsers[UserService.Users.markedAsDeleted],
             )
@@ -161,6 +179,9 @@ class FeedbackService(val database: R2dbcDatabase) {
                     requesterId = row[Feedbacks.requesterId]?.value,
                     requesterName = row.getOrNull(requesterUsers[UserService.Users.name]),
                     requesterDeleted = row.getOrNull(requesterUsers[UserService.Users.markedAsDeleted]) ?: false,
+                    subjectId = row[Feedbacks.subjectId].value,
+                    subjectName = row[subjectUsers[UserService.Users.name]],
+                    subjectDeleted = row[subjectUsers[UserService.Users.markedAsDeleted]],
                     providerId = row[Feedbacks.providerId].value,
                     providerName = row[providerUsers[UserService.Users.name]],
                     providerDeleted = row[providerUsers[UserService.Users.markedAsDeleted]],
@@ -177,6 +198,9 @@ class FeedbackService(val database: R2dbcDatabase) {
         var op: Op<Boolean> = Op.TRUE
         filter.requesterName?.takeIf { it.isNotBlank() }?.let {
             op = op and (requesterUsers[UserService.Users.name].lowerCase() like containsPattern(it))
+        }
+        filter.subjectName?.takeIf { it.isNotBlank() }?.let {
+            op = op and (subjectUsers[UserService.Users.name].lowerCase() like containsPattern(it))
         }
         filter.providerName?.takeIf { it.isNotBlank() }?.let {
             op = op and (providerUsers[UserService.Users.name].lowerCase() like containsPattern(it))

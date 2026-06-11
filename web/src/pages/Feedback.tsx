@@ -2,7 +2,7 @@ import { Stack, Tabs, Text, Title } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { getUserId, listTeams } from "../api/client";
-import FeedbackReceived from "./FeedbackReceived";
+import FeedbackTable from "./FeedbackTable";
 
 const TABS = ["received", "provided", "team"] as const;
 type FeedbackTab = (typeof TABS)[number];
@@ -47,10 +47,10 @@ export default function Feedback() {
         </Tabs.List>
 
         <Tabs.Panel value="received" pt="md">
-          <FeedbackReceived />
+          <FeedbackTable view="received" />
         </Tabs.Panel>
         <Tabs.Panel value="provided" pt="md">
-          <Text c="dimmed">Feedback you have provided will appear here.</Text>
+          <FeedbackTable view="provided" />
         </Tabs.Panel>
         {isManager && (
           <Tabs.Panel value="team" pt="md">

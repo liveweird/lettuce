@@ -541,6 +541,57 @@ class FeedbackRoutesTest {
     }
 
     @Test
+    fun `list provided returns caller-as-provider rows regardless of visibility`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("provider")
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val subjectId = TestUsers.seed(email = uniqueEmail("subject"), password = "pw")
+        val requesterId = TestUsers.seed(email = uniqueEmail("requester"), password = "pw")
+        val otherProviderId = TestUsers.seed(email = uniqueEmail("other"), password = "pw")
+        val client = authedClient(callerEmail, "pw")
+
+        val provided = listOf(
+            client.createFeedback(subjectId, callerId, FeedbackVisibility.PUBLIC),
+            client.createFeedback(subjectId, callerId, FeedbackVisibility.PROVIDER_SUBJECT),
+            client.createFeedback(subjectId, callerId, FeedbackVisibility.PROVIDER_REQUESTER, requesterId = requesterId),
+            client.createFeedback(subjectId, callerId, FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT, requesterId = requesterId),
+        )
+        // Excluded: caller is the subject here, not the provider.
+        client.createFeedback(callerId, otherProviderId, FeedbackVisibility.PUBLIC)
+
+        val page = client.get("/api/feedbacks?view=provided").body<FeedbackPageResponse>()
+        assertEquals(4, page.total)
+        assertEquals(provided.map { it.id }.sorted(), page.items.map { it.id }.sorted())
+        assertEquals(
+            FeedbackVisibility.entries.toSet(),
+            page.items.map { it.visibility }.toSet(),
+        )
+    }
+
+    @Test
+    fun `list provided resolves subject names and supports subjectName filter and sort`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("provider")
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val annId = TestUsers.seed(email = uniqueEmail("ann"), password = "pw", name = "Ann Subject")
+        val zoeId = TestUsers.seed(email = uniqueEmail("zoe"), password = "pw", name = "Zoe Subject")
+        val client = authedClient(callerEmail, "pw")
+
+        val forAnn = client.createFeedback(annId, callerId, FeedbackVisibility.PROVIDER_SUBJECT)
+        val forZoe = client.createFeedback(zoeId, callerId, FeedbackVisibility.PUBLIC)
+
+        val all = client.get("/api/feedbacks?view=provided").body<FeedbackPageResponse>()
+        assertEquals("Ann Subject", all.items.single { it.id == forAnn.id }.subjectName)
+        assertEquals(annId, all.items.single { it.id == forAnn.id }.subjectId)
+
+        val filtered = client.get("/api/feedbacks?view=provided&subjectName=ZOE").body<FeedbackPageResponse>()
+        assertEquals(listOf(forZoe.id), filtered.items.map { it.id })
+
+        val sorted = client.get("/api/feedbacks?view=provided&sort=-subjectName").body<FeedbackPageResponse>()
+        assertEquals(listOf(forZoe.id, forAnn.id), sorted.items.map { it.id })
+    }
+
+    @Test
     fun `list received rejects malformed query parameters`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("subject")
@@ -551,7 +602,7 @@ class FeedbackRoutesTest {
             "/api/feedbacks?sort=content",
             "/api/feedbacks?visibility=BOGUS",
             "/api/feedbacks?status=BOGUS",
-            "/api/feedbacks?view=provided",
+            "/api/feedbacks?view=bogus",
             "/api/feedbacks?pageSize=200",
             "/api/feedbacks?page=0",
         )

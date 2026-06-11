@@ -39,12 +39,13 @@ fun Application.configureFeedbackRoutes() {
             get<Feedbacks> {
                 val caller = call.caller()
                 val params = call.request.queryParameters
-                val view = params["view"]?.takeIf { it.isNotBlank() } ?: "received"
-                if (view != "received") {
-                    throw BadRequestException("Unknown view: $view (allowed: received)")
+                val view = when (val raw = params["view"]?.takeIf { it.isNotBlank() } ?: "received") {
+                    "received" -> FeedbackListView.RECEIVED
+                    "provided" -> FeedbackListView.PROVIDED
+                    else -> throw BadRequestException("Unknown view: $raw (allowed: received, provided)")
                 }
                 val paging = call.parsePaging(
-                    sortable = setOf("id", "requesterName", "providerName", "visibility", "status"),
+                    sortable = setOf("id", "requesterName", "subjectName", "providerName", "visibility", "status"),
                 )
                 val visibilityFilter = params["visibility"]?.takeIf { it.isNotBlank() }?.let { raw ->
                     runCatching { FeedbackVisibility.valueOf(raw) }.getOrElse {
@@ -62,11 +63,12 @@ fun Application.configureFeedbackRoutes() {
                 }
                 val filter = FeedbackListFilter(
                     requesterName = params["requesterName"]?.takeIf { it.isNotBlank() },
+                    subjectName = params["subjectName"]?.takeIf { it.isNotBlank() },
                     providerName = params["providerName"]?.takeIf { it.isNotBlank() },
                     visibility = visibilityFilter,
                     status = statusFilter,
                 )
-                val result = feedbackService.listReceived(caller.userId, filter, paging)
+                val result = feedbackService.list(view, caller.userId, filter, paging)
                 call.respond(
                     HttpStatusCode.OK,
                     FeedbackPageResponse(
