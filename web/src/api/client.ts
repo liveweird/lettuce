@@ -193,6 +193,35 @@ export async function listTeams(q: TeamListQuery): Promise<TeamPage> {
   return (await res.json()) as TeamPage;
 }
 
+export type TeamMemberPage =
+  paths["/api/teams/members"]["get"]["responses"]["200"]["content"]["application/json"];
+
+export type TeamMemberListView = "member" | "managed";
+
+export type TeamMemberListQuery = {
+  view: TeamMemberListView;
+  page: number;
+  pageSize: number;
+  sort?: string;
+  name?: string;
+  email?: string;
+  teamName?: string;
+};
+
+export async function listTeamMembers(q: TeamMemberListQuery): Promise<TeamMemberPage> {
+  const params = new URLSearchParams();
+  params.set("view", q.view);
+  params.set("page", String(q.page));
+  params.set("pageSize", String(q.pageSize));
+  if (q.sort) params.set("sort", q.sort);
+  if (q.name) params.set("name", q.name);
+  if (q.email) params.set("email", q.email);
+  if (q.teamName) params.set("teamName", q.teamName);
+  const res = await authedFetch(`/api/teams/members?${params.toString()}`);
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return (await res.json()) as TeamMemberPage;
+}
+
 export type FeedbackPage =
   paths["/api/feedbacks"]["get"]["responses"]["200"]["content"]["application/json"];
 

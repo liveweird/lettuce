@@ -540,6 +540,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/teams/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List members of the caller's teams
+         * @description Lists team members scoped by `view`. Scoping is always relative to the caller,
+         *     including ADMIN callers.
+         *
+         *     - `view=member` (the default): members of teams where the caller is a member.
+         *       The caller's own rows are excluded. Team managers never appear — a manager is
+         *       not a `team_members` row.
+         *     - `view=managed`: members of teams where the caller is the manager.
+         *
+         *     Each item is one (user, team) pair — a user who shares several teams with the
+         *     caller appears once per team. Soft-deleted users and soft-deleted teams are
+         *     excluded.
+         *
+         *     Supports offset pagination, sorting and filtering.
+         *
+         *     - Sortable fields: `id` (the member's user id), `name`, `email`, `teamName`.
+         *       Default sort is `id` ascending. `id` ascending and the team id ascending are
+         *       always appended as deterministic tiebreakers.
+         *     - Filters (all optional, all whitelisted):
+         *       - `name` — case-insensitive substring match against the member's name.
+         *       - `email` — case-insensitive substring match against the member's email.
+         *       - `teamName` — case-insensitive substring match against the team's name.
+         *
+         *     Malformed query parameters (unknown view, unknown sort field, out-of-range
+         *     page/pageSize) respond with `400` and an `ApiError` body.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description 1-based page index. Defaults to 1. */
+                    page?: components["parameters"]["Page"];
+                    /** @description Rows per page. Defaults to 20, maximum 100. */
+                    pageSize?: components["parameters"]["PageSize"];
+                    /**
+                     * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
+                     *     comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
+                     *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
+                     *     always appended as a deterministic tiebreaker.
+                     */
+                    sort?: components["parameters"]["Sort"];
+                    /** @description Which caller-relative slice of team members to list. */
+                    view?: "member" | "managed";
+                    /** @description Case-insensitive substring match against the member's name. */
+                    name?: string;
+                    /** @description Case-insensitive substring match against the member's email. */
+                    email?: string;
+                    /** @description Case-insensitive substring match against the team's name. */
+                    teamName?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description A page of team members */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TeamMemberPage"];
+                    };
+                };
+                /** @description Malformed query parameters */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/teams/{id}": {
         parameters: {
             query?: never;
@@ -1244,6 +1344,25 @@ export interface components {
         };
         TeamPage: {
             items: components["schemas"]["TeamListItem"][];
+            page: number;
+            pageSize: number;
+            /**
+             * Format: int64
+             * @description Row count after filters, before pagination.
+             */
+            total: number;
+        };
+        TeamMemberListItem: {
+            /** Format: int64 */
+            userId: number;
+            name: string;
+            email: string;
+            /** Format: int64 */
+            teamId: number;
+            teamName: string;
+        };
+        TeamMemberPage: {
+            items: components["schemas"]["TeamMemberListItem"][];
             page: number;
             pageSize: number;
             /**

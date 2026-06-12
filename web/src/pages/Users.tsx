@@ -15,7 +15,6 @@ import {
   Text,
   TextInput,
   Title,
-  UnstyledButton,
 } from "@mantine/core";
 import { useDebouncedValue, useDisclosure } from "@mantine/hooks";
 import {
@@ -24,14 +23,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import {
-  IconArrowDown,
-  IconArrowUp,
-  IconArrowsSort,
-  IconPencil,
-  IconPlus,
-  IconTrash,
-} from "@tabler/icons-react";
+import { IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 import {
   deleteUser,
   getUserId,
@@ -41,12 +33,12 @@ import {
   type UserRole,
 } from "../api/client";
 import { flagSignedOut, notifyAuthChange } from "../auth";
+import SortHeader, { type SortDir } from "../components/SortHeader";
 
 const PAGE_SIZE_OPTIONS = [20, 40, 60] as const;
 const DEFAULT_PAGE_SIZE = 20;
 
 type SortField = "name" | "email" | "role";
-type SortDir = "asc" | "desc";
 
 type UserRow = { id: number; name: string; email: string };
 
@@ -56,32 +48,6 @@ const ROLE_OPTIONS = (Object.keys(ROLE_LABEL) as UserRole[]).map((value) => ({
   value,
   label: ROLE_LABEL[value],
 }));
-
-function SortHeader({
-  field,
-  label,
-  activeField,
-  activeDir,
-  onToggle,
-}: {
-  field: SortField;
-  label: string;
-  activeField: SortField;
-  activeDir: SortDir;
-  onToggle: (field: SortField) => void;
-}) {
-  const isActive = activeField === field;
-  const Icon = !isActive ? IconArrowsSort : activeDir === "asc" ? IconArrowUp : IconArrowDown;
-  return (
-    <UnstyledButton
-      onClick={() => onToggle(field)}
-      style={{ display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600 }}
-    >
-      <span>{label}</span>
-      <Icon size={14} stroke={1.5} opacity={isActive ? 1 : 0.4} />
-    </UnstyledButton>
-  );
-}
 
 export default function Users() {
   const [page, setPage] = useState(1);

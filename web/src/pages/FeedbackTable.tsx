@@ -11,11 +11,9 @@ import {
   Table,
   Text,
   TextInput,
-  UnstyledButton,
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { IconArrowDown, IconArrowUp, IconArrowsSort } from "@tabler/icons-react";
 import {
   listFeedbacks,
   type FeedbackListView,
@@ -23,12 +21,12 @@ import {
   type FeedbackStatus,
   type FeedbackVisibility,
 } from "../api/client";
+import SortHeader, { type SortDir } from "../components/SortHeader";
 
 const PAGE_SIZE_OPTIONS = [20, 40, 60] as const;
 const DEFAULT_PAGE_SIZE = 20;
 
 type SortField = "requesterName" | "subjectName" | "providerName" | "visibility" | "status";
-type SortDir = "asc" | "desc";
 
 type FeedbackRow = FeedbackPage["items"][number];
 
@@ -92,32 +90,6 @@ const VIEW_CONFIG: Record<
     ]),
   },
 };
-
-function SortHeader({
-  field,
-  label,
-  activeField,
-  activeDir,
-  onToggle,
-}: {
-  field: SortField;
-  label: string;
-  activeField: SortField;
-  activeDir: SortDir;
-  onToggle: (field: SortField) => void;
-}) {
-  const isActive = activeField === field;
-  const Icon = !isActive ? IconArrowsSort : activeDir === "asc" ? IconArrowUp : IconArrowDown;
-  return (
-    <UnstyledButton
-      onClick={() => onToggle(field)}
-      style={{ display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600 }}
-    >
-      <span>{label}</span>
-      <Icon size={14} stroke={1.5} opacity={isActive ? 1 : 0.4} />
-    </UnstyledButton>
-  );
-}
 
 function userName(name: string | null | undefined, deleted: boolean): string {
   if (name == null) return "—";
