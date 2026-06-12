@@ -35,12 +35,22 @@ const SEED_MEMBERS: TeamMemberItem[] = [
   { userId: 10, name: "Alice Adams", email: "alice@x.test", teamId: 4, teamName: "Support" },
 ];
 
+const SEED_TEAMS = [
+  { id: 3, name: "Platform", managerId: 1, managerName: "Mona", managerDeleted: false },
+  { id: 4, name: "Support", managerId: 1, managerName: "Mona", managerDeleted: false },
+];
+
+function teamsPage(): Response {
+  return jsonResponse(200, { items: SEED_TEAMS, page: 1, pageSize: 100, total: SEED_TEAMS.length });
+}
+
 function setupMocks(mockFetch: FetchMock, response: Response = membersPage(SEED_MEMBERS)) {
-  mockFetch.mockImplementation((url: string) =>
-    Promise.resolve(
-      String(url).startsWith("/api/teams/members") ? response.clone() : jsonResponse(404, {}),
-    ),
-  );
+  mockFetch.mockImplementation((url: string) => {
+    const path = String(url);
+    if (path.startsWith("/api/teams/members")) return Promise.resolve(response.clone());
+    if (path.startsWith("/api/teams")) return Promise.resolve(teamsPage());
+    return Promise.resolve(jsonResponse(404, {}));
+  });
 }
 
 function memberUrls(mockFetch: FetchMock): string[] {
@@ -108,7 +118,7 @@ describe("TeamMembersTable", () => {
     expect(screen.getByLabelText("Name")).toHaveValue("");
   });
 
-  test("typing in the Email and Team filters adds email= and teamName=", async () => {
+  test("typing in the Email filter adds email=", async () => {
     setupMocks(mockFetch);
     const user = userEvent.setup();
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
@@ -121,14 +131,39 @@ describe("TeamMembersTable", () => {
       },
       { timeout: 1500 },
     );
+  });
 
-    await user.type(screen.getByLabelText("Team"), "supp");
-    await waitFor(
-      () => {
-        expect(memberUrls(mockFetch).some((url) => url.includes("teamName=supp"))).toBe(true);
-      },
-      { timeout: 1500 },
-    );
+  test("the Team dropdown lists all teams", async () => {
+    setupMocks(mockFetch);
+    renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
+
+    await screen.findByRole("cell", { name: "Bob Brown" });
+
+    // happy-dom does not open Mantine comboboxes via userEvent's pointer simulation
+    fireEvent.click(screen.getByLabelText("Team", { selector: "input" }));
+    const options = await screen.findAllByRole("option");
+    expect(options.map((o) => o.textContent)).toEqual(["Platform", "Support"]);
+  });
+
+  test("picking a team filters by teamId and clearing removes the filter", async () => {
+    setupMocks(mockFetch);
+    renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
+
+    await screen.findByRole("cell", { name: "Bob Brown" });
+
+    fireEvent.click(screen.getByLabelText("Team", { selector: "input" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Support" }));
+    await waitFor(() => {
+      expect(memberUrls(mockFetch).some((url) => url.includes("teamId=4"))).toBe(true);
+    });
+
+    const requestsBeforeClear = memberUrls(mockFetch).length;
+    fireEvent.click(screen.getByLabelText("Clear team filter"));
+    await waitFor(() => {
+      const later = memberUrls(mockFetch).slice(requestsBeforeClear);
+      expect(later.length).toBeGreaterThan(0);
+      expect(later.every((url) => !url.includes("teamId="))).toBe(true);
+    });
   });
 
   test("clicking the Team header sorts by teamName, clicking again descends", async () => {

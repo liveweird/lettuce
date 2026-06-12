@@ -569,10 +569,10 @@ export interface paths {
          *     - Filters (all optional, all whitelisted):
          *       - `name` — case-insensitive substring match against the member's name.
          *       - `email` — case-insensitive substring match against the member's email.
-         *       - `teamName` — case-insensitive substring match against the team's name.
+         *       - `teamId` — exact match against the team's id.
          *
-         *     Malformed query parameters (unknown view, unknown sort field, out-of-range
-         *     page/pageSize) respond with `400` and an `ApiError` body.
+         *     Malformed query parameters (unknown view, unknown sort field, non-numeric
+         *     teamId, out-of-range page/pageSize) respond with `400` and an `ApiError` body.
          */
         get: {
             parameters: {
@@ -594,8 +594,8 @@ export interface paths {
                     name?: string;
                     /** @description Case-insensitive substring match against the member's email. */
                     email?: string;
-                    /** @description Case-insensitive substring match against the team's name. */
-                    teamName?: string;
+                    /** @description Exact match against the team's id. */
+                    teamId?: number;
                 };
                 header?: never;
                 path?: never;

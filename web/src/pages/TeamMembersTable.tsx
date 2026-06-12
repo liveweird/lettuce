@@ -14,7 +14,7 @@ import {
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { listTeamMembers, type TeamMemberListView } from "../api/client";
+import { listAllTeams, listTeamMembers, type TeamMemberListView } from "../api/client";
 import SortHeader, { type SortDir } from "../components/SortHeader";
 
 const PAGE_SIZE_OPTIONS = [20, 40, 60] as const;
@@ -35,18 +35,23 @@ export default function TeamMembersTable({
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [nameFilter, setNameFilter] = useState("");
   const [emailFilter, setEmailFilter] = useState("");
-  const [teamFilter, setTeamFilter] = useState("");
+  const [teamFilter, setTeamFilter] = useState<string | null>(null);
 
   const [debouncedName] = useDebouncedValue(nameFilter, 300);
   const [debouncedEmail] = useDebouncedValue(emailFilter, 300);
-  const [debouncedTeam] = useDebouncedValue(teamFilter, 300);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1);
-  }, [debouncedName, debouncedEmail, debouncedTeam, sortField, sortDir]);
+  }, [debouncedName, debouncedEmail, teamFilter, sortField, sortDir]);
 
   const sortParam = `${sortDir === "desc" ? "-" : ""}${sortField}`;
+
+  const { data: teams } = useQuery({
+    queryKey: ["teams", "all"],
+    queryFn: listAllTeams,
+  });
+  const teamOptions = (teams ?? []).map((t) => ({ value: String(t.id), label: t.name }));
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: [
@@ -57,7 +62,7 @@ export default function TeamMembersTable({
       sortParam,
       debouncedName,
       debouncedEmail,
-      debouncedTeam,
+      teamFilter,
     ],
     queryFn: () =>
       listTeamMembers({
@@ -67,7 +72,7 @@ export default function TeamMembersTable({
         sort: sortParam,
         name: debouncedName || undefined,
         email: debouncedEmail || undefined,
-        teamName: debouncedTeam || undefined,
+        teamId: teamFilter ? Number(teamFilter) : undefined,
       }),
     placeholderData: keepPreviousData,
   });
@@ -123,23 +128,15 @@ export default function TeamMembersTable({
           }
           rightSectionPointerEvents="auto"
         />
-        <TextInput
+        <Select
           label="Team"
-          placeholder="contains…"
+          placeholder="Any"
+          data={teamOptions}
           value={teamFilter}
-          onChange={(e) => setTeamFilter(e.currentTarget.value)}
-          rightSection={
-            teamFilter ? (
-              <CloseButton
-                size="sm"
-                aria-label="Clear team filter"
-                tabIndex={-1}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setTeamFilter("")}
-              />
-            ) : null
-          }
-          rightSectionPointerEvents="auto"
+          onChange={setTeamFilter}
+          clearable
+          clearButtonProps={{ "aria-label": "Clear team filter" }}
+          searchable
         />
       </Group>
 

@@ -205,7 +205,7 @@ export type TeamMemberListQuery = {
   sort?: string;
   name?: string;
   email?: string;
-  teamName?: string;
+  teamId?: number;
 };
 
 export async function listTeamMembers(q: TeamMemberListQuery): Promise<TeamMemberPage> {
@@ -216,10 +216,21 @@ export async function listTeamMembers(q: TeamMemberListQuery): Promise<TeamMembe
   if (q.sort) params.set("sort", q.sort);
   if (q.name) params.set("name", q.name);
   if (q.email) params.set("email", q.email);
-  if (q.teamName) params.set("teamName", q.teamName);
+  if (q.teamId != null) params.set("teamId", String(q.teamId));
   const res = await authedFetch(`/api/teams/members?${params.toString()}`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json()) as TeamMemberPage;
+}
+
+export async function listAllTeams(): Promise<TeamPage["items"]> {
+  const items: TeamPage["items"] = [];
+  let page = 1;
+  for (;;) {
+    const result = await listTeams({ page, pageSize: 100, sort: "name" });
+    items.push(...result.items);
+    if (items.length >= result.total || result.items.length === 0) return items;
+    page += 1;
+  }
 }
 
 export type FeedbackPage =
