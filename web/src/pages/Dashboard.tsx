@@ -5,8 +5,6 @@ import TeamMembersTable from "./TeamMembersTable";
 export default function Dashboard() {
   return (
     <Stack gap="md">
-      <Title order={2}>Dashboard</Title>
-
       <Title order={3}>My managers</Title>
       <ManagersTable />
 
