@@ -27,7 +27,11 @@ import kotlinx.serialization.Serializable
 class Users {
     @Serializable
     @Resource("{id}")
-    class Id(val parent: Users = Users(), val id: UInt)
+    class Id(val parent: Users = Users(), val id: UInt) {
+        @Serializable
+        @Resource("password")
+        class Password(val parent: Id)
+    }
 }
 
 fun Application.configureUserRoutes() {
@@ -104,6 +108,16 @@ fun Application.configureUserRoutes() {
                     role = nextRole,
                 )
                 val updated = userService.update(route.id, user)
+                if (updated == 0) {
+                    call.respond(HttpStatusCode.NotFound)
+                } else {
+                    call.respond(HttpStatusCode.NoContent)
+                }
+            }
+            put<Users.Id.Password> { route ->
+                requireSelfOrAdmin(call.caller(), route.parent.id)
+                val req = call.receive<PasswordUpdateRequest>()
+                val updated = userService.updatePassword(route.parent.id, hashPassword(req.password))
                 if (updated == 0) {
                     call.respond(HttpStatusCode.NotFound)
                 } else {

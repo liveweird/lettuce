@@ -194,6 +194,27 @@ paths:
         '401': { description: Missing or invalid token }
         '403': { description: Caller is not ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
 
+  /api/users/{id}/password:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    put:
+      tags: [users]
+      summary: Change a user's password
+      description: |
+        Sets a new password for the user. Only the password is changed; no other
+        fields are touched. Requires the caller to be the target user, or to be ADMIN.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordUpdateRequest'
+      responses:
+        '204': { description: Password updated }
+        '401': { description: Missing or invalid token }
+        '403': { description: Caller is not the target user and not ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+        '404': { description: Not found }
+
   /api/teams:
     get:
       tags: [teams]
@@ -659,6 +680,12 @@ components:
             Honoured only when the caller is ADMIN. Non-ADMIN callers must omit this
             field or send the value the user already has, otherwise the request is
             rejected with 403. Omitting it keeps the user's current role.
+
+    PasswordUpdateRequest:
+      type: object
+      required: [password]
+      properties:
+        password: { type: string, minLength: 8 }
 
     UserResponse:
       type: object

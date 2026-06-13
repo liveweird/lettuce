@@ -115,6 +115,17 @@ export async function updateUser(id: number, body: UpdateUserBody): Promise<void
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
+export type ChangePasswordBody =
+  paths["/api/users/{id}/password"]["put"]["requestBody"]["content"]["application/json"];
+
+export async function changeUserPassword(id: number, body: ChangePasswordBody): Promise<void> {
+  const res = await authedFetch(`/api/users/${id}/password`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
 export async function deleteUser(id: number): Promise<void> {
   const res = await authedFetch(`/api/users/${id}`, { method: "DELETE" });
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));

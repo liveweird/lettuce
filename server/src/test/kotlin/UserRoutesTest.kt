@@ -3,6 +3,7 @@ package ch.nokillswit
 import ch.nokillswit.auth.LoginRequest
 import ch.nokillswit.auth.LoginResponse
 import ch.nokillswit.plugins.ApiError
+import ch.nokillswit.users.PasswordUpdateRequest
 import ch.nokillswit.users.UserPageResponse
 import ch.nokillswit.users.UserRequest
 import ch.nokillswit.users.UserUpdateRequest
@@ -153,6 +154,57 @@ class UserRoutesTest {
         }
         assertEquals(HttpStatusCode.OK, login.status)
         assertTrue(login.body<LoginResponse>().token.isNotBlank())
+    }
+
+    @Test
+    fun `PUT users id password changes the password so login uses the new one`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+
+        val client = authedClient(adminEmail, "pw")
+        val userEmail = uniqueEmail("pwd")
+        val created = client.post("/api/users") {
+            contentType(ContentType.Application.Json)
+            setBody(UserRequest(name = "Pat", email = userEmail, password = "old-password"))
+        }.body<UserResponse>()
+
+        val put = client.put("/api/users/${created.id}/password") {
+            contentType(ContentType.Application.Json)
+            setBody(PasswordUpdateRequest(password = "brand-new-password"))
+        }
+        assertEquals(HttpStatusCode.NoContent, put.status)
+
+        val withNew = jsonClient().post("/api/login") {
+            contentType(ContentType.Application.Json)
+            setBody(LoginRequest(userEmail, "brand-new-password"))
+        }
+        assertEquals(HttpStatusCode.OK, withNew.status)
+        assertTrue(withNew.body<LoginResponse>().token.isNotBlank())
+
+        val withOld = jsonClient().post("/api/login") {
+            contentType(ContentType.Application.Json)
+            setBody(LoginRequest(userEmail, "old-password"))
+        }
+        assertEquals(HttpStatusCode.Unauthorized, withOld.status)
+    }
+
+    @Test
+    fun `PUT users id password forbids a non-admin changing another user's password`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("caller")
+        TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val targetId = TestUsers.seed(
+            email = uniqueEmail("target"),
+            password = "pw",
+            role = UserRole.USER,
+        )
+
+        val response = authedClient(callerEmail, "pw").put("/api/users/$targetId/password") {
+            contentType(ContentType.Application.Json)
+            setBody(PasswordUpdateRequest(password = "should-not-apply"))
+        }
+        assertEquals(HttpStatusCode.Forbidden, response.status)
     }
 
     @Test

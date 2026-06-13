@@ -29,6 +29,11 @@ data class UserUpdateRequest(
 )
 
 @Serializable
+data class PasswordUpdateRequest(
+    val password: String,
+)
+
+@Serializable
 data class UserResponse(
     val id: UInt,
     val name: String,

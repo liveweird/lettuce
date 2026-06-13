@@ -91,6 +91,17 @@ describe("Users page", () => {
     expect(editLinks[1]).toHaveAttribute("href", "/users/2/edit");
   });
 
+  test("admin sees a Change password link per row pointing at /users/:id/change-password", async () => {
+    mockListThen(mockFetch);
+    renderUsers();
+
+    await screen.findByText("Alice");
+    const links = screen.getAllByRole("link", { name: /^change password for /i });
+    expect(links).toHaveLength(2);
+    expect(links[0]).toHaveAttribute("href", "/users/1/change-password");
+    expect(links[1]).toHaveAttribute("href", "/users/2/change-password");
+  });
+
   test("non-admin does not see Edit or Delete actions", async () => {
     localStorage.setItem(ROLE_KEY, "USER");
     mockListThen(mockFetch);

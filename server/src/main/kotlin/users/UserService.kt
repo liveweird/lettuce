@@ -87,6 +87,12 @@ class UserService(val database: R2dbcDatabase) {
         }
     }
 
+    suspend fun updatePassword(id: UInt, passwordHash: String): Int = suspendTransaction(database) {
+        Users.update({ (Users.id eq id) and (Users.markedAsDeleted eq false) }) {
+            it[this.passwordHash] = passwordHash
+        }
+    }
+
     suspend fun delete(id: UInt): Int = suspendTransaction(database) {
         Users.update({ (Users.id eq id) and (Users.markedAsDeleted eq false) }) {
             it[markedAsDeleted] = true
