@@ -36,6 +36,7 @@ async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/name/i), "Alice");
   await user.type(screen.getByLabelText(/email/i), "alice@example.com");
   await user.type(screen.getByLabelText("Password"), "hunter2!");
+  await user.type(screen.getByLabelText("Confirm password"), "hunter2!");
 }
 
 describe("CreateUser page", () => {
@@ -140,6 +141,22 @@ describe("CreateUser page", () => {
     await user.click(screen.getByRole("button", { name: /^create$/i }));
 
     expect(await screen.findByText(/password must be at least 8 characters/i)).toBeInTheDocument();
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  test("rejects mismatched password confirmation client-side", async () => {
+    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+
+    const user = userEvent.setup();
+    renderCreateUser();
+
+    await user.type(screen.getByLabelText(/name/i), "Alice");
+    await user.type(screen.getByLabelText(/email/i), "alice@example.com");
+    await user.type(screen.getByLabelText("Password"), "hunter2!");
+    await user.type(screen.getByLabelText("Confirm password"), "hunter3!");
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+
+    expect(await screen.findByText(/passwords do not match/i)).toBeInTheDocument();
     expect(mockFetch).not.toHaveBeenCalled();
   });
 

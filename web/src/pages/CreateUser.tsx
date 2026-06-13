@@ -13,7 +13,7 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
-import { hasLength, useForm } from "@mantine/form";
+import { hasLength, matchesField, useForm } from "@mantine/form";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError, createUser, isAdmin, type UserRole } from "../api/client";
 
@@ -21,6 +21,7 @@ type FormValues = {
   name: string;
   email: string;
   password: string;
+  confirmPassword: string;
   role: UserRole;
 };
 
@@ -33,7 +34,7 @@ export default function CreateUser() {
   const [submitting, setSubmitting] = useState(false);
 
   const form = useForm<FormValues>({
-    initialValues: { name: "", email: "", password: "", role: "USER" },
+    initialValues: { name: "", email: "", password: "", confirmPassword: "", role: "USER" },
     validate: {
       name: hasLength({ min: 1, max: 50 }, "Name must be 1–50 characters"),
       email: (value) => {
@@ -43,13 +44,14 @@ export default function CreateUser() {
         return null;
       },
       password: hasLength({ min: 8 }, "Password must be at least 8 characters"),
+      confirmPassword: matchesField("password", "Passwords do not match"),
       role: (value) => (value === "USER" || value === "ADMIN" ? null : "Role is required"),
     },
   });
 
   if (!isAdmin()) return <Navigate to="/users" replace />;
 
-  async function onSubmit(values: FormValues) {
+  async function onSubmit({ confirmPassword: _confirm, ...values }: FormValues) {
     setError(null);
     setSubmitting(true);
     try {
@@ -129,6 +131,11 @@ export default function CreateUser() {
               label="Password"
               autoComplete="new-password"
               {...form.getInputProps("password")}
+            />
+            <PasswordInput
+              label="Confirm password"
+              autoComplete="new-password"
+              {...form.getInputProps("confirmPassword")}
             />
             {error && (
               <Alert color="red" variant="light">
