@@ -71,7 +71,8 @@ fun Application.configureTeamRoutes() {
                 val view = when (val raw = params["view"]?.takeIf { it.isNotBlank() } ?: "member") {
                     "member" -> TeamMemberListView.MEMBER
                     "managed" -> TeamMemberListView.MANAGED
-                    else -> throw BadRequestException("Unknown view: $raw (allowed: member, managed)")
+                    "managers" -> TeamMemberListView.MANAGERS
+                    else -> throw BadRequestException("Unknown view: $raw (allowed: member, managed, managers)")
                 }
                 val paging = call.parsePaging(sortable = setOf("id", "name", "email", "teamName"))
                 val teamIdFilter = params["teamId"]?.takeIf { it.isNotBlank() }?.let { raw ->

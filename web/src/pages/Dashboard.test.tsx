@@ -37,6 +37,7 @@ describe("Dashboard", () => {
     );
     renderWithProviders(<Dashboard />);
 
+    expect(screen.getByRole("heading", { name: "My managers" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Users in my teams" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Users in teams I manage" })).toBeInTheDocument();
 
@@ -44,6 +45,7 @@ describe("Dashboard", () => {
       const urls = mockFetch.mock.calls.map(([url]) => String(url));
       expect(urls.some((url) => url.includes("/api/teams/members?view=member"))).toBe(true);
       expect(urls.some((url) => url.includes("/api/teams/members?view=managed"))).toBe(true);
+      expect(urls.some((url) => url.includes("/api/teams/members?view=managers"))).toBe(true);
     });
 
     expect(await screen.findByText("No teammates")).toBeInTheDocument();

@@ -77,6 +77,34 @@ class TeamMemberListTest {
     }
 
     @Test
+    fun `view=managers returns the managers of teams the caller is a member of`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw")
+        val callerEmail = uniqueEmail("caller")
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val m1Id = TestUsers.seed(email = uniqueEmail("m1"), password = "pw", name = "Manager One")
+        val m2Id = TestUsers.seed(email = uniqueEmail("m2"), password = "pw", name = "Manager Two")
+        val m3Id = TestUsers.seed(email = uniqueEmail("m3"), password = "pw", name = "Manager Three")
+        val otherId = TestUsers.seed(email = uniqueEmail("other"), password = "pw")
+
+        val admin = authedClient(adminEmail, "pw")
+        admin.createTeam("alpha", m1Id, listOf(callerId, otherId))
+        admin.createTeam("beta", m2Id, listOf(callerId))
+        // A team the caller is not in — its manager must not appear.
+        admin.createTeam("gamma", m3Id, listOf(otherId))
+
+        val page = authedClient(callerEmail, "pw").get("/api/teams/members?view=managers")
+            .body<TeamMemberPageResponse>()
+        assertEquals(2L, page.total)
+        assertEquals(setOf(m1Id, m2Id), page.items.map { it.userId }.toSet())
+        assertEquals(
+            setOf("alpha" to m1Id, "beta" to m2Id),
+            page.items.map { it.teamName to it.userId }.toSet(),
+        )
+    }
+
+    @Test
     fun `view=managed returns members of managed teams only`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")

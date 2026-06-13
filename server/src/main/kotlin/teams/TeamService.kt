@@ -32,7 +32,7 @@ private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
     "name" to TeamService.Teams.name,
 )
 
-enum class TeamMemberListView { MEMBER, MANAGED }
+enum class TeamMemberListView { MEMBER, MANAGED, MANAGERS }
 
 data class TeamMemberListFilter(
     val name: String? = null,
@@ -181,25 +181,46 @@ class TeamService(val database: R2dbcDatabase) {
         paging: PageRequest,
     ): TeamMemberListResult = suspendTransaction(database) {
         val callerMemberships = TeamMembers.alias("caller_memberships")
-        val scope: Op<Boolean> = when (view) {
-            TeamMemberListView.MEMBER -> TeamMembers.teamId inSubQuery
-                callerMemberships.select(callerMemberships[TeamMembers.teamId])
-                    .where { callerMemberships[TeamMembers.userId] eq callerUserId }
-            TeamMemberListView.MANAGED -> Teams.managerId eq callerUserId
+        val callerTeamIds = callerMemberships
+            .select(callerMemberships[TeamMembers.teamId])
+            .where { callerMemberships[TeamMembers.userId] eq callerUserId }
+        val join: Join
+        val predicate: Op<Boolean>
+        when (view) {
+            TeamMemberListView.MEMBER, TeamMemberListView.MANAGED -> {
+                val scope: Op<Boolean> = if (view == TeamMemberListView.MEMBER) {
+                    TeamMembers.teamId inSubQuery callerTeamIds
+                } else {
+                    Teams.managerId eq callerUserId
+                }
+                join = TeamMembers
+                    .join(Teams, JoinType.INNER, onColumn = TeamMembers.teamId, otherColumn = Teams.id)
+                    .join(
+                        UserService.Users,
+                        JoinType.INNER,
+                        onColumn = TeamMembers.userId,
+                        otherColumn = UserService.Users.id,
+                    )
+                predicate = scope and
+                    (TeamMembers.userId neq callerUserId) and
+                    active() and
+                    (UserService.Users.markedAsDeleted eq false) and
+                    buildMemberPredicate(filter)
+            }
+            TeamMemberListView.MANAGERS -> {
+                join = Teams.join(
+                    UserService.Users,
+                    JoinType.INNER,
+                    onColumn = Teams.managerId,
+                    otherColumn = UserService.Users.id,
+                )
+                predicate = (Teams.id inSubQuery callerTeamIds) and
+                    (Teams.managerId neq callerUserId) and
+                    active() and
+                    (UserService.Users.markedAsDeleted eq false) and
+                    buildMemberPredicate(filter)
+            }
         }
-        val predicate: Op<Boolean> = scope and
-            (TeamMembers.userId neq callerUserId) and
-            active() and
-            (UserService.Users.markedAsDeleted eq false) and
-            buildMemberPredicate(filter)
-        val join = TeamMembers
-            .join(Teams, JoinType.INNER, onColumn = TeamMembers.teamId, otherColumn = Teams.id)
-            .join(
-                UserService.Users,
-                JoinType.INNER,
-                onColumn = TeamMembers.userId,
-                otherColumn = UserService.Users.id,
-            )
         val total = join.selectAll().where { predicate }.count()
         // parsePaging only appends "id" (the user id), which is not unique here — the same
         // user may appear once per shared team — so add the team id as a final tiebreaker.

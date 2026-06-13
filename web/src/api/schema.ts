@@ -625,6 +625,9 @@ export interface paths {
          *       The caller's own rows are excluded. Team managers never appear — a manager is
          *       not a `team_members` row.
          *     - `view=managed`: members of teams where the caller is the manager.
+         *     - `view=managers`: the managers of teams where the caller is a member. Each item
+         *       describes a manager (in `userId`/`name`/`email`) and the managed team. The
+         *       caller is excluded.
          *
          *     Each item is one (user, team) pair — a user who shares several teams with the
          *     caller appears once per team. Soft-deleted users and soft-deleted teams are
@@ -657,8 +660,16 @@ export interface paths {
                      *     always appended as a deterministic tiebreaker.
                      */
                     sort?: components["parameters"]["Sort"];
-                    /** @description Which caller-relative slice of team members to list. */
-                    view?: "member" | "managed";
+                    /**
+                     * @description Which caller-relative slice to list.
+                     *     - `member`: members of teams the caller belongs to.
+                     *     - `managed`: members of teams the caller manages.
+                     *     - `managers`: the managers of teams the caller is a member of. Each item's
+                     *       `userId`/`name`/`email` describe the manager and `teamId`/`teamName` the
+                     *       managed team. The caller is excluded; a manager who manages several of the
+                     *       caller's teams appears once per team.
+                     */
+                    view?: "member" | "managed" | "managers";
                     /** @description Case-insensitive substring match against the member's name. */
                     name?: string;
                     /** @description Case-insensitive substring match against the member's email. */

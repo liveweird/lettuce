@@ -207,7 +207,7 @@ export async function listTeams(q: TeamListQuery): Promise<TeamPage> {
 export type TeamMemberPage =
   paths["/api/teams/members"]["get"]["responses"]["200"]["content"]["application/json"];
 
-export type TeamMemberListView = "member" | "managed";
+export type TeamMemberListView = "member" | "managed" | "managers";
 
 export type TeamMemberListQuery = {
   view: TeamMemberListView;
