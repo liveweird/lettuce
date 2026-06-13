@@ -35,3 +35,20 @@ data class TeamPageResponse(
     val pageSize: Int,
     val total: Long,
 )
+
+@Serializable
+data class TeamMemberListItem(
+    val userId: UInt,
+    val name: String,
+    val email: String,
+    val teamId: UInt,
+    val teamName: String,
+)
+
+@Serializable
+data class TeamMemberPageResponse(
+    val items: List<TeamMemberListItem>,
+    val page: Int,
+    val pageSize: Int,
+    val total: Long,
+)

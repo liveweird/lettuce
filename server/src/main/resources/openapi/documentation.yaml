@@ -267,6 +267,74 @@ paths:
         '401': { description: Missing or invalid token }
         '403': { description: Caller attempted to set `managerId` to another user without being ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
 
+  /api/teams/members:
+    get:
+      tags: [teams]
+      summary: List members of the caller's teams
+      description: |
+        Lists team members scoped by `view`. Scoping is always relative to the caller,
+        including ADMIN callers.
+
+        - `view=member` (the default): members of teams where the caller is a member.
+          The caller's own rows are excluded. Team managers never appear — a manager is
+          not a `team_members` row.
+        - `view=managed`: members of teams where the caller is the manager.
+
+        Each item is one (user, team) pair — a user who shares several teams with the
+        caller appears once per team. Soft-deleted users and soft-deleted teams are
+        excluded.
+
+        Supports offset pagination, sorting and filtering.
+
+        - Sortable fields: `id` (the member's user id), `name`, `email`, `teamName`.
+          Default sort is `id` ascending. `id` ascending and the team id ascending are
+          always appended as deterministic tiebreakers.
+        - Filters (all optional, all whitelisted):
+          - `name` — case-insensitive substring match against the member's name.
+          - `email` — case-insensitive substring match against the member's email.
+          - `teamId` — exact match against the team's id.
+
+        Malformed query parameters (unknown view, unknown sort field, non-numeric
+        teamId, out-of-range page/pageSize) respond with `400` and an `ApiError` body.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Sort'
+        - name: view
+          in: query
+          required: false
+          schema: { type: string, enum: [member, managed], default: member }
+          description: Which caller-relative slice of team members to list.
+        - name: name
+          in: query
+          required: false
+          schema: { type: string }
+          description: Case-insensitive substring match against the member's name.
+        - name: email
+          in: query
+          required: false
+          schema: { type: string }
+          description: Case-insensitive substring match against the member's email.
+        - name: teamId
+          in: query
+          required: false
+          schema: { type: integer, format: int64, minimum: 0 }
+          description: Exact match against the team's id.
+      responses:
+        '200':
+          description: A page of team members
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamMemberPage'
+        '400':
+          description: Malformed query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+
   /api/teams/{id}:
     parameters:
       - $ref: '#/components/parameters/TeamId'
@@ -664,6 +732,32 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TeamListItem'
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1, maximum: 100 }
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Row count after filters, before pagination.
+
+    TeamMemberListItem:
+      type: object
+      required: [userId, name, email, teamId, teamName]
+      properties:
+        userId: { type: integer, format: int64, minimum: 0 }
+        name: { type: string }
+        email: { type: string }
+        teamId: { type: integer, format: int64, minimum: 0 }
+        teamName: { type: string }
+
+    TeamMemberPage:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamMemberListItem'
         page: { type: integer, minimum: 1 }
         pageSize: { type: integer, minimum: 1, maximum: 100 }
         total:

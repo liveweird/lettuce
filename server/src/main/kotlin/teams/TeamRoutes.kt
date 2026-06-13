@@ -25,6 +25,10 @@ import kotlinx.serialization.Serializable
 @Resource("/api/teams")
 class Teams {
     @Serializable
+    @Resource("members")
+    class Members(val parent: Teams = Teams())
+
+    @Serializable
     @Resource("{id}")
     class Id(val parent: Teams = Teams(), val id: UInt) {
         @Serializable
@@ -54,6 +58,35 @@ fun Application.configureTeamRoutes() {
                 call.respond(
                     HttpStatusCode.OK,
                     TeamPageResponse(
+                        items = result.items,
+                        page = paging.page,
+                        pageSize = paging.pageSize,
+                        total = result.total,
+                    ),
+                )
+            }
+            get<Teams.Members> {
+                val caller = call.caller()
+                val params = call.request.queryParameters
+                val view = when (val raw = params["view"]?.takeIf { it.isNotBlank() } ?: "member") {
+                    "member" -> TeamMemberListView.MEMBER
+                    "managed" -> TeamMemberListView.MANAGED
+                    else -> throw BadRequestException("Unknown view: $raw (allowed: member, managed)")
+                }
+                val paging = call.parsePaging(sortable = setOf("id", "name", "email", "teamName"))
+                val teamIdFilter = params["teamId"]?.takeIf { it.isNotBlank() }?.let { raw ->
+                    raw.toUIntOrNull()
+                        ?: throw BadRequestException("teamId must be a non-negative integer")
+                }
+                val filter = TeamMemberListFilter(
+                    name = params["name"]?.takeIf { it.isNotBlank() },
+                    email = params["email"]?.takeIf { it.isNotBlank() },
+                    teamId = teamIdFilter,
+                )
+                val result = teamService.listMembers(view, caller.userId, filter, paging)
+                call.respond(
+                    HttpStatusCode.OK,
+                    TeamMemberPageResponse(
                         items = result.items,
                         page = paging.page,
                         pageSize = paging.pageSize,

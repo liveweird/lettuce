@@ -1,6 +1,7 @@
 package ch.nokillswit.teams
 
 import ch.nokillswit.infra.paging.PageRequest
+import ch.nokillswit.infra.paging.SortField
 import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.users.UserService
 import io.ktor.server.plugins.BadRequestException
@@ -29,6 +30,27 @@ data class TeamListResult(
 private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
     "id" to TeamService.Teams.id,
     "name" to TeamService.Teams.name,
+)
+
+enum class TeamMemberListView { MEMBER, MANAGED }
+
+data class TeamMemberListFilter(
+    val name: String? = null,
+    val email: String? = null,
+    val teamId: UInt? = null,
+)
+
+data class TeamMemberListResult(
+    val items: List<TeamMemberListItem>,
+    val total: Long,
+)
+
+private val MEMBER_SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
+    "id" to UserService.Users.id,
+    "teamId" to TeamService.Teams.id,
+    "name" to UserService.Users.name,
+    "email" to UserService.Users.email,
+    "teamName" to TeamService.Teams.name,
 )
 
 class TeamService(val database: R2dbcDatabase) {
@@ -152,6 +174,61 @@ class TeamService(val database: R2dbcDatabase) {
             TeamListResult(items = rows, total = total)
         }
 
+    suspend fun listMembers(
+        view: TeamMemberListView,
+        callerUserId: UInt,
+        filter: TeamMemberListFilter,
+        paging: PageRequest,
+    ): TeamMemberListResult = suspendTransaction(database) {
+        val callerMemberships = TeamMembers.alias("caller_memberships")
+        val scope: Op<Boolean> = when (view) {
+            TeamMemberListView.MEMBER -> TeamMembers.teamId inSubQuery
+                callerMemberships.select(callerMemberships[TeamMembers.teamId])
+                    .where { callerMemberships[TeamMembers.userId] eq callerUserId }
+            TeamMemberListView.MANAGED -> Teams.managerId eq callerUserId
+        }
+        val predicate: Op<Boolean> = scope and
+            (TeamMembers.userId neq callerUserId) and
+            active() and
+            (UserService.Users.markedAsDeleted eq false) and
+            buildMemberPredicate(filter)
+        val join = TeamMembers
+            .join(Teams, JoinType.INNER, onColumn = TeamMembers.teamId, otherColumn = Teams.id)
+            .join(
+                UserService.Users,
+                JoinType.INNER,
+                onColumn = TeamMembers.userId,
+                otherColumn = UserService.Users.id,
+            )
+        val total = join.selectAll().where { predicate }.count()
+        // parsePaging only appends "id" (the user id), which is not unique here — the same
+        // user may appear once per shared team — so add the team id as a final tiebreaker.
+        val stablePaging =
+            if (paging.sort.any { it.name == "teamId" }) paging
+            else paging.copy(sort = paging.sort + SortField("teamId", descending = false))
+        val rows = join
+            .select(
+                UserService.Users.id,
+                UserService.Users.name,
+                UserService.Users.email,
+                Teams.id,
+                Teams.name,
+            )
+            .where { predicate }
+            .applyPaging(stablePaging, MEMBER_SORTABLE_COLUMNS)
+            .map { row ->
+                TeamMemberListItem(
+                    userId = row[UserService.Users.id].value,
+                    name = row[UserService.Users.name],
+                    email = row[UserService.Users.email],
+                    teamId = row[Teams.id].value,
+                    teamName = row[Teams.name],
+                )
+            }
+            .toList()
+        TeamMemberListResult(items = rows, total = total)
+    }
+
     private fun active(): Op<Boolean> = Teams.markedAsDeleted eq false
 
     private fun buildPredicate(filter: TeamListFilter): Op<Boolean> {
@@ -161,6 +238,20 @@ class TeamService(val database: R2dbcDatabase) {
         }
         filter.managerId?.let {
             op = op and (Teams.managerId eq it)
+        }
+        return op
+    }
+
+    private fun buildMemberPredicate(filter: TeamMemberListFilter): Op<Boolean> {
+        var op: Op<Boolean> = Op.TRUE
+        filter.name?.takeIf { it.isNotBlank() }?.let {
+            op = op and (UserService.Users.name.lowerCase() like containsPattern(it))
+        }
+        filter.email?.takeIf { it.isNotBlank() }?.let {
+            op = op and (UserService.Users.email.lowerCase() like containsPattern(it))
+        }
+        filter.teamId?.let {
+            op = op and (Teams.id eq it)
         }
         return op
     }
