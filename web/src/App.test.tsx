@@ -64,6 +64,16 @@ describe("App shell", () => {
       expect(link).toHaveAttribute("href", "/users/7/change-password");
     });
 
+    test("highlights only the Change password nav item on its route", async () => {
+      localStorage.setItem(USER_ID_KEY, "7");
+      renderApp("/users/7/change-password");
+
+      const changeLink = await screen.findByRole("link", { name: /change password/i });
+      const usersLink = screen.getByRole("link", { name: /^users$/i });
+      expect(changeLink).toHaveAttribute("aria-current", "page");
+      expect(usersLink).not.toHaveAttribute("aria-current");
+    });
+
     test("shows the logout button", async () => {
       renderApp("/");
       expect(

@@ -24,10 +24,11 @@ import {
   IconUsersGroup,
 } from "@tabler/icons-react";
 import {
-  NavLink as RouterNavLink,
+  Link as RouterLink,
   Outlet,
   Route,
   Routes,
+  useLocation,
   useNavigate,
 } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -104,6 +105,20 @@ function Shell() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const userId = getUserId();
+  const { pathname } = useLocation();
+  const navItems = [
+    ...NAV_ITEMS,
+    ...(userId !== null
+      ? [{ to: `/users/${userId}/change-password`, label: "Change password", icon: IconKey }]
+      : []),
+  ];
+  const matches = (to: string) =>
+    to === "/" ? pathname === "/" : pathname === to || pathname.startsWith(`${to}/`);
+  const activeTo =
+    navItems
+      .map((i) => i.to)
+      .filter(matches)
+      .sort((a, b) => b.length - a.length)[0] ?? null;
 
   async function handleLogout() {
     await logout();
@@ -138,26 +153,21 @@ function Shell() {
       </AppShell.Header>
 
       <AppShell.Navbar p="sm">
-        {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            component={RouterNavLink}
-            to={to}
-            end={to === "/"}
-            label={label}
-            leftSection={<Icon size={18} stroke={1.5} />}
-            onClick={close}
-          />
-        ))}
-        {userId !== null && (
-          <NavLink
-            component={RouterNavLink}
-            to={`/users/${userId}/change-password`}
-            label="Change password"
-            leftSection={<IconKey size={18} stroke={1.5} />}
-            onClick={close}
-          />
-        )}
+        {navItems.map(({ to, label, icon: Icon }) => {
+          const active = to === activeTo;
+          return (
+            <NavLink
+              key={to}
+              component={RouterLink}
+              to={to}
+              active={active}
+              aria-current={active ? "page" : undefined}
+              label={label}
+              leftSection={<Icon size={18} stroke={1.5} />}
+              onClick={close}
+            />
+          );
+        })}
       </AppShell.Navbar>
 
       <AppShell.Main>
