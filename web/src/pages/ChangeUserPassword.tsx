@@ -20,7 +20,7 @@ import {
 } from "@mantine/core";
 import { hasLength, matchesField, useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError, changeUserPassword, getUser, isAdmin } from "../api/client";
+import { ApiError, changeUserPassword, getUser, getUserId, isAdmin } from "../api/client";
 
 type FormValues = {
   password: string;
@@ -44,15 +44,19 @@ export default function ChangeUserPassword() {
   });
 
   const idIsValid = Number.isFinite(id) && id > 0;
+  const currentUserId = getUserId();
+  const isSelf = currentUserId !== null && currentUserId === id;
+  const canChange = isAdmin() || isSelf;
+  const returnTo = isAdmin() ? "/users" : "/";
 
   const { data, isLoading, isError, error: fetchError } = useQuery({
     queryKey: ["user", id],
     queryFn: () => getUser(id),
-    enabled: idIsValid && isAdmin(),
+    enabled: idIsValid && canChange,
     retry: false,
   });
 
-  if (!isAdmin()) return <Navigate to="/users" replace />;
+  if (!canChange) return <Navigate to="/users" replace />;
   if (!idIsValid) return <Navigate to="/users" replace />;
 
   async function onSubmit({ confirmPassword: _confirm, ...values }: FormValues) {
@@ -62,7 +66,7 @@ export default function ChangeUserPassword() {
       await changeUserPassword(id, values);
       await queryClient.invalidateQueries({ queryKey: ["users"] });
       await queryClient.invalidateQueries({ queryKey: ["user", id] });
-      navigate("/users", { replace: true });
+      navigate(returnTo, { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 403) {
@@ -97,7 +101,7 @@ export default function ChangeUserPassword() {
                 User not found.
               </Alert>
               <Group justify="flex-end">
-                <Button component={RouterLink} to="/users" variant="default">
+                <Button component={RouterLink} to={returnTo} variant="default">
                   Back to users
                 </Button>
               </Group>
@@ -109,7 +113,7 @@ export default function ChangeUserPassword() {
                 {fetchError instanceof ApiError ? ` (${fetchError.status})` : ""}.
               </Alert>
               <Group justify="flex-end">
-                <Button component={RouterLink} to="/users" variant="default">
+                <Button component={RouterLink} to={returnTo} variant="default">
                   Back to users
                 </Button>
               </Group>
@@ -139,7 +143,7 @@ export default function ChangeUserPassword() {
                   </Alert>
                 )}
                 <Group justify="flex-end" gap="sm">
-                  <Button component={RouterLink} to="/users" variant="default">
+                  <Button component={RouterLink} to={returnTo} variant="default">
                     Cancel
                   </Button>
                   <Button type="submit" loading={submitting}>

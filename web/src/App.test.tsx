@@ -57,6 +57,13 @@ describe("App shell", () => {
       ).toBeInTheDocument();
     });
 
+    test("shows a Change password link pointing at the current user's route", async () => {
+      localStorage.setItem(USER_ID_KEY, "7");
+      renderApp("/");
+      const link = await screen.findByRole("link", { name: /change password/i });
+      expect(link).toHaveAttribute("href", "/users/7/change-password");
+    });
+
     test("shows the logout button", async () => {
       renderApp("/");
       expect(

@@ -8,6 +8,7 @@ import ChangeUserPassword from "./ChangeUserPassword";
 
 const TOKEN_KEY = "lettuce.auth.token";
 const ROLE_KEY = "lettuce.auth.role";
+const USER_ID_KEY = "lettuce.auth.userId";
 
 function PathProbe() {
   const location = useLocation();
@@ -25,6 +26,7 @@ function renderChangePassword(id: number | string = 7) {
           <Routes>
             <Route path="/users/:id/change-password" element={<ChangeUserPassword />} />
             <Route path="/users" element={<PathProbe />} />
+            <Route path="/" element={<PathProbe />} />
           </Routes>
         </MemoryRouter>
       </QueryClientProvider>
@@ -103,12 +105,33 @@ describe("ChangeUserPassword page", () => {
     expect(mockFetch.mock.calls.some(([url]) => url === "/api/users/7/password")).toBe(false);
   });
 
-  test("non-admin is redirected to /users", async () => {
+  test("non-admin changing another user is redirected to /users", async () => {
     localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(USER_ID_KEY, "99");
 
     renderChangePassword(7);
 
     expect(screen.getByTestId("probe")).toHaveTextContent("/users");
     expect(screen.queryByLabelText("New password")).not.toBeInTheDocument();
+  });
+
+  test("non-admin changing their OWN password sees the form and PUTs it", async () => {
+    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(USER_ID_KEY, "7");
+    mockFetch.mockResolvedValueOnce(jsonResponse(200, EXISTING_USER));
+    mockFetch.mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    const user = userEvent.setup();
+    renderChangePassword(7);
+
+    await user.type(await screen.findByLabelText("New password"), "hunter2!");
+    await user.type(screen.getByLabelText("Confirm password"), "hunter2!");
+    await user.click(screen.getByRole("button", { name: /^change password$/i }));
+
+    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/"));
+
+    const putCall = mockFetch.mock.calls.find(([url]) => url === "/api/users/7/password");
+    expect(putCall).toBeTruthy();
+    expect(JSON.parse(putCall![1].body)).toEqual({ password: "hunter2!" });
   });
 });

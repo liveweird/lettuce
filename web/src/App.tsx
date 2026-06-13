@@ -14,6 +14,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
+  IconKey,
   IconLayoutDashboard,
   IconMessageCircle,
   IconMoon,
@@ -102,6 +103,7 @@ function Shell() {
   const [opened, { toggle, close }] = useDisclosure();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const userId = getUserId();
 
   async function handleLogout() {
     await logout();
@@ -147,6 +149,15 @@ function Shell() {
             onClick={close}
           />
         ))}
+        {userId !== null && (
+          <NavLink
+            component={RouterNavLink}
+            to={`/users/${userId}/change-password`}
+            label="Change password"
+            leftSection={<IconKey size={18} stroke={1.5} />}
+            onClick={close}
+          />
+        )}
       </AppShell.Navbar>
 
       <AppShell.Main>
