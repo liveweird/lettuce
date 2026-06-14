@@ -23,7 +23,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { IconKey, IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconKey, IconPencil, IconPlus, IconTrash, IconUsersGroup } from "@tabler/icons-react";
 import {
   deleteUser,
   getUserId,
@@ -264,6 +264,17 @@ export default function Users() {
                         aria-label={`Change password for ${u.name}`}
                       >
                         Change password
+                      </Button>
+                      <Button
+                        component={RouterLink}
+                        to={`/users/${u.id}/teams`}
+                        color="blue"
+                        variant="subtle"
+                        size="xs"
+                        leftSection={<IconUsersGroup size={14} />}
+                        aria-label={`Teams for ${u.name}`}
+                      >
+                        Teams
                       </Button>
                       <Button
                         color="red"

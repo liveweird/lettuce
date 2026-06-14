@@ -152,6 +152,7 @@ export type TeamListQuery = {
   sort?: string;
   name?: string;
   managerId?: number;
+  memberId?: number;
 };
 
 export type CreateTeamBody =
@@ -199,9 +200,20 @@ export async function listTeams(q: TeamListQuery): Promise<TeamPage> {
   if (q.sort) params.set("sort", q.sort);
   if (q.name) params.set("name", q.name);
   if (q.managerId != null) params.set("managerId", String(q.managerId));
+  if (q.memberId != null) params.set("memberId", String(q.memberId));
   const res = await authedFetch(`/api/teams?${params.toString()}`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json()) as TeamPage;
+}
+
+export async function addTeamMember(teamId: number, userId: number): Promise<void> {
+  const res = await authedFetch(`/api/teams/${teamId}/members/${userId}`, { method: "PUT" });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
+export async function removeTeamMember(teamId: number, userId: number): Promise<void> {
+  const res = await authedFetch(`/api/teams/${teamId}/members/${userId}`, { method: "DELETE" });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
 export type TeamMemberPage =

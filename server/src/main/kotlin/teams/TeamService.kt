@@ -20,6 +20,7 @@ val TeamServiceKey = AttributeKey<TeamService>("TeamService")
 data class TeamListFilter(
     val name: String? = null,
     val managerId: UInt? = null,
+    val memberId: UInt? = null,
 )
 
 data class TeamListResult(
@@ -259,6 +260,12 @@ class TeamService(val database: R2dbcDatabase) {
         }
         filter.managerId?.let {
             op = op and (Teams.managerId eq it)
+        }
+        filter.memberId?.let {
+            val memberTeamIds = TeamMembers
+                .select(TeamMembers.teamId)
+                .where { TeamMembers.userId eq it }
+            op = op and (Teams.id inSubQuery memberTeamIds)
         }
         return op
     }

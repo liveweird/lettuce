@@ -487,6 +487,7 @@ export interface paths {
          *     - Filters (all optional):
          *       - `name` — case-insensitive substring match against the team's name.
          *       - `managerId` — exact match against the team's manager id.
+         *       - `memberId` — restrict to teams the given user is a member of.
          *
          *     Each returned item includes the manager's `name` resolved via join so the UI
          *     does not need an N+1 lookup.
@@ -512,6 +513,8 @@ export interface paths {
                     name?: string;
                     /** @description Exact match against the team's manager id. */
                     managerId?: number;
+                    /** @description Filter to teams the given user is a member of. */
+                    memberId?: number;
                 };
                 header?: never;
                 path?: never;

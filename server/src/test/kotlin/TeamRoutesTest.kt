@@ -497,6 +497,48 @@ class TeamRoutesTest {
     }
 
     @Test
+    fun `GET teams supports filter by memberId`() = testApplication {
+        usePostgresTestcontainer()
+        val tag = UUID.randomUUID().toString().substring(0, 8)
+        val adminEmail = uniqueEmail("admin-$tag")
+        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN, name = "Admin-$tag")
+        val managerId = TestUsers.seed(email = uniqueEmail("mgr-$tag"), password = "pw", name = "Mgr-$tag")
+        val target = TestUsers.seed(email = uniqueEmail("target-$tag"), password = "pw", name = "Target-$tag")
+        val other = TestUsers.seed(email = uniqueEmail("other-$tag"), password = "pw", name = "Other-$tag")
+
+        val admin = authedClient(adminEmail, "pw")
+        // target IS a member here
+        val memberTeam = admin.post("/api/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "member-$tag", managerId = managerId, memberIds = listOf(target, other)))
+        }.body<TeamResponse>()
+        // target is NOT a member here
+        admin.post("/api/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "nonmember-$tag", managerId = managerId, memberIds = listOf(other)))
+        }
+        // target is the MANAGER here, not a member -> must be excluded by memberId filter
+        admin.post("/api/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "managed-$tag", managerId = target, memberIds = listOf(other)))
+        }
+
+        val page = admin.get("/api/teams?name=$tag&memberId=$target").body<TeamPageResponse>()
+        assertEquals(1L, page.total)
+        assertEquals("member-$tag", page.items.single().name)
+        assertEquals(memberTeam.id, page.items.single().id)
+    }
+
+    @Test
+    fun `GET teams with non-numeric memberId returns 400`() = testApplication {
+        usePostgresTestcontainer()
+        val managerEmail = uniqueEmail("mgr")
+        TestUsers.seed(email = managerEmail, password = "pw")
+        val response = authedClient(managerEmail, "pw").get("/api/teams?memberId=abc")
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+    }
+
+    @Test
     fun `GET teams supports sort by name descending`() = testApplication {
         usePostgresTestcontainer()
         val managerEmail = uniqueEmail("mgr")

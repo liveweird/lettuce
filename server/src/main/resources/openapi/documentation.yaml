@@ -227,6 +227,7 @@ paths:
         - Filters (all optional):
           - `name` — case-insensitive substring match against the team's name.
           - `managerId` — exact match against the team's manager id.
+          - `memberId` — restrict to teams the given user is a member of.
 
         Each returned item includes the manager's `name` resolved via join so the UI
         does not need an N+1 lookup.
@@ -247,6 +248,11 @@ paths:
           required: false
           schema: { type: integer, format: int64, minimum: 0 }
           description: Exact match against the team's manager id.
+        - name: memberId
+          in: query
+          required: false
+          schema: { type: integer, format: int64, minimum: 0 }
+          description: Filter to teams the given user is a member of.
       responses:
         '200':
           description: A page of teams

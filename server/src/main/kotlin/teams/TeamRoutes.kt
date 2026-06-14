@@ -50,9 +50,14 @@ fun Application.configureTeamRoutes() {
                     raw.toUIntOrNull()
                         ?: throw BadRequestException("managerId must be a non-negative integer")
                 }
+                val memberIdFilter = params["memberId"]?.takeIf { it.isNotBlank() }?.let { raw ->
+                    raw.toUIntOrNull()
+                        ?: throw BadRequestException("memberId must be a non-negative integer")
+                }
                 val filter = TeamListFilter(
                     name = params["name"]?.takeIf { it.isNotBlank() },
                     managerId = managerIdFilter,
+                    memberId = memberIdFilter,
                 )
                 val result = teamService.list(filter, paging)
                 call.respond(
