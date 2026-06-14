@@ -74,6 +74,7 @@ export type UserListQuery = {
   name?: string;
   email?: string;
   role?: UserRole;
+  teamId?: number;
 };
 
 export type CurrentUser = paths["/api/users/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
@@ -139,6 +140,7 @@ export async function listUsers(q: UserListQuery): Promise<UserPage> {
   if (q.name) params.set("name", q.name);
   if (q.email) params.set("email", q.email);
   if (q.role) params.set("role", q.role);
+  if (q.teamId != null) params.set("teamId", String(q.teamId));
   const res = await authedFetch(`/api/users?${params.toString()}`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json()) as UserPage;

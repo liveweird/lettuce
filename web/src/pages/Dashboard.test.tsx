@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
 import { renderWithProviders, screen, waitFor } from "../test/render";
 import Dashboard from "./Dashboard";
 
@@ -31,24 +32,35 @@ describe("Dashboard", () => {
     localStorage.clear();
   });
 
-  test("renders both lists and requests both views", async () => {
+  test("shows three tabs and lazily loads each tab's view", async () => {
     mockFetch.mockImplementation(() =>
       Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 })),
     );
+    const user = userEvent.setup();
     renderWithProviders(<Dashboard />);
 
-    expect(screen.getByRole("heading", { name: "My managers" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Users in my teams" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Users in teams I manage" })).toBeInTheDocument();
+    // Page heading plus the three tabs (the section names are now tabs, not headings).
+    expect(screen.getByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "My managers" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "My peers" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "My subordinates" })).toBeInTheDocument();
 
+    // The default (managers) tab loads its view on mount.
     await waitFor(() => {
       const urls = mockFetch.mock.calls.map(([url]) => String(url));
-      expect(urls.some((url) => url.includes("/api/teams/members?view=member"))).toBe(true);
-      expect(urls.some((url) => url.includes("/api/teams/members?view=managed"))).toBe(true);
       expect(urls.some((url) => url.includes("/api/teams/members?view=managers"))).toBe(true);
     });
+    expect(await screen.findByText("No managers")).toBeInTheDocument();
 
+    // Switching tabs loads the corresponding view (panels are not kept mounted).
+    await user.click(screen.getByRole("tab", { name: "My peers" }));
     expect(await screen.findByText("No teammates")).toBeInTheDocument();
-    expect(screen.getByText("No team members")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "My subordinates" }));
+    expect(await screen.findByText("No team members")).toBeInTheDocument();
+
+    const urls = mockFetch.mock.calls.map(([url]) => String(url));
+    expect(urls.some((url) => url.includes("/api/teams/members?view=member"))).toBe(true);
+    expect(urls.some((url) => url.includes("/api/teams/members?view=managed"))).toBe(true);
   });
 });

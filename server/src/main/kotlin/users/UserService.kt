@@ -2,6 +2,7 @@ package ch.nokillswit.users
 
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
+import ch.nokillswit.teams.TeamService
 import io.ktor.util.AttributeKey
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.singleOrNull
@@ -18,6 +19,7 @@ data class UserListFilter(
     val name: String? = null,
     val email: String? = null,
     val role: UserRole? = null,
+    val teamId: UInt? = null,
 )
 
 data class UserListResult(
@@ -130,6 +132,12 @@ class UserService(val database: R2dbcDatabase) {
         }
         filter.role?.let {
             op = op and (Users.role eq it.name)
+        }
+        filter.teamId?.let {
+            val memberUserIds = TeamService.TeamMembers
+                .select(TeamService.TeamMembers.userId)
+                .where { TeamService.TeamMembers.teamId eq it }
+            op = op and (Users.id inSubQuery memberUserIds)
         }
         return op
     }

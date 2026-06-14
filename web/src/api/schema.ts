@@ -109,6 +109,7 @@ export interface paths {
          *       - `name` — case-insensitive substring match against `name`.
          *       - `email` — case-insensitive substring match against `email`.
          *       - `role` — exact match, `ADMIN` or `USER`.
+         *       - `teamId` — restrict to users who are members of the given team.
          *     - The `q` free-text param defined elsewhere is not used by this endpoint.
          *
          *     Malformed query parameters (unknown sort field, unknown role, out-of-range page/pageSize)
@@ -134,6 +135,8 @@ export interface paths {
                     email?: string;
                     /** @description Exact match against the user's global role. */
                     role?: "ADMIN" | "USER";
+                    /** @description Filter to users who are members of the given team. */
+                    teamId?: number;
                 };
                 header?: never;
                 path?: never;

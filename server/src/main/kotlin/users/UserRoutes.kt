@@ -48,10 +48,15 @@ fun Application.configureUserRoutes() {
                         throw BadRequestException("Unknown role: $raw (allowed: ${UserRole.entries.joinToString { it.name }})")
                     }
                 }
+                val teamIdFilter = params["teamId"]?.takeIf { it.isNotBlank() }?.let { raw ->
+                    raw.toUIntOrNull()
+                        ?: throw BadRequestException("teamId must be a non-negative integer")
+                }
                 val filter = UserListFilter(
                     name = params["name"]?.takeIf { it.isNotBlank() },
                     email = params["email"]?.takeIf { it.isNotBlank() },
                     role = roleFilter,
+                    teamId = teamIdFilter,
                 )
                 val result = userService.list(filter, paging)
                 call.respond(

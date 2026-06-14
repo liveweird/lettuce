@@ -31,6 +31,7 @@ import {
   IconPencil,
   IconPlus,
   IconTrash,
+  IconUsers,
 } from "@tabler/icons-react";
 import { deleteTeam, isAdmin, listTeams, listUsers } from "../api/client";
 
@@ -247,6 +248,17 @@ export default function Teams() {
                         aria-label={`Edit ${t.name}`}
                       >
                         Edit
+                      </Button>
+                      <Button
+                        component={RouterLink}
+                        to={`/teams/${t.id}/members`}
+                        color="blue"
+                        variant="subtle"
+                        size="xs"
+                        leftSection={<IconUsers size={14} />}
+                        aria-label={`Members of ${t.name}`}
+                      >
+                        Members
                       </Button>
                       <Button
                         color="red"

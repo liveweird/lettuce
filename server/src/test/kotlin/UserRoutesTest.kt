@@ -3,6 +3,8 @@ package ch.nokillswit
 import ch.nokillswit.auth.LoginRequest
 import ch.nokillswit.auth.LoginResponse
 import ch.nokillswit.plugins.ApiError
+import ch.nokillswit.teams.Team
+import ch.nokillswit.teams.TeamResponse
 import ch.nokillswit.users.PasswordUpdateRequest
 import ch.nokillswit.users.UserPageResponse
 import ch.nokillswit.users.UserRequest
@@ -531,6 +533,38 @@ class UserRoutesTest {
         val users = client.get("/api/users?name=role-$tag&role=USER").body<UserPageResponse>()
         assertEquals(1L, users.total)
         assertEquals(UserRole.USER, users.items.single().role)
+    }
+
+    @Test
+    fun `GET users supports filter by teamId`() = testApplication {
+        usePostgresTestcontainer()
+        val tag = UUID.randomUUID().toString().substring(0, 8)
+        val callerEmail = uniqueEmail("admin-$tag")
+        TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.ADMIN, name = "Admin-$tag")
+        val managerId = TestUsers.seed(email = uniqueEmail("mgr-$tag"), password = "pw", name = "Mgr-$tag")
+        val memberA = TestUsers.seed(email = uniqueEmail("a-$tag"), password = "pw", name = "MemberA-$tag")
+        val memberB = TestUsers.seed(email = uniqueEmail("b-$tag"), password = "pw", name = "MemberB-$tag")
+        TestUsers.seed(email = uniqueEmail("out-$tag"), password = "pw", name = "Outsider-$tag")
+
+        val client = authedClient(callerEmail, "pw")
+        val team = client.post("/api/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "team-$tag", managerId = managerId, memberIds = listOf(memberA, memberB)))
+        }.body<TeamResponse>()
+
+        val page = client.get("/api/users?teamId=${team.id}").body<UserPageResponse>()
+        // Exactly the two members — manager (not a member), outsider, and caller are excluded.
+        assertEquals(2L, page.total)
+        assertEquals(setOf(memberA, memberB), page.items.map { it.id }.toSet())
+    }
+
+    @Test
+    fun `GET users with non-numeric teamId returns 400`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("caller")
+        TestUsers.seed(email = callerEmail, password = "pw")
+        val response = authedClient(callerEmail, "pw").get("/api/users?teamId=abc")
+        assertEquals(HttpStatusCode.BadRequest, response.status)
     }
 
     @Test

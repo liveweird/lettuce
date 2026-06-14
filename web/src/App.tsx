@@ -44,6 +44,7 @@ const UserTeams = lazy(() => import("./pages/UserTeams"));
 const CreateTeam = lazy(() => import("./pages/CreateTeam"));
 const EditTeam = lazy(() => import("./pages/EditTeam"));
 const Teams = lazy(() => import("./pages/Teams"));
+const TeamMembers = lazy(() => import("./pages/TeamMembers"));
 const Users = lazy(() => import("./pages/Users"));
 
 function RouteFallback() {
@@ -201,6 +202,7 @@ export default function App() {
             <Route path="teams" element={<Teams />} />
             <Route path="teams/new" element={<CreateTeam />} />
             <Route path="teams/:id/edit" element={<EditTeam />} />
+            <Route path="teams/:id/members" element={<TeamMembers />} />
             <Route path="feedback" element={<Feedback />} />
           </Route>
         </Route>

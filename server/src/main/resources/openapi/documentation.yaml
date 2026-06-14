@@ -74,6 +74,7 @@ paths:
           - `name` — case-insensitive substring match against `name`.
           - `email` — case-insensitive substring match against `email`.
           - `role` — exact match, `ADMIN` or `USER`.
+          - `teamId` — restrict to users who are members of the given team.
         - The `q` free-text param defined elsewhere is not used by this endpoint.
 
         Malformed query parameters (unknown sort field, unknown role, out-of-range page/pageSize)
@@ -97,6 +98,11 @@ paths:
           required: false
           schema: { type: string, enum: [ADMIN, USER] }
           description: Exact match against the user's global role.
+        - name: teamId
+          in: query
+          required: false
+          schema: { type: integer, format: int64, minimum: 0 }
+          description: Filter to users who are members of the given team.
       responses:
         '200':
           description: A page of users

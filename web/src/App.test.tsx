@@ -43,7 +43,7 @@ describe("App shell", () => {
     test("renders the brand and the dashboard at /", async () => {
       renderApp("/");
       expect(
-        await screen.findByRole("heading", { level: 3, name: "Users in my teams" }),
+        await screen.findByRole("heading", { level: 2, name: "Dashboard" }),
       ).toBeInTheDocument();
       expect(screen.getByText("Lettuce")).toBeInTheDocument();
     });
