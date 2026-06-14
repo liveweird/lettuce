@@ -1,26 +1,5 @@
 import { useState } from "react";
-import {
-  Link as RouterLink,
-  Navigate,
-  useNavigate,
-  useSearchParams,
-} from "react-router-dom";
-import {
-  Alert,
-  Button,
-  Container,
-  Group,
-  Modal,
-  Paper,
-  Select,
-  Stack,
-  Text,
-  Textarea,
-  TextInput,
-  Title,
-} from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
-import { useForm } from "@mantine/form";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ApiError,
@@ -29,16 +8,7 @@ import {
   type FeedbackStatus,
   type FeedbackVisibility,
 } from "../api/client";
-
-type FormValues = {
-  visibility: FeedbackVisibility;
-  content: string;
-};
-
-const VISIBILITY_OPTIONS = [
-  { value: "PROVIDER_SUBJECT", label: "Provider + subject" },
-  { value: "PUBLIC", label: "Public" },
-];
+import FeedbackForm from "../components/FeedbackForm";
 
 export default function CreateFeedback() {
   const navigate = useNavigate();
@@ -46,29 +16,27 @@ export default function CreateFeedback() {
   const [searchParams] = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<FeedbackStatus | null>(null);
-  const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
 
   const subjectId = Number(searchParams.get("subjectId"));
   const subjectName = searchParams.get("subjectName");
   const providerId = getUserId();
 
-  const form = useForm<FormValues>({
-    initialValues: { visibility: "PROVIDER_SUBJECT", content: "" },
-  });
-
   const subjectIdIsValid = Number.isFinite(subjectId) && subjectId > 0;
   if (!subjectIdIsValid || providerId == null) return <Navigate to="/" replace />;
 
-  async function submit(status: FeedbackStatus) {
+  async function submit(
+    status: FeedbackStatus,
+    values: { visibility: FeedbackVisibility; content: string },
+  ) {
     setError(null);
     setSubmitting(status);
     try {
       await createFeedback({
         subjectId,
         providerId: providerId!,
-        visibility: form.values.visibility,
+        visibility: values.visibility,
         status,
-        content: form.values.content,
+        content: values.content,
       });
       await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
       navigate("/", { replace: true });
@@ -90,79 +58,17 @@ export default function CreateFeedback() {
   }
 
   return (
-    <Container size="xs" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <form onSubmit={form.onSubmit(() => submit("DRAFT"))} noValidate>
-          <Stack>
-            <Title order={2}>Provide feedback</Title>
-            <TextInput
-              label="Subject"
-              value={subjectName ?? `#${subjectId}`}
-              disabled
-            />
-            <TextInput label="Provider" value="You" disabled />
-            <Select
-              label="Visibility"
-              placeholder="Select visibility"
-              data={VISIBILITY_OPTIONS}
-              allowDeselect={false}
-              {...form.getInputProps("visibility")}
-            />
-            <Textarea
-              label="Content"
-              placeholder="Write your feedback…"
-              rows={6}
-              maxLength={5000}
-              {...form.getInputProps("content")}
-            />
-            {error && (
-              <Alert color="red" variant="light">
-                {error}
-              </Alert>
-            )}
-            <Group justify="flex-end" gap="sm">
-              <Button
-                type="button"
-                variant="default"
-                onClick={openCancel}
-                disabled={submitting !== null}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                variant="light"
-                loading={submitting === "DRAFT"}
-                disabled={submitting !== null}
-              >
-                Save draft
-              </Button>
-              <Button
-                type="button"
-                onClick={() => submit("SENT")}
-                loading={submitting === "SENT"}
-                disabled={submitting !== null}
-              >
-                Save &amp; send
-              </Button>
-            </Group>
-          </Stack>
-        </form>
-      </Paper>
-
-      <Modal opened={cancelOpen} onClose={closeCancel} title="Discard feedback?" centered>
-        <Stack gap="md">
-          <Text>Discard this feedback? Anything you've written won't be saved.</Text>
-          <Group justify="flex-end" gap="sm">
-            <Button variant="default" onClick={closeCancel}>
-              Keep editing
-            </Button>
-            <Button color="red" component={RouterLink} to="/">
-              Discard
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
-    </Container>
+    <FeedbackForm
+      title="Provide feedback"
+      subjectDisplay={subjectName ?? `#${subjectId}`}
+      initialVisibility="PROVIDER_SUBJECT"
+      initialContent=""
+      submitting={submitting}
+      error={error}
+      onSubmit={submit}
+      cancelTo="/"
+      discardTitle="Discard feedback?"
+      discardMessage="Discard this feedback? Anything you've written won't be saved."
+    />
   );
 }

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
+  Button,
   Center,
   CloseButton,
   Group,
@@ -13,6 +15,7 @@ import {
   TextInput,
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
+import { IconPencil } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   listFeedbacks,
@@ -98,6 +101,8 @@ function userName(name: string | null | undefined, deleted: boolean): string {
 
 export default function FeedbackTable({ view }: { view: FeedbackListView }) {
   const config = VIEW_CONFIG[view];
+  const showActions = view === "provided";
+  const columnCount = showActions ? 6 : 5;
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
@@ -259,12 +264,13 @@ export default function FeedbackTable({ view }: { view: FeedbackListView }) {
               />
             </Table.Th>
             <Table.Th>Content</Table.Th>
+            {showActions && <Table.Th aria-label="Actions" style={{ width: 1 }} />}
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
           {isLoading && !data ? (
             <Table.Tr>
-              <Table.Td colSpan={5}>
+              <Table.Td colSpan={columnCount}>
                 <Center py="md">
                   <Loader size="sm" />
                 </Center>
@@ -289,11 +295,28 @@ export default function FeedbackTable({ view }: { view: FeedbackListView }) {
                 >
                   {f.contentPreview}
                 </Table.Td>
+                {showActions && (
+                  <Table.Td>
+                    {f.status === "DRAFT" && (
+                      <Button
+                        component={RouterLink}
+                        to={`/feedback/${f.id}/edit?subjectName=${encodeURIComponent(f.subjectName)}`}
+                        color="blue"
+                        variant="subtle"
+                        size="xs"
+                        leftSection={<IconPencil size={14} />}
+                        aria-label={`Edit feedback for ${f.subjectName}`}
+                      >
+                        Edit
+                      </Button>
+                    )}
+                  </Table.Td>
+                )}
               </Table.Tr>
             ))
           ) : (
             <Table.Tr>
-              <Table.Td colSpan={5}>
+              <Table.Td colSpan={columnCount}>
                 <Text c="dimmed" ta="center">
                   No feedback
                 </Text>

@@ -263,6 +263,36 @@ class FeedbackRoutesTest {
     }
 
     @Test
+    fun `update draft edits stay draft`() = testApplication {
+        usePostgresTestcontainer()
+        val t = seedTriad()
+        val client = authedClient(t.providerEmail, "pw")
+
+        val draft = Feedback(
+            subjectId = t.subjectId,
+            providerId = t.providerId,
+            visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+            status = FeedbackStatus.DRAFT,
+            content = "First pass",
+        )
+        val created = client.post("/api/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(draft)
+        }.body<FeedbackResponse>()
+
+        // "Save draft" on the edit screen: DRAFT -> DRAFT with changed content/visibility.
+        val putResponse = client.put("/api/feedbacks/${created.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(draft.copy(content = "Revised", visibility = FeedbackVisibility.PUBLIC))
+        }
+        assertEquals(HttpStatusCode.NoContent, putResponse.status)
+        val after = client.get("/api/feedbacks/${created.id}").body<FeedbackResponse>()
+        assertEquals(FeedbackStatus.DRAFT, after.status)
+        assertEquals("Revised", after.content)
+        assertEquals(FeedbackVisibility.PUBLIC, after.visibility)
+    }
+
+    @Test
     fun `invalid transition sent to draft is rejected`() = testApplication {
         usePostgresTestcontainer()
         val t = seedTriad()

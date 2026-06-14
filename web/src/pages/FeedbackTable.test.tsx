@@ -239,6 +239,14 @@ describe("FeedbackTable (received view)", () => {
     expect(within(rows[0]).getByText("Alice Provider")).toBeInTheDocument();
     expect(within(rows[1]).getByText("Bob Provider (deleted)")).toBeInTheDocument();
   });
+
+  test("the received view has no Edit links", async () => {
+    setupMocks(mockFetch);
+    renderWithProviders(<FeedbackTable view="received" />);
+
+    await screen.findByRole("cell", { name: "Alice Provider" });
+    expect(screen.queryByRole("link", { name: /edit feedback for/i })).not.toBeInTheDocument();
+  });
 });
 
 describe("FeedbackTable (provided view)", () => {
@@ -311,5 +319,18 @@ describe("FeedbackTable (provided view)", () => {
     await waitFor(() => {
       expect(feedbackUrls(mockFetch).some((url) => url.includes("sort=-subjectName"))).toBe(true);
     });
+  });
+
+  test("shows an Edit link only on DRAFT rows pointing at the edit route", async () => {
+    setupMocks(mockFetch);
+    renderWithProviders(<FeedbackTable view="provided" />);
+
+    // Row 2 (Tina) is DRAFT; row 1 (Sam) is SENT.
+    const editLinks = await screen.findAllByRole("link", { name: /edit feedback for/i });
+    expect(editLinks).toHaveLength(1);
+    expect(editLinks[0]).toHaveAttribute("href", "/feedback/2/edit?subjectName=Tina%20Subject");
+    expect(
+      screen.queryByRole("link", { name: /edit feedback for sam subject/i }),
+    ).not.toBeInTheDocument();
   });
 });

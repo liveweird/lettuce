@@ -37,6 +37,7 @@ import { RedirectIfAuthed, RequireAuth, flagSignedOut, notifyAuthChange } from "
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Feedback = lazy(() => import("./pages/Feedback"));
 const CreateFeedback = lazy(() => import("./pages/CreateFeedback"));
+const EditFeedback = lazy(() => import("./pages/EditFeedback"));
 const Login = lazy(() => import("./pages/Login"));
 const CreateUser = lazy(() => import("./pages/CreateUser"));
 const EditUser = lazy(() => import("./pages/EditUser"));
@@ -206,6 +207,7 @@ export default function App() {
             <Route path="teams/:id/members" element={<TeamMembers />} />
             <Route path="feedback" element={<Feedback />} />
             <Route path="feedback/new" element={<CreateFeedback />} />
+            <Route path="feedback/:id/edit" element={<EditFeedback />} />
           </Route>
         </Route>
       </Routes>

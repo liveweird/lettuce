@@ -312,6 +312,25 @@ export async function createFeedback(req: CreateFeedbackBody): Promise<CreateFee
   return (await res.json()) as CreateFeedbackResponse;
 }
 
+export type FeedbackResponse =
+  paths["/api/feedbacks/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
+export type UpdateFeedbackBody =
+  paths["/api/feedbacks/{id}"]["put"]["requestBody"]["content"]["application/json"];
+
+export async function getFeedback(id: number): Promise<FeedbackResponse> {
+  const res = await authedFetch(`/api/feedbacks/${id}`);
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return (await res.json()) as FeedbackResponse;
+}
+
+export async function updateFeedback(id: number, body: UpdateFeedbackBody): Promise<void> {
+  const res = await authedFetch(`/api/feedbacks/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
 export async function authedFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const token = getToken();
   const headers = new Headers(init.headers);
