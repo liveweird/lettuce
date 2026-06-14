@@ -206,6 +206,25 @@ describe("Teams page", () => {
     expect(screen.getAllByRole("button", { name: /^delete /i })).toHaveLength(2);
   });
 
+  test("admin sees a Members link per row pointing at /teams/:id/members", async () => {
+    setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
+    renderTeams();
+
+    await screen.findByRole("cell", { name: "Platform" });
+    const links = screen.getAllByRole("link", { name: /^members of /i });
+    expect(links).toHaveLength(2);
+    expect(links[0]).toHaveAttribute("href", "/teams/1/members");
+  });
+
+  test("non-admin does not see Members links", async () => {
+    localStorage.setItem(ROLE_KEY, "USER");
+    setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
+    renderTeams();
+
+    await screen.findByRole("cell", { name: "Platform" });
+    expect(screen.queryByRole("link", { name: /^members of /i })).not.toBeInTheDocument();
+  });
+
   test("non-admin does not see Delete buttons", async () => {
     localStorage.setItem(ROLE_KEY, "USER");
     setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
