@@ -38,6 +38,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Feedback = lazy(() => import("./pages/Feedback"));
 const CreateFeedback = lazy(() => import("./pages/CreateFeedback"));
 const EditFeedback = lazy(() => import("./pages/EditFeedback"));
+const ViewFeedback = lazy(() => import("./pages/ViewFeedback"));
 const Login = lazy(() => import("./pages/Login"));
 const CreateUser = lazy(() => import("./pages/CreateUser"));
 const EditUser = lazy(() => import("./pages/EditUser"));
@@ -208,6 +209,7 @@ export default function App() {
             <Route path="feedback" element={<Feedback />} />
             <Route path="feedback/new" element={<CreateFeedback />} />
             <Route path="feedback/:id/edit" element={<EditFeedback />} />
+            <Route path="feedback/:id/view" element={<ViewFeedback />} />
           </Route>
         </Route>
       </Routes>

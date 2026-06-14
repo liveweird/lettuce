@@ -15,7 +15,7 @@ import {
   TextInput,
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
-import { IconPencil } from "@tabler/icons-react";
+import { IconEye, IconPencil } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   listFeedbacks,
@@ -101,7 +101,7 @@ function userName(name: string | null | undefined, deleted: boolean): string {
 
 export default function FeedbackTable({ view }: { view: FeedbackListView }) {
   const config = VIEW_CONFIG[view];
-  const showActions = view === "provided";
+  const showActions = view === "provided" || view === "received";
   const columnCount = showActions ? 6 : 5;
 
   const [page, setPage] = useState(1);
@@ -297,18 +297,37 @@ export default function FeedbackTable({ view }: { view: FeedbackListView }) {
                 </Table.Td>
                 {showActions && (
                   <Table.Td>
-                    {f.status === "DRAFT" && (
+                    {view === "received" ? (
                       <Button
                         component={RouterLink}
-                        to={`/feedback/${f.id}/edit?subjectName=${encodeURIComponent(f.subjectName)}`}
+                        to={
+                          `/feedback/${f.id}/view?providerName=${encodeURIComponent(f.providerName)}` +
+                          (f.requesterName
+                            ? `&requesterName=${encodeURIComponent(f.requesterName)}`
+                            : "")
+                        }
                         color="blue"
                         variant="subtle"
                         size="xs"
-                        leftSection={<IconPencil size={14} />}
-                        aria-label={`Edit feedback for ${f.subjectName}`}
+                        leftSection={<IconEye size={14} />}
+                        aria-label={`View feedback from ${f.providerName}`}
                       >
-                        Edit
+                        View
                       </Button>
+                    ) : (
+                      f.status === "DRAFT" && (
+                        <Button
+                          component={RouterLink}
+                          to={`/feedback/${f.id}/edit?subjectName=${encodeURIComponent(f.subjectName)}`}
+                          color="blue"
+                          variant="subtle"
+                          size="xs"
+                          leftSection={<IconPencil size={14} />}
+                          aria-label={`Edit feedback for ${f.subjectName}`}
+                        >
+                          Edit
+                        </Button>
+                      )
                     )}
                   </Table.Td>
                 )}

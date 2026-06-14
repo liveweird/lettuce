@@ -247,6 +247,25 @@ describe("FeedbackTable (received view)", () => {
     await screen.findByRole("cell", { name: "Alice Provider" });
     expect(screen.queryByRole("link", { name: /edit feedback for/i })).not.toBeInTheDocument();
   });
+
+  test("the received view shows a View link per row pointing at the read-only route", async () => {
+    setupMocks(mockFetch);
+    renderWithProviders(<FeedbackTable view="received" />);
+
+    const viewLinks = await screen.findAllByRole("link", { name: /view feedback from/i });
+    expect(viewLinks).toHaveLength(2);
+    // Row 2 (Bob) has no requester -> only providerName in the query.
+    expect(
+      screen.getByRole("link", { name: /view feedback from bob provider/i }),
+    ).toHaveAttribute("href", "/feedback/2/view?providerName=Bob%20Provider");
+    // Row 1 (Alice) has a requester -> both names are carried.
+    expect(
+      screen.getByRole("link", { name: /view feedback from alice provider/i }),
+    ).toHaveAttribute(
+      "href",
+      "/feedback/1/view?providerName=Alice%20Provider&requesterName=Carol%20Requester",
+    );
+  });
 });
 
 describe("FeedbackTable (provided view)", () => {
