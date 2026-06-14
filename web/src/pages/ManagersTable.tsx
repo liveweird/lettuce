@@ -1,5 +1,7 @@
-import { Alert, Center, Loader, Table, Text } from "@mantine/core";
+import { Alert, Button, Center, Loader, Table, Text } from "@mantine/core";
+import { Link as RouterLink } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { IconMessagePlus } from "@tabler/icons-react";
 import { listTeamMembers } from "../api/client";
 
 export default function ManagersTable() {
@@ -22,12 +24,13 @@ export default function ManagersTable() {
             <Table.Th>Name</Table.Th>
             <Table.Th>Email</Table.Th>
             <Table.Th>Team</Table.Th>
+            <Table.Th aria-label="Actions" style={{ width: 1 }} />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
           {isLoading && !data ? (
             <Table.Tr>
-              <Table.Td colSpan={3}>
+              <Table.Td colSpan={4}>
                 <Center py="md">
                   <Loader size="sm" />
                 </Center>
@@ -39,11 +42,24 @@ export default function ManagersTable() {
                 <Table.Td>{m.name}</Table.Td>
                 <Table.Td>{m.email}</Table.Td>
                 <Table.Td>{m.teamName}</Table.Td>
+                <Table.Td>
+                  <Button
+                    component={RouterLink}
+                    to={`/feedback/new?subjectId=${m.userId}&subjectName=${encodeURIComponent(m.name)}`}
+                    color="blue"
+                    variant="subtle"
+                    size="xs"
+                    leftSection={<IconMessagePlus size={14} />}
+                    aria-label={`Provide feedback to ${m.name}`}
+                  >
+                    Provide feedback
+                  </Button>
+                </Table.Td>
               </Table.Tr>
             ))
           ) : (
             <Table.Tr>
-              <Table.Td colSpan={3}>
+              <Table.Td colSpan={4}>
                 <Text c="dimmed" ta="center">
                   No managers
                 </Text>

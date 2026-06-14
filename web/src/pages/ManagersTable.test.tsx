@@ -48,6 +48,26 @@ describe("ManagersTable", () => {
     expect(url).toContain("/api/teams/members?view=managers");
   });
 
+  test("renders a Provide feedback link per manager row", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        items: [
+          { userId: 1, name: "Manager One", email: "m1@example.com", teamId: 5, teamName: "alpha" },
+        ],
+        page: 1,
+        pageSize: 100,
+        total: 1,
+      }),
+    );
+    renderWithProviders(<ManagersTable />);
+
+    const link = await screen.findByRole("link", { name: /provide feedback to manager one/i });
+    expect(link).toHaveAttribute(
+      "href",
+      "/feedback/new?subjectId=1&subjectName=Manager%20One",
+    );
+  });
+
   test("shows an empty state when there are no managers", async () => {
     mockFetch.mockResolvedValue(
       jsonResponse(200, { items: [], page: 1, pageSize: 100, total: 0 }),

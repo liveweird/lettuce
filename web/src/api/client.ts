@@ -298,6 +298,20 @@ export async function listFeedbacks(q: FeedbackListQuery): Promise<FeedbackPage>
   return (await res.json()) as FeedbackPage;
 }
 
+export type CreateFeedbackBody =
+  paths["/api/feedbacks"]["post"]["requestBody"]["content"]["application/json"];
+export type CreateFeedbackResponse =
+  paths["/api/feedbacks"]["post"]["responses"]["201"]["content"]["application/json"];
+
+export async function createFeedback(req: CreateFeedbackBody): Promise<CreateFeedbackResponse> {
+  const res = await authedFetch("/api/feedbacks", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return (await res.json()) as CreateFeedbackResponse;
+}
+
 export async function authedFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const token = getToken();
   const headers = new Headers(init.headers);
