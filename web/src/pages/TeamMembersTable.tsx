@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
+  Button,
   Center,
   CloseButton,
   Group,
@@ -13,6 +15,7 @@ import {
   TextInput,
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
+import { IconMessagePlus } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { listAllTeams, listTeamMembers, type TeamMemberListView } from "../api/client";
 import SortHeader, { type SortDir } from "../components/SortHeader";
@@ -176,12 +179,13 @@ export default function TeamMembersTable({
                 onToggle={toggleSort}
               />
             </Table.Th>
+            <Table.Th aria-label="Actions" style={{ width: 1 }} />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
           {isLoading && !data ? (
             <Table.Tr>
-              <Table.Td colSpan={3}>
+              <Table.Td colSpan={4}>
                 <Center py="md">
                   <Loader size="sm" />
                 </Center>
@@ -193,11 +197,24 @@ export default function TeamMembersTable({
                 <Table.Td>{m.name}</Table.Td>
                 <Table.Td>{m.email}</Table.Td>
                 <Table.Td>{m.teamName}</Table.Td>
+                <Table.Td>
+                  <Button
+                    component={RouterLink}
+                    to={`/feedback/new?subjectId=${m.userId}&subjectName=${encodeURIComponent(m.name)}`}
+                    color="blue"
+                    variant="subtle"
+                    size="xs"
+                    leftSection={<IconMessagePlus size={14} />}
+                    aria-label={`Provide feedback to ${m.name}`}
+                  >
+                    Provide feedback
+                  </Button>
+                </Table.Td>
               </Table.Tr>
             ))
           ) : (
             <Table.Tr>
-              <Table.Td colSpan={3}>
+              <Table.Td colSpan={4}>
                 <Text c="dimmed" ta="center">
                   {emptyMessage}
                 </Text>

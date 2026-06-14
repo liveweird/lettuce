@@ -99,6 +99,19 @@ describe("TeamMembersTable", () => {
     expect(memberUrls(mockFetch)[0]).toContain("view=managed");
   });
 
+  test("renders a Provide feedback link per row pointing at /feedback/new", async () => {
+    setupMocks(mockFetch);
+    renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
+
+    const link = await screen.findByRole("link", { name: /provide feedback to bob brown/i });
+    expect(link).toHaveAttribute(
+      "href",
+      "/feedback/new?subjectId=11&subjectName=Bob%20Brown",
+    );
+    // One link per row (Alice appears in two teams -> two rows -> three links total).
+    expect(screen.getAllByRole("link", { name: /provide feedback to/i })).toHaveLength(3);
+  });
+
   test("typing in the Name filter triggers a debounced refetch and the clear button resets it", async () => {
     setupMocks(mockFetch);
     const user = userEvent.setup();
