@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import ManagersTable from "./ManagersTable";
 import TeamMembersTable from "./TeamMembersTable";
 
-const TABS = ["managers", "teammates", "managed"] as const;
+const TABS = ["managers", "peers", "subordinates"] as const;
 type DashboardTab = (typeof TABS)[number];
 
 function isDashboardTab(value: string | null): value is DashboardTab {
@@ -29,17 +29,17 @@ export default function Dashboard() {
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
           <Tabs.Tab value="managers">My managers</Tabs.Tab>
-          <Tabs.Tab value="teammates">My peers</Tabs.Tab>
-          <Tabs.Tab value="managed">My subordinates</Tabs.Tab>
+          <Tabs.Tab value="peers">My peers</Tabs.Tab>
+          <Tabs.Tab value="subordinates">My subordinates</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="managers" pt="md">
           <ManagersTable />
         </Tabs.Panel>
-        <Tabs.Panel value="teammates" pt="md">
+        <Tabs.Panel value="peers" pt="md">
           <TeamMembersTable view="member" emptyMessage="No teammates" />
         </Tabs.Panel>
-        <Tabs.Panel value="managed" pt="md">
+        <Tabs.Panel value="subordinates" pt="md">
           <TeamMembersTable view="managed" emptyMessage="No team members" />
         </Tabs.Panel>
       </Tabs>

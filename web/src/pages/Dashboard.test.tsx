@@ -63,4 +63,30 @@ describe("Dashboard", () => {
     expect(urls.some((url) => url.includes("/api/teams/members?view=member"))).toBe(true);
     expect(urls.some((url) => url.includes("/api/teams/members?view=managed"))).toBe(true);
   });
+
+  test("honors ?tab=peers from the URL", async () => {
+    mockFetch.mockImplementation(() =>
+      Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 })),
+    );
+    renderWithProviders(<Dashboard />, { route: "/?tab=peers" });
+
+    expect(await screen.findByText("No teammates")).toBeInTheDocument();
+    await waitFor(() => {
+      const urls = mockFetch.mock.calls.map(([url]) => String(url));
+      expect(urls.some((url) => url.includes("/api/teams/members?view=member"))).toBe(true);
+    });
+  });
+
+  test("honors ?tab=subordinates from the URL", async () => {
+    mockFetch.mockImplementation(() =>
+      Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 })),
+    );
+    renderWithProviders(<Dashboard />, { route: "/?tab=subordinates" });
+
+    expect(await screen.findByText("No team members")).toBeInTheDocument();
+    await waitFor(() => {
+      const urls = mockFetch.mock.calls.map(([url]) => String(url));
+      expect(urls.some((url) => url.includes("/api/teams/members?view=managed"))).toBe(true);
+    });
+  });
 });
