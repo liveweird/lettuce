@@ -26,6 +26,7 @@ import {
   ApiError,
   createFeedback,
   getUserId,
+  type FeedbackStatus,
   type FeedbackVisibility,
 } from "../api/client";
 
@@ -44,7 +45,7 @@ export default function CreateFeedback() {
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [submitting, setSubmitting] = useState<FeedbackStatus | null>(null);
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
 
   const subjectId = Number(searchParams.get("subjectId"));
@@ -58,16 +59,16 @@ export default function CreateFeedback() {
   const subjectIdIsValid = Number.isFinite(subjectId) && subjectId > 0;
   if (!subjectIdIsValid || providerId == null) return <Navigate to="/" replace />;
 
-  async function onSubmit(values: FormValues) {
+  async function submit(status: FeedbackStatus) {
     setError(null);
-    setSubmitting(true);
+    setSubmitting(status);
     try {
       await createFeedback({
         subjectId,
         providerId: providerId!,
-        visibility: values.visibility,
-        status: "DRAFT",
-        content: values.content,
+        visibility: form.values.visibility,
+        status,
+        content: form.values.content,
       });
       await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
       navigate("/", { replace: true });
@@ -84,14 +85,14 @@ export default function CreateFeedback() {
         setError("Create failed. Check your connection and try again.");
       }
     } finally {
-      setSubmitting(false);
+      setSubmitting(null);
     }
   }
 
   return (
     <Container size="xs" px={0}>
       <Paper withBorder shadow="sm" p="xl" radius="md">
-        <form onSubmit={form.onSubmit(onSubmit)} noValidate>
+        <form onSubmit={form.onSubmit(() => submit("DRAFT"))} noValidate>
           <Stack>
             <Title order={2}>Provide feedback</Title>
             <TextInput
@@ -100,7 +101,6 @@ export default function CreateFeedback() {
               disabled
             />
             <TextInput label="Provider" value="You" disabled />
-            <TextInput label="Status" value="Draft" disabled />
             <Select
               label="Visibility"
               placeholder="Select visibility"
@@ -121,11 +121,29 @@ export default function CreateFeedback() {
               </Alert>
             )}
             <Group justify="flex-end" gap="sm">
-              <Button variant="default" onClick={openCancel} disabled={submitting}>
+              <Button
+                type="button"
+                variant="default"
+                onClick={openCancel}
+                disabled={submitting !== null}
+              >
                 Cancel
               </Button>
-              <Button type="submit" loading={submitting}>
-                Create
+              <Button
+                type="submit"
+                variant="light"
+                loading={submitting === "DRAFT"}
+                disabled={submitting !== null}
+              >
+                Save draft
+              </Button>
+              <Button
+                type="button"
+                onClick={() => submit("SENT")}
+                loading={submitting === "SENT"}
+                disabled={submitting !== null}
+              >
+                Save &amp; send
               </Button>
             </Group>
           </Stack>

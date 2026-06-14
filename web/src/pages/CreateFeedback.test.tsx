@@ -56,11 +56,10 @@ describe("CreateFeedback page", () => {
     localStorage.clear();
   });
 
-  test("shows the immutable subject, provider and status", () => {
+  test("shows the immutable subject and provider with default visibility", () => {
     renderCreateFeedback();
     expect((screen.getByLabelText("Subject") as HTMLInputElement).value).toBe("Mona");
     expect((screen.getByLabelText("Provider") as HTMLInputElement).value).toBe("You");
-    expect((screen.getByLabelText("Status") as HTMLInputElement).value).toBe("Draft");
     expect((screen.getByPlaceholderText("Select visibility") as HTMLInputElement).value).toBe(
       "Provider + subject",
     );
@@ -78,13 +77,13 @@ describe("CreateFeedback page", () => {
     expect(options).toEqual(["Provider + subject", "Public"]);
   });
 
-  test("submits a DRAFT with no requester and redirects to the dashboard", async () => {
+  test("Save draft submits a DRAFT with no requester and redirects to the dashboard", async () => {
     mockFetch.mockResolvedValue(jsonResponse(201, { id: 99 }));
     const user = userEvent.setup();
     renderCreateFeedback();
 
     await user.type(screen.getByLabelText("Content"), "Great leadership this quarter");
-    await user.click(screen.getByRole("button", { name: /^create$/i }));
+    await user.click(screen.getByRole("button", { name: /^save draft$/i }));
 
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/"));
 
@@ -104,6 +103,27 @@ describe("CreateFeedback page", () => {
     expect("requesterId" in body).toBe(false);
   });
 
+  test("Save & send submits with status SENT and redirects to the dashboard", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(201, { id: 101 }));
+    const user = userEvent.setup();
+    renderCreateFeedback();
+
+    await user.type(screen.getByLabelText("Content"), "Shipping this feedback");
+    await user.click(screen.getByRole("button", { name: /save & send/i }));
+
+    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/"));
+
+    const postCall = mockFetch.mock.calls.find(
+      ([url, init]) =>
+        url === "/api/feedbacks" && (init as RequestInit | undefined)?.method === "POST",
+    );
+    expect(postCall).toBeDefined();
+    const body = JSON.parse((postCall![1] as RequestInit).body as string);
+    expect(body.status).toBe("SENT");
+    expect(body.content).toBe("Shipping this feedback");
+    expect("requesterId" in body).toBe(false);
+  });
+
   test("choosing Public is reflected in the submitted visibility", async () => {
     mockFetch.mockResolvedValue(jsonResponse(201, { id: 100 }));
     const user = userEvent.setup();
@@ -112,7 +132,7 @@ describe("CreateFeedback page", () => {
     await user.click(screen.getByPlaceholderText("Select visibility"));
     const listbox = await screen.findByRole("listbox", { hidden: true });
     await user.click(within(listbox).getByText("Public"));
-    await user.click(screen.getByRole("button", { name: /^create$/i }));
+    await user.click(screen.getByRole("button", { name: /^save draft$/i }));
 
     await waitFor(() => {
       const postCall = mockFetch.mock.calls.find(
@@ -130,7 +150,7 @@ describe("CreateFeedback page", () => {
     renderCreateFeedback();
 
     await user.type(screen.getByLabelText("Content"), "x");
-    await user.click(screen.getByRole("button", { name: /^create$/i }));
+    await user.click(screen.getByRole("button", { name: /^save draft$/i }));
 
     expect(await screen.findByText(/validation error/i)).toBeInTheDocument();
     expect(screen.queryByTestId("probe")).not.toBeInTheDocument();

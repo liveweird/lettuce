@@ -127,6 +127,33 @@ class FeedbackRoutesTest {
     }
 
     @Test
+    fun `create with sent status succeeds`() = testApplication {
+        usePostgresTestcontainer()
+        val t = seedTriad()
+        val client = authedClient(t.providerEmail, "pw")
+
+        // "Save & send" creates the feedback directly as SENT; the transition restriction
+        // only applies on update, so this must be accepted on create.
+        val response = client.post("/api/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                Feedback(
+                    requesterId = null,
+                    subjectId = t.subjectId,
+                    providerId = t.providerId,
+                    visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                    status = FeedbackStatus.SENT,
+                    content = "Shipping this feedback",
+                )
+            )
+        }
+        assertEquals(HttpStatusCode.Created, response.status)
+        val body = response.body<FeedbackResponse>()
+        assertEquals(FeedbackStatus.SENT, body.status)
+        assertNull(body.requesterId)
+    }
+
+    @Test
     fun `requested without requester is rejected`() = testApplication {
         usePostgresTestcontainer()
         val t = seedTriad()
