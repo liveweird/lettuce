@@ -12,6 +12,7 @@ import {
   Group,
   Loader,
   Paper,
+  SimpleGrid,
   Stack,
   Textarea,
   TextInput,
@@ -67,9 +68,25 @@ export default function ViewFeedback() {
   const notFound = isError && fetchError instanceof ApiError && fetchError.status === 404;
 
   return (
-    <Container size="xs" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <Stack>
+    <Container
+      size="sm"
+      px={0}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        // Fill the AppShell.Main content area (header 56px + md padding top & bottom).
+        minHeight:
+          "calc(100dvh - var(--app-shell-header-height, 56px) - 2 * var(--app-shell-padding, 16px))",
+      }}
+    >
+      <Paper
+        withBorder
+        shadow="sm"
+        p="xl"
+        radius="md"
+        style={{ flex: 1, display: "flex", flexDirection: "column" }}
+      >
+        <Stack style={{ flex: 1 }}>
           <Title order={2}>Feedback</Title>
           {isLoading ? (
             <Center py="xl">
@@ -90,22 +107,44 @@ export default function ViewFeedback() {
             </>
           ) : (
             <>
-              <TextInput
-                label="Provider"
-                value={providerName ?? `#${data!.providerId}`}
-                disabled
-              />
-              <TextInput label="Subject" value="You" disabled />
-              <TextInput
-                label="Requester"
-                value={
-                  requesterName ?? (data!.requesterId != null ? `#${data!.requesterId}` : "None")
-                }
-                disabled
-              />
-              <TextInput label="Visibility" value={VISIBILITY_LABEL[data!.visibility]} disabled />
-              <TextInput label="Status" value={STATUS_LABEL[data!.status]} disabled />
-              <Textarea label="Content" value={data!.content} rows={6} disabled />
+              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+                <Stack gap="sm">
+                  <TextInput
+                    label="Requester"
+                    value={
+                      requesterName ??
+                      (data!.requesterId != null ? `#${data!.requesterId}` : "None")
+                    }
+                    disabled
+                  />
+                  <TextInput label="Subject" value="You" disabled />
+                  <TextInput
+                    label="Provider"
+                    value={providerName ?? `#${data!.providerId}`}
+                    disabled
+                  />
+                </Stack>
+                <Stack gap="sm">
+                  <TextInput
+                    label="Visibility"
+                    value={VISIBILITY_LABEL[data!.visibility]}
+                    disabled
+                  />
+                  <TextInput label="Status" value={STATUS_LABEL[data!.status]} disabled />
+                </Stack>
+              </SimpleGrid>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+                <Textarea
+                  label="Content"
+                  value={data!.content}
+                  disabled
+                  styles={{
+                    root: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 },
+                    wrapper: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 },
+                    input: { flex: 1, minHeight: 0, resize: "none" },
+                  }}
+                />
+              </div>
               <Group justify="flex-end">
                 <Button component={RouterLink} to={RECEIVED} variant="default">
                   Close

@@ -9,6 +9,7 @@ import {
   Modal,
   Paper,
   Select,
+  SimpleGrid,
   Stack,
   Text,
   Textarea,
@@ -61,27 +62,57 @@ export default function FeedbackForm({
   });
 
   return (
-    <Container size="xs" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <form onSubmit={form.onSubmit(() => onSubmit("DRAFT", form.values))} noValidate>
-          <Stack>
+    <Container
+      size="sm"
+      px={0}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        // Fill the AppShell.Main content area (header 56px + md padding top & bottom).
+        minHeight:
+          "calc(100dvh - var(--app-shell-header-height, 56px) - 2 * var(--app-shell-padding, 16px))",
+      }}
+    >
+      <Paper
+        withBorder
+        shadow="sm"
+        p="xl"
+        radius="md"
+        style={{ flex: 1, display: "flex", flexDirection: "column" }}
+      >
+        <form
+          onSubmit={form.onSubmit(() => onSubmit("DRAFT", form.values))}
+          noValidate
+          style={{ flex: 1, display: "flex", flexDirection: "column" }}
+        >
+          <Stack style={{ flex: 1 }}>
             <Title order={2}>{title}</Title>
-            <TextInput label="Subject" value={subjectDisplay} disabled />
-            <TextInput label="Provider" value="You" disabled />
-            <Select
-              label="Visibility"
-              placeholder="Select visibility"
-              data={VISIBILITY_OPTIONS}
-              allowDeselect={false}
-              {...form.getInputProps("visibility")}
-            />
-            <Textarea
-              label="Content"
-              placeholder="Write your feedback…"
-              rows={6}
-              maxLength={5000}
-              {...form.getInputProps("content")}
-            />
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+              <Stack gap="sm">
+                <TextInput label="Subject" value={subjectDisplay} disabled />
+                <TextInput label="Provider" value="You" disabled />
+              </Stack>
+              <Select
+                label="Visibility"
+                placeholder="Select visibility"
+                data={VISIBILITY_OPTIONS}
+                allowDeselect={false}
+                {...form.getInputProps("visibility")}
+              />
+            </SimpleGrid>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+              <Textarea
+                label="Content"
+                placeholder="Write your feedback…"
+                maxLength={5000}
+                styles={{
+                  root: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 },
+                  wrapper: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 },
+                  input: { flex: 1, minHeight: 0, resize: "none" },
+                }}
+                {...form.getInputProps("content")}
+              />
+            </div>
             {error && (
               <Alert color="red" variant="light">
                 {error}
