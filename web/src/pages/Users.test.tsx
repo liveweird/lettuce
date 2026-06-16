@@ -113,7 +113,7 @@ describe("Users page", () => {
     expect(links[1]).toHaveAttribute("href", "/users/2/teams");
   });
 
-  test("non-admin does not see Edit or Delete actions", async () => {
+  test("non-admin sees only Provide feedback (no Edit/Delete) per row", async () => {
     localStorage.setItem(ROLE_KEY, "USER");
     mockListThen(mockFetch);
     renderUsers();
@@ -121,7 +121,10 @@ describe("Users page", () => {
     await screen.findByText("Alice");
     expect(screen.queryByRole("button", { name: /^delete /i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /^edit /i })).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/actions/i)).not.toBeInTheDocument();
+    // The actions column still renders because every user can provide feedback —
+    // but not on their own row (the current user is Alice, id 1).
+    expect(screen.getByRole("link", { name: /provide feedback for bob/i })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /provide feedback for alice/i })).not.toBeInTheDocument();
   });
 
   test("Cancel in the confirmation modal closes it without calling DELETE", async () => {
