@@ -42,7 +42,8 @@ fun Application.configureFeedbackRoutes() {
                 val view = when (val raw = params["view"]?.takeIf { it.isNotBlank() } ?: "received") {
                     "received" -> FeedbackListView.RECEIVED
                     "provided" -> FeedbackListView.PROVIDED
-                    else -> throw BadRequestException("Unknown view: $raw (allowed: received, provided)")
+                    "team" -> FeedbackListView.TEAM
+                    else -> throw BadRequestException("Unknown view: $raw (allowed: received, provided, team)")
                 }
                 val paging = call.parsePaging(
                     sortable = setOf("id", "requesterName", "subjectName", "providerName", "visibility", "status"),

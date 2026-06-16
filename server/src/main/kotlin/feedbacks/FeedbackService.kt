@@ -2,6 +2,7 @@ package ch.nokillswit.feedbacks
 
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
+import ch.nokillswit.teams.TeamService
 import ch.nokillswit.users.UserService
 import io.ktor.server.plugins.BadRequestException
 import io.ktor.util.AttributeKey
@@ -16,7 +17,7 @@ import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
 val FeedbackServiceKey = AttributeKey<FeedbackService>("FeedbackService")
 
-enum class FeedbackListView { RECEIVED, PROVIDED }
+enum class FeedbackListView { RECEIVED, PROVIDED, TEAM }
 
 data class FeedbackListFilter(
     val requesterName: String? = null,
@@ -133,6 +134,22 @@ class FeedbackService(val database: R2dbcDatabase) {
             FeedbackListView.RECEIVED -> (Feedbacks.subjectId eq callerUserId) and
                 (Feedbacks.visibility inList RECEIVED_VISIBILITIES)
             FeedbackListView.PROVIDED -> Feedbacks.providerId eq callerUserId
+            FeedbackListView.TEAM -> {
+                // Subjects that are members of a team the caller manages (their subordinates).
+                val subordinateIds = TeamService.TeamMembers
+                    .join(
+                        TeamService.Teams,
+                        JoinType.INNER,
+                        onColumn = TeamService.TeamMembers.teamId,
+                        otherColumn = TeamService.Teams.id,
+                    )
+                    .select(TeamService.TeamMembers.userId)
+                    .where {
+                        (TeamService.Teams.managerId eq callerUserId) and
+                            (TeamService.Teams.markedAsDeleted eq false)
+                    }
+                Feedbacks.subjectId inSubQuery subordinateIds
+            }
         }
         val predicate: Op<Boolean> = scope and buildPredicate(filter)
         val join = Feedbacks

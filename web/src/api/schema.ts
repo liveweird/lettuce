@@ -1030,6 +1030,10 @@ export interface paths {
          *       subject is allowed to read. `PROVIDER_REQUESTER` rows never appear in this view.
          *     - `view=provided`: rows where the caller is the provider, regardless of visibility
          *       (a provider may always read their own records).
+         *     - `view=team`: rows where the subject is a member of a team the caller manages
+         *       (the caller's subordinates), unrestricted by visibility or status. Intended for a
+         *       manager's overview of their team's feedback. A caller who manages no team gets an
+         *       empty page.
          *
          *     Supports offset pagination, sorting and filtering.
          *
@@ -1064,7 +1068,7 @@ export interface paths {
                      */
                     sort?: components["parameters"]["Sort"];
                     /** @description Which caller-relative slice of feedbacks to list. */
-                    view?: "received" | "provided";
+                    view?: "received" | "provided" | "team";
                     /** @description Case-insensitive substring match against the requester's name. */
                     requesterName?: string;
                     /** @description Case-insensitive substring match against the subject's name. */
