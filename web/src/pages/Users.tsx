@@ -23,7 +23,14 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { IconKey, IconPencil, IconPlus, IconTrash, IconUsersGroup } from "@tabler/icons-react";
+import {
+  IconKey,
+  IconMessagePlus,
+  IconPencil,
+  IconPlus,
+  IconTrash,
+  IconUsersGroup,
+} from "@tabler/icons-react";
 import {
   deleteUser,
   getUserId,
@@ -63,6 +70,7 @@ export default function Users() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const admin = isAdmin();
+  const currentUserId = getUserId();
 
   const [debouncedName] = useDebouncedValue(nameFilter, 300);
   const [debouncedEmail] = useDebouncedValue(emailFilter, 300);
@@ -133,7 +141,7 @@ export default function Users() {
 
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const columnCount = admin ? 4 : 3;
+  const columnCount = 4;
 
   return (
     <Stack gap="md">
@@ -222,7 +230,7 @@ export default function Users() {
                 onToggle={toggleSort}
               />
             </Table.Th>
-            {admin && <Table.Th aria-label="Actions" style={{ width: 1 }} />}
+            <Table.Th aria-label="Actions" style={{ width: 1 }} />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -240,55 +248,70 @@ export default function Users() {
                 <Table.Td>{u.name}</Table.Td>
                 <Table.Td>{u.email}</Table.Td>
                 <Table.Td>{ROLE_LABEL[u.role]}</Table.Td>
-                {admin && (
-                  <Table.Td>
-                    <Group gap="xs" wrap="nowrap">
+                <Table.Td>
+                  <Group gap="xs" wrap="nowrap">
+                    {u.id !== currentUserId && (
                       <Button
                         component={RouterLink}
-                        to={`/users/${u.id}/edit`}
+                        to={`/feedback/new?subjectId=${u.id}&subjectName=${encodeURIComponent(u.name)}`}
                         color="blue"
                         variant="subtle"
                         size="xs"
-                        leftSection={<IconPencil size={14} />}
-                        aria-label={`Edit ${u.name}`}
+                        leftSection={<IconMessagePlus size={14} />}
+                        aria-label={`Provide feedback for ${u.name}`}
                       >
-                        Edit
+                        Provide feedback
                       </Button>
-                      <Button
-                        component={RouterLink}
-                        to={`/users/${u.id}/change-password`}
-                        color="blue"
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconKey size={14} />}
-                        aria-label={`Change password for ${u.name}`}
-                      >
-                        Change password
-                      </Button>
-                      <Button
-                        component={RouterLink}
-                        to={`/users/${u.id}/teams`}
-                        color="blue"
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconUsersGroup size={14} />}
-                        aria-label={`Teams for ${u.name}`}
-                      >
-                        Teams
-                      </Button>
-                      <Button
-                        color="red"
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconTrash size={14} />}
-                        onClick={() => requestDelete({ id: u.id, name: u.name, email: u.email })}
-                        aria-label={`Delete ${u.name}`}
-                      >
-                        Delete
-                      </Button>
-                    </Group>
-                  </Table.Td>
-                )}
+                    )}
+                    {admin && (
+                      <>
+                        <Button
+                          component={RouterLink}
+                          to={`/users/${u.id}/edit`}
+                          color="blue"
+                          variant="subtle"
+                          size="xs"
+                          leftSection={<IconPencil size={14} />}
+                          aria-label={`Edit ${u.name}`}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          component={RouterLink}
+                          to={`/users/${u.id}/change-password`}
+                          color="blue"
+                          variant="subtle"
+                          size="xs"
+                          leftSection={<IconKey size={14} />}
+                          aria-label={`Change password for ${u.name}`}
+                        >
+                          Change password
+                        </Button>
+                        <Button
+                          component={RouterLink}
+                          to={`/users/${u.id}/teams`}
+                          color="blue"
+                          variant="subtle"
+                          size="xs"
+                          leftSection={<IconUsersGroup size={14} />}
+                          aria-label={`Teams for ${u.name}`}
+                        >
+                          Teams
+                        </Button>
+                        <Button
+                          color="red"
+                          variant="subtle"
+                          size="xs"
+                          leftSection={<IconTrash size={14} />}
+                          onClick={() => requestDelete({ id: u.id, name: u.name, email: u.email })}
+                          aria-label={`Delete ${u.name}`}
+                        >
+                          Delete
+                        </Button>
+                      </>
+                    )}
+                  </Group>
+                </Table.Td>
               </Table.Tr>
             ))
           ) : (
