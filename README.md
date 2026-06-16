@@ -40,12 +40,48 @@ Here's a list of features included in this project:
 | [OpenAPI](https://start.ktor.io/p/io.ktor/server-openapi) | Serves OpenAPI documentation |
 
 
-## Building & Running
-To build or run the project, use one of the following tasks:
+## Running the whole stack (one command)
 
+The only prerequisite is Docker. From the repo root:
+
+```
+docker compose up --build
+```
+
+This builds the React SPA, builds the Ktor server into a single image (which then
+serves both the API and the SPA), starts PostgreSQL, runs the Flyway migrations on
+boot, and wires everything together. When it's up, open:
+
+- App: http://localhost:8080
+- Swagger UI: http://localhost:8080/openapi
+
+A bootstrap admin is seeded on first boot: `admin@lettuce.local` / `changeme`
+(replace before any non-development use).
+
+Tear down with `docker compose down`, or `docker compose down -v` to also drop the
+database volume.
+
+## Local development
+
+For hot-reload development, run the three pieces separately:
+
+```
+docker compose up postgres                 # database only, on :5432
+./gradlew :server:run                       # Ktor API on :8080
+cd web && npm run dev                        # Vite dev server on :5173 (proxies /api → :8080)
+```
+
+In this mode the server does not serve the SPA (the `WEB_STATIC_DIR` env var is unset),
+so Vite owns the frontend on :5173 and the API answers on :8080.
+
+### Useful Gradle tasks
 
 | Task | Description |
 |------|-------------|
+| `./gradlew build` | Build everything |
+| `./gradlew :server:run` | Run the Ktor server on :8080 |
+| `./gradlew test` | Run all tests (requires a running Docker daemon) |
+| `./gradlew :server:buildFatJar` | Produce the server fat JAR |
 
 If the server starts successfully, you'll see the following output:
 ```

@@ -11,7 +11,17 @@ Gradle wrapper is at `./gradlew` (use `gradlew.bat` on Windows). JDK 21 toolchai
 - Run all tests: `./gradlew test`
 - Run server tests only: `./gradlew :server:test`
 - Run a single test: `./gradlew :server:test --tests "ch.nokillswit.ServerTest.test root endpoint"`
-- Produce a fat JAR / distribution: `./gradlew :server:buildFatJar` or `:server:installDist` (Ktor plugin tasks)
+- Package the server for deployment: `./gradlew :server:installDist` (output under `server/build/install/server/`, launcher `bin/server`). **Do not use `:server:buildFatJar`** — the shadow plugin collapses the duplicate `META-INF/services/org.flywaydb.core.extensibility.Plugin` descriptors and the fat JAR NPEs at startup inside Flyway's plugin registry. `installDist` keeps each dependency JAR separate, so Flyway's `ServiceLoader` discovery works exactly as under `:server:run`.
+- **Run the whole stack with one command: `docker compose up --build`** (only Docker required). See "Running the full stack" below.
+
+## Running the full stack
+
+Two ways to run, sharing the same `docker-compose.yaml`:
+
+- **One command (clone & run / demo):** `docker compose up --build` builds the SPA, builds the server, starts PostgreSQL, runs Flyway on boot, and serves everything at `http://localhost:8080` (Swagger at `/openapi`). Tear down with `docker compose down` (add `-v` to drop the DB volume).
+- **Local development (hot reload, unchanged):** `docker compose up postgres` + `./gradlew :server:run` + `cd web && npm run dev` (Vite on `:5173`, proxying `/api` → `:8080`).
+
+The root `Dockerfile` is a 3-stage build: (1) `node` builds `web/dist`, (2) `eclipse-temurin:21-jdk` runs `:server:installDist`, (3) `eclipse-temurin:21-jre` runtime bundles the install image **and** the built SPA, sets `WEB_STATIC_DIR=/app/web`, and runs `bin/server`. The `app` Compose service points the `POSTGRES_*` env vars at the `postgres` service host and waits on its healthcheck. `.dockerignore` keeps build outputs / `node_modules` / `.git` out of the build context.
 
 ## Architecture
 
@@ -35,12 +45,15 @@ ch.nokillswit
 ├── main.kt
 ├── plugins/            cross-cutting Ktor wiring (configureXxx that only `install` plugins)
 ├── infra/db/           Flyway migrations + R2DBC connection bootstrap
+├── infra/paging/       list-endpoint paging/sort/filter helper (parsePaging, applyPaging)
+├── authz/              RBAC guards + CallerPrincipal (see "Authorization model")
 ├── auth/               POST /api/login + password hashing
-├── users/              /api/users/* CRUD + UserService + Users table
-└── teams/              /api/teams/* CRUD + member sub-resource + TeamService + Teams/TeamMembers tables
+├── users/              /api/users/* CRUD + list + UserService + Users table
+├── teams/              /api/teams/* CRUD + list + member sub-resource + TeamService + Teams/TeamMembers tables
+└── feedbacks/          /api/feedbacks/* CRUD + list + FeedbackService + Feedbacks table + FeedbackVisibility
 ```
 
-Routing is feature-local: each feature package registers its own routes from its `configureXxx` module. `plugins/Routing.kt` is a catch-all for non-feature endpoints (`/`, `/ws`, `/json/kotlinx-serialization`, `/session/increment`).
+Routing is feature-local: each feature package registers its own routes from its `configureXxx` module. `plugins/Routing.kt` is a catch-all for non-feature endpoints (`/ws`, `/json/kotlinx-serialization`, `/session/increment`). It also owns the SPA: when `WEB_STATIC_DIR` (config key `web.staticDir`) is set, `configureRouting` installs `singlePageApplication` to serve `web/dist` with an `index.html` fallback; when unset (local dev, where Vite serves the SPA), it falls back to a plain `GET /` → "Hello, World!".
 
 Module load order in `application.yaml` matters for inter-module attribute reads: `configureSecurity` puts `JwtConfigKey` in `attributes`; `configureDatabase` puts `UserServiceKey`. `configureAuthRoutes` and `configureUserRoutes` read both, so they must run after both. Current order: plugins → `infra/db` (Flyway, then Database) → features (users, auth) → catch-all `configureRouting`.
 
@@ -53,9 +66,11 @@ PostgreSQL is the only database. Connection settings come from the `postgres:` b
 
 The `org.postgresql:postgresql` JDBC driver is on the classpath solely for Flyway; runtime queries go through R2DBC.
 
+Current migrations are `V1`–`V9`: schema for users/teams/feedbacks/revoked-tokens, the `users.role` column (`V5`), the `admin@lettuce.local` seed (`V6`), a soft-delete `marked_as_deleted BOOLEAN` column (with index) on `users` (`V7`) and `teams` (`V8`), and a demo-org seed (`V9`). Soft delete is the pattern for users and teams — rows are flagged `marked_as_deleted`, not physically removed; queries filter on it.
+
 ### List endpoint conventions
 
-No `GET` collection routes exist yet — every list endpoint added from here on follows the rules below. The OpenAPI spec is the contract; document the query params for each list endpoint there.
+`GET /api/users`, `GET /api/teams`, and `GET /api/feedbacks` are list endpoints; every list endpoint follows the rules below. The OpenAPI spec is the contract; document the query params for each list endpoint there.
 
 **Pagination — offset, in the body envelope.**
 
@@ -93,13 +108,13 @@ No `GET` collection routes exist yet — every list endpoint added from here on 
 
 **Implementation.**
 
-- When the first list endpoint lands, add a small `infra/paging/` helper that parses `page`/`pageSize`/`sort` from `ApplicationCall.request.queryParameters`, validates against per-endpoint whitelists, and applies `.limit(...).offset(...)` + `.orderBy(...)` to an Exposed `Query`. Validation failures throw a typed exception that `StatusPages` maps to `400` + `ApiError`.
+- The shared helper lives at `infra/paging/Paging.kt`: `ApplicationCall.parsePaging(...)` parses `page`/`pageSize`/`sort` from the query string and validates against per-endpoint whitelists into a `PageRequest`; `Query.applyPaging(req, columns)` applies `.limit(...).offset(...)` + `.orderBy(...)` to an Exposed `Query`. Validation failures throw a typed exception that `StatusPages` maps to `400` + `ApiError`. New list endpoints reuse these rather than re-parsing params.
 
 ### Security defaults are template placeholders
 
 `plugins/Security.kt` uses a hard-coded HMAC256 secret (`"secret"`), audience, and issuer for JWT, and CORS in `plugins/Http.kt` calls `anyHost()`. CSRF install is gated behind `security.csrf.enabled` (default **`false`** in `application.yaml`, env-overridable via `SECURITY_CSRF_ENABLED`); the configured `originMatchesHost()` + `allowOrigin("http://localhost:8080")` + `checkHeader("X-CSRF-Token")` combo is unsatisfiable from both the Ktor test client and the dev SPA on `:5173`, and CSRF protection is anyway moot for this app's bearer-JWT auth model — browsers do not auto-attach `Authorization` headers, so cross-site forms cannot forge an authenticated request. Re-enable only if you move to cookie-based session auth and fix the allow-list accordingly. All of these are starter values and must be replaced before any non-development use.
 
-**Default admin.** Migration `V6__seed_admin.sql` inserts a single bootstrap administrator on first boot: `admin@lettuce.local` / `changeme` (role `ADMIN`). The migration is idempotent via `ON CONFLICT (email) DO NOTHING`, so removing the row deletes the bootstrap account permanently. Replace or delete this user before any non-development use.
+**Default admin & demo seed.** Migration `V6__seed_admin.sql` inserts a single bootstrap administrator on first boot: `admin@lettuce.local` / `changeme` (role `ADMIN`), idempotent via `ON CONFLICT (email) DO NOTHING`. `V9__seed_demo_users_and_teams.sql` additionally seeds a demo org (teams AAA/BBB/CCC with `aaa-one@…`, `manager-aaa@…`, etc.) so the dashboard lists have data — every demo user is role `USER` and logs in with `changeme` (reusing V6's bcrypt hash). All of these are template placeholders; replace or delete before any non-development use.
 
 ### Authorization model
 
@@ -133,7 +148,7 @@ Layered RBAC. Implemented in the `server/src/main/kotlin/authz/` package.
 Vite + React 19 + TypeScript SPA. The Gradle and npm toolchains are disjoint — never invoke npm from Gradle or vice versa.
 
 - Dev server: `cd web && npm run dev` (port 5173). All backend routes live under the `/api/` namespace (`/api/login`, `/api/logout`, `/api/users`, `/api/teams`, `/api/feedbacks`, …) and Vite proxies the single `/api` subtree → `http://localhost:8080`. Any other path is served as `index.html` so React Router owns the SPA URL space and browser reloads don't collide with API routes.
-- Production build: `cd web && npm run build` → static files in `web/dist`.
+- Production build: `cd web && npm run build` → static files in `web/dist`. In the Docker image these are baked in and served by the Ktor server itself (via `WEB_STATIC_DIR`; see "Server bootstrap model" / `plugins/Routing.kt`), so production is single-origin and there is no Vite proxy — the SPA and `/api` share `http://localhost:8080`.
 - Regenerate API types: `cd web && npm run gen:api`. Reads `server/src/main/resources/openapi/documentation.yaml` directly (no server needed) and writes `web/src/api/schema.ts`. Run this after editing the OpenAPI spec; commit the regenerated `schema.ts`.
 
 The OpenAPI spec at `server/src/main/resources/openapi/documentation.yaml` is the contract between backend and frontend — it is hand-maintained, not auto-generated from routes. When adding/changing a route, update the spec in the same change. Swagger UI is mounted at `http://localhost:8080/openapi`.

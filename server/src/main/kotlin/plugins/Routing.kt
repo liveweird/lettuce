@@ -1,6 +1,7 @@
 package ch.nokillswit.plugins
 
 import io.ktor.server.application.*
+import io.ktor.server.http.content.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.sessions.*
@@ -8,9 +9,20 @@ import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 
 fun Application.configureRouting() {
+    val staticDir = environment.config.propertyOrNull("web.staticDir")?.getString()?.takeIf { it.isNotBlank() }
+
     routing {
-        get("/") {
-            call.respondText("Hello, World!")
+        if (staticDir != null) {
+            // Serve the built React SPA: hashed assets plus a fallback to index.html
+            // so React Router owns the non-/api URL space.
+            singlePageApplication {
+                filesPath = staticDir
+                defaultPage = "index.html"
+            }
+        } else {
+            get("/") {
+                call.respondText("Hello, World!")
+            }
         }
         webSocket("/ws") {
             for (frame in incoming) {

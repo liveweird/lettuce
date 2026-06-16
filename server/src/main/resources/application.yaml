@@ -43,6 +43,12 @@ jwt:
   realm: "$JWT_REALM:lettuce-api"
   expiresInSeconds: "$JWT_EXPIRES_IN_SECONDS:3600"
 
+web:
+  # When set, the server serves the built React SPA from this directory (static
+  # assets + SPA fallback to index.html). Empty in local dev, where Vite serves
+  # the SPA on :5173; set to /app/web inside the Docker image.
+  staticDir: "$WEB_STATIC_DIR:"
+
 postgres:
   jdbcUrl: "$POSTGRES_JDBC_URL:jdbc:postgresql://localhost:5432/lettuce"
   r2dbcUrl: "$POSTGRES_R2DBC_URL:r2dbc:postgresql://localhost:5432/lettuce"

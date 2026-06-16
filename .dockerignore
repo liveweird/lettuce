@@ -1,0 +1,11 @@
+# Build outputs — rebuilt inside the image
+**/build/
+.gradle/
+web/node_modules/
+web/dist/
+
+# VCS / IDE / local cruft
+.git/
+**/.idea/
+**/*.iml
+server/h2.mv.db

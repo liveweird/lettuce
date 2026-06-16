@@ -1,0 +1,40 @@
+# syntax=docker/dockerfile:1
+
+# ── Stage 1: build the React SPA ──────────────────────────────────────────────
+FROM node:22-alpine AS web
+WORKDIR /web
+# Install deps first for layer caching. --legacy-peer-deps per web/ README
+# (openapi-typescript declares TS ^5 while the scaffold uses TS 6).
+COPY web/package.json web/package-lock.json ./
+RUN npm ci --legacy-peer-deps
+COPY web/ ./
+# schema.ts is committed, so `vite build` needs no running server / gen:api.
+RUN npm run build
+
+# ── Stage 2: build the server fat JAR ─────────────────────────────────────────
+FROM eclipse-temurin:21-jdk AS server
+WORKDIR /src
+# Copy build scripts + wrapper first so the Gradle distribution download caches.
+COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties ./
+COPY gradle/ gradle/
+RUN ./gradlew --version --no-daemon
+# Module build files, then sources.
+COPY core/build.gradle.kts core/
+COPY client/build.gradle.kts client/
+COPY server/build.gradle.kts server/
+COPY core/src/ core/src/
+COPY client/src/ client/src/
+COPY server/src/ server/src/
+# installDist keeps every dependency as its own JAR, so Flyway's ServiceLoader
+# plugin discovery works exactly as under `:server:run` (a fat JAR collapses the
+# duplicate META-INF/services descriptors and breaks Flyway at startup).
+RUN ./gradlew :server:installDist --no-daemon
+
+# ── Stage 3: runtime ──────────────────────────────────────────────────────────
+FROM eclipse-temurin:21-jre AS runtime
+WORKDIR /app
+COPY --from=server /src/server/build/install/server/ ./
+COPY --from=web /web/dist web
+ENV WEB_STATIC_DIR=/app/web
+EXPOSE 8080
+ENTRYPOINT ["/app/bin/server"]
