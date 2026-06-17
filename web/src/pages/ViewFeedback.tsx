@@ -68,7 +68,13 @@ export default function ViewFeedback() {
 
   if (!idIsValid) return <Navigate to={backTo} replace />;
 
-  const notFound = isError && fetchError instanceof ApiError && fetchError.status === 404;
+  const errorStatus = fetchError instanceof ApiError ? fetchError.status : null;
+  const errorMessage =
+    errorStatus === 404
+      ? "Feedback not found."
+      : errorStatus === 403
+        ? "You don't have permission to view this feedback."
+        : `Failed to load feedback${errorStatus != null ? ` (${errorStatus})` : ""}.`;
 
   return (
     <Container
@@ -98,9 +104,7 @@ export default function ViewFeedback() {
           ) : isError ? (
             <>
               <Alert color="red" variant="light">
-                {notFound
-                  ? "Feedback not found."
-                  : `Failed to load feedback${fetchError instanceof ApiError ? ` (${fetchError.status})` : ""}.`}
+                {errorMessage}
               </Alert>
               <Group justify="flex-end">
                 <Button component={RouterLink} to={backTo} variant="default">
