@@ -47,6 +47,9 @@ export default function ViewFeedback() {
   const [searchParams] = useSearchParams();
   const providerName = searchParams.get("providerName");
   const requesterName = searchParams.get("requesterName");
+  const asProvider = searchParams.get("as") === "provider";
+  const subjectName = searchParams.get("subjectName");
+  const backTo = asProvider ? "/feedback?tab=provided" : RECEIVED;
 
   const id = Number(params.id);
   const idIsValid = Number.isFinite(id) && id > 0;
@@ -63,7 +66,7 @@ export default function ViewFeedback() {
     retry: false,
   });
 
-  if (!idIsValid) return <Navigate to={RECEIVED} replace />;
+  if (!idIsValid) return <Navigate to={backTo} replace />;
 
   const notFound = isError && fetchError instanceof ApiError && fetchError.status === 404;
 
@@ -100,7 +103,7 @@ export default function ViewFeedback() {
                   : `Failed to load feedback${fetchError instanceof ApiError ? ` (${fetchError.status})` : ""}.`}
               </Alert>
               <Group justify="flex-end">
-                <Button component={RouterLink} to={RECEIVED} variant="default">
+                <Button component={RouterLink} to={backTo} variant="default">
                   Close
                 </Button>
               </Group>
@@ -117,10 +120,14 @@ export default function ViewFeedback() {
                     }
                     disabled
                   />
-                  <TextInput label="Subject" value="You" disabled />
+                  <TextInput
+                    label="Subject"
+                    value={asProvider ? (subjectName ?? `#${data!.subjectId}`) : "You"}
+                    disabled
+                  />
                   <TextInput
                     label="Provider"
-                    value={providerName ?? `#${data!.providerId}`}
+                    value={asProvider ? "You" : (providerName ?? `#${data!.providerId}`)}
                     disabled
                   />
                 </Stack>
@@ -146,7 +153,7 @@ export default function ViewFeedback() {
                 />
               </div>
               <Group justify="flex-end">
-                <Button component={RouterLink} to={RECEIVED} variant="default">
+                <Button component={RouterLink} to={backTo} variant="default">
                   Close
                 </Button>
               </Group>

@@ -318,20 +318,35 @@ export default function FeedbackTable({ view }: { view: PairFeedbackView }) {
                       >
                         View
                       </Button>
+                    ) : f.status === "REQUESTED" || f.status === "DRAFT" ? (
+                      <Button
+                        component={RouterLink}
+                        to={`/feedback/${f.id}/edit?subjectName=${encodeURIComponent(f.subjectName)}`}
+                        color="blue"
+                        variant="subtle"
+                        size="xs"
+                        leftSection={<IconPencil size={14} />}
+                        aria-label={`Edit feedback for ${f.subjectName}`}
+                      >
+                        Edit
+                      </Button>
                     ) : (
-                      f.status === "DRAFT" && (
-                        <Button
-                          component={RouterLink}
-                          to={`/feedback/${f.id}/edit?subjectName=${encodeURIComponent(f.subjectName)}`}
-                          color="blue"
-                          variant="subtle"
-                          size="xs"
-                          leftSection={<IconPencil size={14} />}
-                          aria-label={`Edit feedback for ${f.subjectName}`}
-                        >
-                          Edit
-                        </Button>
-                      )
+                      <Button
+                        component={RouterLink}
+                        to={
+                          `/feedback/${f.id}/view?as=provider&subjectName=${encodeURIComponent(f.subjectName)}` +
+                          (f.requesterName
+                            ? `&requesterName=${encodeURIComponent(f.requesterName)}`
+                            : "")
+                        }
+                        color="blue"
+                        variant="subtle"
+                        size="xs"
+                        leftSection={<IconEye size={14} />}
+                        aria-label={`View feedback for ${f.subjectName}`}
+                      >
+                        View
+                      </Button>
                     )}
                   </Table.Td>
                 )}
