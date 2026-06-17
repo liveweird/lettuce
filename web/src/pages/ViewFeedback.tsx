@@ -62,9 +62,15 @@ export default function ViewFeedback() {
   const [searchParams] = useSearchParams();
   const providerName = searchParams.get("providerName");
   const requesterName = searchParams.get("requesterName");
-  const asProvider = searchParams.get("as") === "provider";
+  const as = searchParams.get("as");
+  const asProvider = as === "provider";
+  const asTeam = as === "team";
   const subjectName = searchParams.get("subjectName");
-  const backTo = asProvider ? "/feedback?tab=provided" : RECEIVED;
+  const backTo = asTeam
+    ? "/feedback?tab=team"
+    : asProvider
+      ? "/feedback?tab=provided"
+      : RECEIVED;
   const [actionError, setActionError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -177,7 +183,9 @@ export default function ViewFeedback() {
                   />
                   <TextInput
                     label="Subject"
-                    value={asProvider ? (subjectName ?? `#${data!.subjectId}`) : "You"}
+                    value={
+                      asProvider || asTeam ? (subjectName ?? `#${data!.subjectId}`) : "You"
+                    }
                     disabled
                   />
                   <TextInput

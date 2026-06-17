@@ -211,6 +211,30 @@ class FeedbackService(val database: R2dbcDatabase) {
         FeedbackListResult(items = rows, total = total)
     }
 
+    /**
+     * True iff [subjectId] is a member of a non-deleted team managed by [managerId].
+     * Mirrors the scope of [FeedbackListView.TEAM] so a manager who can list a
+     * subordinate's feedback can also read the individual record.
+     */
+    suspend fun managesSubject(managerId: UInt, subjectId: UInt): Boolean =
+        suspendTransaction(database) {
+            TeamService.TeamMembers
+                .join(
+                    TeamService.Teams,
+                    JoinType.INNER,
+                    onColumn = TeamService.TeamMembers.teamId,
+                    otherColumn = TeamService.Teams.id,
+                )
+                .selectAll()
+                .where {
+                    (TeamService.Teams.managerId eq managerId) and
+                        (TeamService.Teams.markedAsDeleted eq false) and
+                        (TeamService.TeamMembers.userId eq subjectId)
+                }
+                .limit(1)
+                .count() > 0
+        }
+
     private fun buildPredicate(filter: FeedbackListFilter): Op<Boolean> {
         var op: Op<Boolean> = Op.TRUE
         filter.requesterName?.takeIf { it.isNotBlank() }?.let {

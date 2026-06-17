@@ -20,9 +20,15 @@ fun requireTeamManagerOrAdmin(caller: CallerPrincipal, managerId: UInt) {
     if (caller.userId != managerId) throw ForbiddenException("Only the team manager may perform this action")
 }
 
-fun canReadFeedback(caller: CallerPrincipal, feedback: Feedback): Boolean {
+fun canReadFeedback(
+    caller: CallerPrincipal,
+    feedback: Feedback,
+    managesSubject: Boolean = false,
+): Boolean {
     if (caller.isAdmin()) return true
     if (caller.userId == feedback.providerId) return true
+    // A manager may read any feedback about a subordinate (team-list parity), read-only.
+    if (managesSubject) return true
     return when (feedback.visibility) {
         FeedbackVisibility.PUBLIC -> true
         FeedbackVisibility.PROVIDER_SUBJECT ->
@@ -35,8 +41,12 @@ fun canReadFeedback(caller: CallerPrincipal, feedback: Feedback): Boolean {
     }
 }
 
-fun requireFeedbackRead(caller: CallerPrincipal, feedback: Feedback) {
-    if (!canReadFeedback(caller, feedback)) {
+fun requireFeedbackRead(
+    caller: CallerPrincipal,
+    feedback: Feedback,
+    managesSubject: Boolean = false,
+) {
+    if (!canReadFeedback(caller, feedback, managesSubject)) {
         throw ForbiddenException("Caller may not read this feedback")
     }
 }

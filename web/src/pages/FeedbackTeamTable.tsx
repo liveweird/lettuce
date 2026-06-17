@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
+  Button,
   Center,
   CloseButton,
   Group,
@@ -13,8 +15,10 @@ import {
   TextInput,
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
+import { IconEye, IconPencil } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
+  getUserId,
   listFeedbacks,
   type FeedbackPage,
   type FeedbackStatus,
@@ -59,6 +63,7 @@ function userName(name: string | null | undefined, deleted: boolean): string {
 }
 
 export default function FeedbackTeamTable() {
+  const currentUserId = getUserId();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
   const [sortField, setSortField] = useState<SortField>("subjectName");
@@ -258,12 +263,13 @@ export default function FeedbackTeamTable() {
               />
             </Table.Th>
             <Table.Th>Content</Table.Th>
+            <Table.Th aria-label="Actions" style={{ width: 1 }} />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
           {isLoading && !data ? (
             <Table.Tr>
-              <Table.Td colSpan={6}>
+              <Table.Td colSpan={7}>
                 <Center py="md">
                   <Loader size="sm" />
                 </Center>
@@ -289,11 +295,43 @@ export default function FeedbackTeamTable() {
                 >
                   {f.contentPreview}
                 </Table.Td>
+                <Table.Td>
+                  {currentUserId === f.providerId && f.status === "DRAFT" ? (
+                    <Button
+                      component={RouterLink}
+                      to={`/feedback/${f.id}/edit?subjectName=${encodeURIComponent(f.subjectName)}&from=team`}
+                      color="blue"
+                      variant="subtle"
+                      size="xs"
+                      leftSection={<IconPencil size={14} />}
+                      aria-label={`Edit feedback for ${f.subjectName}`}
+                    >
+                      Edit
+                    </Button>
+                  ) : (
+                    <Button
+                      component={RouterLink}
+                      to={
+                        `/feedback/${f.id}/view?as=team&providerName=${encodeURIComponent(f.providerName)}&subjectName=${encodeURIComponent(f.subjectName)}` +
+                        (f.requesterName
+                          ? `&requesterName=${encodeURIComponent(f.requesterName)}`
+                          : "")
+                      }
+                      color="blue"
+                      variant="subtle"
+                      size="xs"
+                      leftSection={<IconEye size={14} />}
+                      aria-label={`View feedback for ${f.subjectName}`}
+                    >
+                      View
+                    </Button>
+                  )}
+                </Table.Td>
               </Table.Tr>
             ))
           ) : (
             <Table.Tr>
-              <Table.Td colSpan={6}>
+              <Table.Td colSpan={7}>
                 <Text c="dimmed" ta="center">
                   No feedback
                 </Text>

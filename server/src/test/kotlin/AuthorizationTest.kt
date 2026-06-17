@@ -332,6 +332,64 @@ class AuthorizationTest {
     }
 
     @Test
+    fun `manager may read but not write a subordinate's feedback`() = testApplication {
+        usePostgresTestcontainer()
+        val providerEmail = uniqueEmail("provider")
+        val providerId = TestUsers.seed(email = providerEmail, password = "pw", role = UserRole.USER)
+        val subjectEmail = uniqueEmail("subject")
+        val subjectId = TestUsers.seed(email = subjectEmail, password = "pw", role = UserRole.USER)
+        val managerEmail = uniqueEmail("manager")
+        val managerId = TestUsers.seed(email = managerEmail, password = "pw", role = UserRole.USER)
+        val strangerEmail = uniqueEmail("stranger")
+        TestUsers.seed(email = strangerEmail, password = "pw", role = UserRole.USER)
+
+        val providerClient = authedClient(providerEmail, "pw")
+        val managerClient = authedClient(managerEmail, "pw")
+        val strangerClient = authedClient(strangerEmail, "pw")
+
+        // The manager manages a team the subject belongs to.
+        managerClient.post("/api/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "Squad", managerId = managerId, memberIds = listOf(subjectId)))
+        }
+
+        // PROVIDER_SUBJECT feedback would normally hide from anyone but provider/subject.
+        val feedback = providerClient.post("/api/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                Feedback(
+                    subjectId = subjectId,
+                    providerId = providerId,
+                    visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                    status = FeedbackStatus.DRAFT,
+                    content = "private",
+                ),
+            )
+        }.body<FeedbackResponse>()
+
+        // Manager of the subject's team may read it…
+        assertEquals(HttpStatusCode.OK, managerClient.get("/api/feedbacks/${feedback.id}").status)
+        // …a stranger who manages nobody still may not.
+        assertEquals(HttpStatusCode.Forbidden, strangerClient.get("/api/feedbacks/${feedback.id}").status)
+        // …and read access does not grant write access.
+        assertEquals(
+            HttpStatusCode.Forbidden,
+            managerClient.put("/api/feedbacks/${feedback.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    Feedback(
+                        subjectId = subjectId,
+                        providerId = providerId,
+                        visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                        status = FeedbackStatus.SENT,
+                        content = "hijacked",
+                    ),
+                )
+            }.status,
+        )
+    }
+
+    @Test
     fun `non-provider cannot write feedback`() = testApplication {
         usePostgresTestcontainer()
         val providerEmail = uniqueEmail("provider")

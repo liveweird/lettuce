@@ -1,6 +1,7 @@
 package ch.nokillswit.feedbacks
 
 import ch.nokillswit.authz.caller
+import ch.nokillswit.authz.canReadFeedback
 import ch.nokillswit.authz.requireFeedbackRead
 import ch.nokillswit.authz.requireFeedbackWrite
 import ch.nokillswit.infra.paging.parsePaging
@@ -100,7 +101,10 @@ fun Application.configureFeedbackRoutes() {
                     call.respond(HttpStatusCode.NotFound)
                     return@get
                 }
-                requireFeedbackRead(caller, feedback)
+                // Only hit the DB for the manager check when the cheap rules don't already allow it.
+                val managesSubject = !canReadFeedback(caller, feedback) &&
+                    feedbackService.managesSubject(caller.userId, feedback.subjectId)
+                requireFeedbackRead(caller, feedback, managesSubject)
                 call.respond(HttpStatusCode.OK, feedback.toResponse(route.id))
             }
             put<Feedbacks.Id> { route ->

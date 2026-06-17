@@ -31,6 +31,8 @@ export default function EditFeedback() {
   const params = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const subjectName = searchParams.get("subjectName");
+  // Return to whichever tab the editor was opened from (team tab for managers).
+  const backTo = searchParams.get("from") === "team" ? "/feedback?tab=team" : PROVIDED;
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<FeedbackStatus | null>(null);
 
@@ -49,7 +51,7 @@ export default function EditFeedback() {
     retry: false,
   });
 
-  if (!idIsValid) return <Navigate to={PROVIDED} replace />;
+  if (!idIsValid) return <Navigate to={backTo} replace />;
 
   async function handleSave(
     status: FeedbackStatus,
@@ -69,7 +71,7 @@ export default function EditFeedback() {
       });
       await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
       await queryClient.invalidateQueries({ queryKey: ["feedback", id] });
-      navigate(PROVIDED, { replace: true });
+      navigate(backTo, { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 403) {
@@ -109,7 +111,7 @@ export default function EditFeedback() {
                     : `Failed to load feedback${fetchError instanceof ApiError ? ` (${fetchError.status})` : ""}.`}
                 </Alert>
                 <Group justify="flex-end">
-                  <Button component={RouterLink} to={PROVIDED} variant="default">
+                  <Button component={RouterLink} to={backTo} variant="default">
                     Back to feedback
                   </Button>
                 </Group>
@@ -130,7 +132,7 @@ export default function EditFeedback() {
       submitting={submitting}
       error={error}
       onSubmit={handleSave}
-      cancelTo={PROVIDED}
+      cancelTo={backTo}
       discardTitle="Discard changes?"
       discardMessage="Discard your changes? The feedback will remain as it was."
     />
