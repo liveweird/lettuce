@@ -1,6 +1,8 @@
+import { useState } from "react";
 import {
   Link as RouterLink,
   Navigate,
+  useNavigate,
   useParams,
   useSearchParams,
 } from "react-router-dom";
@@ -18,10 +20,12 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ApiError,
   getFeedback,
+  getUserId,
+  updateFeedback,
   type FeedbackStatus,
   type FeedbackVisibility,
 } from "../api/client";
@@ -42,7 +46,18 @@ const STATUS_LABEL: Record<FeedbackStatus, string> = {
   WITHDRAWN: "Withdrawn",
 };
 
+// The single status transition a provider can perform from each status (matches the
+// backend state machine in FeedbackService.isAllowedTransition). WITHDRAWN is terminal
+// and intentionally absent → the provider sees only Close.
+const NEXT_ACTION: Partial<Record<FeedbackStatus, { label: string; next: FeedbackStatus }>> = {
+  REQUESTED: { label: "Draft", next: "DRAFT" },
+  DRAFT: { label: "Send", next: "SENT" },
+  SENT: { label: "Withdraw", next: "WITHDRAWN" },
+};
+
 export default function ViewFeedback() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const params = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const providerName = searchParams.get("providerName");
@@ -50,6 +65,8 @@ export default function ViewFeedback() {
   const asProvider = searchParams.get("as") === "provider";
   const subjectName = searchParams.get("subjectName");
   const backTo = asProvider ? "/feedback?tab=provided" : RECEIVED;
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const id = Number(params.id);
   const idIsValid = Number.isFinite(id) && id > 0;
@@ -67,6 +84,40 @@ export default function ViewFeedback() {
   });
 
   if (!idIsValid) return <Navigate to={backTo} replace />;
+
+  // The provider (not the as=provider display hint) is the only one who can change status.
+  const isProvider = data != null && getUserId() === data.providerId;
+  const action = isProvider ? NEXT_ACTION[data!.status] : undefined;
+
+  async function handleTransition(next: FeedbackStatus) {
+    if (!data) return;
+    setActionError(null);
+    setSubmitting(true);
+    try {
+      await updateFeedback(id, {
+        requesterId: data.requesterId ?? null,
+        subjectId: data.subjectId,
+        providerId: data.providerId,
+        visibility: data.visibility,
+        status: next,
+        content: data.content,
+      });
+      await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
+      await queryClient.invalidateQueries({ queryKey: ["feedback", id] });
+      navigate(backTo, { replace: true });
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.status === 403) setActionError("You don't have permission to change this feedback.");
+        else if (err.status === 404) setActionError("Feedback no longer exists.");
+        else if (err.status === 400) setActionError("This status change is not allowed.");
+        else setActionError(`Update failed (${err.status}).`);
+      } else {
+        setActionError("Update failed. Check your connection and try again.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   const errorStatus = fetchError instanceof ApiError ? fetchError.status : null;
   const errorMessage =
@@ -156,10 +207,20 @@ export default function ViewFeedback() {
                   }}
                 />
               </div>
+              {actionError && (
+                <Alert color="red" variant="light">
+                  {actionError}
+                </Alert>
+              )}
               <Group justify="flex-end">
                 <Button component={RouterLink} to={backTo} variant="default">
                   Close
                 </Button>
+                {action && (
+                  <Button onClick={() => handleTransition(action.next)} loading={submitting}>
+                    {action.label}
+                  </Button>
+                )}
               </Group>
             </>
           )}
