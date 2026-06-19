@@ -23,7 +23,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconEye, IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 import SortHeader, { type SortDir } from "../components/SortHeader";
 import { deleteTemplate, isAdmin, listTemplates } from "../api/client";
 
@@ -104,7 +104,7 @@ export default function Templates() {
 
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const columnCount = admin ? 3 : 2;
+  const columnCount = 3;
 
   return (
     <Stack gap="md">
@@ -150,7 +150,7 @@ export default function Templates() {
               />
             </Table.Th>
             <Table.Th>Preview</Table.Th>
-            {admin && <Table.Th aria-label="Actions" style={{ width: 1 }} />}
+            <Table.Th aria-label="Actions" style={{ width: 1 }} />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -171,33 +171,47 @@ export default function Templates() {
                     {t.contentPreview}
                   </Text>
                 </Table.Td>
-                {admin && (
-                  <Table.Td>
-                    <Group gap="xs" wrap="nowrap">
+                <Table.Td>
+                  <Group gap="xs" wrap="nowrap">
+                    {admin ? (
+                      <>
+                        <Button
+                          component={RouterLink}
+                          to={`/templates/${t.id}/edit`}
+                          color="blue"
+                          variant="subtle"
+                          size="xs"
+                          leftSection={<IconPencil size={14} />}
+                          aria-label={`Edit ${t.name}`}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          color="red"
+                          variant="subtle"
+                          size="xs"
+                          leftSection={<IconTrash size={14} />}
+                          onClick={() => requestDelete({ id: t.id, name: t.name })}
+                          aria-label={`Delete ${t.name}`}
+                        >
+                          Delete
+                        </Button>
+                      </>
+                    ) : (
                       <Button
                         component={RouterLink}
-                        to={`/templates/${t.id}/edit`}
+                        to={`/templates/${t.id}/view`}
                         color="blue"
                         variant="subtle"
                         size="xs"
-                        leftSection={<IconPencil size={14} />}
-                        aria-label={`Edit ${t.name}`}
+                        leftSection={<IconEye size={14} />}
+                        aria-label={`View ${t.name}`}
                       >
-                        Edit
+                        View
                       </Button>
-                      <Button
-                        color="red"
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconTrash size={14} />}
-                        onClick={() => requestDelete({ id: t.id, name: t.name })}
-                        aria-label={`Delete ${t.name}`}
-                      >
-                        Delete
-                      </Button>
-                    </Group>
-                  </Table.Td>
-                )}
+                    )}
+                  </Group>
+                </Table.Td>
               </Table.Tr>
             ))
           ) : (

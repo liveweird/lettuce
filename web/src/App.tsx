@@ -54,6 +54,7 @@ const Users = lazy(() => import("./pages/Users"));
 const Templates = lazy(() => import("./pages/Templates"));
 const CreateTemplate = lazy(() => import("./pages/CreateTemplate"));
 const EditTemplate = lazy(() => import("./pages/EditTemplate"));
+const ViewTemplate = lazy(() => import("./pages/ViewTemplate"));
 
 function RouteFallback() {
   return (
@@ -220,6 +221,7 @@ export default function App() {
             <Route path="templates" element={<Templates />} />
             <Route path="templates/new" element={<CreateTemplate />} />
             <Route path="templates/:id/edit" element={<EditTemplate />} />
+            <Route path="templates/:id/view" element={<ViewTemplate />} />
           </Route>
         </Route>
       </Routes>

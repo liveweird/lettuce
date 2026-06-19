@@ -202,6 +202,26 @@ describe("Templates page", () => {
     expect(screen.queryByRole("button", { name: /^delete /i })).not.toBeInTheDocument();
   });
 
+  test("non-admin sees a View link per row pointing at the view route", async () => {
+    localStorage.setItem(ROLE_KEY, "USER");
+    setupMocks(mockFetch, () => templatesPage(SEED));
+    renderTemplates();
+
+    await screen.findByRole("cell", { name: "Welcome" });
+    const viewLinks = screen.getAllByRole("link", { name: /^view /i });
+    expect(viewLinks).toHaveLength(2);
+    expect(viewLinks[0]).toHaveAttribute("href", "/templates/1/view");
+  });
+
+  test("admin sees Edit/Delete but not View", async () => {
+    setupMocks(mockFetch, () => templatesPage(SEED));
+    renderTemplates();
+
+    await screen.findByRole("cell", { name: "Welcome" });
+    expect(screen.getAllByRole("link", { name: /^edit /i })).toHaveLength(2);
+    expect(screen.queryByRole("link", { name: /^view /i })).not.toBeInTheDocument();
+  });
+
   test("Cancel in the delete modal closes it without calling DELETE", async () => {
     setupMocks(mockFetch, () => templatesPage(SEED));
     const user = userEvent.setup();
