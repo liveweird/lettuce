@@ -6,6 +6,8 @@ import ch.nokillswit.feedbacks.FeedbackService
 import ch.nokillswit.feedbacks.FeedbackServiceKey
 import ch.nokillswit.teams.TeamService
 import ch.nokillswit.teams.TeamServiceKey
+import ch.nokillswit.templates.TemplateService
+import ch.nokillswit.templates.TemplateServiceKey
 import ch.nokillswit.users.UserService
 import ch.nokillswit.users.UserServiceKey
 import io.ktor.server.application.*
@@ -20,5 +22,6 @@ suspend fun Application.configureDatabase() {
     attributes.put(UserServiceKey, UserService(database))
     attributes.put(TeamServiceKey, TeamService(database))
     attributes.put(FeedbackServiceKey, FeedbackService(database))
+    attributes.put(TemplateServiceKey, TemplateService(database))
     attributes.put(TokenBlocklistServiceKey, TokenBlocklistService(database))
 }

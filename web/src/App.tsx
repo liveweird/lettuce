@@ -14,6 +14,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
+  IconFileText,
   IconKey,
   IconLayoutDashboard,
   IconMessageCircle,
@@ -50,6 +51,9 @@ const EditTeam = lazy(() => import("./pages/EditTeam"));
 const Teams = lazy(() => import("./pages/Teams"));
 const TeamMembers = lazy(() => import("./pages/TeamMembers"));
 const Users = lazy(() => import("./pages/Users"));
+const Templates = lazy(() => import("./pages/Templates"));
+const CreateTemplate = lazy(() => import("./pages/CreateTemplate"));
+const EditTemplate = lazy(() => import("./pages/EditTemplate"));
 
 function RouteFallback() {
   return (
@@ -68,6 +72,7 @@ const NAV_ITEMS: ReadonlyArray<{
   { to: "/users", label: "Users", icon: IconUsers },
   { to: "/teams", label: "Teams", icon: IconUsersGroup },
   { to: "/feedback", label: "Feedback", icon: IconMessageCircle },
+  { to: "/templates", label: "Templates", icon: IconFileText },
 ];
 
 function HeaderUser() {
@@ -212,6 +217,9 @@ export default function App() {
             <Route path="feedback/request" element={<RequestFeedback />} />
             <Route path="feedback/:id/edit" element={<EditFeedback />} />
             <Route path="feedback/:id/view" element={<ViewFeedback />} />
+            <Route path="templates" element={<Templates />} />
+            <Route path="templates/new" element={<CreateTemplate />} />
+            <Route path="templates/:id/edit" element={<EditTemplate />} />
           </Route>
         </Route>
       </Routes>

@@ -331,6 +331,65 @@ export async function updateFeedback(id: number, body: UpdateFeedbackBody): Prom
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
+export type TemplatePage =
+  paths["/api/templates"]["get"]["responses"]["200"]["content"]["application/json"];
+
+export type TemplateListQuery = {
+  page: number;
+  pageSize: number;
+  sort?: string;
+  name?: string;
+};
+
+export async function listTemplates(q: TemplateListQuery): Promise<TemplatePage> {
+  const params = new URLSearchParams();
+  params.set("page", String(q.page));
+  params.set("pageSize", String(q.pageSize));
+  if (q.sort) params.set("sort", q.sort);
+  if (q.name) params.set("name", q.name);
+  const res = await authedFetch(`/api/templates?${params.toString()}`);
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return (await res.json()) as TemplatePage;
+}
+
+export type CreateTemplateBody =
+  paths["/api/templates"]["post"]["requestBody"]["content"]["application/json"];
+export type CreateTemplateResponse =
+  paths["/api/templates"]["post"]["responses"]["201"]["content"]["application/json"];
+
+export async function createTemplate(req: CreateTemplateBody): Promise<CreateTemplateResponse> {
+  const res = await authedFetch("/api/templates", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return (await res.json()) as CreateTemplateResponse;
+}
+
+export type TemplateResponse =
+  paths["/api/templates/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
+export type UpdateTemplateBody =
+  paths["/api/templates/{id}"]["put"]["requestBody"]["content"]["application/json"];
+
+export async function getTemplate(id: number): Promise<TemplateResponse> {
+  const res = await authedFetch(`/api/templates/${id}`);
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return (await res.json()) as TemplateResponse;
+}
+
+export async function updateTemplate(id: number, body: UpdateTemplateBody): Promise<void> {
+  const res = await authedFetch(`/api/templates/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
+export async function deleteTemplate(id: number): Promise<void> {
+  const res = await authedFetch(`/api/templates/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
 export async function authedFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const token = getToken();
   const headers = new Headers(init.headers);
