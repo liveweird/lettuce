@@ -26,6 +26,7 @@ import io.ktor.server.testing.testApplication
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class TemplateTest {
 
@@ -160,5 +161,156 @@ class TemplateTest {
             }.status,
         )
         assertEquals(HttpStatusCode.Forbidden, userClient.delete("/api/templates/${created.id}").status)
+    }
+
+    // The test DB is shared across tests, so list assertions scope themselves to a
+    // unique name prefix and always filter by it — that isolates a test's own rows
+    // and doubles as coverage of the name filter.
+    private suspend fun HttpClient.createTemplate(name: String, content: String = "") {
+        val res = post("/api/templates") {
+            contentType(ContentType.Application.Json)
+            setBody(Template(name = name, content = content))
+        }
+        assertEquals(HttpStatusCode.Created, res.status, "seed create '$name'")
+    }
+
+    @Test
+    fun `list filters by name and paginates with a stable envelope`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        val client = authedClient(adminEmail, "pw")
+
+        val prefix = uniqueName("page")
+        client.createTemplate("$prefix-a")
+        client.createTemplate("$prefix-b")
+        client.createTemplate("$prefix-c")
+
+        val first = client.get("/api/templates?name=$prefix&sort=name&page=1&pageSize=2")
+            .body<TemplatePageResponse>()
+        assertEquals(1, first.page)
+        assertEquals(2, first.pageSize)
+        assertEquals(3, first.total)
+        assertEquals(listOf("$prefix-a", "$prefix-b"), first.items.map { it.name })
+
+        val second = client.get("/api/templates?name=$prefix&sort=name&page=2&pageSize=2")
+            .body<TemplatePageResponse>()
+        assertEquals(3, second.total)
+        assertEquals(listOf("$prefix-c"), second.items.map { it.name })
+
+        // Pages do not overlap.
+        val firstIds = first.items.map { it.id }.toSet()
+        assertTrue(second.items.none { it.id in firstIds })
+    }
+
+    @Test
+    fun `list sorts by name descending`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        val client = authedClient(adminEmail, "pw")
+
+        val prefix = uniqueName("sort")
+        client.createTemplate("$prefix-a")
+        client.createTemplate("$prefix-b")
+        client.createTemplate("$prefix-c")
+
+        val desc = client.get("/api/templates?name=$prefix&sort=-name").body<TemplatePageResponse>()
+        assertEquals(listOf("$prefix-c", "$prefix-b", "$prefix-a"), desc.items.map { it.name })
+    }
+
+    @Test
+    fun `list name filter is case-insensitive substring and escapes wildcards`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        val client = authedClient(adminEmail, "pw")
+
+        val prefix = uniqueName("ci")
+        client.createTemplate("$prefix-WELCOME")
+
+        // Lowercase substring of an uppercase name matches (case-insensitive contains).
+        val ci = client.get("/api/templates?name=$prefix-wel").body<TemplatePageResponse>()
+        assertEquals(listOf("$prefix-WELCOME"), ci.items.map { it.name })
+
+        // `_` is a SQL LIKE wildcard but must be escaped to a literal: a query with `_`
+        // matches only the literal underscore name, not the same string with another char.
+        client.createTemplate("$prefix-a_b")
+        client.createTemplate("$prefix-axb")
+        val literal = client.get("/api/templates?name=$prefix-a_b").body<TemplatePageResponse>()
+        assertEquals(listOf("$prefix-a_b"), literal.items.map { it.name })
+    }
+
+    @Test
+    fun `list caps contentPreview at 200 characters`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        val client = authedClient(adminEmail, "pw")
+
+        val longName = uniqueName("long")
+        client.createTemplate(longName, content = "x".repeat(250))
+        val longItem = client.get("/api/templates?name=$longName").body<TemplatePageResponse>().items.single()
+        assertEquals(200, longItem.contentPreview.length)
+
+        val shortName = uniqueName("short")
+        client.createTemplate(shortName, content = "hello")
+        val shortItem = client.get("/api/templates?name=$shortName").body<TemplatePageResponse>().items.single()
+        assertEquals("hello", shortItem.contentPreview)
+    }
+
+    @Test
+    fun `list rejects malformed query parameters`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        val client = authedClient(adminEmail, "pw")
+
+        assertEquals(HttpStatusCode.BadRequest, client.get("/api/templates?page=0").status)
+        assertEquals(HttpStatusCode.BadRequest, client.get("/api/templates?pageSize=101").status)
+        assertEquals(HttpStatusCode.BadRequest, client.get("/api/templates?pageSize=abc").status)
+        assertEquals(HttpStatusCode.BadRequest, client.get("/api/templates?sort=content").status)
+    }
+
+    @Test
+    fun `list returns an empty envelope when nothing matches`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        val client = authedClient(adminEmail, "pw")
+
+        val page = client.get("/api/templates?name=${uniqueName("none")}").body<TemplatePageResponse>()
+        assertEquals(0, page.total)
+        assertTrue(page.items.isEmpty())
+    }
+
+    @Test
+    fun `update of a non-existent template returns 404`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        val client = authedClient(adminEmail, "pw")
+
+        val response = client.put("/api/templates/999999") {
+            contentType(ContentType.Application.Json)
+            setBody(Template(name = uniqueName("ghost"), content = "x"))
+        }
+        assertEquals(HttpStatusCode.NotFound, response.status)
+    }
+
+    @Test
+    fun `create sets a Location header pointing at the new template`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        val client = authedClient(adminEmail, "pw")
+
+        val created = client.post("/api/templates") {
+            contentType(ContentType.Application.Json)
+            setBody(Template(name = uniqueName("loc"), content = "x"))
+        }
+        assertEquals(HttpStatusCode.Created, created.status)
+        val id = created.body<TemplateResponse>().id
+        assertEquals("/api/templates/$id", created.headers[HttpHeaders.Location])
     }
 }

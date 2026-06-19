@@ -46,6 +46,20 @@ if (typeof window !== "undefined" && !window.matchMedia) {
     }) as MediaQueryList;
 }
 
+// happy-dom does not implement the FontFaceSet API. Mantine's autosize Textarea
+// subscribes to `document.fonts` "loadingdone" events on mount; without this shim
+// it throws "Cannot read properties of undefined (reading 'addEventListener')".
+if (typeof document !== "undefined" && !document.fonts) {
+  Object.defineProperty(document, "fonts", {
+    value: {
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      ready: Promise.resolve(),
+    },
+    configurable: true,
+  });
+}
+
 afterEach(() => {
   cleanup();
   localStorage.clear();

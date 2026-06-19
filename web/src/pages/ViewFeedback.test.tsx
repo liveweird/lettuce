@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { render, screen, waitFor } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ViewFeedback from "./ViewFeedback";
 
@@ -18,6 +19,11 @@ function jsonResponse(status: number, body: unknown): Response {
   });
 }
 
+function PathProbe() {
+  const location = useLocation();
+  return <div data-testid="probe">{`${location.pathname}${location.search}`}</div>;
+}
+
 const FEEDBACK = {
   id: 5,
   requesterId: null,
@@ -28,14 +34,15 @@ const FEEDBACK = {
   content: "Nice work on the launch",
 };
 
-function renderViewFeedback(query = "?providerName=Alice") {
+function renderViewFeedback(query = "?providerName=Alice", id = "5") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <MantineProvider>
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={[`/feedback/5/view${query}`]}>
+        <MemoryRouter initialEntries={[`/feedback/${id}/view${query}`]}>
           <Routes>
             <Route path="/feedback/:id/view" element={<ViewFeedback />} />
+            <Route path="/feedback" element={<PathProbe />} />
           </Routes>
         </MemoryRouter>
       </QueryClientProvider>
@@ -95,5 +102,101 @@ describe("ViewFeedback page", () => {
       "href",
       "/feedback?tab=received",
     );
+  });
+
+  test("403 load shows a permission message", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(403, { error: "forbidden", message: "no" }));
+    renderViewFeedback();
+
+    expect(await screen.findByText(/don't have permission to view this feedback/i)).toBeInTheDocument();
+  });
+
+  test("a non-404/403 load error shows the generic failed message", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(500, { error: "internal", message: "boom" }));
+    renderViewFeedback();
+
+    expect(await screen.findByText(/failed to load feedback \(500\)/i)).toBeInTheDocument();
+  });
+
+  test("an invalid id redirects to the received tab", () => {
+    renderViewFeedback("", "abc");
+    expect(screen.getByTestId("probe")).toHaveTextContent("/feedback?tab=received");
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  test("as=provider shows 'You' as provider and Close links to the provided tab", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(200, FEEDBACK));
+    renderViewFeedback("?as=provider&subjectName=Mona");
+
+    expect((await screen.findByLabelText("Provider")) as HTMLInputElement).toHaveValue("You");
+    expect((screen.getByLabelText("Subject") as HTMLInputElement).value).toBe("Mona");
+    expect(screen.getByRole("link", { name: /close/i })).toHaveAttribute(
+      "href",
+      "/feedback?tab=provided",
+    );
+  });
+
+  test("as=team Close links to the team tab", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(200, FEEDBACK));
+    renderViewFeedback("?as=team&subjectName=Mona");
+
+    await screen.findByLabelText("Provider");
+    expect(screen.getByRole("link", { name: /close/i })).toHaveAttribute(
+      "href",
+      "/feedback?tab=team",
+    );
+  });
+
+  test("the provider can advance the status and is navigated back", async () => {
+    // Caller is the provider (userId === providerId), status SENT → next action is Withdraw.
+    localStorage.setItem(USER_ID_KEY, "10");
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      if (method === "PUT" && url === "/api/feedbacks/5") {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      return Promise.resolve(jsonResponse(200, FEEDBACK));
+    });
+    const user = userEvent.setup();
+    renderViewFeedback();
+
+    await user.click(await screen.findByRole("button", { name: /^withdraw$/i }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("probe")).toHaveTextContent("/feedback?tab=received"),
+    );
+    const putCall = mockFetch.mock.calls.find(
+      ([url, init]) =>
+        url === "/api/feedbacks/5" && (init as RequestInit | undefined)?.method === "PUT",
+    );
+    expect(putCall).toBeDefined();
+    expect(JSON.parse((putCall![1] as RequestInit).body as string).status).toBe("WITHDRAWN");
+  });
+
+  test("a rejected transition surfaces an action error and does not navigate", async () => {
+    localStorage.setItem(USER_ID_KEY, "10");
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      if (method === "PUT" && url === "/api/feedbacks/5") {
+        return Promise.resolve(jsonResponse(400, { error: "bad_request", message: "no" }));
+      }
+      return Promise.resolve(jsonResponse(200, FEEDBACK));
+    });
+    const user = userEvent.setup();
+    renderViewFeedback();
+
+    await user.click(await screen.findByRole("button", { name: /^withdraw$/i }));
+
+    expect(await screen.findByText(/this status change is not allowed/i)).toBeInTheDocument();
+    expect(screen.queryByTestId("probe")).not.toBeInTheDocument();
+  });
+
+  test("a non-provider sees no status-transition action", async () => {
+    // Caller (userId 7) is the subject, not the provider → no action button.
+    mockFetch.mockResolvedValue(jsonResponse(200, FEEDBACK));
+    renderViewFeedback();
+
+    await screen.findByLabelText("Provider");
+    expect(screen.queryByRole("button", { name: /^withdraw$/i })).not.toBeInTheDocument();
   });
 });
