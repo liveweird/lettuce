@@ -51,7 +51,9 @@ describe("App shell", () => {
     test("navigating via the navbar swaps the main content", async () => {
       const user = userEvent.setup();
       renderApp("/");
-      await user.click(await screen.findByRole("link", { name: /users/i }));
+      // Users now lives under the collapsible "Config" group — expand it first.
+      await user.click(await screen.findByText("Config"));
+      await user.click(await screen.findByRole("link", { name: /^users$/i }));
       expect(
         await screen.findByRole("heading", { level: 2, name: "Users" }),
       ).toBeInTheDocument();
@@ -66,9 +68,12 @@ describe("App shell", () => {
 
     test("highlights only the Change password nav item on its route", async () => {
       localStorage.setItem(USER_ID_KEY, "7");
+      const user = userEvent.setup();
       renderApp("/users/7/change-password");
 
       const changeLink = await screen.findByRole("link", { name: /change password/i });
+      // Reveal the Users link nested under the collapsed "Config" group.
+      await user.click(await screen.findByText("Config"));
       const usersLink = screen.getByRole("link", { name: /^users$/i });
       expect(changeLink).toHaveAttribute("aria-current", "page");
       expect(usersLink).not.toHaveAttribute("aria-current");

@@ -266,7 +266,7 @@ export type FeedbackVisibility =
   | "PROVIDER_REQUESTER"
   | "PROVIDER_REQUESTER_SUBJECT"
   | "PUBLIC";
-export type FeedbackStatus = "REQUESTED" | "DRAFT" | "SENT" | "WITHDRAWN";
+export type FeedbackStatus = "REQUESTED" | "DRAFT" | "SENT" | "WITHDRAWN" | "REJECTED";
 
 export type FeedbackListView = "received" | "provided" | "team";
 

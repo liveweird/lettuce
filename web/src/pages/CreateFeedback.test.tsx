@@ -70,15 +70,18 @@ describe("CreateFeedback page", () => {
     renderCreateFeedback();
 
     await user.click(screen.getByPlaceholderText("Select visibility"));
-    const listbox = await screen.findByRole("listbox", { hidden: true });
-    const options = within(listbox)
-      .getAllByRole("option", { hidden: true })
-      .map((o) => o.textContent);
+    // The Template select's listbox is empty in this test, so the only options in the
+    // DOM are the visibility ones.
+    const options = (await screen.findAllByRole("option", { hidden: true })).map(
+      (o) => o.textContent,
+    );
     expect(options).toEqual(["Provider + subject", "Public"]);
   });
 
   test("Save draft submits a DRAFT with no requester and redirects to the dashboard", async () => {
-    mockFetch.mockResolvedValue(jsonResponse(201, { id: 99 }));
+    // A fresh Response per call: the templates GET on mount must not consume the body
+    // that the createFeedback POST also needs to read.
+    mockFetch.mockImplementation(() => Promise.resolve(jsonResponse(201, { id: 99 })));
     const user = userEvent.setup();
     renderCreateFeedback();
 
@@ -104,7 +107,7 @@ describe("CreateFeedback page", () => {
   });
 
   test("Save & send submits with status SENT and redirects to the dashboard", async () => {
-    mockFetch.mockResolvedValue(jsonResponse(201, { id: 101 }));
+    mockFetch.mockImplementation(() => Promise.resolve(jsonResponse(201, { id: 101 })));
     const user = userEvent.setup();
     renderCreateFeedback();
 
@@ -125,13 +128,12 @@ describe("CreateFeedback page", () => {
   });
 
   test("choosing Public is reflected in the submitted visibility", async () => {
-    mockFetch.mockResolvedValue(jsonResponse(201, { id: 100 }));
+    mockFetch.mockImplementation(() => Promise.resolve(jsonResponse(201, { id: 100 })));
     const user = userEvent.setup();
     renderCreateFeedback();
 
     await user.click(screen.getByPlaceholderText("Select visibility"));
-    const listbox = await screen.findByRole("listbox", { hidden: true });
-    await user.click(within(listbox).getByText("Public"));
+    await user.click(await screen.findByRole("option", { name: "Public", hidden: true }));
     await user.click(screen.getByRole("button", { name: /^save draft$/i }));
 
     await waitFor(() => {

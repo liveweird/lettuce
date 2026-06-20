@@ -53,6 +53,7 @@ const STATUS_LABEL: Record<FeedbackStatus, string> = {
   DRAFT: "Draft",
   SENT: "Sent",
   WITHDRAWN: "Withdrawn",
+  REJECTED: "Rejected",
 };
 
 const STATUS_OPTIONS = (Object.keys(STATUS_LABEL) as FeedbackStatus[]).map((value) => ({

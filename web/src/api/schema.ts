@@ -1078,7 +1078,7 @@ export interface paths {
                     /** @description Exact match against the record's visibility. */
                     visibility?: "PROVIDER_SUBJECT" | "PROVIDER_REQUESTER" | "PROVIDER_REQUESTER_SUBJECT" | "PUBLIC";
                     /** @description Exact match against the record's status. */
-                    status?: "REQUESTED" | "DRAFT" | "SENT" | "WITHDRAWN";
+                    status?: "REQUESTED" | "DRAFT" | "SENT" | "WITHDRAWN" | "REJECTED";
                 };
                 header?: never;
                 path?: never;
@@ -1779,7 +1779,7 @@ export interface components {
             /** @enum {string} */
             visibility: "PROVIDER_SUBJECT" | "PROVIDER_REQUESTER" | "PROVIDER_REQUESTER_SUBJECT" | "PUBLIC";
             /** @enum {string} */
-            status: "REQUESTED" | "DRAFT" | "SENT" | "WITHDRAWN";
+            status: "REQUESTED" | "DRAFT" | "SENT" | "WITHDRAWN" | "REJECTED";
             /** @default  */
             content: string;
         };
@@ -1795,7 +1795,7 @@ export interface components {
             /** @enum {string} */
             visibility: "PROVIDER_SUBJECT" | "PROVIDER_REQUESTER" | "PROVIDER_REQUESTER_SUBJECT" | "PUBLIC";
             /** @enum {string} */
-            status: "REQUESTED" | "DRAFT" | "SENT" | "WITHDRAWN";
+            status: "REQUESTED" | "DRAFT" | "SENT" | "WITHDRAWN" | "REJECTED";
             content: string;
         };
         FeedbackListItem: {
@@ -1820,7 +1820,7 @@ export interface components {
             /** @enum {string} */
             visibility: "PROVIDER_SUBJECT" | "PROVIDER_REQUESTER" | "PROVIDER_REQUESTER_SUBJECT" | "PUBLIC";
             /** @enum {string} */
-            status: "REQUESTED" | "DRAFT" | "SENT" | "WITHDRAWN";
+            status: "REQUESTED" | "DRAFT" | "SENT" | "WITHDRAWN" | "REJECTED";
             /** @description First 200 characters of `content`. */
             contentPreview: string;
         };

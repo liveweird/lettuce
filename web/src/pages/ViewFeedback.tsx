@@ -51,6 +51,7 @@ const STATUS_LABEL: Record<FeedbackStatus, string> = {
   DRAFT: "Draft",
   SENT: "Sent",
   WITHDRAWN: "Withdrawn",
+  REJECTED: "Rejected",
 };
 
 // The single status transition a provider can perform from each status (matches the

@@ -517,7 +517,7 @@ paths:
           required: false
           schema:
             type: string
-            enum: [REQUESTED, DRAFT, SENT, WITHDRAWN]
+            enum: [REQUESTED, DRAFT, SENT, WITHDRAWN, REJECTED]
           description: Exact match against the record's status.
       responses:
         '200':
@@ -949,7 +949,7 @@ components:
           enum: [PROVIDER_SUBJECT, PROVIDER_REQUESTER, PROVIDER_REQUESTER_SUBJECT, PUBLIC]
         status:
           type: string
-          enum: [REQUESTED, DRAFT, SENT, WITHDRAWN]
+          enum: [REQUESTED, DRAFT, SENT, WITHDRAWN, REJECTED]
         content: { type: string, default: "" }
 
     FeedbackResponse:
@@ -969,7 +969,7 @@ components:
           enum: [PROVIDER_SUBJECT, PROVIDER_REQUESTER, PROVIDER_REQUESTER_SUBJECT, PUBLIC]
         status:
           type: string
-          enum: [REQUESTED, DRAFT, SENT, WITHDRAWN]
+          enum: [REQUESTED, DRAFT, SENT, WITHDRAWN, REJECTED]
         content: { type: string }
 
     FeedbackListItem:
@@ -1004,7 +1004,7 @@ components:
           enum: [PROVIDER_SUBJECT, PROVIDER_REQUESTER, PROVIDER_REQUESTER_SUBJECT, PUBLIC]
         status:
           type: string
-          enum: [REQUESTED, DRAFT, SENT, WITHDRAWN]
+          enum: [REQUESTED, DRAFT, SENT, WITHDRAWN, REJECTED]
         contentPreview:
           type: string
           description: First 200 characters of `content`.

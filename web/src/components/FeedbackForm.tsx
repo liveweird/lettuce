@@ -54,6 +54,7 @@ export type FeedbackFormProps = {
   discardTitle: string;
   discardMessage: string;
   showTemplateInsert?: boolean;
+  showReject?: boolean;
 };
 
 export default function FeedbackForm({
@@ -68,8 +69,10 @@ export default function FeedbackForm({
   discardTitle,
   discardMessage,
   showTemplateInsert = false,
+  showReject = false,
 }: FeedbackFormProps) {
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
+  const [rejectOpen, { open: openReject, close: closeReject }] = useDisclosure(false);
 
   const form = useForm<FormValues>({
     initialValues: { visibility: initialVisibility, content: initialContent },
@@ -236,6 +239,18 @@ export default function FeedbackForm({
               >
                 Cancel
               </Button>
+              {showReject && (
+                <Button
+                  type="button"
+                  color="red"
+                  variant="light"
+                  onClick={openReject}
+                  loading={submitting === "REJECTED"}
+                  disabled={submitting !== null}
+                >
+                  Reject
+                </Button>
+              )}
               <Button
                 type="submit"
                 variant="light"
@@ -266,6 +281,26 @@ export default function FeedbackForm({
             </Button>
             <Button color="red" component={RouterLink} to={cancelTo}>
               Discard
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal opened={rejectOpen} onClose={closeReject} title="Reject feedback request?" centered>
+        <Stack gap="md">
+          <Text>Reject this feedback request? This is final and cannot be undone.</Text>
+          <Group justify="flex-end" gap="sm">
+            <Button variant="default" onClick={closeReject}>
+              Keep editing
+            </Button>
+            <Button
+              color="red"
+              onClick={() => {
+                closeReject();
+                onSubmit("REJECTED", form.values);
+              }}
+            >
+              Reject
             </Button>
           </Group>
         </Stack>

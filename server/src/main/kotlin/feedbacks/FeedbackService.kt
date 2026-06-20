@@ -276,6 +276,7 @@ class FeedbackService(val database: R2dbcDatabase) {
 
     private fun isAllowedTransition(from: FeedbackStatus, to: FeedbackStatus): Boolean = when (from to to) {
         FeedbackStatus.REQUESTED to FeedbackStatus.DRAFT,
+        FeedbackStatus.REQUESTED to FeedbackStatus.REJECTED,
         FeedbackStatus.DRAFT to FeedbackStatus.SENT,
         FeedbackStatus.DRAFT to FeedbackStatus.WITHDRAWN,
         FeedbackStatus.SENT to FeedbackStatus.WITHDRAWN -> true

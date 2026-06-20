@@ -360,6 +360,70 @@ class FeedbackRoutesTest {
     }
 
     @Test
+    fun `transition requested to rejected`() = testApplication {
+        usePostgresTestcontainer()
+        val t = seedTriad()
+        val client = authedClient(t.providerEmail, "pw")
+
+        val requested = Feedback(
+            requesterId = t.requesterId,
+            subjectId = t.subjectId,
+            providerId = t.providerId,
+            visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+            status = FeedbackStatus.REQUESTED,
+        )
+        val created = client.post("/api/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(requested)
+        }.body<FeedbackResponse>()
+
+        val putResponse = client.put("/api/feedbacks/${created.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(requested.copy(status = FeedbackStatus.REJECTED))
+        }
+        assertEquals(HttpStatusCode.NoContent, putResponse.status)
+        val after = client.get("/api/feedbacks/${created.id}").body<FeedbackResponse>()
+        assertEquals(FeedbackStatus.REJECTED, after.status)
+    }
+
+    @Test
+    fun `rejected is terminal`() = testApplication {
+        usePostgresTestcontainer()
+        val t = seedTriad()
+        val client = authedClient(t.providerEmail, "pw")
+
+        val requested = Feedback(
+            requesterId = t.requesterId,
+            subjectId = t.subjectId,
+            providerId = t.providerId,
+            visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+            status = FeedbackStatus.REQUESTED,
+        )
+        val created = client.post("/api/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(requested)
+        }.body<FeedbackResponse>()
+
+        client.put("/api/feedbacks/${created.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(requested.copy(status = FeedbackStatus.REJECTED))
+        }
+
+        for (target in listOf(FeedbackStatus.DRAFT, FeedbackStatus.SENT, FeedbackStatus.WITHDRAWN, FeedbackStatus.REQUESTED)) {
+            val attempt = client.put("/api/feedbacks/${created.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    requested.copy(
+                        status = target,
+                        requesterId = if (target == FeedbackStatus.REQUESTED) t.requesterId else null,
+                    )
+                )
+            }
+            assertEquals(HttpStatusCode.BadRequest, attempt.status, "Rejected -> $target should be rejected")
+        }
+    }
+
+    @Test
     fun `content and visibility editable without status change`() = testApplication {
         usePostgresTestcontainer()
         val t = seedTriad()

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -75,12 +75,11 @@ describe("ViewFeedback page", () => {
     expect((screen.getByLabelText("Requester") as HTMLInputElement).value).toBe("None");
     expect((screen.getByLabelText("Visibility") as HTMLInputElement).value).toBe("Public");
     expect((screen.getByLabelText("Status") as HTMLInputElement).value).toBe("Sent");
-    expect((screen.getByLabelText("Content") as HTMLTextAreaElement).value).toBe(
-      "Nice work on the launch",
-    );
+    // Content renders as read-only markdown, not an editable form control.
+    expect(screen.getByText("Nice work on the launch")).toBeInTheDocument();
 
-    // Everything is read-only: there is no Save/Edit control, only Close.
-    expect(screen.getByLabelText("Content")).toBeDisabled();
+    // Everything is read-only: there is no editable Content control nor a Save control, only Close.
+    expect(screen.queryByRole("textbox", { name: /content/i })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /close/i })).toHaveAttribute(
       "href",
       "/feedback?tab=received",
@@ -160,7 +159,10 @@ describe("ViewFeedback page", () => {
     const user = userEvent.setup();
     renderViewFeedback();
 
+    // Withdrawing is gated behind a confirmation modal.
     await user.click(await screen.findByRole("button", { name: /^withdraw$/i }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /^withdraw$/i }));
 
     await waitFor(() =>
       expect(screen.getByTestId("probe")).toHaveTextContent("/feedback?tab=received"),
@@ -186,6 +188,8 @@ describe("ViewFeedback page", () => {
     renderViewFeedback();
 
     await user.click(await screen.findByRole("button", { name: /^withdraw$/i }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /^withdraw$/i }));
 
     expect(await screen.findByText(/this status change is not allowed/i)).toBeInTheDocument();
     expect(screen.queryByTestId("probe")).not.toBeInTheDocument();

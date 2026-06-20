@@ -11,7 +11,7 @@ enum class FeedbackVisibility {
 }
 
 @Serializable
-enum class FeedbackStatus { REQUESTED, DRAFT, SENT, WITHDRAWN }
+enum class FeedbackStatus { REQUESTED, DRAFT, SENT, WITHDRAWN, REJECTED }
 
 @Serializable
 data class Feedback(

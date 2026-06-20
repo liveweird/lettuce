@@ -11,6 +11,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ApiError,
   getFeedback,
+  getUserId,
   updateFeedback,
   type FeedbackStatus,
   type FeedbackVisibility,
@@ -134,6 +135,7 @@ export default function EditFeedback() {
       onSubmit={handleSave}
       cancelTo={backTo}
       showTemplateInsert
+      showReject={data!.status === "REQUESTED" && getUserId() === data!.providerId}
       discardTitle="Discard changes?"
       discardMessage="Discard your changes? The feedback will remain as it was."
     />
