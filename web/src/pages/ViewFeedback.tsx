@@ -8,22 +8,26 @@ import {
 } from "react-router-dom";
 import {
   Alert,
+  Box,
   Button,
   Center,
   Container,
   Group,
+  Input,
   Loader,
   Modal,
   Paper,
   SimpleGrid,
   Stack,
   Text,
-  Textarea,
   TextInput,
   Title,
+  Typography,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   ApiError,
   getFeedback,
@@ -207,18 +211,27 @@ export default function ViewFeedback() {
                   <TextInput label="Status" value={STATUS_LABEL[data!.status]} disabled />
                 </Stack>
               </SimpleGrid>
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-                <Textarea
-                  label="Content"
-                  value={data!.content}
-                  disabled
-                  styles={{
-                    root: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 },
-                    wrapper: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 },
-                    input: { flex: 1, minHeight: 0, resize: "none" },
+              <Input.Wrapper
+                label="Content"
+                styles={{
+                  root: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 },
+                }}
+              >
+                <Box
+                  style={{
+                    flex: 1,
+                    minHeight: 0,
+                    overflow: "auto",
+                    border: "1px solid var(--mantine-color-default-border)",
+                    borderRadius: "var(--mantine-radius-default)",
+                    padding: "var(--mantine-spacing-sm)",
                   }}
-                />
-              </div>
+                >
+                  <Typography>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{data!.content}</ReactMarkdown>
+                  </Typography>
+                </Box>
+              </Input.Wrapper>
               {actionError && (
                 <Alert color="red" variant="light">
                   {actionError}
