@@ -3,9 +3,11 @@ import {
 } from "react-router-dom";
 import {
   Alert,
+  Box,
   Button,
   Container,
   Group,
+  Input,
   Modal,
   Paper,
   Select,
@@ -15,9 +17,12 @@ import {
   Textarea,
   TextInput,
   Title,
+  Typography,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { FeedbackStatus, FeedbackVisibility } from "../api/client";
 
 type FormValues = {
@@ -100,19 +105,46 @@ export default function FeedbackForm({
                 {...form.getInputProps("visibility")}
               />
             </SimpleGrid>
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-              <Textarea
-                label="Content"
-                placeholder="Write your feedback…"
-                maxLength={5000}
-                styles={{
-                  root: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 },
-                  wrapper: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 },
-                  input: { flex: 1, minHeight: 0, resize: "none" },
-                }}
-                {...form.getInputProps("content")}
-              />
-            </div>
+            <SimpleGrid
+              cols={{ base: 1, sm: 2 }}
+              spacing="md"
+              style={{ flex: 1, minHeight: 0 }}
+            >
+              <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+                <Textarea
+                  label="Content"
+                  placeholder="Write your feedback…"
+                  maxLength={5000}
+                  styles={{
+                    root: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 },
+                    wrapper: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 },
+                    input: { flex: 1, minHeight: 0, resize: "none" },
+                  }}
+                  {...form.getInputProps("content")}
+                />
+              </div>
+              <Input.Wrapper
+                label="Preview"
+                styles={{ root: { display: "flex", flexDirection: "column", minHeight: 0 } }}
+              >
+                <Box
+                  style={{
+                    flex: 1,
+                    minHeight: 0,
+                    overflow: "auto",
+                    border: "1px solid var(--mantine-color-default-border)",
+                    borderRadius: "var(--mantine-radius-default)",
+                    padding: "var(--mantine-spacing-sm)",
+                  }}
+                >
+                  <Typography>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {form.values.content}
+                    </ReactMarkdown>
+                  </Typography>
+                </Box>
+              </Input.Wrapper>
+            </SimpleGrid>
             {error && (
               <Alert color="red" variant="light">
                 {error}
