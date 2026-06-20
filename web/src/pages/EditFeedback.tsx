@@ -133,6 +133,7 @@ export default function EditFeedback() {
       error={error}
       onSubmit={handleSave}
       cancelTo={backTo}
+      showTemplateInsert
       discardTitle="Discard changes?"
       discardMessage="Discard your changes? The feedback will remain as it was."
     />
