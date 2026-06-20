@@ -13,13 +13,16 @@ import {
   Container,
   Group,
   Loader,
+  Modal,
   Paper,
   SimpleGrid,
   Stack,
+  Text,
   Textarea,
   TextInput,
   Title,
 } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ApiError,
@@ -73,6 +76,7 @@ export default function ViewFeedback() {
       : RECEIVED;
   const [actionError, setActionError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false);
 
   const id = Number(params.id);
   const idIsValid = Number.isFinite(id) && id > 0;
@@ -225,7 +229,14 @@ export default function ViewFeedback() {
                   Close
                 </Button>
                 {action && (
-                  <Button onClick={() => handleTransition(action.next)} loading={submitting}>
+                  <Button
+                    onClick={() =>
+                      action.next === "WITHDRAWN"
+                        ? openConfirm()
+                        : handleTransition(action.next)
+                    }
+                    loading={submitting}
+                  >
                     {action.label}
                   </Button>
                 )}
@@ -234,6 +245,36 @@ export default function ViewFeedback() {
           )}
         </Stack>
       </Paper>
+      <Modal
+        opened={confirmOpen}
+        onClose={() => {
+          if (!submitting) closeConfirm();
+        }}
+        title="Withdraw feedback?"
+        centered
+      >
+        <Stack gap="md">
+          <Text>
+            Withdrawing this feedback is permanent — its status becomes{" "}
+            <strong>Withdrawn</strong> and cannot be changed back. Continue?
+          </Text>
+          <Group justify="flex-end" gap="sm">
+            <Button variant="default" onClick={closeConfirm} disabled={submitting}>
+              Cancel
+            </Button>
+            <Button
+              color="red"
+              loading={submitting}
+              onClick={async () => {
+                await handleTransition("WITHDRAWN");
+                closeConfirm();
+              }}
+            >
+              Withdraw
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Container>
   );
 }
