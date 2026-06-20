@@ -67,6 +67,7 @@ export default function CreateFeedback() {
       error={error}
       onSubmit={submit}
       cancelTo="/"
+      showTemplateInsert
       discardTitle="Discard feedback?"
       discardMessage="Discard this feedback? Anything you've written won't be saved."
     />

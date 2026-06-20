@@ -21,9 +21,16 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { FeedbackStatus, FeedbackVisibility } from "../api/client";
+import {
+  getTemplate,
+  listTemplates,
+  type FeedbackStatus,
+  type FeedbackVisibility,
+} from "../api/client";
 
 type FormValues = {
   visibility: FeedbackVisibility;
@@ -46,6 +53,7 @@ export type FeedbackFormProps = {
   cancelTo: string;
   discardTitle: string;
   discardMessage: string;
+  showTemplateInsert?: boolean;
 };
 
 export default function FeedbackForm({
@@ -59,12 +67,46 @@ export default function FeedbackForm({
   cancelTo,
   discardTitle,
   discardMessage,
+  showTemplateInsert = false,
 }: FeedbackFormProps) {
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
 
   const form = useForm<FormValues>({
     initialValues: { visibility: initialVisibility, content: initialContent },
   });
+
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [inserting, setInserting] = useState(false);
+  const [templateError, setTemplateError] = useState<string | null>(null);
+
+  // pageSize 100 is the list endpoint's max; a deployment with >100 templates would
+  // truncate the picker — acceptable for now, matching the endpoint cap.
+  const templatesQuery = useQuery({
+    queryKey: ["templates", "picker"],
+    queryFn: () => listTemplates({ page: 1, pageSize: 100, sort: "name" }),
+    enabled: showTemplateInsert,
+  });
+  const templateOptions = (templatesQuery.data?.items ?? []).map((t) => ({
+    value: String(t.id),
+    label: t.name,
+  }));
+
+  async function insertTemplate() {
+    if (selectedTemplateId == null) return;
+    setTemplateError(null);
+    setInserting(true);
+    try {
+      // List items carry only contentPreview, so fetch the full content on demand.
+      const tpl = await getTemplate(Number(selectedTemplateId));
+      const current = form.values.content;
+      const sep = current.length > 0 && !current.endsWith("\n") ? "\n\n" : "";
+      form.setFieldValue("content", current + sep + tpl.content);
+    } catch {
+      setTemplateError("Couldn't load that template. Please try again.");
+    } finally {
+      setInserting(false);
+    }
+  }
 
   return (
     <Container
@@ -97,13 +139,48 @@ export default function FeedbackForm({
                 <TextInput label="Subject" value={subjectDisplay} disabled />
                 <TextInput label="Provider" value="You" disabled />
               </Stack>
-              <Select
-                label="Visibility"
-                placeholder="Select visibility"
-                data={VISIBILITY_OPTIONS}
-                allowDeselect={false}
-                {...form.getInputProps("visibility")}
-              />
+              <Stack gap="sm">
+                <Select
+                  label="Visibility"
+                  placeholder="Select visibility"
+                  data={VISIBILITY_OPTIONS}
+                  allowDeselect={false}
+                  {...form.getInputProps("visibility")}
+                />
+                {showTemplateInsert && (
+                  <Stack gap="xs">
+                    <Group gap="sm" align="flex-end" wrap="nowrap">
+                      <Select
+                        label="Template"
+                        placeholder={
+                          templatesQuery.isLoading ? "Loading…" : "Pick a template"
+                        }
+                        data={templateOptions}
+                        searchable
+                        disabled={templatesQuery.isLoading}
+                        nothingFoundMessage="No matching templates"
+                        value={selectedTemplateId}
+                        onChange={setSelectedTemplateId}
+                        style={{ flex: 1 }}
+                      />
+                      <Button
+                        type="button"
+                        variant="default"
+                        onClick={insertTemplate}
+                        loading={inserting}
+                        disabled={selectedTemplateId == null || inserting}
+                      >
+                        Insert
+                      </Button>
+                    </Group>
+                    {templateError && (
+                      <Alert color="red" variant="light">
+                        {templateError}
+                      </Alert>
+                    )}
+                  </Stack>
+                )}
+              </Stack>
             </SimpleGrid>
             <SimpleGrid
               cols={{ base: 1, sm: 2 }}
