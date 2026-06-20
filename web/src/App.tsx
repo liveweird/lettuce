@@ -19,6 +19,7 @@ import {
   IconLayoutDashboard,
   IconMessageCircle,
   IconMoon,
+  IconSettings,
   IconSun,
   IconUserCircle,
   IconUsers,
@@ -64,16 +65,23 @@ function RouteFallback() {
   );
 }
 
-const NAV_ITEMS: ReadonlyArray<{
-  to: string;
-  label: string;
-  icon: typeof IconLayoutDashboard;
-}> = [
+type NavLeaf = { to: string; label: string; icon: typeof IconLayoutDashboard };
+type NavGroup = { label: string; icon: typeof IconLayoutDashboard; children: NavLeaf[] };
+type NavEntry = NavLeaf | NavGroup;
+const isGroup = (e: NavEntry): e is NavGroup => "children" in e;
+
+const NAV_ITEMS: ReadonlyArray<NavEntry> = [
   { to: "/", label: "Dashboard", icon: IconLayoutDashboard },
-  { to: "/users", label: "Users", icon: IconUsers },
-  { to: "/teams", label: "Teams", icon: IconUsersGroup },
   { to: "/feedback", label: "Feedback", icon: IconMessageCircle },
-  { to: "/templates", label: "Templates", icon: IconFileText },
+  {
+    label: "Config",
+    icon: IconSettings,
+    children: [
+      { to: "/users", label: "Users", icon: IconUsers },
+      { to: "/teams", label: "Teams", icon: IconUsersGroup },
+      { to: "/templates", label: "Templates", icon: IconFileText },
+    ],
+  },
 ];
 
 function HeaderUser() {
@@ -118,19 +126,18 @@ function Shell() {
   const queryClient = useQueryClient();
   const userId = getUserId();
   const { pathname } = useLocation();
-  const navItems = [
-    ...NAV_ITEMS,
-    ...(userId !== null
+  const dynamicItems: NavLeaf[] =
+    userId !== null
       ? [{ to: `/users/${userId}/change-password`, label: "Change password", icon: IconKey }]
-      : []),
-  ];
+      : [];
+  const allEntries: NavEntry[] = [...NAV_ITEMS, ...dynamicItems];
+  const leafTos = allEntries.flatMap((e) =>
+    isGroup(e) ? e.children.map((c) => c.to) : [e.to],
+  );
   const matches = (to: string) =>
     to === "/" ? pathname === "/" : pathname === to || pathname.startsWith(`${to}/`);
   const activeTo =
-    navItems
-      .map((i) => i.to)
-      .filter(matches)
-      .sort((a, b) => b.length - a.length)[0] ?? null;
+    leafTos.filter(matches).sort((a, b) => b.length - a.length)[0] ?? null;
 
   async function handleLogout() {
     await logout();
@@ -165,19 +172,49 @@ function Shell() {
       </AppShell.Header>
 
       <AppShell.Navbar p="sm">
-        {navItems.map(({ to, label, icon: Icon }) => {
-          const active = to === activeTo;
+        {allEntries.map((entry) => {
+          if (!isGroup(entry)) {
+            const active = entry.to === activeTo;
+            const Icon = entry.icon;
+            return (
+              <NavLink
+                key={entry.to}
+                component={RouterLink}
+                to={entry.to}
+                active={active}
+                aria-current={active ? "page" : undefined}
+                label={entry.label}
+                leftSection={<Icon size={18} stroke={1.5} />}
+                onClick={close}
+              />
+            );
+          }
+          const GroupIcon = entry.icon;
+          const childActive = entry.children.some((c) => c.to === activeTo);
           return (
             <NavLink
-              key={to}
-              component={RouterLink}
-              to={to}
-              active={active}
-              aria-current={active ? "page" : undefined}
-              label={label}
-              leftSection={<Icon size={18} stroke={1.5} />}
-              onClick={close}
-            />
+              key={entry.label}
+              label={entry.label}
+              leftSection={<GroupIcon size={18} stroke={1.5} />}
+              defaultOpened={childActive}
+              childrenOffset={28}
+            >
+              {entry.children.map(({ to, label, icon: Icon }) => {
+                const active = to === activeTo;
+                return (
+                  <NavLink
+                    key={to}
+                    component={RouterLink}
+                    to={to}
+                    active={active}
+                    aria-current={active ? "page" : undefined}
+                    label={label}
+                    leftSection={<Icon size={18} stroke={1.5} />}
+                    onClick={close}
+                  />
+                );
+              })}
+            </NavLink>
           );
         })}
       </AppShell.Navbar>
