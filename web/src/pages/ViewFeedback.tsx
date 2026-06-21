@@ -74,11 +74,11 @@ export default function ViewFeedback() {
   const asProvider = as === "provider";
   const asTeam = as === "team";
   const subjectName = searchParams.get("subjectName");
-  const backTo = asTeam
-    ? "/feedback?tab=team"
-    : asProvider
-      ? "/feedback?tab=provided"
-      : RECEIVED;
+  // An explicit `back` (e.g. the per-manager feedbacks screen) overrides the tab default.
+  const backOverride = searchParams.get("back");
+  const backTo =
+    backOverride ??
+    (asTeam ? "/feedback?tab=team" : asProvider ? "/feedback?tab=provided" : RECEIVED);
   const [actionError, setActionError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false);

@@ -474,6 +474,10 @@ paths:
             Rows without a requester never match when this filter is set.
           - `subjectName` — case-insensitive substring match against the subject's name.
           - `providerName` — case-insensitive substring match against the provider's name.
+          - `providerId` — exact match against the provider's user id. Combined with
+            `view=received`, this scopes the list to feedbacks a specific person gave the caller.
+          - `subjectId` — exact match against the subject's user id. Combined with
+            `view=provided`, this scopes the list to feedbacks the caller gave a specific person.
           - `visibility` — exact match against the visibility enum.
           - `status` — exact match against the status enum.
         - `content` is returned as `contentPreview`, capped at 200 characters; it is neither
@@ -505,6 +509,16 @@ paths:
           required: false
           schema: { type: string }
           description: Case-insensitive substring match against the provider's name.
+        - name: providerId
+          in: query
+          required: false
+          schema: { type: integer, format: int64, minimum: 1 }
+          description: Exact match against the provider's user id.
+        - name: subjectId
+          in: query
+          required: false
+          schema: { type: integer, format: int64, minimum: 1 }
+          description: Exact match against the subject's user id.
         - name: visibility
           in: query
           required: false

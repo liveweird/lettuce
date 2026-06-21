@@ -1,7 +1,7 @@
-import { Alert, Button, Center, Loader, Table, Text } from "@mantine/core";
+import { Alert, Button, Center, Group, Loader, Table, Text } from "@mantine/core";
 import { Link as RouterLink } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { IconMessagePlus } from "@tabler/icons-react";
+import { IconMessagePlus, IconMessages } from "@tabler/icons-react";
 import { listTeamMembers } from "../api/client";
 
 export default function ManagersTable() {
@@ -43,17 +43,30 @@ export default function ManagersTable() {
                 <Table.Td>{m.email}</Table.Td>
                 <Table.Td>{m.teamName}</Table.Td>
                 <Table.Td>
-                  <Button
-                    component={RouterLink}
-                    to={`/feedback/new?subjectId=${m.userId}&subjectName=${encodeURIComponent(m.name)}`}
-                    color="blue"
-                    variant="subtle"
-                    size="xs"
-                    leftSection={<IconMessagePlus size={14} />}
-                    aria-label={`Provide feedback to ${m.name}`}
-                  >
-                    Provide feedback
-                  </Button>
+                  <Group gap="xs" wrap="nowrap">
+                    <Button
+                      component={RouterLink}
+                      to={`/feedback/new?subjectId=${m.userId}&subjectName=${encodeURIComponent(m.name)}`}
+                      color="blue"
+                      variant="subtle"
+                      size="xs"
+                      leftSection={<IconMessagePlus size={14} />}
+                      aria-label={`Provide feedback to ${m.name}`}
+                    >
+                      Provide feedback
+                    </Button>
+                    <Button
+                      component={RouterLink}
+                      to={`/managers/${m.userId}/feedbacks?name=${encodeURIComponent(m.name)}`}
+                      color="blue"
+                      variant="subtle"
+                      size="xs"
+                      leftSection={<IconMessages size={14} />}
+                      aria-label={`Feedbacks with ${m.name}`}
+                    >
+                      Feedbacks
+                    </Button>
+                  </Group>
                 </Table.Td>
               </Table.Tr>
             ))

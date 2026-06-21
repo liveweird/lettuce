@@ -146,6 +146,18 @@ describe("ViewFeedback page", () => {
     );
   });
 
+  test("an explicit back param overrides the tab default for the Close link", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(200, FEEDBACK));
+    const back = encodeURIComponent("/managers/10/feedbacks?name=Alice");
+    renderViewFeedback(`?providerName=Alice&back=${back}`);
+
+    await screen.findByLabelText("Provider");
+    expect(screen.getByRole("link", { name: /close/i })).toHaveAttribute(
+      "href",
+      "/managers/10/feedbacks?name=Alice",
+    );
+  });
+
   test("the provider can advance the status and is navigated back", async () => {
     // Caller is the provider (userId === providerId), status SENT → next action is Withdraw.
     localStorage.setItem(USER_ID_KEY, "10");

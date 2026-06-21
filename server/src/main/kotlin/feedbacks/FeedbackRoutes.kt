@@ -63,10 +63,18 @@ fun Application.configureFeedbackRoutes() {
                         )
                     }
                 }
+                val providerIdFilter = params["providerId"]?.takeIf { it.isNotBlank() }?.let { raw ->
+                    raw.toUIntOrNull() ?: throw BadRequestException("Invalid providerId: $raw")
+                }
+                val subjectIdFilter = params["subjectId"]?.takeIf { it.isNotBlank() }?.let { raw ->
+                    raw.toUIntOrNull() ?: throw BadRequestException("Invalid subjectId: $raw")
+                }
                 val filter = FeedbackListFilter(
                     requesterName = params["requesterName"]?.takeIf { it.isNotBlank() },
                     subjectName = params["subjectName"]?.takeIf { it.isNotBlank() },
                     providerName = params["providerName"]?.takeIf { it.isNotBlank() },
+                    providerId = providerIdFilter,
+                    subjectId = subjectIdFilter,
                     visibility = visibilityFilter,
                     status = statusFilter,
                 )

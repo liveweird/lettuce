@@ -1045,6 +1045,10 @@ export interface paths {
          *         Rows without a requester never match when this filter is set.
          *       - `subjectName` — case-insensitive substring match against the subject's name.
          *       - `providerName` — case-insensitive substring match against the provider's name.
+         *       - `providerId` — exact match against the provider's user id. Combined with
+         *         `view=received`, this scopes the list to feedbacks a specific person gave the caller.
+         *       - `subjectId` — exact match against the subject's user id. Combined with
+         *         `view=provided`, this scopes the list to feedbacks the caller gave a specific person.
          *       - `visibility` — exact match against the visibility enum.
          *       - `status` — exact match against the status enum.
          *     - `content` is returned as `contentPreview`, capped at 200 characters; it is neither
@@ -1075,6 +1079,10 @@ export interface paths {
                     subjectName?: string;
                     /** @description Case-insensitive substring match against the provider's name. */
                     providerName?: string;
+                    /** @description Exact match against the provider's user id. */
+                    providerId?: number;
+                    /** @description Exact match against the subject's user id. */
+                    subjectId?: number;
                     /** @description Exact match against the record's visibility. */
                     visibility?: "PROVIDER_SUBJECT" | "PROVIDER_REQUESTER" | "PROVIDER_REQUESTER_SUBJECT" | "PUBLIC";
                     /** @description Exact match against the record's status. */

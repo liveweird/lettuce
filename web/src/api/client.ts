@@ -278,6 +278,8 @@ export type FeedbackListQuery = {
   requesterName?: string;
   subjectName?: string;
   providerName?: string;
+  providerId?: number;
+  subjectId?: number;
   visibility?: FeedbackVisibility;
   status?: FeedbackStatus;
 };
@@ -291,6 +293,8 @@ export async function listFeedbacks(q: FeedbackListQuery): Promise<FeedbackPage>
   if (q.requesterName) params.set("requesterName", q.requesterName);
   if (q.subjectName) params.set("subjectName", q.subjectName);
   if (q.providerName) params.set("providerName", q.providerName);
+  if (q.providerId != null) params.set("providerId", String(q.providerId));
+  if (q.subjectId != null) params.set("subjectId", String(q.subjectId));
   if (q.visibility) params.set("visibility", q.visibility);
   if (q.status) params.set("status", q.status);
   const res = await authedFetch(`/api/feedbacks?${params.toString()}`);

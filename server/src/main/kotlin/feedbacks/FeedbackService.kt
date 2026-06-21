@@ -23,6 +23,8 @@ data class FeedbackListFilter(
     val requesterName: String? = null,
     val subjectName: String? = null,
     val providerName: String? = null,
+    val providerId: UInt? = null,
+    val subjectId: UInt? = null,
     val visibility: FeedbackVisibility? = null,
     val status: FeedbackStatus? = null,
 )
@@ -246,6 +248,8 @@ class FeedbackService(val database: R2dbcDatabase) {
         filter.providerName?.takeIf { it.isNotBlank() }?.let {
             op = op and (providerUsers[UserService.Users.name].lowerCase() like containsPattern(it))
         }
+        filter.providerId?.let { op = op and (Feedbacks.providerId eq it) }
+        filter.subjectId?.let { op = op and (Feedbacks.subjectId eq it) }
         filter.visibility?.let { op = op and (Feedbacks.visibility eq it) }
         filter.status?.let { op = op and (Feedbacks.status eq it) }
         return op

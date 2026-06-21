@@ -623,6 +623,50 @@ class FeedbackRoutesTest {
     }
 
     @Test
+    fun `list scopes to a single counterparty by providerId and subjectId`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("caller")
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val aliceId = TestUsers.seed(email = uniqueEmail("alice"), password = "pw", name = "Alice")
+        val bobId = TestUsers.seed(email = uniqueEmail("bob"), password = "pw", name = "Bob")
+        val client = authedClient(callerEmail, "pw")
+
+        // Feedbacks the caller received, from two different providers.
+        val fromAlice = client.createFeedback(callerId, aliceId, FeedbackVisibility.PUBLIC)
+        client.createFeedback(callerId, bobId, FeedbackVisibility.PUBLIC)
+        // Feedbacks the caller provided, about two different subjects (all statuses count).
+        val toAlice = client.createFeedback(aliceId, callerId, FeedbackVisibility.PROVIDER_SUBJECT, status = FeedbackStatus.DRAFT)
+        client.createFeedback(bobId, callerId, FeedbackVisibility.PROVIDER_SUBJECT, status = FeedbackStatus.DRAFT)
+
+        // received + providerId → only what Alice gave me.
+        val received = client.get("/api/feedbacks?view=received&providerId=$aliceId").body<FeedbackPageResponse>()
+        assertEquals(listOf(fromAlice.id), received.items.map { it.id })
+        assertEquals(1, received.total)
+
+        // provided + subjectId → only what I gave Alice, regardless of status.
+        val provided = client.get("/api/feedbacks?view=provided&subjectId=$aliceId").body<FeedbackPageResponse>()
+        assertEquals(listOf(toAlice.id), provided.items.map { it.id })
+        assertEquals(1, provided.total)
+    }
+
+    @Test
+    fun `list rejects malformed providerId and subjectId`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("caller")
+        TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val client = authedClient(callerEmail, "pw")
+
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            client.get("/api/feedbacks?providerId=abc").status,
+        )
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            client.get("/api/feedbacks?view=provided&subjectId=-1").status,
+        )
+    }
+
+    @Test
     fun `list received sorts by providerName descending and defaults to id ascending`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("subject")

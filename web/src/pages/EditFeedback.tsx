@@ -32,8 +32,11 @@ export default function EditFeedback() {
   const params = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const subjectName = searchParams.get("subjectName");
-  // Return to whichever tab the editor was opened from (team tab for managers).
-  const backTo = searchParams.get("from") === "team" ? "/feedback?tab=team" : PROVIDED;
+  // An explicit `back` (e.g. the per-manager feedbacks screen) overrides the tab default;
+  // otherwise return to whichever tab the editor was opened from (team tab for managers).
+  const backTo =
+    searchParams.get("back") ??
+    (searchParams.get("from") === "team" ? "/feedback?tab=team" : PROVIDED);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<FeedbackStatus | null>(null);
 

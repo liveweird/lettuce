@@ -104,8 +104,21 @@ function userName(name: string | null | undefined, deleted: boolean): string {
   return deleted ? `${name} (deleted)` : name;
 }
 
-export default function FeedbackTable({ view }: { view: PairFeedbackView }) {
+export default function FeedbackTable({
+  view,
+  providerId,
+  subjectId,
+  backTo,
+}: {
+  view: PairFeedbackView;
+  // Optional exact-id scope to a single counterparty (used by the per-manager screen).
+  providerId?: number;
+  subjectId?: number;
+  // When set, the View/Edit links return here instead of the feedback tabs.
+  backTo?: string;
+}) {
   const config = VIEW_CONFIG[view];
+  const backParam = backTo ? `&back=${encodeURIComponent(backTo)}` : "";
   const showActions = view === "provided" || view === "received";
   const columnCount = showActions ? 6 : 5;
 
@@ -132,6 +145,8 @@ export default function FeedbackTable({ view }: { view: PairFeedbackView }) {
     queryKey: [
       "feedbacks",
       view,
+      providerId ?? null,
+      subjectId ?? null,
       page,
       pageSize,
       sortParam,
@@ -148,6 +163,8 @@ export default function FeedbackTable({ view }: { view: PairFeedbackView }) {
         sort: sortParam,
         requesterName: debouncedRequester || undefined,
         [config.personField]: debouncedPerson || undefined,
+        providerId,
+        subjectId,
         visibility: visibilityFilter ?? undefined,
         status: statusFilter ?? undefined,
       }),
@@ -309,7 +326,8 @@ export default function FeedbackTable({ view }: { view: PairFeedbackView }) {
                           `/feedback/${f.id}/view?providerName=${encodeURIComponent(f.providerName)}` +
                           (f.requesterName
                             ? `&requesterName=${encodeURIComponent(f.requesterName)}`
-                            : "")
+                            : "") +
+                          backParam
                         }
                         color="blue"
                         variant="subtle"
@@ -322,7 +340,7 @@ export default function FeedbackTable({ view }: { view: PairFeedbackView }) {
                     ) : f.status === "REQUESTED" || f.status === "DRAFT" ? (
                       <Button
                         component={RouterLink}
-                        to={`/feedback/${f.id}/edit?subjectName=${encodeURIComponent(f.subjectName)}`}
+                        to={`/feedback/${f.id}/edit?subjectName=${encodeURIComponent(f.subjectName)}${backParam}`}
                         color="blue"
                         variant="subtle"
                         size="xs"
@@ -338,7 +356,8 @@ export default function FeedbackTable({ view }: { view: PairFeedbackView }) {
                           `/feedback/${f.id}/view?as=provider&subjectName=${encodeURIComponent(f.subjectName)}` +
                           (f.requesterName
                             ? `&requesterName=${encodeURIComponent(f.requesterName)}`
-                            : "")
+                            : "") +
+                          backParam
                         }
                         color="blue"
                         variant="subtle"
