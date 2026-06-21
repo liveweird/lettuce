@@ -174,4 +174,11 @@ describe("ManagerFeedbacks page", () => {
     renderScreen("/managers/abc/feedbacks?from=peers");
     expect(screen.getByTestId("probe")).toHaveTextContent("/?tab=peers");
   });
+
+  test("from=subordinates shows a Back to My subordinates link", async () => {
+    renderScreen("/managers/10/feedbacks?name=Alice&from=subordinates");
+    expect(
+      await screen.findByRole("link", { name: /back to my subordinates/i }),
+    ).toHaveAttribute("href", "/?tab=subordinates");
+  });
 });

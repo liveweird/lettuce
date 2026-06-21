@@ -223,19 +223,17 @@ export default function TeamMembersTable({
                         Request feedback
                       </Button>
                     )}
-                    {view === "member" && (
-                      <Button
-                        component={RouterLink}
-                        to={`/managers/${m.userId}/feedbacks?name=${encodeURIComponent(m.name)}&from=peers`}
-                        color="blue"
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconMessages size={14} />}
-                        aria-label={`Feedbacks with ${m.name}`}
-                      >
-                        Feedbacks
-                      </Button>
-                    )}
+                    <Button
+                      component={RouterLink}
+                      to={`/managers/${m.userId}/feedbacks?name=${encodeURIComponent(m.name)}&from=${view === "managed" ? "subordinates" : "peers"}`}
+                      color="blue"
+                      variant="subtle"
+                      size="xs"
+                      leftSection={<IconMessages size={14} />}
+                      aria-label={`Feedbacks with ${m.name}`}
+                    >
+                      Feedbacks
+                    </Button>
                   </Group>
                 </Table.Td>
               </Table.Tr>

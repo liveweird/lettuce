@@ -8,12 +8,13 @@ import FeedbackTable from "./FeedbackTable";
 const ORIGIN = {
   managers: { label: "My managers", to: "/?tab=managers" },
   peers: { label: "My peers", to: "/?tab=peers" },
+  subordinates: { label: "My subordinates", to: "/?tab=subordinates" },
 } as const;
 
 type OriginKey = keyof typeof ORIGIN;
 
 function isOriginKey(value: string | null): value is OriginKey {
-  return value === "managers" || value === "peers";
+  return value != null && value in ORIGIN;
 }
 
 // A per-user, two-way feedback view reached from Dashboard → My managers / My peers.
