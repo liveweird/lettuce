@@ -19,6 +19,8 @@ export default function CreateFeedback() {
 
   const subjectId = Number(searchParams.get("subjectId"));
   const subjectName = searchParams.get("subjectName");
+  // An explicit `back` (e.g. the per-manager feedbacks screen) overrides the default return to "/".
+  const backTo = searchParams.get("back") ?? "/";
   const providerId = getUserId();
 
   const subjectIdIsValid = Number.isFinite(subjectId) && subjectId > 0;
@@ -39,7 +41,7 @@ export default function CreateFeedback() {
         content: values.content,
       });
       await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
-      navigate("/", { replace: true });
+      navigate(backTo, { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 403) {
@@ -66,7 +68,7 @@ export default function CreateFeedback() {
       submitting={submitting}
       error={error}
       onSubmit={submit}
-      cancelTo="/"
+      cancelTo={backTo}
       showTemplateInsert
       discardTitle="Discard feedback?"
       discardMessage="Discard this feedback? Anything you've written won't be saved."

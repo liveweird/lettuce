@@ -127,6 +127,16 @@ describe("ManagerFeedbacks page", () => {
     expect(editLink).toHaveAttribute("href", expect.stringContaining(`back=${back}`));
   });
 
+  test("the Create feedback button targets the create flow scoped to the manager", async () => {
+    renderScreen();
+
+    const back = encodeURIComponent("/managers/10/feedbacks?name=Alice");
+    const createLink = await screen.findByRole("link", { name: /create feedback for alice/i });
+    expect(createLink).toHaveAttribute("href", expect.stringContaining("/feedback/new"));
+    expect(createLink).toHaveAttribute("href", expect.stringContaining("subjectId=10"));
+    expect(createLink).toHaveAttribute("href", expect.stringContaining(`back=${back}`));
+  });
+
   test("an invalid user id redirects back to the managers tab", () => {
     renderScreen("/managers/abc/feedbacks");
     expect(screen.getByTestId("probe")).toHaveTextContent("/?tab=managers");

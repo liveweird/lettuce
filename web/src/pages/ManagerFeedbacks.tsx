@@ -1,5 +1,6 @@
-import { Anchor, Stack, Text, Title } from "@mantine/core";
+import { Anchor, Button, Group, Stack, Text, Title } from "@mantine/core";
 import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-router-dom";
+import { IconMessagePlus } from "@tabler/icons-react";
 import FeedbackTable from "./FeedbackTable";
 
 // A per-manager, two-way feedback view reached from Dashboard → My managers.
@@ -43,6 +44,16 @@ export default function ManagerFeedbacks() {
           Feedbacks you provided about {who}, in every status.
         </Text>
         <FeedbackTable view="provided" subjectId={userId} backTo={backTo} />
+        <Group justify="flex-end">
+          <Button
+            component={RouterLink}
+            to={`/feedback/new?subjectId=${userId}&subjectName=${encodeURIComponent(who)}&back=${encodeURIComponent(backTo)}`}
+            leftSection={<IconMessagePlus size={16} />}
+            aria-label={`Create feedback for ${who}`}
+          >
+            Create feedback
+          </Button>
+        </Group>
       </Stack>
     </Stack>
   );

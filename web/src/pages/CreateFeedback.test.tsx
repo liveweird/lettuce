@@ -186,4 +186,34 @@ describe("CreateFeedback page", () => {
     expect(screen.getByTestId("probe")).toHaveTextContent("/");
     expect(mockFetch).not.toHaveBeenCalled();
   });
+
+  test("an explicit back param redirects there after create", async () => {
+    mockFetch.mockImplementation(() => Promise.resolve(jsonResponse(201, { id: 102 })));
+    const back = "/managers/10/feedbacks?name=Alice";
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <MantineProvider>
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter
+            initialEntries={[
+              `/feedback/new?subjectId=10&subjectName=Alice&back=${encodeURIComponent(back)}`,
+            ]}
+          >
+            <Routes>
+              <Route path="/feedback/new" element={<CreateFeedback />} />
+              <Route path="/managers/:userId/feedbacks" element={<PathProbe />} />
+            </Routes>
+          </MemoryRouter>
+        </QueryClientProvider>
+      </MantineProvider>,
+    );
+
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Content"), "Notes for Alice");
+    await user.click(screen.getByRole("button", { name: /^save draft$/i }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("probe")).toHaveTextContent("/managers/10/feedbacks"),
+    );
+  });
 });
