@@ -154,4 +154,24 @@ describe("ManagerFeedbacks page", () => {
       await screen.findByRole("link", { name: /back to my managers/i }),
     ).toHaveAttribute("href", "/?tab=managers");
   });
+
+  test("from=peers shows a Back to My peers link and threads the origin into detail links", async () => {
+    renderScreen("/managers/10/feedbacks?name=Alice&from=peers");
+
+    expect(
+      await screen.findByRole("link", { name: /back to my peers/i }),
+    ).toHaveAttribute("href", "/?tab=peers");
+
+    // Edit/Create links return to this peers-scoped screen (back carries from=peers).
+    const back = encodeURIComponent("/managers/10/feedbacks?name=Alice&from=peers");
+    const editLink = await screen.findByRole("link", { name: /edit feedback for alice/i });
+    expect(editLink).toHaveAttribute("href", expect.stringContaining(`back=${back}`));
+    const createLink = await screen.findByRole("link", { name: /create feedback for alice/i });
+    expect(createLink).toHaveAttribute("href", expect.stringContaining(`back=${back}`));
+  });
+
+  test("an invalid user id from the peers tab redirects back to the peers tab", () => {
+    renderScreen("/managers/abc/feedbacks?from=peers");
+    expect(screen.getByTestId("probe")).toHaveTextContent("/?tab=peers");
+  });
 });

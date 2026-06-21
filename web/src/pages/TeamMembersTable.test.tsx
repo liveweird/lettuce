@@ -133,6 +133,27 @@ describe("TeamMembersTable", () => {
     expect(screen.queryByRole("link", { name: /request feedback about/i })).not.toBeInTheDocument();
   });
 
+  test("member view adds a Feedbacks link per row pointing at the per-user screen", async () => {
+    setupMocks(mockFetch);
+    renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
+
+    const link = await screen.findByRole("link", { name: /feedbacks with bob brown/i });
+    expect(link).toHaveAttribute(
+      "href",
+      "/managers/11/feedbacks?name=Bob%20Brown&from=peers",
+    );
+    // One per row (Alice appears in two teams -> two rows -> three links total).
+    expect(screen.getAllByRole("link", { name: /feedbacks with/i })).toHaveLength(3);
+  });
+
+  test("managed view does not render Feedbacks links", async () => {
+    setupMocks(mockFetch);
+    renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
+
+    await screen.findByRole("cell", { name: "Bob Brown" });
+    expect(screen.queryByRole("link", { name: /feedbacks with/i })).not.toBeInTheDocument();
+  });
+
   test("typing in the Name filter triggers a debounced refetch and the clear button resets it", async () => {
     setupMocks(mockFetch);
     const user = userEvent.setup();
