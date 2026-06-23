@@ -20,6 +20,11 @@ fun requireTeamManagerOrAdmin(caller: CallerPrincipal, managerId: UInt) {
     if (caller.userId != managerId) throw ForbiddenException("Only the team manager may perform this action")
 }
 
+fun requireNotificationRecipient(caller: CallerPrincipal, recipientId: UInt) {
+    if (caller.isAdmin()) return
+    if (caller.userId != recipientId) throw ForbiddenException("Caller may only access their own notifications")
+}
+
 fun canReadFeedback(
     caller: CallerPrincipal,
     feedback: Feedback,

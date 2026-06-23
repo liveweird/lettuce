@@ -4,6 +4,8 @@ import ch.nokillswit.auth.TokenBlocklistService
 import ch.nokillswit.auth.TokenBlocklistServiceKey
 import ch.nokillswit.feedbacks.FeedbackService
 import ch.nokillswit.feedbacks.FeedbackServiceKey
+import ch.nokillswit.notifications.NotificationService
+import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.teams.TeamService
 import ch.nokillswit.teams.TeamServiceKey
 import ch.nokillswit.templates.TemplateService
@@ -23,5 +25,6 @@ suspend fun Application.configureDatabase() {
     attributes.put(TeamServiceKey, TeamService(database))
     attributes.put(FeedbackServiceKey, FeedbackService(database))
     attributes.put(TemplateServiceKey, TemplateService(database))
+    attributes.put(NotificationServiceKey, NotificationService(database))
     attributes.put(TokenBlocklistServiceKey, TokenBlocklistService(database))
 }

@@ -1650,6 +1650,267 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the caller's notifications
+         * @description Lists notifications addressed to the calling user (`recipientId` = caller). The list is
+         *     always scoped to the caller, including for ADMIN — there is no cross-user view.
+         *
+         *     Notifications are generated as a side-effect of other activities; there is no create
+         *     endpoint.
+         *
+         *     Supports offset pagination, sorting and filtering.
+         *
+         *     - Sortable fields: `id`, `timestamp`. Default sort is `timestamp` descending (newest
+         *       first). `id` ascending is always appended as a deterministic tiebreaker.
+         *     - Filter (optional, whitelisted):
+         *       - `wasSeen` — `true`/`false`; restricts to seen / unseen notifications.
+         *
+         *     Malformed query parameters (unknown sort field, out-of-range page/pageSize, non-boolean
+         *     `wasSeen`) respond with `400` and an `ApiError` body.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description 1-based page index. Defaults to 1. */
+                    page?: components["parameters"]["Page"];
+                    /** @description Rows per page. Defaults to 20, maximum 100. */
+                    pageSize?: components["parameters"]["PageSize"];
+                    /**
+                     * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
+                     *     comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
+                     *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
+                     *     always appended as a deterministic tiebreaker.
+                     */
+                    sort?: components["parameters"]["Sort"];
+                    /** @description Restrict to seen (`true`) or unseen (`false`) notifications. */
+                    wasSeen?: boolean;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description A page of notifications */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["NotificationPage"];
+                    };
+                };
+                /** @description Malformed query parameters */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["NotificationId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Fetch a notification
+         * @description The recipient or an ADMIN may read.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["NotificationId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["NotificationResponse"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Caller is neither the recipient nor ADMIN */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /**
+         * Delete a notification
+         * @description The recipient or an ADMIN may delete.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["NotificationId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Caller is neither the recipient nor ADMIN */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/{id}/seen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["NotificationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a notification as seen
+         * @description Sets `wasSeen` to `true`. Idempotent. The recipient or an ADMIN may call it.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["NotificationId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Marked as seen */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Caller is neither the recipient nor ADMIN */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1884,6 +2145,31 @@ export interface components {
              */
             total: number;
         };
+        NotificationResponse: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            recipientId: number;
+            /**
+             * Format: int64
+             * @description Epoch milliseconds when the notification was generated. Server-managed.
+             */
+            timestamp: number;
+            message: string;
+            link: string;
+            /** @description Whether the recipient has marked the notification as seen. */
+            wasSeen: boolean;
+        };
+        NotificationPage: {
+            items: components["schemas"]["NotificationResponse"][];
+            page: number;
+            pageSize: number;
+            /**
+             * Format: int64
+             * @description Row count after filters, before pagination.
+             */
+            total: number;
+        };
         ApiError: {
             /** @example conflict */
             error: string;
@@ -1897,6 +2183,7 @@ export interface components {
         TeamId: number;
         FeedbackId: number;
         TemplateId: number;
+        NotificationId: number;
         /** @description 1-based page index. Defaults to 1. */
         Page: number;
         /** @description Rows per page. Defaults to 20, maximum 100. */

@@ -62,3 +62,20 @@ object TestUsers {
 object TestBlocklist {
     val service: TokenBlocklistService by lazy { TokenBlocklistService(sharedTestDatabase) }
 }
+
+// There is no create endpoint for notifications (they are minted as a side-effect of
+// other activities), so tests seed rows by calling the service directly.
+object TestNotifications {
+    val service: ch.nokillswit.notifications.NotificationService by lazy {
+        ch.nokillswit.notifications.NotificationService(sharedTestDatabase)
+    }
+
+    suspend fun seed(recipientId: UInt, message: String = "Hello", link: String = "/somewhere"): UInt =
+        service.create(
+            ch.nokillswit.notifications.Notification(
+                recipientId = recipientId,
+                message = message,
+                link = link,
+            )
+        )
+}

@@ -29,6 +29,7 @@ tags:
   - name: teams
   - name: feedbacks
   - name: templates
+  - name: notifications
 
 paths:
   /api/login:
@@ -736,6 +737,91 @@ paths:
         '401': { description: Missing or invalid token }
         '403': { description: Caller is not ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
 
+  /api/notifications:
+    get:
+      tags: [notifications]
+      summary: List the caller's notifications
+      description: |
+        Lists notifications addressed to the calling user (`recipientId` = caller). The list is
+        always scoped to the caller, including for ADMIN — there is no cross-user view.
+
+        Notifications are generated as a side-effect of other activities; there is no create
+        endpoint.
+
+        Supports offset pagination, sorting and filtering.
+
+        - Sortable fields: `id`, `timestamp`. Default sort is `timestamp` descending (newest
+          first). `id` ascending is always appended as a deterministic tiebreaker.
+        - Filter (optional, whitelisted):
+          - `wasSeen` — `true`/`false`; restricts to seen / unseen notifications.
+
+        Malformed query parameters (unknown sort field, out-of-range page/pageSize, non-boolean
+        `wasSeen`) respond with `400` and an `ApiError` body.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Sort'
+        - name: wasSeen
+          in: query
+          required: false
+          schema: { type: boolean }
+          description: Restrict to seen (`true`) or unseen (`false`) notifications.
+      responses:
+        '200':
+          description: A page of notifications
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPage'
+        '400':
+          description: Malformed query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+
+  /api/notifications/{id}:
+    parameters:
+      - $ref: '#/components/parameters/NotificationId'
+    get:
+      tags: [notifications]
+      summary: Fetch a notification
+      description: The recipient or an ADMIN may read.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationResponse'
+        '401': { description: Missing or invalid token }
+        '403': { description: Caller is neither the recipient nor ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+        '404': { description: Not found }
+    delete:
+      tags: [notifications]
+      summary: Delete a notification
+      description: The recipient or an ADMIN may delete.
+      responses:
+        '204': { description: Deleted }
+        '401': { description: Missing or invalid token }
+        '403': { description: Caller is neither the recipient nor ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+        '404': { description: Not found }
+
+  /api/notifications/{id}/seen:
+    parameters:
+      - $ref: '#/components/parameters/NotificationId'
+    post:
+      tags: [notifications]
+      summary: Mark a notification as seen
+      description: |
+        Sets `wasSeen` to `true`. Idempotent. The recipient or an ADMIN may call it.
+      responses:
+        '204': { description: Marked as seen }
+        '401': { description: Missing or invalid token }
+        '403': { description: Caller is neither the recipient nor ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+        '404': { description: Not found }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -765,6 +851,11 @@ components:
       required: true
       schema: { type: integer, format: int64, minimum: 0 }
     TemplateId:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, format: int64, minimum: 0 }
+    NotificationId:
       name: id
       in: path
       required: true
@@ -1089,6 +1180,38 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TemplateListItem'
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1, maximum: 100 }
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Row count after filters, before pagination.
+
+    NotificationResponse:
+      type: object
+      required: [id, recipientId, timestamp, message, link, wasSeen]
+      properties:
+        id: { type: integer, format: int64, minimum: 0 }
+        recipientId: { type: integer, format: int64, minimum: 0 }
+        timestamp:
+          type: integer
+          format: int64
+          description: Epoch milliseconds when the notification was generated. Server-managed.
+        message: { type: string }
+        link: { type: string }
+        wasSeen:
+          type: boolean
+          description: Whether the recipient has marked the notification as seen.
+
+    NotificationPage:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationResponse'
         page: { type: integer, minimum: 1 }
         pageSize: { type: integer, minimum: 1, maximum: 100 }
         total:
