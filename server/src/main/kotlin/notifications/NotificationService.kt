@@ -35,7 +35,7 @@ class NotificationService(val database: R2dbcDatabase) {
         val recipientId = reference("recipient_id", UserService.Users)
         val timestamp = long("created_at")
         val message = text("message")
-        val link = text("link")
+        val link = text("link").nullable()
         val wasSeen = bool("was_seen")
     }
 

@@ -5,6 +5,7 @@ import ch.nokillswit.authz.canReadFeedback
 import ch.nokillswit.authz.requireFeedbackRead
 import ch.nokillswit.authz.requireFeedbackWrite
 import ch.nokillswit.infra.paging.parsePaging
+import ch.nokillswit.notifications.NotificationServiceKey
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
@@ -34,6 +35,7 @@ class Feedbacks {
 
 fun Application.configureFeedbackRoutes() {
     val feedbackService = attributes[FeedbackServiceKey]
+    val notificationService = attributes[NotificationServiceKey]
 
     routing {
         authenticate {
@@ -130,13 +132,15 @@ fun Application.configureFeedbackRoutes() {
                 }
                 requireFeedbackWrite(caller, existing)
                 val feedback = call.receive<Feedback>()
-                try {
+                val toNotify = try {
                     feedbackService.update(route.id, feedback)
                 } catch (e: ExposedSQLException) {
                     throw BadRequestException("Referenced user does not exist", e)
                 } catch (e: R2dbcException) {
                     throw BadRequestException("Referenced user does not exist", e)
                 }
+                // Best-effort side effect: deliver transition notifications after the commit.
+                toNotify.forEach { notificationService.create(it) }
                 call.respond(HttpStatusCode.NoContent)
             }
             delete<Feedbacks.Id> { route ->

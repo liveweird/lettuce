@@ -3,7 +3,7 @@ CREATE TABLE notifications (
     recipient_id BIGINT    NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     created_at   BIGINT    NOT NULL,
     message      TEXT      NOT NULL,
-    link         TEXT      NOT NULL,
+    link         TEXT,
     was_seen     BOOLEAN   NOT NULL DEFAULT FALSE
 );
 

@@ -2,6 +2,7 @@ package ch.nokillswit.feedbacks
 
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
+import ch.nokillswit.notifications.Notification
 import ch.nokillswit.teams.TeamService
 import ch.nokillswit.users.UserService
 import io.ktor.server.plugins.BadRequestException
@@ -99,8 +100,12 @@ class FeedbackService(val database: R2dbcDatabase) {
             .singleOrNull()
     }
 
-    suspend fun update(id: UInt, feedback: Feedback) {
-        suspendTransaction(database) {
+    /**
+     * Applies the update and returns the notifications its status transition should produce
+     * (empty when the row is missing or the status did not change). The caller persists them.
+     */
+    suspend fun update(id: UInt, feedback: Feedback): List<Notification> {
+        return suspendTransaction(database) {
             val current = Feedbacks.selectAll()
                 .where { Feedbacks.id eq id }
                 .map { row ->
@@ -114,7 +119,7 @@ class FeedbackService(val database: R2dbcDatabase) {
                     )
                 }
                 .singleOrNull()
-                ?: return@suspendTransaction
+                ?: return@suspendTransaction emptyList()
             validate(current = current, next = feedback)
             Feedbacks.update({ Feedbacks.id eq id }) {
                 it[requesterId] = feedback.requesterId
@@ -125,7 +130,23 @@ class FeedbackService(val database: R2dbcDatabase) {
                 it[content] = feedback.content
                 it[lastModified] = System.currentTimeMillis()
             }
+            if (current.status == feedback.status) {
+                emptyList()
+            } else {
+                val names = resolvePartyNames(feedback)
+                feedbackTransitionNotifications(id, current.status, feedback, names)
+            }
         }
+    }
+
+    private suspend fun resolvePartyNames(feedback: Feedback): Map<UInt, String> {
+        val ids = listOfNotNull(feedback.subjectId, feedback.providerId, feedback.requesterId)
+        return UserService.Users
+            .select(UserService.Users.id, UserService.Users.name)
+            .where { UserService.Users.id inList ids }
+            .map { it[UserService.Users.id].value to it[UserService.Users.name] }
+            .toList()
+            .toMap()
     }
 
     suspend fun delete(id: UInt) {

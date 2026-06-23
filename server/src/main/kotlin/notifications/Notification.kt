@@ -10,7 +10,7 @@ import kotlinx.serialization.Serializable
 data class Notification(
     val recipientId: UInt,
     val message: String,
-    val link: String,
+    val link: String? = null,
 )
 
 @Serializable
@@ -20,7 +20,7 @@ data class NotificationResponse(
     // Epoch milliseconds; when the notification was generated. Server-managed.
     val timestamp: Long,
     val message: String,
-    val link: String,
+    val link: String?,
     val wasSeen: Boolean,
 )
 

@@ -20,7 +20,7 @@ type Item = {
   recipientId: number;
   timestamp: number;
   message: string;
-  link: string;
+  link: string | null;
   wasSeen: boolean;
 };
 
@@ -142,6 +142,19 @@ describe("NotificationsButton", () => {
     expect(screen.getByTestId("path")).toHaveTextContent("/intro");
     // Modal content is gone once closed.
     await waitFor(() => expect(screen.queryByRole("button", { name: /go to/i })).toBeNull());
+  });
+
+  test("a notification with no link shows no Go to button", async () => {
+    const linkless = { ...UNSEEN, id: 3, message: "Request was rejected", link: null };
+    setupMocks(mockFetch, [linkless]);
+    const user = userEvent.setup();
+    renderWithProviders(<NotificationsButton />);
+
+    await user.click(await screen.findByRole("button", { name: /unread/i }));
+    const row = (await screen.findByText("Request was rejected")).closest("[class*='Paper']")!;
+    expect(within(row as HTMLElement).queryByRole("button", { name: /go to/i })).toBeNull();
+    // Mark as seen is still offered (it is unseen).
+    expect(within(row as HTMLElement).getByRole("button", { name: /mark.*seen/i })).toBeInTheDocument();
   });
 
   test("closing the modal does not navigate", async () => {

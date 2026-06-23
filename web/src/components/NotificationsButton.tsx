@@ -49,6 +49,7 @@ export default function NotificationsButton() {
   });
 
   function goTo(n: NotificationItem) {
+    if (!n.link) return;
     close();
     navigate(toRelativePath(n.link));
   }
@@ -120,15 +121,17 @@ export default function NotificationsButton() {
                           Mark as seen
                         </Button>
                       )}
-                      <Button
-                        size="xs"
-                        variant="subtle"
-                        leftSection={<IconExternalLink size={14} />}
-                        onClick={() => goTo(n)}
-                        aria-label={`Go to notification ${n.id}`}
-                      >
-                        Go to
-                      </Button>
+                      {n.link && (
+                        <Button
+                          size="xs"
+                          variant="subtle"
+                          leftSection={<IconExternalLink size={14} />}
+                          onClick={() => goTo(n)}
+                          aria-label={`Go to notification ${n.id}`}
+                        >
+                          Go to
+                        </Button>
+                      )}
                     </Group>
                   </Group>
                 </Paper>

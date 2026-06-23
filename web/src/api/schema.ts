@@ -2156,7 +2156,8 @@ export interface components {
              */
             timestamp: number;
             message: string;
-            link: string;
+            /** @description Optional in-app path to open from the notification; absent when there is nowhere to go. */
+            link?: string | null;
             /** @description Whether the recipient has marked the notification as seen. */
             wasSeen: boolean;
         };
