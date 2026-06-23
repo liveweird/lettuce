@@ -650,4 +650,30 @@ class UserRoutesTest {
         assertEquals(HttpStatusCode.OK, loginResponse.status)
         assertTrue(loginResponse.body<LoginResponse>().token.isNotBlank())
     }
+
+    @Test
+    fun `GET users applies name and role filters together`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        val client = authedClient(adminEmail, "pw")
+
+        // Shared name tag isolates this test's rows in the shared DB; roles differ so the
+        // combined name+role filter must intersect, not just match one dimension.
+        val tag = UUID.randomUUID().toString().take(8)
+        val targetEmail = uniqueEmail("u")
+        client.post("/api/users") {
+            contentType(ContentType.Application.Json)
+            setBody(UserRequest(name = "u-$tag", email = targetEmail, password = "pw", role = UserRole.USER))
+        }
+        client.post("/api/users") {
+            contentType(ContentType.Application.Json)
+            setBody(UserRequest(name = "a-$tag", email = uniqueEmail("a"), password = "pw", role = UserRole.ADMIN))
+        }
+
+        // name=$tag alone matches both; role=USER alone matches many; together → only the USER row.
+        val page = client.get("/api/users?name=$tag&role=USER").body<UserPageResponse>()
+        assertEquals(1, page.total)
+        assertEquals(listOf(targetEmail), page.items.map { it.email })
+    }
 }

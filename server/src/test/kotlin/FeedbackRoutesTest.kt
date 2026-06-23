@@ -7,6 +7,8 @@ import ch.nokillswit.feedbacks.FeedbackPageResponse
 import ch.nokillswit.feedbacks.FeedbackResponse
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
+import ch.nokillswit.teams.Team
+import ch.nokillswit.teams.TeamResponse
 import ch.nokillswit.users.UserRole
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -936,5 +938,104 @@ class FeedbackRoutesTest {
         val asc = client.get("/api/feedbacks?sort=lastModified")
         assertEquals(HttpStatusCode.OK, asc.status)
         assertEquals(listOf(older.id, newer.id), asc.body<FeedbackPageResponse>().items.map { it.id })
+    }
+
+    private suspend fun HttpClient.createTeam(
+        name: String,
+        managerId: UInt,
+        memberIds: List<UInt>,
+    ): TeamResponse = post("/api/teams") {
+        contentType(ContentType.Application.Json)
+        setBody(Team(name = name, managerId = managerId, memberIds = memberIds))
+    }.body<TeamResponse>()
+
+    @Test
+    fun `list team returns subordinate feedback across all visibilities`() = testApplication {
+        usePostgresTestcontainer()
+        val managerEmail = uniqueEmail("manager")
+        val managerId = TestUsers.seed(email = managerEmail, password = "pw")
+        val subordinateId = TestUsers.seed(email = uniqueEmail("sub"), password = "pw")
+        val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw")
+        val requesterId = TestUsers.seed(email = uniqueEmail("requester"), password = "pw")
+        val outsiderId = TestUsers.seed(email = uniqueEmail("outsider"), password = "pw")
+        val client = authedClient(managerEmail, "pw")
+
+        client.createTeam("Squad", managerId = managerId, memberIds = listOf(subordinateId))
+
+        // The team view is unrestricted by visibility — even PROVIDER_REQUESTER, which the
+        // subject themselves could not read via the "received" view, is visible to the manager.
+        val onSubordinate = listOf(
+            client.createFeedback(subordinateId, providerId, FeedbackVisibility.PROVIDER_SUBJECT),
+            client.createFeedback(subordinateId, providerId, FeedbackVisibility.PUBLIC),
+            client.createFeedback(
+                subordinateId, providerId, FeedbackVisibility.PROVIDER_REQUESTER, requesterId = requesterId,
+            ),
+        )
+        // Excluded: the subject is not a member of any team the caller manages.
+        client.createFeedback(outsiderId, providerId, FeedbackVisibility.PUBLIC)
+
+        val page = client.get("/api/feedbacks?view=team")
+        assertEquals(HttpStatusCode.OK, page.status)
+        val body = page.body<FeedbackPageResponse>()
+        assertEquals(3, body.total)
+        assertEquals(onSubordinate.map { it.id }.sorted(), body.items.map { it.id }.sorted())
+        assertTrue(body.items.any { it.visibility == FeedbackVisibility.PROVIDER_REQUESTER })
+    }
+
+    @Test
+    fun `list team is empty for a caller who manages no team`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("loner")
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw")
+        val client = authedClient(callerEmail, "pw")
+
+        // Feedback where the caller is the subject still must not surface in the team view.
+        client.createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC)
+
+        val body = client.get("/api/feedbacks?view=team").body<FeedbackPageResponse>()
+        assertEquals(0, body.total)
+        assertTrue(body.items.isEmpty())
+    }
+
+    @Test
+    fun `list team excludes feedback once the team is soft-deleted`() = testApplication {
+        usePostgresTestcontainer()
+        val managerEmail = uniqueEmail("manager")
+        val managerId = TestUsers.seed(email = managerEmail, password = "pw")
+        val subordinateId = TestUsers.seed(email = uniqueEmail("sub"), password = "pw")
+        val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw")
+        val client = authedClient(managerEmail, "pw")
+
+        val team = client.createTeam("Squad", managerId = managerId, memberIds = listOf(subordinateId))
+        client.createFeedback(subordinateId, providerId, FeedbackVisibility.PUBLIC)
+
+        assertEquals(1, client.get("/api/feedbacks?view=team").body<FeedbackPageResponse>().total)
+
+        assertEquals(HttpStatusCode.NoContent, client.delete("/api/teams/${team.id}").status)
+
+        // The TEAM scope filters on non-deleted teams, so the subordinate is no longer in scope.
+        assertEquals(0, client.get("/api/feedbacks?view=team").body<FeedbackPageResponse>().total)
+    }
+
+    @Test
+    fun `list team honors subjectName filter and sort`() = testApplication {
+        usePostgresTestcontainer()
+        val managerEmail = uniqueEmail("manager")
+        val managerId = TestUsers.seed(email = managerEmail, password = "pw")
+        val annId = TestUsers.seed(email = uniqueEmail("ann"), password = "pw", name = "Ann Sub")
+        val zoeId = TestUsers.seed(email = uniqueEmail("zoe"), password = "pw", name = "Zoe Sub")
+        val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw")
+        val client = authedClient(managerEmail, "pw")
+
+        client.createTeam("Squad", managerId = managerId, memberIds = listOf(annId, zoeId))
+        val forAnn = client.createFeedback(annId, providerId, FeedbackVisibility.PUBLIC)
+        val forZoe = client.createFeedback(zoeId, providerId, FeedbackVisibility.PUBLIC)
+
+        val sorted = client.get("/api/feedbacks?view=team&sort=-subjectName").body<FeedbackPageResponse>()
+        assertEquals(listOf(forZoe.id, forAnn.id), sorted.items.map { it.id })
+
+        val filtered = client.get("/api/feedbacks?view=team&subjectName=ann").body<FeedbackPageResponse>()
+        assertEquals(listOf(forAnn.id), filtered.items.map { it.id })
     }
 }

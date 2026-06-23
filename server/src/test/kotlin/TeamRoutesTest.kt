@@ -680,4 +680,68 @@ class TeamRoutesTest {
         val addAfter = client.put("/api/teams/${team.id}/members/$memberB")
         assertEquals(HttpStatusCode.NotFound, addAfter.status)
     }
+
+    @Test
+    fun `POST teams with a non-existent manager returns 400`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw") // ADMIN may designate any manager
+        val client = authedClient(adminEmail, "pw")
+
+        val response = client.post("/api/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "Orphan", managerId = 999_999u, memberIds = emptyList()))
+        }
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertEquals("bad_request", response.body<ApiError>().error)
+    }
+
+    @Test
+    fun `POST teams with a non-existent member returns 400`() = testApplication {
+        usePostgresTestcontainer()
+        val managerEmail = uniqueEmail("mgr")
+        val managerId = TestUsers.seed(email = managerEmail, password = "pw")
+        val client = authedClient(managerEmail, "pw")
+
+        val response = client.post("/api/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "Ghosts", managerId = managerId, memberIds = listOf(999_999u)))
+        }
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+    }
+
+    @Test
+    fun `PUT teams with a non-existent manager returns 400`() = testApplication {
+        usePostgresTestcontainer()
+        val managerEmail = uniqueEmail("mgr")
+        val managerId = TestUsers.seed(email = managerEmail, password = "pw")
+        val client = authedClient(managerEmail, "pw")
+
+        val team = client.post("/api/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "Platform", managerId = managerId, memberIds = emptyList()))
+        }.body<TeamResponse>()
+
+        val response = client.put("/api/teams/${team.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "Platform", managerId = 999_999u, memberIds = emptyList()))
+        }
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+    }
+
+    @Test
+    fun `adding a non-existent user as a member returns 400`() = testApplication {
+        usePostgresTestcontainer()
+        val managerEmail = uniqueEmail("mgr")
+        val managerId = TestUsers.seed(email = managerEmail, password = "pw")
+        val client = authedClient(managerEmail, "pw")
+
+        val team = client.post("/api/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "Platform", managerId = managerId, memberIds = emptyList()))
+        }.body<TeamResponse>()
+
+        val response = client.put("/api/teams/${team.id}/members/999999")
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+    }
 }

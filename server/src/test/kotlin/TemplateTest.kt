@@ -270,6 +270,61 @@ class TemplateTest {
         assertEquals(HttpStatusCode.BadRequest, client.get("/api/templates?pageSize=101").status)
         assertEquals(HttpStatusCode.BadRequest, client.get("/api/templates?pageSize=abc").status)
         assertEquals(HttpStatusCode.BadRequest, client.get("/api/templates?sort=content").status)
+        // Paging boundary: pageSize must be >= 1, and an empty comma-segment in sort is rejected.
+        assertEquals(HttpStatusCode.BadRequest, client.get("/api/templates?pageSize=0").status)
+        assertEquals(HttpStatusCode.BadRequest, client.get("/api/templates?sort=,name").status)
+    }
+
+    @Test
+    fun `update to a name already used by another template returns 409`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        val client = authedClient(adminEmail, "pw")
+
+        val nameA = uniqueName("a")
+        val nameB = uniqueName("b")
+        client.createTemplate(nameA)
+        val b = client.post("/api/templates") {
+            contentType(ContentType.Application.Json)
+            setBody(Template(name = nameB, content = "x"))
+        }.body<TemplateResponse>()
+
+        val response = client.put("/api/templates/${b.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(Template(name = nameA, content = "x"))
+        }
+        assertEquals(HttpStatusCode.Conflict, response.status)
+    }
+
+    @Test
+    fun `update to a blank name returns 400`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        val client = authedClient(adminEmail, "pw")
+
+        val created = client.post("/api/templates") {
+            contentType(ContentType.Application.Json)
+            setBody(Template(name = uniqueName("ok"), content = "x"))
+        }.body<TemplateResponse>()
+
+        val response = client.put("/api/templates/${created.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(Template(name = "   ", content = "x"))
+        }
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+    }
+
+    @Test
+    fun `delete of a non-existent template returns 204`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        val client = authedClient(adminEmail, "pw")
+
+        // The delete handler is unconditional (idempotent): no row, still 204.
+        assertEquals(HttpStatusCode.NoContent, client.delete("/api/templates/999999").status)
     }
 
     @Test

@@ -89,4 +89,18 @@ describe("Dashboard", () => {
       expect(urls.some((url) => url.includes("/api/teams/members?view=managed"))).toBe(true);
     });
   });
+
+  test("falls back to the managers tab for an unknown ?tab= value", async () => {
+    mockFetch.mockImplementation(() =>
+      Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 })),
+    );
+    renderWithProviders(<Dashboard />, { route: "/?tab=bogus" });
+
+    // Unknown tab → default managers view loads, not peers/subordinates.
+    expect(await screen.findByText("No managers")).toBeInTheDocument();
+    await waitFor(() => {
+      const urls = mockFetch.mock.calls.map(([url]) => String(url));
+      expect(urls.some((url) => url.includes("/api/teams/members?view=managers"))).toBe(true);
+    });
+  });
 });

@@ -57,6 +57,24 @@ describe("Login page", () => {
     expect(localStorage.getItem("lettuce.auth.token")).toBeNull();
   });
 
+  test("surfaces a generic message for a non-401 server error", async () => {
+    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+    mockFetch.mockResolvedValueOnce(
+      new Response("{}", { status: 500, headers: { "Content-Type": "application/json" } }),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<Login />, { route: "/login" });
+
+    await user.type(screen.getByLabelText(/email/i), "alice@example.com");
+    await user.type(screen.getByLabelText("Password"), "hunter2");
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    // The 500 branch reports the status rather than the credentials message.
+    expect(await screen.findByText(/login failed \(500\)/i)).toBeInTheDocument();
+    expect(screen.queryByText(/invalid email or password/i)).toBeNull();
+  });
+
   test("validates email format client-side without calling the API", async () => {
     const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
 

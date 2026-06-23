@@ -20,6 +20,8 @@ import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.routing.routing
 import kotlinx.serialization.Serializable
+import io.r2dbc.spi.R2dbcException
+import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 
 @Serializable
 @Resource("/api/teams")
@@ -104,7 +106,13 @@ fun Application.configureTeamRoutes() {
                 val caller = call.caller()
                 val team = call.receive<Team>()
                 requireSelfOrAdmin(caller, team.managerId)
-                val id = teamService.create(team)
+                val id = try {
+                    teamService.create(team)
+                } catch (e: ExposedSQLException) {
+                    throw BadRequestException("Referenced user does not exist", e)
+                } catch (e: R2dbcException) {
+                    throw BadRequestException("Referenced user does not exist", e)
+                }
                 call.response.header(HttpHeaders.Location, call.application.href(Teams.Id(id = id)))
                 call.respond(HttpStatusCode.Created, team.toResponse(id))
             }
@@ -126,7 +134,13 @@ fun Application.configureTeamRoutes() {
                 }
                 requireTeamManagerOrAdmin(caller, existing.managerId)
                 val team = call.receive<Team>()
-                teamService.update(route.id, team)
+                try {
+                    teamService.update(route.id, team)
+                } catch (e: ExposedSQLException) {
+                    throw BadRequestException("Referenced user does not exist", e)
+                } catch (e: R2dbcException) {
+                    throw BadRequestException("Referenced user does not exist", e)
+                }
                 call.respond(HttpStatusCode.NoContent)
             }
             delete<Teams.Id> { route ->
@@ -148,7 +162,13 @@ fun Application.configureTeamRoutes() {
                     return@put
                 }
                 requireTeamManagerOrAdmin(caller, existing.managerId)
-                teamService.addMember(route.parent.id, route.userId)
+                try {
+                    teamService.addMember(route.parent.id, route.userId)
+                } catch (e: ExposedSQLException) {
+                    throw BadRequestException("Referenced user does not exist", e)
+                } catch (e: R2dbcException) {
+                    throw BadRequestException("Referenced user does not exist", e)
+                }
                 call.respond(HttpStatusCode.NoContent)
             }
             delete<Teams.Id.Member> { route ->
