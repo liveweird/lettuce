@@ -480,6 +480,8 @@ paths:
             `view=provided`, this scopes the list to feedbacks the caller gave a specific person.
           - `visibility` — exact match against the visibility enum.
           - `status` — exact match against the status enum.
+          - `lastModified[gte]` — lower bound (inclusive) on `lastModified`, epoch
+            milliseconds. Returns rows changed at or after this instant.
         - `content` is returned as `contentPreview`, capped at 200 characters; it is neither
           sortable nor filterable.
 
@@ -533,6 +535,13 @@ paths:
             type: string
             enum: [REQUESTED, DRAFT, SENT, WITHDRAWN, REJECTED]
           description: Exact match against the record's status.
+        - name: lastModified[gte]
+          in: query
+          required: false
+          schema: { type: integer, format: int64 }
+          description: >-
+            Lower bound (inclusive) on `lastModified`, epoch milliseconds.
+            Returns rows changed at or after this instant.
       responses:
         '200':
           description: A page of feedbacks

@@ -69,6 +69,9 @@ fun Application.configureFeedbackRoutes() {
                 val subjectIdFilter = params["subjectId"]?.takeIf { it.isNotBlank() }?.let { raw ->
                     raw.toUIntOrNull() ?: throw BadRequestException("Invalid subjectId: $raw")
                 }
+                val lastModifiedGteFilter = params["lastModified[gte]"]?.takeIf { it.isNotBlank() }?.let { raw ->
+                    raw.toLongOrNull() ?: throw BadRequestException("Invalid lastModified[gte]: $raw")
+                }
                 val filter = FeedbackListFilter(
                     requesterName = params["requesterName"]?.takeIf { it.isNotBlank() },
                     subjectName = params["subjectName"]?.takeIf { it.isNotBlank() },
@@ -77,6 +80,7 @@ fun Application.configureFeedbackRoutes() {
                     subjectId = subjectIdFilter,
                     visibility = visibilityFilter,
                     status = statusFilter,
+                    lastModifiedGte = lastModifiedGteFilter,
                 )
                 val result = feedbackService.list(view, caller.userId, filter, paging)
                 call.respond(

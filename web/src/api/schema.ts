@@ -1051,6 +1051,8 @@ export interface paths {
          *         `view=provided`, this scopes the list to feedbacks the caller gave a specific person.
          *       - `visibility` — exact match against the visibility enum.
          *       - `status` — exact match against the status enum.
+         *       - `lastModified[gte]` — lower bound (inclusive) on `lastModified`, epoch
+         *         milliseconds. Returns rows changed at or after this instant.
          *     - `content` is returned as `contentPreview`, capped at 200 characters; it is neither
          *       sortable nor filterable.
          *
@@ -1087,6 +1089,8 @@ export interface paths {
                     visibility?: "PROVIDER_SUBJECT" | "PROVIDER_REQUESTER" | "PROVIDER_REQUESTER_SUBJECT" | "PUBLIC";
                     /** @description Exact match against the record's status. */
                     status?: "REQUESTED" | "DRAFT" | "SENT" | "WITHDRAWN" | "REJECTED";
+                    /** @description Lower bound (inclusive) on `lastModified`, epoch milliseconds. Returns rows changed at or after this instant. */
+                    "lastModified[gte]"?: number;
                 };
                 header?: never;
                 path?: never;

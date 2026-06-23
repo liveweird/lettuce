@@ -162,6 +162,25 @@ describe("FeedbackTable (received view)", () => {
     });
   });
 
+  test("selecting a Last modified window adds the lastModified[gte] param; All omits it", async () => {
+    setupMocks(mockFetch);
+    renderWithProviders(<FeedbackTable view="received" />);
+
+    await screen.findByRole("cell", { name: "Alice Provider" });
+
+    // Default "All" sends no recency bound.
+    expect(feedbackUrls(mockFetch).every((url) => !url.includes("lastModified"))).toBe(true);
+
+    fireEvent.click(screen.getByLabelText("Last modified", { selector: "input" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Last week" }));
+    await waitFor(() => {
+      // URLSearchParams percent-encodes the brackets.
+      expect(feedbackUrls(mockFetch).some((url) => url.includes("lastModified%5Bgte%5D="))).toBe(
+        true,
+      );
+    });
+  });
+
   test("visibility filter offers only the three subject-readable values", async () => {
     setupMocks(mockFetch);
     renderWithProviders(<FeedbackTable view="received" />);

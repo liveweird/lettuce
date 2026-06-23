@@ -282,6 +282,7 @@ export type FeedbackListQuery = {
   subjectId?: number;
   visibility?: FeedbackVisibility;
   status?: FeedbackStatus;
+  lastModifiedGte?: number;
 };
 
 export async function listFeedbacks(q: FeedbackListQuery): Promise<FeedbackPage> {
@@ -297,6 +298,7 @@ export async function listFeedbacks(q: FeedbackListQuery): Promise<FeedbackPage>
   if (q.subjectId != null) params.set("subjectId", String(q.subjectId));
   if (q.visibility) params.set("visibility", q.visibility);
   if (q.status) params.set("status", q.status);
+  if (q.lastModifiedGte != null) params.set("lastModified[gte]", String(q.lastModifiedGte));
   const res = await authedFetch(`/api/feedbacks?${params.toString()}`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json()) as FeedbackPage;

@@ -885,6 +885,36 @@ class FeedbackRoutesTest {
     }
 
     @Test
+    fun `list filters by lastModified gte`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("subject")
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw")
+        val client = authedClient(callerEmail, "pw")
+
+        val older = client.createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC)
+        delay(10)
+        val newer = client.createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC)
+
+        // A cutoff strictly between the two rows returns only the newer one.
+        val cutoff = (older.lastModified + newer.lastModified) / 2
+        val narrowed = client.get("/api/feedbacks?lastModified%5Bgte%5D=$cutoff")
+        assertEquals(HttpStatusCode.OK, narrowed.status)
+        assertEquals(listOf(newer.id), narrowed.body<FeedbackPageResponse>().items.map { it.id })
+
+        // A cutoff at or below the older row returns both.
+        val all = client.get("/api/feedbacks?lastModified%5Bgte%5D=${older.lastModified}")
+            .body<FeedbackPageResponse>()
+        assertEquals(listOf(older.id, newer.id).sorted(), all.items.map { it.id }.sorted())
+
+        // Malformed bound is a 400.
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            client.get("/api/feedbacks?lastModified%5Bgte%5D=abc").status,
+        )
+    }
+
+    @Test
     fun `list exposes lastModified and sorts by it`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("subject")

@@ -25,7 +25,12 @@ import {
   type FeedbackVisibility,
 } from "../api/client";
 import SortHeader, { type SortDir } from "../components/SortHeader";
-import { formatTimestamp } from "../utils/datetime";
+import {
+  formatTimestamp,
+  lastModifiedCutoff,
+  LAST_MODIFIED_OPTIONS,
+  type LastModifiedWindow,
+} from "../utils/datetime";
 
 const PAGE_SIZE_OPTIONS = [20, 40, 60] as const;
 const DEFAULT_PAGE_SIZE = 20;
@@ -81,6 +86,7 @@ export default function FeedbackTeamTable() {
   const [subjectFilter, setSubjectFilter] = useState("");
   const [visibilityFilter, setVisibilityFilter] = useState<FeedbackVisibility | null>(null);
   const [statusFilter, setStatusFilter] = useState<FeedbackStatus | null>(null);
+  const [lastModifiedFilter, setLastModifiedFilter] = useState<LastModifiedWindow>("all");
 
   const [debouncedRequester] = useDebouncedValue(requesterFilter, 300);
   const [debouncedProvider] = useDebouncedValue(providerFilter, 300);
@@ -95,6 +101,7 @@ export default function FeedbackTeamTable() {
     debouncedSubject,
     visibilityFilter,
     statusFilter,
+    lastModifiedFilter,
     sortField,
     sortDir,
   ]);
@@ -113,6 +120,7 @@ export default function FeedbackTeamTable() {
       debouncedSubject,
       visibilityFilter,
       statusFilter,
+      lastModifiedFilter,
     ],
     queryFn: () =>
       listFeedbacks({
@@ -125,6 +133,7 @@ export default function FeedbackTeamTable() {
         subjectName: debouncedSubject || undefined,
         visibility: visibilityFilter ?? undefined,
         status: statusFilter ?? undefined,
+        lastModifiedGte: lastModifiedCutoff(lastModifiedFilter),
       }),
     placeholderData: keepPreviousData,
   });
@@ -213,6 +222,13 @@ export default function FeedbackTeamTable() {
           value={statusFilter}
           onChange={(v) => setStatusFilter((v as FeedbackStatus | null) ?? null)}
           clearable
+        />
+        <Select
+          label="Last modified"
+          data={LAST_MODIFIED_OPTIONS}
+          value={lastModifiedFilter}
+          onChange={(v) => setLastModifiedFilter((v as LastModifiedWindow) ?? "all")}
+          allowDeselect={false}
         />
       </Group>
 

@@ -27,6 +27,7 @@ data class FeedbackListFilter(
     val subjectId: UInt? = null,
     val visibility: FeedbackVisibility? = null,
     val status: FeedbackStatus? = null,
+    val lastModifiedGte: Long? = null,
 )
 
 data class FeedbackListResult(
@@ -259,6 +260,7 @@ class FeedbackService(val database: R2dbcDatabase) {
         filter.subjectId?.let { op = op and (Feedbacks.subjectId eq it) }
         filter.visibility?.let { op = op and (Feedbacks.visibility eq it) }
         filter.status?.let { op = op and (Feedbacks.status eq it) }
+        filter.lastModifiedGte?.let { op = op and (Feedbacks.lastModified greaterEq it) }
         return op
     }
 
