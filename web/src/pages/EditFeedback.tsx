@@ -133,6 +133,7 @@ export default function EditFeedback() {
       subjectDisplay={subjectName ?? `#${data!.subjectId}`}
       initialVisibility={clampVisibility(data!.visibility)}
       initialContent={data!.content}
+      lastModified={data!.lastModified}
       submitting={submitting}
       error={error}
       onSubmit={handleSave}

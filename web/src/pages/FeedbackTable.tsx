@@ -25,6 +25,7 @@ import {
   type FeedbackVisibility,
 } from "../api/client";
 import SortHeader, { type SortDir } from "../components/SortHeader";
+import { formatTimestamp } from "../utils/datetime";
 
 const PAGE_SIZE_OPTIONS = [20, 40, 60] as const;
 const DEFAULT_PAGE_SIZE = 20;
@@ -33,7 +34,13 @@ const DEFAULT_PAGE_SIZE = 20;
 // own three-person-column table (FeedbackTeamTable).
 type PairFeedbackView = Exclude<FeedbackListView, "team">;
 
-type SortField = "requesterName" | "subjectName" | "providerName" | "visibility" | "status";
+type SortField =
+  | "requesterName"
+  | "subjectName"
+  | "providerName"
+  | "visibility"
+  | "status"
+  | "lastModified";
 
 type FeedbackRow = FeedbackPage["items"][number];
 
@@ -120,7 +127,7 @@ export default function FeedbackTable({
   const config = VIEW_CONFIG[view];
   const backParam = backTo ? `&back=${encodeURIComponent(backTo)}` : "";
   const showActions = view === "provided" || view === "received";
-  const columnCount = showActions ? 6 : 5;
+  const columnCount = showActions ? 7 : 6;
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
@@ -286,6 +293,15 @@ export default function FeedbackTable({
               />
             </Table.Th>
             <Table.Th>Content</Table.Th>
+            <Table.Th>
+              <SortHeader
+                field="lastModified"
+                label="Last modified"
+                activeField={sortField}
+                activeDir={sortDir}
+                onToggle={toggleSort}
+              />
+            </Table.Th>
             {showActions && <Table.Th aria-label="Actions" style={{ width: 1 }} />}
           </Table.Tr>
         </Table.Thead>
@@ -316,6 +332,9 @@ export default function FeedbackTable({
                   }}
                 >
                   {f.contentPreview}
+                </Table.Td>
+                <Table.Td style={{ whiteSpace: "nowrap" }}>
+                  {formatTimestamp(f.lastModified)}
                 </Table.Td>
                 {showActions && (
                   <Table.Td>

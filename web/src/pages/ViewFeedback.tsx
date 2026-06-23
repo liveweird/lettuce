@@ -36,6 +36,7 @@ import {
   type FeedbackStatus,
   type FeedbackVisibility,
 } from "../api/client";
+import { formatTimestamp } from "../utils/datetime";
 
 const RECEIVED = "/feedback?tab=received";
 
@@ -210,6 +211,11 @@ export default function ViewFeedback() {
                     disabled
                   />
                   <TextInput label="Status" value={STATUS_LABEL[data!.status]} disabled />
+                  <TextInput
+                    label="Last modified"
+                    value={formatTimestamp(data!.lastModified)}
+                    disabled
+                  />
                 </Stack>
               </SimpleGrid>
               <Input.Wrapper

@@ -21,6 +21,8 @@ data class Feedback(
     val visibility: FeedbackVisibility,
     val status: FeedbackStatus,
     val content: String = "",
+    // Server-managed: set on every create/update and ignored from request bodies.
+    val lastModified: Long = 0L,
 )
 
 @Serializable
@@ -32,10 +34,11 @@ data class FeedbackResponse(
     val visibility: FeedbackVisibility,
     val status: FeedbackStatus,
     val content: String,
+    val lastModified: Long,
 )
 
 fun Feedback.toResponse(id: UInt) =
-    FeedbackResponse(id, requesterId, subjectId, providerId, visibility, status, content)
+    FeedbackResponse(id, requesterId, subjectId, providerId, visibility, status, content, lastModified)
 
 @Serializable
 data class FeedbackListItem(
@@ -52,6 +55,7 @@ data class FeedbackListItem(
     val visibility: FeedbackVisibility,
     val status: FeedbackStatus,
     val contentPreview: String,
+    val lastModified: Long,
 )
 
 @Serializable

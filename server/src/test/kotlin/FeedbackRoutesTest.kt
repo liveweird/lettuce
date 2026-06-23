@@ -27,6 +27,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import kotlinx.coroutines.delay
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -825,5 +826,85 @@ class FeedbackRoutesTest {
         assertEquals(t.requesterId, after.requesterId)
         assertEquals(t.subjectId, after.subjectId)
         assertEquals(t.providerId, after.providerId)
+    }
+
+    @Test
+    fun `create and read expose a non-zero lastModified`() = testApplication {
+        usePostgresTestcontainer()
+        val t = seedTriad()
+        val client = authedClient(t.providerEmail, "pw")
+
+        val created = client.post("/api/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                Feedback(
+                    subjectId = t.subjectId,
+                    providerId = t.providerId,
+                    visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                    status = FeedbackStatus.DRAFT,
+                )
+            )
+        }.body<FeedbackResponse>()
+
+        assertTrue(created.lastModified > 0, "created.lastModified was ${created.lastModified}")
+        val read = client.get("/api/feedbacks/${created.id}").body<FeedbackResponse>()
+        assertEquals(created.lastModified, read.lastModified)
+    }
+
+    @Test
+    fun `update advances lastModified and ignores client-supplied value`() = testApplication {
+        usePostgresTestcontainer()
+        val t = seedTriad()
+        val client = authedClient(t.providerEmail, "pw")
+
+        val draft = Feedback(
+            subjectId = t.subjectId,
+            providerId = t.providerId,
+            visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+            status = FeedbackStatus.DRAFT,
+            content = "v1",
+        )
+        val created = client.post("/api/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(draft)
+        }.body<FeedbackResponse>()
+
+        delay(10)
+        // Send a bogus lastModified in the body; the server must overwrite it with the clock.
+        client.put("/api/feedbacks/${created.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(draft.copy(content = "v2", lastModified = 1L))
+        }
+
+        val after = client.get("/api/feedbacks/${created.id}").body<FeedbackResponse>()
+        assertEquals("v2", after.content)
+        assertTrue(
+            after.lastModified > created.lastModified,
+            "expected ${after.lastModified} > ${created.lastModified}",
+        )
+    }
+
+    @Test
+    fun `list exposes lastModified and sorts by it`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("subject")
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw")
+        val client = authedClient(callerEmail, "pw")
+
+        val older = client.createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC)
+        delay(10)
+        val newer = client.createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC)
+
+        val page = client.get("/api/feedbacks").body<FeedbackPageResponse>()
+        assertTrue(page.items.all { it.lastModified > 0 })
+
+        val desc = client.get("/api/feedbacks?sort=-lastModified")
+        assertEquals(HttpStatusCode.OK, desc.status)
+        assertEquals(listOf(newer.id, older.id), desc.body<FeedbackPageResponse>().items.map { it.id })
+
+        val asc = client.get("/api/feedbacks?sort=lastModified")
+        assertEquals(HttpStatusCode.OK, asc.status)
+        assertEquals(listOf(older.id, newer.id), asc.body<FeedbackPageResponse>().items.map { it.id })
     }
 }

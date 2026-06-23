@@ -1,0 +1,3 @@
+ALTER TABLE feedbacks
+    ADD COLUMN last_modified BIGINT NOT NULL
+    DEFAULT (EXTRACT(EPOCH FROM now()) * 1000)::BIGINT;

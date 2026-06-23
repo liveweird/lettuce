@@ -25,11 +25,18 @@ import {
   type FeedbackVisibility,
 } from "../api/client";
 import SortHeader, { type SortDir } from "../components/SortHeader";
+import { formatTimestamp } from "../utils/datetime";
 
 const PAGE_SIZE_OPTIONS = [20, 40, 60] as const;
 const DEFAULT_PAGE_SIZE = 20;
 
-type SortField = "requesterName" | "providerName" | "subjectName" | "visibility" | "status";
+type SortField =
+  | "requesterName"
+  | "providerName"
+  | "subjectName"
+  | "visibility"
+  | "status"
+  | "lastModified";
 
 type FeedbackRow = FeedbackPage["items"][number];
 
@@ -264,13 +271,22 @@ export default function FeedbackTeamTable() {
               />
             </Table.Th>
             <Table.Th>Content</Table.Th>
+            <Table.Th>
+              <SortHeader
+                field="lastModified"
+                label="Last modified"
+                activeField={sortField}
+                activeDir={sortDir}
+                onToggle={toggleSort}
+              />
+            </Table.Th>
             <Table.Th aria-label="Actions" style={{ width: 1 }} />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
           {isLoading && !data ? (
             <Table.Tr>
-              <Table.Td colSpan={7}>
+              <Table.Td colSpan={8}>
                 <Center py="md">
                   <Loader size="sm" />
                 </Center>
@@ -295,6 +311,9 @@ export default function FeedbackTeamTable() {
                   }}
                 >
                   {f.contentPreview}
+                </Table.Td>
+                <Table.Td style={{ whiteSpace: "nowrap" }}>
+                  {formatTimestamp(f.lastModified)}
                 </Table.Td>
                 <Table.Td>
                   {currentUserId === f.providerId && f.status === "DRAFT" ? (
@@ -332,7 +351,7 @@ export default function FeedbackTeamTable() {
             ))
           ) : (
             <Table.Tr>
-              <Table.Td colSpan={7}>
+              <Table.Td colSpan={8}>
                 <Text c="dimmed" ta="center">
                   No feedback
                 </Text>

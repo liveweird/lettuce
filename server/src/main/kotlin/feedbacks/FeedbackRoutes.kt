@@ -47,7 +47,7 @@ fun Application.configureFeedbackRoutes() {
                     else -> throw BadRequestException("Unknown view: $raw (allowed: received, provided, team)")
                 }
                 val paging = call.parsePaging(
-                    sortable = setOf("id", "requesterName", "subjectName", "providerName", "visibility", "status"),
+                    sortable = setOf("id", "requesterName", "subjectName", "providerName", "visibility", "status", "lastModified"),
                 )
                 val visibilityFilter = params["visibility"]?.takeIf { it.isNotBlank() }?.let { raw ->
                     runCatching { FeedbackVisibility.valueOf(raw) }.getOrElse {
@@ -100,7 +100,9 @@ fun Application.configureFeedbackRoutes() {
                     throw BadRequestException("Referenced user does not exist", e)
                 }
                 call.response.header(HttpHeaders.Location, call.application.href(Feedbacks.Id(id = id)))
-                call.respond(HttpStatusCode.Created, feedback.toResponse(id))
+                // Re-read so the response carries the server-assigned lastModified.
+                val created = feedbackService.read(id) ?: feedback
+                call.respond(HttpStatusCode.Created, created.toResponse(id))
             }
             get<Feedbacks.Id> { route ->
                 val caller = call.caller()

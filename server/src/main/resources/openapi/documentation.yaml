@@ -467,8 +467,8 @@ paths:
         Supports offset pagination, sorting and filtering.
 
         - Sortable fields: `id`, `requesterName`, `subjectName`, `providerName`, `visibility`,
-          `status`. Default sort is `id` ascending. `id` ascending is always appended as a
-          deterministic tiebreaker.
+          `status`, `lastModified`. Default sort is `id` ascending. `id` ascending is always
+          appended as a deterministic tiebreaker.
         - Filters (all optional, all whitelisted):
           - `requesterName` — case-insensitive substring match against the requester's name.
             Rows without a requester never match when this filter is set.
@@ -968,7 +968,7 @@ components:
 
     FeedbackResponse:
       type: object
-      required: [id, subjectId, providerId, visibility, status, content]
+      required: [id, subjectId, providerId, visibility, status, content, lastModified]
       properties:
         id: { type: integer, format: int64, minimum: 0 }
         requesterId:
@@ -985,10 +985,14 @@ components:
           type: string
           enum: [REQUESTED, DRAFT, SENT, WITHDRAWN, REJECTED]
         content: { type: string }
+        lastModified:
+          type: integer
+          format: int64
+          description: Epoch milliseconds of the last change. Server-managed and read-only.
 
     FeedbackListItem:
       type: object
-      required: [id, requesterDeleted, subjectId, subjectName, subjectDeleted, providerId, providerName, providerDeleted, visibility, status, contentPreview]
+      required: [id, requesterDeleted, subjectId, subjectName, subjectDeleted, providerId, providerName, providerDeleted, visibility, status, contentPreview, lastModified]
       properties:
         id: { type: integer, format: int64, minimum: 0 }
         requesterId:
@@ -1022,6 +1026,10 @@ components:
         contentPreview:
           type: string
           description: First 200 characters of `content`.
+        lastModified:
+          type: integer
+          format: int64
+          description: Epoch milliseconds of the last change. Server-managed and read-only.
 
     FeedbackPage:
       type: object

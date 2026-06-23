@@ -45,6 +45,7 @@ private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
     "providerName" to providerUsers[UserService.Users.name],
     "visibility" to FeedbackService.Feedbacks.visibility,
     "status" to FeedbackService.Feedbacks.status,
+    "lastModified" to FeedbackService.Feedbacks.lastModified,
 )
 
 private val RECEIVED_VISIBILITIES = listOf(
@@ -63,6 +64,7 @@ class FeedbackService(val database: R2dbcDatabase) {
         val visibility = enumerationByName("visibility", 40, FeedbackVisibility::class)
         val status = enumerationByName("status", 20, FeedbackStatus::class)
         val content = text("content")
+        val lastModified = long("last_modified")
     }
 
     suspend fun create(feedback: Feedback): UInt = suspendTransaction(database) {
@@ -74,6 +76,7 @@ class FeedbackService(val database: R2dbcDatabase) {
             it[visibility] = feedback.visibility
             it[status] = feedback.status
             it[content] = feedback.content
+            it[lastModified] = System.currentTimeMillis()
         }
         newRecord[Feedbacks.id].value
     }
@@ -89,6 +92,7 @@ class FeedbackService(val database: R2dbcDatabase) {
                     visibility = row[Feedbacks.visibility],
                     status = row[Feedbacks.status],
                     content = row[Feedbacks.content],
+                    lastModified = row[Feedbacks.lastModified],
                 )
             }
             .singleOrNull()
@@ -118,6 +122,7 @@ class FeedbackService(val database: R2dbcDatabase) {
                 it[visibility] = feedback.visibility
                 it[status] = feedback.status
                 it[content] = feedback.content
+                it[lastModified] = System.currentTimeMillis()
             }
         }
     }
@@ -183,6 +188,7 @@ class FeedbackService(val database: R2dbcDatabase) {
                 Feedbacks.visibility,
                 Feedbacks.status,
                 Feedbacks.content,
+                Feedbacks.lastModified,
                 requesterUsers[UserService.Users.name],
                 requesterUsers[UserService.Users.markedAsDeleted],
                 subjectUsers[UserService.Users.name],
@@ -207,6 +213,7 @@ class FeedbackService(val database: R2dbcDatabase) {
                     visibility = row[Feedbacks.visibility],
                     status = row[Feedbacks.status],
                     contentPreview = row[Feedbacks.content].take(CONTENT_PREVIEW_LENGTH),
+                    lastModified = row[Feedbacks.lastModified],
                 )
             }
             .toList()

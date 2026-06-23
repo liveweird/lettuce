@@ -1038,8 +1038,8 @@ export interface paths {
          *     Supports offset pagination, sorting and filtering.
          *
          *     - Sortable fields: `id`, `requesterName`, `subjectName`, `providerName`, `visibility`,
-         *       `status`. Default sort is `id` ascending. `id` ascending is always appended as a
-         *       deterministic tiebreaker.
+         *       `status`, `lastModified`. Default sort is `id` ascending. `id` ascending is always
+         *       appended as a deterministic tiebreaker.
          *     - Filters (all optional, all whitelisted):
          *       - `requesterName` — case-insensitive substring match against the requester's name.
          *         Rows without a requester never match when this filter is set.
@@ -1805,6 +1805,11 @@ export interface components {
             /** @enum {string} */
             status: "REQUESTED" | "DRAFT" | "SENT" | "WITHDRAWN" | "REJECTED";
             content: string;
+            /**
+             * Format: int64
+             * @description Epoch milliseconds of the last change. Server-managed and read-only.
+             */
+            lastModified: number;
         };
         FeedbackListItem: {
             /** Format: int64 */
@@ -1831,6 +1836,11 @@ export interface components {
             status: "REQUESTED" | "DRAFT" | "SENT" | "WITHDRAWN" | "REJECTED";
             /** @description First 200 characters of `content`. */
             contentPreview: string;
+            /**
+             * Format: int64
+             * @description Epoch milliseconds of the last change. Server-managed and read-only.
+             */
+            lastModified: number;
         };
         FeedbackPage: {
             items: components["schemas"]["FeedbackListItem"][];

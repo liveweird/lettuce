@@ -31,6 +31,7 @@ import {
   type FeedbackStatus,
   type FeedbackVisibility,
 } from "../api/client";
+import { formatTimestamp } from "../utils/datetime";
 
 type FormValues = {
   visibility: FeedbackVisibility;
@@ -55,6 +56,8 @@ export type FeedbackFormProps = {
   discardMessage: string;
   showTemplateInsert?: boolean;
   showReject?: boolean;
+  // Epoch millis; when set, shows a read-only "Last modified" field (edit flow only).
+  lastModified?: number;
 };
 
 export default function FeedbackForm({
@@ -70,6 +73,7 @@ export default function FeedbackForm({
   discardMessage,
   showTemplateInsert = false,
   showReject = false,
+  lastModified,
 }: FeedbackFormProps) {
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
   const [rejectOpen, { open: openReject, close: closeReject }] = useDisclosure(false);
@@ -182,6 +186,13 @@ export default function FeedbackForm({
                       </Alert>
                     )}
                   </Stack>
+                )}
+                {lastModified != null && (
+                  <TextInput
+                    label="Last modified"
+                    value={formatTimestamp(lastModified)}
+                    disabled
+                  />
                 )}
               </Stack>
             </SimpleGrid>
