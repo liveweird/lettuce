@@ -69,6 +69,12 @@ class NotificationService(val database: R2dbcDatabase) {
         }
     }
 
+    suspend fun markUnseen(id: UInt): Int = suspendTransaction(database) {
+        Notifications.update({ Notifications.id eq id }) {
+            it[wasSeen] = false
+        }
+    }
+
     suspend fun delete(id: UInt): Int = suspendTransaction(database) {
         Notifications.deleteWhere { Notifications.id eq id }
     }

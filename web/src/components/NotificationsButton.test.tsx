@@ -46,7 +46,7 @@ function setupMocks(mockFetch: FetchMock, list: Item[] = [UNSEEN, SEEN], unreadT
   mockFetch.mockImplementation((url: string, init?: RequestInit) => {
     const u = String(url);
     const method = init?.method ?? "GET";
-    if (method === "POST" && /\/api\/notifications\/\d+\/seen$/.test(u)) {
+    if (method === "POST" && /\/api\/notifications\/\d+\/(seen|unseen)$/.test(u)) {
       return Promise.resolve(new Response(null, { status: 204 }));
     }
     if (u.startsWith("/api/notifications") && u.includes("wasSeen=false")) {
@@ -104,11 +104,14 @@ describe("NotificationsButton", () => {
     const unseenRow = (await screen.findByText("Your feedback was sent")).closest("[class*='Paper']")!;
     const seenRow = screen.getByText("Welcome aboard").closest("[class*='Paper']")!;
 
-    // Unseen row carries the "New" badge and a Mark-as-seen button; seen row does not.
+    // Unseen row: "New" badge + Mark-as-seen, but no Mark-as-unseen.
     expect(within(unseenRow as HTMLElement).getByText("New")).toBeInTheDocument();
-    expect(within(unseenRow as HTMLElement).getByRole("button", { name: /mark.*seen/i })).toBeInTheDocument();
+    expect(within(unseenRow as HTMLElement).getByRole("button", { name: /as seen$/i })).toBeInTheDocument();
+    expect(within(unseenRow as HTMLElement).queryByRole("button", { name: /as unseen$/i })).toBeNull();
+    // Seen row: no "New", no Mark-as-seen, but offers Mark-as-unseen.
     expect(within(seenRow as HTMLElement).queryByText("New")).toBeNull();
-    expect(within(seenRow as HTMLElement).queryByRole("button", { name: /mark.*seen/i })).toBeNull();
+    expect(within(seenRow as HTMLElement).queryByRole("button", { name: /as seen$/i })).toBeNull();
+    expect(within(seenRow as HTMLElement).getByRole("button", { name: /as unseen$/i })).toBeInTheDocument();
   });
 
   test("Mark as seen posts to the seen endpoint", async () => {
@@ -117,13 +120,32 @@ describe("NotificationsButton", () => {
     renderWithProviders(<NotificationsButton />);
 
     await user.click(await screen.findByRole("button", { name: /unread/i }));
-    await user.click(await screen.findByRole("button", { name: /mark.*seen/i }));
+    await user.click(await screen.findByRole("button", { name: /as seen$/i }));
 
     await waitFor(() => {
       expect(
         mockFetch.mock.calls.some(
           ([url, init]) =>
             String(url) === "/api/notifications/1/seen" && (init as RequestInit)?.method === "POST",
+        ),
+      ).toBe(true);
+    });
+  });
+
+  test("Mark as unseen posts to the unseen endpoint (seen rows only)", async () => {
+    setupMocks(mockFetch, [SEEN]);
+    const user = userEvent.setup();
+    renderWithProviders(<NotificationsButton />);
+
+    await user.click(await screen.findByRole("button", { name: /unread/i }));
+    await user.click(await screen.findByRole("button", { name: /as unseen$/i }));
+
+    await waitFor(() => {
+      expect(
+        mockFetch.mock.calls.some(
+          ([url, init]) =>
+            String(url) === `/api/notifications/${SEEN.id}/unseen` &&
+            (init as RequestInit)?.method === "POST",
         ),
       ).toBe(true);
     });
@@ -154,7 +176,7 @@ describe("NotificationsButton", () => {
     const row = (await screen.findByText("Request was rejected")).closest("[class*='Paper']")!;
     expect(within(row as HTMLElement).queryByRole("button", { name: /go to/i })).toBeNull();
     // Mark as seen is still offered (it is unseen).
-    expect(within(row as HTMLElement).getByRole("button", { name: /mark.*seen/i })).toBeInTheDocument();
+    expect(within(row as HTMLElement).getByRole("button", { name: /as seen$/i })).toBeInTheDocument();
   });
 
   test("closing the modal does not navigate", async () => {

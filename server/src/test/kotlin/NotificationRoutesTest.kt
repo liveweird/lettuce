@@ -147,6 +147,33 @@ class NotificationRoutesTest {
     }
 
     @Test
+    fun `mark unseen flips the flag back, is idempotent, and is recipient-scoped`() = testApplication {
+        usePostgresTestcontainer()
+        val recipientEmail = uniqueEmail("recipient")
+        val recipientId = TestUsers.seed(email = recipientEmail, password = "pw", role = UserRole.USER)
+        val strangerEmail = uniqueEmail("stranger")
+        TestUsers.seed(email = strangerEmail, password = "pw", role = UserRole.USER)
+
+        val id = TestNotifications.seed(recipientId)
+        val client = authedClient(recipientEmail, "pw")
+
+        // Seen first, then back to unseen.
+        assertEquals(HttpStatusCode.NoContent, client.post("/api/notifications/$id/seen").status)
+        assertTrue(client.get("/api/notifications/$id").body<NotificationResponse>().wasSeen)
+
+        assertEquals(HttpStatusCode.NoContent, client.post("/api/notifications/$id/unseen").status)
+        assertFalse(client.get("/api/notifications/$id").body<NotificationResponse>().wasSeen)
+
+        // Idempotent.
+        assertEquals(HttpStatusCode.NoContent, client.post("/api/notifications/$id/unseen").status)
+
+        val strangerClient = authedClient(strangerEmail, "pw")
+        assertEquals(HttpStatusCode.Forbidden, strangerClient.post("/api/notifications/$id/unseen").status)
+
+        assertEquals(HttpStatusCode.NotFound, client.post("/api/notifications/999999/unseen").status)
+    }
+
+    @Test
     fun `delete removes the notification and is recipient-scoped`() = testApplication {
         usePostgresTestcontainer()
         val recipientEmail = uniqueEmail("recipient")
@@ -174,6 +201,7 @@ class NotificationRoutesTest {
             HttpMethod.Get to "/api/notifications",
             HttpMethod.Get to "/api/notifications/1",
             HttpMethod.Post to "/api/notifications/1/seen",
+            HttpMethod.Post to "/api/notifications/1/unseen",
             HttpMethod.Delete to "/api/notifications/1",
         )
         for ((verb, path) in endpoints) {

@@ -14,12 +14,13 @@ import {
   Text,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconBell, IconCheck, IconExternalLink } from "@tabler/icons-react";
+import { IconBell, IconCheck, IconEyeOff, IconExternalLink } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import {
   listNotifications,
   markNotificationSeen,
+  markNotificationUnseen,
   type NotificationItem,
 } from "../api/client";
 import { formatTimestamp } from "../utils/datetime";
@@ -45,6 +46,11 @@ export default function NotificationsButton() {
 
   const markSeen = useMutation({
     mutationFn: (id: number) => markNotificationSeen(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+  });
+
+  const markUnseen = useMutation({
+    mutationFn: (id: number) => markNotificationUnseen(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
   });
 
@@ -119,6 +125,18 @@ export default function NotificationsButton() {
                           aria-label={`Mark notification ${n.id} as seen`}
                         >
                           Mark as seen
+                        </Button>
+                      )}
+                      {n.wasSeen && (
+                        <Button
+                          size="xs"
+                          variant="default"
+                          leftSection={<IconEyeOff size={14} />}
+                          onClick={() => markUnseen.mutate(n.id)}
+                          loading={markUnseen.isPending && markUnseen.variables === n.id}
+                          aria-label={`Mark notification ${n.id} as unseen`}
+                        >
+                          Mark as unseen
                         </Button>
                       )}
                       {n.link && (

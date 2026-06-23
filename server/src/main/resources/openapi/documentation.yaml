@@ -822,6 +822,20 @@ paths:
         '403': { description: Caller is neither the recipient nor ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
         '404': { description: Not found }
 
+  /api/notifications/{id}/unseen:
+    parameters:
+      - $ref: '#/components/parameters/NotificationId'
+    post:
+      tags: [notifications]
+      summary: Mark a notification as unseen
+      description: |
+        Sets `wasSeen` to `false`. Idempotent. The recipient or an ADMIN may call it.
+      responses:
+        '204': { description: Marked as unseen }
+        '401': { description: Missing or invalid token }
+        '403': { description: Caller is neither the recipient nor ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+        '404': { description: Not found }
+
 components:
   securitySchemes:
     bearerAuth:

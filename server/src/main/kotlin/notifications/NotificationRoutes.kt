@@ -25,6 +25,10 @@ class Notifications {
         @Serializable
         @Resource("seen")
         class Seen(val parent: Id)
+
+        @Serializable
+        @Resource("unseen")
+        class Unseen(val parent: Id)
     }
 }
 
@@ -76,6 +80,17 @@ fun Application.configureNotificationRoutes() {
                 }
                 requireNotificationRecipient(caller, notification.recipientId)
                 notificationService.markSeen(route.parent.id)
+                call.respond(HttpStatusCode.NoContent)
+            }
+            post<Notifications.Id.Unseen> { route ->
+                val caller = call.caller()
+                val notification = notificationService.read(route.parent.id)
+                if (notification == null) {
+                    call.respond(HttpStatusCode.NotFound)
+                    return@post
+                }
+                requireNotificationRecipient(caller, notification.recipientId)
+                notificationService.markUnseen(route.parent.id)
                 call.respond(HttpStatusCode.NoContent)
             }
             delete<Notifications.Id> { route ->

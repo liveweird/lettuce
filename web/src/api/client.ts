@@ -423,6 +423,11 @@ export async function markNotificationSeen(id: number): Promise<void> {
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
+export async function markNotificationUnseen(id: number): Promise<void> {
+  const res = await authedFetch(`/api/notifications/${id}/unseen`, { method: "POST" });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
 export async function authedFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const token = getToken();
   const headers = new Headers(init.headers);
