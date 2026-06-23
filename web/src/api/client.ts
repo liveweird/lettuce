@@ -396,6 +396,33 @@ export async function deleteTemplate(id: number): Promise<void> {
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
+export type NotificationPage =
+  paths["/api/notifications"]["get"]["responses"]["200"]["content"]["application/json"];
+export type NotificationItem = NotificationPage["items"][number];
+
+export type NotificationListQuery = {
+  page: number;
+  pageSize: number;
+  sort?: string;
+  wasSeen?: boolean;
+};
+
+export async function listNotifications(q: NotificationListQuery): Promise<NotificationPage> {
+  const params = new URLSearchParams();
+  params.set("page", String(q.page));
+  params.set("pageSize", String(q.pageSize));
+  if (q.sort) params.set("sort", q.sort);
+  if (q.wasSeen != null) params.set("wasSeen", String(q.wasSeen));
+  const res = await authedFetch(`/api/notifications?${params.toString()}`);
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return (await res.json()) as NotificationPage;
+}
+
+export async function markNotificationSeen(id: number): Promise<void> {
+  const res = await authedFetch(`/api/notifications/${id}/seen`, { method: "POST" });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
 export async function authedFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const token = getToken();
   const headers = new Headers(init.headers);

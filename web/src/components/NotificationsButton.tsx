@@ -1,0 +1,142 @@
+import {
+  ActionIcon,
+  Alert,
+  Badge,
+  Button,
+  Center,
+  Group,
+  Indicator,
+  Loader,
+  Modal,
+  Paper,
+  ScrollArea,
+  Stack,
+  Text,
+} from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
+import { IconBell, IconCheck, IconExternalLink } from "@tabler/icons-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import {
+  listNotifications,
+  markNotificationSeen,
+  type NotificationItem,
+} from "../api/client";
+import { formatTimestamp } from "../utils/datetime";
+import { toRelativePath } from "../utils/url";
+
+export default function NotificationsButton() {
+  const [opened, { open, close }] = useDisclosure(false);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  // Cheap unread count: pageSize 1, read only `total`.
+  const unreadQuery = useQuery({
+    queryKey: ["notifications", "unread"],
+    queryFn: () => listNotifications({ page: 1, pageSize: 1, wasSeen: false }),
+  });
+  const unreadCount = unreadQuery.data?.total ?? 0;
+
+  const listQuery = useQuery({
+    queryKey: ["notifications", "list"],
+    queryFn: () => listNotifications({ page: 1, pageSize: 50, sort: "-timestamp" }),
+    enabled: opened,
+  });
+
+  const markSeen = useMutation({
+    mutationFn: (id: number) => markNotificationSeen(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+  });
+
+  function goTo(n: NotificationItem) {
+    close();
+    navigate(toRelativePath(n.link));
+  }
+
+  return (
+    <>
+      <Indicator
+        inline
+        size={18}
+        offset={4}
+        color="red"
+        label={unreadCount > 99 ? "99+" : unreadCount}
+        disabled={unreadCount === 0}
+      >
+        <ActionIcon
+          variant="default"
+          size="lg"
+          onClick={open}
+          aria-label={`Notifications (${unreadCount} unread)`}
+        >
+          <IconBell size={18} />
+        </ActionIcon>
+      </Indicator>
+
+      <Modal opened={opened} onClose={close} title="Notifications" centered size="lg">
+        {listQuery.isLoading ? (
+          <Center py="xl">
+            <Loader />
+          </Center>
+        ) : listQuery.isError ? (
+          <Alert color="red" title="Failed to load notifications">
+            {listQuery.error instanceof Error ? listQuery.error.message : "Unknown error"}
+          </Alert>
+        ) : (listQuery.data?.items.length ?? 0) === 0 ? (
+          <Text c="dimmed" ta="center" py="xl">
+            No notifications.
+          </Text>
+        ) : (
+          <ScrollArea.Autosize mah="60vh">
+            <Stack gap="sm">
+              {listQuery.data!.items.map((n) => (
+                <Paper key={n.id} withBorder p="sm" radius="md" bg={n.wasSeen ? undefined : "var(--mantine-color-blue-light)"}>
+                  <Group justify="space-between" align="flex-start" wrap="nowrap" gap="sm">
+                    <Stack gap={4} style={{ minWidth: 0, flex: 1 }}>
+                      <Group gap="xs" wrap="nowrap">
+                        {!n.wasSeen && (
+                          <Badge color="blue" size="sm" variant="filled">
+                            New
+                          </Badge>
+                        )}
+                        <Text size="xs" c="dimmed">
+                          {formatTimestamp(n.timestamp)}
+                        </Text>
+                      </Group>
+                      <Text size="sm" fw={n.wasSeen ? 400 : 600} c={n.wasSeen ? "dimmed" : undefined}>
+                        {n.message}
+                      </Text>
+                    </Stack>
+                    <Group gap="xs" wrap="nowrap">
+                      {!n.wasSeen && (
+                        <Button
+                          size="xs"
+                          variant="light"
+                          leftSection={<IconCheck size={14} />}
+                          onClick={() => markSeen.mutate(n.id)}
+                          loading={markSeen.isPending && markSeen.variables === n.id}
+                          aria-label={`Mark notification ${n.id} as seen`}
+                        >
+                          Mark as seen
+                        </Button>
+                      )}
+                      <Button
+                        size="xs"
+                        variant="subtle"
+                        leftSection={<IconExternalLink size={14} />}
+                        onClick={() => goTo(n)}
+                        aria-label={`Go to notification ${n.id}`}
+                      >
+                        Go to
+                      </Button>
+                    </Group>
+                  </Group>
+                </Paper>
+              ))}
+            </Stack>
+          </ScrollArea.Autosize>
+        )}
+      </Modal>
+    </>
+  );
+}

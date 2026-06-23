@@ -36,6 +36,7 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getCurrentUser, getUserId, logout } from "./api/client";
 import { RedirectIfAuthed, RequireAuth, flagSignedOut, notifyAuthChange } from "./auth";
+import NotificationsButton from "./components/NotificationsButton";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Feedback = lazy(() => import("./pages/Feedback"));
 const CreateFeedback = lazy(() => import("./pages/CreateFeedback"));
@@ -165,6 +166,7 @@ function Shell() {
           <Group gap="sm">
             <HeaderUser />
             <ColorSchemeToggle />
+            <NotificationsButton />
             <Button variant="default" size="sm" onClick={handleLogout}>
               Logout
             </Button>
