@@ -140,7 +140,7 @@ describe("TeamMembersTable", () => {
     const link = await screen.findByRole("link", { name: /feedbacks with bob brown/i });
     expect(link).toHaveAttribute(
       "href",
-      "/managers/11/feedbacks?name=Bob%20Brown&from=peers",
+      "/users/11/feedbacks?name=Bob%20Brown&from=peers",
     );
     // One per row (Alice appears in two teams -> two rows -> three links total).
     expect(screen.getAllByRole("link", { name: /feedbacks with/i })).toHaveLength(3);
@@ -153,7 +153,7 @@ describe("TeamMembersTable", () => {
     const link = await screen.findByRole("link", { name: /feedbacks with bob brown/i });
     expect(link).toHaveAttribute(
       "href",
-      "/managers/11/feedbacks?name=Bob%20Brown&from=subordinates",
+      "/users/11/feedbacks?name=Bob%20Brown&from=subordinates",
     );
     // One per row (Alice appears in two teams -> two rows -> three links total).
     expect(screen.getAllByRole("link", { name: /feedbacks with/i })).toHaveLength(3);

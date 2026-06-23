@@ -40,7 +40,7 @@ export default function ManagerFeedbacks() {
   if (name) query.set("name", name);
   if (isOriginKey(fromParam)) query.set("from", fromParam);
   const queryString = query.toString();
-  const backTo = `/managers/${userId}/feedbacks${queryString ? `?${queryString}` : ""}`;
+  const backTo = `/users/${userId}/feedbacks${queryString ? `?${queryString}` : ""}`;
 
   return (
     <Stack gap="lg">

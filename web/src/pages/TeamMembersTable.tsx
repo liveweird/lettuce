@@ -225,7 +225,7 @@ export default function TeamMembersTable({
                     )}
                     <Button
                       component={RouterLink}
-                      to={`/managers/${m.userId}/feedbacks?name=${encodeURIComponent(m.name)}&from=${view === "managed" ? "subordinates" : "peers"}`}
+                      to={`/users/${m.userId}/feedbacks?name=${encodeURIComponent(m.name)}&from=${view === "managed" ? "subordinates" : "peers"}`}
                       color="blue"
                       variant="subtle"
                       size="xs"

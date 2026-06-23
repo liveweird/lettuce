@@ -256,7 +256,7 @@ export default function App() {
             <Route path="feedback/request" element={<RequestFeedback />} />
             <Route path="feedback/:id/edit" element={<EditFeedback />} />
             <Route path="feedback/:id/view" element={<ViewFeedback />} />
-            <Route path="managers/:userId/feedbacks" element={<ManagerFeedbacks />} />
+            <Route path="users/:userId/feedbacks" element={<ManagerFeedbacks />} />
             <Route path="templates" element={<Templates />} />
             <Route path="templates/new" element={<CreateTemplate />} />
             <Route path="templates/:id/edit" element={<EditTemplate />} />

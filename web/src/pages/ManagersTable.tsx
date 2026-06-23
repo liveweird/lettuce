@@ -57,7 +57,7 @@ export default function ManagersTable() {
                     </Button>
                     <Button
                       component={RouterLink}
-                      to={`/managers/${m.userId}/feedbacks?name=${encodeURIComponent(m.name)}`}
+                      to={`/users/${m.userId}/feedbacks?name=${encodeURIComponent(m.name)}`}
                       color="blue"
                       variant="subtle"
                       size="xs"

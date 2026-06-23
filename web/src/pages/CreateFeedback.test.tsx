@@ -189,7 +189,7 @@ describe("CreateFeedback page", () => {
 
   test("an explicit back param redirects there after create", async () => {
     mockFetch.mockImplementation(() => Promise.resolve(jsonResponse(201, { id: 102 })));
-    const back = "/managers/10/feedbacks?name=Alice";
+    const back = "/users/10/feedbacks?name=Alice";
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <MantineProvider>
@@ -201,7 +201,7 @@ describe("CreateFeedback page", () => {
           >
             <Routes>
               <Route path="/feedback/new" element={<CreateFeedback />} />
-              <Route path="/managers/:userId/feedbacks" element={<PathProbe />} />
+              <Route path="/users/:userId/feedbacks" element={<PathProbe />} />
             </Routes>
           </MemoryRouter>
         </QueryClientProvider>
@@ -213,7 +213,7 @@ describe("CreateFeedback page", () => {
     await user.click(screen.getByRole("button", { name: /^save draft$/i }));
 
     await waitFor(() =>
-      expect(screen.getByTestId("probe")).toHaveTextContent("/managers/10/feedbacks"),
+      expect(screen.getByTestId("probe")).toHaveTextContent("/users/10/feedbacks"),
     );
   });
 });

@@ -61,14 +61,14 @@ function page(items: unknown[]) {
   return { items, page: 1, pageSize: 20, total: items.length };
 }
 
-function renderScreen(path = "/managers/10/feedbacks?name=Alice") {
+function renderScreen(path = "/users/10/feedbacks?name=Alice") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <MantineProvider>
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={[path]}>
           <Routes>
-            <Route path="/managers/:userId/feedbacks" element={<ManagerFeedbacks />} />
+            <Route path="/users/:userId/feedbacks" element={<ManagerFeedbacks />} />
             <Route path="*" element={<PathProbe />} />
           </Routes>
         </MemoryRouter>
@@ -116,7 +116,7 @@ describe("ManagerFeedbacks page", () => {
   test("received rows get a View link, provided drafts get an Edit link, both returning here", async () => {
     renderScreen();
 
-    const back = encodeURIComponent("/managers/10/feedbacks?name=Alice");
+    const back = encodeURIComponent("/users/10/feedbacks?name=Alice");
 
     const viewLink = await screen.findByRole("link", { name: /view feedback from alice/i });
     expect(viewLink).toHaveAttribute("href", expect.stringContaining("/feedback/1/view"));
@@ -130,7 +130,7 @@ describe("ManagerFeedbacks page", () => {
   test("the Create feedback button targets the create flow scoped to the manager", async () => {
     renderScreen();
 
-    const back = encodeURIComponent("/managers/10/feedbacks?name=Alice");
+    const back = encodeURIComponent("/users/10/feedbacks?name=Alice");
     const createLink = await screen.findByRole("link", { name: /create feedback for alice/i });
     expect(createLink).toHaveAttribute("href", expect.stringContaining("/feedback/new"));
     expect(createLink).toHaveAttribute("href", expect.stringContaining("subjectId=10"));
@@ -138,13 +138,13 @@ describe("ManagerFeedbacks page", () => {
   });
 
   test("an invalid user id redirects back to the managers tab", () => {
-    renderScreen("/managers/abc/feedbacks");
+    renderScreen("/users/abc/feedbacks");
     expect(screen.getByTestId("probe")).toHaveTextContent("/?tab=managers");
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
   test("falls back to a placeholder name when none is provided", async () => {
-    renderScreen("/managers/10/feedbacks");
+    renderScreen("/users/10/feedbacks");
     expect(await screen.findByText("From user #10 to you")).toBeInTheDocument();
   });
 
@@ -156,14 +156,14 @@ describe("ManagerFeedbacks page", () => {
   });
 
   test("from=peers shows a Back to My peers link and threads the origin into detail links", async () => {
-    renderScreen("/managers/10/feedbacks?name=Alice&from=peers");
+    renderScreen("/users/10/feedbacks?name=Alice&from=peers");
 
     expect(
       await screen.findByRole("link", { name: /back to my peers/i }),
     ).toHaveAttribute("href", "/?tab=peers");
 
     // Edit/Create links return to this peers-scoped screen (back carries from=peers).
-    const back = encodeURIComponent("/managers/10/feedbacks?name=Alice&from=peers");
+    const back = encodeURIComponent("/users/10/feedbacks?name=Alice&from=peers");
     const editLink = await screen.findByRole("link", { name: /edit feedback for alice/i });
     expect(editLink).toHaveAttribute("href", expect.stringContaining(`back=${back}`));
     const createLink = await screen.findByRole("link", { name: /create feedback for alice/i });
@@ -171,12 +171,12 @@ describe("ManagerFeedbacks page", () => {
   });
 
   test("an invalid user id from the peers tab redirects back to the peers tab", () => {
-    renderScreen("/managers/abc/feedbacks?from=peers");
+    renderScreen("/users/abc/feedbacks?from=peers");
     expect(screen.getByTestId("probe")).toHaveTextContent("/?tab=peers");
   });
 
   test("from=subordinates shows a Back to My subordinates link", async () => {
-    renderScreen("/managers/10/feedbacks?name=Alice&from=subordinates");
+    renderScreen("/users/10/feedbacks?name=Alice&from=subordinates");
     expect(
       await screen.findByRole("link", { name: /back to my subordinates/i }),
     ).toHaveAttribute("href", "/?tab=subordinates");
