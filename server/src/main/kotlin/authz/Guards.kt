@@ -1,6 +1,7 @@
 package ch.nokillswit.authz
 
 import ch.nokillswit.feedbacks.Feedback
+import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
 import ch.nokillswit.users.UserRole
 
@@ -34,6 +35,9 @@ fun canReadFeedback(
     if (caller.userId == feedback.providerId) return true
     // A manager may read any feedback about a subordinate (team-list parity), read-only.
     if (managesSubject) return true
+    // While a feedback is being drafted it is the provider's private work in progress;
+    // the subject cannot read it until it leaves DRAFT (e.g. is sent).
+    if (feedback.status == FeedbackStatus.DRAFT && caller.userId == feedback.subjectId) return false
     return when (feedback.visibility) {
         FeedbackVisibility.PUBLIC -> true
         FeedbackVisibility.PROVIDER_SUBJECT ->

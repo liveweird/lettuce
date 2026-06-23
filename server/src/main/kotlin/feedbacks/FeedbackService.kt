@@ -161,7 +161,9 @@ class FeedbackService(val database: R2dbcDatabase) {
     ): FeedbackListResult = suspendTransaction(database) {
         val scope: Op<Boolean> = when (view) {
             FeedbackListView.RECEIVED -> (Feedbacks.subjectId eq callerUserId) and
-                (Feedbacks.visibility inList RECEIVED_VISIBILITIES)
+                (Feedbacks.visibility inList RECEIVED_VISIBILITIES) and
+                // A draft is the provider's private work in progress — hide it from the subject.
+                (Feedbacks.status neq FeedbackStatus.DRAFT)
             FeedbackListView.PROVIDED -> Feedbacks.providerId eq callerUserId
             FeedbackListView.TEAM -> {
                 // Subjects that are members of a team the caller manages (their subordinates).

@@ -609,9 +609,11 @@ class FeedbackRoutesTest {
         val client = authedClient(callerEmail, "pw")
 
         val fromAlice = client.createFeedback(callerId, aliceId, FeedbackVisibility.PUBLIC, status = FeedbackStatus.SENT)
+        // Not a DRAFT: the subject cannot see drafts in their received list, so the filter
+        // fixtures use visible statuses (SENT vs WITHDRAWN).
         val fromBob = client.createFeedback(
             callerId, bobId, FeedbackVisibility.PROVIDER_SUBJECT,
-            status = FeedbackStatus.DRAFT, requesterId = requesterId,
+            status = FeedbackStatus.WITHDRAWN, requesterId = requesterId,
         )
 
         val byProvider = client.get("/api/feedbacks?providerName=ALICE").body<FeedbackPageResponse>()
@@ -624,8 +626,66 @@ class FeedbackRoutesTest {
         val byVisibility = client.get("/api/feedbacks?visibility=PUBLIC").body<FeedbackPageResponse>()
         assertEquals(listOf(fromAlice.id), byVisibility.items.map { it.id })
 
-        val byStatus = client.get("/api/feedbacks?status=DRAFT").body<FeedbackPageResponse>()
+        val byStatus = client.get("/api/feedbacks?status=WITHDRAWN").body<FeedbackPageResponse>()
         assertEquals(listOf(fromBob.id), byStatus.items.map { it.id })
+    }
+
+    @Test
+    fun `subject cannot read a draft feedback but can once it is sent`() = testApplication {
+        usePostgresTestcontainer()
+        val provider = seedParty("provider", "Pat Provider")
+        val subject = seedParty("subject", "Sam Subject")
+        val providerClient = authedClient(provider.email, "pw")
+        val subjectClient = authedClient(subject.email, "pw")
+
+        val draft = providerClient.createFeedback(
+            subjectId = subject.id,
+            providerId = provider.id,
+            visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+            status = FeedbackStatus.DRAFT,
+        )
+
+        // While it's a draft the subject is locked out; the provider (author) is not.
+        assertEquals(HttpStatusCode.Forbidden, subjectClient.get("/api/feedbacks/${draft.id}").status)
+        assertEquals(HttpStatusCode.OK, providerClient.get("/api/feedbacks/${draft.id}").status)
+
+        // Sending it opens it up to the subject.
+        assertEquals(
+            HttpStatusCode.NoContent,
+            providerClient.put("/api/feedbacks/${draft.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    Feedback(
+                        subjectId = subject.id,
+                        providerId = provider.id,
+                        visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                        status = FeedbackStatus.SENT,
+                    )
+                )
+            }.status,
+        )
+        assertEquals(HttpStatusCode.OK, subjectClient.get("/api/feedbacks/${draft.id}").status)
+    }
+
+    @Test
+    fun `received list hides drafts from the subject`() = testApplication {
+        usePostgresTestcontainer()
+        val provider = seedParty("provider", "Pat Provider")
+        val subject = seedParty("subject", "Sam Subject")
+        val providerClient = authedClient(provider.email, "pw")
+        val subjectClient = authedClient(subject.email, "pw")
+
+        providerClient.createFeedback(
+            subjectId = subject.id, providerId = provider.id,
+            visibility = FeedbackVisibility.PROVIDER_SUBJECT, status = FeedbackStatus.DRAFT,
+        )
+        val sent = providerClient.createFeedback(
+            subjectId = subject.id, providerId = provider.id,
+            visibility = FeedbackVisibility.PUBLIC, status = FeedbackStatus.SENT,
+        )
+
+        val received = subjectClient.get("/api/feedbacks?view=received").body<FeedbackPageResponse>()
+        assertEquals(listOf(sent.id), received.items.map { it.id })
     }
 
     @Test

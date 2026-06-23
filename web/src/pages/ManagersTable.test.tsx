@@ -68,6 +68,26 @@ describe("ManagersTable", () => {
     );
   });
 
+  test("renders an Ask for feedback link per manager row", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        items: [
+          { userId: 1, name: "Manager One", email: "m1@example.com", teamId: 5, teamName: "alpha" },
+        ],
+        page: 1,
+        pageSize: 100,
+        total: 1,
+      }),
+    );
+    renderWithProviders(<ManagersTable />);
+
+    const link = await screen.findByRole("link", { name: /ask manager one for feedback/i });
+    expect(link).toHaveAttribute(
+      "href",
+      "/feedback/ask?providerId=1&providerName=Manager%20One",
+    );
+  });
+
   test("shows an empty state when there are no managers", async () => {
     mockFetch.mockResolvedValue(
       jsonResponse(200, { items: [], page: 1, pageSize: 100, total: 0 }),

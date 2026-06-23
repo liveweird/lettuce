@@ -1,7 +1,7 @@
 import { Alert, Button, Center, Group, Loader, Table, Text } from "@mantine/core";
 import { Link as RouterLink } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { IconMessagePlus, IconMessages } from "@tabler/icons-react";
+import { IconMessagePlus, IconMessageQuestion, IconMessages } from "@tabler/icons-react";
 import { listTeamMembers } from "../api/client";
 
 export default function ManagersTable() {
@@ -54,6 +54,17 @@ export default function ManagersTable() {
                       aria-label={`Provide feedback to ${m.name}`}
                     >
                       Provide feedback
+                    </Button>
+                    <Button
+                      component={RouterLink}
+                      to={`/feedback/ask?providerId=${m.userId}&providerName=${encodeURIComponent(m.name)}`}
+                      color="blue"
+                      variant="subtle"
+                      size="xs"
+                      leftSection={<IconMessageQuestion size={14} />}
+                      aria-label={`Ask ${m.name} for feedback`}
+                    >
+                      Ask for feedback
                     </Button>
                     <Button
                       component={RouterLink}

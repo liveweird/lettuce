@@ -41,6 +41,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Feedback = lazy(() => import("./pages/Feedback"));
 const CreateFeedback = lazy(() => import("./pages/CreateFeedback"));
 const RequestFeedback = lazy(() => import("./pages/RequestFeedback"));
+const AskFeedback = lazy(() => import("./pages/AskFeedback"));
 const EditFeedback = lazy(() => import("./pages/EditFeedback"));
 const ViewFeedback = lazy(() => import("./pages/ViewFeedback"));
 const ManagerFeedbacks = lazy(() => import("./pages/ManagerFeedbacks"));
@@ -256,6 +257,7 @@ export default function App() {
             <Route path="feedback" element={<Feedback />} />
             <Route path="feedback/new" element={<CreateFeedback />} />
             <Route path="feedback/request" element={<RequestFeedback />} />
+            <Route path="feedback/ask" element={<AskFeedback />} />
             <Route path="feedback/:id/edit" element={<EditFeedback />} />
             <Route path="feedback/:id/view" element={<ViewFeedback />} />
             <Route path="users/:userId/feedbacks" element={<ManagerFeedbacks />} />
