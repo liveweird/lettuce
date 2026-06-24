@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { renderWithProviders, screen, waitFor, within } from "../test/render";
+import { renderWithProviders, screen, waitFor } from "../test/render";
 import FeedbackForm from "./FeedbackForm";
 import { formatTimestamp } from "../utils/datetime";
 
@@ -85,27 +85,6 @@ describe("FeedbackForm", () => {
 
     renderWithProviders(<FeedbackForm {...baseProps} onSubmit={() => {}} />);
     expect(screen.queryByLabelText("Last modified")).toBeNull();
-  });
-
-  test("renders the Reject button only when showReject is set", () => {
-    const { unmount } = renderWithProviders(<FeedbackForm {...baseProps} onSubmit={() => {}} />);
-    expect(screen.queryByRole("button", { name: /^reject$/i })).toBeNull();
-    unmount();
-
-    renderWithProviders(<FeedbackForm {...baseProps} onSubmit={() => {}} showReject />);
-    expect(screen.getByRole("button", { name: /^reject$/i })).toBeInTheDocument();
-  });
-
-  test("Reject opens a confirmation modal and confirming submits REJECTED", async () => {
-    const onSubmit = vi.fn();
-    const user = userEvent.setup();
-    renderWithProviders(<FeedbackForm {...baseProps} onSubmit={onSubmit} showReject />);
-
-    await user.click(screen.getByRole("button", { name: /^reject$/i }));
-    // The modal's confirm button also reads "Reject"; click the one inside the dialog.
-    const dialog = await screen.findByRole("dialog");
-    await user.click(within(dialog).getByRole("button", { name: /^reject$/i }));
-    expect(onSubmit).toHaveBeenCalledWith("REJECTED", expect.anything());
   });
 
   test("with showTemplateInsert, fetches the template picker and gates Insert until a pick", async () => {

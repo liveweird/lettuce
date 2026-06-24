@@ -6,7 +6,21 @@ import {
   useParams,
   useSearchParams,
 } from "react-router-dom";
-import { Alert, Button, Center, Container, Group, Loader, Paper, Stack, Title } from "@mantine/core";
+import {
+  Alert,
+  Button,
+  Center,
+  Container,
+  Group,
+  Loader,
+  Modal,
+  Paper,
+  Stack,
+  Text,
+  TextInput,
+  Title,
+} from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ApiError,
@@ -39,6 +53,7 @@ export default function EditFeedback() {
     (searchParams.get("from") === "team" ? "/feedback?tab=team" : PROVIDED);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<FeedbackStatus | null>(null);
+  const [rejectOpen, { open: openReject, close: closeReject }] = useDisclosure(false);
 
   const id = Number(params.id);
   const idIsValid = Number.isFinite(id) && id > 0;
@@ -62,6 +77,9 @@ export default function EditFeedback() {
     values: { visibility: FeedbackVisibility; content: string },
   ) {
     if (!data) return;
+    // Accepting a request (REQUESTED → DRAFT) keeps the provider on this screen and reloads it
+    // as the editor; every other save returns to the originating tab.
+    const accepted = data.status === "REQUESTED" && status === "DRAFT";
     setError(null);
     setSubmitting(status);
     try {
@@ -75,7 +93,7 @@ export default function EditFeedback() {
       });
       await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
       await queryClient.invalidateQueries({ queryKey: ["feedback", id] });
-      navigate(backTo, { replace: true });
+      if (!accepted) navigate(backTo, { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 403) {
@@ -127,6 +145,83 @@ export default function EditFeedback() {
     );
   }
 
+  // A REQUESTED feedback is a request the provider hasn't picked up yet — a triage decision,
+  // not an editing screen. Offer Close / Reject / Accept instead of the editor (Accept = pick up
+  // the request → DRAFT, then reload as the editor). Only `REQUESTED → DRAFT` and
+  // `REQUESTED → REJECTED` are valid transitions, so "Save & send" must not be offered here.
+  if (data!.status === "REQUESTED" && getUserId() === data!.providerId) {
+    const subjectDisplay = data!.subjectName ?? subjectName ?? `#${data!.subjectId}`;
+    const requesterDisplay =
+      data!.requesterName ?? (data!.requesterId != null ? `#${data!.requesterId}` : "Unknown");
+    const decide = (status: FeedbackStatus) =>
+      handleSave(status, { visibility: data!.visibility, content: data!.content });
+    return (
+      <Container size="xs" px={0}>
+        <Paper withBorder shadow="sm" p="xl" radius="md">
+          <Stack>
+            <Title order={2}>Feedback request</Title>
+            <Text>
+              {requesterDisplay} requested feedback from you about {subjectDisplay}. Accept to start a
+              draft you can write and send, or reject the request.
+            </Text>
+            <TextInput label="Subject" value={subjectDisplay} disabled />
+            <TextInput label="Requester" value={requesterDisplay} disabled />
+            {error && (
+              <Alert color="red" variant="light">
+                {error}
+              </Alert>
+            )}
+            <Group justify="flex-end" gap="sm">
+              <Button
+                variant="default"
+                onClick={() => navigate(backTo, { replace: true })}
+                disabled={submitting !== null}
+              >
+                Close
+              </Button>
+              <Button
+                color="red"
+                variant="light"
+                onClick={openReject}
+                loading={submitting === "REJECTED"}
+                disabled={submitting !== null}
+              >
+                Reject
+              </Button>
+              <Button
+                onClick={() => decide("DRAFT")}
+                loading={submitting === "DRAFT"}
+                disabled={submitting !== null}
+              >
+                Accept
+              </Button>
+            </Group>
+          </Stack>
+        </Paper>
+
+        <Modal opened={rejectOpen} onClose={closeReject} title="Reject feedback request?" centered>
+          <Stack gap="md">
+            <Text>Reject this feedback request? This is final and cannot be undone.</Text>
+            <Group justify="flex-end" gap="sm">
+              <Button variant="default" onClick={closeReject}>
+                Keep editing
+              </Button>
+              <Button
+                color="red"
+                onClick={() => {
+                  closeReject();
+                  decide("REJECTED");
+                }}
+              >
+                Reject
+              </Button>
+            </Group>
+          </Stack>
+        </Modal>
+      </Container>
+    );
+  }
+
   return (
     <FeedbackForm
       title="Edit feedback"
@@ -139,7 +234,6 @@ export default function EditFeedback() {
       onSubmit={handleSave}
       cancelTo={backTo}
       showTemplateInsert
-      showReject={data!.status === "REQUESTED" && getUserId() === data!.providerId}
       discardTitle="Discard changes?"
       discardMessage="Discard your changes? The feedback will remain as it was."
     />
