@@ -169,6 +169,8 @@ Every transition is performed via `PUT /api/feedbacks/{id}` and is gated by `can
 
 `FeedbackForm` is therefore only ever the editor for `DRAFT` and the create flows; it carries no reject affordance. This mirrors the backend state machine in the UI (defense-in-depth, not a relaxation of the server check). Covered by `web/src/pages/EditFeedback.test.tsx`.
 
+**Frontend: the simplified requester view.** On the read-only view (`web/src/pages/ViewFeedback.tsx`), when the caller is the **requester** and the feedback is `REQUESTED` or `REJECTED`, the **Content** section is hidden — a never-drafted or declined request has no content to read. The gate is `isRequester && (status === "REQUESTED" || status === "REJECTED")` (`isRequester = getUserId() === data.requesterId`); every other viewer and status still renders Content. Covered by `web/src/pages/ViewFeedback.test.tsx`.
+
 ### Notifications
 
 In-app notifications are **generic rows** (`recipientId`, `message`, optional `link`, `wasSeen`, `timestamp`) — there is **no notification type enum** and no API to create one. They are produced by **two** feedback-driven sources, both side-effect-free (DB-free, so directly unit-testable) functions in `feedbacks/FeedbackNotifications.kt`; `FeedbackService` resolves party display names and the route persists what they return:

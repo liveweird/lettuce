@@ -215,4 +215,64 @@ describe("ViewFeedback page", () => {
     await screen.findByLabelText("Provider");
     expect(screen.queryByRole("button", { name: /^withdraw$/i })).not.toBeInTheDocument();
   });
+
+  test("a requester viewing a REQUESTED feedback sees no Content section", async () => {
+    // Caller (userId 7) is the requester; a never-drafted request has nothing to read.
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        ...FEEDBACK,
+        requesterId: 7,
+        status: "REQUESTED",
+        content: "should not show",
+      }),
+    );
+    renderViewFeedback();
+
+    // Other fields still render, but Content (label + body) is gone.
+    expect((await screen.findByLabelText("Status")) as HTMLInputElement).toHaveValue("Requested");
+    expect(screen.queryByText("Content")).not.toBeInTheDocument();
+    expect(screen.queryByText("should not show")).not.toBeInTheDocument();
+  });
+
+  test("a requester viewing a REJECTED feedback sees no Content section", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        ...FEEDBACK,
+        requesterId: 7,
+        status: "REJECTED",
+        content: "should not show",
+      }),
+    );
+    renderViewFeedback();
+
+    expect((await screen.findByLabelText("Status")) as HTMLInputElement).toHaveValue("Rejected");
+    expect(screen.queryByText("Content")).not.toBeInTheDocument();
+    expect(screen.queryByText("should not show")).not.toBeInTheDocument();
+  });
+
+  test("a requester viewing a SENT feedback still sees Content", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, { ...FEEDBACK, requesterId: 7, status: "SENT", content: "Delivered note" }),
+    );
+    renderViewFeedback();
+
+    expect(await screen.findByText("Content")).toBeInTheDocument();
+    expect(screen.getByText("Delivered note")).toBeInTheDocument();
+  });
+
+  test("a non-requester viewing a REQUESTED feedback still sees Content", async () => {
+    // Caller (userId 7) is not the requester (requesterId 9) → the gate does not apply.
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        ...FEEDBACK,
+        requesterId: 9,
+        status: "REQUESTED",
+        content: "Still visible",
+      }),
+    );
+    renderViewFeedback();
+
+    expect(await screen.findByText("Content")).toBeInTheDocument();
+    expect(screen.getByText("Still visible")).toBeInTheDocument();
+  });
 });

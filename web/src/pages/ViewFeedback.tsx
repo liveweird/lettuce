@@ -104,6 +104,14 @@ export default function ViewFeedback() {
   // The provider (not the as=provider display hint) is the only one who can change status.
   const isProvider = data != null && getUserId() === data.providerId;
   const action = isProvider ? NEXT_ACTION[data!.status] : undefined;
+  // A requester looking at a request that was never drafted (REQUESTED) or was declined (REJECTED)
+  // has no content to read — hide the empty Content section to keep the view simple.
+  const isRequester = data != null && data.requesterId != null && getUserId() === data.requesterId;
+  const hideContent =
+    isRequester && (data!.status === "REQUESTED" || data!.status === "REJECTED");
+  // Only stretch the card to viewport height when the growable Content section is shown;
+  // otherwise it would span the full window over empty space.
+  const fill = !hideContent;
 
   async function handleTransition(next: FeedbackStatus) {
     if (!data) return;
@@ -150,9 +158,11 @@ export default function ViewFeedback() {
       style={{
         display: "flex",
         flexDirection: "column",
-        // Fill the AppShell.Main content area (header 56px + md padding top & bottom).
-        minHeight:
-          "calc(100dvh - var(--app-shell-header-height, 56px) - 2 * var(--app-shell-padding, 16px))",
+        // Fill the AppShell.Main content area (header 56px + md padding top & bottom),
+        // but only when Content is shown — otherwise size the card to its content.
+        minHeight: fill
+          ? "calc(100dvh - var(--app-shell-header-height, 56px) - 2 * var(--app-shell-padding, 16px))"
+          : undefined,
       }}
     >
       <Paper
@@ -160,9 +170,9 @@ export default function ViewFeedback() {
         shadow="sm"
         p="xl"
         radius="md"
-        style={{ flex: 1, display: "flex", flexDirection: "column" }}
+        style={{ flex: fill ? 1 : undefined, display: "flex", flexDirection: "column" }}
       >
-        <Stack style={{ flex: 1 }}>
+        <Stack style={{ flex: fill ? 1 : undefined }}>
           <Title order={2}>Feedback</Title>
           {isLoading ? (
             <Center py="xl">
@@ -225,27 +235,29 @@ export default function ViewFeedback() {
                   />
                 </Stack>
               </SimpleGrid>
-              <Input.Wrapper
-                label="Content"
-                styles={{
-                  root: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 },
-                }}
-              >
-                <Box
-                  style={{
-                    flex: 1,
-                    minHeight: 0,
-                    overflow: "auto",
-                    border: "1px solid var(--mantine-color-default-border)",
-                    borderRadius: "var(--mantine-radius-default)",
-                    padding: "var(--mantine-spacing-sm)",
+              {!hideContent && (
+                <Input.Wrapper
+                  label="Content"
+                  styles={{
+                    root: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 },
                   }}
                 >
-                  <Typography>
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{data!.content}</ReactMarkdown>
-                  </Typography>
-                </Box>
-              </Input.Wrapper>
+                  <Box
+                    style={{
+                      flex: 1,
+                      minHeight: 0,
+                      overflow: "auto",
+                      border: "1px solid var(--mantine-color-default-border)",
+                      borderRadius: "var(--mantine-radius-default)",
+                      padding: "var(--mantine-spacing-sm)",
+                    }}
+                  >
+                    <Typography>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{data!.content}</ReactMarkdown>
+                    </Typography>
+                  </Box>
+                </Input.Wrapper>
+              )}
               {actionError && (
                 <Alert color="red" variant="light">
                   {actionError}
