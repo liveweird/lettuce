@@ -130,12 +130,36 @@ Layered RBAC. Implemented in the `server/src/main/kotlin/authz/` package.
   - `POST /api/teams` → caller must designate themselves as `managerId` (ADMIN may designate anyone).
   - `GET /api/teams/{id}` → any authenticated user.
   - `PUT /api/teams/{id}`, `DELETE /api/teams/{id}`, member sub-resource mutations → the team's current `manager_id` or ADMIN.
-  - `POST /api/feedbacks` → any authenticated user.
-  - `GET /api/feedbacks/{id}` → enforced from `FeedbackVisibility` and the caller's relationship to the row (provider / subject / requester); ADMIN bypasses.
-  - `PUT/DELETE /api/feedbacks/{id}` → the row's `provider_id` or ADMIN.
+  - `POST /api/feedbacks` → any authenticated user (the caller need not be one of the parties); the create-time invariants apply (see "Feedback lifecycle").
+  - `GET /api/feedbacks/{id}` → `canReadFeedback` (`authz/Guards.kt`): ADMIN; the **provider** (always); a **manager of the subject** (read-only, mirroring the team list via `managesSubject`); otherwise per `FeedbackVisibility` and the caller's relationship (subject / requester) — **except a `DRAFT` is hidden from the subject** until it leaves `DRAFT`.
+  - `PUT/DELETE /api/feedbacks/{id}` → the row's `provider_id` or ADMIN (`canWriteFeedback`). This guard gates **every** status transition (send, withdraw, pick-up, reject); on `PUT` the requested transition must additionally be valid for the current status (see "Feedback lifecycle") or it is `400`.
   - `GET/POST/DELETE /api/notifications/*` → the notification's `recipient_id` only (via `requireNotificationRecipient`); ADMIN bypasses. Notifications are never created through the API — see "Notifications" below.
 - **Exceptions**: `UnauthorizedException` (→ 401) and `ForbiddenException` (→ 403) are mapped to `ApiError` in `plugins/ErrorHandling.kt`.
 - **Tests**: `server/src/test/kotlin/AuthorizationTest.kt` covers the 401/403 paths and the full `FeedbackVisibility` matrix. The shared `TestUsers.seed` helper defaults to `role = ADMIN` so older tests keep working without modification; pass `role = UserRole.USER` when you need a non-privileged caller.
+
+### Feedback lifecycle (statuses & transitions)
+
+A feedback moves through a small state machine. The authoritative rules live in `feedbacks/FeedbackService.kt` — `isAllowedTransition` (the edges) and `validate` (the invariants); read/write authorization is in `authz/Guards.kt`. `FeedbackStatus` (`feedbacks/Feedback.kt`) has five values:
+
+- **`REQUESTED`** — feedback has been requested of a provider (e.g. via "Ask for feedback"); awaits the provider picking it up or declining. **Requires a non-null requester.**
+- **`DRAFT`** — the provider's private work in progress; **hidden from the subject** until it leaves `DRAFT`.
+- **`SENT`** — delivered; visible to the subject / requester per `FeedbackVisibility`.
+- **`WITHDRAWN`** — terminal; the provider retracted the feedback.
+- **`REJECTED`** — terminal; the provider declined a request.
+
+**Allowed transitions** (anything not listed → `400`; `WITHDRAWN` and `REJECTED` are terminal with no outgoing edges):
+
+| From → To | Who | Meaning |
+|---|---|---|
+| `REQUESTED → DRAFT` | provider / ADMIN | provider picks up the request |
+| `REQUESTED → REJECTED` | provider / ADMIN | provider declines the request (terminal) |
+| `DRAFT → SENT` | provider / ADMIN | deliver the feedback |
+| `DRAFT → WITHDRAWN` | provider / ADMIN | abandon a draft (terminal) |
+| `SENT → WITHDRAWN` | provider / ADMIN | retract a sent feedback (terminal) |
+
+Every transition is performed via `PUT /api/feedbacks/{id}` and is gated by `canWriteFeedback` (provider or ADMIN only) — so only the provider/ADMIN can send, withdraw, pick up, or reject.
+
+**Creation vs. update.** On **create** (`POST`) any status is permitted — there is no transition gate, so the UI can create a feedback directly as `SENT` ("save & send") or as `REQUESTED` ("ask for feedback"). The transition check above applies only on **update**. The following invariants are enforced on **both** create and update: provider ≠ subject; requester ≠ provider; `REQUESTED` requires a requester. Transition and invariant behavior is covered by `FeedbackRoutesTest` (transitions) and `AuthorizationTest` (the `FeedbackVisibility` read matrix).
 
 ### Notifications
 
