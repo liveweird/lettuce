@@ -36,6 +36,11 @@ data class FeedbackListResult(
     val total: Long,
 )
 
+data class FeedbackCreateResult(
+    val id: UInt,
+    val notifications: List<Notification>,
+)
+
 private val requesterUsers = UserService.Users.alias("requester_users")
 private val subjectUsers = UserService.Users.alias("subject_users")
 private val providerUsers = UserService.Users.alias("provider_users")
@@ -69,7 +74,12 @@ class FeedbackService(val database: R2dbcDatabase) {
         val lastModified = long("last_modified")
     }
 
-    suspend fun create(feedback: Feedback): UInt = suspendTransaction(database) {
+    /**
+     * Inserts the feedback and returns its id together with any notifications its creation should
+     * produce (currently only a brand-new REQUESTED feedback notifies the provider). The caller
+     * persists them, mirroring [update].
+     */
+    suspend fun create(feedback: Feedback): FeedbackCreateResult = suspendTransaction(database) {
         validate(current = null, next = feedback)
         val newRecord = Feedbacks.insert {
             it[requesterId] = feedback.requesterId
@@ -80,7 +90,13 @@ class FeedbackService(val database: R2dbcDatabase) {
             it[content] = feedback.content
             it[lastModified] = System.currentTimeMillis()
         }
-        newRecord[Feedbacks.id].value
+        val id = newRecord[Feedbacks.id].value
+        val notifications = if (feedback.status == FeedbackStatus.REQUESTED) {
+            feedbackCreationNotifications(id, feedback, resolvePartyNames(feedback))
+        } else {
+            emptyList()
+        }
+        FeedbackCreateResult(id, notifications)
     }
 
     suspend fun read(id: UInt): Feedback? = suspendTransaction(database) {

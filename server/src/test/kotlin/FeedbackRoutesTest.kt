@@ -1283,4 +1283,60 @@ class FeedbackRoutesTest {
         assertTrue(notificationsOf(subject.email).isEmpty())
         assertTrue(notificationsOf(requester.email).isEmpty())
     }
+
+    @Test
+    fun `creating a requested feedback notifies the provider with an edit link`() = testApplication {
+        usePostgresTestcontainer()
+        val provider = seedParty("provider", "Pat Provider")
+        val subject = seedParty("subject", "Sam Subject")
+        val requester = seedParty("requester", "Rita Requester")
+        // The requester is the one filing the request; any authenticated user may POST.
+        val requesterClient = authedClient(requester.email, "pw")
+
+        val created = requesterClient.post("/api/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                Feedback(
+                    requesterId = requester.id,
+                    subjectId = subject.id,
+                    providerId = provider.id,
+                    visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
+                    status = FeedbackStatus.REQUESTED,
+                )
+            )
+        }.body<FeedbackResponse>()
+
+        val providerNote = notificationsOf(provider.email).single()
+        assertTrue(providerNote.message.contains("Rita Requester"), "names the requester")
+        assertTrue(providerNote.message.contains("Sam Subject"), "names the subject")
+        assertEquals("/feedback/${created.id}/edit", providerNote.link)
+        assertFalse(providerNote.wasSeen)
+
+        // Only the provider is told; the subject and requester are not notified on creation.
+        assertTrue(notificationsOf(subject.email).isEmpty())
+        assertTrue(notificationsOf(requester.email).isEmpty())
+    }
+
+    @Test
+    fun `creating a draft feedback notifies no one`() = testApplication {
+        usePostgresTestcontainer()
+        val provider = seedParty("provider", "Pat Provider")
+        val subject = seedParty("subject", "Sam Subject")
+        val providerClient = authedClient(provider.email, "pw")
+
+        providerClient.post("/api/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                Feedback(
+                    subjectId = subject.id,
+                    providerId = provider.id,
+                    visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                    status = FeedbackStatus.DRAFT,
+                )
+            )
+        }
+
+        assertTrue(notificationsOf(provider.email).isEmpty())
+        assertTrue(notificationsOf(subject.email).isEmpty())
+    }
 }

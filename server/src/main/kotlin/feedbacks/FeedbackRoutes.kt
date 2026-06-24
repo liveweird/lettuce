@@ -98,14 +98,17 @@ fun Application.configureFeedbackRoutes() {
             post<Feedbacks> {
                 call.caller()
                 val feedback = call.receive<Feedback>()
-                val id = try {
+                val result = try {
                     feedbackService.create(feedback)
                 } catch (e: ExposedSQLException) {
                     throw BadRequestException("Referenced user does not exist", e)
                 } catch (e: R2dbcException) {
                     throw BadRequestException("Referenced user does not exist", e)
                 }
+                val id = result.id
                 call.response.header(HttpHeaders.Location, call.application.href(Feedbacks.Id(id = id)))
+                // Best-effort side effect: deliver creation notifications after the commit.
+                result.notifications.forEach { notificationService.create(it) }
                 // Re-read so the response carries the server-assigned lastModified.
                 val created = feedbackService.read(id) ?: feedback
                 call.respond(HttpStatusCode.Created, created.toResponse(id))

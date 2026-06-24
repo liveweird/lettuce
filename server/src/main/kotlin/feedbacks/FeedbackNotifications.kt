@@ -82,6 +82,35 @@ internal fun feedbackTransitionNotifications(
     return notifications
 }
 
+/**
+ * Notifications produced when a feedback is *created* (as opposed to transitioned). The only case
+ * is a brand-new feedback in [FeedbackStatus.REQUESTED] status: the designated provider is told
+ * that feedback has been requested of them. Pure / side-effect-free like
+ * [feedbackTransitionNotifications]; [FeedbackService.create] resolves names and persists.
+ *
+ * @param feedbackId the id assigned by the insert (drives the edit link).
+ * @param created the feedback as persisted.
+ * @param nameById display names for the parties (requester/subject).
+ */
+internal fun feedbackCreationNotifications(
+    feedbackId: UInt,
+    created: Feedback,
+    nameById: Map<UInt, String>,
+): List<Notification> {
+    if (created.status != FeedbackStatus.REQUESTED) return emptyList()
+    // REQUESTED requires a requester (enforced in FeedbackService.validate), so this is non-null.
+    val requester = created.requesterId?.let { nameById.nameOf(it) } ?: return emptyList()
+    val subject = nameById.nameOf(created.subjectId)
+    return listOf(
+        Notification(
+            recipientId = created.providerId,
+            message = "The new feedback has been requested by the user $requester " +
+                "for the user $subject.",
+            link = "/feedback/$feedbackId/edit",
+        ),
+    )
+}
+
 private fun Map<UInt, String>.nameOf(id: UInt): String = this[id] ?: "#$id"
 
 private fun subjectCanRead(visibility: FeedbackVisibility): Boolean = when (visibility) {

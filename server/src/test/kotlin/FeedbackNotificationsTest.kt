@@ -3,6 +3,7 @@ package ch.nokillswit
 import ch.nokillswit.feedbacks.Feedback
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
+import ch.nokillswit.feedbacks.feedbackCreationNotifications
 import ch.nokillswit.feedbacks.feedbackTransitionNotifications
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -108,5 +109,29 @@ class FeedbackNotificationsTest {
         val next = feedback(FeedbackStatus.REJECTED)
         val result = feedbackTransitionNotifications(5u, FeedbackStatus.REQUESTED, next, emptyMap())
         assertTrue(result.single().message.contains("#1") && result.single().message.contains("#2"))
+    }
+
+    @Test
+    fun `creating a requested feedback notifies the provider with an edit link`() {
+        val created = feedback(FeedbackStatus.REQUESTED)
+        val result = feedbackCreationNotifications(11u, created, names)
+        val n = result.single()
+        assertEquals(1u, n.recipientId, "the provider is notified")
+        assertEquals("/feedback/11/edit", n.link)
+        assertTrue(n.message.contains(R), "message must name the requester")
+        assertTrue(n.message.contains(S), "message must name the subject")
+    }
+
+    @Test
+    fun `creating a non-requested feedback produces no notification`() {
+        val created = feedback(FeedbackStatus.DRAFT)
+        assertTrue(feedbackCreationNotifications(11u, created, names).isEmpty())
+    }
+
+    @Test
+    fun `creation message falls back to an id placeholder when a name is missing`() {
+        val created = feedback(FeedbackStatus.REQUESTED)
+        val message = feedbackCreationNotifications(11u, created, emptyMap()).single().message
+        assertTrue(message.contains("#3") && message.contains("#2"))
     }
 }

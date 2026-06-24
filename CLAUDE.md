@@ -139,18 +139,22 @@ Layered RBAC. Implemented in the `server/src/main/kotlin/authz/` package.
 
 ### Notifications
 
-In-app notifications are **generic rows** (`recipientId`, `message`, optional `link`, `wasSeen`, `timestamp`) — there is **no notification type enum** and no API to create one. They are produced at exactly **one place** in the system: a feedback status transition. The mapping from transition → notifications is the side-effect-free function `feedbackTransitionNotifications()` in `feedbacks/FeedbackNotifications.kt` (kept DB-free so it is directly unit-testable); `FeedbackService.update` resolves party display names, and the only persistence call site is `PUT /api/feedbacks/{id}` in `feedbacks/FeedbackRoutes.kt` (`toNotify.forEach { notificationService.create(it) }`).
+In-app notifications are **generic rows** (`recipientId`, `message`, optional `link`, `wasSeen`, `timestamp`) — there is **no notification type enum** and no API to create one. They are produced by **two** feedback-driven sources, both side-effect-free (DB-free, so directly unit-testable) functions in `feedbacks/FeedbackNotifications.kt`; `FeedbackService` resolves party display names and the route persists what they return:
 
-**The complete list of situations that generate a notification** (`FeedbackStatus` transitions):
+- **`feedbackCreationNotifications()`** — on feedback **creation** in `REQUESTED` status. Persisted from `POST /api/feedbacks` in `feedbacks/FeedbackRoutes.kt` (`result.notifications.forEach { notificationService.create(it) }`).
+- **`feedbackTransitionNotifications()`** — on a feedback **status transition**. Persisted from `PUT /api/feedbacks/{id}` (`toNotify.forEach { notificationService.create(it) }`).
 
-| Transition | Recipient(s) | Link? |
+**The complete list of situations that generate a notification**:
+
+| Event | Recipient(s) | Link? |
 |---|---|---|
-| `DRAFT → SENT` | subject (always); **and** the requester if `requesterId != null` (a second, separately-worded notification) | yes, per-recipient, only if that recipient may read the feedback |
+| Created in `REQUESTED` | provider | `/feedback/{id}/edit` (always — the provider owns the edit) |
+| `DRAFT → SENT` | subject (always); **and** the requester if `requesterId != null` (a second, separately-worded notification) | `/feedback/{id}/view`, per-recipient, only if that recipient may read the feedback |
 | `REQUESTED → REJECTED` (requester present) | requester | no |
 | `REQUESTED → DRAFT` ("picked up" by provider) | requester | no |
 | `SENT → WITHDRAWN` | subject (always); **and** the requester if `requesterId != null` | no |
 
-That is the whole set — any transition not listed produces nothing. Note that a `→ SENT` of *requested* feedback yields **two** notifications (subject + requester). The `link` (`/feedback/{id}/view`) is only attached when the recipient is permitted to read the feedback under its `FeedbackVisibility` (`subjectCanRead`/`requesterCanRead` in the same file) — otherwise `link` is null.
+That is the whole set — any other create/transition produces nothing. Note that a `→ SENT` of *requested* feedback yields **two** notifications (subject + requester). For transitions, the `view` link is only attached when the recipient is permitted to read the feedback under its `FeedbackVisibility` (`subjectCanRead`/`requesterCanRead` in the same file) — otherwise `link` is null.
 
 Reading/managing notifications goes through `notifications/NotificationRoutes.kt`, all under `authenticate` and scoped to the recipient via `requireNotificationRecipient` (ADMIN bypasses): `GET /api/notifications` (list; sortable `id`,`timestamp`, default `-timestamp`; optional `wasSeen` filter), `GET /api/notifications/{id}`, `POST /api/notifications/{id}/seen`, `POST /api/notifications/{id}/unseen`, `DELETE /api/notifications/{id}`. The endpoints are documented in `documentation.yaml`; the `notifications` table is created by `V13__create_notifications.sql`.
 
