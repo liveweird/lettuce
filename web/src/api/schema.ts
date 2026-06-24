@@ -2139,6 +2139,12 @@ export interface components {
              * @description Epoch milliseconds of the last change. Server-managed and read-only.
              */
             lastModified: number;
+            /** @description Display name of the requester; null when there is no requester. Server-resolved, read-only. */
+            requesterName?: string | null;
+            /** @description Display name of the subject. Server-resolved, read-only. */
+            subjectName?: string | null;
+            /** @description Display name of the provider. Server-resolved, read-only. */
+            providerName?: string | null;
         };
         FeedbackListItem: {
             /** Format: int64 */

@@ -109,6 +109,56 @@ class FeedbackRoutesTest {
     }
 
     @Test
+    fun `read resolves party display names`() = testApplication {
+        usePostgresTestcontainer()
+        val providerEmail = uniqueEmail("provider")
+        val providerId = TestUsers.seed(email = providerEmail, password = "pw", name = "Paula Provider")
+        val subjectId = TestUsers.seed(email = uniqueEmail("subject"), password = "pw", name = "Sam Subject")
+        val requesterId = TestUsers.seed(email = uniqueEmail("requester"), password = "pw", name = "Rita Requester")
+        val client = authedClient(providerEmail, "pw")
+
+        val withRequester = client.post("/api/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                Feedback(
+                    requesterId = requesterId,
+                    subjectId = subjectId,
+                    providerId = providerId,
+                    visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
+                    status = FeedbackStatus.REQUESTED,
+                )
+            )
+        }.body<FeedbackResponse>()
+
+        // The create response is already enriched with names.
+        assertEquals("Paula Provider", withRequester.providerName)
+        assertEquals("Sam Subject", withRequester.subjectName)
+        assertEquals("Rita Requester", withRequester.requesterName)
+
+        val read = client.get("/api/feedbacks/${withRequester.id}").body<FeedbackResponse>()
+        assertEquals("Paula Provider", read.providerName)
+        assertEquals("Sam Subject", read.subjectName)
+        assertEquals("Rita Requester", read.requesterName)
+
+        // No requester → requesterName is null, the others still resolve.
+        val noRequester = client.post("/api/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                Feedback(
+                    subjectId = subjectId,
+                    providerId = providerId,
+                    visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                    status = FeedbackStatus.DRAFT,
+                )
+            )
+        }.body<FeedbackResponse>()
+        val readNoRequester = client.get("/api/feedbacks/${noRequester.id}").body<FeedbackResponse>()
+        assertNull(readNoRequester.requesterName)
+        assertEquals("Sam Subject", readNoRequester.subjectName)
+        assertEquals("Paula Provider", readNoRequester.providerName)
+    }
+
+    @Test
     fun `create requested with requester`() = testApplication {
         usePostgresTestcontainer()
         val t = seedTriad()

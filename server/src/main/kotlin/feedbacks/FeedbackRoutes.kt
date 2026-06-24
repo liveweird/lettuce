@@ -111,7 +111,8 @@ fun Application.configureFeedbackRoutes() {
                 result.notifications.forEach { notificationService.create(it) }
                 // Re-read so the response carries the server-assigned lastModified.
                 val created = feedbackService.read(id) ?: feedback
-                call.respond(HttpStatusCode.Created, created.toResponse(id))
+                val names = feedbackService.partyNames(created)
+                call.respond(HttpStatusCode.Created, created.toResponse(id, names))
             }
             get<Feedbacks.Id> { route ->
                 val caller = call.caller()
@@ -124,7 +125,8 @@ fun Application.configureFeedbackRoutes() {
                 val managesSubject = !canReadFeedback(caller, feedback) &&
                     feedbackService.managesSubject(caller.userId, feedback.subjectId)
                 requireFeedbackRead(caller, feedback, managesSubject)
-                call.respond(HttpStatusCode.OK, feedback.toResponse(route.id))
+                val names = feedbackService.partyNames(feedback)
+                call.respond(HttpStatusCode.OK, feedback.toResponse(route.id, names))
             }
             put<Feedbacks.Id> { route ->
                 val caller = call.caller()

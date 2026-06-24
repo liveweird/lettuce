@@ -35,10 +35,19 @@ data class FeedbackResponse(
     val status: FeedbackStatus,
     val content: String,
     val lastModified: Long,
+    // Resolved party display names; null when not resolved (e.g. no requester).
+    val requesterName: String? = null,
+    val subjectName: String? = null,
+    val providerName: String? = null,
 )
 
-fun Feedback.toResponse(id: UInt) =
-    FeedbackResponse(id, requesterId, subjectId, providerId, visibility, status, content, lastModified)
+fun Feedback.toResponse(id: UInt, names: Map<UInt, String> = emptyMap()) =
+    FeedbackResponse(
+        id, requesterId, subjectId, providerId, visibility, status, content, lastModified,
+        requesterName = requesterId?.let { names[it] },
+        subjectName = names[subjectId],
+        providerName = names[providerId],
+    )
 
 @Serializable
 data class FeedbackListItem(

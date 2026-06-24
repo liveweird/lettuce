@@ -186,21 +186,28 @@ export default function ViewFeedback() {
                   <TextInput
                     label="Requester"
                     value={
-                      requesterName ??
-                      (data!.requesterId != null ? `#${data!.requesterId}` : "None")
+                      data!.requesterId == null
+                        ? "None"
+                        : (data!.requesterName ?? requesterName ?? `#${data!.requesterId}`)
                     }
                     disabled
                   />
                   <TextInput
                     label="Subject"
                     value={
-                      asProvider || asTeam ? (subjectName ?? `#${data!.subjectId}`) : "You"
+                      asProvider || asTeam
+                        ? (data!.subjectName ?? subjectName ?? `#${data!.subjectId}`)
+                        : "You"
                     }
                     disabled
                   />
                   <TextInput
                     label="Provider"
-                    value={asProvider ? "You" : (providerName ?? `#${data!.providerId}`)}
+                    value={
+                      asProvider
+                        ? "You"
+                        : (data!.providerName ?? providerName ?? `#${data!.providerId}`)
+                    }
                     disabled
                   />
                 </Stack>

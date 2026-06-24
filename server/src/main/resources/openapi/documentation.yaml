@@ -1103,6 +1103,18 @@ components:
           type: integer
           format: int64
           description: Epoch milliseconds of the last change. Server-managed and read-only.
+        requesterName:
+          type: string
+          nullable: true
+          description: Display name of the requester; null when there is no requester. Server-resolved, read-only.
+        subjectName:
+          type: string
+          nullable: true
+          description: Display name of the subject. Server-resolved, read-only.
+        providerName:
+          type: string
+          nullable: true
+          description: Display name of the provider. Server-resolved, read-only.
 
     FeedbackListItem:
       type: object

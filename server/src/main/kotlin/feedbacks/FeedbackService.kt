@@ -155,6 +155,10 @@ class FeedbackService(val database: R2dbcDatabase) {
         }
     }
 
+    /** Transaction-wrapped variant for callers outside an open transaction (e.g. routes). */
+    suspend fun partyNames(feedback: Feedback): Map<UInt, String> =
+        suspendTransaction(database) { resolvePartyNames(feedback) }
+
     private suspend fun resolvePartyNames(feedback: Feedback): Map<UInt, String> {
         val ids = listOfNotNull(feedback.subjectId, feedback.providerId, feedback.requesterId)
         return UserService.Users
