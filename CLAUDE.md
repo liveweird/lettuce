@@ -50,7 +50,8 @@ ch.nokillswit
 ├── auth/               POST /api/login + password hashing
 ├── users/              /api/users/* CRUD + list + UserService + Users table
 ├── teams/              /api/teams/* CRUD + list + member sub-resource + TeamService + Teams/TeamMembers tables
-└── feedbacks/          /api/feedbacks/* CRUD + list + FeedbackService + Feedbacks table + FeedbackVisibility
+├── feedbacks/          /api/feedbacks/* CRUD + list + FeedbackService + Feedbacks table + FeedbackVisibility
+└── notifications/      /api/notifications/* list + read + seen/unseen + delete + NotificationService + Notifications table (recipient-scoped)
 ```
 
 Routing is feature-local: each feature package registers its own routes from its `configureXxx` module. `plugins/Routing.kt` is a catch-all for non-feature endpoints (`/ws`, `/json/kotlinx-serialization`, `/session/increment`). It also owns the SPA: when `WEB_STATIC_DIR` (config key `web.staticDir`) is set, `configureRouting` installs `singlePageApplication` to serve `web/dist` with an `index.html` fallback; when unset (local dev, where Vite serves the SPA), it falls back to a plain `GET /` → "Hello, World!".
@@ -66,7 +67,7 @@ PostgreSQL is the only database. Connection settings come from the `postgres:` b
 
 The `org.postgresql:postgresql` JDBC driver is on the classpath solely for Flyway; runtime queries go through R2DBC.
 
-Current migrations are `V1`–`V9`: schema for users/teams/feedbacks/revoked-tokens, the `users.role` column (`V5`), the `admin@lettuce.local` seed (`V6`), a soft-delete `marked_as_deleted BOOLEAN` column (with index) on `users` (`V7`) and `teams` (`V8`), and a demo-org seed (`V9`). Soft delete is the pattern for users and teams — rows are flagged `marked_as_deleted`, not physically removed; queries filter on it.
+Current migrations are `V1`–`V13`: schema for users/teams/feedbacks/revoked-tokens, the `users.role` column (`V5`), the `admin@lettuce.local` seed (`V6`), a soft-delete `marked_as_deleted BOOLEAN` column (with index) on `users` (`V7`) and `teams` (`V8`), a demo-org seed (`V9`), a feedback templates table (`V10`), the `REJECTED` feedback status (`V11`), a feedback `last_modified` column (`V12`), and the `notifications` table (`V13`). Soft delete is the pattern for users and teams — rows are flagged `marked_as_deleted`, not physically removed; queries filter on it.
 
 ### List endpoint conventions
 
@@ -132,8 +133,26 @@ Layered RBAC. Implemented in the `server/src/main/kotlin/authz/` package.
   - `POST /api/feedbacks` → any authenticated user.
   - `GET /api/feedbacks/{id}` → enforced from `FeedbackVisibility` and the caller's relationship to the row (provider / subject / requester); ADMIN bypasses.
   - `PUT/DELETE /api/feedbacks/{id}` → the row's `provider_id` or ADMIN.
+  - `GET/POST/DELETE /api/notifications/*` → the notification's `recipient_id` only (via `requireNotificationRecipient`); ADMIN bypasses. Notifications are never created through the API — see "Notifications" below.
 - **Exceptions**: `UnauthorizedException` (→ 401) and `ForbiddenException` (→ 403) are mapped to `ApiError` in `plugins/ErrorHandling.kt`.
 - **Tests**: `server/src/test/kotlin/AuthorizationTest.kt` covers the 401/403 paths and the full `FeedbackVisibility` matrix. The shared `TestUsers.seed` helper defaults to `role = ADMIN` so older tests keep working without modification; pass `role = UserRole.USER` when you need a non-privileged caller.
+
+### Notifications
+
+In-app notifications are **generic rows** (`recipientId`, `message`, optional `link`, `wasSeen`, `timestamp`) — there is **no notification type enum** and no API to create one. They are produced at exactly **one place** in the system: a feedback status transition. The mapping from transition → notifications is the side-effect-free function `feedbackTransitionNotifications()` in `feedbacks/FeedbackNotifications.kt` (kept DB-free so it is directly unit-testable); `FeedbackService.update` resolves party display names, and the only persistence call site is `PUT /api/feedbacks/{id}` in `feedbacks/FeedbackRoutes.kt` (`toNotify.forEach { notificationService.create(it) }`).
+
+**The complete list of situations that generate a notification** (`FeedbackStatus` transitions):
+
+| Transition | Recipient(s) | Link? |
+|---|---|---|
+| `DRAFT → SENT` | subject (always); **and** the requester if `requesterId != null` (a second, separately-worded notification) | yes, per-recipient, only if that recipient may read the feedback |
+| `REQUESTED → REJECTED` (requester present) | requester | no |
+| `REQUESTED → DRAFT` ("picked up" by provider) | requester | no |
+| `SENT → WITHDRAWN` | subject (always); **and** the requester if `requesterId != null` | no |
+
+That is the whole set — any transition not listed produces nothing. Note that a `→ SENT` of *requested* feedback yields **two** notifications (subject + requester). The `link` (`/feedback/{id}/view`) is only attached when the recipient is permitted to read the feedback under its `FeedbackVisibility` (`subjectCanRead`/`requesterCanRead` in the same file) — otherwise `link` is null.
+
+Reading/managing notifications goes through `notifications/NotificationRoutes.kt`, all under `authenticate` and scoped to the recipient via `requireNotificationRecipient` (ADMIN bypasses): `GET /api/notifications` (list; sortable `id`,`timestamp`, default `-timestamp`; optional `wasSeen` filter), `GET /api/notifications/{id}`, `POST /api/notifications/{id}/seen`, `POST /api/notifications/{id}/unseen`, `DELETE /api/notifications/{id}`. The endpoints are documented in `documentation.yaml`; the `notifications` table is created by `V13__create_notifications.sql`.
 
 ### Observability
 
