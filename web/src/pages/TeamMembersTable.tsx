@@ -15,7 +15,7 @@ import {
   TextInput,
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
-import { IconMessagePlus, IconMessages, IconUserPlus } from "@tabler/icons-react";
+import { IconMessagePlus, IconMessageQuestion, IconMessages, IconUserPlus } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { listAllTeams, listTeamMembers, type TeamMemberListView } from "../api/client";
 import SortHeader, { type SortDir } from "../components/SortHeader";
@@ -210,6 +210,19 @@ export default function TeamMembersTable({
                     >
                       Provide feedback
                     </Button>
+                    {view === "member" && (
+                      <Button
+                        component={RouterLink}
+                        to={`/feedback/ask?providerId=${m.userId}&providerName=${encodeURIComponent(m.name)}`}
+                        color="blue"
+                        variant="subtle"
+                        size="xs"
+                        leftSection={<IconMessageQuestion size={14} />}
+                        aria-label={`Ask ${m.name} for feedback`}
+                      >
+                        Ask for feedback
+                      </Button>
+                    )}
                     {view === "managed" && (
                       <Button
                         component={RouterLink}
