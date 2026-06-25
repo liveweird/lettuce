@@ -17,8 +17,6 @@ import { useDisclosure } from "@mantine/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError, createFeedback, getUserId, type FeedbackVisibility } from "../api/client";
 
-const MANAGERS = "/?tab=managers";
-
 // "Ask for feedback" only offers the two visibilities where the subject (the requester
 // themselves) can read the result.
 const VISIBILITY_OPTIONS: { value: FeedbackVisibility; label: string }[] = [
@@ -33,6 +31,8 @@ export default function AskFeedback() {
 
   const providerId = Number(searchParams.get("providerId"));
   const providerName = searchParams.get("providerName");
+  // Return to the Dashboard tab the user came from; default to managers.
+  const backTo = searchParams.get("back") ?? "/?tab=managers";
   const requesterId = getUserId();
 
   const [visibility, setVisibility] = useState<FeedbackVisibility>("PROVIDER_SUBJECT");
@@ -41,7 +41,7 @@ export default function AskFeedback() {
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
 
   const providerIdIsValid = Number.isFinite(providerId) && providerId > 0;
-  if (!providerIdIsValid || requesterId == null) return <Navigate to={MANAGERS} replace />;
+  if (!providerIdIsValid || requesterId == null) return <Navigate to={backTo} replace />;
 
   async function submit() {
     setError(null);
@@ -57,7 +57,7 @@ export default function AskFeedback() {
         content: "",
       });
       await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
-      navigate(MANAGERS, { replace: true });
+      navigate(backTo, { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 403) {
@@ -119,7 +119,7 @@ export default function AskFeedback() {
             <Button variant="default" onClick={closeCancel}>
               Keep editing
             </Button>
-            <Button color="red" component={RouterLink} to={MANAGERS}>
+            <Button color="red" component={RouterLink} to={backTo}>
               Discard
             </Button>
           </Group>

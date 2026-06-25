@@ -257,4 +257,30 @@ describe("RequestFeedback page", () => {
     await user.click(within(dialog).getByRole("button", { name: /keep editing/i }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
+
+  test("honors an explicit back param on submit and discard", async () => {
+    setupMocks(mockFetch, () => jsonResponse(201, { id: 99 }));
+    const user = userEvent.setup();
+    // back = "/?tab=peers", url-encoded
+    renderRequestFeedback(
+      `?subjectId=7&subjectName=Mona&back=${encodeURIComponent("/?tab=peers")}`,
+    );
+
+    await screen.findByLabelText("Subject");
+
+    // Discard link points back at the originating tab, not the subordinates default.
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("link", { name: /discard/i })).toHaveAttribute(
+      "href",
+      "/?tab=peers",
+    );
+    await user.click(within(dialog).getByRole("button", { name: /keep editing/i }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    // Submitting also returns to the originating tab.
+    await addProvider(user, "Alice Provider");
+    await user.click(screen.getByRole("button", { name: /^request$/i }));
+    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/?tab=peers"));
+  });
 });

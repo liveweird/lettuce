@@ -46,7 +46,7 @@ export default function ManagersTable() {
                   <Group gap="xs" wrap="nowrap">
                     <Button
                       component={RouterLink}
-                      to={`/feedback/new?subjectId=${m.userId}&subjectName=${encodeURIComponent(m.name)}`}
+                      to={`/feedback/new?subjectId=${m.userId}&subjectName=${encodeURIComponent(m.name)}&back=${encodeURIComponent("/?tab=managers")}`}
                       color="blue"
                       variant="subtle"
                       size="xs"
@@ -57,7 +57,7 @@ export default function ManagersTable() {
                     </Button>
                     <Button
                       component={RouterLink}
-                      to={`/feedback/ask?providerId=${m.userId}&providerName=${encodeURIComponent(m.name)}`}
+                      to={`/feedback/ask?providerId=${m.userId}&providerName=${encodeURIComponent(m.name)}&back=${encodeURIComponent("/?tab=managers")}`}
                       color="blue"
                       variant="subtle"
                       size="xs"

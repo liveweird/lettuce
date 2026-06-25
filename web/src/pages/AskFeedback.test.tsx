@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -99,5 +99,30 @@ describe("AskFeedback page", () => {
     });
 
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/?tab=managers"));
+  });
+
+  test("honors an explicit back param on submit and discard", async () => {
+    mockFetch.mockImplementation((url: string) =>
+      Promise.resolve(url === "/api/feedbacks" ? jsonResponse(201, { id: 99 }) : jsonResponse(404, {})),
+    );
+    const user = userEvent.setup();
+    // back = "/?tab=peers", url-encoded
+    renderAskFeedback(
+      `?providerId=10&providerName=Manny%20Manager&back=${encodeURIComponent("/?tab=peers")}`,
+    );
+
+    // Discard link points back at the originating tab, not the managers default.
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("link", { name: /discard/i })).toHaveAttribute(
+      "href",
+      "/?tab=peers",
+    );
+    await user.click(within(dialog).getByRole("button", { name: /keep editing/i }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    // Submitting also returns to the originating tab.
+    await user.click(screen.getByRole("button", { name: /send request/i }));
+    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/?tab=peers"));
   });
 });

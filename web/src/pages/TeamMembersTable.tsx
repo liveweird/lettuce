@@ -92,6 +92,10 @@ export default function TeamMembersTable({
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
+  // The Dashboard tab this table lives in, so feedback flows can return here on Cancel.
+  const tab = view === "managed" ? "subordinates" : "peers";
+  const backTo = `/?tab=${tab}`;
+
   return (
     <Stack gap="md">
       <Group align="flex-end" gap="sm">
@@ -201,7 +205,7 @@ export default function TeamMembersTable({
                   <Group gap="xs" wrap="nowrap">
                     <Button
                       component={RouterLink}
-                      to={`/feedback/new?subjectId=${m.userId}&subjectName=${encodeURIComponent(m.name)}`}
+                      to={`/feedback/new?subjectId=${m.userId}&subjectName=${encodeURIComponent(m.name)}&back=${encodeURIComponent(backTo)}`}
                       color="blue"
                       variant="subtle"
                       size="xs"
@@ -212,7 +216,7 @@ export default function TeamMembersTable({
                     </Button>
                     <Button
                       component={RouterLink}
-                      to={`/feedback/ask?providerId=${m.userId}&providerName=${encodeURIComponent(m.name)}`}
+                      to={`/feedback/ask?providerId=${m.userId}&providerName=${encodeURIComponent(m.name)}&back=${encodeURIComponent(backTo)}`}
                       color="blue"
                       variant="subtle"
                       size="xs"
@@ -224,7 +228,7 @@ export default function TeamMembersTable({
                     {view === "managed" && (
                       <Button
                         component={RouterLink}
-                        to={`/feedback/request?subjectId=${m.userId}&subjectName=${encodeURIComponent(m.name)}`}
+                        to={`/feedback/request?subjectId=${m.userId}&subjectName=${encodeURIComponent(m.name)}&back=${encodeURIComponent(backTo)}`}
                         color="blue"
                         variant="subtle"
                         size="xs"

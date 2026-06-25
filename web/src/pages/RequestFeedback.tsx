@@ -29,8 +29,6 @@ import {
 // max (the list endpoint's cap). Fine at this app's scale.
 const PICKER_PAGE_SIZE = 100;
 
-const SUBORDINATES = "/?tab=subordinates";
-
 const VISIBILITY_OPTIONS: { value: FeedbackVisibility; label: string }[] = [
   { value: "PROVIDER_REQUESTER", label: "Provider + requester" },
   { value: "PROVIDER_REQUESTER_SUBJECT", label: "Provider + requester + subject" },
@@ -46,6 +44,8 @@ export default function RequestFeedback() {
 
   const subjectId = Number(searchParams.get("subjectId"));
   const subjectName = searchParams.get("subjectName");
+  // Return to the Dashboard tab the user came from; default to subordinates.
+  const backTo = searchParams.get("back") ?? "/?tab=subordinates";
   const requesterId = getUserId();
 
   const [selected, setSelected] = useState<Provider[]>([]);
@@ -72,7 +72,7 @@ export default function RequestFeedback() {
       .map((u) => ({ value: String(u.id), label: u.name }));
   }, [userPool, selected, subjectId, requesterId]);
 
-  if (!subjectIdIsValid || requesterId == null) return <Navigate to={SUBORDINATES} replace />;
+  if (!subjectIdIsValid || requesterId == null) return <Navigate to={backTo} replace />;
 
   function add() {
     if (!pick) return;
@@ -105,7 +105,7 @@ export default function RequestFeedback() {
         ),
       );
       await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
-      navigate(SUBORDINATES, { replace: true });
+      navigate(backTo, { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 403) {
@@ -224,7 +224,7 @@ export default function RequestFeedback() {
             <Button variant="default" onClick={closeCancel}>
               Keep editing
             </Button>
-            <Button color="red" component={RouterLink} to={SUBORDINATES}>
+            <Button color="red" component={RouterLink} to={backTo}>
               Discard
             </Button>
           </Group>

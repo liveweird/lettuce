@@ -106,7 +106,7 @@ describe("TeamMembersTable", () => {
     const link = await screen.findByRole("link", { name: /provide feedback to bob brown/i });
     expect(link).toHaveAttribute(
       "href",
-      "/feedback/new?subjectId=11&subjectName=Bob%20Brown",
+      `/feedback/new?subjectId=11&subjectName=Bob%20Brown&back=${encodeURIComponent("/?tab=peers")}`,
     );
     // One link per row (Alice appears in two teams -> two rows -> three links total).
     expect(screen.getAllByRole("link", { name: /provide feedback to/i })).toHaveLength(3);
@@ -119,7 +119,7 @@ describe("TeamMembersTable", () => {
     const link = await screen.findByRole("link", { name: /request feedback about bob brown/i });
     expect(link).toHaveAttribute(
       "href",
-      "/feedback/request?subjectId=11&subjectName=Bob%20Brown",
+      `/feedback/request?subjectId=11&subjectName=Bob%20Brown&back=${encodeURIComponent("/?tab=subordinates")}`,
     );
     // One per row (Alice appears in two teams -> two rows -> three links total).
     expect(screen.getAllByRole("link", { name: /request feedback about/i })).toHaveLength(3);
@@ -132,7 +132,7 @@ describe("TeamMembersTable", () => {
     const link = await screen.findByRole("link", { name: /ask bob brown for feedback/i });
     expect(link).toHaveAttribute(
       "href",
-      "/feedback/ask?providerId=11&providerName=Bob%20Brown",
+      `/feedback/ask?providerId=11&providerName=Bob%20Brown&back=${encodeURIComponent("/?tab=subordinates")}`,
     );
     // One per row (Alice appears in two teams -> two rows -> three links total).
     expect(screen.getAllByRole("link", { name: /ask .* for feedback/i })).toHaveLength(3);
@@ -145,7 +145,7 @@ describe("TeamMembersTable", () => {
     const link = await screen.findByRole("link", { name: /ask bob brown for feedback/i });
     expect(link).toHaveAttribute(
       "href",
-      "/feedback/ask?providerId=11&providerName=Bob%20Brown",
+      `/feedback/ask?providerId=11&providerName=Bob%20Brown&back=${encodeURIComponent("/?tab=peers")}`,
     );
     expect(screen.getAllByRole("link", { name: /ask .* for feedback/i })).toHaveLength(3);
   });
