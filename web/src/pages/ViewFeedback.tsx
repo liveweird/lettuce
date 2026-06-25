@@ -243,6 +243,7 @@ export default function ViewFeedback() {
                   }}
                 >
                   <Box
+                    tabIndex={-1}
                     style={{
                       flex: 1,
                       minHeight: 0,
@@ -250,6 +251,9 @@ export default function ViewFeedback() {
                       border: "1px solid var(--mantine-color-default-border)",
                       borderRadius: "var(--mantine-radius-default)",
                       padding: "var(--mantine-spacing-sm)",
+                      backgroundColor: "var(--mantine-color-default-hover)",
+                      cursor: "default",
+                      outline: "none",
                     }}
                   >
                     <Typography>
