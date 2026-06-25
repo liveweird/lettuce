@@ -6,6 +6,7 @@ ktor:
     modules:
       # — base plugins
       - ch.nokillswit.plugins.HttpKt.configureHttp
+      - ch.nokillswit.plugins.SecurityHeadersKt.configureSecurityHeaders
       - ch.nokillswit.plugins.MonitoringKt.configureMonitoring
       - ch.nokillswit.plugins.SerializationKt.configureSerialization
       - ch.nokillswit.plugins.SecurityKt.configureSecurity
