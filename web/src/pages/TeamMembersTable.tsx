@@ -235,7 +235,7 @@ export default function TeamMembersTable({
                         leftSection={<IconUserPlus size={14} />}
                         aria-label={`Request feedback about ${m.name}`}
                       >
-                        Request feedback
+                        Request feedback for
                       </Button>
                     )}
                     <Button
