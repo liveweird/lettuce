@@ -125,6 +125,31 @@ describe("TeamMembersTable", () => {
     expect(screen.getAllByRole("link", { name: /request feedback about/i })).toHaveLength(3);
   });
 
+  test("managed view adds an Ask for feedback link per row pointing at /feedback/ask", async () => {
+    setupMocks(mockFetch);
+    renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
+
+    const link = await screen.findByRole("link", { name: /ask bob brown for feedback/i });
+    expect(link).toHaveAttribute(
+      "href",
+      "/feedback/ask?providerId=11&providerName=Bob%20Brown",
+    );
+    // One per row (Alice appears in two teams -> two rows -> three links total).
+    expect(screen.getAllByRole("link", { name: /ask .* for feedback/i })).toHaveLength(3);
+  });
+
+  test("member view adds an Ask for feedback link per row pointing at /feedback/ask", async () => {
+    setupMocks(mockFetch);
+    renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
+
+    const link = await screen.findByRole("link", { name: /ask bob brown for feedback/i });
+    expect(link).toHaveAttribute(
+      "href",
+      "/feedback/ask?providerId=11&providerName=Bob%20Brown",
+    );
+    expect(screen.getAllByRole("link", { name: /ask .* for feedback/i })).toHaveLength(3);
+  });
+
   test("member view does not render Request feedback links", async () => {
     setupMocks(mockFetch);
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);

@@ -210,19 +210,17 @@ export default function TeamMembersTable({
                     >
                       Provide feedback
                     </Button>
-                    {view === "member" && (
-                      <Button
-                        component={RouterLink}
-                        to={`/feedback/ask?providerId=${m.userId}&providerName=${encodeURIComponent(m.name)}`}
-                        color="blue"
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconMessageQuestion size={14} />}
-                        aria-label={`Ask ${m.name} for feedback`}
-                      >
-                        Ask for feedback
-                      </Button>
-                    )}
+                    <Button
+                      component={RouterLink}
+                      to={`/feedback/ask?providerId=${m.userId}&providerName=${encodeURIComponent(m.name)}`}
+                      color="blue"
+                      variant="subtle"
+                      size="xs"
+                      leftSection={<IconMessageQuestion size={14} />}
+                      aria-label={`Ask ${m.name} for feedback`}
+                    >
+                      Ask for feedback
+                    </Button>
                     {view === "managed" && (
                       <Button
                         component={RouterLink}
