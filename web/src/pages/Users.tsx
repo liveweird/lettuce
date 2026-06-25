@@ -287,28 +287,32 @@ export default function Users() {
                         >
                           Change password
                         </Button>
-                        <Button
-                          component={RouterLink}
-                          to={`/users/${u.id}/teams`}
-                          color="blue"
-                          variant="subtle"
-                          size="xs"
-                          leftSection={<IconUsersGroup size={14} />}
-                          aria-label={`Teams for ${u.name}`}
-                        >
-                          Teams
-                        </Button>
-                        <Button
-                          color="red"
-                          variant="subtle"
-                          size="xs"
-                          leftSection={<IconTrash size={14} />}
-                          onClick={() => requestDelete({ id: u.id, name: u.name, email: u.email })}
-                          aria-label={`Delete ${u.name}`}
-                        >
-                          Delete
-                        </Button>
                       </>
+                    )}
+                    {/* Everyone gets Teams — read-only for non-admins. The name param feeds the
+                        heading there without a getUser call (which is self-or-admin only). */}
+                    <Button
+                      component={RouterLink}
+                      to={`/users/${u.id}/teams?name=${encodeURIComponent(u.name)}`}
+                      color="blue"
+                      variant="subtle"
+                      size="xs"
+                      leftSection={<IconUsersGroup size={14} />}
+                      aria-label={`Teams for ${u.name}`}
+                    >
+                      Teams
+                    </Button>
+                    {admin && (
+                      <Button
+                        color="red"
+                        variant="subtle"
+                        size="xs"
+                        leftSection={<IconTrash size={14} />}
+                        onClick={() => requestDelete({ id: u.id, name: u.name, email: u.email })}
+                        aria-label={`Delete ${u.name}`}
+                      >
+                        Delete
+                      </Button>
                     )}
                   </Group>
                 </Table.Td>

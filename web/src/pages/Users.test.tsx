@@ -109,11 +109,11 @@ describe("Users page", () => {
     await screen.findByText("Alice");
     const links = screen.getAllByRole("link", { name: /^teams for /i });
     expect(links).toHaveLength(2);
-    expect(links[0]).toHaveAttribute("href", "/users/1/teams");
-    expect(links[1]).toHaveAttribute("href", "/users/2/teams");
+    expect(links[0]).toHaveAttribute("href", `/users/1/teams?name=${encodeURIComponent("Alice")}`);
+    expect(links[1]).toHaveAttribute("href", `/users/2/teams?name=${encodeURIComponent("Bob")}`);
   });
 
-  test("non-admin sees only Provide feedback (no Edit/Delete) per row", async () => {
+  test("non-admin sees Provide feedback and Teams, but no Edit/Delete", async () => {
     localStorage.setItem(ROLE_KEY, "USER");
     mockListThen(mockFetch);
     renderUsers();
@@ -125,6 +125,8 @@ describe("Users page", () => {
     // but not on their own row (the current user is Alice, id 1).
     expect(screen.getByRole("link", { name: /provide feedback for bob/i })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /provide feedback for alice/i })).not.toBeInTheDocument();
+    // Non-admins now also get a (read-only) Teams link per row.
+    expect(screen.getAllByRole("link", { name: /^teams for /i })).toHaveLength(2);
   });
 
   test("Cancel in the confirmation modal closes it without calling DELETE", async () => {

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link as RouterLink, Navigate, useParams } from "react-router-dom";
+import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Alert,
   Button,
@@ -33,6 +33,12 @@ export default function UserTeams() {
   const id = Number(params.id);
   const idIsValid = Number.isFinite(id) && id > 0;
   const queryClient = useQueryClient();
+  // Non-admins get a read-only list: no add picker, no remove buttons.
+  const canManage = isAdmin();
+  // getUser is self-or-admin only, so non-admins can't fetch another user's record — the name
+  // comes from a ?name= param passed by the /users list instead.
+  const [searchParams] = useSearchParams();
+  const nameParam = searchParams.get("name");
 
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
   const [addError, setAddError] = useState<string | null>(null);
@@ -47,7 +53,7 @@ export default function UserTeams() {
   } = useQuery({
     queryKey: ["user", id],
     queryFn: () => getUser(id),
-    enabled: idIsValid && isAdmin(),
+    enabled: idIsValid && canManage,
     retry: false,
   });
 
@@ -62,13 +68,13 @@ export default function UserTeams() {
     // 100-row max in one query (no pagination UI) so the add-dropdown exclusion below has a
     // single, complete source of truth.
     queryFn: () => listTeams({ memberId: id, page: 1, pageSize: 100, sort: "name" }),
-    enabled: idIsValid && isAdmin(),
+    enabled: idIsValid,
   });
 
   const { data: allTeams } = useQuery({
     queryKey: ["teams", "all"],
     queryFn: listAllTeams,
-    enabled: idIsValid && isAdmin(),
+    enabled: idIsValid && canManage,
   });
 
   const addMutation = useMutation({
@@ -104,9 +110,9 @@ export default function UserTeams() {
     },
   });
 
-  if (!isAdmin()) return <Navigate to="/users" replace />;
   if (!idIsValid) return <Navigate to="/users" replace />;
 
+  const displayName = user?.name ?? nameParam ?? null;
   const memberTeams = teamsPage?.items ?? [];
   const memberTeamIds = new Set(memberTeams.map((t) => t.id));
   const addOptions = (allTeams ?? [])
@@ -167,31 +173,33 @@ export default function UserTeams() {
 
   return (
     <Stack gap="md">
-      <Title order={2}>Teams{user ? ` — ${user.name}` : ""}</Title>
+      <Title order={2}>Teams{displayName ? ` — ${displayName}` : ""}</Title>
 
-      <Group align="flex-end" gap="sm">
-        <Select
-          label="Add to team"
-          placeholder="Pick a team"
-          data={addOptions}
-          value={selectedTeam}
-          onChange={setSelectedTeam}
-          searchable
-          clearable
-          nothingFoundMessage="No teams available"
-          w={280}
-        />
-        <Button
-          leftSection={<IconPlus size={16} />}
-          onClick={add}
-          disabled={!selectedTeam}
-          loading={addMutation.isPending}
-        >
-          Add
-        </Button>
-      </Group>
+      {canManage && (
+        <Group align="flex-end" gap="sm">
+          <Select
+            label="Add to team"
+            placeholder="Pick a team"
+            data={addOptions}
+            value={selectedTeam}
+            onChange={setSelectedTeam}
+            searchable
+            clearable
+            nothingFoundMessage="No teams available"
+            w={280}
+          />
+          <Button
+            leftSection={<IconPlus size={16} />}
+            onClick={add}
+            disabled={!selectedTeam}
+            loading={addMutation.isPending}
+          >
+            Add
+          </Button>
+        </Group>
+      )}
 
-      {addError && (
+      {canManage && addError && (
         <Alert color="red" title="Failed to add to team" onClose={() => setAddError(null)} withCloseButton>
           {addError}
         </Alert>
@@ -208,13 +216,13 @@ export default function UserTeams() {
           <Table.Tr>
             <Table.Th>Team</Table.Th>
             <Table.Th>Manager</Table.Th>
-            <Table.Th aria-label="Actions" style={{ width: 1 }} />
+            {canManage && <Table.Th aria-label="Actions" style={{ width: 1 }} />}
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
           {teamsLoading && !teamsPage ? (
             <Table.Tr>
-              <Table.Td colSpan={3}>
+              <Table.Td colSpan={canManage ? 3 : 2}>
                 <Center py="md">
                   <Loader size="sm" />
                 </Center>
@@ -228,25 +236,27 @@ export default function UserTeams() {
                   {t.managerName}
                   {t.managerDeleted ? " (deleted)" : ""}
                 </Table.Td>
-                <Table.Td>
-                  <Group gap="xs" wrap="nowrap" justify="flex-end">
-                    <Button
-                      color="red"
-                      variant="subtle"
-                      size="xs"
-                      leftSection={<IconTrash size={14} />}
-                      onClick={() => requestRemove({ id: t.id, name: t.name })}
-                      aria-label={`Remove from ${t.name}`}
-                    >
-                      Remove
-                    </Button>
-                  </Group>
-                </Table.Td>
+                {canManage && (
+                  <Table.Td>
+                    <Group gap="xs" wrap="nowrap" justify="flex-end">
+                      <Button
+                        color="red"
+                        variant="subtle"
+                        size="xs"
+                        leftSection={<IconTrash size={14} />}
+                        onClick={() => requestRemove({ id: t.id, name: t.name })}
+                        aria-label={`Remove from ${t.name}`}
+                      >
+                        Remove
+                      </Button>
+                    </Group>
+                  </Table.Td>
+                )}
               </Table.Tr>
             ))
           ) : (
             <Table.Tr>
-              <Table.Td colSpan={3}>
+              <Table.Td colSpan={canManage ? 3 : 2}>
                 <Text c="dimmed" ta="center">
                   Not a member of any team
                 </Text>
@@ -269,7 +279,7 @@ export default function UserTeams() {
         <Stack gap="md">
           {target && (
             <Text>
-              Remove <strong>{user?.name}</strong> from <strong>{target.name}</strong>?
+              Remove <strong>{displayName}</strong> from <strong>{target.name}</strong>?
             </Text>
           )}
           {removeMutation.isError && (

@@ -54,12 +54,12 @@ function isAllTeamsUrl(url: string) {
   return url.startsWith("/api/teams?") && !url.includes("memberId=");
 }
 
-function renderUserTeams(id: number | string = 7) {
+function renderUserTeams(id: number | string = 7, search = "") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <MantineProvider>
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={[`/users/${id}/teams`]}>
+        <MemoryRouter initialEntries={[`/users/${id}/teams${search}`]}>
           <Routes>
             <Route path="/users/:id/teams" element={<UserTeams />} />
           </Routes>
@@ -99,6 +99,31 @@ describe("UserTeams page", () => {
 
     const membersCall = mockFetch.mock.calls.find(([u]) => typeof u === "string" && isMembersUrl(u));
     expect(membersCall).toBeDefined();
+  });
+
+  test("non-admin gets a read-only list: no add picker, no remove buttons", async () => {
+    localStorage.setItem(ROLE_KEY, "USER");
+    mockFetch.mockImplementation((url: string) => {
+      if (isMembersUrl(url)) return Promise.resolve(teamsPage(MEMBER_TEAMS));
+      // getUser (self-or-admin) and the all-teams pool must not be fetched for non-admins.
+      if (url === "/api/users/7") return Promise.resolve(jsonResponse(403, {}));
+      if (isAllTeamsUrl(url)) return Promise.resolve(teamsPage(ALL_TEAMS));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    // The user's name comes from the ?name= param the /users list passes.
+    renderUserTeams(7, "?name=Alice");
+
+    // Not redirected: heading (from the name param) and the team rows render.
+    expect(await screen.findByRole("heading", { name: "Teams — Alice" })).toBeInTheDocument();
+    expect(await screen.findByRole("cell", { name: "Platform" })).toBeInTheDocument();
+
+    // No management controls.
+    expect(screen.queryByLabelText("Add to team")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^remove from /i })).not.toBeInTheDocument();
+
+    // Neither getUser nor the all-teams pool was requested.
+    expect(mockFetch.mock.calls.some(([u]) => u === "/api/users/7")).toBe(false);
+    expect(mockFetch.mock.calls.some(([u]) => typeof u === "string" && isAllTeamsUrl(u))).toBe(false);
   });
 
   test("add picker excludes joined and self-managed teams, and PUTs the membership", async () => {
