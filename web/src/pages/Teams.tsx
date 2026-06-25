@@ -158,7 +158,9 @@ export default function Teams() {
 
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const columnCount = admin ? 3 : 2;
+  // The actions column is always present now — everyone gets a "Members" button (read-only
+  // for non-admins); only Edit/Delete inside it are admin-gated.
+  const columnCount = 3;
 
   return (
     <Stack gap="md">
@@ -215,7 +217,7 @@ export default function Teams() {
               />
             </Table.Th>
             <Table.Th>Manager</Table.Th>
-            {admin && <Table.Th aria-label="Actions" style={{ width: 1 }} />}
+            <Table.Th aria-label="Actions" style={{ width: 1 }} />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -235,9 +237,9 @@ export default function Teams() {
                   {t.managerName}
                   {t.managerDeleted ? " (deleted)" : ""}
                 </Table.Td>
-                {admin && (
-                  <Table.Td>
-                    <Group gap="xs" wrap="nowrap">
+                <Table.Td>
+                  <Group gap="xs" wrap="nowrap">
+                    {admin && (
                       <Button
                         component={RouterLink}
                         to={`/teams/${t.id}/edit`}
@@ -249,17 +251,19 @@ export default function Teams() {
                       >
                         Edit
                       </Button>
-                      <Button
-                        component={RouterLink}
-                        to={`/teams/${t.id}/members`}
-                        color="blue"
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconUsers size={14} />}
-                        aria-label={`Members of ${t.name}`}
-                      >
-                        Members
-                      </Button>
+                    )}
+                    <Button
+                      component={RouterLink}
+                      to={`/teams/${t.id}/members`}
+                      color="blue"
+                      variant="subtle"
+                      size="xs"
+                      leftSection={<IconUsers size={14} />}
+                      aria-label={`Members of ${t.name}`}
+                    >
+                      Members
+                    </Button>
+                    {admin && (
                       <Button
                         color="red"
                         variant="subtle"
@@ -272,9 +276,9 @@ export default function Teams() {
                       >
                         Delete
                       </Button>
-                    </Group>
-                  </Table.Td>
-                )}
+                    )}
+                  </Group>
+                </Table.Td>
               </Table.Tr>
             ))
           ) : (

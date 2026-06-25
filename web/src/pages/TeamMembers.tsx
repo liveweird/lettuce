@@ -36,6 +36,8 @@ export default function TeamMembers() {
   const id = Number(params.id);
   const idIsValid = Number.isFinite(id) && id > 0;
   const queryClient = useQueryClient();
+  // Non-admins get a read-only roster: no add picker, no remove buttons.
+  const canManage = isAdmin();
 
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [addError, setAddError] = useState<string | null>(null);
@@ -50,7 +52,7 @@ export default function TeamMembers() {
   } = useQuery({
     queryKey: ["team", id],
     queryFn: () => getTeam(id),
-    enabled: idIsValid && isAdmin(),
+    enabled: idIsValid,
     retry: false,
   });
 
@@ -62,14 +64,14 @@ export default function TeamMembers() {
   } = useQuery({
     queryKey: ["teamMembersList", id],
     queryFn: () => listUsers({ teamId: id, page: 1, pageSize: PICKER_PAGE_SIZE, sort: "name" }),
-    enabled: idIsValid && isAdmin(),
+    enabled: idIsValid,
   });
 
   const { data: userPool } = useQuery({
     queryKey: ["users", "picker"],
     queryFn: () => listUsers({ page: 1, pageSize: PICKER_PAGE_SIZE, sort: "name" }),
     staleTime: 5 * 60 * 1000,
-    enabled: idIsValid && isAdmin(),
+    enabled: idIsValid && canManage,
   });
 
   const addMutation = useMutation({
@@ -105,7 +107,6 @@ export default function TeamMembers() {
     },
   });
 
-  if (!isAdmin()) return <Navigate to="/teams" replace />;
   if (!idIsValid) return <Navigate to="/teams" replace />;
 
   const members = membersPage?.items ?? [];
@@ -170,29 +171,31 @@ export default function TeamMembers() {
     <Stack gap="md">
       <Title order={2}>Members{team ? ` — ${team.name}` : ""}</Title>
 
-      <Group align="flex-end" gap="sm">
-        <Select
-          label="Add a user"
-          placeholder="Pick a user"
-          data={addOptions}
-          value={selectedUser}
-          onChange={setSelectedUser}
-          searchable
-          clearable
-          nothingFoundMessage="No users available"
-          w={280}
-        />
-        <Button
-          leftSection={<IconPlus size={16} />}
-          onClick={add}
-          disabled={!selectedUser}
-          loading={addMutation.isPending}
-        >
-          Add
-        </Button>
-      </Group>
+      {canManage && (
+        <Group align="flex-end" gap="sm">
+          <Select
+            label="Add a user"
+            placeholder="Pick a user"
+            data={addOptions}
+            value={selectedUser}
+            onChange={setSelectedUser}
+            searchable
+            clearable
+            nothingFoundMessage="No users available"
+            w={280}
+          />
+          <Button
+            leftSection={<IconPlus size={16} />}
+            onClick={add}
+            disabled={!selectedUser}
+            loading={addMutation.isPending}
+          >
+            Add
+          </Button>
+        </Group>
+      )}
 
-      {addError && (
+      {canManage && addError && (
         <Alert color="red" title="Failed to add member" onClose={() => setAddError(null)} withCloseButton>
           {addError}
         </Alert>
@@ -209,13 +212,13 @@ export default function TeamMembers() {
           <Table.Tr>
             <Table.Th>Name</Table.Th>
             <Table.Th>Email</Table.Th>
-            <Table.Th aria-label="Actions" style={{ width: 1 }} />
+            {canManage && <Table.Th aria-label="Actions" style={{ width: 1 }} />}
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
           {membersLoading && !membersPage ? (
             <Table.Tr>
-              <Table.Td colSpan={3}>
+              <Table.Td colSpan={canManage ? 3 : 2}>
                 <Center py="md">
                   <Loader size="sm" />
                 </Center>
@@ -226,25 +229,27 @@ export default function TeamMembers() {
               <Table.Tr key={m.id}>
                 <Table.Td>{m.name}</Table.Td>
                 <Table.Td>{m.email}</Table.Td>
-                <Table.Td>
-                  <Group gap="xs" wrap="nowrap" justify="flex-end">
-                    <Button
-                      color="red"
-                      variant="subtle"
-                      size="xs"
-                      leftSection={<IconTrash size={14} />}
-                      onClick={() => requestRemove({ id: m.id, name: m.name })}
-                      aria-label={`Remove ${m.name}`}
-                    >
-                      Remove
-                    </Button>
-                  </Group>
-                </Table.Td>
+                {canManage && (
+                  <Table.Td>
+                    <Group gap="xs" wrap="nowrap" justify="flex-end">
+                      <Button
+                        color="red"
+                        variant="subtle"
+                        size="xs"
+                        leftSection={<IconTrash size={14} />}
+                        onClick={() => requestRemove({ id: m.id, name: m.name })}
+                        aria-label={`Remove ${m.name}`}
+                      >
+                        Remove
+                      </Button>
+                    </Group>
+                  </Table.Td>
+                )}
               </Table.Tr>
             ))
           ) : (
             <Table.Tr>
-              <Table.Td colSpan={3}>
+              <Table.Td colSpan={canManage ? 3 : 2}>
                 <Text c="dimmed" ta="center">
                   No members yet
                 </Text>

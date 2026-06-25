@@ -216,13 +216,18 @@ describe("Teams page", () => {
     expect(links[0]).toHaveAttribute("href", "/teams/1/members");
   });
 
-  test("non-admin does not see Members links", async () => {
+  test("non-admin sees Members links but not Edit or Delete controls", async () => {
     localStorage.setItem(ROLE_KEY, "USER");
     setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
     renderTeams();
 
     await screen.findByRole("cell", { name: "Platform" });
-    expect(screen.queryByRole("link", { name: /^members of /i })).not.toBeInTheDocument();
+    const links = screen.getAllByRole("link", { name: /^members of /i });
+    expect(links).toHaveLength(2);
+    expect(links[0]).toHaveAttribute("href", "/teams/1/members");
+    // The read-only roster is the only action available to non-admins.
+    expect(screen.queryByRole("link", { name: /^edit /i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^delete /i })).not.toBeInTheDocument();
   });
 
   test("non-admin does not see Delete buttons", async () => {

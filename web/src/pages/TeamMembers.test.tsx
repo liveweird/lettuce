@@ -90,6 +90,30 @@ describe("TeamMembers page", () => {
     expect(membersCall).toBeDefined();
   });
 
+  test("non-admin gets a read-only roster: no add picker, no remove buttons", async () => {
+    localStorage.setItem(ROLE_KEY, "USER");
+    mockFetch.mockImplementation((url: string) => {
+      if (url === "/api/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
+      if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
+      // The full-user-pool query (add picker) must not run for non-admins.
+      if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    renderTeamMembers(3);
+
+    // Not redirected away: the roster renders.
+    expect(await screen.findByRole("heading", { name: "Members — Platform" })).toBeInTheDocument();
+    expect(await screen.findByRole("cell", { name: "Carol" })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "dave@example.com" })).toBeInTheDocument();
+
+    // No management controls.
+    expect(screen.queryByLabelText("Add a user")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^remove /i })).not.toBeInTheDocument();
+
+    // The add-picker user pool was never fetched.
+    expect(mockFetch.mock.calls.some(([u]) => typeof u === "string" && isPoolUrl(u))).toBe(false);
+  });
+
   test("add picker excludes current members and the manager, and PUTs the membership", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
