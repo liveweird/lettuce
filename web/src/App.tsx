@@ -123,6 +123,14 @@ function ColorSchemeToggle() {
   );
 }
 
+function HeaderLogo() {
+  const computed = useComputedColorScheme("light", { getInitialValueInEffect: true });
+  const src = computed === "dark" ? "/logo-dark.svg" : "/logo-light.svg";
+  // alt="" — decorative: the adjacent "Lettuce" wordmark already names the brand,
+  // so an alt here would make screen readers announce it twice.
+  return <img src={src} alt="" style={{ height: 28, width: 28, display: "block" }} />;
+}
+
 function Shell() {
   const [opened, { toggle, close }] = useDisclosure();
   const navigate = useNavigate();
@@ -160,6 +168,7 @@ function Shell() {
         <Group h="100%" px="md" justify="space-between">
           <Group gap="sm">
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
+            <HeaderLogo />
             <Text fw={600} size="lg">
               Lettuce
             </Text>
