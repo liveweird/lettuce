@@ -182,8 +182,10 @@ class FeedbackService(val database: R2dbcDatabase) {
         val scope: Op<Boolean> = when (view) {
             FeedbackListView.RECEIVED -> (Feedbacks.subjectId eq callerUserId) and
                 (Feedbacks.visibility inList RECEIVED_VISIBILITIES) and
-                // A draft is the provider's private work in progress — hide it from the subject.
-                (Feedbacks.status neq FeedbackStatus.DRAFT)
+                // A draft is the provider's private work in progress — hide it from the subject,
+                // unless the subject also requested it (then they may watch its progress; the
+                // content preview is redacted below).
+                ((Feedbacks.status neq FeedbackStatus.DRAFT) or (Feedbacks.requesterId eq callerUserId))
             FeedbackListView.PROVIDED -> Feedbacks.providerId eq callerUserId
             FeedbackListView.TEAM -> {
                 // Subjects that are members of a team the caller manages (their subordinates).
@@ -243,6 +245,11 @@ class FeedbackService(val database: R2dbcDatabase) {
             .where { predicate }
             .applyPaging(paging, SORTABLE_COLUMNS)
             .map { row ->
+                // Mirror canReadFeedbackContent: a requester watching an unfinished feedback sees
+                // that it exists but not its content.
+                val unfinished = row[Feedbacks.status] == FeedbackStatus.DRAFT ||
+                    row[Feedbacks.status] == FeedbackStatus.REQUESTED
+                val redactContent = unfinished && row[Feedbacks.requesterId]?.value == callerUserId
                 FeedbackListItem(
                     id = row[Feedbacks.id].value,
                     requesterId = row[Feedbacks.requesterId]?.value,
@@ -256,7 +263,7 @@ class FeedbackService(val database: R2dbcDatabase) {
                     providerDeleted = row[providerUsers[UserService.Users.markedAsDeleted]],
                     visibility = row[Feedbacks.visibility],
                     status = row[Feedbacks.status],
-                    contentPreview = row[Feedbacks.content].take(CONTENT_PREVIEW_LENGTH),
+                    contentPreview = if (redactContent) "" else row[Feedbacks.content].take(CONTENT_PREVIEW_LENGTH),
                     lastModified = row[Feedbacks.lastModified],
                 )
             }

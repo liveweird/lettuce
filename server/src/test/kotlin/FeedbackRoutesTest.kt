@@ -739,6 +739,104 @@ class FeedbackRoutesTest {
     }
 
     @Test
+    fun `requester who is the subject may watch their own draft but not its content`() = testApplication {
+        usePostgresTestcontainer()
+        val provider = seedParty("provider", "Pat Provider")
+        // The subject asked for this feedback, so they are also the requester.
+        val subject = seedParty("subject", "Sam Subject")
+        val providerClient = authedClient(provider.email, "pw")
+        val subjectClient = authedClient(subject.email, "pw")
+
+        val draft = providerClient.createFeedback(
+            subjectId = subject.id,
+            providerId = provider.id,
+            visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+            status = FeedbackStatus.DRAFT,
+            requesterId = subject.id,
+            content = "secret draft",
+        )
+
+        // The requester may now read the record (it was 403 before this change) — but the content
+        // is redacted while it is a draft. The provider still sees the real content.
+        val asRequester = subjectClient.get("/api/feedbacks/${draft.id}")
+        assertEquals(HttpStatusCode.OK, asRequester.status)
+        assertEquals("", asRequester.body<FeedbackResponse>().content)
+        assertEquals("secret draft", providerClient.get("/api/feedbacks/${draft.id}").body<FeedbackResponse>().content)
+
+        // It appears in their received list, with the preview redacted too.
+        val received = subjectClient.get("/api/feedbacks?view=received").body<FeedbackPageResponse>()
+        val row = received.items.single { it.id == draft.id }
+        assertEquals(FeedbackStatus.DRAFT, row.status)
+        assertEquals("", row.contentPreview)
+
+        // Once sent, the content opens up to the subject/requester.
+        assertEquals(
+            HttpStatusCode.NoContent,
+            providerClient.put("/api/feedbacks/${draft.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    Feedback(
+                        requesterId = subject.id,
+                        subjectId = subject.id,
+                        providerId = provider.id,
+                        visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                        status = FeedbackStatus.SENT,
+                        content = "secret draft",
+                    )
+                )
+            }.status,
+        )
+        assertEquals("secret draft", subjectClient.get("/api/feedbacks/${draft.id}").body<FeedbackResponse>().content)
+    }
+
+    @Test
+    fun `team view redacts a draft's content from the manager who requested it, not from another manager`() =
+        testApplication {
+            usePostgresTestcontainer()
+            val provider = seedParty("provider", "Pat Provider")
+            val subject = seedParty("subject", "Sam Subject")
+            val requestingManager = seedParty("manager-req", "Mary Manager")
+            val otherManager = seedParty("manager-oth", "Mona Manager")
+            val providerClient = authedClient(provider.email, "pw")
+            val requestingManagerClient = authedClient(requestingManager.email, "pw")
+            val otherManagerClient = authedClient(otherManager.email, "pw")
+
+            // Both managers manage a team the subject belongs to.
+            for ((managerClient, manager) in listOf(
+                requestingManagerClient to requestingManager,
+                otherManagerClient to otherManager,
+            )) {
+                managerClient.post("/api/teams") {
+                    contentType(ContentType.Application.Json)
+                    setBody(Team(name = "Squad-${manager.id}", managerId = manager.id, memberIds = listOf(subject.id)))
+                }
+            }
+
+            // Mary requested this feedback about Sam; it is still a draft.
+            val draft = providerClient.createFeedback(
+                subjectId = subject.id,
+                providerId = provider.id,
+                visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
+                status = FeedbackStatus.DRAFT,
+                requesterId = requestingManager.id,
+                content = "draft for the team",
+            )
+
+            // The requesting manager sees the row in the team view but with the content redacted…
+            val asRequester = requestingManagerClient.get("/api/feedbacks?view=team").body<FeedbackPageResponse>()
+            assertEquals("", asRequester.items.single { it.id == draft.id }.contentPreview)
+            assertEquals("", requestingManagerClient.get("/api/feedbacks/${draft.id}").body<FeedbackResponse>().content)
+
+            // …while a different manager of the same subject still sees the draft content.
+            val asOther = otherManagerClient.get("/api/feedbacks?view=team").body<FeedbackPageResponse>()
+            assertEquals("draft for the team", asOther.items.single { it.id == draft.id }.contentPreview)
+            assertEquals(
+                "draft for the team",
+                otherManagerClient.get("/api/feedbacks/${draft.id}").body<FeedbackResponse>().content,
+            )
+        }
+
+    @Test
     fun `list scopes to a single counterparty by providerId and subjectId`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")

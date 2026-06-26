@@ -40,9 +40,16 @@ fun canReadFeedback(
     if (caller.userId == feedback.providerId) return true
     // A manager may read any feedback about a subordinate (team-list parity), read-only.
     if (managesSubject) return true
-    // While a feedback is being drafted it is the provider's private work in progress;
-    // the subject cannot read it until it leaves DRAFT (e.g. is sent).
-    if (feedback.status == FeedbackStatus.DRAFT && caller.userId == feedback.subjectId) return false
+    // While a feedback is being drafted it is the provider's private work in progress; the
+    // subject cannot read it until it leaves DRAFT — UNLESS the subject is also the requester
+    // (they asked for it and may watch its progress; its content is redacted separately, see
+    // canReadFeedbackContent).
+    if (feedback.status == FeedbackStatus.DRAFT &&
+        caller.userId == feedback.subjectId &&
+        caller.userId != feedback.requesterId
+    ) {
+        return false
+    }
     return when (feedback.visibility) {
         FeedbackVisibility.PUBLIC -> true
         FeedbackVisibility.PROVIDER_SUBJECT ->
@@ -73,6 +80,21 @@ suspend fun requireFeedbackReadAllowingManager(
     if (canReadFeedback(caller, feedback)) return // cheap rules first
     if (managesSubject()) return // DB hit only if needed
     throw ForbiddenException("Caller may not read this feedback")
+}
+
+/**
+ * Whether the feedback's CONTENT (not just its existence) may be shown to [caller]. Assumes
+ * [canReadFeedback] already granted access to the record. While a feedback is unfinished
+ * (DRAFT/REQUESTED) its content is the provider's private work in progress, so a requester who is
+ * only watching sees that it exists but not its content; everyone else who can read it sees content
+ * as before.
+ */
+fun canReadFeedbackContent(caller: CallerPrincipal, feedback: Feedback): Boolean {
+    if (caller.isAdmin()) return true
+    if (caller.userId == feedback.providerId) return true
+    val unfinished =
+        feedback.status == FeedbackStatus.DRAFT || feedback.status == FeedbackStatus.REQUESTED
+    return !(unfinished && caller.userId == feedback.requesterId)
 }
 
 fun canWriteFeedback(caller: CallerPrincipal, feedback: Feedback): Boolean =

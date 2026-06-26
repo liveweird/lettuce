@@ -458,12 +458,16 @@ paths:
         - `view=received` (the default): rows where the caller is the subject AND `visibility`
           is `PROVIDER_SUBJECT`, `PROVIDER_REQUESTER_SUBJECT` or `PUBLIC` — i.e. the rows the
           subject is allowed to read. `PROVIDER_REQUESTER` rows never appear in this view.
+          A `DRAFT` is normally hidden from the subject, but is included when the caller also
+          requested it (so a requester can see their request is being worked on); its
+          `contentPreview` is then redacted (empty) until the feedback is sent.
         - `view=provided`: rows where the caller is the provider, regardless of visibility
           (a provider may always read their own records).
         - `view=team`: rows where the subject is a member of a team the caller manages
           (the caller's subordinates), unrestricted by visibility or status. Intended for a
           manager's overview of their team's feedback. A caller who manages no team gets an
-          empty page.
+          empty page. When the manager is also the requester of an unfinished
+          (`DRAFT`/`REQUESTED`) row, its `contentPreview` is redacted (empty) until it is sent.
 
         Supports offset pagination, sorting and filtering.
 
@@ -593,7 +597,13 @@ paths:
         - `PROVIDER_REQUESTER`:         provider or requester may read.
         - `PROVIDER_REQUESTER_SUBJECT`: provider, requester or subject may read.
         - `PUBLIC`:                     any authenticated user may read.
-        ADMIN may read any record.
+        ADMIN may read any record. A manager may also read any feedback about a subordinate.
+
+        A `DRAFT` is the provider's private work in progress and is hidden from the subject,
+        except when the subject also requested it. A requester may always read a feedback they
+        requested (so they can see it is being worked on), but while it is unfinished
+        (`DRAFT`/`REQUESTED`) the `content` field is redacted (returned empty) for that requester;
+        it becomes visible once the feedback is sent.
       responses:
         '200':
           description: OK

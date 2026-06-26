@@ -250,6 +250,41 @@ describe("ViewFeedback page", () => {
     expect(screen.queryByText("should not show")).not.toBeInTheDocument();
   });
 
+  test("a requester viewing a DRAFT feedback sees no Content section", async () => {
+    // Caller (userId 7) is the requester watching a draft in progress; the server redacts the
+    // content and the page hides the (now empty) Content section.
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        ...FEEDBACK,
+        requesterId: 7,
+        status: "DRAFT",
+        content: "",
+      }),
+    );
+    renderViewFeedback();
+
+    expect((await screen.findByLabelText("Status")) as HTMLInputElement).toHaveValue("Draft");
+    expect(screen.queryByText("Content")).not.toBeInTheDocument();
+  });
+
+  test("a non-requester viewing a DRAFT feedback still sees Content", async () => {
+    // A manager (userId 7) who did not request this draft (requesterId 9, subject 8) still sees
+    // its content — the gate is requester-scoped.
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        ...FEEDBACK,
+        requesterId: 9,
+        subjectId: 8,
+        status: "DRAFT",
+        content: "Draft visible to manager",
+      }),
+    );
+    renderViewFeedback("?as=team&subjectName=Sam");
+
+    expect(await screen.findByText("Content")).toBeInTheDocument();
+    expect(screen.getByText("Draft visible to manager")).toBeInTheDocument();
+  });
+
   test("a requester viewing a SENT feedback still sees Content", async () => {
     mockFetch.mockResolvedValue(
       jsonResponse(200, { ...FEEDBACK, requesterId: 7, status: "SENT", content: "Delivered note" }),

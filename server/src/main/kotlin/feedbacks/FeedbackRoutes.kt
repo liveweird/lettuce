@@ -1,6 +1,7 @@
 package ch.nokillswit.feedbacks
 
 import ch.nokillswit.authz.caller
+import ch.nokillswit.authz.canReadFeedbackContent
 import ch.nokillswit.authz.requireFeedbackReadAllowingManager
 import ch.nokillswit.authz.requireFeedbackWrite
 import ch.nokillswit.infra.paging.parsePaging
@@ -124,7 +125,14 @@ fun Application.configureFeedbackRoutes() {
                     feedbackService.managesSubject(caller.userId, feedback.subjectId)
                 }
                 val names = feedbackService.partyNames(feedback)
-                call.respond(HttpStatusCode.OK, feedback.toResponse(route.id, names))
+                call.respond(
+                    HttpStatusCode.OK,
+                    feedback.toResponse(
+                        route.id,
+                        names,
+                        includeContent = canReadFeedbackContent(caller, feedback),
+                    ),
+                )
             }
             put<Feedbacks.Id> { route ->
                 val caller = call.caller()

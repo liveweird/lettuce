@@ -41,9 +41,15 @@ data class FeedbackResponse(
     val providerName: String? = null,
 )
 
-fun Feedback.toResponse(id: UInt, names: Map<UInt, String> = emptyMap()) =
+fun Feedback.toResponse(
+    id: UInt,
+    names: Map<UInt, String> = emptyMap(),
+    includeContent: Boolean = true,
+) =
     FeedbackResponse(
-        id, requesterId, subjectId, providerId, visibility, status, content, lastModified,
+        id, requesterId, subjectId, providerId, visibility, status,
+        content = if (includeContent) content else "",
+        lastModified = lastModified,
         requesterName = requesterId?.let { names[it] },
         subjectName = names[subjectId],
         providerName = names[providerId],

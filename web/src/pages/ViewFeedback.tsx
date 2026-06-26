@@ -104,11 +104,14 @@ export default function ViewFeedback() {
   // The provider (not the as=provider display hint) is the only one who can change status.
   const isProvider = data != null && getUserId() === data.providerId;
   const action = isProvider ? NEXT_ACTION[data!.status] : undefined;
-  // A requester looking at a request that was never drafted (REQUESTED) or was declined (REJECTED)
-  // has no content to read — hide the empty Content section to keep the view simple.
+  // A requester watching a feedback they requested may see that it exists, but not its content
+  // while it is unfinished: never drafted (REQUESTED), still a private draft (DRAFT), or declined
+  // (REJECTED). The server also redacts the content field for these cases; hiding the section here
+  // avoids rendering an empty Content box.
   const isRequester = data != null && data.requesterId != null && getUserId() === data.requesterId;
   const hideContent =
-    isRequester && (data!.status === "REQUESTED" || data!.status === "REJECTED");
+    isRequester &&
+    (data!.status === "REQUESTED" || data!.status === "REJECTED" || data!.status === "DRAFT");
   // Only stretch the card to viewport height when the growable Content section is shown;
   // otherwise it would span the full window over empty space.
   const fill = !hideContent;
