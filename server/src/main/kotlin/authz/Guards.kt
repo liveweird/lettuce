@@ -26,6 +26,11 @@ fun requireNotificationRecipient(caller: CallerPrincipal, recipientId: UInt) {
     if (caller.userId != recipientId) throw ForbiddenException("Caller may only access their own notifications")
 }
 
+fun requireCanAssignRole(caller: CallerPrincipal, current: UserRole, requested: UserRole?) {
+    if (requested == null || requested == current) return // no role change requested
+    if (!caller.isAdmin()) throw ForbiddenException("Only admins may change a user's role")
+}
+
 fun canReadFeedback(
     caller: CallerPrincipal,
     feedback: Feedback,
@@ -58,6 +63,16 @@ fun requireFeedbackRead(
     if (!canReadFeedback(caller, feedback, managesSubject)) {
         throw ForbiddenException("Caller may not read this feedback")
     }
+}
+
+suspend fun requireFeedbackReadAllowingManager(
+    caller: CallerPrincipal,
+    feedback: Feedback,
+    managesSubject: suspend () -> Boolean,
+) {
+    if (canReadFeedback(caller, feedback)) return // cheap rules first
+    if (managesSubject()) return // DB hit only if needed
+    throw ForbiddenException("Caller may not read this feedback")
 }
 
 fun canWriteFeedback(caller: CallerPrincipal, feedback: Feedback): Boolean =

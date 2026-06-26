@@ -3,6 +3,7 @@ package ch.nokillswit.users
 import ch.nokillswit.auth.hashPassword
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAdmin
+import ch.nokillswit.authz.requireCanAssignRole
 import ch.nokillswit.authz.requireSelfOrAdmin
 import ch.nokillswit.infra.paging.parsePaging
 import io.ktor.http.HttpHeaders
@@ -100,12 +101,8 @@ fun Application.configureUserRoutes() {
                     call.respond(HttpStatusCode.NotFound)
                     return@put
                 }
-                val nextRole = when {
-                    req.role == null -> existing.role
-                    caller.role == UserRole.ADMIN -> req.role
-                    req.role == existing.role -> existing.role
-                    else -> throw ch.nokillswit.authz.ForbiddenException("Only admins may change a user's role")
-                }
+                requireCanAssignRole(caller, existing.role, req.role)
+                val nextRole = req.role ?: existing.role
                 val user = User(
                     name = req.name,
                     email = req.email,
