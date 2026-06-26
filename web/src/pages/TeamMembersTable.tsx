@@ -183,13 +183,16 @@ export default function TeamMembersTable({
                 onToggle={toggleSort}
               />
             </Table.Th>
-            <Table.Th aria-label="Actions" style={{ width: 1 }} />
+            <Table.Th aria-label="Provide feedback" style={{ width: 1 }} />
+            <Table.Th aria-label="Ask for feedback" style={{ width: 1 }} />
+            <Table.Th aria-label="Request feedback for" style={{ width: 1 }} />
+            <Table.Th aria-label="Feedbacks" style={{ width: 1 }} />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
           {isLoading && !data ? (
             <Table.Tr>
-              <Table.Td colSpan={4}>
+              <Table.Td colSpan={7}>
                 <Center py="md">
                   <Loader size="sm" />
                 </Center>
@@ -201,61 +204,65 @@ export default function TeamMembersTable({
                 <Table.Td>{m.name}</Table.Td>
                 <Table.Td>{m.email}</Table.Td>
                 <Table.Td>{m.teamName}</Table.Td>
-                <Table.Td>
-                  <Group gap="xs" wrap="nowrap">
+                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  <Button
+                    component={RouterLink}
+                    to={`/feedback/new?subjectId=${m.userId}&subjectName=${encodeURIComponent(m.name)}&back=${encodeURIComponent(backTo)}`}
+                    color="blue"
+                    variant="subtle"
+                    size="xs"
+                    leftSection={<IconMessagePlus size={14} />}
+                    aria-label={`Provide feedback to ${m.name}`}
+                  >
+                    Provide feedback
+                  </Button>
+                </Table.Td>
+                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  <Button
+                    component={RouterLink}
+                    to={`/feedback/ask?providerId=${m.userId}&providerName=${encodeURIComponent(m.name)}&back=${encodeURIComponent(backTo)}`}
+                    color="blue"
+                    variant="subtle"
+                    size="xs"
+                    leftSection={<IconMessageQuestion size={14} />}
+                    aria-label={`Ask ${m.name} for feedback`}
+                  >
+                    Ask for feedback
+                  </Button>
+                </Table.Td>
+                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  {view === "managed" && (
                     <Button
                       component={RouterLink}
-                      to={`/feedback/new?subjectId=${m.userId}&subjectName=${encodeURIComponent(m.name)}&back=${encodeURIComponent(backTo)}`}
+                      to={`/feedback/request?subjectId=${m.userId}&subjectName=${encodeURIComponent(m.name)}&back=${encodeURIComponent(backTo)}`}
                       color="blue"
                       variant="subtle"
                       size="xs"
-                      leftSection={<IconMessagePlus size={14} />}
-                      aria-label={`Provide feedback to ${m.name}`}
+                      leftSection={<IconUserPlus size={14} />}
+                      aria-label={`Request feedback about ${m.name}`}
                     >
-                      Provide feedback
+                      Request feedback for
                     </Button>
-                    <Button
-                      component={RouterLink}
-                      to={`/feedback/ask?providerId=${m.userId}&providerName=${encodeURIComponent(m.name)}&back=${encodeURIComponent(backTo)}`}
-                      color="blue"
-                      variant="subtle"
-                      size="xs"
-                      leftSection={<IconMessageQuestion size={14} />}
-                      aria-label={`Ask ${m.name} for feedback`}
-                    >
-                      Ask for feedback
-                    </Button>
-                    {view === "managed" && (
-                      <Button
-                        component={RouterLink}
-                        to={`/feedback/request?subjectId=${m.userId}&subjectName=${encodeURIComponent(m.name)}&back=${encodeURIComponent(backTo)}`}
-                        color="blue"
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconUserPlus size={14} />}
-                        aria-label={`Request feedback about ${m.name}`}
-                      >
-                        Request feedback for
-                      </Button>
-                    )}
-                    <Button
-                      component={RouterLink}
-                      to={`/users/${m.userId}/feedbacks?name=${encodeURIComponent(m.name)}&from=${view === "managed" ? "subordinates" : "peers"}`}
-                      color="blue"
-                      variant="subtle"
-                      size="xs"
-                      leftSection={<IconMessages size={14} />}
-                      aria-label={`Feedbacks with ${m.name}`}
-                    >
-                      Feedbacks
-                    </Button>
-                  </Group>
+                  )}
+                </Table.Td>
+                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  <Button
+                    component={RouterLink}
+                    to={`/users/${m.userId}/feedbacks?name=${encodeURIComponent(m.name)}&from=${view === "managed" ? "subordinates" : "peers"}`}
+                    color="blue"
+                    variant="subtle"
+                    size="xs"
+                    leftSection={<IconMessages size={14} />}
+                    aria-label={`Feedbacks with ${m.name}`}
+                  >
+                    Feedbacks
+                  </Button>
                 </Table.Td>
               </Table.Tr>
             ))
           ) : (
             <Table.Tr>
-              <Table.Td colSpan={4}>
+              <Table.Td colSpan={7}>
                 <Text c="dimmed" ta="center">
                   {emptyMessage}
                 </Text>

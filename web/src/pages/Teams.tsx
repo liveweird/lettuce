@@ -160,7 +160,7 @@ export default function Teams() {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   // The actions column is always present now — everyone gets a "Members" button (read-only
   // for non-admins); only Edit/Delete inside it are admin-gated.
-  const columnCount = 3;
+  const columnCount = 5;
 
   return (
     <Stack gap="md">
@@ -217,7 +217,9 @@ export default function Teams() {
               />
             </Table.Th>
             <Table.Th>Manager</Table.Th>
-            <Table.Th aria-label="Actions" style={{ width: 1 }} />
+            <Table.Th aria-label="Edit" style={{ width: 1 }} />
+            <Table.Th aria-label="Members" style={{ width: 1 }} />
+            <Table.Th aria-label="Delete" style={{ width: 1 }} />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -237,47 +239,49 @@ export default function Teams() {
                   {t.managerName}
                   {t.managerDeleted ? " (deleted)" : ""}
                 </Table.Td>
-                <Table.Td>
-                  <Group gap="xs" wrap="nowrap">
-                    {admin && (
-                      <Button
-                        component={RouterLink}
-                        to={`/teams/${t.id}/edit`}
-                        color="blue"
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconPencil size={14} />}
-                        aria-label={`Edit ${t.name}`}
-                      >
-                        Edit
-                      </Button>
-                    )}
+                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  {admin && (
                     <Button
                       component={RouterLink}
-                      to={`/teams/${t.id}/members`}
+                      to={`/teams/${t.id}/edit`}
                       color="blue"
                       variant="subtle"
                       size="xs"
-                      leftSection={<IconUsers size={14} />}
-                      aria-label={`Members of ${t.name}`}
+                      leftSection={<IconPencil size={14} />}
+                      aria-label={`Edit ${t.name}`}
                     >
-                      Members
+                      Edit
                     </Button>
-                    {admin && (
-                      <Button
-                        color="red"
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconTrash size={14} />}
-                        onClick={() =>
-                          requestDelete({ id: t.id, name: t.name, managerName: t.managerName })
-                        }
-                        aria-label={`Delete ${t.name}`}
-                      >
-                        Delete
-                      </Button>
-                    )}
-                  </Group>
+                  )}
+                </Table.Td>
+                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  <Button
+                    component={RouterLink}
+                    to={`/teams/${t.id}/members`}
+                    color="blue"
+                    variant="subtle"
+                    size="xs"
+                    leftSection={<IconUsers size={14} />}
+                    aria-label={`Members of ${t.name}`}
+                  >
+                    Members
+                  </Button>
+                </Table.Td>
+                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  {admin && (
+                    <Button
+                      color="red"
+                      variant="subtle"
+                      size="xs"
+                      leftSection={<IconTrash size={14} />}
+                      onClick={() =>
+                        requestDelete({ id: t.id, name: t.name, managerName: t.managerName })
+                      }
+                      aria-label={`Delete ${t.name}`}
+                    >
+                      Delete
+                    </Button>
+                  )}
                 </Table.Td>
               </Table.Tr>
             ))

@@ -141,7 +141,7 @@ export default function Users() {
 
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const columnCount = 4;
+  const columnCount = 8;
 
   return (
     <Stack gap="md">
@@ -230,7 +230,11 @@ export default function Users() {
                 onToggle={toggleSort}
               />
             </Table.Th>
-            <Table.Th aria-label="Actions" style={{ width: 1 }} />
+            <Table.Th aria-label="Provide feedback" style={{ width: 1 }} />
+            <Table.Th aria-label="Edit" style={{ width: 1 }} />
+            <Table.Th aria-label="Change password" style={{ width: 1 }} />
+            <Table.Th aria-label="Teams" style={{ width: 1 }} />
+            <Table.Th aria-label="Delete" style={{ width: 1 }} />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -248,73 +252,79 @@ export default function Users() {
                 <Table.Td>{u.name}</Table.Td>
                 <Table.Td>{u.email}</Table.Td>
                 <Table.Td>{ROLE_LABEL[u.role]}</Table.Td>
-                <Table.Td>
-                  <Group gap="xs" wrap="nowrap">
-                    {u.id !== currentUserId && (
-                      <Button
-                        component={RouterLink}
-                        to={`/feedback/new?subjectId=${u.id}&subjectName=${encodeURIComponent(u.name)}`}
-                        color="blue"
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconMessagePlus size={14} />}
-                        aria-label={`Provide feedback for ${u.name}`}
-                      >
-                        Provide feedback
-                      </Button>
-                    )}
-                    {admin && (
-                      <>
-                        <Button
-                          component={RouterLink}
-                          to={`/users/${u.id}/edit`}
-                          color="blue"
-                          variant="subtle"
-                          size="xs"
-                          leftSection={<IconPencil size={14} />}
-                          aria-label={`Edit ${u.name}`}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          component={RouterLink}
-                          to={`/users/${u.id}/change-password`}
-                          color="blue"
-                          variant="subtle"
-                          size="xs"
-                          leftSection={<IconKey size={14} />}
-                          aria-label={`Change password for ${u.name}`}
-                        >
-                          Change password
-                        </Button>
-                      </>
-                    )}
-                    {/* Everyone gets Teams — read-only for non-admins. The name param feeds the
-                        heading there without a getUser call (which is self-or-admin only). */}
+                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  {u.id !== currentUserId && (
                     <Button
                       component={RouterLink}
-                      to={`/users/${u.id}/teams?name=${encodeURIComponent(u.name)}`}
+                      to={`/feedback/new?subjectId=${u.id}&subjectName=${encodeURIComponent(u.name)}`}
                       color="blue"
                       variant="subtle"
                       size="xs"
-                      leftSection={<IconUsersGroup size={14} />}
-                      aria-label={`Teams for ${u.name}`}
+                      leftSection={<IconMessagePlus size={14} />}
+                      aria-label={`Provide feedback for ${u.name}`}
                     >
-                      Teams
+                      Provide feedback
                     </Button>
-                    {admin && (
-                      <Button
-                        color="red"
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconTrash size={14} />}
-                        onClick={() => requestDelete({ id: u.id, name: u.name, email: u.email })}
-                        aria-label={`Delete ${u.name}`}
-                      >
-                        Delete
-                      </Button>
-                    )}
-                  </Group>
+                  )}
+                </Table.Td>
+                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  {admin && (
+                    <Button
+                      component={RouterLink}
+                      to={`/users/${u.id}/edit`}
+                      color="blue"
+                      variant="subtle"
+                      size="xs"
+                      leftSection={<IconPencil size={14} />}
+                      aria-label={`Edit ${u.name}`}
+                    >
+                      Edit
+                    </Button>
+                  )}
+                </Table.Td>
+                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  {admin && (
+                    <Button
+                      component={RouterLink}
+                      to={`/users/${u.id}/change-password`}
+                      color="blue"
+                      variant="subtle"
+                      size="xs"
+                      leftSection={<IconKey size={14} />}
+                      aria-label={`Change password for ${u.name}`}
+                    >
+                      Change password
+                    </Button>
+                  )}
+                </Table.Td>
+                {/* Everyone gets Teams — read-only for non-admins. The name param feeds the
+                    heading there without a getUser call (which is self-or-admin only). */}
+                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  <Button
+                    component={RouterLink}
+                    to={`/users/${u.id}/teams?name=${encodeURIComponent(u.name)}`}
+                    color="blue"
+                    variant="subtle"
+                    size="xs"
+                    leftSection={<IconUsersGroup size={14} />}
+                    aria-label={`Teams for ${u.name}`}
+                  >
+                    Teams
+                  </Button>
+                </Table.Td>
+                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  {admin && (
+                    <Button
+                      color="red"
+                      variant="subtle"
+                      size="xs"
+                      leftSection={<IconTrash size={14} />}
+                      onClick={() => requestDelete({ id: u.id, name: u.name, email: u.email })}
+                      aria-label={`Delete ${u.name}`}
+                    >
+                      Delete
+                    </Button>
+                  )}
                 </Table.Td>
               </Table.Tr>
             ))
