@@ -263,6 +263,9 @@ class AuthorizationTest {
         val strangerClient = authedClient(strangerEmail, "pw")
         val adminClient = authedClient(adminEmail, "pw")
 
+        // Visibility only governs access once a feedback is delivered, so the matrix is exercised at
+        // SENT — under the visibility-and-status read rules, a non-terminal status (e.g. REQUESTED)
+        // would gate every non-provider read regardless of visibility.
         suspend fun createWith(visibility: FeedbackVisibility): UInt {
             val created = providerClient.post("/api/feedbacks") {
                 contentType(ContentType.Application.Json)
@@ -272,7 +275,7 @@ class AuthorizationTest {
                         subjectId = subjectId,
                         providerId = providerId,
                         visibility = visibility,
-                        status = FeedbackStatus.REQUESTED,
+                        status = FeedbackStatus.SENT,
                     ),
                 )
             }

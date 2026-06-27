@@ -36,39 +36,6 @@ fun requireCanAssignRole(caller: CallerPrincipal, current: UserRole, requested: 
     if (!caller.isAdmin()) throw ForbiddenException("Only admins may change a user's role")
 }
 
-fun canReadFeedbackOld(
-    caller: CallerPrincipal,
-    feedback: Feedback,
-    managesSubject: Boolean = false,
-): Boolean {
-    if (caller.isAdmin()) return true
-    if (caller.userId == feedback.providerId) return true
-    // A manager may read any feedback about a subordinate (team-list parity), read-only.
-    if (managesSubject) return true
-    // While a feedback is being drafted it is the provider's private work in progress; the
-    // subject cannot read it until it leaves DRAFT — UNLESS the subject is also the requester
-    // (they asked for it and may watch its progress; its content is redacted separately, see
-    // canReadFeedbackContent).
-    if (feedback.status == FeedbackStatus.DRAFT &&
-        caller.userId == feedback.subjectId &&
-        caller.userId != feedback.requesterId
-    ) {
-        return false
-    }
-    return when (feedback.visibility) {
-        FeedbackVisibility.PUBLIC -> true
-        FeedbackVisibility.PROVIDER_SUBJECT ->
-            caller.userId == feedback.subjectId
-
-        FeedbackVisibility.PROVIDER_REQUESTER ->
-            feedback.requesterId != null && caller.userId == feedback.requesterId
-
-        FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT ->
-            caller.userId == feedback.subjectId ||
-                    (feedback.requesterId != null && caller.userId == feedback.requesterId)
-    }
-}
-
 fun canReadFeedback(
     caller: CallerPrincipal,
     feedback: Feedback,
@@ -83,15 +50,19 @@ fun canReadFeedback(
     if (caller.userId == feedback.providerId) return true
 
     // what REQUESTER sees
-    // Requesters can always see the full feedback, regardless of the status and visibility
-    if (feedback.requesterId != null && caller.userId == feedback.requesterId) return true
+    // Requesters can see the feedback if:
+    // - visibility: provider-requester, or provider-requester-subject
+    // - status: any
+    if ((feedback.requesterId != null && caller.userId == feedback.requesterId) &&
+        (feedback.visibility == FeedbackVisibility.PROVIDER_REQUESTER || feedback.visibility == FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT)
+    ) return true
 
     // what SUBJECT sees
     // Subject can see the feedback if:
-    // - visibility: public, provider-subject, or provider-requester-subject
+    // - visibility: provider-subject, or provider-requester-subject
     // - status: Sent, Withdawn
     if (caller.userId == feedback.subjectId &&
-        (feedback.visibility == FeedbackVisibility.PUBLIC || feedback.visibility == FeedbackVisibility.PROVIDER_SUBJECT || feedback.visibility == FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT) &&
+        (feedback.visibility == FeedbackVisibility.PROVIDER_SUBJECT || feedback.visibility == FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT) &&
         (feedback.status == FeedbackStatus.SENT || feedback.status == FeedbackStatus.WITHDRAWN)
     ) return true
 

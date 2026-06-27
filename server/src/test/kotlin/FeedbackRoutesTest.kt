@@ -750,7 +750,9 @@ class FeedbackRoutesTest {
         val draft = providerClient.createFeedback(
             subjectId = subject.id,
             providerId = provider.id,
-            visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+            // A requester's read access requires a requester-inclusive visibility; the subject is also
+            // the requester here, so PROVIDER_REQUESTER_SUBJECT lets them watch their own draft.
+            visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
             status = FeedbackStatus.DRAFT,
             requesterId = subject.id,
             content = "secret draft",
