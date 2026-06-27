@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
@@ -32,6 +33,7 @@ export default function TeamMembersTable({
   view: TeamMemberListView;
   emptyMessage: string;
 }) {
+  const { t } = useTranslation();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
   const [sortField, setSortField] = useState<SortField>("name");
@@ -54,7 +56,7 @@ export default function TeamMembersTable({
     queryKey: ["teams", "all"],
     queryFn: listAllTeams,
   });
-  const teamOptions = (teams ?? []).map((t) => ({ value: String(t.id), label: t.name }));
+  const teamOptions = (teams ?? []).map((team) => ({ value: String(team.id), label: team.name }));
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: [
@@ -100,15 +102,15 @@ export default function TeamMembersTable({
     <Stack gap="md">
       <Group align="flex-end" gap="sm">
         <TextInput
-          label="Name"
-          placeholder="contains…"
+          label={t("common.field.name")}
+          placeholder={t("common.filter.contains")}
           value={nameFilter}
           onChange={(e) => setNameFilter(e.currentTarget.value)}
           rightSection={
             nameFilter ? (
               <CloseButton
                 size="sm"
-                aria-label="Clear name filter"
+                aria-label={t("teams.clearNameFilter")}
                 tabIndex={-1}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setNameFilter("")}
@@ -118,15 +120,15 @@ export default function TeamMembersTable({
           rightSectionPointerEvents="auto"
         />
         <TextInput
-          label="Email"
-          placeholder="contains…"
+          label={t("common.field.email")}
+          placeholder={t("common.filter.contains")}
           value={emailFilter}
           onChange={(e) => setEmailFilter(e.currentTarget.value)}
           rightSection={
             emailFilter ? (
               <CloseButton
                 size="sm"
-                aria-label="Clear email filter"
+                aria-label={t("teams.clearEmailFilter")}
                 tabIndex={-1}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setEmailFilter("")}
@@ -136,20 +138,20 @@ export default function TeamMembersTable({
           rightSectionPointerEvents="auto"
         />
         <Select
-          label="Team"
-          placeholder="Any"
+          label={t("teams.team")}
+          placeholder={t("common.state.any")}
           data={teamOptions}
           value={teamFilter}
           onChange={setTeamFilter}
           clearable
-          clearButtonProps={{ "aria-label": "Clear team filter" }}
+          clearButtonProps={{ "aria-label": t("teams.clearTeamFilter") }}
           searchable
         />
       </Group>
 
       {isError && (
-        <Alert color="red" title="Failed to load team members">
-          {error instanceof Error ? error.message : "Unknown error"}
+        <Alert color="red" title={t("teams.loadMembersTableFailed")}>
+          {error instanceof Error ? error.message : t("teams.unknownError")}
         </Alert>
       )}
 
@@ -159,7 +161,7 @@ export default function TeamMembersTable({
             <Table.Th>
               <SortHeader
                 field="name"
-                label="Name"
+                label={t("common.field.name")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
@@ -168,7 +170,7 @@ export default function TeamMembersTable({
             <Table.Th>
               <SortHeader
                 field="email"
-                label="Email"
+                label={t("common.field.email")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
@@ -177,16 +179,16 @@ export default function TeamMembersTable({
             <Table.Th>
               <SortHeader
                 field="teamName"
-                label="Team"
+                label={t("teams.team")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
             </Table.Th>
-            <Table.Th aria-label="Provide feedback" style={{ width: 1 }} />
-            <Table.Th aria-label="Ask for feedback" style={{ width: 1 }} />
-            <Table.Th aria-label="Request feedback for" style={{ width: 1 }} />
-            <Table.Th aria-label="Feedbacks" style={{ width: 1 }} />
+            <Table.Th aria-label={t("teams.provideFeedback")} style={{ width: 1 }} />
+            <Table.Th aria-label={t("teams.askForFeedback")} style={{ width: 1 }} />
+            <Table.Th aria-label={t("teams.requestFeedbackFor")} style={{ width: 1 }} />
+            <Table.Th aria-label={t("teams.feedbacks")} style={{ width: 1 }} />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -212,9 +214,9 @@ export default function TeamMembersTable({
                     variant="subtle"
                     size="xs"
                     leftSection={<IconMessagePlus size={14} />}
-                    aria-label={`Provide feedback to ${m.name}`}
+                    aria-label={t("teams.provideFeedbackToAria", { name: m.name })}
                   >
-                    Provide feedback
+                    {t("teams.provideFeedback")}
                   </Button>
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
@@ -225,9 +227,9 @@ export default function TeamMembersTable({
                     variant="subtle"
                     size="xs"
                     leftSection={<IconMessageQuestion size={14} />}
-                    aria-label={`Ask ${m.name} for feedback`}
+                    aria-label={t("teams.askForFeedbackAria", { name: m.name })}
                   >
-                    Ask for feedback
+                    {t("teams.askForFeedback")}
                   </Button>
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
@@ -239,9 +241,9 @@ export default function TeamMembersTable({
                       variant="subtle"
                       size="xs"
                       leftSection={<IconUserPlus size={14} />}
-                      aria-label={`Request feedback about ${m.name}`}
+                      aria-label={t("teams.requestFeedbackAboutAria", { name: m.name })}
                     >
-                      Request feedback for
+                      {t("teams.requestFeedbackFor")}
                     </Button>
                   )}
                 </Table.Td>
@@ -253,9 +255,9 @@ export default function TeamMembersTable({
                     variant="subtle"
                     size="xs"
                     leftSection={<IconMessages size={14} />}
-                    aria-label={`Feedbacks with ${m.name}`}
+                    aria-label={t("teams.feedbacksWithAria", { name: m.name })}
                   >
-                    Feedbacks
+                    {t("teams.feedbacks")}
                   </Button>
                 </Table.Td>
               </Table.Tr>
@@ -274,13 +276,16 @@ export default function TeamMembersTable({
 
       <Group justify="space-between" align="center">
         <Text size="sm" c="dimmed">
-          {total} total
+          {t("common.table.total", { count: total })}
         </Text>
         <Group gap="sm" align="center">
           <Select
             size="xs"
-            aria-label="Rows per page"
-            data={PAGE_SIZE_OPTIONS.map((n) => ({ value: String(n), label: `${n} / page` }))}
+            aria-label={t("teams.rowsPerPage")}
+            data={PAGE_SIZE_OPTIONS.map((n) => ({
+              value: String(n),
+              label: t("common.table.perPage", { count: n }),
+            }))}
             value={String(pageSize)}
             onChange={(v) => {
               if (!v) return;

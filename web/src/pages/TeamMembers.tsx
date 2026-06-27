@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link as RouterLink, Navigate, useParams } from "react-router-dom";
 import {
   Alert,
@@ -32,6 +33,7 @@ const PICKER_PAGE_SIZE = 100;
 type MemberRow = { id: number; name: string };
 
 export default function TeamMembers() {
+  const { t } = useTranslation();
   const params = useParams<{ id: string }>();
   const id = Number(params.id);
   const idIsValid = Number.isFinite(id) && id > 0;
@@ -84,16 +86,16 @@ export default function TeamMembers() {
     onError: (err) => {
       if (err instanceof ApiError) {
         if (err.status === 400) {
-          setAddError("That user can't be added to this team (they may be its manager).");
+          setAddError(t("teams.addMemberInvalid"));
         } else if (err.status === 403) {
-          setAddError("You don't have permission to modify this team.");
+          setAddError(t("teams.modifyForbidden"));
         } else if (err.status === 404) {
-          setAddError("Team no longer exists.");
+          setAddError(t("teams.teamGone"));
         } else {
-          setAddError(`Add failed (${err.status})`);
+          setAddError(t("teams.addFailedStatus", { status: err.status }));
         }
       } else {
-        setAddError("Add failed. Check your connection and try again.");
+        setAddError(t("teams.addFailedNetwork"));
       }
     },
   });
@@ -141,7 +143,7 @@ export default function TeamMembers() {
   if (teamLoading) {
     return (
       <Stack gap="md">
-        <Title order={2}>Members</Title>
+        <Title order={2}>{t("teams.members")}</Title>
         <Center py="xl">
           <Loader />
         </Center>
@@ -152,15 +154,15 @@ export default function TeamMembers() {
   if (teamNotFound || teamIsError) {
     return (
       <Stack gap="md">
-        <Title order={2}>Members</Title>
+        <Title order={2}>{t("teams.members")}</Title>
         <Alert color="red" variant="light">
           {teamNotFound
-            ? "Team not found."
-            : `Failed to load team${teamError instanceof ApiError ? ` (${teamError.status})` : ""}.`}
+            ? t("teams.teamNotFound")
+            : `${t("teams.loadTeamFailed")}${teamError instanceof ApiError ? ` (${teamError.status})` : ""}.`}
         </Alert>
         <Group justify="flex-end">
           <Button component={RouterLink} to="/teams" variant="default">
-            Back to teams
+            {t("teams.backToTeams")}
           </Button>
         </Group>
       </Stack>
@@ -169,19 +171,22 @@ export default function TeamMembers() {
 
   return (
     <Stack gap="md">
-      <Title order={2}>Members{team ? ` — ${team.name}` : ""}</Title>
+      <Title order={2}>
+        {t("teams.members")}
+        {team ? ` — ${team.name}` : ""}
+      </Title>
 
       {canManage && (
         <Group align="flex-end" gap="sm">
           <Select
-            label="Add a user"
-            placeholder="Pick a user"
+            label={t("teams.addUser")}
+            placeholder={t("teams.pickUser")}
             data={addOptions}
             value={selectedUser}
             onChange={setSelectedUser}
             searchable
             clearable
-            nothingFoundMessage="No users available"
+            nothingFoundMessage={t("teams.noUsersAvailable")}
             w={280}
           />
           <Button
@@ -190,29 +195,29 @@ export default function TeamMembers() {
             disabled={!selectedUser}
             loading={addMutation.isPending}
           >
-            Add
+            {t("teams.add")}
           </Button>
         </Group>
       )}
 
       {canManage && addError && (
-        <Alert color="red" title="Failed to add member" onClose={() => setAddError(null)} withCloseButton>
+        <Alert color="red" title={t("teams.addMemberFailed")} onClose={() => setAddError(null)} withCloseButton>
           {addError}
         </Alert>
       )}
 
       {membersIsError && (
-        <Alert color="red" title="Failed to load members">
-          {membersError instanceof Error ? membersError.message : "Unknown error"}
+        <Alert color="red" title={t("teams.loadMembersFailed")}>
+          {membersError instanceof Error ? membersError.message : t("teams.unknownError")}
         </Alert>
       )}
 
       <Table striped highlightOnHover withTableBorder>
         <Table.Thead>
           <Table.Tr>
-            <Table.Th>Name</Table.Th>
-            <Table.Th>Email</Table.Th>
-            {canManage && <Table.Th aria-label="Actions" style={{ width: 1 }} />}
+            <Table.Th>{t("common.field.name")}</Table.Th>
+            <Table.Th>{t("common.field.email")}</Table.Th>
+            {canManage && <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />}
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -238,9 +243,9 @@ export default function TeamMembers() {
                         size="xs"
                         leftSection={<IconTrash size={14} />}
                         onClick={() => requestRemove({ id: m.id, name: m.name })}
-                        aria-label={`Remove ${m.name}`}
+                        aria-label={t("teams.removeAria", { name: m.name })}
                       >
-                        Remove
+                        {t("teams.remove")}
                       </Button>
                     </Group>
                   </Table.Td>
@@ -251,7 +256,7 @@ export default function TeamMembers() {
             <Table.Tr>
               <Table.Td colSpan={canManage ? 3 : 2}>
                 <Text c="dimmed" ta="center">
-                  No members yet
+                  {t("teams.noMembersYet")}
                 </Text>
               </Table.Td>
             </Table.Tr>
@@ -261,33 +266,34 @@ export default function TeamMembers() {
 
       <Group justify="space-between" align="center">
         <Text size="sm" c="dimmed">
-          {members.length} total
+          {t("common.table.total", { count: members.length })}
         </Text>
         <Button component={RouterLink} to="/teams" variant="default">
-          Back to teams
+          {t("teams.backToTeams")}
         </Button>
       </Group>
 
-      <Modal opened={confirmOpen} onClose={cancelRemove} title="Remove from team?" centered>
+      <Modal opened={confirmOpen} onClose={cancelRemove} title={t("teams.removeModalTitle")} centered>
         <Stack gap="md">
           {target && (
             <Text>
-              Remove <strong>{target.name}</strong> from <strong>{team?.name}</strong>?
+              {t("teams.removeConfirmLead")} <strong>{target.name}</strong>{" "}
+              {t("teams.removeConfirmMid")} <strong>{team?.name}</strong>?
             </Text>
           )}
           {removeMutation.isError && (
-            <Alert color="red" title="Failed to remove member">
+            <Alert color="red" title={t("teams.removeMemberFailed")}>
               {removeMutation.error instanceof Error
                 ? removeMutation.error.message
-                : "Unknown error"}
+                : t("teams.unknownError")}
             </Alert>
           )}
           <Group justify="flex-end" gap="sm">
             <Button variant="default" onClick={cancelRemove} disabled={removeMutation.isPending}>
-              Cancel
+              {t("common.action.cancel")}
             </Button>
             <Button color="red" onClick={confirmRemove} loading={removeMutation.isPending}>
-              Remove
+              {t("teams.remove")}
             </Button>
           </Group>
         </Stack>

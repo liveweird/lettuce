@@ -11,11 +11,14 @@ export function formatTimestamp(ms: number): string {
 // Recency windows for the "Last modified" list filter.
 export type LastModifiedWindow = "all" | "week" | "month";
 
-export const LAST_MODIFIED_OPTIONS = [
-  { value: "all", label: "All" },
-  { value: "week", label: "Last week" },
-  { value: "month", label: "Last month" },
-];
+// Built from a translator so the labels stay localized; callers pass their `t` from useTranslation.
+export function lastModifiedOptions(t: (key: string) => string) {
+  return [
+    { value: "all", label: t("common.state.all") },
+    { value: "week", label: t("feedback.lastWeek") },
+    { value: "month", label: t("feedback.lastMonth") },
+  ];
+}
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

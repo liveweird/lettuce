@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import {
   Alert,
@@ -49,14 +50,12 @@ type SortField = "name" | "email" | "role";
 
 type UserRow = { id: number; name: string; email: string };
 
-const ROLE_LABEL: Record<UserRole, string> = { ADMIN: "Admin", USER: "User" };
-
-const ROLE_OPTIONS = (Object.keys(ROLE_LABEL) as UserRole[]).map((value) => ({
-  value,
-  label: ROLE_LABEL[value],
-}));
-
 export default function Users() {
+  const { t } = useTranslation();
+  const ROLE_OPTIONS = (["ADMIN", "USER"] as UserRole[]).map((value) => ({
+    value,
+    label: t(`common.role.${value}`),
+  }));
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
   const [sortField, setSortField] = useState<SortField>("name");
@@ -145,19 +144,19 @@ export default function Users() {
 
   return (
     <Stack gap="md">
-      <Title order={2}>Users</Title>
+      <Title order={2}>{t("users.title")}</Title>
 
       <Group align="flex-end" gap="sm">
         <TextInput
-          label="Name"
-          placeholder="contains…"
+          label={t("common.field.name")}
+          placeholder={t("common.filter.contains")}
           value={nameFilter}
           onChange={(e) => setNameFilter(e.currentTarget.value)}
           rightSection={
             nameFilter ? (
               <CloseButton
                 size="sm"
-                aria-label="Clear name filter"
+                aria-label={t("users.clearNameFilter")}
                 tabIndex={-1}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setNameFilter("")}
@@ -167,15 +166,15 @@ export default function Users() {
           rightSectionPointerEvents="auto"
         />
         <TextInput
-          label="Email"
-          placeholder="contains…"
+          label={t("common.field.email")}
+          placeholder={t("common.filter.contains")}
           value={emailFilter}
           onChange={(e) => setEmailFilter(e.currentTarget.value)}
           rightSection={
             emailFilter ? (
               <CloseButton
                 size="sm"
-                aria-label="Clear email filter"
+                aria-label={t("users.clearEmailFilter")}
                 tabIndex={-1}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setEmailFilter("")}
@@ -185,8 +184,8 @@ export default function Users() {
           rightSectionPointerEvents="auto"
         />
         <Select
-          label="Role"
-          placeholder="Any"
+          label={t("common.field.role")}
+          placeholder={t("common.state.any")}
           data={ROLE_OPTIONS}
           value={roleFilter}
           onChange={(v) => setRoleFilter((v as UserRole | null) ?? null)}
@@ -195,8 +194,8 @@ export default function Users() {
       </Group>
 
       {isError && (
-        <Alert color="red" title="Failed to load users">
-          {error instanceof Error ? error.message : "Unknown error"}
+        <Alert color="red" title={t("users.loadUsersFailed")}>
+          {error instanceof Error ? error.message : t("users.unknownError")}
         </Alert>
       )}
 
@@ -206,7 +205,7 @@ export default function Users() {
             <Table.Th>
               <SortHeader
                 field="name"
-                label="Name"
+                label={t("common.field.name")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
@@ -215,7 +214,7 @@ export default function Users() {
             <Table.Th>
               <SortHeader
                 field="email"
-                label="Email"
+                label={t("common.field.email")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
@@ -224,17 +223,17 @@ export default function Users() {
             <Table.Th>
               <SortHeader
                 field="role"
-                label="Role"
+                label={t("common.field.role")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
             </Table.Th>
-            <Table.Th aria-label="Provide feedback" style={{ width: 1 }} />
-            <Table.Th aria-label="Edit" style={{ width: 1 }} />
-            <Table.Th aria-label="Change password" style={{ width: 1 }} />
-            <Table.Th aria-label="Teams" style={{ width: 1 }} />
-            <Table.Th aria-label="Delete" style={{ width: 1 }} />
+            <Table.Th aria-label={t("users.provideFeedback")} style={{ width: 1 }} />
+            <Table.Th aria-label={t("common.action.edit")} style={{ width: 1 }} />
+            <Table.Th aria-label={t("users.changePassword")} style={{ width: 1 }} />
+            <Table.Th aria-label={t("users.teams")} style={{ width: 1 }} />
+            <Table.Th aria-label={t("common.action.delete")} style={{ width: 1 }} />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -251,7 +250,7 @@ export default function Users() {
               <Table.Tr key={u.id}>
                 <Table.Td>{u.name}</Table.Td>
                 <Table.Td>{u.email}</Table.Td>
-                <Table.Td>{ROLE_LABEL[u.role]}</Table.Td>
+                <Table.Td>{t(`common.role.${u.role}`)}</Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                   {u.id !== currentUserId && (
                     <Button
@@ -261,9 +260,9 @@ export default function Users() {
                       variant="subtle"
                       size="xs"
                       leftSection={<IconMessagePlus size={14} />}
-                      aria-label={`Provide feedback for ${u.name}`}
+                      aria-label={t("users.provideFeedbackFor", { name: u.name })}
                     >
-                      Provide feedback
+                      {t("users.provideFeedback")}
                     </Button>
                   )}
                 </Table.Td>
@@ -276,9 +275,9 @@ export default function Users() {
                       variant="subtle"
                       size="xs"
                       leftSection={<IconPencil size={14} />}
-                      aria-label={`Edit ${u.name}`}
+                      aria-label={t("users.editAria", { name: u.name })}
                     >
-                      Edit
+                      {t("common.action.edit")}
                     </Button>
                   )}
                 </Table.Td>
@@ -291,9 +290,9 @@ export default function Users() {
                       variant="subtle"
                       size="xs"
                       leftSection={<IconKey size={14} />}
-                      aria-label={`Change password for ${u.name}`}
+                      aria-label={t("users.changePasswordFor", { name: u.name })}
                     >
-                      Change password
+                      {t("users.changePassword")}
                     </Button>
                   )}
                 </Table.Td>
@@ -307,9 +306,9 @@ export default function Users() {
                     variant="subtle"
                     size="xs"
                     leftSection={<IconUsersGroup size={14} />}
-                    aria-label={`Teams for ${u.name}`}
+                    aria-label={t("users.teamsFor", { name: u.name })}
                   >
-                    Teams
+                    {t("users.teams")}
                   </Button>
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
@@ -320,9 +319,9 @@ export default function Users() {
                       size="xs"
                       leftSection={<IconTrash size={14} />}
                       onClick={() => requestDelete({ id: u.id, name: u.name, email: u.email })}
-                      aria-label={`Delete ${u.name}`}
+                      aria-label={t("users.deleteAria", { name: u.name })}
                     >
-                      Delete
+                      {t("common.action.delete")}
                     </Button>
                   )}
                 </Table.Td>
@@ -332,7 +331,7 @@ export default function Users() {
             <Table.Tr>
               <Table.Td colSpan={columnCount}>
                 <Text c="dimmed" ta="center">
-                  No users
+                  {t("users.noUsers")}
                 </Text>
               </Table.Td>
             </Table.Tr>
@@ -342,13 +341,16 @@ export default function Users() {
 
       <Group justify="space-between" align="center">
         <Text size="sm" c="dimmed">
-          {total} total
+          {t("common.table.total", { count: total })}
         </Text>
         <Group gap="sm" align="center">
           <Select
             size="xs"
-            aria-label="Rows per page"
-            data={PAGE_SIZE_OPTIONS.map((n) => ({ value: String(n), label: `${n} / page` }))}
+            aria-label={t("users.rowsPerPage")}
+            data={PAGE_SIZE_OPTIONS.map((n) => ({
+              value: String(n),
+              label: t("common.table.perPage", { count: n }),
+            }))}
             value={String(pageSize)}
             onChange={(v) => {
               if (!v) return;
@@ -375,7 +377,7 @@ export default function Users() {
             to="/users/new"
             leftSection={<IconPlus size={16} />}
           >
-            Create user
+            {t("users.createUser")}
           </Button>
         </Group>
       )}
@@ -383,32 +385,33 @@ export default function Users() {
       <Modal
         opened={confirmOpen}
         onClose={cancelDelete}
-        title="Delete user?"
+        title={t("users.deleteTitle")}
         centered
       >
         <Stack gap="md">
           {target && (
             <Text>
-              Delete user <strong>{target.name}</strong> ({target.email})? This cannot be undone.
+              {t("users.deleteConfirmLead")} <strong>{target.name}</strong>{" "}
+              {t("users.deleteConfirmRest", { email: target.email })}
             </Text>
           )}
           {deleteMutation.isError && (
-            <Alert color="red" title="Failed to delete user">
+            <Alert color="red" title={t("users.deleteUserFailed")}>
               {deleteMutation.error instanceof Error
                 ? deleteMutation.error.message
-                : "Unknown error"}
+                : t("users.unknownError")}
             </Alert>
           )}
           <Group justify="flex-end" gap="sm">
             <Button variant="default" onClick={cancelDelete} disabled={deleteMutation.isPending}>
-              Cancel
+              {t("common.action.cancel")}
             </Button>
             <Button
               color="red"
               onClick={confirmDelete}
               loading={deleteMutation.isPending}
             >
-              Delete
+              {t("common.action.delete")}
             </Button>
           </Group>
         </Stack>

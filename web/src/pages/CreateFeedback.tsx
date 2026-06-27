@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import {
   ApiError,
   createFeedback,
@@ -11,6 +12,7 @@ import {
 import FeedbackForm from "../components/FeedbackForm";
 
 export default function CreateFeedback() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
@@ -45,14 +47,14 @@ export default function CreateFeedback() {
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 403) {
-          setError("You don't have permission to provide this feedback.");
+          setError(t("feedback.error.providePermission"));
         } else if (err.status === 400) {
-          setError("Validation error. Please check the form and try again.");
+          setError(t("feedback.error.validation"));
         } else {
-          setError(`Create failed (${err.status})`);
+          setError(t("feedback.error.createFailedStatus", { status: err.status }));
         }
       } else {
-        setError("Create failed. Check your connection and try again.");
+        setError(t("feedback.error.createFailed"));
       }
     } finally {
       setSubmitting(null);
@@ -61,7 +63,7 @@ export default function CreateFeedback() {
 
   return (
     <FeedbackForm
-      title="Provide feedback"
+      title={t("feedback.provideTitle")}
       subjectDisplay={subjectName ?? `#${subjectId}`}
       initialVisibility="PROVIDER_SUBJECT"
       initialContent=""
@@ -70,8 +72,8 @@ export default function CreateFeedback() {
       onSubmit={submit}
       cancelTo={backTo}
       showTemplateInsert
-      discardTitle="Discard feedback?"
-      discardMessage="Discard this feedback? Anything you've written won't be saved."
+      discardTitle={t("feedback.discardCreateTitle")}
+      discardMessage={t("feedback.discardCreateMessage")}
     />
   );
 }

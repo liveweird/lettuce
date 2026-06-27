@@ -26,6 +26,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Trans, useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -34,37 +35,22 @@ import {
   getUserId,
   updateFeedback,
   type FeedbackStatus,
-  type FeedbackVisibility,
 } from "../api/client";
 import { formatTimestamp } from "../utils/datetime";
 
 const RECEIVED = "/feedback?tab=received";
 
-const VISIBILITY_LABEL: Record<FeedbackVisibility, string> = {
-  PROVIDER_SUBJECT: "Provider + subject",
-  PROVIDER_REQUESTER: "Provider + requester",
-  PROVIDER_REQUESTER_SUBJECT: "Provider + requester + subject",
-  PUBLIC: "Public",
-};
-
-const STATUS_LABEL: Record<FeedbackStatus, string> = {
-  REQUESTED: "Requested",
-  DRAFT: "Draft",
-  SENT: "Sent",
-  WITHDRAWN: "Withdrawn",
-  REJECTED: "Rejected",
-};
-
 // The single status transition a provider can perform from each status (matches the
 // backend state machine in FeedbackService.isAllowedTransition). WITHDRAWN is terminal
-// and intentionally absent → the provider sees only Close.
-const NEXT_ACTION: Partial<Record<FeedbackStatus, { label: string; next: FeedbackStatus }>> = {
-  REQUESTED: { label: "Draft", next: "DRAFT" },
-  DRAFT: { label: "Send", next: "SENT" },
-  SENT: { label: "Withdraw", next: "WITHDRAWN" },
+// and intentionally absent → the provider sees only Close. `labelKey` resolves via i18n.
+const NEXT_ACTION: Partial<Record<FeedbackStatus, { labelKey: string; next: FeedbackStatus }>> = {
+  REQUESTED: { labelKey: "feedback.action.draft", next: "DRAFT" },
+  DRAFT: { labelKey: "feedback.action.send", next: "SENT" },
+  SENT: { labelKey: "feedback.action.withdraw", next: "WITHDRAWN" },
 };
 
 export default function ViewFeedback() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const params = useParams<{ id: string }>();
@@ -134,12 +120,12 @@ export default function ViewFeedback() {
       navigate(backTo, { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
-        if (err.status === 403) setActionError("You don't have permission to change this feedback.");
-        else if (err.status === 404) setActionError("Feedback no longer exists.");
-        else if (err.status === 400) setActionError("This status change is not allowed.");
-        else setActionError(`Update failed (${err.status}).`);
+        if (err.status === 403) setActionError(t("feedback.error.changePermission"));
+        else if (err.status === 404) setActionError(t("feedback.error.gone"));
+        else if (err.status === 400) setActionError(t("feedback.error.invalidTransition"));
+        else setActionError(t("feedback.error.updateFailedStatus", { status: err.status }));
       } else {
-        setActionError("Update failed. Check your connection and try again.");
+        setActionError(t("feedback.error.updateFailed"));
       }
     } finally {
       setSubmitting(false);
@@ -149,10 +135,12 @@ export default function ViewFeedback() {
   const errorStatus = fetchError instanceof ApiError ? fetchError.status : null;
   const errorMessage =
     errorStatus === 404
-      ? "Feedback not found."
+      ? t("feedback.error.notFound")
       : errorStatus === 403
-        ? "You don't have permission to view this feedback."
-        : `Failed to load feedback${errorStatus != null ? ` (${errorStatus})` : ""}.`;
+        ? t("feedback.error.viewPermission")
+        : errorStatus != null
+          ? t("feedback.error.loadFailedStatus", { status: errorStatus })
+          : t("feedback.error.loadFailed");
 
   return (
     <Container
@@ -176,7 +164,7 @@ export default function ViewFeedback() {
         style={{ flex: fill ? 1 : undefined, display: "flex", flexDirection: "column" }}
       >
         <Stack style={{ flex: fill ? 1 : undefined }}>
-          <Title order={2}>Feedback</Title>
+          <Title order={2}>{t("feedback.viewTitle")}</Title>
           {isLoading ? (
             <Center py="xl">
               <Loader />
@@ -188,7 +176,7 @@ export default function ViewFeedback() {
               </Alert>
               <Group justify="flex-end">
                 <Button component={RouterLink} to={backTo} variant="default">
-                  Close
+                  {t("common.action.close")}
                 </Button>
               </Group>
             </>
@@ -198,25 +186,25 @@ export default function ViewFeedback() {
                 <Stack gap="sm">
                   {data!.requesterId != null && (
                     <TextInput
-                      label="Requester"
+                      label={t("common.field.requester")}
                       value={data!.requesterName ?? requesterName ?? `#${data!.requesterId}`}
                       disabled
                     />
                   )}
                   <TextInput
-                    label="Subject"
+                    label={t("common.field.subject")}
                     value={
                       asProvider || asTeam
                         ? (data!.subjectName ?? subjectName ?? `#${data!.subjectId}`)
-                        : "You"
+                        : t("common.state.you")
                     }
                     disabled
                   />
                   <TextInput
-                    label="Provider"
+                    label={t("common.field.provider")}
                     value={
                       asProvider
-                        ? "You"
+                        ? t("common.state.you")
                         : (data!.providerName ?? providerName ?? `#${data!.providerId}`)
                     }
                     disabled
@@ -224,13 +212,17 @@ export default function ViewFeedback() {
                 </Stack>
                 <Stack gap="sm">
                   <TextInput
-                    label="Visibility"
-                    value={VISIBILITY_LABEL[data!.visibility]}
+                    label={t("common.field.visibility")}
+                    value={t(`common.visibility.${data!.visibility}`)}
                     disabled
                   />
-                  <TextInput label="Status" value={STATUS_LABEL[data!.status]} disabled />
                   <TextInput
-                    label="Last modified"
+                    label={t("common.field.status")}
+                    value={t(`common.status.${data!.status}`)}
+                    disabled
+                  />
+                  <TextInput
+                    label={t("common.field.lastModified")}
                     value={formatTimestamp(data!.lastModified)}
                     disabled
                   />
@@ -238,7 +230,7 @@ export default function ViewFeedback() {
               </SimpleGrid>
               {!hideContent && (
                 <Input.Wrapper
-                  label="Content"
+                  label={t("common.field.content")}
                   styles={{
                     root: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 },
                   }}
@@ -270,7 +262,7 @@ export default function ViewFeedback() {
               )}
               <Group justify="flex-end">
                 <Button component={RouterLink} to={backTo} variant="default">
-                  Close
+                  {t("common.action.close")}
                 </Button>
                 {action && (
                   <Button
@@ -281,7 +273,7 @@ export default function ViewFeedback() {
                     }
                     loading={submitting}
                   >
-                    {action.label}
+                    {t(action.labelKey)}
                   </Button>
                 )}
               </Group>
@@ -294,17 +286,19 @@ export default function ViewFeedback() {
         onClose={() => {
           if (!submitting) closeConfirm();
         }}
-        title="Withdraw feedback?"
+        title={t("feedback.withdrawTitle")}
         centered
       >
         <Stack gap="md">
           <Text>
-            Withdrawing this feedback is permanent — its status becomes{" "}
-            <strong>Withdrawn</strong> and cannot be changed back. Continue?
+            <Trans i18nKey="feedback.withdrawBody">
+              Withdrawing this feedback is permanent — its status becomes <strong>Withdrawn</strong>{" "}
+              and cannot be changed back. Continue?
+            </Trans>
           </Text>
           <Group justify="flex-end" gap="sm">
             <Button variant="default" onClick={closeConfirm} disabled={submitting}>
-              Cancel
+              {t("common.action.cancel")}
             </Button>
             <Button
               color="red"
@@ -314,7 +308,7 @@ export default function ViewFeedback() {
                 closeConfirm();
               }}
             >
-              Withdraw
+              {t("feedback.action.withdraw")}
             </Button>
           </Group>
         </Stack>

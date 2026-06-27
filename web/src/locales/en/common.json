@@ -1,0 +1,66 @@
+{
+  "action": {
+    "cancel": "Cancel",
+    "close": "Close",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "view": "View",
+    "create": "Create",
+    "back": "Back",
+    "discard": "Discard",
+    "keepEditing": "Keep editing",
+    "logout": "Logout"
+  },
+  "state": {
+    "loading": "Loading…",
+    "any": "Any",
+    "all": "All",
+    "none": "None",
+    "you": "You"
+  },
+  "field": {
+    "name": "Name",
+    "email": "Email",
+    "role": "Role",
+    "subject": "Subject",
+    "provider": "Provider",
+    "requester": "Requester",
+    "manager": "Manager",
+    "visibility": "Visibility",
+    "status": "Status",
+    "lastModified": "Last modified",
+    "content": "Content",
+    "preview": "Preview"
+  },
+  "table": {
+    "actions": "Actions",
+    "total": "{{count}} total",
+    "perPage": "{{count}} / page"
+  },
+  "filter": {
+    "contains": "contains…"
+  },
+  "status": {
+    "REQUESTED": "Requested",
+    "DRAFT": "Draft",
+    "SENT": "Sent",
+    "WITHDRAWN": "Withdrawn",
+    "REJECTED": "Rejected"
+  },
+  "visibility": {
+    "PROVIDER_SUBJECT": "Provider + subject",
+    "PROVIDER_REQUESTER": "Provider + requester",
+    "PROVIDER_REQUESTER_SUBJECT": "Provider + requester + subject",
+    "PUBLIC": "Public"
+  },
+  "role": {
+    "ADMIN": "Admin",
+    "USER": "User"
+  },
+  "language": {
+    "label": "Language",
+    "en": "English",
+    "pl": "Polski"
+  }
+}

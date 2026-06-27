@@ -22,6 +22,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import {
   ApiError,
   getFeedback,
@@ -37,29 +38,27 @@ const PROVIDED = "/feedback?tab=provided";
 // The visibility options offered in the editor depend on whether the feedback has a requester:
 // a requester-backed feedback must be able to keep a requester-inclusive visibility (otherwise
 // saving would strip the requester's read access), while a plain one stays Provider+subject / Public.
-const NO_REQUESTER_VISIBILITY_OPTIONS: { value: FeedbackVisibility; label: string }[] = [
-  { value: "PROVIDER_SUBJECT", label: "Provider + subject" },
-  { value: "PUBLIC", label: "Public" },
-];
-const REQUESTER_VISIBILITY_OPTIONS: { value: FeedbackVisibility; label: string }[] = [
-  { value: "PROVIDER_REQUESTER", label: "Provider + requester" },
-  { value: "PROVIDER_REQUESTER_SUBJECT", label: "Provider + requester + subject" },
-  { value: "PUBLIC", label: "Public" },
+const NO_REQUESTER_VISIBILITY_VALUES: FeedbackVisibility[] = ["PROVIDER_SUBJECT", "PUBLIC"];
+const REQUESTER_VISIBILITY_VALUES: FeedbackVisibility[] = [
+  "PROVIDER_REQUESTER",
+  "PROVIDER_REQUESTER_SUBJECT",
+  "PUBLIC",
 ];
 
-function visibilityOptionsFor(hasRequester: boolean) {
-  return hasRequester ? REQUESTER_VISIBILITY_OPTIONS : NO_REQUESTER_VISIBILITY_OPTIONS;
+function visibilityValuesFor(hasRequester: boolean) {
+  return hasRequester ? REQUESTER_VISIBILITY_VALUES : NO_REQUESTER_VISIBILITY_VALUES;
 }
 
 // Keep the preselected value within the offered set; if the stored visibility is out of set, fall
 // back to a sensible default (the most inclusive requester option, or Provider+subject otherwise).
 function clampVisibility(v: FeedbackVisibility, hasRequester: boolean): FeedbackVisibility {
-  const allowed = visibilityOptionsFor(hasRequester).map((o) => o.value);
+  const allowed = visibilityValuesFor(hasRequester);
   if (allowed.includes(v)) return v;
   return hasRequester ? "PROVIDER_REQUESTER_SUBJECT" : "PROVIDER_SUBJECT";
 }
 
 export default function EditFeedback() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const params = useParams<{ id: string }>();
@@ -116,16 +115,16 @@ export default function EditFeedback() {
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 403) {
-          setError("You don't have permission to edit this feedback.");
+          setError(t("feedback.error.editPermission"));
         } else if (err.status === 404) {
-          setError("Feedback no longer exists.");
+          setError(t("feedback.error.gone"));
         } else if (err.status === 400) {
-          setError("Validation error. Please check the form and try again.");
+          setError(t("feedback.error.validation"));
         } else {
-          setError(`Save failed (${err.status})`);
+          setError(t("feedback.error.saveFailedStatus", { status: err.status }));
         }
       } else {
-        setError("Save failed. Check your connection and try again.");
+        setError(t("feedback.error.saveFailed"));
       }
     } finally {
       setSubmitting(null);
@@ -139,7 +138,7 @@ export default function EditFeedback() {
       <Container size="xs" px={0}>
         <Paper withBorder shadow="sm" p="xl" radius="md">
           <Stack>
-            <Title order={2}>Edit feedback</Title>
+            <Title order={2}>{t("feedback.editTitle")}</Title>
             {isLoading ? (
               <Center py="xl">
                 <Loader />
@@ -148,12 +147,14 @@ export default function EditFeedback() {
               <>
                 <Alert color="red" variant="light">
                   {notFound
-                    ? "Feedback not found."
-                    : `Failed to load feedback${fetchError instanceof ApiError ? ` (${fetchError.status})` : ""}.`}
+                    ? t("feedback.error.notFound")
+                    : fetchError instanceof ApiError
+                      ? t("feedback.error.loadFailedStatus", { status: fetchError.status })
+                      : t("feedback.error.loadFailed")}
                 </Alert>
                 <Group justify="flex-end">
                   <Button component={RouterLink} to={backTo} variant="default">
-                    Back to feedback
+                    {t("feedback.backToFeedback")}
                   </Button>
                 </Group>
               </>
@@ -171,20 +172,20 @@ export default function EditFeedback() {
   if (data!.status === "REQUESTED" && getUserId() === data!.providerId) {
     const subjectDisplay = data!.subjectName ?? subjectName ?? `#${data!.subjectId}`;
     const requesterDisplay =
-      data!.requesterName ?? (data!.requesterId != null ? `#${data!.requesterId}` : "Unknown");
+      data!.requesterName ??
+      (data!.requesterId != null ? `#${data!.requesterId}` : t("feedback.unknown"));
     const decide = (status: FeedbackStatus) =>
       handleSave(status, { visibility: data!.visibility, content: data!.content });
     return (
       <Container size="xs" px={0}>
         <Paper withBorder shadow="sm" p="xl" radius="md">
           <Stack>
-            <Title order={2}>Feedback request</Title>
+            <Title order={2}>{t("feedback.requestTitle")}</Title>
             <Text>
-              {requesterDisplay} requested feedback from you about {subjectDisplay}. Accept to start a
-              draft you can write and send, or reject the request.
+              {t("feedback.triageLine", { requester: requesterDisplay, subject: subjectDisplay })}
             </Text>
-            <TextInput label="Subject" value={subjectDisplay} disabled />
-            <TextInput label="Requester" value={requesterDisplay} disabled />
+            <TextInput label={t("common.field.subject")} value={subjectDisplay} disabled />
+            <TextInput label={t("common.field.requester")} value={requesterDisplay} disabled />
             {error && (
               <Alert color="red" variant="light">
                 {error}
@@ -196,7 +197,7 @@ export default function EditFeedback() {
                 onClick={() => navigate(backTo, { replace: true })}
                 disabled={submitting !== null}
               >
-                Close
+                {t("common.action.close")}
               </Button>
               <Button
                 color="red"
@@ -205,25 +206,30 @@ export default function EditFeedback() {
                 loading={submitting === "REJECTED"}
                 disabled={submitting !== null}
               >
-                Reject
+                {t("feedback.action.reject")}
               </Button>
               <Button
                 onClick={() => decide("DRAFT")}
                 loading={submitting === "DRAFT"}
                 disabled={submitting !== null}
               >
-                Accept
+                {t("feedback.action.accept")}
               </Button>
             </Group>
           </Stack>
         </Paper>
 
-        <Modal opened={rejectOpen} onClose={closeReject} title="Reject feedback request?" centered>
+        <Modal
+          opened={rejectOpen}
+          onClose={closeReject}
+          title={t("feedback.rejectTitle")}
+          centered
+        >
           <Stack gap="md">
-            <Text>Reject this feedback request? This is final and cannot be undone.</Text>
+            <Text>{t("feedback.rejectBody")}</Text>
             <Group justify="flex-end" gap="sm">
               <Button variant="default" onClick={closeReject}>
-                Keep editing
+                {t("common.action.keepEditing")}
               </Button>
               <Button
                 color="red"
@@ -232,7 +238,7 @@ export default function EditFeedback() {
                   decide("REJECTED");
                 }}
               >
-                Reject
+                {t("feedback.action.reject")}
               </Button>
             </Group>
           </Stack>
@@ -242,12 +248,16 @@ export default function EditFeedback() {
   }
 
   const hasRequester = data!.requesterId != null;
+  const visibilityOptions = visibilityValuesFor(hasRequester).map((value) => ({
+    value,
+    label: t(`common.visibility.${value}`),
+  }));
   return (
     <FeedbackForm
-      title="Edit feedback"
+      title={t("feedback.editTitle")}
       subjectDisplay={subjectName ?? `#${data!.subjectId}`}
       initialVisibility={clampVisibility(data!.visibility, hasRequester)}
-      visibilityOptions={visibilityOptionsFor(hasRequester)}
+      visibilityOptions={visibilityOptions}
       requesterDisplay={hasRequester ? (data!.requesterName ?? `#${data!.requesterId}`) : undefined}
       initialContent={data!.content}
       lastModified={data!.lastModified}
@@ -256,8 +266,8 @@ export default function EditFeedback() {
       onSubmit={handleSave}
       cancelTo={backTo}
       showTemplateInsert
-      discardTitle="Discard changes?"
-      discardMessage="Discard your changes? The feedback will remain as it was."
+      discardTitle={t("feedback.discardChangesTitle")}
+      discardMessage={t("feedback.discardChangesMessage")}
     />
   );
 }

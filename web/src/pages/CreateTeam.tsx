@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link as RouterLink, Navigate, useNavigate } from "react-router-dom";
 import {
   Alert,
@@ -25,6 +26,7 @@ type FormValues = {
 };
 
 export default function CreateTeam() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
@@ -33,8 +35,8 @@ export default function CreateTeam() {
   const form = useForm<FormValues>({
     initialValues: { name: "", managerId: "" },
     validate: {
-      name: hasLength({ min: 1, max: 100 }, "Name must be 1–100 characters"),
-      managerId: (value) => (value ? null : "Manager is required"),
+      name: hasLength({ min: 1, max: 100 }, t("teams.nameLength")),
+      managerId: (value) => (value ? null : t("teams.managerRequired")),
     },
   });
 
@@ -70,14 +72,14 @@ export default function CreateTeam() {
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 403) {
-          setError("You don't have permission to create teams.");
+          setError(t("teams.createForbidden"));
         } else if (err.status === 400) {
-          setError("Validation error. Please check the form and try again.");
+          setError(t("teams.validationError"));
         } else {
-          setError(`Create failed (${err.status})`);
+          setError(t("teams.createFailedStatus", { status: err.status }));
         }
       } else {
-        setError("Create failed. Check your connection and try again.");
+        setError(t("teams.createFailedNetwork"));
       }
     } finally {
       setSubmitting(false);
@@ -89,16 +91,16 @@ export default function CreateTeam() {
       <Paper withBorder shadow="sm" p="xl" radius="md">
         <form onSubmit={form.onSubmit(onSubmit)} noValidate>
           <Stack>
-            <Title order={2}>Create team</Title>
+            <Title order={2}>{t("teams.createTeam")}</Title>
             <TextInput
-              label="Name"
+              label={t("common.field.name")}
               autoFocus
               maxLength={100}
               rightSection={
                 form.values.name ? (
                   <CloseButton
                     size="sm"
-                    aria-label="Clear name"
+                    aria-label={t("teams.clearName")}
                     tabIndex={-1}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => form.setFieldValue("name", "")}
@@ -109,13 +111,13 @@ export default function CreateTeam() {
               {...form.getInputProps("name")}
             />
             <Select
-              label="Manager"
-              placeholder={managersLoading ? "Loading…" : "Pick a manager"}
+              label={t("common.field.manager")}
+              placeholder={managersLoading ? t("common.state.loading") : t("teams.pickManager")}
               data={managerOptions}
               searchable
               clearable={false}
               disabled={managersLoading}
-              nothingFoundMessage="No matching users"
+              nothingFoundMessage={t("teams.noMatchingUsers")}
               {...form.getInputProps("managerId")}
             />
             {error && (
@@ -125,10 +127,10 @@ export default function CreateTeam() {
             )}
             <Group justify="flex-end" gap="sm">
               <Button component={RouterLink} to="/teams" variant="default">
-                Cancel
+                {t("common.action.cancel")}
               </Button>
               <Button type="submit" loading={submitting}>
-                Create
+                {t("common.action.create")}
               </Button>
             </Group>
           </Stack>

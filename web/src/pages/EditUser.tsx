@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Link as RouterLink,
   Navigate,
@@ -38,6 +39,7 @@ type FormValues = {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function EditUser() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const params = useParams<{ id: string }>();
@@ -48,14 +50,14 @@ export default function EditUser() {
   const form = useForm<FormValues>({
     initialValues: { name: "", email: "", role: "USER" },
     validate: {
-      name: hasLength({ min: 1, max: 50 }, "Name must be 1–50 characters"),
+      name: hasLength({ min: 1, max: 50 }, t("users.validation.nameLength")),
       email: (value) => {
-        if (!value) return "Email is required";
-        if (!EMAIL_RE.test(value)) return "Enter a valid email";
-        if (value.length > 254) return "Email is too long";
+        if (!value) return t("users.validation.emailRequired");
+        if (!EMAIL_RE.test(value)) return t("users.validation.emailInvalid");
+        if (value.length > 254) return t("users.validation.emailTooLong");
         return null;
       },
-      role: (value) => (value === "USER" || value === "ADMIN" ? null : "Role is required"),
+      role: (value) => (value === "USER" || value === "ADMIN" ? null : t("users.validation.roleRequired")),
     },
   });
 
@@ -89,16 +91,16 @@ export default function EditUser() {
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 409) {
-          form.setFieldError("email", "Email already in use");
+          form.setFieldError("email", t("users.emailAlreadyInUse"));
         } else if (err.status === 403) {
-          setError("You don't have permission to edit this user.");
+          setError(t("users.noPermissionEdit"));
         } else if (err.status === 404) {
-          setError("User no longer exists.");
+          setError(t("users.userNoLongerExists"));
         } else {
-          setError(`Edit failed (${err.status})`);
+          setError(t("users.editFailedStatus", { status: err.status }));
         }
       } else {
-        setError("Edit failed. Check your connection and try again.");
+        setError(t("users.editFailedNetwork"));
       }
     } finally {
       setSubmitting(false);
@@ -111,7 +113,7 @@ export default function EditUser() {
     <Container size="xs" px={0}>
       <Paper withBorder shadow="sm" p="xl" radius="md">
         <Stack>
-          <Title order={2}>Edit user</Title>
+          <Title order={2}>{t("users.editUser")}</Title>
           {isLoading ? (
             <Center py="xl">
               <Loader />
@@ -119,23 +121,23 @@ export default function EditUser() {
           ) : notFound ? (
             <>
               <Alert color="red" variant="light">
-                User not found.
+                {t("users.userNotFound")}
               </Alert>
               <Group justify="flex-end">
                 <Button component={RouterLink} to="/users" variant="default">
-                  Back to users
+                  {t("users.backToUsers")}
                 </Button>
               </Group>
             </>
           ) : isError ? (
             <>
               <Alert color="red" variant="light">
-                Failed to load user
+                {t("users.loadUserFailed")}
                 {fetchError instanceof ApiError ? ` (${fetchError.status})` : ""}.
               </Alert>
               <Group justify="flex-end">
                 <Button component={RouterLink} to="/users" variant="default">
-                  Back to users
+                  {t("users.backToUsers")}
                 </Button>
               </Group>
             </>
@@ -143,14 +145,14 @@ export default function EditUser() {
             <form onSubmit={form.onSubmit(onSubmit)} noValidate>
               <Stack>
                 <TextInput
-                  label="Name"
+                  label={t("common.field.name")}
                   autoFocus
                   maxLength={50}
                   rightSection={
                     form.values.name ? (
                       <CloseButton
                         size="sm"
-                        aria-label="Clear name"
+                        aria-label={t("users.clearName")}
                         tabIndex={-1}
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => form.setFieldValue("name", "")}
@@ -161,7 +163,7 @@ export default function EditUser() {
                   {...form.getInputProps("name")}
                 />
                 <TextInput
-                  label="Email"
+                  label={t("common.field.email")}
                   type="email"
                   autoComplete="email"
                   maxLength={254}
@@ -169,7 +171,7 @@ export default function EditUser() {
                     form.values.email ? (
                       <CloseButton
                         size="sm"
-                        aria-label="Clear email"
+                        aria-label={t("users.clearEmail")}
                         tabIndex={-1}
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => form.setFieldValue("email", "")}
@@ -180,10 +182,10 @@ export default function EditUser() {
                   {...form.getInputProps("email")}
                 />
                 <Select
-                  label="Role"
+                  label={t("common.field.role")}
                   data={[
-                    { value: "USER", label: "User" },
-                    { value: "ADMIN", label: "Admin" },
+                    { value: "USER", label: t("common.role.USER") },
+                    { value: "ADMIN", label: t("common.role.ADMIN") },
                   ]}
                   allowDeselect={false}
                   {...form.getInputProps("role")}
@@ -195,10 +197,10 @@ export default function EditUser() {
                 )}
                 <Group justify="flex-end" gap="sm">
                   <Button component={RouterLink} to="/users" variant="default">
-                    Cancel
+                    {t("common.action.cancel")}
                   </Button>
                   <Button type="submit" loading={submitting}>
-                    Save
+                    {t("common.action.save")}
                   </Button>
                 </Group>
               </Stack>

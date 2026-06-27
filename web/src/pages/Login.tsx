@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Alert,
@@ -17,6 +18,7 @@ import { consumeSignedOut, notifyAuthChange } from "../auth";
 type LocationState = { from?: { pathname?: string } } | null;
 
 export default function Login() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const [error, setError] = useState<string | null>(null);
@@ -26,8 +28,8 @@ export default function Login() {
   const form = useForm({
     initialValues: { email: "", password: "" },
     validate: {
-      email: isEmail("Enter a valid email"),
-      password: isNotEmpty("Password is required"),
+      email: isEmail(t("auth.invalidEmail")),
+      password: isNotEmpty(t("auth.passwordRequired")),
     },
   });
 
@@ -44,11 +46,11 @@ export default function Login() {
       if (err instanceof ApiError) {
         setError(
           err.status === 401
-            ? "Invalid email or password"
-            : `Login failed (${err.status})`,
+            ? t("auth.invalidCredentials")
+            : t("auth.loginFailedStatus", { status: err.status }),
         );
       } else {
-        setError("Login failed. Check your connection and try again.");
+        setError(t("auth.loginFailedGeneric"));
       }
     } finally {
       setSubmitting(false);
@@ -61,23 +63,23 @@ export default function Login() {
         <form onSubmit={form.onSubmit(onSubmit)} noValidate>
           <Stack>
             <Title order={3} ta="center">
-              Sign in
+              {t("auth.signIn")}
             </Title>
             <TextInput
-              label="Email"
+              label={t("common.field.email")}
               type="email"
               autoFocus
               autoComplete="email"
               {...form.getInputProps("email")}
             />
             <PasswordInput
-              label="Password"
+              label={t("auth.password")}
               autoComplete="current-password"
               {...form.getInputProps("password")}
             />
             {signedOut && !form.isDirty() && !error && (
               <Alert color="blue" variant="light">
-                You've been signed out.
+                {t("auth.signedOut")}
               </Alert>
             )}
             {error && (
@@ -86,7 +88,7 @@ export default function Login() {
               </Alert>
             )}
             <Button type="submit" loading={submitting} fullWidth>
-              Sign in
+              {t("auth.signIn")}
             </Button>
           </Stack>
         </form>

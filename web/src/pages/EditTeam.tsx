@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Link as RouterLink,
   Navigate,
@@ -32,6 +33,7 @@ type FormValues = {
 };
 
 export default function EditTeam() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const params = useParams<{ id: string }>();
@@ -42,8 +44,8 @@ export default function EditTeam() {
   const form = useForm<FormValues>({
     initialValues: { name: "", managerId: "" },
     validate: {
-      name: hasLength({ min: 1, max: 100 }, "Name must be 1–100 characters"),
-      managerId: (value) => (value ? null : "Manager is required"),
+      name: hasLength({ min: 1, max: 100 }, t("teams.nameLength")),
+      managerId: (value) => (value ? null : t("teams.managerRequired")),
     },
   });
 
@@ -98,16 +100,16 @@ export default function EditTeam() {
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 403) {
-          setError("You don't have permission to edit this team.");
+          setError(t("teams.editForbidden"));
         } else if (err.status === 404) {
-          setError("Team no longer exists.");
+          setError(t("teams.teamGone"));
         } else if (err.status === 400) {
-          setError("Validation error. Please check the form and try again.");
+          setError(t("teams.validationError"));
         } else {
-          setError(`Edit failed (${err.status})`);
+          setError(t("teams.editFailedStatus", { status: err.status }));
         }
       } else {
-        setError("Edit failed. Check your connection and try again.");
+        setError(t("teams.editFailedNetwork"));
       }
     } finally {
       setSubmitting(false);
@@ -120,7 +122,7 @@ export default function EditTeam() {
     <Container size="xs" px={0}>
       <Paper withBorder shadow="sm" p="xl" radius="md">
         <Stack>
-          <Title order={2}>Edit team</Title>
+          <Title order={2}>{t("teams.editTeam")}</Title>
           {isLoading ? (
             <Center py="xl">
               <Loader />
@@ -128,23 +130,23 @@ export default function EditTeam() {
           ) : notFound ? (
             <>
               <Alert color="red" variant="light">
-                Team not found.
+                {t("teams.teamNotFound")}
               </Alert>
               <Group justify="flex-end">
                 <Button component={RouterLink} to="/teams" variant="default">
-                  Back to teams
+                  {t("teams.backToTeams")}
                 </Button>
               </Group>
             </>
           ) : isError ? (
             <>
               <Alert color="red" variant="light">
-                Failed to load team
+                {t("teams.loadTeamFailed")}
                 {fetchError instanceof ApiError ? ` (${fetchError.status})` : ""}.
               </Alert>
               <Group justify="flex-end">
                 <Button component={RouterLink} to="/teams" variant="default">
-                  Back to teams
+                  {t("teams.backToTeams")}
                 </Button>
               </Group>
             </>
@@ -152,14 +154,14 @@ export default function EditTeam() {
             <form onSubmit={form.onSubmit(onSubmit)} noValidate>
               <Stack>
                 <TextInput
-                  label="Name"
+                  label={t("common.field.name")}
                   autoFocus
                   maxLength={100}
                   rightSection={
                     form.values.name ? (
                       <CloseButton
                         size="sm"
-                        aria-label="Clear name"
+                        aria-label={t("teams.clearName")}
                         tabIndex={-1}
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => form.setFieldValue("name", "")}
@@ -170,13 +172,13 @@ export default function EditTeam() {
                   {...form.getInputProps("name")}
                 />
                 <Select
-                  label="Manager"
-                  placeholder={managersLoading ? "Loading…" : "Pick a manager"}
+                  label={t("common.field.manager")}
+                  placeholder={managersLoading ? t("common.state.loading") : t("teams.pickManager")}
                   data={managerOptions}
                   searchable
                   clearable={false}
                   disabled={managersLoading}
-                  nothingFoundMessage="No matching users"
+                  nothingFoundMessage={t("teams.noMatchingUsers")}
                   {...form.getInputProps("managerId")}
                 />
                 {error && (
@@ -186,10 +188,10 @@ export default function EditTeam() {
                 )}
                 <Group justify="flex-end" gap="sm">
                   <Button component={RouterLink} to="/teams" variant="default">
-                    Cancel
+                    {t("common.action.cancel")}
                   </Button>
                   <Button type="submit" loading={submitting}>
-                    Save
+                    {t("common.action.save")}
                   </Button>
                 </Group>
               </Stack>

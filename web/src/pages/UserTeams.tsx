@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Alert,
@@ -29,6 +30,7 @@ import {
 type TeamRow = { id: number; name: string };
 
 export default function UserTeams() {
+  const { t } = useTranslation();
   const params = useParams<{ id: string }>();
   const id = Number(params.id);
   const idIsValid = Number.isFinite(id) && id > 0;
@@ -87,16 +89,16 @@ export default function UserTeams() {
     onError: (err) => {
       if (err instanceof ApiError) {
         if (err.status === 400) {
-          setAddError("That user can't be added to this team (they may be its manager).");
+          setAddError(t("users.cannotAddToTeam"));
         } else if (err.status === 403) {
-          setAddError("You don't have permission to modify this team.");
+          setAddError(t("users.noPermissionModifyTeam"));
         } else if (err.status === 404) {
-          setAddError("Team no longer exists.");
+          setAddError(t("users.teamNoLongerExists"));
         } else {
-          setAddError(`Add failed (${err.status})`);
+          setAddError(t("users.addFailedStatus", { status: err.status }));
         }
       } else {
-        setAddError("Add failed. Check your connection and try again.");
+        setAddError(t("users.addFailedNetwork"));
       }
     },
   });
@@ -114,10 +116,10 @@ export default function UserTeams() {
 
   const displayName = user?.name ?? nameParam ?? null;
   const memberTeams = teamsPage?.items ?? [];
-  const memberTeamIds = new Set(memberTeams.map((t) => t.id));
+  const memberTeamIds = new Set(memberTeams.map((team) => team.id));
   const addOptions = (allTeams ?? [])
-    .filter((t) => !memberTeamIds.has(t.id) && t.managerId !== id)
-    .map((t) => ({ value: String(t.id), label: t.name }));
+    .filter((team) => !memberTeamIds.has(team.id) && team.managerId !== id)
+    .map((team) => ({ value: String(team.id), label: team.name }));
 
   function requestRemove(row: TeamRow) {
     setTarget(row);
@@ -145,7 +147,7 @@ export default function UserTeams() {
   if (userLoading) {
     return (
       <Stack gap="md">
-        <Title order={2}>Teams</Title>
+        <Title order={2}>{t("users.teams")}</Title>
         <Center py="xl">
           <Loader />
         </Center>
@@ -156,15 +158,15 @@ export default function UserTeams() {
   if (userNotFound || userIsError) {
     return (
       <Stack gap="md">
-        <Title order={2}>Teams</Title>
+        <Title order={2}>{t("users.teams")}</Title>
         <Alert color="red" variant="light">
           {userNotFound
-            ? "User not found."
-            : `Failed to load user${userError instanceof ApiError ? ` (${userError.status})` : ""}.`}
+            ? t("users.userNotFound")
+            : `${t("users.loadUserFailed")}${userError instanceof ApiError ? ` (${userError.status})` : ""}.`}
         </Alert>
         <Group justify="flex-end">
           <Button component={RouterLink} to="/users" variant="default">
-            Back to users
+            {t("users.backToUsers")}
           </Button>
         </Group>
       </Stack>
@@ -173,19 +175,19 @@ export default function UserTeams() {
 
   return (
     <Stack gap="md">
-      <Title order={2}>Teams{displayName ? ` — ${displayName}` : ""}</Title>
+      <Title order={2}>{t("users.teams")}{displayName ? ` — ${displayName}` : ""}</Title>
 
       {canManage && (
         <Group align="flex-end" gap="sm">
           <Select
-            label="Add to team"
-            placeholder="Pick a team"
+            label={t("users.addToTeam")}
+            placeholder={t("users.pickATeam")}
             data={addOptions}
             value={selectedTeam}
             onChange={setSelectedTeam}
             searchable
             clearable
-            nothingFoundMessage="No teams available"
+            nothingFoundMessage={t("users.noTeamsAvailable")}
             w={280}
           />
           <Button
@@ -194,29 +196,29 @@ export default function UserTeams() {
             disabled={!selectedTeam}
             loading={addMutation.isPending}
           >
-            Add
+            {t("users.add")}
           </Button>
         </Group>
       )}
 
       {canManage && addError && (
-        <Alert color="red" title="Failed to add to team" onClose={() => setAddError(null)} withCloseButton>
+        <Alert color="red" title={t("users.addToTeamFailed")} onClose={() => setAddError(null)} withCloseButton>
           {addError}
         </Alert>
       )}
 
       {teamsIsError && (
-        <Alert color="red" title="Failed to load teams">
-          {teamsError instanceof Error ? teamsError.message : "Unknown error"}
+        <Alert color="red" title={t("users.loadTeamsFailed")}>
+          {teamsError instanceof Error ? teamsError.message : t("users.unknownError")}
         </Alert>
       )}
 
       <Table striped highlightOnHover withTableBorder>
         <Table.Thead>
           <Table.Tr>
-            <Table.Th>Team</Table.Th>
-            <Table.Th>Manager</Table.Th>
-            {canManage && <Table.Th aria-label="Actions" style={{ width: 1 }} />}
+            <Table.Th>{t("users.team")}</Table.Th>
+            <Table.Th>{t("common.field.manager")}</Table.Th>
+            {canManage && <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />}
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -229,12 +231,12 @@ export default function UserTeams() {
               </Table.Td>
             </Table.Tr>
           ) : memberTeams.length > 0 ? (
-            memberTeams.map((t) => (
-              <Table.Tr key={t.id}>
-                <Table.Td>{t.name}</Table.Td>
+            memberTeams.map((team) => (
+              <Table.Tr key={team.id}>
+                <Table.Td>{team.name}</Table.Td>
                 <Table.Td>
-                  {t.managerName}
-                  {t.managerDeleted ? " (deleted)" : ""}
+                  {team.managerName}
+                  {team.managerDeleted ? ` ${t("users.deletedTag")}` : ""}
                 </Table.Td>
                 {canManage && (
                   <Table.Td>
@@ -244,10 +246,10 @@ export default function UserTeams() {
                         variant="subtle"
                         size="xs"
                         leftSection={<IconTrash size={14} />}
-                        onClick={() => requestRemove({ id: t.id, name: t.name })}
-                        aria-label={`Remove from ${t.name}`}
+                        onClick={() => requestRemove({ id: team.id, name: team.name })}
+                        aria-label={t("users.removeFromAria", { name: team.name })}
                       >
-                        Remove
+                        {t("users.remove")}
                       </Button>
                     </Group>
                   </Table.Td>
@@ -258,7 +260,7 @@ export default function UserTeams() {
             <Table.Tr>
               <Table.Td colSpan={canManage ? 3 : 2}>
                 <Text c="dimmed" ta="center">
-                  Not a member of any team
+                  {t("users.notMemberOfAnyTeam")}
                 </Text>
               </Table.Td>
             </Table.Tr>
@@ -268,33 +270,34 @@ export default function UserTeams() {
 
       <Group justify="space-between" align="center">
         <Text size="sm" c="dimmed">
-          {memberTeams.length} total
+          {t("common.table.total", { count: memberTeams.length })}
         </Text>
         <Button component={RouterLink} to="/users" variant="default">
-          Back to users
+          {t("users.backToUsers")}
         </Button>
       </Group>
 
-      <Modal opened={confirmOpen} onClose={cancelRemove} title="Remove from team?" centered>
+      <Modal opened={confirmOpen} onClose={cancelRemove} title={t("users.removeTitle")} centered>
         <Stack gap="md">
           {target && (
             <Text>
-              Remove <strong>{displayName}</strong> from <strong>{target.name}</strong>?
+              {t("users.removeConfirmLead")} <strong>{displayName}</strong>{" "}
+              {t("users.removeConfirmFrom")} <strong>{target.name}</strong>?
             </Text>
           )}
           {removeMutation.isError && (
-            <Alert color="red" title="Failed to remove from team">
+            <Alert color="red" title={t("users.removeFromTeamFailed")}>
               {removeMutation.error instanceof Error
                 ? removeMutation.error.message
-                : "Unknown error"}
+                : t("users.unknownError")}
             </Alert>
           )}
           <Group justify="flex-end" gap="sm">
             <Button variant="default" onClick={cancelRemove} disabled={removeMutation.isPending}>
-              Cancel
+              {t("common.action.cancel")}
             </Button>
             <Button color="red" onClick={confirmRemove} loading={removeMutation.isPending}>
-              Remove
+              {t("users.remove")}
             </Button>
           </Group>
         </Stack>

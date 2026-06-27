@@ -24,6 +24,7 @@ import {
   Typography,
 } from "@mantine/core";
 import { hasLength, useForm } from "@mantine/form";
+import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -35,6 +36,7 @@ type FormValues = {
 };
 
 export default function EditTemplate() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const params = useParams<{ id: string }>();
@@ -45,7 +47,7 @@ export default function EditTemplate() {
   const form = useForm<FormValues>({
     initialValues: { name: "", content: "" },
     validate: {
-      name: hasLength({ min: 1, max: 100 }, "Name must be 1–100 characters"),
+      name: hasLength({ min: 1, max: 100 }, t("templates.nameLength")),
     },
   });
 
@@ -80,18 +82,18 @@ export default function EditTemplate() {
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 409) {
-          form.setFieldError("name", "A template with this name already exists.");
+          form.setFieldError("name", t("templates.nameExists"));
         } else if (err.status === 403) {
-          setError("You don't have permission to edit this template.");
+          setError(t("templates.editForbidden"));
         } else if (err.status === 404) {
-          setError("Template no longer exists.");
+          setError(t("templates.templateGone"));
         } else if (err.status === 400) {
-          setError("Validation error. Please check the form and try again.");
+          setError(t("templates.validationError"));
         } else {
-          setError(`Edit failed (${err.status})`);
+          setError(t("templates.editFailedStatus", { status: err.status }));
         }
       } else {
-        setError("Edit failed. Check your connection and try again.");
+        setError(t("templates.editFailedNetwork"));
       }
     } finally {
       setSubmitting(false);
@@ -104,7 +106,7 @@ export default function EditTemplate() {
     <Container size="lg" px={0}>
       <Paper withBorder shadow="sm" p="xl" radius="md">
         <Stack>
-          <Title order={2}>Edit template</Title>
+          <Title order={2}>{t("templates.edit")}</Title>
           {isLoading ? (
             <Center py="xl">
               <Loader />
@@ -112,23 +114,24 @@ export default function EditTemplate() {
           ) : notFound ? (
             <>
               <Alert color="red" variant="light">
-                Template not found.
+                {t("templates.notFound")}
               </Alert>
               <Group justify="flex-end">
                 <Button component={RouterLink} to="/templates" variant="default">
-                  Back to templates
+                  {t("templates.backToTemplates")}
                 </Button>
               </Group>
             </>
           ) : isError ? (
             <>
               <Alert color="red" variant="light">
-                Failed to load template
-                {fetchError instanceof ApiError ? ` (${fetchError.status})` : ""}.
+                {t("templates.loadOneFailed", {
+                  suffix: fetchError instanceof ApiError ? ` (${fetchError.status})` : "",
+                })}
               </Alert>
               <Group justify="flex-end">
                 <Button component={RouterLink} to="/templates" variant="default">
-                  Back to templates
+                  {t("templates.backToTemplates")}
                 </Button>
               </Group>
             </>
@@ -136,14 +139,14 @@ export default function EditTemplate() {
             <form onSubmit={form.onSubmit(onSubmit)} noValidate>
               <Stack>
                 <TextInput
-                  label="Name"
+                  label={t("common.field.name")}
                   autoFocus
                   maxLength={100}
                   rightSection={
                     form.values.name ? (
                       <CloseButton
                         size="sm"
-                        aria-label="Clear name"
+                        aria-label={t("templates.clearName")}
                         tabIndex={-1}
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => form.setFieldValue("name", "")}
@@ -155,12 +158,12 @@ export default function EditTemplate() {
                 />
                 <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                   <Textarea
-                    label="Content"
+                    label={t("common.field.content")}
                     autosize
                     minRows={6}
                     {...form.getInputProps("content")}
                   />
-                  <Input.Wrapper label="Preview">
+                  <Input.Wrapper label={t("common.field.preview")}>
                     <Box
                       style={{
                         border: "1px solid var(--mantine-color-default-border)",
@@ -185,10 +188,10 @@ export default function EditTemplate() {
                 )}
                 <Group justify="flex-end" gap="sm">
                   <Button component={RouterLink} to="/templates" variant="default">
-                    Cancel
+                    {t("common.action.cancel")}
                   </Button>
                   <Button type="submit" loading={submitting}>
-                    Save
+                    {t("common.action.save")}
                   </Button>
                 </Group>
               </Stack>

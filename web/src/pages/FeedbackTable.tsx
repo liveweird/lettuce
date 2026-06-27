@@ -17,6 +17,7 @@ import {
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconEye, IconPencil } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import {
   listFeedbacks,
   type FeedbackListView,
@@ -28,7 +29,7 @@ import SortHeader, { type SortDir } from "../components/SortHeader";
 import {
   formatTimestamp,
   lastModifiedCutoff,
-  LAST_MODIFIED_OPTIONS,
+  lastModifiedOptions,
   type LastModifiedWindow,
 } from "../utils/datetime";
 
@@ -49,72 +50,44 @@ type SortField =
 
 type FeedbackRow = FeedbackPage["items"][number];
 
-const VISIBILITY_LABEL: Record<FeedbackVisibility, string> = {
-  PROVIDER_SUBJECT: "Provider + subject",
-  PROVIDER_REQUESTER: "Provider + requester",
-  PROVIDER_REQUESTER_SUBJECT: "Provider + requester + subject",
-  PUBLIC: "Public",
-};
-
-function visibilityOptions(values: readonly FeedbackVisibility[]) {
-  return values.map((value) => ({ value, label: VISIBILITY_LABEL[value] }));
-}
-
-const STATUS_LABEL: Record<FeedbackStatus, string> = {
-  REQUESTED: "Requested",
-  DRAFT: "Draft",
-  SENT: "Sent",
-  WITHDRAWN: "Withdrawn",
-  REJECTED: "Rejected",
-};
-
-const STATUS_OPTIONS = (Object.keys(STATUS_LABEL) as FeedbackStatus[]).map((value) => ({
-  value,
-  label: STATUS_LABEL[value],
-}));
+const STATUS_VALUES: FeedbackStatus[] = [
+  "REQUESTED",
+  "DRAFT",
+  "SENT",
+  "WITHDRAWN",
+  "REJECTED",
+];
 
 // Per-view differences: the second person column (the first is always the requester)
 // and which visibilities can actually occur in the result set.
 const VIEW_CONFIG: Record<
   PairFeedbackView,
   {
-    personLabel: string;
     personField: "subjectName" | "providerName";
     personName: (f: FeedbackRow) => string;
     personDeleted: (f: FeedbackRow) => boolean;
-    visibilityOptions: { value: FeedbackVisibility; label: string }[];
+    visibilityValues: FeedbackVisibility[];
   }
 > = {
   received: {
-    personLabel: "Provider",
     personField: "providerName",
     personName: (f) => f.providerName,
     personDeleted: (f) => f.providerDeleted,
     // Only the visibilities a subject is allowed to see ever appear in this view.
-    visibilityOptions: visibilityOptions([
-      "PROVIDER_SUBJECT",
-      "PROVIDER_REQUESTER_SUBJECT",
-      "PUBLIC",
-    ]),
+    visibilityValues: ["PROVIDER_SUBJECT", "PROVIDER_REQUESTER_SUBJECT", "PUBLIC"],
   },
   provided: {
-    personLabel: "Subject",
     personField: "subjectName",
     personName: (f) => f.subjectName,
     personDeleted: (f) => f.subjectDeleted,
-    visibilityOptions: visibilityOptions([
+    visibilityValues: [
       "PROVIDER_SUBJECT",
       "PROVIDER_REQUESTER",
       "PROVIDER_REQUESTER_SUBJECT",
       "PUBLIC",
-    ]),
+    ],
   },
 };
-
-function userName(name: string | null | undefined, deleted: boolean): string {
-  if (name == null) return "—";
-  return deleted ? `${name} (deleted)` : name;
-}
 
 export default function FeedbackTable({
   view,
@@ -129,7 +102,24 @@ export default function FeedbackTable({
   // When set, the View/Edit links return here instead of the feedback tabs.
   backTo?: string;
 }) {
+  const { t } = useTranslation();
   const config = VIEW_CONFIG[view];
+  const personLabel = t(`common.field.${view === "received" ? "provider" : "subject"}`);
+  const clearPersonFilterLabel = t(
+    view === "received" ? "feedback.clearProviderFilter" : "feedback.clearSubjectFilter",
+  );
+  const visibilityOptions = config.visibilityValues.map((value) => ({
+    value,
+    label: t(`common.visibility.${value}`),
+  }));
+  const statusOptions = STATUS_VALUES.map((value) => ({
+    value,
+    label: t(`common.status.${value}`),
+  }));
+  const userName = (name: string | null | undefined, deleted: boolean): string => {
+    if (name == null) return "—";
+    return deleted ? t("feedback.deletedSuffix", { name }) : name;
+  };
   const backParam = backTo ? `&back=${encodeURIComponent(backTo)}` : "";
   const showActions = view === "provided" || view === "received";
   const columnCount = showActions ? 7 : 6;
@@ -210,15 +200,15 @@ export default function FeedbackTable({
     <Stack gap="md">
       <Group align="flex-end" gap="sm">
         <TextInput
-          label="Requester"
-          placeholder="contains…"
+          label={t("common.field.requester")}
+          placeholder={t("common.filter.contains")}
           value={requesterFilter}
           onChange={(e) => setRequesterFilter(e.currentTarget.value)}
           rightSection={
             requesterFilter ? (
               <CloseButton
                 size="sm"
-                aria-label="Clear requester filter"
+                aria-label={t("feedback.clearRequesterFilter")}
                 tabIndex={-1}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setRequesterFilter("")}
@@ -228,15 +218,15 @@ export default function FeedbackTable({
           rightSectionPointerEvents="auto"
         />
         <TextInput
-          label={config.personLabel}
-          placeholder="contains…"
+          label={personLabel}
+          placeholder={t("common.filter.contains")}
           value={personFilter}
           onChange={(e) => setPersonFilter(e.currentTarget.value)}
           rightSection={
             personFilter ? (
               <CloseButton
                 size="sm"
-                aria-label={`Clear ${config.personLabel.toLowerCase()} filter`}
+                aria-label={clearPersonFilterLabel}
                 tabIndex={-1}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setPersonFilter("")}
@@ -246,24 +236,24 @@ export default function FeedbackTable({
           rightSectionPointerEvents="auto"
         />
         <Select
-          label="Visibility"
-          placeholder="Any"
-          data={config.visibilityOptions}
+          label={t("common.field.visibility")}
+          placeholder={t("common.state.any")}
+          data={visibilityOptions}
           value={visibilityFilter}
           onChange={(v) => setVisibilityFilter((v as FeedbackVisibility | null) ?? null)}
           clearable
         />
         <Select
-          label="Status"
-          placeholder="Any"
-          data={STATUS_OPTIONS}
+          label={t("common.field.status")}
+          placeholder={t("common.state.any")}
+          data={statusOptions}
           value={statusFilter}
           onChange={(v) => setStatusFilter((v as FeedbackStatus | null) ?? null)}
           clearable
         />
         <Select
-          label="Last modified"
-          data={LAST_MODIFIED_OPTIONS}
+          label={t("common.field.lastModified")}
+          data={lastModifiedOptions(t)}
           value={lastModifiedFilter}
           onChange={(v) => setLastModifiedFilter((v as LastModifiedWindow) ?? "all")}
           allowDeselect={false}
@@ -271,8 +261,8 @@ export default function FeedbackTable({
       </Group>
 
       {isError && (
-        <Alert color="red" title="Failed to load feedbacks">
-          {error instanceof Error ? error.message : "Unknown error"}
+        <Alert color="red" title={t("feedback.loadListError")}>
+          {error instanceof Error ? error.message : t("feedback.unknownError")}
         </Alert>
       )}
 
@@ -282,7 +272,7 @@ export default function FeedbackTable({
             <Table.Th>
               <SortHeader
                 field="requesterName"
-                label="Requester"
+                label={t("common.field.requester")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
@@ -291,7 +281,7 @@ export default function FeedbackTable({
             <Table.Th>
               <SortHeader
                 field={config.personField}
-                label={config.personLabel}
+                label={personLabel}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
@@ -300,7 +290,7 @@ export default function FeedbackTable({
             <Table.Th>
               <SortHeader
                 field="visibility"
-                label="Visibility"
+                label={t("common.field.visibility")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
@@ -309,23 +299,23 @@ export default function FeedbackTable({
             <Table.Th>
               <SortHeader
                 field="status"
-                label="Status"
+                label={t("common.field.status")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
             </Table.Th>
-            <Table.Th>Content</Table.Th>
+            <Table.Th>{t("common.field.content")}</Table.Th>
             <Table.Th>
               <SortHeader
                 field="lastModified"
-                label="Last modified"
+                label={t("common.field.lastModified")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
             </Table.Th>
-            {showActions && <Table.Th aria-label="Actions" style={{ width: 1 }} />}
+            {showActions && <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />}
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -344,8 +334,8 @@ export default function FeedbackTable({
                   {userName(f.requesterName, f.requesterDeleted)}
                 </Table.Td>
                 <Table.Td>{userName(config.personName(f), config.personDeleted(f))}</Table.Td>
-                <Table.Td>{VISIBILITY_LABEL[f.visibility]}</Table.Td>
-                <Table.Td>{STATUS_LABEL[f.status]}</Table.Td>
+                <Table.Td>{t(`common.visibility.${f.visibility}`)}</Table.Td>
+                <Table.Td>{t(`common.status.${f.status}`)}</Table.Td>
                 <Table.Td
                   style={{
                     maxWidth: 280,
@@ -375,9 +365,9 @@ export default function FeedbackTable({
                         variant="subtle"
                         size="xs"
                         leftSection={<IconEye size={14} />}
-                        aria-label={`View feedback from ${f.providerName}`}
+                        aria-label={t("feedback.viewFrom", { name: f.providerName })}
                       >
-                        View
+                        {t("common.action.view")}
                       </Button>
                     ) : f.status === "REQUESTED" || f.status === "DRAFT" ? (
                       <Button
@@ -387,9 +377,9 @@ export default function FeedbackTable({
                         variant="subtle"
                         size="xs"
                         leftSection={<IconPencil size={14} />}
-                        aria-label={`Edit feedback for ${f.subjectName}`}
+                        aria-label={t("feedback.editFor", { name: f.subjectName })}
                       >
-                        Edit
+                        {t("common.action.edit")}
                       </Button>
                     ) : (
                       <Button
@@ -405,9 +395,9 @@ export default function FeedbackTable({
                         variant="subtle"
                         size="xs"
                         leftSection={<IconEye size={14} />}
-                        aria-label={`View feedback for ${f.subjectName}`}
+                        aria-label={t("feedback.viewFor", { name: f.subjectName })}
                       >
-                        View
+                        {t("common.action.view")}
                       </Button>
                     )}
                   </Table.Td>
@@ -418,7 +408,7 @@ export default function FeedbackTable({
             <Table.Tr>
               <Table.Td colSpan={columnCount}>
                 <Text c="dimmed" ta="center">
-                  No feedback
+                  {t("feedback.noFeedback")}
                 </Text>
               </Table.Td>
             </Table.Tr>
@@ -428,13 +418,16 @@ export default function FeedbackTable({
 
       <Group justify="space-between" align="center">
         <Text size="sm" c="dimmed">
-          {total} total
+          {t("common.table.total", { count: total })}
         </Text>
         <Group gap="sm" align="center">
           <Select
             size="xs"
-            aria-label="Rows per page"
-            data={PAGE_SIZE_OPTIONS.map((n) => ({ value: String(n), label: `${n} / page` }))}
+            aria-label={t("feedback.rowsPerPage")}
+            data={PAGE_SIZE_OPTIONS.map((n) => ({
+              value: String(n),
+              label: t("common.table.perPage", { count: n }),
+            }))}
             value={String(pageSize)}
             onChange={(v) => {
               if (!v) return;

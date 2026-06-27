@@ -1,0 +1,15 @@
+{
+  "title": "Notifications",
+  "unread_one": "{{count}} unread",
+  "unread_other": "{{count}} unread",
+  "loadError": "Failed to load notifications",
+  "unknownError": "Unknown error",
+  "empty": "No notifications.",
+  "new": "New",
+  "markSeen": "Mark as seen",
+  "markSeenAria": "Mark notification {{id}} as seen",
+  "markUnseen": "Mark as unseen",
+  "markUnseenAria": "Mark notification {{id}} as unseen",
+  "goTo": "Go to",
+  "goToAria": "Go to notification {{id}}"
+}

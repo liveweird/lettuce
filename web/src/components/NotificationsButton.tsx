@@ -16,6 +16,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { IconBell, IconCheck, IconEyeOff, IconExternalLink } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import {
   listNotifications,
@@ -27,6 +28,7 @@ import { formatTimestamp } from "../utils/datetime";
 import { toRelativePath } from "../utils/url";
 
 export default function NotificationsButton() {
+  const { t } = useTranslation();
   const [opened, { open, close }] = useDisclosure(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -74,24 +76,24 @@ export default function NotificationsButton() {
           variant="default"
           size="lg"
           onClick={open}
-          aria-label={`Notifications (${unreadCount} unread)`}
+          aria-label={`${t("notifications.title")} (${t("notifications.unread", { count: unreadCount })})`}
         >
           <IconBell size={18} />
         </ActionIcon>
       </Indicator>
 
-      <Modal opened={opened} onClose={close} title="Notifications" centered size="lg">
+      <Modal opened={opened} onClose={close} title={t("notifications.title")} centered size="lg">
         {listQuery.isLoading ? (
           <Center py="xl">
             <Loader />
           </Center>
         ) : listQuery.isError ? (
-          <Alert color="red" title="Failed to load notifications">
-            {listQuery.error instanceof Error ? listQuery.error.message : "Unknown error"}
+          <Alert color="red" title={t("notifications.loadError")}>
+            {listQuery.error instanceof Error ? listQuery.error.message : t("notifications.unknownError")}
           </Alert>
         ) : (listQuery.data?.items.length ?? 0) === 0 ? (
           <Text c="dimmed" ta="center" py="xl">
-            No notifications.
+            {t("notifications.empty")}
           </Text>
         ) : (
           <ScrollArea.Autosize mah="60vh">
@@ -103,7 +105,7 @@ export default function NotificationsButton() {
                       <Group gap="xs" wrap="nowrap">
                         {!n.wasSeen && (
                           <Badge color="blue" size="sm" variant="filled">
-                            New
+                            {t("notifications.new")}
                           </Badge>
                         )}
                         <Text size="xs" c="dimmed">
@@ -122,9 +124,9 @@ export default function NotificationsButton() {
                           leftSection={<IconCheck size={14} />}
                           onClick={() => markSeen.mutate(n.id)}
                           loading={markSeen.isPending && markSeen.variables === n.id}
-                          aria-label={`Mark notification ${n.id} as seen`}
+                          aria-label={t("notifications.markSeenAria", { id: n.id })}
                         >
-                          Mark as seen
+                          {t("notifications.markSeen")}
                         </Button>
                       )}
                       {n.wasSeen && (
@@ -134,9 +136,9 @@ export default function NotificationsButton() {
                           leftSection={<IconEyeOff size={14} />}
                           onClick={() => markUnseen.mutate(n.id)}
                           loading={markUnseen.isPending && markUnseen.variables === n.id}
-                          aria-label={`Mark notification ${n.id} as unseen`}
+                          aria-label={t("notifications.markUnseenAria", { id: n.id })}
                         >
-                          Mark as unseen
+                          {t("notifications.markUnseen")}
                         </Button>
                       )}
                       {n.link && (
@@ -145,9 +147,9 @@ export default function NotificationsButton() {
                           variant="subtle"
                           leftSection={<IconExternalLink size={14} />}
                           onClick={() => goTo(n)}
-                          aria-label={`Go to notification ${n.id}`}
+                          aria-label={t("notifications.goToAria", { id: n.id })}
                         >
-                          Go to
+                          {t("notifications.goTo")}
                         </Button>
                       )}
                     </Group>

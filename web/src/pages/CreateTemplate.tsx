@@ -17,6 +17,7 @@ import {
   Typography,
 } from "@mantine/core";
 import { hasLength, useForm } from "@mantine/form";
+import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -28,6 +29,7 @@ type FormValues = {
 };
 
 export default function CreateTemplate() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +38,7 @@ export default function CreateTemplate() {
   const form = useForm<FormValues>({
     initialValues: { name: "", content: "" },
     validate: {
-      name: hasLength({ min: 1, max: 100 }, "Name must be 1–100 characters"),
+      name: hasLength({ min: 1, max: 100 }, t("templates.nameLength")),
     },
   });
 
@@ -52,16 +54,16 @@ export default function CreateTemplate() {
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 409) {
-          form.setFieldError("name", "A template with this name already exists.");
+          form.setFieldError("name", t("templates.nameExists"));
         } else if (err.status === 403) {
-          setError("You don't have permission to create templates.");
+          setError(t("templates.createForbidden"));
         } else if (err.status === 400) {
-          setError("Validation error. Please check the form and try again.");
+          setError(t("templates.validationError"));
         } else {
-          setError(`Create failed (${err.status})`);
+          setError(t("templates.createFailedStatus", { status: err.status }));
         }
       } else {
-        setError("Create failed. Check your connection and try again.");
+        setError(t("templates.createFailedNetwork"));
       }
     } finally {
       setSubmitting(false);
@@ -73,16 +75,16 @@ export default function CreateTemplate() {
       <Paper withBorder shadow="sm" p="xl" radius="md">
         <form onSubmit={form.onSubmit(onSubmit)} noValidate>
           <Stack>
-            <Title order={2}>Create template</Title>
+            <Title order={2}>{t("templates.create")}</Title>
             <TextInput
-              label="Name"
+              label={t("common.field.name")}
               autoFocus
               maxLength={100}
               rightSection={
                 form.values.name ? (
                   <CloseButton
                     size="sm"
-                    aria-label="Clear name"
+                    aria-label={t("templates.clearName")}
                     tabIndex={-1}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => form.setFieldValue("name", "")}
@@ -94,12 +96,12 @@ export default function CreateTemplate() {
             />
             <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
               <Textarea
-                label="Content"
+                label={t("common.field.content")}
                 autosize
                 minRows={6}
                 {...form.getInputProps("content")}
               />
-              <Input.Wrapper label="Preview">
+              <Input.Wrapper label={t("common.field.preview")}>
                 <Box
                   style={{
                     border: "1px solid var(--mantine-color-default-border)",
@@ -124,10 +126,10 @@ export default function CreateTemplate() {
             )}
             <Group justify="flex-end" gap="sm">
               <Button component={RouterLink} to="/templates" variant="default">
-                Cancel
+                {t("common.action.cancel")}
               </Button>
               <Button type="submit" loading={submitting}>
-                Create
+                {t("common.action.create")}
               </Button>
             </Group>
           </Stack>

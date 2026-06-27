@@ -1,0 +1,13 @@
+{
+  "brand": "Lettuce",
+  "toggleColorScheme": "Przełącz motyw",
+  "nav": {
+    "dashboard": "Pulpit",
+    "feedback": "Opinie",
+    "config": "Konfiguracja",
+    "users": "Użytkownicy",
+    "teams": "Zespoły",
+    "templates": "Szablony",
+    "changePassword": "Zmień hasło"
+  }
+}

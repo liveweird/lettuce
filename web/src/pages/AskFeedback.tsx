@@ -15,20 +15,26 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { ApiError, createFeedback, getUserId, type FeedbackVisibility } from "../api/client";
 
 // The asker is the requester, so "Ask for feedback" offers the requester-inclusive visibilities —
 // the ones under which the requester (themselves) can read the result.
-const VISIBILITY_OPTIONS: { value: FeedbackVisibility; label: string }[] = [
-  { value: "PROVIDER_REQUESTER", label: "Provider + requester" },
-  { value: "PROVIDER_REQUESTER_SUBJECT", label: "Provider + requester + subject" },
-  { value: "PUBLIC", label: "Public" },
+const VISIBILITY_VALUES: FeedbackVisibility[] = [
+  "PROVIDER_REQUESTER",
+  "PROVIDER_REQUESTER_SUBJECT",
+  "PUBLIC",
 ];
 
 export default function AskFeedback() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
+  const visibilityOptions = VISIBILITY_VALUES.map((value) => ({
+    value,
+    label: t(`common.visibility.${value}`),
+  }));
 
   const providerId = Number(searchParams.get("providerId"));
   const providerName = searchParams.get("providerName");
@@ -62,14 +68,14 @@ export default function AskFeedback() {
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 403) {
-          setError("You don't have permission to request this feedback.");
+          setError(t("feedback.error.requestPermission"));
         } else if (err.status === 400) {
-          setError("Validation error. Please try again.");
+          setError(t("feedback.error.validationSimple"));
         } else {
-          setError(`Request failed (${err.status})`);
+          setError(t("feedback.error.requestFailedStatus", { status: err.status }));
         }
       } else {
-        setError("Request failed. Check your connection and try again.");
+        setError(t("feedback.error.requestFailed"));
       }
     } finally {
       setSubmitting(false);
@@ -80,17 +86,21 @@ export default function AskFeedback() {
     <Container size="sm" px={0}>
       <Paper withBorder shadow="sm" p="xl" radius="md">
         <Stack>
-          <Title order={2}>Ask for feedback</Title>
+          <Title order={2}>{t("feedback.askTitle")}</Title>
 
           <Group grow>
-            <TextInput label="Provider" value={providerName ?? `#${providerId}`} disabled />
-            <TextInput label="Subject" value="You" disabled />
+            <TextInput
+              label={t("common.field.provider")}
+              value={providerName ?? `#${providerId}`}
+              disabled
+            />
+            <TextInput label={t("common.field.subject")} value={t("common.state.you")} disabled />
           </Group>
 
           <Select
-            label="Visibility"
-            placeholder="Select visibility"
-            data={VISIBILITY_OPTIONS}
+            label={t("common.field.visibility")}
+            placeholder={t("feedback.selectVisibility")}
+            data={visibilityOptions}
             allowDeselect={false}
             value={visibility}
             onChange={(v) => v && setVisibility(v as FeedbackVisibility)}
@@ -104,24 +114,29 @@ export default function AskFeedback() {
 
           <Group justify="flex-end" gap="sm">
             <Button type="button" variant="default" onClick={openCancel} disabled={submitting}>
-              Cancel
+              {t("common.action.cancel")}
             </Button>
             <Button type="button" onClick={submit} loading={submitting}>
-              Send request
+              {t("feedback.action.sendRequest")}
             </Button>
           </Group>
         </Stack>
       </Paper>
 
-      <Modal opened={cancelOpen} onClose={closeCancel} title="Discard this request?" centered>
+      <Modal
+        opened={cancelOpen}
+        onClose={closeCancel}
+        title={t("feedback.discardRequestTitle")}
+        centered
+      >
         <Stack gap="md">
-          <Text>Discard this feedback request? Nothing will be saved.</Text>
+          <Text>{t("feedback.discardAskMessage")}</Text>
           <Group justify="flex-end" gap="sm">
             <Button variant="default" onClick={closeCancel}>
-              Keep editing
+              {t("common.action.keepEditing")}
             </Button>
             <Button color="red" component={RouterLink} to={backTo}>
-              Discard
+              {t("common.action.discard")}
             </Button>
           </Group>
         </Stack>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
@@ -72,6 +73,7 @@ function SortHeader({
 }
 
 export default function Teams() {
+  const { t } = useTranslation();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
   const [sortField, setSortField] = useState<SortField>("name");
@@ -164,19 +166,19 @@ export default function Teams() {
 
   return (
     <Stack gap="md">
-      <Title order={2}>Teams</Title>
+      <Title order={2}>{t("teams.title")}</Title>
 
       <Group align="flex-end" gap="sm">
         <TextInput
-          label="Name"
-          placeholder="contains…"
+          label={t("common.field.name")}
+          placeholder={t("common.filter.contains")}
           value={nameFilter}
           onChange={(e) => setNameFilter(e.currentTarget.value)}
           rightSection={
             nameFilter ? (
               <CloseButton
                 size="sm"
-                aria-label="Clear name filter"
+                aria-label={t("teams.clearNameFilter")}
                 tabIndex={-1}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setNameFilter("")}
@@ -186,21 +188,21 @@ export default function Teams() {
           rightSectionPointerEvents="auto"
         />
         <Select
-          label="Manager"
-          placeholder={managersLoading ? "Loading…" : "Any"}
+          label={t("common.field.manager")}
+          placeholder={managersLoading ? t("common.state.loading") : t("common.state.any")}
           data={managerOptions}
           value={managerIdFilter == null ? null : String(managerIdFilter)}
           onChange={(v) => setManagerIdFilter(v == null ? null : Number(v))}
           searchable
           clearable
           disabled={managersLoading}
-          nothingFoundMessage="No matching users"
+          nothingFoundMessage={t("teams.noMatchingUsers")}
         />
       </Group>
 
       {isError && (
-        <Alert color="red" title="Failed to load teams">
-          {error instanceof Error ? error.message : "Unknown error"}
+        <Alert color="red" title={t("teams.loadFailed")}>
+          {error instanceof Error ? error.message : t("teams.unknownError")}
         </Alert>
       )}
 
@@ -210,16 +212,16 @@ export default function Teams() {
             <Table.Th>
               <SortHeader
                 field="name"
-                label="Name"
+                label={t("common.field.name")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
             </Table.Th>
-            <Table.Th>Manager</Table.Th>
-            <Table.Th aria-label="Edit" style={{ width: 1 }} />
-            <Table.Th aria-label="Members" style={{ width: 1 }} />
-            <Table.Th aria-label="Delete" style={{ width: 1 }} />
+            <Table.Th>{t("common.field.manager")}</Table.Th>
+            <Table.Th aria-label={t("common.action.edit")} style={{ width: 1 }} />
+            <Table.Th aria-label={t("teams.members")} style={{ width: 1 }} />
+            <Table.Th aria-label={t("common.action.delete")} style={{ width: 1 }} />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -232,39 +234,39 @@ export default function Teams() {
               </Table.Td>
             </Table.Tr>
           ) : data && data.items.length > 0 ? (
-            data.items.map((t) => (
-              <Table.Tr key={t.id}>
-                <Table.Td>{t.name}</Table.Td>
+            data.items.map((team) => (
+              <Table.Tr key={team.id}>
+                <Table.Td>{team.name}</Table.Td>
                 <Table.Td>
-                  {t.managerName}
-                  {t.managerDeleted ? " (deleted)" : ""}
+                  {team.managerName}
+                  {team.managerDeleted ? t("teams.deletedSuffix") : ""}
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                   {admin && (
                     <Button
                       component={RouterLink}
-                      to={`/teams/${t.id}/edit`}
+                      to={`/teams/${team.id}/edit`}
                       color="blue"
                       variant="subtle"
                       size="xs"
                       leftSection={<IconPencil size={14} />}
-                      aria-label={`Edit ${t.name}`}
+                      aria-label={t("teams.editAria", { name: team.name })}
                     >
-                      Edit
+                      {t("common.action.edit")}
                     </Button>
                   )}
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                   <Button
                     component={RouterLink}
-                    to={`/teams/${t.id}/members`}
+                    to={`/teams/${team.id}/members`}
                     color="blue"
                     variant="subtle"
                     size="xs"
                     leftSection={<IconUsers size={14} />}
-                    aria-label={`Members of ${t.name}`}
+                    aria-label={t("teams.membersOfAria", { name: team.name })}
                   >
-                    Members
+                    {t("teams.members")}
                   </Button>
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
@@ -275,11 +277,11 @@ export default function Teams() {
                       size="xs"
                       leftSection={<IconTrash size={14} />}
                       onClick={() =>
-                        requestDelete({ id: t.id, name: t.name, managerName: t.managerName })
+                        requestDelete({ id: team.id, name: team.name, managerName: team.managerName })
                       }
-                      aria-label={`Delete ${t.name}`}
+                      aria-label={t("teams.deleteAria", { name: team.name })}
                     >
-                      Delete
+                      {t("common.action.delete")}
                     </Button>
                   )}
                 </Table.Td>
@@ -289,7 +291,7 @@ export default function Teams() {
             <Table.Tr>
               <Table.Td colSpan={columnCount}>
                 <Text c="dimmed" ta="center">
-                  No teams
+                  {t("teams.noTeams")}
                 </Text>
               </Table.Td>
             </Table.Tr>
@@ -299,13 +301,16 @@ export default function Teams() {
 
       <Group justify="space-between" align="center">
         <Text size="sm" c="dimmed">
-          {total} total
+          {t("common.table.total", { count: total })}
         </Text>
         <Group gap="sm" align="center">
           <Select
             size="xs"
-            aria-label="Rows per page"
-            data={PAGE_SIZE_OPTIONS.map((n) => ({ value: String(n), label: `${n} / page` }))}
+            aria-label={t("teams.rowsPerPage")}
+            data={PAGE_SIZE_OPTIONS.map((n) => ({
+              value: String(n),
+              label: t("common.table.perPage", { count: n }),
+            }))}
             value={String(pageSize)}
             onChange={(v) => {
               if (!v) return;
@@ -332,7 +337,7 @@ export default function Teams() {
             to="/teams/new"
             leftSection={<IconPlus size={16} />}
           >
-            Create team
+            {t("teams.createTeam")}
           </Button>
         </Group>
       )}
@@ -340,29 +345,29 @@ export default function Teams() {
       <Modal
         opened={confirmOpen}
         onClose={cancelDelete}
-        title="Delete team?"
+        title={t("teams.deleteModalTitle")}
         centered
       >
         <Stack gap="md">
           {target && (
             <Text>
-              Delete team <strong>{target.name}</strong> (managed by {target.managerName})? This
-              cannot be undone.
+              {t("teams.deleteTitle", { name: target.name, manager: target.managerName })}{" "}
+              {t("teams.deleteUndone")}
             </Text>
           )}
           {deleteMutation.isError && (
-            <Alert color="red" title="Failed to delete team">
+            <Alert color="red" title={t("teams.deleteFailed")}>
               {deleteMutation.error instanceof Error
                 ? deleteMutation.error.message
-                : "Unknown error"}
+                : t("teams.unknownError")}
             </Alert>
           )}
           <Group justify="flex-end" gap="sm">
             <Button variant="default" onClick={cancelDelete} disabled={deleteMutation.isPending}>
-              Cancel
+              {t("common.action.cancel")}
             </Button>
             <Button color="red" onClick={confirmDelete} loading={deleteMutation.isPending}>
-              Delete
+              {t("common.action.delete")}
             </Button>
           </Group>
         </Stack>

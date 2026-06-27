@@ -1,6 +1,11 @@
 import "@testing-library/jest-dom/vitest";
 import { afterEach } from "vitest";
 import { cleanup } from "@testing-library/react";
+import i18n from "../i18n";
+
+// Deterministic English in tests (the global i18n instance is shared by every test, including the
+// many that render with their own inline providers — no per-test I18nextProvider needed).
+void i18n.changeLanguage("en");
 
 if (typeof globalThis.localStorage === "undefined") {
   const store = new Map<string, string>();

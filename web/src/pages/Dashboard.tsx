@@ -1,4 +1,5 @@
 import { Stack, Tabs, Title } from "@mantine/core";
+import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import ManagersTable from "./ManagersTable";
 import TeamMembersTable from "./TeamMembersTable";
@@ -11,6 +12,7 @@ function isDashboardTab(value: string | null): value is DashboardTab {
 }
 
 export default function Dashboard() {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab");
   const activeTab: DashboardTab = isDashboardTab(requestedTab) ? requestedTab : "managers";
@@ -25,22 +27,22 @@ export default function Dashboard() {
 
   return (
     <Stack gap="md">
-      <Title order={2}>Dashboard</Title>
+      <Title order={2}>{t("dashboard.title")}</Title>
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
-          <Tabs.Tab value="managers">My managers</Tabs.Tab>
-          <Tabs.Tab value="peers">My peers</Tabs.Tab>
-          <Tabs.Tab value="subordinates">My subordinates</Tabs.Tab>
+          <Tabs.Tab value="managers">{t("dashboard.tabs.managers")}</Tabs.Tab>
+          <Tabs.Tab value="peers">{t("dashboard.tabs.peers")}</Tabs.Tab>
+          <Tabs.Tab value="subordinates">{t("dashboard.tabs.subordinates")}</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="managers" pt="md">
           <ManagersTable />
         </Tabs.Panel>
         <Tabs.Panel value="peers" pt="md">
-          <TeamMembersTable view="member" emptyMessage="No teammates" />
+          <TeamMembersTable view="member" emptyMessage={t("dashboard.empty.teammates")} />
         </Tabs.Panel>
         <Tabs.Panel value="subordinates" pt="md">
-          <TeamMembersTable view="managed" emptyMessage="No team members" />
+          <TeamMembersTable view="managed" emptyMessage={t("dashboard.empty.teamMembers")} />
         </Tabs.Panel>
       </Tabs>
     </Stack>

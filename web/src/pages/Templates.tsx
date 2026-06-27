@@ -24,6 +24,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { IconEye, IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
+import { useTranslation } from "react-i18next";
 import SortHeader, { type SortDir } from "../components/SortHeader";
 import { deleteTemplate, isAdmin, listTemplates } from "../api/client";
 
@@ -35,6 +36,7 @@ type SortField = "name";
 type TemplateRow = { id: number; name: string };
 
 export default function Templates() {
+  const { t } = useTranslation();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
   const [sortField, setSortField] = useState<SortField>("name");
@@ -108,19 +110,19 @@ export default function Templates() {
 
   return (
     <Stack gap="md">
-      <Title order={2}>Templates</Title>
+      <Title order={2}>{t("templates.title")}</Title>
 
       <Group align="flex-end" gap="sm">
         <TextInput
-          label="Name"
-          placeholder="contains…"
+          label={t("common.field.name")}
+          placeholder={t("common.filter.contains")}
           value={nameFilter}
           onChange={(e) => setNameFilter(e.currentTarget.value)}
           rightSection={
             nameFilter ? (
               <CloseButton
                 size="sm"
-                aria-label="Clear name filter"
+                aria-label={t("templates.clearNameFilter")}
                 tabIndex={-1}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setNameFilter("")}
@@ -132,8 +134,8 @@ export default function Templates() {
       </Group>
 
       {isError && (
-        <Alert color="red" title="Failed to load templates">
-          {error instanceof Error ? error.message : "Unknown error"}
+        <Alert color="red" title={t("templates.loadFailed")}>
+          {error instanceof Error ? error.message : t("templates.unknownError")}
         </Alert>
       )}
 
@@ -143,14 +145,14 @@ export default function Templates() {
             <Table.Th>
               <SortHeader
                 field="name"
-                label="Name"
+                label={t("common.field.name")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
             </Table.Th>
-            <Table.Th>Preview</Table.Th>
-            <Table.Th aria-label="Actions" style={{ width: 1 }} />
+            <Table.Th>{t("common.field.preview")}</Table.Th>
+            <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -163,12 +165,12 @@ export default function Templates() {
               </Table.Td>
             </Table.Tr>
           ) : data && data.items.length > 0 ? (
-            data.items.map((t) => (
-              <Table.Tr key={t.id}>
-                <Table.Td>{t.name}</Table.Td>
+            data.items.map((tpl) => (
+              <Table.Tr key={tpl.id}>
+                <Table.Td>{tpl.name}</Table.Td>
                 <Table.Td>
                   <Text c="dimmed" lineClamp={1}>
-                    {t.contentPreview}
+                    {tpl.contentPreview}
                   </Text>
                 </Table.Td>
                 <Table.Td>
@@ -177,37 +179,37 @@ export default function Templates() {
                       <>
                         <Button
                           component={RouterLink}
-                          to={`/templates/${t.id}/edit`}
+                          to={`/templates/${tpl.id}/edit`}
                           color="blue"
                           variant="subtle"
                           size="xs"
                           leftSection={<IconPencil size={14} />}
-                          aria-label={`Edit ${t.name}`}
+                          aria-label={t("templates.editName", { name: tpl.name })}
                         >
-                          Edit
+                          {t("common.action.edit")}
                         </Button>
                         <Button
                           color="red"
                           variant="subtle"
                           size="xs"
                           leftSection={<IconTrash size={14} />}
-                          onClick={() => requestDelete({ id: t.id, name: t.name })}
-                          aria-label={`Delete ${t.name}`}
+                          onClick={() => requestDelete({ id: tpl.id, name: tpl.name })}
+                          aria-label={t("templates.deleteName", { name: tpl.name })}
                         >
-                          Delete
+                          {t("common.action.delete")}
                         </Button>
                       </>
                     ) : (
                       <Button
                         component={RouterLink}
-                        to={`/templates/${t.id}/view`}
+                        to={`/templates/${tpl.id}/view`}
                         color="blue"
                         variant="subtle"
                         size="xs"
                         leftSection={<IconEye size={14} />}
-                        aria-label={`View ${t.name}`}
+                        aria-label={t("templates.viewName", { name: tpl.name })}
                       >
-                        View
+                        {t("common.action.view")}
                       </Button>
                     )}
                   </Group>
@@ -218,7 +220,7 @@ export default function Templates() {
             <Table.Tr>
               <Table.Td colSpan={columnCount}>
                 <Text c="dimmed" ta="center">
-                  No templates
+                  {t("templates.empty")}
                 </Text>
               </Table.Td>
             </Table.Tr>
@@ -228,13 +230,16 @@ export default function Templates() {
 
       <Group justify="space-between" align="center">
         <Text size="sm" c="dimmed">
-          {total} total
+          {t("common.table.total", { count: total })}
         </Text>
         <Group gap="sm" align="center">
           <Select
             size="xs"
-            aria-label="Rows per page"
-            data={PAGE_SIZE_OPTIONS.map((n) => ({ value: String(n), label: `${n} / page` }))}
+            aria-label={t("templates.rowsPerPage")}
+            data={PAGE_SIZE_OPTIONS.map((n) => ({
+              value: String(n),
+              label: t("common.table.perPage", { count: n }),
+            }))}
             value={String(pageSize)}
             onChange={(v) => {
               if (!v) return;
@@ -261,7 +266,7 @@ export default function Templates() {
             to="/templates/new"
             leftSection={<IconPlus size={16} />}
           >
-            Create template
+            {t("templates.create")}
           </Button>
         </Group>
       )}
@@ -269,28 +274,30 @@ export default function Templates() {
       <Modal
         opened={confirmOpen}
         onClose={cancelDelete}
-        title="Delete template?"
+        title={t("templates.deleteTitle")}
         centered
       >
         <Stack gap="md">
           {target && (
             <Text>
-              Delete template <strong>{target.name}</strong>? This cannot be undone.
+              {t("templates.deleteConfirmPrefix")}
+              <strong>{target.name}</strong>
+              {t("templates.deleteConfirmSuffix")}
             </Text>
           )}
           {deleteMutation.isError && (
-            <Alert color="red" title="Failed to delete template">
+            <Alert color="red" title={t("templates.deleteFailed")}>
               {deleteMutation.error instanceof Error
                 ? deleteMutation.error.message
-                : "Unknown error"}
+                : t("templates.unknownError")}
             </Alert>
           )}
           <Group justify="flex-end" gap="sm">
             <Button variant="default" onClick={cancelDelete} disabled={deleteMutation.isPending}>
-              Cancel
+              {t("common.action.cancel")}
             </Button>
             <Button color="red" onClick={confirmDelete} loading={deleteMutation.isPending}>
-              Delete
+              {t("common.action.delete")}
             </Button>
           </Group>
         </Stack>

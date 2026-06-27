@@ -1,0 +1,12 @@
+{
+  "title": "Panel",
+  "tabs": {
+    "managers": "Moi menedżerowie",
+    "peers": "Moi współpracownicy",
+    "subordinates": "Moi podwładni"
+  },
+  "empty": {
+    "teammates": "Brak współpracowników",
+    "teamMembers": "Brak członków zespołu"
+  }
+}

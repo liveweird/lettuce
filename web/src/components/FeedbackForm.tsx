@@ -23,6 +23,7 @@ import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -38,10 +39,7 @@ type FormValues = {
   content: string;
 };
 
-const DEFAULT_VISIBILITY_OPTIONS: { value: FeedbackVisibility; label: string }[] = [
-  { value: "PROVIDER_SUBJECT", label: "Provider + subject" },
-  { value: "PUBLIC", label: "Public" },
-];
+const DEFAULT_VISIBILITY_VALUES: FeedbackVisibility[] = ["PROVIDER_SUBJECT", "PUBLIC"];
 
 export type FeedbackFormProps = {
   title: string;
@@ -76,10 +74,17 @@ export default function FeedbackForm({
   discardMessage,
   showTemplateInsert = false,
   requesterDisplay,
-  visibilityOptions = DEFAULT_VISIBILITY_OPTIONS,
+  visibilityOptions,
   lastModified,
 }: FeedbackFormProps) {
+  const { t } = useTranslation();
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
+  const resolvedVisibilityOptions =
+    visibilityOptions ??
+    DEFAULT_VISIBILITY_VALUES.map((value) => ({
+      value,
+      label: t(`common.visibility.${value}`),
+    }));
 
   const form = useForm<FormValues>({
     initialValues: { visibility: initialVisibility, content: initialContent },
@@ -96,9 +101,9 @@ export default function FeedbackForm({
     queryFn: () => listTemplates({ page: 1, pageSize: 100, sort: "name" }),
     enabled: showTemplateInsert,
   });
-  const templateOptions = (templatesQuery.data?.items ?? []).map((t) => ({
-    value: String(t.id),
-    label: t.name,
+  const templateOptions = (templatesQuery.data?.items ?? []).map((tpl) => ({
+    value: String(tpl.id),
+    label: tpl.name,
   }));
 
   async function insertTemplate() {
@@ -112,7 +117,7 @@ export default function FeedbackForm({
       const sep = current.length > 0 && !current.endsWith("\n") ? "\n\n" : "";
       form.setFieldValue("content", current + sep + tpl.content);
     } catch {
-      setTemplateError("Couldn't load that template. Please try again.");
+      setTemplateError(t("feedback.templateLoadError"));
     } finally {
       setInserting(false);
     }
@@ -146,17 +151,17 @@ export default function FeedbackForm({
             <Title order={2}>{title}</Title>
             <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
               <Stack gap="sm">
-                <TextInput label="Subject" value={subjectDisplay} disabled />
-                <TextInput label="Provider" value="You" disabled />
+                <TextInput label={t("common.field.subject")} value={subjectDisplay} disabled />
+                <TextInput label={t("common.field.provider")} value={t("common.state.you")} disabled />
                 {requesterDisplay != null && (
-                  <TextInput label="Requester" value={requesterDisplay} disabled />
+                  <TextInput label={t("common.field.requester")} value={requesterDisplay} disabled />
                 )}
               </Stack>
               <Stack gap="sm">
                 <Select
-                  label="Visibility"
-                  placeholder="Select visibility"
-                  data={visibilityOptions}
+                  label={t("common.field.visibility")}
+                  placeholder={t("feedback.selectVisibility")}
+                  data={resolvedVisibilityOptions}
                   allowDeselect={false}
                   {...form.getInputProps("visibility")}
                 />
@@ -164,14 +169,16 @@ export default function FeedbackForm({
                   <Stack gap="xs">
                     <Group gap="sm" align="flex-end" wrap="nowrap">
                       <Select
-                        label="Template"
+                        label={t("feedback.template")}
                         placeholder={
-                          templatesQuery.isLoading ? "Loading…" : "Pick a template"
+                          templatesQuery.isLoading
+                            ? t("common.state.loading")
+                            : t("feedback.pickTemplate")
                         }
                         data={templateOptions}
                         searchable
                         disabled={templatesQuery.isLoading}
-                        nothingFoundMessage="No matching templates"
+                        nothingFoundMessage={t("feedback.noMatchingTemplates")}
                         value={selectedTemplateId}
                         onChange={setSelectedTemplateId}
                         style={{ flex: 1 }}
@@ -183,7 +190,7 @@ export default function FeedbackForm({
                         loading={inserting}
                         disabled={selectedTemplateId == null || inserting}
                       >
-                        Insert
+                        {t("feedback.insert")}
                       </Button>
                     </Group>
                     {templateError && (
@@ -195,7 +202,7 @@ export default function FeedbackForm({
                 )}
                 {lastModified != null && (
                   <TextInput
-                    label="Last modified"
+                    label={t("common.field.lastModified")}
                     value={formatTimestamp(lastModified)}
                     disabled
                   />
@@ -209,8 +216,8 @@ export default function FeedbackForm({
             >
               <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
                 <Textarea
-                  label="Content"
-                  placeholder="Write your feedback…"
+                  label={t("common.field.content")}
+                  placeholder={t("feedback.contentPlaceholder")}
                   maxLength={5000}
                   styles={{
                     root: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 },
@@ -221,7 +228,7 @@ export default function FeedbackForm({
                 />
               </div>
               <Input.Wrapper
-                label="Preview"
+                label={t("common.field.preview")}
                 styles={{ root: { display: "flex", flexDirection: "column", minHeight: 0 } }}
               >
                 <Box
@@ -258,7 +265,7 @@ export default function FeedbackForm({
                 onClick={openCancel}
                 disabled={submitting !== null}
               >
-                Cancel
+                {t("common.action.cancel")}
               </Button>
               <Button
                 type="submit"
@@ -266,7 +273,7 @@ export default function FeedbackForm({
                 loading={submitting === "DRAFT"}
                 disabled={submitting !== null}
               >
-                Save draft
+                {t("feedback.action.saveDraft")}
               </Button>
               <Button
                 type="button"
@@ -274,7 +281,7 @@ export default function FeedbackForm({
                 loading={submitting === "SENT"}
                 disabled={submitting !== null}
               >
-                Save &amp; send
+                {t("feedback.action.saveAndSend")}
               </Button>
             </Group>
           </Stack>
@@ -286,10 +293,10 @@ export default function FeedbackForm({
           <Text>{discardMessage}</Text>
           <Group justify="flex-end" gap="sm">
             <Button variant="default" onClick={closeCancel}>
-              Keep editing
+              {t("common.action.keepEditing")}
             </Button>
             <Button color="red" component={RouterLink} to={cancelTo}>
-              Discard
+              {t("common.action.discard")}
             </Button>
           </Group>
         </Stack>

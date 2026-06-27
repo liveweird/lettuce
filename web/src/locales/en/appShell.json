@@ -1,0 +1,13 @@
+{
+  "brand": "Lettuce",
+  "toggleColorScheme": "Toggle color scheme",
+  "nav": {
+    "dashboard": "Dashboard",
+    "feedback": "Feedback",
+    "config": "Config",
+    "users": "Users",
+    "teams": "Teams",
+    "templates": "Templates",
+    "changePassword": "Change password"
+  }
+}

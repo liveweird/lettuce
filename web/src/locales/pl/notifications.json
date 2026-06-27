@@ -1,0 +1,17 @@
+{
+  "title": "Powiadomienia",
+  "unread_one": "{{count}} nieprzeczytane",
+  "unread_few": "{{count}} nieprzeczytane",
+  "unread_many": "{{count}} nieprzeczytanych",
+  "unread_other": "{{count}} nieprzeczytanego",
+  "loadError": "Nie udało się załadować powiadomień",
+  "unknownError": "Nieznany błąd",
+  "empty": "Brak powiadomień.",
+  "new": "Nowe",
+  "markSeen": "Oznacz jako przeczytane",
+  "markSeenAria": "Oznacz powiadomienie {{id}} jako przeczytane",
+  "markUnseen": "Oznacz jako nieprzeczytane",
+  "markUnseenAria": "Oznacz powiadomienie {{id}} jako nieprzeczytane",
+  "goTo": "Przejdź",
+  "goToAria": "Przejdź do powiadomienia {{id}}"
+}

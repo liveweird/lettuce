@@ -1,6 +1,7 @@
 import { Stack, Tabs, Title } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { getUserId, listTeams } from "../api/client";
 import FeedbackTable from "./FeedbackTable";
 import FeedbackTeamTable from "./FeedbackTeamTable";
@@ -13,6 +14,7 @@ function isFeedbackTab(value: string | null): value is FeedbackTab {
 }
 
 export default function Feedback() {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const userId = getUserId();
 
@@ -39,12 +41,12 @@ export default function Feedback() {
 
   return (
     <Stack gap="md">
-      <Title order={2}>Feedback</Title>
+      <Title order={2}>{t("feedback.sectionTitle")}</Title>
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
-          <Tabs.Tab value="received">Received</Tabs.Tab>
-          <Tabs.Tab value="provided">Provided</Tabs.Tab>
-          {isManager && <Tabs.Tab value="team">My team</Tabs.Tab>}
+          <Tabs.Tab value="received">{t("feedback.tab.received")}</Tabs.Tab>
+          <Tabs.Tab value="provided">{t("feedback.tab.provided")}</Tabs.Tab>
+          {isManager && <Tabs.Tab value="team">{t("feedback.tab.team")}</Tabs.Tab>}
         </Tabs.List>
 
         <Tabs.Panel value="received" pt="md">

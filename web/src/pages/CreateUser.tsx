@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link as RouterLink, Navigate, useNavigate } from "react-router-dom";
 import {
   Alert,
@@ -28,6 +29,7 @@ type FormValues = {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function CreateUser() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
@@ -36,16 +38,16 @@ export default function CreateUser() {
   const form = useForm<FormValues>({
     initialValues: { name: "", email: "", password: "", confirmPassword: "", role: "USER" },
     validate: {
-      name: hasLength({ min: 1, max: 50 }, "Name must be 1–50 characters"),
+      name: hasLength({ min: 1, max: 50 }, t("users.validation.nameLength")),
       email: (value) => {
-        if (!value) return "Email is required";
-        if (!EMAIL_RE.test(value)) return "Enter a valid email";
-        if (value.length > 254) return "Email is too long";
+        if (!value) return t("users.validation.emailRequired");
+        if (!EMAIL_RE.test(value)) return t("users.validation.emailInvalid");
+        if (value.length > 254) return t("users.validation.emailTooLong");
         return null;
       },
-      password: hasLength({ min: 8 }, "Password must be at least 8 characters"),
-      confirmPassword: matchesField("password", "Passwords do not match"),
-      role: (value) => (value === "USER" || value === "ADMIN" ? null : "Role is required"),
+      password: hasLength({ min: 8 }, t("users.validation.passwordLength")),
+      confirmPassword: matchesField("password", t("users.validation.passwordsMismatch")),
+      role: (value) => (value === "USER" || value === "ADMIN" ? null : t("users.validation.roleRequired")),
     },
   });
 
@@ -61,14 +63,14 @@ export default function CreateUser() {
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 409) {
-          form.setFieldError("email", "Email already in use");
+          form.setFieldError("email", t("users.emailAlreadyInUse"));
         } else if (err.status === 403) {
-          setError("You don't have permission to create users.");
+          setError(t("users.noPermissionCreate"));
         } else {
-          setError(`Create failed (${err.status})`);
+          setError(t("users.createFailedStatus", { status: err.status }));
         }
       } else {
-        setError("Create failed. Check your connection and try again.");
+        setError(t("users.createFailedNetwork"));
       }
     } finally {
       setSubmitting(false);
@@ -80,16 +82,16 @@ export default function CreateUser() {
       <Paper withBorder shadow="sm" p="xl" radius="md">
         <form onSubmit={form.onSubmit(onSubmit)} noValidate>
           <Stack>
-            <Title order={2}>Create user</Title>
+            <Title order={2}>{t("users.createUser")}</Title>
             <TextInput
-              label="Name"
+              label={t("common.field.name")}
               autoFocus
               maxLength={50}
               rightSection={
                 form.values.name ? (
                   <CloseButton
                     size="sm"
-                    aria-label="Clear name"
+                    aria-label={t("users.clearName")}
                     tabIndex={-1}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => form.setFieldValue("name", "")}
@@ -100,7 +102,7 @@ export default function CreateUser() {
               {...form.getInputProps("name")}
             />
             <TextInput
-              label="Email"
+              label={t("common.field.email")}
               type="email"
               autoComplete="email"
               maxLength={254}
@@ -108,7 +110,7 @@ export default function CreateUser() {
                 form.values.email ? (
                   <CloseButton
                     size="sm"
-                    aria-label="Clear email"
+                    aria-label={t("users.clearEmail")}
                     tabIndex={-1}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => form.setFieldValue("email", "")}
@@ -119,21 +121,21 @@ export default function CreateUser() {
               {...form.getInputProps("email")}
             />
             <Select
-              label="Role"
+              label={t("common.field.role")}
               data={[
-                { value: "USER", label: "User" },
-                { value: "ADMIN", label: "Admin" },
+                { value: "USER", label: t("common.role.USER") },
+                { value: "ADMIN", label: t("common.role.ADMIN") },
               ]}
               allowDeselect={false}
               {...form.getInputProps("role")}
             />
             <PasswordInput
-              label="Password"
+              label={t("users.password")}
               autoComplete="new-password"
               {...form.getInputProps("password")}
             />
             <PasswordInput
-              label="Confirm password"
+              label={t("users.confirmPassword")}
               autoComplete="new-password"
               {...form.getInputProps("confirmPassword")}
             />
@@ -144,10 +146,10 @@ export default function CreateUser() {
             )}
             <Group justify="flex-end" gap="sm">
               <Button component={RouterLink} to="/users" variant="default">
-                Cancel
+                {t("common.action.cancel")}
               </Button>
               <Button type="submit" loading={submitting}>
-                Create
+                {t("common.action.create")}
               </Button>
             </Group>
           </Stack>

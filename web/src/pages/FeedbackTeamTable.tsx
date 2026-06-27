@@ -17,6 +17,7 @@ import {
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconEye, IconPencil } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import {
   getUserId,
   listFeedbacks,
@@ -28,7 +29,7 @@ import SortHeader, { type SortDir } from "../components/SortHeader";
 import {
   formatTimestamp,
   lastModifiedCutoff,
-  LAST_MODIFIED_OPTIONS,
+  lastModifiedOptions,
   type LastModifiedWindow,
 } from "../utils/datetime";
 
@@ -45,38 +46,36 @@ type SortField =
 
 type FeedbackRow = FeedbackPage["items"][number];
 
-const VISIBILITY_LABEL: Record<FeedbackVisibility, string> = {
-  PROVIDER_SUBJECT: "Provider + subject",
-  PROVIDER_REQUESTER: "Provider + requester",
-  PROVIDER_REQUESTER_SUBJECT: "Provider + requester + subject",
-  PUBLIC: "Public",
-};
+const VISIBILITY_VALUES: FeedbackVisibility[] = [
+  "PROVIDER_SUBJECT",
+  "PROVIDER_REQUESTER",
+  "PROVIDER_REQUESTER_SUBJECT",
+  "PUBLIC",
+];
 
-const VISIBILITY_OPTIONS = (Object.keys(VISIBILITY_LABEL) as FeedbackVisibility[]).map((value) => ({
-  value,
-  label: VISIBILITY_LABEL[value],
-}));
-
-const STATUS_LABEL: Record<FeedbackStatus, string> = {
-  REQUESTED: "Requested",
-  DRAFT: "Draft",
-  SENT: "Sent",
-  WITHDRAWN: "Withdrawn",
-  REJECTED: "Rejected",
-};
-
-const STATUS_OPTIONS = (Object.keys(STATUS_LABEL) as FeedbackStatus[]).map((value) => ({
-  value,
-  label: STATUS_LABEL[value],
-}));
-
-function userName(name: string | null | undefined, deleted: boolean): string {
-  if (name == null) return "—";
-  return deleted ? `${name} (deleted)` : name;
-}
+const STATUS_VALUES: FeedbackStatus[] = [
+  "REQUESTED",
+  "DRAFT",
+  "SENT",
+  "WITHDRAWN",
+  "REJECTED",
+];
 
 export default function FeedbackTeamTable() {
+  const { t } = useTranslation();
   const currentUserId = getUserId();
+  const visibilityOptions = VISIBILITY_VALUES.map((value) => ({
+    value,
+    label: t(`common.visibility.${value}`),
+  }));
+  const statusOptions = STATUS_VALUES.map((value) => ({
+    value,
+    label: t(`common.status.${value}`),
+  }));
+  const userName = (name: string | null | undefined, deleted: boolean): string => {
+    if (name == null) return "—";
+    return deleted ? t("feedback.deletedSuffix", { name }) : name;
+  };
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
   const [sortField, setSortField] = useState<SortField>("subjectName");
@@ -154,15 +153,15 @@ export default function FeedbackTeamTable() {
     <Stack gap="md">
       <Group align="flex-end" gap="sm">
         <TextInput
-          label="Requester"
-          placeholder="contains…"
+          label={t("common.field.requester")}
+          placeholder={t("common.filter.contains")}
           value={requesterFilter}
           onChange={(e) => setRequesterFilter(e.currentTarget.value)}
           rightSection={
             requesterFilter ? (
               <CloseButton
                 size="sm"
-                aria-label="Clear requester filter"
+                aria-label={t("feedback.clearRequesterFilter")}
                 tabIndex={-1}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setRequesterFilter("")}
@@ -172,15 +171,15 @@ export default function FeedbackTeamTable() {
           rightSectionPointerEvents="auto"
         />
         <TextInput
-          label="Provider"
-          placeholder="contains…"
+          label={t("common.field.provider")}
+          placeholder={t("common.filter.contains")}
           value={providerFilter}
           onChange={(e) => setProviderFilter(e.currentTarget.value)}
           rightSection={
             providerFilter ? (
               <CloseButton
                 size="sm"
-                aria-label="Clear provider filter"
+                aria-label={t("feedback.clearProviderFilter")}
                 tabIndex={-1}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setProviderFilter("")}
@@ -190,15 +189,15 @@ export default function FeedbackTeamTable() {
           rightSectionPointerEvents="auto"
         />
         <TextInput
-          label="Subject"
-          placeholder="contains…"
+          label={t("common.field.subject")}
+          placeholder={t("common.filter.contains")}
           value={subjectFilter}
           onChange={(e) => setSubjectFilter(e.currentTarget.value)}
           rightSection={
             subjectFilter ? (
               <CloseButton
                 size="sm"
-                aria-label="Clear subject filter"
+                aria-label={t("feedback.clearSubjectFilter")}
                 tabIndex={-1}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setSubjectFilter("")}
@@ -208,24 +207,24 @@ export default function FeedbackTeamTable() {
           rightSectionPointerEvents="auto"
         />
         <Select
-          label="Visibility"
-          placeholder="Any"
-          data={VISIBILITY_OPTIONS}
+          label={t("common.field.visibility")}
+          placeholder={t("common.state.any")}
+          data={visibilityOptions}
           value={visibilityFilter}
           onChange={(v) => setVisibilityFilter((v as FeedbackVisibility | null) ?? null)}
           clearable
         />
         <Select
-          label="Status"
-          placeholder="Any"
-          data={STATUS_OPTIONS}
+          label={t("common.field.status")}
+          placeholder={t("common.state.any")}
+          data={statusOptions}
           value={statusFilter}
           onChange={(v) => setStatusFilter((v as FeedbackStatus | null) ?? null)}
           clearable
         />
         <Select
-          label="Last modified"
-          data={LAST_MODIFIED_OPTIONS}
+          label={t("common.field.lastModified")}
+          data={lastModifiedOptions(t)}
           value={lastModifiedFilter}
           onChange={(v) => setLastModifiedFilter((v as LastModifiedWindow) ?? "all")}
           allowDeselect={false}
@@ -233,8 +232,8 @@ export default function FeedbackTeamTable() {
       </Group>
 
       {isError && (
-        <Alert color="red" title="Failed to load feedbacks">
-          {error instanceof Error ? error.message : "Unknown error"}
+        <Alert color="red" title={t("feedback.loadListError")}>
+          {error instanceof Error ? error.message : t("feedback.unknownError")}
         </Alert>
       )}
 
@@ -244,7 +243,7 @@ export default function FeedbackTeamTable() {
             <Table.Th>
               <SortHeader
                 field="requesterName"
-                label="Requester"
+                label={t("common.field.requester")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
@@ -253,7 +252,7 @@ export default function FeedbackTeamTable() {
             <Table.Th>
               <SortHeader
                 field="providerName"
-                label="Provider"
+                label={t("common.field.provider")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
@@ -262,7 +261,7 @@ export default function FeedbackTeamTable() {
             <Table.Th>
               <SortHeader
                 field="subjectName"
-                label="Subject"
+                label={t("common.field.subject")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
@@ -271,7 +270,7 @@ export default function FeedbackTeamTable() {
             <Table.Th>
               <SortHeader
                 field="visibility"
-                label="Visibility"
+                label={t("common.field.visibility")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
@@ -280,23 +279,23 @@ export default function FeedbackTeamTable() {
             <Table.Th>
               <SortHeader
                 field="status"
-                label="Status"
+                label={t("common.field.status")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
             </Table.Th>
-            <Table.Th>Content</Table.Th>
+            <Table.Th>{t("common.field.content")}</Table.Th>
             <Table.Th>
               <SortHeader
                 field="lastModified"
-                label="Last modified"
+                label={t("common.field.lastModified")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
             </Table.Th>
-            <Table.Th aria-label="Actions" style={{ width: 1 }} />
+            <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -316,8 +315,8 @@ export default function FeedbackTeamTable() {
                 </Table.Td>
                 <Table.Td>{userName(f.providerName, f.providerDeleted)}</Table.Td>
                 <Table.Td>{userName(f.subjectName, f.subjectDeleted)}</Table.Td>
-                <Table.Td>{VISIBILITY_LABEL[f.visibility]}</Table.Td>
-                <Table.Td>{STATUS_LABEL[f.status]}</Table.Td>
+                <Table.Td>{t(`common.visibility.${f.visibility}`)}</Table.Td>
+                <Table.Td>{t(`common.status.${f.status}`)}</Table.Td>
                 <Table.Td
                   style={{
                     maxWidth: 280,
@@ -340,9 +339,9 @@ export default function FeedbackTeamTable() {
                       variant="subtle"
                       size="xs"
                       leftSection={<IconPencil size={14} />}
-                      aria-label={`Edit feedback for ${f.subjectName}`}
+                      aria-label={t("feedback.editFor", { name: f.subjectName })}
                     >
-                      Edit
+                      {t("common.action.edit")}
                     </Button>
                   ) : (
                     <Button
@@ -357,9 +356,9 @@ export default function FeedbackTeamTable() {
                       variant="subtle"
                       size="xs"
                       leftSection={<IconEye size={14} />}
-                      aria-label={`View feedback for ${f.subjectName}`}
+                      aria-label={t("feedback.viewFor", { name: f.subjectName })}
                     >
-                      View
+                      {t("common.action.view")}
                     </Button>
                   )}
                 </Table.Td>
@@ -369,7 +368,7 @@ export default function FeedbackTeamTable() {
             <Table.Tr>
               <Table.Td colSpan={8}>
                 <Text c="dimmed" ta="center">
-                  No feedback
+                  {t("feedback.noFeedback")}
                 </Text>
               </Table.Td>
             </Table.Tr>
@@ -379,13 +378,16 @@ export default function FeedbackTeamTable() {
 
       <Group justify="space-between" align="center">
         <Text size="sm" c="dimmed">
-          {total} total
+          {t("common.table.total", { count: total })}
         </Text>
         <Group gap="sm" align="center">
           <Select
             size="xs"
-            aria-label="Rows per page"
-            data={PAGE_SIZE_OPTIONS.map((n) => ({ value: String(n), label: `${n} / page` }))}
+            aria-label={t("feedback.rowsPerPage")}
+            data={PAGE_SIZE_OPTIONS.map((n) => ({
+              value: String(n),
+              label: t("common.table.perPage", { count: n }),
+            }))}
             value={String(pageSize)}
             onChange={(v) => {
               if (!v) return;

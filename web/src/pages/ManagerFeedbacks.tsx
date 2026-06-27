@@ -1,14 +1,15 @@
 import { Anchor, Button, Group, Stack, Text, Title } from "@mantine/core";
 import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { IconMessagePlus } from "@tabler/icons-react";
+import { useTranslation } from "react-i18next";
 import FeedbackTable from "./FeedbackTable";
 
 // Which dashboard tab this screen was opened from, so the "Back to …" link and the
 // invalid-id redirect return there. Defaults to managers for older links lacking `from`.
 const ORIGIN = {
-  managers: { label: "My managers", to: "/?tab=managers" },
-  peers: { label: "My peers", to: "/?tab=peers" },
-  subordinates: { label: "My subordinates", to: "/?tab=subordinates" },
+  managers: { labelKey: "feedback.origin.managers", to: "/?tab=managers" },
+  peers: { labelKey: "feedback.origin.peers", to: "/?tab=peers" },
+  subordinates: { labelKey: "feedback.origin.subordinates", to: "/?tab=subordinates" },
 } as const;
 
 type OriginKey = keyof typeof ORIGIN;
@@ -22,6 +23,7 @@ function isOriginKey(value: string | null): value is OriginKey {
 //   ones I'm allowed to see (the "received" view already enforces that server-side).
 // List 2: feedbacks I gave them (I = provider, they = subject) — all statuses.
 export default function ManagerFeedbacks() {
+  const { t } = useTranslation();
   const params = useParams<{ userId: string }>();
   const [searchParams] = useSearchParams();
   const name = searchParams.get("name");
@@ -33,7 +35,7 @@ export default function ManagerFeedbacks() {
 
   if (!idIsValid) return <Navigate to={origin.to} replace />;
 
-  const who = name ?? `user #${userId}`;
+  const who = name ?? t("feedback.userFallback", { id: userId });
   // Where the Edit/View/Create detail pages return to: this very screen, keeping the
   // origin so the "Back to …" link stays correct after a round-trip.
   const query = new URLSearchParams();
@@ -46,23 +48,23 @@ export default function ManagerFeedbacks() {
     <Stack gap="lg">
       <Stack gap={4}>
         <Anchor component={RouterLink} to={origin.to} size="sm">
-          ← Back to {origin.label}
+          {t("feedback.backToLabel", { label: t(origin.labelKey) })}
         </Anchor>
-        <Title order={2}>Feedbacks with {who}</Title>
+        <Title order={2}>{t("feedback.feedbacksWith", { who })}</Title>
       </Stack>
 
       <Stack gap="sm">
-        <Title order={4}>From {who} to you</Title>
+        <Title order={4}>{t("feedback.fromToYou", { who })}</Title>
         <Text size="sm" c="dimmed">
-          Feedbacks {who} provided about you that you're allowed to see.
+          {t("feedback.providedAboutYou", { who })}
         </Text>
         <FeedbackTable view="received" providerId={userId} backTo={backTo} />
       </Stack>
 
       <Stack gap="sm">
-        <Title order={4}>From you to {who}</Title>
+        <Title order={4}>{t("feedback.fromYouTo", { who })}</Title>
         <Text size="sm" c="dimmed">
-          Feedbacks you provided about {who}, in every status.
+          {t("feedback.providedAbout", { who })}
         </Text>
         <FeedbackTable view="provided" subjectId={userId} backTo={backTo} />
         <Group justify="flex-end">
@@ -70,9 +72,9 @@ export default function ManagerFeedbacks() {
             component={RouterLink}
             to={`/feedback/new?subjectId=${userId}&subjectName=${encodeURIComponent(who)}&back=${encodeURIComponent(backTo)}`}
             leftSection={<IconMessagePlus size={16} />}
-            aria-label={`Create feedback for ${who}`}
+            aria-label={t("feedback.createFeedbackFor", { who })}
           >
-            Create feedback
+            {t("feedback.createFeedback")}
           </Button>
         </Group>
       </Stack>

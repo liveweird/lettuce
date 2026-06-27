@@ -34,9 +34,11 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { getCurrentUser, getUserId, logout } from "./api/client";
 import { RedirectIfAuthed, RequireAuth, flagSignedOut, notifyAuthChange } from "./auth";
 import NotificationsButton from "./components/NotificationsButton";
+import LanguageSwitcher from "./components/LanguageSwitcher";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Feedback = lazy(() => import("./pages/Feedback"));
 const CreateFeedback = lazy(() => import("./pages/CreateFeedback"));
@@ -73,16 +75,17 @@ type NavGroup = { label: string; icon: typeof IconLayoutDashboard; children: Nav
 type NavEntry = NavLeaf | NavGroup;
 const isGroup = (e: NavEntry): e is NavGroup => "children" in e;
 
+// `label` holds an i18n key, resolved with t() at render time.
 const NAV_ITEMS: ReadonlyArray<NavEntry> = [
-  { to: "/", label: "Dashboard", icon: IconLayoutDashboard },
-  { to: "/feedback", label: "Feedback", icon: IconMessageCircle },
+  { to: "/", label: "appShell.nav.dashboard", icon: IconLayoutDashboard },
+  { to: "/feedback", label: "appShell.nav.feedback", icon: IconMessageCircle },
   {
-    label: "Config",
+    label: "appShell.nav.config",
     icon: IconSettings,
     children: [
-      { to: "/users", label: "Users", icon: IconUsers },
-      { to: "/teams", label: "Teams", icon: IconUsersGroup },
-      { to: "/templates", label: "Templates", icon: IconFileText },
+      { to: "/users", label: "appShell.nav.users", icon: IconUsers },
+      { to: "/teams", label: "appShell.nav.teams", icon: IconUsersGroup },
+      { to: "/templates", label: "appShell.nav.templates", icon: IconFileText },
     ],
   },
 ];
@@ -108,6 +111,7 @@ function HeaderUser() {
 }
 
 function ColorSchemeToggle() {
+  const { t } = useTranslation();
   const { setColorScheme } = useMantineColorScheme();
   const computed = useComputedColorScheme("light", { getInitialValueInEffect: true });
   const next = computed === "dark" ? "light" : "dark";
@@ -115,7 +119,7 @@ function ColorSchemeToggle() {
     <ActionIcon
       variant="default"
       size="lg"
-      aria-label="Toggle color scheme"
+      aria-label={t("appShell.toggleColorScheme")}
       onClick={() => setColorScheme(next)}
     >
       {computed === "dark" ? <IconSun size={18} /> : <IconMoon size={18} />}
@@ -132,6 +136,7 @@ function HeaderLogo() {
 }
 
 function Shell() {
+  const { t } = useTranslation();
   const [opened, { toggle, close }] = useDisclosure();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -139,7 +144,7 @@ function Shell() {
   const { pathname } = useLocation();
   const dynamicItems: NavLeaf[] =
     userId !== null
-      ? [{ to: `/users/${userId}/change-password`, label: "Change password", icon: IconKey }]
+      ? [{ to: `/users/${userId}/change-password`, label: "appShell.nav.changePassword", icon: IconKey }]
       : [];
   const allEntries: NavEntry[] = [...NAV_ITEMS, ...dynamicItems];
   const leafTos = allEntries.flatMap((e) =>
@@ -170,15 +175,16 @@ function Shell() {
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
             <HeaderLogo />
             <Text fw={600} size="lg">
-              Lettuce
+              {t("appShell.brand")}
             </Text>
           </Group>
           <Group gap="sm">
             <HeaderUser />
+            <LanguageSwitcher />
             <ColorSchemeToggle />
             <NotificationsButton />
             <Button variant="default" size="sm" onClick={handleLogout}>
-              Logout
+              {t("common.action.logout")}
             </Button>
           </Group>
         </Group>
@@ -196,7 +202,7 @@ function Shell() {
                 to={entry.to}
                 active={active}
                 aria-current={active ? "page" : undefined}
-                label={entry.label}
+                label={t(entry.label)}
                 leftSection={<Icon size={18} stroke={1.5} />}
                 onClick={close}
               />
@@ -207,7 +213,7 @@ function Shell() {
           return (
             <NavLink
               key={entry.label}
-              label={entry.label}
+              label={t(entry.label)}
               leftSection={<GroupIcon size={18} stroke={1.5} />}
               defaultOpened={childActive}
               childrenOffset={28}
@@ -221,7 +227,7 @@ function Shell() {
                     to={to}
                     active={active}
                     aria-current={active ? "page" : undefined}
-                    label={label}
+                    label={t(label)}
                     leftSection={<Icon size={18} stroke={1.5} />}
                     onClick={close}
                   />

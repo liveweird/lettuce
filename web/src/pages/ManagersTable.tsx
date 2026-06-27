@@ -1,10 +1,12 @@
 import { Alert, Button, Center, Loader, Table, Text } from "@mantine/core";
+import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { IconMessagePlus, IconMessageQuestion, IconMessages } from "@tabler/icons-react";
 import { listTeamMembers } from "../api/client";
 
 export default function ManagersTable() {
+  const { t } = useTranslation();
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["managers"],
     queryFn: () => listTeamMembers({ view: "managers", page: 1, pageSize: 100 }),
@@ -13,20 +15,20 @@ export default function ManagersTable() {
   return (
     <>
       {isError && (
-        <Alert color="red" title="Failed to load managers">
-          {error instanceof Error ? error.message : "Unknown error"}
+        <Alert color="red" title={t("users.loadManagersFailed")}>
+          {error instanceof Error ? error.message : t("users.unknownError")}
         </Alert>
       )}
 
       <Table striped highlightOnHover withTableBorder>
         <Table.Thead>
           <Table.Tr>
-            <Table.Th>Name</Table.Th>
-            <Table.Th>Email</Table.Th>
-            <Table.Th>Team</Table.Th>
-            <Table.Th aria-label="Provide feedback" style={{ width: 1 }} />
-            <Table.Th aria-label="Ask for feedback" style={{ width: 1 }} />
-            <Table.Th aria-label="Feedbacks" style={{ width: 1 }} />
+            <Table.Th>{t("common.field.name")}</Table.Th>
+            <Table.Th>{t("common.field.email")}</Table.Th>
+            <Table.Th>{t("users.team")}</Table.Th>
+            <Table.Th aria-label={t("users.provideFeedback")} style={{ width: 1 }} />
+            <Table.Th aria-label={t("users.askForFeedback")} style={{ width: 1 }} />
+            <Table.Th aria-label={t("users.feedbacks")} style={{ width: 1 }} />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -52,9 +54,9 @@ export default function ManagersTable() {
                     variant="subtle"
                     size="xs"
                     leftSection={<IconMessagePlus size={14} />}
-                    aria-label={`Provide feedback to ${m.name}`}
+                    aria-label={t("users.provideFeedbackTo", { name: m.name })}
                   >
-                    Provide feedback
+                    {t("users.provideFeedback")}
                   </Button>
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
@@ -65,9 +67,9 @@ export default function ManagersTable() {
                     variant="subtle"
                     size="xs"
                     leftSection={<IconMessageQuestion size={14} />}
-                    aria-label={`Ask ${m.name} for feedback`}
+                    aria-label={t("users.askForFeedbackFrom", { name: m.name })}
                   >
-                    Ask for feedback
+                    {t("users.askForFeedback")}
                   </Button>
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
@@ -78,9 +80,9 @@ export default function ManagersTable() {
                     variant="subtle"
                     size="xs"
                     leftSection={<IconMessages size={14} />}
-                    aria-label={`Feedbacks with ${m.name}`}
+                    aria-label={t("users.feedbacksWith", { name: m.name })}
                   >
-                    Feedbacks
+                    {t("users.feedbacks")}
                   </Button>
                 </Table.Td>
               </Table.Tr>
@@ -89,7 +91,7 @@ export default function ManagersTable() {
             <Table.Tr>
               <Table.Td colSpan={6}>
                 <Text c="dimmed" ta="center">
-                  No managers
+                  {t("users.noManagers")}
                 </Text>
               </Table.Td>
             </Table.Tr>

@@ -17,6 +17,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconPlus, IconTrash } from "@tabler/icons-react";
+import { useTranslation } from "react-i18next";
 import {
   ApiError,
   createFeedback,
@@ -29,18 +30,23 @@ import {
 // max (the list endpoint's cap). Fine at this app's scale.
 const PICKER_PAGE_SIZE = 100;
 
-const VISIBILITY_OPTIONS: { value: FeedbackVisibility; label: string }[] = [
-  { value: "PROVIDER_REQUESTER", label: "Provider + requester" },
-  { value: "PROVIDER_REQUESTER_SUBJECT", label: "Provider + requester + subject" },
-  { value: "PUBLIC", label: "Public" },
+const VISIBILITY_VALUES: FeedbackVisibility[] = [
+  "PROVIDER_REQUESTER",
+  "PROVIDER_REQUESTER_SUBJECT",
+  "PUBLIC",
 ];
 
 type Provider = { id: number; name: string };
 
 export default function RequestFeedback() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
+  const visibilityOptions = VISIBILITY_VALUES.map((value) => ({
+    value,
+    label: t(`common.visibility.${value}`),
+  }));
 
   const subjectId = Number(searchParams.get("subjectId"));
   const subjectName = searchParams.get("subjectName");
@@ -109,14 +115,14 @@ export default function RequestFeedback() {
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 403) {
-          setError("You don't have permission to request this feedback.");
+          setError(t("feedback.error.requestPermission"));
         } else if (err.status === 400) {
-          setError("Validation error. Please review the selected providers and try again.");
+          setError(t("feedback.error.validationProviders"));
         } else {
-          setError(`Request failed (${err.status})`);
+          setError(t("feedback.error.requestFailedStatus", { status: err.status }));
         }
       } else {
-        setError("Request failed. Check your connection and try again.");
+        setError(t("feedback.error.requestFailed"));
       }
     } finally {
       setSubmitting(false);
@@ -127,14 +133,14 @@ export default function RequestFeedback() {
     <Container size="sm" px={0}>
       <Paper withBorder shadow="sm" p="xl" radius="md">
         <Stack>
-          <Title order={2}>Request feedback</Title>
+          <Title order={2}>{t("feedback.requestFeedbackTitle")}</Title>
 
           <SimpleSubjectRequester subjectDisplay={subjectName ?? `#${subjectId}`} />
 
           <Select
-            label="Visibility"
-            placeholder="Select visibility"
-            data={VISIBILITY_OPTIONS}
+            label={t("common.field.visibility")}
+            placeholder={t("feedback.selectVisibility")}
+            data={visibilityOptions}
             allowDeselect={false}
             value={visibility}
             onChange={(v) => v && setVisibility(v as FeedbackVisibility)}
@@ -142,26 +148,26 @@ export default function RequestFeedback() {
 
           <Group align="flex-end" gap="sm">
             <Select
-              label="Add a provider"
-              placeholder="Pick a user"
+              label={t("feedback.addProvider")}
+              placeholder={t("feedback.pickUser")}
               data={addOptions}
               value={pick}
               onChange={setPick}
               searchable
               clearable
-              nothingFoundMessage="No users available"
+              nothingFoundMessage={t("feedback.noUsersAvailable")}
               w={280}
             />
             <Button leftSection={<IconPlus size={16} />} onClick={add} disabled={!pick}>
-              Add
+              {t("feedback.add")}
             </Button>
           </Group>
 
           <Table withTableBorder>
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>Provider</Table.Th>
-                <Table.Th aria-label="Actions" style={{ width: 1 }} />
+                <Table.Th>{t("common.field.provider")}</Table.Th>
+                <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
@@ -176,9 +182,9 @@ export default function RequestFeedback() {
                         size="xs"
                         leftSection={<IconTrash size={14} />}
                         onClick={() => remove(p.id)}
-                        aria-label={`Remove ${p.name}`}
+                        aria-label={t("feedback.removeName", { name: p.name })}
                       >
-                        Remove
+                        {t("feedback.remove")}
                       </Button>
                     </Table.Td>
                   </Table.Tr>
@@ -187,7 +193,7 @@ export default function RequestFeedback() {
                 <Table.Tr>
                   <Table.Td colSpan={2}>
                     <Text c="dimmed" ta="center">
-                      Add at least one provider to request feedback from.
+                      {t("feedback.addAtLeastOneProvider")}
                     </Text>
                   </Table.Td>
                 </Table.Tr>
@@ -203,7 +209,7 @@ export default function RequestFeedback() {
 
           <Group justify="flex-end" gap="sm">
             <Button type="button" variant="default" onClick={openCancel} disabled={submitting}>
-              Cancel
+              {t("common.action.cancel")}
             </Button>
             <Button
               type="button"
@@ -211,21 +217,26 @@ export default function RequestFeedback() {
               loading={submitting}
               disabled={selected.length === 0}
             >
-              Request
+              {t("feedback.action.request")}
             </Button>
           </Group>
         </Stack>
       </Paper>
 
-      <Modal opened={cancelOpen} onClose={closeCancel} title="Discard this request?" centered>
+      <Modal
+        opened={cancelOpen}
+        onClose={closeCancel}
+        title={t("feedback.discardRequestTitle")}
+        centered
+      >
         <Stack gap="md">
-          <Text>Discard this feedback request? The providers you've selected won't be saved.</Text>
+          <Text>{t("feedback.discardRequestMessage")}</Text>
           <Group justify="flex-end" gap="sm">
             <Button variant="default" onClick={closeCancel}>
-              Keep editing
+              {t("common.action.keepEditing")}
             </Button>
             <Button color="red" component={RouterLink} to={backTo}>
-              Discard
+              {t("common.action.discard")}
             </Button>
           </Group>
         </Stack>
@@ -235,10 +246,11 @@ export default function RequestFeedback() {
 }
 
 function SimpleSubjectRequester({ subjectDisplay }: { subjectDisplay: string }) {
+  const { t } = useTranslation();
   return (
     <Group grow>
-      <TextInput label="Subject" value={subjectDisplay} disabled />
-      <TextInput label="Requester" value="You" disabled />
+      <TextInput label={t("common.field.subject")} value={subjectDisplay} disabled />
+      <TextInput label={t("common.field.requester")} value={t("common.state.you")} disabled />
     </Group>
   );
 }

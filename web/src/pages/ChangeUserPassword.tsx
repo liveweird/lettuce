@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Link as RouterLink,
   Navigate,
@@ -28,6 +29,7 @@ type FormValues = {
 };
 
 export default function ChangeUserPassword() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const params = useParams<{ id: string }>();
@@ -38,8 +40,8 @@ export default function ChangeUserPassword() {
   const form = useForm<FormValues>({
     initialValues: { password: "", confirmPassword: "" },
     validate: {
-      password: hasLength({ min: 8 }, "Password must be at least 8 characters"),
-      confirmPassword: matchesField("password", "Passwords do not match"),
+      password: hasLength({ min: 8 }, t("users.validation.passwordLength")),
+      confirmPassword: matchesField("password", t("users.validation.passwordsMismatch")),
     },
   });
 
@@ -70,14 +72,14 @@ export default function ChangeUserPassword() {
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 403) {
-          setError("You don't have permission to change this user's password.");
+          setError(t("users.noPermissionChangePassword"));
         } else if (err.status === 404) {
-          setError("User no longer exists.");
+          setError(t("users.userNoLongerExists"));
         } else {
-          setError(`Change failed (${err.status})`);
+          setError(t("users.changeFailedStatus", { status: err.status }));
         }
       } else {
-        setError("Change failed. Check your connection and try again.");
+        setError(t("users.changeFailedNetwork"));
       }
     } finally {
       setSubmitting(false);
@@ -90,7 +92,7 @@ export default function ChangeUserPassword() {
     <Container size="xs" px={0}>
       <Paper withBorder shadow="sm" p="xl" radius="md">
         <Stack>
-          <Title order={2}>Change password</Title>
+          <Title order={2}>{t("users.changePassword")}</Title>
           {isLoading ? (
             <Center py="xl">
               <Loader />
@@ -98,23 +100,23 @@ export default function ChangeUserPassword() {
           ) : notFound ? (
             <>
               <Alert color="red" variant="light">
-                User not found.
+                {t("users.userNotFound")}
               </Alert>
               <Group justify="flex-end">
                 <Button component={RouterLink} to={returnTo} variant="default">
-                  Back to users
+                  {t("users.backToUsers")}
                 </Button>
               </Group>
             </>
           ) : isError ? (
             <>
               <Alert color="red" variant="light">
-                Failed to load user
+                {t("users.loadUserFailed")}
                 {fetchError instanceof ApiError ? ` (${fetchError.status})` : ""}.
               </Alert>
               <Group justify="flex-end">
                 <Button component={RouterLink} to={returnTo} variant="default">
-                  Back to users
+                  {t("users.backToUsers")}
                 </Button>
               </Group>
             </>
@@ -123,17 +125,17 @@ export default function ChangeUserPassword() {
               <Stack>
                 {data && (
                   <Text c="dimmed" size="sm">
-                    Set a new password for {data.name} ({data.email}).
+                    {t("users.setNewPassword", { name: data.name, email: data.email })}
                   </Text>
                 )}
                 <PasswordInput
-                  label="New password"
+                  label={t("users.newPassword")}
                   autoFocus
                   autoComplete="new-password"
                   {...form.getInputProps("password")}
                 />
                 <PasswordInput
-                  label="Confirm password"
+                  label={t("users.confirmPassword")}
                   autoComplete="new-password"
                   {...form.getInputProps("confirmPassword")}
                 />
@@ -144,10 +146,10 @@ export default function ChangeUserPassword() {
                 )}
                 <Group justify="flex-end" gap="sm">
                   <Button component={RouterLink} to={returnTo} variant="default">
-                    Cancel
+                    {t("common.action.cancel")}
                   </Button>
                   <Button type="submit" loading={submitting}>
-                    Change password
+                    {t("users.changePassword")}
                   </Button>
                 </Group>
               </Stack>

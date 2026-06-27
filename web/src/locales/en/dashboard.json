@@ -1,0 +1,12 @@
+{
+  "title": "Dashboard",
+  "tabs": {
+    "managers": "My managers",
+    "peers": "My peers",
+    "subordinates": "My subordinates"
+  },
+  "empty": {
+    "teammates": "No teammates",
+    "teamMembers": "No team members"
+  }
+}
