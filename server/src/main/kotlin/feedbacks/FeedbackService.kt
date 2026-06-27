@@ -61,8 +61,8 @@ private val RECEIVED_VISIBILITIES = listOf(
     FeedbackVisibility.PUBLIC,
 )
 
-// In the Received list a feedback the subject did not request is only shown once delivered.
-private val RECEIVED_DELIVERED_STATUSES = listOf(FeedbackStatus.SENT, FeedbackStatus.WITHDRAWN)
+// A feedback the caller is not a party to (Received / My team lists) is only shown once delivered.
+private val DELIVERED_STATUSES = listOf(FeedbackStatus.SENT, FeedbackStatus.WITHDRAWN)
 
 const val CONTENT_PREVIEW_LENGTH = 200
 
@@ -191,12 +191,12 @@ class FeedbackService(val database: R2dbcDatabase) {
                 // C) someone else requested it — only once delivered and under a subject-readable
                 //    visibility.
                 val noRequester = Feedbacks.requesterId.isNull() and
-                    (Feedbacks.status inList RECEIVED_DELIVERED_STATUSES)
+                    (Feedbacks.status inList DELIVERED_STATUSES)
                 val iAmRequester = Feedbacks.requesterId eq callerUserId
                 val otherRequester = Feedbacks.requesterId.isNotNull() and
                     (Feedbacks.requesterId neq callerUserId) and
                     (Feedbacks.visibility inList RECEIVED_VISIBILITIES) and
-                    (Feedbacks.status inList RECEIVED_DELIVERED_STATUSES)
+                    (Feedbacks.status inList DELIVERED_STATUSES)
                 (Feedbacks.subjectId eq callerUserId) and (noRequester or iAmRequester or otherRequester)
             }
             FeedbackListView.PROVIDED -> Feedbacks.providerId eq callerUserId
@@ -214,7 +214,12 @@ class FeedbackService(val database: R2dbcDatabase) {
                         (TeamService.Teams.managerId eq callerUserId) and
                             (TeamService.Teams.markedAsDeleted eq false)
                     }
-                Feedbacks.subjectId inSubQuery subordinateIds
+                // I see a subordinate's feedback if I'm a party (provider or requester) for any
+                // status; otherwise only once it's delivered (SENT/WITHDRAWN).
+                val iAmParty = (Feedbacks.providerId eq callerUserId) or
+                    (Feedbacks.requesterId eq callerUserId)
+                (Feedbacks.subjectId inSubQuery subordinateIds) and
+                    (iAmParty or (Feedbacks.status inList DELIVERED_STATUSES))
             }
         }
         val predicate: Op<Boolean> = scope and buildPredicate(filter)

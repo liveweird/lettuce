@@ -943,7 +943,7 @@ class FeedbackRoutesTest {
     }
 
     @Test
-    fun `team view redacts a draft's content from the manager who requested it, not from another manager`() =
+    fun `team view shows a requested draft to the requesting manager (redacted) but hides it from a non-party manager`() =
         testApplication {
             usePostgresTestcontainer()
             val provider = seedParty("provider", "Pat Provider")
@@ -975,19 +975,54 @@ class FeedbackRoutesTest {
                 content = "draft for the team",
             )
 
-            // The requesting manager sees the row in the team view but with the content redacted…
+            // The requesting manager is a party (the requester), so the draft appears in her team
+            // view — but its content is redacted while unfinished.
             val asRequester = requestingManagerClient.get("/api/feedbacks?view=team").body<FeedbackPageResponse>()
             assertEquals("", asRequester.items.single { it.id == draft.id }.contentPreview)
             assertEquals("", requestingManagerClient.get("/api/feedbacks/${draft.id}").body<FeedbackResponse>().content)
 
-            // …while a different manager of the same subject still sees the draft content.
+            // The other manager is not a party to this draft, so it does not surface in her team view
+            // at all (only delivered feedback shows for a non-party manager).
             val asOther = otherManagerClient.get("/api/feedbacks?view=team").body<FeedbackPageResponse>()
-            assertEquals("draft for the team", asOther.items.single { it.id == draft.id }.contentPreview)
-            assertEquals(
-                "draft for the team",
-                otherManagerClient.get("/api/feedbacks/${draft.id}").body<FeedbackResponse>().content,
-            )
+            assertTrue(asOther.items.none { it.id == draft.id })
         }
+
+    @Test
+    fun `team view hides in-progress feedback unless the manager is the provider or requester`() = testApplication {
+        usePostgresTestcontainer()
+        val manager = seedParty("manager", "Manny Manager")
+        val subordinate = seedParty("sub", "Sam Sub")
+        val provider = seedParty("provider", "Pat Provider")
+        val otherRequester = seedParty("requester", "Rita Requester")
+        val managerClient = authedClient(manager.email, "pw")
+        val providerClient = authedClient(provider.email, "pw")
+
+        managerClient.post("/api/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "Squad", managerId = manager.id, memberIds = listOf(subordinate.id)))
+        }
+
+        // (a) a draft by another provider — the manager is not a party → hidden.
+        providerClient.createFeedback(
+            subordinate.id, provider.id, FeedbackVisibility.PUBLIC, status = FeedbackStatus.DRAFT,
+        )
+        // (b) a draft the manager themselves provides → shown (party: provider).
+        val mine = managerClient.createFeedback(
+            subordinate.id, manager.id, FeedbackVisibility.PROVIDER_SUBJECT, status = FeedbackStatus.DRAFT,
+        )
+        // (c) a request by someone else — the manager is not a party → hidden.
+        providerClient.createFeedback(
+            subordinate.id, provider.id, FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
+            status = FeedbackStatus.REQUESTED, requesterId = otherRequester.id,
+        )
+        // (d) a delivered feedback — non-party, but SENT → shown.
+        val sent = providerClient.createFeedback(
+            subordinate.id, provider.id, FeedbackVisibility.PUBLIC, status = FeedbackStatus.SENT,
+        )
+
+        val items = managerClient.get("/api/feedbacks?view=team").body<FeedbackPageResponse>().items
+        assertEquals(setOf(mine.id, sent.id), items.map { it.id }.toSet())
+    }
 
     @Test
     fun `list scopes to a single counterparty by providerId and subjectId`() = testApplication {
