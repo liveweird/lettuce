@@ -26,13 +26,13 @@ export default defineConfig({
         'src/vite-env.d.ts',
         '**/*.d.ts',
       ],
-      // Floors set below current measured coverage so they gate regressions without
+      // Floors set just below current measured coverage so they gate regressions without
       // blocking unrelated work. Raise as coverage improves.
       thresholds: {
-        lines: 80,
-        statements: 78,
-        functions: 75,
-        branches: 65,
+        lines: 86,
+        statements: 83,
+        functions: 78,
+        branches: 74,
       },
     },
   },

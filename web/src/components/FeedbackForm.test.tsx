@@ -111,4 +111,25 @@ describe("FeedbackForm", () => {
       mockFetch.mock.calls.some(([url]) => String(url).startsWith("/api/templates")),
     ).toBe(false);
   });
+
+  test("renders the error prop as an alert", () => {
+    renderWithProviders(<FeedbackForm {...baseProps} onSubmit={() => {}} error="Something failed" />);
+    expect(screen.getByText("Something failed")).toBeInTheDocument();
+  });
+
+  test("Cancel opens the discard modal; Discard links to cancelTo and Keep editing closes it", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<FeedbackForm {...baseProps} onSubmit={() => {}} />);
+
+    // Closed initially.
+    expect(screen.queryByText("Discard your changes?")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
+    expect(screen.getByText("Discard your changes?")).toBeInTheDocument();
+    // Discard is a router link back to cancelTo (we assert the href rather than drive navigation).
+    expect(screen.getByRole("link", { name: /discard/i })).toHaveAttribute("href", "/feedback");
+
+    await user.click(screen.getByRole("button", { name: /keep editing/i }));
+    await waitFor(() => expect(screen.queryByText("Discard your changes?")).toBeNull());
+  });
 });

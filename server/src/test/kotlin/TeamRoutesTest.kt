@@ -309,6 +309,16 @@ class TeamRoutesTest {
     }
 
     @Test
+    fun `delete of a non-existent team returns 404`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw") // ADMIN by default
+        val client = authedClient(adminEmail, "pw")
+
+        assertEquals(HttpStatusCode.NotFound, client.delete("/api/teams/999999").status)
+    }
+
+    @Test
     fun `create with duplicate memberIds is rejected`() = testApplication {
         usePostgresTestcontainer()
         val ownerEmail = uniqueEmail("owner")

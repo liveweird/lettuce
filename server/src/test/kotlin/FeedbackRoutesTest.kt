@@ -631,6 +631,36 @@ class FeedbackRoutesTest {
     }.body<FeedbackResponse>()
 
     @Test
+    fun `PUT a non-existent feedback returns 404`() = testApplication {
+        usePostgresTestcontainer()
+        val admin = uniqueEmail("admin")
+        TestUsers.seed(email = admin, password = "pw") // ADMIN by default
+        val client = authedClient(admin, "pw")
+
+        val response = client.put("/api/feedbacks/999999") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                Feedback(
+                    subjectId = 1u, providerId = 2u,
+                    visibility = FeedbackVisibility.PUBLIC, status = FeedbackStatus.SENT,
+                )
+            )
+        }
+        assertEquals(HttpStatusCode.NotFound, response.status)
+    }
+
+    @Test
+    fun `DELETE a non-existent feedback is idempotent`() = testApplication {
+        usePostgresTestcontainer()
+        val admin = uniqueEmail("admin")
+        TestUsers.seed(email = admin, password = "pw")
+        val client = authedClient(admin, "pw")
+
+        // The delete handler treats a missing row as already-gone (204), not 404.
+        assertEquals(HttpStatusCode.NoContent, client.delete("/api/feedbacks/999999").status)
+    }
+
+    @Test
     fun `list received returns only caller-as-subject rows with subject-readable visibilities`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("subject")

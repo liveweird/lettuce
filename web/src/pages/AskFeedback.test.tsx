@@ -129,4 +129,36 @@ describe("AskFeedback page", () => {
     await user.click(screen.getByRole("button", { name: /send request/i }));
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/?tab=peers"));
   });
+
+  test("shows a permission error when the request is forbidden", async () => {
+    mockFetch.mockImplementation((url: string) =>
+      Promise.resolve(url === "/api/feedbacks" ? jsonResponse(403, {}) : jsonResponse(404, {})),
+    );
+    const user = userEvent.setup();
+    renderAskFeedback();
+
+    await user.click(screen.getByRole("button", { name: /send request/i }));
+    expect(await screen.findByText(/don't have permission to request/i)).toBeInTheDocument();
+    // Stays on the page rather than navigating away.
+    expect(screen.queryByTestId("probe")).toBeNull();
+  });
+
+  test("maps 400 to a validation message and other statuses to a generic one", async () => {
+    const user = userEvent.setup();
+
+    mockFetch.mockImplementation((url: string) =>
+      Promise.resolve(url === "/api/feedbacks" ? jsonResponse(400, {}) : jsonResponse(404, {})),
+    );
+    const first = renderAskFeedback();
+    await user.click(screen.getByRole("button", { name: /send request/i }));
+    expect(await screen.findByText(/validation error/i)).toBeInTheDocument();
+    first.unmount();
+
+    mockFetch.mockImplementation((url: string) =>
+      Promise.resolve(url === "/api/feedbacks" ? jsonResponse(500, {}) : jsonResponse(404, {})),
+    );
+    renderAskFeedback();
+    await user.click(screen.getByRole("button", { name: /send request/i }));
+    expect(await screen.findByText(/request failed \(500\)/i)).toBeInTheDocument();
+  });
 });

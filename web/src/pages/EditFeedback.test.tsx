@@ -148,6 +148,23 @@ describe("EditFeedback page", () => {
     });
   });
 
+  test("a 403 on save shows a permission error and stays on the editor", async () => {
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "PUT" && url === "/api/feedbacks/5") {
+        return Promise.resolve(jsonResponse(403, { error: "forbidden", message: "no" }));
+      }
+      return Promise.resolve(jsonResponse(200, FEEDBACK));
+    });
+    const user = userEvent.setup();
+    renderEditFeedback();
+
+    await screen.findByLabelText("Content");
+    await user.click(screen.getByRole("button", { name: /^save draft$/i }));
+
+    expect(await screen.findByText(/don't have permission to edit this feedback/i)).toBeInTheDocument();
+    expect(screen.queryByTestId("probe")).toBeNull(); // no navigation on error
+  });
+
   test("Save & send PUTs status SENT", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       if ((init?.method ?? "GET") === "PUT" && url === "/api/feedbacks/5") {

@@ -194,6 +194,16 @@ class NotificationRoutesTest {
     }
 
     @Test
+    fun `delete of a non-existent notification returns 404`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw") // ADMIN bypasses the recipient guard
+        val client = authedClient(adminEmail, "pw")
+
+        assertEquals(HttpStatusCode.NotFound, client.delete("/api/notifications/999999").status)
+    }
+
+    @Test
     fun `notification endpoints require authentication`() = testApplication {
         usePostgresTestcontainer()
         val client = jsonClient()

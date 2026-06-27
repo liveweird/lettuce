@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -143,5 +143,47 @@ describe("CreateTeam page", () => {
     renderCreateTeam();
     expect(screen.getByTestId("probe")).toHaveTextContent("/teams");
     expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  // Fill the form (name + manager) and submit. Mocks `POST /api/teams` to `postStatus`.
+  function mockWithPostStatus(mockFetch: ReturnType<typeof vi.fn>, postStatus: number) {
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      if (method === "GET" && url.startsWith("/api/users?")) {
+        return Promise.resolve(
+          jsonResponse(200, { items: MANAGER_POOL, page: 1, pageSize: 100, total: MANAGER_POOL.length }),
+        );
+      }
+      if (method === "POST" && url === "/api/teams") return Promise.resolve(jsonResponse(postStatus, {}));
+      return Promise.resolve(jsonResponse(500, {}));
+    });
+  }
+
+  async function fillAndSubmit(user: ReturnType<typeof userEvent.setup>) {
+    const managerInput = screen.getByLabelText(/manager/i, { selector: "input" });
+    await waitFor(() => expect(managerInput).not.toBeDisabled());
+    await user.type(screen.getByLabelText(/name/i), "Platform");
+    fireEvent.click(managerInput); // open the searchable manager combobox
+    await user.click(await screen.findByText("Alice Manager"));
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+  }
+
+  test("shows a permission error when create is forbidden", async () => {
+    mockWithPostStatus(mockFetch, 403);
+    const user = userEvent.setup();
+    renderCreateTeam();
+
+    await fillAndSubmit(user);
+    expect(await screen.findByText(/don't have permission to create teams/i)).toBeInTheDocument();
+    expect(screen.queryByTestId("probe")).not.toBeInTheDocument(); // stayed on the form
+  });
+
+  test("maps a 400 from create to a validation message", async () => {
+    mockWithPostStatus(mockFetch, 400);
+    const user = userEvent.setup();
+    renderCreateTeam();
+
+    await fillAndSubmit(user);
+    expect(await screen.findByText(/validation error\. please check the form/i)).toBeInTheDocument();
   });
 });
