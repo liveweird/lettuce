@@ -62,7 +62,7 @@ describe("AskFeedback page", () => {
     expect(screen.queryByRole("heading", { name: /ask for feedback/i })).toBeNull();
   });
 
-  test("shows the provider and offers only the two allowed visibilities", async () => {
+  test("shows the provider and offers the requester-inclusive visibilities", async () => {
     renderAskFeedback();
 
     expect(screen.getByRole("heading", { name: /ask for feedback/i })).toBeInTheDocument();
@@ -73,7 +73,11 @@ describe("AskFeedback page", () => {
 
     fireEvent.click(screen.getByLabelText("Visibility", { selector: "input" }));
     const options = await screen.findAllByRole("option");
-    expect(options.map((o) => o.textContent)).toEqual(["Provider + subject", "Public"]);
+    expect(options.map((o) => o.textContent)).toEqual([
+      "Provider + requester",
+      "Provider + requester + subject",
+      "Public",
+    ]);
   });
 
   test("submits a REQUESTED feedback with self as subject+requester and returns to managers", async () => {
@@ -93,7 +97,7 @@ describe("AskFeedback page", () => {
       requesterId: 3,
       subjectId: 3,
       providerId: 10,
-      visibility: "PROVIDER_SUBJECT",
+      visibility: "PROVIDER_REQUESTER_SUBJECT",
       status: "REQUESTED",
       content: "",
     });

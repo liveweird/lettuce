@@ -17,10 +17,11 @@ import { useDisclosure } from "@mantine/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError, createFeedback, getUserId, type FeedbackVisibility } from "../api/client";
 
-// "Ask for feedback" only offers the two visibilities where the subject (the requester
-// themselves) can read the result.
+// The asker is the requester, so "Ask for feedback" offers the requester-inclusive visibilities —
+// the ones under which the requester (themselves) can read the result.
 const VISIBILITY_OPTIONS: { value: FeedbackVisibility; label: string }[] = [
-  { value: "PROVIDER_SUBJECT", label: "Provider + subject" },
+  { value: "PROVIDER_REQUESTER", label: "Provider + requester" },
+  { value: "PROVIDER_REQUESTER_SUBJECT", label: "Provider + requester + subject" },
   { value: "PUBLIC", label: "Public" },
 ];
 
@@ -35,7 +36,7 @@ export default function AskFeedback() {
   const backTo = searchParams.get("back") ?? "/?tab=managers";
   const requesterId = getUserId();
 
-  const [visibility, setVisibility] = useState<FeedbackVisibility>("PROVIDER_SUBJECT");
+  const [visibility, setVisibility] = useState<FeedbackVisibility>("PROVIDER_REQUESTER_SUBJECT");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
