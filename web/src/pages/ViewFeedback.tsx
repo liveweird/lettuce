@@ -196,15 +196,13 @@ export default function ViewFeedback() {
             <>
               <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                 <Stack gap="sm">
-                  <TextInput
-                    label="Requester"
-                    value={
-                      data!.requesterId == null
-                        ? "None"
-                        : (data!.requesterName ?? requesterName ?? `#${data!.requesterId}`)
-                    }
-                    disabled
-                  />
+                  {data!.requesterId != null && (
+                    <TextInput
+                      label="Requester"
+                      value={data!.requesterName ?? requesterName ?? `#${data!.requesterId}`}
+                      disabled
+                    />
+                  )}
                   <TextInput
                     label="Subject"
                     value={

@@ -72,7 +72,8 @@ describe("ViewFeedback page", () => {
 
     expect((await screen.findByLabelText("Provider")) as HTMLInputElement).toHaveValue("Alice");
     expect((screen.getByLabelText("Subject") as HTMLInputElement).value).toBe("You");
-    expect((screen.getByLabelText("Requester") as HTMLInputElement).value).toBe("None");
+    // No requester on this feedback → no Requester field at all.
+    expect(screen.queryByLabelText("Requester")).toBeNull();
     expect((screen.getByLabelText("Visibility") as HTMLInputElement).value).toBe("Public");
     expect((screen.getByLabelText("Status") as HTMLInputElement).value).toBe("Sent");
     // Content renders as read-only markdown, not an editable form control.
@@ -90,6 +91,17 @@ describe("ViewFeedback page", () => {
     expect(
       mockFetch.mock.calls.every(([, init]) => (init?.method ?? "GET") === "GET"),
     ).toBe(true);
+  });
+
+  test("shows a read-only Requester field with the resolved name when there is a requester", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, { ...FEEDBACK, requesterId: 9, requesterName: "Rita Requester" }),
+    );
+    renderViewFeedback();
+
+    const requester = (await screen.findByLabelText("Requester")) as HTMLInputElement;
+    expect(requester.value).toBe("Rita Requester");
+    expect(requester).toBeDisabled();
   });
 
   test("404 shows a not-found alert with a Close link", async () => {
