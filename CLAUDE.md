@@ -131,7 +131,7 @@ Layered RBAC. Implemented in the `server/src/main/kotlin/authz/` package.
   - `GET /api/teams/{id}` → any authenticated user.
   - `PUT /api/teams/{id}`, `DELETE /api/teams/{id}`, member sub-resource mutations → the team's current `manager_id` or ADMIN.
   - `POST /api/feedbacks` → any authenticated user (the caller need not be one of the parties); the create-time invariants apply (see "Feedback lifecycle").
-  - `GET /api/feedbacks/{id}` → `canReadFeedback` (`authz/Guards.kt`): ADMIN; the **provider** (always); a **manager of the subject** (read-only, mirroring the team list via `managesSubject`); otherwise per `FeedbackVisibility` and the caller's relationship (subject / requester) — **except a `DRAFT` is hidden from the subject** until it leaves `DRAFT`.
+  - `GET /api/feedbacks/{id}` → `canReadFeedback` (`authz/Guards.kt`), evaluated in order: **ADMIN** and the **provider** see everything; the **requester** sees it at any status, but only when visibility is `PROVIDER_REQUESTER`/`PROVIDER_REQUESTER_SUBJECT`; the **subject** sees it only when visibility is `PROVIDER_SUBJECT`/`PROVIDER_REQUESTER_SUBJECT` **and** status is `SENT`/`WITHDRAWN`; a **manager of the subject** sees it when status is `SENT`/`WITHDRAWN` (the `managesSubject` arg) — **but** the route uses `requireFeedbackReadAllowingManager`, which grants a managing caller read **unconditionally** (any status), so in practice a manager can open any subordinate's feedback (a known list-vs-detail asymmetry); finally `PUBLIC` + `SENT` is readable by anyone. Anything else is **default-deny**, which also logs a `SHOULD_NEVER_HAPPEN`-marked WARN (the branch is meant to be unreachable). Whether the **content** (vs. mere existence) is shown is a separate gate, `canReadFeedbackContent`: a requester watching an unfinished (`DRAFT`/`REQUESTED`) feedback sees that it exists but not its content.
   - `PUT/DELETE /api/feedbacks/{id}` → the row's `provider_id` or ADMIN (`canWriteFeedback`). This guard gates **every** status transition (send, withdraw, pick-up, reject); on `PUT` the requested transition must additionally be valid for the current status (see "Feedback lifecycle") or it is `400`.
   - `GET/POST/DELETE /api/notifications/*` → the notification's `recipient_id` only (via `requireNotificationRecipient`); ADMIN bypasses. Notifications are never created through the API — see "Notifications" below.
 - **Exceptions**: `UnauthorizedException` (→ 401) and `ForbiddenException` (→ 403) are mapped to `ApiError` in `plugins/ErrorHandling.kt`.
@@ -159,7 +159,7 @@ A feedback moves through a small state machine. The authoritative rules live in 
 
 Every transition is performed via `PUT /api/feedbacks/{id}` and is gated by `canWriteFeedback` (provider or ADMIN only) — so only the provider/ADMIN can send, withdraw, pick up, or reject.
 
-**Creation vs. update.** On **create** (`POST`) any status is permitted — there is no transition gate, so the UI can create a feedback directly as `SENT` ("save & send") or as `REQUESTED` ("ask for feedback"). The transition check above applies only on **update**. The following invariants are enforced on **both** create and update: provider ≠ subject; requester ≠ provider; `REQUESTED` requires a requester. Transition and invariant behavior is covered by `FeedbackRoutesTest` (transitions) and `AuthorizationTest` (the `FeedbackVisibility` read matrix).
+**Creation vs. update.** On **create** (`POST`) any status is permitted — there is no transition gate, so the UI can create a feedback directly as `SENT` ("save & send") or as `REQUESTED` ("ask for feedback"). The transition check above applies only on **update**. The following invariants are enforced on **both** create and update: provider ≠ subject; requester ≠ provider; `REQUESTED` requires a requester; **a feedback with a requester may not use `PROVIDER_SUBJECT` visibility** (that visibility excludes the requester, so the combination is contradictory). Transition and invariant behavior is covered by `FeedbackRoutesTest` (transitions + the invariant) and `AuthorizationTest` (the `FeedbackVisibility` read matrix).
 
 **Frontend: the `REQUESTED` decision screen.** Because `REQUESTED → SENT` is not a valid edge, the editor must not offer "Save & send" for a pending request. So `web/src/pages/EditFeedback.tsx`, when the loaded feedback is `REQUESTED` and the caller is its provider, renders a read-only **triage screen** (subject + requester names, no editor) instead of the `FeedbackForm` editor, with exactly three actions:
 
@@ -170,6 +170,16 @@ Every transition is performed via `PUT /api/feedbacks/{id}` and is gated by `can
 `FeedbackForm` is therefore only ever the editor for `DRAFT` and the create flows; it carries no reject affordance. This mirrors the backend state machine in the UI (defense-in-depth, not a relaxation of the server check). Covered by `web/src/pages/EditFeedback.test.tsx`.
 
 **Frontend: the simplified requester view.** On the read-only view (`web/src/pages/ViewFeedback.tsx`), when the caller is the **requester** and the feedback is `REQUESTED` or `REJECTED`, the **Content** section is hidden — a never-drafted or declined request has no content to read. The gate is `isRequester && (status === "REQUESTED" || status === "REJECTED")` (`isRequester = getUserId() === data.requesterId`); every other viewer and status still renders Content. Covered by `web/src/pages/ViewFeedback.test.tsx`.
+
+### Feedback list views (`GET /api/feedbacks?view=…`)
+
+`FeedbackService.list` (`feedbacks/FeedbackService.kt`) scopes rows by `view` + the caller; the shared paging/filter helpers then apply on top. The three view scopes:
+
+- **`received`** (the subject's inbox): `subjectId == caller` AND one of — *no requester* and status ∈ {`SENT`,`WITHDRAWN`}; OR *caller is the requester* (any status/visibility); OR *another requester* and visibility ∈ {`PROVIDER_SUBJECT`,`PROVIDER_REQUESTER_SUBJECT`,`PUBLIC`} and status ∈ {`SENT`,`WITHDRAWN`}.
+- **`provided`**: `providerId == caller` (every status/visibility).
+- **`team`** (manager oversight): subject is a member of a non-soft-deleted team the caller manages, AND (`providerId == caller` OR `requesterId == caller` OR status ∈ {`SENT`,`WITHDRAWN`}) — i.e. a party to it at any status, otherwise only once delivered.
+
+Content **previews** are blanked when the feedback is unfinished (`DRAFT`/`REQUESTED`) and the caller is its requester (mirrors `canReadFeedbackContent`). The `/users/:id/feedbacks` page composes two of these: top = `received&providerId=:id` ("from them to you"), bottom = `provided&subjectId=:id` ("from you to them"). These list scopes and `canReadFeedback` (the single-GET gate) are maintained separately and can intentionally differ at the edges (e.g. a manager's unconditional single-GET grant vs. the delivered-only team list).
 
 ### Notifications
 
@@ -194,11 +204,13 @@ Reading/managing notifications goes through `notifications/NotificationRoutes.kt
 
 ### Observability
 
-`plugins/OpenTelemetry.kt` installs `KtorServerTelemetry` and obtains the SDK via `getOpenTelemetry("ktor-sample")` from the `core` module. `plugins/Monitoring.kt` separately installs Dropwizard metrics (logged via SLF4J every 10s) and the `CallId` plugin using `X-Request-Id`. Metrics OTel exporter is explicitly disabled in `core/.../OpenTelemetry.kt` (`otel.metrics.exporter=none`); only traces are exported.
+`plugins/OpenTelemetry.kt` installs `KtorServerTelemetry` and obtains the SDK via `getOpenTelemetry("ktor-sample")` from the `core` module. `plugins/Monitoring.kt` separately installs Dropwizard metrics (logged via SLF4J every 10s) and the `CallId` plugin using `X-Request-Id`. The SDK is also wired for **logs**: a Logback `OpenTelemetryAppender` (`server/src/main/resources/logback.xml`, the sole root appender) bridges every SLF4J log into the OTel logs SDK, and `getOpenTelemetry` (`core/.../OpenTelemetry.kt`) installs the appender (in `plugins/OpenTelemetry.kt`) and sets the interim exporter to `console`. Defaults are set via `addPropertiesSupplier` (the lowest-precedence config tier) **on purpose**, so the sink can be redirected to a collector by env alone with no code change — set `OTEL_LOGS_EXPORTER=otlp` + `OTEL_EXPORTER_OTLP_ENDPOINT` (the `opentelemetry-exporter-otlp` dep is already on the classpath); `OTEL_TRACES_EXPORTER` likewise. Metrics and traces exporters default to `none` (`otel.metrics.exporter`/`otel.traces.exporter`). **Convention for non-fatal "this should never happen" events:** emit a WARN with the `SHOULD_NEVER_HAPPEN` marker (see `authz/Guards.kt` `canReadFeedback`'s default branch) — the marker + key/value attributes flow through the appender to OTel.
 
 ### Testing
 
-`server/src/test/kotlin/ServerTest.kt` uses `io.ktor.server.testing.testApplication` and overrides the `postgres.*` config keys via `MapApplicationConfig` to point at a Testcontainers `PostgreSQLContainer` started lazily by `PostgresTestSupport`. Running tests requires a working Docker daemon (Docker Desktop, OrbStack, etc.). When adding tests, replicate the `environment { config = ApplicationConfig("application.yaml").mergeWith(MapApplicationConfig(...)) }` block so the app boots against the test container rather than a real database.
+`server/src/test/kotlin/ServerTest.kt` uses `io.ktor.server.testing.testApplication` and overrides the `postgres.*` config keys via `MapApplicationConfig` to point at a Testcontainers `PostgreSQLContainer` started lazily by `PostgresTestSupport`. Running tests requires a working Docker daemon (Docker Desktop, OrbStack, etc.). When adding tests, replicate the `environment { config = ApplicationConfig("application.yaml").mergeWith(MapApplicationConfig(...)) }` block so the app boots against the test container rather than a real database. The container runs **all** Flyway migrations, so the V6/V9/V14 seeds (admin, demo org, default templates) are present — tests scope their assertions with unique prefixes/filters rather than asserting absolute counts.
+
+**Coverage gates.** Backend Kover enforces a line-coverage floor in `server/build.gradle.kts` (`minBound(90)`, wired into `check` via `koverVerify`). Frontend vitest enforces thresholds in `web/vite.config.ts` (`test.coverage.thresholds`); run `cd web && npm run test:coverage`. Both are floors below current actuals — keep new code covered or they fail.
 
 ### Frontend (`web/`)
 
@@ -213,3 +225,14 @@ The OpenAPI spec at `server/src/main/resources/openapi/documentation.yaml` is th
 The typed fetch wrapper lives in `web/src/api/client.ts` — token storage (localStorage), `login()`, `logout()`, and `authedFetch()` for arbitrary calls. The types come from the generated `schema.ts`; the client itself is hand-written and is the right place to extend when adding new endpoints. Avoid pulling in heavyweight client generators (Orval/Kiota) — the lightweight pairing of `openapi-typescript` (types only) + hand-written fetch is intentional.
 
 `openapi-typescript` is installed with `--legacy-peer-deps` because its declared peer is TS `^5` while the scaffold uses TS 6; the generated output is compatible. If you re-`npm install` from scratch, use `npm install --legacy-peer-deps`.
+
+#### Internationalization (i18n)
+
+The SPA is bilingual (English default + Polish) via **react-i18next** (`web/src/i18n.ts`). All user-facing strings go through `const { t } = useTranslation()` / `<Trans>` — **no hardcoded UI text**. Conventions:
+
+- **Resources** live in `web/src/locales/{en,pl}/<area>.json`, one file per area (`common`, `appShell`, `auth`, `dashboard`, `feedback`, `users`, `teams`, `templates`, `notifications`); `i18n.ts` merges them into a single `translation` namespace, so keys read `area.key` (e.g. `t("feedback.editTitle")`). Keys are currently **untyped** (no `react-i18next.d.ts` augmentation) — a possible future improvement.
+- **`common.*` is the shared source**: actions, field labels, table/pagination, filters, and the enum labels `common.status.*` / `common.visibility.*` / `common.role.*`. Reuse it instead of duplicating; build Mantine `Select` option labels from `t()` at render so they translate.
+- **Keep EN/PL key parity** — every English key must exist in Polish (Polish-only plural variants like `_few`/`_many` are expected). Use i18next interpolation (`{{name}}`) and plural keys (`_one/_few/_many/_other`) rather than string concatenation.
+- **Polish term for "feedback" is the loanword `feedback`, declined** (feedback / feedbacku / feedbacki / feedbacków), *not* "opinia". `teams.json` is the style reference.
+- **Tests** render English: `web/src/test/setup.ts` imports `../i18n` and forces `en`, and English keys resolve byte-identically to the old literals, so text-based assertions keep working. The language switcher is `web/src/components/LanguageSwitcher.tsx` (header); choice persists in `localStorage` (`lettuce.lang`) and updates `<html lang>`.
+- **Scope:** only frontend chrome is translated. Server-generated text (notification message bodies from `FeedbackNotifications.kt`) stays English.
