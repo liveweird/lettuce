@@ -67,7 +67,7 @@ PostgreSQL is the only database. Connection settings come from the `postgres:` b
 
 The `org.postgresql:postgresql` JDBC driver is on the classpath solely for Flyway; runtime queries go through R2DBC.
 
-Current migrations are `V1`–`V13`: schema for users/teams/feedbacks/revoked-tokens, the `users.role` column (`V5`), the `admin@lettuce.local` seed (`V6`), a soft-delete `marked_as_deleted BOOLEAN` column (with index) on `users` (`V7`) and `teams` (`V8`), a demo-org seed (`V9`), a feedback templates table (`V10`), the `REJECTED` feedback status (`V11`), a feedback `last_modified` column (`V12`), and the `notifications` table (`V13`). Soft delete is the pattern for users and teams — rows are flagged `marked_as_deleted`, not physically removed; queries filter on it.
+Current migrations are `V1`–`V14`: schema for users/teams/feedbacks/revoked-tokens, the `users.role` column (`V5`), the `admin@lettuce.local` seed (`V6`), a soft-delete `marked_as_deleted BOOLEAN` column (with index) on `users` (`V7`) and `teams` (`V8`), a demo-org seed (`V9`), a feedback templates table (`V10`), the `REJECTED` feedback status (`V11`), a feedback `last_modified` column (`V12`), the `notifications` table (`V13`), and a seed of four default feedback templates (`V14`, idempotent via `ON CONFLICT (name)`). Soft delete is the pattern for users and teams — rows are flagged `marked_as_deleted`, not physically removed; queries filter on it.
 
 ### List endpoint conventions
 
