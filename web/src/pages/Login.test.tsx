@@ -4,6 +4,13 @@ import { renderWithProviders, screen, waitFor } from "../test/render";
 import App from "../App";
 import Login from "./Login";
 
+// These cases log in and land on the authenticated shell, which mounts react-joyride (the guided
+// tour). Stub it so the tour's layout engine isn't exercised under happy-dom.
+vi.mock("react-joyride", () => ({
+  Joyride: () => null,
+  STATUS: {},
+}));
+
 describe("Login page", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());

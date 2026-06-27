@@ -13,6 +13,7 @@ import enUsers from "./locales/en/users.json";
 import enTeams from "./locales/en/teams.json";
 import enTemplates from "./locales/en/templates.json";
 import enNotifications from "./locales/en/notifications.json";
+import enTour from "./locales/en/tour.json";
 
 import plCommon from "./locales/pl/common.json";
 import plAppShell from "./locales/pl/appShell.json";
@@ -23,6 +24,7 @@ import plUsers from "./locales/pl/users.json";
 import plTeams from "./locales/pl/teams.json";
 import plTemplates from "./locales/pl/templates.json";
 import plNotifications from "./locales/pl/notifications.json";
+import plTour from "./locales/pl/tour.json";
 
 export const SUPPORTED_LANGUAGES = ["en", "pl"] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
@@ -39,6 +41,7 @@ const en = {
   teams: enTeams,
   templates: enTemplates,
   notifications: enNotifications,
+  tour: enTour,
 };
 
 const pl = {
@@ -51,6 +54,7 @@ const pl = {
   teams: plTeams,
   templates: plTemplates,
   notifications: plNotifications,
+  tour: plTour,
 };
 
 i18n

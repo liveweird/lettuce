@@ -1,0 +1,23 @@
+{
+  "welcomeTitle": "Welcome to Lettuce",
+  "replay": "Replay the tour",
+  "nav": {
+    "back": "Back",
+    "close": "Close",
+    "last": "Done",
+    "next": "Next",
+    "skip": "Skip"
+  },
+  "steps": {
+    "welcome": "Take a quick tour of Lettuce — we'll point out the main areas. You can skip anytime and replay it later.",
+    "dashboard": "Your Dashboard: see your managers, peers and (if you lead a team) your subordinates.",
+    "feedback": "Feedback: give, request and review feedback across the Received, Provided and My team tabs.",
+    "config": "Admin tools: manage users, teams and feedback templates.",
+    "notifications": "Notifications: you'll be alerted here when feedback is requested, sent or withdrawn.",
+    "language": "Switch the interface language (English / Polski) at any time.",
+    "theme": "Toggle light and dark mode.",
+    "account": "Your account — change your password here.",
+    "logout": "Sign out when you're done.",
+    "replay": "That's it! Replay this tour anytime from here."
+  }
+}

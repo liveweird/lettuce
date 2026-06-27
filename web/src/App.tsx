@@ -15,6 +15,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import {
   IconFileText,
+  IconHelp,
   IconKey,
   IconLayoutDashboard,
   IconMessageCircle,
@@ -39,6 +40,7 @@ import { getCurrentUser, getUserId, logout } from "./api/client";
 import { RedirectIfAuthed, RequireAuth, flagSignedOut, notifyAuthChange } from "./auth";
 import NotificationsButton from "./components/NotificationsButton";
 import LanguageSwitcher from "./components/LanguageSwitcher";
+import { TourProvider, useTour } from "./components/Tour";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Feedback = lazy(() => import("./pages/Feedback"));
 const CreateFeedback = lazy(() => import("./pages/CreateFeedback"));
@@ -70,18 +72,20 @@ function RouteFallback() {
   );
 }
 
-type NavLeaf = { to: string; label: string; icon: typeof IconLayoutDashboard };
-type NavGroup = { label: string; icon: typeof IconLayoutDashboard; children: NavLeaf[] };
+type NavLeaf = { to: string; label: string; icon: typeof IconLayoutDashboard; tourId?: string };
+type NavGroup = { label: string; icon: typeof IconLayoutDashboard; children: NavLeaf[]; tourId?: string };
 type NavEntry = NavLeaf | NavGroup;
 const isGroup = (e: NavEntry): e is NavGroup => "children" in e;
 
-// `label` holds an i18n key, resolved with t() at render time.
+// `label` holds an i18n key, resolved with t() at render time. `tourId` (when set) becomes a
+// `data-tour` attribute the guided tour anchors to.
 const NAV_ITEMS: ReadonlyArray<NavEntry> = [
-  { to: "/", label: "appShell.nav.dashboard", icon: IconLayoutDashboard },
-  { to: "/feedback", label: "appShell.nav.feedback", icon: IconMessageCircle },
+  { to: "/", label: "appShell.nav.dashboard", icon: IconLayoutDashboard, tourId: "nav-dashboard" },
+  { to: "/feedback", label: "appShell.nav.feedback", icon: IconMessageCircle, tourId: "nav-feedback" },
   {
     label: "appShell.nav.config",
     icon: IconSettings,
+    tourId: "nav-config",
     children: [
       { to: "/users", label: "appShell.nav.users", icon: IconUsers },
       { to: "/teams", label: "appShell.nav.teams", icon: IconUsersGroup },
@@ -135,6 +139,22 @@ function HeaderLogo() {
   return <img src={src} alt="" style={{ height: 28, width: 28, display: "block" }} />;
 }
 
+function ReplayTourButton() {
+  const { t } = useTranslation();
+  const { startTour } = useTour();
+  return (
+    <ActionIcon
+      variant="default"
+      size="lg"
+      aria-label={t("tour.replay")}
+      data-tour="replay"
+      onClick={startTour}
+    >
+      <IconHelp size={18} />
+    </ActionIcon>
+  );
+}
+
 function Shell() {
   const { t } = useTranslation();
   const [opened, { toggle, close }] = useDisclosure();
@@ -144,7 +164,7 @@ function Shell() {
   const { pathname } = useLocation();
   const dynamicItems: NavLeaf[] =
     userId !== null
-      ? [{ to: `/users/${userId}/change-password`, label: "appShell.nav.changePassword", icon: IconKey }]
+      ? [{ to: `/users/${userId}/change-password`, label: "appShell.nav.changePassword", icon: IconKey, tourId: "nav-change-password" }]
       : [];
   const allEntries: NavEntry[] = [...NAV_ITEMS, ...dynamicItems];
   const leafTos = allEntries.flatMap((e) =>
@@ -164,6 +184,7 @@ function Shell() {
   }
 
   return (
+    <TourProvider>
     <AppShell
       header={{ height: 56 }}
       navbar={{ width: 240, breakpoint: "sm", collapsed: { mobile: !opened } }}
@@ -180,10 +201,17 @@ function Shell() {
           </Group>
           <Group gap="sm">
             <HeaderUser />
-            <LanguageSwitcher />
-            <ColorSchemeToggle />
-            <NotificationsButton />
-            <Button variant="default" size="sm" onClick={handleLogout}>
+            <span data-tour="language" style={{ display: "inline-flex" }}>
+              <LanguageSwitcher />
+            </span>
+            <span data-tour="theme" style={{ display: "inline-flex" }}>
+              <ColorSchemeToggle />
+            </span>
+            <span data-tour="notifications" style={{ display: "inline-flex" }}>
+              <NotificationsButton />
+            </span>
+            <ReplayTourButton />
+            <Button variant="default" size="sm" onClick={handleLogout} data-tour="logout">
               {t("common.action.logout")}
             </Button>
           </Group>
@@ -204,6 +232,7 @@ function Shell() {
                 aria-current={active ? "page" : undefined}
                 label={t(entry.label)}
                 leftSection={<Icon size={18} stroke={1.5} />}
+                data-tour={entry.tourId}
                 onClick={close}
               />
             );
@@ -217,6 +246,7 @@ function Shell() {
               leftSection={<GroupIcon size={18} stroke={1.5} />}
               defaultOpened={childActive}
               childrenOffset={28}
+              data-tour={entry.tourId}
             >
               {entry.children.map(({ to, label, icon: Icon }) => {
                 const active = to === activeTo;
@@ -242,6 +272,7 @@ function Shell() {
         <Outlet />
       </AppShell.Main>
     </AppShell>
+    </TourProvider>
   );
 }
 

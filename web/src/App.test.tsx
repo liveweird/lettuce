@@ -6,6 +6,13 @@ import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App";
 
+// The guided tour mounts react-joyride (which measures DOM rects) in the authenticated shell;
+// stub it out here so these shell tests don't exercise its layout engine under happy-dom.
+vi.mock("react-joyride", () => ({
+  Joyride: () => null,
+  STATUS: {},
+}));
+
 const TOKEN_KEY = "lettuce.auth.token";
 const USER_ID_KEY = "lettuce.auth.userId";
 

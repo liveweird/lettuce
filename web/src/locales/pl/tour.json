@@ -1,0 +1,23 @@
+{
+  "welcomeTitle": "Witaj w Lettuce",
+  "replay": "Odtwórz przewodnik",
+  "nav": {
+    "back": "Wstecz",
+    "close": "Zamknij",
+    "last": "Gotowe",
+    "next": "Dalej",
+    "skip": "Pomiń"
+  },
+  "steps": {
+    "welcome": "Zapraszamy na krótki przewodnik po Lettuce — pokażemy najważniejsze miejsca. Możesz go pominąć i odtworzyć później.",
+    "dashboard": "Twój Pulpit: zobacz swoich menedżerów, współpracowników oraz (jeśli kierujesz zespołem) podwładnych.",
+    "feedback": "Feedback: wystawiaj, zamawiaj i przeglądaj feedback w zakładkach Otrzymane, Wystawione i Mój zespół.",
+    "config": "Narzędzia administratora: zarządzaj użytkownikami, zespołami i szablonami feedbacku.",
+    "notifications": "Powiadomienia: tutaj poinformujemy Cię, gdy feedback zostanie zamówiony, wysłany lub wycofany.",
+    "language": "W każdej chwili zmień język interfejsu (English / Polski).",
+    "theme": "Przełączaj tryb jasny i ciemny.",
+    "account": "Twoje konto — tutaj zmienisz hasło.",
+    "logout": "Wyloguj się, gdy skończysz.",
+    "replay": "To wszystko! Przewodnik możesz odtworzyć w każdej chwili stąd."
+  }
+}
