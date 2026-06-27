@@ -1025,15 +1025,20 @@ export interface paths {
          * @description Lists feedback records scoped by `view`. Scoping is always relative to the caller,
          *     including ADMIN callers.
          *
-         *     - `view=received` (the default): rows where the caller is the subject AND `visibility`
-         *       is `PROVIDER_SUBJECT`, `PROVIDER_REQUESTER_SUBJECT` or `PUBLIC` — i.e. the rows the
-         *       subject is allowed to read. `PROVIDER_REQUESTER` rows never appear in this view.
+         *     - `view=received` (the default): rows where the caller is the **subject** AND one of:
+         *       (a) the row has no requester and `status` is `SENT`/`WITHDRAWN`; (b) the caller is the
+         *       requester (any status/visibility); or (c) someone else is the requester, `visibility`
+         *       is `PROVIDER_SUBJECT`/`PROVIDER_REQUESTER_SUBJECT`/`PUBLIC`, and `status` is
+         *       `SENT`/`WITHDRAWN`. `PROVIDER_REQUESTER` rows appear only via (b). A `DRAFT`/`REQUESTED`
+         *       row the caller requested has its `contentPreview` redacted (empty) until it is sent.
          *     - `view=provided`: rows where the caller is the provider, regardless of visibility
          *       (a provider may always read their own records).
-         *     - `view=team`: rows where the subject is a member of a team the caller manages
-         *       (the caller's subordinates), unrestricted by visibility or status. Intended for a
-         *       manager's overview of their team's feedback. A caller who manages no team gets an
-         *       empty page.
+         *     - `view=team`: rows where the subject is a member of a non-deleted team the caller manages
+         *       (the caller's subordinates), AND the caller is a **party** to the row — its provider or
+         *       requester (at any status) — OR `status` is `SENT`/`WITHDRAWN`. Intended for a manager's
+         *       overview; in-progress (`DRAFT`/`REQUESTED`/`REJECTED`) rows the manager is not a party to
+         *       are excluded. A caller who manages no team gets an empty page. When the manager is also
+         *       the requester of an unfinished row, its `contentPreview` is redacted (empty) until sent.
          *
          *     Supports offset pagination, sorting and filtering.
          *
@@ -1155,7 +1160,7 @@ export interface paths {
                         "application/json": components["schemas"]["FeedbackResponse"];
                     };
                 };
-                /** @description Validation error or referenced user does not exist */
+                /** @description Validation error (provider ≠ subject; requester ≠ provider; REQUESTED requires a requester; a feedback with a requester may not use PROVIDER_SUBJECT visibility) or referenced user does not exist */
                 400: {
                     headers: {
                         [name: string]: unknown;
@@ -1188,13 +1193,23 @@ export interface paths {
         };
         /**
          * Fetch a feedback record
-         * @description Authorization is derived from the record's `visibility` and the caller's
-         *     relationship to the row:
-         *     - `PROVIDER_SUBJECT`:           provider or subject may read.
-         *     - `PROVIDER_REQUESTER`:         provider or requester may read.
-         *     - `PROVIDER_REQUESTER_SUBJECT`: provider, requester or subject may read.
-         *     - `PUBLIC`:                     any authenticated user may read.
-         *     ADMIN may read any record.
+         * @description Authorization (`canReadFeedback`) is evaluated in this order — read access depends on the
+         *     caller's relationship to the row, the `visibility` and (for subject/manager/public) the
+         *     `status`:
+         *     - ADMIN and the **provider** may always read, at any status/visibility.
+         *     - the **requester** may read at any status, but only when `visibility` is
+         *       `PROVIDER_REQUESTER` or `PROVIDER_REQUESTER_SUBJECT`.
+         *     - the **subject** may read only when `visibility` is `PROVIDER_SUBJECT` or
+         *       `PROVIDER_REQUESTER_SUBJECT` AND `status` is `SENT` or `WITHDRAWN` (so a `DRAFT`/
+         *       `REQUESTED`/`REJECTED` record is not visible to the subject through this rule).
+         *     - a **manager of the subject** may read any feedback about a subordinate, at any status
+         *       (the endpoint grants a managing caller an unconditional read).
+         *     - otherwise a `PUBLIC` record may be read by any authenticated user once `status` is `SENT`.
+         *     Anything else is `403`.
+         *
+         *     Content redaction: a requester may see that a feedback they requested exists, but while it
+         *     is unfinished (`DRAFT`/`REQUESTED`) the `content` field is returned empty for that requester;
+         *     it becomes visible once the feedback is sent.
          */
         get: {
             parameters: {
@@ -1267,7 +1282,7 @@ export interface paths {
                     };
                     content?: never;
                 };
-                /** @description Validation error or invalid status transition */
+                /** @description Validation error (same invariants as create — incl. a feedback with a requester may not use PROVIDER_SUBJECT visibility) or invalid status transition */
                 400: {
                     headers: {
                         [name: string]: unknown;
