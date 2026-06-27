@@ -272,6 +272,55 @@ class FeedbackRoutesTest {
     }
 
     @Test
+    fun `requester with PROVIDER_SUBJECT visibility is rejected`() = testApplication {
+        usePostgresTestcontainer()
+        val t = seedTriad()
+        val client = authedClient(t.providerEmail, "pw")
+
+        // On create: a requester is incompatible with PROVIDER_SUBJECT visibility.
+        val onCreate = client.post("/api/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                Feedback(
+                    requesterId = t.requesterId,
+                    subjectId = t.subjectId,
+                    providerId = t.providerId,
+                    visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                    status = FeedbackStatus.REQUESTED,
+                )
+            )
+        }
+        assertEquals(HttpStatusCode.BadRequest, onCreate.status)
+
+        // On update: a valid feedback cannot be moved into the illegal combination either.
+        val created = client.post("/api/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                Feedback(
+                    requesterId = t.requesterId,
+                    subjectId = t.subjectId,
+                    providerId = t.providerId,
+                    visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
+                    status = FeedbackStatus.REQUESTED,
+                )
+            )
+        }.body<FeedbackResponse>()
+        val onUpdate = client.put("/api/feedbacks/${created.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                Feedback(
+                    requesterId = t.requesterId,
+                    subjectId = t.subjectId,
+                    providerId = t.providerId,
+                    visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                    status = FeedbackStatus.DRAFT,
+                )
+            )
+        }
+        assertEquals(HttpStatusCode.BadRequest, onUpdate.status)
+    }
+
+    @Test
     fun `unknown user id is rejected`() = testApplication {
         usePostgresTestcontainer()
         val t = seedTriad()
@@ -425,7 +474,7 @@ class FeedbackRoutesTest {
             requesterId = t.requesterId,
             subjectId = t.subjectId,
             providerId = t.providerId,
-            visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+            visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
             status = FeedbackStatus.REQUESTED,
         )
         val created = client.post("/api/feedbacks") {
@@ -452,7 +501,7 @@ class FeedbackRoutesTest {
             requesterId = t.requesterId,
             subjectId = t.subjectId,
             providerId = t.providerId,
-            visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+            visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
             status = FeedbackStatus.REQUESTED,
         )
         val created = client.post("/api/feedbacks") {
@@ -662,7 +711,7 @@ class FeedbackRoutesTest {
         // Not a DRAFT: the subject cannot see drafts in their received list, so the filter
         // fixtures use visible statuses (SENT vs WITHDRAWN).
         val fromBob = client.createFeedback(
-            callerId, bobId, FeedbackVisibility.PROVIDER_SUBJECT,
+            callerId, bobId, FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
             status = FeedbackStatus.WITHDRAWN, requesterId = requesterId,
         )
 
@@ -781,7 +830,7 @@ class FeedbackRoutesTest {
                         requesterId = subject.id,
                         subjectId = subject.id,
                         providerId = provider.id,
-                        visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                        visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
                         status = FeedbackStatus.SENT,
                         content = "secret draft",
                     )
@@ -1318,7 +1367,7 @@ class FeedbackRoutesTest {
             requesterId = requester.id,
             subjectId = subject.id,
             providerId = provider.id,
-            visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+            visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
             status = FeedbackStatus.REQUESTED,
         )
         val created = providerClient.post("/api/feedbacks") {
@@ -1351,7 +1400,7 @@ class FeedbackRoutesTest {
             requesterId = requester.id,
             subjectId = subject.id,
             providerId = provider.id,
-            visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+            visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
             status = FeedbackStatus.REQUESTED,
         )
         val created = providerClient.post("/api/feedbacks") {
@@ -1381,7 +1430,7 @@ class FeedbackRoutesTest {
             requesterId = requester.id,
             subjectId = subject.id,
             providerId = provider.id,
-            visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+            visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
             status = FeedbackStatus.DRAFT,
         )
         val created = providerClient.post("/api/feedbacks") {
@@ -1416,7 +1465,7 @@ class FeedbackRoutesTest {
             requesterId = requester.id,
             subjectId = subject.id,
             providerId = provider.id,
-            visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+            visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
             status = FeedbackStatus.DRAFT,
             content = "v1",
         )

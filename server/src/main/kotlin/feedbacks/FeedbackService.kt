@@ -329,6 +329,9 @@ class FeedbackService(val database: R2dbcDatabase) {
         if (next.requesterId != null && next.requesterId == next.providerId) {
             throw BadRequestException("Requester cannot also be the provider")
         }
+        if (next.requesterId != null && next.visibility == FeedbackVisibility.PROVIDER_SUBJECT) {
+            throw BadRequestException("A feedback with a requester must not use PROVIDER_SUBJECT visibility")
+        }
         if (next.status == FeedbackStatus.REQUESTED && next.requesterId == null) {
             throw BadRequestException("Requested status requires a requester")
         }

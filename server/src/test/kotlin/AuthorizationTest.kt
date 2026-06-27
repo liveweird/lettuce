@@ -271,7 +271,10 @@ class AuthorizationTest {
                 contentType(ContentType.Application.Json)
                 setBody(
                     Feedback(
-                        requesterId = requesterId,
+                        // A requester is incompatible with PROVIDER_SUBJECT visibility (server invariant),
+                        // so that row carries none; the matrix's "requester" actor is then a non-party
+                        // user and is expected to be Forbidden for PROVIDER_SUBJECT anyway.
+                        requesterId = if (visibility == FeedbackVisibility.PROVIDER_SUBJECT) null else requesterId,
                         subjectId = subjectId,
                         providerId = providerId,
                         visibility = visibility,

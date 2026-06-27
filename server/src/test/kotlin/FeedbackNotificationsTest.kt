@@ -20,7 +20,9 @@ class FeedbackNotificationsTest {
 
     private fun feedback(
         status: FeedbackStatus,
-        visibility: FeedbackVisibility = FeedbackVisibility.PROVIDER_SUBJECT,
+        // Default carries a requester, so the default visibility must be requester-inclusive
+        // (a requester + PROVIDER_SUBJECT is an illegal combination per the server invariant).
+        visibility: FeedbackVisibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
         requesterId: UInt? = 3u,
     ) = Feedback(
         requesterId = requesterId,
