@@ -34,10 +34,29 @@ import FeedbackForm from "../components/FeedbackForm";
 
 const PROVIDED = "/feedback?tab=provided";
 
-// The shared form only offers PROVIDER_SUBJECT / PUBLIC (to look exactly like create).
-// Drafts created via the Provide-feedback flow always use one of these; clamp anything else.
-function clampVisibility(v: FeedbackVisibility): FeedbackVisibility {
-  return v === "PROVIDER_SUBJECT" || v === "PUBLIC" ? v : "PROVIDER_SUBJECT";
+// The visibility options offered in the editor depend on whether the feedback has a requester:
+// a requester-backed feedback must be able to keep a requester-inclusive visibility (otherwise
+// saving would strip the requester's read access), while a plain one stays Provider+subject / Public.
+const NO_REQUESTER_VISIBILITY_OPTIONS: { value: FeedbackVisibility; label: string }[] = [
+  { value: "PROVIDER_SUBJECT", label: "Provider + subject" },
+  { value: "PUBLIC", label: "Public" },
+];
+const REQUESTER_VISIBILITY_OPTIONS: { value: FeedbackVisibility; label: string }[] = [
+  { value: "PROVIDER_REQUESTER", label: "Provider + requester" },
+  { value: "PROVIDER_REQUESTER_SUBJECT", label: "Provider + requester + subject" },
+  { value: "PUBLIC", label: "Public" },
+];
+
+function visibilityOptionsFor(hasRequester: boolean) {
+  return hasRequester ? REQUESTER_VISIBILITY_OPTIONS : NO_REQUESTER_VISIBILITY_OPTIONS;
+}
+
+// Keep the preselected value within the offered set; if the stored visibility is out of set, fall
+// back to a sensible default (the most inclusive requester option, or Provider+subject otherwise).
+function clampVisibility(v: FeedbackVisibility, hasRequester: boolean): FeedbackVisibility {
+  const allowed = visibilityOptionsFor(hasRequester).map((o) => o.value);
+  if (allowed.includes(v)) return v;
+  return hasRequester ? "PROVIDER_REQUESTER_SUBJECT" : "PROVIDER_SUBJECT";
 }
 
 export default function EditFeedback() {
@@ -222,11 +241,13 @@ export default function EditFeedback() {
     );
   }
 
+  const hasRequester = data!.requesterId != null;
   return (
     <FeedbackForm
       title="Edit feedback"
       subjectDisplay={subjectName ?? `#${data!.subjectId}`}
-      initialVisibility={clampVisibility(data!.visibility)}
+      initialVisibility={clampVisibility(data!.visibility, hasRequester)}
+      visibilityOptions={visibilityOptionsFor(hasRequester)}
       initialContent={data!.content}
       lastModified={data!.lastModified}
       submitting={submitting}

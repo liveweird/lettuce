@@ -38,7 +38,7 @@ type FormValues = {
   content: string;
 };
 
-const VISIBILITY_OPTIONS = [
+const DEFAULT_VISIBILITY_OPTIONS: { value: FeedbackVisibility; label: string }[] = [
   { value: "PROVIDER_SUBJECT", label: "Provider + subject" },
   { value: "PUBLIC", label: "Public" },
 ];
@@ -55,6 +55,8 @@ export type FeedbackFormProps = {
   discardTitle: string;
   discardMessage: string;
   showTemplateInsert?: boolean;
+  // Visibility choices for the combo; defaults to the create set (Provider+subject / Public).
+  visibilityOptions?: { value: FeedbackVisibility; label: string }[];
   // Epoch millis; when set, shows a read-only "Last modified" field (edit flow only).
   lastModified?: number;
 };
@@ -71,6 +73,7 @@ export default function FeedbackForm({
   discardTitle,
   discardMessage,
   showTemplateInsert = false,
+  visibilityOptions = DEFAULT_VISIBILITY_OPTIONS,
   lastModified,
 }: FeedbackFormProps) {
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
@@ -147,7 +150,7 @@ export default function FeedbackForm({
                 <Select
                   label="Visibility"
                   placeholder="Select visibility"
-                  data={VISIBILITY_OPTIONS}
+                  data={visibilityOptions}
                   allowDeselect={false}
                   {...form.getInputProps("visibility")}
                 />

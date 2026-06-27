@@ -94,6 +94,29 @@ describe("EditFeedback page", () => {
     );
   });
 
+  test("with a requester, visibility offers the requester options and preselects the stored value", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(200, ACCEPTED_DRAFT));
+    const user = userEvent.setup();
+    renderEditFeedback();
+
+    // ACCEPTED_DRAFT is a DRAFT with a requester, so the editor (not the triage screen) renders.
+    const visibility = (await screen.findByPlaceholderText(
+      "Select visibility",
+    )) as HTMLInputElement;
+    expect(visibility.value).toBe("Provider + requester + subject");
+
+    await user.click(visibility);
+    // The Template select's listbox is empty here, so the only options in the DOM are visibility's.
+    const options = (await screen.findAllByRole("option", { hidden: true })).map(
+      (o) => o.textContent,
+    );
+    expect(options).toEqual([
+      "Provider + requester",
+      "Provider + requester + subject",
+      "Public",
+    ]);
+  });
+
   test("Save draft PUTs status DRAFT preserving the immutable ids", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       if ((init?.method ?? "GET") === "PUT" && url === "/api/feedbacks/5") {
