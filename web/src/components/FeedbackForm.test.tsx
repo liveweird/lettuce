@@ -112,6 +112,19 @@ describe("FeedbackForm", () => {
     ).toBe(false);
   });
 
+  test("shows a read-only Requester field only when requesterDisplay is provided", () => {
+    const { unmount } = renderWithProviders(
+      <FeedbackForm {...baseProps} onSubmit={() => {}} requesterDisplay="Rita Requester" />,
+    );
+    const requester = screen.getByLabelText("Requester") as HTMLInputElement;
+    expect(requester.value).toBe("Rita Requester");
+    expect(requester).toBeDisabled();
+    unmount();
+
+    renderWithProviders(<FeedbackForm {...baseProps} onSubmit={() => {}} />);
+    expect(screen.queryByLabelText("Requester")).toBeNull();
+  });
+
   test("renders the error prop as an alert", () => {
     renderWithProviders(<FeedbackForm {...baseProps} onSubmit={() => {}} error="Something failed" />);
     expect(screen.getByText("Something failed")).toBeInTheDocument();

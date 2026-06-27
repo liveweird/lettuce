@@ -55,6 +55,8 @@ export type FeedbackFormProps = {
   discardTitle: string;
   discardMessage: string;
   showTemplateInsert?: boolean;
+  // Read-only requester display name; when set, a disabled "Requester" field is shown.
+  requesterDisplay?: string;
   // Visibility choices for the combo; defaults to the create set (Provider+subject / Public).
   visibilityOptions?: { value: FeedbackVisibility; label: string }[];
   // Epoch millis; when set, shows a read-only "Last modified" field (edit flow only).
@@ -73,6 +75,7 @@ export default function FeedbackForm({
   discardTitle,
   discardMessage,
   showTemplateInsert = false,
+  requesterDisplay,
   visibilityOptions = DEFAULT_VISIBILITY_OPTIONS,
   lastModified,
 }: FeedbackFormProps) {
@@ -145,6 +148,9 @@ export default function FeedbackForm({
               <Stack gap="sm">
                 <TextInput label="Subject" value={subjectDisplay} disabled />
                 <TextInput label="Provider" value="You" disabled />
+                {requesterDisplay != null && (
+                  <TextInput label="Requester" value={requesterDisplay} disabled />
+                )}
               </Stack>
               <Stack gap="sm">
                 <Select

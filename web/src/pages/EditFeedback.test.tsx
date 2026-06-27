@@ -92,9 +92,11 @@ describe("EditFeedback page", () => {
     expect((screen.getByPlaceholderText("Select visibility") as HTMLInputElement).value).toBe(
       "Provider + subject",
     );
+    // No requester on this feedback → no Requester field.
+    expect(screen.queryByLabelText("Requester")).toBeNull();
   });
 
-  test("with a requester, visibility offers the requester options and preselects the stored value", async () => {
+  test("with a requester, visibility offers the requester options and shows a read-only Requester", async () => {
     mockFetch.mockResolvedValue(jsonResponse(200, ACCEPTED_DRAFT));
     const user = userEvent.setup();
     renderEditFeedback();
@@ -104,6 +106,11 @@ describe("EditFeedback page", () => {
       "Select visibility",
     )) as HTMLInputElement;
     expect(visibility.value).toBe("Provider + requester + subject");
+
+    // The resolved requester name is shown read-only.
+    const requester = screen.getByLabelText("Requester") as HTMLInputElement;
+    expect(requester.value).toBe("Rita Requester");
+    expect(requester).toBeDisabled();
 
     await user.click(visibility);
     // The Template select's listbox is empty here, so the only options in the DOM are visibility's.

@@ -248,6 +248,7 @@ export default function EditFeedback() {
       subjectDisplay={subjectName ?? `#${data!.subjectId}`}
       initialVisibility={clampVisibility(data!.visibility, hasRequester)}
       visibilityOptions={visibilityOptionsFor(hasRequester)}
+      requesterDisplay={hasRequester ? (data!.requesterName ?? `#${data!.requesterId}`) : undefined}
       initialContent={data!.content}
       lastModified={data!.lastModified}
       submitting={submitting}
