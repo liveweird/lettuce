@@ -61,6 +61,9 @@ private val RECEIVED_VISIBILITIES = listOf(
     FeedbackVisibility.PUBLIC,
 )
 
+// In the Received list a feedback the subject did not request is only shown once delivered.
+private val RECEIVED_DELIVERED_STATUSES = listOf(FeedbackStatus.SENT, FeedbackStatus.WITHDRAWN)
+
 const val CONTENT_PREVIEW_LENGTH = 200
 
 class FeedbackService(val database: R2dbcDatabase) {
@@ -180,12 +183,22 @@ class FeedbackService(val database: R2dbcDatabase) {
         paging: PageRequest,
     ): FeedbackListResult = suspendTransaction(database) {
         val scope: Op<Boolean> = when (view) {
-            FeedbackListView.RECEIVED -> (Feedbacks.subjectId eq callerUserId) and
-                (Feedbacks.visibility inList RECEIVED_VISIBILITIES) and
-                // A draft is the provider's private work in progress — hide it from the subject,
-                // unless the subject also requested it (then they may watch its progress; the
-                // content preview is redacted below).
-                ((Feedbacks.status neq FeedbackStatus.DRAFT) or (Feedbacks.requesterId eq callerUserId))
+            FeedbackListView.RECEIVED -> {
+                // Three ways a feedback the caller is the subject of lands in their Received list:
+                // A) no requester — visible once delivered (SENT/WITHDRAWN);
+                // B) the caller requested it themselves — always visible (any status/visibility;
+                //    an unfinished one has its content preview redacted below);
+                // C) someone else requested it — only once delivered and under a subject-readable
+                //    visibility.
+                val noRequester = Feedbacks.requesterId.isNull() and
+                    (Feedbacks.status inList RECEIVED_DELIVERED_STATUSES)
+                val iAmRequester = Feedbacks.requesterId eq callerUserId
+                val otherRequester = Feedbacks.requesterId.isNotNull() and
+                    (Feedbacks.requesterId neq callerUserId) and
+                    (Feedbacks.visibility inList RECEIVED_VISIBILITIES) and
+                    (Feedbacks.status inList RECEIVED_DELIVERED_STATUSES)
+                (Feedbacks.subjectId eq callerUserId) and (noRequester or iAmRequester or otherRequester)
+            }
             FeedbackListView.PROVIDED -> Feedbacks.providerId eq callerUserId
             FeedbackListView.TEAM -> {
                 // Subjects that are members of a team the caller manages (their subordinates).

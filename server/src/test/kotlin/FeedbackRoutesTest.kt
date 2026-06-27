@@ -658,6 +658,78 @@ class FeedbackRoutesTest {
     }
 
     @Test
+    fun `received list shows feedback the subject requested for themselves under any visibility and status`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("subject")
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw")
+        val client = authedClient(callerEmail, "pw")
+
+        // Self-asked feedback (subject == requester == caller) with a requester-only visibility that
+        // is NOT subject-readable; rule B shows it anyway because the caller is the requester.
+        val pending = client.createFeedback(
+            callerId, providerId, FeedbackVisibility.PROVIDER_REQUESTER,
+            status = FeedbackStatus.REQUESTED, requesterId = callerId, content = "secret",
+        )
+        val sent = client.createFeedback(
+            callerId, providerId, FeedbackVisibility.PROVIDER_REQUESTER,
+            status = FeedbackStatus.SENT, requesterId = callerId, content = "delivered",
+        )
+
+        val items = client.get("/api/feedbacks?view=received").body<FeedbackPageResponse>().items
+        assertEquals(setOf(pending.id, sent.id), items.map { it.id }.toSet())
+        // The unfinished one is visible but its content preview is still redacted from the requester.
+        assertEquals("", items.single { it.id == pending.id }.contentPreview)
+        assertEquals("delivered", items.single { it.id == sent.id }.contentPreview)
+    }
+
+    @Test
+    fun `received list hides another user's request about the subject until it is delivered`() = testApplication {
+        usePostgresTestcontainer()
+        val subjectEmail = uniqueEmail("subject")
+        val subjectId = TestUsers.seed(email = subjectEmail, password = "pw", role = UserRole.USER)
+        val providerEmail = uniqueEmail("provider")
+        val providerId = TestUsers.seed(email = providerEmail, password = "pw")
+        val requesterId = TestUsers.seed(email = uniqueEmail("requester"), password = "pw")
+        val subjectClient = authedClient(subjectEmail, "pw")
+        val providerClient = authedClient(providerEmail, "pw")
+
+        fun body(status: FeedbackStatus) = Feedback(
+            requesterId = requesterId, subjectId = subjectId, providerId = providerId,
+            visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT, status = status,
+        )
+
+        // Someone else requested feedback about the subject — one stays pending, one gets rejected.
+        val pending = providerClient.createFeedback(
+            subjectId, providerId, FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
+            status = FeedbackStatus.REQUESTED, requesterId = requesterId,
+        )
+        val toReject = providerClient.createFeedback(
+            subjectId, providerId, FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
+            status = FeedbackStatus.REQUESTED, requesterId = requesterId,
+        )
+        providerClient.put("/api/feedbacks/${toReject.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(body(FeedbackStatus.REJECTED))
+        }
+
+        // While REQUESTED / REJECTED the subject (not the requester) does not see them — rule C needs
+        // a delivered status (SENT/WITHDRAWN).
+        val before = subjectClient.get("/api/feedbacks?view=received").body<FeedbackPageResponse>()
+        assertTrue(before.items.none { it.id == pending.id || it.id == toReject.id })
+
+        // Deliver the pending one (REQUESTED -> DRAFT -> SENT); now it appears, the rejected one never does.
+        for (next in listOf(FeedbackStatus.DRAFT, FeedbackStatus.SENT)) {
+            providerClient.put("/api/feedbacks/${pending.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(body(next))
+            }
+        }
+        val after = subjectClient.get("/api/feedbacks?view=received").body<FeedbackPageResponse>()
+        assertEquals(listOf(pending.id), after.items.map { it.id })
+    }
+
+    @Test
     fun `list received resolves joined names and null requester`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("subject")
