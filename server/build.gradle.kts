@@ -63,6 +63,7 @@ dependencies {
     implementation(libs.flyway.core)
     implementation(libs.flyway.database.postgresql)
     implementation(libs.logback.classic)
+    implementation(libs.opentelemetry.logbackAppender)
     implementation(libs.postgresql)
     implementation(libs.r2dbc.postgresql)
 

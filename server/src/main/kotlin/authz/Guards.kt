@@ -4,6 +4,11 @@ import ch.nokillswit.feedbacks.Feedback
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
 import ch.nokillswit.users.UserRole
+import org.slf4j.LoggerFactory
+import org.slf4j.MarkerFactory
+
+private val logger = LoggerFactory.getLogger("ch.nokillswit.authz.Guards")
+private val SHOULD_NEVER_HAPPEN = MarkerFactory.getMarker("SHOULD_NEVER_HAPPEN")
 
 fun CallerPrincipal.isAdmin(): Boolean = role == UserRole.ADMIN
 
@@ -31,7 +36,7 @@ fun requireCanAssignRole(caller: CallerPrincipal, current: UserRole, requested: 
     if (!caller.isAdmin()) throw ForbiddenException("Only admins may change a user's role")
 }
 
-fun canReadFeedback(
+fun canReadFeedbackOld(
     caller: CallerPrincipal,
     feedback: Feedback,
     managesSubject: Boolean = false,
@@ -54,12 +59,68 @@ fun canReadFeedback(
         FeedbackVisibility.PUBLIC -> true
         FeedbackVisibility.PROVIDER_SUBJECT ->
             caller.userId == feedback.subjectId
+
         FeedbackVisibility.PROVIDER_REQUESTER ->
             feedback.requesterId != null && caller.userId == feedback.requesterId
+
         FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT ->
             caller.userId == feedback.subjectId ||
-                (feedback.requesterId != null && caller.userId == feedback.requesterId)
+                    (feedback.requesterId != null && caller.userId == feedback.requesterId)
     }
+}
+
+fun canReadFeedback(
+    caller: CallerPrincipal,
+    feedback: Feedback,
+    managesSubject: Boolean = false,
+): Boolean {
+    // what ADMIN sees
+    // Admins see everything, regardless of the status and visibility
+    if (caller.isAdmin()) return true
+
+    // what PROVIDER sees
+    // Provider can always see the full feedback, regardless of the status and visibility
+    if (caller.userId == feedback.providerId) return true
+
+    // what REQUESTER sees
+    // Requesters can always see the full feedback, regardless of the status and visibility
+    if (feedback.requesterId != null && caller.userId == feedback.requesterId) return true
+
+    // what SUBJECT sees
+    // Subject can see the feedback if:
+    // - visibility: public, provider-subject, or provider-requester-subject
+    // - status: Sent, Withdawn
+    if (caller.userId == feedback.subjectId &&
+        (feedback.visibility == FeedbackVisibility.PUBLIC || feedback.visibility == FeedbackVisibility.PROVIDER_SUBJECT || feedback.visibility == FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT) &&
+        (feedback.status == FeedbackStatus.SENT || feedback.status == FeedbackStatus.WITHDRAWN)
+    ) return true
+
+    // what SUBJECT's MANAGER sees
+    // Subject's manager can see the feedback if:
+    // - visibility: any
+    // - status: Sent, Withdrawn
+    if (managesSubject &&
+        (feedback.status == FeedbackStatus.SENT || feedback.status == FeedbackStatus.WITHDRAWN)
+    ) return true
+
+    // what the rest sees
+    // - visibility: public
+    // - status: Sent
+    if (feedback.visibility == FeedbackVisibility.PUBLIC &&
+        feedback.status == FeedbackStatus.SENT
+    ) return true
+
+    // and here's the default
+    // by default one CAN'T see the feedback, but this branch should never be reached, so log it.
+    // Non-fatal: still denies; the marker + kv attributes flow through OpenTelemetry (see logback.xml).
+    logger.atWarn().addMarker(SHOULD_NEVER_HAPPEN)
+        .setMessage("Feedback visibility check fell through to default deny")
+        .addKeyValue("subjectId", feedback.subjectId)
+        .addKeyValue("providerId", feedback.providerId)
+        .addKeyValue("visibility", feedback.visibility)
+        .addKeyValue("status", feedback.status)
+        .log()
+    return false
 }
 
 fun requireFeedbackRead(

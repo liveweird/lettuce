@@ -9,6 +9,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            api(libs.opentelemetry.exporterLogging)
             api(libs.opentelemetry.exporterOtlp)
             api(libs.opentelemetry.ktorInstrumentation)
             api(libs.opentelemetry.sdkAutoconfigure)

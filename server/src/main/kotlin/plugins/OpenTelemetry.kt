@@ -6,10 +6,15 @@ import io.ktor.server.request.*
 import io.ktor.server.application.*
 import io.opentelemetry.api.trace.SpanKind
 import io.opentelemetry.instrumentation.ktor.v3_0.KtorServerTelemetry
+import io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender
 
 fun Application.configureOpenTelemetry() {
+    val openTelemetry = getOpenTelemetry(serviceName = "ktor-sample")
+    // Wire the Logback OTel appender to this SDK; flushes the pre-install buffer of boot logs.
+    OpenTelemetryAppender.install(openTelemetry)
+
     install(KtorServerTelemetry) {
-        setOpenTelemetry(getOpenTelemetry(serviceName = "ktor-sample"))
+        setOpenTelemetry(openTelemetry)
         capturedRequestHeaders(HttpHeaders.UserAgent)
         spanKindExtractor {
             if (httpMethod == HttpMethod.Post) {
