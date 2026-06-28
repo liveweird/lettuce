@@ -210,6 +210,34 @@ describe("FeedbackForm", () => {
     expect(screen.getByRole("button", { name: /save & send/i })).toBeDisabled();
   });
 
+  test("in edit mode (feedbackId set) shows Content and History tabs", async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (String(url).includes("/events")) {
+        return Promise.resolve(
+          jsonResponse(200, {
+            items: [
+              { id: 1, feedbackId: 5, userId: 10, userName: "Paula", timestamp: 1, content: "Feedback created as a draft." },
+            ],
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    const user = userEvent.setup();
+    renderWithProviders(
+      <FeedbackForm {...baseProps} feedbackId={5} initialContent="hello" onSubmit={() => {}} />,
+    );
+
+    // Two tabs are present; Content is the default and shows the editor textarea.
+    expect(screen.getByRole("tab", { name: "Content" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "History" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Content", { selector: "textarea" })).toHaveValue("hello");
+
+    // History tab reveals the audit timeline.
+    await user.click(screen.getByRole("tab", { name: "History" }));
+    expect(await screen.findByText("Feedback created as a draft.")).toBeInTheDocument();
+  });
+
   test("Cancel opens the discard modal; Discard links to cancelTo and Keep editing closes it", async () => {
     const user = userEvent.setup();
     renderWithProviders(<FeedbackForm {...baseProps} onSubmit={() => {}} />);

@@ -13,6 +13,7 @@ import {
   Select,
   SimpleGrid,
   Stack,
+  Tabs,
   Text,
   Textarea,
   TextInput,
@@ -33,6 +34,7 @@ import {
   type FeedbackVisibility,
 } from "../api/client";
 import { formatTimestamp } from "../utils/datetime";
+import FeedbackHistory from "./FeedbackHistory";
 
 type FormValues = {
   visibility: FeedbackVisibility;
@@ -59,6 +61,9 @@ export type FeedbackFormProps = {
   visibilityOptions?: { value: FeedbackVisibility; label: string }[];
   // Epoch millis; when set, shows a read-only "Last modified" field (edit flow only).
   lastModified?: number;
+  // When set (edit flow), Content+Preview and History are shown as two tabs; the History tab
+  // lists this feedback's audit events. Omitted on create (no id, no history) → no tabs.
+  feedbackId?: number;
 };
 
 export default function FeedbackForm({
@@ -76,6 +81,7 @@ export default function FeedbackForm({
   requesterDisplay,
   visibilityOptions,
   lastModified,
+  feedbackId,
 }: FeedbackFormProps) {
   const { t } = useTranslation();
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
@@ -122,6 +128,49 @@ export default function FeedbackForm({
       setInserting(false);
     }
   }
+
+  // The content editor + live preview, side by side. On edit this lives in the "Content" tab
+  // (alongside a "History" tab); on create it is rendered directly.
+  const editor = (
+    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" style={{ flex: 1, minHeight: 0 }}>
+      <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+        <Textarea
+          label={t("common.field.content")}
+          placeholder={t("feedback.contentPlaceholder")}
+          maxLength={5000}
+          styles={{
+            root: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 },
+            wrapper: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 },
+            input: { flex: 1, minHeight: 0, resize: "none" },
+          }}
+          {...form.getInputProps("content")}
+        />
+      </div>
+      <Input.Wrapper
+        label={t("common.field.preview")}
+        styles={{ root: { display: "flex", flexDirection: "column", minHeight: 0 } }}
+      >
+        <Box
+          tabIndex={-1}
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflow: "auto",
+            border: "1px solid var(--mantine-color-default-border)",
+            borderRadius: "var(--mantine-radius-default)",
+            padding: "var(--mantine-spacing-sm)",
+            backgroundColor: "var(--mantine-color-default-hover)",
+            cursor: "default",
+            outline: "none",
+          }}
+        >
+          <Typography>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{form.values.content}</ReactMarkdown>
+          </Typography>
+        </Box>
+      </Input.Wrapper>
+    </SimpleGrid>
+  );
 
   return (
     <Container
@@ -209,50 +258,29 @@ export default function FeedbackForm({
                 )}
               </Stack>
             </SimpleGrid>
-            <SimpleGrid
-              cols={{ base: 1, sm: 2 }}
-              spacing="md"
-              style={{ flex: 1, minHeight: 0 }}
-            >
-              <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
-                <Textarea
-                  label={t("common.field.content")}
-                  placeholder={t("feedback.contentPlaceholder")}
-                  maxLength={5000}
-                  styles={{
-                    root: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 },
-                    wrapper: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 },
-                    input: { flex: 1, minHeight: 0, resize: "none" },
-                  }}
-                  {...form.getInputProps("content")}
-                />
-              </div>
-              <Input.Wrapper
-                label={t("common.field.preview")}
-                styles={{ root: { display: "flex", flexDirection: "column", minHeight: 0 } }}
+            {feedbackId != null ? (
+              <Tabs
+                defaultValue="content"
+                style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}
               >
-                <Box
-                  tabIndex={-1}
-                  style={{
-                    flex: 1,
-                    minHeight: 0,
-                    overflow: "auto",
-                    border: "1px solid var(--mantine-color-default-border)",
-                    borderRadius: "var(--mantine-radius-default)",
-                    padding: "var(--mantine-spacing-sm)",
-                    backgroundColor: "var(--mantine-color-default-hover)",
-                    cursor: "default",
-                    outline: "none",
-                  }}
+                <Tabs.List>
+                  <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
+                  <Tabs.Tab value="history">{t("feedback.history")}</Tabs.Tab>
+                </Tabs.List>
+                <Tabs.Panel
+                  value="content"
+                  pt="md"
+                  style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}
                 >
-                  <Typography>
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {form.values.content}
-                    </ReactMarkdown>
-                  </Typography>
-                </Box>
-              </Input.Wrapper>
-            </SimpleGrid>
+                  {editor}
+                </Tabs.Panel>
+                <Tabs.Panel value="history" pt="md" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+                  <FeedbackHistory feedbackId={feedbackId} />
+                </Tabs.Panel>
+              </Tabs>
+            ) : (
+              editor
+            )}
             {error && (
               <Alert color="red" variant="light">
                 {error}

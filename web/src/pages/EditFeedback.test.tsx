@@ -85,7 +85,7 @@ describe("EditFeedback page", () => {
     mockFetch.mockResolvedValue(jsonResponse(200, FEEDBACK));
     renderEditFeedback();
 
-    expect((await screen.findByLabelText("Content")) as HTMLTextAreaElement).toHaveValue(
+    expect((await screen.findByLabelText("Content", { selector: "textarea" })) as HTMLTextAreaElement).toHaveValue(
       "Initial thoughts",
     );
     expect((screen.getByLabelText("Subject") as HTMLInputElement).value).toBe("Mona");
@@ -134,7 +134,7 @@ describe("EditFeedback page", () => {
     const user = userEvent.setup();
     renderEditFeedback();
 
-    const content = (await screen.findByLabelText("Content")) as HTMLTextAreaElement;
+    const content = (await screen.findByLabelText("Content", { selector: "textarea" })) as HTMLTextAreaElement;
     await user.clear(content);
     await user.type(content, "Revised note");
     await user.click(screen.getByRole("button", { name: /^save draft$/i }));
@@ -165,7 +165,7 @@ describe("EditFeedback page", () => {
     const user = userEvent.setup();
     renderEditFeedback();
 
-    await screen.findByLabelText("Content");
+    await screen.findByLabelText("Content", { selector: "textarea" });
     await user.click(screen.getByRole("button", { name: /^save draft$/i }));
 
     expect(await screen.findByText(/don't have permission to edit this feedback/i)).toBeInTheDocument();
@@ -182,7 +182,7 @@ describe("EditFeedback page", () => {
     const user = userEvent.setup();
     renderEditFeedback();
 
-    await screen.findByLabelText("Content");
+    await screen.findByLabelText("Content", { selector: "textarea" });
     await user.click(screen.getByRole("button", { name: /save & send/i }));
 
     await waitFor(() => {
@@ -200,7 +200,7 @@ describe("EditFeedback page", () => {
     const user = userEvent.setup();
     renderEditFeedback();
 
-    await screen.findByLabelText("Content");
+    await screen.findByLabelText("Content", { selector: "textarea" });
     await user.click(screen.getByRole("button", { name: /^cancel$/i }));
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("link", { name: /^discard$/i }));
@@ -254,7 +254,7 @@ describe("EditFeedback page", () => {
     await user.click(screen.getByRole("button", { name: /^accept$/i }));
 
     // The screen reloads in place into the editor — never navigates away.
-    expect(await screen.findByLabelText("Content")).toBeInTheDocument();
+    expect(await screen.findByLabelText("Content", { selector: "textarea" })).toBeInTheDocument();
     expect(screen.queryByTestId("probe")).toBeNull();
 
     const put = mockFetch.mock.calls.find(

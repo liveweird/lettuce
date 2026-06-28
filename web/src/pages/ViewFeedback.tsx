@@ -21,7 +21,6 @@ import {
   Tabs,
   Text,
   TextInput,
-  Timeline,
   Title,
   Typography,
 } from "@mantine/core";
@@ -34,11 +33,11 @@ import {
   ApiError,
   getFeedback,
   getUserId,
-  listFeedbackEvents,
   updateFeedback,
   type FeedbackStatus,
 } from "../api/client";
 import { formatTimestamp } from "../utils/datetime";
+import FeedbackHistory from "../components/FeedbackHistory";
 
 const RECEIVED = "/feedback?tab=received";
 
@@ -85,12 +84,6 @@ export default function ViewFeedback() {
     queryFn: () => getFeedback(id),
     enabled: idIsValid,
     retry: false,
-  });
-
-  const { data: events } = useQuery({
-    queryKey: ["feedbackEvents", id],
-    queryFn: () => listFeedbackEvents(id),
-    enabled: idIsValid,
   });
 
   if (!idIsValid) return <Navigate to={backTo} replace />;
@@ -278,21 +271,7 @@ export default function ViewFeedback() {
                 </Tabs.Panel>
 
                 <Tabs.Panel value="history" pt="md" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-                  {events && events.length > 0 ? (
-                    <Timeline bulletSize={12} lineWidth={2}>
-                      {events.map((e) => (
-                        <Timeline.Item key={e.id} title={e.content}>
-                          <Text size="xs" c="dimmed">
-                            {e.userName} · {formatTimestamp(e.timestamp)}
-                          </Text>
-                        </Timeline.Item>
-                      ))}
-                    </Timeline>
-                  ) : (
-                    <Text c="dimmed" size="sm">
-                      {t("feedback.noHistory")}
-                    </Text>
-                  )}
+                  <FeedbackHistory feedbackId={id} />
                 </Tabs.Panel>
               </Tabs>
               {actionError && (
