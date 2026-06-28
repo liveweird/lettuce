@@ -184,6 +184,111 @@ describe("FeedbackTeamTable", () => {
     expect(within(sentRow).queryByRole("link", { name: /edit/i })).toBeNull();
   });
 
+  test("typing a Subject filter refetches with subjectName=", async () => {
+    setupMocks(mockFetch);
+    const user = userEvent.setup();
+    renderWithProviders(<FeedbackTeamTable />);
+
+    await screen.findByRole("cell", { name: "Sam Subject" });
+    await user.type(screen.getByLabelText(/subject/i, { selector: "input" }), "tina");
+    await waitFor(() => {
+      expect(feedbackUrls(mockFetch).some((u) => u.includes("subjectName=tina"))).toBe(true);
+    });
+  });
+
+  test("clicking the Requester header toggles the sort param asc↔desc", async () => {
+    setupMocks(mockFetch);
+    const user = userEvent.setup();
+    renderWithProviders(<FeedbackTeamTable />);
+
+    await screen.findByRole("cell", { name: "Sam Subject" });
+    await user.click(screen.getByRole("button", { name: /requester/i }));
+    await waitFor(() =>
+      expect(feedbackUrls(mockFetch).some((u) => u.includes("sort=requesterName"))).toBe(true),
+    );
+    await user.click(screen.getByRole("button", { name: /requester/i }));
+    await waitFor(() =>
+      expect(feedbackUrls(mockFetch).some((u) => u.includes("sort=-requesterName"))).toBe(true),
+    );
+  });
+
+  test("switching the sort field resets the direction to ascending", async () => {
+    setupMocks(mockFetch);
+    const user = userEvent.setup();
+    renderWithProviders(<FeedbackTeamTable />);
+
+    await screen.findByRole("cell", { name: "Sam Subject" });
+    // Default subjectName asc → click Subject to go desc, then click Provider (new field → asc).
+    await user.click(screen.getByRole("button", { name: /subject/i }));
+    await waitFor(() =>
+      expect(feedbackUrls(mockFetch).some((u) => u.includes("sort=-subjectName"))).toBe(true),
+    );
+    await user.click(screen.getByRole("button", { name: /provider/i }));
+    await waitFor(() =>
+      expect(feedbackUrls(mockFetch).some((u) => u.includes("sort=providerName"))).toBe(true),
+    );
+  });
+
+  test("changing the page size refetches with pageSize and resets to page 1", async () => {
+    setupMocks(mockFetch);
+    renderWithProviders(<FeedbackTeamTable />);
+
+    await screen.findByRole("cell", { name: "Sam Subject" });
+    fireEvent.click(screen.getByLabelText("Rows per page", { selector: "input" }));
+    fireEvent.click(await screen.findByRole("option", { name: "40 / page" }));
+    await waitFor(() => {
+      expect(
+        feedbackUrls(mockFetch).some((u) => u.includes("pageSize=40") && u.includes("page=1")),
+      ).toBe(true);
+    });
+  });
+
+  test("clicking page 2 refetches with page=2", async () => {
+    setupMocks(mockFetch, feedbacksPage(SEED, 40)); // 40 total / 20 per page → 2 pages
+    const user = userEvent.setup();
+    renderWithProviders(<FeedbackTeamTable />);
+
+    await screen.findByRole("cell", { name: "Sam Subject" });
+    await user.click(screen.getByRole("button", { name: "2" }));
+    await waitFor(() =>
+      expect(feedbackUrls(mockFetch).some((u) => u.includes("page=2"))).toBe(true),
+    );
+  });
+
+  test("Edit and View links carry the expected query params", async () => {
+    setupMocks(mockFetch);
+    renderWithProviders(<FeedbackTeamTable />);
+
+    const draftRow = (await screen.findByRole("cell", { name: "Tina Subject" })).closest("tr")!;
+    expect(within(draftRow).getByRole("link", { name: /edit/i })).toHaveAttribute(
+      "href",
+      "/feedback/2/edit?subjectName=Tina%20Subject&from=team",
+    );
+
+    const sentRow = screen.getByRole("cell", { name: "Sam Subject" }).closest("tr")!;
+    expect(within(sentRow).getByRole("link", { name: /view/i })).toHaveAttribute(
+      "href",
+      "/feedback/1/view?as=team&providerName=Alice%20Provider&subjectName=Sam%20Subject&requesterName=Carol%20Requester",
+    );
+  });
+
+  test("View link omits requesterName when the feedback has no requester", async () => {
+    const noRequester: FeedbackItem = {
+      ...SEED[0],
+      id: 5,
+      requesterId: null,
+      requesterName: null,
+      providerId: 10, // not the current user → View link shown
+    };
+    setupMocks(mockFetch, feedbacksPage([noRequester]));
+    renderWithProviders(<FeedbackTeamTable />);
+
+    const row = (await screen.findByRole("cell", { name: "Sam Subject" })).closest("tr")!;
+    const href = within(row).getByRole("link", { name: /view/i }).getAttribute("href")!;
+    expect(href).toContain("/feedback/5/view?as=team&providerName=Alice%20Provider");
+    expect(href).not.toContain("requesterName=");
+  });
+
   test("shows an empty state when there is no team feedback", async () => {
     setupMocks(mockFetch, feedbacksPage([]));
     renderWithProviders(<FeedbackTeamTable />);

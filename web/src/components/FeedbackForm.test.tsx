@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { renderWithProviders, screen, waitFor } from "../test/render";
+import { fireEvent, renderWithProviders, screen, waitFor } from "../test/render";
 import FeedbackForm from "./FeedbackForm";
 import { formatTimestamp } from "../utils/datetime";
 
@@ -128,6 +128,86 @@ describe("FeedbackForm", () => {
   test("renders the error prop as an alert", () => {
     renderWithProviders(<FeedbackForm {...baseProps} onSubmit={() => {}} error="Something failed" />);
     expect(screen.getByText("Something failed")).toBeInTheDocument();
+  });
+
+  // Pick the only template ("Greeting") from the searchable picker, then click Insert.
+  // happy-dom doesn't open Mantine comboboxes via userEvent pointer simulation, so use fireEvent.
+  async function selectGreetingAndInsert(user: ReturnType<typeof userEvent.setup>) {
+    await waitFor(() => expect(screen.getByPlaceholderText("Pick a template")).toBeEnabled());
+    fireEvent.click(screen.getByPlaceholderText("Pick a template"));
+    fireEvent.click(await screen.findByRole("option", { name: "Greeting", hidden: true }));
+    await user.click(screen.getByRole("button", { name: /insert/i }));
+  }
+
+  test("inserts the selected template's content into an empty editor (no leading separator)", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <FeedbackForm {...baseProps} initialContent="" onSubmit={() => {}} showTemplateInsert />,
+    );
+    await selectGreetingAndInsert(user);
+    await waitFor(() =>
+      expect(screen.getByLabelText("Content")).toHaveValue("Hello from template"),
+    );
+  });
+
+  test("appends an inserted template after existing content with a blank-line separator", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <FeedbackForm {...baseProps} initialContent="Existing" onSubmit={() => {}} showTemplateInsert />,
+    );
+    await selectGreetingAndInsert(user);
+    await waitFor(() =>
+      expect(screen.getByLabelText("Content")).toHaveValue("Existing\n\nHello from template"),
+    );
+  });
+
+  test("does not add a double separator when existing content already ends in a newline", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <FeedbackForm {...baseProps} initialContent={"Existing\n"} onSubmit={() => {}} showTemplateInsert />,
+    );
+    await selectGreetingAndInsert(user);
+    await waitFor(() =>
+      expect(screen.getByLabelText("Content")).toHaveValue("Existing\nHello from template"),
+    );
+  });
+
+  test("shows an error alert when the template content fails to load", async () => {
+    mockFetch.mockImplementation((url: string) => {
+      const u = String(url);
+      if (/^\/api\/templates\/\d+/.test(u)) return Promise.resolve(jsonResponse(500, { error: "boom" }));
+      if (u.startsWith("/api/templates")) {
+        return Promise.resolve(
+          jsonResponse(200, {
+            items: [{ id: 123, name: "Greeting", contentPreview: "Hello" }],
+            page: 1,
+            pageSize: 100,
+            total: 1,
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<FeedbackForm {...baseProps} onSubmit={() => {}} showTemplateInsert />);
+    await selectGreetingAndInsert(user);
+    expect(
+      await screen.findByText("Couldn't load that template. Please try again."),
+    ).toBeInTheDocument();
+  });
+
+  test("disables all action buttons while a DRAFT save is in flight", () => {
+    renderWithProviders(<FeedbackForm {...baseProps} submitting="DRAFT" onSubmit={() => {}} />);
+    expect(screen.getByRole("button", { name: /^cancel$/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /save draft/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /save & send/i })).toBeDisabled();
+  });
+
+  test("disables all action buttons while a SENT save is in flight", () => {
+    renderWithProviders(<FeedbackForm {...baseProps} submitting="SENT" onSubmit={() => {}} />);
+    expect(screen.getByRole("button", { name: /^cancel$/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /save draft/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /save & send/i })).toBeDisabled();
   });
 
   test("Cancel opens the discard modal; Discard links to cancelTo and Keep editing closes it", async () => {

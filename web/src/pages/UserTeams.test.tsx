@@ -69,6 +69,27 @@ function renderUserTeams(id: number | string = 7, search = "") {
   );
 }
 
+// Mocks user(7)/members/pool happy-path; the PUT that adds Mobile (team 2) yields `putResult`.
+function mockAddError(mockFetch: FetchMock, putResult: () => Promise<Response>) {
+  mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+    const method = init?.method ?? "GET";
+    if (method === "PUT" && url === "/api/teams/2/members/7") return putResult();
+    if (url === "/api/users/7") return Promise.resolve(jsonResponse(200, TARGET_USER));
+    if (isMembersUrl(url)) return Promise.resolve(teamsPage(MEMBER_TEAMS));
+    if (isAllTeamsUrl(url)) return Promise.resolve(teamsPage(ALL_TEAMS));
+    return Promise.resolve(jsonResponse(404, {}));
+  });
+}
+
+// Pick "Mobile" from the add picker and click Add.
+async function addMobile(user: ReturnType<typeof userEvent.setup>) {
+  await screen.findByRole("cell", { name: "Platform" });
+  await user.click(screen.getByPlaceholderText("Pick a team"));
+  const listbox = await screen.findByRole("listbox", { hidden: true });
+  await user.click(within(listbox).getByText("Mobile"));
+  await user.click(screen.getByRole("button", { name: /^add$/i }));
+}
+
 describe("UserTeams page", () => {
   let mockFetch: FetchMock;
 
@@ -228,5 +249,130 @@ describe("UserTeams page", () => {
     await user.click(screen.getByRole("button", { name: /^add$/i }));
 
     expect(await screen.findByText(/failed to add to team/i)).toBeInTheDocument();
+  });
+
+  test("add-to-team 403 shows the permission message", async () => {
+    mockAddError(mockFetch, () => Promise.resolve(jsonResponse(403, { error: "forbidden" })));
+    const user = userEvent.setup();
+    renderUserTeams(7);
+    await addMobile(user);
+    expect(
+      await screen.findByText("You don't have permission to modify this team."),
+    ).toBeInTheDocument();
+  });
+
+  test("add-to-team 404 shows the team-gone message", async () => {
+    mockAddError(mockFetch, () => Promise.resolve(jsonResponse(404, { error: "not_found" })));
+    const user = userEvent.setup();
+    renderUserTeams(7);
+    await addMobile(user);
+    expect(await screen.findByText("Team no longer exists.")).toBeInTheDocument();
+  });
+
+  test("add-to-team with an unexpected status shows the generic status message", async () => {
+    mockAddError(mockFetch, () => Promise.resolve(jsonResponse(500, { error: "internal" })));
+    const user = userEvent.setup();
+    renderUserTeams(7);
+    await addMobile(user);
+    expect(await screen.findByText("Add failed (500)")).toBeInTheDocument();
+  });
+
+  test("add-to-team network failure shows the connection message", async () => {
+    mockAddError(mockFetch, () => Promise.reject(new Error("network down")));
+    const user = userEvent.setup();
+    renderUserTeams(7);
+    await addMobile(user);
+    expect(
+      await screen.findByText("Add failed. Check your connection and try again."),
+    ).toBeInTheDocument();
+  });
+
+  test("a 404 on the user shows the not-found alert", async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (url === "/api/users/7") return Promise.resolve(jsonResponse(404, { error: "not_found" }));
+      if (isMembersUrl(url)) return Promise.resolve(teamsPage(MEMBER_TEAMS));
+      if (isAllTeamsUrl(url)) return Promise.resolve(teamsPage(ALL_TEAMS));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    renderUserTeams(7);
+    expect(await screen.findByText("User not found.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /back to users/i })).toBeInTheDocument();
+  });
+
+  test("a non-404 user error shows the generic load-failed alert with status", async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (url === "/api/users/7") return Promise.resolve(jsonResponse(500, { error: "internal" }));
+      if (isMembersUrl(url)) return Promise.resolve(teamsPage(MEMBER_TEAMS));
+      if (isAllTeamsUrl(url)) return Promise.resolve(teamsPage(ALL_TEAMS));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    renderUserTeams(7);
+    expect(await screen.findByText(/failed to load user \(500\)/i)).toBeInTheDocument();
+  });
+
+  test("a teams-list error shows an alert", async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (url === "/api/users/7") return Promise.resolve(jsonResponse(200, TARGET_USER));
+      if (isMembersUrl(url)) return Promise.resolve(jsonResponse(500, { error: "internal" }));
+      if (isAllTeamsUrl(url)) return Promise.resolve(teamsPage(ALL_TEAMS));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    renderUserTeams(7);
+    expect(await screen.findByText(/failed to load teams/i)).toBeInTheDocument();
+  });
+
+  test("shows the (deleted) tag when a team's manager is soft-deleted", async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (url === "/api/users/7") return Promise.resolve(jsonResponse(200, TARGET_USER));
+      if (isMembersUrl(url)) {
+        return Promise.resolve(
+          teamsPage([{ id: 1, name: "Platform", managerId: 10, managerName: "Mona Manager", managerDeleted: true }]),
+        );
+      }
+      if (isAllTeamsUrl(url)) return Promise.resolve(teamsPage(ALL_TEAMS));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    renderUserTeams(7);
+    expect(await screen.findByRole("cell", { name: /^Mona Manager \(deleted\)$/ })).toBeInTheDocument();
+  });
+
+  test("a remove failure shows an alert inside the modal and keeps it open", async () => {
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      if (method === "DELETE" && url === "/api/teams/1/members/7") {
+        return Promise.resolve(jsonResponse(500, { error: "internal" }));
+      }
+      if (url === "/api/users/7") return Promise.resolve(jsonResponse(200, TARGET_USER));
+      if (isMembersUrl(url)) return Promise.resolve(teamsPage(MEMBER_TEAMS));
+      if (isAllTeamsUrl(url)) return Promise.resolve(teamsPage(ALL_TEAMS));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    const user = userEvent.setup();
+    renderUserTeams(7);
+
+    await user.click(await screen.findByRole("button", { name: /remove from platform/i }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /^remove$/i }));
+
+    expect(await within(dialog).findByText(/failed to remove from team/i)).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  test("the modal Cancel button is disabled while the remove is in flight", async () => {
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      if (method === "DELETE" && url === "/api/teams/1/members/7") return new Promise(() => {});
+      if (url === "/api/users/7") return Promise.resolve(jsonResponse(200, TARGET_USER));
+      if (isMembersUrl(url)) return Promise.resolve(teamsPage(MEMBER_TEAMS));
+      if (isAllTeamsUrl(url)) return Promise.resolve(teamsPage(ALL_TEAMS));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    const user = userEvent.setup();
+    renderUserTeams(7);
+
+    await user.click(await screen.findByRole("button", { name: /remove from platform/i }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /^remove$/i }));
+    expect(within(dialog).getByRole("button", { name: /cancel/i })).toBeDisabled();
   });
 });

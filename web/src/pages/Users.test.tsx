@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -54,6 +54,27 @@ const SEED_USERS = [
 function mockListThen(mockFetch: FetchMock, ...followups: Response[]) {
   mockFetch.mockResolvedValueOnce(listResponse(SEED_USERS));
   for (const r of followups) mockFetch.mockResolvedValueOnce(r);
+}
+
+// URL-based mock so any number of list refetches (filters/sort/pagination) resolve.
+function mockUsers(
+  mockFetch: FetchMock,
+  items: typeof SEED_USERS = SEED_USERS,
+  total = items.length,
+) {
+  mockFetch.mockImplementation((url: string) =>
+    Promise.resolve(
+      String(url).startsWith("/api/users?")
+        ? jsonResponse(200, { items, page: 1, pageSize: 20, total })
+        : jsonResponse(404, {}),
+    ),
+  );
+}
+
+function userUrls(mockFetch: FetchMock): string[] {
+  return mockFetch.mock.calls
+    .map(([url]) => String(url))
+    .filter((u) => u.startsWith("/api/users?"));
 }
 
 describe("Users page", () => {
@@ -194,6 +215,133 @@ describe("Users page", () => {
     expect(logoutCall).toBeDefined();
     expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
     expect(localStorage.getItem(USER_ID_KEY)).toBeNull();
+  });
+
+  test("typing the Name filter refetches with name= (debounced); clear resets it", async () => {
+    mockUsers(mockFetch);
+    const user = userEvent.setup();
+    renderUsers();
+
+    await screen.findByText("Alice");
+    const nameInput = screen.getByLabelText("Name");
+    await user.type(nameInput, "Ali");
+    await waitFor(
+      () => expect(userUrls(mockFetch).some((u) => u.includes("name=Ali"))).toBe(true),
+      { timeout: 1500 },
+    );
+
+    await user.click(screen.getByRole("button", { name: /clear name filter/i }));
+    expect(nameInput).toHaveValue("");
+  });
+
+  test("typing the Email filter refetches with email=", async () => {
+    mockUsers(mockFetch);
+    const user = userEvent.setup();
+    renderUsers();
+
+    await screen.findByText("Alice");
+    await user.type(screen.getByLabelText("Email"), "alice");
+    await waitFor(
+      () => expect(userUrls(mockFetch).some((u) => u.includes("email=alice"))).toBe(true),
+      { timeout: 1500 },
+    );
+  });
+
+  test("selecting a Role filter refetches with role=ADMIN", async () => {
+    mockUsers(mockFetch);
+    renderUsers();
+
+    await screen.findByText("Alice");
+    fireEvent.click(screen.getByLabelText("Role", { selector: "input" }));
+    fireEvent.click(await screen.findByRole("option", { name: /admin/i }));
+    await waitFor(() => expect(userUrls(mockFetch).some((u) => u.includes("role=ADMIN"))).toBe(true));
+  });
+
+  test("sort headers toggle direction and switch field", async () => {
+    mockUsers(mockFetch);
+    const user = userEvent.setup();
+    renderUsers();
+
+    await screen.findByText("Alice");
+    await user.click(screen.getByRole("button", { name: /name/i }));
+    await waitFor(() => expect(userUrls(mockFetch).some((u) => u.includes("sort=-name"))).toBe(true));
+
+    await user.click(screen.getByRole("button", { name: /email/i }));
+    await waitFor(() => expect(userUrls(mockFetch).some((u) => u.includes("sort=email"))).toBe(true));
+  });
+
+  test("changing page size refetches with pageSize and resets to page 1", async () => {
+    mockUsers(mockFetch);
+    renderUsers();
+
+    await screen.findByText("Alice");
+    fireEvent.click(screen.getByLabelText("Rows per page", { selector: "input" }));
+    fireEvent.click(await screen.findByRole("option", { name: "40 / page" }));
+    await waitFor(() =>
+      expect(
+        userUrls(mockFetch).some((u) => u.includes("pageSize=40") && u.includes("page=1")),
+      ).toBe(true),
+    );
+  });
+
+  test("clicking page 2 refetches with page=2", async () => {
+    mockUsers(mockFetch, SEED_USERS, 25); // 25 total / 20 per page → 2 pages
+    const user = userEvent.setup();
+    renderUsers();
+
+    await screen.findByText("Alice");
+    await user.click(screen.getByRole("button", { name: "2" }));
+    await waitFor(() => expect(userUrls(mockFetch).some((u) => u.includes("page=2"))).toBe(true));
+  });
+
+  test("shows an alert when the list fails to load", async () => {
+    mockFetch.mockImplementation((url: string) =>
+      Promise.resolve(
+        String(url).startsWith("/api/users?")
+          ? jsonResponse(500, { error: "internal", message: "boom" })
+          : jsonResponse(404, {}),
+      ),
+    );
+    renderUsers();
+    expect(await screen.findByText("Failed to load users")).toBeInTheDocument();
+  });
+
+  test("shows the empty state when there are no users", async () => {
+    mockUsers(mockFetch, [], 0);
+    renderUsers();
+    expect(await screen.findByText("No users")).toBeInTheDocument();
+  });
+
+  test("admin sees a Create user link; a non-admin does not", async () => {
+    mockUsers(mockFetch);
+    const { unmount } = renderUsers();
+    expect(await screen.findByRole("link", { name: /create user/i })).toHaveAttribute(
+      "href",
+      "/users/new",
+    );
+    unmount();
+
+    localStorage.setItem(ROLE_KEY, "USER");
+    mockUsers(mockFetch);
+    renderUsers();
+    await screen.findByText("Alice");
+    expect(screen.queryByRole("link", { name: /create user/i })).not.toBeInTheDocument();
+  });
+
+  test("the modal Cancel button is disabled while the delete is in flight", async () => {
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      if (method === "DELETE") return new Promise(() => {}); // never resolves
+      if (String(url).startsWith("/api/users?")) return Promise.resolve(listResponse(SEED_USERS));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    const user = userEvent.setup();
+    renderUsers();
+
+    await user.click(await screen.findByRole("button", { name: /delete bob/i }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
+    expect(within(dialog).getByRole("button", { name: /cancel/i })).toBeDisabled();
   });
 
   test("server error surfaces an alert and keeps the modal open", async () => {

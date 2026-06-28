@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -165,6 +165,102 @@ describe("Teams page", () => {
 
     const managerSelect = screen.getByLabelText(/manager/i, { selector: "input" });
     expect(managerSelect).not.toBeDisabled();
+  });
+
+  test("clearing the Name filter empties the input", async () => {
+    setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
+    const user = userEvent.setup();
+    renderTeams();
+
+    await screen.findByText("Platform");
+    const nameInput = screen.getByLabelText(/name/i);
+    await user.type(nameInput, "Mobi");
+    await user.click(await screen.findByRole("button", { name: /clear name filter/i }));
+    expect(nameInput).toHaveValue("");
+  });
+
+  test("selecting a Manager filter refetches with managerId=", async () => {
+    setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
+    renderTeams();
+
+    await screen.findByText("Platform");
+    fireEvent.click(screen.getByLabelText(/manager/i, { selector: "input" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Alice Manager", hidden: true }));
+    await waitFor(() => {
+      const called = mockFetch.mock.calls.some(
+        ([url]) =>
+          typeof url === "string" && url.startsWith("/api/teams?") && url.includes("managerId=10"),
+      );
+      expect(called).toBe(true);
+    });
+  });
+
+  test("clicking the Name sort header toggles to sort=-name", async () => {
+    setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
+    const user = userEvent.setup();
+    renderTeams();
+
+    await screen.findByText("Platform");
+    await user.click(screen.getByRole("button", { name: /name/i }));
+    await waitFor(() => {
+      const called = mockFetch.mock.calls.some(
+        ([url]) =>
+          typeof url === "string" && url.startsWith("/api/teams?") && url.includes("sort=-name"),
+      );
+      expect(called).toBe(true);
+    });
+  });
+
+  test("changing the page size refetches with pageSize and resets to page 1", async () => {
+    setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
+    renderTeams();
+
+    await screen.findByText("Platform");
+    fireEvent.click(screen.getByLabelText("Rows per page", { selector: "input" }));
+    fireEvent.click(await screen.findByRole("option", { name: "40 / page" }));
+    await waitFor(() => {
+      const called = mockFetch.mock.calls.some(
+        ([url]) =>
+          typeof url === "string" &&
+          url.startsWith("/api/teams?") &&
+          url.includes("pageSize=40") &&
+          url.includes("page=1"),
+      );
+      expect(called).toBe(true);
+    });
+  });
+
+  test("admin sees an Edit link per row pointing at /teams/:id/edit", async () => {
+    setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
+    renderTeams();
+
+    await screen.findByRole("cell", { name: "Platform" });
+    const editLinks = screen.getAllByRole("link", { name: /^edit /i });
+    expect(editLinks).toHaveLength(2);
+    expect(editLinks[0]).toHaveAttribute("href", "/teams/1/edit");
+  });
+
+  test("shows an alert when the list fails to load", async () => {
+    setupMocks(mockFetch, () => jsonResponse(500, { error: "internal", message: "boom" }));
+    renderTeams();
+    expect(await screen.findByText("Failed to load teams")).toBeInTheDocument();
+  });
+
+  test("the modal Cancel button is disabled while the delete is in flight", async () => {
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      if (url.startsWith("/api/users?")) return Promise.resolve(usersPage(SEED_MANAGERS));
+      if (method === "DELETE" && /^\/api\/teams\/\d+$/.test(url)) return new Promise(() => {});
+      if (url.startsWith("/api/teams?")) return Promise.resolve(teamsPage(SEED_TEAMS));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    const user = userEvent.setup();
+    renderTeams();
+
+    await user.click(await screen.findByRole("button", { name: /delete mobile/i }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
+    expect(within(dialog).getByRole("button", { name: /cancel/i })).toBeDisabled();
   });
 
   test("shows 'No teams' empty state when the API returns zero items", async () => {
