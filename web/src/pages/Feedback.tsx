@@ -44,9 +44,17 @@ export default function Feedback() {
       <Title order={2}>{t("feedback.sectionTitle")}</Title>
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
-          <Tabs.Tab value="received">{t("feedback.tab.received")}</Tabs.Tab>
-          <Tabs.Tab value="provided">{t("feedback.tab.provided")}</Tabs.Tab>
-          {isManager && <Tabs.Tab value="team">{t("feedback.tab.team")}</Tabs.Tab>}
+          <Tabs.Tab value="received" data-tour="feedback-received">
+            {t("feedback.tab.received")}
+          </Tabs.Tab>
+          <Tabs.Tab value="provided" data-tour="feedback-provided">
+            {t("feedback.tab.provided")}
+          </Tabs.Tab>
+          {isManager && (
+            <Tabs.Tab value="team" data-tour="feedback-team">
+              {t("feedback.tab.team")}
+            </Tabs.Tab>
+          )}
         </Tabs.List>
 
         <Tabs.Panel value="received" pt="md">

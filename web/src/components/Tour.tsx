@@ -2,8 +2,8 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 import { Joyride, STATUS, type Controls, type EventData, type Step } from "react-joyride";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { getUserId, isAdmin } from "../api/client";
-import type { DashboardTab } from "../pages/Dashboard";
+import { useQuery } from "@tanstack/react-query";
+import { getUserId, isAdmin, listTeams } from "../api/client";
 
 const SEEN_PREFIX = "lettuce.tour.seen.";
 const seenKey = (userId: number) => `${SEEN_PREFIX}${userId}`;
@@ -22,8 +22,10 @@ type TourStepDef = {
   placement?: Step["placement"];
   /** Shown only to ADMIN callers (the Config area is admin-only). */
   adminOnly?: boolean;
-  /** When set, switch the Dashboard to this tab (via the URL) before the step is shown. */
-  tab?: DashboardTab;
+  /** Shown only to callers who manage a team (the Feedback "My team" tab is manager-only). */
+  managerOnly?: boolean;
+  /** When set, navigate to this URL before the step is shown (e.g. switch a tab / open a route). */
+  navTo?: string;
 };
 
 // Anchored to the always-present AppShell header + navbar, so every target is in the DOM and no
@@ -31,16 +33,20 @@ type TourStepDef = {
 // skipped by Joyride rather than breaking the tour.
 export const TOUR_STEPS: TourStepDef[] = [
   { target: "body", contentKey: "tour.steps.welcome", placement: "center" },
-  // Navigate to the Dashboard here (a step early) so the lazy-loaded route is mounted before the
-  // subsection steps below need their targets — otherwise, starting the tour off the Dashboard
-  // skips them. The tooltip still anchors on the always-present navbar link.
-  { target: '[data-tour="nav-dashboard"]', contentKey: "tour.steps.dashboard", placement: "right", tab: "managers" },
-  // The Dashboard's three subsections — each step switches the active tab (see `tab`) so the
+  // Navigate to each lazy-loaded section a step early (on its nav step) so the route is mounted
+  // before the subsection steps below need their targets — otherwise, starting the tour off that
+  // section skips them. The nav tooltip still anchors on the always-present navbar link.
+  { target: '[data-tour="nav-dashboard"]', contentKey: "tour.steps.dashboard", placement: "right", navTo: "/?tab=managers" },
+  // The Dashboard's three subsections — each step switches the active tab (via `navTo`) so the
   // matching view is shown while the step is presented.
-  { target: '[data-tour="dashboard-managers"]', contentKey: "tour.steps.dashboardManagers", placement: "bottom", tab: "managers" },
-  { target: '[data-tour="dashboard-peers"]', contentKey: "tour.steps.dashboardPeers", placement: "bottom", tab: "peers" },
-  { target: '[data-tour="dashboard-subordinates"]', contentKey: "tour.steps.dashboardSubordinates", placement: "bottom", tab: "subordinates" },
-  { target: '[data-tour="nav-feedback"]', contentKey: "tour.steps.feedback", placement: "right" },
+  { target: '[data-tour="dashboard-managers"]', contentKey: "tour.steps.dashboardManagers", placement: "bottom", navTo: "/?tab=managers" },
+  { target: '[data-tour="dashboard-peers"]', contentKey: "tour.steps.dashboardPeers", placement: "bottom", navTo: "/?tab=peers" },
+  { target: '[data-tour="dashboard-subordinates"]', contentKey: "tour.steps.dashboardSubordinates", placement: "bottom", navTo: "/?tab=subordinates" },
+  { target: '[data-tour="nav-feedback"]', contentKey: "tour.steps.feedback", placement: "right", navTo: "/feedback?tab=received" },
+  // The Feedback section's three subsections. "My team" is manager-only (matches the page).
+  { target: '[data-tour="feedback-received"]', contentKey: "tour.steps.feedbackReceived", placement: "bottom", navTo: "/feedback?tab=received" },
+  { target: '[data-tour="feedback-provided"]', contentKey: "tour.steps.feedbackProvided", placement: "bottom", navTo: "/feedback?tab=provided" },
+  { target: '[data-tour="feedback-team"]', contentKey: "tour.steps.feedbackTeam", placement: "bottom", navTo: "/feedback?tab=team", managerOnly: true },
   { target: '[data-tour="nav-config"]', contentKey: "tour.steps.config", placement: "right", adminOnly: true },
   { target: '[data-tour="notifications"]', contentKey: "tour.steps.notifications", placement: "bottom" },
   { target: '[data-tour="language"]', contentKey: "tour.steps.language", placement: "bottom" },
@@ -50,15 +56,16 @@ export const TOUR_STEPS: TourStepDef[] = [
   { target: '[data-tour="replay"]', contentKey: "tour.steps.replay", placement: "bottom" },
 ];
 
-/** Build the role-filtered, translated Joyride steps. Exported for unit tests. */
+/** Build the audience-filtered, translated Joyride steps. Exported for unit tests. */
 export function buildSteps(
   translate: (key: string, opts?: Record<string, unknown>) => string,
   admin: boolean,
-  showTab?: (tab: DashboardTab) => Promise<void> | void,
+  manager: boolean,
+  navigateTo?: (path: string) => Promise<void> | void,
 ): Step[] {
-  // The total is the role-filtered count, so headers read "Step X of Y" against the steps this
+  // The total is the audience-filtered count, so headers read "Step X of Y" against the steps this
   // caller will actually see.
-  const defs = TOUR_STEPS.filter((s) => !s.adminOnly || admin);
+  const defs = TOUR_STEPS.filter((s) => (!s.adminOnly || admin) && (!s.managerOnly || manager));
   const total = defs.length;
   return defs.map((s, i) => ({
     target: s.target,
@@ -66,9 +73,9 @@ export function buildSteps(
     content: translate(s.contentKey),
     placement: s.placement,
     disableBeacon: true,
-    // Steps anchored to a Dashboard subsection switch the active tab before they show; the tour
-    // awaits this hook, then waits (targetWaitTimeout) for the tab target to render.
-    ...(s.tab && showTab ? { before: async () => { await showTab(s.tab!); } } : {}),
+    // Steps with a `navTo` change the view (tab/route) before they show; the tour awaits this hook,
+    // then waits (targetWaitTimeout) for the step's target to render.
+    ...(s.navTo && navigateTo ? { before: async () => { await navigateTo(s.navTo!); } } : {}),
   }));
 }
 
@@ -85,15 +92,22 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const userId = getUserId();
-  // Switching a Dashboard tab is just navigating to its `?tab=` URL — the Dashboard derives the
-  // active tab from the query param. Resolve on the next tick so React renders the route before
-  // Joyride looks for the step's target.
-  const showTab = (tab: DashboardTab) =>
+  // Whether the caller manages a team — gates the Feedback "My team" subsection step. Shares the
+  // Feedback page's query cache key so it dedupes.
+  const { data: managedTeams } = useQuery({
+    queryKey: ["managedTeams", userId],
+    queryFn: () => listTeams({ page: 1, pageSize: 1, managerId: userId! }),
+    enabled: userId !== null,
+  });
+  const isManager = (managedTeams?.total ?? 0) > 0;
+  // A step's `navTo` switches the view before it shows — the target pages derive their state from
+  // the URL. Resolve on the next tick so React renders the route before Joyride looks for the target.
+  const navigateTo = (path: string) =>
     new Promise<void>((resolve) => {
-      navigate(`/?tab=${tab}`);
+      navigate(path);
       setTimeout(resolve, 0);
     });
-  const steps = buildSteps((k, o) => t(k, o), isAdmin(), showTab);
+  const steps = buildSteps((k, o) => t(k, o), isAdmin(), isManager, navigateTo);
 
   // Auto-start once per account: run on mount when authenticated and not yet seen.
   const [run, setRun] = useState(() => userId != null && !hasSeenTour(userId));

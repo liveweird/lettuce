@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
 // Stub react-joyride (it measures DOM rects under a real browser) and capture the props it receives.
@@ -32,9 +33,14 @@ function Replayer() {
   return <button onClick={startTour}>replay</button>;
 }
 
-// TourProvider uses react-router's useNavigate (to switch Dashboard tabs), so it must render
-// inside a Router.
-const renderTour = (ui: ReactNode) => render(<MemoryRouter>{ui}</MemoryRouter>);
+// TourProvider uses react-router's useNavigate (to switch tabs/routes) and a react-query query
+// (to detect managers), so it must render inside both a Router and a QueryClientProvider.
+const renderTour = (ui: ReactNode) =>
+  render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <MemoryRouter>{ui}</MemoryRouter>
+    </QueryClientProvider>,
+  );
 
 describe("Tour", () => {
   beforeEach(() => {
@@ -42,13 +48,28 @@ describe("Tour", () => {
     localStorage.clear();
     localStorage.setItem(USER_ID_KEY, "7");
     localStorage.setItem(ROLE_KEY, "USER");
+    // The manager-detection query resolves to "no managed teams" → isManager false, deterministically.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          new Response(JSON.stringify({ items: [], page: 1, pageSize: 1, total: 0 }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        ),
+      ),
+    );
   });
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
 
   test("buildSteps is role-filtered — only ADMIN gets the Config step", () => {
     const t = (k: string) => k;
-    const userSteps = buildSteps(t, false);
-    const adminSteps = buildSteps(t, true);
+    const userSteps = buildSteps(t, false, false);
+    const adminSteps = buildSteps(t, true, false);
 
     expect(adminSteps.length).toBe(userSteps.length + 1);
     expect(userSteps.some((s) => s.target === '[data-tour="nav-config"]')).toBe(false);
@@ -57,43 +78,58 @@ describe("Tour", () => {
     expect(userSteps[0].content).toBe(TOUR_STEPS[0].contentKey);
   });
 
-  test("buildSteps numbers each step header as 'Step X of Y' against the role-filtered total", () => {
+  test("buildSteps gates the Feedback 'My team' step on being a manager", () => {
+    const t = (k: string) => k;
+    const nonManager = buildSteps(t, false, false);
+    const manager = buildSteps(t, false, true);
+
+    expect(nonManager.some((s) => s.target === '[data-tour="feedback-team"]')).toBe(false);
+    expect(manager.some((s) => s.target === '[data-tour="feedback-team"]')).toBe(true);
+    expect(manager.length).toBe(nonManager.length + 1);
+  });
+
+  test("buildSteps numbers each step header as 'Step X of Y' against the filtered total", () => {
     // A translator that honours interpolation, so we can read the computed current/total.
     const t = (k: string, o?: Record<string, unknown>) => (o ? `${o.current}/${o.total}` : k);
 
-    const userSteps = buildSteps(t, false);
+    const userSteps = buildSteps(t, false, false);
     const userTotal = userSteps.length;
     expect(userSteps[0].title).toBe(`1/${userTotal}`);
     expect(userSteps[userTotal - 1].title).toBe(`${userTotal}/${userTotal}`);
 
-    const adminSteps = buildSteps(t, true);
+    const adminSteps = buildSteps(t, true, false);
     const adminTotal = adminSteps.length;
     expect(adminTotal).toBe(userTotal + 1); // the admin-only Config step bumps the total
     expect(adminSteps[0].title).toBe(`1/${adminTotal}`);
     expect(adminSteps[adminTotal - 1].title).toBe(`${adminTotal}/${adminTotal}`);
   });
 
-  test("Dashboard subsection steps switch the matching tab via their before hook", async () => {
+  test("steps with a navTo change the view via their before hook before showing", async () => {
     const t = (k: string) => k;
-    const showTab = vi.fn(() => Promise.resolve());
-    const steps = buildSteps(t, false, showTab);
+    const navigateTo = vi.fn(() => Promise.resolve());
+    // manager=true so the Feedback "My team" step is included.
+    const steps = buildSteps(t, false, true, navigateTo);
 
-    const cases: { target: string; tab: string }[] = [
-      // The Dashboard nav step navigates too, so the lazy route is mounted before the subsections.
-      { target: '[data-tour="nav-dashboard"]', tab: "managers" },
-      { target: '[data-tour="dashboard-managers"]', tab: "managers" },
-      { target: '[data-tour="dashboard-peers"]', tab: "peers" },
-      { target: '[data-tour="dashboard-subordinates"]', tab: "subordinates" },
+    const cases: { target: string; path: string }[] = [
+      // Each lazy section's nav step navigates a step early so its subsections' targets exist.
+      { target: '[data-tour="nav-dashboard"]', path: "/?tab=managers" },
+      { target: '[data-tour="dashboard-managers"]', path: "/?tab=managers" },
+      { target: '[data-tour="dashboard-peers"]', path: "/?tab=peers" },
+      { target: '[data-tour="dashboard-subordinates"]', path: "/?tab=subordinates" },
+      { target: '[data-tour="nav-feedback"]', path: "/feedback?tab=received" },
+      { target: '[data-tour="feedback-received"]', path: "/feedback?tab=received" },
+      { target: '[data-tour="feedback-provided"]', path: "/feedback?tab=provided" },
+      { target: '[data-tour="feedback-team"]', path: "/feedback?tab=team" },
     ];
-    for (const { target, tab } of cases) {
+    for (const { target, path } of cases) {
       const step = steps.find((s) => s.target === target);
-      expect(step, `missing step for ${tab}`).toBeDefined();
+      expect(step, `missing step for ${path}`).toBeDefined();
       await step!.before!({} as never);
-      expect(showTab).toHaveBeenCalledWith(tab);
+      expect(navigateTo).toHaveBeenCalledWith(path);
     }
-    expect(showTab).toHaveBeenCalledTimes(cases.length);
+    expect(navigateTo).toHaveBeenCalledTimes(cases.length);
 
-    // A non-dashboard step (the welcome step) carries no before hook.
+    // A step without navTo (the welcome step) carries no before hook.
     const welcome = steps.find((s) => s.target === "body");
     expect(welcome?.before).toBeUndefined();
   });

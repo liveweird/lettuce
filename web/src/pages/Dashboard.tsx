@@ -5,7 +5,7 @@ import ManagersTable from "./ManagersTable";
 import TeamMembersTable from "./TeamMembersTable";
 
 const TABS = ["managers", "peers", "subordinates"] as const;
-export type DashboardTab = (typeof TABS)[number];
+type DashboardTab = (typeof TABS)[number];
 
 function isDashboardTab(value: string | null): value is DashboardTab {
   return TABS.includes(value as DashboardTab);

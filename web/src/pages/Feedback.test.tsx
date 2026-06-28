@@ -75,6 +75,16 @@ describe("Feedback page", () => {
     expect(screen.getByRole("tab", { name: "Received" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Provided" })).toBeInTheDocument();
 
+    // The tabs carry the data-tour anchors the guided tour targets for its subsection steps.
+    expect(screen.getByRole("tab", { name: "Received" })).toHaveAttribute(
+      "data-tour",
+      "feedback-received",
+    );
+    expect(screen.getByRole("tab", { name: "Provided" })).toHaveAttribute(
+      "data-tour",
+      "feedback-provided",
+    );
+
     await waitFor(() =>
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringMatching(/\/api\/teams\?.*managerId=7/),
@@ -88,7 +98,9 @@ describe("Feedback page", () => {
     mockApi(mockFetch, 1);
     renderFeedback();
 
-    expect(await screen.findByRole("tab", { name: "My team" })).toBeInTheDocument();
+    const teamTab = await screen.findByRole("tab", { name: "My team" });
+    expect(teamTab).toBeInTheDocument();
+    expect(teamTab).toHaveAttribute("data-tour", "feedback-team");
   });
 
   test("Received is active by default and clicking Provided switches tab and URL", async () => {
