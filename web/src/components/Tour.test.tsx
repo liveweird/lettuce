@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
+import type { ReactNode } from "react";
 
 // Stub react-joyride (it measures DOM rects under a real browser) and capture the props it receives.
 const joyrideSpy = vi.hoisted(() => vi.fn());
@@ -29,6 +31,10 @@ function Replayer() {
   const { startTour } = useTour();
   return <button onClick={startTour}>replay</button>;
 }
+
+// TourProvider uses react-router's useNavigate (to switch Dashboard tabs), so it must render
+// inside a Router.
+const renderTour = (ui: ReactNode) => render(<MemoryRouter>{ui}</MemoryRouter>);
 
 describe("Tour", () => {
   beforeEach(() => {
@@ -67,8 +73,31 @@ describe("Tour", () => {
     expect(adminSteps[adminTotal - 1].title).toBe(`${adminTotal}/${adminTotal}`);
   });
 
+  test("Dashboard subsection steps switch the matching tab via their before hook", async () => {
+    const t = (k: string) => k;
+    const showTab = vi.fn(() => Promise.resolve());
+    const steps = buildSteps(t, false, showTab);
+
+    const cases: { target: string; tab: string }[] = [
+      { target: '[data-tour="dashboard-managers"]', tab: "managers" },
+      { target: '[data-tour="dashboard-peers"]', tab: "peers" },
+      { target: '[data-tour="dashboard-subordinates"]', tab: "subordinates" },
+    ];
+    for (const { target, tab } of cases) {
+      const step = steps.find((s) => s.target === target);
+      expect(step, `missing step for ${tab}`).toBeDefined();
+      await step!.before!({} as never);
+      expect(showTab).toHaveBeenCalledWith(tab);
+    }
+    expect(showTab).toHaveBeenCalledTimes(cases.length);
+
+    // A non-dashboard step (the welcome step) carries no before hook.
+    const welcome = steps.find((s) => s.target === "body");
+    expect(welcome?.before).toBeUndefined();
+  });
+
   test("auto-starts once per user, then is suppressed after completion", async () => {
-    render(
+    renderTour(
       <TourProvider>
         <div />
       </TourProvider>,
@@ -86,7 +115,7 @@ describe("Tour", () => {
     // A fresh mount for the same user does not auto-start again.
     cleanup();
     joyrideSpy.mockClear();
-    render(
+    renderTour(
       <TourProvider>
         <div />
       </TourProvider>,
@@ -95,7 +124,7 @@ describe("Tour", () => {
   });
 
   test("an ADMIN sees one more step than a USER (live provider)", () => {
-    render(
+    renderTour(
       <TourProvider>
         <div />
       </TourProvider>,
@@ -105,7 +134,7 @@ describe("Tour", () => {
     cleanup();
     joyrideSpy.mockClear();
     localStorage.setItem(ROLE_KEY, "ADMIN");
-    render(
+    renderTour(
       <TourProvider>
         <div />
       </TourProvider>,
@@ -115,7 +144,7 @@ describe("Tour", () => {
 
   test("Replay starts the tour even after it has been seen", async () => {
     localStorage.setItem("lettuce.tour.seen.7", "1");
-    render(
+    renderTour(
       <TourProvider>
         <Replayer />
       </TourProvider>,

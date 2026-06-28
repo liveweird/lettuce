@@ -45,6 +45,20 @@ describe("Dashboard", () => {
     expect(screen.getByRole("tab", { name: "My peers" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "My subordinates" })).toBeInTheDocument();
 
+    // The tabs carry the data-tour anchors the guided tour targets for its subsection steps.
+    expect(screen.getByRole("tab", { name: "My managers" })).toHaveAttribute(
+      "data-tour",
+      "dashboard-managers",
+    );
+    expect(screen.getByRole("tab", { name: "My peers" })).toHaveAttribute(
+      "data-tour",
+      "dashboard-peers",
+    );
+    expect(screen.getByRole("tab", { name: "My subordinates" })).toHaveAttribute(
+      "data-tour",
+      "dashboard-subordinates",
+    );
+
     // The default (managers) tab loads its view on mount.
     await waitFor(() => {
       const urls = mockFetch.mock.calls.map(([url]) => String(url));

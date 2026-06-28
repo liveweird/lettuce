@@ -1,7 +1,9 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { Joyride, STATUS, type Controls, type EventData, type Step } from "react-joyride";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import { getUserId, isAdmin } from "../api/client";
+import type { DashboardTab } from "../pages/Dashboard";
 
 const SEEN_PREFIX = "lettuce.tour.seen.";
 const seenKey = (userId: number) => `${SEEN_PREFIX}${userId}`;
@@ -20,6 +22,8 @@ type TourStepDef = {
   placement?: Step["placement"];
   /** Shown only to ADMIN callers (the Config area is admin-only). */
   adminOnly?: boolean;
+  /** When set, switch the Dashboard to this tab (via the URL) before the step is shown. */
+  tab?: DashboardTab;
 };
 
 // Anchored to the always-present AppShell header + navbar, so every target is in the DOM and no
@@ -28,6 +32,11 @@ type TourStepDef = {
 export const TOUR_STEPS: TourStepDef[] = [
   { target: "body", contentKey: "tour.steps.welcome", placement: "center" },
   { target: '[data-tour="nav-dashboard"]', contentKey: "tour.steps.dashboard", placement: "right" },
+  // The Dashboard's three subsections — each step switches the active tab (see `tab`) so the
+  // matching view is shown while the step is presented.
+  { target: '[data-tour="dashboard-managers"]', contentKey: "tour.steps.dashboardManagers", placement: "bottom", tab: "managers" },
+  { target: '[data-tour="dashboard-peers"]', contentKey: "tour.steps.dashboardPeers", placement: "bottom", tab: "peers" },
+  { target: '[data-tour="dashboard-subordinates"]', contentKey: "tour.steps.dashboardSubordinates", placement: "bottom", tab: "subordinates" },
   { target: '[data-tour="nav-feedback"]', contentKey: "tour.steps.feedback", placement: "right" },
   { target: '[data-tour="nav-config"]', contentKey: "tour.steps.config", placement: "right", adminOnly: true },
   { target: '[data-tour="notifications"]', contentKey: "tour.steps.notifications", placement: "bottom" },
@@ -42,9 +51,10 @@ export const TOUR_STEPS: TourStepDef[] = [
 export function buildSteps(
   translate: (key: string, opts?: Record<string, unknown>) => string,
   admin: boolean,
+  showTab?: (tab: DashboardTab) => Promise<void> | void,
 ): Step[] {
-  // The total is the role-filtered count (9 for USER, 10 for ADMIN), so headers read
-  // "Step X of Y" against the steps this caller will actually see.
+  // The total is the role-filtered count, so headers read "Step X of Y" against the steps this
+  // caller will actually see.
   const defs = TOUR_STEPS.filter((s) => !s.adminOnly || admin);
   const total = defs.length;
   return defs.map((s, i) => ({
@@ -53,6 +63,9 @@ export function buildSteps(
     content: translate(s.contentKey),
     placement: s.placement,
     disableBeacon: true,
+    // Steps anchored to a Dashboard subsection switch the active tab before they show; the tour
+    // awaits this hook, then waits (targetWaitTimeout) for the tab target to render.
+    ...(s.tab && showTab ? { before: async () => { await showTab(s.tab!); } } : {}),
   }));
 }
 
@@ -67,8 +80,17 @@ export function useTour(): TourContextValue {
 
 export function TourProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const userId = getUserId();
-  const steps = buildSteps((k, o) => t(k, o), isAdmin());
+  // Switching a Dashboard tab is just navigating to its `?tab=` URL — the Dashboard derives the
+  // active tab from the query param. Resolve on the next tick so React renders the route before
+  // Joyride looks for the step's target.
+  const showTab = (tab: DashboardTab) =>
+    new Promise<void>((resolve) => {
+      navigate(`/?tab=${tab}`);
+      setTimeout(resolve, 0);
+    });
+  const steps = buildSteps((k, o) => t(k, o), isAdmin(), showTab);
 
   // Auto-start once per account: run on mount when authenticated and not yet seen.
   const [run, setRun] = useState(() => userId != null && !hasSeenTour(userId));

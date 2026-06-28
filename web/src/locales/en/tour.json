@@ -12,6 +12,9 @@
   "steps": {
     "welcome": "Take a quick tour of Lettuce — we'll point out the main areas. You can skip anytime and replay it later.",
     "dashboard": "Your Dashboard: see your managers, peers and (if you lead a team) your subordinates.",
+    "dashboardManagers": "My managers — the people you report to.",
+    "dashboardPeers": "My peers — teammates who share a manager with you.",
+    "dashboardSubordinates": "My subordinates — the people who report to you (if you lead a team).",
     "feedback": "Feedback: give, request and review feedback across the Received, Provided and My team tabs.",
     "config": "Admin tools: manage users, teams and feedback templates.",
     "notifications": "Notifications: you'll be alerted here when feedback is requested, sent or withdrawn.",

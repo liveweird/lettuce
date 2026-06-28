@@ -5,7 +5,7 @@ import ManagersTable from "./ManagersTable";
 import TeamMembersTable from "./TeamMembersTable";
 
 const TABS = ["managers", "peers", "subordinates"] as const;
-type DashboardTab = (typeof TABS)[number];
+export type DashboardTab = (typeof TABS)[number];
 
 function isDashboardTab(value: string | null): value is DashboardTab {
   return TABS.includes(value as DashboardTab);
@@ -30,9 +30,15 @@ export default function Dashboard() {
       <Title order={2}>{t("dashboard.title")}</Title>
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
-          <Tabs.Tab value="managers">{t("dashboard.tabs.managers")}</Tabs.Tab>
-          <Tabs.Tab value="peers">{t("dashboard.tabs.peers")}</Tabs.Tab>
-          <Tabs.Tab value="subordinates">{t("dashboard.tabs.subordinates")}</Tabs.Tab>
+          <Tabs.Tab value="managers" data-tour="dashboard-managers">
+            {t("dashboard.tabs.managers")}
+          </Tabs.Tab>
+          <Tabs.Tab value="peers" data-tour="dashboard-peers">
+            {t("dashboard.tabs.peers")}
+          </Tabs.Tab>
+          <Tabs.Tab value="subordinates" data-tour="dashboard-subordinates">
+            {t("dashboard.tabs.subordinates")}
+          </Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="managers" pt="md">
