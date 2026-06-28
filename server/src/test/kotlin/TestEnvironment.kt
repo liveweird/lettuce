@@ -63,6 +63,13 @@ object TestBlocklist {
     val service: TokenBlocklistService by lazy { TokenBlocklistService(sharedTestDatabase) }
 }
 
+// Reads the feedback_events audit table directly (e.g. to assert ON DELETE CASCADE).
+object TestFeedbackEvents {
+    val service: ch.nokillswit.feedbacks.FeedbackEventService by lazy {
+        ch.nokillswit.feedbacks.FeedbackEventService(sharedTestDatabase)
+    }
+}
+
 // There is no create endpoint for notifications (they are minted as a side-effect of
 // other activities), so tests seed rows by calling the service directly.
 object TestNotifications {

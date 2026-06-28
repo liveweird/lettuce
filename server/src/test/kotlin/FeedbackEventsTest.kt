@@ -14,6 +14,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.DefaultRequest
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -56,6 +57,8 @@ class FeedbackEventsTest {
         assertEquals("Feedback created as a draft.", feedbackCreationEventContent(fb(FeedbackStatus.DRAFT)))
         assertEquals("Feedback created and sent.", feedbackCreationEventContent(fb(FeedbackStatus.SENT)))
         assertEquals("Feedback requested.", feedbackCreationEventContent(fb(FeedbackStatus.REQUESTED)))
+        assertEquals("Feedback created as withdrawn.", feedbackCreationEventContent(fb(FeedbackStatus.WITHDRAWN)))
+        assertEquals("Feedback created as rejected.", feedbackCreationEventContent(fb(FeedbackStatus.REJECTED)))
     }
 
     @Test
@@ -188,5 +191,44 @@ class FeedbackEventsTest {
             HttpStatusCode.Forbidden,
             authedClient(strangerEmail, "pw").get("/api/feedbacks/${created.id}/events").status,
         )
+    }
+
+    @Test
+    fun `the events endpoint returns 404 for a missing feedback`() = testApplication {
+        usePostgresTestcontainer()
+        val email = uniqueEmail("user")
+        TestUsers.seed(email = email, password = "pw", role = UserRole.USER)
+
+        assertEquals(
+            HttpStatusCode.NotFound,
+            authedClient(email, "pw").get("/api/feedbacks/999999/events").status,
+        )
+    }
+
+    @Test
+    fun `deleting a feedback cascades its events`() = testApplication {
+        usePostgresTestcontainer()
+        val providerEmail = uniqueEmail("provider")
+        val providerId = TestUsers.seed(email = providerEmail, password = "pw", role = UserRole.USER)
+        val subjectId = TestUsers.seed(email = uniqueEmail("subject"), password = "pw", role = UserRole.USER)
+        val provider = authedClient(providerEmail, "pw")
+
+        val created = provider.post("/api/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                Feedback(
+                    subjectId = subjectId, providerId = providerId,
+                    visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                    status = FeedbackStatus.DRAFT, content = "draft",
+                ),
+            )
+        }.body<FeedbackResponse>()
+
+        // The creation event exists…
+        assertEquals(1, TestFeedbackEvents.service.listForFeedback(created.id).size)
+
+        // …and is removed by the FK ON DELETE CASCADE when the feedback is deleted.
+        assertEquals(HttpStatusCode.NoContent, provider.delete("/api/feedbacks/${created.id}").status)
+        assertEquals(0, TestFeedbackEvents.service.listForFeedback(created.id).size)
     }
 }
