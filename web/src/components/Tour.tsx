@@ -39,9 +39,17 @@ export const TOUR_STEPS: TourStepDef[] = [
 ];
 
 /** Build the role-filtered, translated Joyride steps. Exported for unit tests. */
-export function buildSteps(translate: (key: string) => string, admin: boolean): Step[] {
-  return TOUR_STEPS.filter((s) => !s.adminOnly || admin).map((s) => ({
+export function buildSteps(
+  translate: (key: string, opts?: Record<string, unknown>) => string,
+  admin: boolean,
+): Step[] {
+  // The total is the role-filtered count (9 for USER, 10 for ADMIN), so headers read
+  // "Step X of Y" against the steps this caller will actually see.
+  const defs = TOUR_STEPS.filter((s) => !s.adminOnly || admin);
+  const total = defs.length;
+  return defs.map((s, i) => ({
     target: s.target,
+    title: translate("tour.stepCounter", { current: i + 1, total }),
     content: translate(s.contentKey),
     placement: s.placement,
     disableBeacon: true,
@@ -60,7 +68,7 @@ export function useTour(): TourContextValue {
 export function TourProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const userId = getUserId();
-  const steps = buildSteps((k) => t(k), isAdmin());
+  const steps = buildSteps((k, o) => t(k, o), isAdmin());
 
   // Auto-start once per account: run on mount when authenticated and not yet seen.
   const [run, setRun] = useState(() => userId != null && !hasSeenTour(userId));

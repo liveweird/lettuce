@@ -1,6 +1,7 @@
 {
   "welcomeTitle": "Welcome to Lettuce",
   "replay": "Replay the tour",
+  "stepCounter": "Step {{current}} of {{total}}",
   "nav": {
     "back": "Back",
     "close": "Close",

@@ -51,6 +51,22 @@ describe("Tour", () => {
     expect(userSteps[0].content).toBe(TOUR_STEPS[0].contentKey);
   });
 
+  test("buildSteps numbers each step header as 'Step X of Y' against the role-filtered total", () => {
+    // A translator that honours interpolation, so we can read the computed current/total.
+    const t = (k: string, o?: Record<string, unknown>) => (o ? `${o.current}/${o.total}` : k);
+
+    const userSteps = buildSteps(t, false);
+    const userTotal = userSteps.length;
+    expect(userSteps[0].title).toBe(`1/${userTotal}`);
+    expect(userSteps[userTotal - 1].title).toBe(`${userTotal}/${userTotal}`);
+
+    const adminSteps = buildSteps(t, true);
+    const adminTotal = adminSteps.length;
+    expect(adminTotal).toBe(userTotal + 1); // the admin-only Config step bumps the total
+    expect(adminSteps[0].title).toBe(`1/${adminTotal}`);
+    expect(adminSteps[adminTotal - 1].title).toBe(`${adminTotal}/${adminTotal}`);
+  });
+
   test("auto-starts once per user, then is suppressed after completion", async () => {
     render(
       <TourProvider>
