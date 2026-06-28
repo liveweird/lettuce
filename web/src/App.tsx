@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import {
   ActionIcon,
   AppShell,
@@ -155,6 +155,52 @@ function ReplayTourButton() {
   );
 }
 
+/** A collapsible navbar group. Controlled so it auto-expands when one of its child routes becomes
+ *  active (e.g. programmatic navigation from the guided tour), while staying manually toggleable. */
+function NavGroupLink({
+  entry,
+  activeTo,
+  onNavigate,
+}: {
+  entry: NavGroup;
+  activeTo: string | null;
+  onNavigate: () => void;
+}) {
+  const { t } = useTranslation();
+  const childActive = entry.children.some((c) => c.to === activeTo);
+  const [opened, setOpened] = useState(childActive);
+  useEffect(() => {
+    if (childActive) setOpened(true);
+  }, [childActive]);
+  const GroupIcon = entry.icon;
+  return (
+    <NavLink
+      label={t(entry.label)}
+      leftSection={<GroupIcon size={18} stroke={1.5} />}
+      opened={opened}
+      onChange={setOpened}
+      childrenOffset={28}
+      data-tour={entry.tourId}
+    >
+      {entry.children.map(({ to, label, icon: Icon }) => {
+        const active = to === activeTo;
+        return (
+          <NavLink
+            key={to}
+            component={RouterLink}
+            to={to}
+            active={active}
+            aria-current={active ? "page" : undefined}
+            label={t(label)}
+            leftSection={<Icon size={18} stroke={1.5} />}
+            onClick={onNavigate}
+          />
+        );
+      })}
+    </NavLink>
+  );
+}
+
 function Shell() {
   const { t } = useTranslation();
   const [opened, { toggle, close }] = useDisclosure();
@@ -237,33 +283,13 @@ function Shell() {
               />
             );
           }
-          const GroupIcon = entry.icon;
-          const childActive = entry.children.some((c) => c.to === activeTo);
           return (
-            <NavLink
+            <NavGroupLink
               key={entry.label}
-              label={t(entry.label)}
-              leftSection={<GroupIcon size={18} stroke={1.5} />}
-              defaultOpened={childActive}
-              childrenOffset={28}
-              data-tour={entry.tourId}
-            >
-              {entry.children.map(({ to, label, icon: Icon }) => {
-                const active = to === activeTo;
-                return (
-                  <NavLink
-                    key={to}
-                    component={RouterLink}
-                    to={to}
-                    active={active}
-                    aria-current={active ? "page" : undefined}
-                    label={t(label)}
-                    leftSection={<Icon size={18} stroke={1.5} />}
-                    onClick={close}
-                  />
-                );
-              })}
-            </NavLink>
+              entry={entry}
+              activeTo={activeTo}
+              onNavigate={close}
+            />
           );
         })}
       </AppShell.Navbar>

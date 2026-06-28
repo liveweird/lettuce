@@ -110,7 +110,7 @@ export default function Templates() {
 
   return (
     <Stack gap="md">
-      <Title order={2}>{t("templates.title")}</Title>
+      <Title order={2} data-tour="config-templates">{t("templates.title")}</Title>
 
       <Group align="flex-end" gap="sm">
         <TextInput

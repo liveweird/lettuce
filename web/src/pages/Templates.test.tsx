@@ -78,6 +78,11 @@ describe("Templates page", () => {
       expect.stringMatching(/\/api\/templates\?/),
       expect.any(Object),
     );
+    // The heading carries the data-tour anchor the guided tour targets for the Config → Templates step.
+    expect(screen.getByRole("heading", { name: "Templates" })).toHaveAttribute(
+      "data-tour",
+      "config-templates",
+    );
   });
 
   test("typing in the Name filter triggers a refetch with name=", async () => {

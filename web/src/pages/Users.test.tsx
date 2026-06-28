@@ -78,6 +78,11 @@ describe("Users page", () => {
 
     await screen.findByText("Alice");
     expect(screen.getAllByRole("button", { name: /^delete /i })).toHaveLength(2);
+    // The heading carries the data-tour anchor the guided tour targets for the Config → Users step.
+    expect(screen.getByRole("heading", { name: "Users" })).toHaveAttribute(
+      "data-tour",
+      "config-users",
+    );
   });
 
   test("admin sees an Edit link per row pointing at /users/:id/edit", async () => {

@@ -166,7 +166,7 @@ export default function Teams() {
 
   return (
     <Stack gap="md">
-      <Title order={2}>{t("teams.title")}</Title>
+      <Title order={2} data-tour="config-teams">{t("teams.title")}</Title>
 
       <Group align="flex-end" gap="sm">
         <TextInput

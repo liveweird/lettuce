@@ -66,6 +66,14 @@ describe("App shell", () => {
       ).toBeInTheDocument();
     });
 
+    test("auto-expands the Config group when on one of its routes", async () => {
+      // Landing on a Config child route (e.g. the tour navigating in) expands the group without a
+      // manual click, so its sibling links are visible.
+      renderApp("/users");
+      expect(await screen.findByRole("link", { name: /^teams$/i })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: /^templates$/i })).toBeInTheDocument();
+    });
+
     test("shows a Change password link pointing at the current user's route", async () => {
       localStorage.setItem(USER_ID_KEY, "7");
       renderApp("/");

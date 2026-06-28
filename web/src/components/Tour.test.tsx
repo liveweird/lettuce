@@ -15,7 +15,7 @@ vi.mock("react-joyride", () => ({
   STATUS: { FINISHED: "finished", SKIPPED: "skipped", RUNNING: "running" },
 }));
 
-import { TourProvider, useTour, buildSteps, hasSeenTour, TOUR_STEPS } from "./Tour";
+import { TourProvider, useTour, buildSteps, hasSeenTour, waitForElement, TOUR_STEPS } from "./Tour";
 
 const USER_ID_KEY = "lettuce.auth.userId";
 const ROLE_KEY = "lettuce.auth.role";
@@ -66,22 +66,23 @@ describe("Tour", () => {
     vi.unstubAllGlobals();
   });
 
-  test("buildSteps is role-filtered — only ADMIN gets the Config step", () => {
+  test("buildSteps resolves content through the translator and includes Config for everyone", () => {
     const t = (k: string) => k;
-    const userSteps = buildSteps(t, false, false);
-    const adminSteps = buildSteps(t, true, false);
+    const steps = buildSteps(t, false);
 
-    expect(adminSteps.length).toBe(userSteps.length + 1);
-    expect(userSteps.some((s) => s.target === '[data-tour="nav-config"]')).toBe(false);
-    expect(adminSteps.some((s) => s.target === '[data-tour="nav-config"]')).toBe(true);
+    // Config is no longer admin-gated — its nav + subsection steps are present for any caller.
+    expect(steps.some((s) => s.target === '[data-tour="nav-config"]')).toBe(true);
+    expect(steps.some((s) => s.target === '[data-tour="config-users"]')).toBe(true);
+    expect(steps.some((s) => s.target === '[data-tour="config-teams"]')).toBe(true);
+    expect(steps.some((s) => s.target === '[data-tour="config-templates"]')).toBe(true);
     // Content is resolved through the translator.
-    expect(userSteps[0].content).toBe(TOUR_STEPS[0].contentKey);
+    expect(steps[0].content).toBe(TOUR_STEPS[0].contentKey);
   });
 
   test("buildSteps gates the Feedback 'My team' step on being a manager", () => {
     const t = (k: string) => k;
-    const nonManager = buildSteps(t, false, false);
-    const manager = buildSteps(t, false, true);
+    const nonManager = buildSteps(t, false);
+    const manager = buildSteps(t, true);
 
     expect(nonManager.some((s) => s.target === '[data-tour="feedback-team"]')).toBe(false);
     expect(manager.some((s) => s.target === '[data-tour="feedback-team"]')).toBe(true);
@@ -92,23 +93,17 @@ describe("Tour", () => {
     // A translator that honours interpolation, so we can read the computed current/total.
     const t = (k: string, o?: Record<string, unknown>) => (o ? `${o.current}/${o.total}` : k);
 
-    const userSteps = buildSteps(t, false, false);
-    const userTotal = userSteps.length;
-    expect(userSteps[0].title).toBe(`1/${userTotal}`);
-    expect(userSteps[userTotal - 1].title).toBe(`${userTotal}/${userTotal}`);
-
-    const adminSteps = buildSteps(t, true, false);
-    const adminTotal = adminSteps.length;
-    expect(adminTotal).toBe(userTotal + 1); // the admin-only Config step bumps the total
-    expect(adminSteps[0].title).toBe(`1/${adminTotal}`);
-    expect(adminSteps[adminTotal - 1].title).toBe(`${adminTotal}/${adminTotal}`);
+    const steps = buildSteps(t, false);
+    const total = steps.length;
+    expect(steps[0].title).toBe(`1/${total}`);
+    expect(steps[total - 1].title).toBe(`${total}/${total}`);
   });
 
   test("steps with a navTo change the view via their before hook before showing", async () => {
     const t = (k: string) => k;
     const navigateTo = vi.fn(() => Promise.resolve());
     // manager=true so the Feedback "My team" step is included.
-    const steps = buildSteps(t, false, true, navigateTo);
+    const steps = buildSteps(t, true, navigateTo);
 
     const cases: { target: string; path: string }[] = [
       // Each lazy section's nav step navigates a step early so its subsections' targets exist.
@@ -120,18 +115,38 @@ describe("Tour", () => {
       { target: '[data-tour="feedback-received"]', path: "/feedback?tab=received" },
       { target: '[data-tour="feedback-provided"]', path: "/feedback?tab=provided" },
       { target: '[data-tour="feedback-team"]', path: "/feedback?tab=team" },
+      { target: '[data-tour="nav-config"]', path: "/users" },
+      { target: '[data-tour="config-users"]', path: "/users" },
+      { target: '[data-tour="config-teams"]', path: "/teams" },
+      { target: '[data-tour="config-templates"]', path: "/templates" },
     ];
     for (const { target, path } of cases) {
       const step = steps.find((s) => s.target === target);
       expect(step, `missing step for ${path}`).toBeDefined();
       await step!.before!({} as never);
-      expect(navigateTo).toHaveBeenCalledWith(path);
+      expect(navigateTo).toHaveBeenCalledWith(path, target);
     }
     expect(navigateTo).toHaveBeenCalledTimes(cases.length);
 
     // A step without navTo (the welcome step) carries no before hook.
     const welcome = steps.find((s) => s.target === "body");
     expect(welcome?.before).toBeUndefined();
+  });
+
+  test("waitForElement resolves once a matching element appears (cold lazy route)", async () => {
+    const el = document.createElement("div");
+    el.setAttribute("data-tour", "late-target");
+    setTimeout(() => document.body.appendChild(el), 30);
+
+    await waitForElement('[data-tour="late-target"]', 1000);
+    expect(document.querySelector('[data-tour="late-target"]')).not.toBeNull();
+    el.remove();
+  });
+
+  test("waitForElement resolves via the timeout fallback when the element never appears", async () => {
+    // timeoutMs 0 → the deadline is already reached, so it resolves immediately without hanging.
+    await waitForElement('[data-tour="never-there"]', 0);
+    expect(document.querySelector('[data-tour="never-there"]')).toBeNull();
   });
 
   test("auto-starts once per user, then is suppressed after completion", async () => {
@@ -159,25 +174,6 @@ describe("Tour", () => {
       </TourProvider>,
     );
     expect(lastProps().run).toBe(false);
-  });
-
-  test("an ADMIN sees one more step than a USER (live provider)", () => {
-    renderTour(
-      <TourProvider>
-        <div />
-      </TourProvider>,
-    );
-    const userCount = lastProps().steps.length;
-
-    cleanup();
-    joyrideSpy.mockClear();
-    localStorage.setItem(ROLE_KEY, "ADMIN");
-    renderTour(
-      <TourProvider>
-        <div />
-      </TourProvider>,
-    );
-    expect(lastProps().steps.length).toBe(userCount + 1);
   });
 
   test("Replay starts the tour even after it has been seen", async () => {

@@ -144,7 +144,7 @@ export default function Users() {
 
   return (
     <Stack gap="md">
-      <Title order={2}>{t("users.title")}</Title>
+      <Title order={2} data-tour="config-users">{t("users.title")}</Title>
 
       <Group align="flex-end" gap="sm">
         <TextInput

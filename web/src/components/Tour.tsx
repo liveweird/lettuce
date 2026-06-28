@@ -3,7 +3,7 @@ import { Joyride, STATUS, type Controls, type EventData, type Step } from "react
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getUserId, isAdmin, listTeams } from "../api/client";
+import { getUserId, listTeams } from "../api/client";
 
 const SEEN_PREFIX = "lettuce.tour.seen.";
 const seenKey = (userId: number) => `${SEEN_PREFIX}${userId}`;
@@ -20,8 +20,6 @@ type TourStepDef = {
   target: string;
   contentKey: string;
   placement?: Step["placement"];
-  /** Shown only to ADMIN callers (the Config area is admin-only). */
-  adminOnly?: boolean;
   /** Shown only to callers who manage a team (the Feedback "My team" tab is manager-only). */
   managerOnly?: boolean;
   /** When set, navigate to this URL before the step is shown (e.g. switch a tab / open a route). */
@@ -47,7 +45,12 @@ export const TOUR_STEPS: TourStepDef[] = [
   { target: '[data-tour="feedback-received"]', contentKey: "tour.steps.feedbackReceived", placement: "bottom", navTo: "/feedback?tab=received" },
   { target: '[data-tour="feedback-provided"]', contentKey: "tour.steps.feedbackProvided", placement: "bottom", navTo: "/feedback?tab=provided" },
   { target: '[data-tour="feedback-team"]', contentKey: "tour.steps.feedbackTeam", placement: "bottom", navTo: "/feedback?tab=team", managerOnly: true },
-  { target: '[data-tour="nav-config"]', contentKey: "tour.steps.config", placement: "right", adminOnly: true },
+  // The Config section + its three subsections (separate routes). The nav step navigates into the
+  // section a step early so the lazy /users route is mounted before its subsection target is needed.
+  { target: '[data-tour="nav-config"]', contentKey: "tour.steps.config", placement: "right", navTo: "/users" },
+  { target: '[data-tour="config-users"]', contentKey: "tour.steps.configUsers", placement: "bottom", navTo: "/users" },
+  { target: '[data-tour="config-teams"]', contentKey: "tour.steps.configTeams", placement: "bottom", navTo: "/teams" },
+  { target: '[data-tour="config-templates"]', contentKey: "tour.steps.configTemplates", placement: "bottom", navTo: "/templates" },
   { target: '[data-tour="notifications"]', contentKey: "tour.steps.notifications", placement: "bottom" },
   { target: '[data-tour="language"]', contentKey: "tour.steps.language", placement: "bottom" },
   { target: '[data-tour="theme"]', contentKey: "tour.steps.theme", placement: "bottom" },
@@ -56,16 +59,31 @@ export const TOUR_STEPS: TourStepDef[] = [
   { target: '[data-tour="replay"]', contentKey: "tour.steps.replay", placement: "bottom" },
 ];
 
+/**
+ * Resolve once an element matching `selector` is in the DOM, or after `timeoutMs` as a fallback.
+ * Lets a step's `before` hook wait for a (possibly cold lazy-loaded) route's target to mount before
+ * the tour shows the step. Exported for unit tests.
+ */
+export function waitForElement(selector: string, timeoutMs = 4000): Promise<void> {
+  return new Promise((resolve) => {
+    const deadline = Date.now() + timeoutMs;
+    const check = () => {
+      if (document.querySelector(selector) || Date.now() >= deadline) resolve();
+      else setTimeout(check, 50);
+    };
+    check();
+  });
+}
+
 /** Build the audience-filtered, translated Joyride steps. Exported for unit tests. */
 export function buildSteps(
   translate: (key: string, opts?: Record<string, unknown>) => string,
-  admin: boolean,
   manager: boolean,
-  navigateTo?: (path: string) => Promise<void> | void,
+  navigateTo?: (path: string, target?: string) => Promise<void> | void,
 ): Step[] {
   // The total is the audience-filtered count, so headers read "Step X of Y" against the steps this
   // caller will actually see.
-  const defs = TOUR_STEPS.filter((s) => (!s.adminOnly || admin) && (!s.managerOnly || manager));
+  const defs = TOUR_STEPS.filter((s) => !s.managerOnly || manager);
   const total = defs.length;
   return defs.map((s, i) => ({
     target: s.target,
@@ -74,8 +92,10 @@ export function buildSteps(
     placement: s.placement,
     disableBeacon: true,
     // Steps with a `navTo` change the view (tab/route) before they show; the tour awaits this hook,
-    // then waits (targetWaitTimeout) for the step's target to render.
-    ...(s.navTo && navigateTo ? { before: async () => { await navigateTo(s.navTo!); } } : {}),
+    // which navigates and then waits for the step's target to actually mount (cold lazy routes).
+    ...(s.navTo && navigateTo
+      ? { before: async () => { await navigateTo(s.navTo!, s.target); } }
+      : {}),
   }));
 }
 
@@ -101,13 +121,15 @@ export function TourProvider({ children }: { children: ReactNode }) {
   });
   const isManager = (managedTeams?.total ?? 0) > 0;
   // A step's `navTo` switches the view before it shows — the target pages derive their state from
-  // the URL. Resolve on the next tick so React renders the route before Joyride looks for the target.
-  const navigateTo = (path: string) =>
+  // the URL. Wait for the step's target to mount before resolving so Joyride never tries to show a
+  // step whose (possibly cold lazy-loaded) target isn't there yet.
+  const navigateTo = (path: string, target?: string) =>
     new Promise<void>((resolve) => {
       navigate(path);
-      setTimeout(resolve, 0);
+      if (target) void waitForElement(target).then(resolve);
+      else setTimeout(resolve, 0);
     });
-  const steps = buildSteps((k, o) => t(k, o), isAdmin(), isManager, navigateTo);
+  const steps = buildSteps((k, o) => t(k, o), isManager, navigateTo);
 
   // Auto-start once per account: run on mount when authenticated and not yet seen.
   const [run, setRun] = useState(() => userId != null && !hasSeenTour(userId));
