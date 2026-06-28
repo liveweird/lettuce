@@ -110,8 +110,28 @@ describe("TeamMembers page", () => {
     expect(screen.queryByLabelText("Add a user")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^remove /i })).not.toBeInTheDocument();
 
+    // But "Provide feedback" IS available to non-admins — it is for everyone.
+    expect(screen.getByRole("link", { name: "Provide feedback for Carol" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Provide feedback for Dave" })).toBeInTheDocument();
+
     // The add-picker user pool was never fetched.
     expect(mockFetch.mock.calls.some(([u]) => typeof u === "string" && isPoolUrl(u))).toBe(false);
+  });
+
+  test("each member row has a Provide feedback link to the new-feedback form", async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (url === "/api/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
+      if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
+      if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    renderTeamMembers(3);
+
+    const link = await screen.findByRole("link", { name: "Provide feedback for Carol" });
+    expect(link).toHaveAttribute(
+      "href",
+      "/feedback/new?subjectId=1&subjectName=Carol",
+    );
   });
 
   test("add picker excludes current members and the manager, and PUTs the membership", async () => {

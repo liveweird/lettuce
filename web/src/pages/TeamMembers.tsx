@@ -16,11 +16,12 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconMessagePlus, IconPlus, IconTrash } from "@tabler/icons-react";
 import {
   addTeamMember,
   ApiError,
   getTeam,
+  getUserId,
   isAdmin,
   listUsers,
   removeTeamMember,
@@ -40,6 +41,8 @@ export default function TeamMembers() {
   const queryClient = useQueryClient();
   // Non-admins get a read-only roster: no add picker, no remove buttons.
   const canManage = isAdmin();
+  // Everyone may provide feedback for a member — except themselves (provider ≠ subject).
+  const currentUserId = getUserId();
 
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [addError, setAddError] = useState<string | null>(null);
@@ -217,13 +220,13 @@ export default function TeamMembers() {
           <Table.Tr>
             <Table.Th>{t("common.field.name")}</Table.Th>
             <Table.Th>{t("common.field.email")}</Table.Th>
-            {canManage && <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />}
+            <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
           {membersLoading && !membersPage ? (
             <Table.Tr>
-              <Table.Td colSpan={canManage ? 3 : 2}>
+              <Table.Td colSpan={3}>
                 <Center py="md">
                   <Loader size="sm" />
                 </Center>
@@ -234,9 +237,22 @@ export default function TeamMembers() {
               <Table.Tr key={m.id}>
                 <Table.Td>{m.name}</Table.Td>
                 <Table.Td>{m.email}</Table.Td>
-                {canManage && (
-                  <Table.Td>
-                    <Group gap="xs" wrap="nowrap" justify="flex-end">
+                <Table.Td>
+                  <Group gap="xs" wrap="nowrap" justify="flex-end">
+                    {m.id !== currentUserId && (
+                      <Button
+                        component={RouterLink}
+                        to={`/feedback/new?subjectId=${m.id}&subjectName=${encodeURIComponent(m.name)}`}
+                        color="blue"
+                        variant="subtle"
+                        size="xs"
+                        leftSection={<IconMessagePlus size={14} />}
+                        aria-label={t("users.provideFeedbackFor", { name: m.name })}
+                      >
+                        {t("users.provideFeedback")}
+                      </Button>
+                    )}
+                    {canManage && (
                       <Button
                         color="red"
                         variant="subtle"
@@ -247,14 +263,14 @@ export default function TeamMembers() {
                       >
                         {t("teams.remove")}
                       </Button>
-                    </Group>
-                  </Table.Td>
-                )}
+                    )}
+                  </Group>
+                </Table.Td>
               </Table.Tr>
             ))
           ) : (
             <Table.Tr>
-              <Table.Td colSpan={canManage ? 3 : 2}>
+              <Table.Td colSpan={3}>
                 <Text c="dimmed" ta="center">
                   {t("teams.noMembersYet")}
                 </Text>
