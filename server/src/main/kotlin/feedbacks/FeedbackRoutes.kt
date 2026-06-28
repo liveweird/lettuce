@@ -32,11 +32,16 @@ import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 class Feedbacks {
     @Serializable
     @Resource("{id}")
-    class Id(val parent: Feedbacks = Feedbacks(), val id: UInt)
+    class Id(val parent: Feedbacks = Feedbacks(), val id: UInt) {
+        @Serializable
+        @Resource("events")
+        class Events(val parent: Id)
+    }
 }
 
 fun Application.configureFeedbackRoutes() {
     val feedbackService = attributes[FeedbackServiceKey]
+    val feedbackEventService = attributes[FeedbackEventServiceKey]
     val notificationService = attributes[NotificationServiceKey]
 
     routing {
@@ -122,6 +127,14 @@ fun Application.configureFeedbackRoutes() {
                 result.notifications.forEach { notificationService.create(it) }
                 // Re-read so the response carries the server-assigned lastModified.
                 val created = feedbackService.read(id) ?: feedback
+                // Audit: record the creation against the acting caller.
+                feedbackEventService.create(
+                    FeedbackEvent(
+                        feedbackId = id,
+                        userId = caller.userId,
+                        content = feedbackCreationEventContent(created),
+                    ),
+                )
                 val names = feedbackService.partyNames(created)
                 call.respond(HttpStatusCode.Created, created.toResponse(id, names))
             }
@@ -163,7 +176,30 @@ fun Application.configureFeedbackRoutes() {
                 }
                 // Best-effort side effect: deliver transition notifications after the commit.
                 toNotify.forEach { notificationService.create(it) }
+                // Audit: record the change (status transition or content/visibility edit) against the caller.
+                feedbackUpdateEventContent(existing, feedback)?.let { content ->
+                    feedbackEventService.create(
+                        FeedbackEvent(feedbackId = route.id, userId = caller.userId, content = content),
+                    )
+                }
                 call.respond(HttpStatusCode.NoContent)
+            }
+            get<Feedbacks.Id.Events> { route ->
+                val caller = call.caller()
+                val feedbackId = route.parent.id
+                val feedback = feedbackService.read(feedbackId)
+                if (feedback == null) {
+                    call.respond(HttpStatusCode.NotFound)
+                    return@get
+                }
+                // Whoever may read the feedback may read its history.
+                requireFeedbackReadAllowingManager(caller, feedback) {
+                    feedbackService.managesSubject(caller.userId, feedback.subjectId)
+                }
+                call.respond(
+                    HttpStatusCode.OK,
+                    FeedbackEventListResponse(feedbackEventService.listForFeedback(feedbackId)),
+                )
             }
             delete<Feedbacks.Id> { route ->
                 val caller = call.caller()

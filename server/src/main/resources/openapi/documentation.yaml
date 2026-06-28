@@ -644,6 +644,29 @@ paths:
         '401': { description: Missing or invalid token }
         '403': { description: Caller is not the feedback's provider and not ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
 
+  /api/feedbacks/{id}/events:
+    parameters:
+      - $ref: '#/components/parameters/FeedbackId'
+    get:
+      tags: [feedbacks]
+      summary: List a feedback's audit history
+      description: |
+        Returns the immutable audit trail for a feedback — one entry per create, status transition
+        and content/visibility edit — oldest first, each carrying the acting user and a generated
+        description. Authorization matches the single-GET above (`canReadFeedback`, with a managing
+        caller allowed): whoever may read the feedback may read its history. Events are
+        server-generated; there is no create/update/delete endpoint.
+      responses:
+        '200':
+          description: The feedback's events, oldest first
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackEventList'
+        '401': { description: Missing or invalid token }
+        '403': { description: Caller may not read this feedback, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+        '404': { description: Not found }
+
   /api/templates:
     get:
       tags: [templates]
@@ -1228,6 +1251,32 @@ components:
           format: int64
           minimum: 0
           description: Row count after filters, before pagination.
+
+    FeedbackEventResponse:
+      type: object
+      required: [id, feedbackId, userId, userName, timestamp, content]
+      properties:
+        id: { type: integer, format: int64, minimum: 0 }
+        feedbackId: { type: integer, format: int64, minimum: 0 }
+        userId: { type: integer, format: int64, minimum: 0 }
+        userName:
+          type: string
+          description: Display name of the user who performed the change. Server-resolved, read-only.
+        timestamp:
+          type: integer
+          format: int64
+          description: Epoch milliseconds when the event was recorded. Server-managed.
+        content:
+          type: string
+          description: Human-readable description of what changed.
+
+    FeedbackEventList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/FeedbackEventResponse' }
 
     NotificationResponse:
       type: object

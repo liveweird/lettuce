@@ -337,6 +337,16 @@ export async function updateFeedback(id: number, body: UpdateFeedbackBody): Prom
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
+export type FeedbackEventList =
+  paths["/api/feedbacks/{id}/events"]["get"]["responses"]["200"]["content"]["application/json"];
+export type FeedbackEvent = FeedbackEventList["items"][number];
+
+export async function listFeedbackEvents(id: number): Promise<FeedbackEvent[]> {
+  const res = await authedFetch(`/api/feedbacks/${id}/events`);
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return (await res.json() as FeedbackEventList).items;
+}
+
 export type TemplatePage =
   paths["/api/templates"]["get"]["responses"]["200"]["content"]["application/json"];
 

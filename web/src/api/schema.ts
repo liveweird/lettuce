@@ -1360,6 +1360,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/feedbacks/{id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["FeedbackId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List a feedback's audit history
+         * @description Returns the immutable audit trail for a feedback — one entry per create, status transition
+         *     and content/visibility edit — oldest first, each carrying the acting user and a generated
+         *     description. Authorization matches the single-GET above (`canReadFeedback`, with a managing
+         *     caller allowed): whoever may read the feedback may read its history. Events are
+         *     server-generated; there is no create/update/delete endpoint.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["FeedbackId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The feedback's events, oldest first */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FeedbackEventList"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Caller may not read this feedback */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/templates": {
         parameters: {
             query?: never;
@@ -2229,6 +2299,26 @@ export interface components {
              * @description Row count after filters, before pagination.
              */
             total: number;
+        };
+        FeedbackEventResponse: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            feedbackId: number;
+            /** Format: int64 */
+            userId: number;
+            /** @description Display name of the user who performed the change. Server-resolved, read-only. */
+            userName: string;
+            /**
+             * Format: int64
+             * @description Epoch milliseconds when the event was recorded. Server-managed.
+             */
+            timestamp: number;
+            /** @description Human-readable description of what changed. */
+            content: string;
+        };
+        FeedbackEventList: {
+            items: components["schemas"]["FeedbackEventResponse"][];
         };
         NotificationResponse: {
             /** Format: int64 */

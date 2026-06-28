@@ -21,6 +21,7 @@ import {
   Stack,
   Text,
   TextInput,
+  Timeline,
   Title,
   Typography,
 } from "@mantine/core";
@@ -33,6 +34,7 @@ import {
   ApiError,
   getFeedback,
   getUserId,
+  listFeedbackEvents,
   updateFeedback,
   type FeedbackStatus,
 } from "../api/client";
@@ -83,6 +85,12 @@ export default function ViewFeedback() {
     queryFn: () => getFeedback(id),
     enabled: idIsValid,
     retry: false,
+  });
+
+  const { data: events } = useQuery({
+    queryKey: ["feedbackEvents", id],
+    queryFn: () => listFeedbackEvents(id),
+    enabled: idIsValid,
   });
 
   if (!idIsValid) return <Navigate to={backTo} replace />;
@@ -259,6 +267,22 @@ export default function ViewFeedback() {
                     </Typography>
                   </Box>
                 </Input.Wrapper>
+              )}
+              {events && events.length > 0 && (
+                <Stack gap="xs">
+                  <Text fw={600} size="sm">
+                    {t("feedback.history")}
+                  </Text>
+                  <Timeline bulletSize={12} lineWidth={2}>
+                    {events.map((e) => (
+                      <Timeline.Item key={e.id} title={e.content}>
+                        <Text size="xs" c="dimmed">
+                          {e.userName} · {formatTimestamp(e.timestamp)}
+                        </Text>
+                      </Timeline.Item>
+                    ))}
+                  </Timeline>
+                </Stack>
               )}
               {actionError && (
                 <Alert color="red" variant="light">

@@ -93,6 +93,27 @@ describe("ViewFeedback page", () => {
     ).toBe(true);
   });
 
+  test("renders the feedback history timeline from the events endpoint", async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (String(url).includes("/events")) {
+        return Promise.resolve(
+          jsonResponse(200, {
+            items: [
+              { id: 1, feedbackId: 5, userId: 10, userName: "Alice Provider", timestamp: 1, content: "Feedback created as a draft." },
+              { id: 2, feedbackId: 5, userId: 10, userName: "Alice Provider", timestamp: 2, content: "Status changed from DRAFT to SENT." },
+            ],
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse(200, FEEDBACK));
+    });
+    renderViewFeedback();
+
+    expect(await screen.findByText("History")).toBeInTheDocument();
+    expect(screen.getByText("Feedback created as a draft.")).toBeInTheDocument();
+    expect(screen.getByText("Status changed from DRAFT to SENT.")).toBeInTheDocument();
+  });
+
   test("shows a read-only Requester field with the resolved name when there is a requester", async () => {
     mockFetch.mockResolvedValue(
       jsonResponse(200, { ...FEEDBACK, requesterId: 9, requesterName: "Rita Requester" }),

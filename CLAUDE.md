@@ -67,7 +67,7 @@ PostgreSQL is the only database. Connection settings come from the `postgres:` b
 
 The `org.postgresql:postgresql` JDBC driver is on the classpath solely for Flyway; runtime queries go through R2DBC.
 
-Current migrations are `V1`–`V14`: schema for users/teams/feedbacks/revoked-tokens, the `users.role` column (`V5`), the `admin@lettuce.local` seed (`V6`), a soft-delete `marked_as_deleted BOOLEAN` column (with index) on `users` (`V7`) and `teams` (`V8`), a demo-org seed (`V9`), a feedback templates table (`V10`), the `REJECTED` feedback status (`V11`), a feedback `last_modified` column (`V12`), the `notifications` table (`V13`), and a seed of four default feedback templates (`V14`, idempotent via `ON CONFLICT (name)`). Soft delete is the pattern for users and teams — rows are flagged `marked_as_deleted`, not physically removed; queries filter on it.
+Current migrations are `V1`–`V14`: schema for users/teams/feedbacks/revoked-tokens, the `users.role` column (`V5`), the `admin@lettuce.local` seed (`V6`), a soft-delete `marked_as_deleted BOOLEAN` column (with index) on `users` (`V7`) and `teams` (`V8`), a demo-org seed (`V9`), a feedback templates table (`V10`), the `REJECTED` feedback status (`V11`), a feedback `last_modified` column (`V12`), the `notifications` table (`V13`), a seed of four default feedback templates (`V14`, idempotent via `ON CONFLICT (name)`), and the `feedback_events` audit table (`V15`, `ON DELETE CASCADE` from `feedbacks`). Soft delete is the pattern for users and teams — rows are flagged `marked_as_deleted`, not physically removed; queries filter on it.
 
 ### List endpoint conventions
 
@@ -180,6 +180,10 @@ Every transition is performed via `PUT /api/feedbacks/{id}` and is gated by `can
 - **`team`** (manager oversight): subject is a member of a non-soft-deleted team the caller manages, AND (`providerId == caller` OR `requesterId == caller` OR status ∈ {`SENT`,`WITHDRAWN`}) — i.e. a party to it at any status, otherwise only once delivered.
 
 Content **previews** are blanked when the feedback is unfinished (`DRAFT`/`REQUESTED`) and the caller is its requester (mirrors `canReadFeedbackContent`). The `/users/:id/feedbacks` page composes two of these: top = `received&providerId=:id` ("from them to you"), bottom = `provided&subjectId=:id` ("from you to them"). These list scopes and `canReadFeedback` (the single-GET gate) are maintained separately and can intentionally differ at the edges (e.g. a manager's unconditional single-GET grant vs. the delivered-only team list).
+
+### Feedback events (audit history)
+
+`feedback_events` (`feedbacks/FeedbackEvent.kt` + `FeedbackEventService.kt`, table `V15`) is an **immutable audit trail** of feedback changes: `feedbackId`, `userId` (the acting caller), server-set `timestamp` (epoch millis), and a generated `content` string. Rows are minted as a side-effect — there is **no create/update/delete API**. The descriptions come from side-effect-free helpers in `feedbacks/FeedbackEvents.kt` (`feedbackCreationEventContent` / `feedbackUpdateEventContent`, unit-tested in `FeedbackEventsTest`), and `feedbacks/FeedbackRoutes.kt` persists them: one event on `POST` (create) and one on `PUT` when something changed (status transition, or content/visibility edit). Read via **`GET /api/feedbacks/{id}/events`** → `FeedbackEventList` (`{ items: [...] }`, oldest first, with resolved `userName`); authorized exactly like the single-GET (`requireFeedbackReadAllowingManager`). The SPA shows it as a `Timeline` ("History") on `web/src/pages/ViewFeedback.tsx` (`listFeedbackEvents` in `api/client.ts`).
 
 ### Notifications
 
