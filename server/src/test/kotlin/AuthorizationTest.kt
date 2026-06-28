@@ -498,4 +498,72 @@ class AuthorizationTest {
             }.status,
         )
     }
+
+    @Test
+    fun `admin may edit a draft they provide`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        val adminId = TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        val subjectEmail = uniqueEmail("subject")
+        val subjectId = TestUsers.seed(email = subjectEmail, password = "pw", role = UserRole.USER)
+
+        val adminClient = authedClient(adminEmail, "pw")
+
+        // The admin creates a feedback in which they are the provider (the normal "Provide
+        // feedback" flow) — write access follows provider identity, not role.
+        val created = adminClient.post("/api/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                Feedback(
+                    subjectId = subjectId,
+                    providerId = adminId,
+                    visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                    status = FeedbackStatus.DRAFT,
+                    content = "first draft",
+                ),
+            )
+        }.body<FeedbackResponse>()
+
+        // Edit the draft content (same-status DRAFT → DRAFT update) → allowed.
+        assertEquals(
+            HttpStatusCode.NoContent,
+            adminClient.put("/api/feedbacks/${created.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    Feedback(
+                        subjectId = subjectId,
+                        providerId = adminId,
+                        visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                        status = FeedbackStatus.DRAFT,
+                        content = "revised draft",
+                    ),
+                )
+            }.status,
+        )
+        assertEquals(
+            "revised draft",
+            adminClient.get("/api/feedbacks/${created.id}").body<FeedbackResponse>().content,
+        )
+
+        // …and they can advance their own draft (DRAFT → SENT).
+        assertEquals(
+            HttpStatusCode.NoContent,
+            adminClient.put("/api/feedbacks/${created.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    Feedback(
+                        subjectId = subjectId,
+                        providerId = adminId,
+                        visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                        status = FeedbackStatus.SENT,
+                        content = "revised draft",
+                    ),
+                )
+            }.status,
+        )
+        assertEquals(
+            FeedbackStatus.SENT,
+            adminClient.get("/api/feedbacks/${created.id}").body<FeedbackResponse>().status,
+        )
+    }
 }
