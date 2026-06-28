@@ -129,8 +129,11 @@ fun canReadFeedbackContent(caller: CallerPrincipal, feedback: Feedback): Boolean
     return !(unfinished && caller.userId == feedback.requesterId)
 }
 
+// ADMIN is intentionally NOT granted write access here: admins may read every feedback
+// (see canReadFeedback) but may not edit, delete, or transition existing ones — only the
+// provider can. An admin who happens to be the provider still qualifies via the userId check.
 fun canWriteFeedback(caller: CallerPrincipal, feedback: Feedback): Boolean =
-    caller.isAdmin() || caller.userId == feedback.providerId
+    caller.userId == feedback.providerId
 
 fun requireFeedbackWrite(caller: CallerPrincipal, feedback: Feedback) {
     if (!canWriteFeedback(caller, feedback)) {

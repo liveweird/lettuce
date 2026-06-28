@@ -434,4 +434,68 @@ class AuthorizationTest {
         val delete = subjectClient.delete("/api/feedbacks/${created.id}")
         assertEquals(HttpStatusCode.Forbidden, delete.status)
     }
+
+    @Test
+    fun `admin may read but not modify a feedback`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        val providerEmail = uniqueEmail("provider")
+        val providerId = TestUsers.seed(email = providerEmail, password = "pw", role = UserRole.USER)
+        val subjectEmail = uniqueEmail("subject")
+        val subjectId = TestUsers.seed(email = subjectEmail, password = "pw", role = UserRole.USER)
+
+        val adminClient = authedClient(adminEmail, "pw")
+        val providerClient = authedClient(providerEmail, "pw")
+
+        val created = providerClient.post("/api/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                Feedback(
+                    subjectId = subjectId,
+                    providerId = providerId,
+                    visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                    status = FeedbackStatus.SENT,
+                    content = "delivered",
+                ),
+            )
+        }.body<FeedbackResponse>()
+
+        // Admin may read every feedback…
+        assertEquals(HttpStatusCode.OK, adminClient.get("/api/feedbacks/${created.id}").status)
+
+        // …but may not modify one they don't provide: a valid SENT → WITHDRAWN transition is
+        // rejected at the write guard (403), which runs before any transition validation.
+        val withdrawBody = Feedback(
+            subjectId = subjectId,
+            providerId = providerId,
+            visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+            status = FeedbackStatus.WITHDRAWN,
+            content = "delivered",
+        )
+        assertEquals(
+            HttpStatusCode.Forbidden,
+            adminClient.put("/api/feedbacks/${created.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(withdrawBody)
+            }.status,
+        )
+        assertEquals(
+            HttpStatusCode.Forbidden,
+            adminClient.delete("/api/feedbacks/${created.id}").status,
+        )
+
+        // The admin's denied attempts left the feedback untouched, and the provider can still write.
+        assertEquals(
+            FeedbackStatus.SENT,
+            adminClient.get("/api/feedbacks/${created.id}").body<FeedbackResponse>().status,
+        )
+        assertEquals(
+            HttpStatusCode.NoContent,
+            providerClient.put("/api/feedbacks/${created.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(withdrawBody)
+            }.status,
+        )
+    }
 }
