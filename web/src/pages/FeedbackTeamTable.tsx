@@ -32,6 +32,7 @@ import {
   lastModifiedOptions,
   type LastModifiedWindow,
 } from "../utils/datetime";
+import { feedbackPartyName } from "../utils/userDisplay";
 
 const PAGE_SIZE_OPTIONS = [20, 40, 60] as const;
 const DEFAULT_PAGE_SIZE = 20;
@@ -72,10 +73,6 @@ export default function FeedbackTeamTable() {
     value,
     label: t(`common.status.${value}`),
   }));
-  const userName = (name: string | null | undefined, deleted: boolean): string => {
-    if (name == null) return "—";
-    return deleted ? t("feedback.deletedSuffix", { name }) : name;
-  };
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
   const [sortField, setSortField] = useState<SortField>("subjectName");
@@ -311,10 +308,20 @@ export default function FeedbackTeamTable() {
             data.items.map((f: FeedbackRow) => (
               <Table.Tr key={f.id}>
                 <Table.Td c={f.requesterName == null ? "dimmed" : undefined}>
-                  {userName(f.requesterName, f.requesterDeleted)}
+                  {feedbackPartyName(
+                    f.requesterId,
+                    f.requesterName,
+                    f.requesterDeleted,
+                    currentUserId,
+                    t,
+                  )}
                 </Table.Td>
-                <Table.Td>{userName(f.providerName, f.providerDeleted)}</Table.Td>
-                <Table.Td>{userName(f.subjectName, f.subjectDeleted)}</Table.Td>
+                <Table.Td>
+                  {feedbackPartyName(f.providerId, f.providerName, f.providerDeleted, currentUserId, t)}
+                </Table.Td>
+                <Table.Td>
+                  {feedbackPartyName(f.subjectId, f.subjectName, f.subjectDeleted, currentUserId, t)}
+                </Table.Td>
                 <Table.Td>{t(`common.visibility.${f.visibility}`)}</Table.Td>
                 <Table.Td>{t(`common.status.${f.status}`)}</Table.Td>
                 <Table.Td

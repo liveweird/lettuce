@@ -19,6 +19,7 @@ import { IconEye, IconPencil } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
+  getUserId,
   listFeedbacks,
   type FeedbackListView,
   type FeedbackPage,
@@ -32,6 +33,7 @@ import {
   lastModifiedOptions,
   type LastModifiedWindow,
 } from "../utils/datetime";
+import { feedbackPartyName } from "../utils/userDisplay";
 
 const PAGE_SIZE_OPTIONS = [20, 40, 60] as const;
 const DEFAULT_PAGE_SIZE = 20;
@@ -64,6 +66,7 @@ const VIEW_CONFIG: Record<
   PairFeedbackView,
   {
     personField: "subjectName" | "providerName";
+    personId: (f: FeedbackRow) => number;
     personName: (f: FeedbackRow) => string;
     personDeleted: (f: FeedbackRow) => boolean;
     visibilityValues: FeedbackVisibility[];
@@ -71,6 +74,7 @@ const VIEW_CONFIG: Record<
 > = {
   received: {
     personField: "providerName",
+    personId: (f) => f.providerId,
     personName: (f) => f.providerName,
     personDeleted: (f) => f.providerDeleted,
     // Only the visibilities a subject is allowed to see ever appear in this view.
@@ -78,6 +82,7 @@ const VIEW_CONFIG: Record<
   },
   provided: {
     personField: "subjectName",
+    personId: (f) => f.subjectId,
     personName: (f) => f.subjectName,
     personDeleted: (f) => f.subjectDeleted,
     visibilityValues: [
@@ -103,6 +108,7 @@ export default function FeedbackTable({
   backTo?: string;
 }) {
   const { t } = useTranslation();
+  const currentUserId = getUserId();
   const config = VIEW_CONFIG[view];
   const personLabel = t(`common.field.${view === "received" ? "provider" : "subject"}`);
   const clearPersonFilterLabel = t(
@@ -116,10 +122,6 @@ export default function FeedbackTable({
     value,
     label: t(`common.status.${value}`),
   }));
-  const userName = (name: string | null | undefined, deleted: boolean): string => {
-    if (name == null) return "—";
-    return deleted ? t("feedback.deletedSuffix", { name }) : name;
-  };
   const backParam = backTo ? `&back=${encodeURIComponent(backTo)}` : "";
   const showActions = view === "provided" || view === "received";
   const columnCount = showActions ? 7 : 6;
@@ -331,9 +333,23 @@ export default function FeedbackTable({
             data.items.map((f) => (
               <Table.Tr key={f.id}>
                 <Table.Td c={f.requesterName == null ? "dimmed" : undefined}>
-                  {userName(f.requesterName, f.requesterDeleted)}
+                  {feedbackPartyName(
+                    f.requesterId,
+                    f.requesterName,
+                    f.requesterDeleted,
+                    currentUserId,
+                    t,
+                  )}
                 </Table.Td>
-                <Table.Td>{userName(config.personName(f), config.personDeleted(f))}</Table.Td>
+                <Table.Td>
+                  {feedbackPartyName(
+                    config.personId(f),
+                    config.personName(f),
+                    config.personDeleted(f),
+                    currentUserId,
+                    t,
+                  )}
+                </Table.Td>
                 <Table.Td>{t(`common.visibility.${f.visibility}`)}</Table.Td>
                 <Table.Td>{t(`common.status.${f.status}`)}</Table.Td>
                 <Table.Td

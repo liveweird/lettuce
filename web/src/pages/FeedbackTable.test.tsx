@@ -124,6 +124,20 @@ describe("FeedbackTable (received view)", () => {
     expect(screen.getByRole("cell", { name: "Bob Provider (deleted)" })).toBeInTheDocument();
   });
 
+  test("shows 'You' in the Requester column when the requester is the current user", async () => {
+    // Caller is user 7; make them the requester of the first row.
+    setupMocks(
+      mockFetch,
+      feedbacksPage([{ ...SEED_FEEDBACKS[0], requesterId: 7 }, SEED_FEEDBACKS[1]]),
+    );
+    renderWithProviders(<FeedbackTable view="received" />);
+
+    expect(await screen.findByRole("cell", { name: "You" })).toBeInTheDocument();
+    expect(screen.queryByRole("cell", { name: "Carol Requester" })).not.toBeInTheDocument();
+    // The provider column (another user) is unaffected.
+    expect(screen.getByRole("cell", { name: "Alice Provider" })).toBeInTheDocument();
+  });
+
   test("typing in the Requester filter triggers a refetch with requesterName=", async () => {
     setupMocks(mockFetch);
     const user = userEvent.setup();
@@ -295,7 +309,8 @@ describe("FeedbackTable (provided view)", () => {
     vi.stubGlobal("fetch", mockFetch);
     localStorage.setItem(TOKEN_KEY, "fake-token");
     localStorage.setItem(ROLE_KEY, "USER");
-    localStorage.setItem(USER_ID_KEY, "7");
+    // A non-party id so the seeded subjects render as names; the "You" case has its own test.
+    localStorage.setItem(USER_ID_KEY, "99");
   });
 
   afterEach(() => {
@@ -314,6 +329,18 @@ describe("FeedbackTable (provided view)", () => {
     const urls = feedbackUrls(mockFetch);
     expect(urls[0]).toContain("view=provided");
     expect(urls[0]).toContain("sort=subjectName");
+  });
+
+  test("shows 'You' in the Subject column when the subject is the current user", async () => {
+    // The first seeded row has subjectId 7 — make that the caller.
+    localStorage.setItem(USER_ID_KEY, "7");
+    setupMocks(mockFetch);
+    renderWithProviders(<FeedbackTable view="provided" />);
+
+    expect(await screen.findByRole("cell", { name: "You" })).toBeInTheDocument();
+    expect(screen.queryByRole("cell", { name: "Sam Subject" })).not.toBeInTheDocument();
+    // The other row's subject (a different user) still shows its name.
+    expect(screen.getByRole("cell", { name: "Tina Subject (deleted)" })).toBeInTheDocument();
   });
 
   test("typing in the Subject filter triggers a refetch with subjectName=", async () => {

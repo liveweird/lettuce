@@ -113,6 +113,11 @@ describe("FeedbackTeamTable", () => {
     expect(feedbackUrls(mockFetch)[0]).toContain("view=team");
     // formatTimestamp output for the SENT row's lastModified.
     expect(screen.getByText("2026-01-05 09:07")).toBeInTheDocument();
+    // The caller is the provider of the second row → "You" in its Provider column.
+    expect(screen.getByRole("cell", { name: "You" })).toBeInTheDocument();
+    expect(screen.queryByRole("cell", { name: "Bob Provider" })).not.toBeInTheDocument();
+    // Other parties (a different user) still render their names.
+    expect(screen.getByRole("cell", { name: "Alice Provider" })).toBeInTheDocument();
   });
 
   test("clicking the Subject header toggles the sort param asc↔desc", async () => {

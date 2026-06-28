@@ -95,6 +95,7 @@ export default function ViewFeedback() {
   // (REJECTED). The server also redacts the content field for these cases; hiding the section here
   // avoids rendering an empty Content box.
   const isRequester = data != null && data.requesterId != null && getUserId() === data.requesterId;
+  const isSubject = data != null && getUserId() === data.subjectId;
   const hideContent =
     isRequester &&
     (data!.status === "REQUESTED" || data!.status === "REJECTED" || data!.status === "DRAFT");
@@ -187,23 +188,27 @@ export default function ViewFeedback() {
                   {data!.requesterId != null && (
                     <TextInput
                       label={t("common.field.requester")}
-                      value={data!.requesterName ?? requesterName ?? `#${data!.requesterId}`}
+                      value={
+                        isRequester
+                          ? t("common.state.you")
+                          : (data!.requesterName ?? requesterName ?? `#${data!.requesterId}`)
+                      }
                       disabled
                     />
                   )}
                   <TextInput
                     label={t("common.field.subject")}
                     value={
-                      asProvider || asTeam
-                        ? (data!.subjectName ?? subjectName ?? `#${data!.subjectId}`)
-                        : t("common.state.you")
+                      isSubject
+                        ? t("common.state.you")
+                        : (data!.subjectName ?? subjectName ?? `#${data!.subjectId}`)
                     }
                     disabled
                   />
                   <TextInput
                     label={t("common.field.provider")}
                     value={
-                      asProvider
+                      isProvider
                         ? t("common.state.you")
                         : (data!.providerName ?? providerName ?? `#${data!.providerId}`)
                     }

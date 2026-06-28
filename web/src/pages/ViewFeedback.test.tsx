@@ -135,9 +135,12 @@ describe("ViewFeedback page", () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  test("as=provider shows 'You' as provider and Close links to the provided tab", async () => {
-    mockFetch.mockResolvedValue(jsonResponse(200, FEEDBACK));
-    renderViewFeedback("?as=provider&subjectName=Mona");
+  test("the provider sees 'You' in the Provider field; as=provider Close links to the provided tab", async () => {
+    // Identity, not the as= hint, drives the "You" substitution: caller (7) is the provider.
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, { ...FEEDBACK, providerId: 7, subjectId: 8, subjectName: "Mona" }),
+    );
+    renderViewFeedback("?as=provider");
 
     expect((await screen.findByLabelText("Provider")) as HTMLInputElement).toHaveValue("You");
     expect((screen.getByLabelText("Subject") as HTMLInputElement).value).toBe("Mona");
@@ -145,6 +148,21 @@ describe("ViewFeedback page", () => {
       "href",
       "/feedback?tab=provided",
     );
+  });
+
+  test("the requester sees 'You' in the Requester field", async () => {
+    // Caller (7) is the requester → "You", regardless of the resolved requesterName.
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        ...FEEDBACK,
+        subjectId: 8,
+        requesterId: 7,
+        requesterName: "Rita Requester",
+      }),
+    );
+    renderViewFeedback();
+
+    expect((await screen.findByLabelText("Requester")) as HTMLInputElement).toHaveValue("You");
   });
 
   test("as=team Close links to the team tab", async () => {
