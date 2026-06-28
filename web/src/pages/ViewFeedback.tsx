@@ -107,9 +107,6 @@ export default function ViewFeedback() {
   const hideContent =
     isRequester &&
     (data!.status === "REQUESTED" || data!.status === "REJECTED" || data!.status === "DRAFT");
-  // Only stretch the card to viewport height when the growable Content section is shown;
-  // otherwise it would span the full window over empty space.
-  const fill = !hideContent;
 
   async function handleTransition(next: FeedbackStatus) {
     if (!data) return;
@@ -158,11 +155,10 @@ export default function ViewFeedback() {
       style={{
         display: "flex",
         flexDirection: "column",
-        // Fill the AppShell.Main content area (header 56px + md padding top & bottom),
-        // but only when Content is shown — otherwise size the card to its content.
-        minHeight: fill
-          ? "calc(100dvh - var(--app-shell-header-height, 56px) - 2 * var(--app-shell-padding, 16px))"
-          : undefined,
+        // Always fill the AppShell.Main content area (header 56px + md padding top & bottom) so the
+        // active tab panel is height-bounded and scrolls internally (incl. when content is redacted).
+        minHeight:
+          "calc(100dvh - var(--app-shell-header-height, 56px) - 2 * var(--app-shell-padding, 16px))",
       }}
     >
       <Paper
@@ -170,9 +166,9 @@ export default function ViewFeedback() {
         shadow="sm"
         p="xl"
         radius="md"
-        style={{ flex: fill ? 1 : undefined, display: "flex", flexDirection: "column" }}
+        style={{ flex: 1, display: "flex", flexDirection: "column" }}
       >
-        <Stack style={{ flex: fill ? 1 : undefined }}>
+        <Stack style={{ flex: 1, minHeight: 0 }}>
           <Title order={2}>{t("feedback.viewTitle")}</Title>
           {isLoading ? (
             <Center py="xl">
@@ -241,13 +237,20 @@ export default function ViewFeedback() {
                   />
                 </Stack>
               </SimpleGrid>
-              <Tabs defaultValue="content">
+              <Tabs
+                defaultValue="content"
+                style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}
+              >
                 <Tabs.List>
                   <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
                   <Tabs.Tab value="history">{t("feedback.history")}</Tabs.Tab>
                 </Tabs.List>
 
-                <Tabs.Panel value="content" pt="md">
+                <Tabs.Panel
+                  value="content"
+                  pt="md"
+                  style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}
+                >
                   {hideContent ? (
                     <Text c="dimmed" size="sm">
                       {t("feedback.contentUnavailable")}
@@ -256,8 +259,8 @@ export default function ViewFeedback() {
                     <Box
                       tabIndex={-1}
                       style={{
-                        minHeight: 160,
-                        maxHeight: "50vh",
+                        flex: 1,
+                        minHeight: 0,
                         overflow: "auto",
                         border: "1px solid var(--mantine-color-default-border)",
                         borderRadius: "var(--mantine-radius-default)",
@@ -274,7 +277,7 @@ export default function ViewFeedback() {
                   )}
                 </Tabs.Panel>
 
-                <Tabs.Panel value="history" pt="md">
+                <Tabs.Panel value="history" pt="md" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
                   {events && events.length > 0 ? (
                     <Timeline bulletSize={12} lineWidth={2}>
                       {events.map((e) => (
