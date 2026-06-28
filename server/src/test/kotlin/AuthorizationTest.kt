@@ -566,4 +566,128 @@ class AuthorizationTest {
             adminClient.get("/api/feedbacks/${created.id}").body<FeedbackResponse>().status,
         )
     }
+
+    @Test
+    fun `a non-party cannot create feedback attributed to others`() = testApplication {
+        usePostgresTestcontainer()
+        val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw", role = UserRole.USER)
+        val subjectId = TestUsers.seed(email = uniqueEmail("subject"), password = "pw", role = UserRole.USER)
+        val strangerEmail = uniqueEmail("stranger")
+        TestUsers.seed(email = strangerEmail, password = "pw", role = UserRole.USER)
+
+        // The stranger is neither provider nor requester → must not forge feedback authored by someone else.
+        val response = authedClient(strangerEmail, "pw").post("/api/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                Feedback(
+                    subjectId = subjectId,
+                    providerId = providerId,
+                    visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                    status = FeedbackStatus.DRAFT,
+                    content = "forged",
+                ),
+            )
+        }
+        assertEquals(HttpStatusCode.Forbidden, response.status)
+    }
+
+    @Test
+    fun `the requester may create a requested feedback`() = testApplication {
+        usePostgresTestcontainer()
+        val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw", role = UserRole.USER)
+        val subjectId = TestUsers.seed(email = uniqueEmail("subject"), password = "pw", role = UserRole.USER)
+        val requesterEmail = uniqueEmail("requester")
+        val requesterId = TestUsers.seed(email = requesterEmail, password = "pw", role = UserRole.USER)
+
+        val response = authedClient(requesterEmail, "pw").post("/api/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                Feedback(
+                    requesterId = requesterId,
+                    subjectId = subjectId,
+                    providerId = providerId,
+                    visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
+                    status = FeedbackStatus.REQUESTED,
+                ),
+            )
+        }
+        assertEquals(HttpStatusCode.Created, response.status)
+    }
+
+    @Test
+    fun `an admin may create feedback on behalf of others`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw", role = UserRole.USER)
+        val subjectId = TestUsers.seed(email = uniqueEmail("subject"), password = "pw", role = UserRole.USER)
+
+        val response = authedClient(adminEmail, "pw").post("/api/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                Feedback(
+                    subjectId = subjectId,
+                    providerId = providerId,
+                    visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                    status = FeedbackStatus.DRAFT,
+                    content = "admin-authored",
+                ),
+            )
+        }
+        assertEquals(HttpStatusCode.Created, response.status)
+    }
+
+    @Test
+    fun `a team manager may edit the team but not reassign the manager`() = testApplication {
+        usePostgresTestcontainer()
+        val managerEmail = uniqueEmail("manager")
+        val managerId = TestUsers.seed(email = managerEmail, password = "pw", role = UserRole.USER)
+        val otherId = TestUsers.seed(email = uniqueEmail("other"), password = "pw", role = UserRole.USER)
+        val mgr = authedClient(managerEmail, "pw")
+
+        val team = mgr.post("/api/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "Squad", managerId = managerId, memberIds = emptyList()))
+        }.body<TeamResponse>()
+
+        // Editing the team (manager unchanged) is allowed.
+        assertEquals(
+            HttpStatusCode.NoContent,
+            mgr.put("/api/teams/${team.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(Team(name = "Squad Renamed", managerId = managerId, memberIds = emptyList()))
+            }.status,
+        )
+        // Reassigning the manager to someone else is admin-only → forbidden for a manager.
+        assertEquals(
+            HttpStatusCode.Forbidden,
+            mgr.put("/api/teams/${team.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(Team(name = "Squad Renamed", managerId = otherId, memberIds = emptyList()))
+            }.status,
+        )
+    }
+
+    @Test
+    fun `an admin may reassign a team's manager`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        val managerEmail = uniqueEmail("manager")
+        val managerId = TestUsers.seed(email = managerEmail, password = "pw", role = UserRole.USER)
+        val otherId = TestUsers.seed(email = uniqueEmail("other"), password = "pw", role = UserRole.USER)
+
+        val team = authedClient(managerEmail, "pw").post("/api/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "Squad", managerId = managerId, memberIds = emptyList()))
+        }.body<TeamResponse>()
+
+        assertEquals(
+            HttpStatusCode.NoContent,
+            authedClient(adminEmail, "pw").put("/api/teams/${team.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(Team(name = "Squad", managerId = otherId, memberIds = emptyList()))
+            }.status,
+        )
+    }
 }

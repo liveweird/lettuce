@@ -609,14 +609,26 @@ class FeedbackRoutesTest {
         }
     }
 
-    private suspend fun HttpClient.createFeedback(
+    // Seeds list/view test data via a lazily-created ADMIN client. An admin may create feedback on
+    // behalf of any provider/requester; the create-time party check (no impersonation) is enforced
+    // for non-admins and covered in AuthorizationTest. Who seeds doesn't affect the rows under test.
+    private var seederClient: HttpClient? = null
+
+    private suspend fun ApplicationTestBuilder.feedbackSeeder(): HttpClient =
+        seederClient ?: run {
+            val email = uniqueEmail("seeder")
+            TestUsers.seed(email = email, password = "pw") // ADMIN by default
+            authedClient(email, "pw").also { seederClient = it }
+        }
+
+    private suspend fun ApplicationTestBuilder.createFeedback(
         subjectId: UInt,
         providerId: UInt,
         visibility: FeedbackVisibility,
         status: FeedbackStatus = FeedbackStatus.SENT,
         requesterId: UInt? = null,
         content: String = "",
-    ): FeedbackResponse = post("/api/feedbacks") {
+    ): FeedbackResponse = feedbackSeeder().post("/api/feedbacks") {
         contentType(ContentType.Application.Json)
         setBody(
             Feedback(
@@ -671,13 +683,13 @@ class FeedbackRoutesTest {
         val client = authedClient(callerEmail, "pw")
 
         val visible = listOf(
-            client.createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC),
-            client.createFeedback(callerId, providerId, FeedbackVisibility.PROVIDER_SUBJECT),
-            client.createFeedback(callerId, providerId, FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT, requesterId = requesterId),
+            createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC),
+            createFeedback(callerId, providerId, FeedbackVisibility.PROVIDER_SUBJECT),
+            createFeedback(callerId, providerId, FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT, requesterId = requesterId),
         )
         // Excluded: subject may not read PROVIDER_REQUESTER; other rows belong to a different subject.
-        client.createFeedback(callerId, providerId, FeedbackVisibility.PROVIDER_REQUESTER, requesterId = requesterId)
-        client.createFeedback(otherSubjectId, providerId, FeedbackVisibility.PUBLIC)
+        createFeedback(callerId, providerId, FeedbackVisibility.PROVIDER_REQUESTER, requesterId = requesterId)
+        createFeedback(otherSubjectId, providerId, FeedbackVisibility.PUBLIC)
 
         val response = client.get("/api/feedbacks")
         assertEquals(HttpStatusCode.OK, response.status)
@@ -697,11 +709,11 @@ class FeedbackRoutesTest {
 
         // Self-asked feedback (subject == requester == caller) with a requester-only visibility that
         // is NOT subject-readable; rule B shows it anyway because the caller is the requester.
-        val pending = client.createFeedback(
+        val pending = createFeedback(
             callerId, providerId, FeedbackVisibility.PROVIDER_REQUESTER,
             status = FeedbackStatus.REQUESTED, requesterId = callerId, content = "secret",
         )
-        val sent = client.createFeedback(
+        val sent = createFeedback(
             callerId, providerId, FeedbackVisibility.PROVIDER_REQUESTER,
             status = FeedbackStatus.SENT, requesterId = callerId, content = "delivered",
         )
@@ -730,11 +742,11 @@ class FeedbackRoutesTest {
         )
 
         // Someone else requested feedback about the subject — one stays pending, one gets rejected.
-        val pending = providerClient.createFeedback(
+        val pending = createFeedback(
             subjectId, providerId, FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
             status = FeedbackStatus.REQUESTED, requesterId = requesterId,
         )
-        val toReject = providerClient.createFeedback(
+        val toReject = createFeedback(
             subjectId, providerId, FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
             status = FeedbackStatus.REQUESTED, requesterId = requesterId,
         )
@@ -768,10 +780,10 @@ class FeedbackRoutesTest {
         val requesterId = TestUsers.seed(email = uniqueEmail("requester"), password = "pw", name = "Rita Requester")
         val client = authedClient(callerEmail, "pw")
 
-        val withRequester = client.createFeedback(
+        val withRequester = createFeedback(
             callerId, providerId, FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT, requesterId = requesterId,
         )
-        val withoutRequester = client.createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC)
+        val withoutRequester = createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC)
 
         val page = client.get("/api/feedbacks").body<FeedbackPageResponse>()
         val itemWith = page.items.single { it.id == withRequester.id }
@@ -793,7 +805,7 @@ class FeedbackRoutesTest {
         val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw")
         val client = authedClient(callerEmail, "pw")
 
-        client.createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC, content = "x".repeat(300))
+        createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC, content = "x".repeat(300))
 
         val page = client.get("/api/feedbacks").body<FeedbackPageResponse>()
         assertEquals(200, page.items.single().contentPreview.length)
@@ -809,10 +821,10 @@ class FeedbackRoutesTest {
         val requesterId = TestUsers.seed(email = uniqueEmail("carol"), password = "pw", name = "Carol Requester")
         val client = authedClient(callerEmail, "pw")
 
-        val fromAlice = client.createFeedback(callerId, aliceId, FeedbackVisibility.PUBLIC, status = FeedbackStatus.SENT)
+        val fromAlice = createFeedback(callerId, aliceId, FeedbackVisibility.PUBLIC, status = FeedbackStatus.SENT)
         // Not a DRAFT: the subject cannot see drafts in their received list, so the filter
         // fixtures use visible statuses (SENT vs WITHDRAWN).
-        val fromBob = client.createFeedback(
+        val fromBob = createFeedback(
             callerId, bobId, FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
             status = FeedbackStatus.WITHDRAWN, requesterId = requesterId,
         )
@@ -839,7 +851,7 @@ class FeedbackRoutesTest {
         val providerClient = authedClient(provider.email, "pw")
         val subjectClient = authedClient(subject.email, "pw")
 
-        val draft = providerClient.createFeedback(
+        val draft = createFeedback(
             subjectId = subject.id,
             providerId = provider.id,
             visibility = FeedbackVisibility.PROVIDER_SUBJECT,
@@ -876,11 +888,11 @@ class FeedbackRoutesTest {
         val providerClient = authedClient(provider.email, "pw")
         val subjectClient = authedClient(subject.email, "pw")
 
-        providerClient.createFeedback(
+        createFeedback(
             subjectId = subject.id, providerId = provider.id,
             visibility = FeedbackVisibility.PROVIDER_SUBJECT, status = FeedbackStatus.DRAFT,
         )
-        val sent = providerClient.createFeedback(
+        val sent = createFeedback(
             subjectId = subject.id, providerId = provider.id,
             visibility = FeedbackVisibility.PUBLIC, status = FeedbackStatus.SENT,
         )
@@ -898,7 +910,7 @@ class FeedbackRoutesTest {
         val providerClient = authedClient(provider.email, "pw")
         val subjectClient = authedClient(subject.email, "pw")
 
-        val draft = providerClient.createFeedback(
+        val draft = createFeedback(
             subjectId = subject.id,
             providerId = provider.id,
             // A requester's read access requires a requester-inclusive visibility; the subject is also
@@ -966,7 +978,7 @@ class FeedbackRoutesTest {
             }
 
             // Mary requested this feedback about Sam; it is still a draft.
-            val draft = providerClient.createFeedback(
+            val draft = createFeedback(
                 subjectId = subject.id,
                 providerId = provider.id,
                 visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
@@ -1003,20 +1015,20 @@ class FeedbackRoutesTest {
         }
 
         // (a) a draft by another provider — the manager is not a party → hidden.
-        providerClient.createFeedback(
+        createFeedback(
             subordinate.id, provider.id, FeedbackVisibility.PUBLIC, status = FeedbackStatus.DRAFT,
         )
         // (b) a draft the manager themselves provides → shown (party: provider).
-        val mine = managerClient.createFeedback(
+        val mine = createFeedback(
             subordinate.id, manager.id, FeedbackVisibility.PROVIDER_SUBJECT, status = FeedbackStatus.DRAFT,
         )
         // (c) a request by someone else — the manager is not a party → hidden.
-        providerClient.createFeedback(
+        createFeedback(
             subordinate.id, provider.id, FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
             status = FeedbackStatus.REQUESTED, requesterId = otherRequester.id,
         )
         // (d) a delivered feedback — non-party, but SENT → shown.
-        val sent = providerClient.createFeedback(
+        val sent = createFeedback(
             subordinate.id, provider.id, FeedbackVisibility.PUBLIC, status = FeedbackStatus.SENT,
         )
 
@@ -1034,11 +1046,11 @@ class FeedbackRoutesTest {
         val client = authedClient(callerEmail, "pw")
 
         // Feedbacks the caller received, from two different providers.
-        val fromAlice = client.createFeedback(callerId, aliceId, FeedbackVisibility.PUBLIC)
-        client.createFeedback(callerId, bobId, FeedbackVisibility.PUBLIC)
+        val fromAlice = createFeedback(callerId, aliceId, FeedbackVisibility.PUBLIC)
+        createFeedback(callerId, bobId, FeedbackVisibility.PUBLIC)
         // Feedbacks the caller provided, about two different subjects (all statuses count).
-        val toAlice = client.createFeedback(aliceId, callerId, FeedbackVisibility.PROVIDER_SUBJECT, status = FeedbackStatus.DRAFT)
-        client.createFeedback(bobId, callerId, FeedbackVisibility.PROVIDER_SUBJECT, status = FeedbackStatus.DRAFT)
+        val toAlice = createFeedback(aliceId, callerId, FeedbackVisibility.PROVIDER_SUBJECT, status = FeedbackStatus.DRAFT)
+        createFeedback(bobId, callerId, FeedbackVisibility.PROVIDER_SUBJECT, status = FeedbackStatus.DRAFT)
 
         // received + providerId → only what Alice gave me.
         val received = client.get("/api/feedbacks?view=received&providerId=$aliceId").body<FeedbackPageResponse>()
@@ -1077,8 +1089,8 @@ class FeedbackRoutesTest {
         val bobId = TestUsers.seed(email = uniqueEmail("bob"), password = "pw", name = "Bob Provider")
         val client = authedClient(callerEmail, "pw")
 
-        val fromBob = client.createFeedback(callerId, bobId, FeedbackVisibility.PUBLIC)
-        val fromAlice = client.createFeedback(callerId, aliceId, FeedbackVisibility.PUBLIC)
+        val fromBob = createFeedback(callerId, bobId, FeedbackVisibility.PUBLIC)
+        val fromAlice = createFeedback(callerId, aliceId, FeedbackVisibility.PUBLIC)
 
         val desc = client.get("/api/feedbacks?sort=-providerName").body<FeedbackPageResponse>()
         assertEquals(listOf(fromBob.id, fromAlice.id), desc.items.map { it.id })
@@ -1096,7 +1108,7 @@ class FeedbackRoutesTest {
         val client = authedClient(callerEmail, "pw")
 
         val created = (1..5).map {
-            client.createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC).id
+            createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC).id
         }
 
         val pages = (1..3).map { p ->
@@ -1118,13 +1130,13 @@ class FeedbackRoutesTest {
         val client = authedClient(callerEmail, "pw")
 
         val provided = listOf(
-            client.createFeedback(subjectId, callerId, FeedbackVisibility.PUBLIC),
-            client.createFeedback(subjectId, callerId, FeedbackVisibility.PROVIDER_SUBJECT),
-            client.createFeedback(subjectId, callerId, FeedbackVisibility.PROVIDER_REQUESTER, requesterId = requesterId),
-            client.createFeedback(subjectId, callerId, FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT, requesterId = requesterId),
+            createFeedback(subjectId, callerId, FeedbackVisibility.PUBLIC),
+            createFeedback(subjectId, callerId, FeedbackVisibility.PROVIDER_SUBJECT),
+            createFeedback(subjectId, callerId, FeedbackVisibility.PROVIDER_REQUESTER, requesterId = requesterId),
+            createFeedback(subjectId, callerId, FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT, requesterId = requesterId),
         )
         // Excluded: caller is the subject here, not the provider.
-        client.createFeedback(callerId, otherProviderId, FeedbackVisibility.PUBLIC)
+        createFeedback(callerId, otherProviderId, FeedbackVisibility.PUBLIC)
 
         val page = client.get("/api/feedbacks?view=provided").body<FeedbackPageResponse>()
         assertEquals(4, page.total)
@@ -1144,8 +1156,8 @@ class FeedbackRoutesTest {
         val zoeId = TestUsers.seed(email = uniqueEmail("zoe"), password = "pw", name = "Zoe Subject")
         val client = authedClient(callerEmail, "pw")
 
-        val forAnn = client.createFeedback(annId, callerId, FeedbackVisibility.PROVIDER_SUBJECT)
-        val forZoe = client.createFeedback(zoeId, callerId, FeedbackVisibility.PUBLIC)
+        val forAnn = createFeedback(annId, callerId, FeedbackVisibility.PROVIDER_SUBJECT)
+        val forZoe = createFeedback(zoeId, callerId, FeedbackVisibility.PUBLIC)
 
         val all = client.get("/api/feedbacks?view=provided").body<FeedbackPageResponse>()
         assertEquals("Ann Subject", all.items.single { it.id == forAnn.id }.subjectName)
@@ -1293,9 +1305,9 @@ class FeedbackRoutesTest {
         val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw")
         val client = authedClient(callerEmail, "pw")
 
-        val older = client.createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC)
+        val older = createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC)
         delay(10)
-        val newer = client.createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC)
+        val newer = createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC)
 
         // A cutoff strictly between the two rows returns only the newer one.
         val cutoff = (older.lastModified + newer.lastModified) / 2
@@ -1323,9 +1335,9 @@ class FeedbackRoutesTest {
         val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw")
         val client = authedClient(callerEmail, "pw")
 
-        val older = client.createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC)
+        val older = createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC)
         delay(10)
-        val newer = client.createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC)
+        val newer = createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC)
 
         val page = client.get("/api/feedbacks").body<FeedbackPageResponse>()
         assertTrue(page.items.all { it.lastModified > 0 })
@@ -1364,14 +1376,14 @@ class FeedbackRoutesTest {
         // The team view is unrestricted by visibility — even PROVIDER_REQUESTER, which the
         // subject themselves could not read via the "received" view, is visible to the manager.
         val onSubordinate = listOf(
-            client.createFeedback(subordinateId, providerId, FeedbackVisibility.PROVIDER_SUBJECT),
-            client.createFeedback(subordinateId, providerId, FeedbackVisibility.PUBLIC),
-            client.createFeedback(
+            createFeedback(subordinateId, providerId, FeedbackVisibility.PROVIDER_SUBJECT),
+            createFeedback(subordinateId, providerId, FeedbackVisibility.PUBLIC),
+            createFeedback(
                 subordinateId, providerId, FeedbackVisibility.PROVIDER_REQUESTER, requesterId = requesterId,
             ),
         )
         // Excluded: the subject is not a member of any team the caller manages.
-        client.createFeedback(outsiderId, providerId, FeedbackVisibility.PUBLIC)
+        createFeedback(outsiderId, providerId, FeedbackVisibility.PUBLIC)
 
         val page = client.get("/api/feedbacks?view=team")
         assertEquals(HttpStatusCode.OK, page.status)
@@ -1390,7 +1402,7 @@ class FeedbackRoutesTest {
         val client = authedClient(callerEmail, "pw")
 
         // Feedback where the caller is the subject still must not surface in the team view.
-        client.createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC)
+        createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC)
 
         val body = client.get("/api/feedbacks?view=team").body<FeedbackPageResponse>()
         assertEquals(0, body.total)
@@ -1407,7 +1419,7 @@ class FeedbackRoutesTest {
         val client = authedClient(managerEmail, "pw")
 
         val team = client.createTeam("Squad", managerId = managerId, memberIds = listOf(subordinateId))
-        client.createFeedback(subordinateId, providerId, FeedbackVisibility.PUBLIC)
+        createFeedback(subordinateId, providerId, FeedbackVisibility.PUBLIC)
 
         assertEquals(1, client.get("/api/feedbacks?view=team").body<FeedbackPageResponse>().total)
 
@@ -1428,8 +1440,8 @@ class FeedbackRoutesTest {
         val client = authedClient(managerEmail, "pw")
 
         client.createTeam("Squad", managerId = managerId, memberIds = listOf(annId, zoeId))
-        val forAnn = client.createFeedback(annId, providerId, FeedbackVisibility.PUBLIC)
-        val forZoe = client.createFeedback(zoeId, providerId, FeedbackVisibility.PUBLIC)
+        val forAnn = createFeedback(annId, providerId, FeedbackVisibility.PUBLIC)
+        val forZoe = createFeedback(zoeId, providerId, FeedbackVisibility.PUBLIC)
 
         val sorted = client.get("/api/feedbacks?view=team&sort=-subjectName").body<FeedbackPageResponse>()
         assertEquals(listOf(forZoe.id, forAnn.id), sorted.items.map { it.id })

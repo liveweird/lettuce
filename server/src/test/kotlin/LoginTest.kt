@@ -14,11 +14,15 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
+import io.ktor.server.config.ApplicationConfig
+import io.ktor.server.config.MapApplicationConfig
+import io.ktor.server.config.mergeWith
 import io.ktor.server.testing.testApplication
 import java.util.Date
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -97,6 +101,24 @@ class LoginTest {
         }
 
         assertEquals(HttpStatusCode.Unauthorized, response.status)
+    }
+
+    @Test
+    fun `repeated login attempts are rate limited with 429`() = testApplication {
+        usePostgresTestcontainer()
+        val client = jsonClient()
+        // The login route allows 10 attempts/min per host; the 11th is throttled before the handler.
+        val statuses = (1..11).map {
+            client.post("/api/login") {
+                contentType(ContentType.Application.Json)
+                setBody(LoginRequest(uniqueEmail("brute"), "nope"))
+            }.status
+        }
+        assertTrue(
+            statuses.take(10).all { it == HttpStatusCode.Unauthorized },
+            "first 10 attempts should be processed (401), got $statuses",
+        )
+        assertEquals(HttpStatusCode.TooManyRequests, statuses.last())
     }
 
     @Test

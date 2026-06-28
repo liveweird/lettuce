@@ -34,6 +34,13 @@ fun Application.configureSecurity() {
         realm = environment.config.property("jwt.realm").getString(),
         expiresInSeconds = environment.config.property("jwt.expiresInSeconds").getString().toLong(),
     )
+    // Fail closed: a blank or the placeholder "secret" lets anyone forge tokens for any user/role.
+    // Allowed (with a loud warning) only in development; rejected at startup in production.
+    if (jwtConfig.secret.isBlank() || jwtConfig.secret == "secret") {
+        val message = "JWT secret is unset or the insecure default — set a strong JWT_SECRET."
+        if (developmentMode) log.warn("$message (permitted in development only)")
+        else error(message)
+    }
     attributes.put(JwtConfigKey, jwtConfig)
     authentication {
         jwt {

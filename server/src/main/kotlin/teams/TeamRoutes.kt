@@ -1,6 +1,7 @@
 package ch.nokillswit.teams
 
 import ch.nokillswit.authz.caller
+import ch.nokillswit.authz.requireCanReassignManager
 import ch.nokillswit.authz.requireSelfOrAdmin
 import ch.nokillswit.authz.requireTeamManagerOrAdmin
 import ch.nokillswit.infra.paging.parsePaging
@@ -134,6 +135,7 @@ fun Application.configureTeamRoutes() {
                 }
                 requireTeamManagerOrAdmin(caller, existing.managerId)
                 val team = call.receive<Team>()
+                requireCanReassignManager(caller, existing.managerId, team.managerId)
                 try {
                     teamService.update(route.id, team)
                 } catch (e: ExposedSQLException) {

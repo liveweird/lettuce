@@ -1,7 +1,9 @@
 package ch.nokillswit.feedbacks
 
+import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.canReadFeedbackContent
+import ch.nokillswit.authz.isAdmin
 import ch.nokillswit.authz.requireFeedbackReadAllowingManager
 import ch.nokillswit.authz.requireFeedbackWrite
 import ch.nokillswit.infra.paging.parsePaging
@@ -96,8 +98,17 @@ fun Application.configureFeedbackRoutes() {
                 )
             }
             post<Feedbacks> {
-                call.caller()
+                val caller = call.caller()
                 val feedback = call.receive<Feedback>()
+                // A caller may only create feedback they are a party to — the provider (they author
+                // it) or the requester (they ask for it). Admins may create on behalf of others.
+                // Prevents authoring feedback as someone else or forging a request from someone else.
+                if (!caller.isAdmin() &&
+                    caller.userId != feedback.providerId &&
+                    caller.userId != feedback.requesterId
+                ) {
+                    throw ForbiddenException("You may only create feedback you provide or request")
+                }
                 val result = try {
                     feedbackService.create(feedback)
                 } catch (e: ExposedSQLException) {

@@ -50,6 +50,7 @@ dependencies {
     implementation(ktorLibs.server.metrics)
     implementation(ktorLibs.server.netty)
     implementation(ktorLibs.server.openapi)
+    implementation(ktorLibs.server.rateLimit)
     implementation(ktorLibs.server.requestValidation)
     implementation(ktorLibs.server.resources)
     implementation(ktorLibs.server.routingOpenapi)

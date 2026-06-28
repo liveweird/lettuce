@@ -26,6 +26,13 @@ fun requireTeamManagerOrAdmin(caller: CallerPrincipal, managerId: UInt) {
     if (caller.userId != managerId) throw ForbiddenException("Only the team manager may perform this action")
 }
 
+/** Reassigning a team's manager (handing the team to a different user) is admin-only; a current
+ *  manager may edit their team but not transfer ownership. No-op when the manager is unchanged. */
+fun requireCanReassignManager(caller: CallerPrincipal, current: UInt, requested: UInt) {
+    if (requested == current) return
+    if (!caller.isAdmin()) throw ForbiddenException("Only an admin may reassign a team's manager")
+}
+
 fun requireNotificationRecipient(caller: CallerPrincipal, recipientId: UInt) {
     if (caller.isAdmin()) return
     if (caller.userId != recipientId) throw ForbiddenException("Caller may only access their own notifications")
