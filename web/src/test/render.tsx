@@ -4,6 +4,7 @@ import { render, type RenderOptions } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { theme } from "../theme";
 
 interface Options extends Omit<RenderOptions, "wrapper"> {
   route?: string;
@@ -16,7 +17,7 @@ export function renderWithProviders(ui: ReactElement, options: Options = {}) {
   });
   return render(ui, {
     wrapper: ({ children }) => (
-      <MantineProvider>
+      <MantineProvider theme={theme}>
         <QueryClientProvider client={queryClient}>
           <MemoryRouter initialEntries={[route]}>{children}</MemoryRouter>
         </QueryClientProvider>
