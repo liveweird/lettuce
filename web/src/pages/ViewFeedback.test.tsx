@@ -107,10 +107,12 @@ describe("ViewFeedback page", () => {
       }
       return Promise.resolve(jsonResponse(200, FEEDBACK));
     });
+    const user = userEvent.setup();
     renderViewFeedback();
 
-    expect(await screen.findByText("History")).toBeInTheDocument();
-    expect(screen.getByText("Feedback created as a draft.")).toBeInTheDocument();
+    // Content is the default tab; switch to History to see the timeline.
+    await user.click(await screen.findByRole("tab", { name: "History" }));
+    expect(await screen.findByText("Feedback created as a draft.")).toBeInTheDocument();
     expect(screen.getByText("Status changed from DRAFT to SENT.")).toBeInTheDocument();
   });
 
@@ -281,7 +283,7 @@ describe("ViewFeedback page", () => {
 
     // Other fields still render, but Content (label + body) is gone.
     expect((await screen.findByLabelText("Status")) as HTMLInputElement).toHaveValue("Requested");
-    expect(screen.queryByText("Content")).not.toBeInTheDocument();
+    expect(screen.getByText("Content isn't available yet.")).toBeInTheDocument();
     expect(screen.queryByText("should not show")).not.toBeInTheDocument();
   });
 
@@ -297,7 +299,7 @@ describe("ViewFeedback page", () => {
     renderViewFeedback();
 
     expect((await screen.findByLabelText("Status")) as HTMLInputElement).toHaveValue("Rejected");
-    expect(screen.queryByText("Content")).not.toBeInTheDocument();
+    expect(screen.getByText("Content isn't available yet.")).toBeInTheDocument();
     expect(screen.queryByText("should not show")).not.toBeInTheDocument();
   });
 
@@ -315,7 +317,7 @@ describe("ViewFeedback page", () => {
     renderViewFeedback();
 
     expect((await screen.findByLabelText("Status")) as HTMLInputElement).toHaveValue("Draft");
-    expect(screen.queryByText("Content")).not.toBeInTheDocument();
+    expect(screen.getByText("Content isn't available yet.")).toBeInTheDocument();
   });
 
   test("a non-requester viewing a DRAFT feedback still sees Content", async () => {

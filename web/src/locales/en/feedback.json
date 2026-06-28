@@ -2,6 +2,8 @@
   "sectionTitle": "Feedback",
   "viewTitle": "Feedback",
   "history": "History",
+  "contentUnavailable": "Content isn't available yet.",
+  "noHistory": "No history yet.",
   "editTitle": "Edit feedback",
   "provideTitle": "Provide feedback",
   "askTitle": "Ask for feedback",

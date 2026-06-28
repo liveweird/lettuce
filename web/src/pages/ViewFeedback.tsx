@@ -13,12 +13,12 @@ import {
   Center,
   Container,
   Group,
-  Input,
   Loader,
   Modal,
   Paper,
   SimpleGrid,
   Stack,
+  Tabs,
   Text,
   TextInput,
   Timeline,
@@ -241,49 +241,57 @@ export default function ViewFeedback() {
                   />
                 </Stack>
               </SimpleGrid>
-              {!hideContent && (
-                <Input.Wrapper
-                  label={t("common.field.content")}
-                  styles={{
-                    root: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 },
-                  }}
-                >
-                  <Box
-                    tabIndex={-1}
-                    style={{
-                      flex: 1,
-                      minHeight: 0,
-                      overflow: "auto",
-                      border: "1px solid var(--mantine-color-default-border)",
-                      borderRadius: "var(--mantine-radius-default)",
-                      padding: "var(--mantine-spacing-sm)",
-                      backgroundColor: "var(--mantine-color-default-hover)",
-                      cursor: "default",
-                      outline: "none",
-                    }}
-                  >
-                    <Typography>
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{data!.content}</ReactMarkdown>
-                    </Typography>
-                  </Box>
-                </Input.Wrapper>
-              )}
-              {events && events.length > 0 && (
-                <Stack gap="xs">
-                  <Text fw={600} size="sm">
-                    {t("feedback.history")}
-                  </Text>
-                  <Timeline bulletSize={12} lineWidth={2}>
-                    {events.map((e) => (
-                      <Timeline.Item key={e.id} title={e.content}>
-                        <Text size="xs" c="dimmed">
-                          {e.userName} · {formatTimestamp(e.timestamp)}
-                        </Text>
-                      </Timeline.Item>
-                    ))}
-                  </Timeline>
-                </Stack>
-              )}
+              <Tabs defaultValue="content">
+                <Tabs.List>
+                  <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
+                  <Tabs.Tab value="history">{t("feedback.history")}</Tabs.Tab>
+                </Tabs.List>
+
+                <Tabs.Panel value="content" pt="md">
+                  {hideContent ? (
+                    <Text c="dimmed" size="sm">
+                      {t("feedback.contentUnavailable")}
+                    </Text>
+                  ) : (
+                    <Box
+                      tabIndex={-1}
+                      style={{
+                        minHeight: 160,
+                        maxHeight: "50vh",
+                        overflow: "auto",
+                        border: "1px solid var(--mantine-color-default-border)",
+                        borderRadius: "var(--mantine-radius-default)",
+                        padding: "var(--mantine-spacing-sm)",
+                        backgroundColor: "var(--mantine-color-default-hover)",
+                        cursor: "default",
+                        outline: "none",
+                      }}
+                    >
+                      <Typography>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{data!.content}</ReactMarkdown>
+                      </Typography>
+                    </Box>
+                  )}
+                </Tabs.Panel>
+
+                <Tabs.Panel value="history" pt="md">
+                  {events && events.length > 0 ? (
+                    <Timeline bulletSize={12} lineWidth={2}>
+                      {events.map((e) => (
+                        <Timeline.Item key={e.id} title={e.content}>
+                          <Text size="xs" c="dimmed">
+                            {e.userName} · {formatTimestamp(e.timestamp)}
+                          </Text>
+                        </Timeline.Item>
+                      ))}
+                    </Timeline>
+                  ) : (
+                    <Text c="dimmed" size="sm">
+                      {t("feedback.noHistory")}
+                    </Text>
+                  )}
+                </Tabs.Panel>
+              </Tabs>
               {actionError && (
                 <Alert color="red" variant="light">
                   {actionError}
