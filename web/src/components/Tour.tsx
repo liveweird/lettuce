@@ -31,7 +31,10 @@ type TourStepDef = {
 // skipped by Joyride rather than breaking the tour.
 export const TOUR_STEPS: TourStepDef[] = [
   { target: "body", contentKey: "tour.steps.welcome", placement: "center" },
-  { target: '[data-tour="nav-dashboard"]', contentKey: "tour.steps.dashboard", placement: "right" },
+  // Navigate to the Dashboard here (a step early) so the lazy-loaded route is mounted before the
+  // subsection steps below need their targets — otherwise, starting the tour off the Dashboard
+  // skips them. The tooltip still anchors on the always-present navbar link.
+  { target: '[data-tour="nav-dashboard"]', contentKey: "tour.steps.dashboard", placement: "right", tab: "managers" },
   // The Dashboard's three subsections — each step switches the active tab (see `tab`) so the
   // matching view is shown while the step is presented.
   { target: '[data-tour="dashboard-managers"]', contentKey: "tour.steps.dashboardManagers", placement: "bottom", tab: "managers" },

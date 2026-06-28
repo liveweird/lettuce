@@ -79,6 +79,8 @@ describe("Tour", () => {
     const steps = buildSteps(t, false, showTab);
 
     const cases: { target: string; tab: string }[] = [
+      // The Dashboard nav step navigates too, so the lazy route is mounted before the subsections.
+      { target: '[data-tour="nav-dashboard"]', tab: "managers" },
       { target: '[data-tour="dashboard-managers"]', tab: "managers" },
       { target: '[data-tour="dashboard-peers"]', tab: "peers" },
       { target: '[data-tour="dashboard-subordinates"]', tab: "subordinates" },
