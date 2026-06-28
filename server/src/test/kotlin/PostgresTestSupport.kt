@@ -1,9 +1,9 @@
 package ch.nokillswit
 
-import org.testcontainers.containers.PostgreSQLContainer
+import org.testcontainers.postgresql.PostgreSQLContainer
 
 object PostgresTestSupport {
-    private val container: PostgreSQLContainer<*> by lazy {
+    private val container: PostgreSQLContainer by lazy {
         PostgreSQLContainer("postgres:17-alpine").apply {
             withDatabaseName("lettuce_test")
             withUsername("lettuce")
