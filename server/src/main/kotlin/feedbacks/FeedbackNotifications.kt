@@ -111,6 +111,31 @@ internal fun feedbackCreationNotifications(
     )
 }
 
+/**
+ * Notification produced when a feedback is *deleted* (soft-deleted) by its provider. When the
+ * feedback has a requester, they are told the provider deleted it; the notification carries **no
+ * link** (there is nothing left to open). Returns empty when there is no requester. Pure /
+ * side-effect-free like the others; the route resolves names and persists.
+ *
+ * @param deleted the feedback as it was before deletion (source of the ids).
+ * @param nameById display names for the parties (provider/subject).
+ */
+internal fun feedbackDeletionNotifications(
+    deleted: Feedback,
+    nameById: Map<UInt, String>,
+): List<Notification> {
+    val requesterId = deleted.requesterId ?: return emptyList()
+    val provider = nameById.nameOf(deleted.providerId)
+    val subject = nameById.nameOf(deleted.subjectId)
+    return listOf(
+        Notification(
+            recipientId = requesterId,
+            message = "Feedback you requested from provider $provider about subject $subject " +
+                "has been deleted by the provider.",
+        ),
+    )
+}
+
 private fun Map<UInt, String>.nameOf(id: UInt): String = this[id] ?: "#$id"
 
 private fun subjectCanRead(visibility: FeedbackVisibility): Boolean = when (visibility) {

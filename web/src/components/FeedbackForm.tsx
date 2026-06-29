@@ -64,6 +64,10 @@ export type FeedbackFormProps = {
   // When set (edit flow), Content+Preview and History are shown as two tabs; the History tab
   // lists this feedback's audit events. Omitted on create (no id, no history) → no tabs.
   feedbackId?: number;
+  // When set (DRAFT editor, provider only), a red Delete button is shown that triggers the
+  // parent's confirmation flow; `deleting` drives its loading state.
+  onDelete?: () => void;
+  deleting?: boolean;
 };
 
 export default function FeedbackForm({
@@ -82,6 +86,8 @@ export default function FeedbackForm({
   visibilityOptions,
   lastModified,
   feedbackId,
+  onDelete,
+  deleting = false,
 }: FeedbackFormProps) {
   const { t } = useTranslation();
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
@@ -287,11 +293,24 @@ export default function FeedbackForm({
               </Alert>
             )}
             <Group justify="flex-end" gap="sm">
+              {onDelete != null && (
+                <Button
+                  type="button"
+                  color="red"
+                  variant="light"
+                  mr="auto"
+                  onClick={onDelete}
+                  loading={deleting}
+                  disabled={submitting !== null || deleting}
+                >
+                  {t("common.action.delete")}
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="default"
                 onClick={openCancel}
-                disabled={submitting !== null}
+                disabled={submitting !== null || deleting}
               >
                 {t("common.action.cancel")}
               </Button>
@@ -299,7 +318,7 @@ export default function FeedbackForm({
                 type="submit"
                 variant="light"
                 loading={submitting === "DRAFT"}
-                disabled={submitting !== null}
+                disabled={submitting !== null || deleting}
               >
                 {t("feedback.action.saveDraft")}
               </Button>
@@ -307,7 +326,7 @@ export default function FeedbackForm({
                 type="button"
                 onClick={() => onSubmit("SENT", form.values)}
                 loading={submitting === "SENT"}
-                disabled={submitting !== null}
+                disabled={submitting !== null || deleting}
               >
                 {t("feedback.action.saveAndSend")}
               </Button>

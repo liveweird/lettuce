@@ -210,7 +210,22 @@ fun Application.configureFeedbackRoutes() {
                     return@delete
                 }
                 requireFeedbackWrite(caller, existing)
+                // Delete is a draft-only action; other statuses have terminal transitions instead.
+                if (existing.status != FeedbackStatus.DRAFT) {
+                    throw BadRequestException("Only a draft feedback may be deleted")
+                }
                 feedbackService.delete(route.id)
+                // Audit the deletion against the acting provider (events outlive the soft-deleted row).
+                feedbackEventService.create(
+                    FeedbackEvent(
+                        feedbackId = route.id,
+                        userId = caller.userId,
+                        content = feedbackDeletionEventContent(existing),
+                    ),
+                )
+                // Best-effort side effect: tell the requester (if any) the provider deleted it (no link).
+                val names = feedbackService.partyNames(existing)
+                feedbackDeletionNotifications(existing, names).forEach { notificationService.create(it) }
                 call.respond(HttpStatusCode.NoContent)
             }
         }

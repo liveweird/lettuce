@@ -581,6 +581,58 @@ class FeedbackRoutesTest {
     }
 
     @Test
+    fun `delete of a non-DRAFT feedback returns 400`() = testApplication {
+        usePostgresTestcontainer()
+        val t = seedTriad()
+        val client = authedClient(t.providerEmail, "pw")
+
+        val created = client.post("/api/v1/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                Feedback(
+                    subjectId = t.subjectId,
+                    providerId = t.providerId,
+                    visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                    status = FeedbackStatus.SENT,
+                    content = "sent",
+                )
+            )
+        }.body<FeedbackResponse>()
+
+        // Only drafts may be deleted; a sent feedback is rejected and stays readable.
+        assertEquals(HttpStatusCode.BadRequest, client.delete("/api/v1/feedbacks/${created.id}").status)
+        assertEquals(HttpStatusCode.OK, client.get("/api/v1/feedbacks/${created.id}").status)
+    }
+
+    @Test
+    fun `soft-deleted feedback is excluded from list views`() = testApplication {
+        usePostgresTestcontainer()
+        val t = seedTriad()
+        val client = authedClient(t.providerEmail, "pw")
+
+        val created = client.post("/api/v1/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                Feedback(
+                    subjectId = t.subjectId,
+                    providerId = t.providerId,
+                    visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                    status = FeedbackStatus.DRAFT,
+                    content = "draft",
+                )
+            )
+        }.body<FeedbackResponse>()
+
+        val before = client.get("/api/v1/feedbacks?view=provided").body<FeedbackPageResponse>()
+        assertTrue(before.items.any { it.id == created.id })
+
+        assertEquals(HttpStatusCode.NoContent, client.delete("/api/v1/feedbacks/${created.id}").status)
+
+        val after = client.get("/api/v1/feedbacks?view=provided").body<FeedbackPageResponse>()
+        assertFalse(after.items.any { it.id == created.id })
+    }
+
+    @Test
     fun `get for nonexistent feedback returns 404`() = testApplication {
         usePostgresTestcontainer()
         val t = seedTriad()
@@ -1535,6 +1587,41 @@ class FeedbackRoutesTest {
         assertNull(note.link)
         // The subject is not told about a rejected request.
         assertTrue(notificationsOf(subject.email).isEmpty())
+    }
+
+    @Test
+    fun `deleting a draft notifies the requester without a link`() = testApplication {
+        usePostgresTestcontainer()
+        val provider = seedParty("provider", "Pat Provider")
+        val subject = seedParty("subject", "Sam Subject")
+        val requester = seedParty("requester", "Rita Requester")
+        val providerClient = authedClient(provider.email, "pw")
+
+        val draft = Feedback(
+            requesterId = requester.id,
+            subjectId = subject.id,
+            providerId = provider.id,
+            visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
+            status = FeedbackStatus.DRAFT,
+            content = "work in progress",
+        )
+        val created = providerClient.post("/api/v1/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(draft)
+        }.body<FeedbackResponse>()
+
+        assertEquals(
+            HttpStatusCode.NoContent,
+            providerClient.delete("/api/v1/feedbacks/${created.id}").status,
+        )
+
+        val note = notificationsOf(requester.email).single()
+        assertTrue(note.message.contains("deleted"))
+        assertTrue(note.message.contains("Pat Provider") && note.message.contains("Sam Subject"))
+        assertNull(note.link)
+        // The subject is not notified, and the provider is the actor (not notified).
+        assertTrue(notificationsOf(subject.email).isEmpty())
+        assertTrue(notificationsOf(provider.email).isEmpty())
     }
 
     @Test

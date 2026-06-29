@@ -337,6 +337,11 @@ export async function updateFeedback(id: number, body: UpdateFeedbackBody): Prom
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
+export async function deleteFeedback(id: number): Promise<void> {
+  const res = await authedFetch(`/api/v1/feedbacks/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
 export type FeedbackEventList =
   paths["/api/v1/feedbacks/{id}/events"]["get"]["responses"]["200"]["content"]["application/json"];
 export type FeedbackEvent = FeedbackEventList["items"][number];

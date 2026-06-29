@@ -375,7 +375,11 @@ export interface paths {
         post?: never;
         /**
          * Delete a feedback record
-         * @description Only the record's provider (or ADMIN) may delete a feedback.
+         * @description Soft-deletes a feedback (the row is flagged, not physically removed, and disappears from
+         *     reads/lists). Only the record's **provider** may delete (ADMIN does not get feedback write
+         *     access), and only while the feedback is in **DRAFT** status. If the feedback has a requester,
+         *     they receive a notification that the provider deleted it (no link). The deletion is recorded
+         *     in the feedback's audit history.
          */
         delete: operations["deleteFeedback"];
         options?: never;
@@ -1778,8 +1782,17 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Feedback is not in DRAFT status (only drafts may be deleted) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             401: components["responses"]["Unauthorized"];
-            /** @description Caller is not the feedback's provider and not ADMIN */
+            /** @description Caller is not the feedback's provider */
             403: {
                 headers: {
                     [name: string]: unknown;

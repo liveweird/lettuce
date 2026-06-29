@@ -4,6 +4,7 @@ import ch.nokillswit.feedbacks.Feedback
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
 import ch.nokillswit.feedbacks.feedbackCreationNotifications
+import ch.nokillswit.feedbacks.feedbackDeletionNotifications
 import ch.nokillswit.feedbacks.feedbackTransitionNotifications
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -135,5 +136,25 @@ class FeedbackNotificationsTest {
         val created = feedback(FeedbackStatus.REQUESTED)
         val message = feedbackCreationNotifications(11u, created, emptyMap()).single().message
         assertTrue(message.contains("#3") && message.contains("#2"))
+    }
+
+    @Test
+    fun `deleting a feedback with a requester notifies them without a link`() {
+        val deleted = feedback(FeedbackStatus.DRAFT) // requesterId = 3u by default
+        val n = feedbackDeletionNotifications(deleted, names).single()
+        assertEquals(3u, n.recipientId, "the requester is notified")
+        assertNull(n.link)
+        assertTrue(n.message.contains("deleted"))
+        assertTrue(n.message.contains(P) && n.message.contains(S))
+    }
+
+    @Test
+    fun `deleting a feedback without a requester produces no notification`() {
+        val deleted = feedback(
+            FeedbackStatus.DRAFT,
+            FeedbackVisibility.PROVIDER_SUBJECT,
+            requesterId = null,
+        )
+        assertTrue(feedbackDeletionNotifications(deleted, names).isEmpty())
     }
 }

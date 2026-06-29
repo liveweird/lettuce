@@ -67,11 +67,11 @@ PostgreSQL is the only database. Connection settings come from the `postgres:` b
 
 The `org.postgresql:postgresql` JDBC driver is on the classpath solely for Flyway; runtime queries go through R2DBC.
 
-Current migrations are `V1`–`V18`: schema for users/teams/feedbacks/revoked-tokens; the `users.role` column (`V5`); the `admin@lettuce.local` seed (`V6`); soft-delete `marked_as_deleted` columns (with index) on `users` (`V7`), `teams` (`V8`), `templates` (`V16`), and `notifications` (`V17`); a demo-org seed (`V9`); a feedback templates table (`V10`); the `REJECTED` feedback status (`V11`); a feedback `last_modified` column (`V12`); the `notifications` table (`V13`); a seed of four default feedback templates (`V14`, idempotent via `ON CONFLICT (name)`); the `feedback_events` audit table (`V15`, `ON DELETE CASCADE` from `feedbacks`); and partial unique indexes that free `templates.name` (`V16`) and `users.email` (`V18`) on soft-delete (see "Soft delete" below).
+Current migrations are `V1`–`V19`: schema for users/teams/feedbacks/revoked-tokens; the `users.role` column (`V5`); the `admin@lettuce.local` seed (`V6`); soft-delete `marked_as_deleted` columns (with index) on `users` (`V7`), `teams` (`V8`), `templates` (`V16`), `notifications` (`V17`), and `feedbacks` (`V19`); a demo-org seed (`V9`); a feedback templates table (`V10`); the `REJECTED` feedback status (`V11`); a feedback `last_modified` column (`V12`); the `notifications` table (`V13`); a seed of four default feedback templates (`V14`, idempotent via `ON CONFLICT (name)`); the `feedback_events` audit table (`V15`, `ON DELETE CASCADE` from `feedbacks`); and partial unique indexes that free `templates.name` (`V16`) and `users.email` (`V18`) on soft-delete (see "Soft delete" below).
 
 ### Soft delete (convention)
 
-`users`, `teams`, `templates`, and `notifications` are **soft-deleted** — rows are flagged, never physically removed. Only `feedbacks` and the join/audit tables (`team_members`, `feedback_events`, `revoked_tokens`) hard-delete. To add soft-delete to a new entity, follow the established pattern (reference implementation: `users/UserService.kt`):
+`users`, `teams`, `templates`, `notifications`, and `feedbacks` are **soft-deleted** — rows are flagged, never physically removed. Only the join/audit tables (`team_members`, `feedback_events`, `revoked_tokens`) hard-delete. (`feedback_events` keeps its `ON DELETE CASCADE` FK to `feedbacks`, but it never fires now — events outlive a soft-deleted feedback.) To add soft-delete to a new entity, follow the established pattern (reference implementation: `users/UserService.kt`):
 
 1. **Migration** — `ALTER TABLE <t> ADD COLUMN marked_as_deleted BOOLEAN NOT NULL DEFAULT FALSE;` plus `CREATE INDEX idx_<t>_marked_as_deleted ON <t>(marked_as_deleted);` (see `V7`/`V8`/`V16`/`V17`).
 2. **Exposed table** — add `val markedAsDeleted = bool("marked_as_deleted").default(false)` and a private helper `fun active(): Op<Boolean> = <T>.markedAsDeleted eq false`.
@@ -171,6 +171,8 @@ A feedback moves through a small state machine. The authoritative rules live in 
 
 Every transition is performed via `PUT /api/v1/feedbacks/{id}` and is gated by `canWriteFeedback` (provider only — ADMIN does not get feedback write access) — so only the provider can send, withdraw, pick up, or reject.
 
+**Delete (separate from the transitions).** `DELETE /api/v1/feedbacks/{id}` **soft-deletes** a feedback (it disappears from reads/lists; the row and its audit trail are retained). It is **provider-only** (`canWriteFeedback`) and **DRAFT-only** — deleting a non-`DRAFT` feedback is `400` (other statuses use the terminal `WITHDRAWN`/`REJECTED` transitions instead). On delete the route records a deletion **audit event** (`feedbackDeletionEventContent`) and, if the feedback has a requester, sends them a **notification with no link** that the provider deleted it (`feedbackDeletionNotifications`). Distinct from `DRAFT → WITHDRAWN`, which keeps the feedback visible as a terminal record.
+
 **Creation vs. update.** On **create** (`POST`) any status is permitted — there is no transition gate, so the UI can create a feedback directly as `SENT` ("save & send") or as `REQUESTED` ("ask for feedback"). The transition check above applies only on **update**. The following invariants are enforced on **both** create and update: provider ≠ subject; requester ≠ provider; `REQUESTED` requires a requester; **a feedback with a requester may not use `PROVIDER_SUBJECT` visibility** (that visibility excludes the requester, so the combination is contradictory). Transition and invariant behavior is covered by `FeedbackRoutesTest` (transitions + the invariant) and `AuthorizationTest` (the `FeedbackVisibility` read matrix).
 
 **Frontend: the `REQUESTED` decision screen.** Because `REQUESTED → SENT` is not a valid edge, the editor must not offer "Save & send" for a pending request. So `web/src/pages/EditFeedback.tsx`, when the loaded feedback is `REQUESTED` and the caller is its provider, renders a read-only **triage screen** (subject + requester names, no editor) instead of the `FeedbackForm` editor, with exactly three actions:
@@ -178,6 +180,8 @@ Every transition is performed via `PUT /api/v1/feedbacks/{id}` and is gated by `
 - **Close** — navigate back, change nothing.
 - **Reject** — confirmation modal → `REQUESTED → REJECTED`, returns to the originating tab.
 - **Accept** — `REQUESTED → DRAFT`, then **reloads in place** (invalidates the `["feedback", id]` query rather than navigating) so the same route re-renders as the normal `DRAFT` editor (Cancel / Save draft / Save & send). `handleSave` distinguishes this case via `accepted = data.status === "REQUESTED" && status === "DRAFT"` and skips the post-save navigate.
+
+**Frontend: the DRAFT editor's Delete action.** The `DRAFT` editor (`FeedbackForm` via `EditFeedback.tsx`) shows a fourth action — a red **Delete** — alongside Cancel / Save draft / Save & send, but only when the caller is the draft's provider (`data.status === "DRAFT" && getUserId() === data.providerId`). It opens a confirmation `Modal` (mirroring the Reject modal) whose confirm calls `deleteFeedback(id)` → on success invalidates `["feedbacks"]`/`["feedback", id]` and navigates to the originating tab. `FeedbackForm` takes optional `onDelete`/`deleting` props and renders the button only when `onDelete` is set.
 
 `FeedbackForm` is therefore only ever the editor for `DRAFT` and the create flows; it carries no reject affordance. This mirrors the backend state machine in the UI (defense-in-depth, not a relaxation of the server check). Covered by `web/src/pages/EditFeedback.test.tsx`.
 
@@ -199,10 +203,11 @@ Content **previews** are blanked when the feedback is unfinished (`DRAFT`/`REQUE
 
 ### Notifications
 
-In-app notifications are **generic rows** (`recipientId`, `message`, optional `link`, `wasSeen`, `timestamp`) — there is **no notification type enum** and no API to create one. They are produced by **two** feedback-driven sources, both side-effect-free (DB-free, so directly unit-testable) functions in `feedbacks/FeedbackNotifications.kt`; `FeedbackService` resolves party display names and the route persists what they return:
+In-app notifications are **generic rows** (`recipientId`, `message`, optional `link`, `wasSeen`, `timestamp`) — there is **no notification type enum** and no API to create one. They are produced by **three** feedback-driven sources, all side-effect-free (DB-free, so directly unit-testable) functions in `feedbacks/FeedbackNotifications.kt`; `FeedbackService` resolves party display names and the route persists what they return:
 
 - **`feedbackCreationNotifications()`** — on feedback **creation** in `REQUESTED` status. Persisted from `POST /api/v1/feedbacks` in `feedbacks/FeedbackRoutes.kt` (`result.notifications.forEach { notificationService.create(it) }`).
 - **`feedbackTransitionNotifications()`** — on a feedback **status transition**. Persisted from `PUT /api/v1/feedbacks/{id}` (`toNotify.forEach { notificationService.create(it) }`).
+- **`feedbackDeletionNotifications()`** — on a (DRAFT) feedback **deletion** that has a requester. Persisted from `DELETE /api/v1/feedbacks/{id}`; the notification has no link.
 
 **The complete list of situations that generate a notification**:
 
@@ -213,8 +218,9 @@ In-app notifications are **generic rows** (`recipientId`, `message`, optional `l
 | `REQUESTED → REJECTED` (requester present) | requester | no |
 | `REQUESTED → DRAFT` ("picked up" by provider) | requester | no |
 | `SENT → WITHDRAWN` | subject (always); **and** the requester if `requesterId != null` | no |
+| `DRAFT` deleted (requester present) | requester | no |
 
-That is the whole set — any other create/transition produces nothing. Note that a `→ SENT` of *requested* feedback yields **two** notifications (subject + requester). For transitions, the `view` link is only attached when the recipient is permitted to read the feedback under its `FeedbackVisibility` (`subjectCanRead`/`requesterCanRead` in the same file) — otherwise `link` is null.
+That is the whole set — any other create/transition/delete produces nothing. Note that a `→ SENT` of *requested* feedback yields **two** notifications (subject + requester). For transitions, the `view` link is only attached when the recipient is permitted to read the feedback under its `FeedbackVisibility` (`subjectCanRead`/`requesterCanRead` in the same file) — otherwise `link` is null.
 
 Reading/managing notifications goes through `notifications/NotificationRoutes.kt`, all under `authenticate` and scoped to the recipient via `requireNotificationRecipient` (ADMIN bypasses): `GET /api/v1/notifications` (list; sortable `id`,`timestamp`, default `-timestamp`; optional `wasSeen` filter), `GET /api/v1/notifications/{id}`, `POST /api/v1/notifications/{id}/seen`, `POST /api/v1/notifications/{id}/unseen`, `DELETE /api/v1/notifications/{id}`. The endpoints are documented in `documentation.yaml`; the `notifications` table is created by `V13__create_notifications.sql`.
 

@@ -25,6 +25,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   ApiError,
+  deleteFeedback,
   getFeedback,
   getUserId,
   updateFeedback,
@@ -71,7 +72,9 @@ export default function EditFeedback() {
     (searchParams.get("from") === "team" ? "/feedback?tab=team" : PROVIDED);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<FeedbackStatus | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [rejectOpen, { open: openReject, close: closeReject }] = useDisclosure(false);
+  const [deleteOpen, { open: openDelete, close: closeDelete }] = useDisclosure(false);
 
   const id = Number(params.id);
   const idIsValid = Number.isFinite(id) && id > 0;
@@ -128,6 +131,35 @@ export default function EditFeedback() {
       }
     } finally {
       setSubmitting(null);
+    }
+  }
+
+  async function handleDelete() {
+    if (!data) return;
+    setError(null);
+    setDeleting(true);
+    try {
+      await deleteFeedback(id);
+      await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
+      await queryClient.invalidateQueries({ queryKey: ["feedback", id] });
+      navigate(backTo, { replace: true });
+    } catch (err) {
+      closeDelete();
+      if (err instanceof ApiError) {
+        if (err.status === 403) {
+          setError(t("feedback.error.editPermission"));
+        } else if (err.status === 404) {
+          setError(t("feedback.error.gone"));
+        } else if (err.status === 400) {
+          setError(t("feedback.error.deleteNotDraft"));
+        } else {
+          setError(t("feedback.error.deleteFailed"));
+        }
+      } else {
+        setError(t("feedback.error.deleteFailed"));
+      }
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -252,23 +284,44 @@ export default function EditFeedback() {
     value,
     label: t(`common.visibility.${value}`),
   }));
+  // Delete is a draft-only, provider-only action (mirrors the backend guard).
+  const canDelete = data!.status === "DRAFT" && getUserId() === data!.providerId;
   return (
-    <FeedbackForm
-      title={t("feedback.editTitle")}
-      feedbackId={data!.id}
-      subjectDisplay={subjectName ?? `#${data!.subjectId}`}
-      initialVisibility={clampVisibility(data!.visibility, hasRequester)}
-      visibilityOptions={visibilityOptions}
-      requesterDisplay={hasRequester ? (data!.requesterName ?? `#${data!.requesterId}`) : undefined}
-      initialContent={data!.content ?? ""}
-      lastModified={data!.lastModified}
-      submitting={submitting}
-      error={error}
-      onSubmit={handleSave}
-      cancelTo={backTo}
-      showTemplateInsert
-      discardTitle={t("feedback.discardChangesTitle")}
-      discardMessage={t("feedback.discardChangesMessage")}
-    />
+    <>
+      <FeedbackForm
+        title={t("feedback.editTitle")}
+        feedbackId={data!.id}
+        subjectDisplay={subjectName ?? `#${data!.subjectId}`}
+        initialVisibility={clampVisibility(data!.visibility, hasRequester)}
+        visibilityOptions={visibilityOptions}
+        requesterDisplay={hasRequester ? (data!.requesterName ?? `#${data!.requesterId}`) : undefined}
+        initialContent={data!.content ?? ""}
+        lastModified={data!.lastModified}
+        submitting={submitting}
+        error={error}
+        onSubmit={handleSave}
+        cancelTo={backTo}
+        showTemplateInsert
+        discardTitle={t("feedback.discardChangesTitle")}
+        discardMessage={t("feedback.discardChangesMessage")}
+        onDelete={canDelete ? openDelete : undefined}
+        deleting={deleting}
+      />
+      {canDelete && (
+        <Modal opened={deleteOpen} onClose={closeDelete} title={t("feedback.deleteTitle")} centered>
+          <Stack gap="md">
+            <Text>{t("feedback.deleteBody")}</Text>
+            <Group justify="flex-end" gap="sm">
+              <Button variant="default" onClick={closeDelete} disabled={deleting}>
+                {t("common.action.keepEditing")}
+              </Button>
+              <Button color="red" onClick={handleDelete} loading={deleting}>
+                {t("common.action.delete")}
+              </Button>
+            </Group>
+          </Stack>
+        </Modal>
+      )}
+    </>
   );
 }

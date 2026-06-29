@@ -96,6 +96,38 @@ describe("EditFeedback page", () => {
     expect(screen.queryByLabelText("Requester")).toBeNull();
   });
 
+  test("Delete on a draft confirms, issues DELETE, and returns to the provided tab", async () => {
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "DELETE" && url === "/api/v1/feedbacks/5") {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      return Promise.resolve(jsonResponse(200, FEEDBACK));
+    });
+    const user = userEvent.setup();
+    renderEditFeedback();
+
+    await screen.findByLabelText("Content", { selector: "textarea" });
+    await user.click(screen.getByRole("button", { name: /^delete$/i }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("probe")).toHaveTextContent("/feedback?tab=provided"),
+    );
+    const del = mockFetch.mock.calls.find(
+      ([url, init]) => url === "/api/v1/feedbacks/5" && (init as RequestInit | undefined)?.method === "DELETE",
+    );
+    expect(del).toBeDefined();
+  });
+
+  test("no Delete button when the caller is not the draft's provider", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(200, { ...FEEDBACK, providerId: 99 }));
+    renderEditFeedback();
+
+    await screen.findByLabelText("Content", { selector: "textarea" });
+    expect(screen.queryByRole("button", { name: /^delete$/i })).toBeNull();
+  });
+
   test("with a requester, visibility offers the requester options and shows a read-only Requester", async () => {
     mockFetch.mockResolvedValue(jsonResponse(200, ACCEPTED_DRAFT));
     const user = userEvent.setup();

@@ -75,7 +75,10 @@ class FeedbackService(val database: R2dbcDatabase) {
         val status = enumerationByName("status", 20, FeedbackStatus::class)
         val content = text("content")
         val lastModified = long("last_modified")
+        val markedAsDeleted = bool("marked_as_deleted").default(false)
     }
+
+    private fun active(): Op<Boolean> = Feedbacks.markedAsDeleted eq false
 
     /**
      * Inserts the feedback and returns its id together with any notifications its creation should
@@ -104,7 +107,7 @@ class FeedbackService(val database: R2dbcDatabase) {
 
     suspend fun read(id: UInt): Feedback? = suspendTransaction(database) {
         Feedbacks.selectAll()
-            .where { Feedbacks.id eq id }
+            .where { (Feedbacks.id eq id) and active() }
             .map { row ->
                 Feedback(
                     requesterId = row[Feedbacks.requesterId]?.value,
@@ -126,7 +129,7 @@ class FeedbackService(val database: R2dbcDatabase) {
     suspend fun update(id: UInt, feedback: Feedback): List<Notification> {
         return suspendTransaction(database) {
             val current = Feedbacks.selectAll()
-                .where { Feedbacks.id eq id }
+                .where { (Feedbacks.id eq id) and active() }
                 .map { row ->
                     Feedback(
                         requesterId = row[Feedbacks.requesterId]?.value,
@@ -140,7 +143,7 @@ class FeedbackService(val database: R2dbcDatabase) {
                 .singleOrNull()
                 ?: return@suspendTransaction emptyList()
             validate(current = current, next = feedback)
-            Feedbacks.update({ Feedbacks.id eq id }) {
+            Feedbacks.update({ (Feedbacks.id eq id) and (Feedbacks.markedAsDeleted eq false) }) {
                 it[requesterId] = feedback.requesterId
                 it[subjectId] = feedback.subjectId
                 it[providerId] = feedback.providerId
@@ -172,8 +175,10 @@ class FeedbackService(val database: R2dbcDatabase) {
             .toMap()
     }
 
-    suspend fun delete(id: UInt) {
-        suspendTransaction(database) { Feedbacks.deleteWhere { Feedbacks.id eq id } }
+    suspend fun delete(id: UInt): Int = suspendTransaction(database) {
+        Feedbacks.update({ (Feedbacks.id eq id) and (Feedbacks.markedAsDeleted eq false) }) {
+            it[markedAsDeleted] = true
+        }
     }
 
     suspend fun list(
@@ -222,7 +227,7 @@ class FeedbackService(val database: R2dbcDatabase) {
                     (iAmParty or (Feedbacks.status inList DELIVERED_STATUSES))
             }
         }
-        val predicate: Op<Boolean> = scope and buildPredicate(filter)
+        val predicate: Op<Boolean> = scope and buildPredicate(filter) and active()
         val join = Feedbacks
             .join(
                 subjectUsers,

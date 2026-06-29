@@ -15,6 +15,9 @@ internal fun feedbackCreationEventContent(created: Feedback): String = when (cre
     FeedbackStatus.REJECTED -> "Feedback created as rejected."
 }
 
+/** Description recorded when a draft feedback is deleted (soft-deleted) by its provider. */
+internal fun feedbackDeletionEventContent(deleted: Feedback): String = "Feedback deleted."
+
 /**
  * Description recorded on update. A status change wins; otherwise it reports the content/visibility
  * edit. Returns null when nothing audit-worthy changed (so no empty event is recorded).

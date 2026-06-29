@@ -206,7 +206,7 @@ class FeedbackEventsTest {
     }
 
     @Test
-    fun `deleting a feedback cascades its events`() = testApplication {
+    fun `soft-deleting a feedback preserves its events and records a deletion event`() = testApplication {
         usePostgresTestcontainer()
         val providerEmail = uniqueEmail("provider")
         val providerId = TestUsers.seed(email = providerEmail, password = "pw", role = UserRole.USER)
@@ -227,8 +227,13 @@ class FeedbackEventsTest {
         // The creation event exists…
         assertEquals(1, TestFeedbackEvents.service.listForFeedback(created.id).size)
 
-        // …and is removed by the FK ON DELETE CASCADE when the feedback is deleted.
+        // …and the feedback is soft-deleted: the row (and its audit trail) survive, and a deletion
+        // event is appended against the acting provider.
         assertEquals(HttpStatusCode.NoContent, provider.delete("/api/v1/feedbacks/${created.id}").status)
-        assertEquals(0, TestFeedbackEvents.service.listForFeedback(created.id).size)
+        val events = TestFeedbackEvents.service.listForFeedback(created.id)
+        assertEquals(2, events.size)
+        val deletion = events.last()
+        assertEquals("Feedback deleted.", deletion.content)
+        assertEquals(providerId, deletion.userId)
     }
 }

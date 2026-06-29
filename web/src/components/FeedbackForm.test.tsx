@@ -196,6 +196,23 @@ describe("FeedbackForm", () => {
     ).toBeInTheDocument();
   });
 
+  test("shows a Delete button only when onDelete is provided", () => {
+    const { rerender } = renderWithProviders(<FeedbackForm {...baseProps} onSubmit={() => {}} />);
+    expect(screen.queryByRole("button", { name: /^delete$/i })).toBeNull();
+    rerender(<FeedbackForm {...baseProps} onSubmit={() => {}} onDelete={() => {}} />);
+    expect(screen.getByRole("button", { name: /^delete$/i })).toBeInTheDocument();
+  });
+
+  test("disables every action button while a delete is in flight", () => {
+    renderWithProviders(
+      <FeedbackForm {...baseProps} onSubmit={() => {}} onDelete={() => {}} deleting />,
+    );
+    expect(screen.getByRole("button", { name: /^delete$/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^cancel$/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /save draft/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /save & send/i })).toBeDisabled();
+  });
+
   test("disables all action buttons while a DRAFT save is in flight", () => {
     renderWithProviders(<FeedbackForm {...baseProps} submitting="DRAFT" onSubmit={() => {}} />);
     expect(screen.getByRole("button", { name: /^cancel$/i })).toBeDisabled();
