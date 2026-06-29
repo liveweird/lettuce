@@ -159,6 +159,34 @@ A feedback moves through a small state machine. The authoritative rules live in 
 - **`WITHDRAWN`** — terminal; the provider retracted the feedback.
 - **`REJECTED`** — terminal; the provider declined a request.
 
+```mermaid
+stateDiagram-v2
+    direction LR
+
+    [*] --> REQUESTED: POST · ask for feedback
+    [*] --> DRAFT: POST · save draft
+    [*] --> SENT: POST · save & send
+
+    REQUESTED --> DRAFT: pick up
+    REQUESTED --> REJECTED: decline
+    DRAFT --> SENT: send
+    DRAFT --> WITHDRAWN: withdraw (abandon)
+    SENT --> WITHDRAWN: withdraw (retract)
+    DRAFT --> [*]: delete · soft-delete (removed)
+
+    note right of REJECTED
+        terminal — record retained
+    end note
+    note right of WITHDRAWN
+        terminal — record retained
+    end note
+```
+
+Create (`POST`) permits any status (no transition gate); the realistic entry points are
+`REQUESTED`/`DRAFT`/`SENT`. `WITHDRAWN`/`REJECTED` are terminal records that are **retained**;
+the `DRAFT → [*]` edge is the provider-only **soft-delete** (the row is flagged and drops out of
+reads/lists, distinct from the retained terminal states). Details below.
+
 **Allowed transitions** (anything not listed → `400`; `WITHDRAWN` and `REJECTED` are terminal with no outgoing edges):
 
 | From → To | Who | Meaning |
@@ -200,6 +228,8 @@ Content **previews** are blanked when the feedback is unfinished (`DRAFT`/`REQUE
 ### Feedback events (audit history)
 
 `feedback_events` (`feedbacks/FeedbackEvent.kt` + `FeedbackEventService.kt`, table `V15`) is an **immutable audit trail** of feedback changes: `feedbackId`, `userId` (the acting caller), server-set `timestamp` (epoch millis), and a generated `content` string. Rows are minted as a side-effect — there is **no create/update/delete API**. The descriptions come from side-effect-free helpers in `feedbacks/FeedbackEvents.kt` (`feedbackCreationEventContent` / `feedbackUpdateEventContent`, unit-tested in `FeedbackEventsTest`), and `feedbacks/FeedbackRoutes.kt` persists them: one event on `POST` (create) and one on `PUT` when something changed (status transition, or content/visibility edit). Read via **`GET /api/v1/feedbacks/{id}/events`** → `FeedbackEventList` (`{ items: [...] }`, oldest first, with resolved `userName`); authorized exactly like the single-GET (`requireFeedbackReadAllowingManager`). The SPA shows it as a `Timeline` ("History") on `web/src/pages/ViewFeedback.tsx` (`listFeedbackEvents` in `api/client.ts`).
+
+**Feedback bottom-section tabs.** Both the view (`web/src/pages/ViewFeedback.tsx`) and edit (`web/src/components/FeedbackForm.tsx`, when `feedbackId` is set) screens render a three-tab bottom section: **Content**, **History** (the audit `Timeline` above), and **Lifecycle**. The Lifecycle tab renders `web/src/components/FeedbackLifecycle.tsx` — a hand-authored inline-SVG, theme-aware (Mantine CSS vars), end-user-facing state diagram (Requested → Draft → Sent, with terminal Rejected/Withdrawn; the delete path is omitted as it's not a viewable state). It takes an optional `currentStatus` (the live `data.status`, threaded through `FeedbackForm` on edit) to highlight the current node. Labels reuse `common.status.*`; tab/caption strings are `feedback.lifecycle*`.
 
 ### Notifications
 

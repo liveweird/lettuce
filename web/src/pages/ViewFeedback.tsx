@@ -38,6 +38,7 @@ import {
 } from "../api/client";
 import { formatTimestamp } from "../utils/datetime";
 import FeedbackHistory from "../components/FeedbackHistory";
+import FeedbackLifecycle from "../components/FeedbackLifecycle";
 
 const RECEIVED = "/feedback?tab=received";
 
@@ -237,6 +238,7 @@ export default function ViewFeedback() {
                 <Tabs.List>
                   <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
                   <Tabs.Tab value="history">{t("feedback.history")}</Tabs.Tab>
+                  <Tabs.Tab value="lifecycle">{t("feedback.lifecycle")}</Tabs.Tab>
                 </Tabs.List>
 
                 <Tabs.Panel
@@ -272,6 +274,10 @@ export default function ViewFeedback() {
 
                 <Tabs.Panel value="history" pt="md" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
                   <FeedbackHistory feedbackId={id} />
+                </Tabs.Panel>
+
+                <Tabs.Panel value="lifecycle" pt="md" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+                  <FeedbackLifecycle currentStatus={data!.status} />
                 </Tabs.Panel>
               </Tabs>
               {actionError && (

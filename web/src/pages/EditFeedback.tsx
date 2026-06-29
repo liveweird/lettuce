@@ -291,6 +291,7 @@ export default function EditFeedback() {
       <FeedbackForm
         title={t("feedback.editTitle")}
         feedbackId={data!.id}
+        currentStatus={data!.status}
         subjectDisplay={subjectName ?? `#${data!.subjectId}`}
         initialVisibility={clampVisibility(data!.visibility, hasRequester)}
         visibilityOptions={visibilityOptions}

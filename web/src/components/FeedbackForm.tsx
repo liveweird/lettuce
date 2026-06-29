@@ -35,6 +35,7 @@ import {
 } from "../api/client";
 import { formatTimestamp } from "../utils/datetime";
 import FeedbackHistory from "./FeedbackHistory";
+import FeedbackLifecycle from "./FeedbackLifecycle";
 
 type FormValues = {
   visibility: FeedbackVisibility;
@@ -61,9 +62,11 @@ export type FeedbackFormProps = {
   visibilityOptions?: { value: FeedbackVisibility; label: string }[];
   // Epoch millis; when set, shows a read-only "Last modified" field (edit flow only).
   lastModified?: number;
-  // When set (edit flow), Content+Preview and History are shown as two tabs; the History tab
-  // lists this feedback's audit events. Omitted on create (no id, no history) → no tabs.
+  // When set (edit flow), the bottom section is three tabs — Content+Preview, History (this
+  // feedback's audit events), and Lifecycle (the state diagram). Omitted on create (no id) → no tabs.
   feedbackId?: number;
+  // Current status of the feedback being edited; highlights the matching node in the Lifecycle tab.
+  currentStatus?: FeedbackStatus;
   // When set (DRAFT editor, provider only), a red Delete button is shown that triggers the
   // parent's confirmation flow; `deleting` drives its loading state.
   onDelete?: () => void;
@@ -86,6 +89,7 @@ export default function FeedbackForm({
   visibilityOptions,
   lastModified,
   feedbackId,
+  currentStatus,
   onDelete,
   deleting = false,
 }: FeedbackFormProps) {
@@ -272,6 +276,7 @@ export default function FeedbackForm({
                 <Tabs.List>
                   <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
                   <Tabs.Tab value="history">{t("feedback.history")}</Tabs.Tab>
+                  <Tabs.Tab value="lifecycle">{t("feedback.lifecycle")}</Tabs.Tab>
                 </Tabs.List>
                 <Tabs.Panel
                   value="content"
@@ -282,6 +287,9 @@ export default function FeedbackForm({
                 </Tabs.Panel>
                 <Tabs.Panel value="history" pt="md" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
                   <FeedbackHistory feedbackId={feedbackId} />
+                </Tabs.Panel>
+                <Tabs.Panel value="lifecycle" pt="md" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+                  <FeedbackLifecycle currentStatus={currentStatus} />
                 </Tabs.Panel>
               </Tabs>
             ) : (

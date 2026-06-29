@@ -245,14 +245,19 @@ describe("FeedbackForm", () => {
       <FeedbackForm {...baseProps} feedbackId={5} initialContent="hello" onSubmit={() => {}} />,
     );
 
-    // Two tabs are present; Content is the default and shows the editor textarea.
+    // Three tabs are present; Content is the default and shows the editor textarea.
     expect(screen.getByRole("tab", { name: "Content" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "History" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Lifecycle" })).toBeInTheDocument();
     expect(screen.getByLabelText("Content", { selector: "textarea" })).toHaveValue("hello");
 
     // History tab reveals the audit timeline.
     await user.click(screen.getByRole("tab", { name: "History" }));
     expect(await screen.findByText("Feedback created as a draft.")).toBeInTheDocument();
+
+    // Lifecycle tab reveals the state diagram.
+    await user.click(screen.getByRole("tab", { name: "Lifecycle" }));
+    expect(await screen.findByRole("img", { name: /lifecycle/i })).toBeInTheDocument();
   });
 
   test("Cancel opens the discard modal; Discard links to cancelTo and Keep editing closes it", async () => {

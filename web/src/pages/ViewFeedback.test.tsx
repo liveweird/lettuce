@@ -116,6 +116,15 @@ describe("ViewFeedback page", () => {
     expect(screen.getByText("Status changed from DRAFT to SENT.")).toBeInTheDocument();
   });
 
+  test("renders the Lifecycle tab with the state diagram", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(200, FEEDBACK));
+    const user = userEvent.setup();
+    renderViewFeedback();
+
+    await user.click(await screen.findByRole("tab", { name: "Lifecycle" }));
+    expect(await screen.findByRole("img", { name: /lifecycle/i })).toBeInTheDocument();
+  });
+
   test("shows a read-only Requester field with the resolved name when there is a requester", async () => {
     mockFetch.mockResolvedValue(
       jsonResponse(200, { ...FEEDBACK, requesterId: 9, requesterName: "Rita Requester" }),
