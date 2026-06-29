@@ -1,6 +1,7 @@
 package ch.nokillswit
 
 import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.testApplication
 import kotlin.test.*
@@ -8,15 +9,21 @@ import kotlin.test.*
 class ServerTest {
 
     @Test
-    fun `test root endpoint`() = testApplication {
+    fun `unauthenticated API request returns a 401 problem+json body`() = testApplication {
         usePostgresTestcontainer()
-        assertEquals(HttpStatusCode.OK, client.get("/").status)
+        val response = client.get("/api/v1/users")
+        assertEquals(HttpStatusCode.Unauthorized, response.status)
+        assertTrue(
+            response.headers["Content-Type"]?.startsWith("application/problem+json") == true,
+            "401 challenge must be RFC 7807 problem+json",
+        )
+        assertContains(response.bodyAsText(), "\"status\":401")
     }
 
     @Test
     fun `security headers are set on responses`() = testApplication {
         usePostgresTestcontainer()
-        val response = client.get("/")
+        val response = client.get("/api/v1/users")
         assertEquals("nosniff", response.headers["X-Content-Type-Options"])
         assertEquals("DENY", response.headers["X-Frame-Options"])
         assertEquals("no-referrer", response.headers["Referrer-Policy"])

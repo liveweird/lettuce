@@ -37,12 +37,12 @@ class FeedbackEventsTest {
     private fun uniqueEmail(prefix: String) = "$prefix-${UUID.randomUUID()}@test"
 
     private suspend fun ApplicationTestBuilder.authedClient(email: String, password: String): HttpClient {
-        val token = jsonClient().post("/api/login") {
+        val token = jsonClient().post("/api/v1/login") {
             contentType(ContentType.Application.Json)
             setBody(LoginRequest(email, password))
         }.body<LoginResponse>().token
         return createClient {
-            install(ContentNegotiation) { json() }
+            install(ContentNegotiation) { json(); json(contentType = ContentType.parse("application/problem+json")) }
             install(DefaultRequest) { header(HttpHeaders.Authorization, "Bearer $token") }
         }
     }
@@ -89,7 +89,7 @@ class FeedbackEventsTest {
         val subjectId = TestUsers.seed(email = uniqueEmail("subject"), password = "pw", role = UserRole.USER)
         val provider = authedClient(providerEmail, "pw")
 
-        val created = provider.post("/api/feedbacks") {
+        val created = provider.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -101,7 +101,7 @@ class FeedbackEventsTest {
         }.body<FeedbackResponse>()
 
         // One event after creation, attributed to the provider with their resolved name.
-        val afterCreate = provider.get("/api/feedbacks/${created.id}/events").body<FeedbackEventListResponse>()
+        val afterCreate = provider.get("/api/v1/feedbacks/${created.id}/events").body<FeedbackEventListResponse>()
         assertEquals(1, afterCreate.items.size)
         val ev = afterCreate.items.single()
         assertEquals("Feedback created as a draft.", ev.content)
@@ -111,7 +111,7 @@ class FeedbackEventsTest {
         // Sending it adds a status-change event.
         assertEquals(
             HttpStatusCode.NoContent,
-            provider.put("/api/feedbacks/${created.id}") {
+            provider.put("/api/v1/feedbacks/${created.id}") {
                 contentType(ContentType.Application.Json)
                 setBody(
                     Feedback(
@@ -122,7 +122,7 @@ class FeedbackEventsTest {
                 )
             }.status,
         )
-        val afterSend = provider.get("/api/feedbacks/${created.id}/events").body<FeedbackEventListResponse>()
+        val afterSend = provider.get("/api/v1/feedbacks/${created.id}/events").body<FeedbackEventListResponse>()
         assertEquals(2, afterSend.items.size)
         assertEquals("Status changed from DRAFT to SENT.", afterSend.items.last().content)
     }
@@ -135,7 +135,7 @@ class FeedbackEventsTest {
         val subjectId = TestUsers.seed(email = uniqueEmail("subject"), password = "pw", role = UserRole.USER)
         val provider = authedClient(providerEmail, "pw")
 
-        val created = provider.post("/api/feedbacks") {
+        val created = provider.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -146,7 +146,7 @@ class FeedbackEventsTest {
             )
         }.body<FeedbackResponse>()
 
-        provider.put("/api/feedbacks/${created.id}") {
+        provider.put("/api/v1/feedbacks/${created.id}") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -157,7 +157,7 @@ class FeedbackEventsTest {
             )
         }
 
-        val events = provider.get("/api/feedbacks/${created.id}/events").body<FeedbackEventListResponse>()
+        val events = provider.get("/api/v1/feedbacks/${created.id}/events").body<FeedbackEventListResponse>()
         assertEquals(listOf("Feedback created as a draft.", "Content updated."), events.items.map { it.content })
     }
 
@@ -172,7 +172,7 @@ class FeedbackEventsTest {
         val provider = authedClient(providerEmail, "pw")
 
         // A PROVIDER_SUBJECT draft: only provider/subject (and admins) may read it.
-        val created = provider.post("/api/feedbacks") {
+        val created = provider.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -185,11 +185,11 @@ class FeedbackEventsTest {
 
         assertEquals(
             HttpStatusCode.OK,
-            provider.get("/api/feedbacks/${created.id}/events").status,
+            provider.get("/api/v1/feedbacks/${created.id}/events").status,
         )
         assertEquals(
             HttpStatusCode.Forbidden,
-            authedClient(strangerEmail, "pw").get("/api/feedbacks/${created.id}/events").status,
+            authedClient(strangerEmail, "pw").get("/api/v1/feedbacks/${created.id}/events").status,
         )
     }
 
@@ -201,7 +201,7 @@ class FeedbackEventsTest {
 
         assertEquals(
             HttpStatusCode.NotFound,
-            authedClient(email, "pw").get("/api/feedbacks/999999/events").status,
+            authedClient(email, "pw").get("/api/v1/feedbacks/999999/events").status,
         )
     }
 
@@ -213,7 +213,7 @@ class FeedbackEventsTest {
         val subjectId = TestUsers.seed(email = uniqueEmail("subject"), password = "pw", role = UserRole.USER)
         val provider = authedClient(providerEmail, "pw")
 
-        val created = provider.post("/api/feedbacks") {
+        val created = provider.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -228,7 +228,7 @@ class FeedbackEventsTest {
         assertEquals(1, TestFeedbackEvents.service.listForFeedback(created.id).size)
 
         // …and is removed by the FK ON DELETE CASCADE when the feedback is deleted.
-        assertEquals(HttpStatusCode.NoContent, provider.delete("/api/feedbacks/${created.id}").status)
+        assertEquals(HttpStatusCode.NoContent, provider.delete("/api/v1/feedbacks/${created.id}").status)
         assertEquals(0, TestFeedbackEvents.service.listForFeedback(created.id).size)
     }
 }

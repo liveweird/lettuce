@@ -32,7 +32,7 @@ const SEED = [
 
 function setupMocks(mockFetch: FetchMock, listByUrl: (url: string) => Response) {
   mockFetch.mockImplementation((url: string) => {
-    if (url.startsWith("/api/templates?")) return Promise.resolve(listByUrl(url));
+    if (url.startsWith("/api/v1/templates?")) return Promise.resolve(listByUrl(url));
     return Promise.resolve(jsonResponse(404, {}));
   });
 }
@@ -75,7 +75,7 @@ describe("Templates page", () => {
     expect(screen.getByRole("cell", { name: "Farewell" })).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "Hello there" })).toBeInTheDocument();
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringMatching(/\/api\/templates\?/),
+      expect.stringMatching(/\/api\/v1\/templates\?/),
       expect.any(Object),
     );
     // The heading carries the data-tour anchor the guided tour targets for the Config → Templates step.
@@ -98,7 +98,7 @@ describe("Templates page", () => {
         const called = mockFetch.mock.calls.some(
           ([url]) =>
             typeof url === "string" &&
-            url.startsWith("/api/templates?") &&
+            url.startsWith("/api/v1/templates?") &&
             url.includes("name=Wel"),
         );
         expect(called).toBe(true);
@@ -131,7 +131,7 @@ describe("Templates page", () => {
       const called = mockFetch.mock.calls.some(
         ([url]) =>
           typeof url === "string" &&
-          url.startsWith("/api/templates?") &&
+          url.startsWith("/api/v1/templates?") &&
           url.includes("sort=-name"),
       );
       expect(called).toBe(true);
@@ -150,7 +150,7 @@ describe("Templates page", () => {
       const called = mockFetch.mock.calls.some(
         ([url]) =>
           typeof url === "string" &&
-          url.startsWith("/api/templates?") &&
+          url.startsWith("/api/v1/templates?") &&
           url.includes("page=2"),
       );
       expect(called).toBe(true);
@@ -166,7 +166,7 @@ describe("Templates page", () => {
 
   test("load failure surfaces a 'Failed to load templates' alert", async () => {
     mockFetch.mockImplementation((url: string) => {
-      if (url.startsWith("/api/templates?")) {
+      if (url.startsWith("/api/v1/templates?")) {
         return Promise.resolve(jsonResponse(500, { error: "internal", message: "boom" }));
       }
       return Promise.resolve(jsonResponse(404, {}));
@@ -248,10 +248,10 @@ describe("Templates page", () => {
     let listCount = 0;
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      if (method === "DELETE" && /^\/api\/templates\/\d+$/.test(url)) {
+      if (method === "DELETE" && /^\/api\/v1\/templates\/\d+$/.test(url)) {
         return Promise.resolve(new Response(null, { status: 204 }));
       }
-      if (url.startsWith("/api/templates?")) {
+      if (url.startsWith("/api/v1/templates?")) {
         listCount++;
         const items = listCount === 1 ? SEED : [SEED[0]];
         return Promise.resolve(templatesPage(items));
@@ -273,7 +273,7 @@ describe("Templates page", () => {
       ([url, init]) =>
         (init as RequestInit | undefined)?.method === "DELETE" &&
         typeof url === "string" &&
-        url === "/api/templates/2",
+        url === "/api/v1/templates/2",
     );
     expect(deleteCall).toBeDefined();
     expect(listCount).toBeGreaterThanOrEqual(2);
@@ -282,10 +282,10 @@ describe("Templates page", () => {
   test("DELETE failure surfaces an alert and keeps the modal open", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      if (method === "DELETE" && /^\/api\/templates\/\d+$/.test(url)) {
+      if (method === "DELETE" && /^\/api\/v1\/templates\/\d+$/.test(url)) {
         return Promise.resolve(jsonResponse(500, { error: "internal", message: "boom" }));
       }
-      if (url.startsWith("/api/templates?")) {
+      if (url.startsWith("/api/v1/templates?")) {
         return Promise.resolve(templatesPage(SEED));
       }
       return Promise.resolve(jsonResponse(404, {}));

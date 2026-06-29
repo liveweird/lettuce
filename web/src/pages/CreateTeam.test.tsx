@@ -47,7 +47,7 @@ const MANAGER_POOL = [
 function setupMocks(mockFetch: ReturnType<typeof vi.fn>) {
   mockFetch.mockImplementation((url: string, init?: RequestInit) => {
     const method = init?.method ?? "GET";
-    if (method === "GET" && url.startsWith("/api/users?")) {
+    if (method === "GET" && url.startsWith("/api/v1/users?")) {
       return Promise.resolve(
         jsonResponse(200, {
           items: MANAGER_POOL,
@@ -90,7 +90,7 @@ describe("CreateTeam page", () => {
 
     // The pool fetch must hit /api/users with pageSize=100.
     const userCall = mockFetch.mock.calls.find(
-      ([url]) => typeof url === "string" && url.startsWith("/api/users?") && url.includes("pageSize=100"),
+      ([url]) => typeof url === "string" && url.startsWith("/api/v1/users?") && url.includes("pageSize=100"),
     );
     expect(userCall).toBeDefined();
   });
@@ -111,7 +111,7 @@ describe("CreateTeam page", () => {
     expect(screen.getByText(/manager is required/i)).toBeInTheDocument();
 
     const postCall = mockFetch.mock.calls.find(
-      ([url, init]) => init?.method === "POST" && url === "/api/teams",
+      ([url, init]) => init?.method === "POST" && url === "/api/v1/teams",
     );
     expect(postCall).toBeUndefined();
     expect(screen.queryByTestId("probe")).not.toBeInTheDocument();
@@ -134,7 +134,7 @@ describe("CreateTeam page", () => {
     expect(screen.queryByText(/name must be/i)).not.toBeInTheDocument();
     expect(screen.queryByTestId("probe")).not.toBeInTheDocument();
     expect(
-      mockFetch.mock.calls.find(([url, init]) => init?.method === "POST" && url === "/api/teams"),
+      mockFetch.mock.calls.find(([url, init]) => init?.method === "POST" && url === "/api/v1/teams"),
     ).toBeUndefined();
   });
 
@@ -149,12 +149,12 @@ describe("CreateTeam page", () => {
   function mockWithPostStatus(mockFetch: ReturnType<typeof vi.fn>, postStatus: number) {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      if (method === "GET" && url.startsWith("/api/users?")) {
+      if (method === "GET" && url.startsWith("/api/v1/users?")) {
         return Promise.resolve(
           jsonResponse(200, { items: MANAGER_POOL, page: 1, pageSize: 100, total: MANAGER_POOL.length }),
         );
       }
-      if (method === "POST" && url === "/api/teams") return Promise.resolve(jsonResponse(postStatus, {}));
+      if (method === "POST" && url === "/api/v1/teams") return Promise.resolve(jsonResponse(postStatus, {}));
       return Promise.resolve(jsonResponse(500, {}));
     });
   }

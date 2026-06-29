@@ -48,10 +48,10 @@ const ALL_TEAMS: TeamItem[] = [
 ];
 
 function isMembersUrl(url: string) {
-  return url.startsWith("/api/teams?") && url.includes("memberId=7");
+  return url.startsWith("/api/v1/teams?") && url.includes("memberId=7");
 }
 function isAllTeamsUrl(url: string) {
-  return url.startsWith("/api/teams?") && !url.includes("memberId=");
+  return url.startsWith("/api/v1/teams?") && !url.includes("memberId=");
 }
 
 function renderUserTeams(id: number | string = 7, search = "") {
@@ -73,8 +73,8 @@ function renderUserTeams(id: number | string = 7, search = "") {
 function mockAddError(mockFetch: FetchMock, putResult: () => Promise<Response>) {
   mockFetch.mockImplementation((url: string, init?: RequestInit) => {
     const method = init?.method ?? "GET";
-    if (method === "PUT" && url === "/api/teams/2/members/7") return putResult();
-    if (url === "/api/users/7") return Promise.resolve(jsonResponse(200, TARGET_USER));
+    if (method === "PUT" && url === "/api/v1/teams/2/members/7") return putResult();
+    if (url === "/api/v1/users/7") return Promise.resolve(jsonResponse(200, TARGET_USER));
     if (isMembersUrl(url)) return Promise.resolve(teamsPage(MEMBER_TEAMS));
     if (isAllTeamsUrl(url)) return Promise.resolve(teamsPage(ALL_TEAMS));
     return Promise.resolve(jsonResponse(404, {}));
@@ -107,7 +107,7 @@ describe("UserTeams page", () => {
 
   test("renders heading and the user's member teams, querying by memberId", async () => {
     mockFetch.mockImplementation((url: string) => {
-      if (url === "/api/users/7") return Promise.resolve(jsonResponse(200, TARGET_USER));
+      if (url === "/api/v1/users/7") return Promise.resolve(jsonResponse(200, TARGET_USER));
       if (isMembersUrl(url)) return Promise.resolve(teamsPage(MEMBER_TEAMS));
       if (isAllTeamsUrl(url)) return Promise.resolve(teamsPage(ALL_TEAMS));
       return Promise.resolve(jsonResponse(404, {}));
@@ -127,7 +127,7 @@ describe("UserTeams page", () => {
     mockFetch.mockImplementation((url: string) => {
       if (isMembersUrl(url)) return Promise.resolve(teamsPage(MEMBER_TEAMS));
       // getUser (self-or-admin) and the all-teams pool must not be fetched for non-admins.
-      if (url === "/api/users/7") return Promise.resolve(jsonResponse(403, {}));
+      if (url === "/api/v1/users/7") return Promise.resolve(jsonResponse(403, {}));
       if (isAllTeamsUrl(url)) return Promise.resolve(teamsPage(ALL_TEAMS));
       return Promise.resolve(jsonResponse(404, {}));
     });
@@ -143,17 +143,17 @@ describe("UserTeams page", () => {
     expect(screen.queryByRole("button", { name: /^remove from /i })).not.toBeInTheDocument();
 
     // Neither getUser nor the all-teams pool was requested.
-    expect(mockFetch.mock.calls.some(([u]) => u === "/api/users/7")).toBe(false);
+    expect(mockFetch.mock.calls.some(([u]) => u === "/api/v1/users/7")).toBe(false);
     expect(mockFetch.mock.calls.some(([u]) => typeof u === "string" && isAllTeamsUrl(u))).toBe(false);
   });
 
   test("add picker excludes joined and self-managed teams, and PUTs the membership", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      if (method === "PUT" && url === "/api/teams/2/members/7") {
+      if (method === "PUT" && url === "/api/v1/teams/2/members/7") {
         return Promise.resolve(new Response(null, { status: 204 }));
       }
-      if (url === "/api/users/7") return Promise.resolve(jsonResponse(200, TARGET_USER));
+      if (url === "/api/v1/users/7") return Promise.resolve(jsonResponse(200, TARGET_USER));
       if (isMembersUrl(url)) return Promise.resolve(teamsPage(MEMBER_TEAMS));
       if (isAllTeamsUrl(url)) return Promise.resolve(teamsPage(ALL_TEAMS));
       return Promise.resolve(jsonResponse(404, {}));
@@ -178,7 +178,7 @@ describe("UserTeams page", () => {
     await waitFor(() => {
       const putCall = mockFetch.mock.calls.find(
         ([u, init]) =>
-          (init as RequestInit | undefined)?.method === "PUT" && u === "/api/teams/2/members/7",
+          (init as RequestInit | undefined)?.method === "PUT" && u === "/api/v1/teams/2/members/7",
       );
       expect(putCall).toBeDefined();
     });
@@ -188,10 +188,10 @@ describe("UserTeams page", () => {
     let membersCount = 0;
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      if (method === "DELETE" && url === "/api/teams/1/members/7") {
+      if (method === "DELETE" && url === "/api/v1/teams/1/members/7") {
         return Promise.resolve(new Response(null, { status: 204 }));
       }
-      if (url === "/api/users/7") return Promise.resolve(jsonResponse(200, TARGET_USER));
+      if (url === "/api/v1/users/7") return Promise.resolve(jsonResponse(200, TARGET_USER));
       if (isMembersUrl(url)) {
         membersCount++;
         return Promise.resolve(teamsPage(membersCount === 1 ? MEMBER_TEAMS : []));
@@ -211,14 +211,14 @@ describe("UserTeams page", () => {
     );
     const deleteCall = mockFetch.mock.calls.find(
       ([u, init]) =>
-        (init as RequestInit | undefined)?.method === "DELETE" && u === "/api/teams/1/members/7",
+        (init as RequestInit | undefined)?.method === "DELETE" && u === "/api/v1/teams/1/members/7",
     );
     expect(deleteCall).toBeDefined();
   });
 
   test("shows the empty state when the user belongs to no teams", async () => {
     mockFetch.mockImplementation((url: string) => {
-      if (url === "/api/users/7") return Promise.resolve(jsonResponse(200, TARGET_USER));
+      if (url === "/api/v1/users/7") return Promise.resolve(jsonResponse(200, TARGET_USER));
       if (isMembersUrl(url)) return Promise.resolve(teamsPage([]));
       if (isAllTeamsUrl(url)) return Promise.resolve(teamsPage(ALL_TEAMS));
       return Promise.resolve(jsonResponse(404, {}));
@@ -231,10 +231,10 @@ describe("UserTeams page", () => {
   test("surfaces an alert when adding to a team fails", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      if (method === "PUT" && url === "/api/teams/2/members/7") {
+      if (method === "PUT" && url === "/api/v1/teams/2/members/7") {
         return Promise.resolve(jsonResponse(400, { error: "bad_request", message: "nope" }));
       }
-      if (url === "/api/users/7") return Promise.resolve(jsonResponse(200, TARGET_USER));
+      if (url === "/api/v1/users/7") return Promise.resolve(jsonResponse(200, TARGET_USER));
       if (isMembersUrl(url)) return Promise.resolve(teamsPage(MEMBER_TEAMS));
       if (isAllTeamsUrl(url)) return Promise.resolve(teamsPage(ALL_TEAMS));
       return Promise.resolve(jsonResponse(404, {}));
@@ -289,7 +289,7 @@ describe("UserTeams page", () => {
 
   test("a 404 on the user shows the not-found alert", async () => {
     mockFetch.mockImplementation((url: string) => {
-      if (url === "/api/users/7") return Promise.resolve(jsonResponse(404, { error: "not_found" }));
+      if (url === "/api/v1/users/7") return Promise.resolve(jsonResponse(404, { error: "not_found" }));
       if (isMembersUrl(url)) return Promise.resolve(teamsPage(MEMBER_TEAMS));
       if (isAllTeamsUrl(url)) return Promise.resolve(teamsPage(ALL_TEAMS));
       return Promise.resolve(jsonResponse(404, {}));
@@ -301,7 +301,7 @@ describe("UserTeams page", () => {
 
   test("a non-404 user error shows the generic load-failed alert with status", async () => {
     mockFetch.mockImplementation((url: string) => {
-      if (url === "/api/users/7") return Promise.resolve(jsonResponse(500, { error: "internal" }));
+      if (url === "/api/v1/users/7") return Promise.resolve(jsonResponse(500, { error: "internal" }));
       if (isMembersUrl(url)) return Promise.resolve(teamsPage(MEMBER_TEAMS));
       if (isAllTeamsUrl(url)) return Promise.resolve(teamsPage(ALL_TEAMS));
       return Promise.resolve(jsonResponse(404, {}));
@@ -312,7 +312,7 @@ describe("UserTeams page", () => {
 
   test("a teams-list error shows an alert", async () => {
     mockFetch.mockImplementation((url: string) => {
-      if (url === "/api/users/7") return Promise.resolve(jsonResponse(200, TARGET_USER));
+      if (url === "/api/v1/users/7") return Promise.resolve(jsonResponse(200, TARGET_USER));
       if (isMembersUrl(url)) return Promise.resolve(jsonResponse(500, { error: "internal" }));
       if (isAllTeamsUrl(url)) return Promise.resolve(teamsPage(ALL_TEAMS));
       return Promise.resolve(jsonResponse(404, {}));
@@ -323,7 +323,7 @@ describe("UserTeams page", () => {
 
   test("shows the (deleted) tag when a team's manager is soft-deleted", async () => {
     mockFetch.mockImplementation((url: string) => {
-      if (url === "/api/users/7") return Promise.resolve(jsonResponse(200, TARGET_USER));
+      if (url === "/api/v1/users/7") return Promise.resolve(jsonResponse(200, TARGET_USER));
       if (isMembersUrl(url)) {
         return Promise.resolve(
           teamsPage([{ id: 1, name: "Platform", managerId: 10, managerName: "Mona Manager", managerDeleted: true }]),
@@ -339,10 +339,10 @@ describe("UserTeams page", () => {
   test("a remove failure shows an alert inside the modal and keeps it open", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      if (method === "DELETE" && url === "/api/teams/1/members/7") {
+      if (method === "DELETE" && url === "/api/v1/teams/1/members/7") {
         return Promise.resolve(jsonResponse(500, { error: "internal" }));
       }
-      if (url === "/api/users/7") return Promise.resolve(jsonResponse(200, TARGET_USER));
+      if (url === "/api/v1/users/7") return Promise.resolve(jsonResponse(200, TARGET_USER));
       if (isMembersUrl(url)) return Promise.resolve(teamsPage(MEMBER_TEAMS));
       if (isAllTeamsUrl(url)) return Promise.resolve(teamsPage(ALL_TEAMS));
       return Promise.resolve(jsonResponse(404, {}));
@@ -361,8 +361,8 @@ describe("UserTeams page", () => {
   test("the modal Cancel button is disabled while the remove is in flight", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      if (method === "DELETE" && url === "/api/teams/1/members/7") return new Promise(() => {});
-      if (url === "/api/users/7") return Promise.resolve(jsonResponse(200, TARGET_USER));
+      if (method === "DELETE" && url === "/api/v1/teams/1/members/7") return new Promise(() => {});
+      if (url === "/api/v1/users/7") return Promise.resolve(jsonResponse(200, TARGET_USER));
       if (isMembersUrl(url)) return Promise.resolve(teamsPage(MEMBER_TEAMS));
       if (isAllTeamsUrl(url)) return Promise.resolve(teamsPage(ALL_TEAMS));
       return Promise.resolve(jsonResponse(404, {}));

@@ -4,6 +4,7 @@ import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireNotificationRecipient
 import ch.nokillswit.infra.paging.SortField
 import ch.nokillswit.infra.paging.parsePaging
+import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
 import io.ktor.server.application.*
@@ -17,7 +18,7 @@ import io.ktor.server.routing.routing
 import kotlinx.serialization.Serializable
 
 @Serializable
-@Resource("/api/notifications")
+@Resource("/api/v1/notifications")
 class Notifications {
     @Serializable
     @Resource("{id}")
@@ -65,7 +66,7 @@ fun Application.configureNotificationRoutes() {
                 val caller = call.caller()
                 val notification = notificationService.read(route.id)
                 if (notification == null) {
-                    call.respond(HttpStatusCode.NotFound)
+                    call.respondProblem(HttpStatusCode.NotFound, "Notification not found")
                     return@get
                 }
                 requireNotificationRecipient(caller, notification.recipientId)
@@ -75,7 +76,7 @@ fun Application.configureNotificationRoutes() {
                 val caller = call.caller()
                 val notification = notificationService.read(route.parent.id)
                 if (notification == null) {
-                    call.respond(HttpStatusCode.NotFound)
+                    call.respondProblem(HttpStatusCode.NotFound, "Notification not found")
                     return@post
                 }
                 requireNotificationRecipient(caller, notification.recipientId)
@@ -86,7 +87,7 @@ fun Application.configureNotificationRoutes() {
                 val caller = call.caller()
                 val notification = notificationService.read(route.parent.id)
                 if (notification == null) {
-                    call.respond(HttpStatusCode.NotFound)
+                    call.respondProblem(HttpStatusCode.NotFound, "Notification not found")
                     return@post
                 }
                 requireNotificationRecipient(caller, notification.recipientId)
@@ -97,7 +98,7 @@ fun Application.configureNotificationRoutes() {
                 val caller = call.caller()
                 val notification = notificationService.read(route.id)
                 if (notification == null) {
-                    call.respond(HttpStatusCode.NotFound)
+                    call.respondProblem(HttpStatusCode.NotFound, "Notification not found")
                     return@delete
                 }
                 requireNotificationRecipient(caller, notification.recipientId)

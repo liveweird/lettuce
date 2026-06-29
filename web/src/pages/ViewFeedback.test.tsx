@@ -216,7 +216,7 @@ describe("ViewFeedback page", () => {
     localStorage.setItem(USER_ID_KEY, "10");
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      if (method === "PUT" && url === "/api/feedbacks/5") {
+      if (method === "PUT" && url === "/api/v1/feedbacks/5") {
         return Promise.resolve(new Response(null, { status: 204 }));
       }
       return Promise.resolve(jsonResponse(200, FEEDBACK));
@@ -234,7 +234,7 @@ describe("ViewFeedback page", () => {
     );
     const putCall = mockFetch.mock.calls.find(
       ([url, init]) =>
-        url === "/api/feedbacks/5" && (init as RequestInit | undefined)?.method === "PUT",
+        url === "/api/v1/feedbacks/5" && (init as RequestInit | undefined)?.method === "PUT",
     );
     expect(putCall).toBeDefined();
     expect(JSON.parse((putCall![1] as RequestInit).body as string).status).toBe("WITHDRAWN");
@@ -244,7 +244,7 @@ describe("ViewFeedback page", () => {
     localStorage.setItem(USER_ID_KEY, "10");
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      if (method === "PUT" && url === "/api/feedbacks/5") {
+      if (method === "PUT" && url === "/api/v1/feedbacks/5") {
         return Promise.resolve(jsonResponse(400, { error: "bad_request", message: "no" }));
       }
       return Promise.resolve(jsonResponse(200, FEEDBACK));

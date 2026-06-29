@@ -10,7 +10,7 @@ Gradle wrapper is at `./gradlew` (use `gradlew.bat` on Windows). JDK 21 toolchai
 - Run the server (Ktor + Netty on port 8080): `./gradlew :server:run`
 - Run all tests: `./gradlew test`
 - Run server tests only: `./gradlew :server:test`
-- Run a single test: `./gradlew :server:test --tests "ch.nokillswit.ServerTest.test root endpoint"`
+- Run a single test: `./gradlew :server:test --tests "ch.nokillswit.ServerTest.security headers are set on responses"`
 - Package the server for deployment: `./gradlew :server:installDist` (output under `server/build/install/server/`, launcher `bin/server`). **Do not use `:server:buildFatJar`** — the shadow plugin collapses the duplicate `META-INF/services/org.flywaydb.core.extensibility.Plugin` descriptors and the fat JAR NPEs at startup inside Flyway's plugin registry. `installDist` keeps each dependency JAR separate, so Flyway's `ServiceLoader` discovery works exactly as under `:server:run`.
 - **Run the whole stack with one command: `docker compose up --build`** (only Docker required). See "Running the full stack" below.
 
@@ -47,14 +47,14 @@ ch.nokillswit
 ├── infra/db/           Flyway migrations + R2DBC connection bootstrap
 ├── infra/paging/       list-endpoint paging/sort/filter helper (parsePaging, applyPaging)
 ├── authz/              RBAC guards + CallerPrincipal (see "Authorization model")
-├── auth/               POST /api/login + password hashing
-├── users/              /api/users/* CRUD + list + UserService + Users table
-├── teams/              /api/teams/* CRUD + list + member sub-resource + TeamService + Teams/TeamMembers tables
-├── feedbacks/          /api/feedbacks/* CRUD + list + FeedbackService + Feedbacks table + FeedbackVisibility
-└── notifications/      /api/notifications/* list + read + seen/unseen + delete + NotificationService + Notifications table (recipient-scoped)
+├── auth/               POST /api/v1/login + password hashing
+├── users/              /api/v1/users/* CRUD + list + UserService + Users table
+├── teams/              /api/v1/teams/* CRUD + list + member sub-resource + TeamService + Teams/TeamMembers tables
+├── feedbacks/          /api/v1/feedbacks/* CRUD + list + FeedbackService + Feedbacks table + FeedbackVisibility
+└── notifications/      /api/v1/notifications/* list + read + seen/unseen + delete + NotificationService + Notifications table (recipient-scoped)
 ```
 
-Routing is feature-local: each feature package registers its own routes from its `configureXxx` module. `plugins/Routing.kt` is a catch-all for non-feature endpoints (`/ws`, `/json/kotlinx-serialization`, `/session/increment`). It also owns the SPA: when `WEB_STATIC_DIR` (config key `web.staticDir`) is set, `configureRouting` installs `singlePageApplication` to serve `web/dist` with an `index.html` fallback; when unset (local dev, where Vite serves the SPA), it falls back to a plain `GET /` → "Hello, World!".
+Routing is feature-local: each feature package registers its own routes from its `configureXxx` module. `plugins/Routing.kt` owns only the SPA: when `WEB_STATIC_DIR` (config key `web.staticDir`) is set, `configureRouting` installs `singlePageApplication` to serve `web/dist` with an `index.html` fallback; when unset (local dev / tests, where Vite serves the SPA), it installs no routes at all (there is no `GET /` placeholder). The scaffolding demo endpoints (`/ws`, `/json/kotlinx-serialization`, `/session/increment`, the "Hello, World!" root) and their plugins (`Sessions`, `Websockets`, the `GreetingService` DI sample, the inert `RequestValidation` rule) have been removed.
 
 Module load order in `application.yaml` matters for inter-module attribute reads: `configureSecurity` puts `JwtConfigKey` in `attributes`; `configureDatabase` puts `UserServiceKey`. `configureAuthRoutes` and `configureUserRoutes` read both, so they must run after both. Current order: plugins → `infra/db` (Flyway, then Database) → features (users, auth) → catch-all `configureRouting`.
 
@@ -71,11 +71,11 @@ Current migrations are `V1`–`V14`: schema for users/teams/feedbacks/revoked-to
 
 ### List endpoint conventions
 
-`GET /api/users`, `GET /api/teams`, and `GET /api/feedbacks` are list endpoints; every list endpoint follows the rules below. The OpenAPI spec is the contract; document the query params for each list endpoint there.
+`GET /api/v1/users`, `GET /api/v1/teams`, and `GET /api/v1/feedbacks` are list endpoints; every list endpoint follows the rules below. The OpenAPI spec is the contract; document the query params for each list endpoint there.
 
 **Pagination — offset, in the body envelope.**
 
-- Query params: `page` (1-based, default `1`, must be ≥ 1) and `pageSize` (default `20`, max `100`). Out-of-range values → `400` + `ApiError`.
+- Query params: `page` (1-based, default `1`, must be ≥ 1) and `pageSize` (default `20`, max `100`). Out-of-range values → `400` + `ProblemDetail`.
 - Response is always an envelope, never a bare array:
   ```json
   { "items": [ ... ], "page": 1, "pageSize": 20, "total": 137 }
@@ -98,7 +98,7 @@ Current migrations are `V1`–`V14`: schema for users/teams/feedbacks/revoked-to
   - `field[gte]`, `field[gt]`, `field[lte]`, `field[lt]` for ordered types (timestamps, numbers).
   - No `[like]`, no `[ne]`, no `[in]` (use repetition for `IN`). Keep the operator surface tiny.
 - Free-text search uses a single `q` param. The endpoint decides which columns `q` searches (e.g. users: `name`, `email`); document the searched columns in OpenAPI.
-- Per-column substring search is also allowed when a UI genuinely needs per-column matching that `q` cannot express. The filter param uses the column name directly (e.g. `?name=ali`), is case-insensitive `contains`, and must be documented per-endpoint. First example: `GET /api/users` uses `name` and `email` this way. Reach for `q` first; promote to per-column only when the UI requires it.
+- Per-column substring search is also allowed when a UI genuinely needs per-column matching that `q` cannot express. The filter param uses the column name directly (e.g. `?name=ali`), is case-insensitive `contains`, and must be documented per-endpoint. First example: `GET /api/v1/users` uses `name` and `email` this way. Reach for `q` first; promote to per-column only when the UI requires it.
 - Booleans are `true`/`false`. Enums use their string name. Malformed values → `400`.
 
 **Naming and OpenAPI plumbing.**
@@ -109,7 +109,7 @@ Current migrations are `V1`–`V14`: schema for users/teams/feedbacks/revoked-to
 
 **Implementation.**
 
-- The shared helper lives at `infra/paging/Paging.kt`: `ApplicationCall.parsePaging(...)` parses `page`/`pageSize`/`sort` from the query string and validates against per-endpoint whitelists into a `PageRequest`; `Query.applyPaging(req, columns)` applies `.limit(...).offset(...)` + `.orderBy(...)` to an Exposed `Query`. Validation failures throw a typed exception that `StatusPages` maps to `400` + `ApiError`. New list endpoints reuse these rather than re-parsing params.
+- The shared helper lives at `infra/paging/Paging.kt`: `ApplicationCall.parsePaging(...)` parses `page`/`pageSize`/`sort` from the query string and validates against per-endpoint whitelists into a `PageRequest`; `Query.applyPaging(req, columns)` applies `.limit(...).offset(...)` + `.orderBy(...)` to an Exposed `Query`. Validation failures throw a typed exception that `StatusPages` maps to `400` + `ProblemDetail`. New list endpoints reuse these rather than re-parsing params.
 
 ### Security defaults are template placeholders
 
@@ -125,16 +125,16 @@ Layered RBAC. Implemented in the `server/src/main/kotlin/authz/` package.
 - **Login** issues a JWT carrying `email`, `userId`, and `role` claims; `LoginResponse` exposes `userId` and `role` to the frontend.
 - **Guards** in `authz/Guards.kt` are plain `suspend fun` calls used at the top of each route handler — there is no Ktor plugin or DSL. Each route reads `call.caller()` (which parses the JWT claims into a `CallerPrincipal`) and then invokes the relevant guard.
 - **Resource rules**:
-  - `POST /api/users`, `DELETE /api/users/{id}` → ADMIN only.
-  - `GET /api/users/{id}`, `PUT /api/users/{id}` → caller must be the target user or ADMIN; only ADMIN may change `role`.
-  - `POST /api/teams` → caller must designate themselves as `managerId` (ADMIN may designate anyone).
-  - `GET /api/teams/{id}` → any authenticated user.
-  - `PUT /api/teams/{id}`, `DELETE /api/teams/{id}`, member sub-resource mutations → the team's current `manager_id` or ADMIN. **Reassigning the manager** (changing `manager_id` to a different user on `PUT`) is **ADMIN-only** (`requireCanReassignManager`); a current manager may edit their team but not hand it off.
-  - `POST /api/feedbacks` → the caller must be a **party** to what they create: their `userId` must equal the `providerId` (they author it) or the `requesterId` (they ask for it); ADMIN may create on behalf of anyone. This blocks authoring feedback as someone else / forging a request from someone else. The create-time invariants also apply (see "Feedback lifecycle").
-  - `GET /api/feedbacks/{id}` → `canReadFeedback` (`authz/Guards.kt`), evaluated in order: **ADMIN** and the **provider** see everything; the **requester** sees it at any status, but only when visibility is `PROVIDER_REQUESTER`/`PROVIDER_REQUESTER_SUBJECT`; the **subject** sees it only when visibility is `PROVIDER_SUBJECT`/`PROVIDER_REQUESTER_SUBJECT` **and** status is `SENT`/`WITHDRAWN`; a **manager of the subject** sees it when status is `SENT`/`WITHDRAWN` (the `managesSubject` arg) — **but** the route uses `requireFeedbackReadAllowingManager`, which grants a managing caller read **unconditionally** (any status), so in practice a manager can open any subordinate's feedback (a known list-vs-detail asymmetry); finally `PUBLIC` + `SENT` is readable by anyone. Anything else is **default-deny**, which also logs a `SHOULD_NEVER_HAPPEN`-marked WARN (the branch is meant to be unreachable). Whether the **content** (vs. mere existence) is shown is a separate gate, `canReadFeedbackContent`: a requester watching an unfinished (`DRAFT`/`REQUESTED`) feedback sees that it exists but not its content.
-  - `PUT/DELETE /api/feedbacks/{id}` → the row's `provider_id` **only** (`canWriteFeedback`); ADMIN can read but **not** modify feedbacks (unless the admin is themselves the provider). This guard gates **every** status transition (send, withdraw, pick-up, reject); on `PUT` the requested transition must additionally be valid for the current status (see "Feedback lifecycle") or it is `400`.
-  - `GET/POST/DELETE /api/notifications/*` → the notification's `recipient_id` only (via `requireNotificationRecipient`); ADMIN bypasses. Notifications are never created through the API — see "Notifications" below.
-- **Exceptions**: `UnauthorizedException` (→ 401) and `ForbiddenException` (→ 403) are mapped to `ApiError` in `plugins/ErrorHandling.kt`.
+  - `POST /api/v1/users`, `DELETE /api/v1/users/{id}` → ADMIN only.
+  - `GET /api/v1/users/{id}`, `PUT /api/v1/users/{id}` → caller must be the target user or ADMIN; only ADMIN may change `role`.
+  - `POST /api/v1/teams` → caller must designate themselves as `managerId` (ADMIN may designate anyone).
+  - `GET /api/v1/teams/{id}` → any authenticated user.
+  - `PUT /api/v1/teams/{id}`, `DELETE /api/v1/teams/{id}`, member sub-resource mutations → the team's current `manager_id` or ADMIN. **Reassigning the manager** (changing `manager_id` to a different user on `PUT`) is **ADMIN-only** (`requireCanReassignManager`); a current manager may edit their team but not hand it off.
+  - `POST /api/v1/feedbacks` → the caller must be a **party** to what they create: their `userId` must equal the `providerId` (they author it) or the `requesterId` (they ask for it); ADMIN may create on behalf of anyone. This blocks authoring feedback as someone else / forging a request from someone else. The create-time invariants also apply (see "Feedback lifecycle").
+  - `GET /api/v1/feedbacks/{id}` → `canReadFeedback` (`authz/Guards.kt`), evaluated in order: **ADMIN** and the **provider** see everything; the **requester** sees it at any status, but only when visibility is `PROVIDER_REQUESTER`/`PROVIDER_REQUESTER_SUBJECT`; the **subject** sees it only when visibility is `PROVIDER_SUBJECT`/`PROVIDER_REQUESTER_SUBJECT` **and** status is `SENT`/`WITHDRAWN`; a **manager of the subject** sees it when status is `SENT`/`WITHDRAWN` (the `managesSubject` arg) — **but** the route uses `requireFeedbackReadAllowingManager`, which grants a managing caller read **unconditionally** (any status), so in practice a manager can open any subordinate's feedback (a known list-vs-detail asymmetry); finally `PUBLIC` + `SENT` is readable by anyone. Anything else is **default-deny**, which also logs a `SHOULD_NEVER_HAPPEN`-marked WARN (the branch is meant to be unreachable). Whether the **content** (vs. mere existence) is shown is a separate gate, `canReadFeedbackContent`: a requester watching an unfinished (`DRAFT`/`REQUESTED`) feedback sees that it exists but not its content.
+  - `PUT/DELETE /api/v1/feedbacks/{id}` → the row's `provider_id` **only** (`canWriteFeedback`); ADMIN can read but **not** modify feedbacks (unless the admin is themselves the provider). This guard gates **every** status transition (send, withdraw, pick-up, reject); on `PUT` the requested transition must additionally be valid for the current status (see "Feedback lifecycle") or it is `400`.
+  - `GET/POST/DELETE /api/v1/notifications/*` → the notification's `recipient_id` only (via `requireNotificationRecipient`); ADMIN bypasses. Notifications are never created through the API — see "Notifications" below.
+- **Exceptions**: `UnauthorizedException` (→ 401) and `ForbiddenException` (→ 403) are mapped in `plugins/ErrorHandling.kt`. **All error bodies are RFC 7807 `application/problem+json`** (`ProblemDetail{type,title,status,detail,instance}`) — emit them via the `ApplicationCall.respondProblem(status, detail)` helper (it uses an explicit `TextContent` so ContentNegotiation does not relabel the media type as `application/json`). `StatusPages` routes `BadRequestException`→400, `UnauthorizedException`→401, `ForbiddenException`→403, unique-violation→409, and a catch-all `Throwable`→500 (logged) through that helper; the JWT `challenge` in `plugins/Security.kt` also calls `respondProblem` (it runs outside `StatusPages`), and inline `404`s in routes use `respondProblem(NotFound, …)`. Test HTTP clients must register the `application/problem+json` content type (`json(contentType = ContentType.parse("application/problem+json"))`) to decode error bodies with `body<ProblemDetail>()`.
 - **Tests**: `server/src/test/kotlin/AuthorizationTest.kt` covers the 401/403 paths and the full `FeedbackVisibility` matrix. The shared `TestUsers.seed` helper defaults to `role = ADMIN` so older tests keep working without modification; pass `role = UserRole.USER` when you need a non-privileged caller.
 
 ### Feedback lifecycle (statuses & transitions)
@@ -157,7 +157,7 @@ A feedback moves through a small state machine. The authoritative rules live in 
 | `DRAFT → WITHDRAWN` | provider / ADMIN | abandon a draft (terminal) |
 | `SENT → WITHDRAWN` | provider / ADMIN | retract a sent feedback (terminal) |
 
-Every transition is performed via `PUT /api/feedbacks/{id}` and is gated by `canWriteFeedback` (provider only — ADMIN does not get feedback write access) — so only the provider can send, withdraw, pick up, or reject.
+Every transition is performed via `PUT /api/v1/feedbacks/{id}` and is gated by `canWriteFeedback` (provider only — ADMIN does not get feedback write access) — so only the provider can send, withdraw, pick up, or reject.
 
 **Creation vs. update.** On **create** (`POST`) any status is permitted — there is no transition gate, so the UI can create a feedback directly as `SENT` ("save & send") or as `REQUESTED` ("ask for feedback"). The transition check above applies only on **update**. The following invariants are enforced on **both** create and update: provider ≠ subject; requester ≠ provider; `REQUESTED` requires a requester; **a feedback with a requester may not use `PROVIDER_SUBJECT` visibility** (that visibility excludes the requester, so the combination is contradictory). Transition and invariant behavior is covered by `FeedbackRoutesTest` (transitions + the invariant) and `AuthorizationTest` (the `FeedbackVisibility` read matrix).
 
@@ -171,7 +171,7 @@ Every transition is performed via `PUT /api/feedbacks/{id}` and is gated by `can
 
 **Frontend: the simplified requester view.** On the read-only view (`web/src/pages/ViewFeedback.tsx`), when the caller is the **requester** and the feedback is `REQUESTED` or `REJECTED`, the **Content** section is hidden — a never-drafted or declined request has no content to read. The gate is `isRequester && (status === "REQUESTED" || status === "REJECTED")` (`isRequester = getUserId() === data.requesterId`); every other viewer and status still renders Content. Covered by `web/src/pages/ViewFeedback.test.tsx`.
 
-### Feedback list views (`GET /api/feedbacks?view=…`)
+### Feedback list views (`GET /api/v1/feedbacks?view=…`)
 
 `FeedbackService.list` (`feedbacks/FeedbackService.kt`) scopes rows by `view` + the caller; the shared paging/filter helpers then apply on top. The three view scopes:
 
@@ -183,14 +183,14 @@ Content **previews** are blanked when the feedback is unfinished (`DRAFT`/`REQUE
 
 ### Feedback events (audit history)
 
-`feedback_events` (`feedbacks/FeedbackEvent.kt` + `FeedbackEventService.kt`, table `V15`) is an **immutable audit trail** of feedback changes: `feedbackId`, `userId` (the acting caller), server-set `timestamp` (epoch millis), and a generated `content` string. Rows are minted as a side-effect — there is **no create/update/delete API**. The descriptions come from side-effect-free helpers in `feedbacks/FeedbackEvents.kt` (`feedbackCreationEventContent` / `feedbackUpdateEventContent`, unit-tested in `FeedbackEventsTest`), and `feedbacks/FeedbackRoutes.kt` persists them: one event on `POST` (create) and one on `PUT` when something changed (status transition, or content/visibility edit). Read via **`GET /api/feedbacks/{id}/events`** → `FeedbackEventList` (`{ items: [...] }`, oldest first, with resolved `userName`); authorized exactly like the single-GET (`requireFeedbackReadAllowingManager`). The SPA shows it as a `Timeline` ("History") on `web/src/pages/ViewFeedback.tsx` (`listFeedbackEvents` in `api/client.ts`).
+`feedback_events` (`feedbacks/FeedbackEvent.kt` + `FeedbackEventService.kt`, table `V15`) is an **immutable audit trail** of feedback changes: `feedbackId`, `userId` (the acting caller), server-set `timestamp` (epoch millis), and a generated `content` string. Rows are minted as a side-effect — there is **no create/update/delete API**. The descriptions come from side-effect-free helpers in `feedbacks/FeedbackEvents.kt` (`feedbackCreationEventContent` / `feedbackUpdateEventContent`, unit-tested in `FeedbackEventsTest`), and `feedbacks/FeedbackRoutes.kt` persists them: one event on `POST` (create) and one on `PUT` when something changed (status transition, or content/visibility edit). Read via **`GET /api/v1/feedbacks/{id}/events`** → `FeedbackEventList` (`{ items: [...] }`, oldest first, with resolved `userName`); authorized exactly like the single-GET (`requireFeedbackReadAllowingManager`). The SPA shows it as a `Timeline` ("History") on `web/src/pages/ViewFeedback.tsx` (`listFeedbackEvents` in `api/client.ts`).
 
 ### Notifications
 
 In-app notifications are **generic rows** (`recipientId`, `message`, optional `link`, `wasSeen`, `timestamp`) — there is **no notification type enum** and no API to create one. They are produced by **two** feedback-driven sources, both side-effect-free (DB-free, so directly unit-testable) functions in `feedbacks/FeedbackNotifications.kt`; `FeedbackService` resolves party display names and the route persists what they return:
 
-- **`feedbackCreationNotifications()`** — on feedback **creation** in `REQUESTED` status. Persisted from `POST /api/feedbacks` in `feedbacks/FeedbackRoutes.kt` (`result.notifications.forEach { notificationService.create(it) }`).
-- **`feedbackTransitionNotifications()`** — on a feedback **status transition**. Persisted from `PUT /api/feedbacks/{id}` (`toNotify.forEach { notificationService.create(it) }`).
+- **`feedbackCreationNotifications()`** — on feedback **creation** in `REQUESTED` status. Persisted from `POST /api/v1/feedbacks` in `feedbacks/FeedbackRoutes.kt` (`result.notifications.forEach { notificationService.create(it) }`).
+- **`feedbackTransitionNotifications()`** — on a feedback **status transition**. Persisted from `PUT /api/v1/feedbacks/{id}` (`toNotify.forEach { notificationService.create(it) }`).
 
 **The complete list of situations that generate a notification**:
 
@@ -204,7 +204,7 @@ In-app notifications are **generic rows** (`recipientId`, `message`, optional `l
 
 That is the whole set — any other create/transition produces nothing. Note that a `→ SENT` of *requested* feedback yields **two** notifications (subject + requester). For transitions, the `view` link is only attached when the recipient is permitted to read the feedback under its `FeedbackVisibility` (`subjectCanRead`/`requesterCanRead` in the same file) — otherwise `link` is null.
 
-Reading/managing notifications goes through `notifications/NotificationRoutes.kt`, all under `authenticate` and scoped to the recipient via `requireNotificationRecipient` (ADMIN bypasses): `GET /api/notifications` (list; sortable `id`,`timestamp`, default `-timestamp`; optional `wasSeen` filter), `GET /api/notifications/{id}`, `POST /api/notifications/{id}/seen`, `POST /api/notifications/{id}/unseen`, `DELETE /api/notifications/{id}`. The endpoints are documented in `documentation.yaml`; the `notifications` table is created by `V13__create_notifications.sql`.
+Reading/managing notifications goes through `notifications/NotificationRoutes.kt`, all under `authenticate` and scoped to the recipient via `requireNotificationRecipient` (ADMIN bypasses): `GET /api/v1/notifications` (list; sortable `id`,`timestamp`, default `-timestamp`; optional `wasSeen` filter), `GET /api/v1/notifications/{id}`, `POST /api/v1/notifications/{id}/seen`, `POST /api/v1/notifications/{id}/unseen`, `DELETE /api/v1/notifications/{id}`. The endpoints are documented in `documentation.yaml`; the `notifications` table is created by `V13__create_notifications.sql`.
 
 ### Observability
 
@@ -220,7 +220,7 @@ Reading/managing notifications goes through `notifications/NotificationRoutes.kt
 
 Vite + React 19 + TypeScript SPA. The Gradle and npm toolchains are disjoint — never invoke npm from Gradle or vice versa.
 
-- Dev server: `cd web && npm run dev` (port 5173). All backend routes live under the `/api/` namespace (`/api/login`, `/api/logout`, `/api/users`, `/api/teams`, `/api/feedbacks`, …) and Vite proxies the single `/api` subtree → `http://localhost:8080`. Any other path is served as `index.html` so React Router owns the SPA URL space and browser reloads don't collide with API routes.
+- Dev server: `cd web && npm run dev` (port 5173). All backend routes live under the `/api/` namespace (`/api/v1/login`, `/api/v1/logout`, `/api/v1/users`, `/api/v1/teams`, `/api/v1/feedbacks`, …) and Vite proxies the single `/api` subtree → `http://localhost:8080`. Any other path is served as `index.html` so React Router owns the SPA URL space and browser reloads don't collide with API routes.
 - Production build: `cd web && npm run build` → static files in `web/dist`. In the Docker image these are baked in and served by the Ktor server itself (via `WEB_STATIC_DIR`; see "Server bootstrap model" / `plugins/Routing.kt`), so production is single-origin and there is no Vite proxy — the SPA and `/api` share `http://localhost:8080`.
 - Regenerate API types: `cd web && npm run gen:api`. Reads `server/src/main/resources/openapi/documentation.yaml` directly (no server needed) and writes `web/src/api/schema.ts`. Run this after editing the OpenAPI spec; commit the regenerated `schema.ts`.
 

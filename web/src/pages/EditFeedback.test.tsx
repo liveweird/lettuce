@@ -126,7 +126,7 @@ describe("EditFeedback page", () => {
 
   test("Save draft PUTs status DRAFT preserving the immutable ids", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
-      if ((init?.method ?? "GET") === "PUT" && url === "/api/feedbacks/5") {
+      if ((init?.method ?? "GET") === "PUT" && url === "/api/v1/feedbacks/5") {
         return Promise.resolve(new Response(null, { status: 204 }));
       }
       return Promise.resolve(jsonResponse(200, FEEDBACK));
@@ -142,7 +142,7 @@ describe("EditFeedback page", () => {
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/feedback?tab=provided"));
 
     const put = mockFetch.mock.calls.find(
-      ([url, init]) => url === "/api/feedbacks/5" && (init as RequestInit | undefined)?.method === "PUT",
+      ([url, init]) => url === "/api/v1/feedbacks/5" && (init as RequestInit | undefined)?.method === "PUT",
     );
     expect(put).toBeDefined();
     expect(JSON.parse((put![1] as RequestInit).body as string)).toEqual({
@@ -157,7 +157,7 @@ describe("EditFeedback page", () => {
 
   test("a 403 on save shows a permission error and stays on the editor", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
-      if ((init?.method ?? "GET") === "PUT" && url === "/api/feedbacks/5") {
+      if ((init?.method ?? "GET") === "PUT" && url === "/api/v1/feedbacks/5") {
         return Promise.resolve(jsonResponse(403, { error: "forbidden", message: "no" }));
       }
       return Promise.resolve(jsonResponse(200, FEEDBACK));
@@ -174,7 +174,7 @@ describe("EditFeedback page", () => {
 
   test("Save & send PUTs status SENT", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
-      if ((init?.method ?? "GET") === "PUT" && url === "/api/feedbacks/5") {
+      if ((init?.method ?? "GET") === "PUT" && url === "/api/v1/feedbacks/5") {
         return Promise.resolve(new Response(null, { status: 204 }));
       }
       return Promise.resolve(jsonResponse(200, FEEDBACK));
@@ -188,7 +188,7 @@ describe("EditFeedback page", () => {
     await waitFor(() => {
       const put = mockFetch.mock.calls.find(
         ([url, init]) =>
-          url === "/api/feedbacks/5" && (init as RequestInit | undefined)?.method === "PUT",
+          url === "/api/v1/feedbacks/5" && (init as RequestInit | undefined)?.method === "PUT",
       );
       expect(put).toBeDefined();
       expect(JSON.parse((put![1] as RequestInit).body as string).status).toBe("SENT");
@@ -241,7 +241,7 @@ describe("EditFeedback page", () => {
   test("Accept PUTs DRAFT and reloads in place as the editor", async () => {
     let accepted = false;
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
-      if ((init?.method ?? "GET") === "PUT" && url === "/api/feedbacks/5") {
+      if ((init?.method ?? "GET") === "PUT" && url === "/api/v1/feedbacks/5") {
         accepted = true;
         return Promise.resolve(new Response(null, { status: 204 }));
       }
@@ -258,14 +258,14 @@ describe("EditFeedback page", () => {
     expect(screen.queryByTestId("probe")).toBeNull();
 
     const put = mockFetch.mock.calls.find(
-      ([url, init]) => url === "/api/feedbacks/5" && (init as RequestInit | undefined)?.method === "PUT",
+      ([url, init]) => url === "/api/v1/feedbacks/5" && (init as RequestInit | undefined)?.method === "PUT",
     );
     expect(JSON.parse((put![1] as RequestInit).body as string).status).toBe("DRAFT");
   });
 
   test("Reject → confirm → PUTs REJECTED and returns to the provided tab", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
-      if ((init?.method ?? "GET") === "PUT" && url === "/api/feedbacks/5") {
+      if ((init?.method ?? "GET") === "PUT" && url === "/api/v1/feedbacks/5") {
         return Promise.resolve(new Response(null, { status: 204 }));
       }
       return Promise.resolve(jsonResponse(200, REQUESTED_FEEDBACK));
@@ -280,7 +280,7 @@ describe("EditFeedback page", () => {
 
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/feedback?tab=provided"));
     const put = mockFetch.mock.calls.find(
-      ([url, init]) => url === "/api/feedbacks/5" && (init as RequestInit | undefined)?.method === "PUT",
+      ([url, init]) => url === "/api/v1/feedbacks/5" && (init as RequestInit | undefined)?.method === "PUT",
     );
     expect(JSON.parse((put![1] as RequestInit).body as string).status).toBe("REJECTED");
   });

@@ -8,6 +8,7 @@ import ch.nokillswit.authz.requireFeedbackReadAllowingManager
 import ch.nokillswit.authz.requireFeedbackWrite
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.notifications.NotificationServiceKey
+import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
@@ -28,7 +29,7 @@ import io.r2dbc.spi.R2dbcException
 import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 
 @Serializable
-@Resource("/api/feedbacks")
+@Resource("/api/v1/feedbacks")
 class Feedbacks {
     @Serializable
     @Resource("{id}")
@@ -142,7 +143,7 @@ fun Application.configureFeedbackRoutes() {
                 val caller = call.caller()
                 val feedback = feedbackService.read(route.id)
                 if (feedback == null) {
-                    call.respond(HttpStatusCode.NotFound)
+                    call.respondProblem(HttpStatusCode.NotFound, "Feedback not found")
                     return@get
                 }
                 requireFeedbackReadAllowingManager(caller, feedback) {
@@ -162,7 +163,7 @@ fun Application.configureFeedbackRoutes() {
                 val caller = call.caller()
                 val existing = feedbackService.read(route.id)
                 if (existing == null) {
-                    call.respond(HttpStatusCode.NotFound)
+                    call.respondProblem(HttpStatusCode.NotFound, "Feedback not found")
                     return@put
                 }
                 requireFeedbackWrite(caller, existing)
@@ -189,7 +190,7 @@ fun Application.configureFeedbackRoutes() {
                 val feedbackId = route.parent.id
                 val feedback = feedbackService.read(feedbackId)
                 if (feedback == null) {
-                    call.respond(HttpStatusCode.NotFound)
+                    call.respondProblem(HttpStatusCode.NotFound, "Feedback not found")
                     return@get
                 }
                 // Whoever may read the feedback may read its history.
@@ -205,7 +206,7 @@ fun Application.configureFeedbackRoutes() {
                 val caller = call.caller()
                 val existing = feedbackService.read(route.id)
                 if (existing == null) {
-                    call.respond(HttpStatusCode.NoContent)
+                    call.respondProblem(HttpStatusCode.NotFound, "Feedback not found")
                     return@delete
                 }
                 requireFeedbackWrite(caller, existing)

@@ -32,7 +32,7 @@ function emptyFeedbacksPage(): Response {
 function mockApi(mockFetch: FetchMock, managedTeams: number) {
   mockFetch.mockImplementation((url: string) =>
     Promise.resolve(
-      String(url).startsWith("/api/feedbacks") ? emptyFeedbacksPage() : teamsPage(managedTeams),
+      String(url).startsWith("/api/v1/feedbacks") ? emptyFeedbacksPage() : teamsPage(managedTeams),
     ),
   );
 }
@@ -87,7 +87,7 @@ describe("Feedback page", () => {
 
     await waitFor(() =>
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringMatching(/\/api\/teams\?.*managerId=7/),
+        expect.stringMatching(/\/api\/v1\/teams\?.*managerId=7/),
         expect.any(Object),
       ),
     );

@@ -68,11 +68,11 @@ describe("EditTeam page", () => {
   test("pre-fills the form, PUTs edits (preserving members) and redirects to /teams", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      if (method === "PUT" && url === "/api/teams/2") {
+      if (method === "PUT" && url === "/api/v1/teams/2") {
         return Promise.resolve(new Response(null, { status: 204 }));
       }
-      if (url === "/api/teams/2") return Promise.resolve(jsonResponse(200, TEAM));
-      if (url.startsWith("/api/users?")) return Promise.resolve(jsonResponse(200, MANAGER_POOL));
+      if (url === "/api/v1/teams/2") return Promise.resolve(jsonResponse(200, TEAM));
+      if (url.startsWith("/api/v1/users?")) return Promise.resolve(jsonResponse(200, MANAGER_POOL));
       return Promise.resolve(jsonResponse(404, {}));
     });
     const user = userEvent.setup();
@@ -88,7 +88,7 @@ describe("EditTeam page", () => {
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/teams"));
 
     const putCall = mockFetch.mock.calls.find(
-      ([u, init]) => (init as RequestInit | undefined)?.method === "PUT" && u === "/api/teams/2",
+      ([u, init]) => (init as RequestInit | undefined)?.method === "PUT" && u === "/api/v1/teams/2",
     );
     expect(putCall).toBeDefined();
     expect(JSON.parse((putCall![1] as RequestInit).body as string)).toEqual({
@@ -100,10 +100,10 @@ describe("EditTeam page", () => {
 
   test("404 on GET shows a 'Team not found' alert with a back link", async () => {
     mockFetch.mockImplementation((url: string) => {
-      if (url === "/api/teams/2") {
+      if (url === "/api/v1/teams/2") {
         return Promise.resolve(jsonResponse(404, { error: "not_found", message: "missing" }));
       }
-      if (url.startsWith("/api/users?")) return Promise.resolve(jsonResponse(200, MANAGER_POOL));
+      if (url.startsWith("/api/v1/users?")) return Promise.resolve(jsonResponse(200, MANAGER_POOL));
       return Promise.resolve(jsonResponse(404, {}));
     });
     renderEditTeam(2);

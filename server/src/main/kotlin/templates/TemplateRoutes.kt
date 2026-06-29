@@ -3,6 +3,7 @@ package ch.nokillswit.templates
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAdmin
 import ch.nokillswit.infra.paging.parsePaging
+import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
@@ -20,7 +21,7 @@ import io.ktor.server.routing.routing
 import kotlinx.serialization.Serializable
 
 @Serializable
-@Resource("/api/templates")
+@Resource("/api/v1/templates")
 class Templates {
     @Serializable
     @Resource("{id}")
@@ -60,7 +61,7 @@ fun Application.configureTemplateRoutes() {
                 call.caller()
                 val template = templateService.read(route.id)
                 if (template == null) {
-                    call.respond(HttpStatusCode.NotFound)
+                    call.respondProblem(HttpStatusCode.NotFound, "Template not found")
                     return@get
                 }
                 call.respond(HttpStatusCode.OK, template.toResponse(route.id))
@@ -69,7 +70,7 @@ fun Application.configureTemplateRoutes() {
                 requireAdmin(call.caller())
                 val existing = templateService.read(route.id)
                 if (existing == null) {
-                    call.respond(HttpStatusCode.NotFound)
+                    call.respondProblem(HttpStatusCode.NotFound, "Template not found")
                     return@put
                 }
                 val template = call.receive<Template>()
@@ -78,8 +79,11 @@ fun Application.configureTemplateRoutes() {
             }
             delete<Templates.Id> { route ->
                 requireAdmin(call.caller())
-                templateService.delete(route.id)
-                call.respond(HttpStatusCode.NoContent)
+                if (templateService.delete(route.id) == 0) {
+                    call.respondProblem(HttpStatusCode.NotFound, "Template not found")
+                } else {
+                    call.respond(HttpStatusCode.NoContent)
+                }
             }
         }
     }

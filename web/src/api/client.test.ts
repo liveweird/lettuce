@@ -79,10 +79,12 @@ describe("login", () => {
   });
 
   test("throws ApiError carrying status and body on failure", async () => {
-    mockFetch.mockResolvedValue(jsonResponse(401, { error: "unauthorized", message: "no" }));
+    mockFetch.mockResolvedValue(
+      jsonResponse(401, { type: "about:blank", title: "Unauthorized", status: 401, detail: "no" }),
+    );
     await expect(login({ email: "a@b", password: "bad" })).rejects.toMatchObject({
       status: 401,
-      body: { error: "unauthorized", message: "no" },
+      body: { type: "about:blank", title: "Unauthorized", status: 401, detail: "no" },
     });
     expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
   });
@@ -98,7 +100,7 @@ describe("logout", () => {
     await logout();
 
     const [url, init] = mockFetch.mock.calls[0];
-    expect(url).toContain("/api/logout");
+    expect(url).toContain("/api/v1/logout");
     expect((init as RequestInit).method).toBe("POST");
     expect(new Headers((init as RequestInit).headers).get("Authorization")).toBe("Bearer jwt-123");
     expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
@@ -117,7 +119,7 @@ describe("authedFetch", () => {
     localStorage.setItem(TOKEN_KEY, "jwt-123");
     mockFetch.mockResolvedValue(jsonResponse(200, {}));
 
-    await authedFetch("/api/users/1", { method: "PUT", body: JSON.stringify({ name: "x" }) });
+    await authedFetch("/api/v1/users/1", { method: "PUT", body: JSON.stringify({ name: "x" }) });
 
     const [, init] = mockFetch.mock.calls[0];
     const headers = new Headers((init as RequestInit).headers);
@@ -128,9 +130,9 @@ describe("authedFetch", () => {
   test("clears the session on a 401 response", async () => {
     localStorage.setItem(TOKEN_KEY, "jwt-123");
     localStorage.setItem(ROLE_KEY, "ADMIN");
-    mockFetch.mockResolvedValue(jsonResponse(401, { error: "unauthorized" }));
+    mockFetch.mockResolvedValue(jsonResponse(401, { title: "Unauthorized", status: 401 }));
 
-    const res = await authedFetch("/api/users");
+    const res = await authedFetch("/api/v1/users");
     expect(res.status).toBe(401);
     expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
     expect(localStorage.getItem(ROLE_KEY)).toBeNull();
@@ -138,7 +140,7 @@ describe("authedFetch", () => {
 
   test("omits the Authorization header when no token is stored", async () => {
     mockFetch.mockResolvedValue(jsonResponse(200, {}));
-    await authedFetch("/api/users");
+    await authedFetch("/api/v1/users");
     const [, init] = mockFetch.mock.calls[0];
     expect(new Headers((init as RequestInit).headers).has("Authorization")).toBe(false);
   });

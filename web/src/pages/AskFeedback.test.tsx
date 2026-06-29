@@ -82,7 +82,7 @@ describe("AskFeedback page", () => {
 
   test("submits a REQUESTED feedback with self as subject+requester and returns to managers", async () => {
     mockFetch.mockImplementation((url: string) =>
-      Promise.resolve(url === "/api/feedbacks" ? jsonResponse(201, { id: 99 }) : jsonResponse(404, {})),
+      Promise.resolve(url === "/api/v1/feedbacks" ? jsonResponse(201, { id: 99 }) : jsonResponse(404, {})),
     );
     const user = userEvent.setup();
     renderAskFeedback();
@@ -90,7 +90,7 @@ describe("AskFeedback page", () => {
     await user.click(screen.getByRole("button", { name: /send request/i }));
 
     const postCall = mockFetch.mock.calls.find(
-      ([url, init]) => url === "/api/feedbacks" && (init as RequestInit | undefined)?.method === "POST",
+      ([url, init]) => url === "/api/v1/feedbacks" && (init as RequestInit | undefined)?.method === "POST",
     );
     expect(postCall).toBeDefined();
     expect(JSON.parse((postCall![1] as RequestInit).body as string)).toEqual({
@@ -107,7 +107,7 @@ describe("AskFeedback page", () => {
 
   test("honors an explicit back param on submit and discard", async () => {
     mockFetch.mockImplementation((url: string) =>
-      Promise.resolve(url === "/api/feedbacks" ? jsonResponse(201, { id: 99 }) : jsonResponse(404, {})),
+      Promise.resolve(url === "/api/v1/feedbacks" ? jsonResponse(201, { id: 99 }) : jsonResponse(404, {})),
     );
     const user = userEvent.setup();
     // back = "/?tab=peers", url-encoded
@@ -132,7 +132,7 @@ describe("AskFeedback page", () => {
 
   test("shows a permission error when the request is forbidden", async () => {
     mockFetch.mockImplementation((url: string) =>
-      Promise.resolve(url === "/api/feedbacks" ? jsonResponse(403, {}) : jsonResponse(404, {})),
+      Promise.resolve(url === "/api/v1/feedbacks" ? jsonResponse(403, {}) : jsonResponse(404, {})),
     );
     const user = userEvent.setup();
     renderAskFeedback();
@@ -147,7 +147,7 @@ describe("AskFeedback page", () => {
     const user = userEvent.setup();
 
     mockFetch.mockImplementation((url: string) =>
-      Promise.resolve(url === "/api/feedbacks" ? jsonResponse(400, {}) : jsonResponse(404, {})),
+      Promise.resolve(url === "/api/v1/feedbacks" ? jsonResponse(400, {}) : jsonResponse(404, {})),
     );
     const first = renderAskFeedback();
     await user.click(screen.getByRole("button", { name: /send request/i }));
@@ -155,7 +155,7 @@ describe("AskFeedback page", () => {
     first.unmount();
 
     mockFetch.mockImplementation((url: string) =>
-      Promise.resolve(url === "/api/feedbacks" ? jsonResponse(500, {}) : jsonResponse(404, {})),
+      Promise.resolve(url === "/api/v1/feedbacks" ? jsonResponse(500, {}) : jsonResponse(404, {})),
     );
     renderAskFeedback();
     await user.click(screen.getByRole("button", { name: /send request/i }));

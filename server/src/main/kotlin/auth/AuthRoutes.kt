@@ -1,5 +1,6 @@
 package ch.nokillswit.auth
 
+import ch.nokillswit.authz.UnauthorizedException
 import ch.nokillswit.plugins.JwtConfigKey
 import ch.nokillswit.users.UserRole
 import ch.nokillswit.users.UserServiceKey
@@ -51,12 +52,11 @@ fun Application.configureAuthRoutes() {
 
     routing {
         rateLimit(RateLimitName(LOGIN_RATE_LIMIT)) {
-            post("/api/login") {
+            post("/api/v1/login") {
                 val req = call.receive<LoginRequest>()
                 val record = userService.findWithIdByEmail(req.email)
                 if (record == null || !verifyPassword(req.password, record.second.passwordHash)) {
-                    call.respond(HttpStatusCode.Unauthorized)
-                    return@post
+                    throw UnauthorizedException("Unknown email or wrong password")
                 }
                 val (userId, user) = record
                 val expiresAt = System.currentTimeMillis() + jwtConfig.expiresInSeconds * 1000
@@ -73,7 +73,7 @@ fun Application.configureAuthRoutes() {
             }
         }
         authenticate {
-            post("/api/logout") {
+            post("/api/v1/logout") {
                 val principal = call.principal<JWTPrincipal>()!!
                 val jti = principal.payload.id
                 val exp = principal.payload.expiresAt?.time ?: System.currentTimeMillis()

@@ -38,11 +38,11 @@ function clearSession(): void {
   localStorage.removeItem(USER_ID_KEY);
 }
 
-type LoginBody = paths["/api/login"]["post"]["requestBody"]["content"]["application/json"];
-type LoginOk = paths["/api/login"]["post"]["responses"]["200"]["content"]["application/json"];
+type LoginBody = paths["/api/v1/login"]["post"]["requestBody"]["content"]["application/json"];
+type LoginOk = paths["/api/v1/login"]["post"]["responses"]["200"]["content"]["application/json"];
 
 export async function login(credentials: LoginBody): Promise<LoginOk> {
-  const res = await fetch(`${API_BASE}/api/login`, {
+  const res = await fetch(`${API_BASE}/api/v1/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(credentials),
@@ -58,14 +58,14 @@ export async function login(credentials: LoginBody): Promise<LoginOk> {
 export async function logout(): Promise<void> {
   const token = getToken();
   if (!token) return;
-  await fetch(`${API_BASE}/api/logout`, {
+  await fetch(`${API_BASE}/api/v1/logout`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
   });
   clearSession();
 }
 
-export type UserPage = paths["/api/users"]["get"]["responses"]["200"]["content"]["application/json"];
+export type UserPage = paths["/api/v1/users"]["get"]["responses"]["200"]["content"]["application/json"];
 
 export type UserListQuery = {
   page: number;
@@ -77,21 +77,21 @@ export type UserListQuery = {
   teamId?: number;
 };
 
-export type CurrentUser = paths["/api/users/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
+export type CurrentUser = paths["/api/v1/users/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
 
 export async function getCurrentUser(): Promise<CurrentUser> {
   const id = getUserId();
   if (id === null) throw new ApiError(401, null);
-  const res = await authedFetch(`/api/users/${id}`);
+  const res = await authedFetch(`/api/v1/users/${id}`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json()) as CurrentUser;
 }
 
-export type CreateUserBody = paths["/api/users"]["post"]["requestBody"]["content"]["application/json"];
-export type CreateUserResponse = paths["/api/users"]["post"]["responses"]["201"]["content"]["application/json"];
+export type CreateUserBody = paths["/api/v1/users"]["post"]["requestBody"]["content"]["application/json"];
+export type CreateUserResponse = paths["/api/v1/users"]["post"]["responses"]["201"]["content"]["application/json"];
 
 export async function createUser(req: CreateUserBody): Promise<CreateUserResponse> {
-  const res = await authedFetch("/api/users", {
+  const res = await authedFetch("/api/v1/users", {
     method: "POST",
     body: JSON.stringify(req),
   });
@@ -100,27 +100,27 @@ export async function createUser(req: CreateUserBody): Promise<CreateUserRespons
 }
 
 export type UpdateUserBody =
-  paths["/api/users/{id}"]["put"]["requestBody"]["content"]["application/json"];
+  paths["/api/v1/users/{id}"]["patch"]["requestBody"]["content"]["application/json"];
 
 export async function getUser(id: number): Promise<CurrentUser> {
-  const res = await authedFetch(`/api/users/${id}`);
+  const res = await authedFetch(`/api/v1/users/${id}`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json()) as CurrentUser;
 }
 
 export async function updateUser(id: number, body: UpdateUserBody): Promise<void> {
-  const res = await authedFetch(`/api/users/${id}`, {
-    method: "PUT",
+  const res = await authedFetch(`/api/v1/users/${id}`, {
+    method: "PATCH",
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
 export type ChangePasswordBody =
-  paths["/api/users/{id}/password"]["put"]["requestBody"]["content"]["application/json"];
+  paths["/api/v1/users/{id}/password"]["put"]["requestBody"]["content"]["application/json"];
 
 export async function changeUserPassword(id: number, body: ChangePasswordBody): Promise<void> {
-  const res = await authedFetch(`/api/users/${id}/password`, {
+  const res = await authedFetch(`/api/v1/users/${id}/password`, {
     method: "PUT",
     body: JSON.stringify(body),
   });
@@ -128,7 +128,7 @@ export async function changeUserPassword(id: number, body: ChangePasswordBody): 
 }
 
 export async function deleteUser(id: number): Promise<void> {
-  const res = await authedFetch(`/api/users/${id}`, { method: "DELETE" });
+  const res = await authedFetch(`/api/v1/users/${id}`, { method: "DELETE" });
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
@@ -141,12 +141,12 @@ export async function listUsers(q: UserListQuery): Promise<UserPage> {
   if (q.email) params.set("email", q.email);
   if (q.role) params.set("role", q.role);
   if (q.teamId != null) params.set("teamId", String(q.teamId));
-  const res = await authedFetch(`/api/users?${params.toString()}`);
+  const res = await authedFetch(`/api/v1/users?${params.toString()}`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json()) as UserPage;
 }
 
-export type TeamPage = paths["/api/teams"]["get"]["responses"]["200"]["content"]["application/json"];
+export type TeamPage = paths["/api/v1/teams"]["get"]["responses"]["200"]["content"]["application/json"];
 
 export type TeamListQuery = {
   page: number;
@@ -158,12 +158,12 @@ export type TeamListQuery = {
 };
 
 export type CreateTeamBody =
-  paths["/api/teams"]["post"]["requestBody"]["content"]["application/json"];
+  paths["/api/v1/teams"]["post"]["requestBody"]["content"]["application/json"];
 export type CreateTeamResponse =
-  paths["/api/teams"]["post"]["responses"]["201"]["content"]["application/json"];
+  paths["/api/v1/teams"]["post"]["responses"]["201"]["content"]["application/json"];
 
 export async function createTeam(req: CreateTeamBody): Promise<CreateTeamResponse> {
-  const res = await authedFetch("/api/teams", {
+  const res = await authedFetch("/api/v1/teams", {
     method: "POST",
     body: JSON.stringify(req),
   });
@@ -172,23 +172,23 @@ export async function createTeam(req: CreateTeamBody): Promise<CreateTeamRespons
 }
 
 export async function deleteTeam(id: number): Promise<void> {
-  const res = await authedFetch(`/api/teams/${id}`, { method: "DELETE" });
+  const res = await authedFetch(`/api/v1/teams/${id}`, { method: "DELETE" });
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
 export type TeamResponse =
-  paths["/api/teams/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
+  paths["/api/v1/teams/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
 export type UpdateTeamBody =
-  paths["/api/teams/{id}"]["put"]["requestBody"]["content"]["application/json"];
+  paths["/api/v1/teams/{id}"]["put"]["requestBody"]["content"]["application/json"];
 
 export async function getTeam(id: number): Promise<TeamResponse> {
-  const res = await authedFetch(`/api/teams/${id}`);
+  const res = await authedFetch(`/api/v1/teams/${id}`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json()) as TeamResponse;
 }
 
 export async function updateTeam(id: number, body: UpdateTeamBody): Promise<void> {
-  const res = await authedFetch(`/api/teams/${id}`, {
+  const res = await authedFetch(`/api/v1/teams/${id}`, {
     method: "PUT",
     body: JSON.stringify(body),
   });
@@ -203,23 +203,23 @@ export async function listTeams(q: TeamListQuery): Promise<TeamPage> {
   if (q.name) params.set("name", q.name);
   if (q.managerId != null) params.set("managerId", String(q.managerId));
   if (q.memberId != null) params.set("memberId", String(q.memberId));
-  const res = await authedFetch(`/api/teams?${params.toString()}`);
+  const res = await authedFetch(`/api/v1/teams?${params.toString()}`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json()) as TeamPage;
 }
 
 export async function addTeamMember(teamId: number, userId: number): Promise<void> {
-  const res = await authedFetch(`/api/teams/${teamId}/members/${userId}`, { method: "PUT" });
+  const res = await authedFetch(`/api/v1/teams/${teamId}/members/${userId}`, { method: "PUT" });
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
 export async function removeTeamMember(teamId: number, userId: number): Promise<void> {
-  const res = await authedFetch(`/api/teams/${teamId}/members/${userId}`, { method: "DELETE" });
+  const res = await authedFetch(`/api/v1/teams/${teamId}/members/${userId}`, { method: "DELETE" });
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
 export type TeamMemberPage =
-  paths["/api/teams/members"]["get"]["responses"]["200"]["content"]["application/json"];
+  paths["/api/v1/teams/members"]["get"]["responses"]["200"]["content"]["application/json"];
 
 export type TeamMemberListView = "member" | "managed" | "managers";
 
@@ -242,7 +242,7 @@ export async function listTeamMembers(q: TeamMemberListQuery): Promise<TeamMembe
   if (q.name) params.set("name", q.name);
   if (q.email) params.set("email", q.email);
   if (q.teamId != null) params.set("teamId", String(q.teamId));
-  const res = await authedFetch(`/api/teams/members?${params.toString()}`);
+  const res = await authedFetch(`/api/v1/teams/members?${params.toString()}`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json()) as TeamMemberPage;
 }
@@ -259,7 +259,7 @@ export async function listAllTeams(): Promise<TeamPage["items"]> {
 }
 
 export type FeedbackPage =
-  paths["/api/feedbacks"]["get"]["responses"]["200"]["content"]["application/json"];
+  paths["/api/v1/feedbacks"]["get"]["responses"]["200"]["content"]["application/json"];
 
 export type FeedbackVisibility =
   | "PROVIDER_SUBJECT"
@@ -299,18 +299,18 @@ export async function listFeedbacks(q: FeedbackListQuery): Promise<FeedbackPage>
   if (q.visibility) params.set("visibility", q.visibility);
   if (q.status) params.set("status", q.status);
   if (q.lastModifiedGte != null) params.set("lastModified[gte]", String(q.lastModifiedGte));
-  const res = await authedFetch(`/api/feedbacks?${params.toString()}`);
+  const res = await authedFetch(`/api/v1/feedbacks?${params.toString()}`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json()) as FeedbackPage;
 }
 
 export type CreateFeedbackBody =
-  paths["/api/feedbacks"]["post"]["requestBody"]["content"]["application/json"];
+  paths["/api/v1/feedbacks"]["post"]["requestBody"]["content"]["application/json"];
 export type CreateFeedbackResponse =
-  paths["/api/feedbacks"]["post"]["responses"]["201"]["content"]["application/json"];
+  paths["/api/v1/feedbacks"]["post"]["responses"]["201"]["content"]["application/json"];
 
 export async function createFeedback(req: CreateFeedbackBody): Promise<CreateFeedbackResponse> {
-  const res = await authedFetch("/api/feedbacks", {
+  const res = await authedFetch("/api/v1/feedbacks", {
     method: "POST",
     body: JSON.stringify(req),
   });
@@ -319,18 +319,18 @@ export async function createFeedback(req: CreateFeedbackBody): Promise<CreateFee
 }
 
 export type FeedbackResponse =
-  paths["/api/feedbacks/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
+  paths["/api/v1/feedbacks/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
 export type UpdateFeedbackBody =
-  paths["/api/feedbacks/{id}"]["put"]["requestBody"]["content"]["application/json"];
+  paths["/api/v1/feedbacks/{id}"]["put"]["requestBody"]["content"]["application/json"];
 
 export async function getFeedback(id: number): Promise<FeedbackResponse> {
-  const res = await authedFetch(`/api/feedbacks/${id}`);
+  const res = await authedFetch(`/api/v1/feedbacks/${id}`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json()) as FeedbackResponse;
 }
 
 export async function updateFeedback(id: number, body: UpdateFeedbackBody): Promise<void> {
-  const res = await authedFetch(`/api/feedbacks/${id}`, {
+  const res = await authedFetch(`/api/v1/feedbacks/${id}`, {
     method: "PUT",
     body: JSON.stringify(body),
   });
@@ -338,17 +338,17 @@ export async function updateFeedback(id: number, body: UpdateFeedbackBody): Prom
 }
 
 export type FeedbackEventList =
-  paths["/api/feedbacks/{id}/events"]["get"]["responses"]["200"]["content"]["application/json"];
+  paths["/api/v1/feedbacks/{id}/events"]["get"]["responses"]["200"]["content"]["application/json"];
 export type FeedbackEvent = FeedbackEventList["items"][number];
 
 export async function listFeedbackEvents(id: number): Promise<FeedbackEvent[]> {
-  const res = await authedFetch(`/api/feedbacks/${id}/events`);
+  const res = await authedFetch(`/api/v1/feedbacks/${id}/events`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json() as FeedbackEventList).items;
 }
 
 export type TemplatePage =
-  paths["/api/templates"]["get"]["responses"]["200"]["content"]["application/json"];
+  paths["/api/v1/templates"]["get"]["responses"]["200"]["content"]["application/json"];
 
 export type TemplateListQuery = {
   page: number;
@@ -363,18 +363,18 @@ export async function listTemplates(q: TemplateListQuery): Promise<TemplatePage>
   params.set("pageSize", String(q.pageSize));
   if (q.sort) params.set("sort", q.sort);
   if (q.name) params.set("name", q.name);
-  const res = await authedFetch(`/api/templates?${params.toString()}`);
+  const res = await authedFetch(`/api/v1/templates?${params.toString()}`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json()) as TemplatePage;
 }
 
 export type CreateTemplateBody =
-  paths["/api/templates"]["post"]["requestBody"]["content"]["application/json"];
+  paths["/api/v1/templates"]["post"]["requestBody"]["content"]["application/json"];
 export type CreateTemplateResponse =
-  paths["/api/templates"]["post"]["responses"]["201"]["content"]["application/json"];
+  paths["/api/v1/templates"]["post"]["responses"]["201"]["content"]["application/json"];
 
 export async function createTemplate(req: CreateTemplateBody): Promise<CreateTemplateResponse> {
-  const res = await authedFetch("/api/templates", {
+  const res = await authedFetch("/api/v1/templates", {
     method: "POST",
     body: JSON.stringify(req),
   });
@@ -383,18 +383,18 @@ export async function createTemplate(req: CreateTemplateBody): Promise<CreateTem
 }
 
 export type TemplateResponse =
-  paths["/api/templates/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
+  paths["/api/v1/templates/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
 export type UpdateTemplateBody =
-  paths["/api/templates/{id}"]["put"]["requestBody"]["content"]["application/json"];
+  paths["/api/v1/templates/{id}"]["put"]["requestBody"]["content"]["application/json"];
 
 export async function getTemplate(id: number): Promise<TemplateResponse> {
-  const res = await authedFetch(`/api/templates/${id}`);
+  const res = await authedFetch(`/api/v1/templates/${id}`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json()) as TemplateResponse;
 }
 
 export async function updateTemplate(id: number, body: UpdateTemplateBody): Promise<void> {
-  const res = await authedFetch(`/api/templates/${id}`, {
+  const res = await authedFetch(`/api/v1/templates/${id}`, {
     method: "PUT",
     body: JSON.stringify(body),
   });
@@ -402,12 +402,12 @@ export async function updateTemplate(id: number, body: UpdateTemplateBody): Prom
 }
 
 export async function deleteTemplate(id: number): Promise<void> {
-  const res = await authedFetch(`/api/templates/${id}`, { method: "DELETE" });
+  const res = await authedFetch(`/api/v1/templates/${id}`, { method: "DELETE" });
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
 export type NotificationPage =
-  paths["/api/notifications"]["get"]["responses"]["200"]["content"]["application/json"];
+  paths["/api/v1/notifications"]["get"]["responses"]["200"]["content"]["application/json"];
 export type NotificationItem = NotificationPage["items"][number];
 
 export type NotificationListQuery = {
@@ -423,18 +423,18 @@ export async function listNotifications(q: NotificationListQuery): Promise<Notif
   params.set("pageSize", String(q.pageSize));
   if (q.sort) params.set("sort", q.sort);
   if (q.wasSeen != null) params.set("wasSeen", String(q.wasSeen));
-  const res = await authedFetch(`/api/notifications?${params.toString()}`);
+  const res = await authedFetch(`/api/v1/notifications?${params.toString()}`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json()) as NotificationPage;
 }
 
 export async function markNotificationSeen(id: number): Promise<void> {
-  const res = await authedFetch(`/api/notifications/${id}/seen`, { method: "POST" });
+  const res = await authedFetch(`/api/v1/notifications/${id}/seen`, { method: "POST" });
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
 export async function markNotificationUnseen(id: number): Promise<void> {
-  const res = await authedFetch(`/api/notifications/${id}/unseen`, { method: "POST" });
+  const res = await authedFetch(`/api/v1/notifications/${id}/unseen`, { method: "POST" });
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 

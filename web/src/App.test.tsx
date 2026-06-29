@@ -115,7 +115,7 @@ describe("App shell", () => {
 
       expect(await screen.findByText("Alice")).toBeInTheDocument();
       expect(mockFetch).toHaveBeenCalledWith(
-        "/api/users/7",
+        "/api/v1/users/7",
         expect.any(Object),
       );
     });

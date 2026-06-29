@@ -46,13 +46,13 @@ function setupMocks(mockFetch: FetchMock, list: Item[] = [UNSEEN, SEEN], unreadT
   mockFetch.mockImplementation((url: string, init?: RequestInit) => {
     const u = String(url);
     const method = init?.method ?? "GET";
-    if (method === "POST" && /\/api\/notifications\/\d+\/(seen|unseen)$/.test(u)) {
+    if (method === "POST" && /\/api\/v1\/notifications\/\d+\/(seen|unseen)$/.test(u)) {
       return Promise.resolve(new Response(null, { status: 204 }));
     }
-    if (u.startsWith("/api/notifications") && u.includes("wasSeen=false")) {
+    if (u.startsWith("/api/v1/notifications") && u.includes("wasSeen=false")) {
       return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 1, total: unreadTotal }));
     }
-    if (u.startsWith("/api/notifications")) {
+    if (u.startsWith("/api/v1/notifications")) {
       return Promise.resolve(jsonResponse(200, { items: list, page: 1, pageSize: 50, total: list.length }));
     }
     return Promise.resolve(jsonResponse(404, {}));
@@ -126,7 +126,7 @@ describe("NotificationsButton", () => {
       expect(
         mockFetch.mock.calls.some(
           ([url, init]) =>
-            String(url) === "/api/notifications/1/seen" && (init as RequestInit)?.method === "POST",
+            String(url) === "/api/v1/notifications/1/seen" && (init as RequestInit)?.method === "POST",
         ),
       ).toBe(true);
     });
@@ -144,7 +144,7 @@ describe("NotificationsButton", () => {
       expect(
         mockFetch.mock.calls.some(
           ([url, init]) =>
-            String(url) === `/api/notifications/${SEEN.id}/unseen` &&
+            String(url) === `/api/v1/notifications/${SEEN.id}/unseen` &&
             (init as RequestInit)?.method === "POST",
         ),
       ).toBe(true);

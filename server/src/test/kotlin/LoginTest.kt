@@ -37,7 +37,7 @@ class LoginTest {
         TestUsers.seed(email = email, password = "correct-horse")
 
         val before = System.currentTimeMillis()
-        val response = jsonClient().post("/api/login") {
+        val response = jsonClient().post("/api/v1/login") {
             contentType(ContentType.Application.Json)
             setBody(LoginRequest(email, "correct-horse"))
         }
@@ -54,7 +54,7 @@ class LoginTest {
         val email = uniqueEmail("bob")
         TestUsers.seed(email = email, password = "pw")
 
-        val token = jsonClient().post("/api/login") {
+        val token = jsonClient().post("/api/v1/login") {
             contentType(ContentType.Application.Json)
             setBody(LoginRequest(email, "pw"))
         }.body<LoginResponse>().token
@@ -76,12 +76,12 @@ class LoginTest {
         val userId = TestUsers.seed(email = email, password = "pw")
 
         val client = jsonClient()
-        val token = client.post("/api/login") {
+        val token = client.post("/api/v1/login") {
             contentType(ContentType.Application.Json)
             setBody(LoginRequest(email, "pw"))
         }.body<LoginResponse>().token
 
-        val response = client.get("/api/users/$userId") {
+        val response = client.get("/api/v1/users/$userId") {
             header(HttpHeaders.Authorization, "Bearer $token")
         }
 
@@ -95,7 +95,7 @@ class LoginTest {
         val email = uniqueEmail("dave")
         TestUsers.seed(email = email, password = "right-pw")
 
-        val response = jsonClient().post("/api/login") {
+        val response = jsonClient().post("/api/v1/login") {
             contentType(ContentType.Application.Json)
             setBody(LoginRequest(email, "wrong-pw"))
         }
@@ -109,7 +109,7 @@ class LoginTest {
         val client = jsonClient()
         // The login route allows 10 attempts/min per host; the 11th is throttled before the handler.
         val statuses = (1..11).map {
-            client.post("/api/login") {
+            client.post("/api/v1/login") {
                 contentType(ContentType.Application.Json)
                 setBody(LoginRequest(uniqueEmail("brute"), "nope"))
             }.status
@@ -125,7 +125,7 @@ class LoginTest {
     fun `unknown email returns 401`() = testApplication {
         usePostgresTestcontainer()
 
-        val response = jsonClient().post("/api/login") {
+        val response = jsonClient().post("/api/v1/login") {
             contentType(ContentType.Application.Json)
             setBody(LoginRequest(uniqueEmail("ghost"), "anything"))
         }
@@ -151,7 +151,7 @@ class LoginTest {
         val userId = TestUsers.seed(email = email, password = "pw")
 
         val token = mintToken(secret = "wrong-secret")
-        val response = jsonClient().get("/api/users/$userId") {
+        val response = jsonClient().get("/api/v1/users/$userId") {
             header(HttpHeaders.Authorization, "Bearer $token")
         }
 
@@ -165,7 +165,7 @@ class LoginTest {
         val userId = TestUsers.seed(email = email, password = "pw")
 
         val token = mintToken(expiresAt = Date(System.currentTimeMillis() - 60_000))
-        val response = jsonClient().get("/api/users/$userId") {
+        val response = jsonClient().get("/api/v1/users/$userId") {
             header(HttpHeaders.Authorization, "Bearer $token")
         }
 
@@ -179,7 +179,7 @@ class LoginTest {
         val userId = TestUsers.seed(email = email, password = "pw")
 
         val token = mintToken(audience = "not-lettuce-api")
-        val response = jsonClient().get("/api/users/$userId") {
+        val response = jsonClient().get("/api/v1/users/$userId") {
             header(HttpHeaders.Authorization, "Bearer $token")
         }
 
@@ -190,7 +190,7 @@ class LoginTest {
     fun `missing Authorization header returns 401`() = testApplication {
         usePostgresTestcontainer()
 
-        val response = jsonClient().get("/api/users/1")
+        val response = jsonClient().get("/api/v1/users/1")
 
         assertEquals(HttpStatusCode.Unauthorized, response.status)
     }

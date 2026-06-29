@@ -34,12 +34,12 @@ const USER_POOL = [
 
 function setupMocks(mockFetch: FetchMock, onFeedbacks: (init?: RequestInit) => Response) {
   mockFetch.mockImplementation((url: string, init?: RequestInit) => {
-    if (url.startsWith("/api/users?")) {
+    if (url.startsWith("/api/v1/users?")) {
       return Promise.resolve(
         jsonResponse(200, { items: USER_POOL, page: 1, pageSize: 100, total: USER_POOL.length }),
       );
     }
-    if (url === "/api/feedbacks") return Promise.resolve(onFeedbacks(init));
+    if (url === "/api/v1/feedbacks") return Promise.resolve(onFeedbacks(init));
     return Promise.resolve(jsonResponse(404, {}));
   });
 }
@@ -156,7 +156,7 @@ describe("RequestFeedback page", () => {
       expect(screen.getByTestId("probe")).toHaveTextContent("/?tab=subordinates"),
     );
     const postCall = mockFetch.mock.calls.find(
-      ([url, init]) => url === "/api/feedbacks" && (init as RequestInit | undefined)?.method === "POST",
+      ([url, init]) => url === "/api/v1/feedbacks" && (init as RequestInit | undefined)?.method === "POST",
     );
     expect(postCall).toBeDefined();
     expect(JSON.parse((postCall![1] as RequestInit).body as string)).toEqual({
@@ -186,7 +186,7 @@ describe("RequestFeedback page", () => {
     await waitFor(() => {
       const postCall = mockFetch.mock.calls.find(
         ([url, init]) =>
-          url === "/api/feedbacks" && (init as RequestInit | undefined)?.method === "POST",
+          url === "/api/v1/feedbacks" && (init as RequestInit | undefined)?.method === "POST",
       );
       expect(postCall).toBeDefined();
       expect(JSON.parse((postCall![1] as RequestInit).body as string).visibility).toBe("PUBLIC");
@@ -219,12 +219,12 @@ describe("RequestFeedback page", () => {
 
   test("a network error shows a connection alert", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
-      if (url.startsWith("/api/users?")) {
+      if (url.startsWith("/api/v1/users?")) {
         return Promise.resolve(
           jsonResponse(200, { items: USER_POOL, page: 1, pageSize: 100, total: USER_POOL.length }),
         );
       }
-      if (url === "/api/feedbacks" && init?.method === "POST") {
+      if (url === "/api/v1/feedbacks" && init?.method === "POST") {
         return Promise.reject(new Error("network down"));
       }
       return Promise.resolve(jsonResponse(404, {}));

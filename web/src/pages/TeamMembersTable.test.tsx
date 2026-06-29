@@ -47,8 +47,8 @@ function teamsPage(): Response {
 function setupMocks(mockFetch: FetchMock, response: Response = membersPage(SEED_MEMBERS)) {
   mockFetch.mockImplementation((url: string) => {
     const path = String(url);
-    if (path.startsWith("/api/teams/members")) return Promise.resolve(response.clone());
-    if (path.startsWith("/api/teams")) return Promise.resolve(teamsPage());
+    if (path.startsWith("/api/v1/teams/members")) return Promise.resolve(response.clone());
+    if (path.startsWith("/api/v1/teams")) return Promise.resolve(teamsPage());
     return Promise.resolve(jsonResponse(404, {}));
   });
 }
@@ -56,7 +56,7 @@ function setupMocks(mockFetch: FetchMock, response: Response = membersPage(SEED_
 function memberUrls(mockFetch: FetchMock): string[] {
   return mockFetch.mock.calls
     .map(([url]) => String(url))
-    .filter((url) => url.startsWith("/api/teams/members"));
+    .filter((url) => url.startsWith("/api/v1/teams/members"));
 }
 
 describe("TeamMembersTable", () => {

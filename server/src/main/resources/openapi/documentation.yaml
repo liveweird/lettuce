@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: lettuce-api
-  version: 1.0.0-SNAPSHOT
+  version: 1.0.0
   description: |
     JWT-authenticated REST API for users, teams, and feedback exchange.
 
@@ -16,6 +16,10 @@ info:
     - Feedback access is derived from the `visibility` enum together with
       the caller's relationship to the row (subject / provider / requester).
       Only the provider (or ADMIN) may modify a feedback record.
+
+    All error responses use RFC 7807 `application/problem+json` (`ProblemDetail`).
+    Any endpoint may additionally return `500` (`InternalServerError`) on an
+    unexpected server fault.
 servers:
   - url: http://localhost:8080
     description: Local dev
@@ -32,9 +36,10 @@ tags:
   - name: notifications
 
 paths:
-  /api/login:
+  /api/v1/login:
     post:
       tags: [auth]
+      operationId: login
       summary: Exchange credentials for a JWT
       security: []
       requestBody:
@@ -50,22 +55,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LoginResponse'
-        '401':
-          description: Unknown email or wrong password
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
 
-  /api/logout:
+  /api/v1/logout:
     post:
       tags: [auth]
+      operationId: logout
       summary: Revoke the bearer token (server-side denylist)
       responses:
         '204':
           description: Token revoked
-        '401':
-          description: Missing or invalid token
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
 
-  /api/users:
+  /api/v1/users:
     get:
       tags: [users]
+      operationId: listUsers
       summary: List users
       description: |
         Any authenticated user may list. Supports offset pagination, sorting and filtering.
@@ -77,10 +85,9 @@ paths:
           - `email` — case-insensitive substring match against `email`.
           - `role` — exact match, `ADMIN` or `USER`.
           - `teamId` — restrict to users who are members of the given team.
-        - The `q` free-text param defined elsewhere is not used by this endpoint.
 
         Malformed query parameters (unknown sort field, unknown role, out-of-range page/pageSize)
-        respond with `400` and an `ApiError` body.
+        respond with `400` and a `ProblemDetail` body.
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
@@ -112,15 +119,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserPage'
-        '400':
-          description: Malformed query parameters
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
     post:
       tags: [users]
+      operationId: createUser
       summary: Create a user
       description: |
         Requires ADMIN. If the request body omits `role`, the new user defaults to `USER`.
@@ -141,20 +145,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserResponse'
-        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
-        '403': { description: Caller is not ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is not ADMIN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
         '409':
           description: Email already in use
           content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
 
-  /api/users/{id}:
+  /api/v1/users/{id}:
     parameters:
-      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/ResourceId'
     get:
       tags: [users]
+      operationId: getUser
       summary: Fetch a user by id
       description: Requires the caller to be the target user, or to be ADMIN.
       responses:
@@ -164,16 +174,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserResponse'
-        '401': { description: Missing or invalid token }
-        '403': { description: Caller is not the target user and not ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
-        '404': { description: Not found }
-    put:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is not the target user and not ADMIN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    patch:
       tags: [users]
-      summary: Update a user
+      operationId: patchUser
+      summary: Update a user (partial)
       description: |
-        Updates a user's `name`, `email`, and `role`. The password cannot be
-        changed via this endpoint and the existing password is preserved.
-        Requires the caller to be the target user, or to be ADMIN.
+        Partially updates a user's `name`, `email`, and `role`. This is a `PATCH`: the password
+        cannot be changed here (the existing password is preserved) and an omitted `role` keeps the
+        user's current role. Requires the caller to be the target user, or to be ADMIN.
         Only ADMIN may change a user's `role`; a non-ADMIN caller must either
         omit `role` or send the value the user already has, otherwise the request is rejected with 403.
       requestBody:
@@ -184,29 +200,41 @@ paths:
               $ref: '#/components/schemas/UserUpdateRequest'
       responses:
         '204': { description: Updated }
-        '401': { description: Missing or invalid token }
-        '403': { description: Caller is not the target user and not ADMIN, or attempted to escalate role, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
-        '404': { description: Not found }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is not the target user and not ADMIN, or attempted to escalate role
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: Email already in use by another user
           content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
     delete:
       tags: [users]
+      operationId: deleteUser
       summary: Delete a user
       description: Requires ADMIN.
       responses:
         '204': { description: Deleted }
-        '401': { description: Missing or invalid token }
-        '403': { description: Caller is not ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is not ADMIN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
 
-  /api/users/{id}/password:
+  /api/v1/users/{id}/password:
     parameters:
-      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/ResourceId'
     put:
       tags: [users]
+      operationId: changeUserPassword
       summary: Change a user's password
       description: |
         Sets a new password for the user. Only the password is changed; no other
@@ -219,13 +247,19 @@ paths:
               $ref: '#/components/schemas/PasswordUpdateRequest'
       responses:
         '204': { description: Password updated }
-        '401': { description: Missing or invalid token }
-        '403': { description: Caller is not the target user and not ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
-        '404': { description: Not found }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is not the target user and not ADMIN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
 
-  /api/teams:
+  /api/v1/teams:
     get:
       tags: [teams]
+      operationId: listTeams
       summary: List teams
       description: |
         Any authenticated user may list. Supports offset pagination, sorting, and filtering.
@@ -241,7 +275,7 @@ paths:
         does not need an N+1 lookup.
 
         Malformed query parameters (unknown sort field, non-numeric managerId,
-        out-of-range page/pageSize) respond with `400` and an `ApiError` body.
+        out-of-range page/pageSize) respond with `400` and a `ProblemDetail` body.
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
@@ -268,15 +302,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TeamPage'
-        '400':
-          description: Malformed query parameters
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
     post:
       tags: [teams]
+      operationId: createTeam
       summary: Create a team
       description: |
         Any authenticated user may create a team, but the `managerId` in
@@ -294,17 +325,28 @@ paths:
           headers:
             Location:
               schema: { type: string }
+              description: URL of the new team resource
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/TeamResponse'
-        '400': { description: Validation error (e.g. manager in member list, duplicate members) }
-        '401': { description: Missing or invalid token }
-        '403': { description: Caller attempted to set `managerId` to another user without being ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+        '400':
+          description: Validation error (e.g. manager in member list, duplicate members, referenced user does not exist)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller attempted to set `managerId` to another user without being ADMIN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
 
-  /api/teams/members:
+  /api/v1/teams/members:
     get:
       tags: [teams]
+      operationId: listTeamMembers
       summary: List members of the caller's teams
       description: |
         Lists team members scoped by `view`. Scoping is always relative to the caller,
@@ -333,7 +375,7 @@ paths:
           - `teamId` — exact match against the team's id.
 
         Malformed query parameters (unknown view, unknown sort field, non-numeric
-        teamId, out-of-range page/pageSize) respond with `400` and an `ApiError` body.
+        teamId, out-of-range page/pageSize) respond with `400` and a `ProblemDetail` body.
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
@@ -372,19 +414,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TeamMemberPage'
-        '400':
-          description: Malformed query parameters
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
 
-  /api/teams/{id}:
+  /api/v1/teams/{id}:
     parameters:
-      - $ref: '#/components/parameters/TeamId'
+      - $ref: '#/components/parameters/ResourceId'
     get:
       tags: [teams]
+      operationId: getTeam
       summary: Fetch a team
       description: Any authenticated user may read.
       responses:
@@ -394,10 +433,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TeamResponse'
-        '401': { description: Missing or invalid token }
-        '404': { description: Not found }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
     put:
       tags: [teams]
+      operationId: replaceTeam
       summary: Replace a team
       description: Requires the caller to be the team's current manager, or to be ADMIN.
       requestBody:
@@ -408,48 +449,84 @@ paths:
               $ref: '#/components/schemas/TeamRequest'
       responses:
         '204': { description: Updated }
-        '400': { description: Validation error }
-        '401': { description: Missing or invalid token }
-        '403': { description: Caller is not the team's manager and not ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
-        '404': { description: Not found }
+        '400':
+          description: Validation error (e.g. referenced user does not exist)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is not the team's manager and not ADMIN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
     delete:
       tags: [teams]
+      operationId: deleteTeam
       summary: Delete a team
       description: Requires the caller to be the team's current manager, or to be ADMIN.
       responses:
         '204': { description: Deleted }
-        '401': { description: Missing or invalid token }
-        '403': { description: Caller is not the team's manager and not ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
-        '404': { description: Not found }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is not the team's manager and not ADMIN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
 
-  /api/teams/{id}/members/{userId}:
+  /api/v1/teams/{id}/members/{userId}:
     parameters:
-      - $ref: '#/components/parameters/TeamId'
+      - $ref: '#/components/parameters/ResourceId'
       - $ref: '#/components/parameters/UserIdInPath'
     put:
       tags: [teams]
+      operationId: addTeamMember
       summary: Add a member to the team (idempotent)
       description: Requires the caller to be the team's current manager, or to be ADMIN.
       responses:
         '204': { description: Member added (or already present) }
-        '400': { description: Validation error (e.g. adding the manager as a member) }
-        '401': { description: Missing or invalid token }
-        '403': { description: Caller is not the team's manager and not ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
-        '404': { description: Team not found }
+        '400':
+          description: Validation error (e.g. adding the manager as a member, referenced user does not exist)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is not the team's manager and not ADMIN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
     delete:
       tags: [teams]
+      operationId: removeTeamMember
       summary: Remove a member from the team
       description: Requires the caller to be the team's current manager, or to be ADMIN.
       responses:
         '204': { description: Removed }
-        '400': { description: Cannot remove the last member or the manager via this endpoint }
-        '401': { description: Missing or invalid token }
-        '403': { description: Caller is not the team's manager and not ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
-        '404': { description: Team not found }
+        '400':
+          description: Cannot remove the last member or the manager via this endpoint
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is not the team's manager and not ADMIN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
 
-  /api/feedbacks:
+  /api/v1/feedbacks:
     get:
       tags: [feedbacks]
+      operationId: listFeedbacks
       summary: List feedbacks for the caller
       description: |
         Lists feedback records scoped by `view`. Scoping is always relative to the caller,
@@ -492,7 +569,7 @@ paths:
           sortable nor filterable.
 
         Malformed query parameters (unknown view, unknown sort field, unknown enum value,
-        out-of-range page/pageSize) respond with `400` and an `ApiError` body.
+        out-of-range page/pageSize) respond with `400` and a `ProblemDetail` body.
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
@@ -520,12 +597,12 @@ paths:
         - name: providerId
           in: query
           required: false
-          schema: { type: integer, format: int64, minimum: 1 }
+          schema: { type: integer, format: int64, minimum: 0 }
           description: Exact match against the provider's user id.
         - name: subjectId
           in: query
           required: false
-          schema: { type: integer, format: int64, minimum: 1 }
+          schema: { type: integer, format: int64, minimum: 0 }
           description: Exact match against the subject's user id.
         - name: visibility
           in: query
@@ -555,15 +632,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/FeedbackPage'
-        '400':
-          description: Malformed query parameters
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
     post:
       tags: [feedbacks]
+      operationId: createFeedback
       summary: Create a feedback record
       description: Any authenticated user may create a feedback record.
       requestBody:
@@ -578,18 +652,30 @@ paths:
           headers:
             Location:
               schema: { type: string }
+              description: URL of the new feedback resource
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/FeedbackResponse'
-        '400': { description: 'Validation error (provider ≠ subject; requester ≠ provider; REQUESTED requires a requester; a feedback with a requester may not use PROVIDER_SUBJECT visibility) or referenced user does not exist' }
-        '401': { description: Missing or invalid token }
+        '400':
+          description: 'Validation error (provider ≠ subject; requester ≠ provider; REQUESTED requires a requester; a feedback with a requester may not use PROVIDER_SUBJECT visibility) or referenced user does not exist'
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is not a party (provider or requester) to the feedback and not ADMIN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
 
-  /api/feedbacks/{id}:
+  /api/v1/feedbacks/{id}:
     parameters:
-      - $ref: '#/components/parameters/FeedbackId'
+      - $ref: '#/components/parameters/ResourceId'
     get:
       tags: [feedbacks]
+      operationId: getFeedback
       summary: Fetch a feedback record
       description: |
         Authorization (`canReadFeedback`) is evaluated in this order — read access depends on the
@@ -607,8 +693,9 @@ paths:
         Anything else is `403`.
 
         Content redaction: a requester may see that a feedback they requested exists, but while it
-        is unfinished (`DRAFT`/`REQUESTED`) the `content` field is returned empty for that requester;
-        it becomes visible once the feedback is sent.
+        is unfinished (`DRAFT`/`REQUESTED`) the `content` field is returned as an empty string for
+        that requester; it becomes visible once the feedback is sent. The field is therefore not
+        guaranteed non-empty and is omitted from `required`.
       responses:
         '200':
           description: OK
@@ -616,11 +703,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/FeedbackResponse'
-        '401': { description: Missing or invalid token }
-        '403': { description: Caller's relationship to the row does not satisfy `visibility`, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
-        '404': { description: Not found }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller's relationship to the row does not satisfy `visibility`
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
     put:
       tags: [feedbacks]
+      operationId: replaceFeedback
       summary: Replace a feedback record
       description: Only the record's provider (or ADMIN) may modify a feedback.
       requestBody:
@@ -631,24 +724,41 @@ paths:
               $ref: '#/components/schemas/FeedbackRequest'
       responses:
         '204': { description: Updated }
-        '400': { description: 'Validation error (same invariants as create — incl. a feedback with a requester may not use PROVIDER_SUBJECT visibility) or invalid status transition' }
-        '401': { description: Missing or invalid token }
-        '403': { description: Caller is not the feedback's provider and not ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
-        '404': { description: Not found }
+        '400':
+          description: 'Validation error (same invariants as create — incl. a feedback with a requester may not use PROVIDER_SUBJECT visibility) or invalid status transition'
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is not the feedback's provider and not ADMIN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
     delete:
       tags: [feedbacks]
+      operationId: deleteFeedback
       summary: Delete a feedback record
       description: Only the record's provider (or ADMIN) may delete a feedback.
       responses:
         '204': { description: Deleted }
-        '401': { description: Missing or invalid token }
-        '403': { description: Caller is not the feedback's provider and not ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is not the feedback's provider and not ADMIN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
 
-  /api/feedbacks/{id}/events:
+  /api/v1/feedbacks/{id}/events:
     parameters:
-      - $ref: '#/components/parameters/FeedbackId'
+      - $ref: '#/components/parameters/ResourceId'
     get:
       tags: [feedbacks]
+      operationId: listFeedbackEvents
       summary: List a feedback's audit history
       description: |
         Returns the immutable audit trail for a feedback — one entry per create, status transition
@@ -663,13 +773,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/FeedbackEventList'
-        '401': { description: Missing or invalid token }
-        '403': { description: Caller may not read this feedback, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
-        '404': { description: Not found }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller may not read this feedback
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
 
-  /api/templates:
+  /api/v1/templates:
     get:
       tags: [templates]
+      operationId: listTemplates
       summary: List templates
       description: |
         Lists templates. Any authenticated user may read.
@@ -684,7 +800,7 @@ paths:
           sortable nor filterable.
 
         Malformed query parameters (unknown sort field, out-of-range page/pageSize) respond
-        with `400` and an `ApiError` body.
+        with `400` and a `ProblemDetail` body.
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
@@ -701,15 +817,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TemplatePage'
-        '400':
-          description: Malformed query parameters
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
     post:
       tags: [templates]
+      operationId: createTemplate
       summary: Create a template
       description: ADMIN only.
       requestBody:
@@ -724,20 +837,35 @@ paths:
           headers:
             Location:
               schema: { type: string }
+              description: URL of the new template resource
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/TemplateResponse'
-        '400': { description: Validation error (e.g. blank name) }
-        '401': { description: Missing or invalid token }
-        '403': { description: Caller is not ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
-        '409': { description: A template with the same name already exists, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+        '400':
+          description: Validation error (e.g. blank name)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is not ADMIN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '409':
+          description: A template with the same name already exists
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
 
-  /api/templates/{id}:
+  /api/v1/templates/{id}:
     parameters:
-      - $ref: '#/components/parameters/TemplateId'
+      - $ref: '#/components/parameters/ResourceId'
     get:
       tags: [templates]
+      operationId: getTemplate
       summary: Fetch a template
       description: Any authenticated user may read.
       responses:
@@ -747,10 +875,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TemplateResponse'
-        '401': { description: Missing or invalid token }
-        '404': { description: Not found }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
     put:
       tags: [templates]
+      operationId: replaceTemplate
       summary: Replace a template
       description: ADMIN only.
       requestBody:
@@ -761,23 +891,44 @@ paths:
               $ref: '#/components/schemas/TemplateRequest'
       responses:
         '204': { description: Updated }
-        '400': { description: Validation error (e.g. blank name) }
-        '401': { description: Missing or invalid token }
-        '403': { description: Caller is not ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
-        '404': { description: Not found }
-        '409': { description: A template with the same name already exists, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+        '400':
+          description: Validation error (e.g. blank name)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is not ADMIN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: A template with the same name already exists
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
     delete:
       tags: [templates]
+      operationId: deleteTemplate
       summary: Delete a template
       description: ADMIN only.
       responses:
         '204': { description: Deleted }
-        '401': { description: Missing or invalid token }
-        '403': { description: Caller is not ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is not ADMIN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
 
-  /api/notifications:
+  /api/v1/notifications:
     get:
       tags: [notifications]
+      operationId: listNotifications
       summary: List the caller's notifications
       description: |
         Lists notifications addressed to the calling user (`recipientId` = caller). The list is
@@ -794,7 +945,7 @@ paths:
           - `wasSeen` — `true`/`false`; restricts to seen / unseen notifications.
 
         Malformed query parameters (unknown sort field, out-of-range page/pageSize, non-boolean
-        `wasSeen`) respond with `400` and an `ApiError` body.
+        `wasSeen`) respond with `400` and a `ProblemDetail` body.
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
@@ -811,19 +962,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotificationPage'
-        '400':
-          description: Malformed query parameters
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
 
-  /api/notifications/{id}:
+  /api/v1/notifications/{id}:
     parameters:
-      - $ref: '#/components/parameters/NotificationId'
+      - $ref: '#/components/parameters/ResourceId'
     get:
       tags: [notifications]
+      operationId: getNotification
       summary: Fetch a notification
       description: The recipient or an ADMIN may read.
       responses:
@@ -833,46 +981,69 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotificationResponse'
-        '401': { description: Missing or invalid token }
-        '403': { description: Caller is neither the recipient nor ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
-        '404': { description: Not found }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is neither the recipient nor ADMIN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
     delete:
       tags: [notifications]
+      operationId: deleteNotification
       summary: Delete a notification
       description: The recipient or an ADMIN may delete.
       responses:
         '204': { description: Deleted }
-        '401': { description: Missing or invalid token }
-        '403': { description: Caller is neither the recipient nor ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
-        '404': { description: Not found }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is neither the recipient nor ADMIN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
 
-  /api/notifications/{id}/seen:
+  /api/v1/notifications/{id}/seen:
     parameters:
-      - $ref: '#/components/parameters/NotificationId'
+      - $ref: '#/components/parameters/ResourceId'
     post:
       tags: [notifications]
+      operationId: markNotificationSeen
       summary: Mark a notification as seen
       description: |
         Sets `wasSeen` to `true`. Idempotent. The recipient or an ADMIN may call it.
       responses:
         '204': { description: Marked as seen }
-        '401': { description: Missing or invalid token }
-        '403': { description: Caller is neither the recipient nor ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
-        '404': { description: Not found }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is neither the recipient nor ADMIN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
 
-  /api/notifications/{id}/unseen:
+  /api/v1/notifications/{id}/unseen:
     parameters:
-      - $ref: '#/components/parameters/NotificationId'
+      - $ref: '#/components/parameters/ResourceId'
     post:
       tags: [notifications]
+      operationId: markNotificationUnseen
       summary: Mark a notification as unseen
       description: |
         Sets `wasSeen` to `false`. Idempotent. The recipient or an ADMIN may call it.
       responses:
         '204': { description: Marked as unseen }
-        '401': { description: Missing or invalid token }
-        '403': { description: Caller is neither the recipient nor ADMIN, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
-        '404': { description: Not found }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is neither the recipient nor ADMIN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
 
 components:
   securitySchemes:
@@ -882,33 +1053,13 @@ components:
       bearerFormat: JWT
 
   parameters:
-    UserId:
+    ResourceId:
       name: id
       in: path
       required: true
       schema: { type: integer, format: int64, minimum: 0 }
     UserIdInPath:
       name: userId
-      in: path
-      required: true
-      schema: { type: integer, format: int64, minimum: 0 }
-    TeamId:
-      name: id
-      in: path
-      required: true
-      schema: { type: integer, format: int64, minimum: 0 }
-    FeedbackId:
-      name: id
-      in: path
-      required: true
-      schema: { type: integer, format: int64, minimum: 0 }
-    TemplateId:
-      name: id
-      in: path
-      required: true
-      schema: { type: integer, format: int64, minimum: 0 }
-    NotificationId:
-      name: id
       in: path
       required: true
       schema: { type: integer, format: int64, minimum: 0 }
@@ -934,6 +1085,43 @@ components:
         comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
         sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
         always appended as a deterministic tiebreaker.
+
+  responses:
+    BadRequest:
+      description: Malformed request
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+    Unauthorized:
+      description: Missing or invalid token
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+    Forbidden:
+      description: Caller is not permitted to perform this action
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+    NotFound:
+      description: Resource not found
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+    Conflict:
+      description: Conflict with an existing resource
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+    TooManyRequests:
+      description: Rate limit exceeded
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+    InternalServerError:
+      description: Unexpected server error
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
 
   schemas:
     LoginRequest:
@@ -1031,7 +1219,7 @@ components:
           type: array
           description: |
             Defaults to an empty list when omitted. Zero-member teams are allowed;
-            members can be added later via the `/api/teams/{id}/members/{userId}` sub-resource.
+            members can be added later via the `/api/v1/teams/{id}/members/{userId}` sub-resource.
           items: { type: integer, format: int64, minimum: 0 }
 
     TeamResponse:
@@ -1079,7 +1267,7 @@ components:
       properties:
         userId: { type: integer, format: int64, minimum: 0 }
         name: { type: string }
-        email: { type: string }
+        email: { type: string, format: email }
         teamId: { type: integer, format: int64, minimum: 0 }
         teamName: { type: string }
 
@@ -1120,7 +1308,7 @@ components:
 
     FeedbackResponse:
       type: object
-      required: [id, subjectId, providerId, visibility, status, content, lastModified]
+      required: [id, subjectId, providerId, visibility, status, lastModified]
       properties:
         id: { type: integer, format: int64, minimum: 0 }
         requesterId:
@@ -1136,7 +1324,12 @@ components:
         status:
           type: string
           enum: [REQUESTED, DRAFT, SENT, WITHDRAWN, REJECTED]
-        content: { type: string }
+        content:
+          type: string
+          description: |
+            The feedback body. Returned as an empty string (and omitted from `required`)
+            when the caller may see that the record exists but not its content — a requester
+            watching an unfinished (`DRAFT`/`REQUESTED`) feedback they requested.
         lastModified:
           type: integer
           format: int64
@@ -1313,9 +1506,24 @@ components:
           minimum: 0
           description: Row count after filters, before pagination.
 
-    ApiError:
+    ProblemDetail:
       type: object
-      required: [error, message]
+      description: RFC 7807 problem detail. Served as `application/problem+json`.
+      required: [title, status]
       properties:
-        error: { type: string, example: conflict }
-        message: { type: string }
+        type:
+          type: string
+          default: about:blank
+          description: A URI reference identifying the problem type.
+        title:
+          type: string
+          description: Short, human-readable summary of the problem type.
+        status:
+          type: integer
+          description: HTTP status code.
+        detail:
+          type: string
+          description: Human-readable explanation specific to this occurrence.
+        instance:
+          type: string
+          description: A URI reference identifying the specific occurrence.

@@ -75,9 +75,9 @@ describe("EditUser page", () => {
 
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/users"));
 
-    const putCall = mockFetch.mock.calls.find(([, init]) => init?.method === "PUT");
+    const putCall = mockFetch.mock.calls.find(([, init]) => init?.method === "PATCH");
     expect(putCall).toBeDefined();
-    expect(putCall![0]).toBe("/api/users/7");
+    expect(putCall![0]).toBe("/api/v1/users/7");
     expect(JSON.parse(putCall![1].body)).toEqual({
       name: "Alicia",
       email: "alice@example.com",
@@ -138,7 +138,7 @@ describe("EditUser page", () => {
     await user.click(screen.getByRole("button", { name: /^save$/i }));
 
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/users"));
-    const putCall = mockFetch.mock.calls.find(([, init]) => init?.method === "PUT");
+    const putCall = mockFetch.mock.calls.find(([, init]) => init?.method === "PATCH");
     expect(JSON.parse(putCall![1].body).role).toBe("ADMIN");
   });
 
@@ -162,7 +162,7 @@ describe("EditUser page", () => {
 
     expect(await screen.findByText(/name must be 1–50 characters/i)).toBeInTheDocument();
     expect(screen.getByText(/email is required/i)).toBeInTheDocument();
-    const putCall = mockFetch.mock.calls.find(([, init]) => init?.method === "PUT");
+    const putCall = mockFetch.mock.calls.find(([, init]) => init?.method === "PATCH");
     expect(putCall).toBeUndefined();
   });
 });

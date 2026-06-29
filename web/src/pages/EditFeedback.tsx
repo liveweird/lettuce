@@ -175,7 +175,7 @@ export default function EditFeedback() {
       data!.requesterName ??
       (data!.requesterId != null ? `#${data!.requesterId}` : t("feedback.unknown"));
     const decide = (status: FeedbackStatus) =>
-      handleSave(status, { visibility: data!.visibility, content: data!.content });
+      handleSave(status, { visibility: data!.visibility, content: data!.content ?? "" });
     return (
       <Container size="xs" px={0}>
         <Paper withBorder shadow="sm" p="xl" radius="md">
@@ -260,7 +260,7 @@ export default function EditFeedback() {
       initialVisibility={clampVisibility(data!.visibility, hasRequester)}
       visibilityOptions={visibilityOptions}
       requesterDisplay={hasRequester ? (data!.requesterName ?? `#${data!.requesterId}`) : undefined}
-      initialContent={data!.content}
+      initialContent={data!.content ?? ""}
       lastModified={data!.lastModified}
       submitting={submitting}
       error={error}

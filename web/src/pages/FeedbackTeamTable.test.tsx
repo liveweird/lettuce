@@ -78,7 +78,7 @@ const SEED: FeedbackItem[] = [
 function setupMocks(mockFetch: FetchMock, response: Response = feedbacksPage(SEED)) {
   mockFetch.mockImplementation((url: string) =>
     Promise.resolve(
-      String(url).startsWith("/api/feedbacks") ? response.clone() : jsonResponse(404, {}),
+      String(url).startsWith("/api/v1/feedbacks") ? response.clone() : jsonResponse(404, {}),
     ),
   );
 }
@@ -86,7 +86,7 @@ function setupMocks(mockFetch: FetchMock, response: Response = feedbacksPage(SEE
 function feedbackUrls(mockFetch: FetchMock): string[] {
   return mockFetch.mock.calls
     .map(([url]) => String(url))
-    .filter((url) => url.startsWith("/api/feedbacks"));
+    .filter((url) => url.startsWith("/api/v1/feedbacks"));
 }
 
 describe("FeedbackTeamTable", () => {

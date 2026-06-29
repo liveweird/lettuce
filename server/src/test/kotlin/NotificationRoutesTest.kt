@@ -36,12 +36,12 @@ class NotificationRoutesTest {
 
     private suspend fun ApplicationTestBuilder.authedClient(email: String, password: String): HttpClient {
         val client = jsonClient()
-        val token = client.post("/api/login") {
+        val token = client.post("/api/v1/login") {
             contentType(ContentType.Application.Json)
             setBody(LoginRequest(email, password))
         }.body<LoginResponse>().token
         return createClient {
-            install(ContentNegotiation) { json() }
+            install(ContentNegotiation) { json(); json(contentType = ContentType.parse("application/problem+json")) }
             install(DefaultRequest) {
                 header(HttpHeaders.Authorization, "Bearer $token")
             }
@@ -61,7 +61,7 @@ class NotificationRoutesTest {
         val newer = TestNotifications.seed(recipientId, message = "newer")
         TestNotifications.seed(otherId, message = "not yours")
 
-        val page = client.get("/api/notifications")
+        val page = client.get("/api/v1/notifications")
         assertEquals(HttpStatusCode.OK, page.status)
         val body = page.body<NotificationPageResponse>()
         assertEquals(2, body.total)
@@ -79,15 +79,15 @@ class NotificationRoutesTest {
 
         val seen = TestNotifications.seed(recipientId, message = "seen one")
         val unseen = TestNotifications.seed(recipientId, message = "unseen one")
-        assertEquals(HttpStatusCode.NoContent, client.post("/api/notifications/$seen/seen").status)
+        assertEquals(HttpStatusCode.NoContent, client.post("/api/v1/notifications/$seen/seen").status)
 
-        val onlySeen = client.get("/api/notifications?wasSeen=true").body<NotificationPageResponse>()
+        val onlySeen = client.get("/api/v1/notifications?wasSeen=true").body<NotificationPageResponse>()
         assertEquals(listOf(seen), onlySeen.items.map { it.id })
 
-        val onlyUnseen = client.get("/api/notifications?wasSeen=false").body<NotificationPageResponse>()
+        val onlyUnseen = client.get("/api/v1/notifications?wasSeen=false").body<NotificationPageResponse>()
         assertEquals(listOf(unseen), onlyUnseen.items.map { it.id })
 
-        assertEquals(HttpStatusCode.BadRequest, client.get("/api/notifications?wasSeen=maybe").status)
+        assertEquals(HttpStatusCode.BadRequest, client.get("/api/v1/notifications?wasSeen=maybe").status)
     }
 
     @Test
@@ -103,7 +103,7 @@ class NotificationRoutesTest {
         val id = TestNotifications.seed(recipientId, message = "hi", link = "/x")
 
         val recipientClient = authedClient(recipientEmail, "pw")
-        val read = recipientClient.get("/api/notifications/$id")
+        val read = recipientClient.get("/api/v1/notifications/$id")
         assertEquals(HttpStatusCode.OK, read.status)
         val body = read.body<NotificationResponse>()
         assertEquals(recipientId, body.recipientId)
@@ -113,12 +113,12 @@ class NotificationRoutesTest {
         assertTrue(body.timestamp > 0)
 
         val strangerClient = authedClient(strangerEmail, "pw")
-        assertEquals(HttpStatusCode.Forbidden, strangerClient.get("/api/notifications/$id").status)
+        assertEquals(HttpStatusCode.Forbidden, strangerClient.get("/api/v1/notifications/$id").status)
 
         val adminClient = authedClient(adminEmail, "pw")
-        assertEquals(HttpStatusCode.OK, adminClient.get("/api/notifications/$id").status)
+        assertEquals(HttpStatusCode.OK, adminClient.get("/api/v1/notifications/$id").status)
 
-        assertEquals(HttpStatusCode.NotFound, recipientClient.get("/api/notifications/999999").status)
+        assertEquals(HttpStatusCode.NotFound, recipientClient.get("/api/v1/notifications/999999").status)
     }
 
     @Test
@@ -132,18 +132,18 @@ class NotificationRoutesTest {
         val id = TestNotifications.seed(recipientId)
         val client = authedClient(recipientEmail, "pw")
 
-        assertFalse(client.get("/api/notifications/$id").body<NotificationResponse>().wasSeen)
+        assertFalse(client.get("/api/v1/notifications/$id").body<NotificationResponse>().wasSeen)
 
-        assertEquals(HttpStatusCode.NoContent, client.post("/api/notifications/$id/seen").status)
-        assertTrue(client.get("/api/notifications/$id").body<NotificationResponse>().wasSeen)
+        assertEquals(HttpStatusCode.NoContent, client.post("/api/v1/notifications/$id/seen").status)
+        assertTrue(client.get("/api/v1/notifications/$id").body<NotificationResponse>().wasSeen)
 
         // Idempotent.
-        assertEquals(HttpStatusCode.NoContent, client.post("/api/notifications/$id/seen").status)
+        assertEquals(HttpStatusCode.NoContent, client.post("/api/v1/notifications/$id/seen").status)
 
         val strangerClient = authedClient(strangerEmail, "pw")
-        assertEquals(HttpStatusCode.Forbidden, strangerClient.post("/api/notifications/$id/seen").status)
+        assertEquals(HttpStatusCode.Forbidden, strangerClient.post("/api/v1/notifications/$id/seen").status)
 
-        assertEquals(HttpStatusCode.NotFound, client.post("/api/notifications/999999/seen").status)
+        assertEquals(HttpStatusCode.NotFound, client.post("/api/v1/notifications/999999/seen").status)
     }
 
     @Test
@@ -158,19 +158,19 @@ class NotificationRoutesTest {
         val client = authedClient(recipientEmail, "pw")
 
         // Seen first, then back to unseen.
-        assertEquals(HttpStatusCode.NoContent, client.post("/api/notifications/$id/seen").status)
-        assertTrue(client.get("/api/notifications/$id").body<NotificationResponse>().wasSeen)
+        assertEquals(HttpStatusCode.NoContent, client.post("/api/v1/notifications/$id/seen").status)
+        assertTrue(client.get("/api/v1/notifications/$id").body<NotificationResponse>().wasSeen)
 
-        assertEquals(HttpStatusCode.NoContent, client.post("/api/notifications/$id/unseen").status)
-        assertFalse(client.get("/api/notifications/$id").body<NotificationResponse>().wasSeen)
+        assertEquals(HttpStatusCode.NoContent, client.post("/api/v1/notifications/$id/unseen").status)
+        assertFalse(client.get("/api/v1/notifications/$id").body<NotificationResponse>().wasSeen)
 
         // Idempotent.
-        assertEquals(HttpStatusCode.NoContent, client.post("/api/notifications/$id/unseen").status)
+        assertEquals(HttpStatusCode.NoContent, client.post("/api/v1/notifications/$id/unseen").status)
 
         val strangerClient = authedClient(strangerEmail, "pw")
-        assertEquals(HttpStatusCode.Forbidden, strangerClient.post("/api/notifications/$id/unseen").status)
+        assertEquals(HttpStatusCode.Forbidden, strangerClient.post("/api/v1/notifications/$id/unseen").status)
 
-        assertEquals(HttpStatusCode.NotFound, client.post("/api/notifications/999999/unseen").status)
+        assertEquals(HttpStatusCode.NotFound, client.post("/api/v1/notifications/999999/unseen").status)
     }
 
     @Test
@@ -184,13 +184,13 @@ class NotificationRoutesTest {
         val strangerClient = authedClient(strangerEmail, "pw")
 
         val protectedId = TestNotifications.seed(recipientId, message = "keep")
-        assertEquals(HttpStatusCode.Forbidden, strangerClient.delete("/api/notifications/$protectedId").status)
+        assertEquals(HttpStatusCode.Forbidden, strangerClient.delete("/api/v1/notifications/$protectedId").status)
         // Still there after the forbidden attempt.
-        assertEquals(HttpStatusCode.OK, client.get("/api/notifications/$protectedId").status)
+        assertEquals(HttpStatusCode.OK, client.get("/api/v1/notifications/$protectedId").status)
 
         val doomedId = TestNotifications.seed(recipientId, message = "drop")
-        assertEquals(HttpStatusCode.NoContent, client.delete("/api/notifications/$doomedId").status)
-        assertEquals(HttpStatusCode.NotFound, client.get("/api/notifications/$doomedId").status)
+        assertEquals(HttpStatusCode.NoContent, client.delete("/api/v1/notifications/$doomedId").status)
+        assertEquals(HttpStatusCode.NotFound, client.get("/api/v1/notifications/$doomedId").status)
     }
 
     @Test
@@ -200,7 +200,7 @@ class NotificationRoutesTest {
         TestUsers.seed(email = adminEmail, password = "pw") // ADMIN bypasses the recipient guard
         val client = authedClient(adminEmail, "pw")
 
-        assertEquals(HttpStatusCode.NotFound, client.delete("/api/notifications/999999").status)
+        assertEquals(HttpStatusCode.NotFound, client.delete("/api/v1/notifications/999999").status)
     }
 
     @Test
@@ -208,11 +208,11 @@ class NotificationRoutesTest {
         usePostgresTestcontainer()
         val client = jsonClient()
         val endpoints = listOf(
-            HttpMethod.Get to "/api/notifications",
-            HttpMethod.Get to "/api/notifications/1",
-            HttpMethod.Post to "/api/notifications/1/seen",
-            HttpMethod.Post to "/api/notifications/1/unseen",
-            HttpMethod.Delete to "/api/notifications/1",
+            HttpMethod.Get to "/api/v1/notifications",
+            HttpMethod.Get to "/api/v1/notifications/1",
+            HttpMethod.Post to "/api/v1/notifications/1/seen",
+            HttpMethod.Post to "/api/v1/notifications/1/unseen",
+            HttpMethod.Delete to "/api/v1/notifications/1",
         )
         for ((verb, path) in endpoints) {
             assertEquals(

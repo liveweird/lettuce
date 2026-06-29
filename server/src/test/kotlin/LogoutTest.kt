@@ -28,7 +28,7 @@ class LogoutTest {
     private fun uniqueEmail(prefix: String) = "$prefix-${UUID.randomUUID()}@test"
 
     private suspend fun login(client: io.ktor.client.HttpClient, email: String, password: String): String =
-        client.post("/api/login") {
+        client.post("/api/v1/login") {
             contentType(ContentType.Application.Json)
             setBody(LoginRequest(email, password))
         }.body<LoginResponse>().token
@@ -42,7 +42,7 @@ class LogoutTest {
         val client = jsonClient()
         val token = login(client, email, "pw")
 
-        val response = client.post("/api/logout") {
+        val response = client.post("/api/v1/logout") {
             header(HttpHeaders.Authorization, "Bearer $token")
         }
 
@@ -58,17 +58,17 @@ class LogoutTest {
         val client = jsonClient()
         val token = login(client, email, "pw")
 
-        val before = client.get("/api/users/$userId") {
+        val before = client.get("/api/v1/users/$userId") {
             header(HttpHeaders.Authorization, "Bearer $token")
         }
         assertEquals(HttpStatusCode.OK, before.status)
 
-        val logout = client.post("/api/logout") {
+        val logout = client.post("/api/v1/logout") {
             header(HttpHeaders.Authorization, "Bearer $token")
         }
         assertEquals(HttpStatusCode.NoContent, logout.status)
 
-        val after = client.get("/api/users/$userId") {
+        val after = client.get("/api/v1/users/$userId") {
             header(HttpHeaders.Authorization, "Bearer $token")
         }
         assertEquals(HttpStatusCode.Unauthorized, after.status)
@@ -78,7 +78,7 @@ class LogoutTest {
     fun `logout without auth returns 401`() = testApplication {
         usePostgresTestcontainer()
 
-        val response = jsonClient().post("/api/logout")
+        val response = jsonClient().post("/api/v1/logout")
 
         assertEquals(HttpStatusCode.Unauthorized, response.status)
     }
@@ -93,17 +93,17 @@ class LogoutTest {
         val tokenA = login(client, email, "pw")
         val tokenB = login(client, email, "pw")
 
-        val logout = client.post("/api/logout") {
+        val logout = client.post("/api/v1/logout") {
             header(HttpHeaders.Authorization, "Bearer $tokenA")
         }
         assertEquals(HttpStatusCode.NoContent, logout.status)
 
-        val afterA = client.get("/api/users/$userId") {
+        val afterA = client.get("/api/v1/users/$userId") {
             header(HttpHeaders.Authorization, "Bearer $tokenA")
         }
         assertEquals(HttpStatusCode.Unauthorized, afterA.status)
 
-        val afterB = client.get("/api/users/$userId") {
+        val afterB = client.get("/api/v1/users/$userId") {
             header(HttpHeaders.Authorization, "Bearer $tokenB")
         }
         assertEquals(HttpStatusCode.OK, afterB.status)
@@ -117,12 +117,12 @@ class LogoutTest {
 
         val client = jsonClient()
         val first = login(client, email, "pw")
-        client.post("/api/logout") { header(HttpHeaders.Authorization, "Bearer $first") }
+        client.post("/api/v1/logout") { header(HttpHeaders.Authorization, "Bearer $first") }
 
         val second = login(client, email, "pw")
         assertNotNull(second)
 
-        val response = client.get("/api/users/$userId") {
+        val response = client.get("/api/v1/users/$userId") {
             header(HttpHeaders.Authorization, "Bearer $second")
         }
         assertEquals(HttpStatusCode.OK, response.status)

@@ -62,7 +62,7 @@ describe("Dashboard", () => {
     // The default (managers) tab loads its view on mount.
     await waitFor(() => {
       const urls = mockFetch.mock.calls.map(([url]) => String(url));
-      expect(urls.some((url) => url.includes("/api/teams/members?view=managers"))).toBe(true);
+      expect(urls.some((url) => url.includes("/api/v1/teams/members?view=managers"))).toBe(true);
     });
     expect(await screen.findByText("No managers")).toBeInTheDocument();
 
@@ -74,8 +74,8 @@ describe("Dashboard", () => {
     expect(await screen.findByText("No team members")).toBeInTheDocument();
 
     const urls = mockFetch.mock.calls.map(([url]) => String(url));
-    expect(urls.some((url) => url.includes("/api/teams/members?view=member"))).toBe(true);
-    expect(urls.some((url) => url.includes("/api/teams/members?view=managed"))).toBe(true);
+    expect(urls.some((url) => url.includes("/api/v1/teams/members?view=member"))).toBe(true);
+    expect(urls.some((url) => url.includes("/api/v1/teams/members?view=managed"))).toBe(true);
   });
 
   test("honors ?tab=peers from the URL", async () => {
@@ -87,7 +87,7 @@ describe("Dashboard", () => {
     expect(await screen.findByText("No teammates")).toBeInTheDocument();
     await waitFor(() => {
       const urls = mockFetch.mock.calls.map(([url]) => String(url));
-      expect(urls.some((url) => url.includes("/api/teams/members?view=member"))).toBe(true);
+      expect(urls.some((url) => url.includes("/api/v1/teams/members?view=member"))).toBe(true);
     });
   });
 
@@ -100,7 +100,7 @@ describe("Dashboard", () => {
     expect(await screen.findByText("No team members")).toBeInTheDocument();
     await waitFor(() => {
       const urls = mockFetch.mock.calls.map(([url]) => String(url));
-      expect(urls.some((url) => url.includes("/api/teams/members?view=managed"))).toBe(true);
+      expect(urls.some((url) => url.includes("/api/v1/teams/members?view=managed"))).toBe(true);
     });
   });
 
@@ -114,7 +114,7 @@ describe("Dashboard", () => {
     expect(await screen.findByText("No managers")).toBeInTheDocument();
     await waitFor(() => {
       const urls = mockFetch.mock.calls.map(([url]) => String(url));
-      expect(urls.some((url) => url.includes("/api/teams/members?view=managers"))).toBe(true);
+      expect(urls.some((url) => url.includes("/api/v1/teams/members?view=managers"))).toBe(true);
     });
   });
 });

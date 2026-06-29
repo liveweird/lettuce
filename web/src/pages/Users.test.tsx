@@ -64,7 +64,7 @@ function mockUsers(
 ) {
   mockFetch.mockImplementation((url: string) =>
     Promise.resolve(
-      String(url).startsWith("/api/users?")
+      String(url).startsWith("/api/v1/users?")
         ? jsonResponse(200, { items, page: 1, pageSize: 20, total })
         : jsonResponse(404, {}),
     ),
@@ -74,7 +74,7 @@ function mockUsers(
 function userUrls(mockFetch: FetchMock): string[] {
   return mockFetch.mock.calls
     .map(([url]) => String(url))
-    .filter((u) => u.startsWith("/api/users?"));
+    .filter((u) => u.startsWith("/api/v1/users?"));
 }
 
 describe("Users page", () => {
@@ -187,11 +187,11 @@ describe("Users page", () => {
 
     const deleteCall = mockFetch.mock.calls.find(([, init]) => init?.method === "DELETE");
     expect(deleteCall).toBeDefined();
-    expect(deleteCall![0]).toBe("/api/users/2");
+    expect(deleteCall![0]).toBe("/api/v1/users/2");
 
     const listCalls = mockFetch.mock.calls.filter(([url, init]) => {
       const method = init?.method ?? "GET";
-      return method === "GET" && typeof url === "string" && url.startsWith("/api/users?");
+      return method === "GET" && typeof url === "string" && url.startsWith("/api/v1/users?");
     });
     expect(listCalls.length).toBeGreaterThanOrEqual(2);
   });
@@ -211,7 +211,7 @@ describe("Users page", () => {
 
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/login"));
 
-    const logoutCall = mockFetch.mock.calls.find(([url]) => url === "/api/logout");
+    const logoutCall = mockFetch.mock.calls.find(([url]) => url === "/api/v1/logout");
     expect(logoutCall).toBeDefined();
     expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
     expect(localStorage.getItem(USER_ID_KEY)).toBeNull();
@@ -297,7 +297,7 @@ describe("Users page", () => {
   test("shows an alert when the list fails to load", async () => {
     mockFetch.mockImplementation((url: string) =>
       Promise.resolve(
-        String(url).startsWith("/api/users?")
+        String(url).startsWith("/api/v1/users?")
           ? jsonResponse(500, { error: "internal", message: "boom" })
           : jsonResponse(404, {}),
       ),
@@ -332,7 +332,7 @@ describe("Users page", () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
       if (method === "DELETE") return new Promise(() => {}); // never resolves
-      if (String(url).startsWith("/api/users?")) return Promise.resolve(listResponse(SEED_USERS));
+      if (String(url).startsWith("/api/v1/users?")) return Promise.resolve(listResponse(SEED_USERS));
       return Promise.resolve(jsonResponse(404, {}));
     });
     const user = userEvent.setup();

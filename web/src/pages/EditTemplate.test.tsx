@@ -44,7 +44,7 @@ const LOADED = { id: 5, name: "Loaded Name", content: "# Loaded" };
 function getReturns(mockFetch: ReturnType<typeof vi.fn>, response: Response) {
   mockFetch.mockImplementation((url: string, init?: RequestInit) => {
     const method = init?.method ?? "GET";
-    if (method === "GET" && url === "/api/templates/5") return Promise.resolve(response);
+    if (method === "GET" && url === "/api/v1/templates/5") return Promise.resolve(response);
     return Promise.resolve(jsonResponse(404, {}));
   });
 }
@@ -91,10 +91,10 @@ describe("EditTemplate page", () => {
   test("successful save PUTs {name, content} and navigates to /templates", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      if (method === "GET" && url === "/api/templates/5") {
+      if (method === "GET" && url === "/api/v1/templates/5") {
         return Promise.resolve(jsonResponse(200, LOADED));
       }
-      if (method === "PUT" && url === "/api/templates/5") {
+      if (method === "PUT" && url === "/api/v1/templates/5") {
         return Promise.resolve(new Response(null, { status: 204 }));
       }
       return Promise.resolve(jsonResponse(404, {}));
@@ -110,7 +110,7 @@ describe("EditTemplate page", () => {
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/templates"));
 
     const putCall = mockFetch.mock.calls.find(
-      ([url, init]) => init?.method === "PUT" && url === "/api/templates/5",
+      ([url, init]) => init?.method === "PUT" && url === "/api/v1/templates/5",
     );
     expect(putCall).toBeDefined();
     expect(JSON.parse((putCall![1] as RequestInit).body as string)).toEqual({
@@ -122,10 +122,10 @@ describe("EditTemplate page", () => {
   test("409 on save shows a duplicate-name field error and does not navigate", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      if (method === "GET" && url === "/api/templates/5") {
+      if (method === "GET" && url === "/api/v1/templates/5") {
         return Promise.resolve(jsonResponse(200, LOADED));
       }
-      if (method === "PUT" && url === "/api/templates/5") {
+      if (method === "PUT" && url === "/api/v1/templates/5") {
         return Promise.resolve(jsonResponse(409, { error: "conflict", message: "exists" }));
       }
       return Promise.resolve(jsonResponse(404, {}));
@@ -151,10 +151,10 @@ describe("EditTemplate page", () => {
   test("404 on save shows 'Template no longer exists'", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      if (method === "GET" && url === "/api/templates/5") {
+      if (method === "GET" && url === "/api/v1/templates/5") {
         return Promise.resolve(jsonResponse(200, LOADED));
       }
-      if (method === "PUT" && url === "/api/templates/5") {
+      if (method === "PUT" && url === "/api/v1/templates/5") {
         return Promise.resolve(jsonResponse(404, { error: "not_found", message: "gone" }));
       }
       return Promise.resolve(jsonResponse(404, {}));
@@ -171,10 +171,10 @@ describe("EditTemplate page", () => {
   test("a network error on save shows a connection alert", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      if (method === "GET" && url === "/api/templates/5") {
+      if (method === "GET" && url === "/api/v1/templates/5") {
         return Promise.resolve(jsonResponse(200, LOADED));
       }
-      if (method === "PUT" && url === "/api/templates/5") {
+      if (method === "PUT" && url === "/api/v1/templates/5") {
         return Promise.reject(new Error("network down"));
       }
       return Promise.resolve(jsonResponse(404, {}));

@@ -25,7 +25,7 @@ const TEMPLATE = { id: 5, name: "Welcome", content: "# Hi\n\nBody text" };
 function getReturns(mockFetch: ReturnType<typeof vi.fn>, response: Response) {
   mockFetch.mockImplementation((url: string, init?: RequestInit) => {
     const method = init?.method ?? "GET";
-    if (method === "GET" && url === "/api/templates/5") return Promise.resolve(response);
+    if (method === "GET" && url === "/api/v1/templates/5") return Promise.resolve(response);
     return Promise.resolve(jsonResponse(404, {}));
   });
 }

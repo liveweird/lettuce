@@ -3,6 +3,7 @@ package ch.nokillswit.plugins
 import ch.nokillswit.auth.TokenBlocklistServiceKey
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
+import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
@@ -56,6 +57,10 @@ fun Application.configureSecurity() {
                 val jti = credential.payload.id
                 val revoked = jti != null && application.attributes[TokenBlocklistServiceKey].isRevoked(jti)
                 if (audOk && !revoked) JWTPrincipal(credential.payload) else null
+            }
+            // The challenge runs outside StatusPages, so emit the RFC 7807 body here too.
+            challenge { _, _ ->
+                call.respondProblem(HttpStatusCode.Unauthorized, "Missing or invalid bearer token")
             }
         }
     }

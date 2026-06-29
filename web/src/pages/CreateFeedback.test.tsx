@@ -92,7 +92,7 @@ describe("CreateFeedback page", () => {
 
     const postCall = mockFetch.mock.calls.find(
       ([url, init]) =>
-        url === "/api/feedbacks" && (init as RequestInit | undefined)?.method === "POST",
+        url === "/api/v1/feedbacks" && (init as RequestInit | undefined)?.method === "POST",
     );
     expect(postCall).toBeDefined();
     const body = JSON.parse((postCall![1] as RequestInit).body as string);
@@ -118,7 +118,7 @@ describe("CreateFeedback page", () => {
 
     const postCall = mockFetch.mock.calls.find(
       ([url, init]) =>
-        url === "/api/feedbacks" && (init as RequestInit | undefined)?.method === "POST",
+        url === "/api/v1/feedbacks" && (init as RequestInit | undefined)?.method === "POST",
     );
     expect(postCall).toBeDefined();
     const body = JSON.parse((postCall![1] as RequestInit).body as string);
@@ -139,7 +139,7 @@ describe("CreateFeedback page", () => {
     await waitFor(() => {
       const postCall = mockFetch.mock.calls.find(
         ([url, init]) =>
-          url === "/api/feedbacks" && (init as RequestInit | undefined)?.method === "POST",
+          url === "/api/v1/feedbacks" && (init as RequestInit | undefined)?.method === "POST",
       );
       expect(postCall).toBeDefined();
       expect(JSON.parse((postCall![1] as RequestInit).body as string).visibility).toBe("PUBLIC");

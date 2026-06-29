@@ -70,7 +70,7 @@ describe("CreateTemplate page", () => {
 
     expect(await screen.findByText(/name must be 1–100 characters/i)).toBeInTheDocument();
     const postCall = mockFetch.mock.calls.find(
-      ([url, init]) => init?.method === "POST" && url === "/api/templates",
+      ([url, init]) => init?.method === "POST" && url === "/api/v1/templates",
     );
     expect(postCall).toBeUndefined();
     expect(screen.queryByTestId("probe")).not.toBeInTheDocument();
@@ -88,7 +88,7 @@ describe("CreateTemplate page", () => {
 
   test("successful create POSTs {name, content} and navigates to /templates", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
-      if (init?.method === "POST" && url === "/api/templates") {
+      if (init?.method === "POST" && url === "/api/v1/templates") {
         return Promise.resolve(jsonResponse(201, { id: 7, name: "Welcome", content: "Body" }));
       }
       return Promise.resolve(jsonResponse(404, {}));
@@ -103,7 +103,7 @@ describe("CreateTemplate page", () => {
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/templates"));
 
     const postCall = mockFetch.mock.calls.find(
-      ([url, init]) => init?.method === "POST" && url === "/api/templates",
+      ([url, init]) => init?.method === "POST" && url === "/api/v1/templates",
     );
     expect(postCall).toBeDefined();
     expect(JSON.parse((postCall![1] as RequestInit).body as string)).toEqual({
@@ -114,7 +114,7 @@ describe("CreateTemplate page", () => {
 
   test("409 duplicate name shows a field error and does not navigate", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
-      if (init?.method === "POST" && url === "/api/templates") {
+      if (init?.method === "POST" && url === "/api/v1/templates") {
         return Promise.resolve(jsonResponse(409, { error: "conflict", message: "exists" }));
       }
       return Promise.resolve(jsonResponse(404, {}));
@@ -131,7 +131,7 @@ describe("CreateTemplate page", () => {
 
   test("403 shows a permission error alert", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
-      if (init?.method === "POST" && url === "/api/templates") {
+      if (init?.method === "POST" && url === "/api/v1/templates") {
         return Promise.resolve(jsonResponse(403, { error: "forbidden", message: "no" }));
       }
       return Promise.resolve(jsonResponse(404, {}));
@@ -147,7 +147,7 @@ describe("CreateTemplate page", () => {
 
   test("400 shows a validation error alert", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
-      if (init?.method === "POST" && url === "/api/templates") {
+      if (init?.method === "POST" && url === "/api/v1/templates") {
         return Promise.resolve(jsonResponse(400, { error: "bad_request", message: "no" }));
       }
       return Promise.resolve(jsonResponse(404, {}));
@@ -163,7 +163,7 @@ describe("CreateTemplate page", () => {
 
   test("an unexpected status shows a generic create-failed alert", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
-      if (init?.method === "POST" && url === "/api/templates") {
+      if (init?.method === "POST" && url === "/api/v1/templates") {
         return Promise.resolve(jsonResponse(500, { error: "internal", message: "boom" }));
       }
       return Promise.resolve(jsonResponse(404, {}));
@@ -179,7 +179,7 @@ describe("CreateTemplate page", () => {
 
   test("a network error shows a connection alert", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
-      if (init?.method === "POST" && url === "/api/templates") {
+      if (init?.method === "POST" && url === "/api/v1/templates") {
         return Promise.reject(new Error("network down"));
       }
       return Promise.resolve(jsonResponse(404, {}));

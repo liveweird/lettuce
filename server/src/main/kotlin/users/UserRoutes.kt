@@ -6,6 +6,7 @@ import ch.nokillswit.authz.requireAdmin
 import ch.nokillswit.authz.requireCanAssignRole
 import ch.nokillswit.authz.requireSelfOrAdmin
 import ch.nokillswit.infra.paging.parsePaging
+import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
@@ -16,6 +17,7 @@ import io.ktor.server.request.receive
 import io.ktor.server.resources.delete
 import io.ktor.server.resources.get
 import io.ktor.server.resources.href
+import io.ktor.server.resources.patch
 import io.ktor.server.resources.post
 import io.ktor.server.resources.put
 import io.ktor.server.response.header
@@ -24,7 +26,7 @@ import io.ktor.server.routing.routing
 import kotlinx.serialization.Serializable
 
 @Serializable
-@Resource("/api/users")
+@Resource("/api/v1/users")
 class Users {
     @Serializable
     @Resource("{id}")
@@ -89,17 +91,17 @@ fun Application.configureUserRoutes() {
                 if (user != null) {
                     call.respond(HttpStatusCode.OK, user.toResponse(route.id))
                 } else {
-                    call.respond(HttpStatusCode.NotFound)
+                    call.respondProblem(HttpStatusCode.NotFound, "User not found")
                 }
             }
-            put<Users.Id> { route ->
+            patch<Users.Id> { route ->
                 val caller = call.caller()
                 requireSelfOrAdmin(caller, route.id)
                 val req = call.receive<UserUpdateRequest>()
                 val existing = userService.read(route.id)
                 if (existing == null) {
-                    call.respond(HttpStatusCode.NotFound)
-                    return@put
+                    call.respondProblem(HttpStatusCode.NotFound, "User not found")
+                    return@patch
                 }
                 requireCanAssignRole(caller, existing.role, req.role)
                 val nextRole = req.role ?: existing.role
@@ -111,7 +113,7 @@ fun Application.configureUserRoutes() {
                 )
                 val updated = userService.update(route.id, user)
                 if (updated == 0) {
-                    call.respond(HttpStatusCode.NotFound)
+                    call.respondProblem(HttpStatusCode.NotFound, "User not found")
                 } else {
                     call.respond(HttpStatusCode.NoContent)
                 }
@@ -121,15 +123,18 @@ fun Application.configureUserRoutes() {
                 val req = call.receive<PasswordUpdateRequest>()
                 val updated = userService.updatePassword(route.parent.id, hashPassword(req.password))
                 if (updated == 0) {
-                    call.respond(HttpStatusCode.NotFound)
+                    call.respondProblem(HttpStatusCode.NotFound, "User not found")
                 } else {
                     call.respond(HttpStatusCode.NoContent)
                 }
             }
             delete<Users.Id> { route ->
                 requireAdmin(call.caller())
-                userService.delete(route.id)
-                call.respond(HttpStatusCode.NoContent)
+                if (userService.delete(route.id) == 0) {
+                    call.respondProblem(HttpStatusCode.NotFound, "User not found")
+                } else {
+                    call.respond(HttpStatusCode.NoContent)
+                }
             }
         }
     }

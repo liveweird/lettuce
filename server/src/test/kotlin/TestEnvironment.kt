@@ -7,6 +7,7 @@ import ch.nokillswit.users.UserRole
 import ch.nokillswit.users.UserService
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.http.ContentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.config.ApplicationConfig
 import io.ktor.server.config.MapApplicationConfig
@@ -30,7 +31,7 @@ suspend fun ApplicationTestBuilder.usePostgresTestcontainer() {
 }
 
 fun ApplicationTestBuilder.jsonClient(): HttpClient = createClient {
-    install(ContentNegotiation) { json() }
+    install(ContentNegotiation) { json(); json(contentType = ContentType.parse("application/problem+json")) }
 }
 
 private val sharedTestDatabase: R2dbcDatabase by lazy {

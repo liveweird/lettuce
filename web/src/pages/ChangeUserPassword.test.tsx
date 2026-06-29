@@ -71,7 +71,7 @@ describe("ChangeUserPassword page", () => {
 
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/users"));
 
-    const putCall = mockFetch.mock.calls.find(([url]) => url === "/api/users/7/password");
+    const putCall = mockFetch.mock.calls.find(([url]) => url === "/api/v1/users/7/password");
     expect(putCall).toBeTruthy();
     expect(putCall![1]).toEqual(expect.objectContaining({ method: "PUT" }));
     expect(JSON.parse(putCall![1].body)).toEqual({ password: "hunter2!" });
@@ -88,7 +88,7 @@ describe("ChangeUserPassword page", () => {
     await user.click(screen.getByRole("button", { name: /^change password$/i }));
 
     expect(await screen.findByText(/passwords do not match/i)).toBeInTheDocument();
-    expect(mockFetch.mock.calls.some(([url]) => url === "/api/users/7/password")).toBe(false);
+    expect(mockFetch.mock.calls.some(([url]) => url === "/api/v1/users/7/password")).toBe(false);
   });
 
   test("rejects short password client-side", async () => {
@@ -102,7 +102,7 @@ describe("ChangeUserPassword page", () => {
     await user.click(screen.getByRole("button", { name: /^change password$/i }));
 
     expect(await screen.findByText(/password must be at least 8 characters/i)).toBeInTheDocument();
-    expect(mockFetch.mock.calls.some(([url]) => url === "/api/users/7/password")).toBe(false);
+    expect(mockFetch.mock.calls.some(([url]) => url === "/api/v1/users/7/password")).toBe(false);
   });
 
   test("non-admin changing another user is redirected to /users", async () => {
@@ -130,7 +130,7 @@ describe("ChangeUserPassword page", () => {
 
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/"));
 
-    const putCall = mockFetch.mock.calls.find(([url]) => url === "/api/users/7/password");
+    const putCall = mockFetch.mock.calls.find(([url]) => url === "/api/v1/users/7/password");
     expect(putCall).toBeTruthy();
     expect(JSON.parse(putCall![1].body)).toEqual({ password: "hunter2!" });
   });

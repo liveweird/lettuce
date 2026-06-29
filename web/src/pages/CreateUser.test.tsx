@@ -69,7 +69,7 @@ describe("CreateUser page", () => {
 
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/users"));
     expect(mockFetch).toHaveBeenCalledWith(
-      "/api/users",
+      "/api/v1/users",
       expect.objectContaining({ method: "POST" }),
     );
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);

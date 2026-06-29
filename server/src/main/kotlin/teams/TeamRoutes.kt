@@ -5,6 +5,7 @@ import ch.nokillswit.authz.requireCanReassignManager
 import ch.nokillswit.authz.requireSelfOrAdmin
 import ch.nokillswit.authz.requireTeamManagerOrAdmin
 import ch.nokillswit.infra.paging.parsePaging
+import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
@@ -25,7 +26,7 @@ import io.r2dbc.spi.R2dbcException
 import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 
 @Serializable
-@Resource("/api/teams")
+@Resource("/api/v1/teams")
 class Teams {
     @Serializable
     @Resource("members")
@@ -123,14 +124,14 @@ fun Application.configureTeamRoutes() {
                 if (team != null) {
                     call.respond(HttpStatusCode.OK, team.toResponse(route.id))
                 } else {
-                    call.respond(HttpStatusCode.NotFound)
+                    call.respondProblem(HttpStatusCode.NotFound, "Team not found")
                 }
             }
             put<Teams.Id> { route ->
                 val caller = call.caller()
                 val existing = teamService.read(route.id)
                 if (existing == null) {
-                    call.respond(HttpStatusCode.NotFound)
+                    call.respondProblem(HttpStatusCode.NotFound, "Team not found")
                     return@put
                 }
                 requireTeamManagerOrAdmin(caller, existing.managerId)
@@ -149,7 +150,7 @@ fun Application.configureTeamRoutes() {
                 val caller = call.caller()
                 val existing = teamService.read(route.id)
                 if (existing == null) {
-                    call.respond(HttpStatusCode.NotFound)
+                    call.respondProblem(HttpStatusCode.NotFound, "Team not found")
                     return@delete
                 }
                 requireTeamManagerOrAdmin(caller, existing.managerId)
@@ -160,7 +161,7 @@ fun Application.configureTeamRoutes() {
                 val caller = call.caller()
                 val existing = teamService.read(route.parent.id)
                 if (existing == null) {
-                    call.respond(HttpStatusCode.NotFound)
+                    call.respondProblem(HttpStatusCode.NotFound, "Team not found")
                     return@put
                 }
                 requireTeamManagerOrAdmin(caller, existing.managerId)
@@ -177,7 +178,7 @@ fun Application.configureTeamRoutes() {
                 val caller = call.caller()
                 val existing = teamService.read(route.parent.id)
                 if (existing == null) {
-                    call.respond(HttpStatusCode.NotFound)
+                    call.respondProblem(HttpStatusCode.NotFound, "Team not found")
                     return@delete
                 }
                 requireTeamManagerOrAdmin(caller, existing.managerId)

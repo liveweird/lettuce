@@ -37,10 +37,10 @@ describe("FeedbackForm", () => {
     // Default: a single-template picker list plus its full content on demand.
     mockFetch.mockImplementation((url: string) => {
       const u = String(url);
-      if (/^\/api\/templates\/\d+/.test(u)) {
+      if (/^\/api\/v1\/templates\/\d+/.test(u)) {
         return Promise.resolve(jsonResponse(200, { id: 123, name: "Greeting", content: "Hello from template" }));
       }
-      if (u.startsWith("/api/templates")) {
+      if (u.startsWith("/api/v1/templates")) {
         return Promise.resolve(
           jsonResponse(200, {
             items: [{ id: 123, name: "Greeting", contentPreview: "Hello" }],
@@ -94,7 +94,7 @@ describe("FeedbackForm", () => {
     await waitFor(() => {
       expect(
         mockFetch.mock.calls.some(
-          ([url]) => String(url).startsWith("/api/templates?") && String(url).includes("pageSize=100"),
+          ([url]) => String(url).startsWith("/api/v1/templates?") && String(url).includes("pageSize=100"),
         ),
       ).toBe(true);
     });
@@ -108,7 +108,7 @@ describe("FeedbackForm", () => {
     renderWithProviders(<FeedbackForm {...baseProps} onSubmit={() => {}} />);
     expect(screen.queryByLabelText("Template")).toBeNull();
     expect(
-      mockFetch.mock.calls.some(([url]) => String(url).startsWith("/api/templates")),
+      mockFetch.mock.calls.some(([url]) => String(url).startsWith("/api/v1/templates")),
     ).toBe(false);
   });
 
@@ -175,8 +175,8 @@ describe("FeedbackForm", () => {
   test("shows an error alert when the template content fails to load", async () => {
     mockFetch.mockImplementation((url: string) => {
       const u = String(url);
-      if (/^\/api\/templates\/\d+/.test(u)) return Promise.resolve(jsonResponse(500, { error: "boom" }));
-      if (u.startsWith("/api/templates")) {
+      if (/^\/api\/v1\/templates\/\d+/.test(u)) return Promise.resolve(jsonResponse(500, { error: "boom" }));
+      if (u.startsWith("/api/v1/templates")) {
         return Promise.resolve(
           jsonResponse(200, {
             items: [{ id: 123, name: "Greeting", contentPreview: "Hello" }],

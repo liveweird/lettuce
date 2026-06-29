@@ -38,7 +38,7 @@ class PrincipalAuthTest {
 
     // Any authenticated endpoint runs caller(); /api/notifications needs no path param.
     private suspend fun ApplicationTestBuilder.assertRejected(token: String) {
-        val response = jsonClient().get("/api/notifications") {
+        val response = jsonClient().get("/api/v1/notifications") {
             header(HttpHeaders.Authorization, "Bearer $token")
         }
         assertEquals(HttpStatusCode.Unauthorized, response.status)

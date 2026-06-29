@@ -40,7 +40,7 @@ describe("Login page", () => {
       expect(localStorage.getItem("lettuce.auth.token")).toBe("abc.def.ghi"),
     );
     expect(mockFetch).toHaveBeenCalledWith(
-      "/api/login",
+      "/api/v1/login",
       expect.objectContaining({ method: "POST" }),
     );
   });
@@ -111,7 +111,7 @@ describe("Login page", () => {
       await screen.findByText(/you've been signed out/i),
     ).toBeInTheDocument();
     expect(mockFetch).toHaveBeenCalledWith(
-      "/api/logout",
+      "/api/v1/logout",
       expect.objectContaining({ method: "POST" }),
     );
 

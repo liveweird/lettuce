@@ -2,7 +2,7 @@ package ch.nokillswit
 
 import ch.nokillswit.auth.LoginRequest
 import ch.nokillswit.auth.LoginResponse
-import ch.nokillswit.plugins.ApiError
+import ch.nokillswit.plugins.ProblemDetail
 import ch.nokillswit.teams.Team
 import ch.nokillswit.teams.TeamMemberPageResponse
 import ch.nokillswit.teams.TeamResponse
@@ -34,12 +34,12 @@ class TeamMemberListTest {
 
     private suspend fun ApplicationTestBuilder.authedClient(email: String, password: String): HttpClient {
         val client = jsonClient()
-        val token = client.post("/api/login") {
+        val token = client.post("/api/v1/login") {
             contentType(ContentType.Application.Json)
             setBody(LoginRequest(email, password))
         }.body<LoginResponse>().token
         return createClient {
-            install(ContentNegotiation) { json() }
+            install(ContentNegotiation) { json(); json(contentType = ContentType.parse("application/problem+json")) }
             install(DefaultRequest) {
                 header(HttpHeaders.Authorization, "Bearer $token")
             }
@@ -47,7 +47,7 @@ class TeamMemberListTest {
     }
 
     private suspend fun HttpClient.createTeam(name: String, managerId: UInt, memberIds: List<UInt>): TeamResponse =
-        post("/api/teams") {
+        post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = name, managerId = managerId, memberIds = memberIds))
         }.body<TeamResponse>()
@@ -69,7 +69,7 @@ class TeamMemberListTest {
         // A team the caller is not in — its members must not appear.
         admin.createTeam("unrelated", managerId, listOf(zId))
 
-        val page = authedClient(callerEmail, "pw").get("/api/teams/members?view=member")
+        val page = authedClient(callerEmail, "pw").get("/api/v1/teams/members?view=member")
             .body<TeamMemberPageResponse>()
         assertEquals(2L, page.total)
         assertEquals(setOf(xId, yId), page.items.map { it.userId }.toSet())
@@ -94,7 +94,7 @@ class TeamMemberListTest {
         // A team the caller is not in — its manager must not appear.
         admin.createTeam("gamma", m3Id, listOf(otherId))
 
-        val page = authedClient(callerEmail, "pw").get("/api/teams/members?view=managers")
+        val page = authedClient(callerEmail, "pw").get("/api/v1/teams/members?view=managers")
             .body<TeamMemberPageResponse>()
         assertEquals(2L, page.total)
         assertEquals(setOf(m1Id, m2Id), page.items.map { it.userId }.toSet())
@@ -120,7 +120,7 @@ class TeamMemberListTest {
         // Caller is merely a member here; it must not contribute to view=managed.
         admin.createTeam("membership-only", otherMgrId, listOf(callerId, xId))
 
-        val page = authedClient(callerEmail, "pw").get("/api/teams/members?view=managed")
+        val page = authedClient(callerEmail, "pw").get("/api/v1/teams/members?view=managed")
             .body<TeamMemberPageResponse>()
         assertEquals(2L, page.total)
         assertEquals(setOf(xId, zId), page.items.map { it.userId }.toSet())
@@ -139,7 +139,7 @@ class TeamMemberListTest {
 
         authedClient(adminEmail, "pw").createTeam("default-view", managerId, listOf(callerId, xId))
 
-        val page = authedClient(callerEmail, "pw").get("/api/teams/members")
+        val page = authedClient(callerEmail, "pw").get("/api/v1/teams/members")
             .body<TeamMemberPageResponse>()
         assertEquals(1L, page.total)
         assertEquals(xId, page.items.single().userId)
@@ -159,7 +159,7 @@ class TeamMemberListTest {
         val alpha = admin.createTeam("alpha", managerId, listOf(callerId, xId))
         val beta = admin.createTeam("beta", managerId, listOf(callerId, xId))
 
-        val page = authedClient(callerEmail, "pw").get("/api/teams/members?sort=teamName")
+        val page = authedClient(callerEmail, "pw").get("/api/v1/teams/members?sort=teamName")
             .body<TeamMemberPageResponse>()
         assertEquals(2L, page.total)
         assertEquals(listOf(xId, xId), page.items.map { it.userId })
@@ -183,10 +183,10 @@ class TeamMemberListTest {
         admin.createTeam("kept-team", managerId, listOf(callerId, keptId, doomedUserId))
         val doomedTeam = admin.createTeam("doomed-team", managerId, listOf(callerId, ghostId))
 
-        assertEquals(HttpStatusCode.NoContent, admin.delete("/api/users/$doomedUserId").status)
-        assertEquals(HttpStatusCode.NoContent, admin.delete("/api/teams/${doomedTeam.id}").status)
+        assertEquals(HttpStatusCode.NoContent, admin.delete("/api/v1/users/$doomedUserId").status)
+        assertEquals(HttpStatusCode.NoContent, admin.delete("/api/v1/teams/${doomedTeam.id}").status)
 
-        val page = authedClient(callerEmail, "pw").get("/api/teams/members?view=member")
+        val page = authedClient(callerEmail, "pw").get("/api/v1/teams/members?view=member")
             .body<TeamMemberPageResponse>()
         assertEquals(1L, page.total)
         assertEquals(keptId, page.items.single().userId)
@@ -210,14 +210,14 @@ class TeamMemberListTest {
 
         val caller = authedClient(callerEmail, "pw")
 
-        val byName = caller.get("/api/teams/members?name=ALIC").body<TeamMemberPageResponse>()
+        val byName = caller.get("/api/v1/teams/members?name=ALIC").body<TeamMemberPageResponse>()
         assertEquals(listOf(aliceId), byName.items.map { it.userId })
 
-        val byEmail = caller.get("/api/teams/members?email=${aliceEmail.uppercase()}")
+        val byEmail = caller.get("/api/v1/teams/members?email=${aliceEmail.uppercase()}")
             .body<TeamMemberPageResponse>()
         assertEquals(listOf(aliceId), byEmail.items.map { it.userId })
 
-        val byTeam = caller.get("/api/teams/members?teamId=${support.id}").body<TeamMemberPageResponse>()
+        val byTeam = caller.get("/api/v1/teams/members?teamId=${support.id}").body<TeamMemberPageResponse>()
         assertEquals(listOf(bobId), byTeam.items.map { it.userId })
         assertEquals("Support", byTeam.items.single().teamName)
     }
@@ -237,7 +237,7 @@ class TeamMemberListTest {
             admin.createTeam(name, managerId, listOf(callerId, xId))
         }
 
-        val page = authedClient(callerEmail, "pw").get("/api/teams/members?sort=-teamName")
+        val page = authedClient(callerEmail, "pw").get("/api/v1/teams/members?sort=-teamName")
             .body<TeamMemberPageResponse>()
         assertEquals(listOf("charlie", "bravo", "alpha"), page.items.map { it.teamName })
     }
@@ -261,7 +261,7 @@ class TeamMemberListTest {
         val caller = authedClient(callerEmail, "pw")
         val seen = mutableListOf<Pair<UInt, UInt>>()
         for (page in 1..3) {
-            val body = caller.get("/api/teams/members?page=$page&pageSize=1").body<TeamMemberPageResponse>()
+            val body = caller.get("/api/v1/teams/members?page=$page&pageSize=1").body<TeamMemberPageResponse>()
             assertEquals(3L, body.total)
             assertEquals(page, body.page)
             assertEquals(1, body.pageSize)
@@ -281,21 +281,21 @@ class TeamMemberListTest {
         TestUsers.seed(email = email, password = "pw")
         val client = authedClient(email, "pw")
 
-        val badView = client.get("/api/teams/members?view=bogus")
+        val badView = client.get("/api/v1/teams/members?view=bogus")
         assertEquals(HttpStatusCode.BadRequest, badView.status)
-        assertEquals("bad_request", badView.body<ApiError>().error)
+        assertEquals(HttpStatusCode.BadRequest.value, badView.body<ProblemDetail>().status)
 
-        val badSort = client.get("/api/teams/members?sort=teamId")
+        val badSort = client.get("/api/v1/teams/members?sort=teamId")
         assertEquals(HttpStatusCode.BadRequest, badSort.status)
 
-        val badTeamId = client.get("/api/teams/members?teamId=abc")
+        val badTeamId = client.get("/api/v1/teams/members?teamId=abc")
         assertEquals(HttpStatusCode.BadRequest, badTeamId.status)
     }
 
     @Test
     fun `requires authentication`() = testApplication {
         usePostgresTestcontainer()
-        val response = jsonClient().get("/api/teams/members")
+        val response = jsonClient().get("/api/v1/teams/members")
         assertEquals(HttpStatusCode.Unauthorized, response.status)
     }
 
@@ -308,7 +308,7 @@ class TeamMemberListTest {
         val client = authedClient(email, "pw")
         val team = client.createTeam("precedence", managerId, listOf(memberA))
 
-        assertEquals(HttpStatusCode.OK, client.get("/api/teams/${team.id}").status)
-        assertEquals(HttpStatusCode.OK, client.get("/api/teams/members").status)
+        assertEquals(HttpStatusCode.OK, client.get("/api/v1/teams/${team.id}").status)
+        assertEquals(HttpStatusCode.OK, client.get("/api/v1/teams/members").status)
     }
 }

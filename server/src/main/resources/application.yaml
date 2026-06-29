@@ -11,12 +11,8 @@ ktor:
       - ch.nokillswit.plugins.SerializationKt.configureSerialization
       - ch.nokillswit.plugins.SecurityKt.configureSecurity
       - ch.nokillswit.plugins.ErrorHandlingKt.configureErrorHandling
-      - ch.nokillswit.plugins.SessionsKt.configureSessions
-      - ch.nokillswit.plugins.WebsocketsKt.configureWebsockets
-      - ch.nokillswit.plugins.DIKt.configureDependencyInjection
       - ch.nokillswit.plugins.OpenTelemetryKt.configureOpenTelemetry
       - ch.nokillswit.plugins.AutoHeadResponseKt.configureAutoHeadResponse
-      - ch.nokillswit.plugins.RequestValidationKt.configureRequestValidation
       - ch.nokillswit.plugins.ResourcesKt.configureResources
       # — infrastructure
       - ch.nokillswit.infra.db.FlywayKt.configureFlyway

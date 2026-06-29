@@ -46,12 +46,12 @@ class FeedbackRoutesTest {
 
     private suspend fun ApplicationTestBuilder.authedClient(email: String, password: String): HttpClient {
         val client = jsonClient()
-        val token = client.post("/api/login") {
+        val token = client.post("/api/v1/login") {
             contentType(ContentType.Application.Json)
             setBody(LoginRequest(email, password))
         }.body<LoginResponse>().token
         return createClient {
-            install(ContentNegotiation) { json() }
+            install(ContentNegotiation) { json(); json(contentType = ContentType.parse("application/problem+json")) }
             install(DefaultRequest) {
                 header(HttpHeaders.Authorization, "Bearer $token")
             }
@@ -87,7 +87,7 @@ class FeedbackRoutesTest {
             status = FeedbackStatus.DRAFT,
             content = "Initial thoughts",
         )
-        val createResponse = client.post("/api/feedbacks") {
+        val createResponse = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(payload)
         }
@@ -101,9 +101,9 @@ class FeedbackRoutesTest {
         assertEquals("Initial thoughts", created.content)
         val location = createResponse.headers[HttpHeaders.Location]
         assertNotNull(location)
-        assertTrue(location.endsWith("/api/feedbacks/${created.id}"), "Location was $location")
+        assertTrue(location.endsWith("/api/v1/feedbacks/${created.id}"), "Location was $location")
 
-        val readResponse = client.get("/api/feedbacks/${created.id}")
+        val readResponse = client.get("/api/v1/feedbacks/${created.id}")
         assertEquals(HttpStatusCode.OK, readResponse.status)
         assertEquals(created, readResponse.body<FeedbackResponse>())
     }
@@ -117,7 +117,7 @@ class FeedbackRoutesTest {
         val requesterId = TestUsers.seed(email = uniqueEmail("requester"), password = "pw", name = "Rita Requester")
         val client = authedClient(providerEmail, "pw")
 
-        val withRequester = client.post("/api/feedbacks") {
+        val withRequester = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -135,13 +135,13 @@ class FeedbackRoutesTest {
         assertEquals("Sam Subject", withRequester.subjectName)
         assertEquals("Rita Requester", withRequester.requesterName)
 
-        val read = client.get("/api/feedbacks/${withRequester.id}").body<FeedbackResponse>()
+        val read = client.get("/api/v1/feedbacks/${withRequester.id}").body<FeedbackResponse>()
         assertEquals("Paula Provider", read.providerName)
         assertEquals("Sam Subject", read.subjectName)
         assertEquals("Rita Requester", read.requesterName)
 
         // No requester → requesterName is null, the others still resolve.
-        val noRequester = client.post("/api/feedbacks") {
+        val noRequester = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -152,7 +152,7 @@ class FeedbackRoutesTest {
                 )
             )
         }.body<FeedbackResponse>()
-        val readNoRequester = client.get("/api/feedbacks/${noRequester.id}").body<FeedbackResponse>()
+        val readNoRequester = client.get("/api/v1/feedbacks/${noRequester.id}").body<FeedbackResponse>()
         assertNull(readNoRequester.requesterName)
         assertEquals("Sam Subject", readNoRequester.subjectName)
         assertEquals("Paula Provider", readNoRequester.providerName)
@@ -164,7 +164,7 @@ class FeedbackRoutesTest {
         val t = seedTriad()
         val client = authedClient(t.providerEmail, "pw")
 
-        val response = client.post("/api/feedbacks") {
+        val response = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -190,7 +190,7 @@ class FeedbackRoutesTest {
 
         // "Save & send" creates the feedback directly as SENT; the transition restriction
         // only applies on update, so this must be accepted on create.
-        val response = client.post("/api/feedbacks") {
+        val response = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -215,7 +215,7 @@ class FeedbackRoutesTest {
         val t = seedTriad()
         val client = authedClient(t.providerEmail, "pw")
 
-        val response = client.post("/api/feedbacks") {
+        val response = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -236,7 +236,7 @@ class FeedbackRoutesTest {
         val t = seedTriad()
         val client = authedClient(t.providerEmail, "pw")
 
-        val response = client.post("/api/feedbacks") {
+        val response = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -256,7 +256,7 @@ class FeedbackRoutesTest {
         val t = seedTriad()
         val client = authedClient(t.providerEmail, "pw")
 
-        val response = client.post("/api/feedbacks") {
+        val response = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -278,7 +278,7 @@ class FeedbackRoutesTest {
         val client = authedClient(t.providerEmail, "pw")
 
         // On create: a requester is incompatible with PROVIDER_SUBJECT visibility.
-        val onCreate = client.post("/api/feedbacks") {
+        val onCreate = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -293,7 +293,7 @@ class FeedbackRoutesTest {
         assertEquals(HttpStatusCode.BadRequest, onCreate.status)
 
         // On update: a valid feedback cannot be moved into the illegal combination either.
-        val created = client.post("/api/feedbacks") {
+        val created = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -305,7 +305,7 @@ class FeedbackRoutesTest {
                 )
             )
         }.body<FeedbackResponse>()
-        val onUpdate = client.put("/api/feedbacks/${created.id}") {
+        val onUpdate = client.put("/api/v1/feedbacks/${created.id}") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -326,7 +326,7 @@ class FeedbackRoutesTest {
         val t = seedTriad()
         val client = authedClient(t.providerEmail, "pw")
 
-        val response = client.post("/api/feedbacks") {
+        val response = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -353,17 +353,17 @@ class FeedbackRoutesTest {
             status = FeedbackStatus.DRAFT,
             content = "Notes",
         )
-        val created = client.post("/api/feedbacks") {
+        val created = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(draft)
         }.body<FeedbackResponse>()
 
-        val putResponse = client.put("/api/feedbacks/${created.id}") {
+        val putResponse = client.put("/api/v1/feedbacks/${created.id}") {
             contentType(ContentType.Application.Json)
             setBody(draft.copy(status = FeedbackStatus.SENT))
         }
         assertEquals(HttpStatusCode.NoContent, putResponse.status)
-        val after = client.get("/api/feedbacks/${created.id}").body<FeedbackResponse>()
+        val after = client.get("/api/v1/feedbacks/${created.id}").body<FeedbackResponse>()
         assertEquals(FeedbackStatus.SENT, after.status)
     }
 
@@ -380,18 +380,18 @@ class FeedbackRoutesTest {
             status = FeedbackStatus.DRAFT,
             content = "First pass",
         )
-        val created = client.post("/api/feedbacks") {
+        val created = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(draft)
         }.body<FeedbackResponse>()
 
         // "Save draft" on the edit screen: DRAFT -> DRAFT with changed content/visibility.
-        val putResponse = client.put("/api/feedbacks/${created.id}") {
+        val putResponse = client.put("/api/v1/feedbacks/${created.id}") {
             contentType(ContentType.Application.Json)
             setBody(draft.copy(content = "Revised", visibility = FeedbackVisibility.PUBLIC))
         }
         assertEquals(HttpStatusCode.NoContent, putResponse.status)
-        val after = client.get("/api/feedbacks/${created.id}").body<FeedbackResponse>()
+        val after = client.get("/api/v1/feedbacks/${created.id}").body<FeedbackResponse>()
         assertEquals(FeedbackStatus.DRAFT, after.status)
         assertEquals("Revised", after.content)
         assertEquals(FeedbackVisibility.PUBLIC, after.visibility)
@@ -409,22 +409,22 @@ class FeedbackRoutesTest {
             visibility = FeedbackVisibility.PROVIDER_SUBJECT,
             status = FeedbackStatus.DRAFT,
         )
-        val created = client.post("/api/feedbacks") {
+        val created = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(draft)
         }.body<FeedbackResponse>()
 
-        client.put("/api/feedbacks/${created.id}") {
+        client.put("/api/v1/feedbacks/${created.id}") {
             contentType(ContentType.Application.Json)
             setBody(draft.copy(status = FeedbackStatus.SENT))
         }
 
-        val response = client.put("/api/feedbacks/${created.id}") {
+        val response = client.put("/api/v1/feedbacks/${created.id}") {
             contentType(ContentType.Application.Json)
             setBody(draft.copy(status = FeedbackStatus.DRAFT))
         }
         assertEquals(HttpStatusCode.BadRequest, response.status)
-        val after = client.get("/api/feedbacks/${created.id}").body<FeedbackResponse>()
+        val after = client.get("/api/v1/feedbacks/${created.id}").body<FeedbackResponse>()
         assertEquals(FeedbackStatus.SENT, after.status)
     }
 
@@ -440,18 +440,18 @@ class FeedbackRoutesTest {
             visibility = FeedbackVisibility.PROVIDER_SUBJECT,
             status = FeedbackStatus.DRAFT,
         )
-        val created = client.post("/api/feedbacks") {
+        val created = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(draft)
         }.body<FeedbackResponse>()
 
-        client.put("/api/feedbacks/${created.id}") {
+        client.put("/api/v1/feedbacks/${created.id}") {
             contentType(ContentType.Application.Json)
             setBody(draft.copy(status = FeedbackStatus.WITHDRAWN))
         }
 
         for (target in listOf(FeedbackStatus.DRAFT, FeedbackStatus.SENT, FeedbackStatus.REQUESTED)) {
-            val attempt = client.put("/api/feedbacks/${created.id}") {
+            val attempt = client.put("/api/v1/feedbacks/${created.id}") {
                 contentType(ContentType.Application.Json)
                 setBody(
                     draft.copy(
@@ -477,17 +477,17 @@ class FeedbackRoutesTest {
             visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
             status = FeedbackStatus.REQUESTED,
         )
-        val created = client.post("/api/feedbacks") {
+        val created = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(requested)
         }.body<FeedbackResponse>()
 
-        val putResponse = client.put("/api/feedbacks/${created.id}") {
+        val putResponse = client.put("/api/v1/feedbacks/${created.id}") {
             contentType(ContentType.Application.Json)
             setBody(requested.copy(status = FeedbackStatus.REJECTED))
         }
         assertEquals(HttpStatusCode.NoContent, putResponse.status)
-        val after = client.get("/api/feedbacks/${created.id}").body<FeedbackResponse>()
+        val after = client.get("/api/v1/feedbacks/${created.id}").body<FeedbackResponse>()
         assertEquals(FeedbackStatus.REJECTED, after.status)
     }
 
@@ -504,18 +504,18 @@ class FeedbackRoutesTest {
             visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
             status = FeedbackStatus.REQUESTED,
         )
-        val created = client.post("/api/feedbacks") {
+        val created = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(requested)
         }.body<FeedbackResponse>()
 
-        client.put("/api/feedbacks/${created.id}") {
+        client.put("/api/v1/feedbacks/${created.id}") {
             contentType(ContentType.Application.Json)
             setBody(requested.copy(status = FeedbackStatus.REJECTED))
         }
 
         for (target in listOf(FeedbackStatus.DRAFT, FeedbackStatus.SENT, FeedbackStatus.WITHDRAWN, FeedbackStatus.REQUESTED)) {
-            val attempt = client.put("/api/feedbacks/${created.id}") {
+            val attempt = client.put("/api/v1/feedbacks/${created.id}") {
                 contentType(ContentType.Application.Json)
                 setBody(
                     requested.copy(
@@ -541,18 +541,18 @@ class FeedbackRoutesTest {
             status = FeedbackStatus.DRAFT,
             content = "v1",
         )
-        val created = client.post("/api/feedbacks") {
+        val created = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(draft)
         }.body<FeedbackResponse>()
 
-        val putResponse = client.put("/api/feedbacks/${created.id}") {
+        val putResponse = client.put("/api/v1/feedbacks/${created.id}") {
             contentType(ContentType.Application.Json)
             setBody(draft.copy(content = "v2", visibility = FeedbackVisibility.PUBLIC))
         }
         assertEquals(HttpStatusCode.NoContent, putResponse.status)
 
-        val after = client.get("/api/feedbacks/${created.id}").body<FeedbackResponse>()
+        val after = client.get("/api/v1/feedbacks/${created.id}").body<FeedbackResponse>()
         assertEquals("v2", after.content)
         assertEquals(FeedbackVisibility.PUBLIC, after.visibility)
         assertEquals(FeedbackStatus.DRAFT, after.status)
@@ -564,7 +564,7 @@ class FeedbackRoutesTest {
         val t = seedTriad()
         val client = authedClient(t.providerEmail, "pw")
 
-        val created = client.post("/api/feedbacks") {
+        val created = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -576,8 +576,8 @@ class FeedbackRoutesTest {
             )
         }.body<FeedbackResponse>()
 
-        assertEquals(HttpStatusCode.NoContent, client.delete("/api/feedbacks/${created.id}").status)
-        assertEquals(HttpStatusCode.NotFound, client.get("/api/feedbacks/${created.id}").status)
+        assertEquals(HttpStatusCode.NoContent, client.delete("/api/v1/feedbacks/${created.id}").status)
+        assertEquals(HttpStatusCode.NotFound, client.get("/api/v1/feedbacks/${created.id}").status)
     }
 
     @Test
@@ -585,7 +585,7 @@ class FeedbackRoutesTest {
         usePostgresTestcontainer()
         val t = seedTriad()
         val client = authedClient(t.providerEmail, "pw")
-        assertEquals(HttpStatusCode.NotFound, client.get("/api/feedbacks/999999").status)
+        assertEquals(HttpStatusCode.NotFound, client.get("/api/v1/feedbacks/999999").status)
     }
 
     @Test
@@ -593,11 +593,11 @@ class FeedbackRoutesTest {
         usePostgresTestcontainer()
         val client = jsonClient()
         val endpoints = listOf(
-            HttpMethod.Post to "/api/feedbacks",
-            HttpMethod.Get to "/api/feedbacks",
-            HttpMethod.Get to "/api/feedbacks/1",
-            HttpMethod.Put to "/api/feedbacks/1",
-            HttpMethod.Delete to "/api/feedbacks/1",
+            HttpMethod.Post to "/api/v1/feedbacks",
+            HttpMethod.Get to "/api/v1/feedbacks",
+            HttpMethod.Get to "/api/v1/feedbacks/1",
+            HttpMethod.Put to "/api/v1/feedbacks/1",
+            HttpMethod.Delete to "/api/v1/feedbacks/1",
         )
         for ((verb, path) in endpoints) {
             val response = client.request(path) { method = verb }
@@ -628,7 +628,7 @@ class FeedbackRoutesTest {
         status: FeedbackStatus = FeedbackStatus.SENT,
         requesterId: UInt? = null,
         content: String = "",
-    ): FeedbackResponse = feedbackSeeder().post("/api/feedbacks") {
+    ): FeedbackResponse = feedbackSeeder().post("/api/v1/feedbacks") {
         contentType(ContentType.Application.Json)
         setBody(
             Feedback(
@@ -649,7 +649,7 @@ class FeedbackRoutesTest {
         TestUsers.seed(email = admin, password = "pw") // ADMIN by default
         val client = authedClient(admin, "pw")
 
-        val response = client.put("/api/feedbacks/999999") {
+        val response = client.put("/api/v1/feedbacks/999999") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -662,14 +662,14 @@ class FeedbackRoutesTest {
     }
 
     @Test
-    fun `DELETE a non-existent feedback is idempotent`() = testApplication {
+    fun `DELETE a non-existent feedback returns 404`() = testApplication {
         usePostgresTestcontainer()
         val admin = uniqueEmail("admin")
         TestUsers.seed(email = admin, password = "pw")
         val client = authedClient(admin, "pw")
 
-        // The delete handler treats a missing row as already-gone (204), not 404.
-        assertEquals(HttpStatusCode.NoContent, client.delete("/api/feedbacks/999999").status)
+        // Deleting a row that does not exist reports 404 (consistent across resources).
+        assertEquals(HttpStatusCode.NotFound, client.delete("/api/v1/feedbacks/999999").status)
     }
 
     @Test
@@ -691,7 +691,7 @@ class FeedbackRoutesTest {
         createFeedback(callerId, providerId, FeedbackVisibility.PROVIDER_REQUESTER, requesterId = requesterId)
         createFeedback(otherSubjectId, providerId, FeedbackVisibility.PUBLIC)
 
-        val response = client.get("/api/feedbacks")
+        val response = client.get("/api/v1/feedbacks")
         assertEquals(HttpStatusCode.OK, response.status)
         val page = response.body<FeedbackPageResponse>()
         assertEquals(3, page.total)
@@ -718,7 +718,7 @@ class FeedbackRoutesTest {
             status = FeedbackStatus.SENT, requesterId = callerId, content = "delivered",
         )
 
-        val items = client.get("/api/feedbacks?view=received").body<FeedbackPageResponse>().items
+        val items = client.get("/api/v1/feedbacks?view=received").body<FeedbackPageResponse>().items
         assertEquals(setOf(pending.id, sent.id), items.map { it.id }.toSet())
         // The unfinished one is visible but its content preview is still redacted from the requester.
         assertEquals("", items.single { it.id == pending.id }.contentPreview)
@@ -750,24 +750,24 @@ class FeedbackRoutesTest {
             subjectId, providerId, FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
             status = FeedbackStatus.REQUESTED, requesterId = requesterId,
         )
-        providerClient.put("/api/feedbacks/${toReject.id}") {
+        providerClient.put("/api/v1/feedbacks/${toReject.id}") {
             contentType(ContentType.Application.Json)
             setBody(body(FeedbackStatus.REJECTED))
         }
 
         // While REQUESTED / REJECTED the subject (not the requester) does not see them — rule C needs
         // a delivered status (SENT/WITHDRAWN).
-        val before = subjectClient.get("/api/feedbacks?view=received").body<FeedbackPageResponse>()
+        val before = subjectClient.get("/api/v1/feedbacks?view=received").body<FeedbackPageResponse>()
         assertTrue(before.items.none { it.id == pending.id || it.id == toReject.id })
 
         // Deliver the pending one (REQUESTED -> DRAFT -> SENT); now it appears, the rejected one never does.
         for (next in listOf(FeedbackStatus.DRAFT, FeedbackStatus.SENT)) {
-            providerClient.put("/api/feedbacks/${pending.id}") {
+            providerClient.put("/api/v1/feedbacks/${pending.id}") {
                 contentType(ContentType.Application.Json)
                 setBody(body(next))
             }
         }
-        val after = subjectClient.get("/api/feedbacks?view=received").body<FeedbackPageResponse>()
+        val after = subjectClient.get("/api/v1/feedbacks?view=received").body<FeedbackPageResponse>()
         assertEquals(listOf(pending.id), after.items.map { it.id })
     }
 
@@ -785,7 +785,7 @@ class FeedbackRoutesTest {
         )
         val withoutRequester = createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC)
 
-        val page = client.get("/api/feedbacks").body<FeedbackPageResponse>()
+        val page = client.get("/api/v1/feedbacks").body<FeedbackPageResponse>()
         val itemWith = page.items.single { it.id == withRequester.id }
         assertEquals("Rita Requester", itemWith.requesterName)
         assertEquals(requesterId, itemWith.requesterId)
@@ -807,7 +807,7 @@ class FeedbackRoutesTest {
 
         createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC, content = "x".repeat(300))
 
-        val page = client.get("/api/feedbacks").body<FeedbackPageResponse>()
+        val page = client.get("/api/v1/feedbacks").body<FeedbackPageResponse>()
         assertEquals(200, page.items.single().contentPreview.length)
     }
 
@@ -829,17 +829,17 @@ class FeedbackRoutesTest {
             status = FeedbackStatus.WITHDRAWN, requesterId = requesterId,
         )
 
-        val byProvider = client.get("/api/feedbacks?providerName=ALICE").body<FeedbackPageResponse>()
+        val byProvider = client.get("/api/v1/feedbacks?providerName=ALICE").body<FeedbackPageResponse>()
         assertEquals(listOf(fromAlice.id), byProvider.items.map { it.id })
         assertEquals(1, byProvider.total)
 
-        val byRequester = client.get("/api/feedbacks?requesterName=carol").body<FeedbackPageResponse>()
+        val byRequester = client.get("/api/v1/feedbacks?requesterName=carol").body<FeedbackPageResponse>()
         assertEquals(listOf(fromBob.id), byRequester.items.map { it.id })
 
-        val byVisibility = client.get("/api/feedbacks?visibility=PUBLIC").body<FeedbackPageResponse>()
+        val byVisibility = client.get("/api/v1/feedbacks?visibility=PUBLIC").body<FeedbackPageResponse>()
         assertEquals(listOf(fromAlice.id), byVisibility.items.map { it.id })
 
-        val byStatus = client.get("/api/feedbacks?status=WITHDRAWN").body<FeedbackPageResponse>()
+        val byStatus = client.get("/api/v1/feedbacks?status=WITHDRAWN").body<FeedbackPageResponse>()
         assertEquals(listOf(fromBob.id), byStatus.items.map { it.id })
     }
 
@@ -859,13 +859,13 @@ class FeedbackRoutesTest {
         )
 
         // While it's a draft the subject is locked out; the provider (author) is not.
-        assertEquals(HttpStatusCode.Forbidden, subjectClient.get("/api/feedbacks/${draft.id}").status)
-        assertEquals(HttpStatusCode.OK, providerClient.get("/api/feedbacks/${draft.id}").status)
+        assertEquals(HttpStatusCode.Forbidden, subjectClient.get("/api/v1/feedbacks/${draft.id}").status)
+        assertEquals(HttpStatusCode.OK, providerClient.get("/api/v1/feedbacks/${draft.id}").status)
 
         // Sending it opens it up to the subject.
         assertEquals(
             HttpStatusCode.NoContent,
-            providerClient.put("/api/feedbacks/${draft.id}") {
+            providerClient.put("/api/v1/feedbacks/${draft.id}") {
                 contentType(ContentType.Application.Json)
                 setBody(
                     Feedback(
@@ -877,7 +877,7 @@ class FeedbackRoutesTest {
                 )
             }.status,
         )
-        assertEquals(HttpStatusCode.OK, subjectClient.get("/api/feedbacks/${draft.id}").status)
+        assertEquals(HttpStatusCode.OK, subjectClient.get("/api/v1/feedbacks/${draft.id}").status)
     }
 
     @Test
@@ -897,7 +897,7 @@ class FeedbackRoutesTest {
             visibility = FeedbackVisibility.PUBLIC, status = FeedbackStatus.SENT,
         )
 
-        val received = subjectClient.get("/api/feedbacks?view=received").body<FeedbackPageResponse>()
+        val received = subjectClient.get("/api/v1/feedbacks?view=received").body<FeedbackPageResponse>()
         assertEquals(listOf(sent.id), received.items.map { it.id })
     }
 
@@ -923,13 +923,13 @@ class FeedbackRoutesTest {
 
         // The requester may now read the record (it was 403 before this change) — but the content
         // is redacted while it is a draft. The provider still sees the real content.
-        val asRequester = subjectClient.get("/api/feedbacks/${draft.id}")
+        val asRequester = subjectClient.get("/api/v1/feedbacks/${draft.id}")
         assertEquals(HttpStatusCode.OK, asRequester.status)
         assertEquals("", asRequester.body<FeedbackResponse>().content)
-        assertEquals("secret draft", providerClient.get("/api/feedbacks/${draft.id}").body<FeedbackResponse>().content)
+        assertEquals("secret draft", providerClient.get("/api/v1/feedbacks/${draft.id}").body<FeedbackResponse>().content)
 
         // It appears in their received list, with the preview redacted too.
-        val received = subjectClient.get("/api/feedbacks?view=received").body<FeedbackPageResponse>()
+        val received = subjectClient.get("/api/v1/feedbacks?view=received").body<FeedbackPageResponse>()
         val row = received.items.single { it.id == draft.id }
         assertEquals(FeedbackStatus.DRAFT, row.status)
         assertEquals("", row.contentPreview)
@@ -937,7 +937,7 @@ class FeedbackRoutesTest {
         // Once sent, the content opens up to the subject/requester.
         assertEquals(
             HttpStatusCode.NoContent,
-            providerClient.put("/api/feedbacks/${draft.id}") {
+            providerClient.put("/api/v1/feedbacks/${draft.id}") {
                 contentType(ContentType.Application.Json)
                 setBody(
                     Feedback(
@@ -951,7 +951,7 @@ class FeedbackRoutesTest {
                 )
             }.status,
         )
-        assertEquals("secret draft", subjectClient.get("/api/feedbacks/${draft.id}").body<FeedbackResponse>().content)
+        assertEquals("secret draft", subjectClient.get("/api/v1/feedbacks/${draft.id}").body<FeedbackResponse>().content)
     }
 
     @Test
@@ -971,7 +971,7 @@ class FeedbackRoutesTest {
                 requestingManagerClient to requestingManager,
                 otherManagerClient to otherManager,
             )) {
-                managerClient.post("/api/teams") {
+                managerClient.post("/api/v1/teams") {
                     contentType(ContentType.Application.Json)
                     setBody(Team(name = "Squad-${manager.id}", managerId = manager.id, memberIds = listOf(subject.id)))
                 }
@@ -989,13 +989,13 @@ class FeedbackRoutesTest {
 
             // The requesting manager is a party (the requester), so the draft appears in her team
             // view — but its content is redacted while unfinished.
-            val asRequester = requestingManagerClient.get("/api/feedbacks?view=team").body<FeedbackPageResponse>()
+            val asRequester = requestingManagerClient.get("/api/v1/feedbacks?view=team").body<FeedbackPageResponse>()
             assertEquals("", asRequester.items.single { it.id == draft.id }.contentPreview)
-            assertEquals("", requestingManagerClient.get("/api/feedbacks/${draft.id}").body<FeedbackResponse>().content)
+            assertEquals("", requestingManagerClient.get("/api/v1/feedbacks/${draft.id}").body<FeedbackResponse>().content)
 
             // The other manager is not a party to this draft, so it does not surface in her team view
             // at all (only delivered feedback shows for a non-party manager).
-            val asOther = otherManagerClient.get("/api/feedbacks?view=team").body<FeedbackPageResponse>()
+            val asOther = otherManagerClient.get("/api/v1/feedbacks?view=team").body<FeedbackPageResponse>()
             assertTrue(asOther.items.none { it.id == draft.id })
         }
 
@@ -1009,7 +1009,7 @@ class FeedbackRoutesTest {
         val managerClient = authedClient(manager.email, "pw")
         val providerClient = authedClient(provider.email, "pw")
 
-        managerClient.post("/api/teams") {
+        managerClient.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "Squad", managerId = manager.id, memberIds = listOf(subordinate.id)))
         }
@@ -1032,7 +1032,7 @@ class FeedbackRoutesTest {
             subordinate.id, provider.id, FeedbackVisibility.PUBLIC, status = FeedbackStatus.SENT,
         )
 
-        val items = managerClient.get("/api/feedbacks?view=team").body<FeedbackPageResponse>().items
+        val items = managerClient.get("/api/v1/feedbacks?view=team").body<FeedbackPageResponse>().items
         assertEquals(setOf(mine.id, sent.id), items.map { it.id }.toSet())
     }
 
@@ -1053,12 +1053,12 @@ class FeedbackRoutesTest {
         createFeedback(bobId, callerId, FeedbackVisibility.PROVIDER_SUBJECT, status = FeedbackStatus.DRAFT)
 
         // received + providerId → only what Alice gave me.
-        val received = client.get("/api/feedbacks?view=received&providerId=$aliceId").body<FeedbackPageResponse>()
+        val received = client.get("/api/v1/feedbacks?view=received&providerId=$aliceId").body<FeedbackPageResponse>()
         assertEquals(listOf(fromAlice.id), received.items.map { it.id })
         assertEquals(1, received.total)
 
         // provided + subjectId → only what I gave Alice, regardless of status.
-        val provided = client.get("/api/feedbacks?view=provided&subjectId=$aliceId").body<FeedbackPageResponse>()
+        val provided = client.get("/api/v1/feedbacks?view=provided&subjectId=$aliceId").body<FeedbackPageResponse>()
         assertEquals(listOf(toAlice.id), provided.items.map { it.id })
         assertEquals(1, provided.total)
     }
@@ -1072,11 +1072,11 @@ class FeedbackRoutesTest {
 
         assertEquals(
             HttpStatusCode.BadRequest,
-            client.get("/api/feedbacks?providerId=abc").status,
+            client.get("/api/v1/feedbacks?providerId=abc").status,
         )
         assertEquals(
             HttpStatusCode.BadRequest,
-            client.get("/api/feedbacks?view=provided&subjectId=-1").status,
+            client.get("/api/v1/feedbacks?view=provided&subjectId=-1").status,
         )
     }
 
@@ -1092,10 +1092,10 @@ class FeedbackRoutesTest {
         val fromBob = createFeedback(callerId, bobId, FeedbackVisibility.PUBLIC)
         val fromAlice = createFeedback(callerId, aliceId, FeedbackVisibility.PUBLIC)
 
-        val desc = client.get("/api/feedbacks?sort=-providerName").body<FeedbackPageResponse>()
+        val desc = client.get("/api/v1/feedbacks?sort=-providerName").body<FeedbackPageResponse>()
         assertEquals(listOf(fromBob.id, fromAlice.id), desc.items.map { it.id })
 
-        val byDefault = client.get("/api/feedbacks").body<FeedbackPageResponse>()
+        val byDefault = client.get("/api/v1/feedbacks").body<FeedbackPageResponse>()
         assertEquals(listOf(fromBob.id, fromAlice.id).sorted(), byDefault.items.map { it.id })
     }
 
@@ -1112,7 +1112,7 @@ class FeedbackRoutesTest {
         }
 
         val pages = (1..3).map { p ->
-            client.get("/api/feedbacks?pageSize=2&page=$p").body<FeedbackPageResponse>()
+            client.get("/api/v1/feedbacks?pageSize=2&page=$p").body<FeedbackPageResponse>()
         }
         assertTrue(pages.all { it.total == 5L })
         assertEquals(listOf(2, 2, 1), pages.map { it.items.size })
@@ -1138,7 +1138,7 @@ class FeedbackRoutesTest {
         // Excluded: caller is the subject here, not the provider.
         createFeedback(callerId, otherProviderId, FeedbackVisibility.PUBLIC)
 
-        val page = client.get("/api/feedbacks?view=provided").body<FeedbackPageResponse>()
+        val page = client.get("/api/v1/feedbacks?view=provided").body<FeedbackPageResponse>()
         assertEquals(4, page.total)
         assertEquals(provided.map { it.id }.sorted(), page.items.map { it.id }.sorted())
         assertEquals(
@@ -1159,14 +1159,14 @@ class FeedbackRoutesTest {
         val forAnn = createFeedback(annId, callerId, FeedbackVisibility.PROVIDER_SUBJECT)
         val forZoe = createFeedback(zoeId, callerId, FeedbackVisibility.PUBLIC)
 
-        val all = client.get("/api/feedbacks?view=provided").body<FeedbackPageResponse>()
+        val all = client.get("/api/v1/feedbacks?view=provided").body<FeedbackPageResponse>()
         assertEquals("Ann Subject", all.items.single { it.id == forAnn.id }.subjectName)
         assertEquals(annId, all.items.single { it.id == forAnn.id }.subjectId)
 
-        val filtered = client.get("/api/feedbacks?view=provided&subjectName=ZOE").body<FeedbackPageResponse>()
+        val filtered = client.get("/api/v1/feedbacks?view=provided&subjectName=ZOE").body<FeedbackPageResponse>()
         assertEquals(listOf(forZoe.id), filtered.items.map { it.id })
 
-        val sorted = client.get("/api/feedbacks?view=provided&sort=-subjectName").body<FeedbackPageResponse>()
+        val sorted = client.get("/api/v1/feedbacks?view=provided&sort=-subjectName").body<FeedbackPageResponse>()
         assertEquals(listOf(forZoe.id, forAnn.id), sorted.items.map { it.id })
     }
 
@@ -1178,12 +1178,12 @@ class FeedbackRoutesTest {
         val client = authedClient(callerEmail, "pw")
 
         val badRequests = listOf(
-            "/api/feedbacks?sort=content",
-            "/api/feedbacks?visibility=BOGUS",
-            "/api/feedbacks?status=BOGUS",
-            "/api/feedbacks?view=bogus",
-            "/api/feedbacks?pageSize=200",
-            "/api/feedbacks?page=0",
+            "/api/v1/feedbacks?sort=content",
+            "/api/v1/feedbacks?visibility=BOGUS",
+            "/api/v1/feedbacks?status=BOGUS",
+            "/api/v1/feedbacks?view=bogus",
+            "/api/v1/feedbacks?pageSize=200",
+            "/api/v1/feedbacks?page=0",
         )
         for (url in badRequests) {
             assertEquals(HttpStatusCode.BadRequest, client.get(url).status, "Expected 400 for $url")
@@ -1196,7 +1196,7 @@ class FeedbackRoutesTest {
         val t = seedTriad()
         val client = authedClient(t.providerEmail, "pw")
 
-        val created = client.post("/api/feedbacks") {
+        val created = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -1208,9 +1208,9 @@ class FeedbackRoutesTest {
             )
         }.body<FeedbackResponse>()
 
-        assertEquals(HttpStatusCode.NoContent, client.delete("/api/users/${t.subjectId}").status)
+        assertEquals(HttpStatusCode.NoContent, client.delete("/api/v1/users/${t.subjectId}").status)
 
-        val after = client.get("/api/feedbacks/${created.id}").body<FeedbackResponse>()
+        val after = client.get("/api/v1/feedbacks/${created.id}").body<FeedbackResponse>()
         assertEquals(t.subjectId, after.subjectId)
         assertEquals(t.providerId, after.providerId)
     }
@@ -1221,7 +1221,7 @@ class FeedbackRoutesTest {
         val t = seedTriad()
         val client = authedClient(t.providerEmail, "pw")
 
-        val created = client.post("/api/feedbacks") {
+        val created = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -1234,8 +1234,8 @@ class FeedbackRoutesTest {
             )
         }.body<FeedbackResponse>()
 
-        assertEquals(HttpStatusCode.NoContent, client.delete("/api/users/${t.requesterId}").status)
-        val after = client.get("/api/feedbacks/${created.id}").body<FeedbackResponse>()
+        assertEquals(HttpStatusCode.NoContent, client.delete("/api/v1/users/${t.requesterId}").status)
+        val after = client.get("/api/v1/feedbacks/${created.id}").body<FeedbackResponse>()
         assertEquals(t.requesterId, after.requesterId)
         assertEquals(t.subjectId, after.subjectId)
         assertEquals(t.providerId, after.providerId)
@@ -1247,7 +1247,7 @@ class FeedbackRoutesTest {
         val t = seedTriad()
         val client = authedClient(t.providerEmail, "pw")
 
-        val created = client.post("/api/feedbacks") {
+        val created = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -1260,7 +1260,7 @@ class FeedbackRoutesTest {
         }.body<FeedbackResponse>()
 
         assertTrue(created.lastModified > 0, "created.lastModified was ${created.lastModified}")
-        val read = client.get("/api/feedbacks/${created.id}").body<FeedbackResponse>()
+        val read = client.get("/api/v1/feedbacks/${created.id}").body<FeedbackResponse>()
         assertEquals(created.lastModified, read.lastModified)
     }
 
@@ -1277,19 +1277,19 @@ class FeedbackRoutesTest {
             status = FeedbackStatus.DRAFT,
             content = "v1",
         )
-        val created = client.post("/api/feedbacks") {
+        val created = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(draft)
         }.body<FeedbackResponse>()
 
         delay(10)
         // Send a bogus lastModified in the body; the server must overwrite it with the clock.
-        client.put("/api/feedbacks/${created.id}") {
+        client.put("/api/v1/feedbacks/${created.id}") {
             contentType(ContentType.Application.Json)
             setBody(draft.copy(content = "v2", lastModified = 1L))
         }
 
-        val after = client.get("/api/feedbacks/${created.id}").body<FeedbackResponse>()
+        val after = client.get("/api/v1/feedbacks/${created.id}").body<FeedbackResponse>()
         assertEquals("v2", after.content)
         assertTrue(
             after.lastModified > created.lastModified,
@@ -1311,19 +1311,19 @@ class FeedbackRoutesTest {
 
         // A cutoff strictly between the two rows returns only the newer one.
         val cutoff = (older.lastModified + newer.lastModified) / 2
-        val narrowed = client.get("/api/feedbacks?lastModified%5Bgte%5D=$cutoff")
+        val narrowed = client.get("/api/v1/feedbacks?lastModified%5Bgte%5D=$cutoff")
         assertEquals(HttpStatusCode.OK, narrowed.status)
         assertEquals(listOf(newer.id), narrowed.body<FeedbackPageResponse>().items.map { it.id })
 
         // A cutoff at or below the older row returns both.
-        val all = client.get("/api/feedbacks?lastModified%5Bgte%5D=${older.lastModified}")
+        val all = client.get("/api/v1/feedbacks?lastModified%5Bgte%5D=${older.lastModified}")
             .body<FeedbackPageResponse>()
         assertEquals(listOf(older.id, newer.id).sorted(), all.items.map { it.id }.sorted())
 
         // Malformed bound is a 400.
         assertEquals(
             HttpStatusCode.BadRequest,
-            client.get("/api/feedbacks?lastModified%5Bgte%5D=abc").status,
+            client.get("/api/v1/feedbacks?lastModified%5Bgte%5D=abc").status,
         )
     }
 
@@ -1339,14 +1339,14 @@ class FeedbackRoutesTest {
         delay(10)
         val newer = createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC)
 
-        val page = client.get("/api/feedbacks").body<FeedbackPageResponse>()
+        val page = client.get("/api/v1/feedbacks").body<FeedbackPageResponse>()
         assertTrue(page.items.all { it.lastModified > 0 })
 
-        val desc = client.get("/api/feedbacks?sort=-lastModified")
+        val desc = client.get("/api/v1/feedbacks?sort=-lastModified")
         assertEquals(HttpStatusCode.OK, desc.status)
         assertEquals(listOf(newer.id, older.id), desc.body<FeedbackPageResponse>().items.map { it.id })
 
-        val asc = client.get("/api/feedbacks?sort=lastModified")
+        val asc = client.get("/api/v1/feedbacks?sort=lastModified")
         assertEquals(HttpStatusCode.OK, asc.status)
         assertEquals(listOf(older.id, newer.id), asc.body<FeedbackPageResponse>().items.map { it.id })
     }
@@ -1355,7 +1355,7 @@ class FeedbackRoutesTest {
         name: String,
         managerId: UInt,
         memberIds: List<UInt>,
-    ): TeamResponse = post("/api/teams") {
+    ): TeamResponse = post("/api/v1/teams") {
         contentType(ContentType.Application.Json)
         setBody(Team(name = name, managerId = managerId, memberIds = memberIds))
     }.body<TeamResponse>()
@@ -1385,7 +1385,7 @@ class FeedbackRoutesTest {
         // Excluded: the subject is not a member of any team the caller manages.
         createFeedback(outsiderId, providerId, FeedbackVisibility.PUBLIC)
 
-        val page = client.get("/api/feedbacks?view=team")
+        val page = client.get("/api/v1/feedbacks?view=team")
         assertEquals(HttpStatusCode.OK, page.status)
         val body = page.body<FeedbackPageResponse>()
         assertEquals(3, body.total)
@@ -1404,7 +1404,7 @@ class FeedbackRoutesTest {
         // Feedback where the caller is the subject still must not surface in the team view.
         createFeedback(callerId, providerId, FeedbackVisibility.PUBLIC)
 
-        val body = client.get("/api/feedbacks?view=team").body<FeedbackPageResponse>()
+        val body = client.get("/api/v1/feedbacks?view=team").body<FeedbackPageResponse>()
         assertEquals(0, body.total)
         assertTrue(body.items.isEmpty())
     }
@@ -1421,12 +1421,12 @@ class FeedbackRoutesTest {
         val team = client.createTeam("Squad", managerId = managerId, memberIds = listOf(subordinateId))
         createFeedback(subordinateId, providerId, FeedbackVisibility.PUBLIC)
 
-        assertEquals(1, client.get("/api/feedbacks?view=team").body<FeedbackPageResponse>().total)
+        assertEquals(1, client.get("/api/v1/feedbacks?view=team").body<FeedbackPageResponse>().total)
 
-        assertEquals(HttpStatusCode.NoContent, client.delete("/api/teams/${team.id}").status)
+        assertEquals(HttpStatusCode.NoContent, client.delete("/api/v1/teams/${team.id}").status)
 
         // The TEAM scope filters on non-deleted teams, so the subordinate is no longer in scope.
-        assertEquals(0, client.get("/api/feedbacks?view=team").body<FeedbackPageResponse>().total)
+        assertEquals(0, client.get("/api/v1/feedbacks?view=team").body<FeedbackPageResponse>().total)
     }
 
     @Test
@@ -1443,10 +1443,10 @@ class FeedbackRoutesTest {
         val forAnn = createFeedback(annId, providerId, FeedbackVisibility.PUBLIC)
         val forZoe = createFeedback(zoeId, providerId, FeedbackVisibility.PUBLIC)
 
-        val sorted = client.get("/api/feedbacks?view=team&sort=-subjectName").body<FeedbackPageResponse>()
+        val sorted = client.get("/api/v1/feedbacks?view=team&sort=-subjectName").body<FeedbackPageResponse>()
         assertEquals(listOf(forZoe.id, forAnn.id), sorted.items.map { it.id })
 
-        val filtered = client.get("/api/feedbacks?view=team&subjectName=ann").body<FeedbackPageResponse>()
+        val filtered = client.get("/api/v1/feedbacks?view=team&subjectName=ann").body<FeedbackPageResponse>()
         assertEquals(listOf(forAnn.id), filtered.items.map { it.id })
     }
 
@@ -1460,7 +1460,7 @@ class FeedbackRoutesTest {
     }
 
     private suspend fun ApplicationTestBuilder.notificationsOf(email: String): List<NotificationResponse> =
-        authedClient(email, "pw").get("/api/notifications").body<NotificationPageResponse>().items
+        authedClient(email, "pw").get("/api/v1/notifications").body<NotificationPageResponse>().items
 
     @Test
     fun `transition draft to sent notifies subject and requester`() = testApplication {
@@ -1478,14 +1478,14 @@ class FeedbackRoutesTest {
             status = FeedbackStatus.DRAFT,
             content = "Notes",
         )
-        val created = providerClient.post("/api/feedbacks") {
+        val created = providerClient.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(draft)
         }.body<FeedbackResponse>()
 
         assertEquals(
             HttpStatusCode.NoContent,
-            providerClient.put("/api/feedbacks/${created.id}") {
+            providerClient.put("/api/v1/feedbacks/${created.id}") {
                 contentType(ContentType.Application.Json)
                 setBody(draft.copy(status = FeedbackStatus.SENT))
             }.status,
@@ -1519,12 +1519,12 @@ class FeedbackRoutesTest {
             visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
             status = FeedbackStatus.REQUESTED,
         )
-        val created = providerClient.post("/api/feedbacks") {
+        val created = providerClient.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(requested)
         }.body<FeedbackResponse>()
 
-        providerClient.put("/api/feedbacks/${created.id}") {
+        providerClient.put("/api/v1/feedbacks/${created.id}") {
             contentType(ContentType.Application.Json)
             setBody(requested.copy(status = FeedbackStatus.REJECTED))
         }
@@ -1552,12 +1552,12 @@ class FeedbackRoutesTest {
             visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
             status = FeedbackStatus.REQUESTED,
         )
-        val created = providerClient.post("/api/feedbacks") {
+        val created = providerClient.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(requested)
         }.body<FeedbackResponse>()
 
-        providerClient.put("/api/feedbacks/${created.id}") {
+        providerClient.put("/api/v1/feedbacks/${created.id}") {
             contentType(ContentType.Application.Json)
             setBody(requested.copy(status = FeedbackStatus.DRAFT))
         }
@@ -1582,15 +1582,15 @@ class FeedbackRoutesTest {
             visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
             status = FeedbackStatus.DRAFT,
         )
-        val created = providerClient.post("/api/feedbacks") {
+        val created = providerClient.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(draft)
         }.body<FeedbackResponse>()
-        providerClient.put("/api/feedbacks/${created.id}") {
+        providerClient.put("/api/v1/feedbacks/${created.id}") {
             contentType(ContentType.Application.Json)
             setBody(draft.copy(status = FeedbackStatus.SENT))
         }
-        providerClient.put("/api/feedbacks/${created.id}") {
+        providerClient.put("/api/v1/feedbacks/${created.id}") {
             contentType(ContentType.Application.Json)
             setBody(draft.copy(status = FeedbackStatus.WITHDRAWN))
         }
@@ -1618,12 +1618,12 @@ class FeedbackRoutesTest {
             status = FeedbackStatus.DRAFT,
             content = "v1",
         )
-        val created = providerClient.post("/api/feedbacks") {
+        val created = providerClient.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(draft)
         }.body<FeedbackResponse>()
 
-        providerClient.put("/api/feedbacks/${created.id}") {
+        providerClient.put("/api/v1/feedbacks/${created.id}") {
             contentType(ContentType.Application.Json)
             setBody(draft.copy(content = "v2"))
         }
@@ -1641,7 +1641,7 @@ class FeedbackRoutesTest {
         // The requester is the one filing the request; any authenticated user may POST.
         val requesterClient = authedClient(requester.email, "pw")
 
-        val created = requesterClient.post("/api/feedbacks") {
+        val created = requesterClient.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -1672,7 +1672,7 @@ class FeedbackRoutesTest {
         val subject = seedParty("subject", "Sam Subject")
         val providerClient = authedClient(provider.email, "pw")
 
-        providerClient.post("/api/feedbacks") {
+        providerClient.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(

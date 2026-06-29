@@ -37,10 +37,10 @@ const ALL_USERS: UserItem[] = [
 ];
 
 function isMembersUrl(url: string) {
-  return url.startsWith("/api/users?") && url.includes("teamId=3");
+  return url.startsWith("/api/v1/users?") && url.includes("teamId=3");
 }
 function isPoolUrl(url: string) {
-  return url.startsWith("/api/users?") && !url.includes("teamId=");
+  return url.startsWith("/api/v1/users?") && !url.includes("teamId=");
 }
 
 function renderTeamMembers(id: number | string = 3) {
@@ -62,8 +62,8 @@ function renderTeamMembers(id: number | string = 3) {
 function mockAddError(mockFetch: FetchMock, putResult: () => Promise<Response>) {
   mockFetch.mockImplementation((url: string, init?: RequestInit) => {
     const method = init?.method ?? "GET";
-    if (method === "PUT" && url === "/api/teams/3/members/9") return putResult();
-    if (url === "/api/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
+    if (method === "PUT" && url === "/api/v1/teams/3/members/9") return putResult();
+    if (url === "/api/v1/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
     if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
     if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
     return Promise.resolve(jsonResponse(404, {}));
@@ -96,7 +96,7 @@ describe("TeamMembers page", () => {
 
   test("renders heading and the team's members, querying by teamId", async () => {
     mockFetch.mockImplementation((url: string) => {
-      if (url === "/api/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
+      if (url === "/api/v1/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
       if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
       if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
       return Promise.resolve(jsonResponse(404, {}));
@@ -114,7 +114,7 @@ describe("TeamMembers page", () => {
   test("non-admin gets a read-only roster: no add picker, no remove buttons", async () => {
     localStorage.setItem(ROLE_KEY, "USER");
     mockFetch.mockImplementation((url: string) => {
-      if (url === "/api/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
+      if (url === "/api/v1/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
       if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
       // The full-user-pool query (add picker) must not run for non-admins.
       if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
@@ -141,7 +141,7 @@ describe("TeamMembers page", () => {
 
   test("each member row has a Provide feedback link to the new-feedback form", async () => {
     mockFetch.mockImplementation((url: string) => {
-      if (url === "/api/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
+      if (url === "/api/v1/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
       if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
       if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
       return Promise.resolve(jsonResponse(404, {}));
@@ -158,10 +158,10 @@ describe("TeamMembers page", () => {
   test("add picker excludes current members and the manager, and PUTs the membership", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      if (method === "PUT" && url === "/api/teams/3/members/9") {
+      if (method === "PUT" && url === "/api/v1/teams/3/members/9") {
         return Promise.resolve(new Response(null, { status: 204 }));
       }
-      if (url === "/api/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
+      if (url === "/api/v1/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
       if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
       if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
       return Promise.resolve(jsonResponse(404, {}));
@@ -186,7 +186,7 @@ describe("TeamMembers page", () => {
     await waitFor(() => {
       const putCall = mockFetch.mock.calls.find(
         ([u, init]) =>
-          (init as RequestInit | undefined)?.method === "PUT" && u === "/api/teams/3/members/9",
+          (init as RequestInit | undefined)?.method === "PUT" && u === "/api/v1/teams/3/members/9",
       );
       expect(putCall).toBeDefined();
     });
@@ -196,10 +196,10 @@ describe("TeamMembers page", () => {
     let membersCount = 0;
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      if (method === "DELETE" && url === "/api/teams/3/members/1") {
+      if (method === "DELETE" && url === "/api/v1/teams/3/members/1") {
         return Promise.resolve(new Response(null, { status: 204 }));
       }
-      if (url === "/api/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
+      if (url === "/api/v1/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
       if (isMembersUrl(url)) {
         membersCount++;
         return Promise.resolve(usersPage(membersCount === 1 ? MEMBERS : [MEMBERS[1]]));
@@ -219,14 +219,14 @@ describe("TeamMembers page", () => {
     );
     const deleteCall = mockFetch.mock.calls.find(
       ([u, init]) =>
-        (init as RequestInit | undefined)?.method === "DELETE" && u === "/api/teams/3/members/1",
+        (init as RequestInit | undefined)?.method === "DELETE" && u === "/api/v1/teams/3/members/1",
     );
     expect(deleteCall).toBeDefined();
   });
 
   test("shows the empty state when the team has no members", async () => {
     mockFetch.mockImplementation((url: string) => {
-      if (url === "/api/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
+      if (url === "/api/v1/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
       if (isMembersUrl(url)) return Promise.resolve(usersPage([]));
       if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
       return Promise.resolve(jsonResponse(404, {}));
@@ -239,10 +239,10 @@ describe("TeamMembers page", () => {
   test("surfaces an alert when adding a member fails", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      if (method === "PUT" && url === "/api/teams/3/members/9") {
+      if (method === "PUT" && url === "/api/v1/teams/3/members/9") {
         return Promise.resolve(jsonResponse(400, { error: "bad_request", message: "nope" }));
       }
-      if (url === "/api/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
+      if (url === "/api/v1/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
       if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
       if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
       return Promise.resolve(jsonResponse(404, {}));
@@ -297,7 +297,7 @@ describe("TeamMembers page", () => {
 
   test("a 404 on the team shows the not-found alert", async () => {
     mockFetch.mockImplementation((url: string) => {
-      if (url === "/api/teams/3") return Promise.resolve(jsonResponse(404, { error: "not_found" }));
+      if (url === "/api/v1/teams/3") return Promise.resolve(jsonResponse(404, { error: "not_found" }));
       if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
       if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
       return Promise.resolve(jsonResponse(404, {}));
@@ -309,7 +309,7 @@ describe("TeamMembers page", () => {
 
   test("a non-404 team error shows the generic load-failed alert with status", async () => {
     mockFetch.mockImplementation((url: string) => {
-      if (url === "/api/teams/3") return Promise.resolve(jsonResponse(500, { error: "internal" }));
+      if (url === "/api/v1/teams/3") return Promise.resolve(jsonResponse(500, { error: "internal" }));
       if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
       if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
       return Promise.resolve(jsonResponse(404, {}));
@@ -320,7 +320,7 @@ describe("TeamMembers page", () => {
 
   test("a members-list error shows an alert", async () => {
     mockFetch.mockImplementation((url: string) => {
-      if (url === "/api/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
+      if (url === "/api/v1/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
       if (isMembersUrl(url)) return Promise.resolve(jsonResponse(500, { error: "internal" }));
       if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
       return Promise.resolve(jsonResponse(404, {}));
@@ -332,10 +332,10 @@ describe("TeamMembers page", () => {
   test("a remove failure shows an alert inside the modal and keeps it open", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      if (method === "DELETE" && url === "/api/teams/3/members/1") {
+      if (method === "DELETE" && url === "/api/v1/teams/3/members/1") {
         return Promise.resolve(jsonResponse(500, { error: "internal" }));
       }
-      if (url === "/api/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
+      if (url === "/api/v1/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
       if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
       if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
       return Promise.resolve(jsonResponse(404, {}));
@@ -354,8 +354,8 @@ describe("TeamMembers page", () => {
   test("the modal Cancel button is disabled while the remove is in flight", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      if (method === "DELETE" && url === "/api/teams/3/members/1") return new Promise(() => {});
-      if (url === "/api/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
+      if (method === "DELETE" && url === "/api/v1/teams/3/members/1") return new Promise(() => {});
+      if (url === "/api/v1/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
       if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
       if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
       return Promise.resolve(jsonResponse(404, {}));

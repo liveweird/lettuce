@@ -2,7 +2,7 @@ package ch.nokillswit
 
 import ch.nokillswit.auth.LoginRequest
 import ch.nokillswit.auth.LoginResponse
-import ch.nokillswit.plugins.ApiError
+import ch.nokillswit.plugins.ProblemDetail
 import ch.nokillswit.teams.Team
 import ch.nokillswit.teams.TeamPageResponse
 import ch.nokillswit.teams.TeamResponse
@@ -41,12 +41,12 @@ class TeamRoutesTest {
 
     private suspend fun ApplicationTestBuilder.authedClient(email: String, password: String): HttpClient {
         val client = jsonClient()
-        val token = client.post("/api/login") {
+        val token = client.post("/api/v1/login") {
             contentType(ContentType.Application.Json)
             setBody(LoginRequest(email, password))
         }.body<LoginResponse>().token
         return createClient {
-            install(ContentNegotiation) { json() }
+            install(ContentNegotiation) { json(); json(contentType = ContentType.parse("application/problem+json")) }
             install(DefaultRequest) {
                 header(HttpHeaders.Authorization, "Bearer $token")
             }
@@ -62,7 +62,7 @@ class TeamRoutesTest {
         val memberB = TestUsers.seed(email = uniqueEmail("b"), password = "pw")
 
         val client = authedClient(managerEmail, "pw")
-        val createResponse = client.post("/api/teams") {
+        val createResponse = client.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "Platform", managerId = managerId, memberIds = listOf(memberA, memberB)))
         }
@@ -73,9 +73,9 @@ class TeamRoutesTest {
         assertEquals(listOf(memberA, memberB), created.memberIds)
         val location = createResponse.headers[HttpHeaders.Location]
         assertNotNull(location)
-        assertTrue(location.endsWith("/api/teams/${created.id}"), "Location was $location")
+        assertTrue(location.endsWith("/api/v1/teams/${created.id}"), "Location was $location")
 
-        val readResponse = client.get("/api/teams/${created.id}")
+        val readResponse = client.get("/api/v1/teams/${created.id}")
         assertEquals(HttpStatusCode.OK, readResponse.status)
         val read = readResponse.body<TeamResponse>()
         assertEquals(created, read)
@@ -88,7 +88,7 @@ class TeamRoutesTest {
         val managerId = TestUsers.seed(email = email, password = "pw")
 
         val client = authedClient(email, "pw")
-        val response = client.post("/api/teams") {
+        val response = client.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "Bad", managerId = managerId, memberIds = listOf(managerId)))
         }
@@ -102,7 +102,7 @@ class TeamRoutesTest {
         val managerId = TestUsers.seed(email = email, password = "pw")
 
         val client = authedClient(email, "pw")
-        val response = client.post("/api/teams") {
+        val response = client.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "Empty", managerId = managerId, memberIds = emptyList()))
         }
@@ -110,7 +110,7 @@ class TeamRoutesTest {
         val created = response.body<TeamResponse>()
         assertTrue(created.memberIds.isEmpty())
 
-        val read = client.get("/api/teams/${created.id}").body<TeamResponse>()
+        val read = client.get("/api/v1/teams/${created.id}").body<TeamResponse>()
         assertTrue(read.memberIds.isEmpty())
     }
 
@@ -122,7 +122,7 @@ class TeamRoutesTest {
 
         val client = authedClient(email, "pw")
         // Body deliberately omits memberIds to exercise the Kotlin default.
-        val response = client.post("/api/teams") {
+        val response = client.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(buildJsonObject {
                 put("name", "Minimal")
@@ -146,25 +146,25 @@ class TeamRoutesTest {
         val memberC = TestUsers.seed(email = uniqueEmail("c"), password = "pw")
 
         val client = authedClient(managerEmail, "pw")
-        val team = client.post("/api/teams") {
+        val team = client.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "T", managerId = managerId, memberIds = listOf(memberA, memberB)))
         }.body<TeamResponse>()
 
-        val addResponse = client.put("/api/teams/${team.id}/members/$memberC")
+        val addResponse = client.put("/api/v1/teams/${team.id}/members/$memberC")
         assertEquals(HttpStatusCode.NoContent, addResponse.status)
-        val afterAdd = client.get("/api/teams/${team.id}").body<TeamResponse>()
+        val afterAdd = client.get("/api/v1/teams/${team.id}").body<TeamResponse>()
         assertEquals(listOf(memberA, memberB, memberC).sorted(), afterAdd.memberIds.sorted())
 
-        val removeResponse = client.delete("/api/teams/${team.id}/members/$memberA")
+        val removeResponse = client.delete("/api/v1/teams/${team.id}/members/$memberA")
         assertEquals(HttpStatusCode.NoContent, removeResponse.status)
-        val afterRemove = client.get("/api/teams/${team.id}").body<TeamResponse>()
+        val afterRemove = client.get("/api/v1/teams/${team.id}").body<TeamResponse>()
         assertEquals(listOf(memberB, memberC).sorted(), afterRemove.memberIds.sorted())
 
-        client.delete("/api/teams/${team.id}/members/$memberB")
-        val lastRemoveResponse = client.delete("/api/teams/${team.id}/members/$memberC")
+        client.delete("/api/v1/teams/${team.id}/members/$memberB")
+        val lastRemoveResponse = client.delete("/api/v1/teams/${team.id}/members/$memberC")
         assertEquals(HttpStatusCode.NoContent, lastRemoveResponse.status)
-        val afterAll = client.get("/api/teams/${team.id}").body<TeamResponse>()
+        val afterAll = client.get("/api/v1/teams/${team.id}").body<TeamResponse>()
         assertTrue(afterAll.memberIds.isEmpty())
     }
 
@@ -176,12 +176,12 @@ class TeamRoutesTest {
         val memberA = TestUsers.seed(email = uniqueEmail("a"), password = "pw")
 
         val client = authedClient(managerEmail, "pw")
-        val team = client.post("/api/teams") {
+        val team = client.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "T", managerId = managerId, memberIds = listOf(memberA)))
         }.body<TeamResponse>()
 
-        val response = client.put("/api/teams/${team.id}/members/$managerId")
+        val response = client.put("/api/v1/teams/${team.id}/members/$managerId")
         assertEquals(HttpStatusCode.BadRequest, response.status, response.bodyAsText())
     }
 
@@ -196,18 +196,18 @@ class TeamRoutesTest {
         val m3 = TestUsers.seed(email = uniqueEmail("m3"), password = "pw")
 
         val client = authedClient(ownerEmail, "pw")
-        val team = client.post("/api/teams") {
+        val team = client.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "Before", managerId = mgr1, memberIds = listOf(m1, m2)))
         }.body<TeamResponse>()
 
-        val updateResponse = client.put("/api/teams/${team.id}") {
+        val updateResponse = client.put("/api/v1/teams/${team.id}") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "After", managerId = mgr2, memberIds = listOf(m2, m3)))
         }
         assertEquals(HttpStatusCode.NoContent, updateResponse.status)
 
-        val after = client.get("/api/teams/${team.id}").body<TeamResponse>()
+        val after = client.get("/api/v1/teams/${team.id}").body<TeamResponse>()
         assertEquals("After", after.name)
         assertEquals(mgr2, after.managerId)
         assertEquals(listOf(m2, m3).sorted(), after.memberIds.sorted())
@@ -221,18 +221,18 @@ class TeamRoutesTest {
         val memberA = TestUsers.seed(email = uniqueEmail("a"), password = "pw")
 
         val client = authedClient(ownerEmail, "pw")
-        val team = client.post("/api/teams") {
+        val team = client.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "T", managerId = managerId, memberIds = listOf(memberA)))
         }.body<TeamResponse>()
 
-        val response = client.put("/api/teams/${team.id}") {
+        val response = client.put("/api/v1/teams/${team.id}") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "T", managerId = managerId, memberIds = emptyList()))
         }
         assertEquals(HttpStatusCode.NoContent, response.status)
 
-        val after = client.get("/api/teams/${team.id}").body<TeamResponse>()
+        val after = client.get("/api/v1/teams/${team.id}").body<TeamResponse>()
         assertTrue(after.memberIds.isEmpty())
     }
 
@@ -244,12 +244,12 @@ class TeamRoutesTest {
         val memberA = TestUsers.seed(email = uniqueEmail("a"), password = "pw")
 
         val client = authedClient(ownerEmail, "pw")
-        val team = client.post("/api/teams") {
+        val team = client.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "T", managerId = managerId, memberIds = listOf(memberA)))
         }.body<TeamResponse>()
 
-        val response = client.put("/api/teams/${team.id}") {
+        val response = client.put("/api/v1/teams/${team.id}") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "T", managerId = managerId, memberIds = listOf(managerId, memberA)))
         }
@@ -265,12 +265,12 @@ class TeamRoutesTest {
         val memberB = TestUsers.seed(email = uniqueEmail("b"), password = "pw")
 
         val client = authedClient(ownerEmail, "pw")
-        val team = client.post("/api/teams") {
+        val team = client.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "T", managerId = managerId, memberIds = listOf(memberA)))
         }.body<TeamResponse>()
 
-        val response = client.put("/api/teams/${team.id}") {
+        val response = client.put("/api/v1/teams/${team.id}") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "T", managerId = managerId, memberIds = listOf(memberA, memberA, memberB)))
         }
@@ -285,15 +285,15 @@ class TeamRoutesTest {
         val memberA = TestUsers.seed(email = uniqueEmail("a"), password = "pw")
 
         val client = authedClient(ownerEmail, "pw")
-        val team = client.post("/api/teams") {
+        val team = client.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "T", managerId = managerId, memberIds = listOf(memberA)))
         }.body<TeamResponse>()
 
-        val deleteResponse = client.delete("/api/teams/${team.id}")
+        val deleteResponse = client.delete("/api/v1/teams/${team.id}")
         assertEquals(HttpStatusCode.NoContent, deleteResponse.status)
 
-        val getResponse = client.get("/api/teams/${team.id}")
+        val getResponse = client.get("/api/v1/teams/${team.id}")
         assertEquals(HttpStatusCode.NotFound, getResponse.status)
     }
 
@@ -304,7 +304,7 @@ class TeamRoutesTest {
         TestUsers.seed(email = ownerEmail, password = "pw")
         val client = authedClient(ownerEmail, "pw")
 
-        val response = client.get("/api/teams/999999")
+        val response = client.get("/api/v1/teams/999999")
         assertEquals(HttpStatusCode.NotFound, response.status)
     }
 
@@ -315,7 +315,7 @@ class TeamRoutesTest {
         TestUsers.seed(email = adminEmail, password = "pw") // ADMIN by default
         val client = authedClient(adminEmail, "pw")
 
-        assertEquals(HttpStatusCode.NotFound, client.delete("/api/teams/999999").status)
+        assertEquals(HttpStatusCode.NotFound, client.delete("/api/v1/teams/999999").status)
     }
 
     @Test
@@ -326,7 +326,7 @@ class TeamRoutesTest {
         val memberA = TestUsers.seed(email = uniqueEmail("a"), password = "pw")
 
         val client = authedClient(ownerEmail, "pw")
-        val response = client.post("/api/teams") {
+        val response = client.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "Dup", managerId = managerId, memberIds = listOf(memberA, memberA)))
         }
@@ -338,12 +338,12 @@ class TeamRoutesTest {
         usePostgresTestcontainer()
         val client = jsonClient()
         val endpoints = listOf(
-            HttpMethod.Post to "/api/teams",
-            HttpMethod.Get to "/api/teams/1",
-            HttpMethod.Put to "/api/teams/1",
-            HttpMethod.Delete to "/api/teams/1",
-            HttpMethod.Put to "/api/teams/1/members/2",
-            HttpMethod.Delete to "/api/teams/1/members/2",
+            HttpMethod.Post to "/api/v1/teams",
+            HttpMethod.Get to "/api/v1/teams/1",
+            HttpMethod.Put to "/api/v1/teams/1",
+            HttpMethod.Delete to "/api/v1/teams/1",
+            HttpMethod.Put to "/api/v1/teams/1/members/2",
+            HttpMethod.Delete to "/api/v1/teams/1/members/2",
         )
         for ((verb, path) in endpoints) {
             val response = client.request(path) { method = verb }
@@ -363,17 +363,17 @@ class TeamRoutesTest {
         val memberA = TestUsers.seed(email = uniqueEmail("a"), password = "pw")
 
         val client = authedClient(ownerEmail, "pw")
-        val team = client.post("/api/teams") {
+        val team = client.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "T", managerId = managerId, memberIds = listOf(memberA)))
         }.body<TeamResponse>()
 
-        val first = client.put("/api/teams/${team.id}/members/$memberA")
+        val first = client.put("/api/v1/teams/${team.id}/members/$memberA")
         assertEquals(HttpStatusCode.NoContent, first.status)
-        val second = client.put("/api/teams/${team.id}/members/$memberA")
+        val second = client.put("/api/v1/teams/${team.id}/members/$memberA")
         assertEquals(HttpStatusCode.NoContent, second.status)
 
-        val after = client.get("/api/teams/${team.id}").body<TeamResponse>()
+        val after = client.get("/api/v1/teams/${team.id}").body<TeamResponse>()
         assertEquals(listOf(memberA), after.memberIds)
     }
 
@@ -386,15 +386,15 @@ class TeamRoutesTest {
         val memberB = TestUsers.seed(email = uniqueEmail("b"), password = "pw")
 
         val client = authedClient(ownerEmail, "pw")
-        val team = client.post("/api/teams") {
+        val team = client.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "T", managerId = managerId, memberIds = listOf(memberA, memberB)))
         }.body<TeamResponse>()
 
-        val deleteUser = client.delete("/api/users/$memberA")
+        val deleteUser = client.delete("/api/v1/users/$memberA")
         assertEquals(HttpStatusCode.NoContent, deleteUser.status)
 
-        val after = client.get("/api/teams/${team.id}").body<TeamResponse>()
+        val after = client.get("/api/v1/teams/${team.id}").body<TeamResponse>()
         assertEquals(listOf(memberA, memberB).sorted(), after.memberIds.sorted())
     }
 
@@ -406,14 +406,14 @@ class TeamRoutesTest {
         val memberA = TestUsers.seed(email = uniqueEmail("a"), password = "pw")
 
         val client = authedClient(ownerEmail, "pw")
-        val team = client.post("/api/teams") {
+        val team = client.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "T", managerId = managerId, memberIds = listOf(memberA)))
         }.body<TeamResponse>()
 
-        assertEquals(HttpStatusCode.NoContent, client.delete("/api/users/$managerId").status)
+        assertEquals(HttpStatusCode.NoContent, client.delete("/api/v1/users/$managerId").status)
 
-        val after = client.get("/api/teams/${team.id}").body<TeamResponse>()
+        val after = client.get("/api/v1/teams/${team.id}").body<TeamResponse>()
         assertEquals(managerId, after.managerId)
     }
 
@@ -427,13 +427,13 @@ class TeamRoutesTest {
         val client = authedClient(managerEmail, "pw")
         val tag = UUID.randomUUID().toString().substring(0, 8)
         repeat(3) { i ->
-            client.post("/api/teams") {
+            client.post("/api/v1/teams") {
                 contentType(ContentType.Application.Json)
                 setBody(Team(name = "list-$tag-$i", managerId = managerId, memberIds = listOf(memberA)))
             }
         }
 
-        val response = client.get("/api/teams?name=list-$tag")
+        val response = client.get("/api/v1/teams?name=list-$tag")
         assertEquals(HttpStatusCode.OK, response.status)
         val page = response.body<TeamPageResponse>()
         assertEquals(1, page.page)
@@ -458,18 +458,18 @@ class TeamRoutesTest {
         val memberA = TestUsers.seed(email = uniqueEmail("m-$tag"), password = "pw")
 
         val admin = authedClient(adminEmail, "pw")
-        admin.post("/api/teams") {
+        admin.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "team-doomed-$tag", managerId = doomedId, memberIds = listOf(memberA)))
         }
-        admin.post("/api/teams") {
+        admin.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "team-alive-$tag", managerId = survivorId, memberIds = listOf(memberA)))
         }
 
-        assertEquals(HttpStatusCode.NoContent, admin.delete("/api/users/$doomedId").status)
+        assertEquals(HttpStatusCode.NoContent, admin.delete("/api/v1/users/$doomedId").status)
 
-        val page = admin.get("/api/teams?name=team-").body<TeamPageResponse>()
+        val page = admin.get("/api/v1/teams?name=team-").body<TeamPageResponse>()
         val itemsByName = page.items.associateBy { it.name }
         val doomedTeam = itemsByName["team-doomed-$tag"]
         val aliveTeam = itemsByName["team-alive-$tag"]
@@ -490,17 +490,17 @@ class TeamRoutesTest {
         val memberA = TestUsers.seed(email = uniqueEmail("m-$tag"), password = "pw")
 
         val ownerClient = authedClient(ownerEmail, "pw")
-        ownerClient.post("/api/teams") {
+        ownerClient.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "owned-$tag", managerId = ownerId, memberIds = listOf(memberA)))
         }
         val otherClient = authedClient(otherMgrEmail, "pw")
-        otherClient.post("/api/teams") {
+        otherClient.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "other-$tag", managerId = otherMgrId, memberIds = listOf(memberA)))
         }
 
-        val page = ownerClient.get("/api/teams?name=$tag&managerId=$ownerId").body<TeamPageResponse>()
+        val page = ownerClient.get("/api/v1/teams?name=$tag&managerId=$ownerId").body<TeamPageResponse>()
         assertEquals(1L, page.total)
         assertEquals("owned-$tag", page.items.single().name)
         assertEquals(ownerId, page.items.single().managerId)
@@ -518,22 +518,22 @@ class TeamRoutesTest {
 
         val admin = authedClient(adminEmail, "pw")
         // target IS a member here
-        val memberTeam = admin.post("/api/teams") {
+        val memberTeam = admin.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "member-$tag", managerId = managerId, memberIds = listOf(target, other)))
         }.body<TeamResponse>()
         // target is NOT a member here
-        admin.post("/api/teams") {
+        admin.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "nonmember-$tag", managerId = managerId, memberIds = listOf(other)))
         }
         // target is the MANAGER here, not a member -> must be excluded by memberId filter
-        admin.post("/api/teams") {
+        admin.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "managed-$tag", managerId = target, memberIds = listOf(other)))
         }
 
-        val page = admin.get("/api/teams?name=$tag&memberId=$target").body<TeamPageResponse>()
+        val page = admin.get("/api/v1/teams?name=$tag&memberId=$target").body<TeamPageResponse>()
         assertEquals(1L, page.total)
         assertEquals("member-$tag", page.items.single().name)
         assertEquals(memberTeam.id, page.items.single().id)
@@ -544,7 +544,7 @@ class TeamRoutesTest {
         usePostgresTestcontainer()
         val managerEmail = uniqueEmail("mgr")
         TestUsers.seed(email = managerEmail, password = "pw")
-        val response = authedClient(managerEmail, "pw").get("/api/teams?memberId=abc")
+        val response = authedClient(managerEmail, "pw").get("/api/v1/teams?memberId=abc")
         assertEquals(HttpStatusCode.BadRequest, response.status)
     }
 
@@ -557,13 +557,13 @@ class TeamRoutesTest {
         val client = authedClient(managerEmail, "pw")
         val tag = UUID.randomUUID().toString().substring(0, 8)
         listOf("bravo", "alpha", "charlie").forEach { stem ->
-            client.post("/api/teams") {
+            client.post("/api/v1/teams") {
                 contentType(ContentType.Application.Json)
                 setBody(Team(name = "sort-$tag-$stem", managerId = managerId, memberIds = listOf(memberA)))
             }
         }
 
-        val page = client.get("/api/teams?name=sort-$tag&sort=-name").body<TeamPageResponse>()
+        val page = client.get("/api/v1/teams?name=sort-$tag&sort=-name").body<TeamPageResponse>()
         assertEquals(
             listOf("sort-$tag-charlie", "sort-$tag-bravo", "sort-$tag-alpha"),
             page.items.map { it.name },
@@ -579,20 +579,20 @@ class TeamRoutesTest {
         val client = authedClient(managerEmail, "pw")
         val tag = UUID.randomUUID().toString().substring(0, 8)
         repeat(5) { i ->
-            client.post("/api/teams") {
+            client.post("/api/v1/teams") {
                 contentType(ContentType.Application.Json)
                 setBody(Team(name = "page-$tag-$i", managerId = managerId, memberIds = listOf(memberA)))
             }
         }
 
-        val pageOne = client.get("/api/teams?name=page-$tag&sort=name&page=1&pageSize=2").body<TeamPageResponse>()
+        val pageOne = client.get("/api/v1/teams?name=page-$tag&sort=name&page=1&pageSize=2").body<TeamPageResponse>()
         assertEquals(5L, pageOne.total)
         assertEquals(listOf("page-$tag-0", "page-$tag-1"), pageOne.items.map { it.name })
 
-        val pageTwo = client.get("/api/teams?name=page-$tag&sort=name&page=2&pageSize=2").body<TeamPageResponse>()
+        val pageTwo = client.get("/api/v1/teams?name=page-$tag&sort=name&page=2&pageSize=2").body<TeamPageResponse>()
         assertEquals(listOf("page-$tag-2", "page-$tag-3"), pageTwo.items.map { it.name })
 
-        val pageThree = client.get("/api/teams?name=page-$tag&sort=name&page=3&pageSize=2").body<TeamPageResponse>()
+        val pageThree = client.get("/api/v1/teams?name=page-$tag&sort=name&page=3&pageSize=2").body<TeamPageResponse>()
         assertEquals(listOf("page-$tag-4"), pageThree.items.map { it.name })
     }
 
@@ -601,9 +601,9 @@ class TeamRoutesTest {
         usePostgresTestcontainer()
         val managerEmail = uniqueEmail("mgr")
         TestUsers.seed(email = managerEmail, password = "pw")
-        val response = authedClient(managerEmail, "pw").get("/api/teams?sort=manager_id")
+        val response = authedClient(managerEmail, "pw").get("/api/v1/teams?sort=manager_id")
         assertEquals(HttpStatusCode.BadRequest, response.status)
-        assertEquals("bad_request", response.body<ApiError>().error)
+        assertEquals(HttpStatusCode.BadRequest.value, response.body<ProblemDetail>().status)
     }
 
     @Test
@@ -611,14 +611,14 @@ class TeamRoutesTest {
         usePostgresTestcontainer()
         val managerEmail = uniqueEmail("mgr")
         TestUsers.seed(email = managerEmail, password = "pw")
-        val response = authedClient(managerEmail, "pw").get("/api/teams?managerId=abc")
+        val response = authedClient(managerEmail, "pw").get("/api/v1/teams?managerId=abc")
         assertEquals(HttpStatusCode.BadRequest, response.status)
     }
 
     @Test
     fun `GET teams without authentication returns 401`() = testApplication {
         usePostgresTestcontainer()
-        val response = jsonClient().get("/api/teams")
+        val response = jsonClient().get("/api/v1/teams")
         assertEquals(HttpStatusCode.Unauthorized, response.status)
     }
 
@@ -630,25 +630,25 @@ class TeamRoutesTest {
         val memberA = TestUsers.seed(email = uniqueEmail("a"), password = "pw")
         val client = authedClient(managerEmail, "pw")
         val tag = UUID.randomUUID().toString().substring(0, 8)
-        val keeper = client.post("/api/teams") {
+        val keeper = client.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "keep-$tag", managerId = managerId, memberIds = listOf(memberA)))
         }.body<TeamResponse>()
-        val doomed = client.post("/api/teams") {
+        val doomed = client.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "drop-$tag", managerId = managerId, memberIds = listOf(memberA)))
         }.body<TeamResponse>()
 
-        val before = client.get("/api/teams?name=$tag").body<TeamPageResponse>()
+        val before = client.get("/api/v1/teams?name=$tag").body<TeamPageResponse>()
         assertEquals(2L, before.total)
 
-        assertEquals(HttpStatusCode.NoContent, client.delete("/api/teams/${doomed.id}").status)
+        assertEquals(HttpStatusCode.NoContent, client.delete("/api/v1/teams/${doomed.id}").status)
 
-        val after = client.get("/api/teams?name=$tag").body<TeamPageResponse>()
+        val after = client.get("/api/v1/teams?name=$tag").body<TeamPageResponse>()
         assertEquals(1L, after.total)
         assertEquals(keeper.id, after.items.single().id)
 
-        assertEquals(HttpStatusCode.NotFound, client.get("/api/teams/${doomed.id}").status)
+        assertEquals(HttpStatusCode.NotFound, client.get("/api/v1/teams/${doomed.id}").status)
     }
 
     @Test
@@ -658,14 +658,14 @@ class TeamRoutesTest {
         val managerId = TestUsers.seed(email = managerEmail, password = "pw")
         val memberA = TestUsers.seed(email = uniqueEmail("a"), password = "pw")
         val client = authedClient(managerEmail, "pw")
-        val team = client.post("/api/teams") {
+        val team = client.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "Ephemeral", managerId = managerId, memberIds = listOf(memberA)))
         }.body<TeamResponse>()
 
-        assertEquals(HttpStatusCode.NoContent, client.delete("/api/teams/${team.id}").status)
+        assertEquals(HttpStatusCode.NoContent, client.delete("/api/v1/teams/${team.id}").status)
 
-        val put = client.put("/api/teams/${team.id}") {
+        val put = client.put("/api/v1/teams/${team.id}") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "Resurrected", managerId = managerId, memberIds = listOf(memberA)))
         }
@@ -680,14 +680,14 @@ class TeamRoutesTest {
         val memberA = TestUsers.seed(email = uniqueEmail("a"), password = "pw")
         val memberB = TestUsers.seed(email = uniqueEmail("b"), password = "pw")
         val client = authedClient(managerEmail, "pw")
-        val team = client.post("/api/teams") {
+        val team = client.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "Ghost", managerId = managerId, memberIds = listOf(memberA)))
         }.body<TeamResponse>()
 
-        assertEquals(HttpStatusCode.NoContent, client.delete("/api/teams/${team.id}").status)
+        assertEquals(HttpStatusCode.NoContent, client.delete("/api/v1/teams/${team.id}").status)
 
-        val addAfter = client.put("/api/teams/${team.id}/members/$memberB")
+        val addAfter = client.put("/api/v1/teams/${team.id}/members/$memberB")
         assertEquals(HttpStatusCode.NotFound, addAfter.status)
     }
 
@@ -698,12 +698,12 @@ class TeamRoutesTest {
         TestUsers.seed(email = adminEmail, password = "pw") // ADMIN may designate any manager
         val client = authedClient(adminEmail, "pw")
 
-        val response = client.post("/api/teams") {
+        val response = client.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "Orphan", managerId = 999_999u, memberIds = emptyList()))
         }
         assertEquals(HttpStatusCode.BadRequest, response.status)
-        assertEquals("bad_request", response.body<ApiError>().error)
+        assertEquals(HttpStatusCode.BadRequest.value, response.body<ProblemDetail>().status)
     }
 
     @Test
@@ -713,7 +713,7 @@ class TeamRoutesTest {
         val managerId = TestUsers.seed(email = managerEmail, password = "pw")
         val client = authedClient(managerEmail, "pw")
 
-        val response = client.post("/api/teams") {
+        val response = client.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "Ghosts", managerId = managerId, memberIds = listOf(999_999u)))
         }
@@ -727,12 +727,12 @@ class TeamRoutesTest {
         val managerId = TestUsers.seed(email = managerEmail, password = "pw")
         val client = authedClient(managerEmail, "pw")
 
-        val team = client.post("/api/teams") {
+        val team = client.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "Platform", managerId = managerId, memberIds = emptyList()))
         }.body<TeamResponse>()
 
-        val response = client.put("/api/teams/${team.id}") {
+        val response = client.put("/api/v1/teams/${team.id}") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "Platform", managerId = 999_999u, memberIds = emptyList()))
         }
@@ -746,12 +746,12 @@ class TeamRoutesTest {
         val managerId = TestUsers.seed(email = managerEmail, password = "pw")
         val client = authedClient(managerEmail, "pw")
 
-        val team = client.post("/api/teams") {
+        val team = client.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "Platform", managerId = managerId, memberIds = emptyList()))
         }.body<TeamResponse>()
 
-        val response = client.put("/api/teams/${team.id}/members/999999")
+        val response = client.put("/api/v1/teams/${team.id}/members/999999")
         assertEquals(HttpStatusCode.BadRequest, response.status)
     }
 }

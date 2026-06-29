@@ -45,7 +45,7 @@ describe("ManagersTable", () => {
     expect(screen.getByText("alpha")).toBeInTheDocument();
 
     const url = String(mockFetch.mock.calls[0][0]);
-    expect(url).toContain("/api/teams/members?view=managers");
+    expect(url).toContain("/api/v1/teams/members?view=managers");
   });
 
   test("renders a Provide feedback link per manager row", async () => {

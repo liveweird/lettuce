@@ -20,6 +20,7 @@ import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
+import io.ktor.client.request.patch
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.serialization.kotlinx.json.json
@@ -40,12 +41,12 @@ class AuthorizationTest {
 
     private suspend fun ApplicationTestBuilder.authedClient(email: String, password: String): HttpClient {
         val client = jsonClient()
-        val token = client.post("/api/login") {
+        val token = client.post("/api/v1/login") {
             contentType(ContentType.Application.Json)
             setBody(LoginRequest(email, password))
         }.body<LoginResponse>().token
         return createClient {
-            install(ContentNegotiation) { json() }
+            install(ContentNegotiation) { json(); json(contentType = ContentType.parse("application/problem+json")) }
             install(DefaultRequest) {
                 header(HttpHeaders.Authorization, "Bearer $token")
             }
@@ -58,7 +59,7 @@ class AuthorizationTest {
         val email = uniqueEmail("login")
         val id = TestUsers.seed(email = email, password = "pw", role = UserRole.USER)
 
-        val response = jsonClient().post("/api/login") {
+        val response = jsonClient().post("/api/v1/login") {
             contentType(ContentType.Application.Json)
             setBody(LoginRequest(email, "pw"))
         }
@@ -76,7 +77,7 @@ class AuthorizationTest {
         TestUsers.seed(email = email, password = "pw", role = UserRole.USER)
 
         val client = authedClient(email, "pw")
-        val response = client.post("/api/users") {
+        val response = client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
             setBody(UserRequest("Sneaky", uniqueEmail("new"), "pw"))
         }
@@ -90,13 +91,13 @@ class AuthorizationTest {
         TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
         val client = authedClient(adminEmail, "pw")
 
-        val plain = client.post("/api/users") {
+        val plain = client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
             setBody(UserRequest("Plain", uniqueEmail("plain"), "pw"))
         }.body<UserResponse>()
         assertEquals(UserRole.USER, plain.role)
 
-        val elevated = client.post("/api/users") {
+        val elevated = client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
             setBody(UserRequest("Boss", uniqueEmail("boss"), "pw", role = UserRole.ADMIN))
         }.body<UserResponse>()
@@ -111,8 +112,8 @@ class AuthorizationTest {
         val bobId = TestUsers.seed(email = uniqueEmail("bob"), password = "pw", role = UserRole.USER)
 
         val aliceClient = authedClient(aliceEmail, "pw")
-        assertEquals(HttpStatusCode.OK, aliceClient.get("/api/users/$aliceId").status)
-        assertEquals(HttpStatusCode.Forbidden, aliceClient.get("/api/users/$bobId").status)
+        assertEquals(HttpStatusCode.OK, aliceClient.get("/api/v1/users/$aliceId").status)
+        assertEquals(HttpStatusCode.Forbidden, aliceClient.get("/api/v1/users/$bobId").status)
     }
 
     @Test
@@ -122,7 +123,7 @@ class AuthorizationTest {
         val id = TestUsers.seed(email = email, password = "pw", role = UserRole.USER)
         val client = authedClient(email, "pw")
 
-        val response = client.put("/api/users/$id") {
+        val response = client.patch("/api/v1/users/$id") {
             contentType(ContentType.Application.Json)
             setBody(UserUpdateRequest("Alice", email, role = UserRole.ADMIN))
         }
@@ -136,12 +137,12 @@ class AuthorizationTest {
         val id = TestUsers.seed(email = email, password = "pw", role = UserRole.USER)
         val client = authedClient(email, "pw")
 
-        val response = client.put("/api/users/$id") {
+        val response = client.patch("/api/v1/users/$id") {
             contentType(ContentType.Application.Json)
             setBody(UserUpdateRequest("Alice", email))
         }
         assertEquals(HttpStatusCode.NoContent, response.status)
-        val read = client.get("/api/users/$id").body<UserResponse>()
+        val read = client.get("/api/v1/users/$id").body<UserResponse>()
         assertEquals("Alice", read.name)
         assertEquals(UserRole.USER, read.role)
     }
@@ -153,7 +154,7 @@ class AuthorizationTest {
         TestUsers.seed(email = aliceEmail, password = "pw", role = UserRole.USER)
         val victim = TestUsers.seed(email = uniqueEmail("victim"), password = "pw", role = UserRole.USER)
 
-        val response = authedClient(aliceEmail, "pw").delete("/api/users/$victim")
+        val response = authedClient(aliceEmail, "pw").delete("/api/v1/users/$victim")
         assertEquals(HttpStatusCode.Forbidden, response.status)
     }
 
@@ -164,10 +165,10 @@ class AuthorizationTest {
         val adminId = TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
 
         val client = authedClient(adminEmail, "pw")
-        val deleted = client.delete("/api/users/$adminId")
+        val deleted = client.delete("/api/v1/users/$adminId")
         assertEquals(HttpStatusCode.NoContent, deleted.status)
 
-        val loginAgain = jsonClient().post("/api/login") {
+        val loginAgain = jsonClient().post("/api/v1/login") {
             contentType(ContentType.Application.Json)
             setBody(LoginRequest(adminEmail, "pw"))
         }
@@ -182,7 +183,7 @@ class AuthorizationTest {
         val otherMgr = TestUsers.seed(email = uniqueEmail("mgr"), password = "pw", role = UserRole.USER)
         val member = TestUsers.seed(email = uniqueEmail("m"), password = "pw", role = UserRole.USER)
 
-        val response = authedClient(aliceEmail, "pw").post("/api/teams") {
+        val response = authedClient(aliceEmail, "pw").post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "Sneaky", managerId = otherMgr, memberIds = listOf(member)))
         }
@@ -200,7 +201,7 @@ class AuthorizationTest {
         val newcomer = TestUsers.seed(email = uniqueEmail("n"), password = "pw", role = UserRole.USER)
 
         val mgrClient = authedClient(mgrEmail, "pw")
-        val team = mgrClient.post("/api/teams") {
+        val team = mgrClient.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "T", managerId = mgrId, memberIds = listOf(member)))
         }.body<TeamResponse>()
@@ -208,20 +209,20 @@ class AuthorizationTest {
         val otherClient = authedClient(otherEmail, "pw")
         assertEquals(
             HttpStatusCode.Forbidden,
-            otherClient.put("/api/teams/${team.id}") {
+            otherClient.put("/api/v1/teams/${team.id}") {
                 contentType(ContentType.Application.Json)
                 setBody(Team(name = "Hijack", managerId = mgrId, memberIds = listOf(member)))
             }.status,
         )
         assertEquals(
             HttpStatusCode.Forbidden,
-            otherClient.put("/api/teams/${team.id}/members/$newcomer").status,
+            otherClient.put("/api/v1/teams/${team.id}/members/$newcomer").status,
         )
         assertEquals(
             HttpStatusCode.Forbidden,
-            otherClient.delete("/api/teams/${team.id}/members/$member").status,
+            otherClient.delete("/api/v1/teams/${team.id}/members/$member").status,
         )
-        assertEquals(HttpStatusCode.Forbidden, otherClient.delete("/api/teams/${team.id}").status)
+        assertEquals(HttpStatusCode.Forbidden, otherClient.delete("/api/v1/teams/${team.id}").status)
     }
 
     @Test
@@ -233,12 +234,12 @@ class AuthorizationTest {
         TestUsers.seed(email = onlooker, password = "pw", role = UserRole.USER)
         val member = TestUsers.seed(email = uniqueEmail("m"), password = "pw", role = UserRole.USER)
 
-        val team = authedClient(mgrEmail, "pw").post("/api/teams") {
+        val team = authedClient(mgrEmail, "pw").post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "Public", managerId = mgrId, memberIds = listOf(member)))
         }.body<TeamResponse>()
 
-        val response = authedClient(onlooker, "pw").get("/api/teams/${team.id}")
+        val response = authedClient(onlooker, "pw").get("/api/v1/teams/${team.id}")
         assertEquals(HttpStatusCode.OK, response.status)
     }
 
@@ -267,7 +268,7 @@ class AuthorizationTest {
         // SENT — under the visibility-and-status read rules, a non-terminal status (e.g. REQUESTED)
         // would gate every non-provider read regardless of visibility.
         suspend fun createWith(visibility: FeedbackVisibility): UInt {
-            val created = providerClient.post("/api/feedbacks") {
+            val created = providerClient.post("/api/v1/feedbacks") {
                 contentType(ContentType.Application.Json)
                 setBody(
                     Feedback(
@@ -327,7 +328,7 @@ class AuthorizationTest {
                 "admin" to adminClient,
             )
             for ((label, c) in actors) {
-                val response = c.get("/api/feedbacks/$id")
+                val response = c.get("/api/v1/feedbacks/$id")
                 assertEquals(
                     expectations.getValue(label),
                     response.status,
@@ -354,13 +355,13 @@ class AuthorizationTest {
         val strangerClient = authedClient(strangerEmail, "pw")
 
         // The manager manages a team the subject belongs to.
-        managerClient.post("/api/teams") {
+        managerClient.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "Squad", managerId = managerId, memberIds = listOf(subjectId)))
         }
 
         // PROVIDER_SUBJECT feedback would normally hide from anyone but provider/subject.
-        val feedback = providerClient.post("/api/feedbacks") {
+        val feedback = providerClient.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -374,13 +375,13 @@ class AuthorizationTest {
         }.body<FeedbackResponse>()
 
         // Manager of the subject's team may read it…
-        assertEquals(HttpStatusCode.OK, managerClient.get("/api/feedbacks/${feedback.id}").status)
+        assertEquals(HttpStatusCode.OK, managerClient.get("/api/v1/feedbacks/${feedback.id}").status)
         // …a stranger who manages nobody still may not.
-        assertEquals(HttpStatusCode.Forbidden, strangerClient.get("/api/feedbacks/${feedback.id}").status)
+        assertEquals(HttpStatusCode.Forbidden, strangerClient.get("/api/v1/feedbacks/${feedback.id}").status)
         // …and read access does not grant write access.
         assertEquals(
             HttpStatusCode.Forbidden,
-            managerClient.put("/api/feedbacks/${feedback.id}") {
+            managerClient.put("/api/v1/feedbacks/${feedback.id}") {
                 contentType(ContentType.Application.Json)
                 setBody(
                     Feedback(
@@ -404,7 +405,7 @@ class AuthorizationTest {
         val subjectId = TestUsers.seed(email = subjectEmail, password = "pw", role = UserRole.USER)
 
         val providerClient = authedClient(providerEmail, "pw")
-        val created = providerClient.post("/api/feedbacks") {
+        val created = providerClient.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -417,7 +418,7 @@ class AuthorizationTest {
         }.body<FeedbackResponse>()
 
         val subjectClient = authedClient(subjectEmail, "pw")
-        val put = subjectClient.put("/api/feedbacks/${created.id}") {
+        val put = subjectClient.put("/api/v1/feedbacks/${created.id}") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -431,7 +432,7 @@ class AuthorizationTest {
         }
         assertEquals(HttpStatusCode.Forbidden, put.status)
 
-        val delete = subjectClient.delete("/api/feedbacks/${created.id}")
+        val delete = subjectClient.delete("/api/v1/feedbacks/${created.id}")
         assertEquals(HttpStatusCode.Forbidden, delete.status)
     }
 
@@ -448,7 +449,7 @@ class AuthorizationTest {
         val adminClient = authedClient(adminEmail, "pw")
         val providerClient = authedClient(providerEmail, "pw")
 
-        val created = providerClient.post("/api/feedbacks") {
+        val created = providerClient.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -462,7 +463,7 @@ class AuthorizationTest {
         }.body<FeedbackResponse>()
 
         // Admin may read every feedback…
-        assertEquals(HttpStatusCode.OK, adminClient.get("/api/feedbacks/${created.id}").status)
+        assertEquals(HttpStatusCode.OK, adminClient.get("/api/v1/feedbacks/${created.id}").status)
 
         // …but may not modify one they don't provide: a valid SENT → WITHDRAWN transition is
         // rejected at the write guard (403), which runs before any transition validation.
@@ -475,24 +476,24 @@ class AuthorizationTest {
         )
         assertEquals(
             HttpStatusCode.Forbidden,
-            adminClient.put("/api/feedbacks/${created.id}") {
+            adminClient.put("/api/v1/feedbacks/${created.id}") {
                 contentType(ContentType.Application.Json)
                 setBody(withdrawBody)
             }.status,
         )
         assertEquals(
             HttpStatusCode.Forbidden,
-            adminClient.delete("/api/feedbacks/${created.id}").status,
+            adminClient.delete("/api/v1/feedbacks/${created.id}").status,
         )
 
         // The admin's denied attempts left the feedback untouched, and the provider can still write.
         assertEquals(
             FeedbackStatus.SENT,
-            adminClient.get("/api/feedbacks/${created.id}").body<FeedbackResponse>().status,
+            adminClient.get("/api/v1/feedbacks/${created.id}").body<FeedbackResponse>().status,
         )
         assertEquals(
             HttpStatusCode.NoContent,
-            providerClient.put("/api/feedbacks/${created.id}") {
+            providerClient.put("/api/v1/feedbacks/${created.id}") {
                 contentType(ContentType.Application.Json)
                 setBody(withdrawBody)
             }.status,
@@ -511,7 +512,7 @@ class AuthorizationTest {
 
         // The admin creates a feedback in which they are the provider (the normal "Provide
         // feedback" flow) — write access follows provider identity, not role.
-        val created = adminClient.post("/api/feedbacks") {
+        val created = adminClient.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -527,7 +528,7 @@ class AuthorizationTest {
         // Edit the draft content (same-status DRAFT → DRAFT update) → allowed.
         assertEquals(
             HttpStatusCode.NoContent,
-            adminClient.put("/api/feedbacks/${created.id}") {
+            adminClient.put("/api/v1/feedbacks/${created.id}") {
                 contentType(ContentType.Application.Json)
                 setBody(
                     Feedback(
@@ -542,13 +543,13 @@ class AuthorizationTest {
         )
         assertEquals(
             "revised draft",
-            adminClient.get("/api/feedbacks/${created.id}").body<FeedbackResponse>().content,
+            adminClient.get("/api/v1/feedbacks/${created.id}").body<FeedbackResponse>().content,
         )
 
         // …and they can advance their own draft (DRAFT → SENT).
         assertEquals(
             HttpStatusCode.NoContent,
-            adminClient.put("/api/feedbacks/${created.id}") {
+            adminClient.put("/api/v1/feedbacks/${created.id}") {
                 contentType(ContentType.Application.Json)
                 setBody(
                     Feedback(
@@ -563,7 +564,7 @@ class AuthorizationTest {
         )
         assertEquals(
             FeedbackStatus.SENT,
-            adminClient.get("/api/feedbacks/${created.id}").body<FeedbackResponse>().status,
+            adminClient.get("/api/v1/feedbacks/${created.id}").body<FeedbackResponse>().status,
         )
     }
 
@@ -576,7 +577,7 @@ class AuthorizationTest {
         TestUsers.seed(email = strangerEmail, password = "pw", role = UserRole.USER)
 
         // The stranger is neither provider nor requester → must not forge feedback authored by someone else.
-        val response = authedClient(strangerEmail, "pw").post("/api/feedbacks") {
+        val response = authedClient(strangerEmail, "pw").post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -599,7 +600,7 @@ class AuthorizationTest {
         val requesterEmail = uniqueEmail("requester")
         val requesterId = TestUsers.seed(email = requesterEmail, password = "pw", role = UserRole.USER)
 
-        val response = authedClient(requesterEmail, "pw").post("/api/feedbacks") {
+        val response = authedClient(requesterEmail, "pw").post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -622,7 +623,7 @@ class AuthorizationTest {
         val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw", role = UserRole.USER)
         val subjectId = TestUsers.seed(email = uniqueEmail("subject"), password = "pw", role = UserRole.USER)
 
-        val response = authedClient(adminEmail, "pw").post("/api/feedbacks") {
+        val response = authedClient(adminEmail, "pw").post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 Feedback(
@@ -645,7 +646,7 @@ class AuthorizationTest {
         val otherId = TestUsers.seed(email = uniqueEmail("other"), password = "pw", role = UserRole.USER)
         val mgr = authedClient(managerEmail, "pw")
 
-        val team = mgr.post("/api/teams") {
+        val team = mgr.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "Squad", managerId = managerId, memberIds = emptyList()))
         }.body<TeamResponse>()
@@ -653,7 +654,7 @@ class AuthorizationTest {
         // Editing the team (manager unchanged) is allowed.
         assertEquals(
             HttpStatusCode.NoContent,
-            mgr.put("/api/teams/${team.id}") {
+            mgr.put("/api/v1/teams/${team.id}") {
                 contentType(ContentType.Application.Json)
                 setBody(Team(name = "Squad Renamed", managerId = managerId, memberIds = emptyList()))
             }.status,
@@ -661,7 +662,7 @@ class AuthorizationTest {
         // Reassigning the manager to someone else is admin-only → forbidden for a manager.
         assertEquals(
             HttpStatusCode.Forbidden,
-            mgr.put("/api/teams/${team.id}") {
+            mgr.put("/api/v1/teams/${team.id}") {
                 contentType(ContentType.Application.Json)
                 setBody(Team(name = "Squad Renamed", managerId = otherId, memberIds = emptyList()))
             }.status,
@@ -677,14 +678,14 @@ class AuthorizationTest {
         val managerId = TestUsers.seed(email = managerEmail, password = "pw", role = UserRole.USER)
         val otherId = TestUsers.seed(email = uniqueEmail("other"), password = "pw", role = UserRole.USER)
 
-        val team = authedClient(managerEmail, "pw").post("/api/teams") {
+        val team = authedClient(managerEmail, "pw").post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "Squad", managerId = managerId, memberIds = emptyList()))
         }.body<TeamResponse>()
 
         assertEquals(
             HttpStatusCode.NoContent,
-            authedClient(adminEmail, "pw").put("/api/teams/${team.id}") {
+            authedClient(adminEmail, "pw").put("/api/v1/teams/${team.id}") {
                 contentType(ContentType.Application.Json)
                 setBody(Team(name = "Squad", managerId = otherId, memberIds = emptyList()))
             }.status,

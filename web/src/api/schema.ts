@@ -4,7 +4,7 @@
  */
 
 export interface paths {
-    "/api/login": {
+    "/api/v1/login": {
         parameters: {
             query?: never;
             header?: never;
@@ -14,44 +14,14 @@ export interface paths {
         get?: never;
         put?: never;
         /** Exchange credentials for a JWT */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["LoginRequest"];
-                };
-            };
-            responses: {
-                /** @description Token issued */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["LoginResponse"];
-                    };
-                };
-                /** @description Unknown email or wrong password */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        post: operations["login"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/logout": {
+    "/api/v1/logout": {
         parameters: {
             query?: never;
             header?: never;
@@ -61,38 +31,14 @@ export interface paths {
         get?: never;
         put?: never;
         /** Revoke the bearer token (server-side denylist) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Token revoked */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        post: operations["logout"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/users": {
+    "/api/v1/users": {
         parameters: {
             query?: never;
             header?: never;
@@ -110,139 +56,29 @@ export interface paths {
          *       - `email` — case-insensitive substring match against `email`.
          *       - `role` — exact match, `ADMIN` or `USER`.
          *       - `teamId` — restrict to users who are members of the given team.
-         *     - The `q` free-text param defined elsewhere is not used by this endpoint.
          *
          *     Malformed query parameters (unknown sort field, unknown role, out-of-range page/pageSize)
-         *     respond with `400` and an `ApiError` body.
+         *     respond with `400` and a `ProblemDetail` body.
          */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description 1-based page index. Defaults to 1. */
-                    page?: components["parameters"]["Page"];
-                    /** @description Rows per page. Defaults to 20, maximum 100. */
-                    pageSize?: components["parameters"]["PageSize"];
-                    /**
-                     * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
-                     *     comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
-                     *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                     *     always appended as a deterministic tiebreaker.
-                     */
-                    sort?: components["parameters"]["Sort"];
-                    /** @description Case-insensitive substring match against the user's name. */
-                    name?: string;
-                    /** @description Case-insensitive substring match against the user's email. */
-                    email?: string;
-                    /** @description Exact match against the user's global role. */
-                    role?: "ADMIN" | "USER";
-                    /** @description Filter to users who are members of the given team. */
-                    teamId?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description A page of users */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["UserPage"];
-                    };
-                };
-                /** @description Malformed query parameters */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-            };
-        };
+        get: operations["listUsers"];
         put?: never;
         /**
          * Create a user
          * @description Requires ADMIN. If the request body omits `role`, the new user defaults to `USER`.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["UserRequest"];
-                };
-            };
-            responses: {
-                /** @description Created */
-                201: {
-                    headers: {
-                        /** @description URL of the new user resource */
-                        Location?: string;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["UserResponse"];
-                    };
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-                /** @description Caller is not ADMIN */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-                /** @description Email already in use */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-            };
-        };
+        post: operations["createUser"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/users/{id}": {
+    "/api/v1/users/{id}": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                id: components["parameters"]["UserId"];
+                id: components["parameters"]["ResourceId"];
             };
             cookie?: never;
         };
@@ -250,167 +86,33 @@ export interface paths {
          * Fetch a user by id
          * @description Requires the caller to be the target user, or to be ADMIN.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["UserId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["UserResponse"];
-                    };
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Caller is not the target user and not ADMIN */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-                /** @description Not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        /**
-         * Update a user
-         * @description Updates a user's `name`, `email`, and `role`. The password cannot be
-         *     changed via this endpoint and the existing password is preserved.
-         *     Requires the caller to be the target user, or to be ADMIN.
-         *     Only ADMIN may change a user's `role`; a non-ADMIN caller must either
-         *     omit `role` or send the value the user already has, otherwise the request is rejected with 403.
-         */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["UserId"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["UserUpdateRequest"];
-                };
-            };
-            responses: {
-                /** @description Updated */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Caller is not the target user and not ADMIN */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-                /** @description Not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Email already in use by another user */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-            };
-        };
+        get: operations["getUser"];
+        put?: never;
         post?: never;
         /**
          * Delete a user
          * @description Requires ADMIN.
          */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["UserId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Deleted */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Caller is not ADMIN */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-            };
-        };
+        delete: operations["deleteUser"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update a user (partial)
+         * @description Partially updates a user's `name`, `email`, and `role`. This is a `PATCH`: the password
+         *     cannot be changed here (the existing password is preserved) and an omitted `role` keeps the
+         *     user's current role. Requires the caller to be the target user, or to be ADMIN.
+         *     Only ADMIN may change a user's `role`; a non-ADMIN caller must either
+         *     omit `role` or send the value the user already has, otherwise the request is rejected with 403.
+         */
+        patch: operations["patchUser"];
         trace?: never;
     };
-    "/api/users/{id}/password": {
+    "/api/v1/users/{id}/password": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                id: components["parameters"]["UserId"];
+                id: components["parameters"]["ResourceId"];
             };
             cookie?: never;
         };
@@ -420,53 +122,7 @@ export interface paths {
          * @description Sets a new password for the user. Only the password is changed; no other
          *     fields are touched. Requires the caller to be the target user, or to be ADMIN.
          */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["UserId"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["PasswordUpdateRequest"];
-                };
-            };
-            responses: {
-                /** @description Password updated */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Caller is not the target user and not ADMIN */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-                /** @description Not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        put: operations["changeUserPassword"];
         post?: never;
         delete?: never;
         options?: never;
@@ -474,7 +130,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/teams": {
+    "/api/v1/teams": {
         parameters: {
             query?: never;
             header?: never;
@@ -496,64 +152,9 @@ export interface paths {
          *     does not need an N+1 lookup.
          *
          *     Malformed query parameters (unknown sort field, non-numeric managerId,
-         *     out-of-range page/pageSize) respond with `400` and an `ApiError` body.
+         *     out-of-range page/pageSize) respond with `400` and a `ProblemDetail` body.
          */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description 1-based page index. Defaults to 1. */
-                    page?: components["parameters"]["Page"];
-                    /** @description Rows per page. Defaults to 20, maximum 100. */
-                    pageSize?: components["parameters"]["PageSize"];
-                    /**
-                     * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
-                     *     comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
-                     *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                     *     always appended as a deterministic tiebreaker.
-                     */
-                    sort?: components["parameters"]["Sort"];
-                    /** @description Case-insensitive substring match against the team's name. */
-                    name?: string;
-                    /** @description Exact match against the team's manager id. */
-                    managerId?: number;
-                    /** @description Filter to teams the given user is a member of. */
-                    memberId?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description A page of teams */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["TeamPage"];
-                    };
-                };
-                /** @description Malformed query parameters */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-            };
-        };
+        get: operations["listTeams"];
         put?: never;
         /**
          * Create a team
@@ -561,61 +162,14 @@ export interface paths {
          *     the request body must equal the caller's own user id (ADMIN may
          *     designate any user).
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["TeamRequest"];
-                };
-            };
-            responses: {
-                /** @description Created */
-                201: {
-                    headers: {
-                        Location?: string;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["TeamResponse"];
-                    };
-                };
-                /** @description Validation error (e.g. manager in member list */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Caller attempted to set `managerId` to another user without being ADMIN */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-            };
-        };
+        post: operations["createTeam"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/teams/members": {
+    "/api/v1/teams/members": {
         parameters: {
             query?: never;
             header?: never;
@@ -650,74 +204,9 @@ export interface paths {
          *       - `teamId` — exact match against the team's id.
          *
          *     Malformed query parameters (unknown view, unknown sort field, non-numeric
-         *     teamId, out-of-range page/pageSize) respond with `400` and an `ApiError` body.
+         *     teamId, out-of-range page/pageSize) respond with `400` and a `ProblemDetail` body.
          */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description 1-based page index. Defaults to 1. */
-                    page?: components["parameters"]["Page"];
-                    /** @description Rows per page. Defaults to 20, maximum 100. */
-                    pageSize?: components["parameters"]["PageSize"];
-                    /**
-                     * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
-                     *     comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
-                     *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                     *     always appended as a deterministic tiebreaker.
-                     */
-                    sort?: components["parameters"]["Sort"];
-                    /**
-                     * @description Which caller-relative slice to list.
-                     *     - `member`: members of teams the caller belongs to.
-                     *     - `managed`: members of teams the caller manages.
-                     *     - `managers`: the managers of teams the caller is a member of. Each item's
-                     *       `userId`/`name`/`email` describe the manager and `teamId`/`teamName` the
-                     *       managed team. The caller is excluded; a manager who manages several of the
-                     *       caller's teams appears once per team.
-                     */
-                    view?: "member" | "managed" | "managers";
-                    /** @description Case-insensitive substring match against the member's name. */
-                    name?: string;
-                    /** @description Case-insensitive substring match against the member's email. */
-                    email?: string;
-                    /** @description Exact match against the team's id. */
-                    teamId?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description A page of team members */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["TeamMemberPage"];
-                    };
-                };
-                /** @description Malformed query parameters */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-            };
-        };
+        get: operations["listTeamMembers"];
         put?: never;
         post?: never;
         delete?: never;
@@ -726,12 +215,12 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/teams/{id}": {
+    "/api/v1/teams/{id}": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                id: components["parameters"]["TeamId"];
+                id: components["parameters"]["ResourceId"];
             };
             cookie?: never;
         };
@@ -739,159 +228,29 @@ export interface paths {
          * Fetch a team
          * @description Any authenticated user may read.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["TeamId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["TeamResponse"];
-                    };
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getTeam"];
         /**
          * Replace a team
          * @description Requires the caller to be the team's current manager, or to be ADMIN.
          */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["TeamId"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["TeamRequest"];
-                };
-            };
-            responses: {
-                /** @description Updated */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Validation error */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Caller is not the team's manager and not ADMIN */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-                /** @description Not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        put: operations["replaceTeam"];
         post?: never;
         /**
          * Delete a team
          * @description Requires the caller to be the team's current manager, or to be ADMIN.
          */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["TeamId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Deleted */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Caller is not the team's manager and not ADMIN */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-                /** @description Not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        delete: operations["deleteTeam"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/teams/{id}/members/{userId}": {
+    "/api/v1/teams/{id}/members/{userId}": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                id: components["parameters"]["TeamId"];
+                id: components["parameters"]["ResourceId"];
                 userId: components["parameters"]["UserIdInPath"];
             };
             cookie?: never;
@@ -901,119 +260,19 @@ export interface paths {
          * Add a member to the team (idempotent)
          * @description Requires the caller to be the team's current manager, or to be ADMIN.
          */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["TeamId"];
-                    userId: components["parameters"]["UserIdInPath"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Member added (or already present) */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Validation error (e.g. adding the manager as a member) */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Caller is not the team's manager and not ADMIN */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-                /** @description Team not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        put: operations["addTeamMember"];
         post?: never;
         /**
          * Remove a member from the team
          * @description Requires the caller to be the team's current manager, or to be ADMIN.
          */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["TeamId"];
-                    userId: components["parameters"]["UserIdInPath"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Removed */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Cannot remove the last member or the manager via this endpoint */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Caller is not the team's manager and not ADMIN */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-                /** @description Team not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        delete: operations["removeTeamMember"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/feedbacks": {
+    "/api/v1/feedbacks": {
         parameters: {
             query?: never;
             header?: never;
@@ -1062,132 +321,27 @@ export interface paths {
          *       sortable nor filterable.
          *
          *     Malformed query parameters (unknown view, unknown sort field, unknown enum value,
-         *     out-of-range page/pageSize) respond with `400` and an `ApiError` body.
+         *     out-of-range page/pageSize) respond with `400` and a `ProblemDetail` body.
          */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description 1-based page index. Defaults to 1. */
-                    page?: components["parameters"]["Page"];
-                    /** @description Rows per page. Defaults to 20, maximum 100. */
-                    pageSize?: components["parameters"]["PageSize"];
-                    /**
-                     * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
-                     *     comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
-                     *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                     *     always appended as a deterministic tiebreaker.
-                     */
-                    sort?: components["parameters"]["Sort"];
-                    /** @description Which caller-relative slice of feedbacks to list. */
-                    view?: "received" | "provided" | "team";
-                    /** @description Case-insensitive substring match against the requester's name. */
-                    requesterName?: string;
-                    /** @description Case-insensitive substring match against the subject's name. */
-                    subjectName?: string;
-                    /** @description Case-insensitive substring match against the provider's name. */
-                    providerName?: string;
-                    /** @description Exact match against the provider's user id. */
-                    providerId?: number;
-                    /** @description Exact match against the subject's user id. */
-                    subjectId?: number;
-                    /** @description Exact match against the record's visibility. */
-                    visibility?: "PROVIDER_SUBJECT" | "PROVIDER_REQUESTER" | "PROVIDER_REQUESTER_SUBJECT" | "PUBLIC";
-                    /** @description Exact match against the record's status. */
-                    status?: "REQUESTED" | "DRAFT" | "SENT" | "WITHDRAWN" | "REJECTED";
-                    /** @description Lower bound (inclusive) on `lastModified`, epoch milliseconds. Returns rows changed at or after this instant. */
-                    "lastModified[gte]"?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description A page of feedbacks */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["FeedbackPage"];
-                    };
-                };
-                /** @description Malformed query parameters */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-            };
-        };
+        get: operations["listFeedbacks"];
         put?: never;
         /**
          * Create a feedback record
          * @description Any authenticated user may create a feedback record.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["FeedbackRequest"];
-                };
-            };
-            responses: {
-                /** @description Created */
-                201: {
-                    headers: {
-                        Location?: string;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["FeedbackResponse"];
-                    };
-                };
-                /** @description Validation error (provider ≠ subject; requester ≠ provider; REQUESTED requires a requester; a feedback with a requester may not use PROVIDER_SUBJECT visibility) or referenced user does not exist */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        post: operations["createFeedback"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/feedbacks/{id}": {
+    "/api/v1/feedbacks/{id}": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                id: components["parameters"]["FeedbackId"];
+                id: components["parameters"]["ResourceId"];
             };
             cookie?: never;
         };
@@ -1208,164 +362,33 @@ export interface paths {
          *     Anything else is `403`.
          *
          *     Content redaction: a requester may see that a feedback they requested exists, but while it
-         *     is unfinished (`DRAFT`/`REQUESTED`) the `content` field is returned empty for that requester;
-         *     it becomes visible once the feedback is sent.
+         *     is unfinished (`DRAFT`/`REQUESTED`) the `content` field is returned as an empty string for
+         *     that requester; it becomes visible once the feedback is sent. The field is therefore not
+         *     guaranteed non-empty and is omitted from `required`.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["FeedbackId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["FeedbackResponse"];
-                    };
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Caller's relationship to the row does not satisfy `visibility` */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-                /** @description Not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getFeedback"];
         /**
          * Replace a feedback record
          * @description Only the record's provider (or ADMIN) may modify a feedback.
          */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["FeedbackId"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["FeedbackRequest"];
-                };
-            };
-            responses: {
-                /** @description Updated */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Validation error (same invariants as create — incl. a feedback with a requester may not use PROVIDER_SUBJECT visibility) or invalid status transition */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Caller is not the feedback's provider and not ADMIN */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-                /** @description Not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        put: operations["replaceFeedback"];
         post?: never;
         /**
          * Delete a feedback record
          * @description Only the record's provider (or ADMIN) may delete a feedback.
          */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["FeedbackId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Deleted */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Caller is not the feedback's provider and not ADMIN */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-            };
-        };
+        delete: operations["deleteFeedback"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/feedbacks/{id}/events": {
+    "/api/v1/feedbacks/{id}/events": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                id: components["parameters"]["FeedbackId"];
+                id: components["parameters"]["ResourceId"];
             };
             cookie?: never;
         };
@@ -1377,51 +400,7 @@ export interface paths {
          *     caller allowed): whoever may read the feedback may read its history. Events are
          *     server-generated; there is no create/update/delete endpoint.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["FeedbackId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description The feedback's events, oldest first */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["FeedbackEventList"];
-                    };
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Caller may not read this feedback */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-                /** @description Not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["listFeedbackEvents"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1430,7 +409,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/templates": {
+    "/api/v1/templates": {
         parameters: {
             query?: never;
             header?: never;
@@ -1451,134 +430,27 @@ export interface paths {
          *       sortable nor filterable.
          *
          *     Malformed query parameters (unknown sort field, out-of-range page/pageSize) respond
-         *     with `400` and an `ApiError` body.
+         *     with `400` and a `ProblemDetail` body.
          */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description 1-based page index. Defaults to 1. */
-                    page?: components["parameters"]["Page"];
-                    /** @description Rows per page. Defaults to 20, maximum 100. */
-                    pageSize?: components["parameters"]["PageSize"];
-                    /**
-                     * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
-                     *     comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
-                     *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                     *     always appended as a deterministic tiebreaker.
-                     */
-                    sort?: components["parameters"]["Sort"];
-                    /** @description Case-insensitive substring match against the template name. */
-                    name?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description A page of templates */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["TemplatePage"];
-                    };
-                };
-                /** @description Malformed query parameters */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-            };
-        };
+        get: operations["listTemplates"];
         put?: never;
         /**
          * Create a template
          * @description ADMIN only.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["TemplateRequest"];
-                };
-            };
-            responses: {
-                /** @description Created */
-                201: {
-                    headers: {
-                        Location?: string;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["TemplateResponse"];
-                    };
-                };
-                /** @description Validation error (e.g. blank name) */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Caller is not ADMIN */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-                /** @description A template with the same name already exists */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-            };
-        };
+        post: operations["createTemplate"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/templates/{id}": {
+    "/api/v1/templates/{id}": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                id: components["parameters"]["TemplateId"];
+                id: components["parameters"]["ResourceId"];
             };
             cookie?: never;
         };
@@ -1586,156 +458,24 @@ export interface paths {
          * Fetch a template
          * @description Any authenticated user may read.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["TemplateId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["TemplateResponse"];
-                    };
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getTemplate"];
         /**
          * Replace a template
          * @description ADMIN only.
          */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["TemplateId"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["TemplateRequest"];
-                };
-            };
-            responses: {
-                /** @description Updated */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Validation error (e.g. blank name) */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Caller is not ADMIN */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-                /** @description Not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description A template with the same name already exists */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-            };
-        };
+        put: operations["replaceTemplate"];
         post?: never;
         /**
          * Delete a template
          * @description ADMIN only.
          */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["TemplateId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Deleted */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Caller is not ADMIN */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-            };
-        };
+        delete: operations["deleteTemplate"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/notifications": {
+    "/api/v1/notifications": {
         parameters: {
             query?: never;
             header?: never;
@@ -1758,60 +498,9 @@ export interface paths {
          *       - `wasSeen` — `true`/`false`; restricts to seen / unseen notifications.
          *
          *     Malformed query parameters (unknown sort field, out-of-range page/pageSize, non-boolean
-         *     `wasSeen`) respond with `400` and an `ApiError` body.
+         *     `wasSeen`) respond with `400` and a `ProblemDetail` body.
          */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description 1-based page index. Defaults to 1. */
-                    page?: components["parameters"]["Page"];
-                    /** @description Rows per page. Defaults to 20, maximum 100. */
-                    pageSize?: components["parameters"]["PageSize"];
-                    /**
-                     * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
-                     *     comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
-                     *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                     *     always appended as a deterministic tiebreaker.
-                     */
-                    sort?: components["parameters"]["Sort"];
-                    /** @description Restrict to seen (`true`) or unseen (`false`) notifications. */
-                    wasSeen?: boolean;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description A page of notifications */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["NotificationPage"];
-                    };
-                };
-                /** @description Malformed query parameters */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-            };
-        };
+        get: operations["listNotifications"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1820,12 +509,12 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/notifications/{id}": {
+    "/api/v1/notifications/{id}": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                id: components["parameters"]["NotificationId"];
+                id: components["parameters"]["ResourceId"];
             };
             cookie?: never;
         };
@@ -1833,111 +522,25 @@ export interface paths {
          * Fetch a notification
          * @description The recipient or an ADMIN may read.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["NotificationId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["NotificationResponse"];
-                    };
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Caller is neither the recipient nor ADMIN */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-                /** @description Not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getNotification"];
         put?: never;
         post?: never;
         /**
          * Delete a notification
          * @description The recipient or an ADMIN may delete.
          */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["NotificationId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Deleted */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Caller is neither the recipient nor ADMIN */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-                /** @description Not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        delete: operations["deleteNotification"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/notifications/{id}/seen": {
+    "/api/v1/notifications/{id}/seen": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                id: components["parameters"]["NotificationId"];
+                id: components["parameters"]["ResourceId"];
             };
             cookie?: never;
         };
@@ -1947,61 +550,19 @@ export interface paths {
          * Mark a notification as seen
          * @description Sets `wasSeen` to `true`. Idempotent. The recipient or an ADMIN may call it.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["NotificationId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Marked as seen */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Caller is neither the recipient nor ADMIN */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-                /** @description Not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        post: operations["markNotificationSeen"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/notifications/{id}/unseen": {
+    "/api/v1/notifications/{id}/unseen": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                id: components["parameters"]["NotificationId"];
+                id: components["parameters"]["ResourceId"];
             };
             cookie?: never;
         };
@@ -2011,49 +572,7 @@ export interface paths {
          * Mark a notification as unseen
          * @description Sets `wasSeen` to `false`. Idempotent. The recipient or an ADMIN may call it.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["NotificationId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Marked as unseen */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Missing or invalid token */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Caller is neither the recipient nor ADMIN */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-                /** @description Not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        post: operations["markNotificationUnseen"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2140,7 +659,7 @@ export interface components {
             managerId: number;
             /**
              * @description Defaults to an empty list when omitted. Zero-member teams are allowed;
-             *     members can be added later via the `/api/teams/{id}/members/{userId}` sub-resource.
+             *     members can be added later via the `/api/v1/teams/{id}/members/{userId}` sub-resource.
              */
             memberIds?: number[];
         };
@@ -2176,6 +695,7 @@ export interface components {
             /** Format: int64 */
             userId: number;
             name: string;
+            /** Format: email */
             email: string;
             /** Format: int64 */
             teamId: number;
@@ -2218,7 +738,12 @@ export interface components {
             visibility: "PROVIDER_SUBJECT" | "PROVIDER_REQUESTER" | "PROVIDER_REQUESTER_SUBJECT" | "PUBLIC";
             /** @enum {string} */
             status: "REQUESTED" | "DRAFT" | "SENT" | "WITHDRAWN" | "REJECTED";
-            content: string;
+            /**
+             * @description The feedback body. Returned as an empty string (and omitted from `required`)
+             *     when the caller may see that the record exists but not its content — a requester
+             *     watching an unfinished (`DRAFT`/`REQUESTED`) feedback they requested.
+             */
+            content?: string;
             /**
              * Format: int64
              * @description Epoch milliseconds of the last change. Server-managed and read-only.
@@ -2346,20 +871,91 @@ export interface components {
              */
             total: number;
         };
-        ApiError: {
-            /** @example conflict */
-            error: string;
-            message: string;
+        /** @description RFC 7807 problem detail. Served as `application/problem+json`. */
+        ProblemDetail: {
+            /**
+             * @description A URI reference identifying the problem type.
+             * @default about:blank
+             */
+            type: string;
+            /** @description Short, human-readable summary of the problem type. */
+            title: string;
+            /** @description HTTP status code. */
+            status: number;
+            /** @description Human-readable explanation specific to this occurrence. */
+            detail?: string;
+            /** @description A URI reference identifying the specific occurrence. */
+            instance?: string;
         };
     };
-    responses: never;
+    responses: {
+        /** @description Malformed request */
+        BadRequest: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetail"];
+            };
+        };
+        /** @description Missing or invalid token */
+        Unauthorized: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetail"];
+            };
+        };
+        /** @description Caller is not permitted to perform this action */
+        Forbidden: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetail"];
+            };
+        };
+        /** @description Resource not found */
+        NotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetail"];
+            };
+        };
+        /** @description Conflict with an existing resource */
+        Conflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetail"];
+            };
+        };
+        /** @description Rate limit exceeded */
+        TooManyRequests: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetail"];
+            };
+        };
+        /** @description Unexpected server error */
+        InternalServerError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetail"];
+            };
+        };
+    };
     parameters: {
-        UserId: number;
+        ResourceId: number;
         UserIdInPath: number;
-        TeamId: number;
-        FeedbackId: number;
-        TemplateId: number;
-        NotificationId: number;
         /** @description 1-based page index. Defaults to 1. */
         Page: number;
         /** @description Rows per page. Defaults to 20, maximum 100. */
@@ -2377,4 +973,1227 @@ export interface components {
     pathItems: never;
 }
 export type $defs = Record<string, never>;
-export type operations = Record<string, never>;
+export interface operations {
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Token issued */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Token revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listUsers: {
+        parameters: {
+            query?: {
+                /** @description 1-based page index. Defaults to 1. */
+                page?: components["parameters"]["Page"];
+                /** @description Rows per page. Defaults to 20, maximum 100. */
+                pageSize?: components["parameters"]["PageSize"];
+                /**
+                 * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
+                 *     comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
+                 *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
+                 *     always appended as a deterministic tiebreaker.
+                 */
+                sort?: components["parameters"]["Sort"];
+                /** @description Case-insensitive substring match against the user's name. */
+                name?: string;
+                /** @description Case-insensitive substring match against the user's email. */
+                email?: string;
+                /** @description Exact match against the user's global role. */
+                role?: "ADMIN" | "USER";
+                /** @description Filter to users who are members of the given team. */
+                teamId?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of users */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    createUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    /** @description URL of the new user resource */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Email already in use */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not the target user and not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    deleteUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    patchUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not the target user and not ADMIN, or attempted to escalate role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description Email already in use by another user */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    changeUserPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Password updated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not the target user and not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listTeams: {
+        parameters: {
+            query?: {
+                /** @description 1-based page index. Defaults to 1. */
+                page?: components["parameters"]["Page"];
+                /** @description Rows per page. Defaults to 20, maximum 100. */
+                pageSize?: components["parameters"]["PageSize"];
+                /**
+                 * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
+                 *     comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
+                 *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
+                 *     always appended as a deterministic tiebreaker.
+                 */
+                sort?: components["parameters"]["Sort"];
+                /** @description Case-insensitive substring match against the team's name. */
+                name?: string;
+                /** @description Exact match against the team's manager id. */
+                managerId?: number;
+                /** @description Filter to teams the given user is a member of. */
+                memberId?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of teams */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    createTeam: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    /** @description URL of the new team resource */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamResponse"];
+                };
+            };
+            /** @description Validation error (e.g. manager in member list, duplicate members, referenced user does not exist) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller attempted to set `managerId` to another user without being ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listTeamMembers: {
+        parameters: {
+            query?: {
+                /** @description 1-based page index. Defaults to 1. */
+                page?: components["parameters"]["Page"];
+                /** @description Rows per page. Defaults to 20, maximum 100. */
+                pageSize?: components["parameters"]["PageSize"];
+                /**
+                 * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
+                 *     comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
+                 *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
+                 *     always appended as a deterministic tiebreaker.
+                 */
+                sort?: components["parameters"]["Sort"];
+                /**
+                 * @description Which caller-relative slice to list.
+                 *     - `member`: members of teams the caller belongs to.
+                 *     - `managed`: members of teams the caller manages.
+                 *     - `managers`: the managers of teams the caller is a member of. Each item's
+                 *       `userId`/`name`/`email` describe the manager and `teamId`/`teamName` the
+                 *       managed team. The caller is excluded; a manager who manages several of the
+                 *       caller's teams appears once per team.
+                 */
+                view?: "member" | "managed" | "managers";
+                /** @description Case-insensitive substring match against the member's name. */
+                name?: string;
+                /** @description Case-insensitive substring match against the member's email. */
+                email?: string;
+                /** @description Exact match against the team's id. */
+                teamId?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of team members */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamMemberPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getTeam: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    replaceTeam: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation error (e.g. referenced user does not exist) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not the team's manager and not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    deleteTeam: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not the team's manager and not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    addTeamMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+                userId: components["parameters"]["UserIdInPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Member added (or already present) */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation error (e.g. adding the manager as a member, referenced user does not exist) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not the team's manager and not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    removeTeamMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+                userId: components["parameters"]["UserIdInPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Cannot remove the last member or the manager via this endpoint */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not the team's manager and not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listFeedbacks: {
+        parameters: {
+            query?: {
+                /** @description 1-based page index. Defaults to 1. */
+                page?: components["parameters"]["Page"];
+                /** @description Rows per page. Defaults to 20, maximum 100. */
+                pageSize?: components["parameters"]["PageSize"];
+                /**
+                 * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
+                 *     comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
+                 *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
+                 *     always appended as a deterministic tiebreaker.
+                 */
+                sort?: components["parameters"]["Sort"];
+                /** @description Which caller-relative slice of feedbacks to list. */
+                view?: "received" | "provided" | "team";
+                /** @description Case-insensitive substring match against the requester's name. */
+                requesterName?: string;
+                /** @description Case-insensitive substring match against the subject's name. */
+                subjectName?: string;
+                /** @description Case-insensitive substring match against the provider's name. */
+                providerName?: string;
+                /** @description Exact match against the provider's user id. */
+                providerId?: number;
+                /** @description Exact match against the subject's user id. */
+                subjectId?: number;
+                /** @description Exact match against the record's visibility. */
+                visibility?: "PROVIDER_SUBJECT" | "PROVIDER_REQUESTER" | "PROVIDER_REQUESTER_SUBJECT" | "PUBLIC";
+                /** @description Exact match against the record's status. */
+                status?: "REQUESTED" | "DRAFT" | "SENT" | "WITHDRAWN" | "REJECTED";
+                /** @description Lower bound (inclusive) on `lastModified`, epoch milliseconds. Returns rows changed at or after this instant. */
+                "lastModified[gte]"?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of feedbacks */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedbackPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    createFeedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeedbackRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    /** @description URL of the new feedback resource */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedbackResponse"];
+                };
+            };
+            /** @description Validation error (provider ≠ subject; requester ≠ provider; REQUESTED requires a requester; a feedback with a requester may not use PROVIDER_SUBJECT visibility) or referenced user does not exist */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not a party (provider or requester) to the feedback and not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getFeedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedbackResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller's relationship to the row does not satisfy `visibility` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    replaceFeedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeedbackRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation error (same invariants as create — incl. a feedback with a requester may not use PROVIDER_SUBJECT visibility) or invalid status transition */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not the feedback's provider and not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    deleteFeedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not the feedback's provider and not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listFeedbackEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The feedback's events, oldest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedbackEventList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller may not read this feedback */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listTemplates: {
+        parameters: {
+            query?: {
+                /** @description 1-based page index. Defaults to 1. */
+                page?: components["parameters"]["Page"];
+                /** @description Rows per page. Defaults to 20, maximum 100. */
+                pageSize?: components["parameters"]["PageSize"];
+                /**
+                 * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
+                 *     comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
+                 *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
+                 *     always appended as a deterministic tiebreaker.
+                 */
+                sort?: components["parameters"]["Sort"];
+                /** @description Case-insensitive substring match against the template name. */
+                name?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of templates */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplatePage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    createTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TemplateRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    /** @description URL of the new template resource */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateResponse"];
+                };
+            };
+            /** @description Validation error (e.g. blank name) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A template with the same name already exists */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    replaceTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TemplateRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation error (e.g. blank name) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description A template with the same name already exists */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    deleteTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listNotifications: {
+        parameters: {
+            query?: {
+                /** @description 1-based page index. Defaults to 1. */
+                page?: components["parameters"]["Page"];
+                /** @description Rows per page. Defaults to 20, maximum 100. */
+                pageSize?: components["parameters"]["PageSize"];
+                /**
+                 * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
+                 *     comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
+                 *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
+                 *     always appended as a deterministic tiebreaker.
+                 */
+                sort?: components["parameters"]["Sort"];
+                /** @description Restrict to seen (`true`) or unseen (`false`) notifications. */
+                wasSeen?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of notifications */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getNotification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is neither the recipient nor ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    deleteNotification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is neither the recipient nor ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    markNotificationSeen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Marked as seen */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is neither the recipient nor ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    markNotificationUnseen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Marked as unseen */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is neither the recipient nor ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+}

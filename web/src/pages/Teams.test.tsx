@@ -51,8 +51,8 @@ const SEED_MANAGERS = [
 ];
 
 function routeFor(url: string): "teams" | "users" | "other" {
-  if (url.startsWith("/api/teams")) return "teams";
-  if (url.startsWith("/api/users")) return "users";
+  if (url.startsWith("/api/v1/teams")) return "teams";
+  if (url.startsWith("/api/v1/users")) return "users";
   return "other";
 }
 
@@ -105,7 +105,7 @@ describe("Teams page", () => {
     expect(screen.getByRole("cell", { name: "Bob Manager" })).toBeInTheDocument();
 
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringMatching(/\/api\/teams\?/),
+      expect.stringMatching(/\/api\/v1\/teams\?/),
       expect.any(Object),
     );
     // The heading carries the data-tour anchor the guided tour targets for the Config → Teams step.
@@ -126,7 +126,7 @@ describe("Teams page", () => {
     await waitFor(
       () => {
         const called = mockFetch.mock.calls.some(([url]) =>
-          typeof url === "string" && url.startsWith("/api/teams?") && url.includes("name=Mobi"),
+          typeof url === "string" && url.startsWith("/api/v1/teams?") && url.includes("name=Mobi"),
         );
         expect(called).toBe(true);
       },
@@ -144,7 +144,7 @@ describe("Teams page", () => {
 
     await waitFor(() => {
       const called = mockFetch.mock.calls.some(([url]) =>
-        typeof url === "string" && url.startsWith("/api/teams?") && url.includes("page=2"),
+        typeof url === "string" && url.startsWith("/api/v1/teams?") && url.includes("page=2"),
       );
       expect(called).toBe(true);
     });
@@ -158,7 +158,7 @@ describe("Teams page", () => {
 
     await waitFor(() => {
       const userCall = mockFetch.mock.calls.find(([url]) =>
-        typeof url === "string" && url.startsWith("/api/users?") && url.includes("pageSize=100"),
+        typeof url === "string" && url.startsWith("/api/v1/users?") && url.includes("pageSize=100"),
       );
       expect(userCall).toBeDefined();
     });
@@ -189,7 +189,7 @@ describe("Teams page", () => {
     await waitFor(() => {
       const called = mockFetch.mock.calls.some(
         ([url]) =>
-          typeof url === "string" && url.startsWith("/api/teams?") && url.includes("managerId=10"),
+          typeof url === "string" && url.startsWith("/api/v1/teams?") && url.includes("managerId=10"),
       );
       expect(called).toBe(true);
     });
@@ -205,7 +205,7 @@ describe("Teams page", () => {
     await waitFor(() => {
       const called = mockFetch.mock.calls.some(
         ([url]) =>
-          typeof url === "string" && url.startsWith("/api/teams?") && url.includes("sort=-name"),
+          typeof url === "string" && url.startsWith("/api/v1/teams?") && url.includes("sort=-name"),
       );
       expect(called).toBe(true);
     });
@@ -222,7 +222,7 @@ describe("Teams page", () => {
       const called = mockFetch.mock.calls.some(
         ([url]) =>
           typeof url === "string" &&
-          url.startsWith("/api/teams?") &&
+          url.startsWith("/api/v1/teams?") &&
           url.includes("pageSize=40") &&
           url.includes("page=1"),
       );
@@ -249,9 +249,9 @@ describe("Teams page", () => {
   test("the modal Cancel button is disabled while the delete is in flight", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      if (url.startsWith("/api/users?")) return Promise.resolve(usersPage(SEED_MANAGERS));
-      if (method === "DELETE" && /^\/api\/teams\/\d+$/.test(url)) return new Promise(() => {});
-      if (url.startsWith("/api/teams?")) return Promise.resolve(teamsPage(SEED_TEAMS));
+      if (url.startsWith("/api/v1/users?")) return Promise.resolve(usersPage(SEED_MANAGERS));
+      if (method === "DELETE" && /^\/api\/v1\/teams\/\d+$/.test(url)) return new Promise(() => {});
+      if (url.startsWith("/api/v1/teams?")) return Promise.resolve(teamsPage(SEED_TEAMS));
       return Promise.resolve(jsonResponse(404, {}));
     });
     const user = userEvent.setup();
@@ -361,13 +361,13 @@ describe("Teams page", () => {
     let teamGetCount = 0;
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      if (url.startsWith("/api/users?")) {
+      if (url.startsWith("/api/v1/users?")) {
         return Promise.resolve(usersPage(SEED_MANAGERS));
       }
-      if (method === "DELETE" && /^\/api\/teams\/\d+$/.test(url)) {
+      if (method === "DELETE" && /^\/api\/v1\/teams\/\d+$/.test(url)) {
         return Promise.resolve(new Response(null, { status: 204 }));
       }
-      if (url.startsWith("/api/teams?")) {
+      if (url.startsWith("/api/v1/teams?")) {
         teamGetCount++;
         const items = teamGetCount === 1 ? SEED_TEAMS : [SEED_TEAMS[0]];
         return Promise.resolve(teamsPage(items));
@@ -387,7 +387,7 @@ describe("Teams page", () => {
       ([url, init]) =>
         (init as RequestInit | undefined)?.method === "DELETE" &&
         typeof url === "string" &&
-        url === "/api/teams/2",
+        url === "/api/v1/teams/2",
     );
     expect(deleteCall).toBeDefined();
     expect(teamGetCount).toBeGreaterThanOrEqual(2);
@@ -396,13 +396,13 @@ describe("Teams page", () => {
   test("server error surfaces an alert and keeps the modal open", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      if (url.startsWith("/api/users?")) {
+      if (url.startsWith("/api/v1/users?")) {
         return Promise.resolve(usersPage(SEED_MANAGERS));
       }
-      if (method === "DELETE" && /^\/api\/teams\/\d+$/.test(url)) {
+      if (method === "DELETE" && /^\/api\/v1\/teams\/\d+$/.test(url)) {
         return Promise.resolve(jsonResponse(500, { error: "internal", message: "boom" }));
       }
-      if (url.startsWith("/api/teams?")) {
+      if (url.startsWith("/api/v1/teams?")) {
         return Promise.resolve(teamsPage(SEED_TEAMS));
       }
       return Promise.resolve(jsonResponse(404, {}));

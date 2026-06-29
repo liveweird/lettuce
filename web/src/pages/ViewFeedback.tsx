@@ -112,7 +112,7 @@ export default function ViewFeedback() {
         providerId: data.providerId,
         visibility: data.visibility,
         status: next,
-        content: data.content,
+        content: data.content ?? "",
       });
       await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
       await queryClient.invalidateQueries({ queryKey: ["feedback", id] });
