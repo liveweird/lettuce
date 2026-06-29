@@ -409,6 +409,39 @@ class UserRoutesTest {
     }
 
     @Test
+    fun `a soft-deleted user's email can be reused`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        val client = authedClient(adminEmail, "pw")
+
+        val sharedEmail = uniqueEmail("reusable")
+        val first = client.post("/api/v1/users") {
+            contentType(ContentType.Application.Json)
+            setBody(UserRequest(name = "First", email = sharedEmail, password = "pw"))
+        }.body<UserResponse>()
+
+        assertEquals(HttpStatusCode.NoContent, client.delete("/api/v1/users/${first.id}").status)
+
+        // The partial unique index only constrains active rows, so the email is free again.
+        val second = client.post("/api/v1/users") {
+            contentType(ContentType.Application.Json)
+            setBody(UserRequest(name = "Second", email = sharedEmail, password = "new-pw"))
+        }
+        assertEquals(HttpStatusCode.Created, second.status)
+        val recreated = second.body<UserResponse>()
+        assertTrue(recreated.id != first.id)
+
+        // Login resolves the new (active) account, since findWithIdByEmail filters on active().
+        val login = jsonClient().post("/api/v1/login") {
+            contentType(ContentType.Application.Json)
+            setBody(LoginRequest(sharedEmail, "new-pw"))
+        }
+        assertEquals(HttpStatusCode.OK, login.status)
+        assertEquals(recreated.id, login.body<LoginResponse>().userId)
+    }
+
+    @Test
     fun `PUT users id with email already used by another user returns 409`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")

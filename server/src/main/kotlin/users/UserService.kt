@@ -37,7 +37,10 @@ private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
 class UserService(val database: R2dbcDatabase) {
     object Users : UIntIdTable() {
         val name = varchar("name", length = 50)
-        val email = varchar("email", length = 254).uniqueIndex()
+        // Uniqueness is enforced by a partial unique index (active rows only) in migration V18,
+        // so a soft-deleted user frees its email. Exposed table defs are query-only (not DDL),
+        // so this column carries no `.uniqueIndex()`.
+        val email = varchar("email", length = 254)
         val passwordHash = varchar("password_hash", length = 255)
         val role = varchar("role", length = 20)
         val markedAsDeleted = bool("marked_as_deleted").default(false)
