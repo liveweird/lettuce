@@ -37,7 +37,10 @@ class NotificationService(val database: R2dbcDatabase) {
         val message = text("message")
         val link = text("link").nullable()
         val wasSeen = bool("was_seen")
+        val markedAsDeleted = bool("marked_as_deleted").default(false)
     }
+
+    private fun active(): Op<Boolean> = Notifications.markedAsDeleted eq false
 
     /**
      * Inserts a notification. The generation timestamp and the unseen flag are set here,
@@ -58,25 +61,27 @@ class NotificationService(val database: R2dbcDatabase) {
 
     suspend fun read(id: UInt): NotificationResponse? = suspendTransaction(database) {
         Notifications.selectAll()
-            .where { Notifications.id eq id }
+            .where { (Notifications.id eq id) and active() }
             .map { it.toResponse() }
             .singleOrNull()
     }
 
     suspend fun markSeen(id: UInt): Int = suspendTransaction(database) {
-        Notifications.update({ Notifications.id eq id }) {
+        Notifications.update({ (Notifications.id eq id) and (Notifications.markedAsDeleted eq false) }) {
             it[wasSeen] = true
         }
     }
 
     suspend fun markUnseen(id: UInt): Int = suspendTransaction(database) {
-        Notifications.update({ Notifications.id eq id }) {
+        Notifications.update({ (Notifications.id eq id) and (Notifications.markedAsDeleted eq false) }) {
             it[wasSeen] = false
         }
     }
 
     suspend fun delete(id: UInt): Int = suspendTransaction(database) {
-        Notifications.deleteWhere { Notifications.id eq id }
+        Notifications.update({ (Notifications.id eq id) and (Notifications.markedAsDeleted eq false) }) {
+            it[markedAsDeleted] = true
+        }
     }
 
     suspend fun list(
@@ -95,7 +100,7 @@ class NotificationService(val database: R2dbcDatabase) {
     }
 
     private fun buildPredicate(recipientId: UInt, filter: NotificationListFilter): Op<Boolean> {
-        var op: Op<Boolean> = Notifications.recipientId eq recipientId
+        var op: Op<Boolean> = (Notifications.recipientId eq recipientId) and active()
         filter.wasSeen?.let { op = op and (Notifications.wasSeen eq it) }
         return op
     }

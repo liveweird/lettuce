@@ -354,6 +354,62 @@ class TemplateTest {
     }
 
     @Test
+    fun `soft-deleted template is invisible to read, update, delete and list`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        val client = authedClient(adminEmail, "pw")
+
+        val name = uniqueName("doomed")
+        val created = client.post("/api/v1/templates") {
+            contentType(ContentType.Application.Json)
+            setBody(Template(name = name, content = "body"))
+        }.body<TemplateResponse>()
+
+        assertEquals(HttpStatusCode.NoContent, client.delete("/api/v1/templates/${created.id}").status)
+
+        // Every access path now treats the soft-deleted row as gone.
+        assertEquals(HttpStatusCode.NotFound, client.get("/api/v1/templates/${created.id}").status)
+        val put = client.put("/api/v1/templates/${created.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(Template(name = name, content = "edited"))
+        }
+        assertEquals(HttpStatusCode.NotFound, put.status)
+        // Idempotent: a second delete finds no active row → 404.
+        assertEquals(HttpStatusCode.NotFound, client.delete("/api/v1/templates/${created.id}").status)
+        // The list (filtered to this unique name) no longer returns it.
+        val page = client.get("/api/v1/templates?name=$name").body<TemplatePageResponse>()
+        assertEquals(0, page.total)
+        assertTrue(page.items.isEmpty())
+    }
+
+    @Test
+    fun `a soft-deleted template's name can be reused`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        val client = authedClient(adminEmail, "pw")
+
+        val name = uniqueName("reusable")
+        val first = client.post("/api/v1/templates") {
+            contentType(ContentType.Application.Json)
+            setBody(Template(name = name, content = "first"))
+        }.body<TemplateResponse>()
+
+        assertEquals(HttpStatusCode.NoContent, client.delete("/api/v1/templates/${first.id}").status)
+
+        // The partial unique index only constrains active rows, so the name is free again.
+        val second = client.post("/api/v1/templates") {
+            contentType(ContentType.Application.Json)
+            setBody(Template(name = name, content = "second"))
+        }
+        assertEquals(HttpStatusCode.Created, second.status)
+        val recreated = second.body<TemplateResponse>()
+        assertTrue(recreated.id != first.id)
+        assertEquals("second", client.get("/api/v1/templates/${recreated.id}").body<TemplateResponse>().content)
+    }
+
+    @Test
     fun `create sets a Location header pointing at the new template`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")

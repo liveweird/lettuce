@@ -33,9 +33,15 @@ private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
 
 class TemplateService(val database: R2dbcDatabase) {
     object Templates : UIntIdTable("templates") {
-        val name = varchar("name", length = 100).uniqueIndex()
+        // Uniqueness is enforced by a partial unique index (active rows only) in migration V16,
+        // so a soft-deleted template frees its name. Exposed table defs are query-only (not DDL),
+        // so this column carries no `.uniqueIndex()`.
+        val name = varchar("name", length = 100)
         val content = text("content")
+        val markedAsDeleted = bool("marked_as_deleted").default(false)
     }
+
+    private fun active(): Op<Boolean> = Templates.markedAsDeleted eq false
 
     suspend fun create(template: Template): UInt = suspendTransaction(database) {
         validate(template)
@@ -48,7 +54,7 @@ class TemplateService(val database: R2dbcDatabase) {
 
     suspend fun read(id: UInt): Template? = suspendTransaction(database) {
         Templates.selectAll()
-            .where { Templates.id eq id }
+            .where { (Templates.id eq id) and active() }
             .map { row ->
                 Template(
                     name = row[Templates.name],
@@ -60,19 +66,21 @@ class TemplateService(val database: R2dbcDatabase) {
 
     suspend fun update(id: UInt, template: Template): Int = suspendTransaction(database) {
         validate(template)
-        Templates.update({ Templates.id eq id }) {
+        Templates.update({ (Templates.id eq id) and (Templates.markedAsDeleted eq false) }) {
             it[name] = template.name
             it[content] = template.content
         }
     }
 
     suspend fun delete(id: UInt): Int = suspendTransaction(database) {
-        Templates.deleteWhere { Templates.id eq id }
+        Templates.update({ (Templates.id eq id) and (Templates.markedAsDeleted eq false) }) {
+            it[markedAsDeleted] = true
+        }
     }
 
     suspend fun list(filter: TemplateListFilter, paging: PageRequest): TemplateListResult =
         suspendTransaction(database) {
-            val predicate: Op<Boolean> = buildPredicate(filter)
+            val predicate: Op<Boolean> = buildPredicate(filter) and active()
             val total = Templates.selectAll().where { predicate }.count()
             val rows = Templates.selectAll()
                 .where { predicate }

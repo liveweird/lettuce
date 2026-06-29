@@ -204,6 +204,31 @@ class NotificationRoutesTest {
     }
 
     @Test
+    fun `soft-deleted notification is invisible to read, seen, unseen, delete and list`() = testApplication {
+        usePostgresTestcontainer()
+        val recipientEmail = uniqueEmail("recipient")
+        val recipientId = TestUsers.seed(email = recipientEmail, password = "pw", role = UserRole.USER)
+        val client = authedClient(recipientEmail, "pw")
+
+        val keep = TestNotifications.seed(recipientId, message = "keep")
+        val doomed = TestNotifications.seed(recipientId, message = "drop")
+
+        assertEquals(HttpStatusCode.NoContent, client.delete("/api/v1/notifications/$doomed").status)
+
+        // Every access path now treats the soft-deleted row as gone.
+        assertEquals(HttpStatusCode.NotFound, client.get("/api/v1/notifications/$doomed").status)
+        assertEquals(HttpStatusCode.NotFound, client.post("/api/v1/notifications/$doomed/seen").status)
+        assertEquals(HttpStatusCode.NotFound, client.post("/api/v1/notifications/$doomed/unseen").status)
+        // Idempotent: a second delete finds no active row → 404.
+        assertEquals(HttpStatusCode.NotFound, client.delete("/api/v1/notifications/$doomed").status)
+
+        // The list excludes it; the surviving notification remains.
+        val body = client.get("/api/v1/notifications").body<NotificationPageResponse>()
+        assertEquals(1, body.total)
+        assertEquals(listOf(keep), body.items.map { it.id })
+    }
+
+    @Test
     fun `notification endpoints require authentication`() = testApplication {
         usePostgresTestcontainer()
         val client = jsonClient()
