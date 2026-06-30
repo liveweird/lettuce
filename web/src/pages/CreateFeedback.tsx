@@ -43,6 +43,8 @@ export default function CreateFeedback() {
         content: values.content,
       });
       await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
+      // A create may mint notifications (e.g. SENT → subject/requester) — refresh the bell badge.
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
       navigate(backTo, { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {

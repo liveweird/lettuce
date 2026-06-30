@@ -235,7 +235,7 @@ Content **previews** are blanked when the feedback is unfinished (`DRAFT`/`REQUE
 
 In-app notifications are **generic rows** (`recipientId`, `message`, optional `link`, `wasSeen`, `timestamp`) — there is **no notification type enum** and no API to create one. They are produced by **three** feedback-driven sources, all side-effect-free (DB-free, so directly unit-testable) functions in `feedbacks/FeedbackNotifications.kt`; `FeedbackService` resolves party display names and the route persists what they return:
 
-- **`feedbackCreationNotifications()`** — on feedback **creation** in `REQUESTED` status. Persisted from `POST /api/v1/feedbacks` in `feedbacks/FeedbackRoutes.kt` (`result.notifications.forEach { notificationService.create(it) }`).
+- **`feedbackCreationNotifications()`** — on feedback **creation** in `REQUESTED` status: the **provider** is told (edit link) **and** the **requester** gets a no-link confirmation (worded "about yourself" when requester == subject). Persisted from `POST /api/v1/feedbacks` in `feedbacks/FeedbackRoutes.kt` (`result.notifications.forEach { notificationService.create(it) }`).
 - **`feedbackTransitionNotifications()`** — on a feedback **status transition**. Persisted from `PUT /api/v1/feedbacks/{id}` (`toNotify.forEach { notificationService.create(it) }`).
 - **`feedbackDeletionNotifications()`** — on a (DRAFT) feedback **deletion** that has a requester. Persisted from `DELETE /api/v1/feedbacks/{id}`; the notification has no link.
 
@@ -243,14 +243,14 @@ In-app notifications are **generic rows** (`recipientId`, `message`, optional `l
 
 | Event | Recipient(s) | Link? |
 |---|---|---|
-| Created in `REQUESTED` | provider | `/feedback/{id}/edit` (always — the provider owns the edit) |
-| `DRAFT → SENT` | subject (always); **and** the requester if `requesterId != null` (a second, separately-worded notification) | `/feedback/{id}/view`, per-recipient, only if that recipient may read the feedback |
+| Created in `REQUESTED` | provider; **and** the requester (always — `REQUESTED` requires one) | provider → `/feedback/{id}/edit` (always); requester → **no link** |
+| `DRAFT → SENT` | subject (always); the **provider** (the sender, always); **and** the requester if `requesterId != null` (separately-worded notifications) | subject/requester → `/feedback/{id}/view` only if that recipient may read the feedback; provider → `/feedback/{id}/view` (always — owns it) |
 | `REQUESTED → REJECTED` (requester present) | requester | no |
 | `REQUESTED → DRAFT` ("picked up" by provider) | requester | no |
 | `SENT → WITHDRAWN` | subject (always); **and** the requester if `requesterId != null` | no |
 | `DRAFT` deleted (requester present) | requester | no |
 
-That is the whole set — any other create/transition/delete produces nothing. Note that a `→ SENT` of *requested* feedback yields **two** notifications (subject + requester). For transitions, the `view` link is only attached when the recipient is permitted to read the feedback under its `FeedbackVisibility` (`subjectCanRead`/`requesterCanRead` in the same file) — otherwise `link` is null.
+That is the whole set — any other create/transition/delete produces nothing. A `REQUESTED` creation yields **two** notifications (provider + requester); a `DRAFT → SENT` of *requested* feedback yields **three** (subject + provider + requester). For the subject/requester `view` links the recipient must be permitted to read the feedback under its `FeedbackVisibility` (`subjectCanRead`/`requesterCanRead` in the same file) — otherwise `link` is null; the provider always owns the feedback, so its links are unconditional.
 
 Reading/managing notifications goes through `notifications/NotificationRoutes.kt`, all under `authenticate` and scoped to the recipient via `requireNotificationRecipient` (ADMIN bypasses): `GET /api/v1/notifications` (list; sortable `id`,`timestamp`, default `-timestamp`; optional `wasSeen` filter), `GET /api/v1/notifications/{id}`, `POST /api/v1/notifications/{id}/seen`, `POST /api/v1/notifications/{id}/unseen`, `DELETE /api/v1/notifications/{id}`. The endpoints are documented in `documentation.yaml`; the `notifications` table is created by `V13__create_notifications.sql`.
 

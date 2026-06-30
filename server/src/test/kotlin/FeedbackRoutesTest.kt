@@ -1554,6 +1554,13 @@ class FeedbackRoutesTest {
         assertTrue(requesterNote.message.contains("Rita Requester"))
         assertTrue(requesterNote.message.contains("has been sent"))
         assertEquals("/feedback/${created.id}/view", requesterNote.link)
+
+        // The provider (sender) is also confirmed, with a link to the feedback's view screen.
+        // (Creating the draft produced no notification, so this is the provider's only one.)
+        val providerNote = notificationsOf(provider.email).single()
+        assertTrue(providerNote.message.contains("you provided") && providerNote.message.contains("Sam Subject"))
+        assertTrue(providerNote.message.contains("has been sent"))
+        assertEquals("/feedback/${created.id}/view", providerNote.link)
     }
 
     @Test
@@ -1581,8 +1588,8 @@ class FeedbackRoutesTest {
             setBody(requested.copy(status = FeedbackStatus.REJECTED))
         }
 
-        val note = notificationsOf(requester.email).single()
-        assertTrue(note.message.contains("rejected"))
+        // The requester also has the creation confirmation; scope to the rejection note.
+        val note = notificationsOf(requester.email).single { it.message.contains("rejected") }
         assertTrue(note.message.contains("Rita Requester") && note.message.contains("Pat Provider"))
         assertNull(note.link)
         // The subject is not told about a rejected request.
@@ -1649,8 +1656,8 @@ class FeedbackRoutesTest {
             setBody(requested.copy(status = FeedbackStatus.DRAFT))
         }
 
-        val note = notificationsOf(requester.email).single()
-        assertTrue(note.message.contains("picked up"))
+        // The requester also has the creation confirmation; scope to the picked-up note.
+        val note = notificationsOf(requester.email).single { it.message.contains("picked up") }
         assertNull(note.link)
     }
 
@@ -1720,7 +1727,7 @@ class FeedbackRoutesTest {
     }
 
     @Test
-    fun `creating a requested feedback notifies the provider with an edit link`() = testApplication {
+    fun `creating a requested feedback notifies the provider (edit link) and the requester (no link)`() = testApplication {
         usePostgresTestcontainer()
         val provider = seedParty("provider", "Pat Provider")
         val subject = seedParty("subject", "Sam Subject")
@@ -1747,9 +1754,40 @@ class FeedbackRoutesTest {
         assertEquals("/feedback/${created.id}/edit", providerNote.link)
         assertFalse(providerNote.wasSeen)
 
-        // Only the provider is told; the subject and requester are not notified on creation.
+        // The requester gets a confirmation with no link, naming the provider and subject.
+        val requesterNote = notificationsOf(requester.email).single()
+        assertTrue(requesterNote.message.contains("Pat Provider") && requesterNote.message.contains("Sam Subject"))
+        assertNull(requesterNote.link)
+        assertFalse(requesterNote.wasSeen)
+
+        // The subject (a third party here) is not notified on creation.
         assertTrue(notificationsOf(subject.email).isEmpty())
-        assertTrue(notificationsOf(requester.email).isEmpty())
+    }
+
+    @Test
+    fun `asking for feedback about yourself notifies the requester without a link`() = testApplication {
+        usePostgresTestcontainer()
+        val provider = seedParty("provider", "Pat Provider")
+        val me = seedParty("self", "Sam Self")
+        val meClient = authedClient(me.email, "pw")
+
+        // The "ask for feedback about myself" flow: subject == requester == the caller.
+        meClient.post("/api/v1/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                Feedback(
+                    requesterId = me.id,
+                    subjectId = me.id,
+                    providerId = provider.id,
+                    visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
+                    status = FeedbackStatus.REQUESTED,
+                )
+            )
+        }
+
+        val myNote = notificationsOf(me.email).single()
+        assertTrue(myNote.message.contains("yourself"))
+        assertNull(myNote.link)
     }
 
     @Test

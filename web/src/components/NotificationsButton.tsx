@@ -27,6 +27,12 @@ import {
 import { formatTimestamp } from "../utils/datetime";
 import { toRelativePath } from "../utils/url";
 
+// Poll the bell so notifications minted elsewhere (e.g. someone sending you feedback) show up
+// without a manual refresh. `refetchIntervalInBackground` defaults to false, so polling pauses
+// while the tab is hidden. Own-action freshness comes from invalidating ["notifications"] in the
+// feedback flows.
+const UNREAD_REFETCH_MS = 30_000;
+
 export default function NotificationsButton() {
   const { t } = useTranslation();
   const [opened, { open, close }] = useDisclosure(false);
@@ -37,6 +43,7 @@ export default function NotificationsButton() {
   const unreadQuery = useQuery({
     queryKey: ["notifications", "unread"],
     queryFn: () => listNotifications({ page: 1, pageSize: 1, wasSeen: false }),
+    refetchInterval: UNREAD_REFETCH_MS,
   });
   const unreadCount = unreadQuery.data?.total ?? 0;
 
@@ -44,6 +51,7 @@ export default function NotificationsButton() {
     queryKey: ["notifications", "list"],
     queryFn: () => listNotifications({ page: 1, pageSize: 50, sort: "-timestamp" }),
     enabled: opened,
+    refetchInterval: UNREAD_REFETCH_MS, // only polls while the modal is open (enabled)
   });
 
   const markSeen = useMutation({

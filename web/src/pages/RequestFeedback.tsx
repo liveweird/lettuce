@@ -111,6 +111,8 @@ export default function RequestFeedback() {
         ),
       );
       await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
+      // Requesting feedback mints a requester confirmation — refresh the bell badge immediately.
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
       navigate(backTo, { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {

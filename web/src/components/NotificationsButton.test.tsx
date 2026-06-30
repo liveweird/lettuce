@@ -93,6 +93,35 @@ describe("NotificationsButton", () => {
     expect(await screen.findByRole("button", { name: /3 unread/i })).toBeInTheDocument();
   });
 
+  test("polls the unread count and updates the badge without interaction", async () => {
+    // A mutable count so a new notification can "arrive" server-side between polls.
+    let unread = 2;
+    mockFetch.mockImplementation((url: string) => {
+      const u = String(url);
+      if (u.startsWith("/api/v1/notifications") && u.includes("wasSeen=false")) {
+        return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 1, total: unread }));
+      }
+      if (u.startsWith("/api/v1/notifications")) {
+        return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 50, total: 0 }));
+      }
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+
+    vi.useFakeTimers();
+    try {
+      renderWithProviders(<NotificationsButton />);
+      await vi.advanceTimersByTimeAsync(1); // flush the mount fetch
+      expect(screen.getByRole("button", { name: /2 unread/i })).toBeInTheDocument();
+
+      // No user interaction — the 30s poll picks up the newly-created notification.
+      unread = 5;
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(screen.getByRole("button", { name: /5 unread/i })).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   test("opening lists notifications with distinct seen vs unseen affordances", async () => {
     setupMocks(mockFetch);
     const user = userEvent.setup();

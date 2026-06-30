@@ -114,6 +114,8 @@ export default function EditFeedback() {
       });
       await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
       await queryClient.invalidateQueries({ queryKey: ["feedback", id] });
+      // A status transition (e.g. send/withdraw/reject) mints notifications — refresh the bell badge.
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
       if (!accepted) navigate(backTo, { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
@@ -142,6 +144,8 @@ export default function EditFeedback() {
       await deleteFeedback(id);
       await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
       await queryClient.invalidateQueries({ queryKey: ["feedback", id] });
+      // Deleting a draft notifies its requester — refresh the bell badge.
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
       navigate(backTo, { replace: true });
     } catch (err) {
       closeDelete();

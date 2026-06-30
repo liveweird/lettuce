@@ -28,12 +28,20 @@ internal fun feedbackTransitionNotifications(
     val notifications = mutableListOf<Notification>()
 
     when {
-        from == FeedbackStatus.DRAFT && to == FeedbackStatus.SENT ->
+        from == FeedbackStatus.DRAFT && to == FeedbackStatus.SENT -> {
             notifications += Notification(
                 recipientId = next.subjectId,
                 message = "Feedback from provider $provider about subject $subject has been sent.",
                 link = subjectLink,
             )
+            // The provider (sender) is confirmed their feedback went out; they can always read their
+            // own feedback, so the view link is unconditional.
+            notifications += Notification(
+                recipientId = next.providerId,
+                message = "Feedback you provided about subject $subject has been sent.",
+                link = view,
+            )
+        }
 
         from == FeedbackStatus.REQUESTED && to == FeedbackStatus.REJECTED && next.requesterId != null ->
             notifications += Notification(
@@ -99,8 +107,28 @@ internal fun feedbackCreationNotifications(
 ): List<Notification> {
     if (created.status != FeedbackStatus.REQUESTED) return emptyList()
     // REQUESTED requires a requester (enforced in FeedbackService.validate), so this is non-null.
-    val requester = created.requesterId?.let { nameById.nameOf(it) } ?: return emptyList()
+    val requesterId = created.requesterId ?: return emptyList()
+    val requester = nameById.nameOf(requesterId)
+    val provider = nameById.nameOf(created.providerId)
     val subject = nameById.nameOf(created.subjectId)
+
+    // The requester is confirmed their request went out; no link (nothing to open yet). The wording
+    // differs when they asked for feedback about themselves (subject == requester) vs. about someone.
+    val requesterNote =
+        if (created.subjectId == requesterId) {
+            Notification(
+                recipientId = requesterId,
+                message = "Feedback you requested about yourself from provider $provider " +
+                    "has been submitted.",
+            )
+        } else {
+            Notification(
+                recipientId = requesterId,
+                message = "Feedback you requested from provider $provider about subject $subject " +
+                    "has been submitted.",
+            )
+        }
+
     return listOf(
         Notification(
             recipientId = created.providerId,
@@ -108,6 +136,7 @@ internal fun feedbackCreationNotifications(
                 "for the user $subject.",
             link = "/feedback/$feedbackId/edit",
         ),
+        requesterNote,
     )
 }
 
