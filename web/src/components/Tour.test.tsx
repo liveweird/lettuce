@@ -3,19 +3,57 @@ import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MantineProvider } from "@mantine/core";
 import type { ReactNode } from "react";
+import { theme } from "../theme";
 
 // Stub react-joyride (it measures DOM rects under a real browser) and capture the props it receives.
+// While the tour is running we render the supplied custom `tooltipComponent` with minimal fake
+// render props, so tests can drive Pause/Abandon through the real provider wiring; otherwise null.
 const joyrideSpy = vi.hoisted(() => vi.fn());
-vi.mock("react-joyride", () => ({
-  Joyride: (props: Record<string, unknown>) => {
-    joyrideSpy(props);
-    return null;
-  },
-  STATUS: { FINISHED: "finished", SKIPPED: "skipped", RUNNING: "running" },
-}));
+vi.mock("react-joyride", async () => {
+  const React = await import("react");
+  const btn = (action: string) => ({
+    "aria-label": action,
+    "data-action": action,
+    role: "button",
+    title: action,
+    onClick: () => {},
+  });
+  return {
+    Joyride: (props: Record<string, unknown>) => {
+      joyrideSpy(props);
+      const Tooltip = props.tooltipComponent;
+      if (!props.run || !Tooltip) return null;
+      return React.createElement(Tooltip as never, {
+        step: { title: "Step 1 of 1", content: "tour body" },
+        index: 0,
+        isLastStep: false,
+        size: 1,
+        continuous: true,
+        backProps: btn("back"),
+        primaryProps: btn("primary"),
+        closeProps: btn("close"),
+        skipProps: btn("skip"),
+        tooltipProps: { "aria-modal": true, role: "dialog" },
+        controls: { close: () => {}, info: () => ({}) },
+      });
+    },
+    STATUS: { FINISHED: "finished", SKIPPED: "skipped", RUNNING: "running" },
+  };
+});
 
-import { TourProvider, useTour, buildSteps, hasSeenTour, waitForElement, TOUR_STEPS } from "./Tour";
+import {
+  TourProvider,
+  TourTooltip,
+  TourActionsContext,
+  useTour,
+  buildSteps,
+  hasSeenTour,
+  waitForElement,
+  TOUR_STEPS,
+} from "./Tour";
+import { renderWithProviders } from "../test/render";
 
 const USER_ID_KEY = "lettuce.auth.userId";
 const ROLE_KEY = "lettuce.auth.role";
@@ -37,9 +75,11 @@ function Replayer() {
 // (to detect managers), so it must render inside both a Router and a QueryClientProvider.
 const renderTour = (ui: ReactNode) =>
   render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <MemoryRouter>{ui}</MemoryRouter>
-    </QueryClientProvider>,
+    <MantineProvider theme={theme}>
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter>{ui}</MemoryRouter>
+      </QueryClientProvider>
+    </MantineProvider>,
   );
 
 describe("Tour", () => {
@@ -187,5 +227,106 @@ describe("Tour", () => {
 
     await userEvent.click(screen.getByText("replay"));
     expect(lastProps().run).toBe(true);
+  });
+
+  test("renders with the custom tooltip component (replacing Joyride's default + its corner X)", () => {
+    renderTour(
+      <TourProvider>
+        <div />
+      </TourProvider>,
+    );
+    expect((lastProps() as { tooltipComponent?: unknown }).tooltipComponent).toBe(TourTooltip);
+  });
+
+  test("Abandon from the running tour stops it and marks it seen (Replay still works)", async () => {
+    renderTour(
+      <TourProvider>
+        <Replayer />
+      </TourProvider>,
+    );
+    // Fresh user → auto-starts; the mock renders the tooltip while running.
+    expect(lastProps().run).toBe(true);
+    expect(hasSeenTour(7)).toBe(false);
+
+    await userEvent.click(screen.getByText("Abandon"));
+    expect(hasSeenTour(7)).toBe(true);
+    expect(lastProps().run).toBe(false);
+
+    // Replay re-runs it even though Abandon marked it seen.
+    await userEvent.click(screen.getByText("replay"));
+    expect(lastProps().run).toBe(true);
+  });
+});
+
+// Build a minimal-but-typed TooltipRenderProps for rendering TourTooltip in isolation. Only the
+// fields the component reads are meaningful; the rest satisfy the type.
+type TooltipProps = Parameters<typeof TourTooltip>[0];
+const buttonProps = (action: string) => ({
+  "aria-label": action,
+  "data-action": action,
+  onClick: vi.fn(),
+  role: "button",
+  title: action,
+});
+const makeTooltipProps = (overrides: Partial<TooltipProps> = {}): TooltipProps =>
+  ({
+    step: { title: "Step 1 of 3", content: "Welcome to the tour" },
+    index: 0,
+    isLastStep: false,
+    size: 3,
+    continuous: true,
+    backProps: buttonProps("back"),
+    primaryProps: buttonProps("primary"),
+    closeProps: buttonProps("close"),
+    skipProps: buttonProps("skip"),
+    tooltipProps: { "aria-modal": true, role: "dialog" },
+    controls: { close: vi.fn(), info: () => ({}) },
+    ...overrides,
+  }) as unknown as TooltipProps;
+
+describe("TourTooltip", () => {
+  // Back/primary carry Joyride's own aria-label (which overrides the accessible name), so assert on
+  // the visible label text instead of the accessible-name role query.
+  test("shows Pause + Abandon + Next (no Back on the first step) and renders step content", () => {
+    const props = makeTooltipProps();
+    renderWithProviders(<TourTooltip {...props} />);
+
+    expect(screen.getByText("Welcome to the tour")).toBeInTheDocument();
+    expect(screen.getByText("Pause")).toBeInTheDocument();
+    expect(screen.getByText("Abandon")).toBeInTheDocument();
+    expect(screen.getByText("Next")).toBeInTheDocument();
+    // First step → no Back.
+    expect(screen.queryByText("Back")).not.toBeInTheDocument();
+  });
+
+  test("Pause calls controls.close() (the old 'x' behavior: keep the resumable beacon)", async () => {
+    const close = vi.fn();
+    const props = makeTooltipProps({ controls: { close, info: () => ({}) } as never });
+    renderWithProviders(<TourTooltip {...props} />);
+
+    await userEvent.click(screen.getByText("Pause"));
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  test("Abandon invokes the provider's abandon action", async () => {
+    const abandon = vi.fn();
+    const props = makeTooltipProps();
+    renderWithProviders(
+      <TourActionsContext.Provider value={{ abandon }}>
+        <TourTooltip {...props} />
+      </TourActionsContext.Provider>,
+    );
+
+    await userEvent.click(screen.getByText("Abandon"));
+    expect(abandon).toHaveBeenCalledTimes(1);
+  });
+
+  test("shows Back from the second step on, and 'Done' on the last step", () => {
+    const props = makeTooltipProps({ index: 2, isLastStep: true });
+    renderWithProviders(<TourTooltip {...props} />);
+
+    expect(screen.getByText("Back")).toBeInTheDocument();
+    expect(screen.getByText("Done")).toBeInTheDocument();
+    expect(screen.queryByText("Next")).not.toBeInTheDocument();
   });
 });

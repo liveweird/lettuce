@@ -1,5 +1,13 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
-import { Joyride, STATUS, type Controls, type EventData, type Step } from "react-joyride";
+import {
+  Joyride,
+  STATUS,
+  type Controls,
+  type EventData,
+  type Step,
+  type TooltipRenderProps,
+} from "react-joyride";
+import { Button, Group, Paper, Stack, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -108,6 +116,66 @@ export function useTour(): TourContextValue {
   return ctx;
 }
 
+// Provider-level actions the custom tooltip needs but Joyride's render props don't expose. Joyride
+// renders the tooltip into a portal, but React context still flows through portals, so the tooltip
+// (mounted under TourProvider) can read this.
+type TourActions = { abandon: () => void };
+// Exported for unit tests (so a test can supply a spy `abandon`).
+export const TourActionsContext = createContext<TourActions | null>(null);
+
+/**
+ * Custom Joyride tooltip — replaces the library default so we can drop its corner "x" and offer two
+ * explicit close actions instead:
+ *   • Pause   — `controls.close()`: in continuous mode this parks on the next step's beacon (the
+ *               black dot), leaving the tour resumable. Exactly the old "x" behavior.
+ *   • Abandon — ends the tour, resets it to step 1, and marks it seen (provider's `abandon`).
+ * Back / Next (Done) keep the library-supplied handlers via the spread `*Props`. Exported for tests.
+ */
+export function TourTooltip({
+  step,
+  index,
+  isLastStep,
+  backProps,
+  primaryProps,
+  tooltipProps,
+  controls,
+}: TooltipRenderProps) {
+  const { t } = useTranslation();
+  const actions = useContext(TourActionsContext);
+  return (
+    <Paper {...tooltipProps} p="md" radius="md" shadow="md" withBorder maw={360}>
+      <Stack gap="sm">
+        {step.title && (
+          <Text size="xs" fw={600} c="dimmed">
+            {step.title}
+          </Text>
+        )}
+        <Text size="sm">{step.content}</Text>
+        <Group justify="space-between" gap="xs" wrap="nowrap">
+          <Group gap="xs" wrap="nowrap">
+            <Button size="xs" variant="default" onClick={() => controls.close()}>
+              {t("tour.nav.pause")}
+            </Button>
+            <Button size="xs" variant="light" color="red" onClick={() => actions?.abandon()}>
+              {t("tour.nav.abandon")}
+            </Button>
+          </Group>
+          <Group gap="xs" wrap="nowrap">
+            {index > 0 && (
+              <Button size="xs" variant="default" {...backProps}>
+                {t("tour.nav.back")}
+              </Button>
+            )}
+            <Button size="xs" {...primaryProps}>
+              {isLastStep ? t("tour.nav.last") : t("tour.nav.next")}
+            </Button>
+          </Group>
+        </Group>
+      </Stack>
+    </Paper>
+  );
+}
+
 export function TourProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -149,25 +217,37 @@ export function TourProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // "Abandon": stop the tour, remount so the internal step index resets to the first step, and mark
+  // it seen (so it won't auto-pop again; Replay still re-runs). With run=false no beacon is shown —
+  // the difference from "Pause" (controls.close()), which keeps the resumable beacon.
+  function handleAbandon() {
+    setRun(false);
+    setTourKey((k) => k + 1);
+    markSeen(userId);
+  }
+
   return (
     <TourContext.Provider value={{ startTour }}>
       {children}
-      <Joyride
-        key={tourKey}
-        steps={steps}
-        run={run}
-        continuous
-        scrollToFirstStep
-        onEvent={handleEvent}
-        options={{ zIndex: 10000 }}
-        locale={{
-          back: t("tour.nav.back"),
-          close: t("tour.nav.close"),
-          last: t("tour.nav.last"),
-          next: t("tour.nav.next"),
-          skip: t("tour.nav.skip"),
-        }}
-      />
+      <TourActionsContext.Provider value={{ abandon: handleAbandon }}>
+        <Joyride
+          key={tourKey}
+          steps={steps}
+          run={run}
+          continuous
+          scrollToFirstStep
+          onEvent={handleEvent}
+          tooltipComponent={TourTooltip}
+          options={{ zIndex: 10000 }}
+          locale={{
+            back: t("tour.nav.back"),
+            close: t("tour.nav.close"),
+            last: t("tour.nav.last"),
+            next: t("tour.nav.next"),
+            skip: t("tour.nav.skip"),
+          }}
+        />
+      </TourActionsContext.Provider>
     </TourContext.Provider>
   );
 }

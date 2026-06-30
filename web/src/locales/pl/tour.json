@@ -7,7 +7,9 @@
     "close": "Zamknij",
     "last": "Gotowe",
     "next": "Dalej",
-    "skip": "Pomiń"
+    "skip": "Pomiń",
+    "pause": "Wstrzymaj",
+    "abandon": "Porzuć"
   },
   "steps": {
     "welcome": "Zapraszamy na krótki przewodnik po Lettuce — pokażemy najważniejsze miejsca. Możesz go pominąć i odtworzyć później.",

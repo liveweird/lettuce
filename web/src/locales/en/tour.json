@@ -7,7 +7,9 @@
     "close": "Close",
     "last": "Done",
     "next": "Next",
-    "skip": "Skip"
+    "skip": "Skip",
+    "pause": "Pause",
+    "abandon": "Abandon"
   },
   "steps": {
     "welcome": "Take a quick tour of Lettuce — we'll point out the main areas. You can skip anytime and replay it later.",
