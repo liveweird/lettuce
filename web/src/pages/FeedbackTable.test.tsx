@@ -144,6 +144,7 @@ describe("FeedbackTable (received view)", () => {
     renderWithProviders(<FeedbackTable view="received" />);
 
     await screen.findByRole("cell", { name: "Alice Provider" });
+    await user.click(screen.getByRole("button", { name: /filters/i }));
     await user.type(screen.getByLabelText(/requester/i), "caro");
 
     await waitFor(
@@ -156,11 +157,47 @@ describe("FeedbackTable (received view)", () => {
     );
   });
 
+  test("filters are collapsed by default and the toggle reveals them", async () => {
+    setupMocks(mockFetch);
+    const user = userEvent.setup();
+    renderWithProviders(<FeedbackTable view="received" />);
+
+    await screen.findByRole("cell", { name: "Alice Provider" });
+    const toggle = screen.getByRole("button", { name: /filters/i });
+    // Collapsed by default — the toggle reports it and the space-eating filter row is hidden.
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByLabelText(/requester/i)).not.toBeInTheDocument();
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByLabelText(/requester/i)).toBeInTheDocument();
+
+    // Toggling again collapses it.
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+  });
+
+  test("the Filters toggle shows a badge counting the active filters", async () => {
+    setupMocks(mockFetch);
+    const user = userEvent.setup();
+    renderWithProviders(<FeedbackTable view="received" />);
+
+    await screen.findByRole("cell", { name: "Alice Provider" });
+    const toggle = screen.getByRole("button", { name: /filters/i });
+    // Nothing set, and the default "Last modified = All" must NOT count → no badge.
+    expect(within(toggle).queryByText("1")).not.toBeInTheDocument();
+
+    await user.click(toggle);
+    await user.type(screen.getByLabelText(/requester/i), "caro");
+    expect(within(toggle).getByText("1")).toBeInTheDocument();
+  });
+
   test("selecting Visibility and Status adds the corresponding params", async () => {
     setupMocks(mockFetch);
     renderWithProviders(<FeedbackTable view="received" />);
 
     await screen.findByRole("cell", { name: "Alice Provider" });
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
 
     // happy-dom does not open Mantine comboboxes via userEvent's pointer simulation
     fireEvent.click(screen.getByLabelText("Visibility", { selector: "input" }));
@@ -185,6 +222,7 @@ describe("FeedbackTable (received view)", () => {
     // Default "All" sends no recency bound.
     expect(feedbackUrls(mockFetch).every((url) => !url.includes("lastModified"))).toBe(true);
 
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
     fireEvent.click(screen.getByLabelText("Last modified", { selector: "input" }));
     fireEvent.click(await screen.findByRole("option", { name: "Last week" }));
     await waitFor(() => {
@@ -199,6 +237,7 @@ describe("FeedbackTable (received view)", () => {
     setupMocks(mockFetch);
     renderWithProviders(<FeedbackTable view="received" />);
 
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
     fireEvent.click(screen.getByLabelText("Visibility", { selector: "input" }));
     const options = await screen.findAllByRole("option");
     expect(options.map((o) => o.textContent)).toEqual([
@@ -349,6 +388,7 @@ describe("FeedbackTable (provided view)", () => {
     renderWithProviders(<FeedbackTable view="provided" />);
 
     await screen.findByRole("cell", { name: "Sam Subject" });
+    await user.click(screen.getByRole("button", { name: /filters/i }));
     await user.type(screen.getByLabelText("Subject"), "tina");
 
     await waitFor(
@@ -363,6 +403,7 @@ describe("FeedbackTable (provided view)", () => {
     setupMocks(mockFetch);
     renderWithProviders(<FeedbackTable view="provided" />);
 
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
     fireEvent.click(screen.getByLabelText("Visibility", { selector: "input" }));
     const options = await screen.findAllByRole("option");
     expect(options.map((o) => o.textContent)).toEqual([

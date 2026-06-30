@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
+  Badge,
   Button,
   Center,
   CloseButton,
@@ -14,8 +15,8 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
-import { useDebouncedValue } from "@mantine/hooks";
-import { IconEye, IconPencil } from "@tabler/icons-react";
+import { useDebouncedValue, useDisclosure } from "@mantine/hooks";
+import { IconChevronDown, IconEye, IconFilter, IconPencil } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
@@ -135,6 +136,15 @@ export default function FeedbackTable({
   const [visibilityFilter, setVisibilityFilter] = useState<FeedbackVisibility | null>(null);
   const [statusFilter, setStatusFilter] = useState<FeedbackStatus | null>(null);
   const [lastModifiedFilter, setLastModifiedFilter] = useState<LastModifiedWindow>("all");
+  // Filters are collapsed by default (rarely used); the badge keeps active-but-hidden filters obvious.
+  // `lastModifiedFilter` defaults to the truthy "all" — compare against it, not truthiness.
+  const [filtersOpen, { toggle: toggleFilters }] = useDisclosure(false);
+  const activeFilterCount =
+    (requesterFilter.trim() ? 1 : 0) +
+    (personFilter.trim() ? 1 : 0) +
+    (visibilityFilter ? 1 : 0) +
+    (statusFilter ? 1 : 0) +
+    (lastModifiedFilter !== "all" ? 1 : 0);
 
   const [debouncedRequester] = useDebouncedValue(requesterFilter, 300);
   const [debouncedPerson] = useDebouncedValue(personFilter, 300);
@@ -200,67 +210,98 @@ export default function FeedbackTable({
 
   return (
     <Stack gap="md">
-      <Group align="flex-end" gap="sm">
-        <TextInput
-          label={t("common.field.requester")}
-          placeholder={t("common.filter.contains")}
-          value={requesterFilter}
-          onChange={(e) => setRequesterFilter(e.currentTarget.value)}
-          rightSection={
-            requesterFilter ? (
-              <CloseButton
-                size="sm"
-                aria-label={t("feedback.clearRequesterFilter")}
-                tabIndex={-1}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setRequesterFilter("")}
-              />
-            ) : null
-          }
-          rightSectionPointerEvents="auto"
-        />
-        <TextInput
-          label={personLabel}
-          placeholder={t("common.filter.contains")}
-          value={personFilter}
-          onChange={(e) => setPersonFilter(e.currentTarget.value)}
-          rightSection={
-            personFilter ? (
-              <CloseButton
-                size="sm"
-                aria-label={clearPersonFilterLabel}
-                tabIndex={-1}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setPersonFilter("")}
-              />
-            ) : null
-          }
-          rightSectionPointerEvents="auto"
-        />
-        <Select
-          label={t("common.field.visibility")}
-          placeholder={t("common.state.any")}
-          data={visibilityOptions}
-          value={visibilityFilter}
-          onChange={(v) => setVisibilityFilter((v as FeedbackVisibility | null) ?? null)}
-          clearable
-        />
-        <Select
-          label={t("common.field.status")}
-          placeholder={t("common.state.any")}
-          data={statusOptions}
-          value={statusFilter}
-          onChange={(v) => setStatusFilter((v as FeedbackStatus | null) ?? null)}
-          clearable
-        />
-        <Select
-          label={t("common.field.lastModified")}
-          data={lastModifiedOptions(t)}
-          value={lastModifiedFilter}
-          onChange={(v) => setLastModifiedFilter((v as LastModifiedWindow) ?? "all")}
-          allowDeselect={false}
-        />
-      </Group>
+      <div>
+        <Group gap="xs" mb={filtersOpen ? "sm" : 0}>
+          <Button
+            variant="default"
+            size="xs"
+            onClick={toggleFilters}
+            aria-expanded={filtersOpen}
+            leftSection={<IconFilter size={16} />}
+            rightSection={
+              <Group gap={6} wrap="nowrap" component="span">
+                {activeFilterCount > 0 && (
+                  <Badge size="sm" circle variant="filled">
+                    {activeFilterCount}
+                  </Badge>
+                )}
+                <IconChevronDown
+                  size={16}
+                  style={{
+                    transform: filtersOpen ? "rotate(180deg)" : "none",
+                    transition: "transform 150ms ease",
+                  }}
+                />
+              </Group>
+            }
+          >
+            {t("common.filter.title")}
+          </Button>
+        </Group>
+        {filtersOpen && (
+          <Group align="flex-end" gap="sm">
+            <TextInput
+              label={t("common.field.requester")}
+              placeholder={t("common.filter.contains")}
+              value={requesterFilter}
+              onChange={(e) => setRequesterFilter(e.currentTarget.value)}
+              rightSection={
+                requesterFilter ? (
+                  <CloseButton
+                    size="sm"
+                    aria-label={t("feedback.clearRequesterFilter")}
+                    tabIndex={-1}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => setRequesterFilter("")}
+                  />
+                ) : null
+              }
+              rightSectionPointerEvents="auto"
+            />
+            <TextInput
+              label={personLabel}
+              placeholder={t("common.filter.contains")}
+              value={personFilter}
+              onChange={(e) => setPersonFilter(e.currentTarget.value)}
+              rightSection={
+                personFilter ? (
+                  <CloseButton
+                    size="sm"
+                    aria-label={clearPersonFilterLabel}
+                    tabIndex={-1}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => setPersonFilter("")}
+                  />
+                ) : null
+              }
+              rightSectionPointerEvents="auto"
+            />
+            <Select
+              label={t("common.field.visibility")}
+              placeholder={t("common.state.any")}
+              data={visibilityOptions}
+              value={visibilityFilter}
+              onChange={(v) => setVisibilityFilter((v as FeedbackVisibility | null) ?? null)}
+              clearable
+            />
+            <Select
+              label={t("common.field.status")}
+              placeholder={t("common.state.any")}
+              data={statusOptions}
+              value={statusFilter}
+              onChange={(v) => setStatusFilter((v as FeedbackStatus | null) ?? null)}
+              clearable
+            />
+            <Select
+              label={t("common.field.lastModified")}
+              data={lastModifiedOptions(t)}
+              value={lastModifiedFilter}
+              onChange={(v) => setLastModifiedFilter((v as LastModifiedWindow) ?? "all")}
+              allowDeselect={false}
+            />
+          </Group>
+        )}
+      </div>
 
       {isError && (
         <Alert color="red" title={t("feedback.loadListError")}>
