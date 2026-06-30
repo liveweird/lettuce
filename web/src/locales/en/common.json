@@ -39,7 +39,8 @@
     "perPage": "{{count}} / page"
   },
   "filter": {
-    "contains": "contains…"
+    "contains": "contains…",
+    "title": "Filters"
   },
   "status": {
     "REQUESTED": "Requested",

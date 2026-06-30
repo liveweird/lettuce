@@ -39,7 +39,8 @@
     "perPage": "{{count}} / strona"
   },
   "filter": {
-    "contains": "zawiera…"
+    "contains": "zawiera…",
+    "title": "Filtry"
   },
   "status": {
     "REQUESTED": "Poproszono",

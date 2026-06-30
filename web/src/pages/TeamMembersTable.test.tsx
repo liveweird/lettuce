@@ -190,6 +190,7 @@ describe("TeamMembersTable", () => {
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
 
     await screen.findByRole("cell", { name: "Bob Brown" });
+    await user.click(screen.getByRole("button", { name: /filters/i }));
     await user.type(screen.getByLabelText("Name"), "ali");
 
     await waitFor(
@@ -203,12 +204,49 @@ describe("TeamMembersTable", () => {
     expect(screen.getByLabelText("Name")).toHaveValue("");
   });
 
+  test("filters are collapsed by default and the toggle reveals them", async () => {
+    setupMocks(mockFetch);
+    const user = userEvent.setup();
+    renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
+
+    await screen.findByRole("cell", { name: "Bob Brown" });
+    const toggle = screen.getByRole("button", { name: /filters/i });
+    // Collapsed by default — the toggle reports it and the space-eating filter row is hidden.
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await user.type(screen.getByLabelText("Name"), "ali");
+    expect(screen.getByLabelText("Name")).toHaveValue("ali");
+
+    // Toggling again collapses it.
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+  });
+
+  test("the Filters toggle shows a badge counting the active filters", async () => {
+    setupMocks(mockFetch);
+    const user = userEvent.setup();
+    renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
+
+    await screen.findByRole("cell", { name: "Bob Brown" });
+    const toggle = screen.getByRole("button", { name: /filters/i });
+    // No filters set → no badge.
+    expect(within(toggle).queryByText("1")).not.toBeInTheDocument();
+
+    await user.click(toggle);
+    await user.type(screen.getByLabelText("Name"), "ali");
+    expect(within(toggle).getByText("1")).toBeInTheDocument();
+  });
+
   test("typing in the Email filter adds email=", async () => {
     setupMocks(mockFetch);
     const user = userEvent.setup();
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
 
     await screen.findByRole("cell", { name: "Bob Brown" });
+    await user.click(screen.getByRole("button", { name: /filters/i }));
     await user.type(screen.getByLabelText("Email"), "bob@");
     await waitFor(
       () => {
@@ -223,6 +261,7 @@ describe("TeamMembersTable", () => {
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
 
     await screen.findByRole("cell", { name: "Bob Brown" });
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
 
     // happy-dom does not open Mantine comboboxes via userEvent's pointer simulation
     fireEvent.click(screen.getByLabelText("Team", { selector: "input" }));
@@ -235,6 +274,7 @@ describe("TeamMembersTable", () => {
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
 
     await screen.findByRole("cell", { name: "Bob Brown" });
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
 
     fireEvent.click(screen.getByLabelText("Team", { selector: "input" }));
     fireEvent.click(await screen.findByRole("option", { name: "Support" }));
