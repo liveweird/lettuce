@@ -223,6 +223,7 @@ describe("Users page", () => {
     renderUsers();
 
     await screen.findByText("Alice");
+    await user.click(screen.getByRole("button", { name: /filters/i }));
     const nameInput = screen.getByLabelText("Name");
     await user.type(nameInput, "Ali");
     await waitFor(
@@ -234,12 +235,48 @@ describe("Users page", () => {
     expect(nameInput).toHaveValue("");
   });
 
+  test("filters are collapsed by default and the toggle reveals them", async () => {
+    mockUsers(mockFetch);
+    const user = userEvent.setup();
+    renderUsers();
+
+    await screen.findByText("Alice");
+    const toggle = screen.getByRole("button", { name: /filters/i });
+    // Collapsed by default — the toggle reports it and the space-eating filter row is hidden.
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByLabelText("Name")).toBeInTheDocument();
+
+    // Toggling again collapses it.
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+  });
+
+  test("the Filters toggle shows a badge counting the active filters", async () => {
+    mockUsers(mockFetch);
+    const user = userEvent.setup();
+    renderUsers();
+
+    await screen.findByText("Alice");
+    const toggle = screen.getByRole("button", { name: /filters/i });
+    // No filters set → no badge.
+    expect(within(toggle).queryByText("1")).not.toBeInTheDocument();
+
+    await user.click(toggle);
+    await user.type(screen.getByLabelText("Name"), "Ali");
+    expect(within(toggle).getByText("1")).toBeInTheDocument();
+  });
+
   test("typing the Email filter refetches with email=", async () => {
     mockUsers(mockFetch);
     const user = userEvent.setup();
     renderUsers();
 
     await screen.findByText("Alice");
+    await user.click(screen.getByRole("button", { name: /filters/i }));
     await user.type(screen.getByLabelText("Email"), "alice");
     await waitFor(
       () => expect(userUrls(mockFetch).some((u) => u.includes("email=alice"))).toBe(true),
@@ -252,6 +289,7 @@ describe("Users page", () => {
     renderUsers();
 
     await screen.findByText("Alice");
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
     fireEvent.click(screen.getByLabelText("Role", { selector: "input" }));
     fireEvent.click(await screen.findByRole("option", { name: /admin/i }));
     await waitFor(() => expect(userUrls(mockFetch).some((u) => u.includes("role=ADMIN"))).toBe(true));
