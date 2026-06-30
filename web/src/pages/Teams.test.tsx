@@ -121,6 +121,7 @@ describe("Teams page", () => {
     renderTeams();
 
     await screen.findByText("Platform");
+    await user.click(screen.getByRole("button", { name: /filters/i }));
     await user.type(screen.getByLabelText(/name/i), "Mobi");
 
     await waitFor(
@@ -132,6 +133,39 @@ describe("Teams page", () => {
       },
       { timeout: 1500 },
     );
+  });
+
+  test("filters are collapsed by default and the toggle reveals them", async () => {
+    setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
+    const user = userEvent.setup();
+    renderTeams();
+
+    await screen.findByText("Platform");
+    const toggle = screen.getByRole("button", { name: /filters/i });
+    // Collapsed by default — the toggle reports it and the space-eating filter row is hidden.
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByLabelText("Name")).toBeInTheDocument();
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+  });
+
+  test("the Filters toggle shows a badge counting the active filters", async () => {
+    setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
+    const user = userEvent.setup();
+    renderTeams();
+
+    await screen.findByText("Platform");
+    const toggle = screen.getByRole("button", { name: /filters/i });
+    expect(within(toggle).queryByText("1")).not.toBeInTheDocument();
+
+    await user.click(toggle);
+    await user.type(screen.getByLabelText("Name"), "Mobi");
+    expect(within(toggle).getByText("1")).toBeInTheDocument();
   });
 
   test("pagination button click triggers a GET with page=2", async () => {
@@ -163,6 +197,7 @@ describe("Teams page", () => {
       expect(userCall).toBeDefined();
     });
 
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
     const managerSelect = screen.getByLabelText(/manager/i, { selector: "input" });
     expect(managerSelect).not.toBeDisabled();
   });
@@ -173,6 +208,7 @@ describe("Teams page", () => {
     renderTeams();
 
     await screen.findByText("Platform");
+    await user.click(screen.getByRole("button", { name: /filters/i }));
     const nameInput = screen.getByLabelText(/name/i);
     await user.type(nameInput, "Mobi");
     await user.click(await screen.findByRole("button", { name: /clear name filter/i }));
@@ -184,6 +220,7 @@ describe("Teams page", () => {
     renderTeams();
 
     await screen.findByText("Platform");
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
     fireEvent.click(screen.getByLabelText(/manager/i, { selector: "input" }));
     fireEvent.click(await screen.findByRole("option", { name: "Alice Manager", hidden: true }));
     await waitFor(() => {

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
+  Badge,
   Button,
   Center,
   CloseButton,
@@ -23,7 +24,14 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { IconEye, IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
+import {
+  IconChevronDown,
+  IconEye,
+  IconFilter,
+  IconPencil,
+  IconPlus,
+  IconTrash,
+} from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import SortHeader, { type SortDir } from "../components/SortHeader";
 import { deleteTemplate, isAdmin, listTemplates } from "../api/client";
@@ -42,6 +50,9 @@ export default function Templates() {
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [nameFilter, setNameFilter] = useState("");
+  // Filters are collapsed by default (rarely used); the badge keeps active-but-hidden filters obvious.
+  const [filtersOpen, { toggle: toggleFilters }] = useDisclosure(false);
+  const activeFilterCount = nameFilter.trim() ? 1 : 0;
   const [target, setTarget] = useState<TemplateRow | null>(null);
   const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false);
 
@@ -112,26 +123,57 @@ export default function Templates() {
     <Stack gap="md">
       <Title order={2} data-tour="config-templates">{t("templates.title")}</Title>
 
-      <Group align="flex-end" gap="sm">
-        <TextInput
-          label={t("common.field.name")}
-          placeholder={t("common.filter.contains")}
-          value={nameFilter}
-          onChange={(e) => setNameFilter(e.currentTarget.value)}
-          rightSection={
-            nameFilter ? (
-              <CloseButton
-                size="sm"
-                aria-label={t("templates.clearNameFilter")}
-                tabIndex={-1}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setNameFilter("")}
-              />
-            ) : null
-          }
-          rightSectionPointerEvents="auto"
-        />
-      </Group>
+      <div>
+        <Group gap="xs" mb={filtersOpen ? "sm" : 0}>
+          <Button
+            variant="default"
+            size="xs"
+            onClick={toggleFilters}
+            aria-expanded={filtersOpen}
+            leftSection={<IconFilter size={16} />}
+            rightSection={
+              <Group gap={6} wrap="nowrap" component="span">
+                {activeFilterCount > 0 && (
+                  <Badge size="sm" circle variant="filled">
+                    {activeFilterCount}
+                  </Badge>
+                )}
+                <IconChevronDown
+                  size={16}
+                  style={{
+                    transform: filtersOpen ? "rotate(180deg)" : "none",
+                    transition: "transform 150ms ease",
+                  }}
+                />
+              </Group>
+            }
+          >
+            {t("common.filter.title")}
+          </Button>
+        </Group>
+        {filtersOpen && (
+          <Group align="flex-end" gap="sm">
+            <TextInput
+              label={t("common.field.name")}
+              placeholder={t("common.filter.contains")}
+              value={nameFilter}
+              onChange={(e) => setNameFilter(e.currentTarget.value)}
+              rightSection={
+                nameFilter ? (
+                  <CloseButton
+                    size="sm"
+                    aria-label={t("templates.clearNameFilter")}
+                    tabIndex={-1}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => setNameFilter("")}
+                  />
+                ) : null
+              }
+              rightSectionPointerEvents="auto"
+            />
+          </Group>
+        )}
+      </div>
 
       {isError && (
         <Alert color="red" title={t("templates.loadFailed")}>
