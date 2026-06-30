@@ -14,12 +14,13 @@ import {
   Text,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconBell, IconCheck, IconEyeOff, IconExternalLink } from "@tabler/icons-react";
+import { IconBell, IconCheck, IconChecks, IconEyeOff, IconExternalLink } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import {
   listNotifications,
+  markAllNotificationsSeen,
   markNotificationSeen,
   markNotificationUnseen,
   type NotificationItem,
@@ -64,6 +65,11 @@ export default function NotificationsButton() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
   });
 
+  const markAllSeen = useMutation({
+    mutationFn: () => markAllNotificationsSeen(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+  });
+
   function goTo(n: NotificationItem) {
     if (!n.link) return;
     close();
@@ -91,6 +97,19 @@ export default function NotificationsButton() {
       </Indicator>
 
       <Modal opened={opened} onClose={close} title={t("notifications.title")} centered size="lg">
+        {unreadCount > 0 && (
+          <Group justify="flex-end" mb="sm">
+            <Button
+              size="xs"
+              variant="light"
+              leftSection={<IconChecks size={14} />}
+              onClick={() => markAllSeen.mutate()}
+              loading={markAllSeen.isPending}
+            >
+              {t("notifications.markAllSeen")}
+            </Button>
+          </Group>
+        )}
         {listQuery.isLoading ? (
           <Center py="xl">
             <Loader />

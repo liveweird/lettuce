@@ -9,6 +9,7 @@
   "empty": "Brak powiadomień.",
   "new": "Nowe",
   "markSeen": "Oznacz jako przeczytane",
+  "markAllSeen": "Oznacz wszystkie jako przeczytane",
   "markSeenAria": "Oznacz powiadomienie {{id}} jako przeczytane",
   "markUnseen": "Oznacz jako nieprzeczytane",
   "markUnseenAria": "Oznacz powiadomienie {{id}} jako nieprzeczytane",

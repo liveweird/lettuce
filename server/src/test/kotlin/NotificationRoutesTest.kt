@@ -174,6 +174,36 @@ class NotificationRoutesTest {
     }
 
     @Test
+    fun `mark all seen flips every unseen of the caller, is idempotent, and is caller-scoped`() = testApplication {
+        usePostgresTestcontainer()
+        val recipientEmail = uniqueEmail("recipient")
+        val recipientId = TestUsers.seed(email = recipientEmail, password = "pw", role = UserRole.USER)
+        val strangerEmail = uniqueEmail("stranger")
+        val strangerId = TestUsers.seed(email = strangerEmail, password = "pw", role = UserRole.USER)
+        val client = authedClient(recipientEmail, "pw")
+        val strangerClient = authedClient(strangerEmail, "pw")
+
+        // Two unseen + one already-seen for the recipient; one unseen for the stranger.
+        TestNotifications.seed(recipientId, message = "one")
+        TestNotifications.seed(recipientId, message = "two")
+        val alreadySeen = TestNotifications.seed(recipientId, message = "old")
+        client.post("/api/v1/notifications/$alreadySeen/seen")
+        val strangerNote = TestNotifications.seed(strangerId, message = "theirs")
+
+        assertEquals(2, client.get("/api/v1/notifications?wasSeen=false").body<NotificationPageResponse>().total)
+
+        assertEquals(HttpStatusCode.NoContent, client.post("/api/v1/notifications/seen-all").status)
+        assertEquals(0, client.get("/api/v1/notifications?wasSeen=false").body<NotificationPageResponse>().total)
+
+        // The stranger's notification is untouched (caller-scoped, no cross-user effect).
+        assertFalse(strangerClient.get("/api/v1/notifications/$strangerNote").body<NotificationResponse>().wasSeen)
+
+        // Idempotent: a second call still 204, still nothing unseen.
+        assertEquals(HttpStatusCode.NoContent, client.post("/api/v1/notifications/seen-all").status)
+        assertEquals(0, client.get("/api/v1/notifications?wasSeen=false").body<NotificationPageResponse>().total)
+    }
+
+    @Test
     fun `delete removes the notification and is recipient-scoped`() = testApplication {
         usePostgresTestcontainer()
         val recipientEmail = uniqueEmail("recipient")
@@ -237,6 +267,7 @@ class NotificationRoutesTest {
             HttpMethod.Get to "/api/v1/notifications/1",
             HttpMethod.Post to "/api/v1/notifications/1/seen",
             HttpMethod.Post to "/api/v1/notifications/1/unseen",
+            HttpMethod.Post to "/api/v1/notifications/seen-all",
             HttpMethod.Delete to "/api/v1/notifications/1",
         )
         for ((verb, path) in endpoints) {

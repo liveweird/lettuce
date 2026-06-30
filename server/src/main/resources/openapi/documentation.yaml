@@ -1055,6 +1055,20 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalServerError' }
 
+  /api/v1/notifications/seen-all:
+    post:
+      tags: [notifications]
+      operationId: markAllNotificationsSeen
+      summary: Mark all of the caller's notifications as seen
+      description: |
+        Sets `wasSeen` to `true` for every one of the authenticated caller's still-unseen
+        notifications, in a single request. Idempotent. Intrinsically scoped to the caller's own
+        notifications (no `{id}`, no recipient guard); there is no ADMIN cross-user bypass.
+      responses:
+        '204': { description: All of the caller's notifications marked as seen }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
 components:
   securitySchemes:
     bearerAuth:

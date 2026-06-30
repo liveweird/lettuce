@@ -583,6 +583,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/notifications/seen-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark all of the caller's notifications as seen
+         * @description Sets `wasSeen` to `true` for every one of the authenticated caller's still-unseen
+         *     notifications, in a single request. Idempotent. Intrinsically scoped to the caller's own
+         *     notifications (no `{id}`, no recipient guard); there is no ADMIN cross-user bypass.
+         */
+        post: operations["markAllNotificationsSeen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2206,6 +2228,26 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    markAllNotificationsSeen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All of the caller's notifications marked as seen */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
             500: components["responses"]["InternalServerError"];
         };
     };

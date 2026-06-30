@@ -122,6 +122,42 @@ describe("NotificationsButton", () => {
     }
   });
 
+  test("'Mark all as seen' posts seen-all and clears the badge", async () => {
+    let unread = 2;
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      const u = String(url);
+      const method = init?.method ?? "GET";
+      if (method === "POST" && u.endsWith("/api/v1/notifications/seen-all")) {
+        unread = 0; // server marked everything seen
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      if (u.startsWith("/api/v1/notifications") && u.includes("wasSeen=false")) {
+        return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 1, total: unread }));
+      }
+      if (u.startsWith("/api/v1/notifications")) {
+        return Promise.resolve(jsonResponse(200, { items: [UNSEEN], page: 1, pageSize: 50, total: 1 }));
+      }
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+
+    const user = userEvent.setup();
+    renderWithProviders(<NotificationsButton />);
+    await user.click(await screen.findByRole("button", { name: /2 unread/i })); // open the modal
+    await user.click(await screen.findByRole("button", { name: /mark all as seen/i }));
+
+    await waitFor(() => {
+      expect(
+        mockFetch.mock.calls.some(
+          ([u, init]) =>
+            String(u).endsWith("/api/v1/notifications/seen-all") && (init?.method ?? "GET") === "POST",
+        ),
+      ).toBe(true);
+    });
+    // Badge cleared (bell aria-label reflects 0 unread) and the bulk action is gone.
+    await screen.findByRole("button", { name: /0 unread/i });
+    expect(screen.queryByRole("button", { name: /mark all as seen/i })).not.toBeInTheDocument();
+  });
+
   test("opening lists notifications with distinct seen vs unseen affordances", async () => {
     setupMocks(mockFetch);
     const user = userEvent.setup();
@@ -149,7 +185,8 @@ describe("NotificationsButton", () => {
     renderWithProviders(<NotificationsButton />);
 
     await user.click(await screen.findByRole("button", { name: /unread/i }));
-    await user.click(await screen.findByRole("button", { name: /as seen$/i }));
+    // The per-row action (aria-label "Mark notification 1 as seen"), not the bulk "Mark all as seen".
+    await user.click(await screen.findByRole("button", { name: /notification 1 as seen/i }));
 
     await waitFor(() => {
       expect(

@@ -31,6 +31,11 @@ class Notifications {
         @Resource("unseen")
         class Unseen(val parent: Id)
     }
+
+    /** Bulk "mark all as seen" — the literal `seen-all` segment takes precedence over `{id}`. */
+    @Serializable
+    @Resource("seen-all")
+    class SeenAll(val parent: Notifications = Notifications())
 }
 
 fun Application.configureNotificationRoutes() {
@@ -92,6 +97,12 @@ fun Application.configureNotificationRoutes() {
                 }
                 requireNotificationRecipient(caller, notification.recipientId)
                 notificationService.markUnseen(route.parent.id)
+                call.respond(HttpStatusCode.NoContent)
+            }
+            post<Notifications.SeenAll> {
+                // No per-row guard needed: the update is intrinsically scoped to the caller's own rows.
+                val caller = call.caller()
+                notificationService.markAllSeen(caller.userId)
                 call.respond(HttpStatusCode.NoContent)
             }
             delete<Notifications.Id> { route ->

@@ -78,6 +78,17 @@ class NotificationService(val database: R2dbcDatabase) {
         }
     }
 
+    /** Marks every one of the recipient's still-unseen notifications as seen; returns the row count. */
+    suspend fun markAllSeen(recipientId: UInt): Int = suspendTransaction(database) {
+        Notifications.update({
+            (Notifications.recipientId eq recipientId) and
+                (Notifications.wasSeen eq false) and
+                (Notifications.markedAsDeleted eq false)
+        }) {
+            it[wasSeen] = true
+        }
+    }
+
     suspend fun delete(id: UInt): Int = suspendTransaction(database) {
         Notifications.update({ (Notifications.id eq id) and (Notifications.markedAsDeleted eq false) }) {
             it[markedAsDeleted] = true

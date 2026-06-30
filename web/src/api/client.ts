@@ -443,6 +443,11 @@ export async function markNotificationUnseen(id: number): Promise<void> {
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
+export async function markAllNotificationsSeen(): Promise<void> {
+  const res = await authedFetch(`/api/v1/notifications/seen-all`, { method: "POST" });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
 export async function authedFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const token = getToken();
   const headers = new Headers(init.headers);
