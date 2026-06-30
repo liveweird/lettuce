@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
-  Badge,
   Button,
   Center,
   CloseButton,
@@ -30,13 +29,12 @@ import {
   IconArrowDown,
   IconArrowUp,
   IconArrowsSort,
-  IconChevronDown,
-  IconFilter,
   IconPencil,
   IconPlus,
   IconTrash,
   IconUsers,
 } from "@tabler/icons-react";
+import FilterPanel from "../components/FilterPanel";
 import { deleteTeam, isAdmin, listTeams, listUsers } from "../api/client";
 
 const PAGE_SIZE_OPTIONS = [20, 40, 60] as const;
@@ -83,8 +81,6 @@ export default function Teams() {
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [nameFilter, setNameFilter] = useState("");
   const [managerIdFilter, setManagerIdFilter] = useState<number | null>(null);
-  // Filters are collapsed by default (rarely used); the badge keeps active-but-hidden filters obvious.
-  const [filtersOpen, { toggle: toggleFilters }] = useDisclosure(false);
   const activeFilterCount = (nameFilter.trim() ? 1 : 0) + (managerIdFilter != null ? 1 : 0);
   const [target, setTarget] = useState<TeamRow | null>(null);
   const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false);
@@ -174,68 +170,37 @@ export default function Teams() {
     <Stack gap="md">
       <Title order={2} data-tour="config-teams">{t("teams.title")}</Title>
 
-      <div>
-        <Group gap="xs" mb={filtersOpen ? "sm" : 0}>
-          <Button
-            variant="default"
-            size="xs"
-            onClick={toggleFilters}
-            aria-expanded={filtersOpen}
-            leftSection={<IconFilter size={16} />}
-            rightSection={
-              <Group gap={6} wrap="nowrap" component="span">
-                {activeFilterCount > 0 && (
-                  <Badge size="sm" circle variant="filled">
-                    {activeFilterCount}
-                  </Badge>
-                )}
-                <IconChevronDown
-                  size={16}
-                  style={{
-                    transform: filtersOpen ? "rotate(180deg)" : "none",
-                    transition: "transform 150ms ease",
-                  }}
-                />
-              </Group>
-            }
-          >
-            {t("common.filter.title")}
-          </Button>
-        </Group>
-        {filtersOpen && (
-          <Group align="flex-end" gap="sm">
-            <TextInput
-              label={t("common.field.name")}
-              placeholder={t("common.filter.contains")}
-              value={nameFilter}
-              onChange={(e) => setNameFilter(e.currentTarget.value)}
-              rightSection={
-                nameFilter ? (
-                  <CloseButton
-                    size="sm"
-                    aria-label={t("teams.clearNameFilter")}
-                    tabIndex={-1}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => setNameFilter("")}
-                  />
-                ) : null
-              }
-              rightSectionPointerEvents="auto"
-            />
-            <Select
-              label={t("common.field.manager")}
-              placeholder={managersLoading ? t("common.state.loading") : t("common.state.any")}
-              data={managerOptions}
-              value={managerIdFilter == null ? null : String(managerIdFilter)}
-              onChange={(v) => setManagerIdFilter(v == null ? null : Number(v))}
-              searchable
-              clearable
-              disabled={managersLoading}
-              nothingFoundMessage={t("teams.noMatchingUsers")}
-            />
-          </Group>
-        )}
-      </div>
+      <FilterPanel activeFilterCount={activeFilterCount}>
+        <TextInput
+          label={t("common.field.name")}
+          placeholder={t("common.filter.contains")}
+          value={nameFilter}
+          onChange={(e) => setNameFilter(e.currentTarget.value)}
+          rightSection={
+            nameFilter ? (
+              <CloseButton
+                size="sm"
+                aria-label={t("teams.clearNameFilter")}
+                tabIndex={-1}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setNameFilter("")}
+              />
+            ) : null
+          }
+          rightSectionPointerEvents="auto"
+        />
+        <Select
+          label={t("common.field.manager")}
+          placeholder={managersLoading ? t("common.state.loading") : t("common.state.any")}
+          data={managerOptions}
+          value={managerIdFilter == null ? null : String(managerIdFilter)}
+          onChange={(v) => setManagerIdFilter(v == null ? null : Number(v))}
+          searchable
+          clearable
+          disabled={managersLoading}
+          nothingFoundMessage={t("teams.noMatchingUsers")}
+        />
+      </FilterPanel>
 
       {isError && (
         <Alert color="red" title={t("teams.loadFailed")}>

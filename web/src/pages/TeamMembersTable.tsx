@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
-  Badge,
   Button,
   Center,
   CloseButton,
@@ -16,10 +15,8 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
-import { useDebouncedValue, useDisclosure } from "@mantine/hooks";
+import { useDebouncedValue } from "@mantine/hooks";
 import {
-  IconChevronDown,
-  IconFilter,
   IconMessagePlus,
   IconMessageQuestion,
   IconMessages,
@@ -27,6 +24,7 @@ import {
 } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { listAllTeams, listTeamMembers, type TeamMemberListView } from "../api/client";
+import FilterPanel from "../components/FilterPanel";
 import SortHeader, { type SortDir } from "../components/SortHeader";
 
 const PAGE_SIZE_OPTIONS = [20, 40, 60] as const;
@@ -49,8 +47,6 @@ export default function TeamMembersTable({
   const [nameFilter, setNameFilter] = useState("");
   const [emailFilter, setEmailFilter] = useState("");
   const [teamFilter, setTeamFilter] = useState<string | null>(null);
-  // Filters are collapsed by default (rarely used); the badge keeps active-but-hidden filters obvious.
-  const [filtersOpen, { toggle: toggleFilters }] = useDisclosure(false);
   const activeFilterCount =
     (nameFilter.trim() ? 1 : 0) + (emailFilter.trim() ? 1 : 0) + (teamFilter ? 1 : 0);
 
@@ -112,85 +108,54 @@ export default function TeamMembersTable({
 
   return (
     <Stack gap="md">
-      <div>
-        <Group gap="xs" mb={filtersOpen ? "sm" : 0}>
-          <Button
-            variant="default"
-            size="xs"
-            onClick={toggleFilters}
-            aria-expanded={filtersOpen}
-            leftSection={<IconFilter size={16} />}
-            rightSection={
-              <Group gap={6} wrap="nowrap" component="span">
-                {activeFilterCount > 0 && (
-                  <Badge size="sm" circle variant="filled">
-                    {activeFilterCount}
-                  </Badge>
-                )}
-                <IconChevronDown
-                  size={16}
-                  style={{
-                    transform: filtersOpen ? "rotate(180deg)" : "none",
-                    transition: "transform 150ms ease",
-                  }}
-                />
-              </Group>
-            }
-          >
-            {t("common.filter.title")}
-          </Button>
-        </Group>
-        {filtersOpen && (
-          <Group align="flex-end" gap="sm">
-            <TextInput
-              label={t("common.field.name")}
-              placeholder={t("common.filter.contains")}
-              value={nameFilter}
-              onChange={(e) => setNameFilter(e.currentTarget.value)}
-              rightSection={
-                nameFilter ? (
-                  <CloseButton
-                    size="sm"
-                    aria-label={t("teams.clearNameFilter")}
-                    tabIndex={-1}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => setNameFilter("")}
-                  />
-                ) : null
-              }
-              rightSectionPointerEvents="auto"
-            />
-            <TextInput
-              label={t("common.field.email")}
-              placeholder={t("common.filter.contains")}
-              value={emailFilter}
-              onChange={(e) => setEmailFilter(e.currentTarget.value)}
-              rightSection={
-                emailFilter ? (
-                  <CloseButton
-                    size="sm"
-                    aria-label={t("teams.clearEmailFilter")}
-                    tabIndex={-1}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => setEmailFilter("")}
-                  />
-                ) : null
-              }
-              rightSectionPointerEvents="auto"
-            />
-            <Select
-              label={t("teams.team")}
-              placeholder={t("common.state.any")}
-              data={teamOptions}
-              value={teamFilter}
-              onChange={setTeamFilter}
-              clearable
-              clearButtonProps={{ "aria-label": t("teams.clearTeamFilter") }}
-              searchable
-            />
-          </Group>
-        )}
-      </div>
+      <FilterPanel activeFilterCount={activeFilterCount}>
+        <TextInput
+          label={t("common.field.name")}
+          placeholder={t("common.filter.contains")}
+          value={nameFilter}
+          onChange={(e) => setNameFilter(e.currentTarget.value)}
+          rightSection={
+            nameFilter ? (
+              <CloseButton
+                size="sm"
+                aria-label={t("teams.clearNameFilter")}
+                tabIndex={-1}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setNameFilter("")}
+              />
+            ) : null
+          }
+          rightSectionPointerEvents="auto"
+        />
+        <TextInput
+          label={t("common.field.email")}
+          placeholder={t("common.filter.contains")}
+          value={emailFilter}
+          onChange={(e) => setEmailFilter(e.currentTarget.value)}
+          rightSection={
+            emailFilter ? (
+              <CloseButton
+                size="sm"
+                aria-label={t("teams.clearEmailFilter")}
+                tabIndex={-1}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setEmailFilter("")}
+              />
+            ) : null
+          }
+          rightSectionPointerEvents="auto"
+        />
+        <Select
+          label={t("teams.team")}
+          placeholder={t("common.state.any")}
+          data={teamOptions}
+          value={teamFilter}
+          onChange={setTeamFilter}
+          clearable
+          clearButtonProps={{ "aria-label": t("teams.clearTeamFilter") }}
+          searchable
+        />
+      </FilterPanel>
 
       {isError && (
         <Alert color="red" title={t("teams.loadMembersTableFailed")}>

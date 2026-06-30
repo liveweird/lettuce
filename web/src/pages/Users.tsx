@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import {
   Alert,
-  Badge,
   Button,
   Center,
   CloseButton,
@@ -26,8 +25,6 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import {
-  IconChevronDown,
-  IconFilter,
   IconKey,
   IconMessagePlus,
   IconPencil,
@@ -44,6 +41,7 @@ import {
   type UserRole,
 } from "../api/client";
 import { flagSignedOut, notifyAuthChange } from "../auth";
+import FilterPanel from "../components/FilterPanel";
 import SortHeader, { type SortDir } from "../components/SortHeader";
 
 const PAGE_SIZE_OPTIONS = [20, 40, 60] as const;
@@ -66,8 +64,6 @@ export default function Users() {
   const [nameFilter, setNameFilter] = useState("");
   const [emailFilter, setEmailFilter] = useState("");
   const [roleFilter, setRoleFilter] = useState<UserRole | null>(null);
-  // Filters are collapsed by default (rarely used); the badge keeps active-but-hidden filters obvious.
-  const [filtersOpen, { toggle: toggleFilters }] = useDisclosure(false);
   const activeFilterCount =
     (nameFilter.trim() ? 1 : 0) + (emailFilter.trim() ? 1 : 0) + (roleFilter ? 1 : 0);
   const [target, setTarget] = useState<UserRow | null>(null);
@@ -153,83 +149,52 @@ export default function Users() {
     <Stack gap="md">
       <Title order={2} data-tour="config-users">{t("users.title")}</Title>
 
-      <div>
-        <Group gap="xs" mb={filtersOpen ? "sm" : 0}>
-          <Button
-            variant="default"
-            size="xs"
-            onClick={toggleFilters}
-            aria-expanded={filtersOpen}
-            leftSection={<IconFilter size={16} />}
-            rightSection={
-              <Group gap={6} wrap="nowrap" component="span">
-                {activeFilterCount > 0 && (
-                  <Badge size="sm" circle variant="filled">
-                    {activeFilterCount}
-                  </Badge>
-                )}
-                <IconChevronDown
-                  size={16}
-                  style={{
-                    transform: filtersOpen ? "rotate(180deg)" : "none",
-                    transition: "transform 150ms ease",
-                  }}
-                />
-              </Group>
-            }
-          >
-            {t("common.filter.title")}
-          </Button>
-        </Group>
-        {filtersOpen && (
-          <Group align="flex-end" gap="sm">
-            <TextInput
-              label={t("common.field.name")}
-              placeholder={t("common.filter.contains")}
-              value={nameFilter}
-              onChange={(e) => setNameFilter(e.currentTarget.value)}
-              rightSection={
-                nameFilter ? (
-                  <CloseButton
-                    size="sm"
-                    aria-label={t("users.clearNameFilter")}
-                    tabIndex={-1}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => setNameFilter("")}
-                  />
-                ) : null
-              }
-              rightSectionPointerEvents="auto"
-            />
-            <TextInput
-              label={t("common.field.email")}
-              placeholder={t("common.filter.contains")}
-              value={emailFilter}
-              onChange={(e) => setEmailFilter(e.currentTarget.value)}
-              rightSection={
-                emailFilter ? (
-                  <CloseButton
-                    size="sm"
-                    aria-label={t("users.clearEmailFilter")}
-                    tabIndex={-1}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => setEmailFilter("")}
-                  />
-                ) : null
-              }
-              rightSectionPointerEvents="auto"
-            />
-            <Select
-              label={t("common.field.role")}
-              placeholder={t("common.state.any")}
-              data={ROLE_OPTIONS}
-              value={roleFilter}
-              onChange={(v) => setRoleFilter((v as UserRole | null) ?? null)}
-              clearable
-            />
-          </Group>
-        )}
-      </div>
+      <FilterPanel activeFilterCount={activeFilterCount}>
+        <TextInput
+          label={t("common.field.name")}
+          placeholder={t("common.filter.contains")}
+          value={nameFilter}
+          onChange={(e) => setNameFilter(e.currentTarget.value)}
+          rightSection={
+            nameFilter ? (
+              <CloseButton
+                size="sm"
+                aria-label={t("users.clearNameFilter")}
+                tabIndex={-1}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setNameFilter("")}
+              />
+            ) : null
+          }
+          rightSectionPointerEvents="auto"
+        />
+        <TextInput
+          label={t("common.field.email")}
+          placeholder={t("common.filter.contains")}
+          value={emailFilter}
+          onChange={(e) => setEmailFilter(e.currentTarget.value)}
+          rightSection={
+            emailFilter ? (
+              <CloseButton
+                size="sm"
+                aria-label={t("users.clearEmailFilter")}
+                tabIndex={-1}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setEmailFilter("")}
+              />
+            ) : null
+          }
+          rightSectionPointerEvents="auto"
+        />
+        <Select
+          label={t("common.field.role")}
+          placeholder={t("common.state.any")}
+          data={ROLE_OPTIONS}
+          value={roleFilter}
+          onChange={(v) => setRoleFilter((v as UserRole | null) ?? null)}
+          clearable
+        />
+      </FilterPanel>
 
       {isError && (
         <Alert color="red" title={t("users.loadUsersFailed")}>
