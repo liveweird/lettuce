@@ -30,7 +30,9 @@ import {
   ApiError,
   getFeedback,
   getUserId,
-  updateFeedback,
+  pickUpFeedback,
+  sendFeedback,
+  withdrawFeedback,
   type FeedbackStatus,
 } from "../api/client";
 import { formatTimestamp } from "../utils/datetime";
@@ -44,10 +46,12 @@ const RECEIVED = "/feedback?tab=received";
 // The single status transition a provider can perform from each status (matches the
 // backend state machine in FeedbackService.isAllowedTransition). WITHDRAWN is terminal
 // and intentionally absent → the provider sees only Close. `labelKey` resolves via i18n.
-const NEXT_ACTION: Partial<Record<FeedbackStatus, { labelKey: string; next: FeedbackStatus }>> = {
-  REQUESTED: { labelKey: "feedback.action.draft", next: "DRAFT" },
-  DRAFT: { labelKey: "feedback.action.send", next: "SENT" },
-  SENT: { labelKey: "feedback.action.withdraw", next: "WITHDRAWN" },
+const NEXT_ACTION: Partial<
+  Record<FeedbackStatus, { labelKey: string; run: (id: number) => Promise<void>; confirm?: boolean }>
+> = {
+  REQUESTED: { labelKey: "feedback.action.draft", run: pickUpFeedback },
+  DRAFT: { labelKey: "feedback.action.send", run: sendFeedback },
+  SENT: { labelKey: "feedback.action.withdraw", run: withdrawFeedback, confirm: true },
 };
 
 export default function ViewFeedback() {
@@ -101,27 +105,23 @@ export default function ViewFeedback() {
     isRequester &&
     (data!.status === "REQUESTED" || data!.status === "REJECTED" || data!.status === "DRAFT");
 
-  async function handleTransition(next: FeedbackStatus) {
+  async function handleAction(run: (id: number) => Promise<void>) {
     if (!data) return;
     setActionError(null);
     setSubmitting(true);
     try {
-      await updateFeedback(id, {
-        requesterId: data.requesterId ?? null,
-        subjectId: data.subjectId,
-        providerId: data.providerId,
-        visibility: data.visibility,
-        status: next,
-        content: data.content ?? "",
-      });
+      await run(id);
       await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
       await queryClient.invalidateQueries({ queryKey: ["feedback", id] });
+      // A transition mints notifications — refresh the bell badge.
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
       navigate(backTo, { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 403) setActionError(t("feedback.error.changePermission"));
         else if (err.status === 404) setActionError(t("feedback.error.gone"));
-        else if (err.status === 400) setActionError(t("feedback.error.invalidTransition"));
+        else if (err.status === 409 || err.status === 400)
+          setActionError(t("feedback.error.invalidTransition"));
         else setActionError(t("feedback.error.updateFailedStatus", { status: err.status }));
       } else {
         setActionError(t("feedback.error.updateFailed"));
@@ -289,11 +289,7 @@ export default function ViewFeedback() {
                 </Button>
                 {action && (
                   <Button
-                    onClick={() =>
-                      action.next === "WITHDRAWN"
-                        ? openConfirm()
-                        : handleTransition(action.next)
-                    }
+                    onClick={() => (action.confirm ? openConfirm() : handleAction(action.run))}
                     loading={submitting}
                   >
                     {t(action.labelKey)}
@@ -327,7 +323,7 @@ export default function ViewFeedback() {
               color="red"
               loading={submitting}
               onClick={async () => {
-                await handleTransition("WITHDRAWN");
+                await handleAction(withdrawFeedback);
                 closeConfirm();
               }}
             >

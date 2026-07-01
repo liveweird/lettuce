@@ -87,7 +87,15 @@ export interface paths {
          * @description Requires the caller to be the target user, or to be ADMIN.
          */
         get: operations["getUser"];
-        put?: never;
+        /**
+         * Replace a user
+         * @description Replaces a user's editable representation — `name`, `email`, and `role` (all required).
+         *     The password is NOT part of this representation (it has its own `PUT /users/{id}/password`
+         *     sub-resource and is preserved here). Requires the caller to be the target user, or ADMIN.
+         *     Only ADMIN may change a user's `role`; a non-ADMIN caller must send the value the user
+         *     already has, otherwise the request is rejected with 403.
+         */
+        put: operations["replaceUser"];
         post?: never;
         /**
          * Delete a user
@@ -96,15 +104,7 @@ export interface paths {
         delete: operations["deleteUser"];
         options?: never;
         head?: never;
-        /**
-         * Update a user (partial)
-         * @description Partially updates a user's `name`, `email`, and `role`. This is a `PATCH`: the password
-         *     cannot be changed here (the existing password is preserved) and an omitted `role` keeps the
-         *     user's current role. Requires the caller to be the target user, or to be ADMIN.
-         *     Only ADMIN may change a user's `role`; a non-ADMIN caller must either
-         *     omit `role` or send the value the user already has, otherwise the request is rejected with 403.
-         */
-        patch: operations["patchUser"];
+        patch?: never;
         trace?: never;
     };
     "/api/v1/users/{id}/password": {
@@ -368,14 +368,14 @@ export interface paths {
          */
         get: operations["getFeedback"];
         /**
-         * Replace a feedback record
-         * @description Only the record's provider (or ADMIN) may modify a feedback. Status transitions
-         *     (send / withdraw / pick-up / reject) are driven through this whole-resource `PUT` by
-         *     changing `status`, rather than through action sub-resources — this is an intentional,
-         *     settled design choice (notifications' `seen`/`unseen` actions are modelled differently on
-         *     purpose) and should not be treated as spec drift.
+         * Edit a feedback's content and visibility
+         * @description Edits the feedback's editable representation — `content` and `visibility`. Only the record's
+         *     provider (ADMIN does not get feedback write access) may edit. **Status is not changed here**:
+         *     lifecycle transitions go through the `POST /feedbacks/{id}/{send,withdraw,reject,pick-up}`
+         *     action sub-resources (mirroring notifications' `seen`/`unseen` actions). Party ids and the
+         *     requester message are immutable after creation.
          */
-        put: operations["replaceFeedback"];
+        put: operations["editFeedbackContent"];
         post?: never;
         /**
          * Delete a feedback record
@@ -411,6 +411,98 @@ export interface paths {
         get: operations["listFeedbackEvents"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/feedbacks/{id}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a feedback (DRAFT → SENT)
+         * @description Delivers a draft. Provider-only, no request body. Valid only from DRAFT (otherwise 409).
+         *     Notifies the subject (and the requester, if any) and records an audit event.
+         */
+        post: operations["sendFeedback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/feedbacks/{id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw a feedback (DRAFT|SENT → WITHDRAWN)
+         * @description Retracts a draft or a sent feedback (terminal). Provider-only, no request body. Valid from
+         *     DRAFT or SENT (otherwise 409). Notifies the subject (and the requester, if any).
+         */
+        post: operations["withdrawFeedback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/feedbacks/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject a feedback request (REQUESTED → REJECTED)
+         * @description Declines a pending request (terminal). Provider-only, no request body. Valid only from
+         *     REQUESTED (otherwise 409). Notifies the requester.
+         */
+        post: operations["rejectFeedback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/feedbacks/{id}/pick-up": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pick up a feedback request (REQUESTED → DRAFT)
+         * @description The provider accepts a pending request and starts a draft. Provider-only, no request body.
+         *     Valid only from REQUESTED (otherwise 409). Notifies the requester.
+         */
+        post: operations["pickUpFeedback"];
         delete?: never;
         options?: never;
         head?: never;
@@ -651,12 +743,11 @@ export interface components {
             /** Format: email */
             email: string;
             /**
-             * @description Honoured only when the caller is ADMIN. Non-ADMIN callers must omit this
-             *     field or send the value the user already has, otherwise the request is
-             *     rejected with 403. Omitting it keeps the user's current role.
+             * @description Part of the full representation (PUT). Changing it requires ADMIN; a non-ADMIN caller
+             *     must send the value the user already has, otherwise the request is rejected with 403.
              * @enum {string}
              */
-            role?: "ADMIN" | "USER";
+            role: "ADMIN" | "USER";
         };
         PasswordUpdateRequest: {
             password: string;
@@ -740,6 +831,13 @@ export interface components {
              * @description Row count after filters, before pagination.
              */
             total: number;
+        };
+        /** @description Body of `PUT /feedbacks/{id}` — the editable representation (content + visibility). */
+        FeedbackContentUpdate: {
+            /** @default  */
+            content: string;
+            /** @enum {string} */
+            visibility: "PROVIDER_SUBJECT" | "PROVIDER_REQUESTER" | "PROVIDER_REQUESTER_SUBJECT" | "PUBLIC";
         };
         FeedbackRequest: {
             /** Format: int64 */
@@ -993,6 +1091,24 @@ export interface components {
                 "application/problem+json": components["schemas"]["ProblemDetail"];
             };
         };
+        /** @description Caller is not the feedback's provider */
+        FeedbackNotProvider: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetail"];
+            };
+        };
+        /** @description The action is not allowed from the feedback's current status */
+        InvalidTransition: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetail"];
+            };
+        };
     };
     parameters: {
         ResourceId: number;
@@ -1186,39 +1302,7 @@ export interface operations {
             500: components["responses"]["InternalServerError"];
         };
     };
-    deleteUser: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["ResourceId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deleted */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            /** @description Caller is not ADMIN */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    patchUser: {
+    replaceUser: {
         parameters: {
             query?: never;
             header?: never;
@@ -1260,6 +1344,38 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    deleteUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -1756,7 +1872,7 @@ export interface operations {
             500: components["responses"]["InternalServerError"];
         };
     };
-    replaceFeedback: {
+    editFeedbackContent: {
         parameters: {
             query?: never;
             header?: never;
@@ -1767,7 +1883,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["FeedbackRequest"];
+                "application/json": components["schemas"]["FeedbackContentUpdate"];
             };
         };
         responses: {
@@ -1778,7 +1894,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Validation error (same invariants as create — incl. a feedback with a requester may not use PROVIDER_SUBJECT visibility) or invalid status transition */
+            /** @description Validation error (a feedback with a requester may not use PROVIDER_SUBJECT visibility) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -1788,7 +1904,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
-            /** @description Caller is not the feedback's provider and not ADMIN */
+            /** @description Caller is not the feedback's provider */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -1873,6 +1989,106 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    sendFeedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Transitioned */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["FeedbackNotProvider"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["InvalidTransition"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    withdrawFeedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Transitioned */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["FeedbackNotProvider"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["InvalidTransition"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    rejectFeedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Transitioned */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["FeedbackNotProvider"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["InvalidTransition"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    pickUpFeedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Transitioned */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["FeedbackNotProvider"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["InvalidTransition"];
             500: components["responses"]["InternalServerError"];
         };
     };

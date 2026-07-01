@@ -5,6 +5,7 @@ import ch.nokillswit.auth.LoginResponse
 import ch.nokillswit.feedbacks.Feedback
 import ch.nokillswit.feedbacks.FeedbackEventListResponse
 import ch.nokillswit.feedbacks.FeedbackResponse
+import ch.nokillswit.feedbacks.FeedbackContentUpdate
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
 import ch.nokillswit.feedbacks.feedbackCreationEventContent
@@ -111,16 +112,7 @@ class FeedbackEventsTest {
         // Sending it adds a status-change event.
         assertEquals(
             HttpStatusCode.NoContent,
-            provider.put("/api/v1/feedbacks/${created.id}") {
-                contentType(ContentType.Application.Json)
-                setBody(
-                    Feedback(
-                        subjectId = subjectId, providerId = providerId,
-                        visibility = FeedbackVisibility.PROVIDER_SUBJECT,
-                        status = FeedbackStatus.SENT, content = "draft",
-                    ),
-                )
-            }.status,
+            provider.post("/api/v1/feedbacks/${created.id}/send").status,
         )
         val afterSend = provider.get("/api/v1/feedbacks/${created.id}/events").body<FeedbackEventListResponse>()
         assertEquals(2, afterSend.items.size)
@@ -148,13 +140,7 @@ class FeedbackEventsTest {
 
         provider.put("/api/v1/feedbacks/${created.id}") {
             contentType(ContentType.Application.Json)
-            setBody(
-                Feedback(
-                    subjectId = subjectId, providerId = providerId,
-                    visibility = FeedbackVisibility.PROVIDER_SUBJECT,
-                    status = FeedbackStatus.DRAFT, content = "revised",
-                ),
-            )
+            setBody(FeedbackContentUpdate(content = "revised", visibility = FeedbackVisibility.PROVIDER_SUBJECT))
         }
 
         val events = provider.get("/api/v1/feedbacks/${created.id}/events").body<FeedbackEventListResponse>()

@@ -182,16 +182,16 @@ paths:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalServerError' }
-    patch:
+    put:
       tags: [users]
-      operationId: patchUser
-      summary: Update a user (partial)
+      operationId: replaceUser
+      summary: Replace a user
       description: |
-        Partially updates a user's `name`, `email`, and `role`. This is a `PATCH`: the password
-        cannot be changed here (the existing password is preserved) and an omitted `role` keeps the
-        user's current role. Requires the caller to be the target user, or to be ADMIN.
-        Only ADMIN may change a user's `role`; a non-ADMIN caller must either
-        omit `role` or send the value the user already has, otherwise the request is rejected with 403.
+        Replaces a user's editable representation — `name`, `email`, and `role` (all required).
+        The password is NOT part of this representation (it has its own `PUT /users/{id}/password`
+        sub-resource and is preserved here). Requires the caller to be the target user, or ADMIN.
+        Only ADMIN may change a user's `role`; a non-ADMIN caller must send the value the user
+        already has, otherwise the request is rejected with 403.
       requestBody:
         required: true
         content:
@@ -713,30 +713,30 @@ paths:
         '500': { $ref: '#/components/responses/InternalServerError' }
     put:
       tags: [feedbacks]
-      operationId: replaceFeedback
-      summary: Replace a feedback record
+      operationId: editFeedbackContent
+      summary: Edit a feedback's content and visibility
       description: |
-        Only the record's provider (or ADMIN) may modify a feedback. Status transitions
-        (send / withdraw / pick-up / reject) are driven through this whole-resource `PUT` by
-        changing `status`, rather than through action sub-resources — this is an intentional,
-        settled design choice (notifications' `seen`/`unseen` actions are modelled differently on
-        purpose) and should not be treated as spec drift.
+        Edits the feedback's editable representation — `content` and `visibility`. Only the record's
+        provider (ADMIN does not get feedback write access) may edit. **Status is not changed here**:
+        lifecycle transitions go through the `POST /feedbacks/{id}/{send,withdraw,reject,pick-up}`
+        action sub-resources (mirroring notifications' `seen`/`unseen` actions). Party ids and the
+        requester message are immutable after creation.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/FeedbackRequest'
+              $ref: '#/components/schemas/FeedbackContentUpdate'
       responses:
         '204': { description: Updated }
         '400':
-          description: 'Validation error (same invariants as create — incl. a feedback with a requester may not use PROVIDER_SUBJECT visibility) or invalid status transition'
+          description: 'Validation error (a feedback with a requester may not use PROVIDER_SUBJECT visibility)'
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
-          description: Caller is not the feedback's provider and not ADMIN
+          description: Caller is not the feedback's provider
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
@@ -795,6 +795,75 @@ paths:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/feedbacks/{id}/send:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [feedbacks]
+      operationId: sendFeedback
+      summary: Send a feedback (DRAFT → SENT)
+      description: |
+        Delivers a draft. Provider-only, no request body. Valid only from DRAFT (otherwise 409).
+        Notifies the subject (and the requester, if any) and records an audit event.
+      responses:
+        '204': { description: Transitioned }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/FeedbackNotProvider' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/InvalidTransition' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+  /api/v1/feedbacks/{id}/withdraw:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [feedbacks]
+      operationId: withdrawFeedback
+      summary: Withdraw a feedback (DRAFT|SENT → WITHDRAWN)
+      description: |
+        Retracts a draft or a sent feedback (terminal). Provider-only, no request body. Valid from
+        DRAFT or SENT (otherwise 409). Notifies the subject (and the requester, if any).
+      responses:
+        '204': { description: Transitioned }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/FeedbackNotProvider' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/InvalidTransition' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+  /api/v1/feedbacks/{id}/reject:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [feedbacks]
+      operationId: rejectFeedback
+      summary: Reject a feedback request (REQUESTED → REJECTED)
+      description: |
+        Declines a pending request (terminal). Provider-only, no request body. Valid only from
+        REQUESTED (otherwise 409). Notifies the requester.
+      responses:
+        '204': { description: Transitioned }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/FeedbackNotProvider' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/InvalidTransition' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+  /api/v1/feedbacks/{id}/pick-up:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [feedbacks]
+      operationId: pickUpFeedback
+      summary: Pick up a feedback request (REQUESTED → DRAFT)
+      description: |
+        The provider accepts a pending request and starts a draft. Provider-only, no request body.
+        Valid only from REQUESTED (otherwise 409). Notifies the requester.
+      responses:
+        '204': { description: Transitioned }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/FeedbackNotProvider' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/InvalidTransition' }
         '500': { $ref: '#/components/responses/InternalServerError' }
 
   /api/v1/templates:
@@ -1151,6 +1220,16 @@ components:
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/ProblemDetail' }
+    FeedbackNotProvider:
+      description: Caller is not the feedback's provider
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+    InvalidTransition:
+      description: The action is not allowed from the feedback's current status
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
 
   schemas:
     LoginRequest:
@@ -1192,7 +1271,7 @@ components:
 
     UserUpdateRequest:
       type: object
-      required: [name, email]
+      required: [name, email, role]
       properties:
         name: { type: string, maxLength: 50 }
         email: { type: string, format: email, maxLength: 254 }
@@ -1200,9 +1279,8 @@ components:
           type: string
           enum: [ADMIN, USER]
           description: |
-            Honoured only when the caller is ADMIN. Non-ADMIN callers must omit this
-            field or send the value the user already has, otherwise the request is
-            rejected with 403. Omitting it keeps the user's current role.
+            Part of the full representation (PUT). Changing it requires ADMIN; a non-ADMIN caller
+            must send the value the user already has, otherwise the request is rejected with 403.
 
     PasswordUpdateRequest:
       type: object
@@ -1315,6 +1393,16 @@ components:
           format: int64
           minimum: 0
           description: Row count after filters, before pagination.
+
+    FeedbackContentUpdate:
+      type: object
+      required: [visibility]
+      description: Body of `PUT /feedbacks/{id}` — the editable representation (content + visibility).
+      properties:
+        content: { type: string, default: "" }
+        visibility:
+          type: string
+          enum: [PROVIDER_SUBJECT, PROVIDER_REQUESTER, PROVIDER_REQUESTER_SUBJECT, PUBLIC]
 
     FeedbackRequest:
       type: object

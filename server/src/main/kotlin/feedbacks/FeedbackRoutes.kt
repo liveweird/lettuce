@@ -41,6 +41,16 @@ class Feedbacks {
         @Serializable
         @Resource("events")
         class Events(val parent: Id)
+
+        // Lifecycle-transition actions (POST, no body). The state machine gates which are valid
+        // from the current status (invalid → 409).
+        @Serializable @Resource("send") class Send(val parent: Id)
+
+        @Serializable @Resource("withdraw") class Withdraw(val parent: Id)
+
+        @Serializable @Resource("reject") class Reject(val parent: Id)
+
+        @Serializable @Resource("pick-up") class PickUp(val parent: Id)
     }
 }
 
@@ -48,6 +58,31 @@ fun Application.configureFeedbackRoutes() {
     val feedbackService = attributes[FeedbackServiceKey]
     val feedbackEventService = attributes[FeedbackEventServiceKey]
     val notificationService = attributes[NotificationServiceKey]
+
+    // Shared handler for the lifecycle-transition action endpoints: provider-only, 404 when
+    // missing, 409 (via ConflictException in the service) when the transition isn't allowed,
+    // otherwise it applies the change, delivers notifications, and records the audit event.
+    suspend fun transitionTo(call: ApplicationCall, feedbackId: UInt, target: FeedbackStatus) {
+        val caller = call.caller()
+        val existing = feedbackService.read(feedbackId)
+        if (existing == null) {
+            call.respondProblem(HttpStatusCode.NotFound, "Feedback not found")
+            return
+        }
+        requireFeedbackWrite(caller, existing)
+        val toNotify = feedbackService.transition(feedbackId, target)
+        if (toNotify == null) {
+            call.respondProblem(HttpStatusCode.NotFound, "Feedback not found")
+            return
+        }
+        toNotify.forEach { notificationService.create(it) }
+        feedbackUpdateEventContent(existing, existing.copy(status = target))?.let { content ->
+            feedbackEventService.create(
+                FeedbackEvent(feedbackId = feedbackId, userId = caller.userId, content = content),
+            )
+        }
+        call.respond(HttpStatusCode.NoContent)
+    }
 
     routing {
         authenticate {
@@ -157,24 +192,29 @@ fun Application.configureFeedbackRoutes() {
                     return@put
                 }
                 requireFeedbackWrite(caller, existing)
-                val feedback = call.receive<Feedback>()
-                val toNotify = try {
-                    feedbackService.update(route.id, feedback)
-                } catch (e: ExposedSQLException) {
-                    throw BadRequestException("Referenced user does not exist", e)
-                } catch (e: R2dbcException) {
-                    throw BadRequestException("Referenced user does not exist", e)
+                val edit = call.receive<FeedbackContentUpdate>()
+                val updated = feedbackService.editContent(route.id, edit.content, edit.visibility)
+                if (updated == 0) {
+                    call.respondProblem(HttpStatusCode.NotFound, "Feedback not found")
+                    return@put
                 }
-                // Best-effort side effect: deliver transition notifications after the commit.
-                toNotify.forEach { notificationService.create(it) }
-                // Audit: record the change (status transition or content/visibility edit) against the caller.
-                feedbackUpdateEventContent(existing, feedback)?.let { content ->
+                // Audit: record a content/visibility edit against the caller (no status change here).
+                feedbackUpdateEventContent(
+                    existing,
+                    existing.copy(content = edit.content, visibility = edit.visibility),
+                )?.let { content ->
                     feedbackEventService.create(
                         FeedbackEvent(feedbackId = route.id, userId = caller.userId, content = content),
                     )
                 }
                 call.respond(HttpStatusCode.NoContent)
             }
+            post<Feedbacks.Id.Send> { route -> transitionTo(call, route.parent.id, FeedbackStatus.SENT) }
+            post<Feedbacks.Id.Withdraw> { route ->
+                transitionTo(call, route.parent.id, FeedbackStatus.WITHDRAWN)
+            }
+            post<Feedbacks.Id.Reject> { route -> transitionTo(call, route.parent.id, FeedbackStatus.REJECTED) }
+            post<Feedbacks.Id.PickUp> { route -> transitionTo(call, route.parent.id, FeedbackStatus.DRAFT) }
             get<Feedbacks.Id.Events> { route ->
                 val caller = call.caller()
                 val feedbackId = route.parent.id

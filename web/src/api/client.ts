@@ -100,7 +100,7 @@ export async function createUser(req: CreateUserBody): Promise<CreateUserRespons
 }
 
 export type UpdateUserBody =
-  paths["/api/v1/users/{id}"]["patch"]["requestBody"]["content"]["application/json"];
+  paths["/api/v1/users/{id}"]["put"]["requestBody"]["content"]["application/json"];
 
 export async function getUser(id: number): Promise<CurrentUser> {
   const res = await authedFetch(`/api/v1/users/${id}`);
@@ -110,7 +110,7 @@ export async function getUser(id: number): Promise<CurrentUser> {
 
 export async function updateUser(id: number, body: UpdateUserBody): Promise<void> {
   const res = await authedFetch(`/api/v1/users/${id}`, {
-    method: "PATCH",
+    method: "PUT",
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
@@ -341,6 +341,18 @@ export async function deleteFeedback(id: number): Promise<void> {
   const res = await authedFetch(`/api/v1/feedbacks/${id}`, { method: "DELETE" });
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
+
+// Lifecycle transitions are POST action sub-resources (bodyless). An invalid transition from the
+// current status returns 409, surfaced as an ApiError like any other failure.
+async function feedbackTransition(id: number, action: string): Promise<void> {
+  const res = await authedFetch(`/api/v1/feedbacks/${id}/${action}`, { method: "POST" });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
+export const sendFeedback = (id: number) => feedbackTransition(id, "send");
+export const withdrawFeedback = (id: number) => feedbackTransition(id, "withdraw");
+export const rejectFeedback = (id: number) => feedbackTransition(id, "reject");
+export const pickUpFeedback = (id: number) => feedbackTransition(id, "pick-up");
 
 export type FeedbackEventList =
   paths["/api/v1/feedbacks/{id}/events"]["get"]["responses"]["200"]["content"]["application/json"];

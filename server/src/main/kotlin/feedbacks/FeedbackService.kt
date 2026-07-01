@@ -1,5 +1,6 @@
 package ch.nokillswit.feedbacks
 
+import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.notifications.Notification
@@ -127,32 +128,52 @@ class FeedbackService(val database: R2dbcDatabase) {
     }
 
     /**
-     * Applies the update and returns the notifications its status transition should produce
-     * (empty when the row is missing or the status did not change). The caller persists them.
+     * Edits a feedback's content/visibility (never its status, parties, or requester message).
+     * Returns the affected-row count (0 → missing/deleted, mapped to 404 by the route).
      */
-    suspend fun update(id: UInt, feedback: Feedback): List<Notification> {
+    suspend fun editContent(id: UInt, content: String, visibility: FeedbackVisibility): Int {
         return suspendTransaction(database) {
             val current = Feedbacks.selectAll()
                 .where { (Feedbacks.id eq id) and active() }
                 .map { it.toFeedback() }
                 .singleOrNull()
-                ?: return@suspendTransaction emptyList()
-            validate(current = current, next = feedback)
+                ?: return@suspendTransaction 0
+            // A feedback with a requester must not use PROVIDER_SUBJECT (which would exclude them).
+            if (current.requesterId != null && visibility == FeedbackVisibility.PROVIDER_SUBJECT) {
+                throw BadRequestException(
+                    "A feedback with a requester must not use PROVIDER_SUBJECT visibility",
+                )
+            }
             Feedbacks.update({ (Feedbacks.id eq id) and (Feedbacks.markedAsDeleted eq false) }) {
-                it[requesterId] = feedback.requesterId
-                it[subjectId] = feedback.subjectId
-                it[providerId] = feedback.providerId
-                it[visibility] = feedback.visibility
-                it[status] = feedback.status
-                it[content] = feedback.content
+                it[this.content] = content
+                it[this.visibility] = visibility
                 it[lastModified] = System.currentTimeMillis()
             }
-            if (current.status == feedback.status) {
-                emptyList()
-            } else {
-                val names = resolvePartyNames(feedback)
-                feedbackTransitionNotifications(id, current.status, feedback, names)
+        }
+    }
+
+    /**
+     * Moves a feedback to [target] via the status state machine and returns the notifications the
+     * transition should produce (the caller persists them). Returns null when the row is missing
+     * (→ 404); throws [ConflictException] (→ 409) when the transition is not allowed from the
+     * current status.
+     */
+    suspend fun transition(id: UInt, target: FeedbackStatus): List<Notification>? {
+        return suspendTransaction(database) {
+            val current = Feedbacks.selectAll()
+                .where { (Feedbacks.id eq id) and active() }
+                .map { it.toFeedback() }
+                .singleOrNull()
+                ?: return@suspendTransaction null
+            if (!isAllowedTransition(current.status, target)) {
+                throw ConflictException("Invalid status transition: ${current.status} -> $target")
             }
+            Feedbacks.update({ (Feedbacks.id eq id) and (Feedbacks.markedAsDeleted eq false) }) {
+                it[status] = target
+                it[lastModified] = System.currentTimeMillis()
+            }
+            val next = current.copy(status = target)
+            feedbackTransitionNotifications(id, current.status, next, resolvePartyNames(next))
         }
     }
 

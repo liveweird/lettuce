@@ -28,6 +28,9 @@ import {
   deleteFeedback,
   getFeedback,
   getUserId,
+  pickUpFeedback,
+  rejectFeedback,
+  sendFeedback,
   updateFeedback,
   type FeedbackStatus,
   type FeedbackVisibility,
@@ -105,17 +108,23 @@ export default function EditFeedback() {
     setError(null);
     setSubmitting(status);
     try {
-      await updateFeedback(id, {
-        requesterId: data.requesterId ?? null,
-        subjectId: data.subjectId,
-        providerId: data.providerId,
-        visibility: values.visibility,
-        status,
-        content: values.content,
-      });
+      // Map the editor's intent onto the new verb design: content edits go through PUT, lifecycle
+      // moves go through the POST action endpoints.
+      if (data.status === "REQUESTED" && status === "DRAFT") {
+        await pickUpFeedback(id); // Accept
+      } else if (data.status === "REQUESTED" && status === "REJECTED") {
+        await rejectFeedback(id); // Reject
+      } else if (status === "SENT") {
+        // Save & send: persist the draft content, then transition.
+        await updateFeedback(id, { content: values.content, visibility: values.visibility });
+        await sendFeedback(id);
+      } else {
+        // Save draft: content/visibility edit only.
+        await updateFeedback(id, { content: values.content, visibility: values.visibility });
+      }
       await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
       await queryClient.invalidateQueries({ queryKey: ["feedback", id] });
-      // A status transition (e.g. send/withdraw/reject) mints notifications — refresh the bell badge.
+      // A status transition (e.g. send/reject) mints notifications — refresh the bell badge.
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
       if (!accepted) navigate(backTo, { replace: true });
     } catch (err) {
@@ -124,6 +133,8 @@ export default function EditFeedback() {
           setError(t("feedback.error.editPermission"));
         } else if (err.status === 404) {
           setError(t("feedback.error.gone"));
+        } else if (err.status === 409) {
+          setError(t("feedback.error.invalidTransition"));
         } else if (err.status === 400) {
           setError(t("feedback.error.validation"));
         } else {

@@ -119,9 +119,9 @@ class UserRoutesTest {
         }.body<UserResponse>()
 
         val updatedEmail = uniqueEmail("upd")
-        val put = client.patch("/api/v1/users/${created.id}") {
+        val put = client.put("/api/v1/users/${created.id}") {
             contentType(ContentType.Application.Json)
-            setBody(UserUpdateRequest(name = "New", email = updatedEmail))
+            setBody(UserUpdateRequest(name = "New", email = updatedEmail, role = UserRole.USER))
         }
         assertEquals(HttpStatusCode.NoContent, put.status)
 
@@ -145,9 +145,9 @@ class UserRoutesTest {
         }.body<UserResponse>()
 
         val newEmail = uniqueEmail("pwd-renamed")
-        val put = client.patch("/api/v1/users/${created.id}") {
+        val put = client.put("/api/v1/users/${created.id}") {
             contentType(ContentType.Application.Json)
-            setBody(UserUpdateRequest(name = "Patrick", email = newEmail))
+            setBody(UserUpdateRequest(name = "Patrick", email = newEmail, role = UserRole.USER))
         }
         assertEquals(HttpStatusCode.NoContent, put.status)
 
@@ -225,7 +225,7 @@ class UserRoutesTest {
         val read = client.get("/api/v1/users/$targetId").body<UserResponse>()
         assertEquals(UserRole.USER, read.role)
 
-        val put = client.patch("/api/v1/users/$targetId") {
+        val put = client.put("/api/v1/users/$targetId") {
             contentType(ContentType.Application.Json)
             setBody(UserUpdateRequest(name = read.name, email = read.email, role = UserRole.ADMIN))
         }
@@ -241,9 +241,9 @@ class UserRoutesTest {
         val callerEmail = uniqueEmail("caller")
         TestUsers.seed(email = callerEmail, password = "pw")
 
-        val response = authedClient(callerEmail, "pw").patch("/api/v1/users/999999") {
+        val response = authedClient(callerEmail, "pw").put("/api/v1/users/999999") {
             contentType(ContentType.Application.Json)
-            setBody(UserUpdateRequest(name = "Ghost", email = uniqueEmail("ghost")))
+            setBody(UserUpdateRequest(name = "Ghost", email = uniqueEmail("ghost"), role = UserRole.USER))
         }
         assertEquals(HttpStatusCode.NotFound, response.status)
     }
@@ -334,9 +334,9 @@ class UserRoutesTest {
 
         assertEquals(HttpStatusCode.NoContent, client.delete("/api/v1/users/${created.id}").status)
 
-        val put = client.patch("/api/v1/users/${created.id}") {
+        val put = client.put("/api/v1/users/${created.id}") {
             contentType(ContentType.Application.Json)
-            setBody(UserUpdateRequest(name = "Resurrected", email = uniqueEmail("res")))
+            setBody(UserUpdateRequest(name = "Resurrected", email = uniqueEmail("res"), role = UserRole.USER))
         }
         assertEquals(HttpStatusCode.NotFound, put.status)
     }
@@ -373,7 +373,7 @@ class UserRoutesTest {
         val endpoints = listOf(
             HttpMethod.Post to "/api/v1/users",
             HttpMethod.Get to "/api/v1/users/1",
-            HttpMethod.Patch to "/api/v1/users/1",
+            HttpMethod.Put to "/api/v1/users/1",
             HttpMethod.Delete to "/api/v1/users/1",
         )
         for ((verb, path) in endpoints) {
@@ -459,9 +459,9 @@ class UserRoutesTest {
             setBody(UserRequest(name = "B", email = emailB, password = "pw"))
         }.body<UserResponse>()
 
-        val response = client.patch("/api/v1/users/${userB.id}") {
+        val response = client.put("/api/v1/users/${userB.id}") {
             contentType(ContentType.Application.Json)
-            setBody(UserUpdateRequest(name = "B", email = emailA))
+            setBody(UserUpdateRequest(name = "B", email = emailA, role = UserRole.USER))
         }
         assertEquals(HttpStatusCode.Conflict, response.status)
         assertEquals(HttpStatusCode.Conflict.value, response.body<ProblemDetail>().status)

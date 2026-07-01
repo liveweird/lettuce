@@ -4,6 +4,7 @@ import ch.nokillswit.auth.LoginRequest
 import ch.nokillswit.auth.LoginResponse
 import ch.nokillswit.feedbacks.Feedback
 import ch.nokillswit.feedbacks.FeedbackResponse
+import ch.nokillswit.feedbacks.FeedbackContentUpdate
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
 import ch.nokillswit.teams.Team
@@ -123,7 +124,7 @@ class AuthorizationTest {
         val id = TestUsers.seed(email = email, password = "pw", role = UserRole.USER)
         val client = authedClient(email, "pw")
 
-        val response = client.patch("/api/v1/users/$id") {
+        val response = client.put("/api/v1/users/$id") {
             contentType(ContentType.Application.Json)
             setBody(UserUpdateRequest("Alice", email, role = UserRole.ADMIN))
         }
@@ -137,9 +138,9 @@ class AuthorizationTest {
         val id = TestUsers.seed(email = email, password = "pw", role = UserRole.USER)
         val client = authedClient(email, "pw")
 
-        val response = client.patch("/api/v1/users/$id") {
+        val response = client.put("/api/v1/users/$id") {
             contentType(ContentType.Application.Json)
-            setBody(UserUpdateRequest("Alice", email))
+            setBody(UserUpdateRequest("Alice", email, role = UserRole.USER))
         }
         assertEquals(HttpStatusCode.NoContent, response.status)
         val read = client.get("/api/v1/users/$id").body<UserResponse>()
@@ -467,19 +468,9 @@ class AuthorizationTest {
 
         // …but may not modify one they don't provide: a valid SENT → WITHDRAWN transition is
         // rejected at the write guard (403), which runs before any transition validation.
-        val withdrawBody = Feedback(
-            subjectId = subjectId,
-            providerId = providerId,
-            visibility = FeedbackVisibility.PROVIDER_SUBJECT,
-            status = FeedbackStatus.WITHDRAWN,
-            content = "delivered",
-        )
         assertEquals(
             HttpStatusCode.Forbidden,
-            adminClient.put("/api/v1/feedbacks/${created.id}") {
-                contentType(ContentType.Application.Json)
-                setBody(withdrawBody)
-            }.status,
+            adminClient.post("/api/v1/feedbacks/${created.id}/withdraw").status,
         )
         assertEquals(
             HttpStatusCode.Forbidden,
@@ -493,10 +484,7 @@ class AuthorizationTest {
         )
         assertEquals(
             HttpStatusCode.NoContent,
-            providerClient.put("/api/v1/feedbacks/${created.id}") {
-                contentType(ContentType.Application.Json)
-                setBody(withdrawBody)
-            }.status,
+            providerClient.post("/api/v1/feedbacks/${created.id}/withdraw").status,
         )
     }
 
@@ -525,18 +513,15 @@ class AuthorizationTest {
             )
         }.body<FeedbackResponse>()
 
-        // Edit the draft content (same-status DRAFT → DRAFT update) → allowed.
+        // Edit the draft content (content/visibility PUT) → allowed.
         assertEquals(
             HttpStatusCode.NoContent,
             adminClient.put("/api/v1/feedbacks/${created.id}") {
                 contentType(ContentType.Application.Json)
                 setBody(
-                    Feedback(
-                        subjectId = subjectId,
-                        providerId = adminId,
-                        visibility = FeedbackVisibility.PROVIDER_SUBJECT,
-                        status = FeedbackStatus.DRAFT,
+                    FeedbackContentUpdate(
                         content = "revised draft",
+                        visibility = FeedbackVisibility.PROVIDER_SUBJECT,
                     ),
                 )
             }.status,
@@ -549,18 +534,7 @@ class AuthorizationTest {
         // …and they can advance their own draft (DRAFT → SENT).
         assertEquals(
             HttpStatusCode.NoContent,
-            adminClient.put("/api/v1/feedbacks/${created.id}") {
-                contentType(ContentType.Application.Json)
-                setBody(
-                    Feedback(
-                        subjectId = subjectId,
-                        providerId = adminId,
-                        visibility = FeedbackVisibility.PROVIDER_SUBJECT,
-                        status = FeedbackStatus.SENT,
-                        content = "revised draft",
-                    ),
-                )
-            }.status,
+            adminClient.post("/api/v1/feedbacks/${created.id}/send").status,
         )
         assertEquals(
             FeedbackStatus.SENT,

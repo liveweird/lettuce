@@ -240,7 +240,7 @@ describe("ViewFeedback page", () => {
     localStorage.setItem(USER_ID_KEY, "10");
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      if (method === "PUT" && url === "/api/v1/feedbacks/5") {
+      if (method === "POST" && url === "/api/v1/feedbacks/5/withdraw") {
         return Promise.resolve(new Response(null, { status: 204 }));
       }
       return Promise.resolve(jsonResponse(200, FEEDBACK));
@@ -256,20 +256,19 @@ describe("ViewFeedback page", () => {
     await waitFor(() =>
       expect(screen.getByTestId("probe")).toHaveTextContent("/feedback?tab=received"),
     );
-    const putCall = mockFetch.mock.calls.find(
+    const withdraw = mockFetch.mock.calls.find(
       ([url, init]) =>
-        url === "/api/v1/feedbacks/5" && (init as RequestInit | undefined)?.method === "PUT",
+        url === "/api/v1/feedbacks/5/withdraw" && (init as RequestInit | undefined)?.method === "POST",
     );
-    expect(putCall).toBeDefined();
-    expect(JSON.parse((putCall![1] as RequestInit).body as string).status).toBe("WITHDRAWN");
+    expect(withdraw).toBeDefined();
   });
 
   test("a rejected transition surfaces an action error and does not navigate", async () => {
     localStorage.setItem(USER_ID_KEY, "10");
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      if (method === "PUT" && url === "/api/v1/feedbacks/5") {
-        return Promise.resolve(jsonResponse(400, { error: "bad_request", message: "no" }));
+      if (method === "POST" && url === "/api/v1/feedbacks/5/withdraw") {
+        return Promise.resolve(jsonResponse(409, { error: "conflict", message: "no" }));
       }
       return Promise.resolve(jsonResponse(200, FEEDBACK));
     });

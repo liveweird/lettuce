@@ -14,6 +14,17 @@ enum class FeedbackVisibility {
 @Serializable
 enum class FeedbackStatus { REQUESTED, DRAFT, SENT, WITHDRAWN, REJECTED }
 
+/**
+ * Body of `PUT /feedbacks/{id}` — the editable representation of a feedback. Status transitions,
+ * party ids, and the requester message are NOT settable here (status moves through the
+ * `POST /feedbacks/{id}/{action}` endpoints; the rest are immutable after creation).
+ */
+@Serializable
+data class FeedbackContentUpdate(
+    val content: String = "",
+    val visibility: FeedbackVisibility,
+)
+
 @Serializable
 data class Feedback(
     val requesterId: UInt? = null,

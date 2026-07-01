@@ -19,7 +19,6 @@ import io.ktor.server.request.receive
 import io.ktor.server.resources.delete
 import io.ktor.server.resources.get
 import io.ktor.server.resources.href
-import io.ktor.server.resources.patch
 import io.ktor.server.resources.post
 import io.ktor.server.resources.put
 import io.ktor.server.response.header
@@ -88,22 +87,21 @@ fun Application.configureUserRoutes() {
                     call.respondProblem(HttpStatusCode.NotFound, "User not found")
                 }
             }
-            patch<Users.Id> { route ->
+            put<Users.Id> { route ->
                 val caller = call.caller()
                 requireSelfOrAdmin(caller, route.id)
                 val req = call.receive<UserUpdateRequest>()
                 val existing = userService.read(route.id)
                 if (existing == null) {
                     call.respondProblem(HttpStatusCode.NotFound, "User not found")
-                    return@patch
+                    return@put
                 }
                 requireCanAssignRole(caller, existing.role, req.role)
-                val nextRole = req.role ?: existing.role
                 val user = User(
                     name = req.name,
                     email = req.email,
                     passwordHash = existing.passwordHash,
-                    role = nextRole,
+                    role = req.role,
                 )
                 val updated = userService.update(route.id, user)
                 if (updated == 0) {

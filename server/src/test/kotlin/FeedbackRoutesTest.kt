@@ -3,6 +3,7 @@ package ch.nokillswit
 import ch.nokillswit.auth.LoginRequest
 import ch.nokillswit.auth.LoginResponse
 import ch.nokillswit.feedbacks.Feedback
+import ch.nokillswit.feedbacks.FeedbackContentUpdate
 import ch.nokillswit.feedbacks.FeedbackPageResponse
 import ch.nokillswit.feedbacks.FeedbackResponse
 import ch.nokillswit.feedbacks.FeedbackStatus
@@ -228,12 +229,9 @@ class FeedbackRoutesTest {
             setBody(requested)
         }.body<FeedbackResponse>()
 
-        // Provider picks up the request (REQUESTED -> DRAFT) and tries to tamper with the message.
-        val putResponse = client.put("/api/v1/feedbacks/${created.id}") {
-            contentType(ContentType.Application.Json)
-            setBody(requested.copy(status = FeedbackStatus.DRAFT, requesterMessage = "Tampered note"))
-        }
-        assertEquals(HttpStatusCode.NoContent, putResponse.status)
+        // Provider picks up the request (REQUESTED -> DRAFT); the message is not editable anywhere.
+        val pickUp = client.post("/api/v1/feedbacks/${created.id}/pick-up")
+        assertEquals(HttpStatusCode.NoContent, pickUp.status)
 
         val after = client.get("/api/v1/feedbacks/${created.id}").body<FeedbackResponse>()
         assertEquals(FeedbackStatus.DRAFT, after.status)
@@ -365,15 +363,7 @@ class FeedbackRoutesTest {
         }.body<FeedbackResponse>()
         val onUpdate = client.put("/api/v1/feedbacks/${created.id}") {
             contentType(ContentType.Application.Json)
-            setBody(
-                Feedback(
-                    requesterId = t.requesterId,
-                    subjectId = t.subjectId,
-                    providerId = t.providerId,
-                    visibility = FeedbackVisibility.PROVIDER_SUBJECT,
-                    status = FeedbackStatus.DRAFT,
-                )
-            )
+            setBody(FeedbackContentUpdate(visibility = FeedbackVisibility.PROVIDER_SUBJECT))
         }
         assertEquals(HttpStatusCode.BadRequest, onUpdate.status)
     }
@@ -416,10 +406,7 @@ class FeedbackRoutesTest {
             setBody(draft)
         }.body<FeedbackResponse>()
 
-        val putResponse = client.put("/api/v1/feedbacks/${created.id}") {
-            contentType(ContentType.Application.Json)
-            setBody(draft.copy(status = FeedbackStatus.SENT))
-        }
+        val putResponse = client.post("/api/v1/feedbacks/${created.id}/send")
         assertEquals(HttpStatusCode.NoContent, putResponse.status)
         val after = client.get("/api/v1/feedbacks/${created.id}").body<FeedbackResponse>()
         assertEquals(FeedbackStatus.SENT, after.status)
@@ -443,10 +430,10 @@ class FeedbackRoutesTest {
             setBody(draft)
         }.body<FeedbackResponse>()
 
-        // "Save draft" on the edit screen: DRAFT -> DRAFT with changed content/visibility.
+        // "Save draft" on the edit screen: content/visibility edit (status unchanged).
         val putResponse = client.put("/api/v1/feedbacks/${created.id}") {
             contentType(ContentType.Application.Json)
-            setBody(draft.copy(content = "Revised", visibility = FeedbackVisibility.PUBLIC))
+            setBody(FeedbackContentUpdate(content = "Revised", visibility = FeedbackVisibility.PUBLIC))
         }
         assertEquals(HttpStatusCode.NoContent, putResponse.status)
         val after = client.get("/api/v1/feedbacks/${created.id}").body<FeedbackResponse>()
@@ -456,7 +443,7 @@ class FeedbackRoutesTest {
     }
 
     @Test
-    fun `invalid transition sent to draft is rejected`() = testApplication {
+    fun `invalid action from sent is rejected`() = testApplication {
         usePostgresTestcontainer()
         val t = seedTriad()
         val client = authedClient(t.providerEmail, "pw")
@@ -472,16 +459,11 @@ class FeedbackRoutesTest {
             setBody(draft)
         }.body<FeedbackResponse>()
 
-        client.put("/api/v1/feedbacks/${created.id}") {
-            contentType(ContentType.Application.Json)
-            setBody(draft.copy(status = FeedbackStatus.SENT))
-        }
+        client.post("/api/v1/feedbacks/${created.id}/send") // -> SENT
 
-        val response = client.put("/api/v1/feedbacks/${created.id}") {
-            contentType(ContentType.Application.Json)
-            setBody(draft.copy(status = FeedbackStatus.DRAFT))
-        }
-        assertEquals(HttpStatusCode.BadRequest, response.status)
+        // pick-up is only valid from REQUESTED; from SENT it conflicts with the current state.
+        val response = client.post("/api/v1/feedbacks/${created.id}/pick-up")
+        assertEquals(HttpStatusCode.Conflict, response.status)
         val after = client.get("/api/v1/feedbacks/${created.id}").body<FeedbackResponse>()
         assertEquals(FeedbackStatus.SENT, after.status)
     }
@@ -503,22 +485,11 @@ class FeedbackRoutesTest {
             setBody(draft)
         }.body<FeedbackResponse>()
 
-        client.put("/api/v1/feedbacks/${created.id}") {
-            contentType(ContentType.Application.Json)
-            setBody(draft.copy(status = FeedbackStatus.WITHDRAWN))
-        }
+        client.post("/api/v1/feedbacks/${created.id}/withdraw") // -> WITHDRAWN
 
-        for (target in listOf(FeedbackStatus.DRAFT, FeedbackStatus.SENT, FeedbackStatus.REQUESTED)) {
-            val attempt = client.put("/api/v1/feedbacks/${created.id}") {
-                contentType(ContentType.Application.Json)
-                setBody(
-                    draft.copy(
-                        status = target,
-                        requesterId = if (target == FeedbackStatus.REQUESTED) t.requesterId else null,
-                    )
-                )
-            }
-            assertEquals(HttpStatusCode.BadRequest, attempt.status, "Withdrawn -> $target should be rejected")
+        for (action in listOf("send", "withdraw", "reject", "pick-up")) {
+            val attempt = client.post("/api/v1/feedbacks/${created.id}/$action")
+            assertEquals(HttpStatusCode.Conflict, attempt.status, "Withdrawn -> $action should be rejected")
         }
     }
 
@@ -540,10 +511,7 @@ class FeedbackRoutesTest {
             setBody(requested)
         }.body<FeedbackResponse>()
 
-        val putResponse = client.put("/api/v1/feedbacks/${created.id}") {
-            contentType(ContentType.Application.Json)
-            setBody(requested.copy(status = FeedbackStatus.REJECTED))
-        }
+        val putResponse = client.post("/api/v1/feedbacks/${created.id}/reject")
         assertEquals(HttpStatusCode.NoContent, putResponse.status)
         val after = client.get("/api/v1/feedbacks/${created.id}").body<FeedbackResponse>()
         assertEquals(FeedbackStatus.REJECTED, after.status)
@@ -567,22 +535,11 @@ class FeedbackRoutesTest {
             setBody(requested)
         }.body<FeedbackResponse>()
 
-        client.put("/api/v1/feedbacks/${created.id}") {
-            contentType(ContentType.Application.Json)
-            setBody(requested.copy(status = FeedbackStatus.REJECTED))
-        }
+        client.post("/api/v1/feedbacks/${created.id}/reject") // -> REJECTED
 
-        for (target in listOf(FeedbackStatus.DRAFT, FeedbackStatus.SENT, FeedbackStatus.WITHDRAWN, FeedbackStatus.REQUESTED)) {
-            val attempt = client.put("/api/v1/feedbacks/${created.id}") {
-                contentType(ContentType.Application.Json)
-                setBody(
-                    requested.copy(
-                        status = target,
-                        requesterId = if (target == FeedbackStatus.REQUESTED) t.requesterId else null,
-                    )
-                )
-            }
-            assertEquals(HttpStatusCode.BadRequest, attempt.status, "Rejected -> $target should be rejected")
+        for (action in listOf("send", "withdraw", "reject", "pick-up")) {
+            val attempt = client.post("/api/v1/feedbacks/${created.id}/$action")
+            assertEquals(HttpStatusCode.Conflict, attempt.status, "Rejected -> $action should be rejected")
         }
     }
 
@@ -606,7 +563,7 @@ class FeedbackRoutesTest {
 
         val putResponse = client.put("/api/v1/feedbacks/${created.id}") {
             contentType(ContentType.Application.Json)
-            setBody(draft.copy(content = "v2", visibility = FeedbackVisibility.PUBLIC))
+            setBody(FeedbackContentUpdate(content = "v2", visibility = FeedbackVisibility.PUBLIC))
         }
         assertEquals(HttpStatusCode.NoContent, putResponse.status)
 
@@ -846,11 +803,6 @@ class FeedbackRoutesTest {
         val subjectClient = authedClient(subjectEmail, "pw")
         val providerClient = authedClient(providerEmail, "pw")
 
-        fun body(status: FeedbackStatus) = Feedback(
-            requesterId = requesterId, subjectId = subjectId, providerId = providerId,
-            visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT, status = status,
-        )
-
         // Someone else requested feedback about the subject — one stays pending, one gets rejected.
         val pending = createFeedback(
             subjectId, providerId, FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
@@ -860,10 +812,7 @@ class FeedbackRoutesTest {
             subjectId, providerId, FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
             status = FeedbackStatus.REQUESTED, requesterId = requesterId,
         )
-        providerClient.put("/api/v1/feedbacks/${toReject.id}") {
-            contentType(ContentType.Application.Json)
-            setBody(body(FeedbackStatus.REJECTED))
-        }
+        providerClient.post("/api/v1/feedbacks/${toReject.id}/reject")
 
         // While REQUESTED / REJECTED the subject (not the requester) does not see them — rule C needs
         // a delivered status (SENT/WITHDRAWN).
@@ -871,12 +820,8 @@ class FeedbackRoutesTest {
         assertTrue(before.items.none { it.id == pending.id || it.id == toReject.id })
 
         // Deliver the pending one (REQUESTED -> DRAFT -> SENT); now it appears, the rejected one never does.
-        for (next in listOf(FeedbackStatus.DRAFT, FeedbackStatus.SENT)) {
-            providerClient.put("/api/v1/feedbacks/${pending.id}") {
-                contentType(ContentType.Application.Json)
-                setBody(body(next))
-            }
-        }
+        providerClient.post("/api/v1/feedbacks/${pending.id}/pick-up")
+        providerClient.post("/api/v1/feedbacks/${pending.id}/send")
         val after = subjectClient.get("/api/v1/feedbacks?view=received").body<FeedbackPageResponse>()
         assertEquals(listOf(pending.id), after.items.map { it.id })
     }
@@ -975,17 +920,7 @@ class FeedbackRoutesTest {
         // Sending it opens it up to the subject.
         assertEquals(
             HttpStatusCode.NoContent,
-            providerClient.put("/api/v1/feedbacks/${draft.id}") {
-                contentType(ContentType.Application.Json)
-                setBody(
-                    Feedback(
-                        subjectId = subject.id,
-                        providerId = provider.id,
-                        visibility = FeedbackVisibility.PROVIDER_SUBJECT,
-                        status = FeedbackStatus.SENT,
-                    )
-                )
-            }.status,
+            providerClient.post("/api/v1/feedbacks/${draft.id}/send").status,
         )
         assertEquals(HttpStatusCode.OK, subjectClient.get("/api/v1/feedbacks/${draft.id}").status)
     }
@@ -1044,22 +979,10 @@ class FeedbackRoutesTest {
         assertEquals(FeedbackStatus.DRAFT, row.status)
         assertEquals("", row.contentPreview)
 
-        // Once sent, the content opens up to the subject/requester.
+        // Once sent, the content opens up to the subject/requester (content was set at creation).
         assertEquals(
             HttpStatusCode.NoContent,
-            providerClient.put("/api/v1/feedbacks/${draft.id}") {
-                contentType(ContentType.Application.Json)
-                setBody(
-                    Feedback(
-                        requesterId = subject.id,
-                        subjectId = subject.id,
-                        providerId = provider.id,
-                        visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
-                        status = FeedbackStatus.SENT,
-                        content = "secret draft",
-                    )
-                )
-            }.status,
+            providerClient.post("/api/v1/feedbacks/${draft.id}/send").status,
         )
         assertEquals("secret draft", subjectClient.get("/api/v1/feedbacks/${draft.id}").body<FeedbackResponse>().content)
     }
@@ -1393,10 +1316,10 @@ class FeedbackRoutesTest {
         }.body<FeedbackResponse>()
 
         delay(10)
-        // Send a bogus lastModified in the body; the server must overwrite it with the clock.
+        // A content edit must bump lastModified from the server clock.
         client.put("/api/v1/feedbacks/${created.id}") {
             contentType(ContentType.Application.Json)
-            setBody(draft.copy(content = "v2", lastModified = 1L))
+            setBody(FeedbackContentUpdate(content = "v2", visibility = draft.visibility))
         }
 
         val after = client.get("/api/v1/feedbacks/${created.id}").body<FeedbackResponse>()
@@ -1595,10 +1518,7 @@ class FeedbackRoutesTest {
 
         assertEquals(
             HttpStatusCode.NoContent,
-            providerClient.put("/api/v1/feedbacks/${created.id}") {
-                contentType(ContentType.Application.Json)
-                setBody(draft.copy(status = FeedbackStatus.SENT))
-            }.status,
+            providerClient.post("/api/v1/feedbacks/${created.id}/send").status,
         )
 
         val subjectNotes = notificationsOf(subject.email)
@@ -1641,10 +1561,7 @@ class FeedbackRoutesTest {
             setBody(requested)
         }.body<FeedbackResponse>()
 
-        providerClient.put("/api/v1/feedbacks/${created.id}") {
-            contentType(ContentType.Application.Json)
-            setBody(requested.copy(status = FeedbackStatus.REJECTED))
-        }
+        providerClient.post("/api/v1/feedbacks/${created.id}/reject")
 
         // The requester also has the creation confirmation; scope to the rejection note.
         val note = notificationsOf(requester.email).single { it.message.contains("rejected") }
@@ -1709,10 +1626,7 @@ class FeedbackRoutesTest {
             setBody(requested)
         }.body<FeedbackResponse>()
 
-        providerClient.put("/api/v1/feedbacks/${created.id}") {
-            contentType(ContentType.Application.Json)
-            setBody(requested.copy(status = FeedbackStatus.DRAFT))
-        }
+        providerClient.post("/api/v1/feedbacks/${created.id}/pick-up")
 
         // The requester also has the creation confirmation; scope to the picked-up note.
         val note = notificationsOf(requester.email).single { it.message.contains("picked up") }
@@ -1738,14 +1652,8 @@ class FeedbackRoutesTest {
             contentType(ContentType.Application.Json)
             setBody(draft)
         }.body<FeedbackResponse>()
-        providerClient.put("/api/v1/feedbacks/${created.id}") {
-            contentType(ContentType.Application.Json)
-            setBody(draft.copy(status = FeedbackStatus.SENT))
-        }
-        providerClient.put("/api/v1/feedbacks/${created.id}") {
-            contentType(ContentType.Application.Json)
-            setBody(draft.copy(status = FeedbackStatus.WITHDRAWN))
-        }
+        providerClient.post("/api/v1/feedbacks/${created.id}/send")
+        providerClient.post("/api/v1/feedbacks/${created.id}/withdraw")
 
         assertTrue(notificationsOf(subject.email).any { it.message.contains("withdrawn") })
         val requesterWithdrawn = notificationsOf(requester.email).filter { it.message.contains("withdrawn") }

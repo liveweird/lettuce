@@ -1,5 +1,6 @@
 package ch.nokillswit.plugins
 
+import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.UnauthorizedException
 import io.ktor.http.ContentType
@@ -84,6 +85,9 @@ fun Application.configureErrorHandling() {
         }
         exception<ForbiddenException> { call, cause ->
             call.respondProblem(HttpStatusCode.Forbidden, cause.message ?: "Forbidden")
+        }
+        exception<ConflictException> { call, cause ->
+            call.respondProblem(HttpStatusCode.Conflict, cause.message ?: "Conflict")
         }
         // Non-unique DB failures fall through to a 500 problem (logged) instead of rethrowing,
         // which would escape StatusPages and yield a bodiless default 500.
