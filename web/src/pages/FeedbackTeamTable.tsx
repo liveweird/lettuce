@@ -291,7 +291,6 @@ export default function FeedbackTeamTable() {
                 onToggle={toggleSort}
               />
             </Table.Th>
-            <Table.Th>{t("common.field.content")}</Table.Th>
             <Table.Th>
               <SortHeader
                 field="lastModified"
@@ -307,7 +306,7 @@ export default function FeedbackTeamTable() {
         <Table.Tbody>
           {isLoading && !data ? (
             <Table.Tr>
-              <Table.Td colSpan={8}>
+              <Table.Td colSpan={7}>
                 <Center py="md">
                   <Loader size="sm" />
                 </Center>
@@ -333,16 +332,6 @@ export default function FeedbackTeamTable() {
                 </Table.Td>
                 <Table.Td>{t(`common.visibility.${f.visibility}`)}</Table.Td>
                 <Table.Td>{t(`common.status.${f.status}`)}</Table.Td>
-                <Table.Td
-                  style={{
-                    maxWidth: 280,
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                >
-                  {f.contentPreview}
-                </Table.Td>
                 <Table.Td style={{ whiteSpace: "nowrap" }}>
                   {formatTimestamp(f.lastModified)}
                 </Table.Td>
@@ -382,7 +371,7 @@ export default function FeedbackTeamTable() {
             ))
           ) : (
             <Table.Tr>
-              <Table.Td colSpan={8}>
+              <Table.Td colSpan={7}>
                 <Text c="dimmed" ta="center">
                   {t("feedback.noFeedback")}
                 </Text>

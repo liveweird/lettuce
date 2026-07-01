@@ -125,7 +125,7 @@ export default function FeedbackTable({
   }));
   const backParam = backTo ? `&back=${encodeURIComponent(backTo)}` : "";
   const showActions = view === "provided" || view === "received";
-  const columnCount = showActions ? 7 : 6;
+  const columnCount = showActions ? 6 : 5;
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
@@ -315,7 +315,6 @@ export default function FeedbackTable({
                 onToggle={toggleSort}
               />
             </Table.Th>
-            <Table.Th>{t("common.field.content")}</Table.Th>
             <Table.Th>
               <SortHeader
                 field="lastModified"
@@ -360,16 +359,6 @@ export default function FeedbackTable({
                 </Table.Td>
                 <Table.Td>{t(`common.visibility.${f.visibility}`)}</Table.Td>
                 <Table.Td>{t(`common.status.${f.status}`)}</Table.Td>
-                <Table.Td
-                  style={{
-                    maxWidth: 280,
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                >
-                  {f.contentPreview}
-                </Table.Td>
                 <Table.Td style={{ whiteSpace: "nowrap" }}>
                   {formatTimestamp(f.lastModified)}
                 </Table.Td>

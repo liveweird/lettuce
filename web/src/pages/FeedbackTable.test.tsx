@@ -99,7 +99,7 @@ describe("FeedbackTable (received view)", () => {
     localStorage.clear();
   });
 
-  test("renders rows with names, visibility, status and content preview", async () => {
+  test("renders rows with names, visibility and status", async () => {
     setupMocks(mockFetch);
     renderWithProviders(<FeedbackTable view="received" />);
 
@@ -107,9 +107,6 @@ describe("FeedbackTable (received view)", () => {
     expect(screen.getByRole("cell", { name: "Alice Provider" })).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "Public" })).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "Sent" })).toBeInTheDocument();
-    expect(
-      screen.getByRole("cell", { name: "Great collaboration on the migration project" }),
-    ).toBeInTheDocument();
 
     const urls = feedbackUrls(mockFetch);
     expect(urls.length).toBeGreaterThan(0);
