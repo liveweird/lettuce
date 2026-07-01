@@ -155,6 +155,22 @@ describe("TeamMembers page", () => {
     );
   });
 
+  test("each member row has an Ask for feedback link back to this members page", async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (url === "/api/v1/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
+      if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
+      if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    renderTeamMembers(3);
+
+    const link = await screen.findByRole("link", { name: "Ask Carol for feedback" });
+    expect(link).toHaveAttribute(
+      "href",
+      `/feedback/ask?providerId=1&providerName=Carol&back=${encodeURIComponent("/teams/3/members")}`,
+    );
+  });
+
   test("add picker excludes current members and the manager, and PUTs the membership", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";

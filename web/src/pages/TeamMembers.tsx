@@ -16,7 +16,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { IconMessagePlus, IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconMessagePlus, IconMessageQuestion, IconPlus, IconTrash } from "@tabler/icons-react";
 import {
   addTeamMember,
   ApiError,
@@ -250,6 +250,19 @@ export default function TeamMembers() {
                         aria-label={t("users.provideFeedbackFor", { name: m.name })}
                       >
                         {t("users.provideFeedback")}
+                      </Button>
+                    )}
+                    {m.id !== currentUserId && (
+                      <Button
+                        component={RouterLink}
+                        to={`/feedback/ask?providerId=${m.id}&providerName=${encodeURIComponent(m.name)}&back=${encodeURIComponent(`/teams/${id}/members`)}`}
+                        color="blue"
+                        variant="subtle"
+                        size="xs"
+                        leftSection={<IconMessageQuestion size={14} />}
+                        aria-label={t("users.askForFeedbackFrom", { name: m.name })}
+                      >
+                        {t("users.askForFeedback")}
                       </Button>
                     )}
                     {canManage && (
