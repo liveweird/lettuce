@@ -4,7 +4,7 @@
   "unread_few": "{{count}} nieprzeczytane",
   "unread_many": "{{count}} nieprzeczytanych",
   "unread_other": "{{count}} nieprzeczytanego",
-  "loadError": "Nie udało się załadować powiadomień",
+  "loadError": "Nie udało się wczytać powiadomień",
   "unknownError": "Nieznany błąd",
   "empty": "Brak powiadomień.",
   "new": "Nowe",

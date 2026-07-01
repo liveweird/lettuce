@@ -5,7 +5,7 @@
     "save": "Zapisz",
     "delete": "Usuń",
     "edit": "Edytuj",
-    "view": "Podgląd",
+    "view": "Wyświetl",
     "create": "Utwórz",
     "discard": "Odrzuć",
     "keepEditing": "Kontynuuj edycję",
@@ -23,7 +23,7 @@
     "role": "Rola",
     "subject": "Podmiot",
     "provider": "Wystawiający",
-    "requester": "Zamawiający",
+    "requester": "Proszący",
     "manager": "Menedżer",
     "visibility": "Widoczność",
     "status": "Status",
@@ -49,8 +49,8 @@
   },
   "visibility": {
     "PROVIDER_SUBJECT": "Wystawiający + podmiot",
-    "PROVIDER_REQUESTER": "Wystawiający + zamawiający",
-    "PROVIDER_REQUESTER_SUBJECT": "Wystawiający + zamawiający + podmiot",
+    "PROVIDER_REQUESTER": "Wystawiający + proszący",
+    "PROVIDER_REQUESTER_SUBJECT": "Wystawiający + proszący + podmiot",
     "PUBLIC": "Publiczna"
   },
   "role": {
