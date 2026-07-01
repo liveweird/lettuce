@@ -3,11 +3,9 @@ import {
 } from "react-router-dom";
 import {
   Alert,
-  Box,
   Button,
   Container,
   Group,
-  Input,
   Modal,
   Paper,
   Select,
@@ -18,15 +16,12 @@ import {
   Textarea,
   TextInput,
   Title,
-  Typography,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import {
   getTemplate,
   listTemplates,
@@ -36,6 +31,7 @@ import {
 import { formatTimestamp } from "../utils/datetime";
 import FeedbackHistory from "./FeedbackHistory";
 import FeedbackLifecycle from "./FeedbackLifecycle";
+import MarkdownEditor from "./MarkdownEditor";
 
 type FormValues = {
   visibility: FeedbackVisibility;
@@ -143,47 +139,17 @@ export default function FeedbackForm({
     }
   }
 
-  // The content editor + live preview, side by side. On edit this lives in the "Content" tab
-  // (alongside a "History" tab); on create it is rendered directly.
+  // A single WYSIWYG markdown editor (its document model is markdown, so `content` stays the
+  // same string we store and render read-only elsewhere). On edit this lives in the "Content"
+  // tab (alongside a "History" tab); on create it is rendered directly.
   const editor = (
-    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" style={{ flex: 1, minHeight: 0 }}>
-      <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
-        <Textarea
-          label={t("common.field.content")}
-          placeholder={t("feedback.contentPlaceholder")}
-          maxLength={5000}
-          styles={{
-            root: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 },
-            wrapper: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 },
-            input: { flex: 1, minHeight: 0, resize: "none" },
-          }}
-          {...form.getInputProps("content")}
-        />
-      </div>
-      <Input.Wrapper
-        label={t("common.field.preview")}
-        styles={{ root: { display: "flex", flexDirection: "column", minHeight: 0 } }}
-      >
-        <Box
-          tabIndex={-1}
-          style={{
-            flex: 1,
-            minHeight: 0,
-            overflow: "auto",
-            border: "1px solid var(--mantine-color-default-border)",
-            borderRadius: "var(--mantine-radius-default)",
-            padding: "var(--mantine-spacing-sm)",
-            backgroundColor: "var(--mantine-color-default-hover)",
-            cursor: "default",
-            outline: "none",
-          }}
-        >
-          <Typography>
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{form.values.content}</ReactMarkdown>
-          </Typography>
-        </Box>
-      </Input.Wrapper>
-    </SimpleGrid>
+    <MarkdownEditor
+      label={t("common.field.content")}
+      placeholder={t("feedback.contentPlaceholder")}
+      maxLength={5000}
+      value={form.values.content}
+      onChange={(md) => form.setFieldValue("content", md)}
+    />
   );
 
   return (

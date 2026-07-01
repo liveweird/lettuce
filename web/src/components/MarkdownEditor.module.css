@@ -1,0 +1,29 @@
+.editor {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-default);
+}
+
+/* The contenteditable region gets a sensible starting height; content grows the page. */
+.content {
+  min-height: rem(180px);
+}
+
+/* MDXEditor pins its toolbar with position: sticky; top: 0. Keep it a normal bar above the
+   content so it never floats over the text. */
+.editor :global([class*="_toolbarRoot_"]) {
+  position: static;
+}
+
+/* MDXEditor copies our editor `className` onto a popup-host div it appends to <body> (used for
+   link dialogs). Our bordered `.editor` class would otherwise render that empty div as a stray
+   horizontal line over the page. Strip any box styling from the popup host. It carries the
+   stable literal class `mdxeditor-popup-container` and lives outside our subtree, so match it
+   globally; !important beats our leaked `.editor` styles regardless of source order. */
+:global(.mdxeditor-popup-container) {
+  border: 0 !important;
+  min-height: 0 !important;
+}
