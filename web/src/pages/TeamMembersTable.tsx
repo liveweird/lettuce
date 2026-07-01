@@ -24,8 +24,10 @@ import {
 } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { listAllTeams, listTeamMembers, type TeamMemberListView } from "../api/client";
+import FeedbackActionButton from "../components/FeedbackActionButton";
 import FilterPanel from "../components/FilterPanel";
 import SortHeader, { type SortDir } from "../components/SortHeader";
+import { feedbackAskLink, feedbackProvideLink, feedbackRequestLink } from "../utils/feedbackLinks";
 
 const PAGE_SIZE_OPTIONS = [20, 40, 60] as const;
 const DEFAULT_PAGE_SIZE = 20;
@@ -215,44 +217,29 @@ export default function TeamMembersTable({
                 <Table.Td>{m.email}</Table.Td>
                 <Table.Td>{m.teamName}</Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
-                  <Button
-                    component={RouterLink}
-                    to={`/feedback/new?subjectId=${m.userId}&subjectName=${encodeURIComponent(m.name)}&back=${encodeURIComponent(backTo)}`}
-                    color="blue"
-                    variant="subtle"
-                    size="xs"
-                    leftSection={<IconMessagePlus size={14} />}
-                    aria-label={t("teams.provideFeedbackToAria", { name: m.name })}
-                  >
-                    {t("teams.provideFeedback")}
-                  </Button>
+                  <FeedbackActionButton
+                    to={feedbackProvideLink(m.userId, m.name, backTo)}
+                    icon={<IconMessagePlus size={14} />}
+                    label={t("teams.provideFeedback")}
+                    ariaLabel={t("teams.provideFeedbackToAria", { name: m.name })}
+                  />
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
-                  <Button
-                    component={RouterLink}
-                    to={`/feedback/ask?providerId=${m.userId}&providerName=${encodeURIComponent(m.name)}&back=${encodeURIComponent(backTo)}`}
-                    color="blue"
-                    variant="subtle"
-                    size="xs"
-                    leftSection={<IconMessageQuestion size={14} />}
-                    aria-label={t("teams.askForFeedbackAria", { name: m.name })}
-                  >
-                    {t("teams.askForFeedback")}
-                  </Button>
+                  <FeedbackActionButton
+                    to={feedbackAskLink(m.userId, m.name, backTo)}
+                    icon={<IconMessageQuestion size={14} />}
+                    label={t("teams.askForFeedback")}
+                    ariaLabel={t("teams.askForFeedbackAria", { name: m.name })}
+                  />
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                   {view === "managed" && (
-                    <Button
-                      component={RouterLink}
-                      to={`/feedback/request?subjectId=${m.userId}&subjectName=${encodeURIComponent(m.name)}&back=${encodeURIComponent(backTo)}`}
-                      color="blue"
-                      variant="subtle"
-                      size="xs"
-                      leftSection={<IconUserPlus size={14} />}
-                      aria-label={t("teams.requestFeedbackAboutAria", { name: m.name })}
-                    >
-                      {t("teams.requestFeedbackFor")}
-                    </Button>
+                    <FeedbackActionButton
+                      to={feedbackRequestLink(m.userId, m.name, backTo)}
+                      icon={<IconUserPlus size={14} />}
+                      label={t("teams.requestFeedbackFor")}
+                      ariaLabel={t("teams.requestFeedbackAboutAria", { name: m.name })}
+                    />
                   )}
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>

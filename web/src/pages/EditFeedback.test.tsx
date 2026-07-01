@@ -6,28 +6,9 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import EditFeedback from "./EditFeedback";
 
-// The WYSIWYG editor is a Lexical contenteditable that doesn't run in jsdom; swap it for a
-// plain controlled textarea so the Content assertions keep exercising the same value flow.
-vi.mock("../components/MarkdownEditor", () => ({
-  default: ({
-    value,
-    onChange,
-    label,
-    placeholder,
-  }: {
-    value: string;
-    onChange: (v: string) => void;
-    label: string;
-    placeholder?: string;
-  }) => (
-    <textarea
-      aria-label={label}
-      placeholder={placeholder}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-    />
-  ),
-}));
+// Swap the Lexical-based editor for a plain textarea (see mockMarkdownEditor). Import inside the
+// (hoisted) factory to avoid the top-level-variable restriction.
+vi.mock("../components/MarkdownEditor", async () => (await import("../test/mockMarkdownEditor")).mockMarkdownEditorModule());
 
 const TOKEN_KEY = "lettuce.auth.token";
 const ROLE_KEY = "lettuce.auth.role";
@@ -231,6 +212,42 @@ describe("EditFeedback page", () => {
 
     expect(await screen.findByText(/don't have permission to edit this feedback/i)).toBeInTheDocument();
     expect(screen.queryByTestId("probe")).toBeNull(); // no navigation on error
+  });
+
+  test("a 400 on save shows a validation error and stays on the editor", async () => {
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "PUT" && url === "/api/v1/feedbacks/5") {
+        return Promise.resolve(jsonResponse(400, { error: "bad_request", message: "no" }));
+      }
+      return Promise.resolve(jsonResponse(200, FEEDBACK));
+    });
+    const user = userEvent.setup();
+    renderEditFeedback();
+
+    await screen.findByLabelText("Content", { selector: "textarea" });
+    await user.click(screen.getByRole("button", { name: /^save draft$/i }));
+
+    expect(await screen.findByText(/validation error/i)).toBeInTheDocument();
+    expect(screen.queryByTestId("probe")).toBeNull();
+  });
+
+  test("a 400 on delete shows the not-draft error and stays on the editor", async () => {
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "DELETE" && url === "/api/v1/feedbacks/5") {
+        return Promise.resolve(jsonResponse(400, { error: "bad_request", message: "no" }));
+      }
+      return Promise.resolve(jsonResponse(200, FEEDBACK));
+    });
+    const user = userEvent.setup();
+    renderEditFeedback();
+
+    await screen.findByLabelText("Content", { selector: "textarea" });
+    await user.click(screen.getByRole("button", { name: /^delete$/i }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
+
+    expect(await screen.findByText(/only drafts can be deleted/i)).toBeInTheDocument();
+    expect(screen.queryByTestId("probe")).toBeNull();
   });
 
   test("Save & send PUTs status SENT", async () => {

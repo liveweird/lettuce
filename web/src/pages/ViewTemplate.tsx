@@ -16,13 +16,11 @@ import {
   Stack,
   TextInput,
   Title,
-  Typography,
 } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { ApiError, getTemplate } from "../api/client";
+import MarkdownView from "../components/MarkdownView";
 
 export default function ViewTemplate() {
   const { t } = useTranslation();
@@ -87,11 +85,7 @@ export default function ViewTemplate() {
                     overflow: "auto",
                   }}
                 >
-                  <Typography>
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {data!.content}
-                    </ReactMarkdown>
-                  </Typography>
+                  <MarkdownView>{data!.content}</MarkdownView>
                 </Box>
               </Input.Wrapper>
               <Group justify="flex-end">

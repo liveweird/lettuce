@@ -24,7 +24,6 @@ import { hasLength, useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, getTeam, isAdmin, listUsers, updateTeam } from "../api/client";
 
-// TODO: switch to async search when user count exceeds 100.
 const MANAGER_PICKER_PAGE_SIZE = 100;
 
 type FormValues = {

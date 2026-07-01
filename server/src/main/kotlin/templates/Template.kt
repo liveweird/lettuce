@@ -1,5 +1,6 @@
 package ch.nokillswit.templates
 
+import ch.nokillswit.infra.paging.PageResponse
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -24,10 +25,4 @@ data class TemplateListItem(
     val contentPreview: String,
 )
 
-@Serializable
-data class TemplatePageResponse(
-    val items: List<TemplateListItem>,
-    val page: Int,
-    val pageSize: Int,
-    val total: Long,
-)
+typealias TemplatePageResponse = PageResponse<TemplateListItem>

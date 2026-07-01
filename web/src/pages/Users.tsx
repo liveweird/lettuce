@@ -41,6 +41,8 @@ import {
   logout,
   type UserRole,
 } from "../api/client";
+import FeedbackActionButton from "../components/FeedbackActionButton";
+import { feedbackAskLink, feedbackProvideLink } from "../utils/feedbackLinks";
 import { flagSignedOut, notifyAuthChange } from "../auth";
 import FilterPanel from "../components/FilterPanel";
 import SortHeader, { type SortDir } from "../components/SortHeader";
@@ -258,32 +260,22 @@ export default function Users() {
                 <Table.Td>{t(`common.role.${u.role}`)}</Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                   {u.id !== currentUserId && (
-                    <Button
-                      component={RouterLink}
-                      to={`/feedback/new?subjectId=${u.id}&subjectName=${encodeURIComponent(u.name)}`}
-                      color="blue"
-                      variant="subtle"
-                      size="xs"
-                      leftSection={<IconMessagePlus size={14} />}
-                      aria-label={t("users.provideFeedbackFor", { name: u.name })}
-                    >
-                      {t("users.provideFeedback")}
-                    </Button>
+                    <FeedbackActionButton
+                      to={feedbackProvideLink(u.id, u.name)}
+                      icon={<IconMessagePlus size={14} />}
+                      label={t("users.provideFeedback")}
+                      ariaLabel={t("users.provideFeedbackFor", { name: u.name })}
+                    />
                   )}
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                   {u.id !== currentUserId && (
-                    <Button
-                      component={RouterLink}
-                      to={`/feedback/ask?providerId=${u.id}&providerName=${encodeURIComponent(u.name)}&back=${encodeURIComponent("/users")}`}
-                      color="blue"
-                      variant="subtle"
-                      size="xs"
-                      leftSection={<IconMessageQuestion size={14} />}
-                      aria-label={t("users.askForFeedbackFrom", { name: u.name })}
-                    >
-                      {t("users.askForFeedback")}
-                    </Button>
+                    <FeedbackActionButton
+                      to={feedbackAskLink(u.id, u.name, "/users")}
+                      icon={<IconMessageQuestion size={14} />}
+                      label={t("users.askForFeedback")}
+                      ariaLabel={t("users.askForFeedbackFrom", { name: u.name })}
+                    />
                   )}
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>

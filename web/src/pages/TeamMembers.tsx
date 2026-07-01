@@ -26,6 +26,8 @@ import {
   listUsers,
   removeTeamMember,
 } from "../api/client";
+import FeedbackActionButton from "../components/FeedbackActionButton";
+import { feedbackAskLink, feedbackProvideLink } from "../utils/feedbackLinks";
 
 // A single team realistically has a small, bounded set of members; fetch up to the 100-row
 // max so the member list and the add-picker exclusion share one complete source of truth.
@@ -240,30 +242,20 @@ export default function TeamMembers() {
                 <Table.Td>
                   <Group gap="xs" wrap="nowrap" justify="flex-end">
                     {m.id !== currentUserId && (
-                      <Button
-                        component={RouterLink}
-                        to={`/feedback/new?subjectId=${m.id}&subjectName=${encodeURIComponent(m.name)}`}
-                        color="blue"
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconMessagePlus size={14} />}
-                        aria-label={t("users.provideFeedbackFor", { name: m.name })}
-                      >
-                        {t("users.provideFeedback")}
-                      </Button>
+                      <FeedbackActionButton
+                        to={feedbackProvideLink(m.id, m.name)}
+                        icon={<IconMessagePlus size={14} />}
+                        label={t("users.provideFeedback")}
+                        ariaLabel={t("users.provideFeedbackFor", { name: m.name })}
+                      />
                     )}
                     {m.id !== currentUserId && (
-                      <Button
-                        component={RouterLink}
-                        to={`/feedback/ask?providerId=${m.id}&providerName=${encodeURIComponent(m.name)}&back=${encodeURIComponent(`/teams/${id}/members`)}`}
-                        color="blue"
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconMessageQuestion size={14} />}
-                        aria-label={t("users.askForFeedbackFrom", { name: m.name })}
-                      >
-                        {t("users.askForFeedback")}
-                      </Button>
+                      <FeedbackActionButton
+                        to={feedbackAskLink(m.id, m.name, `/teams/${id}/members`)}
+                        icon={<IconMessageQuestion size={14} />}
+                        label={t("users.askForFeedback")}
+                        ariaLabel={t("users.askForFeedbackFrom", { name: m.name })}
+                      />
                     )}
                     {canManage && (
                       <Button

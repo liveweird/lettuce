@@ -7,7 +7,6 @@
     "edit": "Edytuj",
     "view": "Podgląd",
     "create": "Utwórz",
-    "back": "Wstecz",
     "discard": "Odrzuć",
     "keepEditing": "Kontynuuj edycję",
     "logout": "Wyloguj"
@@ -16,7 +15,6 @@
     "loading": "Ładowanie…",
     "any": "Dowolny",
     "all": "Wszystkie",
-    "none": "Brak",
     "you": "Ty"
   },
   "field": {
@@ -60,8 +58,6 @@
     "USER": "Użytkownik"
   },
   "language": {
-    "label": "Język",
-    "en": "English",
-    "pl": "Polski"
+    "label": "Język"
   }
 }

@@ -3,6 +3,7 @@ import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-
 import { IconMessagePlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import FeedbackTable from "./FeedbackTable";
+import { feedbackProvideLink } from "../utils/feedbackLinks";
 
 // Which dashboard tab this screen was opened from, so the "Back to …" link and the
 // invalid-id redirect return there. Defaults to managers for older links lacking `from`.
@@ -70,7 +71,7 @@ export default function ManagerFeedbacks() {
         <Group justify="flex-end">
           <Button
             component={RouterLink}
-            to={`/feedback/new?subjectId=${userId}&subjectName=${encodeURIComponent(who)}&back=${encodeURIComponent(backTo)}`}
+            to={feedbackProvideLink(userId, who, backTo)}
             leftSection={<IconMessagePlus size={16} />}
             aria-label={t("feedback.createFeedbackFor", { who })}
           >

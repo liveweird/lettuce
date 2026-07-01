@@ -107,21 +107,22 @@ class FeedbackService(val database: R2dbcDatabase) {
         FeedbackCreateResult(id, notifications)
     }
 
+    // Single source for row → Feedback; shared by read() and the current-state read in update().
+    private fun ResultRow.toFeedback(): Feedback = Feedback(
+        requesterId = this[Feedbacks.requesterId]?.value,
+        subjectId = this[Feedbacks.subjectId].value,
+        providerId = this[Feedbacks.providerId].value,
+        visibility = this[Feedbacks.visibility],
+        status = this[Feedbacks.status],
+        content = this[Feedbacks.content],
+        requesterMessage = this[Feedbacks.requesterMessage],
+        lastModified = this[Feedbacks.lastModified],
+    )
+
     suspend fun read(id: UInt): Feedback? = suspendTransaction(database) {
         Feedbacks.selectAll()
             .where { (Feedbacks.id eq id) and active() }
-            .map { row ->
-                Feedback(
-                    requesterId = row[Feedbacks.requesterId]?.value,
-                    subjectId = row[Feedbacks.subjectId].value,
-                    providerId = row[Feedbacks.providerId].value,
-                    visibility = row[Feedbacks.visibility],
-                    status = row[Feedbacks.status],
-                    content = row[Feedbacks.content],
-                    requesterMessage = row[Feedbacks.requesterMessage],
-                    lastModified = row[Feedbacks.lastModified],
-                )
-            }
+            .map { it.toFeedback() }
             .singleOrNull()
     }
 
@@ -133,17 +134,7 @@ class FeedbackService(val database: R2dbcDatabase) {
         return suspendTransaction(database) {
             val current = Feedbacks.selectAll()
                 .where { (Feedbacks.id eq id) and active() }
-                .map { row ->
-                    Feedback(
-                        requesterId = row[Feedbacks.requesterId]?.value,
-                        subjectId = row[Feedbacks.subjectId].value,
-                        providerId = row[Feedbacks.providerId].value,
-                        visibility = row[Feedbacks.visibility],
-                        status = row[Feedbacks.status],
-                        content = row[Feedbacks.content],
-                        requesterMessage = row[Feedbacks.requesterMessage],
-                    )
-                }
+                .map { it.toFeedback() }
                 .singleOrNull()
                 ?: return@suspendTransaction emptyList()
             validate(current = current, next = feedback)

@@ -1,5 +1,6 @@
 package ch.nokillswit.users
 
+import ch.nokillswit.infra.paging.PageResponse
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -41,12 +42,6 @@ data class UserResponse(
     val role: UserRole,
 )
 
-@Serializable
-data class UserPageResponse(
-    val items: List<UserResponse>,
-    val page: Int,
-    val pageSize: Int,
-    val total: Long,
-)
+typealias UserPageResponse = PageResponse<UserResponse>
 
 fun User.toResponse(id: UInt) = UserResponse(id, name, email, role)

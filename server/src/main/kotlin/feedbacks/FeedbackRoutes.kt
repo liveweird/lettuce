@@ -7,6 +7,10 @@ import ch.nokillswit.authz.isAdmin
 import ch.nokillswit.authz.requireFeedbackReadAllowingManager
 import ch.nokillswit.authz.requireFeedbackWrite
 import ch.nokillswit.infra.paging.parsePaging
+import ch.nokillswit.infra.paging.optionalString
+import ch.nokillswit.infra.paging.optionalLong
+import ch.nokillswit.infra.paging.optionalUInt
+import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpHeaders
@@ -50,7 +54,7 @@ fun Application.configureFeedbackRoutes() {
             get<Feedbacks> {
                 val caller = call.caller()
                 val params = call.request.queryParameters
-                val view = when (val raw = params["view"]?.takeIf { it.isNotBlank() } ?: "received") {
+                val view = when (val raw = params.optionalString("view") ?: "received") {
                     "received" -> FeedbackListView.RECEIVED
                     "provided" -> FeedbackListView.PROVIDED
                     "team" -> FeedbackListView.TEAM
@@ -59,33 +63,27 @@ fun Application.configureFeedbackRoutes() {
                 val paging = call.parsePaging(
                     sortable = setOf("id", "requesterName", "subjectName", "providerName", "visibility", "status", "lastModified"),
                 )
-                val visibilityFilter = params["visibility"]?.takeIf { it.isNotBlank() }?.let { raw ->
+                val visibilityFilter = params.optionalString("visibility")?.let { raw ->
                     runCatching { FeedbackVisibility.valueOf(raw) }.getOrElse {
                         throw BadRequestException(
                             "Unknown visibility: $raw (allowed: ${FeedbackVisibility.entries.joinToString { it.name }})",
                         )
                     }
                 }
-                val statusFilter = params["status"]?.takeIf { it.isNotBlank() }?.let { raw ->
+                val statusFilter = params.optionalString("status")?.let { raw ->
                     runCatching { FeedbackStatus.valueOf(raw) }.getOrElse {
                         throw BadRequestException(
                             "Unknown status: $raw (allowed: ${FeedbackStatus.entries.joinToString { it.name }})",
                         )
                     }
                 }
-                val providerIdFilter = params["providerId"]?.takeIf { it.isNotBlank() }?.let { raw ->
-                    raw.toUIntOrNull() ?: throw BadRequestException("Invalid providerId: $raw")
-                }
-                val subjectIdFilter = params["subjectId"]?.takeIf { it.isNotBlank() }?.let { raw ->
-                    raw.toUIntOrNull() ?: throw BadRequestException("Invalid subjectId: $raw")
-                }
-                val lastModifiedGteFilter = params["lastModified[gte]"]?.takeIf { it.isNotBlank() }?.let { raw ->
-                    raw.toLongOrNull() ?: throw BadRequestException("Invalid lastModified[gte]: $raw")
-                }
+                val providerIdFilter = params.optionalUInt("providerId")
+                val subjectIdFilter = params.optionalUInt("subjectId")
+                val lastModifiedGteFilter = params.optionalLong("lastModified[gte]")
                 val filter = FeedbackListFilter(
-                    requesterName = params["requesterName"]?.takeIf { it.isNotBlank() },
-                    subjectName = params["subjectName"]?.takeIf { it.isNotBlank() },
-                    providerName = params["providerName"]?.takeIf { it.isNotBlank() },
+                    requesterName = params.optionalString("requesterName"),
+                    subjectName = params.optionalString("subjectName"),
+                    providerName = params.optionalString("providerName"),
                     providerId = providerIdFilter,
                     subjectId = subjectIdFilter,
                     visibility = visibilityFilter,
@@ -93,15 +91,7 @@ fun Application.configureFeedbackRoutes() {
                     lastModifiedGte = lastModifiedGteFilter,
                 )
                 val result = feedbackService.list(view, caller.userId, filter, paging)
-                call.respond(
-                    HttpStatusCode.OK,
-                    FeedbackPageResponse(
-                        items = result.items,
-                        page = paging.page,
-                        pageSize = paging.pageSize,
-                        total = result.total,
-                    ),
-                )
+                call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
             }
             post<Feedbacks> {
                 val caller = call.caller()
@@ -220,7 +210,7 @@ fun Application.configureFeedbackRoutes() {
                     FeedbackEvent(
                         feedbackId = route.id,
                         userId = caller.userId,
-                        content = feedbackDeletionEventContent(existing),
+                        content = feedbackDeletionEventContent(),
                     ),
                 )
                 // Best-effort side effect: tell the requester (if any) the provider deleted it (no link).

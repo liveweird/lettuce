@@ -98,6 +98,32 @@ describe("EditTeam page", () => {
     });
   });
 
+  test.each([
+    [403, /don't have permission to edit this team/i],
+    [404, /team no longer exists/i],
+    [400, /validation error/i],
+    [500, /edit failed \(500\)/i],
+  ])("a %i on save surfaces an error and stays on the editor", async (status, pattern) => {
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      if (method === "PUT" && url === "/api/v1/teams/2") {
+        return Promise.resolve(jsonResponse(status, { error: "e", message: "no" }));
+      }
+      if (url === "/api/v1/teams/2") return Promise.resolve(jsonResponse(200, TEAM));
+      if (url.startsWith("/api/v1/users?")) return Promise.resolve(jsonResponse(200, MANAGER_POOL));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    const user = userEvent.setup();
+    renderEditTeam(2);
+
+    const nameInput = (await screen.findByLabelText("Name")) as HTMLInputElement;
+    await waitFor(() => expect(nameInput.value).toBe("Platform"));
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(await screen.findByText(pattern)).toBeInTheDocument();
+    expect(screen.queryByTestId("probe")).toBeNull();
+  });
+
   test("404 on GET shows a 'Team not found' alert with a back link", async () => {
     mockFetch.mockImplementation((url: string) => {
       if (url === "/api/v1/teams/2") {

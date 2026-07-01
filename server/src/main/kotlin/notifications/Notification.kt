@@ -1,5 +1,6 @@
 package ch.nokillswit.notifications
 
+import ch.nokillswit.infra.paging.PageResponse
 import kotlinx.serialization.Serializable
 
 /**
@@ -24,10 +25,4 @@ data class NotificationResponse(
     val wasSeen: Boolean,
 )
 
-@Serializable
-data class NotificationPageResponse(
-    val items: List<NotificationResponse>,
-    val page: Int,
-    val pageSize: Int,
-    val total: Long,
-)
+typealias NotificationPageResponse = PageResponse<NotificationResponse>

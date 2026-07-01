@@ -5,6 +5,8 @@ import ch.nokillswit.authz.requireCanReassignManager
 import ch.nokillswit.authz.requireSelfOrAdmin
 import ch.nokillswit.authz.requireTeamManagerOrAdmin
 import ch.nokillswit.infra.paging.parsePaging
+import ch.nokillswit.infra.paging.optionalString
+import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -50,59 +52,43 @@ fun Application.configureTeamRoutes() {
                 call.caller()
                 val paging = call.parsePaging(sortable = setOf("id", "name"))
                 val params = call.request.queryParameters
-                val managerIdFilter = params["managerId"]?.takeIf { it.isNotBlank() }?.let { raw ->
+                val managerIdFilter = params.optionalString("managerId")?.let { raw ->
                     raw.toUIntOrNull()
                         ?: throw BadRequestException("managerId must be a non-negative integer")
                 }
-                val memberIdFilter = params["memberId"]?.takeIf { it.isNotBlank() }?.let { raw ->
+                val memberIdFilter = params.optionalString("memberId")?.let { raw ->
                     raw.toUIntOrNull()
                         ?: throw BadRequestException("memberId must be a non-negative integer")
                 }
                 val filter = TeamListFilter(
-                    name = params["name"]?.takeIf { it.isNotBlank() },
+                    name = params.optionalString("name"),
                     managerId = managerIdFilter,
                     memberId = memberIdFilter,
                 )
                 val result = teamService.list(filter, paging)
-                call.respond(
-                    HttpStatusCode.OK,
-                    TeamPageResponse(
-                        items = result.items,
-                        page = paging.page,
-                        pageSize = paging.pageSize,
-                        total = result.total,
-                    ),
-                )
+                call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
             }
             get<Teams.Members> {
                 val caller = call.caller()
                 val params = call.request.queryParameters
-                val view = when (val raw = params["view"]?.takeIf { it.isNotBlank() } ?: "member") {
+                val view = when (val raw = params.optionalString("view") ?: "member") {
                     "member" -> TeamMemberListView.MEMBER
                     "managed" -> TeamMemberListView.MANAGED
                     "managers" -> TeamMemberListView.MANAGERS
                     else -> throw BadRequestException("Unknown view: $raw (allowed: member, managed, managers)")
                 }
                 val paging = call.parsePaging(sortable = setOf("id", "name", "email", "teamName"))
-                val teamIdFilter = params["teamId"]?.takeIf { it.isNotBlank() }?.let { raw ->
+                val teamIdFilter = params.optionalString("teamId")?.let { raw ->
                     raw.toUIntOrNull()
                         ?: throw BadRequestException("teamId must be a non-negative integer")
                 }
                 val filter = TeamMemberListFilter(
-                    name = params["name"]?.takeIf { it.isNotBlank() },
-                    email = params["email"]?.takeIf { it.isNotBlank() },
+                    name = params.optionalString("name"),
+                    email = params.optionalString("email"),
                     teamId = teamIdFilter,
                 )
                 val result = teamService.listMembers(view, caller.userId, filter, paging)
-                call.respond(
-                    HttpStatusCode.OK,
-                    TeamMemberPageResponse(
-                        items = result.items,
-                        page = paging.page,
-                        pageSize = paging.pageSize,
-                        total = result.total,
-                    ),
-                )
+                call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
             }
             post<Teams> {
                 val caller = call.caller()

@@ -4,6 +4,8 @@ import { Link as RouterLink } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { IconMessagePlus, IconMessageQuestion, IconMessages } from "@tabler/icons-react";
 import { listTeamMembers } from "../api/client";
+import FeedbackActionButton from "../components/FeedbackActionButton";
+import { feedbackAskLink, feedbackProvideLink } from "../utils/feedbackLinks";
 
 export default function ManagersTable() {
   const { t } = useTranslation();
@@ -47,30 +49,20 @@ export default function ManagersTable() {
                 <Table.Td>{m.email}</Table.Td>
                 <Table.Td>{m.teamName}</Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
-                  <Button
-                    component={RouterLink}
-                    to={`/feedback/new?subjectId=${m.userId}&subjectName=${encodeURIComponent(m.name)}&back=${encodeURIComponent("/?tab=managers")}`}
-                    color="blue"
-                    variant="subtle"
-                    size="xs"
-                    leftSection={<IconMessagePlus size={14} />}
-                    aria-label={t("users.provideFeedbackTo", { name: m.name })}
-                  >
-                    {t("users.provideFeedback")}
-                  </Button>
+                  <FeedbackActionButton
+                    to={feedbackProvideLink(m.userId, m.name, "/?tab=managers")}
+                    icon={<IconMessagePlus size={14} />}
+                    label={t("users.provideFeedback")}
+                    ariaLabel={t("users.provideFeedbackTo", { name: m.name })}
+                  />
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
-                  <Button
-                    component={RouterLink}
-                    to={`/feedback/ask?providerId=${m.userId}&providerName=${encodeURIComponent(m.name)}&back=${encodeURIComponent("/?tab=managers")}`}
-                    color="blue"
-                    variant="subtle"
-                    size="xs"
-                    leftSection={<IconMessageQuestion size={14} />}
-                    aria-label={t("users.askForFeedbackFrom", { name: m.name })}
-                  >
-                    {t("users.askForFeedback")}
-                  </Button>
+                  <FeedbackActionButton
+                    to={feedbackAskLink(m.userId, m.name, "/?tab=managers")}
+                    icon={<IconMessageQuestion size={14} />}
+                    label={t("users.askForFeedback")}
+                    ariaLabel={t("users.askForFeedbackFrom", { name: m.name })}
+                  />
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                   <Button

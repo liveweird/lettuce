@@ -4,6 +4,8 @@ import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireNotificationRecipient
 import ch.nokillswit.infra.paging.SortField
 import ch.nokillswit.infra.paging.parsePaging
+import ch.nokillswit.infra.paging.optionalString
+import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
@@ -49,7 +51,7 @@ fun Application.configureNotificationRoutes() {
                     sortable = setOf("id", "timestamp"),
                     defaultSort = listOf(SortField("timestamp", descending = true)),
                 )
-                val wasSeenFilter = call.request.queryParameters["wasSeen"]?.takeIf { it.isNotBlank() }?.let { raw ->
+                val wasSeenFilter = call.request.queryParameters.optionalString("wasSeen")?.let { raw ->
                     raw.toBooleanStrictOrNull() ?: throw BadRequestException("wasSeen must be true or false")
                 }
                 val result = notificationService.list(
@@ -57,15 +59,7 @@ fun Application.configureNotificationRoutes() {
                     filter = NotificationListFilter(wasSeen = wasSeenFilter),
                     paging = paging,
                 )
-                call.respond(
-                    HttpStatusCode.OK,
-                    NotificationPageResponse(
-                        items = result.items,
-                        page = paging.page,
-                        pageSize = paging.pageSize,
-                        total = result.total,
-                    ),
-                )
+                call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
             }
             get<Notifications.Id> { route ->
                 val caller = call.caller()

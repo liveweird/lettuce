@@ -3,6 +3,8 @@ package ch.nokillswit.templates
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAdmin
 import ch.nokillswit.infra.paging.parsePaging
+import ch.nokillswit.infra.paging.optionalString
+import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -37,18 +39,10 @@ fun Application.configureTemplateRoutes() {
                 call.caller()
                 val paging = call.parsePaging(sortable = setOf("id", "name"))
                 val filter = TemplateListFilter(
-                    name = call.request.queryParameters["name"]?.takeIf { it.isNotBlank() },
+                    name = call.request.queryParameters.optionalString("name"),
                 )
                 val result = templateService.list(filter, paging)
-                call.respond(
-                    HttpStatusCode.OK,
-                    TemplatePageResponse(
-                        items = result.items,
-                        page = paging.page,
-                        pageSize = paging.pageSize,
-                        total = result.total,
-                    ),
-                )
+                call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
             }
             post<Templates> {
                 requireAdmin(call.caller())

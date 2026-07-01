@@ -1,5 +1,6 @@
 package ch.nokillswit.teams
 
+import ch.nokillswit.infra.paging.PageResponse
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -28,13 +29,7 @@ data class TeamListItem(
     val managerDeleted: Boolean,
 )
 
-@Serializable
-data class TeamPageResponse(
-    val items: List<TeamListItem>,
-    val page: Int,
-    val pageSize: Int,
-    val total: Long,
-)
+typealias TeamPageResponse = PageResponse<TeamListItem>
 
 @Serializable
 data class TeamMemberListItem(
@@ -45,10 +40,4 @@ data class TeamMemberListItem(
     val teamName: String,
 )
 
-@Serializable
-data class TeamMemberPageResponse(
-    val items: List<TeamMemberListItem>,
-    val page: Int,
-    val pageSize: Int,
-    val total: Long,
-)
+typealias TeamMemberPageResponse = PageResponse<TeamMemberListItem>

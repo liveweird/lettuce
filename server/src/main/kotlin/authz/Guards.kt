@@ -101,16 +101,6 @@ fun canReadFeedback(
     return false
 }
 
-fun requireFeedbackRead(
-    caller: CallerPrincipal,
-    feedback: Feedback,
-    managesSubject: Boolean = false,
-) {
-    if (!canReadFeedback(caller, feedback, managesSubject)) {
-        throw ForbiddenException("Caller may not read this feedback")
-    }
-}
-
 suspend fun requireFeedbackReadAllowingManager(
     caller: CallerPrincipal,
     feedback: Feedback,
@@ -139,7 +129,7 @@ fun canReadFeedbackContent(caller: CallerPrincipal, feedback: Feedback): Boolean
 // ADMIN is intentionally NOT granted write access here: admins may read every feedback
 // (see canReadFeedback) but may not edit, delete, or transition existing ones — only the
 // provider can. An admin who happens to be the provider still qualifies via the userId check.
-fun canWriteFeedback(caller: CallerPrincipal, feedback: Feedback): Boolean =
+private fun canWriteFeedback(caller: CallerPrincipal, feedback: Feedback): Boolean =
     caller.userId == feedback.providerId
 
 fun requireFeedbackWrite(caller: CallerPrincipal, feedback: Feedback) {

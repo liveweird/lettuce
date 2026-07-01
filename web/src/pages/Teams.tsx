@@ -39,7 +39,6 @@ import { deleteTeam, isAdmin, listTeams, listUsers } from "../api/client";
 
 const PAGE_SIZE_OPTIONS = [20, 40, 60] as const;
 const DEFAULT_PAGE_SIZE = 20;
-// TODO: switch to async search when user count exceeds 100.
 const MANAGER_PICKER_PAGE_SIZE = 100;
 
 type SortField = "name";

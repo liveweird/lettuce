@@ -65,15 +65,6 @@ class UserService(val database: R2dbcDatabase) {
         }
     }
 
-    suspend fun findByEmail(email: String): User? {
-        return suspendTransaction(database) {
-            Users.selectAll()
-                .where { (Users.email eq email) and active() }
-                .map { it.toUser() }
-                .singleOrNull()
-        }
-    }
-
     suspend fun findWithIdByEmail(email: String): Pair<UInt, User>? {
         return suspendTransaction(database) {
             Users.selectAll()

@@ -16,7 +16,7 @@ internal fun feedbackCreationEventContent(created: Feedback): String = when (cre
 }
 
 /** Description recorded when a draft feedback is deleted (soft-deleted) by its provider. */
-internal fun feedbackDeletionEventContent(deleted: Feedback): String = "Feedback deleted."
+internal fun feedbackDeletionEventContent(): String = "Feedback deleted."
 
 /**
  * Description recorded on update. A status change wins; otherwise it reports the content/visibility

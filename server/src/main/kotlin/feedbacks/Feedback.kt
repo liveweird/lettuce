@@ -1,5 +1,6 @@
 package ch.nokillswit.feedbacks
 
+import ch.nokillswit.infra.paging.PageResponse
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -77,10 +78,4 @@ data class FeedbackListItem(
     val lastModified: Long,
 )
 
-@Serializable
-data class FeedbackPageResponse(
-    val items: List<FeedbackListItem>,
-    val page: Int,
-    val pageSize: Int,
-    val total: Long,
-)
+typealias FeedbackPageResponse = PageResponse<FeedbackListItem>

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { toRelativePath } from "./url";
 
 describe("toRelativePath", () => {
@@ -23,5 +23,33 @@ describe("toRelativePath", () => {
 
   test("normalizes a relative value without a leading slash", () => {
     expect(toRelativePath("feedback/1")).toBe("/feedback/1");
+  });
+
+  describe("when URL parsing throws", () => {
+    afterEach(() => vi.unstubAllGlobals());
+
+    test("falls back to the raw value for an already-absolute path", () => {
+      vi.stubGlobal(
+        "URL",
+        class {
+          constructor() {
+            throw new Error("boom");
+          }
+        },
+      );
+      expect(toRelativePath("/already/abs")).toBe("/already/abs");
+    });
+
+    test("prefixes a leading slash for a relative value", () => {
+      vi.stubGlobal(
+        "URL",
+        class {
+          constructor() {
+            throw new Error("boom");
+          }
+        },
+      );
+      expect(toRelativePath("relative")).toBe("/relative");
+    });
   });
 });

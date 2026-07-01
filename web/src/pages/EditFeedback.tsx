@@ -17,7 +17,6 @@ import {
   Paper,
   Stack,
   Text,
-  Textarea,
   TextInput,
   Title,
 } from "@mantine/core";
@@ -34,6 +33,7 @@ import {
   type FeedbackVisibility,
 } from "../api/client";
 import FeedbackForm from "../components/FeedbackForm";
+import RequesterMessage from "../components/RequesterMessage";
 
 const PROVIDED = "/feedback?tab=provided";
 
@@ -223,16 +223,7 @@ export default function EditFeedback() {
             </Text>
             <TextInput label={t("common.field.subject")} value={subjectDisplay} disabled />
             <TextInput label={t("common.field.requester")} value={requesterDisplay} disabled />
-            {data!.requesterMessage && (
-              <Textarea
-                label={t("feedback.requesterMessageView")}
-                value={data!.requesterMessage}
-                autosize
-                minRows={2}
-                maxRows={6}
-                readOnly
-              />
-            )}
+            <RequesterMessage value={data!.requesterMessage} />
             {error && (
               <Alert color="red" variant="light">
                 {error}

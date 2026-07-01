@@ -13,7 +13,6 @@ import {
   Stack,
   Tabs,
   Text,
-  Textarea,
   TextInput,
   Title,
 } from "@mantine/core";
@@ -32,6 +31,7 @@ import { formatTimestamp } from "../utils/datetime";
 import FeedbackHistory from "./FeedbackHistory";
 import FeedbackLifecycle from "./FeedbackLifecycle";
 import MarkdownEditor from "./MarkdownEditor";
+import RequesterMessage from "./RequesterMessage";
 
 type FormValues = {
   visibility: FeedbackVisibility;
@@ -185,16 +185,7 @@ export default function FeedbackForm({
                 {requesterDisplay != null && (
                   <TextInput label={t("common.field.requester")} value={requesterDisplay} disabled />
                 )}
-                {requesterMessage && (
-                  <Textarea
-                    label={t("feedback.requesterMessageView")}
-                    value={requesterMessage}
-                    autosize
-                    minRows={2}
-                    maxRows={6}
-                    readOnly
-                  />
-                )}
+                <RequesterMessage value={requesterMessage} />
               </Stack>
               <Stack gap="sm">
                 <Select

@@ -21,14 +21,12 @@ import {
   Textarea,
   TextInput,
   Title,
-  Typography,
 } from "@mantine/core";
 import { hasLength, useForm } from "@mantine/form";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { ApiError, getTemplate, isAdmin, updateTemplate } from "../api/client";
+import MarkdownView from "../components/MarkdownView";
 
 type FormValues = {
   name: string;
@@ -173,11 +171,7 @@ export default function EditTemplate() {
                         overflow: "auto",
                       }}
                     >
-                      <Typography>
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {form.values.content}
-                        </ReactMarkdown>
-                      </Typography>
+                      <MarkdownView>{form.values.content}</MarkdownView>
                     </Box>
                   </Input.Wrapper>
                 </SimpleGrid>

@@ -20,16 +20,12 @@ import {
   Stack,
   Tabs,
   Text,
-  Textarea,
   TextInput,
   Title,
-  Typography,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trans, useTranslation } from "react-i18next";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import {
   ApiError,
   getFeedback,
@@ -40,6 +36,8 @@ import {
 import { formatTimestamp } from "../utils/datetime";
 import FeedbackHistory from "../components/FeedbackHistory";
 import FeedbackLifecycle from "../components/FeedbackLifecycle";
+import MarkdownView from "../components/MarkdownView";
+import RequesterMessage from "../components/RequesterMessage";
 
 const RECEIVED = "/feedback?tab=received";
 
@@ -232,16 +230,7 @@ export default function ViewFeedback() {
                   />
                 </Stack>
               </SimpleGrid>
-              {data!.requesterMessage && (
-                <Textarea
-                  label={t("feedback.requesterMessageView")}
-                  value={data!.requesterMessage}
-                  autosize
-                  minRows={2}
-                  maxRows={6}
-                  readOnly
-                />
-              )}
+              <RequesterMessage value={data!.requesterMessage} />
               <Tabs
                 defaultValue="content"
                 style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}
@@ -276,9 +265,7 @@ export default function ViewFeedback() {
                         outline: "none",
                       }}
                     >
-                      <Typography>
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{data!.content}</ReactMarkdown>
-                      </Typography>
+                      <MarkdownView>{data!.content}</MarkdownView>
                     </Box>
                   )}
                 </Tabs.Panel>

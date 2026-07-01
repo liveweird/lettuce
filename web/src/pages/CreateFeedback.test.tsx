@@ -6,28 +6,9 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import CreateFeedback from "./CreateFeedback";
 
-// The WYSIWYG editor is a Lexical contenteditable that doesn't run in jsdom; swap it for a
-// plain controlled textarea so the Content assertions keep exercising the same value flow.
-vi.mock("../components/MarkdownEditor", () => ({
-  default: ({
-    value,
-    onChange,
-    label,
-    placeholder,
-  }: {
-    value: string;
-    onChange: (v: string) => void;
-    label: string;
-    placeholder?: string;
-  }) => (
-    <textarea
-      aria-label={label}
-      placeholder={placeholder}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-    />
-  ),
-}));
+// Swap the Lexical-based editor for a plain textarea (see mockMarkdownEditor). Import inside the
+// (hoisted) factory to avoid the top-level-variable restriction.
+vi.mock("../components/MarkdownEditor", async () => (await import("../test/mockMarkdownEditor")).mockMarkdownEditorModule());
 
 const TOKEN_KEY = "lettuce.auth.token";
 const ROLE_KEY = "lettuce.auth.role";

@@ -715,7 +715,12 @@ paths:
       tags: [feedbacks]
       operationId: replaceFeedback
       summary: Replace a feedback record
-      description: Only the record's provider (or ADMIN) may modify a feedback.
+      description: |
+        Only the record's provider (or ADMIN) may modify a feedback. Status transitions
+        (send / withdraw / pick-up / reject) are driven through this whole-resource `PUT` by
+        changing `status`, rather than through action sub-resources — this is an intentional,
+        settled design choice (notifications' `seen`/`unseen` actions are modelled differently on
+        purpose) and should not be treated as spec drift.
       requestBody:
         required: true
         content:

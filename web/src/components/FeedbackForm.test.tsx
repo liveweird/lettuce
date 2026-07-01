@@ -4,29 +4,10 @@ import { fireEvent, renderWithProviders, screen, waitFor } from "../test/render"
 import FeedbackForm from "./FeedbackForm";
 import { formatTimestamp } from "../utils/datetime";
 
-// The WYSIWYG editor is a Lexical contenteditable that doesn't run in jsdom; swap it for a
-// plain controlled textarea so the content assertions (label, value, typing, template insert)
-// exercise the same value flow. The real wrapper is covered by MarkdownEditor.test.tsx.
-vi.mock("./MarkdownEditor", () => ({
-  default: ({
-    value,
-    onChange,
-    label,
-    placeholder,
-  }: {
-    value: string;
-    onChange: (v: string) => void;
-    label: string;
-    placeholder?: string;
-  }) => (
-    <textarea
-      aria-label={label}
-      placeholder={placeholder}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-    />
-  ),
-}));
+// Swap the Lexical-based editor for a plain textarea (see mockMarkdownEditor); the real wrapper
+// is covered by MarkdownEditor.test.tsx. Import inside the (hoisted) factory to avoid the
+// top-level-variable restriction.
+vi.mock("./MarkdownEditor", async () => (await import("../test/mockMarkdownEditor")).mockMarkdownEditorModule());
 
 const TOKEN_KEY = "lettuce.auth.token";
 
