@@ -151,6 +151,13 @@ describe("Users page", () => {
     // but not on their own row (the current user is Alice, id 1).
     expect(screen.getByRole("link", { name: /provide feedback for bob/i })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /provide feedback for alice/i })).not.toBeInTheDocument();
+    // Every user can also ask another user for feedback — but not themselves.
+    const ask = screen.getByRole("link", { name: /ask bob for feedback/i });
+    expect(ask).toHaveAttribute(
+      "href",
+      `/feedback/ask?providerId=2&providerName=${encodeURIComponent("Bob")}&back=${encodeURIComponent("/users")}`,
+    );
+    expect(screen.queryByRole("link", { name: /ask alice for feedback/i })).not.toBeInTheDocument();
     // Non-admins now also get a (read-only) Teams link per row.
     expect(screen.getAllByRole("link", { name: /^teams for /i })).toHaveLength(2);
   });

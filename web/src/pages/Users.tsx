@@ -27,6 +27,7 @@ import {
 import {
   IconKey,
   IconMessagePlus,
+  IconMessageQuestion,
   IconPencil,
   IconPlus,
   IconTrash,
@@ -143,7 +144,7 @@ export default function Users() {
 
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const columnCount = 8;
+  const columnCount = 9;
 
   return (
     <Stack gap="md">
@@ -233,6 +234,7 @@ export default function Users() {
               />
             </Table.Th>
             <Table.Th aria-label={t("users.provideFeedback")} style={{ width: 1 }} />
+            <Table.Th aria-label={t("users.askForFeedback")} style={{ width: 1 }} />
             <Table.Th aria-label={t("common.action.edit")} style={{ width: 1 }} />
             <Table.Th aria-label={t("users.changePassword")} style={{ width: 1 }} />
             <Table.Th aria-label={t("users.teams")} style={{ width: 1 }} />
@@ -266,6 +268,21 @@ export default function Users() {
                       aria-label={t("users.provideFeedbackFor", { name: u.name })}
                     >
                       {t("users.provideFeedback")}
+                    </Button>
+                  )}
+                </Table.Td>
+                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  {u.id !== currentUserId && (
+                    <Button
+                      component={RouterLink}
+                      to={`/feedback/ask?providerId=${u.id}&providerName=${encodeURIComponent(u.name)}&back=${encodeURIComponent("/users")}`}
+                      color="blue"
+                      variant="subtle"
+                      size="xs"
+                      leftSection={<IconMessageQuestion size={14} />}
+                      aria-label={t("users.askForFeedbackFrom", { name: u.name })}
+                    >
+                      {t("users.askForFeedback")}
                     </Button>
                   )}
                 </Table.Td>
