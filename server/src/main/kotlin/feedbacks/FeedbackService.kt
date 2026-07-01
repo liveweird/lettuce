@@ -74,6 +74,7 @@ class FeedbackService(val database: R2dbcDatabase) {
         val visibility = enumerationByName("visibility", 40, FeedbackVisibility::class)
         val status = enumerationByName("status", 20, FeedbackStatus::class)
         val content = text("content")
+        val requesterMessage = text("requester_message").nullable()
         val lastModified = long("last_modified")
         val markedAsDeleted = bool("marked_as_deleted").default(false)
     }
@@ -94,6 +95,7 @@ class FeedbackService(val database: R2dbcDatabase) {
             it[visibility] = feedback.visibility
             it[status] = feedback.status
             it[content] = feedback.content
+            it[requesterMessage] = feedback.requesterMessage
             it[lastModified] = System.currentTimeMillis()
         }
         val id = newRecord[Feedbacks.id].value
@@ -116,6 +118,7 @@ class FeedbackService(val database: R2dbcDatabase) {
                     visibility = row[Feedbacks.visibility],
                     status = row[Feedbacks.status],
                     content = row[Feedbacks.content],
+                    requesterMessage = row[Feedbacks.requesterMessage],
                     lastModified = row[Feedbacks.lastModified],
                 )
             }
@@ -138,6 +141,7 @@ class FeedbackService(val database: R2dbcDatabase) {
                         visibility = row[Feedbacks.visibility],
                         status = row[Feedbacks.status],
                         content = row[Feedbacks.content],
+                        requesterMessage = row[Feedbacks.requesterMessage],
                     )
                 }
                 .singleOrNull()

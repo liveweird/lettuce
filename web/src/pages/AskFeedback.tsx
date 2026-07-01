@@ -10,6 +10,7 @@ import {
   Select,
   Stack,
   Text,
+  Textarea,
   TextInput,
   Title,
 } from "@mantine/core";
@@ -43,6 +44,7 @@ export default function AskFeedback() {
   const requesterId = getUserId();
 
   const [visibility, setVisibility] = useState<FeedbackVisibility>("PROVIDER_REQUESTER_SUBJECT");
+  const [message, setMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
@@ -62,6 +64,7 @@ export default function AskFeedback() {
         visibility,
         status: "REQUESTED",
         content: "",
+        requesterMessage: message.trim() || undefined,
       });
       await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
       // Asking for feedback mints a requester confirmation — refresh the bell badge immediately.
@@ -106,6 +109,16 @@ export default function AskFeedback() {
             allowDeselect={false}
             value={visibility}
             onChange={(v) => v && setVisibility(v as FeedbackVisibility)}
+          />
+
+          <Textarea
+            label={t("feedback.requesterMessageLabel")}
+            placeholder={t("feedback.requesterMessagePlaceholder")}
+            value={message}
+            onChange={(e) => setMessage(e.currentTarget.value)}
+            autosize
+            minRows={2}
+            maxRows={6}
           />
 
           {error && (

@@ -43,6 +43,7 @@ const REQUESTED_FEEDBACK = {
   visibility: "PROVIDER_REQUESTER_SUBJECT",
   status: "REQUESTED",
   content: "",
+  requesterMessage: "Please assess my Q3 delivery",
   requesterName: "Rita Requester",
   subjectName: "Sam Subject",
   providerName: "Pat Provider",
@@ -143,6 +144,11 @@ describe("EditFeedback page", () => {
     const requester = screen.getByLabelText("Requester") as HTMLInputElement;
     expect(requester.value).toBe("Rita Requester");
     expect(requester).toBeDisabled();
+
+    // The requester's clarification message is carried into the editor, read-only.
+    const message = screen.getByLabelText("Message from the requester") as HTMLTextAreaElement;
+    expect(message).toHaveValue("Please assess my Q3 delivery");
+    expect(message).toHaveAttribute("readonly");
 
     await user.click(visibility);
     // The Template select's listbox is empty here, so the only options in the DOM are visibility's.
@@ -268,6 +274,10 @@ describe("EditFeedback page", () => {
     expect(screen.getByRole("button", { name: /^reject$/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^close$/i })).toBeInTheDocument();
     expect(screen.getByLabelText("Requester")).toHaveValue("Rita Requester");
+    // The requester's clarification message is shown read-only on the triage screen.
+    const message = screen.getByLabelText("Message from the requester") as HTMLTextAreaElement;
+    expect(message).toHaveValue("Please assess my Q3 delivery");
+    expect(message).toHaveAttribute("readonly");
   });
 
   test("Accept PUTs DRAFT and reloads in place as the editor", async () => {

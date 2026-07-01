@@ -11,6 +11,7 @@ import {
   Stack,
   Table,
   Text,
+  Textarea,
   TextInput,
   Title,
 } from "@mantine/core";
@@ -57,6 +58,7 @@ export default function RequestFeedback() {
   const [selected, setSelected] = useState<Provider[]>([]);
   const [pick, setPick] = useState<string | null>(null);
   const [visibility, setVisibility] = useState<FeedbackVisibility>("PROVIDER_REQUESTER_SUBJECT");
+  const [message, setMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
@@ -107,6 +109,7 @@ export default function RequestFeedback() {
             visibility,
             status: "REQUESTED",
             content: "",
+            requesterMessage: message.trim() || undefined,
           }),
         ),
       );
@@ -146,6 +149,16 @@ export default function RequestFeedback() {
             allowDeselect={false}
             value={visibility}
             onChange={(v) => v && setVisibility(v as FeedbackVisibility)}
+          />
+
+          <Textarea
+            label={t("feedback.requesterMessageLabel")}
+            placeholder={t("feedback.requesterMessagePlaceholder")}
+            value={message}
+            onChange={(e) => setMessage(e.currentTarget.value)}
+            autosize
+            minRows={2}
+            maxRows={6}
           />
 
           <Group align="flex-end" gap="sm">

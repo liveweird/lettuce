@@ -1329,6 +1329,13 @@ components:
           type: string
           enum: [REQUESTED, DRAFT, SENT, WITHDRAWN, REJECTED]
         content: { type: string, default: "" }
+        requesterMessage:
+          type: string
+          nullable: true
+          description: |
+            Requester's clarification note to the provider (why they asked, what they expect).
+            Captured only when a feedback is created; immutable afterward — any value sent on
+            update (`PUT`) is ignored.
 
     FeedbackResponse:
       type: object
@@ -1354,6 +1361,12 @@ components:
             The feedback body. Returned as an empty string (and omitted from `required`)
             when the caller may see that the record exists but not its content — a requester
             watching an unfinished (`DRAFT`/`REQUESTED`) feedback they requested.
+        requesterMessage:
+          type: string
+          nullable: true
+          description: |
+            Requester's clarification note to the provider, set at creation and never editable.
+            Null when the requester left it empty.
         lastModified:
           type: integer
           format: int64

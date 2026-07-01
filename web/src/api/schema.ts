@@ -750,6 +750,12 @@ export interface components {
             status: "REQUESTED" | "DRAFT" | "SENT" | "WITHDRAWN" | "REJECTED";
             /** @default  */
             content: string;
+            /**
+             * @description Requester's clarification note to the provider (why they asked, what they expect).
+             *     Captured only when a feedback is created; immutable afterward — any value sent on
+             *     update (`PUT`) is ignored.
+             */
+            requesterMessage?: string | null;
         };
         FeedbackResponse: {
             /** Format: int64 */
@@ -770,6 +776,11 @@ export interface components {
              *     watching an unfinished (`DRAFT`/`REQUESTED`) feedback they requested.
              */
             content?: string;
+            /**
+             * @description Requester's clarification note to the provider, set at creation and never editable.
+             *     Null when the requester left it empty.
+             */
+            requesterMessage?: string | null;
             /**
              * Format: int64
              * @description Epoch milliseconds of the last change. Server-managed and read-only.

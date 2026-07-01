@@ -58,6 +58,9 @@ export type FeedbackFormProps = {
   showTemplateInsert?: boolean;
   // Read-only requester display name; when set, a disabled "Requester" field is shown.
   requesterDisplay?: string;
+  // Read-only requester clarification note; when non-empty, a disabled "Message from the
+  // requester" field is shown. Immutable (captured at creation).
+  requesterMessage?: string | null;
   // Visibility choices for the combo; defaults to the create set (Provider+subject / Public).
   visibilityOptions?: { value: FeedbackVisibility; label: string }[];
   // Epoch millis; when set, shows a read-only "Last modified" field (edit flow only).
@@ -86,6 +89,7 @@ export default function FeedbackForm({
   discardMessage,
   showTemplateInsert = false,
   requesterDisplay,
+  requesterMessage,
   visibilityOptions,
   lastModified,
   feedbackId,
@@ -214,6 +218,16 @@ export default function FeedbackForm({
                 <TextInput label={t("common.field.provider")} value={t("common.state.you")} disabled />
                 {requesterDisplay != null && (
                   <TextInput label={t("common.field.requester")} value={requesterDisplay} disabled />
+                )}
+                {requesterMessage && (
+                  <Textarea
+                    label={t("feedback.requesterMessageView")}
+                    value={requesterMessage}
+                    autosize
+                    minRows={2}
+                    maxRows={6}
+                    readOnly
+                  />
                 )}
               </Stack>
               <Stack gap="sm">

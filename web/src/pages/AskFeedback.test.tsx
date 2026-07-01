@@ -105,6 +105,33 @@ describe("AskFeedback page", () => {
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/?tab=managers"));
   });
 
+  test("includes the trimmed requester message in the payload when filled", async () => {
+    mockFetch.mockImplementation((url: string) =>
+      Promise.resolve(url === "/api/v1/feedbacks" ? jsonResponse(201, { id: 99 }) : jsonResponse(404, {})),
+    );
+    const user = userEvent.setup();
+    renderAskFeedback();
+
+    await user.type(
+      screen.getByLabelText("Message to the provider"),
+      "  Please focus on my leadership skills  ",
+    );
+    await user.click(screen.getByRole("button", { name: /send request/i }));
+
+    const postCall = mockFetch.mock.calls.find(
+      ([url, init]) => url === "/api/v1/feedbacks" && (init as RequestInit | undefined)?.method === "POST",
+    );
+    expect(JSON.parse((postCall![1] as RequestInit).body as string)).toEqual({
+      requesterId: 3,
+      subjectId: 3,
+      providerId: 10,
+      visibility: "PROVIDER_REQUESTER_SUBJECT",
+      status: "REQUESTED",
+      content: "",
+      requesterMessage: "Please focus on my leadership skills",
+    });
+  });
+
   test("honors an explicit back param on submit and discard", async () => {
     mockFetch.mockImplementation((url: string) =>
       Promise.resolve(url === "/api/v1/feedbacks" ? jsonResponse(201, { id: 99 }) : jsonResponse(404, {})),

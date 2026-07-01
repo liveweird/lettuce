@@ -169,6 +169,28 @@ describe("RequestFeedback page", () => {
     });
   });
 
+  test("the shared requester message is sent to every selected provider", async () => {
+    setupMocks(mockFetch, () => jsonResponse(201, { id: 99 }));
+    const user = userEvent.setup();
+    renderRequestFeedback();
+
+    await screen.findByLabelText("Subject");
+    await user.type(screen.getByLabelText("Message to the provider"), "  Prep for the review  ");
+    await addProvider(user, "Alice Provider");
+    await addProvider(user, "Bob Provider");
+    await user.click(screen.getByRole("button", { name: /^request$/i }));
+
+    const postCalls = mockFetch.mock.calls.filter(
+      ([url, init]) => url === "/api/v1/feedbacks" && (init as RequestInit | undefined)?.method === "POST",
+    );
+    expect(postCalls).toHaveLength(2);
+    for (const call of postCalls) {
+      expect(JSON.parse((call[1] as RequestInit).body as string).requesterMessage).toBe(
+        "Prep for the review",
+      );
+    }
+  });
+
   test("a chosen visibility is reflected in the submitted request", async () => {
     setupMocks(mockFetch, () => jsonResponse(201, { id: 99 }));
     const user = userEvent.setup();

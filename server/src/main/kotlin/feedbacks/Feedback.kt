@@ -21,6 +21,8 @@ data class Feedback(
     val visibility: FeedbackVisibility,
     val status: FeedbackStatus,
     val content: String = "",
+    // Requester's clarification note to the provider; set at creation only, never editable afterward.
+    val requesterMessage: String? = null,
     // Server-managed: set on every create/update and ignored from request bodies.
     val lastModified: Long = 0L,
 )
@@ -34,6 +36,7 @@ data class FeedbackResponse(
     val visibility: FeedbackVisibility,
     val status: FeedbackStatus,
     val content: String,
+    val requesterMessage: String? = null,
     val lastModified: Long,
     // Resolved party display names; null when not resolved (e.g. no requester).
     val requesterName: String? = null,
@@ -49,6 +52,7 @@ fun Feedback.toResponse(
     FeedbackResponse(
         id, requesterId, subjectId, providerId, visibility, status,
         content = if (includeContent) content else "",
+        requesterMessage = requesterMessage,
         lastModified = lastModified,
         requesterName = requesterId?.let { names[it] },
         subjectName = names[subjectId],

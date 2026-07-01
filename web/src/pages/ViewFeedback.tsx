@@ -20,6 +20,7 @@ import {
   Stack,
   Tabs,
   Text,
+  Textarea,
   TextInput,
   Title,
   Typography,
@@ -231,6 +232,16 @@ export default function ViewFeedback() {
                   />
                 </Stack>
               </SimpleGrid>
+              {data!.requesterMessage && (
+                <Textarea
+                  label={t("feedback.requesterMessageView")}
+                  value={data!.requesterMessage}
+                  autosize
+                  minRows={2}
+                  maxRows={6}
+                  readOnly
+                />
+              )}
               <Tabs
                 defaultValue="content"
                 style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}

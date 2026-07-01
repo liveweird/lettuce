@@ -183,6 +183,64 @@ class FeedbackRoutesTest {
     }
 
     @Test
+    fun `requester message is stored at create and returned on read`() = testApplication {
+        usePostgresTestcontainer()
+        val t = seedTriad()
+        val client = authedClient(t.providerEmail, "pw")
+
+        val created = client.post("/api/v1/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                Feedback(
+                    requesterId = t.requesterId,
+                    subjectId = t.subjectId,
+                    providerId = t.providerId,
+                    visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
+                    status = FeedbackStatus.REQUESTED,
+                    requesterMessage = "Please focus on my delivery",
+                )
+            )
+        }.body<FeedbackResponse>()
+        assertEquals("Please focus on my delivery", created.requesterMessage)
+
+        val read = client.get("/api/v1/feedbacks/${created.id}").body<FeedbackResponse>()
+        assertEquals("Please focus on my delivery", read.requesterMessage)
+        // Absent message stays null (nullable column).
+        assertEquals(created, read)
+    }
+
+    @Test
+    fun `requester message is immutable across updates`() = testApplication {
+        usePostgresTestcontainer()
+        val t = seedTriad()
+        val client = authedClient(t.providerEmail, "pw")
+
+        val requested = Feedback(
+            requesterId = t.requesterId,
+            subjectId = t.subjectId,
+            providerId = t.providerId,
+            visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
+            status = FeedbackStatus.REQUESTED,
+            requesterMessage = "Original note",
+        )
+        val created = client.post("/api/v1/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(requested)
+        }.body<FeedbackResponse>()
+
+        // Provider picks up the request (REQUESTED -> DRAFT) and tries to tamper with the message.
+        val putResponse = client.put("/api/v1/feedbacks/${created.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(requested.copy(status = FeedbackStatus.DRAFT, requesterMessage = "Tampered note"))
+        }
+        assertEquals(HttpStatusCode.NoContent, putResponse.status)
+
+        val after = client.get("/api/v1/feedbacks/${created.id}").body<FeedbackResponse>()
+        assertEquals(FeedbackStatus.DRAFT, after.status)
+        assertEquals("Original note", after.requesterMessage)
+    }
+
+    @Test
     fun `create with sent status succeeds`() = testApplication {
         usePostgresTestcontainer()
         val t = seedTriad()

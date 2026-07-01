@@ -78,6 +78,8 @@ describe("ViewFeedback page", () => {
     expect((screen.getByLabelText("Status") as HTMLInputElement).value).toBe("Sent");
     // Content renders as read-only markdown, not an editable form control.
     expect(screen.getByText("Nice work on the launch")).toBeInTheDocument();
+    // No requester message on this feedback → no message field.
+    expect(screen.queryByLabelText("Message from the requester")).toBeNull();
 
     // Everything is read-only: there is no editable Content control nor a Save control, only Close.
     expect(screen.queryByRole("textbox", { name: /content/i })).not.toBeInTheDocument();
@@ -91,6 +93,19 @@ describe("ViewFeedback page", () => {
     expect(
       mockFetch.mock.calls.every(([, init]) => (init?.method ?? "GET") === "GET"),
     ).toBe(true);
+  });
+
+  test("shows the requester's message read-only when present", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, { ...FEEDBACK, requesterMessage: "Please focus on delivery" }),
+    );
+    renderViewFeedback();
+
+    const field = (await screen.findByLabelText(
+      "Message from the requester",
+    )) as HTMLTextAreaElement;
+    expect(field).toHaveValue("Please focus on delivery");
+    expect(field).toHaveAttribute("readonly");
   });
 
   test("renders the feedback history timeline from the events endpoint", async () => {

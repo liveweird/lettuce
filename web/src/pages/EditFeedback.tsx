@@ -17,6 +17,7 @@ import {
   Paper,
   Stack,
   Text,
+  Textarea,
   TextInput,
   Title,
 } from "@mantine/core";
@@ -222,6 +223,16 @@ export default function EditFeedback() {
             </Text>
             <TextInput label={t("common.field.subject")} value={subjectDisplay} disabled />
             <TextInput label={t("common.field.requester")} value={requesterDisplay} disabled />
+            {data!.requesterMessage && (
+              <Textarea
+                label={t("feedback.requesterMessageView")}
+                value={data!.requesterMessage}
+                autosize
+                minRows={2}
+                maxRows={6}
+                readOnly
+              />
+            )}
             {error && (
               <Alert color="red" variant="light">
                 {error}
@@ -300,6 +311,7 @@ export default function EditFeedback() {
         initialVisibility={clampVisibility(data!.visibility, hasRequester)}
         visibilityOptions={visibilityOptions}
         requesterDisplay={hasRequester ? (data!.requesterName ?? `#${data!.requesterId}`) : undefined}
+        requesterMessage={data!.requesterMessage}
         initialContent={data!.content ?? ""}
         lastModified={data!.lastModified}
         submitting={submitting}
