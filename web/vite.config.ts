@@ -9,6 +9,28 @@ export default defineConfig({
       '/api': 'http://localhost:8080',
     },
   },
+  build: {
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            // Groups capture their transitive deps too, so without this higher-priority group
+            // React itself (a dep of @lexical/react) would land inside the lexical chunk and
+            // every other chunk would import it eagerly, defeating the lazy editor split.
+            {
+              name: 'react',
+              test: /node_modules[\\/](?:react|react-dom|scheduler)[\\/]/,
+              priority: 10,
+            },
+            // MDXEditor's Lexical engine — roughly half of the (lazy-loaded) editor payload.
+            // Splitting it keeps every chunk under Vite's 500 kB warning threshold; both
+            // halves load in parallel behind the same dynamic import.
+            { name: 'lexical', test: /node_modules[\\/](?:@lexical|lexical)[\\/]/, priority: 5 },
+          ],
+        },
+      },
+    },
+  },
   test: {
     globals: true,
     environment: 'happy-dom',

@@ -1,12 +1,9 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
-import {
-  Joyride,
-  STATUS,
-  type Controls,
-  type EventData,
-  type Step,
-  type TooltipRenderProps,
-} from "react-joyride";
+import { createContext, lazy, Suspense, useContext, useState, type ReactNode } from "react";
+// Types only — erased at build time. The runtime react-joyride import lives solely in
+// TourJoyride.tsx, which is lazy-loaded below so the library stays out of the entry chunk.
+import type { Step, TooltipRenderProps } from "react-joyride";
+
+const TourJoyride = lazy(() => import("./TourJoyride"));
 import { Button, Group, Paper, Stack, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
@@ -209,12 +206,9 @@ export function TourProvider({ children }: { children: ReactNode }) {
     setRun(true);
   }
 
-  function handleEvent(_data: EventData, controls: Controls) {
-    const { status } = controls.info();
-    if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
-      setRun(false);
-      markSeen(userId);
-    }
+  function handleFinished() {
+    setRun(false);
+    markSeen(userId);
   }
 
   // "Abandon": stop the tour, remount so the internal step index resets to the first step, and mark
@@ -230,23 +224,20 @@ export function TourProvider({ children }: { children: ReactNode }) {
     <TourContext.Provider value={{ startTour }}>
       {children}
       <TourActionsContext.Provider value={{ abandon: handleAbandon }}>
-        <Joyride
-          key={tourKey}
-          steps={steps}
-          run={run}
-          continuous
-          scrollToFirstStep
-          onEvent={handleEvent}
-          tooltipComponent={TourTooltip}
-          options={{ zIndex: 10000 }}
-          locale={{
-            back: t("tour.nav.back"),
-            close: t("tour.nav.close"),
-            last: t("tour.nav.last"),
-            next: t("tour.nav.next"),
-            skip: t("tour.nav.skip"),
-          }}
-        />
+        {/* Mounted only once the tour has (ever) run this session, so returning users who've
+            seen it never download the react-joyride chunk. Pause keeps run=true, so the
+            resumable beacon survives; a replay bumps tourKey and keeps it mounted. */}
+        {(run || tourKey > 0) && (
+          <Suspense fallback={null}>
+            <TourJoyride
+              tourKey={tourKey}
+              steps={steps}
+              run={run}
+              tooltipComponent={TourTooltip}
+              onFinished={handleFinished}
+            />
+          </Suspense>
+        )}
       </TourActionsContext.Provider>
     </TourContext.Provider>
   );

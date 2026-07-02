@@ -10,6 +10,7 @@ import {
   Paper,
   Select,
   SimpleGrid,
+  Skeleton,
   Stack,
   Tabs,
   Text,
@@ -19,7 +20,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   getTemplate,
@@ -30,8 +31,12 @@ import {
 import { formatTimestamp } from "../utils/datetime";
 import FeedbackHistory from "./FeedbackHistory";
 import FeedbackLifecycle from "./FeedbackLifecycle";
-import MarkdownEditor from "./MarkdownEditor";
 import RequesterMessage from "./RequesterMessage";
+
+// The WYSIWYG editor pulls in MDXEditor/Lexical (~0.5 MB minified) — load it on demand so
+// screens that render FeedbackForm's consumers without the editor (e.g. the REQUESTED triage
+// view) never download it.
+const MarkdownEditor = lazy(() => import("./MarkdownEditor"));
 
 type FormValues = {
   visibility: FeedbackVisibility;
@@ -143,13 +148,15 @@ export default function FeedbackForm({
   // same string we store and render read-only elsewhere). On edit this lives in the "Content"
   // tab (alongside a "History" tab); on create it is rendered directly.
   const editor = (
-    <MarkdownEditor
-      label={t("common.field.content")}
-      placeholder={t("feedback.contentPlaceholder")}
-      maxLength={5000}
-      value={form.values.content}
-      onChange={(md) => form.setFieldValue("content", md)}
-    />
+    <Suspense fallback={<Skeleton height={220} radius="sm" />}>
+      <MarkdownEditor
+        label={t("common.field.content")}
+        placeholder={t("feedback.contentPlaceholder")}
+        maxLength={5000}
+        value={form.values.content}
+        onChange={(md) => form.setFieldValue("content", md)}
+      />
+    </Suspense>
   );
 
   return (

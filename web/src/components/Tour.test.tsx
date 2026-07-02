@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -195,17 +195,20 @@ describe("Tour", () => {
         <div />
       </TourProvider>,
     );
-    expect(lastProps().run).toBe(true);
+    // Joyride mounts lazily, so the first props arrive after the chunk resolves.
+    await waitFor(() => expect(lastProps().run).toBe(true));
     expect(hasSeenTour(7)).toBe(false);
 
-    // Finishing the tour persists the per-user flag and stops it.
+    // Finishing the tour persists the per-user flag and stops it — with run=false (and no
+    // replay yet) the lazy Joyride unmounts, so its running tooltip disappears.
     await act(async () => {
       lastProps().onEvent({}, controlsWithStatus("finished"));
     });
     expect(hasSeenTour(7)).toBe(true);
-    expect(lastProps().run).toBe(false);
+    expect(screen.queryByText("tour body")).not.toBeInTheDocument();
 
-    // A fresh mount for the same user does not auto-start again.
+    // A fresh mount for the same user does not auto-start again — the lazy Joyride (and its
+    // react-joyride chunk) is never mounted at all.
     cleanup();
     joyrideSpy.mockClear();
     renderTour(
@@ -213,7 +216,8 @@ describe("Tour", () => {
         <div />
       </TourProvider>,
     );
-    expect(lastProps().run).toBe(false);
+    await act(async () => {});
+    expect(joyrideSpy).not.toHaveBeenCalled();
   });
 
   test("Replay starts the tour even after it has been seen", async () => {
@@ -223,19 +227,23 @@ describe("Tour", () => {
         <Replayer />
       </TourProvider>,
     );
-    expect(lastProps().run).toBe(false); // already seen → no auto-start
+    // Already seen → no auto-start; the lazy Joyride is never mounted.
+    await act(async () => {});
+    expect(joyrideSpy).not.toHaveBeenCalled();
 
     await userEvent.click(screen.getByText("replay"));
-    expect(lastProps().run).toBe(true);
+    await waitFor(() => expect(lastProps().run).toBe(true));
   });
 
-  test("renders with the custom tooltip component (replacing Joyride's default + its corner X)", () => {
+  test("renders with the custom tooltip component (replacing Joyride's default + its corner X)", async () => {
     renderTour(
       <TourProvider>
         <div />
       </TourProvider>,
     );
-    expect((lastProps() as { tooltipComponent?: unknown }).tooltipComponent).toBe(TourTooltip);
+    await waitFor(() =>
+      expect((lastProps() as { tooltipComponent?: unknown }).tooltipComponent).toBe(TourTooltip),
+    );
   });
 
   test("Abandon from the running tour stops it and marks it seen (Replay still works)", async () => {
@@ -245,16 +253,17 @@ describe("Tour", () => {
       </TourProvider>,
     );
     // Fresh user → auto-starts; the mock renders the tooltip while running.
-    expect(lastProps().run).toBe(true);
+    await waitFor(() => expect(lastProps().run).toBe(true));
     expect(hasSeenTour(7)).toBe(false);
 
     await userEvent.click(screen.getByText("Abandon"));
     expect(hasSeenTour(7)).toBe(true);
+    // Abandon bumps tourKey, so the (already-loaded) Joyride stays mounted with run=false.
     expect(lastProps().run).toBe(false);
 
     // Replay re-runs it even though Abandon marked it seen.
     await userEvent.click(screen.getByText("replay"));
-    expect(lastProps().run).toBe(true);
+    await waitFor(() => expect(lastProps().run).toBe(true));
   });
 });
 

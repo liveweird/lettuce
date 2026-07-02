@@ -72,7 +72,8 @@ describe("FeedbackForm", () => {
     expect(screen.getByRole("heading", { name: "Edit feedback" })).toBeInTheDocument();
     expect(screen.getByLabelText("Subject")).toHaveValue("Sam Subject");
 
-    await user.type(screen.getByLabelText("Content"), "Nice work");
+    // The editor is lazy-loaded, so wait for it to resolve before typing.
+    await user.type(await screen.findByLabelText("Content"), "Nice work");
     await user.click(screen.getByRole("button", { name: /save draft/i }));
     expect(onSubmit).toHaveBeenCalledWith("DRAFT", expect.objectContaining({ content: "Nice work" }));
 
