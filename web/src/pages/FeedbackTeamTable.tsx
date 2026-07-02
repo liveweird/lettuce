@@ -1,13 +1,11 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
   Button,
   Center,
   CloseButton,
-  Group,
   Loader,
-  Pagination,
   Select,
   Stack,
   Table,
@@ -26,7 +24,9 @@ import {
   type FeedbackVisibility,
 } from "../api/client";
 import FilterPanel from "../components/FilterPanel";
-import SortHeader, { type SortDir } from "../components/SortHeader";
+import PaginationBar from "../components/PaginationBar";
+import SortHeader from "../components/SortHeader";
+import { usePagedSort } from "../hooks/usePagedSort";
 import {
   formatTimestamp,
   lastModifiedCutoff,
@@ -34,9 +34,6 @@ import {
   type LastModifiedWindow,
 } from "../utils/datetime";
 import { feedbackPartyName } from "../utils/userDisplay";
-
-const PAGE_SIZE_OPTIONS = [20, 40, 60] as const;
-const DEFAULT_PAGE_SIZE = 20;
 
 type SortField =
   | "requesterName"
@@ -74,10 +71,6 @@ export default function FeedbackTeamTable() {
     value,
     label: t(`common.status.${value}`),
   }));
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
-  const [sortField, setSortField] = useState<SortField>("subjectName");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [requesterFilter, setRequesterFilter] = useState("");
   const [providerFilter, setProviderFilter] = useState("");
   const [subjectFilter, setSubjectFilter] = useState("");
@@ -97,21 +90,15 @@ export default function FeedbackTeamTable() {
   const [debouncedProvider] = useDebouncedValue(providerFilter, 300);
   const [debouncedSubject] = useDebouncedValue(subjectFilter, 300);
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPage(1);
-  }, [
-    debouncedRequester,
-    debouncedProvider,
-    debouncedSubject,
-    visibilityFilter,
-    statusFilter,
-    lastModifiedFilter,
-    sortField,
-    sortDir,
-  ]);
-
-  const sortParam = `${sortDir === "desc" ? "-" : ""}${sortField}`;
+  const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
+    usePagedSort<SortField>("subjectName", [
+      debouncedRequester,
+      debouncedProvider,
+      debouncedSubject,
+      visibilityFilter,
+      statusFilter,
+      lastModifiedFilter,
+    ]);
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: [
@@ -143,17 +130,7 @@ export default function FeedbackTeamTable() {
     placeholderData: keepPreviousData,
   });
 
-  function toggleSort(field: SortField) {
-    if (field === sortField) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortField(field);
-      setSortDir("asc");
-    }
-  }
-
   const total = data?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
     <Stack gap="md">
@@ -381,30 +358,14 @@ export default function FeedbackTeamTable() {
         </Table.Tbody>
       </Table>
 
-      <Group justify="space-between" align="center">
-        <Text size="sm" c="dimmed">
-          {t("common.table.total", { count: total })}
-        </Text>
-        <Group gap="sm" align="center">
-          <Select
-            size="xs"
-            aria-label={t("feedback.rowsPerPage")}
-            data={PAGE_SIZE_OPTIONS.map((n) => ({
-              value: String(n),
-              label: t("common.table.perPage", { count: n }),
-            }))}
-            value={String(pageSize)}
-            onChange={(v) => {
-              if (!v) return;
-              setPageSize(Number(v));
-              setPage(1);
-            }}
-            allowDeselect={false}
-            w={110}
-          />
-          <Pagination value={page} onChange={setPage} total={totalPages} siblings={1} withEdges />
-        </Group>
-      </Group>
+      <PaginationBar
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        rowsPerPageLabelKey="feedback.rowsPerPage"
+      />
     </Stack>
   );
 }

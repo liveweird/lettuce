@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
@@ -8,8 +8,6 @@ import {
   Group,
   Loader,
   Modal,
-  Pagination,
-  Select,
   Stack,
   Table,
   Text,
@@ -26,11 +24,10 @@ import {
 import { IconEye, IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import FilterPanel from "../components/FilterPanel";
-import SortHeader, { type SortDir } from "../components/SortHeader";
+import PaginationBar from "../components/PaginationBar";
+import SortHeader from "../components/SortHeader";
+import { usePagedSort } from "../hooks/usePagedSort";
 import { deleteTemplate, isAdmin, listTemplates } from "../api/client";
-
-const PAGE_SIZE_OPTIONS = [20, 40, 60] as const;
-const DEFAULT_PAGE_SIZE = 20;
 
 type SortField = "name";
 
@@ -38,10 +35,6 @@ type TemplateRow = { id: number; name: string };
 
 export default function Templates() {
   const { t } = useTranslation();
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
-  const [sortField, setSortField] = useState<SortField>("name");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [nameFilter, setNameFilter] = useState("");
   const activeFilterCount = nameFilter.trim() ? 1 : 0;
   const [target, setTarget] = useState<TemplateRow | null>(null);
@@ -52,12 +45,8 @@ export default function Templates() {
 
   const [debouncedName] = useDebouncedValue(nameFilter, 300);
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPage(1);
-  }, [debouncedName, sortField, sortDir]);
-
-  const sortParam = `${sortDir === "desc" ? "-" : ""}${sortField}`;
+  const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
+    usePagedSort<SortField>("name", [debouncedName]);
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["templates", page, pageSize, sortParam, debouncedName],
@@ -80,15 +69,6 @@ export default function Templates() {
     },
   });
 
-  function toggleSort(field: SortField) {
-    if (field === sortField) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortField(field);
-      setSortDir("asc");
-    }
-  }
-
   function requestDelete(row: TemplateRow) {
     setTarget(row);
     deleteMutation.reset();
@@ -107,7 +87,6 @@ export default function Templates() {
   }
 
   const total = data?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const columnCount = 3;
 
   return (
@@ -230,36 +209,14 @@ export default function Templates() {
         </Table.Tbody>
       </Table>
 
-      <Group justify="space-between" align="center">
-        <Text size="sm" c="dimmed">
-          {t("common.table.total", { count: total })}
-        </Text>
-        <Group gap="sm" align="center">
-          <Select
-            size="xs"
-            aria-label={t("templates.rowsPerPage")}
-            data={PAGE_SIZE_OPTIONS.map((n) => ({
-              value: String(n),
-              label: t("common.table.perPage", { count: n }),
-            }))}
-            value={String(pageSize)}
-            onChange={(v) => {
-              if (!v) return;
-              setPageSize(Number(v));
-              setPage(1);
-            }}
-            allowDeselect={false}
-            w={110}
-          />
-          <Pagination
-            value={page}
-            onChange={setPage}
-            total={totalPages}
-            siblings={1}
-            withEdges
-          />
-        </Group>
-      </Group>
+      <PaginationBar
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        rowsPerPageLabelKey="templates.rowsPerPage"
+      />
 
       {admin && (
         <Group justify="flex-end">
