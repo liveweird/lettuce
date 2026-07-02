@@ -3,6 +3,7 @@ package ch.nokillswit
 import ch.nokillswit.auth.LoginRequest
 import ch.nokillswit.auth.LoginResponse
 import ch.nokillswit.feedbacks.Feedback
+import ch.nokillswit.feedbacks.FeedbackCreateRequest
 import ch.nokillswit.feedbacks.FeedbackContentUpdate
 import ch.nokillswit.feedbacks.FeedbackPageResponse
 import ch.nokillswit.feedbacks.FeedbackResponse
@@ -80,7 +81,7 @@ class FeedbackRoutesTest {
         val t = seedTriad()
         val client = authedClient(t.providerEmail, "pw")
 
-        val payload = Feedback(
+        val payload = FeedbackCreateRequest(
             requesterId = null,
             subjectId = t.subjectId,
             providerId = t.providerId,
@@ -110,6 +111,29 @@ class FeedbackRoutesTest {
     }
 
     @Test
+    fun `create rejects a client-supplied lastModified`() = testApplication {
+        usePostgresTestcontainer()
+        val t = seedTriad()
+        val client = authedClient(t.providerEmail, "pw")
+
+        // lastModified is server-managed and not part of FeedbackRequest; sending it is a 400.
+        val base = """"subjectId":${t.subjectId},"providerId":${t.providerId},"visibility":"PROVIDER_SUBJECT","status":"DRAFT","content":"x""""
+        val rejected = client.post("/api/v1/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody("""{$base,"lastModified":123}""")
+        }
+        assertEquals(HttpStatusCode.BadRequest, rejected.status)
+
+        // Control: the identical body without lastModified is accepted, so the 400 above is
+        // attributable to the unknown field, not to how the raw body was transmitted.
+        val accepted = client.post("/api/v1/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody("{$base}")
+        }
+        assertEquals(HttpStatusCode.Created, accepted.status)
+    }
+
+    @Test
     fun `read resolves party display names`() = testApplication {
         usePostgresTestcontainer()
         val providerEmail = uniqueEmail("provider")
@@ -121,7 +145,7 @@ class FeedbackRoutesTest {
         val withRequester = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     requesterId = requesterId,
                     subjectId = subjectId,
                     providerId = providerId,
@@ -145,7 +169,7 @@ class FeedbackRoutesTest {
         val noRequester = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     subjectId = subjectId,
                     providerId = providerId,
                     visibility = FeedbackVisibility.PROVIDER_SUBJECT,
@@ -168,7 +192,7 @@ class FeedbackRoutesTest {
         val response = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     requesterId = t.requesterId,
                     subjectId = t.subjectId,
                     providerId = t.providerId,
@@ -192,7 +216,7 @@ class FeedbackRoutesTest {
         val created = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     requesterId = t.requesterId,
                     subjectId = t.subjectId,
                     providerId = t.providerId,
@@ -216,7 +240,7 @@ class FeedbackRoutesTest {
         val t = seedTriad()
         val client = authedClient(t.providerEmail, "pw")
 
-        val requested = Feedback(
+        val requested = FeedbackCreateRequest(
             requesterId = t.requesterId,
             subjectId = t.subjectId,
             providerId = t.providerId,
@@ -249,7 +273,7 @@ class FeedbackRoutesTest {
         val response = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     requesterId = null,
                     subjectId = t.subjectId,
                     providerId = t.providerId,
@@ -274,7 +298,7 @@ class FeedbackRoutesTest {
         val response = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     requesterId = null,
                     subjectId = t.subjectId,
                     providerId = t.providerId,
@@ -295,7 +319,7 @@ class FeedbackRoutesTest {
         val response = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     subjectId = t.providerId,
                     providerId = t.providerId,
                     visibility = FeedbackVisibility.PROVIDER_SUBJECT,
@@ -315,7 +339,7 @@ class FeedbackRoutesTest {
         val response = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     requesterId = t.providerId,
                     subjectId = t.subjectId,
                     providerId = t.providerId,
@@ -337,7 +361,7 @@ class FeedbackRoutesTest {
         val onCreate = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     requesterId = t.requesterId,
                     subjectId = t.subjectId,
                     providerId = t.providerId,
@@ -352,7 +376,7 @@ class FeedbackRoutesTest {
         val created = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     requesterId = t.requesterId,
                     subjectId = t.subjectId,
                     providerId = t.providerId,
@@ -377,7 +401,7 @@ class FeedbackRoutesTest {
         val response = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     subjectId = 999_999u,
                     providerId = t.providerId,
                     visibility = FeedbackVisibility.PROVIDER_SUBJECT,
@@ -394,7 +418,7 @@ class FeedbackRoutesTest {
         val t = seedTriad()
         val client = authedClient(t.providerEmail, "pw")
 
-        val draft = Feedback(
+        val draft = FeedbackCreateRequest(
             subjectId = t.subjectId,
             providerId = t.providerId,
             visibility = FeedbackVisibility.PROVIDER_SUBJECT,
@@ -418,7 +442,7 @@ class FeedbackRoutesTest {
         val t = seedTriad()
         val client = authedClient(t.providerEmail, "pw")
 
-        val draft = Feedback(
+        val draft = FeedbackCreateRequest(
             subjectId = t.subjectId,
             providerId = t.providerId,
             visibility = FeedbackVisibility.PROVIDER_SUBJECT,
@@ -448,7 +472,7 @@ class FeedbackRoutesTest {
         val t = seedTriad()
         val client = authedClient(t.providerEmail, "pw")
 
-        val draft = Feedback(
+        val draft = FeedbackCreateRequest(
             subjectId = t.subjectId,
             providerId = t.providerId,
             visibility = FeedbackVisibility.PROVIDER_SUBJECT,
@@ -474,7 +498,7 @@ class FeedbackRoutesTest {
         val t = seedTriad()
         val client = authedClient(t.providerEmail, "pw")
 
-        val draft = Feedback(
+        val draft = FeedbackCreateRequest(
             subjectId = t.subjectId,
             providerId = t.providerId,
             visibility = FeedbackVisibility.PROVIDER_SUBJECT,
@@ -499,7 +523,7 @@ class FeedbackRoutesTest {
         val t = seedTriad()
         val client = authedClient(t.providerEmail, "pw")
 
-        val requested = Feedback(
+        val requested = FeedbackCreateRequest(
             requesterId = t.requesterId,
             subjectId = t.subjectId,
             providerId = t.providerId,
@@ -523,7 +547,7 @@ class FeedbackRoutesTest {
         val t = seedTriad()
         val client = authedClient(t.providerEmail, "pw")
 
-        val requested = Feedback(
+        val requested = FeedbackCreateRequest(
             requesterId = t.requesterId,
             subjectId = t.subjectId,
             providerId = t.providerId,
@@ -549,7 +573,7 @@ class FeedbackRoutesTest {
         val t = seedTriad()
         val client = authedClient(t.providerEmail, "pw")
 
-        val draft = Feedback(
+        val draft = FeedbackCreateRequest(
             subjectId = t.subjectId,
             providerId = t.providerId,
             visibility = FeedbackVisibility.PROVIDER_SUBJECT,
@@ -582,7 +606,7 @@ class FeedbackRoutesTest {
         val created = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     subjectId = t.subjectId,
                     providerId = t.providerId,
                     visibility = FeedbackVisibility.PROVIDER_SUBJECT,
@@ -604,7 +628,7 @@ class FeedbackRoutesTest {
         val created = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     subjectId = t.subjectId,
                     providerId = t.providerId,
                     visibility = FeedbackVisibility.PROVIDER_SUBJECT,
@@ -628,7 +652,7 @@ class FeedbackRoutesTest {
         val created = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     subjectId = t.subjectId,
                     providerId = t.providerId,
                     visibility = FeedbackVisibility.PROVIDER_SUBJECT,
@@ -698,7 +722,7 @@ class FeedbackRoutesTest {
     ): FeedbackResponse = feedbackSeeder().post("/api/v1/feedbacks") {
         contentType(ContentType.Application.Json)
         setBody(
-            Feedback(
+            FeedbackCreateRequest(
                 requesterId = requesterId,
                 subjectId = subjectId,
                 providerId = providerId,
@@ -719,7 +743,7 @@ class FeedbackRoutesTest {
         val response = client.put("/api/v1/feedbacks/999999") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     subjectId = 1u, providerId = 2u,
                     visibility = FeedbackVisibility.PUBLIC, status = FeedbackStatus.SENT,
                 )
@@ -1232,7 +1256,7 @@ class FeedbackRoutesTest {
         val created = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     subjectId = t.subjectId,
                     providerId = t.providerId,
                     visibility = FeedbackVisibility.PROVIDER_SUBJECT,
@@ -1257,7 +1281,7 @@ class FeedbackRoutesTest {
         val created = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     requesterId = t.requesterId,
                     subjectId = t.subjectId,
                     providerId = t.providerId,
@@ -1283,7 +1307,7 @@ class FeedbackRoutesTest {
         val created = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     subjectId = t.subjectId,
                     providerId = t.providerId,
                     visibility = FeedbackVisibility.PROVIDER_SUBJECT,
@@ -1303,7 +1327,7 @@ class FeedbackRoutesTest {
         val t = seedTriad()
         val client = authedClient(t.providerEmail, "pw")
 
-        val draft = Feedback(
+        val draft = FeedbackCreateRequest(
             subjectId = t.subjectId,
             providerId = t.providerId,
             visibility = FeedbackVisibility.PROVIDER_SUBJECT,
@@ -1503,7 +1527,7 @@ class FeedbackRoutesTest {
         val requester = seedParty("requester", "Rita Requester")
         val providerClient = authedClient(provider.email, "pw")
 
-        val draft = Feedback(
+        val draft = FeedbackCreateRequest(
             requesterId = requester.id,
             subjectId = subject.id,
             providerId = provider.id,
@@ -1549,7 +1573,7 @@ class FeedbackRoutesTest {
         val requester = seedParty("requester", "Rita Requester")
         val providerClient = authedClient(provider.email, "pw")
 
-        val requested = Feedback(
+        val requested = FeedbackCreateRequest(
             requesterId = requester.id,
             subjectId = subject.id,
             providerId = provider.id,
@@ -1579,7 +1603,7 @@ class FeedbackRoutesTest {
         val requester = seedParty("requester", "Rita Requester")
         val providerClient = authedClient(provider.email, "pw")
 
-        val draft = Feedback(
+        val draft = FeedbackCreateRequest(
             requesterId = requester.id,
             subjectId = subject.id,
             providerId = provider.id,
@@ -1614,7 +1638,7 @@ class FeedbackRoutesTest {
         val requester = seedParty("requester", "Rita Requester")
         val providerClient = authedClient(provider.email, "pw")
 
-        val requested = Feedback(
+        val requested = FeedbackCreateRequest(
             requesterId = requester.id,
             subjectId = subject.id,
             providerId = provider.id,
@@ -1641,7 +1665,7 @@ class FeedbackRoutesTest {
         val requester = seedParty("requester", "Rita Requester")
         val providerClient = authedClient(provider.email, "pw")
 
-        val draft = Feedback(
+        val draft = FeedbackCreateRequest(
             requesterId = requester.id,
             subjectId = subject.id,
             providerId = provider.id,
@@ -1670,7 +1694,7 @@ class FeedbackRoutesTest {
         val requester = seedParty("requester", "Rita Requester")
         val providerClient = authedClient(provider.email, "pw")
 
-        val draft = Feedback(
+        val draft = FeedbackCreateRequest(
             requesterId = requester.id,
             subjectId = subject.id,
             providerId = provider.id,
@@ -1704,7 +1728,7 @@ class FeedbackRoutesTest {
         val created = requesterClient.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     requesterId = requester.id,
                     subjectId = subject.id,
                     providerId = provider.id,
@@ -1741,7 +1765,7 @@ class FeedbackRoutesTest {
         meClient.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     requesterId = me.id,
                     subjectId = me.id,
                     providerId = provider.id,
@@ -1766,7 +1790,7 @@ class FeedbackRoutesTest {
         providerClient.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     subjectId = subject.id,
                     providerId = provider.id,
                     visibility = FeedbackVisibility.PROVIDER_SUBJECT,

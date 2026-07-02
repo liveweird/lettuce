@@ -25,6 +25,32 @@ data class FeedbackContentUpdate(
     val visibility: FeedbackVisibility,
 )
 
+/**
+ * Body of `POST /feedbacks` — mirrors the spec's FeedbackRequest exactly. Deliberately has no
+ * `lastModified`: that field is server-managed, and a dedicated create DTO keeps clients from
+ * even sending it (unknown keys are rejected as 400 by the default Json config).
+ */
+@Serializable
+data class FeedbackCreateRequest(
+    val requesterId: UInt? = null,
+    val subjectId: UInt,
+    val providerId: UInt,
+    val visibility: FeedbackVisibility,
+    val status: FeedbackStatus,
+    val content: String = "",
+    val requesterMessage: String? = null,
+) {
+    fun toFeedback() = Feedback(
+        requesterId = requesterId,
+        subjectId = subjectId,
+        providerId = providerId,
+        visibility = visibility,
+        status = status,
+        content = content,
+        requesterMessage = requesterMessage,
+    )
+}
+
 @Serializable
 data class Feedback(
     val requesterId: UInt? = null,
@@ -35,7 +61,7 @@ data class Feedback(
     val content: String = "",
     // Requester's clarification note to the provider; set at creation only, never editable afterward.
     val requesterMessage: String? = null,
-    // Server-managed: set on every create/update and ignored from request bodies.
+    // Server-managed: set on every create/update; never part of a request body (see FeedbackCreateRequest).
     val lastModified: Long = 0L,
 )
 

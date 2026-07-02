@@ -3,6 +3,7 @@ package ch.nokillswit
 import ch.nokillswit.auth.LoginRequest
 import ch.nokillswit.auth.LoginResponse
 import ch.nokillswit.feedbacks.Feedback
+import ch.nokillswit.feedbacks.FeedbackCreateRequest
 import ch.nokillswit.feedbacks.FeedbackResponse
 import ch.nokillswit.feedbacks.FeedbackContentUpdate
 import ch.nokillswit.feedbacks.FeedbackStatus
@@ -272,7 +273,7 @@ class AuthorizationTest {
             val created = providerClient.post("/api/v1/feedbacks") {
                 contentType(ContentType.Application.Json)
                 setBody(
-                    Feedback(
+                    FeedbackCreateRequest(
                         // A requester is incompatible with PROVIDER_SUBJECT visibility (server invariant),
                         // so that row carries none; the matrix's "requester" actor is then a non-party
                         // user and is expected to be Forbidden for PROVIDER_SUBJECT anyway.
@@ -365,7 +366,7 @@ class AuthorizationTest {
         val feedback = providerClient.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     subjectId = subjectId,
                     providerId = providerId,
                     visibility = FeedbackVisibility.PROVIDER_SUBJECT,
@@ -385,7 +386,7 @@ class AuthorizationTest {
             managerClient.put("/api/v1/feedbacks/${feedback.id}") {
                 contentType(ContentType.Application.Json)
                 setBody(
-                    Feedback(
+                    FeedbackCreateRequest(
                         subjectId = subjectId,
                         providerId = providerId,
                         visibility = FeedbackVisibility.PROVIDER_SUBJECT,
@@ -409,7 +410,7 @@ class AuthorizationTest {
         val created = providerClient.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     subjectId = subjectId,
                     providerId = providerId,
                     visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
@@ -422,7 +423,7 @@ class AuthorizationTest {
         val put = subjectClient.put("/api/v1/feedbacks/${created.id}") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     subjectId = subjectId,
                     providerId = providerId,
                     visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
@@ -453,7 +454,7 @@ class AuthorizationTest {
         val created = providerClient.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     subjectId = subjectId,
                     providerId = providerId,
                     visibility = FeedbackVisibility.PROVIDER_SUBJECT,
@@ -503,7 +504,7 @@ class AuthorizationTest {
         val created = adminClient.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     subjectId = subjectId,
                     providerId = adminId,
                     visibility = FeedbackVisibility.PROVIDER_SUBJECT,
@@ -554,7 +555,7 @@ class AuthorizationTest {
         val response = authedClient(strangerEmail, "pw").post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     subjectId = subjectId,
                     providerId = providerId,
                     visibility = FeedbackVisibility.PROVIDER_SUBJECT,
@@ -577,7 +578,7 @@ class AuthorizationTest {
         val response = authedClient(requesterEmail, "pw").post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     requesterId = requesterId,
                     subjectId = subjectId,
                     providerId = providerId,
@@ -600,7 +601,7 @@ class AuthorizationTest {
         val response = authedClient(adminEmail, "pw").post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     subjectId = subjectId,
                     providerId = providerId,
                     visibility = FeedbackVisibility.PROVIDER_SUBJECT,

@@ -3,6 +3,7 @@ package ch.nokillswit
 import ch.nokillswit.auth.LoginRequest
 import ch.nokillswit.auth.LoginResponse
 import ch.nokillswit.feedbacks.Feedback
+import ch.nokillswit.feedbacks.FeedbackCreateRequest
 import ch.nokillswit.feedbacks.FeedbackEventListResponse
 import ch.nokillswit.feedbacks.FeedbackResponse
 import ch.nokillswit.feedbacks.FeedbackContentUpdate
@@ -93,7 +94,7 @@ class FeedbackEventsTest {
         val created = provider.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     subjectId = subjectId, providerId = providerId,
                     visibility = FeedbackVisibility.PROVIDER_SUBJECT,
                     status = FeedbackStatus.DRAFT, content = "draft",
@@ -130,7 +131,7 @@ class FeedbackEventsTest {
         val created = provider.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     subjectId = subjectId, providerId = providerId,
                     visibility = FeedbackVisibility.PROVIDER_SUBJECT,
                     status = FeedbackStatus.DRAFT, content = "first",
@@ -161,7 +162,7 @@ class FeedbackEventsTest {
         val created = provider.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     subjectId = subjectId, providerId = providerId,
                     visibility = FeedbackVisibility.PROVIDER_SUBJECT,
                     status = FeedbackStatus.DRAFT, content = "secret",
@@ -202,7 +203,7 @@ class FeedbackEventsTest {
         val created = provider.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
-                Feedback(
+                FeedbackCreateRequest(
                     subjectId = subjectId, providerId = providerId,
                     visibility = FeedbackVisibility.PROVIDER_SUBJECT,
                     status = FeedbackStatus.DRAFT, content = "draft",

@@ -263,8 +263,11 @@ export interface paths {
         put: operations["addTeamMember"];
         post?: never;
         /**
-         * Remove a member from the team
+         * Remove a member from the team (idempotent)
          * @description Requires the caller to be the team's current manager, or to be ADMIN.
+         *     Idempotent: removing a user who is not (or no longer) a member is a no-op `204`.
+         *     Zero-member teams are allowed, so removing the last member succeeds. The manager
+         *     is never a `team_members` row, so this endpoint cannot affect them.
          */
         delete: operations["removeTeamMember"];
         options?: never;
@@ -693,6 +696,8 @@ export interface paths {
          * @description Sets `wasSeen` to `true` for every one of the authenticated caller's still-unseen
          *     notifications, in a single request. Idempotent. Intrinsically scoped to the caller's own
          *     notifications (no `{id}`, no recipient guard); there is no ADMIN cross-user bypass.
+         *     Deliberately asymmetric: there is no `unseen-all` counterpart — un-seeing is a
+         *     per-notification action (`POST /notifications/{id}/unseen`).
          */
         post: operations["markAllNotificationsSeen"];
         delete?: never;
@@ -1709,21 +1714,12 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Removed */
+            /** @description Removed (or was not a member) */
             204: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-            /** @description Cannot remove the last member or the manager via this endpoint */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
             };
             401: components["responses"]["Unauthorized"];
             /** @description Caller is not the team's manager and not ADMIN */

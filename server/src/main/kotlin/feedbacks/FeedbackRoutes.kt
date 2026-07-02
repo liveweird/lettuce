@@ -129,7 +129,7 @@ fun Application.configureFeedbackRoutes() {
             }
             post<Feedbacks> {
                 val caller = call.caller()
-                val feedback = call.receive<Feedback>()
+                val feedback = call.receive<FeedbackCreateRequest>().toFeedback()
                 // A caller may only create feedback they are a party to — the provider (they author
                 // it) or the requester (they ask for it). Admins may create on behalf of others.
                 // Prevents authoring feedback as someone else or forging a request from someone else.

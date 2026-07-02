@@ -505,15 +505,14 @@ paths:
     delete:
       tags: [teams]
       operationId: removeTeamMember
-      summary: Remove a member from the team
-      description: Requires the caller to be the team's current manager, or to be ADMIN.
+      summary: Remove a member from the team (idempotent)
+      description: |
+        Requires the caller to be the team's current manager, or to be ADMIN.
+        Idempotent: removing a user who is not (or no longer) a member is a no-op `204`.
+        Zero-member teams are allowed, so removing the last member succeeds. The manager
+        is never a `team_members` row, so this endpoint cannot affect them.
       responses:
-        '204': { description: Removed }
-        '400':
-          description: Cannot remove the last member or the manager via this endpoint
-          content:
-            application/problem+json:
-              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '204': { description: Removed (or was not a member) }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Caller is not the team's manager and not ADMIN
@@ -1138,6 +1137,8 @@ paths:
         Sets `wasSeen` to `true` for every one of the authenticated caller's still-unseen
         notifications, in a single request. Idempotent. Intrinsically scoped to the caller's own
         notifications (no `{id}`, no recipient guard); there is no ADMIN cross-user bypass.
+        Deliberately asymmetric: there is no `unseen-all` counterpart — un-seeing is a
+        per-notification action (`POST /notifications/{id}/unseen`).
       responses:
         '204': { description: All of the caller's notifications marked as seen }
         '401': { $ref: '#/components/responses/Unauthorized' }
