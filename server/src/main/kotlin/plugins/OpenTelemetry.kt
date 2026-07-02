@@ -9,7 +9,7 @@ import io.opentelemetry.instrumentation.ktor.v3_0.KtorServerTelemetry
 import io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender
 
 fun Application.configureOpenTelemetry() {
-    val openTelemetry = getOpenTelemetry(serviceName = "ktor-sample")
+    val openTelemetry = getOpenTelemetry(serviceName = "lettuce")
     // Wire the Logback OTel appender to this SDK; flushes the pre-install buffer of boot logs.
     OpenTelemetryAppender.install(openTelemetry)
 

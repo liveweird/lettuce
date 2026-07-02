@@ -46,7 +46,6 @@ fun requireCanAssignRole(caller: CallerPrincipal, current: UserRole, requested: 
 fun canReadFeedback(
     caller: CallerPrincipal,
     feedback: Feedback,
-    managesSubject: Boolean = false,
 ): Boolean {
     // what ADMIN sees
     // Admins see everything, regardless of the status and visibility
@@ -73,13 +72,8 @@ fun canReadFeedback(
         (feedback.status == FeedbackStatus.SENT || feedback.status == FeedbackStatus.WITHDRAWN)
     ) return true
 
-    // what SUBJECT's MANAGER sees
-    // Subject's manager can see the feedback if:
-    // - visibility: any
-    // - status: Sent, Withdrawn
-    if (managesSubject &&
-        (feedback.status == FeedbackStatus.SENT || feedback.status == FeedbackStatus.WITHDRAWN)
-    ) return true
+    // The SUBJECT's MANAGER is handled outside this function: requireFeedbackReadAllowingManager
+    // grants a managing caller read unconditionally (any status) after these cheap rules miss.
 
     // what the rest sees
     // - visibility: public

@@ -30,13 +30,10 @@ fun Application.configureHttp() {
         allowMethod(HttpMethod.Patch)
         allowHeader(HttpHeaders.Authorization)
         allowHeader(HttpHeaders.ContentType)
-        allowHeader("MyCustomHeader")
         anyHost() // @TODO: Don't do this in production if possible. Try to limit it.
     }
     install(Compression)
-    install(DefaultHeaders) {
-        header("X-Engine", "Ktor") // will send this header with each response
-    }
+    install(DefaultHeaders)
     if (!developmentMode) {
         install(HSTS) {
             includeSubDomains = true
