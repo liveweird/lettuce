@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
@@ -36,10 +36,6 @@ import {
 } from "../utils/datetime";
 import { feedbackPartyName } from "../utils/userDisplay";
 
-// This component handles the two single-counterparty views; the "team" view has its
-// own three-person-column table (FeedbackTeamTable).
-type PairFeedbackView = Exclude<FeedbackListView, "team">;
-
 type SortField =
   | "requesterName"
   | "subjectName"
@@ -58,37 +54,155 @@ const STATUS_VALUES: FeedbackStatus[] = [
   "REJECTED",
 ];
 
-// Per-view differences: the second person column (the first is always the requester)
-// and which visibilities can actually occur in the result set.
+// A filterable + sortable person column (the first column is always the requester).
+type PersonColumn = {
+  field: "providerName" | "subjectName";
+  labelKey: string;
+  clearFilterLabelKey: string;
+  id: (f: FeedbackRow) => number;
+  name: (f: FeedbackRow) => string;
+  deleted: (f: FeedbackRow) => boolean;
+};
+
+const PROVIDER_COLUMN: PersonColumn = {
+  field: "providerName",
+  labelKey: "common.field.provider",
+  clearFilterLabelKey: "feedback.clearProviderFilter",
+  id: (f) => f.providerId,
+  name: (f) => f.providerName,
+  deleted: (f) => f.providerDeleted,
+};
+
+const SUBJECT_COLUMN: PersonColumn = {
+  field: "subjectName",
+  labelKey: "common.field.subject",
+  clearFilterLabelKey: "feedback.clearSubjectFilter",
+  id: (f) => f.subjectId,
+  name: (f) => f.subjectName,
+  deleted: (f) => f.subjectDeleted,
+};
+
+// What the per-view action renderers get from the component.
+type ActionContext = {
+  currentUserId: number | null;
+  // `&back=…` suffix carrying the `backTo` prop; empty when unset.
+  backParam: string;
+  t: (key: string, opts?: Record<string, unknown>) => string;
+};
+
+// Per-view differences: which person columns appear between Requester and Visibility,
+// the default sort, which visibilities can actually occur in the result set, and how
+// the row action (View/Edit link) is rendered.
 const VIEW_CONFIG: Record<
-  PairFeedbackView,
+  FeedbackListView,
   {
-    personField: "subjectName" | "providerName";
-    personId: (f: FeedbackRow) => number;
-    personName: (f: FeedbackRow) => string;
-    personDeleted: (f: FeedbackRow) => boolean;
+    personColumns: PersonColumn[];
+    defaultSortField: SortField;
     visibilityValues: FeedbackVisibility[];
+    renderAction: (f: FeedbackRow, ctx: ActionContext) => ReactNode;
   }
 > = {
   received: {
-    personField: "providerName",
-    personId: (f) => f.providerId,
-    personName: (f) => f.providerName,
-    personDeleted: (f) => f.providerDeleted,
+    personColumns: [PROVIDER_COLUMN],
+    defaultSortField: "providerName",
     // Only the visibilities a subject is allowed to see ever appear in this view.
     visibilityValues: ["PROVIDER_SUBJECT", "PROVIDER_REQUESTER_SUBJECT", "PUBLIC"],
+    renderAction: (f, { t, backParam }) => (
+      <Button
+        component={RouterLink}
+        to={
+          `/feedback/${f.id}/view?providerName=${encodeURIComponent(f.providerName)}` +
+          (f.requesterName ? `&requesterName=${encodeURIComponent(f.requesterName)}` : "") +
+          backParam
+        }
+        color="blue"
+        variant="subtle"
+        size="xs"
+        leftSection={<IconEye size={14} />}
+        aria-label={t("feedback.viewFrom", { name: f.providerName })}
+      >
+        {t("common.action.view")}
+      </Button>
+    ),
   },
   provided: {
-    personField: "subjectName",
-    personId: (f) => f.subjectId,
-    personName: (f) => f.subjectName,
-    personDeleted: (f) => f.subjectDeleted,
+    personColumns: [SUBJECT_COLUMN],
+    defaultSortField: "subjectName",
     visibilityValues: [
       "PROVIDER_SUBJECT",
       "PROVIDER_REQUESTER",
       "PROVIDER_REQUESTER_SUBJECT",
       "PUBLIC",
     ],
+    renderAction: (f, { t, backParam }) =>
+      f.status === "REQUESTED" || f.status === "DRAFT" ? (
+        <Button
+          component={RouterLink}
+          to={`/feedback/${f.id}/edit?subjectName=${encodeURIComponent(f.subjectName)}${backParam}`}
+          color="blue"
+          variant="subtle"
+          size="xs"
+          leftSection={<IconPencil size={14} />}
+          aria-label={t("feedback.editFor", { name: f.subjectName })}
+        >
+          {t("common.action.edit")}
+        </Button>
+      ) : (
+        <Button
+          component={RouterLink}
+          to={
+            `/feedback/${f.id}/view?as=provider&subjectName=${encodeURIComponent(f.subjectName)}` +
+            (f.requesterName ? `&requesterName=${encodeURIComponent(f.requesterName)}` : "") +
+            backParam
+          }
+          color="blue"
+          variant="subtle"
+          size="xs"
+          leftSection={<IconEye size={14} />}
+          aria-label={t("feedback.viewFor", { name: f.subjectName })}
+        >
+          {t("common.action.view")}
+        </Button>
+      ),
+  },
+  team: {
+    personColumns: [PROVIDER_COLUMN, SUBJECT_COLUMN],
+    defaultSortField: "subjectName",
+    visibilityValues: [
+      "PROVIDER_SUBJECT",
+      "PROVIDER_REQUESTER",
+      "PROVIDER_REQUESTER_SUBJECT",
+      "PUBLIC",
+    ],
+    renderAction: (f, { t, currentUserId }) =>
+      currentUserId === f.providerId && f.status === "DRAFT" ? (
+        <Button
+          component={RouterLink}
+          to={`/feedback/${f.id}/edit?subjectName=${encodeURIComponent(f.subjectName)}&from=team`}
+          color="blue"
+          variant="subtle"
+          size="xs"
+          leftSection={<IconPencil size={14} />}
+          aria-label={t("feedback.editFor", { name: f.subjectName })}
+        >
+          {t("common.action.edit")}
+        </Button>
+      ) : (
+        <Button
+          component={RouterLink}
+          to={
+            `/feedback/${f.id}/view?as=team&providerName=${encodeURIComponent(f.providerName)}&subjectName=${encodeURIComponent(f.subjectName)}` +
+            (f.requesterName ? `&requesterName=${encodeURIComponent(f.requesterName)}` : "")
+          }
+          color="blue"
+          variant="subtle"
+          size="xs"
+          leftSection={<IconEye size={14} />}
+          aria-label={t("feedback.viewFor", { name: f.subjectName })}
+        >
+          {t("common.action.view")}
+        </Button>
+      ),
   },
 };
 
@@ -98,7 +212,7 @@ export default function FeedbackTable({
   subjectId,
   backTo,
 }: {
-  view: PairFeedbackView;
+  view: FeedbackListView;
   // Optional exact-id scope to a single counterparty (used by the per-manager screen).
   providerId?: number;
   subjectId?: number;
@@ -108,10 +222,6 @@ export default function FeedbackTable({
   const { t } = useTranslation();
   const currentUserId = getUserId();
   const config = VIEW_CONFIG[view];
-  const personLabel = t(`common.field.${view === "received" ? "provider" : "subject"}`);
-  const clearPersonFilterLabel = t(
-    view === "received" ? "feedback.clearProviderFilter" : "feedback.clearSubjectFilter",
-  );
   const visibilityOptions = config.visibilityValues.map((value) => ({
     value,
     label: t(`common.visibility.${value}`),
@@ -121,29 +231,43 @@ export default function FeedbackTable({
     label: t(`common.status.${value}`),
   }));
   const backParam = backTo ? `&back=${encodeURIComponent(backTo)}` : "";
-  const showActions = view === "provided" || view === "received";
-  const columnCount = showActions ? 6 : 5;
+  const columnCount = config.personColumns.length + 5;
 
   const [requesterFilter, setRequesterFilter] = useState("");
-  const [personFilter, setPersonFilter] = useState("");
+  const [providerFilter, setProviderFilter] = useState("");
+  const [subjectFilter, setSubjectFilter] = useState("");
   const [visibilityFilter, setVisibilityFilter] = useState<FeedbackVisibility | null>(null);
   const [statusFilter, setStatusFilter] = useState<FeedbackStatus | null>(null);
   const [lastModifiedFilter, setLastModifiedFilter] = useState<LastModifiedWindow>("all");
+  // Filters without a rendered input stay "" and count 0, so this is per-view correct.
   // `lastModifiedFilter` defaults to the truthy "all" — compare against it, not truthiness.
   const activeFilterCount =
     (requesterFilter.trim() ? 1 : 0) +
-    (personFilter.trim() ? 1 : 0) +
+    (providerFilter.trim() ? 1 : 0) +
+    (subjectFilter.trim() ? 1 : 0) +
     (visibilityFilter ? 1 : 0) +
     (statusFilter ? 1 : 0) +
     (lastModifiedFilter !== "all" ? 1 : 0);
 
   const [debouncedRequester] = useDebouncedValue(requesterFilter, 300);
-  const [debouncedPerson] = useDebouncedValue(personFilter, 300);
+  const [debouncedProvider] = useDebouncedValue(providerFilter, 300);
+  const [debouncedSubject] = useDebouncedValue(subjectFilter, 300);
+
+  // Binds each person column's filter input to its state; only the columns in
+  // `config.personColumns` render an input, so the others never leave "".
+  const personFilters: Record<
+    PersonColumn["field"],
+    { value: string; set: (v: string) => void }
+  > = {
+    providerName: { value: providerFilter, set: setProviderFilter },
+    subjectName: { value: subjectFilter, set: setSubjectFilter },
+  };
 
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
-    usePagedSort<SortField>(config.personField, [
+    usePagedSort<SortField>(config.defaultSortField, [
       debouncedRequester,
-      debouncedPerson,
+      debouncedProvider,
+      debouncedSubject,
       visibilityFilter,
       statusFilter,
       lastModifiedFilter,
@@ -159,7 +283,8 @@ export default function FeedbackTable({
       pageSize,
       sortParam,
       debouncedRequester,
-      debouncedPerson,
+      debouncedProvider,
+      debouncedSubject,
       visibilityFilter,
       statusFilter,
       lastModifiedFilter,
@@ -171,7 +296,8 @@ export default function FeedbackTable({
         pageSize,
         sort: sortParam,
         requesterName: debouncedRequester || undefined,
-        [config.personField]: debouncedPerson || undefined,
+        providerName: debouncedProvider || undefined,
+        subjectName: debouncedSubject || undefined,
         providerId,
         subjectId,
         visibility: visibilityFilter ?? undefined,
@@ -204,24 +330,30 @@ export default function FeedbackTable({
           }
           rightSectionPointerEvents="auto"
         />
-        <TextInput
-          label={personLabel}
-          placeholder={t("common.filter.contains")}
-          value={personFilter}
-          onChange={(e) => setPersonFilter(e.currentTarget.value)}
-          rightSection={
-            personFilter ? (
-              <CloseButton
-                size="sm"
-                aria-label={clearPersonFilterLabel}
-                tabIndex={-1}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setPersonFilter("")}
-              />
-            ) : null
-          }
-          rightSectionPointerEvents="auto"
-        />
+        {config.personColumns.map((col) => {
+          const filter = personFilters[col.field];
+          return (
+            <TextInput
+              key={col.field}
+              label={t(col.labelKey)}
+              placeholder={t("common.filter.contains")}
+              value={filter.value}
+              onChange={(e) => filter.set(e.currentTarget.value)}
+              rightSection={
+                filter.value ? (
+                  <CloseButton
+                    size="sm"
+                    aria-label={t(col.clearFilterLabelKey)}
+                    tabIndex={-1}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => filter.set("")}
+                  />
+                ) : null
+              }
+              rightSectionPointerEvents="auto"
+            />
+          );
+        })}
         <Select
           label={t("common.field.visibility")}
           placeholder={t("common.state.any")}
@@ -265,15 +397,17 @@ export default function FeedbackTable({
                 onToggle={toggleSort}
               />
             </Table.Th>
-            <Table.Th>
-              <SortHeader
-                field={config.personField}
-                label={personLabel}
-                activeField={sortField}
-                activeDir={sortDir}
-                onToggle={toggleSort}
-              />
-            </Table.Th>
+            {config.personColumns.map((col) => (
+              <Table.Th key={col.field}>
+                <SortHeader
+                  field={col.field}
+                  label={t(col.labelKey)}
+                  activeField={sortField}
+                  activeDir={sortDir}
+                  onToggle={toggleSort}
+                />
+              </Table.Th>
+            ))}
             <Table.Th>
               <SortHeader
                 field="visibility"
@@ -301,7 +435,7 @@ export default function FeedbackTable({
                 onToggle={toggleSort}
               />
             </Table.Th>
-            {showActions && <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />}
+            <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -325,73 +459,17 @@ export default function FeedbackTable({
                     t,
                   )}
                 </Table.Td>
-                <Table.Td>
-                  {feedbackPartyName(
-                    config.personId(f),
-                    config.personName(f),
-                    config.personDeleted(f),
-                    currentUserId,
-                    t,
-                  )}
-                </Table.Td>
+                {config.personColumns.map((col) => (
+                  <Table.Td key={col.field}>
+                    {feedbackPartyName(col.id(f), col.name(f), col.deleted(f), currentUserId, t)}
+                  </Table.Td>
+                ))}
                 <Table.Td>{t(`common.visibility.${f.visibility}`)}</Table.Td>
                 <Table.Td>{t(`common.status.${f.status}`)}</Table.Td>
                 <Table.Td style={{ whiteSpace: "nowrap" }}>
                   {formatTimestamp(f.lastModified)}
                 </Table.Td>
-                {showActions && (
-                  <Table.Td>
-                    {view === "received" ? (
-                      <Button
-                        component={RouterLink}
-                        to={
-                          `/feedback/${f.id}/view?providerName=${encodeURIComponent(f.providerName)}` +
-                          (f.requesterName
-                            ? `&requesterName=${encodeURIComponent(f.requesterName)}`
-                            : "") +
-                          backParam
-                        }
-                        color="blue"
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconEye size={14} />}
-                        aria-label={t("feedback.viewFrom", { name: f.providerName })}
-                      >
-                        {t("common.action.view")}
-                      </Button>
-                    ) : f.status === "REQUESTED" || f.status === "DRAFT" ? (
-                      <Button
-                        component={RouterLink}
-                        to={`/feedback/${f.id}/edit?subjectName=${encodeURIComponent(f.subjectName)}${backParam}`}
-                        color="blue"
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconPencil size={14} />}
-                        aria-label={t("feedback.editFor", { name: f.subjectName })}
-                      >
-                        {t("common.action.edit")}
-                      </Button>
-                    ) : (
-                      <Button
-                        component={RouterLink}
-                        to={
-                          `/feedback/${f.id}/view?as=provider&subjectName=${encodeURIComponent(f.subjectName)}` +
-                          (f.requesterName
-                            ? `&requesterName=${encodeURIComponent(f.requesterName)}`
-                            : "") +
-                          backParam
-                        }
-                        color="blue"
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconEye size={14} />}
-                        aria-label={t("feedback.viewFor", { name: f.subjectName })}
-                      >
-                        {t("common.action.view")}
-                      </Button>
-                    )}
-                  </Table.Td>
-                )}
+                <Table.Td>{config.renderAction(f, { currentUserId, backParam, t })}</Table.Td>
               </Table.Tr>
             ))
           ) : (

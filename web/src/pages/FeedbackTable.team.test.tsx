@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { fireEvent, renderWithProviders, screen, waitFor, within } from "../test/render";
-import FeedbackTeamTable from "./FeedbackTeamTable";
+import FeedbackTable from "./FeedbackTable";
 
 const TOKEN_KEY = "lettuce.auth.token";
 const ROLE_KEY = "lettuce.auth.role";
@@ -89,7 +89,7 @@ function feedbackUrls(mockFetch: FetchMock): string[] {
     .filter((url) => url.startsWith("/api/v1/feedbacks"));
 }
 
-describe("FeedbackTeamTable", () => {
+describe("FeedbackTable (team view)", () => {
   let mockFetch: FetchMock;
 
   beforeEach(() => {
@@ -107,7 +107,7 @@ describe("FeedbackTeamTable", () => {
 
   test("fetches the team view and renders rows with a formatted Last modified column", async () => {
     setupMocks(mockFetch);
-    renderWithProviders(<FeedbackTeamTable />);
+    renderWithProviders(<FeedbackTable view="team" />);
 
     await screen.findByRole("cell", { name: "Sam Subject" });
     expect(feedbackUrls(mockFetch)[0]).toContain("view=team");
@@ -123,7 +123,7 @@ describe("FeedbackTeamTable", () => {
   test("clicking the Subject header toggles the sort param asc↔desc", async () => {
     setupMocks(mockFetch);
     const user = userEvent.setup();
-    renderWithProviders(<FeedbackTeamTable />);
+    renderWithProviders(<FeedbackTable view="team" />);
 
     await screen.findByRole("cell", { name: "Sam Subject" });
     // Default sort is subjectName ascending.
@@ -138,7 +138,7 @@ describe("FeedbackTeamTable", () => {
   test("typing a Provider filter refetches with providerName=", async () => {
     setupMocks(mockFetch);
     const user = userEvent.setup();
-    renderWithProviders(<FeedbackTeamTable />);
+    renderWithProviders(<FeedbackTable view="team" />);
 
     await screen.findByRole("cell", { name: "Sam Subject" });
     await user.click(screen.getByRole("button", { name: /filters/i }));
@@ -151,7 +151,7 @@ describe("FeedbackTeamTable", () => {
   test("filters are collapsed by default and the toggle reveals them", async () => {
     setupMocks(mockFetch);
     const user = userEvent.setup();
-    renderWithProviders(<FeedbackTeamTable />);
+    renderWithProviders(<FeedbackTable view="team" />);
 
     await screen.findByRole("cell", { name: "Sam Subject" });
     const toggle = screen.getByRole("button", { name: /filters/i });
@@ -170,7 +170,7 @@ describe("FeedbackTeamTable", () => {
   test("the Filters toggle shows a badge counting the active filters", async () => {
     setupMocks(mockFetch);
     const user = userEvent.setup();
-    renderWithProviders(<FeedbackTeamTable />);
+    renderWithProviders(<FeedbackTable view="team" />);
 
     await screen.findByRole("cell", { name: "Sam Subject" });
     const toggle = screen.getByRole("button", { name: /filters/i });
@@ -184,7 +184,7 @@ describe("FeedbackTeamTable", () => {
 
   test("selecting visibility, status, and a Last modified window adds their params", async () => {
     setupMocks(mockFetch);
-    renderWithProviders(<FeedbackTeamTable />);
+    renderWithProviders(<FeedbackTable view="team" />);
 
     await screen.findByRole("cell", { name: "Sam Subject" });
     fireEvent.click(screen.getByRole("button", { name: /filters/i }));
@@ -210,7 +210,7 @@ describe("FeedbackTeamTable", () => {
 
   test("shows Edit only for the current user's DRAFT row, View otherwise", async () => {
     setupMocks(mockFetch);
-    renderWithProviders(<FeedbackTeamTable />);
+    renderWithProviders(<FeedbackTable view="team" />);
 
     const draftRow = (await screen.findByRole("cell", { name: "Tina Subject" })).closest("tr")!;
     expect(within(draftRow).getByRole("link", { name: /edit/i })).toBeInTheDocument();
@@ -223,7 +223,7 @@ describe("FeedbackTeamTable", () => {
   test("typing a Subject filter refetches with subjectName=", async () => {
     setupMocks(mockFetch);
     const user = userEvent.setup();
-    renderWithProviders(<FeedbackTeamTable />);
+    renderWithProviders(<FeedbackTable view="team" />);
 
     await screen.findByRole("cell", { name: "Sam Subject" });
     await user.click(screen.getByRole("button", { name: /filters/i }));
@@ -236,7 +236,7 @@ describe("FeedbackTeamTable", () => {
   test("clicking the Requester header toggles the sort param asc↔desc", async () => {
     setupMocks(mockFetch);
     const user = userEvent.setup();
-    renderWithProviders(<FeedbackTeamTable />);
+    renderWithProviders(<FeedbackTable view="team" />);
 
     await screen.findByRole("cell", { name: "Sam Subject" });
     await user.click(screen.getByRole("button", { name: /requester/i }));
@@ -252,7 +252,7 @@ describe("FeedbackTeamTable", () => {
   test("switching the sort field resets the direction to ascending", async () => {
     setupMocks(mockFetch);
     const user = userEvent.setup();
-    renderWithProviders(<FeedbackTeamTable />);
+    renderWithProviders(<FeedbackTable view="team" />);
 
     await screen.findByRole("cell", { name: "Sam Subject" });
     // Default subjectName asc → click Subject to go desc, then click Provider (new field → asc).
@@ -268,7 +268,7 @@ describe("FeedbackTeamTable", () => {
 
   test("changing the page size refetches with pageSize and resets to page 1", async () => {
     setupMocks(mockFetch);
-    renderWithProviders(<FeedbackTeamTable />);
+    renderWithProviders(<FeedbackTable view="team" />);
 
     await screen.findByRole("cell", { name: "Sam Subject" });
     fireEvent.click(screen.getByLabelText("Rows per page", { selector: "input" }));
@@ -283,7 +283,7 @@ describe("FeedbackTeamTable", () => {
   test("clicking page 2 refetches with page=2", async () => {
     setupMocks(mockFetch, feedbacksPage(SEED, 40)); // 40 total / 20 per page → 2 pages
     const user = userEvent.setup();
-    renderWithProviders(<FeedbackTeamTable />);
+    renderWithProviders(<FeedbackTable view="team" />);
 
     await screen.findByRole("cell", { name: "Sam Subject" });
     await user.click(screen.getByRole("button", { name: "2" }));
@@ -294,7 +294,7 @@ describe("FeedbackTeamTable", () => {
 
   test("Edit and View links carry the expected query params", async () => {
     setupMocks(mockFetch);
-    renderWithProviders(<FeedbackTeamTable />);
+    renderWithProviders(<FeedbackTable view="team" />);
 
     const draftRow = (await screen.findByRole("cell", { name: "Tina Subject" })).closest("tr")!;
     expect(within(draftRow).getByRole("link", { name: /edit/i })).toHaveAttribute(
@@ -318,7 +318,7 @@ describe("FeedbackTeamTable", () => {
       providerId: 10, // not the current user → View link shown
     };
     setupMocks(mockFetch, feedbacksPage([noRequester]));
-    renderWithProviders(<FeedbackTeamTable />);
+    renderWithProviders(<FeedbackTable view="team" />);
 
     const row = (await screen.findByRole("cell", { name: "Sam Subject" })).closest("tr")!;
     const href = within(row).getByRole("link", { name: /view/i }).getAttribute("href")!;
@@ -328,13 +328,13 @@ describe("FeedbackTeamTable", () => {
 
   test("shows an empty state when there is no team feedback", async () => {
     setupMocks(mockFetch, feedbacksPage([]));
-    renderWithProviders(<FeedbackTeamTable />);
+    renderWithProviders(<FeedbackTable view="team" />);
     expect(await screen.findByText(/no feedback/i)).toBeInTheDocument();
   });
 
   test("shows an error alert when the request fails", async () => {
     setupMocks(mockFetch, jsonResponse(500, { error: "internal", message: "boom" }));
-    renderWithProviders(<FeedbackTeamTable />);
+    renderWithProviders(<FeedbackTable view="team" />);
     expect(await screen.findByText(/failed to load feedbacks/i)).toBeInTheDocument();
   });
 });

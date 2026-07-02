@@ -4,7 +4,6 @@ import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { getUserId, listTeams } from "../api/client";
 import FeedbackTable from "./FeedbackTable";
-import FeedbackTeamTable from "./FeedbackTeamTable";
 
 const TABS = ["received", "provided", "team"] as const;
 type FeedbackTab = (typeof TABS)[number];
@@ -65,7 +64,7 @@ export default function Feedback() {
         </Tabs.Panel>
         {isManager && (
           <Tabs.Panel value="team" pt="md">
-            <FeedbackTeamTable />
+            <FeedbackTable view="team" />
           </Tabs.Panel>
         )}
       </Tabs>
