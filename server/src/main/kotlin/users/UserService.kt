@@ -1,5 +1,6 @@
 package ch.nokillswit.users
 
+import ch.nokillswit.infra.db.containsPattern
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.teams.TeamService
@@ -134,14 +135,6 @@ class UserService(val database: R2dbcDatabase) {
             op = op and (Users.id inSubQuery memberUserIds)
         }
         return op
-    }
-
-    private fun containsPattern(raw: String): LikePattern {
-        val escaped = raw.lowercase()
-            .replace("\\", "\\\\")
-            .replace("%", "\\%")
-            .replace("_", "\\_")
-        return LikePattern("%$escaped%", escapeChar = '\\')
     }
 
     private fun ResultRow.toUser() = User(

@@ -1,5 +1,6 @@
 package ch.nokillswit.teams
 
+import ch.nokillswit.infra.db.containsPattern
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.SortField
 import ch.nokillswit.infra.paging.applyPaging
@@ -282,14 +283,6 @@ class TeamService(val database: R2dbcDatabase) {
             op = op and (Teams.id eq it)
         }
         return op
-    }
-
-    private fun containsPattern(raw: String): LikePattern {
-        val escaped = raw.lowercase()
-            .replace("\\", "\\\\")
-            .replace("%", "\\%")
-            .replace("_", "\\_")
-        return LikePattern("%$escaped%", escapeChar = '\\')
     }
 
     private fun validateMembership(team: Team) {

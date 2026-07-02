@@ -7,6 +7,7 @@ import ch.nokillswit.authz.requireCanAssignRole
 import ch.nokillswit.authz.requireSelfOrAdmin
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.optionalString
+import ch.nokillswit.infra.paging.optionalUInt
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpHeaders
@@ -52,15 +53,11 @@ fun Application.configureUserRoutes() {
                         throw BadRequestException("Unknown role: $raw (allowed: ${UserRole.entries.joinToString { it.name }})")
                     }
                 }
-                val teamIdFilter = params.optionalString("teamId")?.let { raw ->
-                    raw.toUIntOrNull()
-                        ?: throw BadRequestException("teamId must be a non-negative integer")
-                }
                 val filter = UserListFilter(
                     name = params.optionalString("name"),
                     email = params.optionalString("email"),
                     role = roleFilter,
-                    teamId = teamIdFilter,
+                    teamId = params.optionalUInt("teamId"),
                 )
                 val result = userService.list(filter, paging)
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))

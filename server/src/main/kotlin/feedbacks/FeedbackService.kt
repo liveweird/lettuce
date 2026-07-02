@@ -1,6 +1,7 @@
 package ch.nokillswit.feedbacks
 
 import ch.nokillswit.authz.ConflictException
+import ch.nokillswit.infra.db.containsPattern
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.notifications.Notification
@@ -351,14 +352,6 @@ class FeedbackService(val database: R2dbcDatabase) {
         filter.status?.let { op = op and (Feedbacks.status eq it) }
         filter.lastModifiedGte?.let { op = op and (Feedbacks.lastModified greaterEq it) }
         return op
-    }
-
-    private fun containsPattern(raw: String): LikePattern {
-        val escaped = raw.lowercase()
-            .replace("\\", "\\\\")
-            .replace("%", "\\%")
-            .replace("_", "\\_")
-        return LikePattern("%$escaped%", escapeChar = '\\')
     }
 
     private fun validate(current: Feedback?, next: Feedback) {

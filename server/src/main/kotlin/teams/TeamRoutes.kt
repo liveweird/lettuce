@@ -4,8 +4,10 @@ import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireCanReassignManager
 import ch.nokillswit.authz.requireSelfOrAdmin
 import ch.nokillswit.authz.requireTeamManagerOrAdmin
+import ch.nokillswit.infra.db.requireValidReferences
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.optionalString
+import ch.nokillswit.infra.paging.optionalUInt
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpHeaders
@@ -24,8 +26,6 @@ import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.routing.routing
 import kotlinx.serialization.Serializable
-import io.r2dbc.spi.R2dbcException
-import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 
 @Serializable
 @Resource("/api/v1/teams")
@@ -52,18 +52,10 @@ fun Application.configureTeamRoutes() {
                 call.caller()
                 val paging = call.parsePaging(sortable = setOf("id", "name"))
                 val params = call.request.queryParameters
-                val managerIdFilter = params.optionalString("managerId")?.let { raw ->
-                    raw.toUIntOrNull()
-                        ?: throw BadRequestException("managerId must be a non-negative integer")
-                }
-                val memberIdFilter = params.optionalString("memberId")?.let { raw ->
-                    raw.toUIntOrNull()
-                        ?: throw BadRequestException("memberId must be a non-negative integer")
-                }
                 val filter = TeamListFilter(
                     name = params.optionalString("name"),
-                    managerId = managerIdFilter,
-                    memberId = memberIdFilter,
+                    managerId = params.optionalUInt("managerId"),
+                    memberId = params.optionalUInt("memberId"),
                 )
                 val result = teamService.list(filter, paging)
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
@@ -78,14 +70,10 @@ fun Application.configureTeamRoutes() {
                     else -> throw BadRequestException("Unknown view: $raw (allowed: member, managed, managers)")
                 }
                 val paging = call.parsePaging(sortable = setOf("id", "name", "email", "teamName"))
-                val teamIdFilter = params.optionalString("teamId")?.let { raw ->
-                    raw.toUIntOrNull()
-                        ?: throw BadRequestException("teamId must be a non-negative integer")
-                }
                 val filter = TeamMemberListFilter(
                     name = params.optionalString("name"),
                     email = params.optionalString("email"),
-                    teamId = teamIdFilter,
+                    teamId = params.optionalUInt("teamId"),
                 )
                 val result = teamService.listMembers(view, caller.userId, filter, paging)
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
@@ -94,12 +82,8 @@ fun Application.configureTeamRoutes() {
                 val caller = call.caller()
                 val team = call.receive<Team>()
                 requireSelfOrAdmin(caller, team.managerId)
-                val id = try {
+                val id = requireValidReferences("Referenced user does not exist") {
                     teamService.create(team)
-                } catch (e: ExposedSQLException) {
-                    throw BadRequestException("Referenced user does not exist", e)
-                } catch (e: R2dbcException) {
-                    throw BadRequestException("Referenced user does not exist", e)
                 }
                 call.response.header(HttpHeaders.Location, call.application.href(Teams.Id(id = id)))
                 call.respond(HttpStatusCode.Created, team.toResponse(id))
@@ -123,12 +107,8 @@ fun Application.configureTeamRoutes() {
                 requireTeamManagerOrAdmin(caller, existing.managerId)
                 val team = call.receive<Team>()
                 requireCanReassignManager(caller, existing.managerId, team.managerId)
-                try {
+                requireValidReferences("Referenced user does not exist") {
                     teamService.update(route.id, team)
-                } catch (e: ExposedSQLException) {
-                    throw BadRequestException("Referenced user does not exist", e)
-                } catch (e: R2dbcException) {
-                    throw BadRequestException("Referenced user does not exist", e)
                 }
                 call.respond(HttpStatusCode.NoContent)
             }
@@ -151,12 +131,8 @@ fun Application.configureTeamRoutes() {
                     return@put
                 }
                 requireTeamManagerOrAdmin(caller, existing.managerId)
-                try {
+                requireValidReferences("Referenced user does not exist") {
                     teamService.addMember(route.parent.id, route.userId)
-                } catch (e: ExposedSQLException) {
-                    throw BadRequestException("Referenced user does not exist", e)
-                } catch (e: R2dbcException) {
-                    throw BadRequestException("Referenced user does not exist", e)
                 }
                 call.respond(HttpStatusCode.NoContent)
             }

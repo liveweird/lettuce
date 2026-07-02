@@ -1,5 +1,6 @@
 package ch.nokillswit.templates
 
+import ch.nokillswit.infra.db.containsPattern
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
 import io.ktor.server.plugins.BadRequestException
@@ -102,14 +103,6 @@ class TemplateService(val database: R2dbcDatabase) {
             op = op and (Templates.name.lowerCase() like containsPattern(it))
         }
         return op
-    }
-
-    private fun containsPattern(raw: String): LikePattern {
-        val escaped = raw.lowercase()
-            .replace("\\", "\\\\")
-            .replace("%", "\\%")
-            .replace("_", "\\_")
-        return LikePattern("%$escaped%", escapeChar = '\\')
     }
 
     private fun validate(template: Template) {

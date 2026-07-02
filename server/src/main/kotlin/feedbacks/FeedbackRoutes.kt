@@ -6,6 +6,7 @@ import ch.nokillswit.authz.canReadFeedbackContent
 import ch.nokillswit.authz.isAdmin
 import ch.nokillswit.authz.requireFeedbackReadAllowingManager
 import ch.nokillswit.authz.requireFeedbackWrite
+import ch.nokillswit.infra.db.requireValidReferences
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.optionalString
 import ch.nokillswit.infra.paging.optionalLong
@@ -29,8 +30,6 @@ import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.routing.routing
 import kotlinx.serialization.Serializable
-import io.r2dbc.spi.R2dbcException
-import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 
 @Serializable
 @Resource("/api/v1/feedbacks")
@@ -140,12 +139,8 @@ fun Application.configureFeedbackRoutes() {
                 ) {
                     throw ForbiddenException("You may only create feedback you provide or request")
                 }
-                val result = try {
+                val result = requireValidReferences("Referenced user does not exist") {
                     feedbackService.create(feedback)
-                } catch (e: ExposedSQLException) {
-                    throw BadRequestException("Referenced user does not exist", e)
-                } catch (e: R2dbcException) {
-                    throw BadRequestException("Referenced user does not exist", e)
                 }
                 val id = result.id
                 call.response.header(HttpHeaders.Location, call.application.href(Feedbacks.Id(id = id)))
