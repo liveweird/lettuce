@@ -192,7 +192,6 @@ export default function FeedbackForm({
                 {requesterDisplay != null && (
                   <TextInput label={t("common.field.requester")} value={requesterDisplay} disabled />
                 )}
-                <RequesterMessage value={requesterMessage} />
               </Stack>
               <Stack gap="sm">
                 <Select
@@ -246,6 +245,8 @@ export default function FeedbackForm({
                 )}
               </Stack>
             </SimpleGrid>
+            {/* Below the grid so it spans both columns — same position as on the view screen. */}
+            <RequesterMessage value={requesterMessage} />
             {feedbackId != null ? (
               <Tabs
                 defaultValue="content"
