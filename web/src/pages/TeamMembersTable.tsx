@@ -5,13 +5,11 @@ import {
   Alert,
   Button,
   Center,
-  CloseButton,
   Loader,
   Select,
   Stack,
   Table,
   Text,
-  TextInput,
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import {
@@ -22,6 +20,7 @@ import {
 } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { listAllTeams, listTeamMembers, type TeamMemberListView } from "../api/client";
+import ClearableTextInput from "../components/ClearableTextInput";
 import FeedbackActionButton from "../components/FeedbackActionButton";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
@@ -90,41 +89,17 @@ export default function TeamMembersTable({
   return (
     <Stack gap="md">
       <FilterPanel activeFilterCount={activeFilterCount}>
-        <TextInput
+        <ClearableTextInput
           label={t("common.field.name")}
-          placeholder={t("common.filter.contains")}
           value={nameFilter}
-          onChange={(e) => setNameFilter(e.currentTarget.value)}
-          rightSection={
-            nameFilter ? (
-              <CloseButton
-                size="sm"
-                aria-label={t("teams.clearNameFilter")}
-                tabIndex={-1}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setNameFilter("")}
-              />
-            ) : null
-          }
-          rightSectionPointerEvents="auto"
+          onChange={setNameFilter}
+          clearLabel={t("teams.clearNameFilter")}
         />
-        <TextInput
+        <ClearableTextInput
           label={t("common.field.email")}
-          placeholder={t("common.filter.contains")}
           value={emailFilter}
-          onChange={(e) => setEmailFilter(e.currentTarget.value)}
-          rightSection={
-            emailFilter ? (
-              <CloseButton
-                size="sm"
-                aria-label={t("teams.clearEmailFilter")}
-                tabIndex={-1}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setEmailFilter("")}
-              />
-            ) : null
-          }
-          rightSectionPointerEvents="auto"
+          onChange={setEmailFilter}
+          clearLabel={t("teams.clearEmailFilter")}
         />
         <Select
           label={t("teams.team")}

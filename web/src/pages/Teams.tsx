@@ -5,25 +5,17 @@ import {
   Alert,
   Button,
   Center,
-  CloseButton,
   Group,
   Loader,
-  Modal,
   Select,
   Stack,
   Table,
   Text,
-  TextInput,
   Title,
   UnstyledButton,
 } from "@mantine/core";
-import { useDebouncedValue, useDisclosure } from "@mantine/hooks";
-import {
-  keepPreviousData,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useDebouncedValue } from "@mantine/hooks";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   IconArrowDown,
   IconArrowUp,
@@ -33,8 +25,11 @@ import {
   IconTrash,
   IconUsers,
 } from "@tabler/icons-react";
+import ClearableTextInput from "../components/ClearableTextInput";
+import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
+import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { deleteTeam, isAdmin, listTeams, listUsers } from "../api/client";
 
@@ -76,8 +71,6 @@ export default function Teams() {
   const [nameFilter, setNameFilter] = useState("");
   const [managerIdFilter, setManagerIdFilter] = useState<number | null>(null);
   const activeFilterCount = (nameFilter.trim() ? 1 : 0) + (managerIdFilter != null ? 1 : 0);
-  const [target, setTarget] = useState<TeamRow | null>(null);
-  const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false);
 
   const queryClient = useQueryClient();
   const admin = isAdmin();
@@ -115,31 +108,10 @@ export default function Teams() {
     [managerPool],
   );
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => deleteTeam(id),
-    onSuccess: async () => {
-      closeConfirm();
-      setTarget(null);
-      await queryClient.invalidateQueries({ queryKey: ["teams"] });
-    },
+  const deleteConfirm = useDeleteConfirm<TeamRow>({
+    mutationFn: (row) => deleteTeam(row.id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["teams"] }),
   });
-
-  function requestDelete(row: TeamRow) {
-    setTarget(row);
-    deleteMutation.reset();
-    openConfirm();
-  }
-
-  function cancelDelete() {
-    if (deleteMutation.isPending) return;
-    closeConfirm();
-    setTarget(null);
-    deleteMutation.reset();
-  }
-
-  function confirmDelete() {
-    if (target) deleteMutation.mutate(target.id);
-  }
 
   const total = data?.total ?? 0;
   // The actions column is always present now — everyone gets a "Members" button (read-only
@@ -151,23 +123,11 @@ export default function Teams() {
       <Title order={2} data-tour="config-teams">{t("teams.title")}</Title>
 
       <FilterPanel activeFilterCount={activeFilterCount}>
-        <TextInput
+        <ClearableTextInput
           label={t("common.field.name")}
-          placeholder={t("common.filter.contains")}
           value={nameFilter}
-          onChange={(e) => setNameFilter(e.currentTarget.value)}
-          rightSection={
-            nameFilter ? (
-              <CloseButton
-                size="sm"
-                aria-label={t("teams.clearNameFilter")}
-                tabIndex={-1}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setNameFilter("")}
-              />
-            ) : null
-          }
-          rightSectionPointerEvents="auto"
+          onChange={setNameFilter}
+          clearLabel={t("teams.clearNameFilter")}
         />
         <Select
           label={t("common.field.manager")}
@@ -259,7 +219,11 @@ export default function Teams() {
                       size="xs"
                       leftSection={<IconTrash size={14} />}
                       onClick={() =>
-                        requestDelete({ id: team.id, name: team.name, managerName: team.managerName })
+                        deleteConfirm.requestDelete({
+                          id: team.id,
+                          name: team.name,
+                          managerName: team.managerName,
+                        })
                       }
                       aria-label={t("teams.deleteAria", { name: team.name })}
                     >
@@ -302,36 +266,18 @@ export default function Teams() {
         </Group>
       )}
 
-      <Modal
-        opened={confirmOpen}
-        onClose={cancelDelete}
+      <ConfirmDeleteModal
+        confirm={deleteConfirm}
         title={t("teams.deleteModalTitle")}
-        centered
-      >
-        <Stack gap="md">
-          {target && (
-            <Text>
-              {t("teams.deleteTitle", { name: target.name, manager: target.managerName })}{" "}
-              {t("teams.deleteUndone")}
-            </Text>
-          )}
-          {deleteMutation.isError && (
-            <Alert color="red" title={t("teams.deleteFailed")}>
-              {deleteMutation.error instanceof Error
-                ? deleteMutation.error.message
-                : t("teams.unknownError")}
-            </Alert>
-          )}
-          <Group justify="flex-end" gap="sm">
-            <Button variant="default" onClick={cancelDelete} disabled={deleteMutation.isPending}>
-              {t("common.action.cancel")}
-            </Button>
-            <Button color="red" onClick={confirmDelete} loading={deleteMutation.isPending}>
-              {t("common.action.delete")}
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+        errorTitle={t("teams.deleteFailed")}
+        unknownError={t("teams.unknownError")}
+        body={(target) => (
+          <>
+            {t("teams.deleteTitle", { name: target.name, manager: target.managerName })}{" "}
+            {t("teams.deleteUndone")}
+          </>
+        )}
+      />
     </Stack>
   );
 }

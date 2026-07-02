@@ -4,28 +4,23 @@ import {
   Alert,
   Button,
   Center,
-  CloseButton,
   Group,
   Loader,
-  Modal,
   Stack,
   Table,
   Text,
-  TextInput,
   Title,
 } from "@mantine/core";
-import { useDebouncedValue, useDisclosure } from "@mantine/hooks";
-import {
-  keepPreviousData,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useDebouncedValue } from "@mantine/hooks";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconEye, IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
+import ClearableTextInput from "../components/ClearableTextInput";
+import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import SortHeader from "../components/SortHeader";
+import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { deleteTemplate, isAdmin, listTemplates } from "../api/client";
 
@@ -37,8 +32,6 @@ export default function Templates() {
   const { t } = useTranslation();
   const [nameFilter, setNameFilter] = useState("");
   const activeFilterCount = nameFilter.trim() ? 1 : 0;
-  const [target, setTarget] = useState<TemplateRow | null>(null);
-  const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false);
 
   const queryClient = useQueryClient();
   const admin = isAdmin();
@@ -60,31 +53,10 @@ export default function Templates() {
     placeholderData: keepPreviousData,
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => deleteTemplate(id),
-    onSuccess: async () => {
-      closeConfirm();
-      setTarget(null);
-      await queryClient.invalidateQueries({ queryKey: ["templates"] });
-    },
+  const deleteConfirm = useDeleteConfirm<TemplateRow>({
+    mutationFn: (row) => deleteTemplate(row.id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["templates"] }),
   });
-
-  function requestDelete(row: TemplateRow) {
-    setTarget(row);
-    deleteMutation.reset();
-    openConfirm();
-  }
-
-  function cancelDelete() {
-    if (deleteMutation.isPending) return;
-    closeConfirm();
-    setTarget(null);
-    deleteMutation.reset();
-  }
-
-  function confirmDelete() {
-    if (target) deleteMutation.mutate(target.id);
-  }
 
   const total = data?.total ?? 0;
   const columnCount = 3;
@@ -94,23 +66,11 @@ export default function Templates() {
       <Title order={2} data-tour="config-templates">{t("templates.title")}</Title>
 
       <FilterPanel activeFilterCount={activeFilterCount}>
-        <TextInput
+        <ClearableTextInput
           label={t("common.field.name")}
-          placeholder={t("common.filter.contains")}
           value={nameFilter}
-          onChange={(e) => setNameFilter(e.currentTarget.value)}
-          rightSection={
-            nameFilter ? (
-              <CloseButton
-                size="sm"
-                aria-label={t("templates.clearNameFilter")}
-                tabIndex={-1}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setNameFilter("")}
-              />
-            ) : null
-          }
-          rightSectionPointerEvents="auto"
+          onChange={setNameFilter}
+          clearLabel={t("templates.clearNameFilter")}
         />
       </FilterPanel>
 
@@ -174,7 +134,9 @@ export default function Templates() {
                           variant="subtle"
                           size="xs"
                           leftSection={<IconTrash size={14} />}
-                          onClick={() => requestDelete({ id: tpl.id, name: tpl.name })}
+                          onClick={() =>
+                            deleteConfirm.requestDelete({ id: tpl.id, name: tpl.name })
+                          }
                           aria-label={t("templates.deleteName", { name: tpl.name })}
                         >
                           {t("common.action.delete")}
@@ -230,37 +192,19 @@ export default function Templates() {
         </Group>
       )}
 
-      <Modal
-        opened={confirmOpen}
-        onClose={cancelDelete}
+      <ConfirmDeleteModal
+        confirm={deleteConfirm}
         title={t("templates.deleteTitle")}
-        centered
-      >
-        <Stack gap="md">
-          {target && (
-            <Text>
-              {t("templates.deleteConfirmPrefix")}
-              <strong>{target.name}</strong>
-              {t("templates.deleteConfirmSuffix")}
-            </Text>
-          )}
-          {deleteMutation.isError && (
-            <Alert color="red" title={t("templates.deleteFailed")}>
-              {deleteMutation.error instanceof Error
-                ? deleteMutation.error.message
-                : t("templates.unknownError")}
-            </Alert>
-          )}
-          <Group justify="flex-end" gap="sm">
-            <Button variant="default" onClick={cancelDelete} disabled={deleteMutation.isPending}>
-              {t("common.action.cancel")}
-            </Button>
-            <Button color="red" onClick={confirmDelete} loading={deleteMutation.isPending}>
-              {t("common.action.delete")}
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+        errorTitle={t("templates.deleteFailed")}
+        unknownError={t("templates.unknownError")}
+        body={(target) => (
+          <>
+            {t("templates.deleteConfirmPrefix")}
+            <strong>{target.name}</strong>
+            {t("templates.deleteConfirmSuffix")}
+          </>
+        )}
+      />
     </Stack>
   );
 }

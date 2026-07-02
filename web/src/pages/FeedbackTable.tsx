@@ -4,13 +4,11 @@ import {
   Alert,
   Button,
   Center,
-  CloseButton,
   Loader,
   Select,
   Stack,
   Table,
   Text,
-  TextInput,
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconEye, IconPencil } from "@tabler/icons-react";
@@ -24,6 +22,7 @@ import {
   type FeedbackStatus,
   type FeedbackVisibility,
 } from "../api/client";
+import ClearableTextInput from "../components/ClearableTextInput";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import SortHeader from "../components/SortHeader";
@@ -312,45 +311,21 @@ export default function FeedbackTable({
   return (
     <Stack gap="md">
       <FilterPanel activeFilterCount={activeFilterCount}>
-        <TextInput
+        <ClearableTextInput
           label={t("common.field.requester")}
-          placeholder={t("common.filter.contains")}
           value={requesterFilter}
-          onChange={(e) => setRequesterFilter(e.currentTarget.value)}
-          rightSection={
-            requesterFilter ? (
-              <CloseButton
-                size="sm"
-                aria-label={t("feedback.clearRequesterFilter")}
-                tabIndex={-1}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setRequesterFilter("")}
-              />
-            ) : null
-          }
-          rightSectionPointerEvents="auto"
+          onChange={setRequesterFilter}
+          clearLabel={t("feedback.clearRequesterFilter")}
         />
         {config.personColumns.map((col) => {
           const filter = personFilters[col.field];
           return (
-            <TextInput
+            <ClearableTextInput
               key={col.field}
               label={t(col.labelKey)}
-              placeholder={t("common.filter.contains")}
               value={filter.value}
-              onChange={(e) => filter.set(e.currentTarget.value)}
-              rightSection={
-                filter.value ? (
-                  <CloseButton
-                    size="sm"
-                    aria-label={t(col.clearFilterLabelKey)}
-                    tabIndex={-1}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => filter.set("")}
-                  />
-                ) : null
-              }
-              rightSectionPointerEvents="auto"
+              onChange={filter.set}
+              clearLabel={t(col.clearFilterLabelKey)}
             />
           );
         })}

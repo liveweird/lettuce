@@ -5,24 +5,16 @@ import {
   Alert,
   Button,
   Center,
-  CloseButton,
   Group,
   Loader,
-  Modal,
   Select,
   Stack,
   Table,
   Text,
-  TextInput,
   Title,
 } from "@mantine/core";
-import { useDebouncedValue, useDisclosure } from "@mantine/hooks";
-import {
-  keepPreviousData,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useDebouncedValue } from "@mantine/hooks";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   IconKey,
   IconMessagePlus,
@@ -43,9 +35,12 @@ import {
 import FeedbackActionButton from "../components/FeedbackActionButton";
 import { feedbackAskLink, feedbackProvideLink } from "../utils/feedbackLinks";
 import { flagSignedOut, notifyAuthChange } from "../auth";
+import ClearableTextInput from "../components/ClearableTextInput";
+import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import SortHeader from "../components/SortHeader";
+import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { usePagedSort } from "../hooks/usePagedSort";
 
 type SortField = "name" | "email" | "role";
@@ -63,8 +58,6 @@ export default function Users() {
   const [roleFilter, setRoleFilter] = useState<UserRole | null>(null);
   const activeFilterCount =
     (nameFilter.trim() ? 1 : 0) + (emailFilter.trim() ? 1 : 0) + (roleFilter ? 1 : 0);
-  const [target, setTarget] = useState<UserRow | null>(null);
-  const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false);
 
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -91,12 +84,10 @@ export default function Users() {
     placeholderData: keepPreviousData,
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => deleteUser(id).then(() => id),
-    onSuccess: async (deletedId) => {
-      closeConfirm();
-      setTarget(null);
-      if (deletedId === getUserId()) {
+  const deleteConfirm = useDeleteConfirm<UserRow>({
+    mutationFn: (row) => deleteUser(row.id),
+    onSuccess: async (row) => {
+      if (row.id === getUserId()) {
         await logout();
         queryClient.clear();
         flagSignedOut();
@@ -108,23 +99,6 @@ export default function Users() {
     },
   });
 
-  function requestDelete(row: UserRow) {
-    setTarget(row);
-    deleteMutation.reset();
-    openConfirm();
-  }
-
-  function cancelDelete() {
-    if (deleteMutation.isPending) return;
-    closeConfirm();
-    setTarget(null);
-    deleteMutation.reset();
-  }
-
-  function confirmDelete() {
-    if (target) deleteMutation.mutate(target.id);
-  }
-
   const total = data?.total ?? 0;
   const columnCount = 9;
 
@@ -133,41 +107,17 @@ export default function Users() {
       <Title order={2} data-tour="config-users">{t("users.title")}</Title>
 
       <FilterPanel activeFilterCount={activeFilterCount}>
-        <TextInput
+        <ClearableTextInput
           label={t("common.field.name")}
-          placeholder={t("common.filter.contains")}
           value={nameFilter}
-          onChange={(e) => setNameFilter(e.currentTarget.value)}
-          rightSection={
-            nameFilter ? (
-              <CloseButton
-                size="sm"
-                aria-label={t("users.clearNameFilter")}
-                tabIndex={-1}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setNameFilter("")}
-              />
-            ) : null
-          }
-          rightSectionPointerEvents="auto"
+          onChange={setNameFilter}
+          clearLabel={t("users.clearNameFilter")}
         />
-        <TextInput
+        <ClearableTextInput
           label={t("common.field.email")}
-          placeholder={t("common.filter.contains")}
           value={emailFilter}
-          onChange={(e) => setEmailFilter(e.currentTarget.value)}
-          rightSection={
-            emailFilter ? (
-              <CloseButton
-                size="sm"
-                aria-label={t("users.clearEmailFilter")}
-                tabIndex={-1}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setEmailFilter("")}
-              />
-            ) : null
-          }
-          rightSectionPointerEvents="auto"
+          onChange={setEmailFilter}
+          clearLabel={t("users.clearEmailFilter")}
         />
         <Select
           label={t("common.field.role")}
@@ -310,7 +260,9 @@ export default function Users() {
                       variant="subtle"
                       size="xs"
                       leftSection={<IconTrash size={14} />}
-                      onClick={() => requestDelete({ id: u.id, name: u.name, email: u.email })}
+                      onClick={() =>
+                        deleteConfirm.requestDelete({ id: u.id, name: u.name, email: u.email })
+                      }
                       aria-label={t("users.deleteAria", { name: u.name })}
                     >
                       {t("common.action.delete")}
@@ -352,40 +304,18 @@ export default function Users() {
         </Group>
       )}
 
-      <Modal
-        opened={confirmOpen}
-        onClose={cancelDelete}
+      <ConfirmDeleteModal
+        confirm={deleteConfirm}
         title={t("users.deleteTitle")}
-        centered
-      >
-        <Stack gap="md">
-          {target && (
-            <Text>
-              {t("users.deleteConfirmLead")} <strong>{target.name}</strong>{" "}
-              {t("users.deleteConfirmRest", { email: target.email })}
-            </Text>
-          )}
-          {deleteMutation.isError && (
-            <Alert color="red" title={t("users.deleteUserFailed")}>
-              {deleteMutation.error instanceof Error
-                ? deleteMutation.error.message
-                : t("users.unknownError")}
-            </Alert>
-          )}
-          <Group justify="flex-end" gap="sm">
-            <Button variant="default" onClick={cancelDelete} disabled={deleteMutation.isPending}>
-              {t("common.action.cancel")}
-            </Button>
-            <Button
-              color="red"
-              onClick={confirmDelete}
-              loading={deleteMutation.isPending}
-            >
-              {t("common.action.delete")}
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+        errorTitle={t("users.deleteUserFailed")}
+        unknownError={t("users.unknownError")}
+        body={(target) => (
+          <>
+            {t("users.deleteConfirmLead")} <strong>{target.name}</strong>{" "}
+            {t("users.deleteConfirmRest", { email: target.email })}
+          </>
+        )}
+      />
     </Stack>
   );
 }
