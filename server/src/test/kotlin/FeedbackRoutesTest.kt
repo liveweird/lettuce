@@ -467,6 +467,38 @@ class FeedbackRoutesTest {
     }
 
     @Test
+    fun `update may move a feedback with a requester to another requester-inclusive visibility`() = testApplication {
+        usePostgresTestcontainer()
+        val t = seedTriad()
+        val client = authedClient(t.providerEmail, "pw")
+
+        // A picked-up request: DRAFT with a requester attached.
+        val created = client.post("/api/v1/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                FeedbackCreateRequest(
+                    requesterId = t.requesterId,
+                    subjectId = t.subjectId,
+                    providerId = t.providerId,
+                    visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
+                    status = FeedbackStatus.DRAFT,
+                    content = "First pass",
+                )
+            )
+        }.body<FeedbackResponse>()
+
+        // Only PROVIDER_SUBJECT is barred when a requester exists; the other visibilities are fine.
+        val putResponse = client.put("/api/v1/feedbacks/${created.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(FeedbackContentUpdate(content = "Narrowed", visibility = FeedbackVisibility.PROVIDER_REQUESTER))
+        }
+        assertEquals(HttpStatusCode.NoContent, putResponse.status)
+        val after = client.get("/api/v1/feedbacks/${created.id}").body<FeedbackResponse>()
+        assertEquals(FeedbackVisibility.PROVIDER_REQUESTER, after.visibility)
+        assertEquals("Narrowed", after.content)
+    }
+
+    @Test
     fun `invalid action from sent is rejected`() = testApplication {
         usePostgresTestcontainer()
         val t = seedTriad()
@@ -1009,6 +1041,54 @@ class FeedbackRoutesTest {
             providerClient.post("/api/v1/feedbacks/${draft.id}/send").status,
         )
         assertEquals("secret draft", subjectClient.get("/api/v1/feedbacks/${draft.id}").body<FeedbackResponse>().content)
+    }
+
+    @Test
+    fun `provided list keeps the preview of a draft for its provider`() = testApplication {
+        usePostgresTestcontainer()
+        val provider = seedParty("provider", "Pat Provider")
+        val subject = seedParty("subject", "Sam Subject")
+        val providerClient = authedClient(provider.email, "pw")
+
+        // A spontaneous draft (no requester): only the provider lists it, and — unlike the
+        // requester's redacted view of an unfinished feedback — they see their own content.
+        val draft = createFeedback(
+            subjectId = subject.id,
+            providerId = provider.id,
+            visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+            status = FeedbackStatus.DRAFT,
+            content = "work in progress",
+        )
+
+        val provided = providerClient.get("/api/v1/feedbacks?view=provided").body<FeedbackPageResponse>()
+        val row = provided.items.single { it.id == draft.id }
+        assertEquals(FeedbackStatus.DRAFT, row.status)
+        assertEquals("work in progress", row.contentPreview)
+    }
+
+    @Test
+    fun `received list redacts the preview of a requested feedback for its requester`() = testApplication {
+        usePostgresTestcontainer()
+        val provider = seedParty("provider", "Pat Provider")
+        // "Ask for feedback about myself": the subject is also the requester.
+        val subject = seedParty("subject", "Sam Subject")
+        val subjectClient = authedClient(subject.email, "pw")
+
+        val requested = createFeedback(
+            subjectId = subject.id,
+            providerId = provider.id,
+            visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
+            status = FeedbackStatus.REQUESTED,
+            requesterId = subject.id,
+            content = "early secret",
+        )
+
+        // The pending request appears in the requester's received list, but — like a DRAFT —
+        // its content is still the provider's private work in progress, so the preview is blank.
+        val received = subjectClient.get("/api/v1/feedbacks?view=received").body<FeedbackPageResponse>()
+        val row = received.items.single { it.id == requested.id }
+        assertEquals(FeedbackStatus.REQUESTED, row.status)
+        assertEquals("", row.contentPreview)
     }
 
     @Test

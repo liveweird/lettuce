@@ -85,6 +85,35 @@ class FeedbackNotificationsTest {
     }
 
     @Test
+    fun `draft to sent with public visibility links both the subject and the requester`() {
+        val next = feedback(FeedbackStatus.SENT, FeedbackVisibility.PUBLIC)
+        val result = feedbackTransitionNotifications(13u, FeedbackStatus.DRAFT, next, names)
+        assertEquals("/feedback/13/view", result.single { it.recipientId == 2u }.link)
+        assertEquals("/feedback/13/view", result.single { it.recipientId == 3u }.link)
+    }
+
+    @Test
+    fun `draft to sent with provider-subject visibility links the subject`() {
+        // PROVIDER_SUBJECT implies no requester (the combination is contradictory otherwise).
+        val next = feedback(FeedbackStatus.SENT, FeedbackVisibility.PROVIDER_SUBJECT, requesterId = null)
+        val result = feedbackTransitionNotifications(14u, FeedbackStatus.DRAFT, next, names)
+        assertEquals(setOf(2u, 1u), result.map { it.recipientId }.toSet())
+        assertEquals("/feedback/14/view", result.single { it.recipientId == 2u }.link)
+    }
+
+    @Test
+    fun `requested to sent notifies only the requester`() {
+        // Not a legal edge of the state machine, but the mapping supports it explicitly (see the
+        // comment in feedbackTransitionNotifications): only the requester note fires.
+        val next = feedback(FeedbackStatus.SENT)
+        val result = feedbackTransitionNotifications(21u, FeedbackStatus.REQUESTED, next, names)
+        val n = result.single()
+        assertEquals(3u, n.recipientId)
+        assertEquals("/feedback/21/view", n.link)
+        assertTrue(n.message.contains("has been sent"))
+    }
+
+    @Test
     fun `requested to rejected notifies the requester with no link`() {
         val next = feedback(FeedbackStatus.REJECTED)
         val result = feedbackTransitionNotifications(5u, FeedbackStatus.REQUESTED, next, names)
@@ -121,6 +150,34 @@ class FeedbackNotificationsTest {
         val next = feedback(FeedbackStatus.WITHDRAWN, requesterId = null)
         val result = feedbackTransitionNotifications(8u, FeedbackStatus.SENT, next, names)
         assertEquals(listOf(2u), result.map { it.recipientId })
+    }
+
+    @Test
+    fun `requested transitions without a requester notify no one`() {
+        // Defensive: REQUESTED requires a requester (enforced in FeedbackService.validate), but
+        // the pure mapping must stay total — with no requester there is nobody to notify.
+        val rejected = feedback(FeedbackStatus.REJECTED, FeedbackVisibility.PROVIDER_SUBJECT, requesterId = null)
+        assertTrue(feedbackTransitionNotifications(5u, FeedbackStatus.REQUESTED, rejected, names).isEmpty())
+        val draft = feedback(FeedbackStatus.DRAFT, FeedbackVisibility.PROVIDER_SUBJECT, requesterId = null)
+        assertTrue(feedbackTransitionNotifications(5u, FeedbackStatus.REQUESTED, draft, names).isEmpty())
+    }
+
+    @Test
+    fun `abandoning a draft produces no notifications`() {
+        // DRAFT -> WITHDRAWN is a legal edge but nothing was ever delivered, so nobody is told.
+        val next = feedback(FeedbackStatus.WITHDRAWN)
+        assertTrue(feedbackTransitionNotifications(6u, FeedbackStatus.DRAFT, next, names).isEmpty())
+    }
+
+    @Test
+    fun `an unmapped transition produces no notifications`() {
+        // The mapping is total: a from/to pair outside the notification table yields nothing.
+        val rejected = feedback(FeedbackStatus.REJECTED)
+        assertTrue(feedbackTransitionNotifications(6u, FeedbackStatus.SENT, rejected, names).isEmpty())
+        // Even landing on SENT only notifies when coming from DRAFT or REQUESTED — "resurrecting"
+        // a terminal feedback (not an edge of the state machine) must not fan out notifications.
+        val sent = feedback(FeedbackStatus.SENT)
+        assertTrue(feedbackTransitionNotifications(6u, FeedbackStatus.WITHDRAWN, sent, names).isEmpty())
     }
 
     @Test
@@ -161,6 +218,18 @@ class FeedbackNotificationsTest {
             .single { it.recipientId == 3u }
         assertNull(toRequester.link)
         assertTrue(toRequester.message.contains("yourself"))
+    }
+
+    @Test
+    fun `creating a requested feedback without a requester produces no notification`() {
+        // Defensive: unreachable through the API (REQUESTED requires a requester), but the pure
+        // mapping must not blow up or invent a recipient.
+        val created = feedback(
+            FeedbackStatus.REQUESTED,
+            FeedbackVisibility.PROVIDER_SUBJECT,
+            requesterId = null,
+        )
+        assertTrue(feedbackCreationNotifications(11u, created, names).isEmpty())
     }
 
     @Test

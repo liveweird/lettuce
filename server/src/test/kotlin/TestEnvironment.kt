@@ -71,6 +71,19 @@ object TestFeedbackEvents {
     }
 }
 
+// Direct service access for service-level contracts the routes cannot exercise — e.g. blank
+// filter strings are stripped by optionalString before a service ever sees them, and the
+// routes 404 on a missing row before calling editContent/transition/addMember.
+object TestServices {
+    val feedbacks: ch.nokillswit.feedbacks.FeedbackService by lazy {
+        ch.nokillswit.feedbacks.FeedbackService(sharedTestDatabase)
+    }
+    val teams: ch.nokillswit.teams.TeamService by lazy {
+        ch.nokillswit.teams.TeamService(sharedTestDatabase)
+    }
+    val users: UserService by lazy { UserService(sharedTestDatabase) }
+}
+
 // There is no create endpoint for notifications (they are minted as a side-effect of
 // other activities), so tests seed rows by calling the service directly.
 object TestNotifications {

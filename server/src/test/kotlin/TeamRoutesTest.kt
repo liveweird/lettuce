@@ -378,6 +378,28 @@ class TeamRoutesTest {
     }
 
     @Test
+    fun `removing a user who is not a member is a no-op`() = testApplication {
+        usePostgresTestcontainer()
+        val ownerEmail = uniqueEmail("owner")
+        val managerId = TestUsers.seed(email = ownerEmail, password = "pw")
+        val memberA = TestUsers.seed(email = uniqueEmail("a"), password = "pw")
+        val outsider = TestUsers.seed(email = uniqueEmail("outsider"), password = "pw")
+
+        val client = authedClient(ownerEmail, "pw")
+        val team = client.post("/api/v1/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "T", managerId = managerId, memberIds = listOf(memberA)))
+        }.body<TeamResponse>()
+
+        // Deleting a non-member succeeds without touching the membership (idempotent DELETE).
+        val response = client.delete("/api/v1/teams/${team.id}/members/$outsider")
+        assertEquals(HttpStatusCode.NoContent, response.status)
+
+        val after = client.get("/api/v1/teams/${team.id}").body<TeamResponse>()
+        assertEquals(listOf(memberA), after.memberIds)
+    }
+
+    @Test
     fun `soft-deleting a member user preserves the membership row`() = testApplication {
         usePostgresTestcontainer()
         val ownerEmail = uniqueEmail("owner")
