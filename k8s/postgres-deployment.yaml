@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.38.0 (HEAD)
+  labels:
+    io.kompose.service: postgres
+  name: postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: postgres
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.38.0 (HEAD)
+      labels:
+        io.kompose.service: postgres
+    spec:
+      containers:
+        - env:
+            - name: POSTGRES_DB
+              value: lettuce
+            - name: POSTGRES_PASSWORD
+              value: lettuce
+            - name: POSTGRES_USER
+              value: lettuce
+          image: postgres:17-alpine
+          # kompose emits the compose healthcheck as a single-string argv, which
+          # exec can't run — keep the command as a proper argv list. The
+          # readinessProbe gates the Service endpoint (the compose
+          # `depends_on: service_healthy` equivalent).
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "lettuce", "-d", "lettuce"]
+            failureThreshold: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "lettuce", "-d", "lettuce"]
+            initialDelaySeconds: 10
+            failureThreshold: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+          name: lettuce-postgres
+          ports:
+            - containerPort: 5432
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: postgres-data
+      restartPolicy: Always
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: postgres-data

@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.38.0 (HEAD)
+  labels:
+    io.kompose.service: app
+  name: app
+spec:
+  # OrbStack provisions local LoadBalancers; `kubectl port-forward svc/app` is
+  # the fallback. The host dev server may occupy :8080 — forward to another
+  # local port if so.
+  type: LoadBalancer
+  ports:
+    - name: "8080"
+      port: 8080
+      targetPort: 8080
+  selector:
+    io.kompose.service: app

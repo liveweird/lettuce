@@ -27,10 +27,8 @@ COPY gradle/ gradle/
 RUN ./gradlew --version --no-daemon
 # Module build files, then sources.
 COPY core/build.gradle.kts core/
-COPY client/build.gradle.kts client/
 COPY server/build.gradle.kts server/
 COPY core/src/ core/src/
-COPY client/src/ client/src/
 COPY server/src/ server/src/
 # installDist keeps every dependency as its own JAR, so Flyway's ServiceLoader
 # plugin discovery works exactly as under `:server:run` (a fat JAR collapses the
