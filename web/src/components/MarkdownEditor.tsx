@@ -56,7 +56,7 @@ export default function MarkdownEditor({
   return (
     <Input.Wrapper
       label={label}
-      styles={{ root: { display: "flex", flexDirection: "column", minHeight: 0 } }}
+      styles={{ root: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 } }}
     >
       <MDXEditor
         ref={ref}

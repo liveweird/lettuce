@@ -7,9 +7,20 @@
   border-radius: var(--mantine-radius-default);
 }
 
-/* The contenteditable region gets a sensible starting height; content grows the page. */
+/* The contenteditable region stretches to the space the form gives the editor (with a
+   sensible floor); longer content still grows the page. */
 .content {
+  flex: 1;
   min-height: rem(180px);
+}
+
+/* MDXEditor's layer between our bordered box and the contenteditable doesn't stretch on
+   its own — without this the editor keeps its natural height and the form shows a dead
+   band below it. */
+.editor :global([class*="_rootContentEditableWrapper_"]) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 /* MDXEditor pins its toolbar with position: sticky; top: 0. Keep it a normal bar above the
