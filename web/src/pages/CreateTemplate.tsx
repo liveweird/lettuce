@@ -1,17 +1,14 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { Link as RouterLink, Navigate, useNavigate } from "react-router-dom";
 import {
   Alert,
-  Box,
   Button,
   CloseButton,
   Container,
   Group,
-  Input,
   Paper,
-  SimpleGrid,
+  Skeleton,
   Stack,
-  Textarea,
   TextInput,
   Title,
 } from "@mantine/core";
@@ -19,7 +16,8 @@ import { hasLength, useForm } from "@mantine/form";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError, createTemplate, isAdmin } from "../api/client";
-import MarkdownView from "../components/MarkdownView";
+
+const MarkdownEditor = lazy(() => import("../components/MarkdownEditor"));
 
 type FormValues = {
   name: string;
@@ -92,27 +90,15 @@ export default function CreateTemplate() {
               rightSectionPointerEvents="auto"
               {...form.getInputProps("name")}
             />
-            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-              <Textarea
+            <Suspense fallback={<Skeleton height={220} radius="sm" />}>
+              <MarkdownEditor
                 label={t("common.field.content")}
-                autosize
-                minRows={6}
-                {...form.getInputProps("content")}
+                placeholder={t("templates.contentPlaceholder")}
+                maxLength={5000}
+                value={form.values.content}
+                onChange={(md) => form.setFieldValue("content", md)}
               />
-              <Input.Wrapper label={t("common.field.preview")}>
-                <Box
-                  style={{
-                    border: "1px solid var(--mantine-color-default-border)",
-                    borderRadius: "var(--mantine-radius-default)",
-                    padding: "var(--mantine-spacing-sm)",
-                    minHeight: "calc(6lh + 2 * var(--mantine-spacing-sm))",
-                    overflow: "auto",
-                  }}
-                >
-                  <MarkdownView>{form.values.content}</MarkdownView>
-                </Box>
-              </Input.Wrapper>
-            </SimpleGrid>
+            </Suspense>
             {error && (
               <Alert color="red" variant="light">
                 {error}

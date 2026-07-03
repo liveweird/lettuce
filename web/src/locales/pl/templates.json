@@ -4,6 +4,7 @@
   "empty": "Brak szablonów",
   "create": "Utwórz szablon",
   "edit": "Edytuj szablon",
+  "contentPlaceholder": "Napisz treść szablonu…",
   "notFound": "Nie znaleziono szablonu.",
   "templateGone": "Szablon już nie istnieje.",
   "backToTemplates": "Powrót do szablonów",

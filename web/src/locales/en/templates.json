@@ -4,6 +4,7 @@
   "empty": "No templates",
   "create": "Create template",
   "edit": "Edit template",
+  "contentPlaceholder": "Write the template content…",
   "notFound": "Template not found.",
   "templateGone": "Template no longer exists.",
   "backToTemplates": "Back to templates",

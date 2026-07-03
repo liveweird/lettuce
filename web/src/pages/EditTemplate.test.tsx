@@ -6,6 +6,10 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import EditTemplate from "./EditTemplate";
 
+// Swap the Lexical-based editor for a plain textarea; the real wrapper is covered by
+// MarkdownEditor.test.tsx.
+vi.mock("../components/MarkdownEditor", async () => (await import("../test/mockMarkdownEditor")).mockMarkdownEditorModule());
+
 const TOKEN_KEY = "lettuce.auth.token";
 const ROLE_KEY = "lettuce.auth.role";
 
@@ -69,15 +73,8 @@ describe("EditTemplate page", () => {
     renderEditTemplate();
 
     expect(await screen.findByDisplayValue("Loaded Name")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("# Loaded")).toBeInTheDocument();
-  });
-
-  test("live Markdown preview reflects the loaded content", async () => {
-    getReturns(mockFetch, jsonResponse(200, LOADED));
-    renderEditTemplate();
-
-    // `# Loaded` renders as <h1>Loaded</h1> in the preview.
-    expect(await screen.findByRole("heading", { name: "Loaded" })).toBeInTheDocument();
+    // The editor is lazy-loaded, so its (mocked) field appears asynchronously.
+    expect(await screen.findByDisplayValue("# Loaded")).toBeInTheDocument();
   });
 
   test("404 shows a 'Template not found' message", async () => {

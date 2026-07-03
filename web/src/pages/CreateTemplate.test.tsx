@@ -1,10 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import CreateTemplate from "./CreateTemplate";
+
+// Swap the Lexical-based editor for a plain textarea; the real wrapper is covered by
+// MarkdownEditor.test.tsx.
+vi.mock("../components/MarkdownEditor", async () => (await import("../test/mockMarkdownEditor")).mockMarkdownEditorModule());
 
 const TOKEN_KEY = "lettuce.auth.token";
 const ROLE_KEY = "lettuce.auth.role";
@@ -54,12 +58,13 @@ describe("CreateTemplate page", () => {
     localStorage.clear();
   });
 
-  test("admin sees the form with Name + Content fields and a Preview region", async () => {
+  test("admin sees the form with Name and a WYSIWYG Content field", async () => {
     renderCreateTemplate();
     expect(await screen.findByRole("heading", { name: /create template/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/name/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/content/i)).toBeInTheDocument();
-    expect(screen.getByText(/preview/i)).toBeInTheDocument();
+    expect(await screen.findByLabelText(/content/i)).toBeInTheDocument();
+    // The old side-by-side Preview pane is gone — the editor renders markdown in place.
+    expect(screen.queryByText(/preview/i)).not.toBeInTheDocument();
   });
 
   test("client-side validation blocks an empty submission (name required)", async () => {
@@ -76,14 +81,13 @@ describe("CreateTemplate page", () => {
     expect(screen.queryByTestId("probe")).not.toBeInTheDocument();
   });
 
-  test("live Markdown preview renders the content as it is typed", async () => {
+  test("typing flows into the content field", async () => {
     const user = userEvent.setup();
     renderCreateTemplate();
 
-    await user.type(screen.getByLabelText(/content/i), "# Hi");
+    await user.type(await screen.findByLabelText(/content/i), "# Hi");
 
-    // react-markdown turns `# Hi` into an <h1>Hi</h1> in the preview.
-    expect(await screen.findByRole("heading", { name: "Hi" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/content/i)).toHaveValue("# Hi");
   });
 
   test("successful create POSTs {name, content} and navigates to /templates", async () => {
@@ -215,12 +219,5 @@ describe("CreateTemplate page", () => {
     renderCreateTemplate();
     const cancel = await screen.findByRole("link", { name: /cancel/i });
     expect(cancel).toHaveAttribute("href", "/templates");
-  });
-
-  // Keeps `within` import used and documents the preview lives in its own labelled region.
-  test("the Preview region is labelled", async () => {
-    renderCreateTemplate();
-    const heading = await screen.findByRole("heading", { name: /create template/i });
-    expect(within(heading.closest("form")!).getByText(/preview/i)).toBeInTheDocument();
   });
 });
