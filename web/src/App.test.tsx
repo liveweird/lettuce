@@ -94,6 +94,23 @@ describe("App shell", () => {
       expect(usersLink).not.toHaveAttribute("aria-current");
     });
 
+    test("the Config group toggle is a keyboard-focusable button", async () => {
+      const user = userEvent.setup();
+      renderApp("/");
+      const toggle = await screen.findByRole("button", { name: /config/i });
+      toggle.focus();
+      expect(toggle).toHaveFocus();
+      await user.keyboard("{Enter}");
+      expect(await screen.findByRole("link", { name: /^users$/i })).toBeInTheDocument();
+    });
+
+    test("renders a skip-to-content link targeting the main area", async () => {
+      renderApp("/");
+      const skip = await screen.findByRole("link", { name: /skip to main content/i });
+      expect(skip).toHaveAttribute("href", "#main-content");
+      expect(document.querySelector("main#main-content")).not.toBeNull();
+    });
+
     test("shows the logout button", async () => {
       renderApp("/");
       expect(

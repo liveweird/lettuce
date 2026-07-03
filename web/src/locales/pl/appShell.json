@@ -1,6 +1,7 @@
 {
   "brand": "Lettuce",
   "toggleColorScheme": "Przełącz motyw",
+  "skipToContent": "Przejdź do treści",
   "nav": {
     "dashboard": "Pulpit",
     "feedback": "Feedback",

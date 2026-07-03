@@ -175,7 +175,10 @@ function NavGroupLink({
   }, [childActive]);
   const GroupIcon = entry.icon;
   return (
+    // component="button": the default polymorphic root is an <a> without href,
+    // which is not keyboard-focusable — the group would be unreachable by Tab.
     <NavLink
+      component="button"
       label={t(entry.label)}
       leftSection={<GroupIcon size={18} stroke={1.5} />}
       opened={opened}
@@ -238,6 +241,9 @@ function Shell() {
       padding="md"
     >
       <AppShell.Header>
+        <a href="#main-content" className="skip-link">
+          {t("appShell.skipToContent")}
+        </a>
         <Group h="100%" px="md" justify="space-between">
           <Group gap="sm">
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
@@ -296,7 +302,7 @@ function Shell() {
         <VersionStamp mt="auto" ta="center" pt="xs" />
       </AppShell.Navbar>
 
-      <AppShell.Main>
+      <AppShell.Main id="main-content" tabIndex={-1}>
         <Outlet />
       </AppShell.Main>
     </AppShell>

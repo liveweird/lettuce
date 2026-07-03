@@ -1,6 +1,7 @@
 {
   "brand": "Lettuce",
   "toggleColorScheme": "Toggle color scheme",
+  "skipToContent": "Skip to main content",
   "nav": {
     "dashboard": "Dashboard",
     "feedback": "Feedback",
