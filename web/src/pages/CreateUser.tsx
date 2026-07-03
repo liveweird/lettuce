@@ -5,24 +5,26 @@ import {
   Alert,
   Button,
   CloseButton,
+  Code,
   Container,
+  CopyButton,
   Group,
+  Modal,
   Paper,
-  PasswordInput,
   Select,
   Stack,
+  Text,
   TextInput,
   Title,
 } from "@mantine/core";
-import { hasLength, matchesField, useForm } from "@mantine/form";
+import { hasLength, useForm } from "@mantine/form";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError, createUser, isAdmin, type UserRole } from "../api/client";
+import { generatePassword } from "../utils/password";
 
 type FormValues = {
   name: string;
   email: string;
-  password: string;
-  confirmPassword: string;
   role: UserRole;
 };
 
@@ -34,9 +36,12 @@ export default function CreateUser() {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Set on successful creation; the confirmation modal is the ONLY place this password ever
+  // appears (the server stores just a bcrypt hash), so closing the modal discards it for good.
+  const [created, setCreated] = useState<{ email: string; password: string } | null>(null);
 
   const form = useForm<FormValues>({
-    initialValues: { name: "", email: "", password: "", confirmPassword: "", role: "USER" },
+    initialValues: { name: "", email: "", role: "USER" },
     validate: {
       name: hasLength({ min: 1, max: 50 }, t("users.validation.nameLength")),
       email: (value) => {
@@ -45,21 +50,20 @@ export default function CreateUser() {
         if (value.length > 254) return t("users.validation.emailTooLong");
         return null;
       },
-      password: hasLength({ min: 8 }, t("users.validation.passwordLength")),
-      confirmPassword: matchesField("password", t("users.validation.passwordsMismatch")),
       role: (value) => (value === "USER" || value === "ADMIN" ? null : t("users.validation.roleRequired")),
     },
   });
 
   if (!isAdmin()) return <Navigate to="/users" replace />;
 
-  async function onSubmit({ confirmPassword: _confirm, ...values }: FormValues) {
+  async function onSubmit(values: FormValues) {
     setError(null);
     setSubmitting(true);
+    const password = generatePassword();
     try {
-      await createUser(values);
+      await createUser({ ...values, password });
       await queryClient.invalidateQueries({ queryKey: ["users"] });
-      navigate("/users", { replace: true });
+      setCreated({ email: values.email, password });
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 409) {
@@ -75,6 +79,11 @@ export default function CreateUser() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function closeConfirmation() {
+    setCreated(null);
+    navigate("/users", { replace: true });
   }
 
   return (
@@ -129,16 +138,6 @@ export default function CreateUser() {
               allowDeselect={false}
               {...form.getInputProps("role")}
             />
-            <PasswordInput
-              label={t("users.password")}
-              autoComplete="new-password"
-              {...form.getInputProps("password")}
-            />
-            <PasswordInput
-              label={t("users.confirmPassword")}
-              autoComplete="new-password"
-              {...form.getInputProps("confirmPassword")}
-            />
             {error && (
               <Alert color="red" variant="light">
                 {error}
@@ -155,6 +154,38 @@ export default function CreateUser() {
           </Stack>
         </form>
       </Paper>
+
+      {/* One-time password reveal. Deliberate close only (no click-outside / Escape) so the
+          password can't be lost by accident — after closing it is unrecoverable by design. */}
+      <Modal
+        opened={created !== null}
+        onClose={closeConfirmation}
+        title={t("users.createdTitle")}
+        centered
+        closeOnClickOutside={false}
+        closeOnEscape={false}
+      >
+        {created && (
+          <Stack gap="md">
+            <Text>{t("users.generatedPasswordNote", { email: created.email })}</Text>
+            <Group gap="sm" wrap="nowrap">
+              <Code fz="md" px="sm" py={6} style={{ flex: 1, userSelect: "all" }}>
+                {created.password}
+              </Code>
+              <CopyButton value={created.password}>
+                {({ copied, copy }) => (
+                  <Button variant="light" onClick={copy}>
+                    {copied ? t("users.passwordCopied") : t("users.copyPassword")}
+                  </Button>
+                )}
+              </CopyButton>
+            </Group>
+            <Group justify="flex-end">
+              <Button onClick={closeConfirmation}>{t("common.action.close")}</Button>
+            </Group>
+          </Stack>
+        )}
+      </Modal>
     </Container>
   );
 }

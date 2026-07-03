@@ -8,6 +8,7 @@ import CreateUser from "./CreateUser";
 
 const TOKEN_KEY = "lettuce.auth.token";
 const ROLE_KEY = "lettuce.auth.role";
+const PASSWORD_RE = /^[A-Za-z0-9_-]{16}$/;
 
 function PathProbe() {
   const location = useLocation();
@@ -35,8 +36,6 @@ function renderCreateUser() {
 async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/name/i), "Alice");
   await user.type(screen.getByLabelText(/email/i), "alice@example.com");
-  await user.type(screen.getByLabelText("Password"), "hunter2!");
-  await user.type(screen.getByLabelText("Confirm password"), "hunter2!");
 }
 
 describe("CreateUser page", () => {
@@ -52,7 +51,41 @@ describe("CreateUser page", () => {
     localStorage.removeItem(ROLE_KEY);
   });
 
-  test("posts to /api/users and redirects to /users on success", async () => {
+  test("posts a generated password and reveals it once in the confirmation modal", async () => {
+    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ id: 42, name: "Alice", email: "alice@example.com", role: "USER" }),
+        { status: 201, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderCreateUser();
+
+    // No password inputs on the form anymore.
+    expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Confirm password")).not.toBeInTheDocument();
+
+    await fillValidForm(user);
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+
+    // The confirmation modal shows the exact password that was POSTed.
+    expect(await screen.findByText("User created")).toBeInTheDocument();
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body).toEqual({
+      name: "Alice",
+      email: "alice@example.com",
+      password: expect.stringMatching(PASSWORD_RE),
+      role: "USER",
+    });
+    expect(screen.getByText(body.password)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /copy password/i })).toBeInTheDocument();
+    // Still on the form route until the admin closes the confirmation.
+    expect(screen.queryByTestId("probe")).not.toBeInTheDocument();
+  });
+
+  test("closing the confirmation navigates away and the password is gone for good", async () => {
     const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
     mockFetch.mockResolvedValueOnce(
       new Response(
@@ -66,19 +99,37 @@ describe("CreateUser page", () => {
 
     await fillValidForm(user);
     await user.click(screen.getByRole("button", { name: /^create$/i }));
+    await screen.findByText("User created");
+    const password = JSON.parse(mockFetch.mock.calls[0][1].body).password;
+
+    await user.click(screen.getByRole("button", { name: /^close$/i }));
 
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/users"));
-    expect(mockFetch).toHaveBeenCalledWith(
-      "/api/v1/users",
-      expect.objectContaining({ method: "POST" }),
+    expect(screen.queryByText(password)).not.toBeInTheDocument();
+    expect(screen.queryByText("User created")).not.toBeInTheDocument();
+  });
+
+  test("copy button copies the generated password to the clipboard", async () => {
+    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ id: 42, name: "Alice", email: "alice@example.com", role: "USER" }),
+        { status: 201, headers: { "Content-Type": "application/json" } },
+      ),
     );
-    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-    expect(body).toEqual({
-      name: "Alice",
-      email: "alice@example.com",
-      password: "hunter2!",
-      role: "USER",
-    });
+    // userEvent.setup() installs a working clipboard stub; read it back after copying.
+    const user = userEvent.setup();
+    renderCreateUser();
+
+    await fillValidForm(user);
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+    await screen.findByText("User created");
+
+    await user.click(screen.getByRole("button", { name: /copy password/i }));
+
+    expect(await screen.findByRole("button", { name: /^copied$/i })).toBeInTheDocument();
+    const password = JSON.parse(mockFetch.mock.calls[0][1].body).password;
+    await expect(window.navigator.clipboard.readText()).resolves.toBe(password);
   });
 
   test("409 surfaces an email-field error and keeps the user on the form", async () => {
@@ -98,6 +149,7 @@ describe("CreateUser page", () => {
 
     expect(await screen.findByText(/email already in use/i)).toBeInTheDocument();
     expect(screen.queryByTestId("probe")).not.toBeInTheDocument();
+    expect(screen.queryByText("User created")).not.toBeInTheDocument();
   });
 
   test("other API errors surface a banner", async () => {
@@ -125,38 +177,6 @@ describe("CreateUser page", () => {
 
     expect(await screen.findByText(/name must be 1–50 characters/i)).toBeInTheDocument();
     expect(screen.getByText(/email is required/i)).toBeInTheDocument();
-    expect(screen.getByText(/password must be at least 8 characters/i)).toBeInTheDocument();
-    expect(mockFetch).not.toHaveBeenCalled();
-  });
-
-  test("rejects short password client-side", async () => {
-    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
-
-    const user = userEvent.setup();
-    renderCreateUser();
-
-    await user.type(screen.getByLabelText(/name/i), "Alice");
-    await user.type(screen.getByLabelText(/email/i), "alice@example.com");
-    await user.type(screen.getByLabelText("Password"), "short");
-    await user.click(screen.getByRole("button", { name: /^create$/i }));
-
-    expect(await screen.findByText(/password must be at least 8 characters/i)).toBeInTheDocument();
-    expect(mockFetch).not.toHaveBeenCalled();
-  });
-
-  test("rejects mismatched password confirmation client-side", async () => {
-    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
-
-    const user = userEvent.setup();
-    renderCreateUser();
-
-    await user.type(screen.getByLabelText(/name/i), "Alice");
-    await user.type(screen.getByLabelText(/email/i), "alice@example.com");
-    await user.type(screen.getByLabelText("Password"), "hunter2!");
-    await user.type(screen.getByLabelText("Confirm password"), "hunter3!");
-    await user.click(screen.getByRole("button", { name: /^create$/i }));
-
-    expect(await screen.findByText(/passwords do not match/i)).toBeInTheDocument();
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
