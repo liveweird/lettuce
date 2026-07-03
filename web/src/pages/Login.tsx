@@ -14,6 +14,7 @@ import {
 import { isEmail, isNotEmpty, useForm } from "@mantine/form";
 import { ApiError, login } from "../api/client";
 import { consumeSignedOut, notifyAuthChange } from "../auth";
+import VersionStamp from "../components/VersionStamp";
 
 type LocationState = { from?: { pathname?: string } } | null;
 
@@ -59,40 +60,43 @@ export default function Login() {
 
   return (
     <Center h="100vh" p="md">
-      <Paper withBorder shadow="sm" p="xl" radius="md" w={360}>
-        <form onSubmit={form.onSubmit(onSubmit)} noValidate>
-          <Stack>
-            <Title order={3} ta="center">
-              {t("auth.signIn")}
-            </Title>
-            <TextInput
-              label={t("common.field.email")}
-              type="email"
-              autoFocus
-              autoComplete="email"
-              {...form.getInputProps("email")}
-            />
-            <PasswordInput
-              label={t("auth.password")}
-              autoComplete="current-password"
-              {...form.getInputProps("password")}
-            />
-            {signedOut && !form.isDirty() && !error && (
-              <Alert color="blue" variant="light">
-                {t("auth.signedOut")}
-              </Alert>
-            )}
-            {error && (
-              <Alert color="red" variant="light">
-                {error}
-              </Alert>
-            )}
-            <Button type="submit" loading={submitting} fullWidth>
-              {t("auth.signIn")}
-            </Button>
-          </Stack>
-        </form>
-      </Paper>
+      <Stack gap="xs">
+        <Paper withBorder shadow="sm" p="xl" radius="md" w={360}>
+          <form onSubmit={form.onSubmit(onSubmit)} noValidate>
+            <Stack>
+              <Title order={3} ta="center">
+                {t("auth.signIn")}
+              </Title>
+              <TextInput
+                label={t("common.field.email")}
+                type="email"
+                autoFocus
+                autoComplete="email"
+                {...form.getInputProps("email")}
+              />
+              <PasswordInput
+                label={t("auth.password")}
+                autoComplete="current-password"
+                {...form.getInputProps("password")}
+              />
+              {signedOut && !form.isDirty() && !error && (
+                <Alert color="blue" variant="light">
+                  {t("auth.signedOut")}
+                </Alert>
+              )}
+              {error && (
+                <Alert color="red" variant="light">
+                  {error}
+                </Alert>
+              )}
+              <Button type="submit" loading={submitting} fullWidth>
+                {t("auth.signIn")}
+              </Button>
+            </Stack>
+          </form>
+        </Paper>
+        <VersionStamp ta="center" />
+      </Stack>
     </Center>
   );
 }

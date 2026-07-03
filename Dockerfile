@@ -2,14 +2,21 @@
 
 # ── Stage 1: build the React SPA ──────────────────────────────────────────────
 FROM node:22-alpine AS web
+RUN apk add --no-cache git
 WORKDIR /web
 # Install deps first for layer caching. --legacy-peer-deps per web/ README
 # (openapi-typescript declares TS ^5 while the scaffold uses TS 6).
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --legacy-peer-deps
 COPY web/ ./
+# .git is copied last so a new commit only busts the build layer, and the version
+# stamp is computed explicitly here: the vite config's `git status` dirty check
+# would always be a false positive in this stage (the worktree is just web/).
+COPY .git .git
 # schema.ts is committed, so `vite build` needs no running server / gen:api.
-RUN npm run build
+RUN GIT_SHA=$(git rev-parse --short HEAD) \
+    GIT_COMMIT_TIME=$(git log -1 --format=%cI) \
+    npm run build
 
 # ── Stage 2: build the server fat JAR ─────────────────────────────────────────
 FROM eclipse-temurin:21-jdk AS server

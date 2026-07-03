@@ -1,9 +1,31 @@
+import { execSync } from 'node:child_process'
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
+
+function git(args: string): string {
+  try {
+    return execSync(`git ${args}`, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()
+  } catch {
+    return ''
+  }
+}
+
+// Build stamp shown by src/components/VersionStamp.tsx. Env vars win so the Docker
+// build (whose worktree never matches the index — a `git status` dirty check there
+// would always be a false positive) and CI can inject exact values; local builds
+// fall back to git, marking uncommitted state with "+dirty".
+const sha = git('rev-parse --short HEAD')
+const commit =
+  process.env.GIT_SHA || (sha ? (git('status --porcelain') ? `${sha}+dirty` : sha) : 'unknown')
+const commitTime = process.env.GIT_COMMIT_TIME || git('log -1 --format=%cI') || ''
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  define: {
+    __APP_COMMIT__: JSON.stringify(commit),
+    __APP_COMMIT_TIME__: JSON.stringify(commitTime),
+  },
   server: {
     proxy: {
       '/api': 'http://localhost:8080',

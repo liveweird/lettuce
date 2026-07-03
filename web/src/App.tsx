@@ -40,6 +40,7 @@ import { getCurrentUser, getUserId, logout } from "./api/client";
 import { RedirectIfAuthed, RequireAuth, flagSignedOut, notifyAuthChange } from "./auth";
 import NotificationsButton from "./components/NotificationsButton";
 import LanguageSwitcher from "./components/LanguageSwitcher";
+import VersionStamp from "./components/VersionStamp";
 import { TourProvider, useTour } from "./components/Tour";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Feedback = lazy(() => import("./pages/Feedback"));
@@ -292,6 +293,7 @@ function Shell() {
             />
           );
         })}
+        <VersionStamp mt="auto" ta="center" pt="xs" />
       </AppShell.Navbar>
 
       <AppShell.Main>

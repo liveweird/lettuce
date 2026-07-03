@@ -4,8 +4,8 @@
 web/node_modules/
 web/dist/
 
-# VCS / IDE / local cruft
-.git/
+# IDE / local cruft (.git stays IN the context — the SPA build stage reads the
+# commit sha/timestamp from it for the version stamp)
 **/.idea/
 **/*.iml
 server/h2.mv.db
