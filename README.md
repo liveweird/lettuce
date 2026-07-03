@@ -38,6 +38,44 @@ A bootstrap admin is seeded on first boot: `admin@lettuce.local` / `changeme`
 Tear down with `docker compose down`, or `docker compose down -v` to also drop the
 database volume.
 
+## Running on Kubernetes (local)
+
+The `k8s/` directory holds manifests for a local cluster (developed against
+OrbStack, whose Kubernetes shares the Docker image store — no registry needed).
+
+Build (or rebuild) and deploy:
+
+```
+docker build -t lettuce-app:latest .
+kubectl apply -f k8s/                      # idempotent; only needed when manifests change
+kubectl rollout restart deployment/app     # picks up a rebuilt image (tag stays :latest)
+kubectl rollout status deployment/app
+```
+
+The `app` Service is a LoadBalancer (`kubectl get svc app` shows its address);
+`kubectl port-forward svc/app 8081:8080` works on any cluster. The same admin
+seed applies as above.
+
+Tear down:
+
+```
+kubectl delete -f k8s/                              # everything, INCLUDING the database volume
+kubectl scale deployment app postgres --replicas=0  # stop workloads, keep the data
+```
+
+Database only:
+
+```
+kubectl apply -f k8s/postgres-data-persistentvolumeclaim.yaml \
+              -f k8s/postgres-deployment.yaml \
+              -f k8s/postgres-service.yaml
+kubectl port-forward svc/postgres 5432:5432   # the Service is ClusterIP-only
+```
+
+For hot-reload development, `docker compose up postgres` (below) remains the
+simpler path — don't run both databases against host `:5432`; they are separate
+instances with separate volumes.
+
 ## Local development
 
 For hot-reload development, run the three pieces separately:
