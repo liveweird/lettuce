@@ -8,12 +8,11 @@ test("admin creates then renames a user", async ({ page }) => {
   const name2 = uniqueText("E2E Renamed");
   await login(page, ADMIN);
 
-  // Create (role defaults to USER).
+  // Create (role defaults to USER). The password is generated client-side and revealed
+  // once in a confirmation modal — the form has no password fields anymore.
   await page.goto("/users/new");
   await page.getByRole("textbox", { name: "Name" }).fill(name1);
   await page.getByRole("textbox", { name: "Email" }).fill(email);
-  await page.getByRole("textbox", { name: "Password", exact: true }).fill("changeme1");
-  await page.getByRole("textbox", { name: "Confirm password" }).fill("changeme1");
   const [created] = await Promise.all([
     page.waitForResponse(
       (r) => r.url().endsWith("/api/v1/users") && r.request().method() === "POST" && r.ok(),
@@ -21,6 +20,10 @@ test("admin creates then renames a user", async ({ page }) => {
     page.getByRole("button", { name: "Create" }).click(),
   ]);
   const id: number = (await created.json()).id;
+
+  // Dismiss the one-time generated-password reveal (.last() skips the header X if it
+  // shares the accessible name "Close").
+  await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).last().click();
 
   // Rename via PUT /users/{id}.
   await page.goto(`/users/${id}/edit`);
