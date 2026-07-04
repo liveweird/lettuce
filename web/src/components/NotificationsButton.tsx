@@ -17,6 +17,7 @@ import { useDisclosure } from "@mantine/hooks";
 import { IconBell, IconCheck, IconChecks, IconEyeOff, IconExternalLink } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { useNavigate } from "react-router-dom";
 import {
   listNotifications,
@@ -27,6 +28,29 @@ import {
 } from "../api/client";
 import { formatTimestamp } from "../utils/datetime";
 import { toRelativePath } from "../utils/url";
+
+// The i18n key per notification type. The message is rendered in the viewer's language from
+// notifications.event.* with the party names (proper nouns) interpolated from `params`.
+const EVENT_KEY: Record<NotificationItem["type"], string> = {
+  FEEDBACK_REQUESTED_TO_PROVIDER: "requestedToProvider",
+  FEEDBACK_REQUESTED_TO_REQUESTER: "requestedToRequester",
+  FEEDBACK_SENT_TO_SUBJECT: "sentToSubject",
+  FEEDBACK_SENT_TO_PROVIDER: "sentToProvider",
+  FEEDBACK_SENT_TO_REQUESTER: "sentToRequester",
+  FEEDBACK_REJECTED_TO_REQUESTER: "rejectedToRequester",
+  FEEDBACK_PICKED_UP_TO_REQUESTER: "pickedUpToRequester",
+  FEEDBACK_WITHDRAWN_TO_SUBJECT: "withdrawnToSubject",
+  FEEDBACK_WITHDRAWN_TO_REQUESTER: "withdrawnToRequester",
+  FEEDBACK_DELETED_TO_REQUESTER: "deletedToRequester",
+};
+
+function describeNotification(n: NotificationItem, t: TFunction): string {
+  const key = EVENT_KEY[n.type];
+  if (!key) return n.type; // forward-compat: an unknown kind → show the raw type
+  const params = n.params ?? {};
+  // `self` drives the "about yourself" wording variant via i18next context.
+  return t(`notifications.event.${key}`, { ...params, context: params.self });
+}
 
 // Poll the bell so notifications minted elsewhere (e.g. someone sending you feedback) show up
 // without a manual refresh. `refetchIntervalInBackground` defaults to false, so polling pauses
@@ -150,7 +174,7 @@ export default function NotificationsButton() {
                             </Text>
                           </Group>
                           <Text size="sm" fw={n.wasSeen ? 400 : 600} c={n.wasSeen ? "dimmed" : undefined}>
-                            {n.message}
+                            {describeNotification(n, t)}
                           </Text>
                         </Stack>
                         <Group gap="xs" wrap="nowrap">

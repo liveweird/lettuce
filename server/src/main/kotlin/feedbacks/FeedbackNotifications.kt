@@ -1,6 +1,7 @@
 package ch.nokillswit.feedbacks
 
 import ch.nokillswit.notifications.Notification
+import ch.nokillswit.notifications.NotificationType
 
 /**
  * Pure mapping from a feedback status transition to the notifications it should produce.
@@ -31,14 +32,16 @@ internal fun feedbackTransitionNotifications(
         from == FeedbackStatus.DRAFT && to == FeedbackStatus.SENT -> {
             notifications += Notification(
                 recipientId = next.subjectId,
-                message = "Feedback from provider $provider about subject $subject has been sent.",
+                type = NotificationType.FEEDBACK_SENT_TO_SUBJECT,
+                params = mapOf("provider" to provider, "subject" to subject),
                 link = subjectLink,
             )
             // The provider (sender) is confirmed their feedback went out; they can always read their
             // own feedback, so the view link is unconditional.
             notifications += Notification(
                 recipientId = next.providerId,
-                message = "Feedback you provided about subject $subject has been sent.",
+                type = NotificationType.FEEDBACK_SENT_TO_PROVIDER,
+                params = mapOf("subject" to subject),
                 link = view,
             )
         }
@@ -46,27 +49,28 @@ internal fun feedbackTransitionNotifications(
         from == FeedbackStatus.REQUESTED && to == FeedbackStatus.REJECTED && next.requesterId != null ->
             notifications += Notification(
                 recipientId = next.requesterId,
-                message = "Feedback request by requester $requester to provider $provider " +
-                    "about subject $subject was rejected.",
+                type = NotificationType.FEEDBACK_REJECTED_TO_REQUESTER,
+                params = mapOf("requester" to requester!!, "provider" to provider, "subject" to subject),
             )
 
         from == FeedbackStatus.REQUESTED && to == FeedbackStatus.DRAFT && next.requesterId != null ->
             notifications += Notification(
                 recipientId = next.requesterId,
-                message = "Feedback request by requester $requester to provider $provider " +
-                    "about subject $subject was picked up by the provider (now a draft).",
+                type = NotificationType.FEEDBACK_PICKED_UP_TO_REQUESTER,
+                params = mapOf("requester" to requester!!, "provider" to provider, "subject" to subject),
             )
 
         from == FeedbackStatus.SENT && to == FeedbackStatus.WITHDRAWN -> {
             notifications += Notification(
                 recipientId = next.subjectId,
-                message = "Feedback from provider $provider about subject $subject has been withdrawn.",
+                type = NotificationType.FEEDBACK_WITHDRAWN_TO_SUBJECT,
+                params = mapOf("provider" to provider, "subject" to subject),
             )
             if (next.requesterId != null) {
                 notifications += Notification(
                     recipientId = next.requesterId,
-                    message = "Feedback from provider $provider about subject $subject " +
-                        "(requested by $requester) has been withdrawn.",
+                    type = NotificationType.FEEDBACK_WITHDRAWN_TO_REQUESTER,
+                    params = mapOf("provider" to provider, "subject" to subject, "requester" to requester!!),
                 )
             }
         }
@@ -81,8 +85,8 @@ internal fun feedbackTransitionNotifications(
     ) {
         notifications += Notification(
             recipientId = next.requesterId,
-            message = "Requested feedback from provider $provider about subject $subject " +
-                "(requested by $requester) has been sent.",
+            type = NotificationType.FEEDBACK_SENT_TO_REQUESTER,
+            params = mapOf("provider" to provider, "subject" to subject, "requester" to requester!!),
             link = requesterLink,
         )
     }
@@ -113,27 +117,28 @@ internal fun feedbackCreationNotifications(
     val subject = nameById.nameOf(created.subjectId)
 
     // The requester is confirmed their request went out; no link (nothing to open yet). The wording
-    // differs when they asked for feedback about themselves (subject == requester) vs. about someone.
+    // differs when they asked for feedback about themselves (subject == requester) vs. about someone
+    // — the `self` param drives an i18next context in the SPA.
     val requesterNote =
         if (created.subjectId == requesterId) {
             Notification(
                 recipientId = requesterId,
-                message = "Feedback you requested about yourself from provider $provider " +
-                    "has been submitted.",
+                type = NotificationType.FEEDBACK_REQUESTED_TO_REQUESTER,
+                params = mapOf("provider" to provider, "self" to "self"),
             )
         } else {
             Notification(
                 recipientId = requesterId,
-                message = "Feedback you requested from provider $provider about subject $subject " +
-                    "has been submitted.",
+                type = NotificationType.FEEDBACK_REQUESTED_TO_REQUESTER,
+                params = mapOf("provider" to provider, "subject" to subject),
             )
         }
 
     return listOf(
         Notification(
             recipientId = created.providerId,
-            message = "The new feedback has been requested by the user $requester " +
-                "for the user $subject.",
+            type = NotificationType.FEEDBACK_REQUESTED_TO_PROVIDER,
+            params = mapOf("requester" to requester, "subject" to subject),
             link = "/feedback/$feedbackId/edit",
         ),
         requesterNote,
@@ -159,8 +164,8 @@ internal fun feedbackDeletionNotifications(
     return listOf(
         Notification(
             recipientId = requesterId,
-            message = "Feedback you requested from provider $provider about subject $subject " +
-                "has been deleted by the provider.",
+            type = NotificationType.FEEDBACK_DELETED_TO_REQUESTER,
+            params = mapOf("provider" to provider, "subject" to subject),
         ),
     )
 }

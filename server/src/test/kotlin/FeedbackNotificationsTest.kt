@@ -6,6 +6,7 @@ import ch.nokillswit.feedbacks.FeedbackVisibility
 import ch.nokillswit.feedbacks.feedbackCreationNotifications
 import ch.nokillswit.feedbacks.feedbackDeletionNotifications
 import ch.nokillswit.feedbacks.feedbackTransitionNotifications
+import ch.nokillswit.notifications.NotificationType
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -43,17 +44,21 @@ class FeedbackNotificationsTest {
         val toProvider = result.single { it.recipientId == 1u }
         val toRequester = result.single { it.recipientId == 3u }
 
-        assertTrue(toSubject.message.contains(P) && toSubject.message.contains(S))
-        assertTrue(toSubject.message.contains("has been sent"))
+        assertEquals(NotificationType.FEEDBACK_SENT_TO_SUBJECT, toSubject.type)
+        assertEquals(P, toSubject.params["provider"])
+        assertEquals(S, toSubject.params["subject"])
         // PROVIDER_REQUESTER_SUBJECT is readable by both → both get links.
         assertEquals("/feedback/42/view", toSubject.link)
 
         // The provider (sender) gets a confirmation with an unconditional view link.
-        assertTrue(toProvider.message.contains("has been sent"))
+        assertEquals(NotificationType.FEEDBACK_SENT_TO_PROVIDER, toProvider.type)
+        assertEquals(S, toProvider.params["subject"])
         assertEquals("/feedback/42/view", toProvider.link)
 
-        assertTrue(toRequester.message.contains(R), "requester message must name the requester")
-        assertTrue(toRequester.message.contains(P) && toRequester.message.contains(S))
+        assertEquals(NotificationType.FEEDBACK_SENT_TO_REQUESTER, toRequester.type)
+        assertEquals(R, toRequester.params["requester"])
+        assertEquals(P, toRequester.params["provider"])
+        assertEquals(S, toRequester.params["subject"])
         assertEquals("/feedback/42/view", toRequester.link)
     }
 
@@ -71,8 +76,8 @@ class FeedbackNotificationsTest {
         val toProvider = feedbackTransitionNotifications(42u, FeedbackStatus.DRAFT, next, names)
             .single { it.recipientId == 1u }
         assertEquals("/feedback/42/view", toProvider.link)
-        assertTrue(toProvider.message.contains("you provided"))
-        assertTrue(toProvider.message.contains(S))
+        assertEquals(NotificationType.FEEDBACK_SENT_TO_PROVIDER, toProvider.type)
+        assertEquals(S, toProvider.params["subject"])
     }
 
     @Test
@@ -110,7 +115,7 @@ class FeedbackNotificationsTest {
         val n = result.single()
         assertEquals(3u, n.recipientId)
         assertEquals("/feedback/21/view", n.link)
-        assertTrue(n.message.contains("has been sent"))
+        assertEquals(NotificationType.FEEDBACK_SENT_TO_REQUESTER, n.type)
     }
 
     @Test
@@ -120,8 +125,10 @@ class FeedbackNotificationsTest {
         val n = result.single()
         assertEquals(3u, n.recipientId)
         assertNull(n.link)
-        assertTrue(n.message.contains("rejected"))
-        assertTrue(n.message.contains(R) && n.message.contains(P) && n.message.contains(S))
+        assertEquals(NotificationType.FEEDBACK_REJECTED_TO_REQUESTER, n.type)
+        assertEquals(R, n.params["requester"])
+        assertEquals(P, n.params["provider"])
+        assertEquals(S, n.params["subject"])
     }
 
     @Test
@@ -131,8 +138,10 @@ class FeedbackNotificationsTest {
         val n = result.single()
         assertEquals(3u, n.recipientId)
         assertNull(n.link)
-        assertTrue(n.message.contains("picked up"))
-        assertTrue(n.message.contains(R) && n.message.contains(P) && n.message.contains(S))
+        assertEquals(NotificationType.FEEDBACK_PICKED_UP_TO_REQUESTER, n.type)
+        assertEquals(R, n.params["requester"])
+        assertEquals(P, n.params["provider"])
+        assertEquals(S, n.params["subject"])
     }
 
     @Test
@@ -141,8 +150,10 @@ class FeedbackNotificationsTest {
         val result = feedbackTransitionNotifications(8u, FeedbackStatus.SENT, next, names)
         assertEquals(setOf(2u, 3u), result.map { it.recipientId }.toSet())
         assertTrue(result.all { it.link == null })
-        assertTrue(result.all { it.message.contains("withdrawn") })
-        assertTrue(result.single { it.recipientId == 3u }.message.contains(R))
+        assertEquals(NotificationType.FEEDBACK_WITHDRAWN_TO_SUBJECT, result.single { it.recipientId == 2u }.type)
+        val toRequester = result.single { it.recipientId == 3u }
+        assertEquals(NotificationType.FEEDBACK_WITHDRAWN_TO_REQUESTER, toRequester.type)
+        assertEquals(R, toRequester.params["requester"])
     }
 
     @Test
@@ -183,8 +194,9 @@ class FeedbackNotificationsTest {
     @Test
     fun `falls back to an id placeholder when a name is missing`() {
         val next = feedback(FeedbackStatus.REJECTED)
-        val result = feedbackTransitionNotifications(5u, FeedbackStatus.REQUESTED, next, emptyMap())
-        assertTrue(result.single().message.contains("#1") && result.single().message.contains("#2"))
+        val n = feedbackTransitionNotifications(5u, FeedbackStatus.REQUESTED, next, emptyMap()).single()
+        assertEquals("#1", n.params["provider"])
+        assertEquals("#2", n.params["subject"])
     }
 
     @Test
@@ -195,17 +207,21 @@ class FeedbackNotificationsTest {
 
         val toProvider = result.single { it.recipientId == 1u }
         assertEquals("/feedback/11/edit", toProvider.link)
-        assertTrue(toProvider.message.contains(R), "message must name the requester")
-        assertTrue(toProvider.message.contains(S), "message must name the subject")
+        assertEquals(NotificationType.FEEDBACK_REQUESTED_TO_PROVIDER, toProvider.type)
+        assertEquals(R, toProvider.params["requester"])
+        assertEquals(S, toProvider.params["subject"])
 
         // The requester gets a confirmation with no link, naming the provider and subject.
         val toRequester = result.single { it.recipientId == 3u }
         assertNull(toRequester.link, "the requester confirmation carries no link")
-        assertTrue(toRequester.message.contains(P) && toRequester.message.contains(S))
+        assertEquals(NotificationType.FEEDBACK_REQUESTED_TO_REQUESTER, toRequester.type)
+        assertEquals(P, toRequester.params["provider"])
+        assertEquals(S, toRequester.params["subject"])
+        assertNull(toRequester.params["self"], "not a self-request")
     }
 
     @Test
-    fun `asking for feedback about yourself notifies the requester without a link`() {
+    fun `asking for feedback about yourself notifies the requester with the self variant`() {
         // The "ask for feedback about myself" flow: subject == requester.
         val created = Feedback(
             requesterId = 3u,
@@ -217,7 +233,8 @@ class FeedbackNotificationsTest {
         val toRequester = feedbackCreationNotifications(12u, created, names)
             .single { it.recipientId == 3u }
         assertNull(toRequester.link)
-        assertTrue(toRequester.message.contains("yourself"))
+        assertEquals(NotificationType.FEEDBACK_REQUESTED_TO_REQUESTER, toRequester.type)
+        assertEquals("self", toRequester.params["self"])
     }
 
     @Test
@@ -239,11 +256,12 @@ class FeedbackNotificationsTest {
     }
 
     @Test
-    fun `creation message falls back to an id placeholder when a name is missing`() {
+    fun `creation params fall back to an id placeholder when a name is missing`() {
         val created = feedback(FeedbackStatus.REQUESTED)
-        val message = feedbackCreationNotifications(11u, created, emptyMap())
-            .single { it.recipientId == 1u }.message
-        assertTrue(message.contains("#3") && message.contains("#2"))
+        val toProvider = feedbackCreationNotifications(11u, created, emptyMap())
+            .single { it.recipientId == 1u }
+        assertEquals("#3", toProvider.params["requester"])
+        assertEquals("#2", toProvider.params["subject"])
     }
 
     @Test
@@ -252,8 +270,9 @@ class FeedbackNotificationsTest {
         val n = feedbackDeletionNotifications(deleted, names).single()
         assertEquals(3u, n.recipientId, "the requester is notified")
         assertNull(n.link)
-        assertTrue(n.message.contains("deleted"))
-        assertTrue(n.message.contains(P) && n.message.contains(S))
+        assertEquals(NotificationType.FEEDBACK_DELETED_TO_REQUESTER, n.type)
+        assertEquals(P, n.params["provider"])
+        assertEquals(S, n.params["subject"])
     }
 
     @Test

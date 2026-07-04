@@ -11,6 +11,7 @@ import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
 import ch.nokillswit.notifications.NotificationPageResponse
 import ch.nokillswit.notifications.NotificationResponse
+import ch.nokillswit.notifications.NotificationType
 import ch.nokillswit.teams.Team
 import ch.nokillswit.teams.TeamResponse
 import ch.nokillswit.users.UserRole
@@ -1627,21 +1628,22 @@ class FeedbackRoutesTest {
 
         val subjectNotes = notificationsOf(subject.email)
         val subjectNote = subjectNotes.single()
-        assertTrue(subjectNote.message.contains("Pat Provider") && subjectNote.message.contains("Sam Subject"))
-        assertTrue(subjectNote.message.contains("has been sent"))
+        assertEquals(NotificationType.FEEDBACK_SENT_TO_SUBJECT, subjectNote.type)
+        assertEquals("Pat Provider", subjectNote.params["provider"])
+        assertEquals("Sam Subject", subjectNote.params["subject"])
         assertEquals("/feedback/${created.id}/view", subjectNote.link)
         assertFalse(subjectNote.wasSeen)
 
         val requesterNote = notificationsOf(requester.email).single()
-        assertTrue(requesterNote.message.contains("Rita Requester"))
-        assertTrue(requesterNote.message.contains("has been sent"))
+        assertEquals(NotificationType.FEEDBACK_SENT_TO_REQUESTER, requesterNote.type)
+        assertEquals("Rita Requester", requesterNote.params["requester"])
         assertEquals("/feedback/${created.id}/view", requesterNote.link)
 
         // The provider (sender) is also confirmed, with a link to the feedback's view screen.
         // (Creating the draft produced no notification, so this is the provider's only one.)
         val providerNote = notificationsOf(provider.email).single()
-        assertTrue(providerNote.message.contains("you provided") && providerNote.message.contains("Sam Subject"))
-        assertTrue(providerNote.message.contains("has been sent"))
+        assertEquals(NotificationType.FEEDBACK_SENT_TO_PROVIDER, providerNote.type)
+        assertEquals("Sam Subject", providerNote.params["subject"])
         assertEquals("/feedback/${created.id}/view", providerNote.link)
     }
 
@@ -1668,8 +1670,9 @@ class FeedbackRoutesTest {
         providerClient.post("/api/v1/feedbacks/${created.id}/reject")
 
         // The requester also has the creation confirmation; scope to the rejection note.
-        val note = notificationsOf(requester.email).single { it.message.contains("rejected") }
-        assertTrue(note.message.contains("Rita Requester") && note.message.contains("Pat Provider"))
+        val note = notificationsOf(requester.email).single { it.type == NotificationType.FEEDBACK_REJECTED_TO_REQUESTER }
+        assertEquals("Rita Requester", note.params["requester"])
+        assertEquals("Pat Provider", note.params["provider"])
         assertNull(note.link)
         // The subject is not told about a rejected request.
         assertTrue(notificationsOf(subject.email).isEmpty())
@@ -1702,8 +1705,9 @@ class FeedbackRoutesTest {
         )
 
         val note = notificationsOf(requester.email).single()
-        assertTrue(note.message.contains("deleted"))
-        assertTrue(note.message.contains("Pat Provider") && note.message.contains("Sam Subject"))
+        assertEquals(NotificationType.FEEDBACK_DELETED_TO_REQUESTER, note.type)
+        assertEquals("Pat Provider", note.params["provider"])
+        assertEquals("Sam Subject", note.params["subject"])
         assertNull(note.link)
         // The subject is not notified, and the provider is the actor (not notified).
         assertTrue(notificationsOf(subject.email).isEmpty())
@@ -1733,7 +1737,7 @@ class FeedbackRoutesTest {
         providerClient.post("/api/v1/feedbacks/${created.id}/pick-up")
 
         // The requester also has the creation confirmation; scope to the picked-up note.
-        val note = notificationsOf(requester.email).single { it.message.contains("picked up") }
+        val note = notificationsOf(requester.email).single { it.type == NotificationType.FEEDBACK_PICKED_UP_TO_REQUESTER }
         assertNull(note.link)
     }
 
@@ -1759,10 +1763,10 @@ class FeedbackRoutesTest {
         providerClient.post("/api/v1/feedbacks/${created.id}/send")
         providerClient.post("/api/v1/feedbacks/${created.id}/withdraw")
 
-        assertTrue(notificationsOf(subject.email).any { it.message.contains("withdrawn") })
-        val requesterWithdrawn = notificationsOf(requester.email).filter { it.message.contains("withdrawn") }
+        assertTrue(notificationsOf(subject.email).any { it.type == NotificationType.FEEDBACK_WITHDRAWN_TO_SUBJECT })
+        val requesterWithdrawn = notificationsOf(requester.email).filter { it.type == NotificationType.FEEDBACK_WITHDRAWN_TO_REQUESTER }
         assertEquals(1, requesterWithdrawn.size)
-        assertTrue(requesterWithdrawn.single().message.contains("Rita Requester"))
+        assertEquals("Rita Requester", requesterWithdrawn.single().params["requester"])
         assertTrue(requesterWithdrawn.single().link == null)
     }
 
@@ -1819,14 +1823,17 @@ class FeedbackRoutesTest {
         }.body<FeedbackResponse>()
 
         val providerNote = notificationsOf(provider.email).single()
-        assertTrue(providerNote.message.contains("Rita Requester"), "names the requester")
-        assertTrue(providerNote.message.contains("Sam Subject"), "names the subject")
+        assertEquals(NotificationType.FEEDBACK_REQUESTED_TO_PROVIDER, providerNote.type)
+        assertEquals("Rita Requester", providerNote.params["requester"])
+        assertEquals("Sam Subject", providerNote.params["subject"])
         assertEquals("/feedback/${created.id}/edit", providerNote.link)
         assertFalse(providerNote.wasSeen)
 
         // The requester gets a confirmation with no link, naming the provider and subject.
         val requesterNote = notificationsOf(requester.email).single()
-        assertTrue(requesterNote.message.contains("Pat Provider") && requesterNote.message.contains("Sam Subject"))
+        assertEquals(NotificationType.FEEDBACK_REQUESTED_TO_REQUESTER, requesterNote.type)
+        assertEquals("Pat Provider", requesterNote.params["provider"])
+        assertEquals("Sam Subject", requesterNote.params["subject"])
         assertNull(requesterNote.link)
         assertFalse(requesterNote.wasSeen)
 
@@ -1856,7 +1863,8 @@ class FeedbackRoutesTest {
         }
 
         val myNote = notificationsOf(me.email).single()
-        assertTrue(myNote.message.contains("yourself"))
+        assertEquals(NotificationType.FEEDBACK_REQUESTED_TO_REQUESTER, myNote.type)
+        assertEquals("self", myNote.params["self"], "the about-yourself wording variant")
         assertNull(myNote.link)
     }
 

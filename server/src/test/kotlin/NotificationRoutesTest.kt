@@ -4,6 +4,7 @@ import ch.nokillswit.auth.LoginRequest
 import ch.nokillswit.auth.LoginResponse
 import ch.nokillswit.notifications.NotificationPageResponse
 import ch.nokillswit.notifications.NotificationResponse
+import ch.nokillswit.notifications.NotificationType
 import ch.nokillswit.users.UserRole
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -56,10 +57,10 @@ class NotificationRoutesTest {
         val otherId = TestUsers.seed(email = uniqueEmail("other"), password = "pw", role = UserRole.USER)
         val client = authedClient(recipientEmail, "pw")
 
-        val older = TestNotifications.seed(recipientId, message = "older")
+        val older = TestNotifications.seed(recipientId, label = "older")
         delay(10)
-        val newer = TestNotifications.seed(recipientId, message = "newer")
-        TestNotifications.seed(otherId, message = "not yours")
+        val newer = TestNotifications.seed(recipientId, label = "newer")
+        TestNotifications.seed(otherId, label = "not yours")
 
         val page = client.get("/api/v1/notifications")
         assertEquals(HttpStatusCode.OK, page.status)
@@ -77,8 +78,8 @@ class NotificationRoutesTest {
         val recipientId = TestUsers.seed(email = recipientEmail, password = "pw", role = UserRole.USER)
         val client = authedClient(recipientEmail, "pw")
 
-        val seen = TestNotifications.seed(recipientId, message = "seen one")
-        val unseen = TestNotifications.seed(recipientId, message = "unseen one")
+        val seen = TestNotifications.seed(recipientId, label = "seen one")
+        val unseen = TestNotifications.seed(recipientId, label = "unseen one")
         assertEquals(HttpStatusCode.NoContent, client.post("/api/v1/notifications/$seen/seen").status)
 
         val onlySeen = client.get("/api/v1/notifications?wasSeen=true").body<NotificationPageResponse>()
@@ -100,14 +101,15 @@ class NotificationRoutesTest {
         val adminEmail = uniqueEmail("admin")
         TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
 
-        val id = TestNotifications.seed(recipientId, message = "hi", link = "/x")
+        val id = TestNotifications.seed(recipientId, label = "hi", link = "/x")
 
         val recipientClient = authedClient(recipientEmail, "pw")
         val read = recipientClient.get("/api/v1/notifications/$id")
         assertEquals(HttpStatusCode.OK, read.status)
         val body = read.body<NotificationResponse>()
         assertEquals(recipientId, body.recipientId)
-        assertEquals("hi", body.message)
+        assertEquals(NotificationType.FEEDBACK_SENT_TO_SUBJECT, body.type)
+        assertEquals("hi", body.params["subject"])
         assertEquals("/x", body.link)
         assertFalse(body.wasSeen)
         assertTrue(body.timestamp > 0)
@@ -184,11 +186,11 @@ class NotificationRoutesTest {
         val strangerClient = authedClient(strangerEmail, "pw")
 
         // Two unseen + one already-seen for the recipient; one unseen for the stranger.
-        TestNotifications.seed(recipientId, message = "one")
-        TestNotifications.seed(recipientId, message = "two")
-        val alreadySeen = TestNotifications.seed(recipientId, message = "old")
+        TestNotifications.seed(recipientId, label = "one")
+        TestNotifications.seed(recipientId, label = "two")
+        val alreadySeen = TestNotifications.seed(recipientId, label = "old")
         client.post("/api/v1/notifications/$alreadySeen/seen")
-        val strangerNote = TestNotifications.seed(strangerId, message = "theirs")
+        val strangerNote = TestNotifications.seed(strangerId, label = "theirs")
 
         assertEquals(2, client.get("/api/v1/notifications?wasSeen=false").body<NotificationPageResponse>().total)
 
@@ -213,12 +215,12 @@ class NotificationRoutesTest {
         val client = authedClient(recipientEmail, "pw")
         val strangerClient = authedClient(strangerEmail, "pw")
 
-        val protectedId = TestNotifications.seed(recipientId, message = "keep")
+        val protectedId = TestNotifications.seed(recipientId, label = "keep")
         assertEquals(HttpStatusCode.Forbidden, strangerClient.delete("/api/v1/notifications/$protectedId").status)
         // Still there after the forbidden attempt.
         assertEquals(HttpStatusCode.OK, client.get("/api/v1/notifications/$protectedId").status)
 
-        val doomedId = TestNotifications.seed(recipientId, message = "drop")
+        val doomedId = TestNotifications.seed(recipientId, label = "drop")
         assertEquals(HttpStatusCode.NoContent, client.delete("/api/v1/notifications/$doomedId").status)
         assertEquals(HttpStatusCode.NotFound, client.get("/api/v1/notifications/$doomedId").status)
     }
@@ -240,8 +242,8 @@ class NotificationRoutesTest {
         val recipientId = TestUsers.seed(email = recipientEmail, password = "pw", role = UserRole.USER)
         val client = authedClient(recipientEmail, "pw")
 
-        val keep = TestNotifications.seed(recipientId, message = "keep")
-        val doomed = TestNotifications.seed(recipientId, message = "drop")
+        val keep = TestNotifications.seed(recipientId, label = "keep")
+        val doomed = TestNotifications.seed(recipientId, label = "drop")
 
         assertEquals(HttpStatusCode.NoContent, client.delete("/api/v1/notifications/$doomed").status)
 

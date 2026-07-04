@@ -12,5 +12,18 @@
   "markUnseen": "Mark as unseen",
   "markUnseenAria": "Mark notification {{id}} as unseen",
   "goTo": "Go to",
-  "goToAria": "Go to notification {{id}}"
+  "goToAria": "Go to notification {{id}}",
+  "event": {
+    "requestedToProvider": "{{requester}} requested feedback about {{subject}}.",
+    "requestedToRequester": "Your feedback request to {{provider}} about {{subject}} has been submitted.",
+    "requestedToRequester_self": "Your request for feedback about yourself from {{provider}} has been submitted.",
+    "sentToSubject": "Feedback from {{provider}} about {{subject}} has been sent.",
+    "sentToProvider": "The feedback you provided about {{subject}} has been sent.",
+    "sentToRequester": "The feedback you requested from {{provider}} about {{subject}} has been sent.",
+    "rejectedToRequester": "Your feedback request to {{provider}} about {{subject}} was rejected.",
+    "pickedUpToRequester": "{{provider}} picked up your feedback request about {{subject}} (now a draft).",
+    "withdrawnToSubject": "Feedback from {{provider}} about {{subject}} has been withdrawn.",
+    "withdrawnToRequester": "The feedback from {{provider}} about {{subject}} you requested has been withdrawn.",
+    "deletedToRequester": "The feedback you requested from {{provider}} about {{subject}} has been deleted by the provider."
+  }
 }

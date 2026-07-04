@@ -114,11 +114,14 @@ object TestNotifications {
         ch.nokillswit.notifications.NotificationService(sharedTestDatabase)
     }
 
-    suspend fun seed(recipientId: UInt, message: String = "Hello", link: String = "/somewhere"): UInt =
+    // Notifications are now typed + structured; tests only need distinguishable rows, so a fixed
+    // type carries the caller's [label] as a param.
+    suspend fun seed(recipientId: UInt, label: String = "Hello", link: String? = "/somewhere"): UInt =
         service.create(
             ch.nokillswit.notifications.Notification(
                 recipientId = recipientId,
-                message = message,
+                type = ch.nokillswit.notifications.NotificationType.FEEDBACK_SENT_TO_SUBJECT,
+                params = mapOf("subject" to label),
                 link = link,
             )
         )

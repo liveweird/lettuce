@@ -1073,7 +1073,18 @@ export interface components {
              * @description Epoch milliseconds when the notification was generated. Server-managed.
              */
             timestamp: number;
-            message: string;
+            /**
+             * @description Notification kind; the client renders it in the viewer's language.
+             * @enum {string}
+             */
+            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER";
+            /**
+             * @description Interpolation values for the localized message — party names (proper nouns), e.g.
+             *     `{provider,subject,requester}`; plus `self` (= "self") for the "about yourself" variant.
+             */
+            params: {
+                [key: string]: string;
+            };
             /** @description Optional in-app path to open from the notification; absent when there is nowhere to go. */
             link?: string | null;
             /** @description Whether the recipient has marked the notification as seen. */

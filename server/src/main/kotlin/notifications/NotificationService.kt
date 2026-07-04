@@ -3,11 +3,13 @@ package ch.nokillswit.notifications
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.users.UserService
-import io.ktor.server.plugins.BadRequestException
 import io.ktor.util.AttributeKey
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.singleOrNull
 import kotlinx.coroutines.flow.toList
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.core.dao.id.UIntIdTable
 import org.jetbrains.exposed.v1.r2dbc.*
@@ -15,6 +17,8 @@ import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
 val NotificationServiceKey = AttributeKey<NotificationService>("NotificationService")
+
+private val paramsSerializer = MapSerializer(String.serializer(), String.serializer())
 
 data class NotificationListFilter(
     val wasSeen: Boolean? = null,
@@ -34,7 +38,8 @@ class NotificationService(val database: R2dbcDatabase) {
     object Notifications : UIntIdTable("notifications") {
         val recipientId = reference("recipient_id", UserService.Users)
         val timestamp = long("created_at")
-        val message = text("message")
+        val notificationType = varchar("notification_type", 60)
+        val params = text("params")
         val link = text("link").nullable()
         val wasSeen = bool("was_seen")
         val markedAsDeleted = bool("marked_as_deleted").default(false)
@@ -48,11 +53,11 @@ class NotificationService(val database: R2dbcDatabase) {
      * (no HTTP create endpoint exists).
      */
     suspend fun create(notification: Notification): UInt = suspendTransaction(database) {
-        validate(notification)
         val newRecord = Notifications.insert {
             it[recipientId] = notification.recipientId
             it[timestamp] = System.currentTimeMillis()
-            it[message] = notification.message
+            it[notificationType] = notification.type.name
+            it[params] = Json.encodeToString(paramsSerializer, notification.params)
             it[link] = notification.link
             it[wasSeen] = false
         }
@@ -120,14 +125,9 @@ class NotificationService(val database: R2dbcDatabase) {
         id = this[Notifications.id].value,
         recipientId = this[Notifications.recipientId].value,
         timestamp = this[Notifications.timestamp],
-        message = this[Notifications.message],
+        type = NotificationType.valueOf(this[Notifications.notificationType]),
+        params = Json.decodeFromString(paramsSerializer, this[Notifications.params]),
         link = this[Notifications.link],
         wasSeen = this[Notifications.wasSeen],
     )
-
-    private fun validate(notification: Notification) {
-        if (notification.message.isBlank()) {
-            throw BadRequestException("Notification message must not be blank")
-        }
-    }
 }

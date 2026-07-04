@@ -19,27 +19,35 @@ type Item = {
   id: number;
   recipientId: number;
   timestamp: number;
-  message: string;
+  type: string;
+  params: Record<string, string>;
   link: string | null;
   wasSeen: boolean;
 };
 
+// Rendered EN (tests force en): "Feedback from Pat Provider about Sam Subject has been sent."
 const UNSEEN: Item = {
   id: 1,
   recipientId: 7,
   timestamp: new Date(2026, 1, 2, 14, 30).getTime(),
-  message: "Your feedback was sent",
+  type: "FEEDBACK_SENT_TO_SUBJECT",
+  params: { provider: "Pat Provider", subject: "Sam Subject" },
   link: "/feedback/5/view",
   wasSeen: false,
 };
+// Rendered EN: "Your feedback request to Dana Dev about Kim Coder has been submitted."
 const SEEN: Item = {
   id: 2,
   recipientId: 7,
   timestamp: new Date(2026, 0, 5, 9, 7).getTime(),
-  message: "Welcome aboard",
+  type: "FEEDBACK_REQUESTED_TO_REQUESTER",
+  params: { provider: "Dana Dev", subject: "Kim Coder" },
   link: "https://elsewhere.example.com/intro",
   wasSeen: true,
 };
+
+const UNSEEN_TEXT = "Feedback from Pat Provider about Sam Subject has been sent.";
+const SEEN_TEXT = "Your feedback request to Dana Dev about Kim Coder has been submitted.";
 
 // Default: 1 unread for the badge; list returns both rows.
 function setupMocks(mockFetch: FetchMock, list: Item[] = [UNSEEN, SEEN], unreadTotal = 1) {
@@ -165,9 +173,9 @@ describe("NotificationsButton", () => {
 
     await user.click(await screen.findByRole("button", { name: /unread/i }));
 
-    // Both messages render.
-    const unseenRow = (await screen.findByText("Your feedback was sent")).closest("[class*='Paper']")!;
-    const seenRow = screen.getByText("Welcome aboard").closest("[class*='Paper']")!;
+    // Both messages render, localized from their structured type + interpolated names.
+    const unseenRow = (await screen.findByText(UNSEEN_TEXT)).closest("[class*='Paper']")!;
+    const seenRow = screen.getByText(SEEN_TEXT).closest("[class*='Paper']")!;
 
     // Unseen row: "New" badge + Mark-as-seen, but no Mark-as-unseen.
     expect(within(unseenRow as HTMLElement).getByText("New")).toBeInTheDocument();
@@ -233,13 +241,21 @@ describe("NotificationsButton", () => {
   });
 
   test("a notification with no link shows no Go to button", async () => {
-    const linkless = { ...UNSEEN, id: 3, message: "Request was rejected", link: null };
+    const linkless: Item = {
+      ...UNSEEN,
+      id: 3,
+      type: "FEEDBACK_REJECTED_TO_REQUESTER",
+      params: { provider: "Pat Provider", subject: "Sam Subject" },
+      link: null,
+    };
     setupMocks(mockFetch, [linkless]);
     const user = userEvent.setup();
     renderWithProviders(<NotificationsButton />);
 
     await user.click(await screen.findByRole("button", { name: /unread/i }));
-    const row = (await screen.findByText("Request was rejected")).closest("[class*='Paper']")!;
+    const row = (
+      await screen.findByText("Your feedback request to Pat Provider about Sam Subject was rejected.")
+    ).closest("[class*='Paper']")!;
     expect(within(row as HTMLElement).queryByRole("button", { name: /go to/i })).toBeNull();
     // Mark as seen is still offered (it is unseen).
     expect(within(row as HTMLElement).getByRole("button", { name: /as seen$/i })).toBeInTheDocument();
@@ -251,11 +267,29 @@ describe("NotificationsButton", () => {
     renderWithProviders(<Harness />);
 
     await user.click(await screen.findByRole("button", { name: /unread/i }));
-    await screen.findByText("Your feedback was sent");
+    await screen.findByText(UNSEEN_TEXT);
 
     await user.keyboard("{Escape}");
 
     await waitFor(() => expect(screen.queryByRole("button", { name: /go to/i })).toBeNull());
     expect(screen.getByTestId("path")).toHaveTextContent("/");
+  });
+
+  test("renders the 'about yourself' wording when params carry the self context", async () => {
+    const selfNote: Item = {
+      ...UNSEEN,
+      id: 4,
+      type: "FEEDBACK_REQUESTED_TO_REQUESTER",
+      params: { provider: "Pat Provider", self: "self" },
+      link: null,
+    };
+    setupMocks(mockFetch, [selfNote]);
+    const user = userEvent.setup();
+    renderWithProviders(<NotificationsButton />);
+
+    await user.click(await screen.findByRole("button", { name: /unread/i }));
+    expect(
+      await screen.findByText("Your request for feedback about yourself from Pat Provider has been submitted."),
+    ).toBeInTheDocument();
   });
 });
