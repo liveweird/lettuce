@@ -20,6 +20,15 @@ describe("Login page", () => {
     vi.unstubAllGlobals();
   });
 
+  test("shows the Lettuce brand (logo + wordmark) above the sign-in form", () => {
+    renderWithProviders(<Login />, { route: "/login" });
+
+    // The wordmark names the app; the adjacent logo is decorative (alt="").
+    expect(screen.getByRole("heading", { level: 2, name: "Lettuce" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: /sign in/i })).toBeInTheDocument();
+    expect(document.querySelector('img[src^="/logo-"]')).toBeInTheDocument();
+  });
+
   test("stores the token on successful login", async () => {
     const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
     mockFetch.mockResolvedValueOnce(

@@ -38,6 +38,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { getCurrentUser, getUserId, logout } from "./api/client";
 import { RedirectIfAuthed, RequireAuth, flagSignedOut, notifyAuthChange } from "./auth";
+import BrandLogo from "./components/BrandLogo";
 import NotificationsButton from "./components/NotificationsButton";
 import LanguageSwitcher from "./components/LanguageSwitcher";
 import VersionStamp from "./components/VersionStamp";
@@ -131,14 +132,6 @@ function ColorSchemeToggle() {
       {computed === "dark" ? <IconSun size={18} /> : <IconMoon size={18} />}
     </ActionIcon>
   );
-}
-
-function HeaderLogo() {
-  const computed = useComputedColorScheme("light", { getInitialValueInEffect: true });
-  const src = computed === "dark" ? "/logo-dark.svg" : "/logo-light.svg";
-  // alt="" — decorative: the adjacent "Lettuce" wordmark already names the brand,
-  // so an alt here would make screen readers announce it twice.
-  return <img src={src} alt="" style={{ height: 28, width: 28, display: "block" }} />;
 }
 
 function ReplayTourButton() {
@@ -253,7 +246,7 @@ function Shell() {
         <Group h="100%" px="md" justify="space-between">
           <Group gap="sm">
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-            <HeaderLogo />
+            <BrandLogo />
             <Text fw={600} size="lg">
               {t("appShell.brand")}
             </Text>

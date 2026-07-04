@@ -14,6 +14,7 @@ import {
 import { isEmail, isNotEmpty, useForm } from "@mantine/form";
 import { ApiError, login } from "../api/client";
 import { consumeSignedOut, notifyAuthChange } from "../auth";
+import BrandLogo from "../components/BrandLogo";
 import VersionStamp from "../components/VersionStamp";
 
 type LocationState = { from?: { pathname?: string } } | null;
@@ -66,7 +67,12 @@ export default function Login() {
         <Paper withBorder shadow="sm" p="xl" radius="md" w={360}>
           <form onSubmit={form.onSubmit(onSubmit)} noValidate>
             <Stack>
-              <Title order={3} ta="center">
+              {/* Brand block: tell the user what they are signing in to. */}
+              <Stack align="center" gap={4}>
+                <BrandLogo size={48} />
+                <Title order={2}>{t("appShell.brand")}</Title>
+              </Stack>
+              <Title order={3} ta="center" c="dimmed" fw={500} size="h4">
                 {t("auth.signIn")}
               </Title>
               <TextInput
