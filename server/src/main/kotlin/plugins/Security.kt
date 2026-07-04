@@ -1,5 +1,6 @@
 package ch.nokillswit.plugins
 
+import ch.nokillswit.auth.TOKEN_TYPE_ACCESS
 import ch.nokillswit.auth.TokenBlocklistServiceKey
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
@@ -15,7 +16,8 @@ data class JwtConfig(
     val issuer: String,
     val audience: String,
     val realm: String,
-    val expiresInSeconds: Long,
+    val accessExpiresInSeconds: Long,
+    val refreshExpiresInSeconds: Long,
 )
 
 val JwtConfigKey = AttributeKey<JwtConfig>("JwtConfig")
@@ -33,7 +35,8 @@ fun Application.configureSecurity() {
         issuer = environment.config.property("jwt.issuer").getString(),
         audience = environment.config.property("jwt.audience").getString(),
         realm = environment.config.property("jwt.realm").getString(),
-        expiresInSeconds = environment.config.property("jwt.expiresInSeconds").getString().toLong(),
+        accessExpiresInSeconds = environment.config.property("jwt.accessExpiresInSeconds").getString().toLong(),
+        refreshExpiresInSeconds = environment.config.property("jwt.refreshExpiresInSeconds").getString().toLong(),
     )
     // Fail closed: a blank or the placeholder "secret" lets anyone forge tokens for any user/role.
     // Allowed (with a loud warning) only in development; rejected at startup in production.
@@ -54,9 +57,11 @@ fun Application.configureSecurity() {
             )
             validate { credential ->
                 val audOk = credential.payload.audience.contains(jwtConfig.audience)
+                // Only access tokens authenticate API calls; a refresh token used as a bearer is rejected.
+                val typOk = credential.payload.getClaim("typ").asString() == TOKEN_TYPE_ACCESS
                 val jti = credential.payload.id
                 val revoked = jti != null && application.attributes[TokenBlocklistServiceKey].isRevoked(jti)
-                if (audOk && !revoked) JWTPrincipal(credential.payload) else null
+                if (audOk && typOk && !revoked) JWTPrincipal(credential.payload) else null
             }
             // The challenge runs outside StatusPages, so emit the RFC 7807 body here too.
             challenge { _, _ ->

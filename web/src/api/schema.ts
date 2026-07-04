@@ -21,6 +21,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Exchange a refresh token for a fresh access + refresh pair
+         * @description Pure-sliding session renewal. Accepts a valid, unexpired, non-revoked refresh token and
+         *     returns a brand-new access token and refresh token (each with a full TTL). The presented
+         *     refresh token is left valid until its own expiry — it is not rotated out. Requires no
+         *     `Authorization` header (the access token may already be expired). Returns `401` for a
+         *     missing/invalid/expired/revoked refresh token, or if the user no longer exists.
+         */
+        post: operations["refresh"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/logout": {
         parameters: {
             query?: never;
@@ -30,7 +54,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Revoke the bearer token (server-side denylist) */
+        /**
+         * Revoke the bearer token (server-side denylist)
+         * @description Revokes the access token carried in the `Authorization` header. If a `refreshToken` is
+         *     supplied in the body, it is revoked too. The body is optional.
+         */
         post: operations["logout"];
         delete?: never;
         options?: never;
@@ -716,12 +744,20 @@ export interface components {
             password: string;
         };
         LoginResponse: {
+            /** @description Short-lived access token; send as the `Authorization: Bearer` value. */
             token: string;
             /**
              * Format: int64
-             * @description Token expiry as Unix epoch milliseconds
+             * @description Access-token expiry as Unix epoch milliseconds.
              */
             expiresAt: number;
+            /** @description Longer-lived token; POST to /api/v1/refresh to obtain a fresh pair. */
+            refreshToken: string;
+            /**
+             * Format: int64
+             * @description Refresh-token expiry as Unix epoch milliseconds.
+             */
+            refreshExpiresAt: number;
             /** Format: int64 */
             userId: number;
             /**
@@ -729,6 +765,17 @@ export interface components {
              * @enum {string}
              */
             role: "ADMIN" | "USER";
+        };
+        RefreshRequest: {
+            /** @description The refresh token previously issued by /login or /refresh. */
+            refreshToken: string;
+        };
+        LogoutRequest: {
+            /**
+             * @description Optional. When present, its refresh token is also revoked so an explicit
+             *     logout kills both tokens (the access token is revoked from the bearer).
+             */
+            refreshToken?: string;
         };
         UserRequest: {
             name: string;
@@ -1163,6 +1210,33 @@ export interface operations {
             500: components["responses"]["InternalServerError"];
         };
     };
+    refresh: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefreshRequest"];
+            };
+        };
+        responses: {
+            /** @description A fresh token pair */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
     logout: {
         parameters: {
             query?: never;
@@ -1170,7 +1244,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["LogoutRequest"];
+            };
+        };
         responses: {
             /** @description Token revoked */
             204: {

@@ -1,7 +1,9 @@
 import type { paths } from "./schema";
+import { flagSignedOut, notifyAuthChange } from "../auth";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 const TOKEN_KEY = "lettuce.auth.token";
+const REFRESH_TOKEN_KEY = "lettuce.auth.refreshToken";
 const ROLE_KEY = "lettuce.auth.role";
 const USER_ID_KEY = "lettuce.auth.userId";
 
@@ -14,6 +16,15 @@ export function getToken(): string | null {
 export function setToken(token: string | null): void {
   if (token === null) localStorage.removeItem(TOKEN_KEY);
   else localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function getRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+function setRefreshToken(token: string | null): void {
+  if (token === null) localStorage.removeItem(REFRESH_TOKEN_KEY);
+  else localStorage.setItem(REFRESH_TOKEN_KEY, token);
 }
 
 export function getRole(): UserRole | null {
@@ -34,8 +45,17 @@ export function isAdmin(): boolean {
 
 function clearSession(): void {
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(ROLE_KEY);
   localStorage.removeItem(USER_ID_KEY);
+}
+
+// Persist the access + refresh pair (and the current role/userId) returned by /login or /refresh.
+function persistSession(data: LoginOk): void {
+  setToken(data.token);
+  setRefreshToken(data.refreshToken);
+  localStorage.setItem(ROLE_KEY, data.role);
+  localStorage.setItem(USER_ID_KEY, String(data.userId));
 }
 
 type LoginBody = paths["/api/v1/login"]["post"]["requestBody"]["content"]["application/json"];
@@ -49,9 +69,7 @@ export async function login(credentials: LoginBody): Promise<LoginOk> {
   });
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   const data = (await res.json()) as LoginOk;
-  setToken(data.token);
-  localStorage.setItem(ROLE_KEY, data.role);
-  localStorage.setItem(USER_ID_KEY, String(data.userId));
+  persistSession(data);
   return data;
 }
 
@@ -60,9 +78,44 @@ export async function logout(): Promise<void> {
   if (!token) return;
   await fetch(`${API_BASE}/api/v1/logout`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    // Include the refresh token so an explicit logout revokes it too, not just the access token.
+    body: JSON.stringify({ refreshToken: getRefreshToken() }),
   });
   clearSession();
+}
+
+// Exchange the stored refresh token for a fresh access + refresh pair. Returns the new access token,
+// or null if there is no refresh token or the server rejected it. Single-flighted: concurrent callers
+// (e.g. several requests that all 401 at once) share one in-flight /refresh call.
+let refreshInflight: Promise<string | null> | null = null;
+
+export function refresh(): Promise<string | null> {
+  if (refreshInflight === null) {
+    refreshInflight = doRefresh().finally(() => {
+      refreshInflight = null;
+    });
+  }
+  return refreshInflight;
+}
+
+async function doRefresh(): Promise<string | null> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return null;
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/api/v1/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken }),
+    });
+  } catch {
+    return null;
+  }
+  if (!res.ok) return null;
+  const data = (await res.json()) as LoginOk;
+  persistSession(data);
+  return data.token;
 }
 
 export type UserPage = paths["/api/v1/users"]["get"]["responses"]["200"]["content"]["application/json"];
@@ -461,13 +514,28 @@ export async function markAllNotificationsSeen(): Promise<void> {
 }
 
 export async function authedFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  const token = getToken();
+  let res = await sendWithToken(path, init, getToken());
+  if (res.status === 401) {
+    // The access token is likely expired. Try one silent refresh (single-flighted), then retry once.
+    const newToken = await refresh();
+    if (newToken !== null) {
+      res = await sendWithToken(path, init, newToken);
+    } else {
+      // No refresh token, or the server rejected it — the session is over.
+      clearSession();
+      flagSignedOut();
+      notifyAuthChange();
+    }
+  }
+  return res;
+}
+
+function sendWithToken(path: string, init: RequestInit, token: string | null): Promise<Response> {
   const headers = new Headers(init.headers);
   if (token) headers.set("Authorization", `Bearer ${token}`);
+  else headers.delete("Authorization");
   if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
-  if (res.status === 401) clearSession();
-  return res;
+  return fetch(`${API_BASE}${path}`, { ...init, headers });
 }
 
 export class ApiError extends Error {

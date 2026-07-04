@@ -59,11 +59,49 @@ paths:
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/InternalServerError' }
 
+  /api/v1/refresh:
+    post:
+      tags: [auth]
+      operationId: refresh
+      summary: Exchange a refresh token for a fresh access + refresh pair
+      description: |
+        Pure-sliding session renewal. Accepts a valid, unexpired, non-revoked refresh token and
+        returns a brand-new access token and refresh token (each with a full TTL). The presented
+        refresh token is left valid until its own expiry — it is not rotated out. Requires no
+        `Authorization` header (the access token may already be expired). Returns `401` for a
+        missing/invalid/expired/revoked refresh token, or if the user no longer exists.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: A fresh token pair
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
   /api/v1/logout:
     post:
       tags: [auth]
       operationId: logout
       summary: Revoke the bearer token (server-side denylist)
+      description: |
+        Revokes the access token carried in the `Authorization` header. If a `refreshToken` is
+        supplied in the body, it is revoked too. The body is optional.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
       responses:
         '204':
           description: Token revoked
@@ -1242,18 +1280,44 @@ components:
 
     LoginResponse:
       type: object
-      required: [token, expiresAt, userId, role]
+      required: [token, expiresAt, refreshToken, refreshExpiresAt, userId, role]
       properties:
-        token: { type: string }
+        token:
+          type: string
+          description: "Short-lived access token; send as the `Authorization: Bearer` value."
         expiresAt:
           type: integer
           format: int64
-          description: Token expiry as Unix epoch milliseconds
+          description: Access-token expiry as Unix epoch milliseconds.
+        refreshToken:
+          type: string
+          description: Longer-lived token; POST to /api/v1/refresh to obtain a fresh pair.
+        refreshExpiresAt:
+          type: integer
+          format: int64
+          description: Refresh-token expiry as Unix epoch milliseconds.
         userId: { type: integer, format: int64, minimum: 0 }
         role:
           type: string
           enum: [ADMIN, USER]
           description: Global role of the authenticated user.
+
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+          description: The refresh token previously issued by /login or /refresh.
+
+    LogoutRequest:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+          description: |
+            Optional. When present, its refresh token is also revoked so an explicit
+            logout kills both tokens (the access token is revoked from the bearer).
 
     UserRequest:
       type: object

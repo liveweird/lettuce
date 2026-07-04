@@ -11,8 +11,22 @@ import {
   logout,
   setToken,
 } from "./client";
+import { consumeSignedOut } from "../auth";
+
+function tokenPair(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    token: "new-access",
+    expiresAt: 1,
+    refreshToken: "new-refresh",
+    refreshExpiresAt: 2,
+    role: "USER",
+    userId: 7,
+    ...overrides,
+  };
+}
 
 const TOKEN_KEY = "lettuce.auth.token";
+const REFRESH_TOKEN_KEY = "lettuce.auth.refreshToken";
 const ROLE_KEY = "lettuce.auth.role";
 const USER_ID_KEY = "lettuce.auth.userId";
 
@@ -67,13 +81,21 @@ describe("session accessors", () => {
 });
 
 describe("login", () => {
-  test("stores token, role and userId on success", async () => {
+  test("stores access token, refresh token, role and userId on success", async () => {
     mockFetch.mockResolvedValue(
-      jsonResponse(200, { token: "jwt-123", role: "ADMIN", userId: 7 }),
+      jsonResponse(200, {
+        token: "jwt-123",
+        expiresAt: 1,
+        refreshToken: "refresh-123",
+        refreshExpiresAt: 2,
+        role: "ADMIN",
+        userId: 7,
+      }),
     );
     const data = await login({ email: "a@b", password: "pw" });
     expect(data.token).toBe("jwt-123");
     expect(localStorage.getItem(TOKEN_KEY)).toBe("jwt-123");
+    expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBe("refresh-123");
     expect(localStorage.getItem(ROLE_KEY)).toBe("ADMIN");
     expect(localStorage.getItem(USER_ID_KEY)).toBe("7");
   });
@@ -91,8 +113,9 @@ describe("login", () => {
 });
 
 describe("logout", () => {
-  test("posts with the bearer token then clears the session", async () => {
+  test("posts the bearer token and refresh token, then clears the session", async () => {
     localStorage.setItem(TOKEN_KEY, "jwt-123");
+    localStorage.setItem(REFRESH_TOKEN_KEY, "refresh-123");
     localStorage.setItem(ROLE_KEY, "ADMIN");
     localStorage.setItem(USER_ID_KEY, "7");
     mockFetch.mockResolvedValue(new Response(null, { status: 204 }));
@@ -103,7 +126,9 @@ describe("logout", () => {
     expect(url).toContain("/api/v1/logout");
     expect((init as RequestInit).method).toBe("POST");
     expect(new Headers((init as RequestInit).headers).get("Authorization")).toBe("Bearer jwt-123");
+    expect(JSON.parse((init as RequestInit).body as string)).toEqual({ refreshToken: "refresh-123" });
     expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
+    expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBeNull();
     expect(localStorage.getItem(ROLE_KEY)).toBeNull();
     expect(localStorage.getItem(USER_ID_KEY)).toBeNull();
   });
@@ -127,15 +152,82 @@ describe("authedFetch", () => {
     expect(headers.get("Content-Type")).toBe("application/json");
   });
 
-  test("clears the session on a 401 response", async () => {
+  test("clears the session on a 401 when there is no refresh token", async () => {
     localStorage.setItem(TOKEN_KEY, "jwt-123");
     localStorage.setItem(ROLE_KEY, "ADMIN");
     mockFetch.mockResolvedValue(jsonResponse(401, { title: "Unauthorized", status: 401 }));
 
     const res = await authedFetch("/api/v1/users");
     expect(res.status).toBe(401);
+    // No refresh token → no /refresh attempt, just the original call.
+    expect(mockFetch).toHaveBeenCalledTimes(1);
     expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
     expect(localStorage.getItem(ROLE_KEY)).toBeNull();
+  });
+
+  test("on 401, silently refreshes and retries the original request once", async () => {
+    localStorage.setItem(TOKEN_KEY, "old-access");
+    localStorage.setItem(REFRESH_TOKEN_KEY, "refresh-123");
+    mockFetch
+      .mockResolvedValueOnce(jsonResponse(401, { title: "Unauthorized", status: 401 })) // original
+      .mockResolvedValueOnce(jsonResponse(200, tokenPair())) // /refresh
+      .mockResolvedValueOnce(jsonResponse(200, { ok: true })); // retry
+
+    const res = await authedFetch("/api/v1/users");
+
+    expect(res.status).toBe(200);
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+    expect(String(mockFetch.mock.calls[1][0])).toContain("/api/v1/refresh");
+    // The retry carries the freshly minted access token.
+    const retryInit = mockFetch.mock.calls[2][1] as RequestInit;
+    expect(new Headers(retryInit.headers).get("Authorization")).toBe("Bearer new-access");
+    expect(localStorage.getItem(TOKEN_KEY)).toBe("new-access");
+    expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBe("new-refresh");
+  });
+
+  test("on 401, a rejected refresh clears the session and flags signed-out", async () => {
+    consumeSignedOut(); // reset any leaked flag from earlier tests
+    localStorage.setItem(TOKEN_KEY, "old-access");
+    localStorage.setItem(REFRESH_TOKEN_KEY, "refresh-123");
+    mockFetch
+      .mockResolvedValueOnce(jsonResponse(401, { title: "Unauthorized", status: 401 })) // original
+      .mockResolvedValueOnce(jsonResponse(401, { title: "Unauthorized", status: 401 })); // /refresh rejects
+
+    const res = await authedFetch("/api/v1/users");
+
+    expect(res.status).toBe(401);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
+    expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBeNull();
+    expect(consumeSignedOut()).toBe(true);
+  });
+
+  test("concurrent 401s trigger exactly one refresh (single-flight)", async () => {
+    localStorage.setItem(TOKEN_KEY, "old-access");
+    localStorage.setItem(REFRESH_TOKEN_KEY, "refresh-123");
+    let userCalls = 0;
+    mockFetch.mockImplementation((url: string) => {
+      if (String(url).includes("/api/v1/refresh")) {
+        return Promise.resolve(jsonResponse(200, tokenPair()));
+      }
+      userCalls += 1;
+      // The two originals 401; the two retries (after refresh) succeed.
+      return Promise.resolve(
+        userCalls <= 2 ? jsonResponse(401, { status: 401 }) : jsonResponse(200, { ok: true }),
+      );
+    });
+
+    const [a, b] = await Promise.all([
+      authedFetch("/api/v1/users"),
+      authedFetch("/api/v1/users"),
+    ]);
+
+    expect(a.status).toBe(200);
+    expect(b.status).toBe(200);
+    const refreshCalls = mockFetch.mock.calls.filter((c) =>
+      String(c[0]).includes("/api/v1/refresh"),
+    );
+    expect(refreshCalls).toHaveLength(1);
   });
 
   test("omits the Authorization header when no token is stored", async () => {

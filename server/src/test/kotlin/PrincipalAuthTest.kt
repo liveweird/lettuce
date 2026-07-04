@@ -29,6 +29,7 @@ class PrincipalAuthTest {
         var builder = JWT.create()
             .withAudience("lettuce-api")
             .withIssuer("http://0.0.0.0:8080/")
+            .withClaim("typ", "access")
             .withExpiresAt(Date(System.currentTimeMillis() + 60_000))
         if (email != null) builder = builder.withClaim("email", email)
         if (userId != null) builder = builder.withClaim("userId", userId)

@@ -47,7 +47,7 @@ ch.nokillswit
 ├── infra/db/           Flyway migrations + R2DBC connection bootstrap
 ├── infra/paging/       list-endpoint paging/sort/filter helper (parsePaging, applyPaging)
 ├── authz/              RBAC guards + CallerPrincipal (see "Authorization model")
-├── auth/               POST /api/v1/login + password hashing
+├── auth/               POST /api/v1/login, /api/v1/refresh, /api/v1/logout + token minting + password hashing
 ├── users/              /api/v1/users/* CRUD + list + UserService + Users table
 ├── teams/              /api/v1/teams/* CRUD + list + member sub-resource + TeamService + Teams/TeamMembers tables
 ├── templates/          /api/v1/templates/* CRUD + list + TemplateService + Templates table (read: any authenticated; write: ADMIN)
@@ -135,7 +135,8 @@ Current migrations are `V1`–`V20`: schema for users/teams/feedbacks/revoked-to
 Layered RBAC. Implemented in the `server/src/main/kotlin/authz/` package.
 
 - **Global roles** live on `users.role` (`ADMIN` / `USER`, added by `V5__add_user_role.sql`). `ADMIN` bypasses every per-resource check **except feedback writes** — admins may read every feedback but may not edit, delete, or transition existing ones (see `canWriteFeedback`); an admin who is the feedback's provider keeps write access via the ordinary provider rule. New users default to `USER`; only an `ADMIN` may set or change the field via the API.
-- **Login** issues a JWT carrying `email`, `userId`, and `role` claims; `LoginResponse` exposes `userId` and `role` to the frontend.
+- **Login** issues a **pair** of JWTs, both carrying `email`, `userId`, `role`, and a `typ` claim (`"access"` / `"refresh"`), minted by `auth/Tokens.kt` (`JwtConfig.issueAccessToken` / `issueRefreshToken`). The short-lived **access** token (`jwt.accessExpiresInSeconds`, default 900) is the API bearer; the longer-lived **refresh** token (`jwt.refreshExpiresInSeconds`, default 3600) is exchanged at `POST /api/v1/refresh` for a fresh pair. `LoginResponse` (also the `/refresh` response) exposes `token`/`expiresAt`, `refreshToken`/`refreshExpiresAt`, `userId`, and `role`. The `jwt {}` verifier in `plugins/Security.kt` additionally requires `typ == "access"`, so a refresh token cannot authenticate an API call.
+- **Session auto-extension (pure sliding).** `/api/v1/refresh` (rate-limited, no `authenticate` — the access token may be expired) verifies the refresh token's signature/issuer/audience/`typ`/non-revocation, then does **one** `userService.read(userId)` to confirm the user is still active and pick up their current role, and mints a fresh pair. Superseded tokens are **not** rotated out — they stay valid until their own expiry (no blocklist write on refresh); only an idle session (no refresh within the refresh TTL) ends. `/api/v1/logout` revokes the access `jti` (from the principal) **and**, if the client sends the refresh token in the body (`LogoutRequest`), that token's `jti` too. Frontend: `web/src/api/client.ts` `authedFetch` silently refreshes (single-flighted via a module-level in-flight promise) and retries once on a `401`; on refresh failure it clears the session and signs out.
 - **Guards** in `authz/Guards.kt` are plain `suspend fun` calls used at the top of each route handler — there is no Ktor plugin or DSL. Each route reads `call.caller()` (which parses the JWT claims into a `CallerPrincipal`) and then invokes the relevant guard.
 - **Resource rules**:
   - `POST /api/v1/users`, `DELETE /api/v1/users/{id}` → ADMIN only.
