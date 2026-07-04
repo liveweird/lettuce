@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import {
   ActionIcon,
   AppShell,
@@ -41,7 +41,8 @@ import { RedirectIfAuthed, RequireAuth, flagSignedOut, notifyAuthChange } from "
 import NotificationsButton from "./components/NotificationsButton";
 import LanguageSwitcher from "./components/LanguageSwitcher";
 import VersionStamp from "./components/VersionStamp";
-import { TourProvider, useTour } from "./components/Tour";
+import { TourProvider } from "./components/Tour";
+import { useTour } from "./components/tourSupport";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Feedback = lazy(() => import("./pages/Feedback"));
 const CreateFeedback = lazy(() => import("./pages/CreateFeedback"));
@@ -170,9 +171,14 @@ function NavGroupLink({
   const { t } = useTranslation();
   const childActive = entry.children.some((c) => c.to === activeTo);
   const [opened, setOpened] = useState(childActive);
-  useEffect(() => {
+  // Auto-expand when a child route becomes active, while staying manually collapsible afterwards.
+  // Adjust-state-during-render (the React-docs alternative to a setState-in-effect): the change
+  // check keeps it a one-shot on the transition, and React re-renders before committing.
+  const [wasChildActive, setWasChildActive] = useState(childActive);
+  if (childActive !== wasChildActive) {
+    setWasChildActive(childActive);
     if (childActive) setOpened(true);
-  }, [childActive]);
+  }
   const GroupIcon = entry.icon;
   return (
     // component="button": the default polymorphic root is an <a> without href,

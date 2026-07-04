@@ -43,16 +43,15 @@ vi.mock("react-joyride", async () => {
   };
 });
 
+import { TourProvider, TourTooltip } from "./Tour";
 import {
-  TourProvider,
-  TourTooltip,
   TourActionsContext,
   useTour,
   buildSteps,
   hasSeenTour,
   waitForElement,
   TOUR_STEPS,
-} from "./Tour";
+} from "./tourSupport";
 import { renderWithProviders } from "../test/render";
 
 const USER_ID_KEY = "lettuce.auth.userId";
