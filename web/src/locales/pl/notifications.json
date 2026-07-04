@@ -3,7 +3,7 @@
   "unread_one": "{{count}} nieprzeczytane",
   "unread_few": "{{count}} nieprzeczytane",
   "unread_many": "{{count}} nieprzeczytanych",
-  "unread_other": "{{count}} nieprzeczytanego",
+  "unread_other": "{{count}} nieprzeczytanych",
   "loadError": "Nie udało się wczytać powiadomień",
   "unknownError": "Nieznany błąd",
   "empty": "Brak powiadomień.",
