@@ -49,5 +49,7 @@ h2.trace.db
 *.mv.db
 *.trace.db
 
-# Generated API docs (swagger-codegen output)
+# Generated API docs (swagger-codegen output from the OpenAPI spec — never hand-edited,
+# regenerate rather than commit). Covers both the repo-root and server/ generation dirs.
+/docs/
 server/docs/
