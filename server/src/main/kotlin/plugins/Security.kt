@@ -38,10 +38,18 @@ fun Application.configureSecurity() {
         accessExpiresInSeconds = environment.config.property("jwt.accessExpiresInSeconds").getString().toLong(),
         refreshExpiresInSeconds = environment.config.property("jwt.refreshExpiresInSeconds").getString().toLong(),
     )
-    // Fail closed: a blank or the placeholder "secret" lets anyone forge tokens for any user/role.
-    // Allowed (with a loud warning) only in development; rejected at startup in production.
-    if (jwtConfig.secret.isBlank() || jwtConfig.secret == "secret") {
-        val message = "JWT secret is unset or the insecure default — set a strong JWT_SECRET."
+    // Fail closed: a blank secret, the placeholder "secret", or the repo-committed demo key lets
+    // anyone forge tokens for any user/role. Allowed (with a loud warning) only in development;
+    // rejected at startup in production.
+    val burnedSecrets = setOf(
+        "secret",
+        // Committed to docker-compose.yaml for the local clone-&-run demo — public, thus burned.
+        "dev-only-9f3c1a7b2e8d4655b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f60718293a4b5c6d",
+        // The k8s/secret.yaml template placeholder — applying the template verbatim must not boot.
+        "CHANGE-ME-openssl-rand-hex-32",
+    )
+    if (jwtConfig.secret.isBlank() || jwtConfig.secret in burnedSecrets) {
+        val message = "JWT secret is unset or a publicly known value — set a strong, private JWT_SECRET."
         if (developmentMode) log.warn("$message (permitted in development only)")
         else error(message)
     }

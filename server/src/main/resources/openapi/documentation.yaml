@@ -275,8 +275,12 @@ paths:
       operationId: changeUserPassword
       summary: Change a user's password
       description: |
-        Sets a new password for the user. Only the password is changed; no other
-        fields are touched. Requires the caller to be the target user, or to be ADMIN.
+        Sets a new password for the user (minimum 10 characters). Only the password is
+        changed; no other fields are touched. Requires the caller to be the target user,
+        or to be ADMIN. When the caller changes their OWN password (even an admin),
+        `currentPassword` is required and must match; an admin resetting another user's
+        password omits it. A successful change invalidates all outstanding refresh tokens
+        (already-issued access tokens expire naturally within their TTL).
       requestBody:
         required: true
         content:
@@ -285,9 +289,14 @@ paths:
               $ref: '#/components/schemas/PasswordUpdateRequest'
       responses:
         '204': { description: Password updated }
+        '400':
+          description: New password shorter than 10 characters
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
-          description: Caller is not the target user and not ADMIN
+          description: Caller is not the target user and not ADMIN, or the required current password is missing/incorrect
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
@@ -1351,7 +1360,12 @@ components:
       type: object
       required: [password]
       properties:
-        password: { type: string, minLength: 8 }
+        password: { type: string, minLength: 10 }
+        currentPassword:
+          type: string
+          description: |
+            Required when the caller changes their own password (verified against the
+            stored hash); not required for an admin resetting another user's password.
 
     UserResponse:
       type: object

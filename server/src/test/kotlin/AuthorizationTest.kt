@@ -376,7 +376,15 @@ class AuthorizationTest {
             )
         }.body<FeedbackResponse>()
 
-        // Manager of the subject's team may read it…
+        // While the feedback is an unfinished DRAFT it is the provider's private work:
+        // even the subject's manager may not read it.
+        assertEquals(HttpStatusCode.Forbidden, managerClient.get("/api/v1/feedbacks/${feedback.id}").status)
+
+        // The provider delivers it.
+        val sent = providerClient.post("/api/v1/feedbacks/${feedback.id}/send")
+        assertEquals(HttpStatusCode.NoContent, sent.status)
+
+        // Once delivered, the manager of the subject's team may read it…
         assertEquals(HttpStatusCode.OK, managerClient.get("/api/v1/feedbacks/${feedback.id}").status)
         // …a stranger who manages nobody still may not.
         assertEquals(HttpStatusCode.Forbidden, strangerClient.get("/api/v1/feedbacks/${feedback.id}").status)
@@ -390,7 +398,7 @@ class AuthorizationTest {
                         subjectId = subjectId,
                         providerId = providerId,
                         visibility = FeedbackVisibility.PROVIDER_SUBJECT,
-                        status = FeedbackStatus.SENT,
+                        status = FeedbackStatus.WITHDRAWN,
                         content = "hijacked",
                     ),
                 )

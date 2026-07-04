@@ -41,5 +41,9 @@ WORKDIR /app
 COPY --from=server /src/server/build/install/server/ ./
 COPY --from=web /web/dist web
 ENV WEB_STATIC_DIR=/app/web
+# The shipped image runs in production mode: the JWT-secret and seed-password fail-closed
+# checks are active, and HSTS + HTTPS redirect are on. Local demos (docker-compose.yaml)
+# explicitly override this back to true.
+ENV KTOR_DEVELOPMENT=false
 EXPOSE 8080
 ENTRYPOINT ["/app/bin/server"]

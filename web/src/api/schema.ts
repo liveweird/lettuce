@@ -147,8 +147,12 @@ export interface paths {
         get?: never;
         /**
          * Change a user's password
-         * @description Sets a new password for the user. Only the password is changed; no other
-         *     fields are touched. Requires the caller to be the target user, or to be ADMIN.
+         * @description Sets a new password for the user (minimum 10 characters). Only the password is
+         *     changed; no other fields are touched. Requires the caller to be the target user,
+         *     or to be ADMIN. When the caller changes their OWN password (even an admin),
+         *     `currentPassword` is required and must match; an admin resetting another user's
+         *     password omits it. A successful change invalidates all outstanding refresh tokens
+         *     (already-issued access tokens expire naturally within their TTL).
          */
         put: operations["changeUserPassword"];
         post?: never;
@@ -803,6 +807,11 @@ export interface components {
         };
         PasswordUpdateRequest: {
             password: string;
+            /**
+             * @description Required when the caller changes their own password (verified against the
+             *     stored hash); not required for an admin resetting another user's password.
+             */
+            currentPassword?: string;
         };
         UserResponse: {
             /** Format: int64 */
@@ -1484,8 +1493,17 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description New password shorter than 10 characters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             401: components["responses"]["Unauthorized"];
-            /** @description Caller is not the target user and not ADMIN */
+            /** @description Caller is not the target user and not ADMIN, or the required current password is missing/incorrect */
             403: {
                 headers: {
                     [name: string]: unknown;

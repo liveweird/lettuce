@@ -76,8 +76,11 @@
     "emailRequired": "E-mail jest wymagany",
     "emailInvalid": "Podaj prawidłowy adres e-mail",
     "emailTooLong": "Adres e-mail jest zbyt długi",
-    "passwordLength": "Hasło musi mieć co najmniej 8 znaków",
+    "passwordLength": "Hasło musi mieć co najmniej 10 znaków",
     "passwordsMismatch": "Hasła nie są zgodne",
-    "roleRequired": "Rola jest wymagana"
-  }
+    "roleRequired": "Rola jest wymagana",
+    "currentPasswordRequired": "Obecne hasło jest wymagane"
+  },
+  "currentPassword": "Obecne hasło",
+  "wrongCurrentPassword": "Obecne hasło jest nieprawidłowe."
 }

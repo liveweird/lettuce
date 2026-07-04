@@ -2,6 +2,9 @@ package ch.nokillswit
 
 import ch.nokillswit.auth.TokenBlocklistService
 import ch.nokillswit.auth.hashPassword
+import ch.nokillswit.infra.db.DEMO_SEED_EMAILS
+import ch.nokillswit.infra.db.SEED_ADMIN_EMAIL
+import ch.nokillswit.infra.db.SEED_PASSWORD_HASH
 import ch.nokillswit.users.User
 import ch.nokillswit.users.UserRole
 import ch.nokillswit.users.UserService
@@ -13,7 +16,10 @@ import io.ktor.server.config.ApplicationConfig
 import io.ktor.server.config.MapApplicationConfig
 import io.ktor.server.config.mergeWith
 import io.ktor.server.testing.ApplicationTestBuilder
+import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
+import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
+import org.jetbrains.exposed.v1.r2dbc.update
 
 suspend fun ApplicationTestBuilder.usePostgresTestcontainer() {
     environment {
@@ -62,6 +68,23 @@ object TestUsers {
 
 object TestBlocklist {
     val service: TokenBlocklistService by lazy { TokenBlocklistService(sharedTestDatabase) }
+}
+
+// Bootstrap tests (and prod-mode boot tests) rotate the seed admin password and soft-delete the
+// demo users in the SHARED container. Call this afterwards to put the V6/V9 seed state back so
+// later tests (and re-runs) see the pristine seeds.
+object TestSeedState {
+    suspend fun restoreSeedAccounts() {
+        suspendTransaction(sharedTestDatabase) {
+            UserService.Users.update({
+                UserService.Users.email inList (DEMO_SEED_EMAILS + SEED_ADMIN_EMAIL)
+            }) {
+                it[UserService.Users.passwordHash] = SEED_PASSWORD_HASH
+                it[UserService.Users.markedAsDeleted] = false
+                it[UserService.Users.passwordChangedAt] = 0
+            }
+        }
+    }
 }
 
 // Reads the feedback_events audit table directly (e.g. to assert ON DELETE CASCADE).

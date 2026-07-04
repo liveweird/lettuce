@@ -26,10 +26,18 @@ spec:
         - env:
             - name: POSTGRES_DB
               value: lettuce
+            # Credentials come from the `lettuce-secrets` Secret (see k8s/secret.yaml) so the
+            # same values feed both this container and the app's connection settings.
             - name: POSTGRES_PASSWORD
-              value: lettuce
+              valueFrom:
+                secretKeyRef:
+                  name: lettuce-secrets
+                  key: POSTGRES_PASSWORD
             - name: POSTGRES_USER
-              value: lettuce
+              valueFrom:
+                secretKeyRef:
+                  name: lettuce-secrets
+                  key: POSTGRES_USER
           image: postgres:17-alpine
           # kompose emits the compose healthcheck as a single-string argv, which
           # exec can't run — keep the command as a proper argv list. The

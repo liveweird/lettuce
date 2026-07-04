@@ -8,6 +8,7 @@ import io.ktor.server.response.*
 import io.ktor.server.plugins.cors.routing.*
 import io.ktor.server.plugins.compression.*
 import io.ktor.server.plugins.defaultheaders.*
+import io.ktor.server.plugins.forwardedheaders.*
 import io.ktor.server.plugins.hsts.*
 import io.ktor.server.plugins.httpsredirect.*
 import io.ktor.server.plugins.openapi.*
@@ -23,14 +24,29 @@ fun Application.configureHttp() {
             }
         }
     }
-    install(CORS) {
-        allowMethod(HttpMethod.Options)
-        allowMethod(HttpMethod.Put)
-        allowMethod(HttpMethod.Delete)
-        allowMethod(HttpMethod.Patch)
-        allowHeader(HttpHeaders.Authorization)
-        allowHeader(HttpHeaders.ContentType)
-        anyHost() // @TODO: Don't do this in production if possible. Try to limit it.
+    // CORS is installed only when a cross-origin caller actually exists (an explicit allow-list
+    // via CORS_ALLOWED_HOSTS). Production is single-origin (Ktor serves the SPA) and local dev
+    // goes through the Vite proxy, so the default is: no CORS plugin, browsers enforce
+    // same-origin, and no Access-Control-* headers are emitted.
+    val corsHosts = environment.config.propertyOrNull("http.corsHosts")?.getString()
+        ?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }
+        .orEmpty()
+    if (corsHosts.isNotEmpty()) {
+        install(CORS) {
+            allowMethod(HttpMethod.Options)
+            allowMethod(HttpMethod.Put)
+            allowMethod(HttpMethod.Delete)
+            allowMethod(HttpMethod.Patch)
+            allowHeader(HttpHeaders.Authorization)
+            allowHeader(HttpHeaders.ContentType)
+            corsHosts.forEach { allowHost(it, schemes = listOf("http", "https")) }
+        }
+    }
+    // Behind a TLS-terminating reverse proxy / ingress, trust X-Forwarded-* so the client IP
+    // (rate-limit buckets) and scheme (HTTPS redirect) are the real client's, not the proxy's.
+    // Off by default: honoring these headers from direct clients would let them spoof both.
+    if (environment.config.propertyOrNull("http.behindProxy")?.getString()?.toBoolean() == true) {
+        install(XForwardedHeaders)
     }
     install(Compression)
     install(DefaultHeaders)

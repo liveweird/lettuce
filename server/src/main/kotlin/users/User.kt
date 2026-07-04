@@ -12,6 +12,9 @@ data class User(
     val email: String,
     val passwordHash: String,
     val role: UserRole = UserRole.USER,
+    // Epoch millis of the last password change (0 = never). Server-internal; used to
+    // invalidate refresh tokens minted before the change (see /api/v1/refresh).
+    val passwordChangedAt: Long = 0,
 )
 
 @Serializable
@@ -32,6 +35,9 @@ data class UserUpdateRequest(
 @Serializable
 data class PasswordUpdateRequest(
     val password: String,
+    // Required when a caller changes their OWN password (even an admin); not required
+    // for an admin resetting somebody else's.
+    val currentPassword: String? = null,
 )
 
 @Serializable

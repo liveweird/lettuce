@@ -65,8 +65,10 @@ describe("ChangeUserPassword page", () => {
     const user = userEvent.setup();
     renderChangePassword(7);
 
-    await user.type(await screen.findByLabelText("New password"), "hunter2!");
-    await user.type(screen.getByLabelText("Confirm password"), "hunter2!");
+    // Admin (not user 7) resets another user's password: no current-password field.
+    expect(screen.queryByLabelText("Current password")).not.toBeInTheDocument();
+    await user.type(await screen.findByLabelText("New password"), "hunter2!42");
+    await user.type(screen.getByLabelText("Confirm password"), "hunter2!42");
     await user.click(screen.getByRole("button", { name: /^change password$/i }));
 
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/users"));
@@ -74,7 +76,7 @@ describe("ChangeUserPassword page", () => {
     const putCall = mockFetch.mock.calls.find(([url]) => url === "/api/v1/users/7/password");
     expect(putCall).toBeTruthy();
     expect(putCall![1]).toEqual(expect.objectContaining({ method: "PUT" }));
-    expect(JSON.parse(putCall![1].body)).toEqual({ password: "hunter2!" });
+    expect(JSON.parse(putCall![1].body)).toEqual({ password: "hunter2!42" });
   });
 
   test("rejects mismatched confirmation client-side", async () => {
@@ -83,8 +85,8 @@ describe("ChangeUserPassword page", () => {
     const user = userEvent.setup();
     renderChangePassword(7);
 
-    await user.type(await screen.findByLabelText("New password"), "hunter2!");
-    await user.type(screen.getByLabelText("Confirm password"), "hunter3!");
+    await user.type(await screen.findByLabelText("New password"), "hunter2!42");
+    await user.type(screen.getByLabelText("Confirm password"), "hunter3!42");
     await user.click(screen.getByRole("button", { name: /^change password$/i }));
 
     expect(await screen.findByText(/passwords do not match/i)).toBeInTheDocument();
@@ -101,7 +103,7 @@ describe("ChangeUserPassword page", () => {
     await user.type(screen.getByLabelText("Confirm password"), "short");
     await user.click(screen.getByRole("button", { name: /^change password$/i }));
 
-    expect(await screen.findByText(/password must be at least 8 characters/i)).toBeInTheDocument();
+    expect(await screen.findByText(/password must be at least 10 characters/i)).toBeInTheDocument();
     expect(mockFetch.mock.calls.some(([url]) => url === "/api/v1/users/7/password")).toBe(false);
   });
 
@@ -115,7 +117,7 @@ describe("ChangeUserPassword page", () => {
     expect(screen.queryByLabelText("New password")).not.toBeInTheDocument();
   });
 
-  test("non-admin changing their OWN password sees the form and PUTs it", async () => {
+  test("non-admin changing their OWN password provides the current one and PUTs both", async () => {
     localStorage.setItem(ROLE_KEY, "USER");
     localStorage.setItem(USER_ID_KEY, "7");
     mockFetch.mockResolvedValueOnce(jsonResponse(200, EXISTING_USER));
@@ -124,14 +126,55 @@ describe("ChangeUserPassword page", () => {
     const user = userEvent.setup();
     renderChangePassword(7);
 
-    await user.type(await screen.findByLabelText("New password"), "hunter2!");
-    await user.type(screen.getByLabelText("Confirm password"), "hunter2!");
+    await user.type(await screen.findByLabelText("Current password"), "old-secret!");
+    await user.type(screen.getByLabelText("New password"), "hunter2!42");
+    await user.type(screen.getByLabelText("Confirm password"), "hunter2!42");
     await user.click(screen.getByRole("button", { name: /^change password$/i }));
 
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/"));
 
     const putCall = mockFetch.mock.calls.find(([url]) => url === "/api/v1/users/7/password");
     expect(putCall).toBeTruthy();
-    expect(JSON.parse(putCall![1].body)).toEqual({ password: "hunter2!" });
+    expect(JSON.parse(putCall![1].body)).toEqual({
+      password: "hunter2!42",
+      currentPassword: "old-secret!",
+    });
+  });
+
+  test("self-change without the current password is blocked client-side", async () => {
+    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(USER_ID_KEY, "7");
+    mockFetch.mockResolvedValueOnce(jsonResponse(200, EXISTING_USER));
+
+    const user = userEvent.setup();
+    renderChangePassword(7);
+
+    await user.type(await screen.findByLabelText("New password"), "hunter2!42");
+    await user.type(screen.getByLabelText("Confirm password"), "hunter2!42");
+    await user.click(screen.getByRole("button", { name: /^change password$/i }));
+
+    expect(await screen.findByText(/current password is required/i)).toBeInTheDocument();
+    expect(mockFetch.mock.calls.some(([url]) => url === "/api/v1/users/7/password")).toBe(false);
+  });
+
+  test("self-change with a wrong current password surfaces the 403 as a friendly error", async () => {
+    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(USER_ID_KEY, "7");
+    mockFetch.mockResolvedValueOnce(jsonResponse(200, EXISTING_USER));
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse(403, { title: "Forbidden", status: 403, detail: "Current password is missing or incorrect" }),
+    );
+
+    const user = userEvent.setup();
+    renderChangePassword(7);
+
+    await user.type(await screen.findByLabelText("Current password"), "not-my-password");
+    await user.type(screen.getByLabelText("New password"), "hunter2!42");
+    await user.type(screen.getByLabelText("Confirm password"), "hunter2!42");
+    await user.click(screen.getByRole("button", { name: /^change password$/i }));
+
+    expect(await screen.findByText(/current password is incorrect/i)).toBeInTheDocument();
+    // No navigation happened — the form is still on screen for a retry.
+    expect(screen.getByLabelText("Current password")).toBeInTheDocument();
   });
 });

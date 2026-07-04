@@ -48,6 +48,7 @@ dependencies {
     implementation(ktorLibs.server.cors)
     implementation(ktorLibs.server.csrf)
     implementation(ktorLibs.server.defaultHeaders)
+    implementation(ktorLibs.server.forwardedHeader)
     implementation(ktorLibs.server.hsts)
     implementation(ktorLibs.server.httpRedirect)
     implementation(ktorLibs.server.metrics)

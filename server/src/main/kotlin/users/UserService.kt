@@ -45,6 +45,7 @@ class UserService(val database: R2dbcDatabase) {
         val passwordHash = varchar("password_hash", length = 255)
         val role = varchar("role", length = 20)
         val markedAsDeleted = bool("marked_as_deleted").default(false)
+        val passwordChangedAt = long("password_changed_at").default(0)
     }
 
     suspend fun create(user: User): UInt = suspendTransaction(database) {
@@ -87,7 +88,30 @@ class UserService(val database: R2dbcDatabase) {
     suspend fun updatePassword(id: UInt, passwordHash: String): Int = suspendTransaction(database) {
         Users.update({ (Users.id eq id) and (Users.markedAsDeleted eq false) }) {
             it[this.passwordHash] = passwordHash
+            // Invalidates outstanding refresh tokens: /refresh rejects iat < passwordChangedAt.
+            it[passwordChangedAt] = System.currentTimeMillis()
         }
+    }
+
+    /** Bootstrap: rotate a user's password only while they still carry [expectedHash]. */
+    suspend fun rotatePasswordIfHashMatches(email: String, expectedHash: String, newHash: String): Int =
+        suspendTransaction(database) {
+            Users.update({ (Users.email eq email) and (Users.passwordHash eq expectedHash) and active() }) {
+                it[passwordHash] = newHash
+                it[passwordChangedAt] = System.currentTimeMillis()
+            }
+        }
+
+    /** Bootstrap: soft-delete every active user whose email is in [emails]. */
+    suspend fun softDeleteByEmails(emails: List<String>): Int = suspendTransaction(database) {
+        Users.update({ (Users.email inList emails) and active() }) {
+            it[markedAsDeleted] = true
+        }
+    }
+
+    /** Bootstrap: how many active accounts still carry [hash] (the well-known seed password). */
+    suspend fun countActiveWithPasswordHash(hash: String): Long = suspendTransaction(database) {
+        Users.selectAll().where { (Users.passwordHash eq hash) and active() }.count()
     }
 
     suspend fun delete(id: UInt): Int = suspendTransaction(database) {
@@ -142,5 +166,6 @@ class UserService(val database: R2dbcDatabase) {
         email = this[Users.email],
         passwordHash = this[Users.passwordHash],
         role = UserRole.valueOf(this[Users.role]),
+        passwordChangedAt = this[Users.passwordChangedAt],
     )
 }

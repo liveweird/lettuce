@@ -120,6 +120,14 @@ fun Application.configureAuthRoutes() {
                 // current role/email so changes take effect on the next refresh.
                 val user = userService.read(userId)
                     ?: throw UnauthorizedException("User no longer exists")
+                // A password change invalidates all refresh tokens minted before it (tokens
+                // without an iat claim predate this scheme and count as minted at epoch 0).
+                // JWT iat has SECOND precision, so compare both sides truncated to seconds —
+                // otherwise a token minted in the same second as the change is falsely rejected.
+                val issuedAtSec = (decoded.issuedAt?.time ?: 0) / 1000
+                if (issuedAtSec < user.passwordChangedAt / 1000) {
+                    throw UnauthorizedException("Refresh token predates a password change")
+                }
                 call.respond(jwtConfig.authResponse(userId, user.email, user.role))
             }
         }

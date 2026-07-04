@@ -24,6 +24,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, changeUserPassword, getUser, getUserId, isAdmin } from "../api/client";
 
 type FormValues = {
+  currentPassword: string;
   password: string;
   confirmPassword: string;
 };
@@ -37,17 +38,21 @@ export default function ChangeUserPassword() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const form = useForm<FormValues>({
-    initialValues: { password: "", confirmPassword: "" },
-    validate: {
-      password: hasLength({ min: 8 }, t("users.validation.passwordLength")),
-      confirmPassword: matchesField("password", t("users.validation.passwordsMismatch")),
-    },
-  });
-
   const idIsValid = Number.isFinite(id) && id > 0;
   const currentUserId = getUserId();
   const isSelf = currentUserId !== null && currentUserId === id;
+
+  const form = useForm<FormValues>({
+    initialValues: { currentPassword: "", password: "", confirmPassword: "" },
+    validate: {
+      // Changing one's OWN password requires the current one (the backend enforces it too);
+      // an admin resetting another user's password does not.
+      currentPassword: (value) =>
+        isSelf && value.length === 0 ? t("users.validation.currentPasswordRequired") : null,
+      password: hasLength({ min: 10 }, t("users.validation.passwordLength")),
+      confirmPassword: matchesField("password", t("users.validation.passwordsMismatch")),
+    },
+  });
   const canChange = isAdmin() || isSelf;
   const returnTo = isAdmin() ? "/users" : "/";
 
@@ -61,18 +66,19 @@ export default function ChangeUserPassword() {
   if (!canChange) return <Navigate to="/users" replace />;
   if (!idIsValid) return <Navigate to="/users" replace />;
 
-  async function onSubmit({ confirmPassword: _confirm, ...values }: FormValues) {
+  async function onSubmit({ confirmPassword: _confirm, currentPassword, password }: FormValues) {
     setError(null);
     setSubmitting(true);
     try {
-      await changeUserPassword(id, values);
+      await changeUserPassword(id, isSelf ? { password, currentPassword } : { password });
       await queryClient.invalidateQueries({ queryKey: ["users"] });
       await queryClient.invalidateQueries({ queryKey: ["user", id] });
       navigate(returnTo, { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 403) {
-          setError(t("users.noPermissionChangePassword"));
+          // For a self-change a 403 means the current password didn't verify.
+          setError(isSelf ? t("users.wrongCurrentPassword") : t("users.noPermissionChangePassword"));
         } else if (err.status === 404) {
           setError(t("users.userNoLongerExists"));
         } else {
@@ -128,9 +134,17 @@ export default function ChangeUserPassword() {
                     {t("users.setNewPassword", { name: data.name, email: data.email })}
                   </Text>
                 )}
+                {isSelf && (
+                  <PasswordInput
+                    label={t("users.currentPassword")}
+                    autoFocus
+                    autoComplete="current-password"
+                    {...form.getInputProps("currentPassword")}
+                  />
+                )}
                 <PasswordInput
                   label={t("users.newPassword")}
-                  autoFocus
+                  autoFocus={!isSelf}
                   autoComplete="new-password"
                   {...form.getInputProps("password")}
                 />

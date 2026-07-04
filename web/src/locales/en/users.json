@@ -76,8 +76,11 @@
     "emailRequired": "Email is required",
     "emailInvalid": "Enter a valid email",
     "emailTooLong": "Email is too long",
-    "passwordLength": "Password must be at least 8 characters",
+    "passwordLength": "Password must be at least 10 characters",
     "passwordsMismatch": "Passwords do not match",
-    "roleRequired": "Role is required"
-  }
+    "roleRequired": "Role is required",
+    "currentPasswordRequired": "Current password is required"
+  },
+  "currentPassword": "Current password",
+  "wrongCurrentPassword": "The current password is incorrect."
 }

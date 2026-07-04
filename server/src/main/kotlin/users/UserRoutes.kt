@@ -1,6 +1,8 @@
 package ch.nokillswit.users
 
 import ch.nokillswit.auth.hashPassword
+import ch.nokillswit.auth.verifyPassword
+import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAdmin
 import ch.nokillswit.authz.requireCanAssignRole
@@ -26,6 +28,9 @@ import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.routing.routing
 import kotlinx.serialization.Serializable
+
+/** Minimum accepted password length for create and change. */
+const val MIN_PASSWORD_LENGTH = 10
 
 @Serializable
 @Resource("/api/v1/users")
@@ -108,8 +113,25 @@ fun Application.configureUserRoutes() {
                 }
             }
             put<Users.Id.Password> { route ->
-                requireSelfOrAdmin(call.caller(), route.parent.id)
+                val caller = call.caller()
+                requireSelfOrAdmin(caller, route.parent.id)
                 val req = call.receive<PasswordUpdateRequest>()
+                if (req.password.length < MIN_PASSWORD_LENGTH) {
+                    throw BadRequestException("Password must be at least $MIN_PASSWORD_LENGTH characters")
+                }
+                // Changing one's OWN password always requires the current one (even for an admin);
+                // an admin resetting somebody else's does not. Read before update so a wrong
+                // current password never mutates anything.
+                if (caller.userId == route.parent.id) {
+                    val existing = userService.read(route.parent.id)
+                    if (existing == null) {
+                        call.respondProblem(HttpStatusCode.NotFound, "User not found")
+                        return@put
+                    }
+                    if (req.currentPassword == null || !verifyPassword(req.currentPassword, existing.passwordHash)) {
+                        throw ForbiddenException("Current password is missing or incorrect")
+                    }
+                }
                 val updated = userService.updatePassword(route.parent.id, hashPassword(req.password))
                 if (updated == 0) {
                     call.respondProblem(HttpStatusCode.NotFound, "User not found")

@@ -22,16 +22,44 @@ spec:
     spec:
       containers:
         - env:
+            # Secrets come from the `lettuce-secrets` Secret — see k8s/secret.yaml for how to
+            # create it (never commit real values). The app fail-closes on placeholder/burned
+            # JWT secrets and on unrotated seed passwords, so a misconfigured deploy crash-loops
+            # instead of running with a backdoor.
             - name: JWT_SECRET
-              value: dev-only-9f3c1a7b2e8d4655b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f60718293a4b5c6d
+              valueFrom:
+                secretKeyRef:
+                  name: lettuce-secrets
+                  key: JWT_SECRET
+            - name: ADMIN_INITIAL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: lettuce-secrets
+                  key: ADMIN_INITIAL_PASSWORD
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: lettuce-secrets
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: lettuce-secrets
+                  key: POSTGRES_USER
             - name: POSTGRES_JDBC_URL
               value: jdbc:postgresql://postgres:5432/lettuce
-            - name: POSTGRES_PASSWORD
-              value: lettuce
             - name: POSTGRES_R2DBC_URL
               value: r2dbc:postgresql://postgres:5432/lettuce
-            - name: POSTGRES_USER
-              value: lettuce
+            # Production posture (the image default). For throwaway local-cluster testing over
+            # plain HTTP (no TLS ingress), set this to "true" — HTTPS redirect / HSTS turn off
+            # and the seed credentials are tolerated, exactly like the compose demo.
+            - name: KTOR_DEVELOPMENT
+              value: "false"
+            # The app sits behind an ingress / LB that must terminate TLS and set
+            # X-Forwarded-For + X-Forwarded-Proto (and strip client-supplied values), so rate
+            # limiting keys on the real client IP and the HTTPS redirect sees the real scheme.
+            - name: HTTP_BEHIND_PROXY
+              value: "true"
           # Built locally with `docker build -t lettuce-app:latest .`; OrbStack's
           # Kubernetes shares the Docker image store, so IfNotPresent uses it
           # directly (`:latest` would otherwise default to Always → registry pull).

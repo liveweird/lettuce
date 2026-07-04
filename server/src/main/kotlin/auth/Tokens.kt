@@ -29,10 +29,12 @@ private fun JwtConfig.issueToken(
     typ: String,
     ttlSeconds: Long,
 ): IssuedToken {
-    val expiresAt = System.currentTimeMillis() + ttlSeconds * 1000
+    val now = System.currentTimeMillis()
+    val expiresAt = now + ttlSeconds * 1000
     val token = JWT.create()
         .withAudience(audience)
         .withIssuer(issuer)
+        .withIssuedAt(Date(now)) // compared against users.password_changed_at on /refresh
         .withJWTId(UUID.randomUUID().toString())
         .withClaim("email", email)
         .withClaim("userId", userId.toLong())
