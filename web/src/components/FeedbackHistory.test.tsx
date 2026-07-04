@@ -27,19 +27,24 @@ describe("FeedbackHistory", () => {
     localStorage.clear();
   });
 
-  test("renders the events as a timeline with actor and content", async () => {
+  test("renders structured events localized, with translated status/visibility labels", async () => {
     mockFetch.mockResolvedValue(
       jsonResponse(200, {
         items: [
-          { id: 1, feedbackId: 5, userId: 10, userName: "Paula", timestamp: 1, content: "Feedback created as a draft." },
-          { id: 2, feedbackId: 5, userId: 10, userName: "Paula", timestamp: 2, content: "Status changed from DRAFT to SENT." },
+          { id: 1, feedbackId: 5, userId: 10, userName: "Paula", timestamp: 1, type: "CREATED", params: { status: "DRAFT" } },
+          { id: 2, feedbackId: 5, userId: 10, userName: "Paula", timestamp: 2, type: "STATUS_CHANGED", params: { from: "DRAFT", to: "SENT" } },
+          { id: 3, feedbackId: 5, userId: 10, userName: "Paula", timestamp: 3, type: "VISIBILITY_CHANGED", params: { to: "PUBLIC" } },
+          { id: 4, feedbackId: 5, userId: 10, userName: "Paula", timestamp: 4, type: "DELETED", params: {} },
         ],
       }),
     );
     renderWithProviders(<FeedbackHistory feedbackId={5} />);
 
+    // CREATED uses the status-context phrasing; STATUS/VISIBILITY interpolate translated labels.
     expect(await screen.findByText("Feedback created as a draft.")).toBeInTheDocument();
-    expect(screen.getByText("Status changed from DRAFT to SENT.")).toBeInTheDocument();
+    expect(screen.getByText("Status changed from Draft to Sent.")).toBeInTheDocument();
+    expect(screen.getByText("Visibility changed to Public.")).toBeInTheDocument();
+    expect(screen.getByText("Feedback deleted.")).toBeInTheDocument();
     expect(screen.getAllByText(/Paula/).length).toBeGreaterThan(0);
   });
 

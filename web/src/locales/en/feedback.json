@@ -112,5 +112,18 @@
     "validationSimple": "Validation error. Please try again.",
     "requestFailedStatus": "Request failed ({{status}})",
     "requestFailed": "Request failed. Check your connection and try again."
+  },
+  "event": {
+    "created": "Feedback created.",
+    "created_REQUESTED": "Feedback requested.",
+    "created_DRAFT": "Feedback created as a draft.",
+    "created_SENT": "Feedback created and sent.",
+    "created_WITHDRAWN": "Feedback created as withdrawn.",
+    "created_REJECTED": "Feedback created as rejected.",
+    "deleted": "Feedback deleted.",
+    "statusChanged": "Status changed from {{from}} to {{to}}.",
+    "contentUpdated": "Content updated.",
+    "contentAndVisibilityUpdated": "Content and visibility updated.",
+    "visibilityChanged": "Visibility changed to {{to}}."
   }
 }

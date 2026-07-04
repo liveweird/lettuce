@@ -114,8 +114,8 @@ describe("ViewFeedback page", () => {
         return Promise.resolve(
           jsonResponse(200, {
             items: [
-              { id: 1, feedbackId: 5, userId: 10, userName: "Alice Provider", timestamp: 1, content: "Feedback created as a draft." },
-              { id: 2, feedbackId: 5, userId: 10, userName: "Alice Provider", timestamp: 2, content: "Status changed from DRAFT to SENT." },
+              { id: 1, feedbackId: 5, userId: 10, userName: "Alice Provider", timestamp: 1, type: "CREATED", params: { status: "DRAFT" } },
+              { id: 2, feedbackId: 5, userId: 10, userName: "Alice Provider", timestamp: 2, type: "STATUS_CHANGED", params: { from: "DRAFT", to: "SENT" } },
             ],
           }),
         );
@@ -128,7 +128,7 @@ describe("ViewFeedback page", () => {
     // Content is the default tab; switch to History to see the timeline.
     await user.click(await screen.findByRole("tab", { name: "History" }));
     expect(await screen.findByText("Feedback created as a draft.")).toBeInTheDocument();
-    expect(screen.getByText("Status changed from DRAFT to SENT.")).toBeInTheDocument();
+    expect(screen.getByText("Status changed from Draft to Sent.")).toBeInTheDocument();
   });
 
   test("renders the Lifecycle tab with the state diagram", async () => {

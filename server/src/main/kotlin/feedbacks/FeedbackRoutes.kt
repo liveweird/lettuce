@@ -53,6 +53,14 @@ class Feedbacks {
     }
 }
 
+// Turn a structured event descriptor into the persistable audit event (the SPA localizes it).
+private fun FeedbackEventDescriptor.toEvent(feedbackId: UInt, userId: UInt) = FeedbackEvent(
+    feedbackId = feedbackId,
+    userId = userId,
+    type = type,
+    params = params,
+)
+
 fun Application.configureFeedbackRoutes() {
     val feedbackService = attributes[FeedbackServiceKey]
     val feedbackEventService = attributes[FeedbackEventServiceKey]
@@ -75,10 +83,8 @@ fun Application.configureFeedbackRoutes() {
             return
         }
         toNotify.forEach { notificationService.create(it) }
-        feedbackUpdateEventContent(existing, existing.copy(status = target))?.let { content ->
-            feedbackEventService.create(
-                FeedbackEvent(feedbackId = feedbackId, userId = caller.userId, content = content),
-            )
+        feedbackUpdateEvent(existing, existing.copy(status = target))?.let { descriptor ->
+            feedbackEventService.create(descriptor.toEvent(feedbackId, caller.userId))
         }
         call.respond(HttpStatusCode.NoContent)
     }
@@ -149,13 +155,7 @@ fun Application.configureFeedbackRoutes() {
                 // Re-read so the response carries the server-assigned lastModified.
                 val created = feedbackService.read(id) ?: feedback
                 // Audit: record the creation against the acting caller.
-                feedbackEventService.create(
-                    FeedbackEvent(
-                        feedbackId = id,
-                        userId = caller.userId,
-                        content = feedbackCreationEventContent(created),
-                    ),
-                )
+                feedbackEventService.create(feedbackCreationEvent(created).toEvent(id, caller.userId))
                 val names = feedbackService.partyNames(created)
                 call.respond(HttpStatusCode.Created, created.toResponse(id, names))
             }
@@ -194,13 +194,11 @@ fun Application.configureFeedbackRoutes() {
                     return@put
                 }
                 // Audit: record a content/visibility edit against the caller (no status change here).
-                feedbackUpdateEventContent(
+                feedbackUpdateEvent(
                     existing,
                     existing.copy(content = edit.content, visibility = edit.visibility),
-                )?.let { content ->
-                    feedbackEventService.create(
-                        FeedbackEvent(feedbackId = route.id, userId = caller.userId, content = content),
-                    )
+                )?.let { descriptor ->
+                    feedbackEventService.create(descriptor.toEvent(route.id, caller.userId))
                 }
                 call.respond(HttpStatusCode.NoContent)
             }
@@ -241,13 +239,7 @@ fun Application.configureFeedbackRoutes() {
                 }
                 feedbackService.delete(route.id)
                 // Audit the deletion against the acting provider (events outlive the soft-deleted row).
-                feedbackEventService.create(
-                    FeedbackEvent(
-                        feedbackId = route.id,
-                        userId = caller.userId,
-                        content = feedbackDeletionEventContent(),
-                    ),
-                )
+                feedbackEventService.create(feedbackDeletionEvent().toEvent(route.id, caller.userId))
                 // Best-effort side effect: tell the requester (if any) the provider deleted it (no link).
                 val names = feedbackService.partyNames(existing)
                 feedbackDeletionNotifications(existing, names).forEach { notificationService.create(it) }

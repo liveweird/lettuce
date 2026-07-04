@@ -13,7 +13,9 @@ data class FeedbackEvent(
     val feedbackId: UInt,
     // The user who performed the change (the acting caller).
     val userId: UInt,
-    val content: String,
+    // Structured event; the SPA renders it in the viewer's language.
+    val type: FeedbackEventType,
+    val params: Map<String, String> = emptyMap(),
 )
 
 @Serializable
@@ -25,7 +27,9 @@ data class FeedbackEventResponse(
     val userName: String,
     // Epoch milliseconds when the event was recorded. Server-managed.
     val timestamp: Long,
-    val content: String,
+    // Structured event for client-side localization.
+    val type: FeedbackEventType,
+    val params: Map<String, String> = emptyMap(),
 )
 
 @Serializable

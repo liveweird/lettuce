@@ -239,7 +239,7 @@ describe("FeedbackForm", () => {
         return Promise.resolve(
           jsonResponse(200, {
             items: [
-              { id: 1, feedbackId: 5, userId: 10, userName: "Paula", timestamp: 1, content: "Feedback created as a draft." },
+              { id: 1, feedbackId: 5, userId: 10, userName: "Paula", timestamp: 1, type: "CREATED", params: { status: "DRAFT" } },
             ],
           }),
         );

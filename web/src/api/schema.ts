@@ -1046,8 +1046,19 @@ export interface components {
              * @description Epoch milliseconds when the event was recorded. Server-managed.
              */
             timestamp: number;
-            /** @description Human-readable description of what changed. */
-            content: string;
+            /**
+             * @description Structured event kind; the client renders it in the viewer's language.
+             * @enum {string}
+             */
+            type: "CREATED" | "DELETED" | "STATUS_CHANGED" | "CONTENT_UPDATED" | "CONTENT_AND_VISIBILITY_UPDATED" | "VISIBILITY_CHANGED";
+            /**
+             * @description Interpolation params for the localized rendering, as enum names — e.g.
+             *     `{status}` for CREATED, `{from,to}` for STATUS_CHANGED, `{to}` for VISIBILITY_CHANGED.
+             *     Empty object when the event kind needs none.
+             */
+            params: {
+                [key: string]: string;
+            };
         };
         FeedbackEventList: {
             items: components["schemas"]["FeedbackEventResponse"][];

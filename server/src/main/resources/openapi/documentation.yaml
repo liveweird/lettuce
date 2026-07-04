@@ -1663,7 +1663,7 @@ components:
 
     FeedbackEventResponse:
       type: object
-      required: [id, feedbackId, userId, userName, timestamp, content]
+      required: [id, feedbackId, userId, userName, timestamp, type, params]
       properties:
         id: { type: integer, format: int64, minimum: 0 }
         feedbackId: { type: integer, format: int64, minimum: 0 }
@@ -1675,9 +1675,17 @@ components:
           type: integer
           format: int64
           description: Epoch milliseconds when the event was recorded. Server-managed.
-        content:
+        type:
           type: string
-          description: Human-readable description of what changed.
+          enum: [CREATED, DELETED, STATUS_CHANGED, CONTENT_UPDATED, CONTENT_AND_VISIBILITY_UPDATED, VISIBILITY_CHANGED]
+          description: Structured event kind; the client renders it in the viewer's language.
+        params:
+          type: object
+          additionalProperties: { type: string }
+          description: |
+            Interpolation params for the localized rendering, as enum names — e.g.
+            `{status}` for CREATED, `{from,to}` for STATUS_CHANGED, `{to}` for VISIBILITY_CHANGED.
+            Empty object when the event kind needs none.
 
     FeedbackEventList:
       type: object

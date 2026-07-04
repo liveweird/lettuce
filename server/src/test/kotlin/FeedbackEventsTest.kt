@@ -7,10 +7,11 @@ import ch.nokillswit.feedbacks.FeedbackCreateRequest
 import ch.nokillswit.feedbacks.FeedbackEventListResponse
 import ch.nokillswit.feedbacks.FeedbackResponse
 import ch.nokillswit.feedbacks.FeedbackContentUpdate
+import ch.nokillswit.feedbacks.FeedbackEventType
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
-import ch.nokillswit.feedbacks.feedbackCreationEventContent
-import ch.nokillswit.feedbacks.feedbackUpdateEventContent
+import ch.nokillswit.feedbacks.feedbackCreationEvent
+import ch.nokillswit.feedbacks.feedbackUpdateEvent
 import ch.nokillswit.users.UserRole
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -52,33 +53,37 @@ class FeedbackEventsTest {
     // ---- pure description helpers (no DB) ----
 
     @Test
-    fun `creation content reflects the initial status`() {
+    fun `creation descriptor carries the initial status`() {
         fun fb(status: FeedbackStatus) = Feedback(
             subjectId = 1u, providerId = 2u, visibility = FeedbackVisibility.PROVIDER_SUBJECT, status = status,
         )
-        assertEquals("Feedback created as a draft.", feedbackCreationEventContent(fb(FeedbackStatus.DRAFT)))
-        assertEquals("Feedback created and sent.", feedbackCreationEventContent(fb(FeedbackStatus.SENT)))
-        assertEquals("Feedback requested.", feedbackCreationEventContent(fb(FeedbackStatus.REQUESTED)))
-        assertEquals("Feedback created as withdrawn.", feedbackCreationEventContent(fb(FeedbackStatus.WITHDRAWN)))
-        assertEquals("Feedback created as rejected.", feedbackCreationEventContent(fb(FeedbackStatus.REJECTED)))
+        val draft = feedbackCreationEvent(fb(FeedbackStatus.DRAFT))
+        assertEquals(FeedbackEventType.CREATED, draft.type)
+        assertEquals(mapOf("status" to "DRAFT"), draft.params)
+        assertEquals("REQUESTED", feedbackCreationEvent(fb(FeedbackStatus.REQUESTED)).params["status"])
     }
 
     @Test
-    fun `update content reports transitions, edits, or nothing`() {
+    fun `update descriptor reports transitions, edits, or nothing`() {
         val base = Feedback(
             subjectId = 1u, providerId = 2u, visibility = FeedbackVisibility.PROVIDER_SUBJECT,
             status = FeedbackStatus.DRAFT, content = "a",
         )
+        val sent = feedbackUpdateEvent(base, base.copy(status = FeedbackStatus.SENT))
+        assertEquals(FeedbackEventType.STATUS_CHANGED, sent?.type)
+        assertEquals(mapOf("from" to "DRAFT", "to" to "SENT"), sent?.params)
+
+        assertEquals(FeedbackEventType.CONTENT_UPDATED, feedbackUpdateEvent(base, base.copy(content = "b"))?.type)
+
+        val vis = feedbackUpdateEvent(base, base.copy(visibility = FeedbackVisibility.PUBLIC))
+        assertEquals(FeedbackEventType.VISIBILITY_CHANGED, vis?.type)
+        assertEquals(mapOf("to" to "PUBLIC"), vis?.params)
+
         assertEquals(
-            "Status changed from DRAFT to SENT.",
-            feedbackUpdateEventContent(base, base.copy(status = FeedbackStatus.SENT)),
+            FeedbackEventType.CONTENT_AND_VISIBILITY_UPDATED,
+            feedbackUpdateEvent(base, base.copy(content = "b", visibility = FeedbackVisibility.PUBLIC))?.type,
         )
-        assertEquals("Content updated.", feedbackUpdateEventContent(base, base.copy(content = "b")))
-        assertEquals(
-            "Visibility changed to PUBLIC.",
-            feedbackUpdateEventContent(base, base.copy(visibility = FeedbackVisibility.PUBLIC)),
-        )
-        assertNull(feedbackUpdateEventContent(base, base.copy()))
+        assertNull(feedbackUpdateEvent(base, base.copy()))
     }
 
     // ---- integration ----
@@ -106,7 +111,8 @@ class FeedbackEventsTest {
         val afterCreate = provider.get("/api/v1/feedbacks/${created.id}/events").body<FeedbackEventListResponse>()
         assertEquals(1, afterCreate.items.size)
         val ev = afterCreate.items.single()
-        assertEquals("Feedback created as a draft.", ev.content)
+        assertEquals(FeedbackEventType.CREATED, ev.type)
+        assertEquals(mapOf("status" to "DRAFT"), ev.params)
         assertEquals(providerId, ev.userId)
         assertEquals("Paula", ev.userName)
 
@@ -117,7 +123,9 @@ class FeedbackEventsTest {
         )
         val afterSend = provider.get("/api/v1/feedbacks/${created.id}/events").body<FeedbackEventListResponse>()
         assertEquals(2, afterSend.items.size)
-        assertEquals("Status changed from DRAFT to SENT.", afterSend.items.last().content)
+        val sent = afterSend.items.last()
+        assertEquals(FeedbackEventType.STATUS_CHANGED, sent.type)
+        assertEquals(mapOf("from" to "DRAFT", "to" to "SENT"), sent.params)
     }
 
     @Test
@@ -145,7 +153,10 @@ class FeedbackEventsTest {
         }
 
         val events = provider.get("/api/v1/feedbacks/${created.id}/events").body<FeedbackEventListResponse>()
-        assertEquals(listOf("Feedback created as a draft.", "Content updated."), events.items.map { it.content })
+        assertEquals(
+            listOf(FeedbackEventType.CREATED, FeedbackEventType.CONTENT_UPDATED),
+            events.items.map { it.type },
+        )
     }
 
     @Test
@@ -220,7 +231,7 @@ class FeedbackEventsTest {
         val events = TestFeedbackEvents.service.listForFeedback(created.id)
         assertEquals(2, events.size)
         val deletion = events.last()
-        assertEquals("Feedback deleted.", deletion.content)
+        assertEquals(FeedbackEventType.DELETED, deletion.type)
         assertEquals(providerId, deletion.userId)
     }
 }
