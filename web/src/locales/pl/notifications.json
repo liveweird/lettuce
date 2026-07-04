@@ -16,16 +16,16 @@
   "goTo": "Przejdź",
   "goToAria": "Przejdź do powiadomienia {{id}}",
   "event": {
-    "requestedToProvider": "{{requester}} prosi o feedback na temat: {{subject}}.",
-    "requestedToRequester": "Twoja prośba o feedback do {{provider}} na temat {{subject}} została wysłana.",
-    "requestedToRequester_self": "Twoja prośba o feedback na swój temat do {{provider}} została wysłana.",
+    "requestedToProvider": "{{requester}} poprosił o feedback na temat {{subject}}.",
+    "requestedToRequester": "Poprosiłeś {{provider}} o feedback na temat {{subject}}.",
+    "requestedToRequester_self": "Poprosiłeś {{provider}} o feedback na temat swojej pracy.",
     "sentToSubject": "Feedback od {{provider}} na temat {{subject}} został wysłany.",
     "sentToProvider": "Wystawiony przez Ciebie feedback na temat {{subject}} został wysłany.",
     "sentToRequester": "Feedback od {{provider}} na temat {{subject}} (na Twoją prośbę) został wysłany.",
-    "rejectedToRequester": "Twoja prośba o feedback do {{provider}} na temat {{subject}} została odrzucona.",
-    "pickedUpToRequester": "Twoja prośba o feedback do {{provider}} na temat {{subject}} została przyjęta (teraz wersja robocza).",
+    "rejectedToRequester": "{{provider}} odmówił wystawienia feedbacku na temat {{subject}}.",
+    "pickedUpToRequester": "{{provider}} przygotowuje właśnie feedback na temat {{subject}}.",
     "withdrawnToSubject": "Feedback od {{provider}} na temat {{subject}} został wycofany.",
-    "withdrawnToRequester": "Feedback od {{provider}} na temat {{subject}} (na Twoją prośbę) został wycofany.",
-    "deletedToRequester": "Feedback od {{provider}} na temat {{subject}} (na Twoją prośbę) został usunięty przez wystawiającego."
+    "withdrawnToRequester": "{{provider}} wycofał swój feedback na temat {{subject}} (o który prosiłeś).",
+    "deletedToRequester": "{{provider}} usunął swój feedback na temat {{subject}} (o który prosiłeś)."
   }
 }
