@@ -8,7 +8,6 @@ import ch.nokillswit.feedbacks.FeedbackVisibility
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.SortField
 import io.ktor.server.testing.testApplication
-import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -22,7 +21,6 @@ import kotlin.test.assertTrue
  */
 class FeedbackServiceTest {
 
-    private fun uniqueEmail(prefix: String) = "$prefix-${UUID.randomUUID()}@test"
 
     private val paging = PageRequest(page = 1, pageSize = 100, sort = listOf(SortField("id", descending = false)))
 

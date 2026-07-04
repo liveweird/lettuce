@@ -5,6 +5,7 @@ import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import EditTemplate from "./EditTemplate";
+import { jsonResponse } from "../test/http";
 
 // Swap the Lexical-based editor for a plain textarea; the real wrapper is covered by
 // MarkdownEditor.test.tsx.
@@ -18,12 +19,6 @@ function PathProbe() {
   return <div data-testid="probe">{location.pathname}</div>;
 }
 
-function jsonResponse(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
 
 function renderEditTemplate(entry = "/templates/5/edit") {
   const queryClient = new QueryClient({

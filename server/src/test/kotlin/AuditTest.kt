@@ -15,7 +15,6 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
-import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -29,7 +28,6 @@ import org.slf4j.LoggerFactory
  */
 class AuditTest {
 
-    private fun uniqueEmail(prefix: String) = "$prefix-${UUID.randomUUID()}@test"
 
     private fun attachAppender(): Pair<Logger, ListAppender<ILoggingEvent>> {
         val logger = LoggerFactory.getLogger("ch.nokillswit.audit") as Logger

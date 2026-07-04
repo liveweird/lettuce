@@ -29,7 +29,6 @@
   "deleteTitle": "Delete team \"{{name}}\" (managed by {{manager}})?",
   "deleteUndone": "This cannot be undone.",
   "removeModalTitle": "Remove from team?",
-  "removeConfirm": "Remove {{name}} from {{team}}?",
   "removeConfirmLead": "Remove",
   "removeConfirmMid": "from",
   "loadFailed": "Failed to load teams",

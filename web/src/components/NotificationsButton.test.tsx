@@ -3,17 +3,12 @@ import userEvent from "@testing-library/user-event";
 import { useLocation } from "react-router-dom";
 import { renderWithProviders, screen, waitFor, within } from "../test/render";
 import NotificationsButton from "./NotificationsButton";
+import { jsonResponse } from "../test/http";
 
 const TOKEN_KEY = "lettuce.auth.token";
 
 type FetchMock = ReturnType<typeof vi.fn>;
 
-function jsonResponse(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
 
 type Item = {
   id: number;

@@ -1,12 +1,11 @@
 package ch.nokillswit.feedbacks
 
+import ch.nokillswit.infra.db.decodeParams
+import ch.nokillswit.infra.db.encodeParams
 import ch.nokillswit.users.UserService
 import io.ktor.util.AttributeKey
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
-import kotlinx.serialization.builtins.MapSerializer
-import kotlinx.serialization.builtins.serializer
-import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.core.dao.id.UIntIdTable
 import org.jetbrains.exposed.v1.r2dbc.*
@@ -14,8 +13,6 @@ import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
 val FeedbackEventServiceKey = AttributeKey<FeedbackEventService>("FeedbackEventService")
-
-private val paramsSerializer = MapSerializer(String.serializer(), String.serializer())
 
 class FeedbackEventService(val database: R2dbcDatabase) {
     object FeedbackEvents : UIntIdTable("feedback_events") {
@@ -34,7 +31,7 @@ class FeedbackEventService(val database: R2dbcDatabase) {
             it[userId] = event.userId
             it[timestamp] = System.currentTimeMillis()
             it[eventType] = event.type.name
-            it[params] = Json.encodeToString(paramsSerializer, event.params)
+            it[params] = encodeParams(event.params)
         }[FeedbackEvents.id].value
     }
 
@@ -55,6 +52,6 @@ class FeedbackEventService(val database: R2dbcDatabase) {
         userName = this[UserService.Users.name],
         timestamp = this[FeedbackEvents.timestamp],
         type = FeedbackEventType.valueOf(this[FeedbackEvents.eventType]),
-        params = Json.decodeFromString(paramsSerializer, this[FeedbackEvents.params]),
+        params = decodeParams(this[FeedbackEvents.params]),
     )
 }

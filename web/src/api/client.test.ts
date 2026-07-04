@@ -12,6 +12,7 @@ import {
   setToken,
 } from "./client";
 import { consumeSignedOut } from "../auth";
+import { jsonResponse } from "../test/http";
 
 function tokenPair(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -32,12 +33,6 @@ const USER_ID_KEY = "lettuce.auth.userId";
 
 type FetchMock = ReturnType<typeof vi.fn>;
 
-function jsonResponse(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
 
 let mockFetch: FetchMock;
 

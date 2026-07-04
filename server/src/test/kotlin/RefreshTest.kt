@@ -31,7 +31,6 @@ import kotlin.test.assertTrue
  */
 class RefreshTest {
 
-    private fun uniqueEmail(prefix: String) = "$prefix-${UUID.randomUUID()}@test"
 
     private suspend fun loginBody(client: HttpClient, email: String, password: String): LoginResponse =
         client.post("/api/v1/login") {

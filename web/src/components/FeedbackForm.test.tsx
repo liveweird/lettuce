@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { fireEvent, renderWithProviders, screen, waitFor } from "../test/render";
 import FeedbackForm from "./FeedbackForm";
 import { formatTimestamp } from "../utils/datetime";
+import { jsonResponse } from "../test/http";
 
 // Swap the Lexical-based editor for a plain textarea (see mockMarkdownEditor); the real wrapper
 // is covered by MarkdownEditor.test.tsx. Import inside the (hoisted) factory to avoid the
@@ -13,12 +14,6 @@ const TOKEN_KEY = "lettuce.auth.token";
 
 type FetchMock = ReturnType<typeof vi.fn>;
 
-function jsonResponse(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
 
 const baseProps = {
   title: "Edit feedback",

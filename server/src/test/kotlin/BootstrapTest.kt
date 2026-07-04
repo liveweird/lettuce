@@ -10,10 +10,6 @@ import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
-import io.ktor.server.config.ApplicationConfig
-import io.ktor.server.config.MapApplicationConfig
-import io.ktor.server.config.mergeWith
-import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import java.util.UUID
 import kotlin.test.Test
@@ -28,21 +24,6 @@ import kotlin.test.assertTrue
  * Tests restore the shared container's seed state afterwards (TestSeedState).
  */
 class BootstrapTest {
-
-    private fun ApplicationTestBuilder.configureApp(vararg overrides: Pair<String, String>) {
-        environment {
-            config = ApplicationConfig("application.yaml").mergeWith(
-                MapApplicationConfig(
-                    "postgres.jdbcUrl" to PostgresTestSupport.jdbcUrl,
-                    "postgres.r2dbcUrl" to PostgresTestSupport.r2dbcUrl,
-                    "postgres.user" to PostgresTestSupport.user,
-                    "postgres.password" to PostgresTestSupport.password,
-                    "security.csrf.enabled" to "false",
-                    *overrides,
-                )
-            )
-        }
-    }
 
     @Test
     fun `ADMIN_INITIAL_PASSWORD rotates the seed admin so changeme stops working`() = testApplication {

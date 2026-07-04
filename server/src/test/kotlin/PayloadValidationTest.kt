@@ -22,7 +22,6 @@ import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
-import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -32,7 +31,6 @@ import kotlin.test.assertEquals
  */
 class PayloadValidationTest {
 
-    private fun uniqueEmail(prefix: String) = "$prefix-${UUID.randomUUID()}@test"
 
     private suspend fun ApplicationTestBuilder.adminClient(): HttpClient {
         val email = uniqueEmail("admin")

@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { useLocation } from "react-router-dom";
 import { renderWithProviders, screen, waitFor } from "../test/render";
 import Feedback from "./Feedback";
+import { jsonResponse } from "../test/http";
 
 const TOKEN_KEY = "lettuce.auth.token";
 const ROLE_KEY = "lettuce.auth.role";
@@ -10,12 +11,6 @@ const USER_ID_KEY = "lettuce.auth.userId";
 
 type FetchMock = ReturnType<typeof vi.fn>;
 
-function jsonResponse(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
 
 function teamsPage(total: number): Response {
   const items =

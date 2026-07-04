@@ -11,10 +11,6 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
-import io.ktor.server.config.ApplicationConfig
-import io.ktor.server.config.MapApplicationConfig
-import io.ktor.server.config.mergeWith
-import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import java.util.UUID
 import kotlin.test.Test
@@ -28,24 +24,6 @@ import kotlin.test.assertTrue
  * overrides beyond [usePostgresTestcontainer], so they build the environment themselves.
  */
 class SecurityConfigTest {
-
-    // Mirrors usePostgresTestcontainer but allows extra overrides and defers startApplication()
-    // to the test (so startup failures can be asserted). Later duplicate keys win in
-    // MapApplicationConfig, so overrides may replace the defaults listed first.
-    private fun ApplicationTestBuilder.configureApp(vararg overrides: Pair<String, String>) {
-        environment {
-            config = ApplicationConfig("application.yaml").mergeWith(
-                MapApplicationConfig(
-                    "postgres.jdbcUrl" to PostgresTestSupport.jdbcUrl,
-                    "postgres.r2dbcUrl" to PostgresTestSupport.r2dbcUrl,
-                    "postgres.user" to PostgresTestSupport.user,
-                    "postgres.password" to PostgresTestSupport.password,
-                    "security.csrf.enabled" to "false",
-                    *overrides,
-                )
-            )
-        }
-    }
 
     @Test
     fun `a strong JWT secret is accepted and its tokens work`() = testApplication {

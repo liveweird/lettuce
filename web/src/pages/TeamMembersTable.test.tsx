@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { fireEvent, renderWithProviders, screen, waitFor, within } from "../test/render";
 import TeamMembersTable from "./TeamMembersTable";
+import { jsonResponse } from "../test/http";
 
 const TOKEN_KEY = "lettuce.auth.token";
 const ROLE_KEY = "lettuce.auth.role";
@@ -17,12 +18,6 @@ type TeamMemberItem = {
   teamName: string;
 };
 
-function jsonResponse(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
 
 function membersPage(items: TeamMemberItem[], total = items.length): Response {
   return jsonResponse(200, { items, page: 1, pageSize: 20, total });

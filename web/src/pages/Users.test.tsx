@@ -5,6 +5,7 @@ import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Users from "./Users";
+import { jsonResponse } from "../test/http";
 
 const TOKEN_KEY = "lettuce.auth.token";
 const ROLE_KEY = "lettuce.auth.role";
@@ -35,12 +36,6 @@ function renderUsers() {
 
 type FetchMock = ReturnType<typeof vi.fn>;
 
-function jsonResponse(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
 
 function listResponse(items: Array<{ id: number; name: string; email: string; role: "ADMIN" | "USER" }>) {
   return jsonResponse(200, { items, page: 1, pageSize: 20, total: items.length });

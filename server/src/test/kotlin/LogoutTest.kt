@@ -25,7 +25,6 @@ import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
 class LogoutTest {
 
-    private fun uniqueEmail(prefix: String) = "$prefix-${UUID.randomUUID()}@test"
 
     private suspend fun login(client: io.ktor.client.HttpClient, email: String, password: String): String =
         client.post("/api/v1/login") {

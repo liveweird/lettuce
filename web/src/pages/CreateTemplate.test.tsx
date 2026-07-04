@@ -5,6 +5,7 @@ import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import CreateTemplate from "./CreateTemplate";
+import { jsonResponse } from "../test/http";
 
 // Swap the Lexical-based editor for a plain textarea; the real wrapper is covered by
 // MarkdownEditor.test.tsx.
@@ -36,12 +37,6 @@ function renderCreateTemplate() {
   );
 }
 
-function jsonResponse(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
 
 describe("CreateTemplate page", () => {
   let mockFetch: ReturnType<typeof vi.fn>;

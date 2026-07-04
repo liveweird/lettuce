@@ -6,7 +6,6 @@ import ch.nokillswit.auth.RefreshRequest
 import ch.nokillswit.users.PasswordUpdateRequest
 import ch.nokillswit.users.UserRole
 import io.ktor.client.HttpClient
-import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -17,7 +16,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
-import java.util.UUID
+import io.ktor.client.call.body
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -27,7 +26,6 @@ import kotlin.test.assertEquals
  */
 class PasswordChangeTest {
 
-    private fun uniqueEmail(prefix: String) = "$prefix-${UUID.randomUUID()}@test"
 
     private suspend fun login(client: HttpClient, email: String, password: String): LoginResponse =
         client.post("/api/v1/login") {

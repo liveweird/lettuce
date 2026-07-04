@@ -1,7 +1,5 @@
 package ch.nokillswit
 
-import ch.nokillswit.auth.LoginRequest
-import ch.nokillswit.auth.LoginResponse
 import ch.nokillswit.plugins.ProblemDetail
 import ch.nokillswit.teams.Team
 import ch.nokillswit.teams.TeamMemberPageResponse
@@ -9,42 +7,20 @@ import ch.nokillswit.teams.TeamResponse
 import ch.nokillswit.users.UserRole
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
-import io.ktor.client.plugins.DefaultRequest
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
-import io.ktor.client.request.header
-import io.ktor.client.request.post
 import io.ktor.client.request.setBody
-import io.ktor.serialization.kotlinx.json.json
 import io.ktor.http.ContentType
-import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
-import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
-import java.util.UUID
+import io.ktor.client.request.post
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class TeamMemberListTest {
 
-    private fun uniqueEmail(prefix: String) = "$prefix-${UUID.randomUUID()}@test"
-
-    private suspend fun ApplicationTestBuilder.authedClient(email: String, password: String): HttpClient {
-        val client = jsonClient()
-        val token = client.post("/api/v1/login") {
-            contentType(ContentType.Application.Json)
-            setBody(LoginRequest(email, password))
-        }.body<LoginResponse>().token
-        return createClient {
-            install(ContentNegotiation) { json(); json(contentType = ContentType.parse("application/problem+json")) }
-            install(DefaultRequest) {
-                header(HttpHeaders.Authorization, "Bearer $token")
-            }
-        }
-    }
 
     private suspend fun HttpClient.createTeam(name: String, managerId: UInt, memberIds: List<UInt>): TeamResponse =
         post("/api/v1/teams") {

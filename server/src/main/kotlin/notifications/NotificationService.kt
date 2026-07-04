@@ -1,5 +1,7 @@
 package ch.nokillswit.notifications
 
+import ch.nokillswit.infra.db.decodeParams
+import ch.nokillswit.infra.db.encodeParams
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.users.UserService
@@ -7,9 +9,6 @@ import io.ktor.util.AttributeKey
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.singleOrNull
 import kotlinx.coroutines.flow.toList
-import kotlinx.serialization.builtins.MapSerializer
-import kotlinx.serialization.builtins.serializer
-import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.core.dao.id.UIntIdTable
 import org.jetbrains.exposed.v1.r2dbc.*
@@ -17,8 +16,6 @@ import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
 val NotificationServiceKey = AttributeKey<NotificationService>("NotificationService")
-
-private val paramsSerializer = MapSerializer(String.serializer(), String.serializer())
 
 data class NotificationListFilter(
     val wasSeen: Boolean? = null,
@@ -57,7 +54,7 @@ class NotificationService(val database: R2dbcDatabase) {
             it[recipientId] = notification.recipientId
             it[timestamp] = System.currentTimeMillis()
             it[notificationType] = notification.type.name
-            it[params] = Json.encodeToString(paramsSerializer, notification.params)
+            it[params] = encodeParams(notification.params)
             it[link] = notification.link
             it[wasSeen] = false
         }
@@ -126,7 +123,7 @@ class NotificationService(val database: R2dbcDatabase) {
         recipientId = this[Notifications.recipientId].value,
         timestamp = this[Notifications.timestamp],
         type = NotificationType.valueOf(this[Notifications.notificationType]),
-        params = Json.decodeFromString(paramsSerializer, this[Notifications.params]),
+        params = decodeParams(this[Notifications.params]),
         link = this[Notifications.link],
         wasSeen = this[Notifications.wasSeen],
     )

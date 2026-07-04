@@ -5,6 +5,7 @@ import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import CreateFeedback from "./CreateFeedback";
+import { jsonResponse } from "../test/http";
 
 // Swap the Lexical-based editor for a plain textarea (see mockMarkdownEditor). Import inside the
 // (hoisted) factory to avoid the top-level-variable restriction.
@@ -21,12 +22,6 @@ function PathProbe() {
   return <div data-testid="probe">{location.pathname}</div>;
 }
 
-function jsonResponse(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
 
 function renderCreateFeedback(query = "?subjectId=5&subjectName=Mona") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

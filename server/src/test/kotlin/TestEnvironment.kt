@@ -1,5 +1,7 @@
 package ch.nokillswit
 
+import ch.nokillswit.auth.LoginRequest
+import ch.nokillswit.auth.LoginResponse
 import ch.nokillswit.auth.TokenBlocklistService
 import ch.nokillswit.auth.hashPassword
 import ch.nokillswit.infra.db.DEMO_SEED_EMAILS
@@ -9,8 +11,15 @@ import ch.nokillswit.users.User
 import ch.nokillswit.users.UserRole
 import ch.nokillswit.users.UserService
 import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.plugins.DefaultRequest
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.header
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
+import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.config.ApplicationConfig
 import io.ktor.server.config.MapApplicationConfig
@@ -21,7 +30,13 @@ import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 import org.jetbrains.exposed.v1.r2dbc.update
 
-suspend fun ApplicationTestBuilder.usePostgresTestcontainer() {
+/**
+ * Points the app at the shared Testcontainers Postgres (with CSRF off) WITHOUT starting it —
+ * callers that assert startup behavior (fail-closed checks) add their own overrides and call
+ * `startApplication()` themselves. Later duplicate keys win in [MapApplicationConfig], so
+ * [overrides] may replace the defaults listed first.
+ */
+fun ApplicationTestBuilder.configureApp(vararg overrides: Pair<String, String>) {
     environment {
         config = ApplicationConfig("application.yaml").mergeWith(
             MapApplicationConfig(
@@ -30,14 +45,37 @@ suspend fun ApplicationTestBuilder.usePostgresTestcontainer() {
                 "postgres.user" to PostgresTestSupport.user,
                 "postgres.password" to PostgresTestSupport.password,
                 "security.csrf.enabled" to "false",
+                *overrides,
             )
         )
     }
+}
+
+suspend fun ApplicationTestBuilder.usePostgresTestcontainer() {
+    configureApp()
     startApplication()
 }
 
 fun ApplicationTestBuilder.jsonClient(): HttpClient = createClient {
     install(ContentNegotiation) { json(); json(contentType = ContentType.parse("application/problem+json")) }
+}
+
+/** A unique throwaway email so tests never collide on the partial-unique active-email index. */
+fun uniqueEmail(prefix: String) = "$prefix-${java.util.UUID.randomUUID()}@test"
+
+/** Logs in as [email] and returns a client that sends the bearer token on every request. */
+suspend fun ApplicationTestBuilder.authedClient(email: String, password: String): HttpClient {
+    val client = jsonClient()
+    val token = client.post("/api/v1/login") {
+        contentType(ContentType.Application.Json)
+        setBody(LoginRequest(email, password))
+    }.body<LoginResponse>().token
+    return createClient {
+        install(ContentNegotiation) { json(); json(contentType = ContentType.parse("application/problem+json")) }
+        install(DefaultRequest) {
+            header(HttpHeaders.Authorization, "Bearer $token")
+        }
+    }
 }
 
 private val sharedTestDatabase: R2dbcDatabase by lazy {

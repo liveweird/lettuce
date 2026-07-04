@@ -29,7 +29,6 @@
   "deleteTitle": "Usunąć zespół „{{name}}” (zarządzany przez {{manager}})?",
   "deleteUndone": "Tej operacji nie można cofnąć.",
   "removeModalTitle": "Usunąć z zespołu?",
-  "removeConfirm": "Usunąć {{name}} z zespołu {{team}}?",
   "removeConfirmLead": "Usunąć",
   "removeConfirmMid": "z zespołu",
   "loadFailed": "Nie udało się wczytać zespołów",
