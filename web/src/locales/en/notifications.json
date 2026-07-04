@@ -15,15 +15,15 @@
   "goToAria": "Go to notification {{id}}",
   "event": {
     "requestedToProvider": "{{requester}} requested feedback about {{subject}}.",
-    "requestedToRequester": "Your feedback request to {{provider}} about {{subject}} has been submitted.",
-    "requestedToRequester_self": "Your request for feedback about yourself from {{provider}} has been submitted.",
+    "requestedToRequester": "You reached out to {{provider}} for feedback regarding {{subject}}.",
+    "requestedToRequester_self": "You asked {{provider}} for feedback on your performance.",
     "sentToSubject": "Feedback from {{provider}} about {{subject}} has been sent.",
     "sentToProvider": "The feedback you provided about {{subject}} has been sent.",
     "sentToRequester": "The feedback you requested from {{provider}} about {{subject}} has been sent.",
-    "rejectedToRequester": "Your feedback request to {{provider}} about {{subject}} was rejected.",
-    "pickedUpToRequester": "{{provider}} picked up your feedback request about {{subject}} (now a draft).",
+    "rejectedToRequester": "{{provider}} declined to provide feedback about {{subject}}.",
+    "pickedUpToRequester": "{{provider}} is now drafting feedback about {{subject}}.",
     "withdrawnToSubject": "Feedback from {{provider}} about {{subject}} has been withdrawn.",
-    "withdrawnToRequester": "The feedback from {{provider}} about {{subject}} you requested has been withdrawn.",
-    "deletedToRequester": "The feedback you requested from {{provider}} about {{subject}} has been deleted by the provider."
+    "withdrawnToRequester": "{{provider}} withdrew their feedback about {{subject}} (which you requested).",
+    "deletedToRequester": "{{provider}} deleted their feedback about {{subject}} (which you requested)."
   }
 }

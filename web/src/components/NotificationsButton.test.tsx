@@ -30,7 +30,7 @@ const UNSEEN: Item = {
   link: "/feedback/5/view",
   wasSeen: false,
 };
-// Rendered EN: "Your feedback request to Dana Dev about Kim Coder has been submitted."
+// Rendered EN: "You reached out to Dana Dev for feedback regarding Kim Coder."
 const SEEN: Item = {
   id: 2,
   recipientId: 7,
@@ -42,7 +42,7 @@ const SEEN: Item = {
 };
 
 const UNSEEN_TEXT = "Feedback from Pat Provider about Sam Subject has been sent.";
-const SEEN_TEXT = "Your feedback request to Dana Dev about Kim Coder has been submitted.";
+const SEEN_TEXT = "You reached out to Dana Dev for feedback regarding Kim Coder.";
 
 // Default: 1 unread for the badge; list returns both rows.
 function setupMocks(mockFetch: FetchMock, list: Item[] = [UNSEEN, SEEN], unreadTotal = 1) {
@@ -249,7 +249,7 @@ describe("NotificationsButton", () => {
 
     await user.click(await screen.findByRole("button", { name: /unread/i }));
     const row = (
-      await screen.findByText("Your feedback request to Pat Provider about Sam Subject was rejected.")
+      await screen.findByText("Pat Provider declined to provide feedback about Sam Subject.")
     ).closest("[class*='Paper']")!;
     expect(within(row as HTMLElement).queryByRole("button", { name: /go to/i })).toBeNull();
     // Mark as seen is still offered (it is unseen).
@@ -284,7 +284,7 @@ describe("NotificationsButton", () => {
 
     await user.click(await screen.findByRole("button", { name: /unread/i }));
     expect(
-      await screen.findByText("Your request for feedback about yourself from Pat Provider has been submitted."),
+      await screen.findByText("You asked Pat Provider for feedback on your performance."),
     ).toBeInTheDocument();
   });
 });
