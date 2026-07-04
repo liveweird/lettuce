@@ -120,6 +120,22 @@ class SecurityConfigTest {
     }
 
     @Test
+    fun `swagger is served in development by default and can be disabled`() = testApplication {
+        configureApp()
+        startApplication()
+        val served = jsonClient().get("/openapi")
+        assertEquals(HttpStatusCode.OK, served.status)
+    }
+
+    @Test
+    fun `swagger is hidden when exposeOpenApi is false`() = testApplication {
+        configureApp("http.exposeOpenApi" to "false")
+        startApplication()
+        val hidden = jsonClient().get("/openapi")
+        assertEquals(HttpStatusCode.NotFound, hidden.status)
+    }
+
+    @Test
     fun `an explicit CORS allow-list admits only the listed host`() = testApplication {
         configureApp("http.corsHosts" to "app.example.com")
         startApplication()

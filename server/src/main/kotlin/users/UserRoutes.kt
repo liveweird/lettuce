@@ -1,5 +1,6 @@
 package ch.nokillswit.users
 
+import ch.nokillswit.audit.audit
 import ch.nokillswit.auth.hashPassword
 import ch.nokillswit.auth.verifyPassword
 import ch.nokillswit.authz.ForbiddenException
@@ -31,6 +32,19 @@ import kotlinx.serialization.Serializable
 
 /** Minimum accepted password length for create and change. */
 const val MIN_PASSWORD_LENGTH = 10
+
+/** Column limits (see Users table / migrations) enforced up-front so oversized or blank
+ *  payloads are a clean 400 instead of a DB-level 500. */
+private const val MAX_NAME_LENGTH = 50
+private const val MAX_EMAIL_LENGTH = 254
+
+private fun validateNameAndEmail(name: String, email: String) {
+    if (name.isBlank()) throw BadRequestException("Name must not be blank")
+    if (name.length > MAX_NAME_LENGTH) throw BadRequestException("Name must be at most $MAX_NAME_LENGTH characters")
+    if (email.isBlank()) throw BadRequestException("Email must not be blank")
+    if (email.length > MAX_EMAIL_LENGTH) throw BadRequestException("Email must be at most $MAX_EMAIL_LENGTH characters")
+    if ('@' !in email) throw BadRequestException("Email must contain '@'")
+}
 
 @Serializable
 @Resource("/api/v1/users")
@@ -68,8 +82,13 @@ fun Application.configureUserRoutes() {
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
             }
             post<Users> {
-                requireAdmin(call.caller())
+                val caller = call.caller()
+                requireAdmin(caller)
                 val req = call.receive<UserRequest>()
+                validateNameAndEmail(req.name, req.email)
+                if (req.password.length < MIN_PASSWORD_LENGTH) {
+                    throw BadRequestException("Password must be at least $MIN_PASSWORD_LENGTH characters")
+                }
                 val user = User(
                     name = req.name,
                     email = req.email,
@@ -77,6 +96,13 @@ fun Application.configureUserRoutes() {
                     role = req.role ?: UserRole.USER,
                 )
                 val id = userService.create(user)
+                audit(
+                    "user.created",
+                    "byUserId" to caller.userId.toLong(),
+                    "newUserId" to id.toLong(),
+                    "email" to user.email,
+                    "role" to user.role.name,
+                )
                 call.response.header(HttpHeaders.Location, call.application.href(Users.Id(id = id)))
                 call.respond(HttpStatusCode.Created, user.toResponse(id))
             }
@@ -93,6 +119,7 @@ fun Application.configureUserRoutes() {
                 val caller = call.caller()
                 requireSelfOrAdmin(caller, route.id)
                 val req = call.receive<UserUpdateRequest>()
+                validateNameAndEmail(req.name, req.email)
                 val existing = userService.read(route.id)
                 if (existing == null) {
                     call.respondProblem(HttpStatusCode.NotFound, "User not found")
@@ -109,6 +136,15 @@ fun Application.configureUserRoutes() {
                 if (updated == 0) {
                     call.respondProblem(HttpStatusCode.NotFound, "User not found")
                 } else {
+                    if (req.role != existing.role) {
+                        audit(
+                            "user.role_changed",
+                            "byUserId" to caller.userId.toLong(),
+                            "targetUserId" to route.id.toLong(),
+                            "from" to existing.role.name,
+                            "to" to req.role.name,
+                        )
+                    }
                     call.respond(HttpStatusCode.NoContent)
                 }
             }
@@ -129,6 +165,12 @@ fun Application.configureUserRoutes() {
                         return@put
                     }
                     if (req.currentPassword == null || !verifyPassword(req.currentPassword, existing.passwordHash)) {
+                        audit(
+                            "password.change_denied",
+                            "targetUserId" to route.parent.id.toLong(),
+                            "byUserId" to caller.userId.toLong(),
+                            "reason" to "wrong_current_password",
+                        )
                         throw ForbiddenException("Current password is missing or incorrect")
                     }
                 }
@@ -136,14 +178,26 @@ fun Application.configureUserRoutes() {
                 if (updated == 0) {
                     call.respondProblem(HttpStatusCode.NotFound, "User not found")
                 } else {
+                    audit(
+                        "password.changed",
+                        "targetUserId" to route.parent.id.toLong(),
+                        "byUserId" to caller.userId.toLong(),
+                        "selfChange" to (caller.userId == route.parent.id),
+                    )
                     call.respond(HttpStatusCode.NoContent)
                 }
             }
             delete<Users.Id> { route ->
-                requireAdmin(call.caller())
+                val caller = call.caller()
+                requireAdmin(caller)
                 if (userService.delete(route.id) == 0) {
                     call.respondProblem(HttpStatusCode.NotFound, "User not found")
                 } else {
+                    audit(
+                        "user.deleted",
+                        "byUserId" to caller.userId.toLong(),
+                        "targetUserId" to route.id.toLong(),
+                    )
                     call.respond(HttpStatusCode.NoContent)
                 }
             }

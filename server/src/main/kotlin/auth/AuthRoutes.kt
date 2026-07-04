@@ -1,8 +1,10 @@
 package ch.nokillswit.auth
 
+import ch.nokillswit.audit.audit
 import ch.nokillswit.authz.UnauthorizedException
 import ch.nokillswit.plugins.JwtConfig
 import ch.nokillswit.plugins.JwtConfigKey
+import ch.nokillswit.plugins.respondProblem
 import ch.nokillswit.users.UserRole
 import ch.nokillswit.users.UserServiceKey
 import com.auth0.jwt.JWT
@@ -65,6 +67,13 @@ fun Application.configureAuthRoutes() {
     val userService = attributes[UserServiceKey]
     val blocklist = attributes[TokenBlocklistServiceKey]
 
+    // Per-account lockout, complementing the per-IP RateLimit below (which rotating hosts
+    // sidestep): N consecutive failures for one email → locked for the configured window.
+    val loginThrottle = LoginThrottle(
+        threshold = environment.config.property("security.lockout.threshold").getString().toInt(),
+        lockoutMillis = environment.config.property("security.lockout.durationSeconds").getString().toLong() * 1000,
+    )
+
     // Verifies signature/issuer/audience/expiry of a presented refresh token. Same secret as the
     // access-token verifier in configureSecurity; the `typ` claim is checked separately below.
     val refreshVerifier = JWT.require(Algorithm.HMAC256(jwtConfig.secret))
@@ -89,11 +98,28 @@ fun Application.configureAuthRoutes() {
         rateLimit(RateLimitName(LOGIN_RATE_LIMIT)) {
             post("/api/v1/login") {
                 val req = call.receive<LoginRequest>()
+                if (loginThrottle.isLocked(req.email)) {
+                    audit("login.rejected_locked", "email" to req.email)
+                    call.respondProblem(
+                        HttpStatusCode.TooManyRequests,
+                        "Too many failed login attempts for this account — try again later",
+                    )
+                    return@post
+                }
                 val record = userService.findWithIdByEmail(req.email)
                 if (record == null || !verifyPassword(req.password, record.second.passwordHash)) {
+                    val tripped = loginThrottle.recordFailure(req.email)
+                    audit(
+                        "login.failure",
+                        "email" to req.email,
+                        "reason" to if (record == null) "unknown_email" else "wrong_password",
+                    )
+                    if (tripped) audit("login.lockout", "email" to req.email)
                     throw UnauthorizedException("Unknown email or wrong password")
                 }
+                loginThrottle.recordSuccess(req.email)
                 val (userId, user) = record
+                audit("login.success", "email" to user.email, "userId" to userId.toLong())
                 call.respond(jwtConfig.authResponse(userId, user.email, user.role))
             }
         }
@@ -102,31 +128,45 @@ fun Application.configureAuthRoutes() {
             // a fresh pair is minted and the old tokens are left to expire on their own (not revoked).
             post("/api/v1/refresh") {
                 val req = call.receive<RefreshRequest>()
+                fun reject(reason: String, userId: Long? = null): Nothing {
+                    audit("refresh.rejected", "reason" to reason, "userId" to userId)
+                    throw UnauthorizedException(
+                        when (reason) {
+                            "invalid_or_expired" -> "Invalid or expired refresh token"
+                            "wrong_token_type" -> "Not a refresh token"
+                            "revoked" -> "Refresh token revoked"
+                            "malformed" -> "Malformed refresh token"
+                            "user_gone" -> "User no longer exists"
+                            else -> "Refresh token predates a password change"
+                        }
+                    )
+                }
+
                 val decoded = try {
                     refreshVerifier.verify(req.refreshToken)
                 } catch (_: JWTVerificationException) {
-                    throw UnauthorizedException("Invalid or expired refresh token")
+                    reject("invalid_or_expired")
                 }
                 if (decoded.getClaim("typ").asString() != TOKEN_TYPE_REFRESH) {
-                    throw UnauthorizedException("Not a refresh token")
+                    reject("wrong_token_type")
                 }
+                val rawUserId = decoded.getClaim("userId").asLong()
                 val jti = decoded.id
                 if (jti != null && blocklist.isRevoked(jti)) {
-                    throw UnauthorizedException("Refresh token revoked")
+                    reject("revoked", rawUserId)
                 }
-                val userId = decoded.getClaim("userId").asLong()?.toUInt()
-                    ?: throw UnauthorizedException("Malformed refresh token")
+                val userId = rawUserId?.toUInt() ?: reject("malformed")
                 // One read: confirm the user still exists and isn't soft-deleted, and pick up their
                 // current role/email so changes take effect on the next refresh.
                 val user = userService.read(userId)
-                    ?: throw UnauthorizedException("User no longer exists")
+                    ?: reject("user_gone", rawUserId)
                 // A password change invalidates all refresh tokens minted before it (tokens
                 // without an iat claim predate this scheme and count as minted at epoch 0).
                 // JWT iat has SECOND precision, so compare both sides truncated to seconds —
                 // otherwise a token minted in the same second as the change is falsely rejected.
                 val issuedAtSec = (decoded.issuedAt?.time ?: 0) / 1000
                 if (issuedAtSec < user.passwordChangedAt / 1000) {
-                    throw UnauthorizedException("Refresh token predates a password change")
+                    reject("predates_password_change", rawUserId)
                 }
                 call.respond(jwtConfig.authResponse(userId, user.email, user.role))
             }
@@ -149,6 +189,11 @@ fun Application.configureAuthRoutes() {
                         if (rjti != null) blocklist.revoke(rjti, rexp)
                     }
                 }
+                audit(
+                    "logout",
+                    "userId" to principal.payload.getClaim("userId").asLong(),
+                    "email" to principal.payload.getClaim("email").asString(),
+                )
                 call.respond(HttpStatusCode.NoContent)
             }
         }

@@ -13,7 +13,14 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Exchange credentials for a JWT */
+        /**
+         * Exchange credentials for a JWT
+         * @description Rate-limited per client IP, and additionally throttled per account: after several
+         *     consecutive failures for one email (default 5, `LOGIN_LOCKOUT_THRESHOLD`), further
+         *     attempts for that account — even with the correct password — are rejected with `429`
+         *     for a lockout window (default 15 min, `LOGIN_LOCKOUT_DURATION_SECONDS`). A successful
+         *     login resets the counter.
+         */
         post: operations["login"];
         delete?: never;
         options?: never;
@@ -1416,6 +1423,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             /** @description Caller is not the target user and not ADMIN, or attempted to escalate role */
             403: {

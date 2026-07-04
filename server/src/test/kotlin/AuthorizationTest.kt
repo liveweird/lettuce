@@ -59,11 +59,11 @@ class AuthorizationTest {
     fun `login response carries userId and role`() = testApplication {
         usePostgresTestcontainer()
         val email = uniqueEmail("login")
-        val id = TestUsers.seed(email = email, password = "pw", role = UserRole.USER)
+        val id = TestUsers.seed(email = email, password = "pw-123456789", role = UserRole.USER)
 
         val response = jsonClient().post("/api/v1/login") {
             contentType(ContentType.Application.Json)
-            setBody(LoginRequest(email, "pw"))
+            setBody(LoginRequest(email, "pw-123456789"))
         }
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.body<LoginResponse>()
@@ -76,12 +76,12 @@ class AuthorizationTest {
     fun `non-admin POST users returns 403`() = testApplication {
         usePostgresTestcontainer()
         val email = uniqueEmail("plain")
-        TestUsers.seed(email = email, password = "pw", role = UserRole.USER)
+        TestUsers.seed(email = email, password = "pw-123456789", role = UserRole.USER)
 
-        val client = authedClient(email, "pw")
+        val client = authedClient(email, "pw-123456789")
         val response = client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest("Sneaky", uniqueEmail("new"), "pw"))
+            setBody(UserRequest("Sneaky", uniqueEmail("new"), "pw-123456789"))
         }
         assertEquals(HttpStatusCode.Forbidden, response.status)
     }
@@ -90,18 +90,18 @@ class AuthorizationTest {
     fun `admin POST users may set role, defaults to USER otherwise`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
-        val client = authedClient(adminEmail, "pw")
+        TestUsers.seed(email = adminEmail, password = "pw-123456789", role = UserRole.ADMIN)
+        val client = authedClient(adminEmail, "pw-123456789")
 
         val plain = client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest("Plain", uniqueEmail("plain"), "pw"))
+            setBody(UserRequest("Plain", uniqueEmail("plain"), "pw-123456789"))
         }.body<UserResponse>()
         assertEquals(UserRole.USER, plain.role)
 
         val elevated = client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest("Boss", uniqueEmail("boss"), "pw", role = UserRole.ADMIN))
+            setBody(UserRequest("Boss", uniqueEmail("boss"), "pw-123456789", role = UserRole.ADMIN))
         }.body<UserResponse>()
         assertEquals(UserRole.ADMIN, elevated.role)
     }
@@ -110,10 +110,10 @@ class AuthorizationTest {
     fun `non-admin GET other user returns 403, GET self returns 200`() = testApplication {
         usePostgresTestcontainer()
         val aliceEmail = uniqueEmail("alice")
-        val aliceId = TestUsers.seed(email = aliceEmail, password = "pw", role = UserRole.USER)
-        val bobId = TestUsers.seed(email = uniqueEmail("bob"), password = "pw", role = UserRole.USER)
+        val aliceId = TestUsers.seed(email = aliceEmail, password = "pw-123456789", role = UserRole.USER)
+        val bobId = TestUsers.seed(email = uniqueEmail("bob"), password = "pw-123456789", role = UserRole.USER)
 
-        val aliceClient = authedClient(aliceEmail, "pw")
+        val aliceClient = authedClient(aliceEmail, "pw-123456789")
         assertEquals(HttpStatusCode.OK, aliceClient.get("/api/v1/users/$aliceId").status)
         assertEquals(HttpStatusCode.Forbidden, aliceClient.get("/api/v1/users/$bobId").status)
     }
@@ -122,8 +122,8 @@ class AuthorizationTest {
     fun `non-admin cannot escalate role via PUT users`() = testApplication {
         usePostgresTestcontainer()
         val email = uniqueEmail("alice")
-        val id = TestUsers.seed(email = email, password = "pw", role = UserRole.USER)
-        val client = authedClient(email, "pw")
+        val id = TestUsers.seed(email = email, password = "pw-123456789", role = UserRole.USER)
+        val client = authedClient(email, "pw-123456789")
 
         val response = client.put("/api/v1/users/$id") {
             contentType(ContentType.Application.Json)
@@ -136,8 +136,8 @@ class AuthorizationTest {
     fun `non-admin self PUT without role change succeeds`() = testApplication {
         usePostgresTestcontainer()
         val email = uniqueEmail("alice")
-        val id = TestUsers.seed(email = email, password = "pw", role = UserRole.USER)
-        val client = authedClient(email, "pw")
+        val id = TestUsers.seed(email = email, password = "pw-123456789", role = UserRole.USER)
+        val client = authedClient(email, "pw-123456789")
 
         val response = client.put("/api/v1/users/$id") {
             contentType(ContentType.Application.Json)
@@ -153,10 +153,10 @@ class AuthorizationTest {
     fun `non-admin DELETE users returns 403`() = testApplication {
         usePostgresTestcontainer()
         val aliceEmail = uniqueEmail("alice")
-        TestUsers.seed(email = aliceEmail, password = "pw", role = UserRole.USER)
-        val victim = TestUsers.seed(email = uniqueEmail("victim"), password = "pw", role = UserRole.USER)
+        TestUsers.seed(email = aliceEmail, password = "pw-123456789", role = UserRole.USER)
+        val victim = TestUsers.seed(email = uniqueEmail("victim"), password = "pw-123456789", role = UserRole.USER)
 
-        val response = authedClient(aliceEmail, "pw").delete("/api/v1/users/$victim")
+        val response = authedClient(aliceEmail, "pw-123456789").delete("/api/v1/users/$victim")
         assertEquals(HttpStatusCode.Forbidden, response.status)
     }
 
@@ -164,15 +164,15 @@ class AuthorizationTest {
     fun `admin can DELETE own account and afterwards cannot log in`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        val adminId = TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        val adminId = TestUsers.seed(email = adminEmail, password = "pw-123456789", role = UserRole.ADMIN)
 
-        val client = authedClient(adminEmail, "pw")
+        val client = authedClient(adminEmail, "pw-123456789")
         val deleted = client.delete("/api/v1/users/$adminId")
         assertEquals(HttpStatusCode.NoContent, deleted.status)
 
         val loginAgain = jsonClient().post("/api/v1/login") {
             contentType(ContentType.Application.Json)
-            setBody(LoginRequest(adminEmail, "pw"))
+            setBody(LoginRequest(adminEmail, "pw-123456789"))
         }
         assertEquals(HttpStatusCode.Unauthorized, loginAgain.status)
     }
@@ -181,11 +181,11 @@ class AuthorizationTest {
     fun `non-admin cannot create a team naming someone else as manager`() = testApplication {
         usePostgresTestcontainer()
         val aliceEmail = uniqueEmail("alice")
-        TestUsers.seed(email = aliceEmail, password = "pw", role = UserRole.USER)
-        val otherMgr = TestUsers.seed(email = uniqueEmail("mgr"), password = "pw", role = UserRole.USER)
-        val member = TestUsers.seed(email = uniqueEmail("m"), password = "pw", role = UserRole.USER)
+        TestUsers.seed(email = aliceEmail, password = "pw-123456789", role = UserRole.USER)
+        val otherMgr = TestUsers.seed(email = uniqueEmail("mgr"), password = "pw-123456789", role = UserRole.USER)
+        val member = TestUsers.seed(email = uniqueEmail("m"), password = "pw-123456789", role = UserRole.USER)
 
-        val response = authedClient(aliceEmail, "pw").post("/api/v1/teams") {
+        val response = authedClient(aliceEmail, "pw-123456789").post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "Sneaky", managerId = otherMgr, memberIds = listOf(member)))
         }
@@ -196,19 +196,19 @@ class AuthorizationTest {
     fun `non-manager cannot mutate team or its members`() = testApplication {
         usePostgresTestcontainer()
         val mgrEmail = uniqueEmail("mgr")
-        val mgrId = TestUsers.seed(email = mgrEmail, password = "pw", role = UserRole.USER)
+        val mgrId = TestUsers.seed(email = mgrEmail, password = "pw-123456789", role = UserRole.USER)
         val otherEmail = uniqueEmail("other")
-        TestUsers.seed(email = otherEmail, password = "pw", role = UserRole.USER)
-        val member = TestUsers.seed(email = uniqueEmail("m"), password = "pw", role = UserRole.USER)
-        val newcomer = TestUsers.seed(email = uniqueEmail("n"), password = "pw", role = UserRole.USER)
+        TestUsers.seed(email = otherEmail, password = "pw-123456789", role = UserRole.USER)
+        val member = TestUsers.seed(email = uniqueEmail("m"), password = "pw-123456789", role = UserRole.USER)
+        val newcomer = TestUsers.seed(email = uniqueEmail("n"), password = "pw-123456789", role = UserRole.USER)
 
-        val mgrClient = authedClient(mgrEmail, "pw")
+        val mgrClient = authedClient(mgrEmail, "pw-123456789")
         val team = mgrClient.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "T", managerId = mgrId, memberIds = listOf(member)))
         }.body<TeamResponse>()
 
-        val otherClient = authedClient(otherEmail, "pw")
+        val otherClient = authedClient(otherEmail, "pw-123456789")
         assertEquals(
             HttpStatusCode.Forbidden,
             otherClient.put("/api/v1/teams/${team.id}") {
@@ -231,17 +231,17 @@ class AuthorizationTest {
     fun `any authenticated user may GET a team`() = testApplication {
         usePostgresTestcontainer()
         val mgrEmail = uniqueEmail("mgr")
-        val mgrId = TestUsers.seed(email = mgrEmail, password = "pw", role = UserRole.USER)
+        val mgrId = TestUsers.seed(email = mgrEmail, password = "pw-123456789", role = UserRole.USER)
         val onlooker = uniqueEmail("onlooker")
-        TestUsers.seed(email = onlooker, password = "pw", role = UserRole.USER)
-        val member = TestUsers.seed(email = uniqueEmail("m"), password = "pw", role = UserRole.USER)
+        TestUsers.seed(email = onlooker, password = "pw-123456789", role = UserRole.USER)
+        val member = TestUsers.seed(email = uniqueEmail("m"), password = "pw-123456789", role = UserRole.USER)
 
-        val team = authedClient(mgrEmail, "pw").post("/api/v1/teams") {
+        val team = authedClient(mgrEmail, "pw-123456789").post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "Public", managerId = mgrId, memberIds = listOf(member)))
         }.body<TeamResponse>()
 
-        val response = authedClient(onlooker, "pw").get("/api/v1/teams/${team.id}")
+        val response = authedClient(onlooker, "pw-123456789").get("/api/v1/teams/${team.id}")
         assertEquals(HttpStatusCode.OK, response.status)
     }
 
@@ -249,22 +249,22 @@ class AuthorizationTest {
     fun `feedback visibility matrix is enforced on GET`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw-123456789", role = UserRole.ADMIN)
 
         val providerEmail = uniqueEmail("provider")
-        val providerId = TestUsers.seed(email = providerEmail, password = "pw", role = UserRole.USER)
+        val providerId = TestUsers.seed(email = providerEmail, password = "pw-123456789", role = UserRole.USER)
         val subjectEmail = uniqueEmail("subject")
-        val subjectId = TestUsers.seed(email = subjectEmail, password = "pw", role = UserRole.USER)
+        val subjectId = TestUsers.seed(email = subjectEmail, password = "pw-123456789", role = UserRole.USER)
         val requesterEmail = uniqueEmail("requester")
-        val requesterId = TestUsers.seed(email = requesterEmail, password = "pw", role = UserRole.USER)
+        val requesterId = TestUsers.seed(email = requesterEmail, password = "pw-123456789", role = UserRole.USER)
         val strangerEmail = uniqueEmail("stranger")
-        TestUsers.seed(email = strangerEmail, password = "pw", role = UserRole.USER)
+        TestUsers.seed(email = strangerEmail, password = "pw-123456789", role = UserRole.USER)
 
-        val providerClient = authedClient(providerEmail, "pw")
-        val subjectClient = authedClient(subjectEmail, "pw")
-        val requesterClient = authedClient(requesterEmail, "pw")
-        val strangerClient = authedClient(strangerEmail, "pw")
-        val adminClient = authedClient(adminEmail, "pw")
+        val providerClient = authedClient(providerEmail, "pw-123456789")
+        val subjectClient = authedClient(subjectEmail, "pw-123456789")
+        val requesterClient = authedClient(requesterEmail, "pw-123456789")
+        val strangerClient = authedClient(strangerEmail, "pw-123456789")
+        val adminClient = authedClient(adminEmail, "pw-123456789")
 
         // Visibility only governs access once a feedback is delivered, so the matrix is exercised at
         // SENT — under the visibility-and-status read rules, a non-terminal status (e.g. REQUESTED)
@@ -344,17 +344,17 @@ class AuthorizationTest {
     fun `manager may read but not write a subordinate's feedback`() = testApplication {
         usePostgresTestcontainer()
         val providerEmail = uniqueEmail("provider")
-        val providerId = TestUsers.seed(email = providerEmail, password = "pw", role = UserRole.USER)
+        val providerId = TestUsers.seed(email = providerEmail, password = "pw-123456789", role = UserRole.USER)
         val subjectEmail = uniqueEmail("subject")
-        val subjectId = TestUsers.seed(email = subjectEmail, password = "pw", role = UserRole.USER)
+        val subjectId = TestUsers.seed(email = subjectEmail, password = "pw-123456789", role = UserRole.USER)
         val managerEmail = uniqueEmail("manager")
-        val managerId = TestUsers.seed(email = managerEmail, password = "pw", role = UserRole.USER)
+        val managerId = TestUsers.seed(email = managerEmail, password = "pw-123456789", role = UserRole.USER)
         val strangerEmail = uniqueEmail("stranger")
-        TestUsers.seed(email = strangerEmail, password = "pw", role = UserRole.USER)
+        TestUsers.seed(email = strangerEmail, password = "pw-123456789", role = UserRole.USER)
 
-        val providerClient = authedClient(providerEmail, "pw")
-        val managerClient = authedClient(managerEmail, "pw")
-        val strangerClient = authedClient(strangerEmail, "pw")
+        val providerClient = authedClient(providerEmail, "pw-123456789")
+        val managerClient = authedClient(managerEmail, "pw-123456789")
+        val strangerClient = authedClient(strangerEmail, "pw-123456789")
 
         // The manager manages a team the subject belongs to.
         managerClient.post("/api/v1/teams") {
@@ -410,11 +410,11 @@ class AuthorizationTest {
     fun `non-provider cannot write feedback`() = testApplication {
         usePostgresTestcontainer()
         val providerEmail = uniqueEmail("provider")
-        val providerId = TestUsers.seed(email = providerEmail, password = "pw", role = UserRole.USER)
+        val providerId = TestUsers.seed(email = providerEmail, password = "pw-123456789", role = UserRole.USER)
         val subjectEmail = uniqueEmail("subject")
-        val subjectId = TestUsers.seed(email = subjectEmail, password = "pw", role = UserRole.USER)
+        val subjectId = TestUsers.seed(email = subjectEmail, password = "pw-123456789", role = UserRole.USER)
 
-        val providerClient = authedClient(providerEmail, "pw")
+        val providerClient = authedClient(providerEmail, "pw-123456789")
         val created = providerClient.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
@@ -427,7 +427,7 @@ class AuthorizationTest {
             )
         }.body<FeedbackResponse>()
 
-        val subjectClient = authedClient(subjectEmail, "pw")
+        val subjectClient = authedClient(subjectEmail, "pw-123456789")
         val put = subjectClient.put("/api/v1/feedbacks/${created.id}") {
             contentType(ContentType.Application.Json)
             setBody(
@@ -450,14 +450,14 @@ class AuthorizationTest {
     fun `admin may read but not modify a feedback`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw-123456789", role = UserRole.ADMIN)
         val providerEmail = uniqueEmail("provider")
-        val providerId = TestUsers.seed(email = providerEmail, password = "pw", role = UserRole.USER)
+        val providerId = TestUsers.seed(email = providerEmail, password = "pw-123456789", role = UserRole.USER)
         val subjectEmail = uniqueEmail("subject")
-        val subjectId = TestUsers.seed(email = subjectEmail, password = "pw", role = UserRole.USER)
+        val subjectId = TestUsers.seed(email = subjectEmail, password = "pw-123456789", role = UserRole.USER)
 
-        val adminClient = authedClient(adminEmail, "pw")
-        val providerClient = authedClient(providerEmail, "pw")
+        val adminClient = authedClient(adminEmail, "pw-123456789")
+        val providerClient = authedClient(providerEmail, "pw-123456789")
 
         val created = providerClient.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
@@ -501,11 +501,11 @@ class AuthorizationTest {
     fun `admin may edit a draft they provide`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        val adminId = TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        val adminId = TestUsers.seed(email = adminEmail, password = "pw-123456789", role = UserRole.ADMIN)
         val subjectEmail = uniqueEmail("subject")
-        val subjectId = TestUsers.seed(email = subjectEmail, password = "pw", role = UserRole.USER)
+        val subjectId = TestUsers.seed(email = subjectEmail, password = "pw-123456789", role = UserRole.USER)
 
-        val adminClient = authedClient(adminEmail, "pw")
+        val adminClient = authedClient(adminEmail, "pw-123456789")
 
         // The admin creates a feedback in which they are the provider (the normal "Provide
         // feedback" flow) — write access follows provider identity, not role.
@@ -554,13 +554,13 @@ class AuthorizationTest {
     @Test
     fun `a non-party cannot create feedback attributed to others`() = testApplication {
         usePostgresTestcontainer()
-        val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw", role = UserRole.USER)
-        val subjectId = TestUsers.seed(email = uniqueEmail("subject"), password = "pw", role = UserRole.USER)
+        val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw-123456789", role = UserRole.USER)
+        val subjectId = TestUsers.seed(email = uniqueEmail("subject"), password = "pw-123456789", role = UserRole.USER)
         val strangerEmail = uniqueEmail("stranger")
-        TestUsers.seed(email = strangerEmail, password = "pw", role = UserRole.USER)
+        TestUsers.seed(email = strangerEmail, password = "pw-123456789", role = UserRole.USER)
 
         // The stranger is neither provider nor requester → must not forge feedback authored by someone else.
-        val response = authedClient(strangerEmail, "pw").post("/api/v1/feedbacks") {
+        val response = authedClient(strangerEmail, "pw-123456789").post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 FeedbackCreateRequest(
@@ -578,12 +578,12 @@ class AuthorizationTest {
     @Test
     fun `the requester may create a requested feedback`() = testApplication {
         usePostgresTestcontainer()
-        val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw", role = UserRole.USER)
-        val subjectId = TestUsers.seed(email = uniqueEmail("subject"), password = "pw", role = UserRole.USER)
+        val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw-123456789", role = UserRole.USER)
+        val subjectId = TestUsers.seed(email = uniqueEmail("subject"), password = "pw-123456789", role = UserRole.USER)
         val requesterEmail = uniqueEmail("requester")
-        val requesterId = TestUsers.seed(email = requesterEmail, password = "pw", role = UserRole.USER)
+        val requesterId = TestUsers.seed(email = requesterEmail, password = "pw-123456789", role = UserRole.USER)
 
-        val response = authedClient(requesterEmail, "pw").post("/api/v1/feedbacks") {
+        val response = authedClient(requesterEmail, "pw-123456789").post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 FeedbackCreateRequest(
@@ -602,11 +602,11 @@ class AuthorizationTest {
     fun `an admin may create feedback on behalf of others`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
-        val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw", role = UserRole.USER)
-        val subjectId = TestUsers.seed(email = uniqueEmail("subject"), password = "pw", role = UserRole.USER)
+        TestUsers.seed(email = adminEmail, password = "pw-123456789", role = UserRole.ADMIN)
+        val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw-123456789", role = UserRole.USER)
+        val subjectId = TestUsers.seed(email = uniqueEmail("subject"), password = "pw-123456789", role = UserRole.USER)
 
-        val response = authedClient(adminEmail, "pw").post("/api/v1/feedbacks") {
+        val response = authedClient(adminEmail, "pw-123456789").post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 FeedbackCreateRequest(
@@ -625,9 +625,9 @@ class AuthorizationTest {
     fun `a team manager may edit the team but not reassign the manager`() = testApplication {
         usePostgresTestcontainer()
         val managerEmail = uniqueEmail("manager")
-        val managerId = TestUsers.seed(email = managerEmail, password = "pw", role = UserRole.USER)
-        val otherId = TestUsers.seed(email = uniqueEmail("other"), password = "pw", role = UserRole.USER)
-        val mgr = authedClient(managerEmail, "pw")
+        val managerId = TestUsers.seed(email = managerEmail, password = "pw-123456789", role = UserRole.USER)
+        val otherId = TestUsers.seed(email = uniqueEmail("other"), password = "pw-123456789", role = UserRole.USER)
+        val mgr = authedClient(managerEmail, "pw-123456789")
 
         val team = mgr.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
@@ -656,19 +656,19 @@ class AuthorizationTest {
     fun `an admin may reassign a team's manager`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw-123456789", role = UserRole.ADMIN)
         val managerEmail = uniqueEmail("manager")
-        val managerId = TestUsers.seed(email = managerEmail, password = "pw", role = UserRole.USER)
-        val otherId = TestUsers.seed(email = uniqueEmail("other"), password = "pw", role = UserRole.USER)
+        val managerId = TestUsers.seed(email = managerEmail, password = "pw-123456789", role = UserRole.USER)
+        val otherId = TestUsers.seed(email = uniqueEmail("other"), password = "pw-123456789", role = UserRole.USER)
 
-        val team = authedClient(managerEmail, "pw").post("/api/v1/teams") {
+        val team = authedClient(managerEmail, "pw-123456789").post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "Squad", managerId = managerId, memberIds = emptyList()))
         }.body<TeamResponse>()
 
         assertEquals(
             HttpStatusCode.NoContent,
-            authedClient(adminEmail, "pw").put("/api/v1/teams/${team.id}") {
+            authedClient(adminEmail, "pw-123456789").put("/api/v1/teams/${team.id}") {
                 contentType(ContentType.Application.Json)
                 setBody(Team(name = "Squad", managerId = otherId, memberIds = emptyList()))
             }.status,

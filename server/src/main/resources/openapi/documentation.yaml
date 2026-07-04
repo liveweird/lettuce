@@ -41,6 +41,12 @@ paths:
       tags: [auth]
       operationId: login
       summary: Exchange credentials for a JWT
+      description: |
+        Rate-limited per client IP, and additionally throttled per account: after several
+        consecutive failures for one email (default 5, `LOGIN_LOCKOUT_THRESHOLD`), further
+        attempts for that account — even with the correct password — are rejected with `429`
+        for a lockout window (default 15 min, `LOGIN_LOCKOUT_DURATION_SECONDS`). A successful
+        login resets the counter.
       security: []
       requestBody:
         required: true
@@ -238,6 +244,7 @@ paths:
               $ref: '#/components/schemas/UserUpdateRequest'
       responses:
         '204': { description: Updated }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Caller is not the target user and not ADMIN, or attempted to escalate role
@@ -1334,7 +1341,7 @@ components:
       properties:
         name: { type: string, maxLength: 50 }
         email: { type: string, format: email, maxLength: 254 }
-        password: { type: string }
+        password: { type: string, minLength: 10 }
         role:
           type: string
           enum: [ADMIN, USER]

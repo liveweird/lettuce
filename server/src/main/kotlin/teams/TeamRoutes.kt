@@ -43,6 +43,16 @@ class Teams {
     }
 }
 
+// Column limit (teams.name varchar(100)) enforced up-front: 400 instead of a DB-level 500.
+private const val MAX_TEAM_NAME_LENGTH = 100
+
+private fun validateTeamName(name: String) {
+    if (name.isBlank()) throw BadRequestException("Team name must not be blank")
+    if (name.length > MAX_TEAM_NAME_LENGTH) {
+        throw BadRequestException("Team name must be at most $MAX_TEAM_NAME_LENGTH characters")
+    }
+}
+
 fun Application.configureTeamRoutes() {
     val teamService = attributes[TeamServiceKey]
 
@@ -82,6 +92,7 @@ fun Application.configureTeamRoutes() {
                 val caller = call.caller()
                 val team = call.receive<Team>()
                 requireSelfOrAdmin(caller, team.managerId)
+                validateTeamName(team.name)
                 val id = requireValidReferences("Referenced user does not exist") {
                     teamService.create(team)
                 }
@@ -106,6 +117,7 @@ fun Application.configureTeamRoutes() {
                 }
                 requireTeamManagerOrAdmin(caller, existing.managerId)
                 val team = call.receive<Team>()
+                validateTeamName(team.name)
                 requireCanReassignManager(caller, existing.managerId, team.managerId)
                 requireValidReferences("Referenced user does not exist") {
                     teamService.update(route.id, team)

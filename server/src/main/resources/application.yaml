@@ -32,6 +32,12 @@ ktor:
       - ch.nokillswit.plugins.RoutingKt.configureRouting
 
 security:
+  # Per-account login lockout (complements the per-IP rate limit): after `threshold`
+  # consecutive failures for one email, further attempts are 429 for `durationSeconds`.
+  # A successful login resets the counter. In-memory, per-instance.
+  lockout:
+    threshold: "$LOGIN_LOCKOUT_THRESHOLD:5"
+    durationSeconds: "$LOGIN_LOCKOUT_DURATION_SECONDS:900"
   csrf:
     # TEMPLATE PLACEHOLDER — CSRF protection is off by default because this API
     # authenticates via bearer JWT in the Authorization header, which browsers
@@ -68,6 +74,10 @@ http:
   # installed at all: production is single-origin (Ktor serves the SPA) and local
   # dev goes through the Vite proxy, so no cross-origin caller exists.
   corsHosts: "$CORS_ALLOWED_HOSTS:"
+  # Swagger UI + the OpenAPI spec at /openapi. Blank (default) = follow the mode:
+  # served in development, hidden in production. Set "true" to expose them in a
+  # trusted production environment, "false" to hide them even in development.
+  exposeOpenApi: "$HTTP_EXPOSE_OPENAPI:"
 
 web:
   # When set, the server serves the built React SPA from this directory (static

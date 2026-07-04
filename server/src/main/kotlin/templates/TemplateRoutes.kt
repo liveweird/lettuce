@@ -11,6 +11,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
 import io.ktor.server.application.*
 import io.ktor.server.auth.authenticate
+import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.request.receive
 import io.ktor.server.resources.delete
 import io.ktor.server.resources.get
@@ -30,6 +31,16 @@ class Templates {
     class Id(val parent: Templates = Templates(), val id: UInt)
 }
 
+// Column limit (templates.name varchar(100)) enforced up-front: 400 instead of a DB-level 500.
+private const val MAX_TEMPLATE_NAME_LENGTH = 100
+
+private fun validateTemplateName(name: String) {
+    if (name.isBlank()) throw BadRequestException("Template name must not be blank")
+    if (name.length > MAX_TEMPLATE_NAME_LENGTH) {
+        throw BadRequestException("Template name must be at most $MAX_TEMPLATE_NAME_LENGTH characters")
+    }
+}
+
 fun Application.configureTemplateRoutes() {
     val templateService = attributes[TemplateServiceKey]
 
@@ -47,6 +58,7 @@ fun Application.configureTemplateRoutes() {
             post<Templates> {
                 requireAdmin(call.caller())
                 val template = call.receive<Template>()
+                validateTemplateName(template.name)
                 val id = templateService.create(template)
                 call.response.header(HttpHeaders.Location, call.application.href(Templates.Id(id = id)))
                 call.respond(HttpStatusCode.Created, template.toResponse(id))
@@ -68,6 +80,7 @@ fun Application.configureTemplateRoutes() {
                     return@put
                 }
                 val template = call.receive<Template>()
+                validateTemplateName(template.name)
                 templateService.update(route.id, template)
                 call.respond(HttpStatusCode.NoContent)
             }

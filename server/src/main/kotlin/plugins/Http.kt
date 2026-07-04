@@ -61,12 +61,21 @@ fun Application.configureHttp() {
             permanentRedirect = true
         }
     }
-    routing {
-        openAPI(path = "openapi") {
+    // Swagger UI + the full spec are an API roadmap for anyone who can reach the host, so they
+    // are served only in development mode — or when explicitly re-enabled for a trusted
+    // environment via HTTP_EXPOSE_OPENAPI=true. (Bearer-token auth cannot protect a
+    // browser-loaded UI: page loads carry no Authorization header.)
+    val exposeOpenApi = environment.config.propertyOrNull("http.exposeOpenApi")?.getString()
+        ?.takeIf { it.isNotBlank() }?.toBoolean()
+        ?: developmentMode
+    if (exposeOpenApi) {
+        routing {
+            openAPI(path = "openapi") {
+            }
         }
-    }
-    routing {
-        swaggerUI(path = "openapi") {
+        routing {
+            swaggerUI(path = "openapi") {
+            }
         }
     }
 }

@@ -59,13 +59,13 @@ class UserRoutesTest {
     fun `POST users creates and returns 201 with Location`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
-        TestUsers.seed(email = callerEmail, password = "pw")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789")
 
-        val client = authedClient(callerEmail, "pw")
+        val client = authedClient(callerEmail, "pw-123456789")
         val newEmail = uniqueEmail("created")
         val response = client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "Alice", email = newEmail, password = "secret"))
+            setBody(UserRequest(name = "Alice", email = newEmail, password = "secret-123456"))
         }
 
         assertEquals(HttpStatusCode.Created, response.status)
@@ -81,13 +81,13 @@ class UserRoutesTest {
     fun `GET users id round-trips a freshly created user`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
-        TestUsers.seed(email = callerEmail, password = "pw")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789")
 
-        val client = authedClient(callerEmail, "pw")
+        val client = authedClient(callerEmail, "pw-123456789")
         val newEmail = uniqueEmail("bob")
         val created = client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "Bob", email = newEmail, password = "pw"))
+            setBody(UserRequest(name = "Bob", email = newEmail, password = "pw-123456789"))
         }.body<UserResponse>()
 
         val read = client.get("/api/v1/users/${created.id}")
@@ -99,9 +99,9 @@ class UserRoutesTest {
     fun `GET users id on nonexistent id returns 404`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
-        TestUsers.seed(email = callerEmail, password = "pw")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789")
 
-        val response = authedClient(callerEmail, "pw").get("/api/v1/users/999999")
+        val response = authedClient(callerEmail, "pw-123456789").get("/api/v1/users/999999")
         assertEquals(HttpStatusCode.NotFound, response.status)
     }
 
@@ -109,13 +109,13 @@ class UserRoutesTest {
     fun `PUT users id updates name and email`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
-        TestUsers.seed(email = callerEmail, password = "pw")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789")
 
-        val client = authedClient(callerEmail, "pw")
+        val client = authedClient(callerEmail, "pw-123456789")
         val originalEmail = uniqueEmail("orig")
         val created = client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "Old", email = originalEmail, password = "pw"))
+            setBody(UserRequest(name = "Old", email = originalEmail, password = "pw-123456789"))
         }.body<UserResponse>()
 
         val updatedEmail = uniqueEmail("upd")
@@ -134,9 +134,9 @@ class UserRoutesTest {
     fun `PUT users id preserves the password so login still works`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
-        TestUsers.seed(email = callerEmail, password = "pw")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789")
 
-        val client = authedClient(callerEmail, "pw")
+        val client = authedClient(callerEmail, "pw-123456789")
         val originalPassword = "horse-battery-staple"
         val originalEmail = uniqueEmail("pwd")
         val created = client.post("/api/v1/users") {
@@ -163,9 +163,9 @@ class UserRoutesTest {
     fun `PUT users id password changes the password so login uses the new one`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw-123456789", role = UserRole.ADMIN)
 
-        val client = authedClient(adminEmail, "pw")
+        val client = authedClient(adminEmail, "pw-123456789")
         val userEmail = uniqueEmail("pwd")
         val created = client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
@@ -196,14 +196,14 @@ class UserRoutesTest {
     fun `PUT users id password forbids a non-admin changing another user's password`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
-        TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        TestUsers.seed(email = callerEmail, password = "pw-123456789", role = UserRole.USER)
         val targetId = TestUsers.seed(
             email = uniqueEmail("target"),
-            password = "pw",
+            password = "pw-123456789",
             role = UserRole.USER,
         )
 
-        val response = authedClient(callerEmail, "pw").put("/api/v1/users/$targetId/password") {
+        val response = authedClient(callerEmail, "pw-123456789").put("/api/v1/users/$targetId/password") {
             contentType(ContentType.Application.Json)
             setBody(PasswordUpdateRequest(password = "should-not-apply"))
         }
@@ -214,14 +214,14 @@ class UserRoutesTest {
     fun `PUT users id lets admin change another user's role`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw-123456789", role = UserRole.ADMIN)
         val targetId = TestUsers.seed(
             email = uniqueEmail("target"),
-            password = "pw",
+            password = "pw-123456789",
             role = UserRole.USER,
         )
 
-        val client = authedClient(adminEmail, "pw")
+        val client = authedClient(adminEmail, "pw-123456789")
         val read = client.get("/api/v1/users/$targetId").body<UserResponse>()
         assertEquals(UserRole.USER, read.role)
 
@@ -239,9 +239,9 @@ class UserRoutesTest {
     fun `PUT users id on nonexistent id returns 404`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
-        TestUsers.seed(email = callerEmail, password = "pw")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789")
 
-        val response = authedClient(callerEmail, "pw").put("/api/v1/users/999999") {
+        val response = authedClient(callerEmail, "pw-123456789").put("/api/v1/users/999999") {
             contentType(ContentType.Application.Json)
             setBody(UserUpdateRequest(name = "Ghost", email = uniqueEmail("ghost"), role = UserRole.USER))
         }
@@ -252,12 +252,12 @@ class UserRoutesTest {
     fun `DELETE users id removes the user`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
-        TestUsers.seed(email = callerEmail, password = "pw")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789")
 
-        val client = authedClient(callerEmail, "pw")
+        val client = authedClient(callerEmail, "pw-123456789")
         val created = client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "Doomed", email = uniqueEmail("doomed"), password = "pw"))
+            setBody(UserRequest(name = "Doomed", email = uniqueEmail("doomed"), password = "pw-123456789"))
         }.body<UserResponse>()
 
         val delete = client.delete("/api/v1/users/${created.id}")
@@ -271,17 +271,17 @@ class UserRoutesTest {
     fun `DELETE users id hides the user from listings`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
-        TestUsers.seed(email = callerEmail, password = "pw")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789")
 
-        val client = authedClient(callerEmail, "pw")
+        val client = authedClient(callerEmail, "pw-123456789")
         val tag = UUID.randomUUID().toString().substring(0, 8)
         val keeper = client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "keep-$tag", email = uniqueEmail("keep-$tag"), password = "pw"))
+            setBody(UserRequest(name = "keep-$tag", email = uniqueEmail("keep-$tag"), password = "pw-123456789"))
         }.body<UserResponse>()
         val doomed = client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "drop-$tag", email = uniqueEmail("drop-$tag"), password = "pw"))
+            setBody(UserRequest(name = "drop-$tag", email = uniqueEmail("drop-$tag"), password = "pw-123456789"))
         }.body<UserResponse>()
 
         val before = client.get("/api/v1/users?name=$tag").body<UserPageResponse>()
@@ -298,17 +298,17 @@ class UserRoutesTest {
     fun `DELETE users id prevents the deleted user from logging in`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
-        TestUsers.seed(email = callerEmail, password = "pw")
-        val client = authedClient(callerEmail, "pw")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789")
+        val client = authedClient(callerEmail, "pw-123456789")
         val victimEmail = uniqueEmail("victim")
         val victim = client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "Victim", email = victimEmail, password = "secret"))
+            setBody(UserRequest(name = "Victim", email = victimEmail, password = "secret-123456"))
         }.body<UserResponse>()
 
         val loginBefore = jsonClient().post("/api/v1/login") {
             contentType(ContentType.Application.Json)
-            setBody(LoginRequest(victimEmail, "secret"))
+            setBody(LoginRequest(victimEmail, "secret-123456"))
         }
         assertEquals(HttpStatusCode.OK, loginBefore.status)
 
@@ -316,7 +316,7 @@ class UserRoutesTest {
 
         val loginAfter = jsonClient().post("/api/v1/login") {
             contentType(ContentType.Application.Json)
-            setBody(LoginRequest(victimEmail, "secret"))
+            setBody(LoginRequest(victimEmail, "secret-123456"))
         }
         assertEquals(HttpStatusCode.Unauthorized, loginAfter.status)
     }
@@ -325,11 +325,11 @@ class UserRoutesTest {
     fun `PUT users id on a soft-deleted user returns 404`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
-        TestUsers.seed(email = callerEmail, password = "pw")
-        val client = authedClient(callerEmail, "pw")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789")
+        val client = authedClient(callerEmail, "pw-123456789")
         val created = client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "Ghost", email = uniqueEmail("ghost"), password = "pw"))
+            setBody(UserRequest(name = "Ghost", email = uniqueEmail("ghost"), password = "pw-123456789"))
         }.body<UserResponse>()
 
         assertEquals(HttpStatusCode.NoContent, client.delete("/api/v1/users/${created.id}").status)
@@ -345,11 +345,11 @@ class UserRoutesTest {
     fun `DELETE users id returns 404 once the user is already gone`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
-        TestUsers.seed(email = callerEmail, password = "pw")
-        val client = authedClient(callerEmail, "pw")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789")
+        val client = authedClient(callerEmail, "pw-123456789")
         val created = client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "Twice", email = uniqueEmail("twice"), password = "pw"))
+            setBody(UserRequest(name = "Twice", email = uniqueEmail("twice"), password = "pw-123456789"))
         }.body<UserResponse>()
 
         // First delete soft-deletes the row; a second delete finds nothing → 404.
@@ -361,8 +361,8 @@ class UserRoutesTest {
     fun `DELETE users id returns 404 for a non-existent user`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
-        TestUsers.seed(email = callerEmail, password = "pw")
-        val client = authedClient(callerEmail, "pw")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789")
+        val client = authedClient(callerEmail, "pw-123456789")
         assertEquals(HttpStatusCode.NotFound, client.delete("/api/v1/users/999999").status)
     }
 
@@ -390,19 +390,19 @@ class UserRoutesTest {
     fun `POST users with duplicate email returns 409`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
-        TestUsers.seed(email = callerEmail, password = "pw")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789")
 
-        val client = authedClient(callerEmail, "pw")
+        val client = authedClient(callerEmail, "pw-123456789")
         val sharedEmail = uniqueEmail("dup")
         val first = client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "First", email = sharedEmail, password = "pw"))
+            setBody(UserRequest(name = "First", email = sharedEmail, password = "pw-123456789"))
         }
         assertEquals(HttpStatusCode.Created, first.status)
 
         val second = client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "Second", email = sharedEmail, password = "pw"))
+            setBody(UserRequest(name = "Second", email = sharedEmail, password = "pw-123456789"))
         }
         assertEquals(HttpStatusCode.Conflict, second.status)
         assertEquals(HttpStatusCode.Conflict.value, second.body<ProblemDetail>().status)
@@ -412,13 +412,13 @@ class UserRoutesTest {
     fun `a soft-deleted user's email can be reused`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
-        val client = authedClient(adminEmail, "pw")
+        TestUsers.seed(email = adminEmail, password = "pw-123456789", role = UserRole.ADMIN)
+        val client = authedClient(adminEmail, "pw-123456789")
 
         val sharedEmail = uniqueEmail("reusable")
         val first = client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "First", email = sharedEmail, password = "pw"))
+            setBody(UserRequest(name = "First", email = sharedEmail, password = "pw-123456789"))
         }.body<UserResponse>()
 
         assertEquals(HttpStatusCode.NoContent, client.delete("/api/v1/users/${first.id}").status)
@@ -426,7 +426,7 @@ class UserRoutesTest {
         // The partial unique index only constrains active rows, so the email is free again.
         val second = client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "Second", email = sharedEmail, password = "new-pw"))
+            setBody(UserRequest(name = "Second", email = sharedEmail, password = "new-pw-123456"))
         }
         assertEquals(HttpStatusCode.Created, second.status)
         val recreated = second.body<UserResponse>()
@@ -435,7 +435,7 @@ class UserRoutesTest {
         // Login resolves the new (active) account, since findWithIdByEmail filters on active().
         val login = jsonClient().post("/api/v1/login") {
             contentType(ContentType.Application.Json)
-            setBody(LoginRequest(sharedEmail, "new-pw"))
+            setBody(LoginRequest(sharedEmail, "new-pw-123456"))
         }
         assertEquals(HttpStatusCode.OK, login.status)
         assertEquals(recreated.id, login.body<LoginResponse>().userId)
@@ -445,18 +445,18 @@ class UserRoutesTest {
     fun `PUT users id with email already used by another user returns 409`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
-        TestUsers.seed(email = callerEmail, password = "pw")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789")
 
-        val client = authedClient(callerEmail, "pw")
+        val client = authedClient(callerEmail, "pw-123456789")
         val emailA = uniqueEmail("a")
         val emailB = uniqueEmail("b")
         client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "A", email = emailA, password = "pw"))
+            setBody(UserRequest(name = "A", email = emailA, password = "pw-123456789"))
         }
         val userB = client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "B", email = emailB, password = "pw"))
+            setBody(UserRequest(name = "B", email = emailB, password = "pw-123456789"))
         }.body<UserResponse>()
 
         val response = client.put("/api/v1/users/${userB.id}") {
@@ -471,13 +471,13 @@ class UserRoutesTest {
     fun `GET users returns paginated envelope with defaults`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
-        TestUsers.seed(email = callerEmail, password = "pw")
-        val client = authedClient(callerEmail, "pw")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789")
+        val client = authedClient(callerEmail, "pw-123456789")
         val tag = UUID.randomUUID().toString().substring(0, 8)
         repeat(3) { i ->
             client.post("/api/v1/users") {
                 contentType(ContentType.Application.Json)
-                setBody(UserRequest(name = "list-$tag-$i", email = uniqueEmail("list-$tag-$i"), password = "pw"))
+                setBody(UserRequest(name = "list-$tag-$i", email = uniqueEmail("list-$tag-$i"), password = "pw-123456789"))
             }
         }
 
@@ -495,13 +495,13 @@ class UserRoutesTest {
     fun `GET users supports sort by name descending`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
-        TestUsers.seed(email = callerEmail, password = "pw")
-        val client = authedClient(callerEmail, "pw")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789")
+        val client = authedClient(callerEmail, "pw-123456789")
         val tag = UUID.randomUUID().toString().substring(0, 8)
         listOf("bravo", "alpha", "charlie").forEach { stem ->
             client.post("/api/v1/users") {
                 contentType(ContentType.Application.Json)
-                setBody(UserRequest(name = "sort-$tag-$stem", email = uniqueEmail("sort-$tag-$stem"), password = "pw"))
+                setBody(UserRequest(name = "sort-$tag-$stem", email = uniqueEmail("sort-$tag-$stem"), password = "pw-123456789"))
             }
         }
 
@@ -515,16 +515,16 @@ class UserRoutesTest {
     fun `GET users supports name substring filter case-insensitive`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
-        TestUsers.seed(email = callerEmail, password = "pw")
-        val client = authedClient(callerEmail, "pw")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789")
+        val client = authedClient(callerEmail, "pw-123456789")
         val tag = UUID.randomUUID().toString().substring(0, 8)
         client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "Alicia-$tag", email = uniqueEmail("alicia-$tag"), password = "pw"))
+            setBody(UserRequest(name = "Alicia-$tag", email = uniqueEmail("alicia-$tag"), password = "pw-123456789"))
         }
         client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "Bob-$tag", email = uniqueEmail("bob-$tag"), password = "pw"))
+            setBody(UserRequest(name = "Bob-$tag", email = uniqueEmail("bob-$tag"), password = "pw-123456789"))
         }
 
         val response = client.get("/api/v1/users?name=ALICIA-$tag")
@@ -537,16 +537,16 @@ class UserRoutesTest {
     fun `GET users supports email substring filter`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
-        TestUsers.seed(email = callerEmail, password = "pw")
-        val client = authedClient(callerEmail, "pw")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789")
+        val client = authedClient(callerEmail, "pw-123456789")
         val tag = UUID.randomUUID().toString().substring(0, 8)
         client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "X-$tag", email = "match-$tag@example.org", password = "pw"))
+            setBody(UserRequest(name = "X-$tag", email = "match-$tag@example.org", password = "pw-123456789"))
         }
         client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "Y-$tag", email = "miss-$tag@other.org", password = "pw"))
+            setBody(UserRequest(name = "Y-$tag", email = "miss-$tag@other.org", password = "pw-123456789"))
         }
 
         val page = client.get("/api/v1/users?email=match-$tag").body<UserPageResponse>()
@@ -558,16 +558,16 @@ class UserRoutesTest {
     fun `GET users supports role filter`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
-        TestUsers.seed(email = callerEmail, password = "pw")
-        val client = authedClient(callerEmail, "pw")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789")
+        val client = authedClient(callerEmail, "pw-123456789")
         val tag = UUID.randomUUID().toString().substring(0, 8)
         client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "role-$tag-admin", email = uniqueEmail("ra-$tag"), password = "pw", role = UserRole.ADMIN))
+            setBody(UserRequest(name = "role-$tag-admin", email = uniqueEmail("ra-$tag"), password = "pw-123456789", role = UserRole.ADMIN))
         }
         client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "role-$tag-user", email = uniqueEmail("ru-$tag"), password = "pw", role = UserRole.USER))
+            setBody(UserRequest(name = "role-$tag-user", email = uniqueEmail("ru-$tag"), password = "pw-123456789", role = UserRole.USER))
         }
 
         val admins = client.get("/api/v1/users?name=role-$tag&role=ADMIN").body<UserPageResponse>()
@@ -584,13 +584,13 @@ class UserRoutesTest {
         usePostgresTestcontainer()
         val tag = UUID.randomUUID().toString().substring(0, 8)
         val callerEmail = uniqueEmail("admin-$tag")
-        TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.ADMIN, name = "Admin-$tag")
-        val managerId = TestUsers.seed(email = uniqueEmail("mgr-$tag"), password = "pw", name = "Mgr-$tag")
-        val memberA = TestUsers.seed(email = uniqueEmail("a-$tag"), password = "pw", name = "MemberA-$tag")
-        val memberB = TestUsers.seed(email = uniqueEmail("b-$tag"), password = "pw", name = "MemberB-$tag")
-        TestUsers.seed(email = uniqueEmail("out-$tag"), password = "pw", name = "Outsider-$tag")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789", role = UserRole.ADMIN, name = "Admin-$tag")
+        val managerId = TestUsers.seed(email = uniqueEmail("mgr-$tag"), password = "pw-123456789", name = "Mgr-$tag")
+        val memberA = TestUsers.seed(email = uniqueEmail("a-$tag"), password = "pw-123456789", name = "MemberA-$tag")
+        val memberB = TestUsers.seed(email = uniqueEmail("b-$tag"), password = "pw-123456789", name = "MemberB-$tag")
+        TestUsers.seed(email = uniqueEmail("out-$tag"), password = "pw-123456789", name = "Outsider-$tag")
 
-        val client = authedClient(callerEmail, "pw")
+        val client = authedClient(callerEmail, "pw-123456789")
         val team = client.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "team-$tag", managerId = managerId, memberIds = listOf(memberA, memberB)))
@@ -606,8 +606,8 @@ class UserRoutesTest {
     fun `GET users with non-numeric teamId returns 400`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
-        TestUsers.seed(email = callerEmail, password = "pw")
-        val response = authedClient(callerEmail, "pw").get("/api/v1/users?teamId=abc")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789")
+        val response = authedClient(callerEmail, "pw-123456789").get("/api/v1/users?teamId=abc")
         assertEquals(HttpStatusCode.BadRequest, response.status)
     }
 
@@ -615,13 +615,13 @@ class UserRoutesTest {
     fun `GET users paginates correctly`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
-        TestUsers.seed(email = callerEmail, password = "pw")
-        val client = authedClient(callerEmail, "pw")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789")
+        val client = authedClient(callerEmail, "pw-123456789")
         val tag = UUID.randomUUID().toString().substring(0, 8)
         repeat(5) { i ->
             client.post("/api/v1/users") {
                 contentType(ContentType.Application.Json)
-                setBody(UserRequest(name = "page-$tag-$i", email = uniqueEmail("page-$tag-$i"), password = "pw"))
+                setBody(UserRequest(name = "page-$tag-$i", email = uniqueEmail("page-$tag-$i"), password = "pw-123456789"))
             }
         }
 
@@ -641,8 +641,8 @@ class UserRoutesTest {
     fun `GET users with unknown sort field returns 400`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
-        TestUsers.seed(email = callerEmail, password = "pw")
-        val response = authedClient(callerEmail, "pw").get("/api/v1/users?sort=passwordHash")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789")
+        val response = authedClient(callerEmail, "pw-123456789").get("/api/v1/users?sort=passwordHash")
         assertEquals(HttpStatusCode.BadRequest, response.status)
         assertEquals(HttpStatusCode.BadRequest.value, response.body<ProblemDetail>().status)
     }
@@ -651,8 +651,8 @@ class UserRoutesTest {
     fun `GET users with bogus role returns 400`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
-        TestUsers.seed(email = callerEmail, password = "pw")
-        val response = authedClient(callerEmail, "pw").get("/api/v1/users?role=ROOT")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789")
+        val response = authedClient(callerEmail, "pw-123456789").get("/api/v1/users?role=ROOT")
         assertEquals(HttpStatusCode.BadRequest, response.status)
         assertEquals(HttpStatusCode.BadRequest.value, response.body<ProblemDetail>().status)
     }
@@ -661,8 +661,8 @@ class UserRoutesTest {
     fun `GET users with pageSize over max returns 400`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
-        TestUsers.seed(email = callerEmail, password = "pw")
-        val response = authedClient(callerEmail, "pw").get("/api/v1/users?pageSize=200")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789")
+        val response = authedClient(callerEmail, "pw-123456789").get("/api/v1/users?pageSize=200")
         assertEquals(HttpStatusCode.BadRequest, response.status)
     }
 
@@ -677,9 +677,9 @@ class UserRoutesTest {
     fun `POST users stores hashed password verifiable via login`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
-        TestUsers.seed(email = callerEmail, password = "pw")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789")
 
-        val client = authedClient(callerEmail, "pw")
+        val client = authedClient(callerEmail, "pw-123456789")
         val newEmail = uniqueEmail("login-me")
         val plainPassword = "correct-horse-battery-staple"
         client.post("/api/v1/users") {
@@ -699,8 +699,8 @@ class UserRoutesTest {
     fun `GET users applies name and role filters together`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
-        val client = authedClient(adminEmail, "pw")
+        TestUsers.seed(email = adminEmail, password = "pw-123456789", role = UserRole.ADMIN)
+        val client = authedClient(adminEmail, "pw-123456789")
 
         // Shared name tag isolates this test's rows in the shared DB; roles differ so the
         // combined name+role filter must intersect, not just match one dimension.
@@ -708,11 +708,11 @@ class UserRoutesTest {
         val targetEmail = uniqueEmail("u")
         client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "u-$tag", email = targetEmail, password = "pw", role = UserRole.USER))
+            setBody(UserRequest(name = "u-$tag", email = targetEmail, password = "pw-123456789", role = UserRole.USER))
         }
         client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "a-$tag", email = uniqueEmail("a"), password = "pw", role = UserRole.ADMIN))
+            setBody(UserRequest(name = "a-$tag", email = uniqueEmail("a"), password = "pw-123456789", role = UserRole.ADMIN))
         }
 
         // name=$tag alone matches both; role=USER alone matches many; together → only the USER row.

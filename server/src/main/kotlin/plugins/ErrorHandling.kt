@@ -1,8 +1,11 @@
 package ch.nokillswit.plugins
 
+import ch.nokillswit.audit.audit
 import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.UnauthorizedException
+import io.ktor.server.auth.jwt.JWTPrincipal
+import io.ktor.server.auth.principal
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
@@ -84,6 +87,14 @@ fun Application.configureErrorHandling() {
             call.respondProblem(HttpStatusCode.Unauthorized, cause.message ?: "Unauthorized")
         }
         exception<ForbiddenException> { call, cause ->
+            // Denials are part of the security audit trail: who tried what they may not do.
+            audit(
+                "authz.denied",
+                "method" to call.request.local.method.value,
+                "path" to call.request.local.uri,
+                "userId" to call.principal<JWTPrincipal>()?.payload?.getClaim("userId")?.asLong(),
+                "detail" to cause.message,
+            )
             call.respondProblem(HttpStatusCode.Forbidden, cause.message ?: "Forbidden")
         }
         exception<ConflictException> { call, cause ->
