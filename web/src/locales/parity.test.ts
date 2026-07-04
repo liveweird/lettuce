@@ -1,31 +1,28 @@
-import { readdirSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-// Guards EN↔PL translation parity so the two languages can't silently drift. Reads the JSON off
-// disk (independent of i18n init) and auto-discovers area files — a new en/foo.json with no
-// pl/foo.json fails here rather than shipping half-translated. Mirrors the manual review checks.
-// vitest runs with cwd = the web/ project root.
+// Guards EN↔PL translation parity so the two languages can't silently drift. Loads every locale
+// JSON via Vite's import.meta.glob (build-time expanded — no fs/node types, auto-discovers new
+// area files), so a new en/foo.json with no pl/foo.json fails here rather than shipping
+// half-translated. Mirrors the manual review checks: key parity, placeholders, empties.
 
-const EN_DIR = resolve(process.cwd(), "src/locales/en");
-const PL_DIR = resolve(process.cwd(), "src/locales/pl");
+type Json = Record<string, unknown>;
+type JsonModule = { default: Json };
+
+const EN_MODULES = import.meta.glob<JsonModule>("./en/*.json", { eager: true });
+const PL_MODULES = import.meta.glob<JsonModule>("./pl/*.json", { eager: true });
 
 // CLDR plural categories: i18next appends `_<category>` (English uses one/other; Polish adds
 // few/many). Stripping the suffix compares the base concept, so PL-only `unread_few`/`_many`
 // are not mistaken for missing keys — but a genuinely absent key still is.
 const PLURAL_SUFFIX = /_(zero|one|two|few|many|other)$/;
 
-type Json = Record<string, unknown>;
-
-function areaFiles(dir: string): string[] {
-  return readdirSync(dir)
-    .filter((f) => f.endsWith(".json"))
-    .map((f) => f.replace(/\.json$/, ""))
-    .sort();
-}
-
-function load(dir: string, area: string): Json {
-  return JSON.parse(readFileSync(`${dir}/${area}.json`, "utf8")) as Json;
+function areaMap(modules: Record<string, JsonModule>): Map<string, Json> {
+  const m = new Map<string, Json>();
+  for (const [path, mod] of Object.entries(modules)) {
+    const area = path.split("/").pop()!.replace(/\.json$/, "");
+    m.set(area, mod.default);
+  }
+  return m;
 }
 
 // Flatten nested objects to dot-paths → leaf string values.
@@ -45,9 +42,11 @@ const base = (key: string): string => key.replace(PLURAL_SUFFIX, "");
 const placeholders = (s: string): Set<string> =>
   new Set([...s.matchAll(/{{\s*([\w.]+)/g)].map((m) => m[1]));
 
-const EN_AREAS = areaFiles(EN_DIR);
-const PL_AREAS = areaFiles(PL_DIR);
-const SHARED = EN_AREAS.filter((a) => PL_AREAS.includes(a));
+const EN = areaMap(EN_MODULES);
+const PL = areaMap(PL_MODULES);
+const EN_AREAS = [...EN.keys()].sort();
+const PL_AREAS = [...PL.keys()].sort();
+const SHARED = EN_AREAS.filter((a) => PL.has(a));
 
 describe("EN/PL locale parity", () => {
   it("has the same set of area files in both languages", () => {
@@ -55,8 +54,8 @@ describe("EN/PL locale parity", () => {
   });
 
   it.each(SHARED)("%s.json — every key exists in both languages (plural-aware)", (area) => {
-    const en = flatten(load(EN_DIR, area));
-    const pl = flatten(load(PL_DIR, area));
+    const en = flatten(EN.get(area));
+    const pl = flatten(PL.get(area));
     const enBases = new Set(Object.keys(en).map(base));
     const plBases = new Set(Object.keys(pl).map(base));
 
@@ -68,8 +67,8 @@ describe("EN/PL locale parity", () => {
   });
 
   it.each(SHARED)("%s.json — placeholders match across languages", (area) => {
-    const en = flatten(load(EN_DIR, area));
-    const pl = flatten(load(PL_DIR, area));
+    const en = flatten(EN.get(area));
+    const pl = flatten(PL.get(area));
 
     // Compare the {{token}} set per base-key family (covers plural forms too).
     const family = (flat: Record<string, string>): Map<string, Set<string>> => {
@@ -98,8 +97,8 @@ describe("EN/PL locale parity", () => {
 
   it.each(SHARED)("%s.json — no empty string values in either language", (area) => {
     const empties: string[] = [];
-    for (const [lang, dir] of [["en", EN_DIR], ["pl", PL_DIR]] as const) {
-      const flat = flatten(load(dir, area));
+    for (const [lang, map] of [["en", EN], ["pl", PL]] as const) {
+      const flat = flatten(map.get(area));
       for (const [k, v] of Object.entries(flat)) {
         if (v === "") empties.push(`${lang}/${area}:${k}`);
       }
