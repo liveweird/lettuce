@@ -9,6 +9,24 @@ plugins {
 
 application {
     mainClass = "io.ktor.server.netty.EngineMain"
+    // Footprint tuning for this small, I/O-bound, low-traffic service. Baked into the installDist
+    // launcher (bin/server → the Docker image) and `:server:run`; `test` is unaffected. Measured on
+    // a 512 MiB Linux container (5 warm requests): baseline G1 drifts ~345→410 MiB RSS as it grows
+    // its heap; this config sits at a steady ~270 MiB (deterministic across runs) — ~25% lower and
+    // predictable. Startup is ~1.6 s either way; the win is memory, not startup.
+    //   - UseSerialGC        : G1's concurrent threads + region metadata are pure overhead for a
+    //                          small heap / few cores; SerialGC alone saved ~75 MiB here.
+    //   - Xmx256m            : the app holds no large caches; 256 MiB is comfortable headroom for
+    //                          light bursts (drop to 192m to trim ~25 MiB more if traffic stays low).
+    //   - TieredStopAtLevel=1: C1-only JIT — trims code-cache + C2-compiler memory (~50 MiB here).
+    //                          Peak CPU-bound throughput is lower, which is irrelevant for an
+    //                          I/O-bound tool; REMOVE this flag if the service ever runs hot.
+    // Override per-deployment with the JAVA_OPTS / SERVER_OPTS env vars (the launcher appends both).
+    applicationDefaultJvmArgs = listOf(
+        "-XX:+UseSerialGC",
+        "-Xmx256m",
+        "-XX:TieredStopAtLevel=1",
+    )
 }
 
 kotlin {

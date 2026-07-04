@@ -69,6 +69,14 @@ spec:
           ports:
             - containerPort: 8080
               protocol: TCP
+          # Sized for the tuned JVM baked into the image (SerialGC + -Xmx256m + C1): ~270 MiB RSS
+          # under light load. Request covers steady state; the 512 MiB limit bounds it with headroom.
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "320Mi"
+            limits:
+              memory: "512Mi"
           # The image sets WEB_STATIC_DIR, so / serves the SPA. Initial delays
           # cover JVM boot + Flyway; until postgres is ready the app restarts,
           # which the rollout absorbs.
