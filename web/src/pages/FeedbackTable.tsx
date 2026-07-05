@@ -23,6 +23,7 @@ import {
   type FeedbackVisibility,
 } from "../api/client";
 import ClearableTextInput from "../components/ClearableTextInput";
+import EmptyState from "../components/EmptyState";
 import { StatusBadge, VisibilityBadge } from "../components/FeedbackBadges";
 import PersonaChip from "../components/PersonaChip";
 import FilterPanel from "../components/FilterPanel";
@@ -501,12 +502,10 @@ export default function FeedbackTable({
           ) : (
             <Table.Tr>
               <Table.Td colSpan={columnCount}>
-                <Center py="xl">
-                  <Stack align="center" gap="xs">
-                    <IconMessages size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />
-                    <Text c="dimmed">{t("feedback.noFeedback")}</Text>
-                  </Stack>
-                </Center>
+                <EmptyState
+                    icon={<IconMessages size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
+                    label={t("feedback.noFeedback")}
+                  />
               </Table.Td>
             </Table.Tr>
           )}

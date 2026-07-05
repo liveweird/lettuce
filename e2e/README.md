@@ -34,7 +34,8 @@ endpoints through the UI):
   the provider-only **draft delete** (soft-delete → 404 + gone from lists), and the **History** /
   **Lifecycle** tabs on the view screen.
 - `feedback-delivery.spec.ts` — the receiving side: a draft is invisible to its subject; once sent
-  it appears in their **Received** list and the **bell notification**'s "Go to" opens it.
+  it appears in their **Received** list and the **bell notification**'s "Go to" opens it (and
+  marks the notification as seen).
 - `feedback-request-third-party.spec.ts` — a manager **requests feedback about a subordinate from a
   third party** with a **requester message**; the message rides read-only through triage and the
   draft editor; the requester is notified on pick-up and send.

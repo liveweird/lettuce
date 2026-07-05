@@ -1,17 +1,4 @@
-import {
-  Alert,
-  Avatar,
-  Badge,
-  Button,
-  Center,
-  Divider,
-  Group,
-  Paper,
-  SimpleGrid,
-  Skeleton,
-  Stack,
-  Text,
-} from "@mantine/core";
+import { Alert, Button, SimpleGrid, Skeleton } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -22,6 +9,8 @@ import {
   IconUsersGroup,
 } from "@tabler/icons-react";
 import { listTeamMembers } from "../api/client";
+import EmptyState from "../components/EmptyState";
+import PersonCard from "../components/PersonCard";
 import { feedbackAskLink, feedbackProvideLink } from "../utils/feedbackLinks";
 import { groupTeamRows } from "../utils/teamRows";
 
@@ -59,50 +48,33 @@ export default function ManagersTable() {
       {managers.length > 0 ? (
         <SimpleGrid component="ul" m={0} p={0} style={{ listStyle: "none" }} cols={gridCols} spacing="md">
           {managers.map((m) => (
-            <Paper component="li" key={m.userId} withBorder radius="md" p="md">
-              <Stack gap="sm" h="100%">
-                <Group wrap="nowrap" gap="sm" align="flex-start">
-                  <Avatar name={m.name} color="initials" radius="xl" size="md" />
-                  <Stack gap={2} style={{ minWidth: 0, flex: 1 }}>
-                    <Text fw={600} truncate>
-                      {m.name}
-                    </Text>
-                    <Text size="sm" c="dimmed" truncate>
-                      {m.email}
-                    </Text>
-                    <Group gap={4}>
-                      {m.teamNames.map((team) => (
-                        <Badge key={team} variant="light" size="sm">
-                          {team}
-                        </Badge>
-                      ))}
-                    </Group>
-                  </Stack>
-                </Group>
-                <Divider mt="auto" />
-                <Group gap="xs" justify="space-between" wrap="wrap">
-                  <Group gap="xs">
-                    <Button
-                      component={RouterLink}
-                      to={feedbackProvideLink(m.userId, m.name, "/?tab=managers")}
-                      variant="light"
-                      size="xs"
-                      leftSection={<IconMessagePlus size={14} />}
-                      aria-label={t("users.provideFeedbackTo", { name: m.name })}
-                    >
-                      {t("users.provideFeedback")}
-                    </Button>
-                    <Button
-                      component={RouterLink}
-                      to={feedbackAskLink(m.userId, m.name, "/?tab=managers")}
-                      variant="light"
-                      size="xs"
-                      leftSection={<IconMessageQuestion size={14} />}
-                      aria-label={t("users.askForFeedbackFrom", { name: m.name })}
-                    >
-                      {t("users.askForFeedback")}
-                    </Button>
-                  </Group>
+            <PersonCard
+              key={m.userId}
+              name={m.name}
+              email={m.email}
+              teamNames={m.teamNames}
+              actions={
+                <>
+                  <Button
+                    component={RouterLink}
+                    to={feedbackProvideLink(m.userId, m.name, "/?tab=managers")}
+                    variant="light"
+                    size="xs"
+                    leftSection={<IconMessagePlus size={14} />}
+                    aria-label={t("users.provideFeedbackTo", { name: m.name })}
+                  >
+                    {t("users.provideFeedback")}
+                  </Button>
+                  <Button
+                    component={RouterLink}
+                    to={feedbackAskLink(m.userId, m.name, "/?tab=managers")}
+                    variant="light"
+                    size="xs"
+                    leftSection={<IconMessageQuestion size={14} />}
+                    aria-label={t("users.askForFeedbackFrom", { name: m.name })}
+                  >
+                    {t("users.askForFeedback")}
+                  </Button>
                   <Button
                     component={RouterLink}
                     to={`/users/${m.userId}/feedbacks?name=${encodeURIComponent(m.name)}`}
@@ -113,19 +85,17 @@ export default function ManagersTable() {
                   >
                     {t("users.feedbacks")}
                   </Button>
-                </Group>
-              </Stack>
-            </Paper>
+                </>
+              }
+            />
           ))}
         </SimpleGrid>
       ) : (
         !isError && (
-          <Center py="xl">
-            <Stack align="center" gap="xs">
-              <IconUsersGroup size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />
-              <Text c="dimmed">{t("users.noManagers")}</Text>
-            </Stack>
-          </Center>
+          <EmptyState
+            icon={<IconUsersGroup size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
+            label={t("users.noManagers")}
+          />
         )
       )}
     </>

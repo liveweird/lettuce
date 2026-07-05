@@ -16,6 +16,7 @@ import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-quer
 import { IconEye, IconFileText, IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import ClearableTextInput from "../components/ClearableTextInput";
+import EmptyState from "../components/EmptyState";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
@@ -166,12 +167,10 @@ export default function Templates() {
           ) : (
             <Table.Tr>
               <Table.Td colSpan={columnCount}>
-                <Center py="xl">
-                  <Stack align="center" gap="xs">
-                    <IconFileText size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />
-                    <Text c="dimmed">{t("templates.empty")}</Text>
-                  </Stack>
-                </Center>
+                <EmptyState
+                    icon={<IconFileText size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
+                    label={t("templates.empty")}
+                  />
               </Table.Td>
             </Table.Tr>
           )}

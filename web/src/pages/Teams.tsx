@@ -12,20 +12,18 @@ import {
   Table,
   Text,
   Title,
-  UnstyledButton,
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  IconArrowDown,
-  IconArrowUp,
-  IconArrowsSort,
   IconPencil,
   IconPlus,
   IconTrash,
   IconUsers,
 } from "@tabler/icons-react";
 import ClearableTextInput from "../components/ClearableTextInput";
+import EmptyState from "../components/EmptyState";
+import SortHeader from "../components/SortHeader";
 import PersonaChip from "../components/PersonaChip";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import FilterPanel from "../components/FilterPanel";
@@ -37,35 +35,8 @@ import { deleteTeam, isAdmin, listTeams, listUsers } from "../api/client";
 const MANAGER_PICKER_PAGE_SIZE = 100;
 
 type SortField = "name";
-type SortDir = "asc" | "desc";
 
 type TeamRow = { id: number; name: string; managerName: string };
-
-function SortHeader({
-  field,
-  label,
-  activeField,
-  activeDir,
-  onToggle,
-}: {
-  field: SortField;
-  label: string;
-  activeField: SortField;
-  activeDir: SortDir;
-  onToggle: (field: SortField) => void;
-}) {
-  const isActive = activeField === field;
-  const Icon = !isActive ? IconArrowsSort : activeDir === "asc" ? IconArrowUp : IconArrowDown;
-  return (
-    <UnstyledButton
-      onClick={() => onToggle(field)}
-      style={{ display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600 }}
-    >
-      <span>{label}</span>
-      <Icon size={14} stroke={1.5} opacity={isActive ? 1 : 0.4} />
-    </UnstyledButton>
-  );
-}
 
 export default function Teams() {
   const { t } = useTranslation();
@@ -247,12 +218,10 @@ export default function Teams() {
           ) : (
             <Table.Tr>
               <Table.Td colSpan={columnCount}>
-                <Center py="xl">
-                  <Stack align="center" gap="xs">
-                    <IconUsers size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />
-                    <Text c="dimmed">{t("teams.noTeams")}</Text>
-                  </Stack>
-                </Center>
+<EmptyState
+                  icon={<IconUsers size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
+                  label={t("teams.noTeams")}
+                />
               </Table.Td>
             </Table.Tr>
           )}

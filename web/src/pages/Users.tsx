@@ -38,6 +38,7 @@ import FeedbackActionButton from "../components/FeedbackActionButton";
 import { feedbackAskLink, feedbackProvideLink } from "../utils/feedbackLinks";
 import { flagSignedOut, notifyAuthChange } from "../auth";
 import ClearableTextInput from "../components/ClearableTextInput";
+import EmptyState from "../components/EmptyState";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
@@ -291,12 +292,10 @@ export default function Users() {
           ) : (
             <Table.Tr>
               <Table.Td colSpan={columnCount}>
-                <Center py="xl">
-                  <Stack align="center" gap="xs">
-                    <IconUsersGroup size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />
-                    <Text c="dimmed">{t("users.noUsers")}</Text>
-                  </Stack>
-                </Center>
+                <EmptyState
+                    icon={<IconUsersGroup size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
+                    label={t("users.noUsers")}
+                  />
               </Table.Td>
             </Table.Tr>
           )}

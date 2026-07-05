@@ -4,18 +4,12 @@ import { Link as RouterLink } from "react-router-dom";
 import {
   ActionIcon,
   Alert,
-  Avatar,
-  Badge,
   Button,
-  Center,
-  Divider,
   Group,
-  Paper,
   Select,
   SimpleGrid,
   Skeleton,
   Stack,
-  Text,
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import {
@@ -30,6 +24,8 @@ import {
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { listAllTeams, listTeamMembers, type TeamMemberListView } from "../api/client";
 import ClearableTextInput from "../components/ClearableTextInput";
+import EmptyState from "../components/EmptyState";
+import PersonCard from "../components/PersonCard";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import { usePagedSort } from "../hooks/usePagedSort";
@@ -176,28 +172,13 @@ export default function TeamMembersTable({
       ) : people.length > 0 ? (
         <SimpleGrid component="ul" m={0} p={0} style={{ listStyle: "none" }} cols={GRID_COLS} spacing="md">
           {people.map((m) => (
-            <Paper component="li" key={m.userId} withBorder radius="md" p="md">
-              <Stack gap="sm" h="100%">
-                <Group wrap="nowrap" gap="sm" align="flex-start">
-                  <Avatar name={m.name} color="initials" radius="xl" size="md" />
-                  <Stack gap={2} style={{ minWidth: 0, flex: 1 }}>
-                    <Text fw={600} truncate>
-                      {m.name}
-                    </Text>
-                    <Text size="sm" c="dimmed" truncate>
-                      {m.email}
-                    </Text>
-                    <Group gap={4}>
-                      {m.teamNames.map((team) => (
-                        <Badge key={team} variant="light" size="sm">
-                          {team}
-                        </Badge>
-                      ))}
-                    </Group>
-                  </Stack>
-                </Group>
-                <Divider mt="auto" />
-                <Group gap="xs" wrap="wrap">
+            <PersonCard
+              key={m.userId}
+              name={m.name}
+              email={m.email}
+              teamNames={m.teamNames}
+              actions={
+                <>
                   <Button
                     component={RouterLink}
                     to={feedbackProvideLink(m.userId, m.name, backTo)}
@@ -240,19 +221,17 @@ export default function TeamMembersTable({
                   >
                     {t("teams.feedbacks")}
                   </Button>
-                </Group>
-              </Stack>
-            </Paper>
+                </>
+              }
+            />
           ))}
         </SimpleGrid>
       ) : (
         !isError && (
-          <Center py="xl">
-            <Stack align="center" gap="xs">
-              <IconUsersGroup size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />
-              <Text c="dimmed">{emptyMessage}</Text>
-            </Stack>
-          </Center>
+          <EmptyState
+            icon={<IconUsersGroup size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
+            label={emptyMessage}
+          />
         )
       )}
 
