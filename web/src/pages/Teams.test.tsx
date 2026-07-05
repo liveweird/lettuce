@@ -94,10 +94,10 @@ describe("Teams page", () => {
     setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
     renderTeams();
 
-    expect(await screen.findByRole("cell", { name: "Platform" })).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "Mobile" })).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "Alice Manager" })).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "Bob Manager" })).toBeInTheDocument();
+    expect(await screen.findByText("Platform")).toBeInTheDocument();
+    expect(screen.getByText("Mobile")).toBeInTheDocument();
+    expect(screen.getByText("Alice Manager")).toBeInTheDocument();
+    expect(screen.getByText("Bob Manager")).toBeInTheDocument();
 
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/v1\/teams\?/),
@@ -266,7 +266,7 @@ describe("Teams page", () => {
     setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
     renderTeams();
 
-    await screen.findByRole("cell", { name: "Platform" });
+    await screen.findByText("Platform");
     const editLinks = screen.getAllByRole("link", { name: /^edit /i });
     expect(editLinks).toHaveLength(2);
     expect(editLinks[0]).toHaveAttribute("href", "/teams/1/edit");
@@ -306,7 +306,7 @@ describe("Teams page", () => {
     setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
     renderTeams();
 
-    await screen.findByRole("cell", { name: "Platform" });
+    await screen.findByText("Platform");
     const link = screen.getByRole("link", { name: /create team/i });
     expect(link).toHaveAttribute("href", "/teams/new");
   });
@@ -316,7 +316,7 @@ describe("Teams page", () => {
     setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
     renderTeams();
 
-    await screen.findByRole("cell", { name: "Platform" });
+    await screen.findByText("Platform");
     expect(screen.queryByRole("link", { name: /create team/i })).not.toBeInTheDocument();
   });
 
@@ -335,7 +335,7 @@ describe("Teams page", () => {
     setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
     renderTeams();
 
-    await screen.findByRole("cell", { name: "Platform" });
+    await screen.findByText("Platform");
     expect(screen.getAllByRole("button", { name: /^delete /i })).toHaveLength(2);
   });
 
@@ -343,7 +343,7 @@ describe("Teams page", () => {
     setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
     renderTeams();
 
-    await screen.findByRole("cell", { name: "Platform" });
+    await screen.findByText("Platform");
     const links = screen.getAllByRole("link", { name: /^members of /i });
     expect(links).toHaveLength(2);
     expect(links[0]).toHaveAttribute("href", "/teams/1/members");
@@ -354,7 +354,7 @@ describe("Teams page", () => {
     setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
     renderTeams();
 
-    await screen.findByRole("cell", { name: "Platform" });
+    await screen.findByText("Platform");
     const links = screen.getAllByRole("link", { name: /^members of /i });
     expect(links).toHaveLength(2);
     expect(links[0]).toHaveAttribute("href", "/teams/1/members");
@@ -368,7 +368,7 @@ describe("Teams page", () => {
     setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
     renderTeams();
 
-    await screen.findByRole("cell", { name: "Platform" });
+    await screen.findByText("Platform");
     expect(screen.queryByRole("button", { name: /^delete /i })).not.toBeInTheDocument();
   });
 

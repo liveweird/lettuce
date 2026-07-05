@@ -2,10 +2,8 @@ import { useState, type ReactNode } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
-  Avatar,
   Button,
   Center,
-  Group,
   Loader,
   Select,
   Stack,
@@ -26,6 +24,7 @@ import {
 } from "../api/client";
 import ClearableTextInput from "../components/ClearableTextInput";
 import { StatusBadge, VisibilityBadge } from "../components/FeedbackBadges";
+import PersonaChip from "../components/PersonaChip";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import SortHeader from "../components/SortHeader";
@@ -64,14 +63,7 @@ function PersonCell({
       </Text>
     );
   }
-  return (
-    <Group gap={6} wrap="nowrap">
-      <Avatar name={display} color="initials" size={22} radius="xl" />
-      <Text size="sm" truncate>
-        {display}
-      </Text>
-    </Group>
-  );
+  return <PersonaChip name={display} />;
 }
 
 type SortField =

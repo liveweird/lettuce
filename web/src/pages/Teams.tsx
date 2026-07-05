@@ -26,6 +26,7 @@ import {
   IconUsers,
 } from "@tabler/icons-react";
 import ClearableTextInput from "../components/ClearableTextInput";
+import PersonaChip from "../components/PersonaChip";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
@@ -148,7 +149,7 @@ export default function Teams() {
         </Alert>
       )}
 
-      <Table striped highlightOnHover withTableBorder>
+      <Table highlightOnHover withTableBorder verticalSpacing="sm">
         <Table.Thead>
           <Table.Tr>
             <Table.Th>
@@ -178,10 +179,20 @@ export default function Teams() {
           ) : data && data.items.length > 0 ? (
             data.items.map((team) => (
               <Table.Tr key={team.id}>
-                <Table.Td>{team.name}</Table.Td>
                 <Table.Td>
-                  {team.managerName}
-                  {team.managerDeleted ? t("teams.deletedSuffix") : ""}
+                  <Text size="sm" fw={500}>
+                    {team.name}
+                  </Text>
+                </Table.Td>
+                <Table.Td>
+                  {team.managerDeleted ? (
+                    <Text size="sm" c="dimmed">
+                      {team.managerName}
+                      {t("teams.deletedSuffix")}
+                    </Text>
+                  ) : (
+                    <PersonaChip name={team.managerName} />
+                  )}
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                   {admin && (
@@ -236,9 +247,12 @@ export default function Teams() {
           ) : (
             <Table.Tr>
               <Table.Td colSpan={columnCount}>
-                <Text c="dimmed" ta="center">
-                  {t("teams.noTeams")}
-                </Text>
+                <Center py="xl">
+                  <Stack align="center" gap="xs">
+                    <IconUsers size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />
+                    <Text c="dimmed">{t("teams.noTeams")}</Text>
+                  </Stack>
+                </Center>
               </Table.Td>
             </Table.Tr>
           )}

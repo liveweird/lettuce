@@ -106,7 +106,8 @@ export async function gotoUserRow(page: Page, name: string): Promise<void> {
   await page.goto("/users");
   await page.getByRole("button", { name: "Filters" }).click();
   await page.getByLabel("Name", { exact: true }).fill(name);
-  await expect(page.getByRole("cell", { name, exact: true })).toBeVisible();
+  // Match the name text itself — the cell's accessible name now includes the avatar initials.
+  await expect(page.getByText(name, { exact: true }).first()).toBeVisible();
 }
 
 /**

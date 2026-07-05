@@ -31,7 +31,7 @@ test("users list filters, sorts, and changes page size", async ({ page }) => {
   // Clearing the name filter restores the unfiltered list (a seeded user reappears; with the
   // name sort still descending, "Manager CCC" sorts onto page 1 ahead of the E2E-* throwaways).
   await page.getByRole("button", { name: "Clear name filter" }).click();
-  await expect(page.getByRole("cell", { name: "Manager CCC", exact: true })).toBeVisible();
+  await expect(page.getByText("Manager CCC", { exact: true }).first()).toBeVisible();
 
   // Page-size change re-queries with pageSize=40.
   await Promise.all([

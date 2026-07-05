@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import {
   Alert,
+  Badge,
   Button,
   Center,
   Group,
@@ -24,6 +25,7 @@ import {
   IconTrash,
   IconUsersGroup,
 } from "@tabler/icons-react";
+import PersonaChip from "../components/PersonaChip";
 import {
   deleteUser,
   getUserId,
@@ -135,7 +137,7 @@ export default function Users() {
         </Alert>
       )}
 
-      <Table striped highlightOnHover withTableBorder>
+      <Table highlightOnHover withTableBorder verticalSpacing="sm">
         <Table.Thead>
           <Table.Tr>
             <Table.Th>
@@ -185,9 +187,24 @@ export default function Users() {
           ) : data && data.items.length > 0 ? (
             data.items.map((u) => (
               <Table.Tr key={u.id}>
-                <Table.Td>{u.name}</Table.Td>
-                <Table.Td>{u.email}</Table.Td>
-                <Table.Td>{t(`common.role.${u.role}`)}</Table.Td>
+                <Table.Td style={{ maxWidth: 240 }}>
+                  <PersonaChip name={u.name} />
+                </Table.Td>
+                <Table.Td style={{ maxWidth: 280 }}>
+                  <Text size="sm" truncate>
+                    {u.email}
+                  </Text>
+                </Table.Td>
+                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  <Badge
+                    variant={u.role === "ADMIN" ? "filled" : "light"}
+                    color={u.role === "ADMIN" ? "grape" : "gray"}
+                    style={{ minWidth: "max-content" }}
+                    aria-label={t("common.field.role")}
+                  >
+                    {t(`common.role.${u.role}`)}
+                  </Badge>
+                </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                   {u.id !== currentUserId && (
                     <FeedbackActionButton
@@ -274,9 +291,12 @@ export default function Users() {
           ) : (
             <Table.Tr>
               <Table.Td colSpan={columnCount}>
-                <Text c="dimmed" ta="center">
-                  {t("users.noUsers")}
-                </Text>
+                <Center py="xl">
+                  <Stack align="center" gap="xs">
+                    <IconUsersGroup size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />
+                    <Text c="dimmed">{t("users.noUsers")}</Text>
+                  </Stack>
+                </Center>
               </Table.Td>
             </Table.Tr>
           )}

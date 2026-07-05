@@ -13,7 +13,7 @@ import {
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
-import { IconEye, IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconEye, IconFileText, IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import ClearableTextInput from "../components/ClearableTextInput";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
@@ -80,7 +80,7 @@ export default function Templates() {
         </Alert>
       )}
 
-      <Table striped highlightOnHover withTableBorder>
+      <Table highlightOnHover withTableBorder verticalSpacing="sm">
         <Table.Thead>
           <Table.Tr>
             <Table.Th>
@@ -108,9 +108,13 @@ export default function Templates() {
           ) : data && data.items.length > 0 ? (
             data.items.map((tpl) => (
               <Table.Tr key={tpl.id}>
-                <Table.Td>{tpl.name}</Table.Td>
                 <Table.Td>
-                  <Text c="dimmed" lineClamp={1}>
+                  <Text size="sm" fw={500}>
+                    {tpl.name}
+                  </Text>
+                </Table.Td>
+                <Table.Td style={{ maxWidth: 420 }}>
+                  <Text size="sm" c="dimmed" truncate>
                     {tpl.contentPreview}
                   </Text>
                 </Table.Td>
@@ -162,9 +166,12 @@ export default function Templates() {
           ) : (
             <Table.Tr>
               <Table.Td colSpan={columnCount}>
-                <Text c="dimmed" ta="center">
-                  {t("templates.empty")}
-                </Text>
+                <Center py="xl">
+                  <Stack align="center" gap="xs">
+                    <IconFileText size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />
+                    <Text c="dimmed">{t("templates.empty")}</Text>
+                  </Stack>
+                </Center>
               </Table.Td>
             </Table.Tr>
           )}
