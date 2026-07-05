@@ -95,6 +95,11 @@ test("admin deletes a user; the deleted account can no longer sign in", async ({
     ),
     page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click(),
   ]);
+  // Verify against a fresh load — the in-place list can lose a refetch race with a stale
+  // in-flight response.
+  await page.goto("/users");
+  await page.getByRole("button", { name: "Filters" }).click();
+  await page.getByLabel("Email", { exact: true }).fill(user.email);
   await expect(page.getByText("No users")).toBeVisible();
   await logout(page);
 

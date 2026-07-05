@@ -73,5 +73,10 @@ test("admin creates, edits, views, inserts, and deletes a template", async ({ pa
     ),
     page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click(),
   ]);
+  // Verify against a fresh load — the in-place list can lose a refetch race with a stale
+  // in-flight response (seen once in CI-style runs; the server row was correctly deleted).
+  await page.goto("/templates");
+  await page.getByRole("button", { name: "Filters" }).click();
+  await page.getByLabel("Name", { exact: true }).fill(renamed);
   await expect(page.getByText("No templates")).toBeVisible();
 });

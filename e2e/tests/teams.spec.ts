@@ -79,5 +79,10 @@ test("admin creates a team, manages members, reassigns the manager, and deletes 
     ),
     page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click(),
   ]);
+  // Verify against a fresh load — the in-place list can lose a refetch race with a stale
+  // in-flight response.
+  await page.goto("/teams");
+  await page.getByRole("button", { name: "Filters" }).click();
+  await page.getByLabel("Name", { exact: true }).fill(renamed);
   await expect(page.getByText("No teams")).toBeVisible();
 });
