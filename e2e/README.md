@@ -30,11 +30,45 @@ endpoints through the UI):
   `POST /send`, `POST /withdraw`).
 - `feedback-request-triage.spec.ts` — ask → **accept** (`POST /pick-up`) → send; and **reject**
   (`POST /reject`).
-- `user-edit.spec.ts` — admin renames a user (`PUT /users/{id}`).
+- `feedback-lifecycle-rest.spec.ts` — direct create-as-**SENT** ("Save & send" on the create form),
+  the provider-only **draft delete** (soft-delete → 404 + gone from lists), and the **History** /
+  **Lifecycle** tabs on the view screen.
+- `feedback-delivery.spec.ts` — the receiving side: a draft is invisible to its subject; once sent
+  it appears in their **Received** list and the **bell notification**'s "Go to" opens it.
+- `feedback-request-third-party.spec.ts` — a manager **requests feedback about a subordinate from a
+  third party** with a **requester message**; the message rides read-only through triage and the
+  draft editor; the requester is notified on pick-up and send.
+- `notifications.spec.ts` — bell mechanics: unread badge, mark seen / unseen, mark all as seen.
+- `user-edit.spec.ts` — admin creates (generated-password reveal) and renames a user
+  (`PUT /users/{id}`).
+- `users-admin.spec.ts` — role change; admin password reset vs. self-change (current password
+  required, wrong one rejected); delete (deleted account can no longer sign in).
+- `teams.spec.ts` — team create / rename / member add + remove / **manager reassignment**
+  (admin-only) / delete.
+- `templates.spec.ts` — template CRUD + **Insert** into the feedback editor.
+- `manager-oversight.spec.ts` — the **My team** feedback tab and the per-user two-way
+  feedbacks screen.
+- `lists.spec.ts` — shared list plumbing on the Users page: filters (+ clear), sort toggle,
+  page size.
+- `i18n.spec.ts` — PL/EN switch, persisted across reload.
 
-Specs log in with the seeded accounts (`admin@lettuce.local`, `manager-aaa@…`, `aaa-one/two@…`, all
-password `changeme`), capture created ids from API responses so they act on their own rows, and use
-unique content — so they don't depend on a clean database or absolute counts. The onboarding tour is
-suppressed via an init script (see `tests/helpers.ts`).
+Specs log in with the seeded accounts (`admin@lettuce.local`, `manager-aaa@…`, `aaa-one/two/three@…`,
+all password `changeme`), capture created ids from API responses so they act on their own rows, and
+use unique content — so they don't depend on a clean database or absolute counts. Mutating specs
+(rename/role/password/delete) only ever touch throwaway users they create through the UI; seeded
+accounts are never mutated. The onboarding tour is suppressed via an init script (see
+`tests/helpers.ts`).
+
+## Deliberately not covered
+
+- **Login lockout (429)** — five failed logins would lock a seeded account for 15 minutes in the
+  shared database and poison the rest of the run. Covered by `LoginThrottleTest` /
+  `LoginLockoutTest` (server).
+- **Token refresh / expiry** — needs clock control; covered by server tests and the
+  `web/src/api/client.ts` unit tests.
+- **The authz / visibility matrix** — exhaustively covered by `AuthorizationTest` (server); E2E
+  asserts only user-visible consequences (a draft hidden from its subject, notification links).
+- **`DRAFT → WITHDRAWN` (abandon a draft)** — a valid backend transition with no UI affordance
+  (the editor offers Delete instead), so it cannot be exercised through the browser.
 
 Reports/artifacts land in `playwright-report/` and `test-results/` (git-ignored).

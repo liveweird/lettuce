@@ -12,7 +12,9 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : [["list"], ["html", { open: "never" }]],
-  timeout: 30_000,
+  // Generous per-test budget: the login helper may wait out the server's per-IP login
+  // rate limit (10/min) between retries — see helpers.ts.
+  timeout: 120_000,
   expect: { timeout: 10_000 },
   globalSetup: "./global-setup.ts",
   globalTeardown: "./global-teardown.ts",

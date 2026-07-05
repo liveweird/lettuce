@@ -1,4 +1,4 @@
-import { test, expect, login, typeContent, uniqueText, MANAGER_AAA } from "./helpers";
+import { test, expect, login, typeContent, gotoUserRow, uniqueText, MANAGER_AAA } from "./helpers";
 
 // Exercises, through the real UI, the create + content PUT + POST /send + POST /withdraw path.
 // We capture the created feedback's id from the API response so the test acts on exactly its own
@@ -8,7 +8,8 @@ test("provider drafts, sends, and withdraws a feedback", async ({ page }) => {
   await login(page, MANAGER_AAA);
 
   // Provide feedback about AAA One → create editor → type content → Save draft.
-  await page.goto("/users");
+  // (Filter by name first so the row is on page 1 even after runs accumulate E2E users.)
+  await gotoUserRow(page, "AAA One");
   await page.getByRole("link", { name: "Provide feedback for AAA One" }).click();
   await expect(page).toHaveURL(/\/feedback\/new/);
   await typeContent(page, body);

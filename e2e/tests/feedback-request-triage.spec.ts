@@ -4,6 +4,7 @@ import {
   login,
   logout,
   typeContent,
+  gotoUserRow,
   uniqueText,
   MANAGER_AAA,
   AAA_ONE,
@@ -13,7 +14,7 @@ import {
 // Requester asks a provider for feedback (creates REQUESTED); returns the new feedback's id.
 async function ask(page: import("@playwright/test").Page, requester: string): Promise<number> {
   await login(page, requester);
-  await page.goto("/users");
+  await gotoUserRow(page, "Manager AAA");
   await page.getByRole("link", { name: "Ask Manager AAA for feedback" }).click();
   await expect(page).toHaveURL(/\/feedback\/ask/);
   const [created] = await Promise.all([
