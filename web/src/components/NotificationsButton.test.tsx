@@ -235,6 +235,41 @@ describe("NotificationsButton", () => {
     await waitFor(() => expect(screen.queryByRole("button", { name: /go to/i })).toBeNull());
   });
 
+  test("Go to on an unseen notification also marks it as seen", async () => {
+    setupMocks(mockFetch, [UNSEEN]);
+    const user = userEvent.setup();
+    renderWithProviders(<Harness />);
+
+    await user.click(await screen.findByRole("button", { name: /unread/i }));
+    await user.click(await screen.findByRole("button", { name: /go to/i }));
+
+    expect(screen.getByTestId("path")).toHaveTextContent("/feedback/5/view");
+    await waitFor(() =>
+      expect(
+        mockFetch.mock.calls.some(
+          ([url, init]) =>
+            String(url) === "/api/v1/notifications/1/seen" && (init as RequestInit)?.method === "POST",
+        ),
+      ).toBe(true),
+    );
+  });
+
+  test("Go to on an already-seen notification does not re-post seen", async () => {
+    setupMocks(mockFetch, [SEEN]);
+    const user = userEvent.setup();
+    renderWithProviders(<Harness />);
+
+    await user.click(await screen.findByRole("button", { name: /unread/i }));
+    await user.click(await screen.findByRole("button", { name: /go to/i }));
+
+    expect(screen.getByTestId("path")).toHaveTextContent("/intro");
+    expect(
+      mockFetch.mock.calls.some(
+        ([, init]) => ((init as RequestInit | undefined)?.method ?? "GET") === "POST",
+      ),
+    ).toBe(false);
+  });
+
   test("a notification with no link shows no Go to button", async () => {
     const linkless: Item = {
       ...UNSEEN,

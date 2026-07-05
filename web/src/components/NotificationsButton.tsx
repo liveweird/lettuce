@@ -96,6 +96,9 @@ export default function NotificationsButton() {
 
   function goTo(n: NotificationItem) {
     if (!n.link) return;
+    // Following the link means the user has acted on the notification — mark it seen.
+    // Fire-and-forget: navigation must not block on it, and a failure just leaves it unseen.
+    if (!n.wasSeen) markSeen.mutate(n.id);
     close();
     navigate(toRelativePath(n.link));
   }

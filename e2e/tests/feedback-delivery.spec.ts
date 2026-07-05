@@ -60,4 +60,14 @@ test("subject cannot see a draft, then receives and reads the sent feedback via 
   await expect(page).toHaveURL(new RegExp(`/feedback/${id}/view`));
   await expect(page.getByText(body)).toBeVisible();
   await expect(page.getByLabel("Status")).toHaveText("Sent");
+
+  // Following the link marked the notification as seen: the card now offers "Mark as unseen".
+  const dialogAfter = await openBell(page);
+  const cardAfter = notificationCard(
+    dialogAfter,
+    "Feedback from Manager AAA about AAA One has been sent.",
+  );
+  await expect(
+    cardAfter.getByRole("button", { name: /Mark notification \d+ as unseen/ }),
+  ).toBeVisible();
 });
