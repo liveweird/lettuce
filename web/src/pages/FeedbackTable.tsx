@@ -2,8 +2,10 @@ import { useState, type ReactNode } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
+  Avatar,
   Button,
   Center,
+  Group,
   Loader,
   Select,
   Stack,
@@ -11,7 +13,7 @@ import {
   Text,
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
-import { IconEye, IconPencil } from "@tabler/icons-react";
+import { IconEye, IconMessages, IconPencil } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
@@ -23,17 +25,54 @@ import {
   type FeedbackVisibility,
 } from "../api/client";
 import ClearableTextInput from "../components/ClearableTextInput";
+import { StatusBadge, VisibilityBadge } from "../components/FeedbackBadges";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import SortHeader from "../components/SortHeader";
 import { usePagedSort } from "../hooks/usePagedSort";
 import {
+  formatRelativeTime,
   formatTimestamp,
   lastModifiedCutoff,
   lastModifiedOptions,
   type LastModifiedWindow,
 } from "../utils/datetime";
 import { feedbackPartyName } from "../utils/userDisplay";
+
+// A person cell: mini initials avatar + name (the dashboard cards' language). "You", absent
+// (—) and deleted users render as plain text — the avatar is for identifiable other people.
+function PersonCell({
+  userId,
+  name,
+  deleted,
+  currentUserId,
+  t,
+}: {
+  userId: number | null | undefined;
+  name: string | null | undefined;
+  deleted: boolean;
+  currentUserId: number | null;
+  t: (key: string, opts?: Record<string, unknown>) => string;
+}) {
+  const display = feedbackPartyName(userId, name, deleted, currentUserId, t);
+  const isSelf = currentUserId != null && userId === currentUserId;
+  const plain = isSelf || name == null || deleted;
+  if (plain) {
+    return (
+      <Text size="sm" c={name == null ? "dimmed" : undefined}>
+        {display}
+      </Text>
+    );
+  }
+  return (
+    <Group gap={6} wrap="nowrap">
+      <Avatar name={display} color="initials" size={22} radius="xl" />
+      <Text size="sm" truncate>
+        {display}
+      </Text>
+    </Group>
+  );
+}
 
 type SortField =
   | "requesterName"
@@ -218,7 +257,7 @@ export default function FeedbackTable({
   // When set, the View/Edit links return here instead of the feedback tabs.
   backTo?: string;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const currentUserId = getUserId();
   const config = VIEW_CONFIG[view];
   const visibilityOptions = config.visibilityValues.map((value) => ({
@@ -230,7 +269,7 @@ export default function FeedbackTable({
     label: t(`common.status.${value}`),
   }));
   const backParam = backTo ? `&back=${encodeURIComponent(backTo)}` : "";
-  const columnCount = config.personColumns.length + 5;
+  const columnCount = config.personColumns.length + 6; // requester + preview + vis + status + modified + actions
 
   const [requesterFilter, setRequesterFilter] = useState("");
   const [providerFilter, setProviderFilter] = useState("");
@@ -360,7 +399,7 @@ export default function FeedbackTable({
         </Alert>
       )}
 
-      <Table striped highlightOnHover withTableBorder>
+      <Table highlightOnHover withTableBorder verticalSpacing="sm">
         <Table.Thead>
           <Table.Tr>
             <Table.Th>
@@ -383,6 +422,7 @@ export default function FeedbackTable({
                 />
               </Table.Th>
             ))}
+            <Table.Th>{t("common.field.preview")}</Table.Th>
             <Table.Th>
               <SortHeader
                 field="visibility"
@@ -425,24 +465,43 @@ export default function FeedbackTable({
           ) : data && data.items.length > 0 ? (
             data.items.map((f) => (
               <Table.Tr key={f.id}>
-                <Table.Td c={f.requesterName == null ? "dimmed" : undefined}>
-                  {feedbackPartyName(
-                    f.requesterId,
-                    f.requesterName,
-                    f.requesterDeleted,
-                    currentUserId,
-                    t,
-                  )}
+                <Table.Td>
+                  <PersonCell
+                    userId={f.requesterId}
+                    name={f.requesterName}
+                    deleted={f.requesterDeleted}
+                    currentUserId={currentUserId}
+                    t={t}
+                  />
                 </Table.Td>
                 {config.personColumns.map((col) => (
                   <Table.Td key={col.field}>
-                    {feedbackPartyName(col.id(f), col.name(f), col.deleted(f), currentUserId, t)}
+                    <PersonCell
+                      userId={col.id(f)}
+                      name={col.name(f)}
+                      deleted={col.deleted(f)}
+                      currentUserId={currentUserId}
+                      t={t}
+                    />
                   </Table.Td>
                 ))}
-                <Table.Td>{t(`common.visibility.${f.visibility}`)}</Table.Td>
-                <Table.Td>{t(`common.status.${f.status}`)}</Table.Td>
-                <Table.Td style={{ whiteSpace: "nowrap" }}>
-                  {formatTimestamp(f.lastModified)}
+                {/* maxWidth so `truncate` engages inside the auto-layout table. Redacted rows
+                    (a requester's unfinished feedback) arrive with an empty preview. */}
+                <Table.Td style={{ maxWidth: 240 }}>
+                  <Text size="sm" c="dimmed" truncate>
+                    {f.contentPreview}
+                  </Text>
+                </Table.Td>
+                {/* width:1 + nowrap force these cells to content width so the pills never
+                    truncate — the preview column is the one that gives way. */}
+                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  <VisibilityBadge visibility={f.visibility} />
+                </Table.Td>
+                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  <StatusBadge status={f.status} />
+                </Table.Td>
+                <Table.Td style={{ whiteSpace: "nowrap" }} title={formatTimestamp(f.lastModified)}>
+                  {formatRelativeTime(f.lastModified, i18n.language)}
                 </Table.Td>
                 <Table.Td>{config.renderAction(f, { currentUserId, backParam, t })}</Table.Td>
               </Table.Tr>
@@ -450,9 +509,12 @@ export default function FeedbackTable({
           ) : (
             <Table.Tr>
               <Table.Td colSpan={columnCount}>
-                <Text c="dimmed" ta="center">
-                  {t("feedback.noFeedback")}
-                </Text>
+                <Center py="xl">
+                  <Stack align="center" gap="xs">
+                    <IconMessages size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />
+                    <Text c="dimmed">{t("feedback.noFeedback")}</Text>
+                  </Stack>
+                </Center>
               </Table.Td>
             </Table.Tr>
           )}

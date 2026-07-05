@@ -8,6 +8,27 @@ export function formatTimestamp(ms: number): string {
   );
 }
 
+// Epoch millis -> a localized relative phrase ("2 days ago"), picking the largest unit that
+// has a non-zero value. Intl handles the per-language plural rules, so no i18n keys needed.
+export function formatRelativeTime(ms: number, locale: string): string {
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  const deltaSec = Math.round((ms - Date.now()) / 1000);
+  const abs = Math.abs(deltaSec);
+  if (abs < 60) return rtf.format(0, "minute"); // "this minute" / "w tej minucie"
+  const units: [Intl.RelativeTimeFormatUnit, number][] = [
+    ["year", 365 * 24 * 3600],
+    ["month", 30 * 24 * 3600],
+    ["week", 7 * 24 * 3600],
+    ["day", 24 * 3600],
+    ["hour", 3600],
+    ["minute", 60],
+  ];
+  for (const [unit, sec] of units) {
+    if (abs >= sec) return rtf.format(Math.trunc(deltaSec / sec), unit);
+  }
+  return rtf.format(0, "minute");
+}
+
 // Recency windows for the "Last modified" list filter.
 export type LastModifiedWindow = "all" | "week" | "month";
 

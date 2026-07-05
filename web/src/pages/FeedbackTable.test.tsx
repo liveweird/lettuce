@@ -98,10 +98,10 @@ describe("FeedbackTable (received view)", () => {
     setupMocks(mockFetch);
     renderWithProviders(<FeedbackTable view="received" />);
 
-    expect(await screen.findByRole("cell", { name: "Carol Requester" })).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "Alice Provider" })).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "Public" })).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "Sent" })).toBeInTheDocument();
+    expect(await screen.findByText("Carol Requester")).toBeInTheDocument();
+    expect(screen.getByText("Alice Provider")).toBeInTheDocument();
+    expect(screen.getByText("Public")).toBeInTheDocument();
+    expect(screen.getByText("Sent")).toBeInTheDocument();
 
     const urls = feedbackUrls(mockFetch);
     expect(urls.length).toBeGreaterThan(0);
@@ -112,8 +112,8 @@ describe("FeedbackTable (received view)", () => {
     setupMocks(mockFetch);
     renderWithProviders(<FeedbackTable view="received" />);
 
-    expect(await screen.findByRole("cell", { name: "—" })).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "Bob Provider (deleted)" })).toBeInTheDocument();
+    expect(await screen.findByText("—")).toBeInTheDocument();
+    expect(screen.getByText("Bob Provider (deleted)")).toBeInTheDocument();
   });
 
   test("shows 'You' in the Requester column when the requester is the current user", async () => {
@@ -124,10 +124,10 @@ describe("FeedbackTable (received view)", () => {
     );
     renderWithProviders(<FeedbackTable view="received" />);
 
-    expect(await screen.findByRole("cell", { name: "You" })).toBeInTheDocument();
-    expect(screen.queryByRole("cell", { name: "Carol Requester" })).not.toBeInTheDocument();
+    expect(await screen.findByText("You")).toBeInTheDocument();
+    expect(screen.queryByText("Carol Requester")).not.toBeInTheDocument();
     // The provider column (another user) is unaffected.
-    expect(screen.getByRole("cell", { name: "Alice Provider" })).toBeInTheDocument();
+    expect(screen.getByText("Alice Provider")).toBeInTheDocument();
   });
 
   test("typing in the Requester filter triggers a refetch with requesterName=", async () => {
@@ -135,7 +135,7 @@ describe("FeedbackTable (received view)", () => {
     const user = userEvent.setup();
     renderWithProviders(<FeedbackTable view="received" />);
 
-    await screen.findByRole("cell", { name: "Alice Provider" });
+    await screen.findByText("Alice Provider");
     await user.click(screen.getByRole("button", { name: /filters/i }));
     await user.type(screen.getByLabelText(/requester/i), "caro");
 
@@ -154,7 +154,7 @@ describe("FeedbackTable (received view)", () => {
     const user = userEvent.setup();
     renderWithProviders(<FeedbackTable view="received" />);
 
-    await screen.findByRole("cell", { name: "Alice Provider" });
+    await screen.findByText("Alice Provider");
     const toggle = screen.getByRole("button", { name: /filters/i });
     // Collapsed by default — the toggle reports it and the space-eating filter row is hidden.
     expect(toggle).toHaveAttribute("aria-expanded", "false");
@@ -174,7 +174,7 @@ describe("FeedbackTable (received view)", () => {
     const user = userEvent.setup();
     renderWithProviders(<FeedbackTable view="received" />);
 
-    await screen.findByRole("cell", { name: "Alice Provider" });
+    await screen.findByText("Alice Provider");
     const toggle = screen.getByRole("button", { name: /filters/i });
     // Nothing set, and the default "Last modified = All" must NOT count → no badge.
     expect(within(toggle).queryByText("1")).not.toBeInTheDocument();
@@ -188,7 +188,7 @@ describe("FeedbackTable (received view)", () => {
     setupMocks(mockFetch);
     renderWithProviders(<FeedbackTable view="received" />);
 
-    await screen.findByRole("cell", { name: "Alice Provider" });
+    await screen.findByText("Alice Provider");
     fireEvent.click(screen.getByRole("button", { name: /filters/i }));
 
     // happy-dom does not open Mantine comboboxes via userEvent's pointer simulation
@@ -209,7 +209,7 @@ describe("FeedbackTable (received view)", () => {
     setupMocks(mockFetch);
     renderWithProviders(<FeedbackTable view="received" />);
 
-    await screen.findByRole("cell", { name: "Alice Provider" });
+    await screen.findByText("Alice Provider");
 
     // Default "All" sends no recency bound.
     expect(feedbackUrls(mockFetch).every((url) => !url.includes("lastModified"))).toBe(true);
@@ -244,7 +244,7 @@ describe("FeedbackTable (received view)", () => {
     const user = userEvent.setup();
     renderWithProviders(<FeedbackTable view="received" />);
 
-    await screen.findByRole("cell", { name: "Alice Provider" });
+    await screen.findByText("Alice Provider");
     expect(feedbackUrls(mockFetch)[0]).toContain("sort=providerName");
 
     await user.click(screen.getByRole("button", { name: /provider/i }));
@@ -263,7 +263,7 @@ describe("FeedbackTable (received view)", () => {
     const user = userEvent.setup();
     renderWithProviders(<FeedbackTable view="received" />);
 
-    await screen.findByRole("cell", { name: "Alice Provider" });
+    await screen.findByText("Alice Provider");
     expect(screen.getByText("45 total")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "2" }));
@@ -298,7 +298,7 @@ describe("FeedbackTable (received view)", () => {
     setupMocks(mockFetch);
     renderWithProviders(<FeedbackTable view="received" />);
 
-    await screen.findByRole("cell", { name: "Alice Provider" });
+    await screen.findByText("Alice Provider");
     const rows = screen.getAllByRole("row").slice(1);
     expect(within(rows[0]).getByText("Alice Provider")).toBeInTheDocument();
     expect(within(rows[1]).getByText("Bob Provider (deleted)")).toBeInTheDocument();
@@ -308,7 +308,7 @@ describe("FeedbackTable (received view)", () => {
     setupMocks(mockFetch);
     renderWithProviders(<FeedbackTable view="received" />);
 
-    await screen.findByRole("cell", { name: "Alice Provider" });
+    await screen.findByText("Alice Provider");
     expect(screen.queryByRole("link", { name: /edit feedback for/i })).not.toBeInTheDocument();
   });
 
@@ -353,9 +353,9 @@ describe("FeedbackTable (provided view)", () => {
     setupMocks(mockFetch);
     renderWithProviders(<FeedbackTable view="provided" />);
 
-    expect(await screen.findByRole("cell", { name: "Sam Subject" })).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "Tina Subject (deleted)" })).toBeInTheDocument();
-    expect(screen.queryByRole("cell", { name: "Alice Provider" })).not.toBeInTheDocument();
+    expect(await screen.findByText("Sam Subject")).toBeInTheDocument();
+    expect(screen.getByText("Tina Subject (deleted)")).toBeInTheDocument();
+    expect(screen.queryByText("Alice Provider")).not.toBeInTheDocument();
 
     const urls = feedbackUrls(mockFetch);
     expect(urls[0]).toContain("view=provided");
@@ -368,10 +368,10 @@ describe("FeedbackTable (provided view)", () => {
     setupMocks(mockFetch);
     renderWithProviders(<FeedbackTable view="provided" />);
 
-    expect(await screen.findByRole("cell", { name: "You" })).toBeInTheDocument();
-    expect(screen.queryByRole("cell", { name: "Sam Subject" })).not.toBeInTheDocument();
+    expect(await screen.findByText("You")).toBeInTheDocument();
+    expect(screen.queryByText("Sam Subject")).not.toBeInTheDocument();
     // The other row's subject (a different user) still shows its name.
-    expect(screen.getByRole("cell", { name: "Tina Subject (deleted)" })).toBeInTheDocument();
+    expect(screen.getByText("Tina Subject (deleted)")).toBeInTheDocument();
   });
 
   test("typing in the Subject filter triggers a refetch with subjectName=", async () => {
@@ -379,7 +379,7 @@ describe("FeedbackTable (provided view)", () => {
     const user = userEvent.setup();
     renderWithProviders(<FeedbackTable view="provided" />);
 
-    await screen.findByRole("cell", { name: "Sam Subject" });
+    await screen.findByText("Sam Subject");
     await user.click(screen.getByRole("button", { name: /filters/i }));
     await user.type(screen.getByLabelText("Subject"), "tina");
 
@@ -411,7 +411,7 @@ describe("FeedbackTable (provided view)", () => {
     const user = userEvent.setup();
     renderWithProviders(<FeedbackTable view="provided" />);
 
-    await screen.findByRole("cell", { name: "Sam Subject" });
+    await screen.findByText("Sam Subject");
     await user.click(screen.getByRole("button", { name: /subject/i }));
 
     await waitFor(() => {

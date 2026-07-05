@@ -58,6 +58,9 @@ test("subject cannot see a draft, then receives and reads the sent feedback via 
   await expect(card).toBeVisible();
   await card.getByRole("button", { name: "Go to" }).click();
   await expect(page).toHaveURL(new RegExp(`/feedback/${id}/view`));
+  // The URL flips before the list DOM unmounts (client-side transition); wait for the table
+  // to be gone so getByLabel("Status") can't race the list rows' status pills.
+  await expect(page.locator("table")).toHaveCount(0);
   await expect(page.getByText(body)).toBeVisible();
   await expect(page.getByLabel("Status")).toHaveText("Sent");
 

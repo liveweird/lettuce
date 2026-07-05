@@ -100,19 +100,21 @@ describe("FeedbackTable (team view)", () => {
     localStorage.clear();
   });
 
-  test("fetches the team view and renders rows with a formatted Last modified column", async () => {
+  test("fetches the team view and renders rows with the exact time as the cell tooltip", async () => {
     setupMocks(mockFetch);
     renderWithProviders(<FeedbackTable view="team" />);
 
-    await screen.findByRole("cell", { name: "Sam Subject" });
+    await screen.findByText("Sam Subject");
     expect(feedbackUrls(mockFetch)[0]).toContain("view=team");
-    // formatTimestamp output for the SENT row's lastModified.
-    expect(screen.getByText("2026-01-05 09:07")).toBeInTheDocument();
+    // The cell shows a relative phrase; the exact formatTimestamp value rides in `title`.
+    expect(screen.getByTitle("2026-01-05 09:07")).toBeInTheDocument();
     // The caller is the provider of the second row → "You" in its Provider column.
-    expect(screen.getByRole("cell", { name: "You" })).toBeInTheDocument();
-    expect(screen.queryByRole("cell", { name: "Bob Provider" })).not.toBeInTheDocument();
+    expect(screen.getByText("You")).toBeInTheDocument();
+    expect(screen.queryByText("Bob Provider")).not.toBeInTheDocument();
     // Other parties (a different user) still render their names.
-    expect(screen.getByRole("cell", { name: "Alice Provider" })).toBeInTheDocument();
+    expect(screen.getByText("Alice Provider")).toBeInTheDocument();
+    // The content preview column renders the (possibly truncated) preview text.
+    expect(screen.getByText("Shipped the migration")).toBeInTheDocument();
   });
 
   test("clicking the Subject header toggles the sort param asc↔desc", async () => {
@@ -120,7 +122,7 @@ describe("FeedbackTable (team view)", () => {
     const user = userEvent.setup();
     renderWithProviders(<FeedbackTable view="team" />);
 
-    await screen.findByRole("cell", { name: "Sam Subject" });
+    await screen.findByText("Sam Subject");
     // Default sort is subjectName ascending.
     expect(feedbackUrls(mockFetch)[0]).toContain("sort=subjectName");
 
@@ -135,7 +137,7 @@ describe("FeedbackTable (team view)", () => {
     const user = userEvent.setup();
     renderWithProviders(<FeedbackTable view="team" />);
 
-    await screen.findByRole("cell", { name: "Sam Subject" });
+    await screen.findByText("Sam Subject");
     await user.click(screen.getByRole("button", { name: /filters/i }));
     await user.type(screen.getByLabelText(/provider/i), "ali");
     await waitFor(() => {
@@ -148,7 +150,7 @@ describe("FeedbackTable (team view)", () => {
     const user = userEvent.setup();
     renderWithProviders(<FeedbackTable view="team" />);
 
-    await screen.findByRole("cell", { name: "Sam Subject" });
+    await screen.findByText("Sam Subject");
     const toggle = screen.getByRole("button", { name: /filters/i });
     // Collapsed by default — the toggle reports it and the space-eating filter row is hidden.
     expect(toggle).toHaveAttribute("aria-expanded", "false");
@@ -167,7 +169,7 @@ describe("FeedbackTable (team view)", () => {
     const user = userEvent.setup();
     renderWithProviders(<FeedbackTable view="team" />);
 
-    await screen.findByRole("cell", { name: "Sam Subject" });
+    await screen.findByText("Sam Subject");
     const toggle = screen.getByRole("button", { name: /filters/i });
     // Nothing set, and the default "Last modified = All" must NOT count → no badge.
     expect(within(toggle).queryByText("1")).not.toBeInTheDocument();
@@ -181,7 +183,7 @@ describe("FeedbackTable (team view)", () => {
     setupMocks(mockFetch);
     renderWithProviders(<FeedbackTable view="team" />);
 
-    await screen.findByRole("cell", { name: "Sam Subject" });
+    await screen.findByText("Sam Subject");
     fireEvent.click(screen.getByRole("button", { name: /filters/i }));
 
     fireEvent.click(screen.getByLabelText("Visibility", { selector: "input" }));
@@ -207,10 +209,10 @@ describe("FeedbackTable (team view)", () => {
     setupMocks(mockFetch);
     renderWithProviders(<FeedbackTable view="team" />);
 
-    const draftRow = (await screen.findByRole("cell", { name: "Tina Subject" })).closest("tr")!;
+    const draftRow = (await screen.findByText("Tina Subject")).closest("tr")!;
     expect(within(draftRow).getByRole("link", { name: /edit/i })).toBeInTheDocument();
 
-    const sentRow = screen.getByRole("cell", { name: "Sam Subject" }).closest("tr")!;
+    const sentRow = screen.getByText("Sam Subject").closest("tr")!;
     expect(within(sentRow).getByRole("link", { name: /view/i })).toBeInTheDocument();
     expect(within(sentRow).queryByRole("link", { name: /edit/i })).toBeNull();
   });
@@ -220,7 +222,7 @@ describe("FeedbackTable (team view)", () => {
     const user = userEvent.setup();
     renderWithProviders(<FeedbackTable view="team" />);
 
-    await screen.findByRole("cell", { name: "Sam Subject" });
+    await screen.findByText("Sam Subject");
     await user.click(screen.getByRole("button", { name: /filters/i }));
     await user.type(screen.getByLabelText(/subject/i, { selector: "input" }), "tina");
     await waitFor(() => {
@@ -233,7 +235,7 @@ describe("FeedbackTable (team view)", () => {
     const user = userEvent.setup();
     renderWithProviders(<FeedbackTable view="team" />);
 
-    await screen.findByRole("cell", { name: "Sam Subject" });
+    await screen.findByText("Sam Subject");
     await user.click(screen.getByRole("button", { name: /requester/i }));
     await waitFor(() =>
       expect(feedbackUrls(mockFetch).some((u) => u.includes("sort=requesterName"))).toBe(true),
@@ -249,7 +251,7 @@ describe("FeedbackTable (team view)", () => {
     const user = userEvent.setup();
     renderWithProviders(<FeedbackTable view="team" />);
 
-    await screen.findByRole("cell", { name: "Sam Subject" });
+    await screen.findByText("Sam Subject");
     // Default subjectName asc → click Subject to go desc, then click Provider (new field → asc).
     await user.click(screen.getByRole("button", { name: /subject/i }));
     await waitFor(() =>
@@ -265,7 +267,7 @@ describe("FeedbackTable (team view)", () => {
     setupMocks(mockFetch);
     renderWithProviders(<FeedbackTable view="team" />);
 
-    await screen.findByRole("cell", { name: "Sam Subject" });
+    await screen.findByText("Sam Subject");
     fireEvent.click(screen.getByLabelText("Rows per page", { selector: "input" }));
     fireEvent.click(await screen.findByRole("option", { name: "40 / page" }));
     await waitFor(() => {
@@ -280,7 +282,7 @@ describe("FeedbackTable (team view)", () => {
     const user = userEvent.setup();
     renderWithProviders(<FeedbackTable view="team" />);
 
-    await screen.findByRole("cell", { name: "Sam Subject" });
+    await screen.findByText("Sam Subject");
     await user.click(screen.getByRole("button", { name: "2" }));
     await waitFor(() =>
       expect(feedbackUrls(mockFetch).some((u) => u.includes("page=2"))).toBe(true),
@@ -291,13 +293,13 @@ describe("FeedbackTable (team view)", () => {
     setupMocks(mockFetch);
     renderWithProviders(<FeedbackTable view="team" />);
 
-    const draftRow = (await screen.findByRole("cell", { name: "Tina Subject" })).closest("tr")!;
+    const draftRow = (await screen.findByText("Tina Subject")).closest("tr")!;
     expect(within(draftRow).getByRole("link", { name: /edit/i })).toHaveAttribute(
       "href",
       "/feedback/2/edit?subjectName=Tina%20Subject&from=team",
     );
 
-    const sentRow = screen.getByRole("cell", { name: "Sam Subject" }).closest("tr")!;
+    const sentRow = screen.getByText("Sam Subject").closest("tr")!;
     expect(within(sentRow).getByRole("link", { name: /view/i })).toHaveAttribute(
       "href",
       "/feedback/1/view?as=team&providerName=Alice%20Provider&subjectName=Sam%20Subject&requesterName=Carol%20Requester",
@@ -315,7 +317,7 @@ describe("FeedbackTable (team view)", () => {
     setupMocks(mockFetch, feedbacksPage([noRequester]));
     renderWithProviders(<FeedbackTable view="team" />);
 
-    const row = (await screen.findByRole("cell", { name: "Sam Subject" })).closest("tr")!;
+    const row = (await screen.findByText("Sam Subject")).closest("tr")!;
     const href = within(row).getByRole("link", { name: /view/i }).getAttribute("href")!;
     expect(href).toContain("/feedback/5/view?as=team&providerName=Alice%20Provider");
     expect(href).not.toContain("requesterName=");

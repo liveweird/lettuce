@@ -1,15 +1,8 @@
-import { Badge, Group, Stack, Text, Title } from "@mantine/core";
+import { Group, Stack, Text, Title } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import type { FeedbackStatus, FeedbackVisibility } from "../api/client";
 import { formatTimestamp } from "../utils/datetime";
-
-const STATUS_COLOR: Record<FeedbackStatus, string> = {
-  REQUESTED: "blue",
-  DRAFT: "gray",
-  SENT: "green",
-  WITHDRAWN: "orange",
-  REJECTED: "red",
-};
+import { StatusBadge, VisibilityBadge } from "./FeedbackBadges";
 
 /**
  * The compact metadata header shared by the feedback view and edit screens: title with
@@ -43,16 +36,8 @@ export default function FeedbackMeta({
       <Group justify="space-between" align="center" wrap="nowrap">
         <Title order={2}>{title}</Title>
         <Group gap="xs" wrap="nowrap">
-          {status && (
-            <Badge color={STATUS_COLOR[status]} variant="filled" aria-label={t("common.field.status")}>
-              {t(`common.status.${status}`)}
-            </Badge>
-          )}
-          {visibility && (
-            <Badge variant="light" aria-label={t("common.field.visibility")}>
-              {t(`common.visibility.${visibility}`)}
-            </Badge>
-          )}
+          {status && <StatusBadge status={status} />}
+          {visibility && <VisibilityBadge visibility={visibility} />}
         </Group>
       </Group>
       <Text>

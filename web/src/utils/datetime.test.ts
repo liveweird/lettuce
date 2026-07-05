@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { formatTimestamp, lastModifiedCutoff } from "./datetime";
+import { formatRelativeTime, formatTimestamp, lastModifiedCutoff } from "./datetime";
 
 describe("formatTimestamp", () => {
   test("formats local time as YYYY-MM-DD HH:mm with zero-padding", () => {
@@ -11,6 +11,32 @@ describe("formatTimestamp", () => {
   test("renders two-digit month/day/hour/minute without extra padding", () => {
     const ms = new Date(2026, 10, 23, 18, 45).getTime(); // Nov 23 2026, 18:45 local
     expect(formatTimestamp(ms)).toBe("2026-11-23 18:45");
+  });
+});
+
+describe("formatRelativeTime", () => {
+  const NOW = 1_700_000_000_000;
+  const HOUR = 60 * 60 * 1000;
+  const DAY = 24 * HOUR;
+
+  afterEach(() => vi.restoreAllMocks());
+
+  test("picks the largest unit with a non-zero value", () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    expect(formatRelativeTime(NOW - 2 * DAY, "en")).toBe("2 days ago");
+    expect(formatRelativeTime(NOW - 3 * HOUR, "en")).toBe("3 hours ago");
+    expect(formatRelativeTime(NOW - 9 * DAY, "en")).toBe("last week");
+    expect(formatRelativeTime(NOW - 70 * DAY, "en")).toBe("2 months ago");
+  });
+
+  test("sub-minute deltas render as the current minute", () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    expect(formatRelativeTime(NOW - 20 * 1000, "en")).toBe("this minute");
+  });
+
+  test("localizes via the passed locale", () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    expect(formatRelativeTime(NOW - 2 * DAY, "pl")).toBe("przedwczoraj");
   });
 });
 
