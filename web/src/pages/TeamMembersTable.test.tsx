@@ -70,15 +70,16 @@ describe("TeamMembersTable", () => {
     localStorage.clear();
   });
 
-  test("renders rows with name, email and team; fetches view=member with sort=name", async () => {
+  test("renders person cards with name, email and team badges; fetches view=member with sort=name", async () => {
     setupMocks(mockFetch);
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
 
-    expect(await screen.findByRole("cell", { name: "Bob Brown" })).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "bob@x.test" })).toBeInTheDocument();
-    expect(screen.getAllByRole("cell", { name: "Alice Adams" })).toHaveLength(2);
-    expect(screen.getByRole("cell", { name: "Platform" })).toBeInTheDocument();
-    expect(screen.getAllByRole("cell", { name: "Support" })).toHaveLength(2);
+    expect(await screen.findByText("Bob Brown")).toBeInTheDocument();
+    expect(screen.getByText("bob@x.test")).toBeInTheDocument();
+    // Alice is in two shared teams -> ONE card with both team badges (rows are deduped).
+    expect(screen.getAllByText("Alice Adams")).toHaveLength(1);
+    expect(screen.getByText("Platform")).toBeInTheDocument();
+    expect(screen.getAllByText("Support")).toHaveLength(2); // Alice's badge + Bob's badge
 
     const urls = memberUrls(mockFetch);
     expect(urls.length).toBeGreaterThan(0);
@@ -90,7 +91,7 @@ describe("TeamMembersTable", () => {
     setupMocks(mockFetch);
     renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
 
-    await screen.findByRole("cell", { name: "Bob Brown" });
+    await screen.findByText("Bob Brown");
     expect(memberUrls(mockFetch)[0]).toContain("view=managed");
   });
 
@@ -103,8 +104,8 @@ describe("TeamMembersTable", () => {
       "href",
       `/feedback/new?subjectId=11&subjectName=Bob%20Brown&back=${encodeURIComponent("/?tab=peers")}`,
     );
-    // One link per row (Alice appears in two teams -> two rows -> three links total).
-    expect(screen.getAllByRole("link", { name: /provide feedback to/i })).toHaveLength(3);
+    // One link per person (Alice's two memberships collapse into one card).
+    expect(screen.getAllByRole("link", { name: /provide feedback to/i })).toHaveLength(2);
   });
 
   test("managed view adds a Request feedback link per row pointing at /feedback/request", async () => {
@@ -116,8 +117,8 @@ describe("TeamMembersTable", () => {
       "href",
       `/feedback/request?subjectId=11&subjectName=Bob%20Brown&back=${encodeURIComponent("/?tab=subordinates")}`,
     );
-    // One per row (Alice appears in two teams -> two rows -> three links total).
-    expect(screen.getAllByRole("link", { name: /request feedback about/i })).toHaveLength(3);
+    // One per person (Alice's two memberships collapse into one card).
+    expect(screen.getAllByRole("link", { name: /request feedback about/i })).toHaveLength(2);
   });
 
   test("managed view adds an Ask for feedback link per row pointing at /feedback/ask", async () => {
@@ -129,8 +130,8 @@ describe("TeamMembersTable", () => {
       "href",
       `/feedback/ask?providerId=11&providerName=Bob%20Brown&back=${encodeURIComponent("/?tab=subordinates")}`,
     );
-    // One per row (Alice appears in two teams -> two rows -> three links total).
-    expect(screen.getAllByRole("link", { name: /ask .* for feedback/i })).toHaveLength(3);
+    // One per person (Alice's two memberships collapse into one card).
+    expect(screen.getAllByRole("link", { name: /ask .* for feedback/i })).toHaveLength(2);
   });
 
   test("member view adds an Ask for feedback link per row pointing at /feedback/ask", async () => {
@@ -142,14 +143,14 @@ describe("TeamMembersTable", () => {
       "href",
       `/feedback/ask?providerId=11&providerName=Bob%20Brown&back=${encodeURIComponent("/?tab=peers")}`,
     );
-    expect(screen.getAllByRole("link", { name: /ask .* for feedback/i })).toHaveLength(3);
+    expect(screen.getAllByRole("link", { name: /ask .* for feedback/i })).toHaveLength(2);
   });
 
   test("member view does not render Request feedback links", async () => {
     setupMocks(mockFetch);
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
 
-    await screen.findByRole("cell", { name: "Bob Brown" });
+    await screen.findByText("Bob Brown");
     expect(screen.queryByRole("link", { name: /request feedback about/i })).not.toBeInTheDocument();
   });
 
@@ -162,8 +163,8 @@ describe("TeamMembersTable", () => {
       "href",
       "/users/11/feedbacks?name=Bob%20Brown&from=peers",
     );
-    // One per row (Alice appears in two teams -> two rows -> three links total).
-    expect(screen.getAllByRole("link", { name: /feedbacks with/i })).toHaveLength(3);
+    // One per person (Alice's two memberships collapse into one card).
+    expect(screen.getAllByRole("link", { name: /feedbacks with/i })).toHaveLength(2);
   });
 
   test("managed view also renders a Feedbacks link per row, scoped from=subordinates", async () => {
@@ -175,8 +176,8 @@ describe("TeamMembersTable", () => {
       "href",
       "/users/11/feedbacks?name=Bob%20Brown&from=subordinates",
     );
-    // One per row (Alice appears in two teams -> two rows -> three links total).
-    expect(screen.getAllByRole("link", { name: /feedbacks with/i })).toHaveLength(3);
+    // One per person (Alice's two memberships collapse into one card).
+    expect(screen.getAllByRole("link", { name: /feedbacks with/i })).toHaveLength(2);
   });
 
   test("typing in the Name filter triggers a debounced refetch and the clear button resets it", async () => {
@@ -184,7 +185,7 @@ describe("TeamMembersTable", () => {
     const user = userEvent.setup();
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
 
-    await screen.findByRole("cell", { name: "Bob Brown" });
+    await screen.findByText("Bob Brown");
     await user.click(screen.getByRole("button", { name: /filters/i }));
     await user.type(screen.getByLabelText("Name"), "ali");
 
@@ -204,7 +205,7 @@ describe("TeamMembersTable", () => {
     const user = userEvent.setup();
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
 
-    await screen.findByRole("cell", { name: "Bob Brown" });
+    await screen.findByText("Bob Brown");
     const toggle = screen.getByRole("button", { name: /filters/i });
     // Collapsed by default — the toggle reports it and the space-eating filter row is hidden.
     expect(toggle).toHaveAttribute("aria-expanded", "false");
@@ -225,7 +226,7 @@ describe("TeamMembersTable", () => {
     const user = userEvent.setup();
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
 
-    await screen.findByRole("cell", { name: "Bob Brown" });
+    await screen.findByText("Bob Brown");
     const toggle = screen.getByRole("button", { name: /filters/i });
     // No filters set → no badge.
     expect(within(toggle).queryByText("1")).not.toBeInTheDocument();
@@ -240,7 +241,7 @@ describe("TeamMembersTable", () => {
     const user = userEvent.setup();
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
 
-    await screen.findByRole("cell", { name: "Bob Brown" });
+    await screen.findByText("Bob Brown");
     await user.click(screen.getByRole("button", { name: /filters/i }));
     await user.type(screen.getByLabelText("Email"), "bob@");
     await waitFor(
@@ -255,7 +256,7 @@ describe("TeamMembersTable", () => {
     setupMocks(mockFetch);
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
 
-    await screen.findByRole("cell", { name: "Bob Brown" });
+    await screen.findByText("Bob Brown");
     fireEvent.click(screen.getByRole("button", { name: /filters/i }));
 
     // happy-dom does not open Mantine comboboxes via userEvent's pointer simulation
@@ -268,7 +269,7 @@ describe("TeamMembersTable", () => {
     setupMocks(mockFetch);
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
 
-    await screen.findByRole("cell", { name: "Bob Brown" });
+    await screen.findByText("Bob Brown");
     fireEvent.click(screen.getByRole("button", { name: /filters/i }));
 
     fireEvent.click(screen.getByLabelText("Team", { selector: "input" }));
@@ -286,18 +287,20 @@ describe("TeamMembersTable", () => {
     });
   });
 
-  test("clicking the Team header sorts by teamName, clicking again descends", async () => {
+  test("the sort control sorts by team; the direction toggle descends", async () => {
     setupMocks(mockFetch);
     const user = userEvent.setup();
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
 
-    await screen.findByRole("cell", { name: "Bob Brown" });
-    await user.click(screen.getByRole("button", { name: /team/i }));
+    await screen.findByText("Bob Brown");
+    // happy-dom does not open Mantine comboboxes via userEvent's pointer simulation
+    fireEvent.click(screen.getByLabelText("Sort by", { selector: "input" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Team" }));
     await waitFor(() => {
       expect(memberUrls(mockFetch).some((url) => url.includes("sort=teamName"))).toBe(true);
     });
 
-    await user.click(screen.getByRole("button", { name: /team/i }));
+    await user.click(screen.getByRole("button", { name: "Toggle sort direction" }));
     await waitFor(() => {
       expect(memberUrls(mockFetch).some((url) => url.includes("sort=-teamName"))).toBe(true);
     });
@@ -308,7 +311,7 @@ describe("TeamMembersTable", () => {
     const user = userEvent.setup();
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
 
-    await screen.findByRole("cell", { name: "Bob Brown" });
+    await screen.findByText("Bob Brown");
     expect(screen.getByText("45 total")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "2" }));
@@ -339,14 +342,14 @@ describe("TeamMembersTable", () => {
     expect(await screen.findByText(/failed to load team members/i)).toBeInTheDocument();
   });
 
-  test("rows are ordered as returned by the API", async () => {
+  test("cards keep the API's ordering (first appearance wins for deduped people)", async () => {
     setupMocks(mockFetch);
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
 
-    await screen.findByRole("cell", { name: "Bob Brown" });
-    const rows = screen.getAllByRole("row").slice(1);
-    expect(within(rows[0]).getByText("Platform")).toBeInTheDocument();
-    expect(within(rows[1]).getByText("Bob Brown")).toBeInTheDocument();
-    expect(within(rows[2]).getByText("Alice Adams")).toBeInTheDocument();
+    await screen.findByText("Bob Brown");
+    const cards = screen.getAllByRole("listitem");
+    expect(cards).toHaveLength(2);
+    expect(within(cards[0]).getByText("Alice Adams")).toBeInTheDocument();
+    expect(within(cards[1]).getByText("Bob Brown")).toBeInTheDocument();
   });
 });

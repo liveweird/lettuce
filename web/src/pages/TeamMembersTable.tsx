@@ -2,34 +2,46 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
 import {
+  ActionIcon,
   Alert,
+  Avatar,
+  Badge,
   Button,
   Center,
-  Loader,
+  Divider,
+  Group,
+  Paper,
   Select,
+  SimpleGrid,
+  Skeleton,
   Stack,
-  Table,
   Text,
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import {
+  IconArrowDown,
+  IconArrowUp,
   IconMessagePlus,
   IconMessageQuestion,
   IconMessages,
   IconUserPlus,
+  IconUsersGroup,
 } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { listAllTeams, listTeamMembers, type TeamMemberListView } from "../api/client";
 import ClearableTextInput from "../components/ClearableTextInput";
-import FeedbackActionButton from "../components/FeedbackActionButton";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
-import SortHeader from "../components/SortHeader";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { feedbackAskLink, feedbackProvideLink, feedbackRequestLink } from "../utils/feedbackLinks";
+import { groupTeamRows } from "../utils/teamRows";
 
 type SortField = "name" | "email" | "teamName";
 
+const GRID_COLS = { base: 1, sm: 2, lg: 3 };
+
+// The dashboard "My peers" / "My subordinates" views: a person-card grid (same card language
+// as ManagersTable), keeping the table era's filters, sorting, and pagination.
 export default function TeamMembersTable({
   view,
   emptyMessage,
@@ -82,36 +94,72 @@ export default function TeamMembersTable({
 
   const total = data?.total ?? 0;
 
-  // The Dashboard tab this table lives in, so feedback flows can return here on Cancel.
+  // The Dashboard tab this view lives in, so feedback flows can return here on Cancel.
   const tab = view === "managed" ? "subordinates" : "peers";
   const backTo = `/?tab=${tab}`;
 
+  // One card per person; a member of two of the caller's teams gets aggregated team badges.
+  // PaginationBar still shows the server total (memberships), which can slightly exceed the
+  // card count on a page — acceptable at this app's scale.
+  const people = groupTeamRows(data?.items ?? []);
+
+  const SORT_OPTIONS: { value: SortField; label: string }[] = [
+    { value: "name", label: t("common.field.name") },
+    { value: "email", label: t("common.field.email") },
+    { value: "teamName", label: t("teams.team") },
+  ];
+  const DirIcon = sortDir === "asc" ? IconArrowUp : IconArrowDown;
+
   return (
     <Stack gap="md">
-      <FilterPanel activeFilterCount={activeFilterCount}>
-        <ClearableTextInput
-          label={t("common.field.name")}
-          value={nameFilter}
-          onChange={setNameFilter}
-          clearLabel={t("teams.clearNameFilter")}
-        />
-        <ClearableTextInput
-          label={t("common.field.email")}
-          value={emailFilter}
-          onChange={setEmailFilter}
-          clearLabel={t("teams.clearEmailFilter")}
-        />
-        <Select
-          label={t("teams.team")}
-          placeholder={t("common.state.any")}
-          data={teamOptions}
-          value={teamFilter}
-          onChange={setTeamFilter}
-          clearable
-          clearButtonProps={{ "aria-label": t("teams.clearTeamFilter") }}
-          searchable
-        />
-      </FilterPanel>
+      <Group justify="space-between" align="flex-start" wrap="wrap">
+        <FilterPanel activeFilterCount={activeFilterCount}>
+          <ClearableTextInput
+            label={t("common.field.name")}
+            value={nameFilter}
+            onChange={setNameFilter}
+            clearLabel={t("teams.clearNameFilter")}
+          />
+          <ClearableTextInput
+            label={t("common.field.email")}
+            value={emailFilter}
+            onChange={setEmailFilter}
+            clearLabel={t("teams.clearEmailFilter")}
+          />
+          <Select
+            label={t("teams.team")}
+            placeholder={t("common.state.any")}
+            data={teamOptions}
+            value={teamFilter}
+            onChange={setTeamFilter}
+            clearable
+            clearButtonProps={{ "aria-label": t("teams.clearTeamFilter") }}
+            searchable
+          />
+        </FilterPanel>
+        {/* Column headers are gone with the table — sorting lives up here instead. */}
+        <Group gap="xs" wrap="nowrap">
+          <Select
+            size="xs"
+            w={130}
+            aria-label={t("common.sort.label")}
+            data={SORT_OPTIONS}
+            value={sortField}
+            allowDeselect={false}
+            onChange={(v) => {
+              if (v && v !== sortField) toggleSort(v as SortField);
+            }}
+          />
+          <ActionIcon
+            variant="default"
+            size="md"
+            onClick={() => toggleSort(sortField)}
+            aria-label={t("common.sort.toggleDirection")}
+          >
+            <DirIcon size={14} />
+          </ActionIcon>
+        </Group>
+      </Group>
 
       {isError && (
         <Alert color="red" title={t("teams.loadMembersTableFailed")}>
@@ -119,88 +167,72 @@ export default function TeamMembersTable({
         </Alert>
       )}
 
-      <Table striped highlightOnHover withTableBorder>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>
-              <SortHeader
-                field="name"
-                label={t("common.field.name")}
-                activeField={sortField}
-                activeDir={sortDir}
-                onToggle={toggleSort}
-              />
-            </Table.Th>
-            <Table.Th>
-              <SortHeader
-                field="email"
-                label={t("common.field.email")}
-                activeField={sortField}
-                activeDir={sortDir}
-                onToggle={toggleSort}
-              />
-            </Table.Th>
-            <Table.Th>
-              <SortHeader
-                field="teamName"
-                label={t("teams.team")}
-                activeField={sortField}
-                activeDir={sortDir}
-                onToggle={toggleSort}
-              />
-            </Table.Th>
-            <Table.Th aria-label={t("teams.provideFeedback")} style={{ width: 1 }} />
-            <Table.Th aria-label={t("teams.askForFeedback")} style={{ width: 1 }} />
-            <Table.Th aria-label={t("teams.requestFeedbackFor")} style={{ width: 1 }} />
-            <Table.Th aria-label={t("teams.feedbacks")} style={{ width: 1 }} />
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {isLoading && !data ? (
-            <Table.Tr>
-              <Table.Td colSpan={7}>
-                <Center py="md">
-                  <Loader size="sm" />
-                </Center>
-              </Table.Td>
-            </Table.Tr>
-          ) : data && data.items.length > 0 ? (
-            data.items.map((m) => (
-              <Table.Tr key={`${m.userId}-${m.teamId}`}>
-                <Table.Td>{m.name}</Table.Td>
-                <Table.Td>{m.email}</Table.Td>
-                <Table.Td>{m.teamName}</Table.Td>
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
-                  <FeedbackActionButton
+      {isLoading && !data ? (
+        <SimpleGrid cols={GRID_COLS} spacing="md">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} height={170} radius="md" />
+          ))}
+        </SimpleGrid>
+      ) : people.length > 0 ? (
+        <SimpleGrid component="ul" m={0} p={0} style={{ listStyle: "none" }} cols={GRID_COLS} spacing="md">
+          {people.map((m) => (
+            <Paper component="li" key={m.userId} withBorder radius="md" p="md">
+              <Stack gap="sm" h="100%">
+                <Group wrap="nowrap" gap="sm" align="flex-start">
+                  <Avatar name={m.name} color="initials" radius="xl" size="md" />
+                  <Stack gap={2} style={{ minWidth: 0, flex: 1 }}>
+                    <Text fw={600} truncate>
+                      {m.name}
+                    </Text>
+                    <Text size="sm" c="dimmed" truncate>
+                      {m.email}
+                    </Text>
+                    <Group gap={4}>
+                      {m.teamNames.map((team) => (
+                        <Badge key={team} variant="light" size="sm">
+                          {team}
+                        </Badge>
+                      ))}
+                    </Group>
+                  </Stack>
+                </Group>
+                <Divider mt="auto" />
+                <Group gap="xs" wrap="wrap">
+                  <Button
+                    component={RouterLink}
                     to={feedbackProvideLink(m.userId, m.name, backTo)}
-                    icon={<IconMessagePlus size={14} />}
-                    label={t("teams.provideFeedback")}
-                    ariaLabel={t("teams.provideFeedbackToAria", { name: m.name })}
-                  />
-                </Table.Td>
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
-                  <FeedbackActionButton
+                    variant="light"
+                    size="xs"
+                    leftSection={<IconMessagePlus size={14} />}
+                    aria-label={t("teams.provideFeedbackToAria", { name: m.name })}
+                  >
+                    {t("teams.provideFeedback")}
+                  </Button>
+                  <Button
+                    component={RouterLink}
                     to={feedbackAskLink(m.userId, m.name, backTo)}
-                    icon={<IconMessageQuestion size={14} />}
-                    label={t("teams.askForFeedback")}
-                    ariaLabel={t("teams.askForFeedbackAria", { name: m.name })}
-                  />
-                </Table.Td>
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                    variant="light"
+                    size="xs"
+                    leftSection={<IconMessageQuestion size={14} />}
+                    aria-label={t("teams.askForFeedbackAria", { name: m.name })}
+                  >
+                    {t("teams.askForFeedback")}
+                  </Button>
                   {view === "managed" && (
-                    <FeedbackActionButton
+                    <Button
+                      component={RouterLink}
                       to={feedbackRequestLink(m.userId, m.name, backTo)}
-                      icon={<IconUserPlus size={14} />}
-                      label={t("teams.requestFeedbackFor")}
-                      ariaLabel={t("teams.requestFeedbackAboutAria", { name: m.name })}
-                    />
+                      variant="light"
+                      size="xs"
+                      leftSection={<IconUserPlus size={14} />}
+                      aria-label={t("teams.requestFeedbackAboutAria", { name: m.name })}
+                    >
+                      {t("teams.requestFeedbackFor")}
+                    </Button>
                   )}
-                </Table.Td>
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                   <Button
                     component={RouterLink}
                     to={`/users/${m.userId}/feedbacks?name=${encodeURIComponent(m.name)}&from=${view === "managed" ? "subordinates" : "peers"}`}
-                    color="blue"
                     variant="subtle"
                     size="xs"
                     leftSection={<IconMessages size={14} />}
@@ -208,20 +240,21 @@ export default function TeamMembersTable({
                   >
                     {t("teams.feedbacks")}
                   </Button>
-                </Table.Td>
-              </Table.Tr>
-            ))
-          ) : (
-            <Table.Tr>
-              <Table.Td colSpan={7}>
-                <Text c="dimmed" ta="center">
-                  {emptyMessage}
-                </Text>
-              </Table.Td>
-            </Table.Tr>
-          )}
-        </Table.Tbody>
-      </Table>
+                </Group>
+              </Stack>
+            </Paper>
+          ))}
+        </SimpleGrid>
+      ) : (
+        !isError && (
+          <Center py="xl">
+            <Stack align="center" gap="xs">
+              <IconUsersGroup size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />
+              <Text c="dimmed">{emptyMessage}</Text>
+            </Stack>
+          </Center>
+        )
+      )}
 
       <PaginationBar
         total={total}

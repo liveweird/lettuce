@@ -57,6 +57,10 @@
     "ADMIN": "Administrator",
     "USER": "Użytkownik"
   },
+  "sort": {
+    "label": "Sortuj według",
+    "toggleDirection": "Przełącz kierunek sortowania"
+  },
   "language": {
     "label": "Język"
   },
