@@ -7,7 +7,6 @@
   "loadError": "Nie udało się wczytać powiadomień",
   "unknownError": "Nieznany błąd",
   "empty": "Brak powiadomień.",
-  "new": "Nowe",
   "markSeen": "Oznacz jako przeczytane",
   "markAllSeen": "Oznacz wszystkie jako przeczytane",
   "markSeenAria": "Oznacz powiadomienie {{id}} jako przeczytane",

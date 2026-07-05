@@ -5,7 +5,6 @@
   "loadError": "Failed to load notifications",
   "unknownError": "Unknown error",
   "empty": "No notifications.",
-  "new": "New",
   "markSeen": "Mark as seen",
   "markAllSeen": "Mark all as seen",
   "markSeenAria": "Mark notification {{id}} as seen",

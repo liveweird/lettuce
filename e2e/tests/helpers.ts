@@ -148,12 +148,12 @@ export async function openBell(page: Page) {
 }
 
 /**
- * The notification card whose message contains `text`. Notification texts interpolate only party
+ * The notification row whose message contains `text`. Notification texts interpolate only party
  * names (not unique content), so identical messages accumulate across runs — the list is sorted
  * newest-first, so `.first()` is the one this spec just minted.
  */
 export function notificationCard(dialog: Locator, text: string) {
-  return dialog.locator(".mantine-Paper-root").filter({ hasText: text }).first();
+  return dialog.getByRole("listitem").filter({ hasText: text }).first();
 }
 
 /**

@@ -34,19 +34,19 @@ test("recipient toggles seen/unseen and marks all notifications as seen", async 
   const dialog = await openBell(page);
   const card = notificationCard(dialog, "AAA One requested feedback about AAA One.");
   await expect(card).toBeVisible();
-  await expect(card.getByText("New")).toBeVisible();
 
   // Mark that one as seen → its row restyles and offers "Mark as unseen". The buttons'
   // accessible names are their per-id aria-labels ("Mark notification 12 as seen"), not the
-  // visible text.
+  // tooltip text.
   const markSeenBtn = card.getByRole("button", { name: /Mark notification \d+ as seen/ });
   const markUnseenBtn = card.getByRole("button", { name: /Mark notification \d+ as unseen/ });
+  await expect(markSeenBtn).toBeVisible();
   await Promise.all([
     page.waitForResponse((r) => /\/notifications\/\d+\/seen$/.test(r.url()) && r.ok()),
     markSeenBtn.click(),
   ]);
   await expect(markUnseenBtn).toBeVisible();
-  await expect(card.getByText("New")).toHaveCount(0);
+  await expect(markSeenBtn).toHaveCount(0);
 
   // …and back to unseen.
   await Promise.all([
