@@ -88,12 +88,12 @@ describe("EditFeedback page", () => {
     expect((await screen.findByLabelText("Content", { selector: "textarea" })) as HTMLTextAreaElement).toHaveValue(
       "Initial thoughts",
     );
-    expect((screen.getByLabelText("Subject") as HTMLInputElement).value).toBe("Mona");
+    expect(screen.getByText("You → Mona")).toBeInTheDocument();
     expect((screen.getByPlaceholderText("Select visibility") as HTMLInputElement).value).toBe(
       "Provider + subject",
     );
-    // No requester on this feedback → no Requester field.
-    expect(screen.queryByLabelText("Requester")).toBeNull();
+    // No requester on this feedback → no "requested by" clause in the people line.
+    expect(screen.queryByText(/requested by/)).toBeNull();
   });
 
   test("Delete on a draft confirms, issues DELETE, and returns to the provided tab", async () => {
@@ -139,15 +139,14 @@ describe("EditFeedback page", () => {
     )) as HTMLInputElement;
     expect(visibility.value).toBe("Provider + requester + subject");
 
-    // The resolved requester name is shown read-only.
-    const requester = screen.getByLabelText("Requester") as HTMLInputElement;
-    expect(requester.value).toBe("Rita Requester");
-    expect(requester).toBeDisabled();
+    // The resolved requester name is shown in the people line.
+    expect(screen.getByText(/· requested by Rita Requester/)).toBeInTheDocument();
 
-    // The requester's clarification message is carried into the editor, read-only.
-    const message = screen.getByLabelText("Message from the requester") as HTMLTextAreaElement;
-    expect(message).toHaveValue("Please assess my Q3 delivery");
-    expect(message).toHaveAttribute("readonly");
+    // The requester's clarification message is carried into the editor behind a collapsed toggle.
+    const messageToggle = screen.getByRole("button", { name: "Message from the requester" });
+    expect(messageToggle).toHaveAttribute("aria-expanded", "false");
+    await user.click(messageToggle);
+    expect(await screen.findByText("Please assess my Q3 delivery")).toBeInTheDocument();
 
     await user.click(visibility);
     // The Template select's listbox is empty here, so the only options in the DOM are visibility's.

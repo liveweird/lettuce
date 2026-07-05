@@ -59,5 +59,5 @@ test("subject cannot see a draft, then receives and reads the sent feedback via 
   await card.getByRole("button", { name: "Go to" }).click();
   await expect(page).toHaveURL(new RegExp(`/feedback/${id}/view`));
   await expect(page.getByText(body)).toBeVisible();
-  await expect(page.getByLabel("Status")).toHaveValue("Sent");
+  await expect(page.getByLabel("Status")).toHaveText("Sent");
 });

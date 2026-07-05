@@ -33,7 +33,7 @@ test("provider drafts, sends, and withdraws a feedback", async ({ page }) => {
   // The now-Sent feedback shows our content read-only.
   await page.goto(`/feedback/${id}/view`);
   await expect(page.getByText(body)).toBeVisible();
-  await expect(page.getByLabel("Status")).toHaveValue("Sent");
+  await expect(page.getByLabel("Status")).toHaveText("Sent");
 
   // Withdraw it (POST /withdraw) via the confirmation modal.
   await page.getByRole("button", { name: "Withdraw" }).click();
@@ -45,5 +45,5 @@ test("provider drafts, sends, and withdraws a feedback", async ({ page }) => {
   ]);
 
   await page.goto(`/feedback/${id}/view`);
-  await expect(page.getByLabel("Status")).toHaveValue("Withdrawn");
+  await expect(page.getByLabel("Status")).toHaveText("Withdrawn");
 });

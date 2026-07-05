@@ -65,7 +65,7 @@ describe("FeedbackForm", () => {
     renderWithProviders(<FeedbackForm {...baseProps} onSubmit={onSubmit} />);
 
     expect(screen.getByRole("heading", { name: "Edit feedback" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Subject")).toHaveValue("Sam Subject");
+    expect(screen.getByText("You → Sam Subject")).toBeInTheDocument();
 
     // The editor is lazy-loaded, so wait for it to resolve before typing.
     await user.type(await screen.findByLabelText("Content"), "Nice work");
@@ -76,16 +76,16 @@ describe("FeedbackForm", () => {
     expect(onSubmit).toHaveBeenCalledWith("SENT", expect.objectContaining({ content: "Nice work" }));
   });
 
-  test("shows the read-only Last modified field only when the prop is provided", () => {
+  test("shows the Last modified line only when the prop is provided", () => {
     const ts = new Date(2026, 0, 5, 9, 7).getTime();
     const { unmount } = renderWithProviders(
       <FeedbackForm {...baseProps} onSubmit={() => {}} lastModified={ts} />,
     );
-    expect(screen.getByLabelText("Last modified")).toHaveValue(formatTimestamp(ts));
+    expect(screen.getByText(`Last modified ${formatTimestamp(ts)}`)).toBeInTheDocument();
     unmount();
 
     renderWithProviders(<FeedbackForm {...baseProps} onSubmit={() => {}} />);
-    expect(screen.queryByLabelText("Last modified")).toBeNull();
+    expect(screen.queryByText(/^Last modified /)).toBeNull();
   });
 
   test("with showTemplateInsert, fetches the template picker and gates Insert until a pick", async () => {
@@ -113,17 +113,17 @@ describe("FeedbackForm", () => {
     ).toBe(false);
   });
 
-  test("shows a read-only Requester field only when requesterDisplay is provided", () => {
+  test("names the requester in the people line only when requesterDisplay is provided", () => {
     const { unmount } = renderWithProviders(
       <FeedbackForm {...baseProps} onSubmit={() => {}} requesterDisplay="Rita Requester" />,
     );
-    const requester = screen.getByLabelText("Requester") as HTMLInputElement;
-    expect(requester.value).toBe("Rita Requester");
-    expect(requester).toBeDisabled();
+    expect(
+      screen.getByText("You → Sam Subject · requested by Rita Requester"),
+    ).toBeInTheDocument();
     unmount();
 
     renderWithProviders(<FeedbackForm {...baseProps} onSubmit={() => {}} />);
-    expect(screen.queryByLabelText("Requester")).toBeNull();
+    expect(screen.queryByText(/requested by/)).toBeNull();
   });
 
   test("renders the error prop as an alert", () => {

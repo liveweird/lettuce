@@ -65,16 +65,16 @@ describe("ViewFeedback page", () => {
     mockFetch.mockResolvedValue(jsonResponse(200, FEEDBACK));
     renderViewFeedback();
 
-    expect((await screen.findByLabelText("Provider")) as HTMLInputElement).toHaveValue("Alice");
-    expect((screen.getByLabelText("Subject") as HTMLInputElement).value).toBe("You");
-    // No requester on this feedback → no Requester field at all.
-    expect(screen.queryByLabelText("Requester")).toBeNull();
-    expect((screen.getByLabelText("Visibility") as HTMLInputElement).value).toBe("Public");
-    expect((screen.getByLabelText("Status") as HTMLInputElement).value).toBe("Sent");
+    // The compact header: one people line plus status/visibility badges.
+    expect(await screen.findByText("Alice → You")).toBeInTheDocument();
+    // No requester on this feedback → no "requested by" clause.
+    expect(screen.queryByText(/requested by/)).toBeNull();
+    expect(screen.getByLabelText("Visibility")).toHaveTextContent("Public");
+    expect(screen.getByLabelText("Status")).toHaveTextContent("Sent");
     // Content renders as read-only markdown, not an editable form control.
     expect(screen.getByText("Nice work on the launch")).toBeInTheDocument();
-    // No requester message on this feedback → no message field.
-    expect(screen.queryByLabelText("Message from the requester")).toBeNull();
+    // No requester message on this feedback → no message toggle.
+    expect(screen.queryByText("Message from the requester")).toBeNull();
 
     // Everything is read-only: there is no editable Content control nor a Save control, only Close.
     expect(screen.queryByRole("textbox", { name: /content/i })).not.toBeInTheDocument();
@@ -90,17 +90,18 @@ describe("ViewFeedback page", () => {
     ).toBe(true);
   });
 
-  test("shows the requester's message read-only when present", async () => {
+  test("shows the requester's message behind a collapsed toggle when present", async () => {
     mockFetch.mockResolvedValue(
       jsonResponse(200, { ...FEEDBACK, requesterMessage: "Please focus on delivery" }),
     );
+    const user = userEvent.setup();
     renderViewFeedback();
 
-    const field = (await screen.findByLabelText(
-      "Message from the requester",
-    )) as HTMLTextAreaElement;
-    expect(field).toHaveValue("Please focus on delivery");
-    expect(field).toHaveAttribute("readonly");
+    const toggle = await screen.findByRole("button", { name: "Message from the requester" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(await screen.findByText("Please focus on delivery")).toBeVisible();
   });
 
   test("renders the feedback history timeline from the events endpoint", async () => {
@@ -135,15 +136,15 @@ describe("ViewFeedback page", () => {
     expect(await screen.findByRole("img", { name: /lifecycle/i })).toBeInTheDocument();
   });
 
-  test("shows a read-only Requester field with the resolved name when there is a requester", async () => {
+  test("the people line names the requester when there is one", async () => {
     mockFetch.mockResolvedValue(
       jsonResponse(200, { ...FEEDBACK, requesterId: 9, requesterName: "Rita Requester" }),
     );
     renderViewFeedback();
 
-    const requester = (await screen.findByLabelText("Requester")) as HTMLInputElement;
-    expect(requester.value).toBe("Rita Requester");
-    expect(requester).toBeDisabled();
+    expect(
+      await screen.findByText("Alice → You · requested by Rita Requester"),
+    ).toBeInTheDocument();
   });
 
   test("404 shows a not-found alert with a Close link", async () => {
@@ -177,22 +178,21 @@ describe("ViewFeedback page", () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  test("the provider sees 'You' in the Provider field; as=provider Close links to the provided tab", async () => {
+  test("the provider sees 'You' in the people line; as=provider Close links to the provided tab", async () => {
     // Identity, not the as= hint, drives the "You" substitution: caller (7) is the provider.
     mockFetch.mockResolvedValue(
       jsonResponse(200, { ...FEEDBACK, providerId: 7, subjectId: 8, subjectName: "Mona" }),
     );
     renderViewFeedback("?as=provider");
 
-    expect((await screen.findByLabelText("Provider")) as HTMLInputElement).toHaveValue("You");
-    expect((screen.getByLabelText("Subject") as HTMLInputElement).value).toBe("Mona");
+    expect(await screen.findByText("You → Mona")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /close/i })).toHaveAttribute(
       "href",
       "/feedback?tab=provided",
     );
   });
 
-  test("the requester sees 'You' in the Requester field", async () => {
+  test("the requester sees 'You' in the people line", async () => {
     // Caller (7) is the requester → "You", regardless of the resolved requesterName.
     mockFetch.mockResolvedValue(
       jsonResponse(200, {
@@ -204,14 +204,14 @@ describe("ViewFeedback page", () => {
     );
     renderViewFeedback();
 
-    expect((await screen.findByLabelText("Requester")) as HTMLInputElement).toHaveValue("You");
+    expect(await screen.findByText(/· requested by You$/)).toBeInTheDocument();
   });
 
   test("as=team Close links to the team tab", async () => {
     mockFetch.mockResolvedValue(jsonResponse(200, FEEDBACK));
     renderViewFeedback("?as=team&subjectName=Mona");
 
-    await screen.findByLabelText("Provider");
+    await screen.findByLabelText("Status");
     expect(screen.getByRole("link", { name: /close/i })).toHaveAttribute(
       "href",
       "/feedback?tab=team",
@@ -223,7 +223,7 @@ describe("ViewFeedback page", () => {
     const back = encodeURIComponent("/users/10/feedbacks?name=Alice");
     renderViewFeedback(`?providerName=Alice&back=${back}`);
 
-    await screen.findByLabelText("Provider");
+    await screen.findByLabelText("Status");
     expect(screen.getByRole("link", { name: /close/i })).toHaveAttribute(
       "href",
       "/users/10/feedbacks?name=Alice",
@@ -283,7 +283,7 @@ describe("ViewFeedback page", () => {
     mockFetch.mockResolvedValue(jsonResponse(200, FEEDBACK));
     renderViewFeedback();
 
-    await screen.findByLabelText("Provider");
+    await screen.findByLabelText("Status");
     expect(screen.queryByRole("button", { name: /^withdraw$/i })).not.toBeInTheDocument();
   });
 
@@ -300,7 +300,7 @@ describe("ViewFeedback page", () => {
     renderViewFeedback();
 
     // Other fields still render, but Content (label + body) is gone.
-    expect((await screen.findByLabelText("Status")) as HTMLInputElement).toHaveValue("Requested");
+    expect(await screen.findByLabelText("Status")).toHaveTextContent("Requested");
     expect(screen.getByText("Content isn't available yet.")).toBeInTheDocument();
     expect(screen.queryByText("should not show")).not.toBeInTheDocument();
   });
@@ -316,7 +316,7 @@ describe("ViewFeedback page", () => {
     );
     renderViewFeedback();
 
-    expect((await screen.findByLabelText("Status")) as HTMLInputElement).toHaveValue("Rejected");
+    expect(await screen.findByLabelText("Status")).toHaveTextContent("Rejected");
     expect(screen.getByText("Content isn't available yet.")).toBeInTheDocument();
     expect(screen.queryByText("should not show")).not.toBeInTheDocument();
   });
@@ -334,7 +334,7 @@ describe("ViewFeedback page", () => {
     );
     renderViewFeedback();
 
-    expect((await screen.findByLabelText("Status")) as HTMLInputElement).toHaveValue("Draft");
+    expect(await screen.findByLabelText("Status")).toHaveTextContent("Draft");
     expect(screen.getByText("Content isn't available yet.")).toBeInTheDocument();
   });
 

@@ -309,7 +309,7 @@ export default function EditFeedback() {
         title={t("feedback.editTitle")}
         feedbackId={data!.id}
         currentStatus={data!.status}
-        subjectDisplay={subjectName ?? `#${data!.subjectId}`}
+        subjectDisplay={data!.subjectName ?? subjectName ?? `#${data!.subjectId}`}
         initialVisibility={clampVisibility(data!.visibility, hasRequester)}
         visibilityOptions={visibilityOptions}
         requesterDisplay={hasRequester ? (data!.requesterName ?? `#${data!.requesterId}`) : undefined}

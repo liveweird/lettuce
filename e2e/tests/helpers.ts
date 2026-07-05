@@ -133,10 +133,10 @@ export async function provideFeedback(
   return (await created.json()).id;
 }
 
-/** Open /feedback/{id}/view and assert the read-only Status field shows `expected`. */
+/** Open /feedback/{id}/view and assert the header's Status badge shows `expected`. */
 export async function expectStatus(page: Page, id: number, expected: string): Promise<void> {
   await page.goto(`/feedback/${id}/view`);
-  await expect(page.getByLabel("Status")).toHaveValue(expected);
+  await expect(page.getByLabel("Status")).toHaveText(expected);
 }
 
 /** Open the notifications bell modal; returns the dialog locator. */

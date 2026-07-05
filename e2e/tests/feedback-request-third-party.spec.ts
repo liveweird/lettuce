@@ -53,7 +53,9 @@ test("manager requests feedback about a subordinate; provider sees the message, 
     ),
     page.getByRole("button", { name: "Accept" }).click(),
   ]);
-  await expect(page.getByRole("textbox", { name: "Message from the requester" })).toHaveValue(message);
+  // In the editor the message sits behind a collapsed toggle; expand it to read it.
+  await page.getByRole("button", { name: "Message from the requester" }).click();
+  await expect(page.getByText(message)).toBeVisible();
   await typeContent(page, body);
   await Promise.all([
     page.waitForResponse(
@@ -77,5 +79,5 @@ test("manager requests feedback about a subordinate; provider sees the message, 
   await page.keyboard.press("Escape");
   await page.goto(`/feedback/${id}/view`);
   await expect(page.getByText(body)).toBeVisible();
-  await expect(page.getByLabel("Status")).toHaveValue("Sent");
+  await expect(page.getByLabel("Status")).toHaveText("Sent");
 });

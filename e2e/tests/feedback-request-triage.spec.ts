@@ -54,7 +54,7 @@ test("provider accepts a request, then drafts and sends it", async ({ page }) =>
 
   await page.goto(`/feedback/${id}/view`);
   await expect(page.getByText(body)).toBeVisible();
-  await expect(page.getByLabel("Status")).toHaveValue("Sent");
+  await expect(page.getByLabel("Status")).toHaveText("Sent");
 });
 
 test("provider rejects a request", async ({ page }) => {
@@ -74,5 +74,5 @@ test("provider rejects a request", async ({ page }) => {
   ]);
 
   await page.goto(`/feedback/${id}/view`);
-  await expect(page.getByLabel("Status")).toHaveValue("Rejected");
+  await expect(page.getByLabel("Status")).toHaveText("Rejected");
 });

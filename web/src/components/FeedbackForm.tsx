@@ -9,13 +9,10 @@ import {
   Modal,
   Paper,
   Select,
-  SimpleGrid,
   Skeleton,
   Stack,
   Tabs,
   Text,
-  TextInput,
-  Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
@@ -28,9 +25,9 @@ import {
   type FeedbackStatus,
   type FeedbackVisibility,
 } from "../api/client";
-import { formatTimestamp } from "../utils/datetime";
 import FeedbackHistory from "./FeedbackHistory";
 import FeedbackLifecycle from "./FeedbackLifecycle";
+import FeedbackMeta from "./FeedbackMeta";
 import RequesterMessage from "./RequesterMessage";
 
 // The WYSIWYG editor pulls in MDXEditor/Lexical (~0.5 MB minified) — load it on demand so
@@ -159,9 +156,62 @@ export default function FeedbackForm({
     </Suspense>
   );
 
+  // The interactive controls live in one compact row right above the editor (not in a
+  // metadata grid up top) so the editor keeps the bulk of the viewport.
+  const editorControls = (
+    <Group gap="sm" align="flex-end" wrap="wrap">
+      <Select
+        label={t("common.field.visibility")}
+        placeholder={t("feedback.selectVisibility")}
+        data={resolvedVisibilityOptions}
+        allowDeselect={false}
+        w={280}
+        {...form.getInputProps("visibility")}
+      />
+      {showTemplateInsert && (
+        <>
+          <Select
+            label={t("feedback.template")}
+            placeholder={
+              templatesQuery.isLoading ? t("common.state.loading") : t("feedback.pickTemplate")
+            }
+            data={templateOptions}
+            searchable
+            disabled={templatesQuery.isLoading}
+            nothingFoundMessage={t("feedback.noMatchingTemplates")}
+            value={selectedTemplateId}
+            onChange={setSelectedTemplateId}
+            w={280}
+          />
+          <Button
+            type="button"
+            variant="default"
+            onClick={insertTemplate}
+            loading={inserting}
+            disabled={selectedTemplateId == null || inserting}
+          >
+            {t("feedback.insert")}
+          </Button>
+        </>
+      )}
+    </Group>
+  );
+
+  const editorPane = (
+    <Stack gap="sm" style={{ flex: 1, minHeight: 0 }}>
+      {editorControls}
+      {templateError && (
+        <Alert color="red" variant="light">
+          {templateError}
+        </Alert>
+      )}
+      {editor}
+    </Stack>
+  );
+
   return (
     <Container
-      size="sm"
+      size="md"
       px={0}
       style={{
         display: "flex",
@@ -184,69 +234,15 @@ export default function FeedbackForm({
           style={{ flex: 1, display: "flex", flexDirection: "column" }}
         >
           <Stack style={{ flex: 1 }}>
-            <Title order={2}>{title}</Title>
-            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-              <Stack gap="sm">
-                <TextInput label={t("common.field.subject")} value={subjectDisplay} disabled />
-                <TextInput label={t("common.field.provider")} value={t("common.state.you")} disabled />
-                {requesterDisplay != null && (
-                  <TextInput label={t("common.field.requester")} value={requesterDisplay} disabled />
-                )}
-              </Stack>
-              <Stack gap="sm">
-                <Select
-                  label={t("common.field.visibility")}
-                  placeholder={t("feedback.selectVisibility")}
-                  data={resolvedVisibilityOptions}
-                  allowDeselect={false}
-                  {...form.getInputProps("visibility")}
-                />
-                {showTemplateInsert && (
-                  <Stack gap="xs">
-                    <Group gap="sm" align="flex-end" wrap="nowrap">
-                      <Select
-                        label={t("feedback.template")}
-                        placeholder={
-                          templatesQuery.isLoading
-                            ? t("common.state.loading")
-                            : t("feedback.pickTemplate")
-                        }
-                        data={templateOptions}
-                        searchable
-                        disabled={templatesQuery.isLoading}
-                        nothingFoundMessage={t("feedback.noMatchingTemplates")}
-                        value={selectedTemplateId}
-                        onChange={setSelectedTemplateId}
-                        style={{ flex: 1 }}
-                      />
-                      <Button
-                        type="button"
-                        variant="default"
-                        onClick={insertTemplate}
-                        loading={inserting}
-                        disabled={selectedTemplateId == null || inserting}
-                      >
-                        {t("feedback.insert")}
-                      </Button>
-                    </Group>
-                    {templateError && (
-                      <Alert color="red" variant="light">
-                        {templateError}
-                      </Alert>
-                    )}
-                  </Stack>
-                )}
-                {lastModified != null && (
-                  <TextInput
-                    label={t("common.field.lastModified")}
-                    value={formatTimestamp(lastModified)}
-                    disabled
-                  />
-                )}
-              </Stack>
-            </SimpleGrid>
-            {/* Below the grid so it spans both columns — same position as on the view screen. */}
-            <RequesterMessage value={requesterMessage} />
+            <FeedbackMeta
+              title={title}
+              status={currentStatus}
+              providerDisplay={t("common.state.you")}
+              subjectDisplay={subjectDisplay}
+              requesterDisplay={requesterDisplay}
+              lastModified={lastModified}
+            />
+            <RequesterMessage value={requesterMessage} collapsible />
             {feedbackId != null ? (
               <Tabs
                 defaultValue="content"
@@ -262,7 +258,7 @@ export default function FeedbackForm({
                   pt="md"
                   style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}
                 >
-                  {editor}
+                  {editorPane}
                 </Tabs.Panel>
                 <Tabs.Panel value="history" pt="md" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
                   <FeedbackHistory feedbackId={feedbackId} />
@@ -272,7 +268,7 @@ export default function FeedbackForm({
                 </Tabs.Panel>
               </Tabs>
             ) : (
-              editor
+              editorPane
             )}
             {error && (
               <Alert color="red" variant="light">

@@ -16,11 +16,9 @@ import {
   Loader,
   Modal,
   Paper,
-  SimpleGrid,
   Stack,
   Tabs,
   Text,
-  TextInput,
   Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
@@ -35,8 +33,8 @@ import {
   withdrawFeedback,
   type FeedbackStatus,
 } from "../api/client";
-import { formatTimestamp } from "../utils/datetime";
 import FeedbackHistory from "../components/FeedbackHistory";
+import FeedbackMeta from "../components/FeedbackMeta";
 import FeedbackLifecycle from "../components/FeedbackLifecycle";
 import MarkdownView from "../components/MarkdownView";
 import RequesterMessage from "../components/RequesterMessage";
@@ -143,7 +141,7 @@ export default function ViewFeedback() {
 
   return (
     <Container
-      size="sm"
+      size="md"
       px={0}
       style={{
         display: "flex",
@@ -162,13 +160,16 @@ export default function ViewFeedback() {
         style={{ flex: 1, display: "flex", flexDirection: "column" }}
       >
         <Stack style={{ flex: 1, minHeight: 0 }}>
-          <Title order={2}>{t("feedback.viewTitle")}</Title>
           {isLoading ? (
-            <Center py="xl">
-              <Loader />
-            </Center>
+            <>
+              <Title order={2}>{t("feedback.viewTitle")}</Title>
+              <Center py="xl">
+                <Loader />
+              </Center>
+            </>
           ) : isError ? (
             <>
+              <Title order={2}>{t("feedback.viewTitle")}</Title>
               <Alert color="red" variant="light">
                 {errorMessage}
               </Alert>
@@ -180,57 +181,30 @@ export default function ViewFeedback() {
             </>
           ) : (
             <>
-              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-                <Stack gap="sm">
-                  {data!.requesterId != null && (
-                    <TextInput
-                      label={t("common.field.requester")}
-                      value={
-                        isRequester
-                          ? t("common.state.you")
-                          : (data!.requesterName ?? requesterName ?? `#${data!.requesterId}`)
-                      }
-                      disabled
-                    />
-                  )}
-                  <TextInput
-                    label={t("common.field.subject")}
-                    value={
-                      isSubject
-                        ? t("common.state.you")
-                        : (data!.subjectName ?? subjectName ?? `#${data!.subjectId}`)
-                    }
-                    disabled
-                  />
-                  <TextInput
-                    label={t("common.field.provider")}
-                    value={
-                      isProvider
-                        ? t("common.state.you")
-                        : (data!.providerName ?? providerName ?? `#${data!.providerId}`)
-                    }
-                    disabled
-                  />
-                </Stack>
-                <Stack gap="sm">
-                  <TextInput
-                    label={t("common.field.visibility")}
-                    value={t(`common.visibility.${data!.visibility}`)}
-                    disabled
-                  />
-                  <TextInput
-                    label={t("common.field.status")}
-                    value={t(`common.status.${data!.status}`)}
-                    disabled
-                  />
-                  <TextInput
-                    label={t("common.field.lastModified")}
-                    value={formatTimestamp(data!.lastModified)}
-                    disabled
-                  />
-                </Stack>
-              </SimpleGrid>
-              <RequesterMessage value={data!.requesterMessage} />
+              <FeedbackMeta
+                title={t("feedback.viewTitle")}
+                status={data!.status}
+                visibility={data!.visibility}
+                providerDisplay={
+                  isProvider
+                    ? t("common.state.you")
+                    : (data!.providerName ?? providerName ?? `#${data!.providerId}`)
+                }
+                subjectDisplay={
+                  isSubject
+                    ? t("common.state.you")
+                    : (data!.subjectName ?? subjectName ?? `#${data!.subjectId}`)
+                }
+                requesterDisplay={
+                  data!.requesterId != null
+                    ? isRequester
+                      ? t("common.state.you")
+                      : (data!.requesterName ?? requesterName ?? `#${data!.requesterId}`)
+                    : undefined
+                }
+                lastModified={data!.lastModified}
+              />
+              <RequesterMessage value={data!.requesterMessage} collapsible />
               <Tabs
                 defaultValue="content"
                 style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}
