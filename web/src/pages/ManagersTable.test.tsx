@@ -83,6 +83,27 @@ describe("ManagersTable", () => {
     );
   });
 
+  test("a manager of two of my teams gets one card with both team badges", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        items: [
+          { userId: 1, name: "Manager One", email: "m1@example.com", teamId: 5, teamName: "alpha" },
+          { userId: 1, name: "Manager One", email: "m1@example.com", teamId: 9, teamName: "beta" },
+        ],
+        page: 1,
+        pageSize: 100,
+        total: 2,
+      }),
+    );
+    renderWithProviders(<ManagersTable />);
+
+    // One card (one name, one set of actions), both teams as badges.
+    expect(await screen.findAllByText("Manager One")).toHaveLength(1);
+    expect(screen.getByText("alpha")).toBeInTheDocument();
+    expect(screen.getByText("beta")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /provide feedback to manager one/i })).toHaveLength(1);
+  });
+
   test("shows an empty state when there are no managers", async () => {
     mockFetch.mockResolvedValue(
       jsonResponse(200, { items: [], page: 1, pageSize: 100, total: 0 }),
