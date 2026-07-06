@@ -339,14 +339,16 @@ export interface paths {
          *       row the caller requested has its `contentPreview` redacted (empty) until it is sent.
          *     - `view=provided`: rows where the caller is the provider, regardless of visibility
          *       (a provider may always read their own records).
-         *     - `view=team`: rows where the subject is in the caller's **transitive management chain**
-         *       — a member of a non-deleted team the caller manages, or (recursively) of a team managed
-         *       by one of those members (the caller's direct and indirect subordinates) — AND the caller
-         *       is a **party** to the row — its provider or requester (at any status) — OR `status` is
-         *       `SENT`/`WITHDRAWN`. Intended for a manager's overview; in-progress
-         *       (`DRAFT`/`REQUESTED`/`REJECTED`) rows the manager is not a party to are excluded. A
-         *       caller who manages no team gets an empty page. When the manager is also the requester of
-         *       an unfinished row, its `contentPreview` is redacted (empty) until sent.
+         *     - `view=team`: rows where the subject is one of the caller's **direct reports** (a member
+         *       of a non-deleted team the caller manages) — or, with `includeIndirect=true`, anyone in
+         *       the caller's **transitive management chain** (also members of teams managed, recursively,
+         *       by those members) — AND the caller is a **party** to the row — its provider or
+         *       requester (at any status) — OR `status` is `SENT`/`WITHDRAWN`. Intended for a manager's
+         *       overview; in-progress (`DRAFT`/`REQUESTED`/`REJECTED`) rows the manager is not a party to
+         *       are excluded. A caller who manages no team gets an empty page. When the manager is also
+         *       the requester of an unfinished row, its `contentPreview` is redacted (empty) until sent.
+         *       Note the narrower direct-only default is a list scope, not an authorization boundary:
+         *       the single-GET grants any manager in the subject's chain read access once delivered.
          *
          *     Supports offset pagination, sorting and filtering.
          *
@@ -1893,6 +1895,14 @@ export interface operations {
                 sort?: components["parameters"]["Sort"];
                 /** @description Which caller-relative slice of feedbacks to list. */
                 view?: "received" | "provided" | "team";
+                /**
+                 * @description Only valid with `view=team` (else `400`). When `true`, widens the subject scope
+                 *     from the caller's direct reports to their whole transitive management chain:
+                 *     members of teams managed by the caller or by any of the caller's (direct or
+                 *     indirect) subordinates. Cycle-safe; the caller themselves never appears as subject
+                 *     through this scope.
+                 */
+                includeIndirect?: boolean;
                 /** @description Case-insensitive substring match against the requester's name. */
                 requesterName?: string;
                 /** @description Case-insensitive substring match against the subject's name. */

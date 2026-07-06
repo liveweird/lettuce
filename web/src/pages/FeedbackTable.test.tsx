@@ -169,6 +169,17 @@ describe("FeedbackTable (received view)", () => {
     expect(toggle).toHaveAttribute("aria-expanded", "false");
   });
 
+  test("the received view has no Reports scope filter", async () => {
+    setupMocks(mockFetch);
+    const user = userEvent.setup();
+    renderWithProviders(<FeedbackTable view="received" />);
+
+    await screen.findByText("Alice Provider");
+    await user.click(screen.getByRole("button", { name: /filters/i }));
+    expect(screen.getByLabelText(/requester/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Reports", { selector: "input" })).not.toBeInTheDocument();
+  });
+
   test("the Filters toggle shows a badge counting the active filters", async () => {
     setupMocks(mockFetch);
     const user = userEvent.setup();

@@ -270,6 +270,9 @@ export default function FeedbackTable({
   const [visibilityFilter, setVisibilityFilter] = useState<FeedbackVisibility | null>(null);
   const [statusFilter, setStatusFilter] = useState<FeedbackStatus | null>(null);
   const [lastModifiedFilter, setLastModifiedFilter] = useState<LastModifiedWindow>("all");
+  // Team view only: subjects limited to direct reports (default) or the whole management chain.
+  const [reportsScope, setReportsScope] = useState<"direct" | "all">("direct");
+  const includeIndirect = view === "team" && reportsScope === "all";
   // Filters without a rendered input stay "" and count 0, so this is per-view correct.
   // `lastModifiedFilter` defaults to the truthy "all" — compare against it, not truthiness.
   const activeFilterCount =
@@ -278,7 +281,8 @@ export default function FeedbackTable({
     (subjectFilter.trim() ? 1 : 0) +
     (visibilityFilter ? 1 : 0) +
     (statusFilter ? 1 : 0) +
-    (lastModifiedFilter !== "all" ? 1 : 0);
+    (lastModifiedFilter !== "all" ? 1 : 0) +
+    (includeIndirect ? 1 : 0);
 
   const [debouncedRequester] = useDebouncedValue(requesterFilter, 300);
   const [debouncedProvider] = useDebouncedValue(providerFilter, 300);
@@ -302,6 +306,7 @@ export default function FeedbackTable({
       visibilityFilter,
       statusFilter,
       lastModifiedFilter,
+      includeIndirect,
     ]);
 
   const { data, isLoading, isError, error } = useQuery({
@@ -319,6 +324,7 @@ export default function FeedbackTable({
       visibilityFilter,
       statusFilter,
       lastModifiedFilter,
+      includeIndirect,
     ],
     queryFn: () =>
       listFeedbacks({
@@ -334,6 +340,7 @@ export default function FeedbackTable({
         visibility: visibilityFilter ?? undefined,
         status: statusFilter ?? undefined,
         lastModifiedGte: lastModifiedCutoff(lastModifiedFilter),
+        includeIndirect: includeIndirect || undefined,
       }),
     placeholderData: keepPreviousData,
   });
@@ -384,6 +391,20 @@ export default function FeedbackTable({
           onChange={(v) => setLastModifiedFilter((v as LastModifiedWindow) ?? "all")}
           allowDeselect={false}
         />
+        {view === "team" && (
+          <Select
+            label={t("common.reportsScope.label")}
+            data={[
+              { value: "direct", label: t("common.reportsScope.direct") },
+              { value: "all", label: t("common.reportsScope.all") },
+            ]}
+            value={reportsScope}
+            allowDeselect={false}
+            onChange={(v) => {
+              if (v) setReportsScope(v as "direct" | "all");
+            }}
+          />
+        )}
       </FilterPanel>
 
       {isError && (

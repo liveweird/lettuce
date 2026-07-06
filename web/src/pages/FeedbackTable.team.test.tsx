@@ -205,6 +205,26 @@ describe("FeedbackTable (team view)", () => {
     });
   });
 
+  test("the Reports scope defaults to direct; switching to all reports adds includeIndirect=true", async () => {
+    setupMocks(mockFetch);
+    renderWithProviders(<FeedbackTable view="team" />);
+
+    await screen.findByText("Sam Subject");
+    // Default: direct reports only — no includeIndirect param on the request.
+    expect(feedbackUrls(mockFetch).every((url) => !url.includes("includeIndirect"))).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+    const scope = screen.getByLabelText("Reports", { selector: "input" });
+    expect(scope).toHaveValue("Direct reports only");
+
+    // happy-dom does not open Mantine comboboxes via userEvent's pointer simulation
+    fireEvent.click(scope);
+    fireEvent.click(await screen.findByRole("option", { name: "All reports (including indirect)" }));
+    await waitFor(() => {
+      expect(feedbackUrls(mockFetch).some((url) => url.includes("includeIndirect=true"))).toBe(true);
+    });
+  });
+
   test("shows Edit only for the current user's DRAFT row, View otherwise", async () => {
     setupMocks(mockFetch);
     renderWithProviders(<FeedbackTable view="team" />);

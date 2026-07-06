@@ -40,6 +40,11 @@
     "contains": "zawiera…",
     "title": "Filtry"
   },
+  "reportsScope": {
+    "label": "Podwładni",
+    "direct": "Tylko bezpośredni podwładni",
+    "all": "Wszyscy podwładni (także pośredni)"
+  },
   "status": {
     "REQUESTED": "Poproszono",
     "DRAFT": "Wersja robocza",

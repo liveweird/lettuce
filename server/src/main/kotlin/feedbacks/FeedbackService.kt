@@ -6,6 +6,7 @@ import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.notifications.Notification
 import ch.nokillswit.teams.TeamService
+import ch.nokillswit.teams.directSubordinateIds
 import ch.nokillswit.teams.transitiveSubordinateIds
 import ch.nokillswit.users.UserService
 import io.ktor.server.plugins.BadRequestException
@@ -204,6 +205,7 @@ class FeedbackService(val database: R2dbcDatabase) {
         callerUserId: UInt,
         filter: FeedbackListFilter,
         paging: PageRequest,
+        includeIndirect: Boolean = false,
     ): FeedbackListResult = suspendTransaction(database) {
         val scope: Op<Boolean> = when (view) {
             FeedbackListView.RECEIVED -> {
@@ -224,9 +226,12 @@ class FeedbackService(val database: R2dbcDatabase) {
             }
             FeedbackListView.PROVIDED -> Feedbacks.providerId eq callerUserId
             FeedbackListView.TEAM -> {
-                // Subjects in the caller's transitive management chain: members of teams the
-                // caller manages, plus (recursively) members of teams those members manage.
-                val subordinateIds = transitiveSubordinateIds(callerUserId)
+                // Direct reports by default; with includeIndirect the whole transitive
+                // management chain (members of teams the caller manages, plus recursively
+                // the members of teams those members manage).
+                val subordinateIds =
+                    if (includeIndirect) transitiveSubordinateIds(callerUserId)
+                    else directSubordinateIds(callerUserId)
                 // I see a subordinate's feedback if I'm a party (provider or requester) for any
                 // status; otherwise only once it's delivered (SENT/WITHDRAWN).
                 val iAmParty = (Feedbacks.providerId eq callerUserId) or
@@ -309,8 +314,10 @@ class FeedbackService(val database: R2dbcDatabase) {
     /**
      * True iff [managerId] is in [subjectId]'s management chain — the manager of a non-deleted
      * team the subject belongs to, or, transitively, the manager of such a manager, and so on.
-     * Mirrors the scope of [FeedbackListView.TEAM] so a manager who can list a
-     * subordinate's feedback can also read the individual record. Walks upward from the subject
+     * Mirrors the widest ([FeedbackListView.TEAM] with includeIndirect=true) list scope so a
+     * manager who can list a subordinate's feedback can also read the individual record
+     * (the list's direct-only default is a narrower slice of the same right, not a separate
+     * authorization). Walks upward from the subject
      * (bounded by chain height); a management cycle terminates via the visited set, and a caller
      * is never considered their own manager.
      */

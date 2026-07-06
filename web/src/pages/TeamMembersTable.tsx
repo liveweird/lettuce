@@ -142,10 +142,10 @@ export default function TeamMembersTable({
           />
           {view === "managed" && (
             <Select
-              label={t("teams.reportsScope")}
+              label={t("common.reportsScope.label")}
               data={[
-                { value: "direct", label: t("teams.reportsScopeDirect") },
-                { value: "all", label: t("teams.reportsScopeAll") },
+                { value: "direct", label: t("common.reportsScope.direct") },
+                { value: "all", label: t("common.reportsScope.all") },
               ]}
               value={reportsScope}
               allowDeselect={false}

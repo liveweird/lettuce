@@ -8,6 +8,7 @@ import ch.nokillswit.authz.requireFeedbackReadAllowingManager
 import ch.nokillswit.authz.requireFeedbackWrite
 import ch.nokillswit.infra.db.requireValidReferences
 import ch.nokillswit.infra.paging.parsePaging
+import ch.nokillswit.infra.paging.optionalBoolean
 import ch.nokillswit.infra.paging.optionalString
 import ch.nokillswit.infra.paging.optionalLong
 import ch.nokillswit.infra.paging.optionalUInt
@@ -120,6 +121,10 @@ fun Application.configureFeedbackRoutes() {
                 val providerIdFilter = params.optionalUInt("providerId")
                 val subjectIdFilter = params.optionalUInt("subjectId")
                 val lastModifiedGteFilter = params.optionalLong("lastModified[gte]")
+                val includeIndirect = params.optionalBoolean("includeIndirect")
+                if (includeIndirect != null && view != FeedbackListView.TEAM) {
+                    throw BadRequestException("includeIndirect is only supported for view=team")
+                }
                 val filter = FeedbackListFilter(
                     requesterName = params.optionalString("requesterName"),
                     subjectName = params.optionalString("subjectName"),
@@ -130,7 +135,13 @@ fun Application.configureFeedbackRoutes() {
                     status = statusFilter,
                     lastModifiedGte = lastModifiedGteFilter,
                 )
-                val result = feedbackService.list(view, caller.userId, filter, paging)
+                val result = feedbackService.list(
+                    view,
+                    caller.userId,
+                    filter,
+                    paging,
+                    includeIndirect = includeIndirect == true,
+                )
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
             }
             post<Feedbacks> {

@@ -339,6 +339,8 @@ export type FeedbackListQuery = {
   visibility?: FeedbackVisibility;
   status?: FeedbackStatus;
   lastModifiedGte?: number;
+  /** Only valid with view=team: widen the subject scope from direct reports to the whole management chain. */
+  includeIndirect?: boolean;
 };
 
 export async function listFeedbacks(q: FeedbackListQuery): Promise<FeedbackPage> {
@@ -355,6 +357,7 @@ export async function listFeedbacks(q: FeedbackListQuery): Promise<FeedbackPage>
   if (q.visibility) params.set("visibility", q.visibility);
   if (q.status) params.set("status", q.status);
   if (q.lastModifiedGte != null) params.set("lastModified[gte]", String(q.lastModifiedGte));
+  if (q.includeIndirect) params.set("includeIndirect", "true");
   const res = await authedFetch(`/api/v1/feedbacks?${params.toString()}`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json()) as FeedbackPage;

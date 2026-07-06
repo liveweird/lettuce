@@ -40,6 +40,11 @@
     "contains": "contains…",
     "title": "Filters"
   },
+  "reportsScope": {
+    "label": "Reports",
+    "direct": "Direct reports only",
+    "all": "All reports (including indirect)"
+  },
   "status": {
     "REQUESTED": "Requested",
     "DRAFT": "Draft",

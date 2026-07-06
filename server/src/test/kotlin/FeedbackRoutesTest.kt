@@ -1176,7 +1176,7 @@ class FeedbackRoutesTest {
         createFeedback(
             subordinate.id, provider.id, FeedbackVisibility.PUBLIC, status = FeedbackStatus.DRAFT,
         )
-        // Delivered feedback about the direct report (mid manager) and the indirect one → both shown.
+        // Delivered feedback about the direct report (mid manager) and the indirect one.
         val aboutMid = createFeedback(
             midManager.id, provider.id, FeedbackVisibility.PUBLIC, status = FeedbackStatus.SENT,
         )
@@ -1184,12 +1184,37 @@ class FeedbackRoutesTest {
             subordinate.id, provider.id, FeedbackVisibility.PROVIDER_SUBJECT, status = FeedbackStatus.SENT,
         )
 
-        val items = grandManagerClient.get("/api/v1/feedbacks?view=team").body<FeedbackPageResponse>().items
-        assertEquals(setOf(aboutMid.id, aboutSub.id), items.map { it.id }.toSet())
+        // Default (and explicit false): direct reports only — just the row about the mid manager.
+        val direct = grandManagerClient.get("/api/v1/feedbacks?view=team").body<FeedbackPageResponse>().items
+        assertEquals(setOf(aboutMid.id), direct.map { it.id }.toSet())
+        val explicitFalse = grandManagerClient.get("/api/v1/feedbacks?view=team&includeIndirect=false")
+            .body<FeedbackPageResponse>().items
+        assertEquals(setOf(aboutMid.id), explicitFalse.map { it.id }.toSet())
 
-        // The mid manager's own team view is unchanged: only the direct subordinate's delivered row.
+        // includeIndirect=true widens to the whole chain: both delivered rows.
+        val all = grandManagerClient.get("/api/v1/feedbacks?view=team&includeIndirect=true")
+            .body<FeedbackPageResponse>().items
+        assertEquals(setOf(aboutMid.id, aboutSub.id), all.map { it.id }.toSet())
+
+        // The mid manager's own team view is unaffected: only the direct subordinate's delivered row.
         val midItems = midManagerClient.get("/api/v1/feedbacks?view=team").body<FeedbackPageResponse>().items
         assertEquals(setOf(aboutSub.id), midItems.map { it.id }.toSet())
+    }
+
+    @Test
+    fun `includeIndirect is rejected for non-team views and non-boolean values`() = testApplication {
+        usePostgresTestcontainer()
+        val caller = seedParty("caller", "Cara Caller")
+        val client = authedClient(caller.email, "pw")
+
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            client.get("/api/v1/feedbacks?view=received&includeIndirect=true").status,
+        )
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            client.get("/api/v1/feedbacks?view=team&includeIndirect=banana").status,
+        )
     }
 
     @Test

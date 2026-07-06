@@ -488,10 +488,11 @@ class AuthorizationTest {
             )
         }.body<FeedbackResponse>()
 
-        // A transitively manages C (via B); both the single read and the team list terminate
-        // despite the A→B→A cycle.
+        // A transitively manages C (via B); both the single read and the widened team list
+        // terminate despite the A→B→A cycle.
         assertEquals(HttpStatusCode.OK, aClient.get("/api/v1/feedbacks/${feedback.id}").status)
-        val teamPage = aClient.get("/api/v1/feedbacks?view=team").body<FeedbackPageResponse>()
+        val teamPage = aClient.get("/api/v1/feedbacks?view=team&includeIndirect=true")
+            .body<FeedbackPageResponse>()
         assertTrue(teamPage.items.any { it.id == feedback.id })
     }
 
