@@ -111,7 +111,8 @@ describe("UserTeams page", () => {
 
     expect(await screen.findByRole("heading", { name: "Teams — Alice" })).toBeInTheDocument();
     expect(await screen.findByRole("cell", { name: "Platform" })).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "Mona Manager" })).toBeInTheDocument();
+    // Query by text, not cell role — the PersonaChip avatar initials join the cell's accessible name.
+    expect(screen.getByText("Mona Manager")).toBeInTheDocument();
 
     const membersCall = mockFetch.mock.calls.find(([u]) => typeof u === "string" && isMembersUrl(u));
     expect(membersCall).toBeDefined();
@@ -328,7 +329,8 @@ describe("UserTeams page", () => {
       return Promise.resolve(jsonResponse(404, {}));
     });
     renderUserTeams(7);
-    expect(await screen.findByRole("cell", { name: /^Mona Manager \(deleted\)$/ })).toBeInTheDocument();
+    // A deleted manager renders as dimmed plain text (no PersonaChip), suffixed "(deleted)".
+    expect(await screen.findByText(/^Mona Manager \(deleted\)$/)).toBeInTheDocument();
   });
 
   test("a remove failure shows an alert inside the modal and keeps it open", async () => {

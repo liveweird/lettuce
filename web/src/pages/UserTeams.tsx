@@ -26,6 +26,7 @@ import {
   listTeams,
   removeTeamMember,
 } from "../api/client";
+import PersonaChip from "../components/PersonaChip";
 
 type TeamRow = { id: number; name: string };
 
@@ -235,8 +236,13 @@ export default function UserTeams() {
               <Table.Tr key={team.id}>
                 <Table.Td>{team.name}</Table.Td>
                 <Table.Td>
-                  {team.managerName}
-                  {team.managerDeleted ? ` ${t("users.deletedTag")}` : ""}
+                  {team.managerDeleted ? (
+                    <Text size="sm" c="dimmed">
+                      {team.managerName} {t("users.deletedTag")}
+                    </Text>
+                  ) : (
+                    <PersonaChip name={team.managerName} />
+                  )}
                 </Table.Td>
                 {canManage && (
                   <Table.Td>
