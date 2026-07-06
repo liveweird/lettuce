@@ -372,6 +372,46 @@ class FeedbackRoutesTest {
     }
 
     @Test
+    fun `PROVIDER_REQUESTER visibility without a requester is rejected`() = testApplication {
+        usePostgresTestcontainer()
+        val t = seedTriad()
+        val client = authedClient(t.providerEmail, "pw")
+
+        // On create: PROVIDER_REQUESTER excludes the subject, so without a requester the
+        // combination is contradictory (and would leak the preview into the subject's inbox).
+        val onCreate = client.post("/api/v1/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                FeedbackCreateRequest(
+                    subjectId = t.subjectId,
+                    providerId = t.providerId,
+                    visibility = FeedbackVisibility.PROVIDER_REQUESTER,
+                    status = FeedbackStatus.SENT,
+                )
+            )
+        }
+        assertEquals(HttpStatusCode.BadRequest, onCreate.status)
+
+        // On update: a no-requester feedback cannot be moved into the combination either.
+        val created = client.post("/api/v1/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                FeedbackCreateRequest(
+                    subjectId = t.subjectId,
+                    providerId = t.providerId,
+                    visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                    status = FeedbackStatus.DRAFT,
+                )
+            )
+        }.body<FeedbackResponse>()
+        val onUpdate = client.put("/api/v1/feedbacks/${created.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(FeedbackContentUpdate(visibility = FeedbackVisibility.PROVIDER_REQUESTER))
+        }
+        assertEquals(HttpStatusCode.BadRequest, onUpdate.status)
+    }
+
+    @Test
     fun `unknown user id is rejected`() = testApplication {
         usePostgresTestcontainer()
         val t = seedTriad()

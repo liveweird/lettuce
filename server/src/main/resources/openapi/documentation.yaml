@@ -61,6 +61,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LoginResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/InternalServerError' }
@@ -90,6 +91,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LoginResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/InternalServerError' }
@@ -739,7 +741,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/FeedbackResponse'
         '400':
-          description: 'Validation error (provider ≠ subject; requester ≠ provider; REQUESTED requires a requester; a feedback with a requester may not use PROVIDER_SUBJECT visibility) or referenced user does not exist'
+          description: 'Validation error (provider ≠ subject; requester ≠ provider; REQUESTED requires a requester; a feedback with a requester may not use PROVIDER_SUBJECT visibility; PROVIDER_REQUESTER visibility requires a requester) or referenced user does not exist'
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
@@ -813,7 +815,7 @@ paths:
       responses:
         '204': { description: Updated }
         '400':
-          description: 'Validation error (a feedback with a requester may not use PROVIDER_SUBJECT visibility)'
+          description: 'Validation error (a feedback with a requester may not use PROVIDER_SUBJECT visibility; PROVIDER_REQUESTER visibility requires a requester)'
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
@@ -859,11 +861,13 @@ paths:
       operationId: listFeedbackEvents
       summary: List a feedback's audit history
       description: |
-        Returns the immutable audit trail for a feedback — one entry per create, status transition
-        and content/visibility edit — oldest first, each carrying the acting user and a generated
-        description. Authorization matches the single-GET above (`canReadFeedback`, with a managing
-        caller allowed): whoever may read the feedback may read its history. Events are
-        server-generated; there is no create/update/delete endpoint.
+        Returns the immutable audit trail for a feedback — one entry per create, status transition,
+        content/visibility edit, and deletion — oldest first. Each entry is structural: an event
+        `type` plus a `params` map of enum names, with the acting user resolved to `userName`; no
+        rendered string is stored (clients localize the description). Authorization matches the
+        single-GET above (`canReadFeedback`, with a managing caller allowed): whoever may read the
+        feedback may read its history. Events are server-generated; there is no
+        create/update/delete endpoint.
       responses:
         '200':
           description: The feedback's events, oldest first

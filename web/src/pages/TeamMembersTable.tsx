@@ -28,6 +28,7 @@ import EmptyState from "../components/EmptyState";
 import PersonCard from "../components/PersonCard";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
+import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { feedbackAskLink, feedbackProvideLink, feedbackRequestLink } from "../utils/feedbackLinks";
 import { groupTeamRows } from "../utils/teamRows";
@@ -141,18 +142,7 @@ export default function TeamMembersTable({
             searchable
           />
           {view === "managed" && (
-            <Select
-              label={t("common.reportsScope.label")}
-              data={[
-                { value: "direct", label: t("common.reportsScope.direct") },
-                { value: "all", label: t("common.reportsScope.all") },
-              ]}
-              value={reportsScope}
-              allowDeselect={false}
-              onChange={(v) => {
-                if (v) setReportsScope(v as "direct" | "all");
-              }}
-            />
+            <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />
           )}
         </FilterPanel>
         {/* Column headers are gone with the table — sorting lives up here instead. */}

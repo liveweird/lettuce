@@ -28,6 +28,7 @@ import { StatusBadge, VisibilityBadge } from "../components/FeedbackBadges";
 import PersonaChip from "../components/PersonaChip";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
+import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import SortHeader from "../components/SortHeader";
 import { usePagedSort } from "../hooks/usePagedSort";
 import {
@@ -392,18 +393,7 @@ export default function FeedbackTable({
           allowDeselect={false}
         />
         {view === "team" && (
-          <Select
-            label={t("common.reportsScope.label")}
-            data={[
-              { value: "direct", label: t("common.reportsScope.direct") },
-              { value: "all", label: t("common.reportsScope.all") },
-            ]}
-            value={reportsScope}
-            allowDeselect={false}
-            onChange={(v) => {
-              if (v) setReportsScope(v as "direct" | "all");
-            }}
-          />
+          <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />
         )}
       </FilterPanel>
 

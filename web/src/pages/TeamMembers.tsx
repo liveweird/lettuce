@@ -7,14 +7,12 @@ import {
   Center,
   Group,
   Loader,
-  Modal,
   Select,
   Stack,
   Table,
   Text,
   Title,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconMessagePlus, IconMessageQuestion, IconPlus, IconTrash } from "@tabler/icons-react";
 import {
@@ -26,8 +24,10 @@ import {
   listUsers,
   removeTeamMember,
 } from "../api/client";
+import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import FeedbackActionButton from "../components/FeedbackActionButton";
 import PersonaChip from "../components/PersonaChip";
+import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { feedbackAskLink, feedbackProvideLink } from "../utils/feedbackLinks";
 
 // A single team realistically has a small, bounded set of members; fetch up to the 100-row
@@ -49,8 +49,6 @@ export default function TeamMembers() {
 
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [addError, setAddError] = useState<string | null>(null);
-  const [target, setTarget] = useState<MemberRow | null>(null);
-  const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false);
 
   const {
     data: team,
@@ -106,11 +104,9 @@ export default function TeamMembers() {
     },
   });
 
-  const removeMutation = useMutation({
-    mutationFn: (userId: number) => removeTeamMember(id, userId),
+  const removeConfirm = useDeleteConfirm<MemberRow>({
+    mutationFn: (row) => removeTeamMember(id, row.id),
     onSuccess: async () => {
-      closeConfirm();
-      setTarget(null);
       await queryClient.invalidateQueries({ queryKey: ["teamMembersList", id] });
     },
   });
@@ -122,23 +118,6 @@ export default function TeamMembers() {
   const addOptions = (userPool?.items ?? [])
     .filter((u) => !memberIds.has(u.id) && u.id !== team?.managerId)
     .map((u) => ({ value: String(u.id), label: u.name }));
-
-  function requestRemove(row: MemberRow) {
-    setTarget(row);
-    removeMutation.reset();
-    openConfirm();
-  }
-
-  function cancelRemove() {
-    if (removeMutation.isPending) return;
-    closeConfirm();
-    setTarget(null);
-    removeMutation.reset();
-  }
-
-  function confirmRemove() {
-    if (target) removeMutation.mutate(target.id);
-  }
 
   function add() {
     if (selectedUser) addMutation.mutate(Number(selectedUser));
@@ -270,7 +249,7 @@ export default function TeamMembers() {
                         variant="subtle"
                         size="xs"
                         leftSection={<IconTrash size={14} />}
-                        onClick={() => requestRemove({ id: m.id, name: m.name })}
+                        onClick={() => removeConfirm.requestDelete({ id: m.id, name: m.name })}
                         aria-label={t("teams.removeAria", { name: m.name })}
                       >
                         {t("teams.remove")}
@@ -301,31 +280,19 @@ export default function TeamMembers() {
         </Button>
       </Group>
 
-      <Modal opened={confirmOpen} onClose={cancelRemove} title={t("teams.removeModalTitle")} centered>
-        <Stack gap="md">
-          {target && (
-            <Text>
-              {t("teams.removeConfirmLead")} <strong>{target.name}</strong>{" "}
-              {t("teams.removeConfirmMid")} <strong>{team?.name}</strong>?
-            </Text>
-          )}
-          {removeMutation.isError && (
-            <Alert color="red" title={t("teams.removeMemberFailed")}>
-              {removeMutation.error instanceof Error
-                ? removeMutation.error.message
-                : t("teams.unknownError")}
-            </Alert>
-          )}
-          <Group justify="flex-end" gap="sm">
-            <Button variant="default" onClick={cancelRemove} disabled={removeMutation.isPending}>
-              {t("common.action.cancel")}
-            </Button>
-            <Button color="red" onClick={confirmRemove} loading={removeMutation.isPending}>
-              {t("teams.remove")}
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+      <ConfirmDeleteModal
+        confirm={removeConfirm}
+        title={t("teams.removeModalTitle")}
+        errorTitle={t("teams.removeMemberFailed")}
+        unknownError={t("teams.unknownError")}
+        confirmLabel={t("teams.remove")}
+        body={(row) => (
+          <>
+            {t("teams.removeConfirmLead")} <strong>{row.name}</strong>{" "}
+            {t("teams.removeConfirmMid")} <strong>{team?.name}</strong>?
+          </>
+        )}
+      />
     </Stack>
   );
 }

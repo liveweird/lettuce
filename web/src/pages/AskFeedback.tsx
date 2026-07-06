@@ -1,15 +1,13 @@
 import { useState } from "react";
-import { Link as RouterLink, Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Alert,
   Button,
   Container,
   Group,
-  Modal,
   Paper,
   Select,
   Stack,
-  Text,
   Textarea,
   Title,
 } from "@mantine/core";
@@ -17,22 +15,19 @@ import { useDisclosure } from "@mantine/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ApiError, createFeedback, getUserId, type FeedbackVisibility } from "../api/client";
+import ConfirmActionModal from "../components/ConfirmActionModal";
 import PersonaField from "../components/PersonaField";
+import { REQUESTER_VISIBILITIES } from "../utils/feedbackVisibility";
 
-// The asker is the requester, so "Ask for feedback" offers the requester-inclusive visibilities —
-// the ones under which the requester (themselves) can read the result.
-const VISIBILITY_VALUES: FeedbackVisibility[] = [
-  "PROVIDER_REQUESTER",
-  "PROVIDER_REQUESTER_SUBJECT",
-  "PUBLIC",
-];
+// The asker is the requester, so "Ask for feedback" offers the requester-inclusive
+// visibilities — the ones under which the requester (themselves) can read the result.
 
 export default function AskFeedback() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
-  const visibilityOptions = VISIBILITY_VALUES.map((value) => ({
+  const visibilityOptions = REQUESTER_VISIBILITIES.map((value) => ({
     value,
     label: t(`common.visibility.${value}`),
   }));
@@ -137,24 +132,15 @@ export default function AskFeedback() {
         </Stack>
       </Paper>
 
-      <Modal
+      <ConfirmActionModal
         opened={cancelOpen}
         onClose={closeCancel}
         title={t("feedback.discardRequestTitle")}
-        centered
-      >
-        <Stack gap="md">
-          <Text>{t("feedback.discardAskMessage")}</Text>
-          <Group justify="flex-end" gap="sm">
-            <Button variant="default" onClick={closeCancel}>
-              {t("common.action.keepEditing")}
-            </Button>
-            <Button color="red" component={RouterLink} to={backTo}>
-              {t("common.action.discard")}
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+        message={t("feedback.discardAskMessage")}
+        cancelLabel={t("common.action.keepEditing")}
+        confirmLabel={t("common.action.discard")}
+        confirmTo={backTo}
+      />
     </Container>
   );
 }

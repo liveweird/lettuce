@@ -743,6 +743,46 @@ class AuthorizationTest {
     }
 
     @Test
+    fun `unauthorized reassignment answers 403 even with an invalid payload`() = testApplication {
+        usePostgresTestcontainer()
+        val managerEmail = uniqueEmail("manager")
+        val managerId = TestUsers.seed(email = managerEmail, password = "pw-123456789", role = UserRole.USER)
+        val otherId = TestUsers.seed(email = uniqueEmail("other"), password = "pw-123456789", role = UserRole.USER)
+        val mgr = authedClient(managerEmail, "pw-123456789")
+
+        val team = mgr.post("/api/v1/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "Squad", managerId = managerId, memberIds = emptyList()))
+        }.body<TeamResponse>()
+
+        // Handoff attempt (admin-only) combined with an over-long name: authz wins → 403, not 400.
+        assertEquals(
+            HttpStatusCode.Forbidden,
+            mgr.put("/api/v1/teams/${team.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(Team(name = "x".repeat(101), managerId = otherId, memberIds = emptyList()))
+            }.status,
+        )
+    }
+
+    @Test
+    fun `unauthorized role change answers 403 even with an invalid payload`() = testApplication {
+        usePostgresTestcontainer()
+        val email = uniqueEmail("plain")
+        val id = TestUsers.seed(email = email, password = "pw-123456789", role = UserRole.USER)
+        val client = authedClient(email, "pw-123456789")
+
+        // Self-edit escalating to ADMIN (admin-only) with an invalid email: authz wins → 403, not 400.
+        assertEquals(
+            HttpStatusCode.Forbidden,
+            client.put("/api/v1/users/$id") {
+                contentType(ContentType.Application.Json)
+                setBody(UserUpdateRequest(name = "Plain", email = "not-an-email", role = UserRole.ADMIN))
+            }.status,
+        )
+    }
+
+    @Test
     fun `an admin may reassign a team's manager`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")

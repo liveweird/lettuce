@@ -14,7 +14,6 @@ import {
   Container,
   Group,
   Loader,
-  Modal,
   Paper,
   Stack,
   Tabs,
@@ -38,6 +37,7 @@ import FeedbackMeta from "../components/FeedbackMeta";
 import FeedbackLifecycle from "../components/FeedbackLifecycle";
 import MarkdownView from "../components/MarkdownView";
 import RequesterMessage from "../components/RequesterMessage";
+import ConfirmActionModal from "../components/ConfirmActionModal";
 
 const RECEIVED = "/feedback?tab=received";
 
@@ -274,38 +274,24 @@ export default function ViewFeedback() {
           )}
         </Stack>
       </Paper>
-      <Modal
+      <ConfirmActionModal
         opened={confirmOpen}
-        onClose={() => {
-          if (!submitting) closeConfirm();
-        }}
+        onClose={closeConfirm}
         title={t("feedback.withdrawTitle")}
-        centered
-      >
-        <Stack gap="md">
-          <Text>
-            <Trans i18nKey="feedback.withdrawBody">
-              Withdrawing this feedback is permanent — its status becomes <strong>Withdrawn</strong>{" "}
-              and cannot be changed back. Continue?
-            </Trans>
-          </Text>
-          <Group justify="flex-end" gap="sm">
-            <Button variant="default" onClick={closeConfirm} disabled={submitting}>
-              {t("common.action.cancel")}
-            </Button>
-            <Button
-              color="red"
-              loading={submitting}
-              onClick={async () => {
-                await handleAction(withdrawFeedback);
-                closeConfirm();
-              }}
-            >
-              {t("feedback.action.withdraw")}
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+        message={
+          <Trans i18nKey="feedback.withdrawBody">
+            Withdrawing this feedback is permanent — its status becomes <strong>Withdrawn</strong>{" "}
+            and cannot be changed back. Continue?
+          </Trans>
+        }
+        cancelLabel={t("common.action.cancel")}
+        confirmLabel={t("feedback.action.withdraw")}
+        loading={submitting}
+        onConfirm={async () => {
+          await handleAction(withdrawFeedback);
+          closeConfirm();
+        }}
+      />
     </Container>
   );
 }

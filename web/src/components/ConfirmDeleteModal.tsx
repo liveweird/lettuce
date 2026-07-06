@@ -5,19 +5,23 @@ import type { DeleteConfirm } from "../hooks/useDeleteConfirm";
 
 // The confirmation modal half of useDeleteConfirm. `title`/`errorTitle`/`unknownError`
 // arrive already translated (their keys are page-local); `body` renders the lead text
-// for the row being deleted. The Cancel/Delete labels are the shared common.action.*.
+// for the row being deleted. Cancel is the shared common.action.cancel; the confirm
+// button defaults to common.action.delete but pages whose action reads differently
+// (e.g. "Remove" on membership rows) pass their own translated `confirmLabel`.
 export default function ConfirmDeleteModal<T>({
   confirm,
   title,
   errorTitle,
   unknownError,
   body,
+  confirmLabel,
 }: {
   confirm: DeleteConfirm<T>;
   title: string;
   errorTitle: string;
   unknownError: string;
   body: (target: T) => ReactNode;
+  confirmLabel?: string;
 }) {
   const { t } = useTranslation();
   const { target, opened, cancelDelete, confirmDelete, mutation } = confirm;
@@ -35,7 +39,7 @@ export default function ConfirmDeleteModal<T>({
             {t("common.action.cancel")}
           </Button>
           <Button color="red" onClick={confirmDelete} loading={mutation.isPending}>
-            {t("common.action.delete")}
+            {confirmLabel ?? t("common.action.delete")}
           </Button>
         </Group>
       </Stack>

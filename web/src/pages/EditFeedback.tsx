@@ -13,7 +13,6 @@ import {
   Container,
   Group,
   Loader,
-  Modal,
   Paper,
   Stack,
   Text,
@@ -34,33 +33,13 @@ import {
   type FeedbackStatus,
   type FeedbackVisibility,
 } from "../api/client";
+import ConfirmActionModal from "../components/ConfirmActionModal";
 import FeedbackForm from "../components/FeedbackForm";
 import PersonaField from "../components/PersonaField";
 import RequesterMessage from "../components/RequesterMessage";
+import { clampVisibility, visibilityValuesFor } from "../utils/feedbackVisibility";
 
 const PROVIDED = "/feedback?tab=provided";
-
-// The visibility options offered in the editor depend on whether the feedback has a requester:
-// a requester-backed feedback must be able to keep a requester-inclusive visibility (otherwise
-// saving would strip the requester's read access), while a plain one stays Provider+subject / Public.
-const NO_REQUESTER_VISIBILITY_VALUES: FeedbackVisibility[] = ["PROVIDER_SUBJECT", "PUBLIC"];
-const REQUESTER_VISIBILITY_VALUES: FeedbackVisibility[] = [
-  "PROVIDER_REQUESTER",
-  "PROVIDER_REQUESTER_SUBJECT",
-  "PUBLIC",
-];
-
-function visibilityValuesFor(hasRequester: boolean) {
-  return hasRequester ? REQUESTER_VISIBILITY_VALUES : NO_REQUESTER_VISIBILITY_VALUES;
-}
-
-// Keep the preselected value within the offered set; if the stored visibility is out of set, fall
-// back to a sensible default (the most inclusive requester option, or Provider+subject otherwise).
-function clampVisibility(v: FeedbackVisibility, hasRequester: boolean): FeedbackVisibility {
-  const allowed = visibilityValuesFor(hasRequester);
-  if (allowed.includes(v)) return v;
-  return hasRequester ? "PROVIDER_REQUESTER_SUBJECT" : "PROVIDER_SUBJECT";
-}
 
 export default function EditFeedback() {
   const { t } = useTranslation();
@@ -270,30 +249,18 @@ export default function EditFeedback() {
           </Stack>
         </Paper>
 
-        <Modal
+        <ConfirmActionModal
           opened={rejectOpen}
           onClose={closeReject}
           title={t("feedback.rejectTitle")}
-          centered
-        >
-          <Stack gap="md">
-            <Text>{t("feedback.rejectBody")}</Text>
-            <Group justify="flex-end" gap="sm">
-              <Button variant="default" onClick={closeReject}>
-                {t("common.action.keepEditing")}
-              </Button>
-              <Button
-                color="red"
-                onClick={() => {
-                  closeReject();
-                  decide("REJECTED");
-                }}
-              >
-                {t("feedback.action.reject")}
-              </Button>
-            </Group>
-          </Stack>
-        </Modal>
+          message={t("feedback.rejectBody")}
+          cancelLabel={t("common.action.keepEditing")}
+          confirmLabel={t("feedback.action.reject")}
+          onConfirm={() => {
+            closeReject();
+            decide("REJECTED");
+          }}
+        />
       </Container>
     );
   }
@@ -329,19 +296,16 @@ export default function EditFeedback() {
         deleting={deleting}
       />
       {canDelete && (
-        <Modal opened={deleteOpen} onClose={closeDelete} title={t("feedback.deleteTitle")} centered>
-          <Stack gap="md">
-            <Text>{t("feedback.deleteBody")}</Text>
-            <Group justify="flex-end" gap="sm">
-              <Button variant="default" onClick={closeDelete} disabled={deleting}>
-                {t("common.action.keepEditing")}
-              </Button>
-              <Button color="red" onClick={handleDelete} loading={deleting}>
-                {t("common.action.delete")}
-              </Button>
-            </Group>
-          </Stack>
-        </Modal>
+        <ConfirmActionModal
+          opened={deleteOpen}
+          onClose={closeDelete}
+          title={t("feedback.deleteTitle")}
+          message={t("feedback.deleteBody")}
+          cancelLabel={t("common.action.keepEditing")}
+          confirmLabel={t("common.action.delete")}
+          onConfirm={handleDelete}
+          loading={deleting}
+        />
       )}
     </>
   );

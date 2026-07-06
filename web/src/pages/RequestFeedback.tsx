@@ -1,11 +1,10 @@
 import { useMemo, useState } from "react";
-import { Link as RouterLink, Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Alert,
   Button,
   Container,
   Group,
-  Modal,
   Paper,
   Select,
   Stack,
@@ -25,18 +24,14 @@ import {
   listUsers,
   type FeedbackVisibility,
 } from "../api/client";
+import ConfirmActionModal from "../components/ConfirmActionModal";
 import PersonaChip from "../components/PersonaChip";
 import PersonaField from "../components/PersonaField";
+import { REQUESTER_VISIBILITIES } from "../utils/feedbackVisibility";
 
 // The provider picker realistically chooses from a bounded set; fetch up to the 100-row
 // max (the list endpoint's cap). Fine at this app's scale.
 const PICKER_PAGE_SIZE = 100;
-
-const VISIBILITY_VALUES: FeedbackVisibility[] = [
-  "PROVIDER_REQUESTER",
-  "PROVIDER_REQUESTER_SUBJECT",
-  "PUBLIC",
-];
 
 type Provider = { id: number; name: string };
 
@@ -45,7 +40,7 @@ export default function RequestFeedback() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
-  const visibilityOptions = VISIBILITY_VALUES.map((value) => ({
+  const visibilityOptions = REQUESTER_VISIBILITIES.map((value) => ({
     value,
     label: t(`common.visibility.${value}`),
   }));
@@ -247,24 +242,15 @@ export default function RequestFeedback() {
         </Stack>
       </Paper>
 
-      <Modal
+      <ConfirmActionModal
         opened={cancelOpen}
         onClose={closeCancel}
         title={t("feedback.discardRequestTitle")}
-        centered
-      >
-        <Stack gap="md">
-          <Text>{t("feedback.discardRequestMessage")}</Text>
-          <Group justify="flex-end" gap="sm">
-            <Button variant="default" onClick={closeCancel}>
-              {t("common.action.keepEditing")}
-            </Button>
-            <Button color="red" component={RouterLink} to={backTo}>
-              {t("common.action.discard")}
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+        message={t("feedback.discardRequestMessage")}
+        cancelLabel={t("common.action.keepEditing")}
+        confirmLabel={t("common.action.discard")}
+        confirmTo={backTo}
+      />
     </Container>
   );
 }

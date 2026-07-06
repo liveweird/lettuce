@@ -119,13 +119,14 @@ fun Application.configureUserRoutes() {
                 val caller = call.caller()
                 requireSelfOrAdmin(caller, route.id)
                 val req = call.receive<UserUpdateRequest>()
-                validateNameAndEmail(req.name, req.email)
                 val existing = userService.read(route.id)
                 if (existing == null) {
                     call.respondProblem(HttpStatusCode.NotFound, "User not found")
                     return@put
                 }
+                // Authz before validation: an unauthorized role change is 403, not 400.
                 requireCanAssignRole(caller, existing.role, req.role)
+                validateNameAndEmail(req.name, req.email)
                 val user = User(
                     name = req.name,
                     email = req.email,

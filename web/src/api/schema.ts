@@ -455,11 +455,13 @@ export interface paths {
         };
         /**
          * List a feedback's audit history
-         * @description Returns the immutable audit trail for a feedback — one entry per create, status transition
-         *     and content/visibility edit — oldest first, each carrying the acting user and a generated
-         *     description. Authorization matches the single-GET above (`canReadFeedback`, with a managing
-         *     caller allowed): whoever may read the feedback may read its history. Events are
-         *     server-generated; there is no create/update/delete endpoint.
+         * @description Returns the immutable audit trail for a feedback — one entry per create, status transition,
+         *     content/visibility edit, and deletion — oldest first. Each entry is structural: an event
+         *     `type` plus a `params` map of enum names, with the acting user resolved to `userName`; no
+         *     rendered string is stored (clients localize the description). Authorization matches the
+         *     single-GET above (`canReadFeedback`, with a managing caller allowed): whoever may read the
+         *     feedback may read its history. Events are server-generated; there is no
+         *     create/update/delete endpoint.
          */
         get: operations["listFeedbackEvents"];
         put?: never;
@@ -1254,6 +1256,7 @@ export interface operations {
                     "application/json": components["schemas"]["LoginResponse"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
@@ -1281,6 +1284,7 @@ export interface operations {
                     "application/json": components["schemas"]["LoginResponse"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
@@ -1964,7 +1968,7 @@ export interface operations {
                     "application/json": components["schemas"]["FeedbackResponse"];
                 };
             };
-            /** @description Validation error (provider ≠ subject; requester ≠ provider; REQUESTED requires a requester; a feedback with a requester may not use PROVIDER_SUBJECT visibility) or referenced user does not exist */
+            /** @description Validation error (provider ≠ subject; requester ≠ provider; REQUESTED requires a requester; a feedback with a requester may not use PROVIDER_SUBJECT visibility; PROVIDER_REQUESTER visibility requires a requester) or referenced user does not exist */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -2042,7 +2046,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Validation error (a feedback with a requester may not use PROVIDER_SUBJECT visibility) */
+            /** @description Validation error (a feedback with a requester may not use PROVIDER_SUBJECT visibility; PROVIDER_REQUESTER visibility requires a requester) */
             400: {
                 headers: {
                     [name: string]: unknown;

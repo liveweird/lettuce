@@ -1,18 +1,13 @@
 import {
-  Link as RouterLink,
-} from "react-router-dom";
-import {
   Alert,
   Button,
   Container,
   Group,
-  Modal,
   Paper,
   Select,
   Skeleton,
   Stack,
   Tabs,
-  Text,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
@@ -25,7 +20,9 @@ import {
   type FeedbackStatus,
   type FeedbackVisibility,
 } from "../api/client";
+import ConfirmActionModal from "./ConfirmActionModal";
 import FeedbackHistory from "./FeedbackHistory";
+import { NO_REQUESTER_VISIBILITIES } from "../utils/feedbackVisibility";
 import FeedbackLifecycle from "./FeedbackLifecycle";
 import FeedbackMeta from "./FeedbackMeta";
 import RequesterMessage from "./RequesterMessage";
@@ -39,8 +36,6 @@ type FormValues = {
   visibility: FeedbackVisibility;
   content: string;
 };
-
-const DEFAULT_VISIBILITY_VALUES: FeedbackVisibility[] = ["PROVIDER_SUBJECT", "PUBLIC"];
 
 export type FeedbackFormProps = {
   title: string;
@@ -99,7 +94,7 @@ export default function FeedbackForm({
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
   const resolvedVisibilityOptions =
     visibilityOptions ??
-    DEFAULT_VISIBILITY_VALUES.map((value) => ({
+    NO_REQUESTER_VISIBILITIES.map((value) => ({
       value,
       label: t(`common.visibility.${value}`),
     }));
@@ -318,19 +313,15 @@ export default function FeedbackForm({
         </form>
       </Paper>
 
-      <Modal opened={cancelOpen} onClose={closeCancel} title={discardTitle} centered>
-        <Stack gap="md">
-          <Text>{discardMessage}</Text>
-          <Group justify="flex-end" gap="sm">
-            <Button variant="default" onClick={closeCancel}>
-              {t("common.action.keepEditing")}
-            </Button>
-            <Button color="red" component={RouterLink} to={cancelTo}>
-              {t("common.action.discard")}
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+      <ConfirmActionModal
+        opened={cancelOpen}
+        onClose={closeCancel}
+        title={discardTitle}
+        message={discardMessage}
+        cancelLabel={t("common.action.keepEditing")}
+        confirmLabel={t("common.action.discard")}
+        confirmTo={cancelTo}
+      />
     </Container>
   );
 }

@@ -128,8 +128,9 @@ fun Application.configureTeamRoutes() {
                 }
                 requireTeamManagerOrAdmin(caller, existing.managerId)
                 val team = call.receive<Team>()
-                validateTeamName(team.name)
+                // Authz before validation: an unauthorized reassignment is 403, not 400.
                 requireCanReassignManager(caller, existing.managerId, team.managerId)
+                validateTeamName(team.name)
                 requireValidReferences("Referenced user does not exist") {
                     teamService.update(route.id, team)
                 }

@@ -147,6 +147,10 @@ class FeedbackService(val database: R2dbcDatabase) {
                     "A feedback with a requester must not use PROVIDER_SUBJECT visibility",
                 )
             }
+            // And without a requester, PROVIDER_REQUESTER is contradictory (see validate()).
+            if (current.requesterId == null && visibility == FeedbackVisibility.PROVIDER_REQUESTER) {
+                throw BadRequestException("PROVIDER_REQUESTER visibility requires a requester")
+            }
             Feedbacks.update({ (Feedbacks.id eq id) and (Feedbacks.markedAsDeleted eq false) }) {
                 it[this.content] = content
                 it[this.visibility] = visibility
@@ -381,6 +385,12 @@ class FeedbackService(val database: R2dbcDatabase) {
         }
         if (next.requesterId != null && next.visibility == FeedbackVisibility.PROVIDER_SUBJECT) {
             throw BadRequestException("A feedback with a requester must not use PROVIDER_SUBJECT visibility")
+        }
+        // The mirror image: PROVIDER_REQUESTER visibility excludes the subject, so without a
+        // requester nobody but the provider could ever read it — and the subject's Received
+        // list would leak its preview (no-requester rows skip the visibility filter there).
+        if (next.requesterId == null && next.visibility == FeedbackVisibility.PROVIDER_REQUESTER) {
+            throw BadRequestException("PROVIDER_REQUESTER visibility requires a requester")
         }
         if (next.status == FeedbackStatus.REQUESTED && next.requesterId == null) {
             throw BadRequestException("Requested status requires a requester")
