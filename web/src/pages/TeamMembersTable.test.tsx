@@ -287,6 +287,36 @@ describe("TeamMembersTable", () => {
     });
   });
 
+  test("managed view offers the reports-scope filter; switching to all reports adds includeIndirect=true", async () => {
+    setupMocks(mockFetch);
+    renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
+
+    await screen.findByText("Bob Brown");
+    // Default: direct reports only — the request carries no includeIndirect param.
+    expect(memberUrls(mockFetch).every((url) => !url.includes("includeIndirect"))).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+    const scope = screen.getByLabelText("Reports", { selector: "input" });
+    expect(scope).toHaveValue("Direct reports only");
+
+    // happy-dom does not open Mantine comboboxes via userEvent's pointer simulation
+    fireEvent.click(scope);
+    fireEvent.click(await screen.findByRole("option", { name: "All reports (including indirect)" }));
+    await waitFor(() => {
+      expect(memberUrls(mockFetch).some((url) => url.includes("includeIndirect=true"))).toBe(true);
+    });
+  });
+
+  test("member view has no reports-scope filter", async () => {
+    setupMocks(mockFetch);
+    renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
+
+    await screen.findByText("Bob Brown");
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+    await screen.findByLabelText("Name");
+    expect(screen.queryByLabelText("Reports", { selector: "input" })).not.toBeInTheDocument();
+  });
+
   test("the sort control sorts by team; the direction toggle descends", async () => {
     setupMocks(mockFetch);
     const user = userEvent.setup();

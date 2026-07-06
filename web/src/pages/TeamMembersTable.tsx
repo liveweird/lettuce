@@ -49,14 +49,20 @@ export default function TeamMembersTable({
   const [nameFilter, setNameFilter] = useState("");
   const [emailFilter, setEmailFilter] = useState("");
   const [teamFilter, setTeamFilter] = useState<string | null>(null);
+  // "My subordinates" only: direct reports (the default) vs. the whole management chain.
+  const [reportsScope, setReportsScope] = useState<"direct" | "all">("direct");
+  const includeIndirect = view === "managed" && reportsScope === "all";
   const activeFilterCount =
-    (nameFilter.trim() ? 1 : 0) + (emailFilter.trim() ? 1 : 0) + (teamFilter ? 1 : 0);
+    (nameFilter.trim() ? 1 : 0) +
+    (emailFilter.trim() ? 1 : 0) +
+    (teamFilter ? 1 : 0) +
+    (includeIndirect ? 1 : 0);
 
   const [debouncedName] = useDebouncedValue(nameFilter, 300);
   const [debouncedEmail] = useDebouncedValue(emailFilter, 300);
 
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
-    usePagedSort<SortField>("name", [debouncedName, debouncedEmail, teamFilter]);
+    usePagedSort<SortField>("name", [debouncedName, debouncedEmail, teamFilter, includeIndirect]);
 
   const { data: teams } = useQuery({
     queryKey: ["teams", "all"],
@@ -74,6 +80,7 @@ export default function TeamMembersTable({
       debouncedName,
       debouncedEmail,
       teamFilter,
+      includeIndirect,
     ],
     queryFn: () =>
       listTeamMembers({
@@ -84,6 +91,7 @@ export default function TeamMembersTable({
         name: debouncedName || undefined,
         email: debouncedEmail || undefined,
         teamId: teamFilter ? Number(teamFilter) : undefined,
+        includeIndirect: includeIndirect || undefined,
       }),
     placeholderData: keepPreviousData,
   });
@@ -132,6 +140,20 @@ export default function TeamMembersTable({
             clearButtonProps={{ "aria-label": t("teams.clearTeamFilter") }}
             searchable
           />
+          {view === "managed" && (
+            <Select
+              label={t("teams.reportsScope")}
+              data={[
+                { value: "direct", label: t("teams.reportsScopeDirect") },
+                { value: "all", label: t("teams.reportsScopeAll") },
+              ]}
+              value={reportsScope}
+              allowDeselect={false}
+              onChange={(v) => {
+                if (v) setReportsScope(v as "direct" | "all");
+              }}
+            />
+          )}
         </FilterPanel>
         {/* Column headers are gone with the table — sorting lives up here instead. */}
         <Group gap="xs" wrap="nowrap">

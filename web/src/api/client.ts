@@ -284,6 +284,8 @@ export type TeamMemberListQuery = {
   name?: string;
   email?: string;
   teamId?: number;
+  /** Only valid with view=managed: widen from direct reports to the whole management chain. */
+  includeIndirect?: boolean;
 };
 
 export async function listTeamMembers(q: TeamMemberListQuery): Promise<TeamMemberPage> {
@@ -295,6 +297,7 @@ export async function listTeamMembers(q: TeamMemberListQuery): Promise<TeamMembe
   if (q.name) params.set("name", q.name);
   if (q.email) params.set("email", q.email);
   if (q.teamId != null) params.set("teamId", String(q.teamId));
+  if (q.includeIndirect) params.set("includeIndirect", "true");
   const res = await authedFetch(`/api/v1/teams/members?${params.toString()}`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json()) as TeamMemberPage;

@@ -16,3 +16,9 @@ fun Parameters.optionalUInt(name: String): UInt? =
 /** Parses a non-blank param as Long; null when absent/blank, 400 when present but not a Long. */
 fun Parameters.optionalLong(name: String): Long? =
     optionalString(name)?.let { it.toLongOrNull() ?: throw BadRequestException("Invalid $name: $it") }
+
+/** Parses a non-blank param as a strict boolean; null when absent/blank, 400 unless exactly true/false. */
+fun Parameters.optionalBoolean(name: String): Boolean? =
+    optionalString(name)?.let {
+        it.toBooleanStrictOrNull() ?: throw BadRequestException("$name must be true or false")
+    }

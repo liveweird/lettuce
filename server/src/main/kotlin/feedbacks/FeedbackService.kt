@@ -6,6 +6,7 @@ import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.notifications.Notification
 import ch.nokillswit.teams.TeamService
+import ch.nokillswit.teams.transitiveSubordinateIds
 import ch.nokillswit.users.UserService
 import io.ktor.server.plugins.BadRequestException
 import io.ktor.util.AttributeKey
@@ -344,36 +345,6 @@ class FeedbackService(val database: R2dbcDatabase) {
             .map { it[TeamService.Teams.managerId].value }
             .toList()
             .toSet()
-
-    /**
-     * All users in [managerId]'s transitive management chain: members of the non-deleted teams
-     * they manage, plus (recursively) members of teams those members manage. Cycle-safe (only
-     * newly discovered members are expanded) and never includes [managerId] themselves.
-     * Runs in the caller's transaction.
-     */
-    private suspend fun transitiveSubordinateIds(managerId: UInt): Set<UInt> {
-        val subordinates = mutableSetOf<UInt>()
-        var frontier = setOf(managerId)
-        while (frontier.isNotEmpty()) {
-            val members = TeamService.TeamMembers
-                .join(
-                    TeamService.Teams,
-                    JoinType.INNER,
-                    onColumn = TeamService.TeamMembers.teamId,
-                    otherColumn = TeamService.Teams.id,
-                )
-                .select(TeamService.TeamMembers.userId)
-                .where {
-                    (TeamService.Teams.managerId inList frontier) and
-                        (TeamService.Teams.markedAsDeleted eq false)
-                }
-                .map { it[TeamService.TeamMembers.userId].value }
-                .toList()
-            frontier = members.toSet() - subordinates - managerId
-            subordinates += frontier
-        }
-        return subordinates
-    }
 
     private fun buildPredicate(filter: FeedbackListFilter): Op<Boolean> {
         var op: Op<Boolean> = Op.TRUE

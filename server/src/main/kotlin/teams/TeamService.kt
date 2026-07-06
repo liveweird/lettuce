@@ -181,6 +181,7 @@ class TeamService(val database: R2dbcDatabase) {
         callerUserId: UInt,
         filter: TeamMemberListFilter,
         paging: PageRequest,
+        includeIndirect: Boolean = false,
     ): TeamMemberListResult = suspendTransaction(database) {
         val callerMemberships = TeamMembers.alias("caller_memberships")
         val callerTeamIds = callerMemberships
@@ -192,6 +193,11 @@ class TeamService(val database: R2dbcDatabase) {
             TeamMemberListView.MEMBER, TeamMemberListView.MANAGED -> {
                 val scope: Op<Boolean> = if (view == TeamMemberListView.MEMBER) {
                     TeamMembers.teamId inSubQuery callerTeamIds
+                } else if (includeIndirect) {
+                    // All transitive reports: rows of teams managed by the caller or by anyone
+                    // in the caller's management chain, so each indirect report shows up with
+                    // the team(s) they hold under their own manager.
+                    Teams.managerId inList (transitiveSubordinateIds(callerUserId) + callerUserId)
                 } else {
                     Teams.managerId eq callerUserId
                 }

@@ -6,6 +6,7 @@ import ch.nokillswit.authz.requireSelfOrAdmin
 import ch.nokillswit.authz.requireTeamManagerOrAdmin
 import ch.nokillswit.infra.db.requireValidReferences
 import ch.nokillswit.infra.paging.parsePaging
+import ch.nokillswit.infra.paging.optionalBoolean
 import ch.nokillswit.infra.paging.optionalString
 import ch.nokillswit.infra.paging.optionalUInt
 import ch.nokillswit.infra.paging.toPage
@@ -79,13 +80,23 @@ fun Application.configureTeamRoutes() {
                     "managers" -> TeamMemberListView.MANAGERS
                     else -> throw BadRequestException("Unknown view: $raw (allowed: member, managed, managers)")
                 }
+                val includeIndirect = params.optionalBoolean("includeIndirect")
+                if (includeIndirect != null && view != TeamMemberListView.MANAGED) {
+                    throw BadRequestException("includeIndirect is only supported for view=managed")
+                }
                 val paging = call.parsePaging(sortable = setOf("id", "name", "email", "teamName"))
                 val filter = TeamMemberListFilter(
                     name = params.optionalString("name"),
                     email = params.optionalString("email"),
                     teamId = params.optionalUInt("teamId"),
                 )
-                val result = teamService.listMembers(view, caller.userId, filter, paging)
+                val result = teamService.listMembers(
+                    view,
+                    caller.userId,
+                    filter,
+                    paging,
+                    includeIndirect = includeIndirect == true,
+                )
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
             }
             post<Teams> {

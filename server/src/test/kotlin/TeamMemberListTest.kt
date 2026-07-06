@@ -104,6 +104,72 @@ class TeamMemberListTest {
     }
 
     @Test
+    fun `view=managed with includeIndirect returns the whole management chain`() = testApplication {
+        usePostgresTestcontainer()
+        val grandEmail = uniqueEmail("grand")
+        val grandId = TestUsers.seed(email = grandEmail, password = "pw", role = UserRole.USER)
+        val midEmail = uniqueEmail("mid")
+        val midId = TestUsers.seed(email = midEmail, password = "pw", name = "Mia Mid", role = UserRole.USER)
+        val subId = TestUsers.seed(email = uniqueEmail("sub"), password = "pw", name = "Sam Sub", role = UserRole.USER)
+
+        val grandClient = authedClient(grandEmail, "pw")
+        val midClient = authedClient(midEmail, "pw")
+        grandClient.createTeam("leads", grandId, listOf(midId))
+        midClient.createTeam("squad", midId, listOf(subId))
+
+        // Default (and explicit false): direct reports only.
+        val direct = grandClient.get("/api/v1/teams/members?view=managed")
+            .body<TeamMemberPageResponse>()
+        assertEquals(setOf(midId), direct.items.map { it.userId }.toSet())
+        val explicitFalse = grandClient.get("/api/v1/teams/members?view=managed&includeIndirect=false")
+            .body<TeamMemberPageResponse>()
+        assertEquals(setOf(midId), explicitFalse.items.map { it.userId }.toSet())
+
+        // includeIndirect=true: the indirect report appears, carrying the team held under
+        // their own manager.
+        val all = grandClient.get("/api/v1/teams/members?view=managed&includeIndirect=true")
+            .body<TeamMemberPageResponse>()
+        assertEquals(setOf(midId, subId), all.items.map { it.userId }.toSet())
+        assertEquals("squad", all.items.single { it.userId == subId }.teamName)
+    }
+
+    @Test
+    fun `includeIndirect tolerates a management cycle and never lists the caller`() = testApplication {
+        usePostgresTestcontainer()
+        // A manages a team containing B; B manages a team containing A and C — a cycle A→B→A.
+        val aEmail = uniqueEmail("cycle-a")
+        val aId = TestUsers.seed(email = aEmail, password = "pw", role = UserRole.USER)
+        val bEmail = uniqueEmail("cycle-b")
+        val bId = TestUsers.seed(email = bEmail, password = "pw", role = UserRole.USER)
+        val cId = TestUsers.seed(email = uniqueEmail("cycle-c"), password = "pw", role = UserRole.USER)
+
+        val aClient = authedClient(aEmail, "pw")
+        val bClient = authedClient(bEmail, "pw")
+        aClient.createTeam("loop-a", aId, listOf(bId))
+        bClient.createTeam("loop-b", bId, listOf(aId, cId))
+
+        val all = aClient.get("/api/v1/teams/members?view=managed&includeIndirect=true")
+            .body<TeamMemberPageResponse>()
+        // B directly, C via B; A's own membership row in loop-b is excluded (never the caller).
+        assertEquals(setOf(bId, cId), all.items.map { it.userId }.toSet())
+    }
+
+    @Test
+    fun `includeIndirect is rejected for non-managed views and non-boolean values`() = testApplication {
+        usePostgresTestcontainer()
+        val email = uniqueEmail("caller")
+        TestUsers.seed(email = email, password = "pw")
+        val client = authedClient(email, "pw")
+
+        val wrongView = client.get("/api/v1/teams/members?view=member&includeIndirect=true")
+        assertEquals(HttpStatusCode.BadRequest, wrongView.status)
+        assertEquals(HttpStatusCode.BadRequest.value, wrongView.body<ProblemDetail>().status)
+
+        val badValue = client.get("/api/v1/teams/members?view=managed&includeIndirect=banana")
+        assertEquals(HttpStatusCode.BadRequest, badValue.status)
+    }
+
+    @Test
     fun `view defaults to member`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")

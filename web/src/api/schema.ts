@@ -223,7 +223,10 @@ export interface paths {
          *     - `view=member` (the default): members of teams where the caller is a member.
          *       The caller's own rows are excluded. Team managers never appear — a manager is
          *       not a `team_members` row.
-         *     - `view=managed`: members of teams where the caller is the manager.
+         *     - `view=managed`: members of teams where the caller is the manager. With
+         *       `includeIndirect=true`, additionally the members of teams managed by anyone in
+         *       the caller's transitive management chain (the caller's indirect reports, each
+         *       shown with the team they hold under their own manager).
          *     - `view=managers`: the managers of teams where the caller is a member. Each item
          *       describes a manager (in `userId`/`name`/`email`) and the managed team. The
          *       caller is excluded.
@@ -243,7 +246,9 @@ export interface paths {
          *       - `teamId` — exact match against the team's id.
          *
          *     Malformed query parameters (unknown view, unknown sort field, non-numeric
-         *     teamId, out-of-range page/pageSize) respond with `400` and a `ProblemDetail` body.
+         *     teamId, non-boolean includeIndirect, `includeIndirect` combined with a view other
+         *     than `managed`, out-of-range page/pageSize) respond with `400` and a
+         *     `ProblemDetail` body.
          */
         get: operations["listTeamMembers"];
         put?: never;
@@ -1661,6 +1666,13 @@ export interface operations {
                  *       caller's teams appears once per team.
                  */
                 view?: "member" | "managed" | "managers";
+                /**
+                 * @description Only valid with `view=managed` (else `400`). When `true`, widens the scope
+                 *     from direct reports to the caller's whole transitive management chain:
+                 *     members of teams managed by the caller or by any of the caller's (direct or
+                 *     indirect) subordinates. Cycle-safe; the caller themselves never appears.
+                 */
+                includeIndirect?: boolean;
                 /** @description Case-insensitive substring match against the member's name. */
                 name?: string;
                 /** @description Case-insensitive substring match against the member's email. */
