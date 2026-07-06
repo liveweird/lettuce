@@ -2,6 +2,7 @@
   "name": "lettuce-e2e",
   "version": "1.0.0",
   "private": true,
+  "license": "MIT",
   "description": "Browser blackbox E2E tests (Playwright) against the full stack on http://localhost:8080",
   "type": "module",
   "scripts": {
