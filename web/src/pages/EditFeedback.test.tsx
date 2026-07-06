@@ -88,7 +88,8 @@ describe("EditFeedback page", () => {
     expect((await screen.findByLabelText("Content", { selector: "textarea" })) as HTMLTextAreaElement).toHaveValue(
       "Initial thoughts",
     );
-    expect(screen.getByText("You → Mona")).toBeInTheDocument();
+    expect(screen.getByText("You")).toBeInTheDocument();
+    expect(screen.getByText("Mona")).toBeInTheDocument();
     expect((screen.getByPlaceholderText("Select visibility") as HTMLInputElement).value).toBe(
       "Provider + subject",
     );
@@ -140,7 +141,8 @@ describe("EditFeedback page", () => {
     expect(visibility.value).toBe("Provider + requester + subject");
 
     // The resolved requester name is shown in the people line.
-    expect(screen.getByText(/· requested by Rita Requester/)).toBeInTheDocument();
+    expect(screen.getByText("requested by")).toBeInTheDocument();
+    expect(screen.getByText("Rita Requester")).toBeInTheDocument();
 
     // The requester's clarification message is carried into the editor behind a collapsed toggle.
     const messageToggle = screen.getByRole("button", { name: "Message from the requester" });

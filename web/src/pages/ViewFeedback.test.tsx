@@ -65,8 +65,9 @@ describe("ViewFeedback page", () => {
     mockFetch.mockResolvedValue(jsonResponse(200, FEEDBACK));
     renderViewFeedback();
 
-    // The compact header: one people line plus status/visibility badges.
-    expect(await screen.findByText("Alice → You")).toBeInTheDocument();
+    // The compact header: the people line renders each party (chip or "You") plus badges.
+    expect(await screen.findByText("Alice")).toBeInTheDocument();
+    expect(screen.getByText("You")).toBeInTheDocument();
     // No requester on this feedback → no "requested by" clause.
     expect(screen.queryByText(/requested by/)).toBeNull();
     expect(screen.getByLabelText("Visibility")).toHaveTextContent("Public");
@@ -142,9 +143,10 @@ describe("ViewFeedback page", () => {
     );
     renderViewFeedback();
 
-    expect(
-      await screen.findByText("Alice → You · requested by Rita Requester"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("requested by")).toBeInTheDocument();
+    expect(screen.getByText("Alice")).toBeInTheDocument();
+    expect(screen.getByText("You")).toBeInTheDocument();
+    expect(screen.getByText("Rita Requester")).toBeInTheDocument();
   });
 
   test("404 shows a not-found alert with a Close link", async () => {
@@ -185,7 +187,8 @@ describe("ViewFeedback page", () => {
     );
     renderViewFeedback("?as=provider");
 
-    expect(await screen.findByText("You → Mona")).toBeInTheDocument();
+    expect(await screen.findByText("You")).toBeInTheDocument();
+    expect(screen.getByText("Mona")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /close/i })).toHaveAttribute(
       "href",
       "/feedback?tab=provided",
@@ -204,7 +207,10 @@ describe("ViewFeedback page", () => {
     );
     renderViewFeedback();
 
-    expect(await screen.findByText(/· requested by You$/)).toBeInTheDocument();
+    // The requester clause renders, with the requester substituted by plain "You".
+    expect(await screen.findByText("requested by")).toBeInTheDocument();
+    expect(screen.getByText("You")).toBeInTheDocument();
+    expect(screen.queryByText("Rita Requester")).toBeNull();
   });
 
   test("as=team Close links to the team tab", async () => {

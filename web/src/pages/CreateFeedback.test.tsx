@@ -57,7 +57,8 @@ describe("CreateFeedback page", () => {
 
   test("shows the immutable subject and provider with default visibility", () => {
     renderCreateFeedback();
-    expect(screen.getByText("You → Mona")).toBeInTheDocument();
+    expect(screen.getByText("You")).toBeInTheDocument();
+    expect(screen.getByText("Mona")).toBeInTheDocument();
     expect((screen.getByPlaceholderText("Select visibility") as HTMLInputElement).value).toBe(
       "Provider + subject",
     );

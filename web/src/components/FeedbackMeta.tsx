@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { FeedbackStatus, FeedbackVisibility } from "../api/client";
 import { formatTimestamp } from "../utils/datetime";
 import { StatusBadge, VisibilityBadge } from "./FeedbackBadges";
+import PersonaChip from "./PersonaChip";
 
 /**
  * The compact metadata header shared by the feedback view and edit screens: title with
@@ -31,6 +32,15 @@ export default function FeedbackMeta({
   lastModified?: number;
 }) {
   const { t } = useTranslation();
+  // The app-wide person convention: PersonaChip for a named party, plain text for the
+  // current user. Both callers resolve self to t("common.state.you"), so that literal is
+  // the chip-vs-plain discriminator.
+  const party = (display: string) =>
+    display === t("common.state.you") ? (
+      <Text size="sm">{display}</Text>
+    ) : (
+      <PersonaChip name={display} />
+    );
   return (
     <Stack gap={4}>
       <Group justify="space-between" align="center" wrap="nowrap">
@@ -40,15 +50,24 @@ export default function FeedbackMeta({
           {visibility && <VisibilityBadge visibility={visibility} />}
         </Group>
       </Group>
-      <Text>
-        {requesterDisplay
-          ? t("feedback.peopleLineRequested", {
-              provider: providerDisplay,
-              subject: subjectDisplay,
-              requester: requesterDisplay,
-            })
-          : t("feedback.peopleLine", { provider: providerDisplay, subject: subjectDisplay })}
-      </Text>
+      <Group gap={8} wrap="wrap">
+        {party(providerDisplay)}
+        <Text size="sm" c="dimmed">
+          →
+        </Text>
+        {party(subjectDisplay)}
+        {requesterDisplay != null && (
+          <>
+            <Text size="sm" c="dimmed">
+              ·
+            </Text>
+            <Text size="sm" c="dimmed">
+              {t("feedback.requestedBy")}
+            </Text>
+            {party(requesterDisplay)}
+          </>
+        )}
+      </Group>
       {lastModified != null && (
         <Text size="sm" c="dimmed">
           {t("feedback.lastModifiedLine", { when: formatTimestamp(lastModified) })}

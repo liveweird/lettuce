@@ -65,7 +65,8 @@ describe("FeedbackForm", () => {
     renderWithProviders(<FeedbackForm {...baseProps} onSubmit={onSubmit} />);
 
     expect(screen.getByRole("heading", { name: "Edit feedback" })).toBeInTheDocument();
-    expect(screen.getByText("You → Sam Subject")).toBeInTheDocument();
+    expect(screen.getByText("You")).toBeInTheDocument();
+    expect(screen.getByText("Sam Subject")).toBeInTheDocument();
 
     // The editor is lazy-loaded, so wait for it to resolve before typing.
     await user.type(await screen.findByLabelText("Content"), "Nice work");
@@ -117,9 +118,8 @@ describe("FeedbackForm", () => {
     const { unmount } = renderWithProviders(
       <FeedbackForm {...baseProps} onSubmit={() => {}} requesterDisplay="Rita Requester" />,
     );
-    expect(
-      screen.getByText("You → Sam Subject · requested by Rita Requester"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("requested by")).toBeInTheDocument();
+    expect(screen.getByText("Rita Requester")).toBeInTheDocument();
     unmount();
 
     renderWithProviders(<FeedbackForm {...baseProps} onSubmit={() => {}} />);
