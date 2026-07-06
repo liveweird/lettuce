@@ -27,6 +27,7 @@ import {
   removeTeamMember,
 } from "../api/client";
 import FeedbackActionButton from "../components/FeedbackActionButton";
+import PersonaChip from "../components/PersonaChip";
 import { feedbackAskLink, feedbackProvideLink } from "../utils/feedbackLinks";
 
 // A single team realistically has a small, bounded set of members; fetch up to the 100-row
@@ -237,8 +238,14 @@ export default function TeamMembers() {
           ) : members.length > 0 ? (
             members.map((m) => (
               <Table.Tr key={m.id}>
-                <Table.Td>{m.name}</Table.Td>
-                <Table.Td>{m.email}</Table.Td>
+                <Table.Td style={{ maxWidth: 240 }}>
+                  <PersonaChip name={m.name} />
+                </Table.Td>
+                <Table.Td style={{ maxWidth: 280 }}>
+                  <Text size="sm" truncate>
+                    {m.email}
+                  </Text>
+                </Table.Td>
                 <Table.Td>
                   <Group gap="xs" wrap="nowrap" justify="flex-end">
                     {m.id !== currentUserId && (

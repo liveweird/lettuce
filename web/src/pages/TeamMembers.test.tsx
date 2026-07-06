@@ -67,7 +67,7 @@ function mockAddError(mockFetch: FetchMock, putResult: () => Promise<Response>) 
 
 // Pick "Erin" from the add picker and click Add.
 async function addErin(user: ReturnType<typeof userEvent.setup>) {
-  await screen.findByRole("cell", { name: "Carol" });
+  await screen.findByText("Carol");
   await user.click(screen.getByPlaceholderText("Pick a user"));
   const listbox = await screen.findByRole("listbox", { hidden: true });
   await user.click(within(listbox).getByText("Erin"));
@@ -99,8 +99,8 @@ describe("TeamMembers page", () => {
     renderTeamMembers(3);
 
     expect(await screen.findByRole("heading", { name: "Members — Platform" })).toBeInTheDocument();
-    expect(await screen.findByRole("cell", { name: "Carol" })).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "dave@example.com" })).toBeInTheDocument();
+    expect(await screen.findByText("Carol")).toBeInTheDocument();
+    expect(screen.getByText("dave@example.com")).toBeInTheDocument();
 
     const membersCall = mockFetch.mock.calls.find(([u]) => typeof u === "string" && isMembersUrl(u));
     expect(membersCall).toBeDefined();
@@ -119,8 +119,8 @@ describe("TeamMembers page", () => {
 
     // Not redirected away: the roster renders.
     expect(await screen.findByRole("heading", { name: "Members — Platform" })).toBeInTheDocument();
-    expect(await screen.findByRole("cell", { name: "Carol" })).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "dave@example.com" })).toBeInTheDocument();
+    expect(await screen.findByText("Carol")).toBeInTheDocument();
+    expect(screen.getByText("dave@example.com")).toBeInTheDocument();
 
     // No management controls.
     expect(screen.queryByLabelText("Add a user")).not.toBeInTheDocument();
@@ -180,7 +180,7 @@ describe("TeamMembers page", () => {
     const user = userEvent.setup();
     renderTeamMembers(3);
 
-    await screen.findByRole("cell", { name: "Carol" });
+    await screen.findByText("Carol");
 
     await user.click(screen.getByPlaceholderText("Pick a user"));
     // happy-dom marks the portaled dropdown as hidden, so query with hidden:true.
@@ -226,7 +226,8 @@ describe("TeamMembers page", () => {
     await user.click(within(dialog).getByRole("button", { name: /^remove$/i }));
 
     await waitFor(() =>
-      expect(screen.queryByRole("cell", { name: "Carol" })).not.toBeInTheDocument(),
+      // Scope to the table — after removal "Carol" may still exist in the add-picker pool.
+      expect(within(screen.getByRole("table")).queryByText("Carol")).not.toBeInTheDocument(),
     );
     const deleteCall = mockFetch.mock.calls.find(
       ([u, init]) =>
@@ -261,7 +262,7 @@ describe("TeamMembers page", () => {
     const user = userEvent.setup();
     renderTeamMembers(3);
 
-    await screen.findByRole("cell", { name: "Carol" });
+    await screen.findByText("Carol");
     await user.click(screen.getByPlaceholderText("Pick a user"));
     const listbox = await screen.findByRole("listbox", { hidden: true });
     await user.click(within(listbox).getByText("Erin"));
