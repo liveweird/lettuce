@@ -72,9 +72,10 @@ fun canReadFeedback(
         (feedback.status == FeedbackStatus.SENT || feedback.status == FeedbackStatus.WITHDRAWN)
     ) return true
 
-    // The SUBJECT's MANAGER is handled outside this function: requireFeedbackReadAllowingManager
-    // grants a managing caller read once the feedback is delivered (SENT/WITHDRAWN) after these
-    // cheap rules miss — matching the team list scope; a provider's DRAFT stays private.
+    // The SUBJECT's MANAGEMENT CHAIN (their manager, that manager's manager, and so on —
+    // transitive) is handled outside this function: requireFeedbackReadAllowingManager grants a
+    // managing caller read once the feedback is delivered (SENT/WITHDRAWN) after these cheap
+    // rules miss — matching the team list scope; a provider's DRAFT stays private.
 
     // what the rest sees
     // - visibility: public
@@ -102,7 +103,8 @@ suspend fun requireFeedbackReadAllowingManager(
     managesSubject: suspend () -> Boolean,
 ) {
     if (canReadFeedback(caller, feedback)) return // cheap rules first
-    // A manager of the subject may read only once the feedback is delivered (SENT/WITHDRAWN),
+    // Any manager in the subject's management chain (direct or transitive — their manager's
+    // manager, and so on) may read only once the feedback is delivered (SENT/WITHDRAWN),
     // matching the team list scope — a provider's DRAFT/REQUESTED work stays private to the
     // parties involved.
     val delivered = feedback.status == FeedbackStatus.SENT || feedback.status == FeedbackStatus.WITHDRAWN

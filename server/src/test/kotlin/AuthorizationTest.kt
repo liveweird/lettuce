@@ -4,6 +4,7 @@ import ch.nokillswit.auth.LoginRequest
 import ch.nokillswit.auth.LoginResponse
 import ch.nokillswit.feedbacks.Feedback
 import ch.nokillswit.feedbacks.FeedbackCreateRequest
+import ch.nokillswit.feedbacks.FeedbackPageResponse
 import ch.nokillswit.feedbacks.FeedbackResponse
 import ch.nokillswit.feedbacks.FeedbackContentUpdate
 import ch.nokillswit.feedbacks.FeedbackStatus
@@ -381,6 +382,117 @@ class AuthorizationTest {
                 )
             }.status,
         )
+    }
+
+    @Test
+    fun `a manager higher up the management chain may read a delivered feedback but not write it`() = testApplication {
+        usePostgresTestcontainer()
+        val providerEmail = uniqueEmail("provider")
+        val providerId = TestUsers.seed(email = providerEmail, password = "pw-123456789", role = UserRole.USER)
+        val subjectEmail = uniqueEmail("subject")
+        val subjectId = TestUsers.seed(email = subjectEmail, password = "pw-123456789", role = UserRole.USER)
+        val midManagerEmail = uniqueEmail("mid-manager")
+        val midManagerId = TestUsers.seed(email = midManagerEmail, password = "pw-123456789", role = UserRole.USER)
+        val grandManagerEmail = uniqueEmail("grand-manager")
+        val grandManagerId = TestUsers.seed(email = grandManagerEmail, password = "pw-123456789", role = UserRole.USER)
+
+        val providerClient = authedClient(providerEmail, "pw-123456789")
+        val midManagerClient = authedClient(midManagerEmail, "pw-123456789")
+        val grandManagerClient = authedClient(grandManagerEmail, "pw-123456789")
+
+        // Two hops: the subject reports to the mid manager, who reports to the grand manager.
+        midManagerClient.post("/api/v1/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "Squad", managerId = midManagerId, memberIds = listOf(subjectId)))
+        }
+        grandManagerClient.post("/api/v1/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "Leads", managerId = grandManagerId, memberIds = listOf(midManagerId)))
+        }
+
+        val feedback = providerClient.post("/api/v1/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                FeedbackCreateRequest(
+                    subjectId = subjectId,
+                    providerId = providerId,
+                    visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                    status = FeedbackStatus.DRAFT,
+                    content = "private",
+                ),
+            )
+        }.body<FeedbackResponse>()
+
+        // An unfinished DRAFT stays private from the whole management chain.
+        assertEquals(HttpStatusCode.Forbidden, grandManagerClient.get("/api/v1/feedbacks/${feedback.id}").status)
+
+        assertEquals(HttpStatusCode.NoContent, providerClient.post("/api/v1/feedbacks/${feedback.id}/send").status)
+
+        // Once delivered, the manager's manager may read the record and its history…
+        assertEquals(HttpStatusCode.OK, grandManagerClient.get("/api/v1/feedbacks/${feedback.id}").status)
+        assertEquals(HttpStatusCode.OK, grandManagerClient.get("/api/v1/feedbacks/${feedback.id}/events").status)
+        // …but read access still does not grant write access.
+        assertEquals(
+            HttpStatusCode.Forbidden,
+            grandManagerClient.put("/api/v1/feedbacks/${feedback.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    FeedbackCreateRequest(
+                        subjectId = subjectId,
+                        providerId = providerId,
+                        visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                        status = FeedbackStatus.WITHDRAWN,
+                        content = "hijacked",
+                    ),
+                )
+            }.status,
+        )
+    }
+
+    @Test
+    fun `a management cycle terminates and still grants transitive reads`() = testApplication {
+        usePostgresTestcontainer()
+        // A manages a team containing B; B manages a team containing A and C — a cycle A→B→A.
+        val aEmail = uniqueEmail("cycle-a")
+        val aId = TestUsers.seed(email = aEmail, password = "pw-123456789", role = UserRole.USER)
+        val bEmail = uniqueEmail("cycle-b")
+        val bId = TestUsers.seed(email = bEmail, password = "pw-123456789", role = UserRole.USER)
+        val cEmail = uniqueEmail("cycle-c")
+        val cId = TestUsers.seed(email = cEmail, password = "pw-123456789", role = UserRole.USER)
+        val providerEmail = uniqueEmail("provider")
+        val providerId = TestUsers.seed(email = providerEmail, password = "pw-123456789", role = UserRole.USER)
+
+        val aClient = authedClient(aEmail, "pw-123456789")
+        val bClient = authedClient(bEmail, "pw-123456789")
+        val providerClient = authedClient(providerEmail, "pw-123456789")
+
+        aClient.post("/api/v1/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "Loop-A", managerId = aId, memberIds = listOf(bId)))
+        }
+        bClient.post("/api/v1/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "Loop-B", managerId = bId, memberIds = listOf(aId, cId)))
+        }
+
+        val feedback = providerClient.post("/api/v1/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                FeedbackCreateRequest(
+                    subjectId = cId,
+                    providerId = providerId,
+                    visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                    status = FeedbackStatus.SENT,
+                    content = "delivered",
+                ),
+            )
+        }.body<FeedbackResponse>()
+
+        // A transitively manages C (via B); both the single read and the team list terminate
+        // despite the A→B→A cycle.
+        assertEquals(HttpStatusCode.OK, aClient.get("/api/v1/feedbacks/${feedback.id}").status)
+        val teamPage = aClient.get("/api/v1/feedbacks?view=team").body<FeedbackPageResponse>()
+        assertTrue(teamPage.items.any { it.id == feedback.id })
     }
 
     @Test

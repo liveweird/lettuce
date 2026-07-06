@@ -334,12 +334,14 @@ export interface paths {
          *       row the caller requested has its `contentPreview` redacted (empty) until it is sent.
          *     - `view=provided`: rows where the caller is the provider, regardless of visibility
          *       (a provider may always read their own records).
-         *     - `view=team`: rows where the subject is a member of a non-deleted team the caller manages
-         *       (the caller's subordinates), AND the caller is a **party** to the row — its provider or
-         *       requester (at any status) — OR `status` is `SENT`/`WITHDRAWN`. Intended for a manager's
-         *       overview; in-progress (`DRAFT`/`REQUESTED`/`REJECTED`) rows the manager is not a party to
-         *       are excluded. A caller who manages no team gets an empty page. When the manager is also
-         *       the requester of an unfinished row, its `contentPreview` is redacted (empty) until sent.
+         *     - `view=team`: rows where the subject is in the caller's **transitive management chain**
+         *       — a member of a non-deleted team the caller manages, or (recursively) of a team managed
+         *       by one of those members (the caller's direct and indirect subordinates) — AND the caller
+         *       is a **party** to the row — its provider or requester (at any status) — OR `status` is
+         *       `SENT`/`WITHDRAWN`. Intended for a manager's overview; in-progress
+         *       (`DRAFT`/`REQUESTED`/`REJECTED`) rows the manager is not a party to are excluded. A
+         *       caller who manages no team gets an empty page. When the manager is also the requester of
+         *       an unfinished row, its `contentPreview` is redacted (empty) until sent.
          *
          *     Supports offset pagination, sorting and filtering.
          *
@@ -398,8 +400,10 @@ export interface paths {
          *     - the **subject** may read only when `visibility` is `PROVIDER_SUBJECT` or
          *       `PROVIDER_REQUESTER_SUBJECT` AND `status` is `SENT` or `WITHDRAWN` (so a `DRAFT`/
          *       `REQUESTED`/`REJECTED` record is not visible to the subject through this rule).
-         *     - a **manager of the subject** may read any feedback about a subordinate, at any status
-         *       (the endpoint grants a managing caller an unconditional read).
+         *     - any **manager in the subject's management chain** (their manager, that manager's
+         *       manager, and so on — transitive over non-deleted teams) may read a feedback about the
+         *       subordinate once it is delivered — `status` is `SENT` or `WITHDRAWN`; the provider's
+         *       `DRAFT`/`REQUESTED` work stays private to the parties involved.
          *     - otherwise a `PUBLIC` record may be read by any authenticated user once `status` is `SENT`.
          *     Anything else is `403`.
          *

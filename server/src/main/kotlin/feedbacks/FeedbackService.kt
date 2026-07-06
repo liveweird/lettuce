@@ -223,25 +223,19 @@ class FeedbackService(val database: R2dbcDatabase) {
             }
             FeedbackListView.PROVIDED -> Feedbacks.providerId eq callerUserId
             FeedbackListView.TEAM -> {
-                // Subjects that are members of a team the caller manages (their subordinates).
-                val subordinateIds = TeamService.TeamMembers
-                    .join(
-                        TeamService.Teams,
-                        JoinType.INNER,
-                        onColumn = TeamService.TeamMembers.teamId,
-                        otherColumn = TeamService.Teams.id,
-                    )
-                    .select(TeamService.TeamMembers.userId)
-                    .where {
-                        (TeamService.Teams.managerId eq callerUserId) and
-                            (TeamService.Teams.markedAsDeleted eq false)
-                    }
+                // Subjects in the caller's transitive management chain: members of teams the
+                // caller manages, plus (recursively) members of teams those members manage.
+                val subordinateIds = transitiveSubordinateIds(callerUserId)
                 // I see a subordinate's feedback if I'm a party (provider or requester) for any
                 // status; otherwise only once it's delivered (SENT/WITHDRAWN).
                 val iAmParty = (Feedbacks.providerId eq callerUserId) or
                     (Feedbacks.requesterId eq callerUserId)
-                (Feedbacks.subjectId inSubQuery subordinateIds) and
-                    (iAmParty or (Feedbacks.status inList DELIVERED_STATUSES))
+                if (subordinateIds.isEmpty()) {
+                    Op.FALSE
+                } else {
+                    (Feedbacks.subjectId inList subordinateIds) and
+                        (iAmParty or (Feedbacks.status inList DELIVERED_STATUSES))
+                }
             }
         }
         val predicate: Op<Boolean> = scope and buildPredicate(filter) and active()
@@ -312,28 +306,74 @@ class FeedbackService(val database: R2dbcDatabase) {
     }
 
     /**
-     * True iff [subjectId] is a member of a non-deleted team managed by [managerId].
+     * True iff [managerId] is in [subjectId]'s management chain — the manager of a non-deleted
+     * team the subject belongs to, or, transitively, the manager of such a manager, and so on.
      * Mirrors the scope of [FeedbackListView.TEAM] so a manager who can list a
-     * subordinate's feedback can also read the individual record.
+     * subordinate's feedback can also read the individual record. Walks upward from the subject
+     * (bounded by chain height); a management cycle terminates via the visited set, and a caller
+     * is never considered their own manager.
      */
     suspend fun managesSubject(managerId: UInt, subjectId: UInt): Boolean =
         suspendTransaction(database) {
-            TeamService.TeamMembers
+            if (managerId == subjectId) return@suspendTransaction false
+            var frontier = setOf(subjectId)
+            val visited = mutableSetOf<UInt>()
+            while (frontier.isNotEmpty()) {
+                val managers = managersOf(frontier)
+                if (managerId in managers) return@suspendTransaction true
+                visited += frontier
+                frontier = managers - visited
+            }
+            false
+        }
+
+    /** Managers of the non-deleted teams the [userIds] are members of. Runs in the caller's transaction. */
+    private suspend fun managersOf(userIds: Set<UInt>): Set<UInt> =
+        TeamService.TeamMembers
+            .join(
+                TeamService.Teams,
+                JoinType.INNER,
+                onColumn = TeamService.TeamMembers.teamId,
+                otherColumn = TeamService.Teams.id,
+            )
+            .select(TeamService.Teams.managerId)
+            .where {
+                (TeamService.TeamMembers.userId inList userIds) and
+                    (TeamService.Teams.markedAsDeleted eq false)
+            }
+            .map { it[TeamService.Teams.managerId].value }
+            .toList()
+            .toSet()
+
+    /**
+     * All users in [managerId]'s transitive management chain: members of the non-deleted teams
+     * they manage, plus (recursively) members of teams those members manage. Cycle-safe (only
+     * newly discovered members are expanded) and never includes [managerId] themselves.
+     * Runs in the caller's transaction.
+     */
+    private suspend fun transitiveSubordinateIds(managerId: UInt): Set<UInt> {
+        val subordinates = mutableSetOf<UInt>()
+        var frontier = setOf(managerId)
+        while (frontier.isNotEmpty()) {
+            val members = TeamService.TeamMembers
                 .join(
                     TeamService.Teams,
                     JoinType.INNER,
                     onColumn = TeamService.TeamMembers.teamId,
                     otherColumn = TeamService.Teams.id,
                 )
-                .selectAll()
+                .select(TeamService.TeamMembers.userId)
                 .where {
-                    (TeamService.Teams.managerId eq managerId) and
-                        (TeamService.Teams.markedAsDeleted eq false) and
-                        (TeamService.TeamMembers.userId eq subjectId)
+                    (TeamService.Teams.managerId inList frontier) and
+                        (TeamService.Teams.markedAsDeleted eq false)
                 }
-                .limit(1)
-                .count() > 0
+                .map { it[TeamService.TeamMembers.userId].value }
+                .toList()
+            frontier = members.toSet() - subordinates - managerId
+            subordinates += frontier
         }
+        return subordinates
+    }
 
     private fun buildPredicate(filter: FeedbackListFilter): Op<Boolean> {
         var op: Op<Boolean> = Op.TRUE

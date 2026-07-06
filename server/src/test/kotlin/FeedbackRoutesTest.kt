@@ -1153,6 +1153,46 @@ class FeedbackRoutesTest {
     }
 
     @Test
+    fun `team view includes indirect subordinates through the management chain`() = testApplication {
+        usePostgresTestcontainer()
+        val grandManager = seedParty("grand", "Greta Grand")
+        val midManager = seedParty("mid", "Mia Mid")
+        val subordinate = seedParty("sub", "Sam Sub")
+        val provider = seedParty("provider", "Pat Provider")
+        val grandManagerClient = authedClient(grandManager.email, "pw")
+        val midManagerClient = authedClient(midManager.email, "pw")
+
+        // The subordinate reports to the mid manager, who reports to the grand manager.
+        midManagerClient.post("/api/v1/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "Squad", managerId = midManager.id, memberIds = listOf(subordinate.id)))
+        }
+        grandManagerClient.post("/api/v1/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "Leads", managerId = grandManager.id, memberIds = listOf(midManager.id)))
+        }
+
+        // In-progress draft about the indirect subordinate — the grand manager is not a party → hidden.
+        createFeedback(
+            subordinate.id, provider.id, FeedbackVisibility.PUBLIC, status = FeedbackStatus.DRAFT,
+        )
+        // Delivered feedback about the direct report (mid manager) and the indirect one → both shown.
+        val aboutMid = createFeedback(
+            midManager.id, provider.id, FeedbackVisibility.PUBLIC, status = FeedbackStatus.SENT,
+        )
+        val aboutSub = createFeedback(
+            subordinate.id, provider.id, FeedbackVisibility.PROVIDER_SUBJECT, status = FeedbackStatus.SENT,
+        )
+
+        val items = grandManagerClient.get("/api/v1/feedbacks?view=team").body<FeedbackPageResponse>().items
+        assertEquals(setOf(aboutMid.id, aboutSub.id), items.map { it.id }.toSet())
+
+        // The mid manager's own team view is unchanged: only the direct subordinate's delivered row.
+        val midItems = midManagerClient.get("/api/v1/feedbacks?view=team").body<FeedbackPageResponse>().items
+        assertEquals(setOf(aboutSub.id), midItems.map { it.id }.toSet())
+    }
+
+    @Test
     fun `list scopes to a single counterparty by providerId and subjectId`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
