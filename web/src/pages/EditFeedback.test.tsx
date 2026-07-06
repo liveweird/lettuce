@@ -314,7 +314,7 @@ describe("EditFeedback page", () => {
     expect(screen.getByRole("button", { name: /^accept$/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^reject$/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^close$/i })).toBeInTheDocument();
-    expect(screen.getByLabelText("Requester")).toHaveValue("Rita Requester");
+    expect(screen.getByText("Rita Requester")).toBeInTheDocument();
     // The requester's clarification message is shown read-only on the triage screen.
     const message = screen.getByLabelText("Message from the requester") as HTMLTextAreaElement;
     expect(message).toHaveValue("Please assess my Q3 delivery");

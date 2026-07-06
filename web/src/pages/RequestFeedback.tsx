@@ -12,7 +12,6 @@ import {
   Table,
   Text,
   Textarea,
-  TextInput,
   Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
@@ -26,6 +25,8 @@ import {
   listUsers,
   type FeedbackVisibility,
 } from "../api/client";
+import PersonaChip from "../components/PersonaChip";
+import PersonaField from "../components/PersonaField";
 
 // The provider picker realistically chooses from a bounded set; fetch up to the 100-row
 // max (the list endpoint's cap). Fine at this app's scale.
@@ -140,7 +141,13 @@ export default function RequestFeedback() {
         <Stack>
           <Title order={2}>{t("feedback.requestFeedbackTitle")}</Title>
 
-          <SimpleSubjectRequester subjectDisplay={subjectName ?? `#${subjectId}`} />
+          <Group gap="xl">
+            <PersonaField
+              label={t("common.field.subject")}
+              name={subjectName ?? `#${subjectId}`}
+            />
+            <PersonaField label={t("common.field.requester")} you />
+          </Group>
 
           <Select
             label={t("common.field.visibility")}
@@ -189,7 +196,9 @@ export default function RequestFeedback() {
               {selected.length > 0 ? (
                 selected.map((p) => (
                   <Table.Tr key={p.id}>
-                    <Table.Td>{p.name}</Table.Td>
+                    <Table.Td>
+                      <PersonaChip name={p.name} />
+                    </Table.Td>
                     <Table.Td>
                       <Button
                         color="red"
@@ -257,15 +266,5 @@ export default function RequestFeedback() {
         </Stack>
       </Modal>
     </Container>
-  );
-}
-
-function SimpleSubjectRequester({ subjectDisplay }: { subjectDisplay: string }) {
-  const { t } = useTranslation();
-  return (
-    <Group grow>
-      <TextInput label={t("common.field.subject")} value={subjectDisplay} disabled />
-      <TextInput label={t("common.field.requester")} value={t("common.state.you")} disabled />
-    </Group>
   );
 }

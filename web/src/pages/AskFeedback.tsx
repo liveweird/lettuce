@@ -11,13 +11,13 @@ import {
   Stack,
   Text,
   Textarea,
-  TextInput,
   Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ApiError, createFeedback, getUserId, type FeedbackVisibility } from "../api/client";
+import PersonaField from "../components/PersonaField";
 
 // The asker is the requester, so "Ask for feedback" offers the requester-inclusive visibilities —
 // the ones under which the requester (themselves) can read the result.
@@ -93,13 +93,12 @@ export default function AskFeedback() {
         <Stack>
           <Title order={2}>{t("feedback.askTitle")}</Title>
 
-          <Group grow>
-            <TextInput
+          <Group gap="xl">
+            <PersonaField
               label={t("common.field.provider")}
-              value={providerName ?? `#${providerId}`}
-              disabled
+              name={providerName ?? `#${providerId}`}
             />
-            <TextInput label={t("common.field.subject")} value={t("common.state.you")} disabled />
+            <PersonaField label={t("common.field.subject")} you />
           </Group>
 
           <Select

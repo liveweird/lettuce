@@ -61,8 +61,9 @@ describe("AskFeedback page", () => {
     renderAskFeedback();
 
     expect(screen.getByRole("heading", { name: /ask for feedback/i })).toBeInTheDocument();
-    expect(screen.getByLabelText("Provider")).toHaveValue("Manny Manager");
-    expect(screen.getByLabelText("Subject")).toHaveValue("You");
+    // The parties render as labeled persona displays (avatar chip / plain "You"), not inputs.
+    expect(screen.getByText("Manny Manager")).toBeInTheDocument();
+    expect(screen.getByText("You")).toBeInTheDocument();
     // Visibility is the only editable field — there is no content box.
     expect(screen.queryByLabelText("Content")).toBeNull();
 

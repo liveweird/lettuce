@@ -17,7 +17,6 @@ import {
   Paper,
   Stack,
   Text,
-  TextInput,
   Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
@@ -36,6 +35,7 @@ import {
   type FeedbackVisibility,
 } from "../api/client";
 import FeedbackForm from "../components/FeedbackForm";
+import PersonaField from "../components/PersonaField";
 import RequesterMessage from "../components/RequesterMessage";
 
 const PROVIDED = "/feedback?tab=provided";
@@ -232,8 +232,10 @@ export default function EditFeedback() {
             <Text>
               {t("feedback.triageLine", { requester: requesterDisplay, subject: subjectDisplay })}
             </Text>
-            <TextInput label={t("common.field.subject")} value={subjectDisplay} disabled />
-            <TextInput label={t("common.field.requester")} value={requesterDisplay} disabled />
+            <Group gap="xl">
+              <PersonaField label={t("common.field.subject")} name={subjectDisplay} />
+              <PersonaField label={t("common.field.requester")} name={requesterDisplay} />
+            </Group>
             <RequesterMessage value={data!.requesterMessage} />
             {error && (
               <Alert color="red" variant="light">
