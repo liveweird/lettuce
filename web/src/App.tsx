@@ -23,6 +23,7 @@ import {
   IconSettings,
   IconSun,
   IconUserCircle,
+  IconUserScan,
   IconUsers,
   IconUsersGroup,
 } from "@tabler/icons-react";
@@ -49,6 +50,7 @@ const Feedback = lazy(() => import("./pages/Feedback"));
 const CreateFeedback = lazy(() => import("./pages/CreateFeedback"));
 const RequestFeedback = lazy(() => import("./pages/RequestFeedback"));
 const AskFeedback = lazy(() => import("./pages/AskFeedback"));
+const SelfReflection = lazy(() => import("./pages/SelfReflection"));
 const EditFeedback = lazy(() => import("./pages/EditFeedback"));
 const ViewFeedback = lazy(() => import("./pages/ViewFeedback"));
 const ManagerFeedbacks = lazy(() => import("./pages/ManagerFeedbacks"));
@@ -213,7 +215,10 @@ function Shell() {
   const { pathname } = useLocation();
   const dynamicItems: NavLeaf[] =
     userId !== null
-      ? [{ to: `/users/${userId}/change-password`, label: "appShell.nav.changePassword", icon: IconKey, tourId: "nav-change-password" }]
+      ? [
+          { to: "/feedback/self", label: "appShell.nav.selfReflection", icon: IconUserScan, tourId: "nav-self-reflection" },
+          { to: `/users/${userId}/change-password`, label: "appShell.nav.changePassword", icon: IconKey, tourId: "nav-change-password" },
+        ]
       : [];
   const allEntries: NavEntry[] = [...NAV_ITEMS, ...dynamicItems];
   const leafTos = allEntries.flatMap((e) =>
@@ -337,6 +342,7 @@ export default function App() {
             <Route path="feedback/new" element={<CreateFeedback />} />
             <Route path="feedback/request" element={<RequestFeedback />} />
             <Route path="feedback/ask" element={<AskFeedback />} />
+            <Route path="feedback/self" element={<SelfReflection />} />
             <Route path="feedback/:id/edit" element={<EditFeedback />} />
             <Route path="feedback/:id/view" element={<ViewFeedback />} />
             <Route path="users/:userId/feedbacks" element={<ManagerFeedbacks />} />

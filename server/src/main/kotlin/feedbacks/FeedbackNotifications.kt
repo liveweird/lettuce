@@ -17,6 +17,10 @@ internal fun feedbackTransitionNotifications(
     next: Feedback,
     nameById: Map<UInt, String>,
 ): List<Notification> {
+    // A self-reflection (provider == subject, never a requester) has no other party: every
+    // notification below would tell the acting user about their own action — produce none.
+    if (next.subjectId == next.providerId) return emptyList()
+
     val to = next.status
     val provider = nameById.nameOf(next.providerId)
     val subject = nameById.nameOf(next.subjectId)

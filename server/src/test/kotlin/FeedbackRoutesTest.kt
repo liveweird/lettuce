@@ -290,7 +290,9 @@ class FeedbackRoutesTest {
     }
 
     @Test
-    fun `provider equals subject is rejected`() = testApplication {
+    fun `provider equals subject is accepted as a self-reflection (no requester)`() = testApplication {
+        // provider == subject is the self-reflection case; with a requester it is rejected
+        // (covered in SelfReflectionTest).
         usePostgresTestcontainer()
         val t = seedTriad()
         val client = authedClient(t.providerEmail, "pw")
@@ -306,7 +308,7 @@ class FeedbackRoutesTest {
                 )
             )
         }
-        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertEquals(HttpStatusCode.Created, response.status)
     }
 
     @Test

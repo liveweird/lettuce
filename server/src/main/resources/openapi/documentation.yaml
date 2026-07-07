@@ -722,7 +722,10 @@ paths:
       tags: [feedbacks]
       operationId: createFeedback
       summary: Create a feedback record
-      description: Any authenticated user may create a feedback record.
+      description: >-
+        Any authenticated user may create a feedback record they are a party to. The provider may
+        equal the subject — a self-reflection (feedback about yourself) — in which case
+        `requesterId` must be null.
       requestBody:
         required: true
         content:
@@ -741,7 +744,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/FeedbackResponse'
         '400':
-          description: 'Validation error (provider ≠ subject; requester ≠ provider; REQUESTED requires a requester; a feedback with a requester may not use PROVIDER_SUBJECT visibility; PROVIDER_REQUESTER visibility requires a requester) or referenced user does not exist'
+          description: 'Validation error (provider == subject — a self-reflection — requires a null requester; requester ≠ provider; REQUESTED requires a requester; a feedback with a requester may not use PROVIDER_SUBJECT visibility; PROVIDER_REQUESTER visibility requires a requester) or referenced user does not exist'
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetail' }

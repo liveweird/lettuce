@@ -63,6 +63,21 @@ class FeedbackNotificationsTest {
     }
 
     @Test
+    fun `self-reflection transitions produce no notifications`() {
+        // provider == subject (never a requester): every recipient would be the acting user.
+        val self = Feedback(
+            requesterId = null,
+            subjectId = 1u,
+            providerId = 1u,
+            visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+            status = FeedbackStatus.SENT,
+        )
+        assertTrue(feedbackTransitionNotifications(7u, FeedbackStatus.DRAFT, self, names).isEmpty())
+        val withdrawn = self.copy(status = FeedbackStatus.WITHDRAWN)
+        assertTrue(feedbackTransitionNotifications(7u, FeedbackStatus.SENT, withdrawn, names).isEmpty())
+    }
+
+    @Test
     fun `draft to sent without a requester notifies the subject and the provider`() {
         val next = feedback(FeedbackStatus.SENT, requesterId = null)
         val result = feedbackTransitionNotifications(7u, FeedbackStatus.DRAFT, next, names)
