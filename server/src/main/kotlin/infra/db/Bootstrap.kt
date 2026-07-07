@@ -1,6 +1,7 @@
 package ch.nokillswit.infra.db
 
 import ch.nokillswit.auth.hashPassword
+import ch.nokillswit.feedbacks.FeedbackServiceKey
 import ch.nokillswit.users.UserServiceKey
 import io.ktor.server.application.*
 
@@ -26,6 +27,8 @@ internal val DEMO_SEED_EMAILS = listOf(
  * - Outside development mode the V9 demo users are soft-deleted, and startup **fails closed**
  *   (mirroring the JWT-secret check in plugins/Security.kt) if any active account still carries
  *   the well-known seed hash — a deployment cannot boot with the `changeme` backdoor present.
+ * - Runs the encryption-at-rest backfill for feedback content (legacy plaintext rows, and a full
+ *   re-encrypt while a rotation previousKey is configured).
  */
 suspend fun Application.configureBootstrap() {
     val userService = attributes[UserServiceKey]
@@ -52,5 +55,15 @@ suspend fun Application.configureBootstrap() {
                     "set ADMIN_INITIAL_PASSWORD (or rotate them manually) before starting outside development."
             )
         }
+    }
+
+    // Encryption-at-rest backfill: rows written before the field cipher existed still hold
+    // plaintext — encrypt them once. While a rotation previousKey is configured, every row is
+    // re-encrypted under the current key instead (see FeedbackService.encryptLegacyRows).
+    val rotating = environment.config
+        .propertyOrNull("security.encryption.previousKey")?.getString()?.isNotBlank() == true
+    val encrypted = attributes[FeedbackServiceKey].encryptLegacyRows(reencryptAll = rotating)
+    if (encrypted > 0) {
+        log.info("Bootstrap: ${if (rotating) "re-" else ""}encrypted $encrypted feedback row(s) at rest")
     }
 }

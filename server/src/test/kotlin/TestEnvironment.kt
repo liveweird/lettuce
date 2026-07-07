@@ -63,6 +63,14 @@ fun ApplicationTestBuilder.jsonClient(): HttpClient = createClient {
 /** A unique throwaway email so tests never collide on the partial-unique active-email index. */
 fun uniqueEmail(prefix: String) = "$prefix-${java.util.UUID.randomUUID()}@test"
 
+/**
+ * A strong (random, non-burned) 64-hex-char data-encryption key. Production-mode boot tests
+ * override `security.encryption.key` with this, since the application.yaml dev default is on
+ * the burned list and refuses to start outside development.
+ */
+fun strongEncryptionKey(): String =
+    (java.util.UUID.randomUUID().toString() + java.util.UUID.randomUUID().toString()).replace("-", "")
+
 /** Logs in as [email] and returns a client that sends the bearer token on every request. */
 suspend fun ApplicationTestBuilder.authedClient(email: String, password: String): HttpClient {
     val client = jsonClient()
@@ -136,8 +144,13 @@ object TestFeedbackEvents {
 // filter strings are stripped by optionalString before a service ever sees them, and the
 // routes 404 on a missing row before calling editContent/transition/addMember.
 object TestServices {
+    // Same dev-default key the booted test app uses (application.yaml), so service-level writes
+    // and route-level reads interoperate.
+    val cipher: ch.nokillswit.infra.crypto.FieldCipher by lazy {
+        ch.nokillswit.infra.crypto.FieldCipher(ch.nokillswit.infra.crypto.DEV_DATA_ENCRYPTION_KEY)
+    }
     val feedbacks: ch.nokillswit.feedbacks.FeedbackService by lazy {
-        ch.nokillswit.feedbacks.FeedbackService(sharedTestDatabase)
+        ch.nokillswit.feedbacks.FeedbackService(sharedTestDatabase, cipher)
     }
     val teams: ch.nokillswit.teams.TeamService by lazy {
         ch.nokillswit.teams.TeamService(sharedTestDatabase)

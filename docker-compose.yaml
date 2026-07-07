@@ -40,6 +40,10 @@ services:
       # It is committed to the repo and therefore BURNED: production mode refuses to start
       # with it. Set your own (e.g. `openssl rand -hex 32`) for any real deployment.
       JWT_SECRET: "${JWT_SECRET:-dev-only-9f3c1a7b2e8d4655b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f60718293a4b5c6d}"
+      # Bundled-demo key for the at-rest encryption of feedback content — committed, thus
+      # BURNED (production mode refuses it). Set your own: `openssl rand -hex 32`. Changing
+      # it after data exists requires the rotation procedure (DATA_ENCRYPTION_KEY_PREVIOUS).
+      DATA_ENCRYPTION_KEY: "${DATA_ENCRYPTION_KEY:-63c71985aa36dfe66c2cb0fa341e8c9cd365734ad562b64c22a2c96674d515d6}"
     ports:
       - "8080:8080"
     # Ceiling for the tuned JVM (SerialGC + -Xmx256m + C1, baked into bin/server): ~270 MiB RSS

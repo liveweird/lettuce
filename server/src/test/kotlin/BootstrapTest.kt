@@ -78,8 +78,11 @@ class BootstrapTest {
 
     @Test
     fun `production mode refuses to start while seed passwords are active`() = testApplication {
-        // No ADMIN_INITIAL_PASSWORD; a strong JWT secret so the failure is the seed check.
-        configureApp("jwt.secret" to "strong-${UUID.randomUUID()}")
+        // No ADMIN_INITIAL_PASSWORD; strong JWT secret + encryption key so the failure is the seed check.
+        configureApp(
+            "jwt.secret" to "strong-${UUID.randomUUID()}",
+            "security.encryption.key" to strongEncryptionKey(),
+        )
         serverConfig { developmentMode = false }
         try {
             val failure = runCatching { startApplication() }.exceptionOrNull()
@@ -97,6 +100,7 @@ class BootstrapTest {
         configureApp(
             "bootstrap.adminInitialPassword" to newPassword,
             "jwt.secret" to "strong-${UUID.randomUUID()}",
+            "security.encryption.key" to strongEncryptionKey(),
         )
         serverConfig { developmentMode = false }
         try {

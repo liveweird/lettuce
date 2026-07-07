@@ -1,6 +1,7 @@
 package ch.nokillswit.feedbacks
 
 import ch.nokillswit.authz.ConflictException
+import ch.nokillswit.infra.crypto.FieldCipher
 import ch.nokillswit.infra.db.containsPattern
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
@@ -70,7 +71,10 @@ private val DELIVERED_STATUSES = listOf(FeedbackStatus.SENT, FeedbackStatus.WITH
 
 const val CONTENT_PREVIEW_LENGTH = 200
 
-class FeedbackService(val database: R2dbcDatabase) {
+// content/requester_message are encrypted at rest (see infra/crypto/FieldCipher.kt): the cipher
+// wraps every write and unwraps every read, so nothing above this service ever sees ciphertext.
+// Neither column is filtered/sorted/searched in SQL, so queries are unaffected.
+class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCipher) {
     object Feedbacks : UIntIdTable("feedbacks") {
         val requesterId = reference("requester_id", UserService.Users).nullable()
         val subjectId = reference("subject_id", UserService.Users)
@@ -98,8 +102,8 @@ class FeedbackService(val database: R2dbcDatabase) {
             it[providerId] = feedback.providerId
             it[visibility] = feedback.visibility
             it[status] = feedback.status
-            it[content] = feedback.content
-            it[requesterMessage] = feedback.requesterMessage
+            it[content] = cipher.encrypt(feedback.content)
+            it[requesterMessage] = feedback.requesterMessage?.let(cipher::encrypt)
             it[lastModified] = System.currentTimeMillis()
         }
         val id = newRecord[Feedbacks.id].value
@@ -118,8 +122,8 @@ class FeedbackService(val database: R2dbcDatabase) {
         providerId = this[Feedbacks.providerId].value,
         visibility = this[Feedbacks.visibility],
         status = this[Feedbacks.status],
-        content = this[Feedbacks.content],
-        requesterMessage = this[Feedbacks.requesterMessage],
+        content = cipher.decrypt(this[Feedbacks.content]),
+        requesterMessage = this[Feedbacks.requesterMessage]?.let(cipher::decrypt),
         lastModified = this[Feedbacks.lastModified],
     )
 
@@ -152,7 +156,7 @@ class FeedbackService(val database: R2dbcDatabase) {
                 throw BadRequestException("PROVIDER_REQUESTER visibility requires a requester")
             }
             Feedbacks.update({ (Feedbacks.id eq id) and (Feedbacks.markedAsDeleted eq false) }) {
-                it[this.content] = content
+                it[this.content] = cipher.encrypt(content)
                 it[this.visibility] = visibility
                 it[lastModified] = System.currentTimeMillis()
             }
@@ -202,6 +206,30 @@ class FeedbackService(val database: R2dbcDatabase) {
         Feedbacks.update({ (Feedbacks.id eq id) and (Feedbacks.markedAsDeleted eq false) }) {
             it[markedAsDeleted] = true
         }
+    }
+
+    /**
+     * Startup backfill (see infra/db/Bootstrap.kt): encrypts rows still holding legacy plaintext
+     * — including soft-deleted ones, which retain their content. With [reencryptAll] (set during
+     * key rotation, i.e. while a previous key is configured) every row is decrypted (current or
+     * previous key) and rewritten under the current key. Idempotent; returns the rewritten count.
+     */
+    suspend fun encryptLegacyRows(reencryptAll: Boolean = false): Int = suspendTransaction(database) {
+        val enveloped = "${FieldCipher.PREFIX}%"
+        val legacyOnly = (Feedbacks.content notLike enveloped) or
+            (Feedbacks.requesterMessage.isNotNull() and (Feedbacks.requesterMessage notLike enveloped))
+        val rows = Feedbacks
+            .select(Feedbacks.id, Feedbacks.content, Feedbacks.requesterMessage)
+            .where { if (reencryptAll) Op.TRUE else legacyOnly }
+            .toList()
+        rows.forEach { row ->
+            Feedbacks.update({ Feedbacks.id eq row[Feedbacks.id] }) {
+                it[content] = cipher.encrypt(cipher.decrypt(row[Feedbacks.content]))
+                it[requesterMessage] =
+                    row[Feedbacks.requesterMessage]?.let { m -> cipher.encrypt(cipher.decrypt(m)) }
+            }
+        }
+        rows.size
     }
 
     suspend fun list(
@@ -307,7 +335,7 @@ class FeedbackService(val database: R2dbcDatabase) {
                     providerDeleted = row[providerUsers[UserService.Users.markedAsDeleted]],
                     visibility = row[Feedbacks.visibility],
                     status = row[Feedbacks.status],
-                    contentPreview = if (redactContent) "" else row[Feedbacks.content].take(CONTENT_PREVIEW_LENGTH),
+                    contentPreview = if (redactContent) "" else cipher.decrypt(row[Feedbacks.content]).take(CONTENT_PREVIEW_LENGTH),
                     lastModified = row[Feedbacks.lastModified],
                 )
             }

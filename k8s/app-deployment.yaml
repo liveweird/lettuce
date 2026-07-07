@@ -36,6 +36,11 @@ spec:
                 secretKeyRef:
                   name: lettuce-secrets
                   key: ADMIN_INITIAL_PASSWORD
+            - name: DATA_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: lettuce-secrets
+                  key: DATA_ENCRYPTION_KEY
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:

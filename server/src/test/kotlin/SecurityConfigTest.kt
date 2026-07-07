@@ -51,10 +51,12 @@ class SecurityConfigTest {
     fun `a strong JWT secret boots outside development where plain HTTP is redirected`() = testApplication {
         configureApp(
             "jwt.secret" to "strong-${UUID.randomUUID()}",
-            // Production mode also fail-closes on the seeded 'changeme' accounts — rotate the
-            // admin (and let the bootstrap purge the demo users) so this test exercises the
-            // HTTPS-redirect concern in isolation. Seed state is restored afterwards.
+            // Production mode also fail-closes on the seeded 'changeme' accounts and the burned
+            // dev encryption key — rotate the admin (and let the bootstrap purge the demo users)
+            // and set a strong key so this test exercises the HTTPS-redirect concern in
+            // isolation. Seed state is restored afterwards.
             "bootstrap.adminInitialPassword" to "rotated-${UUID.randomUUID()}",
+            "security.encryption.key" to strongEncryptionKey(),
         )
         serverConfig { developmentMode = false }
         try {

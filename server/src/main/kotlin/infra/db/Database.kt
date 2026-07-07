@@ -6,6 +6,7 @@ import ch.nokillswit.feedbacks.FeedbackEventService
 import ch.nokillswit.feedbacks.FeedbackEventServiceKey
 import ch.nokillswit.feedbacks.FeedbackService
 import ch.nokillswit.feedbacks.FeedbackServiceKey
+import ch.nokillswit.infra.crypto.FieldCipherKey
 import ch.nokillswit.notifications.NotificationService
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.teams.TeamService
@@ -25,7 +26,8 @@ suspend fun Application.configureDatabase() {
     )
     attributes.put(UserServiceKey, UserService(database))
     attributes.put(TeamServiceKey, TeamService(database))
-    attributes.put(FeedbackServiceKey, FeedbackService(database))
+    // configureCrypto runs before this module (application.yaml order), so the cipher is present.
+    attributes.put(FeedbackServiceKey, FeedbackService(database, attributes[FieldCipherKey]))
     attributes.put(FeedbackEventServiceKey, FeedbackEventService(database))
     attributes.put(TemplateServiceKey, TemplateService(database))
     attributes.put(NotificationServiceKey, NotificationService(database))

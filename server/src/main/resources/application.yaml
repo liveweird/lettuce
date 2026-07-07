@@ -18,6 +18,7 @@ ktor:
       - ch.nokillswit.plugins.AutoHeadResponseKt.configureAutoHeadResponse
       - ch.nokillswit.plugins.ResourcesKt.configureResources
       # — infrastructure
+      - ch.nokillswit.infra.crypto.CryptoKt.configureCrypto
       - ch.nokillswit.infra.db.FlywayKt.configureFlyway
       - ch.nokillswit.infra.db.DatabaseKt.configureDatabase
       - ch.nokillswit.infra.db.BootstrapKt.configureBootstrap
@@ -44,6 +45,17 @@ security:
     # do not auto-attach to cross-origin requests. Enable only if you move to
     # cookie-based session auth.
     enabled: "$SECURITY_CSRF_ENABLED:false"
+  encryption:
+    # AES-256-GCM key (64 hex chars, `openssl rand -hex 32`) for application-level
+    # encryption of feedback content at rest (feedbacks.content/requester_message).
+    # The default is a committed dev-only key (see infra/crypto/Crypto.kt — it is on
+    # the burned list, so production startup refuses it). LOSING THIS KEY MEANS
+    # LOSING ALL FEEDBACK CONTENT — back it up separately from the DB backups.
+    key: "$DATA_ENCRYPTION_KEY:650180357f3898db23d295f5bd7ce2ee52bfd280aefb562e75a3a64e8b3b80f3"
+    # Decrypt-only fallback for key rotation: set the OLD key here and the new one
+    # above, boot once (the startup backfill re-encrypts every row under the new
+    # key), then remove it.
+    previousKey: "$DATA_ENCRYPTION_KEY_PREVIOUS:"
 
 jwt:
   secret: "$JWT_SECRET:secret"
