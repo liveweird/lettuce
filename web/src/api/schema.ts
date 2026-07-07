@@ -43,7 +43,8 @@ export interface paths {
          *     returns a brand-new access token and refresh token (each with a full TTL). The presented
          *     refresh token is left valid until its own expiry — it is not rotated out. Requires no
          *     `Authorization` header (the access token may already be expired). Returns `401` for a
-         *     missing/invalid/expired/revoked refresh token, or if the user no longer exists.
+         *     missing/invalid/expired/revoked refresh token, if the user no longer exists, or if the
+         *     token was minted before the user's most recent password change.
          */
         post: operations["refresh"];
         delete?: never;
@@ -275,7 +276,7 @@ export interface paths {
         get: operations["getTeam"];
         /**
          * Replace a team
-         * @description Requires the caller to be the team's current manager, or to be ADMIN.
+         * @description Requires the caller to be the team's current manager, or to be ADMIN. Reassigning the manager (changing `managerId` to a different user) is ADMIN-only — a current manager may edit their team but not hand it off (403 otherwise).
          */
         put: operations["replaceTeam"];
         post?: never;
@@ -486,7 +487,9 @@ export interface paths {
         /**
          * Send a feedback (DRAFT → SENT)
          * @description Delivers a draft. Provider-only, no request body. Valid only from DRAFT (otherwise 409).
-         *     Notifies the subject (and the requester, if any) and records an audit event.
+         *     Notifies the subject, the provider, and the requester (if any) and records an audit
+         *     event. For a self-reflection (provider == subject) only the requester, if any, is
+         *     notified — the other recipients would be the acting user.
          */
         post: operations["sendFeedback"];
         delete?: never;
@@ -509,7 +512,8 @@ export interface paths {
         /**
          * Withdraw a feedback (DRAFT|SENT → WITHDRAWN)
          * @description Retracts a draft or a sent feedback (terminal). Provider-only, no request body. Valid from
-         *     DRAFT or SENT (otherwise 409). Notifies the subject (and the requester, if any).
+         *     DRAFT or SENT (otherwise 409). Notifies the subject (and the requester, if any); for a
+         *     self-reflection (provider == subject) only the requester, if any, is notified.
          */
         post: operations["withdrawFeedback"];
         delete?: never;
@@ -1093,7 +1097,9 @@ export interface components {
             type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER";
             /**
              * @description Interpolation values for the localized message — party names (proper nouns), e.g.
-             *     `{provider,subject,requester}`; plus `self` (= "self") for the "about yourself" variant.
+             *     `{provider,subject,requester}`; plus `self` — `"self"` for the "about yourself" /
+             *     self-reflection variants, `"reflection"` for a requester's own request-for-a-self-reflection
+             *     confirmation — driving the SPA's i18next context.
              */
             params: {
                 [key: string]: string;
@@ -1763,7 +1769,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
-            /** @description Caller is not the team's manager and not ADMIN */
+            /** @description Caller is not the team's manager and not ADMIN, or a non-ADMIN manager attempted to reassign `managerId` to a different user */
             403: {
                 headers: {
                     [name: string]: unknown;

@@ -236,7 +236,7 @@ describe("FeedbackTable (received view)", () => {
     });
   });
 
-  test("visibility filter offers only the three subject-readable values", async () => {
+  test("visibility filter offers all four values (own requests appear at any visibility)", async () => {
     setupMocks(mockFetch);
     renderWithProviders(<FeedbackTable view="received" />);
 
@@ -245,6 +245,7 @@ describe("FeedbackTable (received view)", () => {
     const options = await screen.findAllByRole("option");
     expect(options.map((o) => o.textContent)).toEqual([
       "Provider + subject",
+      "Provider + requester",
       "Provider + requester + subject",
       "Public",
     ]);

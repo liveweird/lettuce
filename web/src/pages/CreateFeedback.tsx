@@ -66,7 +66,11 @@ export default function CreateFeedback() {
   return (
     <FeedbackForm
       title={t("feedback.provideTitle")}
-      subjectDisplay={subjectName ?? `#${subjectId}`}
+      subjectDisplay={
+        // A URL-crafted self target is a valid self-reflection create — keep the
+        // app-wide plain "You" instead of rendering the caller's own chip.
+        subjectId === providerId ? t("common.state.you") : (subjectName ?? `#${subjectId}`)
+      }
       initialVisibility="PROVIDER_SUBJECT"
       initialContent=""
       submitting={submitting}

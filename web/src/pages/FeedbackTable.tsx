@@ -137,8 +137,14 @@ const VIEW_CONFIG: Record<
   received: {
     personColumns: [PROVIDER_COLUMN],
     defaultSortField: "providerName",
-    // Only the visibilities a subject is allowed to see ever appear in this view.
-    visibilityValues: ["PROVIDER_SUBJECT", "PROVIDER_REQUESTER_SUBJECT", "PUBLIC"],
+    // Rows where the caller is also the requester appear at ANY visibility (see the
+    // received-view scope in FeedbackService.list), so every value must be filterable.
+    visibilityValues: [
+      "PROVIDER_SUBJECT",
+      "PROVIDER_REQUESTER",
+      "PROVIDER_REQUESTER_SUBJECT",
+      "PUBLIC",
+    ],
     renderAction: (f, { t, backParam }) => (
       <Button
         component={RouterLink}

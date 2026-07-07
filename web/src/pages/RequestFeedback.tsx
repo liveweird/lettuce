@@ -141,6 +141,7 @@ export default function RequestFeedback() {
             <PersonaField
               label={t("common.field.subject")}
               name={subjectName ?? `#${subjectId}`}
+              you={subjectId === requesterId}
             />
             <PersonaField label={t("common.field.requester")} you />
           </Group>

@@ -6,16 +6,18 @@ info:
     JWT-authenticated REST API for users, teams, and feedback exchange.
 
     Authorization model: layered RBAC.
-    - Global roles on `users.role`: `ADMIN` and `USER`. ADMIN bypasses all
-      per-resource checks. The JWT issued at /login carries the caller's
-      global role and userId; per-request team membership and feedback
-      relationships are looked up from the database.
+    - Global roles on `users.role`: `ADMIN` and `USER`. ADMIN bypasses every
+      per-resource check EXCEPT feedback writes (see below). The JWT issued at
+      /login carries the caller's global role and userId; per-request team
+      membership and feedback relationships are looked up from the database.
     - Team-scoped authority: the user identified by `teams.manager_id`
-      may mutate the team or its membership. Other authenticated users
-      may only read.
+      may mutate the team or its membership (reassigning the manager itself is
+      ADMIN-only). Other authenticated users may only read.
     - Feedback access is derived from the `visibility` enum together with
       the caller's relationship to the row (subject / provider / requester).
-      Only the provider (or ADMIN) may modify a feedback record.
+      Only the provider may modify a feedback record — ADMIN may read every
+      feedback but not edit, delete, or transition one (unless the admin is
+      themselves its provider).
 
     All error responses use RFC 7807 `application/problem+json` (`ProblemDetail`).
     Any endpoint may additionally return `500` (`InternalServerError`) on an
@@ -76,7 +78,8 @@ paths:
         returns a brand-new access token and refresh token (each with a full TTL). The presented
         refresh token is left valid until its own expiry — it is not rotated out. Requires no
         `Authorization` header (the access token may already be expired). Returns `401` for a
-        missing/invalid/expired/revoked refresh token, or if the user no longer exists.
+        missing/invalid/expired/revoked refresh token, if the user no longer exists, or if the
+        token was minted before the user's most recent password change.
       security: []
       requestBody:
         required: true
@@ -510,7 +513,10 @@ paths:
       tags: [teams]
       operationId: replaceTeam
       summary: Replace a team
-      description: Requires the caller to be the team's current manager, or to be ADMIN.
+      description: >-
+        Requires the caller to be the team's current manager, or to be ADMIN. Reassigning the
+        manager (changing `managerId` to a different user) is ADMIN-only — a current manager may
+        edit their team but not hand it off (403 otherwise).
       requestBody:
         required: true
         content:
@@ -526,7 +532,9 @@ paths:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
-          description: Caller is not the team's manager and not ADMIN
+          description: >-
+            Caller is not the team's manager and not ADMIN, or a non-ADMIN manager attempted to
+            reassign `managerId` to a different user
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
@@ -896,7 +904,9 @@ paths:
       summary: Send a feedback (DRAFT → SENT)
       description: |
         Delivers a draft. Provider-only, no request body. Valid only from DRAFT (otherwise 409).
-        Notifies the subject (and the requester, if any) and records an audit event.
+        Notifies the subject, the provider, and the requester (if any) and records an audit
+        event. For a self-reflection (provider == subject) only the requester, if any, is
+        notified — the other recipients would be the acting user.
       responses:
         '204': { description: Transitioned }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -913,7 +923,8 @@ paths:
       summary: Withdraw a feedback (DRAFT|SENT → WITHDRAWN)
       description: |
         Retracts a draft or a sent feedback (terminal). Provider-only, no request body. Valid from
-        DRAFT or SENT (otherwise 409). Notifies the subject (and the requester, if any).
+        DRAFT or SENT (otherwise 409). Notifies the subject (and the requester, if any); for a
+        self-reflection (provider == subject) only the requester, if any, is notified.
       responses:
         '204': { description: Transitioned }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -1443,7 +1454,7 @@ components:
       type: object
       required: [name, managerId]
       properties:
-        name: { type: string }
+        name: { type: string, maxLength: 100 }
         managerId: { type: integer, format: int64, minimum: 0 }
         memberIds:
           type: array
@@ -1761,7 +1772,9 @@ components:
           additionalProperties: { type: string }
           description: |
             Interpolation values for the localized message — party names (proper nouns), e.g.
-            `{provider,subject,requester}`; plus `self` (= "self") for the "about yourself" variant.
+            `{provider,subject,requester}`; plus `self` — `"self"` for the "about yourself" /
+            self-reflection variants, `"reflection"` for a requester's own request-for-a-self-reflection
+            confirmation — driving the SPA's i18next context.
         link:
           type: string
           nullable: true
