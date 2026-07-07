@@ -38,6 +38,7 @@ import {
   lastModifiedOptions,
   type LastModifiedWindow,
 } from "../utils/datetime";
+import { ALL_VISIBILITIES } from "../utils/feedbackVisibility";
 import { feedbackPartyName } from "../utils/userDisplay";
 
 // A person cell: mini initials avatar + name (the dashboard cards' language). "You", absent
@@ -123,28 +124,19 @@ type ActionContext = {
 };
 
 // Per-view differences: which person columns appear between Requester and Visibility,
-// the default sort, which visibilities can actually occur in the result set, and how
-// the row action (View/Edit link) is rendered.
+// the default sort, and how the row action (View/Edit link) is rendered. The visibility
+// filter offers ALL_VISIBILITIES in every view (utils/feedbackVisibility.ts).
 const VIEW_CONFIG: Record<
   FeedbackListView,
   {
     personColumns: PersonColumn[];
     defaultSortField: SortField;
-    visibilityValues: FeedbackVisibility[];
     renderAction: (f: FeedbackRow, ctx: ActionContext) => ReactNode;
   }
 > = {
   received: {
     personColumns: [PROVIDER_COLUMN],
     defaultSortField: "providerName",
-    // Rows where the caller is also the requester appear at ANY visibility (see the
-    // received-view scope in FeedbackService.list), so every value must be filterable.
-    visibilityValues: [
-      "PROVIDER_SUBJECT",
-      "PROVIDER_REQUESTER",
-      "PROVIDER_REQUESTER_SUBJECT",
-      "PUBLIC",
-    ],
     renderAction: (f, { t, backParam }) => (
       <Button
         component={RouterLink}
@@ -166,12 +158,6 @@ const VIEW_CONFIG: Record<
   provided: {
     personColumns: [SUBJECT_COLUMN],
     defaultSortField: "subjectName",
-    visibilityValues: [
-      "PROVIDER_SUBJECT",
-      "PROVIDER_REQUESTER",
-      "PROVIDER_REQUESTER_SUBJECT",
-      "PUBLIC",
-    ],
     renderAction: (f, { t, backParam }) =>
       f.status === "REQUESTED" || f.status === "DRAFT" ? (
         <Button
@@ -206,12 +192,6 @@ const VIEW_CONFIG: Record<
   team: {
     personColumns: [PROVIDER_COLUMN, SUBJECT_COLUMN],
     defaultSortField: "subjectName",
-    visibilityValues: [
-      "PROVIDER_SUBJECT",
-      "PROVIDER_REQUESTER",
-      "PROVIDER_REQUESTER_SUBJECT",
-      "PUBLIC",
-    ],
     renderAction: (f, { t, currentUserId }) =>
       currentUserId === f.providerId && f.status === "DRAFT" ? (
         <Button
@@ -260,7 +240,7 @@ export default function FeedbackTable({
   const { t, i18n } = useTranslation();
   const currentUserId = getUserId();
   const config = VIEW_CONFIG[view];
-  const visibilityOptions = config.visibilityValues.map((value) => ({
+  const visibilityOptions = ALL_VISIBILITIES.map((value) => ({
     value,
     label: t(`common.visibility.${value}`),
   }));

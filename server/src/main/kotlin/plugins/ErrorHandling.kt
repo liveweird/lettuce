@@ -3,6 +3,7 @@ package ch.nokillswit.plugins
 import ch.nokillswit.audit.audit
 import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.authz.ForbiddenException
+import ch.nokillswit.authz.TooManyRequestsException
 import ch.nokillswit.authz.UnauthorizedException
 import io.ktor.server.auth.jwt.JWTPrincipal
 import io.ktor.server.auth.principal
@@ -80,6 +81,17 @@ private suspend fun ApplicationCall.respondInternalError(cause: Throwable) {
 
 fun Application.configureErrorHandling() {
     install(StatusPages) {
+        // The per-IP RateLimit plugin rejects with a bodiless 429; give it the same RFC 7807
+        // body every other error carries. NOTE: this status handler intercepts EVERY 429 that
+        // StatusPages itself didn't produce — so caller-specific 429s (the login lockout) must
+        // go through TooManyRequestsException below (handled calls are marked and skipped),
+        // never a direct respondProblem, or their specific detail would be replaced.
+        status(HttpStatusCode.TooManyRequests) { call, status ->
+            call.respondProblem(status, "Rate limit exceeded — retry later")
+        }
+        exception<TooManyRequestsException> { call, cause ->
+            call.respondProblem(HttpStatusCode.TooManyRequests, cause.message ?: "Too many requests")
+        }
         exception<BadRequestException> { call, cause ->
             call.respondProblem(HttpStatusCode.BadRequest, cause.message ?: "Bad request")
         }

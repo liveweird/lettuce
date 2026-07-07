@@ -1182,7 +1182,7 @@ export interface components {
                 "application/problem+json": components["schemas"]["ProblemDetail"];
             };
         };
-        /** @description Rate limit exceeded */
+        /** @description Throttled — either the per-IP rate-limit bucket is exhausted (generic detail) or, on /login, the per-account lockout is active (account-specific detail). Both carry a ProblemDetail body. */
         TooManyRequests: {
             headers: {
                 [name: string]: unknown;

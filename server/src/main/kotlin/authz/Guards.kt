@@ -4,11 +4,6 @@ import ch.nokillswit.feedbacks.Feedback
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
 import ch.nokillswit.users.UserRole
-import org.slf4j.LoggerFactory
-import org.slf4j.MarkerFactory
-
-private val logger = LoggerFactory.getLogger("ch.nokillswit.authz.Guards")
-private val SHOULD_NEVER_HAPPEN = MarkerFactory.getMarker("SHOULD_NEVER_HAPPEN")
 
 fun CallerPrincipal.isAdmin(): Boolean = role == UserRole.ADMIN
 
@@ -84,16 +79,10 @@ fun canReadFeedback(
         feedback.status == FeedbackStatus.SENT
     ) return true
 
-    // and here's the default
-    // by default one CAN'T see the feedback, but this branch should never be reached, so log it.
-    // Non-fatal: still denies; the marker + kv attributes flow through OpenTelemetry (see logback.xml).
-    logger.atWarn().addMarker(SHOULD_NEVER_HAPPEN)
-        .setMessage("Feedback visibility check fell through to default deny")
-        .addKeyValue("subjectId", feedback.subjectId)
-        .addKeyValue("providerId", feedback.providerId)
-        .addKeyValue("visibility", feedback.visibility)
-        .addKeyValue("status", feedback.status)
-        .log()
+    // and here's the default: deny. This is an ORDINARY outcome, not an anomaly — every
+    // unauthorized read attempt lands here (including successful manager reads, which fall
+    // through to requireFeedbackReadAllowingManager's chain check next). Actual 403s are
+    // already recorded by the `authz.denied` audit event in plugins/ErrorHandling.kt.
     return false
 }
 

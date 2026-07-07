@@ -14,6 +14,16 @@ export const REQUESTER_VISIBILITIES: FeedbackVisibility[] = [
 
 export const NO_REQUESTER_VISIBILITIES: FeedbackVisibility[] = ["PROVIDER_SUBJECT", "PUBLIC"];
 
+// The full domain, for FILTER dropdowns: list views can contain rows of every visibility
+// (e.g. the caller's own requests appear in Received at any visibility), so the table
+// filters offer all values. Form option sets stay the requester-derived subsets above.
+export const ALL_VISIBILITIES: FeedbackVisibility[] = [
+  "PROVIDER_SUBJECT",
+  "PROVIDER_REQUESTER",
+  "PROVIDER_REQUESTER_SUBJECT",
+  "PUBLIC",
+];
+
 export function visibilityValuesFor(hasRequester: boolean): FeedbackVisibility[] {
   return hasRequester ? REQUESTER_VISIBILITIES : NO_REQUESTER_VISIBILITIES;
 }

@@ -1,10 +1,10 @@
 package ch.nokillswit.auth
 
 import ch.nokillswit.audit.audit
+import ch.nokillswit.authz.TooManyRequestsException
 import ch.nokillswit.authz.UnauthorizedException
 import ch.nokillswit.plugins.JwtConfig
 import ch.nokillswit.plugins.JwtConfigKey
-import ch.nokillswit.plugins.respondProblem
 import ch.nokillswit.users.UserRole
 import ch.nokillswit.users.UserServiceKey
 import com.auth0.jwt.JWT
@@ -100,11 +100,11 @@ fun Application.configureAuthRoutes() {
                 val req = call.receive<LoginRequest>()
                 if (loginThrottle.isLocked(req.email)) {
                     audit("login.rejected_locked", "email" to req.email)
-                    call.respondProblem(
-                        HttpStatusCode.TooManyRequests,
+                    // Thrown (not respondProblem) so StatusPages marks the call handled and its
+                    // generic 429 status handler cannot replace this specific detail.
+                    throw TooManyRequestsException(
                         "Too many failed login attempts for this account — try again later",
                     )
-                    return@post
                 }
                 val record = userService.findWithIdByEmail(req.email)
                 if (record == null || !verifyPassword(req.password, record.second.passwordHash)) {
