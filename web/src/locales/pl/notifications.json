@@ -16,15 +16,22 @@
   "goToAria": "Przejdź do powiadomienia {{id}}",
   "event": {
     "requestedToProvider": "{{requester}} poprosił/a o feedback na temat {{subject}}.",
+    "requestedToProvider_self": "{{requester}} poprosił/a Cię o autorefleksję.",
     "requestedToRequester": "Poprosiłeś/aś {{provider}} o feedback na temat {{subject}}.",
     "requestedToRequester_self": "Poprosiłeś/aś {{provider}} o feedback na temat swojej pracy.",
+    "requestedToRequester_reflection": "Poprosiłeś/aś {{provider}} o autorefleksję.",
     "sentToSubject": "Feedback od {{provider}} na temat {{subject}} został wysłany.",
     "sentToProvider": "Wystawiony przez Ciebie feedback na temat {{subject}} został wysłany.",
     "sentToRequester": "Feedback od {{provider}} na temat {{subject}} (na Twoją prośbę) został wysłany.",
+    "sentToRequester_self": "Autorefleksja, o którą prosiłeś/aś {{provider}}, została wysłana.",
     "rejectedToRequester": "{{provider}} odmówił/a wystawienia feedbacku na temat {{subject}}.",
+    "rejectedToRequester_self": "{{provider}} odmówił/a napisania autorefleksji.",
     "pickedUpToRequester": "{{provider}} przygotowuje właśnie feedback na temat {{subject}}.",
+    "pickedUpToRequester_self": "{{provider}} przygotowuje właśnie swoją autorefleksję.",
     "withdrawnToSubject": "Feedback od {{provider}} na temat {{subject}} został wycofany.",
     "withdrawnToRequester": "{{provider}} wycofał/a swój feedback na temat {{subject}} (o który prosiłeś/aś).",
-    "deletedToRequester": "{{provider}} usunął/usunęła swój feedback na temat {{subject}} (o który prosiłeś/aś)."
+    "withdrawnToRequester_self": "{{provider}} wycofał/a swoją autorefleksję (o którą prosiłeś/aś).",
+    "deletedToRequester": "{{provider}} usunął/usunęła swój feedback na temat {{subject}} (o który prosiłeś/aś).",
+    "deletedToRequester_self": "{{provider}} usunął/usunęła swoją autorefleksję (o którą prosiłeś/aś)."
   }
 }

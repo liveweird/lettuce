@@ -63,8 +63,8 @@ class FeedbackNotificationsTest {
     }
 
     @Test
-    fun `self-reflection transitions produce no notifications`() {
-        // provider == subject (never a requester): every recipient would be the acting user.
+    fun `self-reflection transitions produce no notifications when there is no requester`() {
+        // provider == subject, no requester: every recipient would be the acting user.
         val self = Feedback(
             requesterId = null,
             subjectId = 1u,
@@ -75,6 +75,48 @@ class FeedbackNotificationsTest {
         assertTrue(feedbackTransitionNotifications(7u, FeedbackStatus.DRAFT, self, names).isEmpty())
         val withdrawn = self.copy(status = FeedbackStatus.WITHDRAWN)
         assertTrue(feedbackTransitionNotifications(7u, FeedbackStatus.SENT, withdrawn, names).isEmpty())
+    }
+
+    @Test
+    fun `requested self-reflection transitions notify only the requester, self-worded`() {
+        // provider == subject with a requester (the "request feedback from the subject" flow):
+        // the acting provider/subject gets nothing, the requester hears about every step.
+        val requestedSelf = Feedback(
+            requesterId = 3u,
+            subjectId = 1u,
+            providerId = 1u,
+            visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
+            status = FeedbackStatus.SENT,
+        )
+        val sent = feedbackTransitionNotifications(8u, FeedbackStatus.DRAFT, requestedSelf, names)
+        assertEquals(listOf(3u), sent.map { it.recipientId })
+        assertEquals(NotificationType.FEEDBACK_SENT_TO_REQUESTER, sent.single().type)
+        assertEquals("self", sent.single().params["self"])
+
+        val pickedUp = feedbackTransitionNotifications(
+            8u, FeedbackStatus.REQUESTED, requestedSelf.copy(status = FeedbackStatus.DRAFT), names,
+        )
+        assertEquals(listOf(3u), pickedUp.map { it.recipientId })
+        assertEquals("self", pickedUp.single().params["self"])
+    }
+
+    @Test
+    fun `creating a requested self-reflection words both notifications via the self contexts`() {
+        val created = Feedback(
+            requesterId = 3u,
+            subjectId = 1u,
+            providerId = 1u,
+            visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
+            status = FeedbackStatus.REQUESTED,
+        )
+        val result = feedbackCreationNotifications(11u, created, names)
+        assertEquals(2, result.size)
+        val toProvider = result.single { it.recipientId == 1u }
+        val toRequester = result.single { it.recipientId == 3u }
+        // The provider is asked for a self-reflection; the requester's confirmation uses the
+        // distinct "reflection" context (its "self" context means subject == requester).
+        assertEquals("self", toProvider.params["self"])
+        assertEquals("reflection", toRequester.params["self"])
     }
 
     @Test

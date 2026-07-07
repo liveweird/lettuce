@@ -17,9 +17,12 @@ internal fun feedbackTransitionNotifications(
     next: Feedback,
     nameById: Map<UInt, String>,
 ): List<Notification> {
-    // A self-reflection (provider == subject, never a requester) has no other party: every
-    // notification below would tell the acting user about their own action — produce none.
-    if (next.subjectId == next.providerId) return emptyList()
+    // provider == subject is a SELF-REFLECTION. Its transitions are performed by that very
+    // person, so the subject/provider-directed notifications below would tell the acting user
+    // about their own action — they are filtered out at the end. Requester-directed ones (a
+    // requested self-reflection) survive, worded via the `self` i18next context.
+    val isSelfReflection = next.subjectId == next.providerId
+    val selfParams = if (isSelfReflection) mapOf("self" to "self") else emptyMap()
 
     val to = next.status
     val provider = nameById.nameOf(next.providerId)
@@ -54,14 +57,14 @@ internal fun feedbackTransitionNotifications(
             notifications += Notification(
                 recipientId = next.requesterId,
                 type = NotificationType.FEEDBACK_REJECTED_TO_REQUESTER,
-                params = mapOf("requester" to requester!!, "provider" to provider, "subject" to subject),
+                params = mapOf("requester" to requester!!, "provider" to provider, "subject" to subject) + selfParams,
             )
 
         from == FeedbackStatus.REQUESTED && to == FeedbackStatus.DRAFT && next.requesterId != null ->
             notifications += Notification(
                 recipientId = next.requesterId,
                 type = NotificationType.FEEDBACK_PICKED_UP_TO_REQUESTER,
-                params = mapOf("requester" to requester!!, "provider" to provider, "subject" to subject),
+                params = mapOf("requester" to requester!!, "provider" to provider, "subject" to subject) + selfParams,
             )
 
         from == FeedbackStatus.SENT && to == FeedbackStatus.WITHDRAWN -> {
@@ -74,7 +77,7 @@ internal fun feedbackTransitionNotifications(
                 notifications += Notification(
                     recipientId = next.requesterId,
                     type = NotificationType.FEEDBACK_WITHDRAWN_TO_REQUESTER,
-                    params = mapOf("provider" to provider, "subject" to subject, "requester" to requester!!),
+                    params = mapOf("provider" to provider, "subject" to subject, "requester" to requester!!) + selfParams,
                 )
             }
         }
@@ -90,12 +93,14 @@ internal fun feedbackTransitionNotifications(
         notifications += Notification(
             recipientId = next.requesterId,
             type = NotificationType.FEEDBACK_SENT_TO_REQUESTER,
-            params = mapOf("provider" to provider, "subject" to subject, "requester" to requester!!),
+            params = mapOf("provider" to provider, "subject" to subject, "requester" to requester!!) + selfParams,
             link = requesterLink,
         )
     }
 
-    return notifications
+    // Self-reflection: drop the notifications aimed at the subject/provider — that IS the acting
+    // user (requester ≠ provider guarantees the requester-directed ones are unaffected).
+    return if (isSelfReflection) notifications.filter { it.recipientId != next.providerId } else notifications
 }
 
 /**
@@ -121,28 +126,40 @@ internal fun feedbackCreationNotifications(
     val subject = nameById.nameOf(created.subjectId)
 
     // The requester is confirmed their request went out; no link (nothing to open yet). The wording
-    // differs when they asked for feedback about themselves (subject == requester) vs. about someone
-    // — the `self` param drives an i18next context in the SPA.
-    val requesterNote =
-        if (created.subjectId == requesterId) {
+    // differs when they asked for feedback about themselves (subject == requester, `self` context)
+    // or asked the subject for a self-reflection (subject == provider, `reflection` context) —
+    // the `self` param's VALUE drives the i18next context suffix in the SPA.
+    val requesterNote = when {
+        created.subjectId == requesterId ->
             Notification(
                 recipientId = requesterId,
                 type = NotificationType.FEEDBACK_REQUESTED_TO_REQUESTER,
                 params = mapOf("provider" to provider, "self" to "self"),
             )
-        } else {
+        created.subjectId == created.providerId ->
+            Notification(
+                recipientId = requesterId,
+                type = NotificationType.FEEDBACK_REQUESTED_TO_REQUESTER,
+                params = mapOf("provider" to provider, "subject" to subject, "self" to "reflection"),
+            )
+        else ->
             Notification(
                 recipientId = requesterId,
                 type = NotificationType.FEEDBACK_REQUESTED_TO_REQUESTER,
                 params = mapOf("provider" to provider, "subject" to subject),
             )
-        }
+    }
+
+    // The provider is asked to write; when they ARE the subject (a requested self-reflection),
+    // the `self` context words it as "asked you for a self-reflection".
+    val providerSelf =
+        if (created.subjectId == created.providerId) mapOf("self" to "self") else emptyMap()
 
     return listOf(
         Notification(
             recipientId = created.providerId,
             type = NotificationType.FEEDBACK_REQUESTED_TO_PROVIDER,
-            params = mapOf("requester" to requester, "subject" to subject),
+            params = mapOf("requester" to requester, "subject" to subject) + providerSelf,
             link = "/feedback/$feedbackId/edit",
         ),
         requesterNote,
@@ -165,11 +182,14 @@ internal fun feedbackDeletionNotifications(
     val requesterId = deleted.requesterId ?: return emptyList()
     val provider = nameById.nameOf(deleted.providerId)
     val subject = nameById.nameOf(deleted.subjectId)
+    // A deleted requested self-reflection is worded via the `self` context, like the transitions.
+    val selfParams =
+        if (deleted.subjectId == deleted.providerId) mapOf("self" to "self") else emptyMap()
     return listOf(
         Notification(
             recipientId = requesterId,
             type = NotificationType.FEEDBACK_DELETED_TO_REQUESTER,
-            params = mapOf("provider" to provider, "subject" to subject),
+            params = mapOf("provider" to provider, "subject" to subject) + selfParams,
         ),
     )
 }

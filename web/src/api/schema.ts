@@ -378,7 +378,7 @@ export interface paths {
         put?: never;
         /**
          * Create a feedback record
-         * @description Any authenticated user may create a feedback record they are a party to. The provider may equal the subject — a self-reflection (feedback about yourself) — in which case `requesterId` must be null.
+         * @description Any authenticated user may create a feedback record they are a party to. The provider may equal the subject — a self-reflection (feedback about yourself) — either standalone or with a requester (someone requesting a self-reflection from the subject).
          */
         post: operations["createFeedback"];
         delete?: never;
@@ -1968,7 +1968,7 @@ export interface operations {
                     "application/json": components["schemas"]["FeedbackResponse"];
                 };
             };
-            /** @description Validation error (provider == subject — a self-reflection — requires a null requester; requester ≠ provider; REQUESTED requires a requester; a feedback with a requester may not use PROVIDER_SUBJECT visibility; PROVIDER_REQUESTER visibility requires a requester) or referenced user does not exist */
+            /** @description Validation error (requester ≠ provider; REQUESTED requires a requester; a feedback with a requester may not use PROVIDER_SUBJECT visibility; PROVIDER_REQUESTER visibility requires a requester) or referenced user does not exist */
             400: {
                 headers: {
                     [name: string]: unknown;

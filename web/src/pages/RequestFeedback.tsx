@@ -67,14 +67,15 @@ export default function RequestFeedback() {
 
   const subjectIdIsValid = Number.isFinite(subjectId) && subjectId > 0;
 
-  // A provider can be neither the subject (provider ≠ subject) nor the requester
-  // (requester ≠ provider), and not already chosen.
+  // A provider cannot be the requester (requester ≠ provider) and cannot be already chosen.
+  // The subject IS offered: picking them asks the subject for a self-reflection
+  // (provider == subject — see "Self-reflection" in the backend rules).
   const addOptions = useMemo(() => {
     const chosen = new Set(selected.map((p) => p.id));
     return (userPool?.items ?? [])
-      .filter((u) => u.id !== subjectId && u.id !== requesterId && !chosen.has(u.id))
+      .filter((u) => u.id !== requesterId && !chosen.has(u.id))
       .map((u) => ({ value: String(u.id), label: u.name }));
-  }, [userPool, selected, subjectId, requesterId]);
+  }, [userPool, selected, requesterId]);
 
   if (!subjectIdIsValid || requesterId == null) return <Navigate to={backTo} replace />;
 

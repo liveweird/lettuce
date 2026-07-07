@@ -405,12 +405,11 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
     }
 
     private fun validate(current: Feedback?, next: Feedback) {
-        // provider == subject is the SELF-REFLECTION case: feedback about yourself. It is a
-        // two-party-collapsed record, so a requester is contradictory (who would ask you for
-        // feedback about yourself from yourself?) and must be absent.
-        if (next.providerId == next.subjectId && next.requesterId != null) {
-            throw BadRequestException("A self-reflection (provider == subject) cannot have a requester")
-        }
+        // provider == subject is the SELF-REFLECTION case: feedback about yourself. It may exist
+        // on its own (the SPA's Self-reflection screen, no requester) or with a requester — a
+        // manager's "Request feedback" may include the subject among the providers, asking them
+        // for a self-reflection. requester ≠ provider (below) still prevents requesting one from
+        // yourself.
         if (next.requesterId != null && next.requesterId == next.providerId) {
             throw BadRequestException("Requester cannot also be the provider")
         }

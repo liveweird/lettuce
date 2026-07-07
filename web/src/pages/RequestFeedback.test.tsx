@@ -88,7 +88,7 @@ describe("RequestFeedback page", () => {
     expect(screen.getByTestId("probe")).toHaveTextContent("/?tab=subordinates");
   });
 
-  test("shows the subject and a provider picker that excludes the subject and the requester", async () => {
+  test("shows the subject and a provider picker that excludes only the requester", async () => {
     setupMocks(mockFetch, () => jsonResponse(201, { id: 1 }));
     const user = userEvent.setup();
     renderRequestFeedback();
@@ -105,12 +105,34 @@ describe("RequestFeedback page", () => {
     expect(await screen.findByRole("option", { name: "Alice Provider", hidden: true })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Bob Provider", hidden: true })).toBeInTheDocument();
 
-    // The subject (Mona, id 7) and the requester (Me, id 3) are filtered out of the
-    // picker even though both are in the pool.
+    // The requester (Me, id 3) is filtered out; the subject (Mona, id 7) IS offered —
+    // picking them requests a self-reflection (provider == subject).
     await user.clear(picker);
     await user.type(picker, "M");
-    expect(screen.queryByRole("option", { name: "Mona Subject", hidden: true })).not.toBeInTheDocument();
+    expect(await screen.findByRole("option", { name: "Mona Subject", hidden: true })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "Me Myself", hidden: true })).not.toBeInTheDocument();
+  });
+
+  test("requesting from the subject submits a self-reflection request (provider == subject)", async () => {
+    const bodies: unknown[] = [];
+    setupMocks(mockFetch, (init) => {
+      bodies.push(JSON.parse((init as RequestInit).body as string));
+      return jsonResponse(201, { id: 55 });
+    });
+    const user = userEvent.setup();
+    renderRequestFeedback();
+
+    await screen.findByText("Mona");
+    await addProvider(user, "Mona Subject");
+    await user.click(screen.getByRole("button", { name: /^request$/i }));
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toMatchObject({
+      requesterId: 3,
+      subjectId: 7,
+      providerId: 7,
+      status: "REQUESTED",
+    });
   });
 
   test("adding a provider lists them; removing clears back to the empty state", async () => {

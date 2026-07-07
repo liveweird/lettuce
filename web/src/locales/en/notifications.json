@@ -14,15 +14,22 @@
   "goToAria": "Go to notification {{id}}",
   "event": {
     "requestedToProvider": "{{requester}} requested feedback about {{subject}}.",
+    "requestedToProvider_self": "{{requester}} asked you for a self-reflection.",
     "requestedToRequester": "You reached out to {{provider}} for feedback regarding {{subject}}.",
     "requestedToRequester_self": "You asked {{provider}} for feedback on your performance.",
+    "requestedToRequester_reflection": "You asked {{provider}} for a self-reflection.",
     "sentToSubject": "Feedback from {{provider}} about {{subject}} has been sent.",
     "sentToProvider": "The feedback you provided about {{subject}} has been sent.",
     "sentToRequester": "The feedback you requested from {{provider}} about {{subject}} has been sent.",
+    "sentToRequester_self": "The self-reflection you requested from {{provider}} has been sent.",
     "rejectedToRequester": "{{provider}} declined to provide feedback about {{subject}}.",
+    "rejectedToRequester_self": "{{provider}} declined to write a self-reflection.",
     "pickedUpToRequester": "{{provider}} is now drafting feedback about {{subject}}.",
+    "pickedUpToRequester_self": "{{provider}} is now drafting their self-reflection.",
     "withdrawnToSubject": "Feedback from {{provider}} about {{subject}} has been withdrawn.",
     "withdrawnToRequester": "{{provider}} withdrew their feedback about {{subject}} (which you requested).",
-    "deletedToRequester": "{{provider}} deleted their feedback about {{subject}} (which you requested)."
+    "withdrawnToRequester_self": "{{provider}} withdrew their self-reflection (which you requested).",
+    "deletedToRequester": "{{provider}} deleted their feedback about {{subject}} (which you requested).",
+    "deletedToRequester_self": "{{provider}} deleted their self-reflection (which you requested)."
   }
 }

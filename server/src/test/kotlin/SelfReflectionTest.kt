@@ -88,12 +88,15 @@ class SelfReflectionTest {
     }
 
     @Test
-    fun `a self-reflection with a requester is rejected`() = testApplication {
+    fun `a requested self-reflection - the requester is notified, the acting provider is not`() = testApplication {
         usePostgresTestcontainer()
         val (_, userId, client) = selfUser()
-        val requesterId = TestUsers.seed(email = uniqueEmail("requester"), password = "pw", role = UserRole.USER)
+        val requesterEmail = uniqueEmail("req-manager")
+        val requesterId = TestUsers.seed(email = requesterEmail, password = "pw", role = UserRole.USER)
+        val requesterClient = authedClient(requesterEmail, "pw")
 
-        val response = client.post("/api/v1/feedbacks") {
+        // The requester asks the subject themselves for feedback — a requested self-reflection.
+        val created = requesterClient.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 FeedbackCreateRequest(
@@ -106,7 +109,23 @@ class SelfReflectionTest {
                 )
             )
         }
-        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertEquals(HttpStatusCode.Created, created.status)
+        val id = created.body<FeedbackResponse>().id
+
+        // Creation: the provider (== subject) is asked to write, worded via the self context.
+        val providerNotes = client.get("/api/v1/notifications").body<NotificationPageResponse>()
+        assertEquals(1, providerNotes.total)
+        assertEquals("self", providerNotes.items.single().params["self"])
+
+        // Pick up + send: the requester hears about each step; the acting provider gets nothing new.
+        assertEquals(HttpStatusCode.NoContent, client.post("/api/v1/feedbacks/$id/pick-up").status)
+        assertEquals(HttpStatusCode.NoContent, client.post("/api/v1/feedbacks/$id/send").status)
+        assertEquals(1, client.get("/api/v1/notifications").body<NotificationPageResponse>().total)
+
+        val requesterNotes = requesterClient.get("/api/v1/notifications").body<NotificationPageResponse>()
+        // Request confirmation (creation) + picked-up + sent, all self-worded.
+        assertEquals(3, requesterNotes.total)
+        assertTrue(requesterNotes.items.all { it.params["self"] != null })
     }
 
     @Test
