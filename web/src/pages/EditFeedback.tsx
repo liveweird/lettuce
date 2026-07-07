@@ -197,7 +197,12 @@ export default function EditFeedback() {
   // the request → DRAFT, then reload as the editor). Only `REQUESTED → DRAFT` and
   // `REQUESTED → REJECTED` are valid transitions, so "Save & send" must not be offered here.
   if (data!.status === "REQUESTED" && getUserId() === data!.providerId) {
-    const subjectDisplay = data!.subjectName ?? subjectName ?? `#${data!.subjectId}`;
+    // A requested self-reflection: the caller (provider) is also the subject — render the
+    // app-wide plain "You" instead of their own avatar chip, and word the triage line for it.
+    const selfSubject = data!.subjectId === getUserId();
+    const subjectDisplay = selfSubject
+      ? t("common.state.you")
+      : (data!.subjectName ?? subjectName ?? `#${data!.subjectId}`);
     const requesterDisplay =
       data!.requesterName ??
       (data!.requesterId != null ? `#${data!.requesterId}` : t("feedback.unknown"));
@@ -209,10 +214,18 @@ export default function EditFeedback() {
           <Stack>
             <Title order={2}>{t("feedback.requestTitle")}</Title>
             <Text>
-              {t("feedback.triageLine", { requester: requesterDisplay, subject: subjectDisplay })}
+              {t("feedback.triageLine", {
+                requester: requesterDisplay,
+                subject: subjectDisplay,
+                context: selfSubject ? "self" : undefined,
+              })}
             </Text>
             <Group gap="xl">
-              <PersonaField label={t("common.field.subject")} name={subjectDisplay} />
+              <PersonaField
+                label={t("common.field.subject")}
+                name={subjectDisplay}
+                you={selfSubject}
+              />
               <PersonaField label={t("common.field.requester")} name={requesterDisplay} />
             </Group>
             <RequesterMessage value={data!.requesterMessage} />
@@ -278,7 +291,13 @@ export default function EditFeedback() {
         title={t("feedback.editTitle")}
         feedbackId={data!.id}
         currentStatus={data!.status}
-        subjectDisplay={data!.subjectName ?? subjectName ?? `#${data!.subjectId}`}
+        subjectDisplay={
+          // Self-reflection: the caller edits feedback about themselves — the subject renders
+          // as the same plain "You" FeedbackForm uses for the provider side.
+          getUserId() === data!.subjectId
+            ? t("common.state.you")
+            : (data!.subjectName ?? subjectName ?? `#${data!.subjectId}`)
+        }
         initialVisibility={clampVisibility(data!.visibility, hasRequester)}
         visibilityOptions={visibilityOptions}
         requesterDisplay={hasRequester ? (data!.requesterName ?? `#${data!.requesterId}`) : undefined}

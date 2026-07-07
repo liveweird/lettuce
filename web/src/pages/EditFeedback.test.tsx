@@ -97,6 +97,41 @@ describe("EditFeedback page", () => {
     expect(screen.queryByText(/requested by/)).toBeNull();
   });
 
+  test("a self-reflection draft renders the subject as plain You, not a chip", async () => {
+    // provider == subject == caller (7): both sides of the people line are the current user.
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, { ...FEEDBACK, subjectId: 7, subjectName: "Pat Provider" }),
+    );
+    renderEditFeedback("");
+
+    await screen.findByLabelText("Content", { selector: "textarea" });
+    expect(screen.getAllByText("You")).toHaveLength(2);
+    // The caller's own name must not appear as an avatar chip in the header.
+    expect(screen.queryByText("Pat Provider")).toBeNull();
+  });
+
+  test("a requested self-reflection triages with You as subject and self wording", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        ...REQUESTED_FEEDBACK,
+        subjectId: 7,
+        subjectName: "Pat Provider",
+      }),
+    );
+    renderEditFeedback("");
+
+    expect(
+      await screen.findByText(/Rita Requester asked you for a self-reflection/),
+    ).toBeInTheDocument();
+    // Subject field renders plain "You"; the requester still gets a named chip.
+    expect(screen.getByText("You")).toBeInTheDocument();
+    expect(screen.getByText("Rita Requester")).toBeInTheDocument();
+    expect(screen.queryByText("Pat Provider")).toBeNull();
+    // Still a triage decision screen, not the editor.
+    expect(screen.getByRole("button", { name: /accept/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /reject/i })).toBeInTheDocument();
+  });
+
   test("Delete on a draft confirms, issues DELETE, and returns to the provided tab", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       if ((init?.method ?? "GET") === "DELETE" && url === "/api/v1/feedbacks/5") {

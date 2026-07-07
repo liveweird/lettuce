@@ -64,6 +64,7 @@
   "addAtLeastOneProvider": "Add at least one provider to request feedback from.",
   "backToFeedback": "Back to feedback",
   "triageLine": "{{requester}} requested feedback from you about {{subject}}. Accept to start a draft you can write and send, or reject the request.",
+  "triageLine_self": "{{requester}} asked you for a self-reflection. Accept to start a draft you can write and send, or reject the request.",
   "rejectTitle": "Reject feedback request?",
   "rejectBody": "Reject this feedback request? This is final and cannot be undone.",
   "deleteTitle": "Delete draft feedback?",
