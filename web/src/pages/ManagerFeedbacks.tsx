@@ -59,7 +59,12 @@ export default function ManagerFeedbacks() {
         <Text size="sm" c="dimmed">
           {t("feedback.providedAboutYou", { who })}
         </Text>
-        <FeedbackTable view="received" providerId={userId} backTo={backTo} />
+        <FeedbackTable
+          view="received"
+          providerId={userId}
+          backTo={backTo}
+          settingsKey="managerFeedbacks.received"
+        />
       </Stack>
 
       <Stack gap="sm">
@@ -67,7 +72,12 @@ export default function ManagerFeedbacks() {
         <Text size="sm" c="dimmed">
           {t("feedback.providedAbout", { who })}
         </Text>
-        <FeedbackTable view="provided" subjectId={userId} backTo={backTo} />
+        <FeedbackTable
+          view="provided"
+          subjectId={userId}
+          backTo={backTo}
+          settingsKey="managerFeedbacks.provided"
+        />
         <Group justify="flex-end">
           <Button
             component={RouterLink}

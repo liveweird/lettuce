@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link as RouterLink, Navigate } from "react-router-dom";
 import {
   Alert,
@@ -25,10 +24,14 @@ import PaginationBar from "../components/PaginationBar";
 import SortHeader from "../components/SortHeader";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { usePagedSort } from "../hooks/usePagedSort";
+import { isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
 import { deleteAlert, isAdmin, listAlerts } from "../api/client";
 import { formatTimestamp } from "../utils/datetime";
 
-type SortField = "id" | "title" | "startsAt" | "endsAt";
+const SORT_FIELDS = ["id", "title", "startsAt", "endsAt"] as const;
+type SortField = (typeof SORT_FIELDS)[number];
+
+const SETTINGS_KEY = "alerts";
 
 type AlertRow = { id: number; name: string };
 
@@ -44,8 +47,12 @@ function Bound({ value }: { value: number | null | undefined }) {
 
 export default function Alerts() {
   const { t } = useTranslation();
-  const [titleFilter, setTitleFilter] = useState("");
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [titleFilter, setTitleFilter] = useStoredState(`${SETTINGS_KEY}.filter.title`, "", isString);
+  const [activeFilter, setActiveFilter] = useStoredState<string | null>(
+    `${SETTINGS_KEY}.filter.isActive`,
+    null,
+    isOneOfOrNull(["true", "false"]),
+  );
   const activeFilterCount = (titleFilter.trim() ? 1 : 0) + (activeFilter ? 1 : 0);
 
   const queryClient = useQueryClient();
@@ -53,7 +60,10 @@ export default function Alerts() {
   const [debouncedTitle] = useDebouncedValue(titleFilter, 300);
 
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
-    usePagedSort<SortField>("id", [debouncedTitle, activeFilter]);
+    usePagedSort<SortField>("id", [debouncedTitle, activeFilter], {
+      key: SETTINGS_KEY,
+      sortFields: SORT_FIELDS,
+    });
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["alerts", page, pageSize, sortParam, debouncedTitle, activeFilter],
@@ -86,7 +96,7 @@ export default function Alerts() {
     <Stack gap="md">
       <Title order={2}>{t("alerts.title")}</Title>
 
-      <FilterPanel activeFilterCount={activeFilterCount}>
+      <FilterPanel activeFilterCount={activeFilterCount} storageKey={SETTINGS_KEY}>
         <ClearableTextInput
           label={t("alerts.fieldTitle")}
           value={titleFilter}

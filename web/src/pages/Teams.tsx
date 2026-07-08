@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
 import {
@@ -30,18 +30,26 @@ import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { usePagedSort } from "../hooks/usePagedSort";
+import { isString, useStoredState } from "../hooks/useStoredState";
 import { deleteTeam, isAdmin, listTeams, listUsers } from "../api/client";
 
 const MANAGER_PICKER_PAGE_SIZE = 100;
 
-type SortField = "name";
+const SORT_FIELDS = ["name"] as const;
+type SortField = (typeof SORT_FIELDS)[number];
+
+const SETTINGS_KEY = "teams";
 
 type TeamRow = { id: number; name: string; managerName: string };
 
 export default function Teams() {
   const { t } = useTranslation();
-  const [nameFilter, setNameFilter] = useState("");
-  const [managerIdFilter, setManagerIdFilter] = useState<number | null>(null);
+  const [nameFilter, setNameFilter] = useStoredState(`${SETTINGS_KEY}.filter.name`, "", isString);
+  const [managerIdFilter, setManagerIdFilter] = useStoredState<number | null>(
+    `${SETTINGS_KEY}.filter.managerId`,
+    null,
+    (v) => v === null || typeof v === "number",
+  );
   const activeFilterCount = (nameFilter.trim() ? 1 : 0) + (managerIdFilter != null ? 1 : 0);
 
   const queryClient = useQueryClient();
@@ -50,7 +58,10 @@ export default function Teams() {
   const [debouncedName] = useDebouncedValue(nameFilter, 300);
 
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
-    usePagedSort<SortField>("name", [debouncedName, managerIdFilter]);
+    usePagedSort<SortField>("name", [debouncedName, managerIdFilter], {
+      key: SETTINGS_KEY,
+      sortFields: SORT_FIELDS,
+    });
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["teams", page, pageSize, sortParam, debouncedName, managerIdFilter],
@@ -94,7 +105,7 @@ export default function Teams() {
     <Stack gap="md">
       <Title order={2} data-tour="config-teams">{t("teams.title")}</Title>
 
-      <FilterPanel activeFilterCount={activeFilterCount}>
+      <FilterPanel activeFilterCount={activeFilterCount} storageKey={SETTINGS_KEY}>
         <ClearableTextInput
           label={t("common.field.name")}
           value={nameFilter}

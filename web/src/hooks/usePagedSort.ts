@@ -4,22 +4,84 @@ import type { SortDir } from "../components/SortHeader";
 export const PAGE_SIZE_OPTIONS = [20, 40, 60] as const;
 export const DEFAULT_PAGE_SIZE = 20;
 
+const STORAGE_PREFIX = "lettuce.viewSettings.";
+
+type StoredPaging<F extends string> = { sortField: F; sortDir: SortDir; pageSize: number };
+
+// Persisted sort/pageSize for a view, validated against the view's sort whitelist so a stale
+// stored field (e.g. after a column is removed) silently falls back to the defaults.
+function readStoredPaging<F extends string>(
+  key: string,
+  sortFields: readonly F[],
+): Partial<StoredPaging<F>> {
+  try {
+    const raw = localStorage.getItem(`${STORAGE_PREFIX}${key}.paging`);
+    if (raw == null) return {};
+    const parsed = JSON.parse(raw) as Partial<StoredPaging<F>>;
+    return {
+      sortField: sortFields.includes(parsed.sortField as F) ? (parsed.sortField as F) : undefined,
+      sortDir: parsed.sortDir === "asc" || parsed.sortDir === "desc" ? parsed.sortDir : undefined,
+      pageSize: (PAGE_SIZE_OPTIONS as readonly number[]).includes(parsed.pageSize as number)
+        ? parsed.pageSize
+        : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Where a view persists its list settings (`persist` option below and the page's own filter
+ * state via useStoredState): one `lettuce.viewSettings.<viewKey>.*` family per view.
+ */
+export type PagedSortPersist<F extends string> = {
+  /** The view's settings namespace, e.g. "users" or "feedbacks.received". */
+  key: string;
+  /** Runtime whitelist of sortable fields — stored values outside it are discarded. */
+  sortFields: readonly F[];
+};
+
 // Shared pagination + sort state for the list tables. `filterDeps` lists the
 // (debounced) filter values the table queries with; whenever one of them — or
 // the sort — changes, `page` resets to 1 so the new result set starts from its
 // first page. `setPageSize` resets `page` too, so switching rows-per-page never
 // strands the user past the last page.
-export function usePagedSort<F extends string>(initialSortField: F, filterDeps: unknown[]) {
+//
+// With `persist` set, sortField/sortDir/pageSize are restored from localStorage on mount and
+// written back on every change; `page` itself is deliberately NOT persisted (a stale deep page
+// is disorienting and may no longer exist).
+export function usePagedSort<F extends string>(
+  initialSortField: F,
+  filterDeps: unknown[],
+  persist?: PagedSortPersist<F>,
+) {
+  // Read storage once (lazy initializer), not on every render.
+  const [stored] = useState(() =>
+    persist ? readStoredPaging(persist.key, persist.sortFields) : {},
+  );
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
-  const [sortField, setSortField] = useState<F>(initialSortField);
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [pageSize, setPageSize] = useState<number>(stored.pageSize ?? DEFAULT_PAGE_SIZE);
+  const [sortField, setSortField] = useState<F>(stored.sortField ?? initialSortField);
+  const [sortDir, setSortDir] = useState<SortDir>(stored.sortDir ?? "asc");
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...filterDeps, sortField, sortDir]);
+
+  const persistKey = persist?.key;
+  useEffect(() => {
+    if (!persistKey) return;
+    try {
+      localStorage.setItem(
+        `${STORAGE_PREFIX}${persistKey}.paging`,
+        JSON.stringify({ sortField, sortDir, pageSize }),
+      );
+    } catch {
+      // Best-effort persistence only.
+    }
+  }, [persistKey, sortField, sortDir, pageSize]);
 
   const sortParam = `${sortDir === "desc" ? "-" : ""}${sortField}`;
 

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import {
@@ -45,8 +44,12 @@ import PaginationBar from "../components/PaginationBar";
 import SortHeader from "../components/SortHeader";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { usePagedSort } from "../hooks/usePagedSort";
+import { isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
 
-type SortField = "name" | "email" | "role";
+const SORT_FIELDS = ["name", "email", "role"] as const;
+type SortField = (typeof SORT_FIELDS)[number];
+
+const SETTINGS_KEY = "users";
 
 type UserRow = { id: number; name: string; email: string };
 
@@ -56,9 +59,13 @@ export default function Users() {
     value,
     label: t(`common.role.${value}`),
   }));
-  const [nameFilter, setNameFilter] = useState("");
-  const [emailFilter, setEmailFilter] = useState("");
-  const [roleFilter, setRoleFilter] = useState<UserRole | null>(null);
+  const [nameFilter, setNameFilter] = useStoredState(`${SETTINGS_KEY}.filter.name`, "", isString);
+  const [emailFilter, setEmailFilter] = useStoredState(`${SETTINGS_KEY}.filter.email`, "", isString);
+  const [roleFilter, setRoleFilter] = useStoredState<UserRole | null>(
+    `${SETTINGS_KEY}.filter.role`,
+    null,
+    isOneOfOrNull(["ADMIN", "USER"]),
+  );
   const activeFilterCount =
     (nameFilter.trim() ? 1 : 0) + (emailFilter.trim() ? 1 : 0) + (roleFilter ? 1 : 0);
 
@@ -71,7 +78,10 @@ export default function Users() {
   const [debouncedEmail] = useDebouncedValue(emailFilter, 300);
 
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
-    usePagedSort<SortField>("name", [debouncedName, debouncedEmail, roleFilter]);
+    usePagedSort<SortField>("name", [debouncedName, debouncedEmail, roleFilter], {
+      key: SETTINGS_KEY,
+      sortFields: SORT_FIELDS,
+    });
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["users", page, pageSize, sortParam, debouncedName, debouncedEmail, roleFilter],
@@ -109,7 +119,7 @@ export default function Users() {
     <Stack gap="md">
       <Title order={2} data-tour="config-users">{t("users.title")}</Title>
 
-      <FilterPanel activeFilterCount={activeFilterCount}>
+      <FilterPanel activeFilterCount={activeFilterCount} storageKey={SETTINGS_KEY}>
         <ClearableTextInput
           label={t("common.field.name")}
           value={nameFilter}
