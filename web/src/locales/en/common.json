@@ -15,7 +15,9 @@
     "loading": "Loading…",
     "any": "Any",
     "all": "All",
-    "you": "You"
+    "you": "You",
+    "yes": "Yes",
+    "no": "No"
   },
   "field": {
     "name": "Name",

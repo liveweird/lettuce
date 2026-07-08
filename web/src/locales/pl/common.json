@@ -15,7 +15,9 @@
     "loading": "Ładowanie…",
     "any": "Dowolny",
     "all": "Wszystkie",
-    "you": "Ty"
+    "you": "Ty",
+    "yes": "Tak",
+    "no": "Nie"
   },
   "field": {
     "name": "Nazwa",

@@ -634,6 +634,97 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List alerts (management view)
+         * @description Lists all alerts, including inactive and out-of-window ones. ADMIN only — what
+         *     non-admin users see flows through `GET /api/v1/alerts/visible`.
+         *
+         *     Supports offset pagination, sorting and filtering.
+         *
+         *     - Sortable fields: `id`, `title`, `startsAt`, `endsAt`. Default sort is `id` ascending.
+         *       `id` ascending is always appended as a deterministic tiebreaker.
+         *     - Filters (optional, whitelisted):
+         *       - `title` — case-insensitive substring match against the alert title.
+         *       - `isActive` — strict boolean equality (`true`/`false`).
+         *
+         *     Malformed query parameters (unknown sort field, out-of-range page/pageSize, non-boolean
+         *     `isActive`) respond with `400` and a `ProblemDetail` body.
+         */
+        get: operations["listAlerts"];
+        put?: never;
+        /**
+         * Create an alert
+         * @description ADMIN only. `startsAt`/`endsAt` are epoch milliseconds; when both are set,
+         *     `startsAt` must be strictly before `endsAt`.
+         */
+        post: operations["createAlert"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/alerts/visible": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the currently visible alerts
+         * @description The alerts every user currently sees as banners. Any authenticated user may call.
+         *     Visibility is evaluated server-side against server time: the alert is active, and the
+         *     current moment lies inside its optional `[startsAt, endsAt]` window (both bounds
+         *     inclusive; an unset bound is unbounded). Unpaged — the set of concurrently visible
+         *     alerts is intrinsically tiny. Ordered by `id` ascending.
+         */
+        get: operations["listVisibleAlerts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/alerts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Fetch an alert
+         * @description ADMIN only.
+         */
+        get: operations["getAlert"];
+        /**
+         * Replace an alert
+         * @description ADMIN only. All fields are editable.
+         */
+        put: operations["replaceAlert"];
+        post?: never;
+        /**
+         * Delete an alert
+         * @description ADMIN only.
+         */
+        delete: operations["deleteAlert"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/notifications": {
         parameters: {
             query?: never;
@@ -1048,6 +1139,57 @@ export interface components {
              * @description Row count after filters, before pagination.
              */
             total: number;
+        };
+        AlertRequest: {
+            title: string;
+            /**
+             * @description Markdown-formatted message body. Must not be blank.
+             * @default
+             */
+            content: string;
+            /** @default true */
+            isActive: boolean;
+            /**
+             * Format: int64
+             * @description Epoch milliseconds; the alert is hidden before this moment. Null = unbounded.
+             */
+            startsAt?: number | null;
+            /**
+             * Format: int64
+             * @description Epoch milliseconds; the alert is hidden after this moment. Null = unbounded.
+             */
+            endsAt?: number | null;
+        };
+        AlertResponse: {
+            /** Format: int64 */
+            id: number;
+            title: string;
+            content: string;
+            isActive: boolean;
+            /** Format: int64 */
+            startsAt?: number | null;
+            /** Format: int64 */
+            endsAt?: number | null;
+        };
+        AlertPage: {
+            items: components["schemas"]["AlertResponse"][];
+            page: number;
+            pageSize: number;
+            /**
+             * Format: int64
+             * @description Row count after filters, before pagination.
+             */
+            total: number;
+        };
+        VisibleAlert: {
+            /** Format: int64 */
+            id: number;
+            title: string;
+            /** @description Markdown-formatted message body. */
+            content: string;
+        };
+        VisibleAlertList: {
+            items: components["schemas"]["VisibleAlert"][];
         };
         FeedbackEventResponse: {
             /** Format: int64 */
@@ -2422,6 +2564,233 @@ export interface operations {
         };
     };
     deleteTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listAlerts: {
+        parameters: {
+            query?: {
+                /** @description 1-based page index. Defaults to 1. */
+                page?: components["parameters"]["Page"];
+                /** @description Rows per page. Defaults to 20, maximum 100. */
+                pageSize?: components["parameters"]["PageSize"];
+                /**
+                 * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
+                 *     comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
+                 *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
+                 *     always appended as a deterministic tiebreaker.
+                 */
+                sort?: components["parameters"]["Sort"];
+                /** @description Case-insensitive substring match against the alert title. */
+                title?: string;
+                /** @description Strict boolean equality filter on the active flag. */
+                isActive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of alerts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    createAlert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlertRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    /** @description URL of the new alert resource */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertResponse"];
+                };
+            };
+            /** @description Validation error (blank title/content, start not before end) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listVisibleAlerts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The currently visible alerts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisibleAlertList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getAlert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    replaceAlert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlertRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation error (blank title/content, start not before end) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    deleteAlert: {
         parameters: {
             query?: never;
             header?: never;

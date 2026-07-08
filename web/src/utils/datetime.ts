@@ -29,6 +29,25 @@ export function formatRelativeTime(ms: number, locale: string): string {
   return rtf.format(0, "minute");
 }
 
+// Epoch millis -> value for an <input type="datetime-local"> ("YYYY-MM-DDTHH:mm", local time).
+// Null/undefined -> "" (the input's "unset" value).
+export function epochToDatetimeLocal(ms: number | null | undefined): string {
+  if (ms == null) return "";
+  const d = new Date(ms);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}` +
+    `T${p(d.getHours())}:${p(d.getMinutes())}`
+  );
+}
+
+// <input type="datetime-local"> value -> epoch millis; "" (unset) -> null.
+export function datetimeLocalToEpoch(value: string): number | null {
+  if (!value) return null;
+  const ms = new Date(value).getTime();
+  return Number.isNaN(ms) ? null : ms;
+}
+
 // Recency windows for the "Last modified" list filter.
 export type LastModifiedWindow = "all" | "week" | "month";
 

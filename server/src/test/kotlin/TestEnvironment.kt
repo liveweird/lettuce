@@ -156,6 +156,9 @@ object TestServices {
         ch.nokillswit.teams.TeamService(sharedTestDatabase)
     }
     val users: UserService by lazy { UserService(sharedTestDatabase) }
+    val alerts: ch.nokillswit.alerts.AlertService by lazy {
+        ch.nokillswit.alerts.AlertService(sharedTestDatabase)
+    }
 }
 
 // There is no create endpoint for notifications (they are minted as a side-effect of
