@@ -9,6 +9,7 @@ import ch.nokillswit.authz.requireAdmin
 import ch.nokillswit.authz.requireCanAssignRole
 import ch.nokillswit.authz.requireSelfOrAdmin
 import ch.nokillswit.infra.paging.parsePaging
+import ch.nokillswit.infra.paging.optionalEnum
 import ch.nokillswit.infra.paging.optionalString
 import ch.nokillswit.infra.paging.optionalUInt
 import ch.nokillswit.infra.paging.toPage
@@ -67,15 +68,10 @@ fun Application.configureUserRoutes() {
                 call.caller()
                 val paging = call.parsePaging(sortable = setOf("id", "name", "email", "role"))
                 val params = call.request.queryParameters
-                val roleFilter = params.optionalString("role")?.let { raw ->
-                    runCatching { UserRole.valueOf(raw) }.getOrElse {
-                        throw BadRequestException("Unknown role: $raw (allowed: ${UserRole.entries.joinToString { it.name }})")
-                    }
-                }
                 val filter = UserListFilter(
                     name = params.optionalString("name"),
                     email = params.optionalString("email"),
-                    role = roleFilter,
+                    role = params.optionalEnum<UserRole>("role"),
                     teamId = params.optionalUInt("teamId"),
                 )
                 val result = userService.list(filter, paging)

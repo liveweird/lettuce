@@ -60,10 +60,15 @@ private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
     "lastModified" to FeedbackService.Feedbacks.lastModified,
 )
 
-private val RECEIVED_VISIBILITIES = listOf(
+// The Received scope mirrors canReadFeedback's subject/requester branches (authz/Guards.kt) so
+// the list never shows a row the single GET would 403 on.
+private val SUBJECT_VISIBILITIES = listOf(
     FeedbackVisibility.PROVIDER_SUBJECT,
     FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
-    FeedbackVisibility.PUBLIC,
+)
+private val REQUESTER_VISIBILITIES = listOf(
+    FeedbackVisibility.PROVIDER_REQUESTER,
+    FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
 )
 
 // A feedback the caller is not a party to (Received / My team lists) is only shown once delivered.
@@ -241,20 +246,24 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
     ): FeedbackListResult = suspendTransaction(database) {
         val scope: Op<Boolean> = when (view) {
             FeedbackListView.RECEIVED -> {
-                // Three ways a feedback the caller is the subject of lands in their Received list:
-                // A) no requester — visible once delivered (SENT/WITHDRAWN);
-                // B) the caller requested it themselves — always visible (any status/visibility;
-                //    an unfinished one has its content preview redacted below);
-                // C) someone else requested it — only once delivered and under a subject-readable
-                //    visibility.
-                val noRequester = Feedbacks.requesterId.isNull() and
-                    (Feedbacks.status inList DELIVERED_STATUSES)
-                val iAmRequester = Feedbacks.requesterId eq callerUserId
-                val otherRequester = Feedbacks.requesterId.isNotNull() and
-                    (Feedbacks.requesterId neq callerUserId) and
-                    (Feedbacks.visibility inList RECEIVED_VISIBILITIES) and
-                    (Feedbacks.status inList DELIVERED_STATUSES)
-                (Feedbacks.subjectId eq callerUserId) and (noRequester or iAmRequester or otherRequester)
+                // The caller's inbox (subjectId == caller), scoped exactly like canReadFeedback
+                // (authz/Guards.kt) so every listed row is also openable:
+                // - as the requester of their own feedback: any status under a requester-readable
+                //   visibility (an unfinished one has its content preview redacted below);
+                // - as a plain subject (no requester, or someone else's request): only once
+                //   delivered (SENT/WITHDRAWN) under a subject-readable visibility;
+                // - PUBLIC rows in either role: only once SENT (the "anyone" rule).
+                val publicSent = (Feedbacks.visibility eq FeedbackVisibility.PUBLIC) and
+                    (Feedbacks.status eq FeedbackStatus.SENT)
+                val iAmRequester = (Feedbacks.requesterId eq callerUserId) and
+                    ((Feedbacks.visibility inList REQUESTER_VISIBILITIES) or publicSent)
+                val asSubjectOnly =
+                    (Feedbacks.requesterId.isNull() or (Feedbacks.requesterId neq callerUserId)) and
+                        (
+                            ((Feedbacks.visibility inList SUBJECT_VISIBILITIES) and
+                                (Feedbacks.status inList DELIVERED_STATUSES)) or publicSent
+                        )
+                (Feedbacks.subjectId eq callerUserId) and (iAmRequester or asSubjectOnly)
             }
             FeedbackListView.PROVIDED -> Feedbacks.providerId eq callerUserId
             FeedbackListView.TEAM -> {

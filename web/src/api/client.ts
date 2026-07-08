@@ -120,7 +120,7 @@ async function doRefresh(): Promise<string | null> {
 
 export type UserPage = paths["/api/v1/users"]["get"]["responses"]["200"]["content"]["application/json"];
 
-export type UserListQuery = {
+type UserListQuery = {
   page: number;
   pageSize: number;
   sort?: string;
@@ -130,7 +130,7 @@ export type UserListQuery = {
   teamId?: number;
 };
 
-export type CurrentUser = paths["/api/v1/users/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
+type CurrentUser = paths["/api/v1/users/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
 
 export async function getCurrentUser(): Promise<CurrentUser> {
   const id = getUserId();
@@ -140,8 +140,8 @@ export async function getCurrentUser(): Promise<CurrentUser> {
   return (await res.json()) as CurrentUser;
 }
 
-export type CreateUserBody = paths["/api/v1/users"]["post"]["requestBody"]["content"]["application/json"];
-export type CreateUserResponse = paths["/api/v1/users"]["post"]["responses"]["201"]["content"]["application/json"];
+type CreateUserBody = paths["/api/v1/users"]["post"]["requestBody"]["content"]["application/json"];
+type CreateUserResponse = paths["/api/v1/users"]["post"]["responses"]["201"]["content"]["application/json"];
 
 export async function createUser(req: CreateUserBody): Promise<CreateUserResponse> {
   const res = await authedFetch("/api/v1/users", {
@@ -152,7 +152,7 @@ export async function createUser(req: CreateUserBody): Promise<CreateUserRespons
   return (await res.json()) as CreateUserResponse;
 }
 
-export type UpdateUserBody =
+type UpdateUserBody =
   paths["/api/v1/users/{id}"]["put"]["requestBody"]["content"]["application/json"];
 
 export async function getUser(id: number): Promise<CurrentUser> {
@@ -169,7 +169,7 @@ export async function updateUser(id: number, body: UpdateUserBody): Promise<void
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
-export type ChangePasswordBody =
+type ChangePasswordBody =
   paths["/api/v1/users/{id}/password"]["put"]["requestBody"]["content"]["application/json"];
 
 export async function changeUserPassword(id: number, body: ChangePasswordBody): Promise<void> {
@@ -201,7 +201,7 @@ export async function listUsers(q: UserListQuery): Promise<UserPage> {
 
 export type TeamPage = paths["/api/v1/teams"]["get"]["responses"]["200"]["content"]["application/json"];
 
-export type TeamListQuery = {
+type TeamListQuery = {
   page: number;
   pageSize: number;
   sort?: string;
@@ -210,9 +210,9 @@ export type TeamListQuery = {
   memberId?: number;
 };
 
-export type CreateTeamBody =
+type CreateTeamBody =
   paths["/api/v1/teams"]["post"]["requestBody"]["content"]["application/json"];
-export type CreateTeamResponse =
+type CreateTeamResponse =
   paths["/api/v1/teams"]["post"]["responses"]["201"]["content"]["application/json"];
 
 export async function createTeam(req: CreateTeamBody): Promise<CreateTeamResponse> {
@@ -231,7 +231,7 @@ export async function deleteTeam(id: number): Promise<void> {
 
 export type TeamResponse =
   paths["/api/v1/teams/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
-export type UpdateTeamBody =
+type UpdateTeamBody =
   paths["/api/v1/teams/{id}"]["put"]["requestBody"]["content"]["application/json"];
 
 export async function getTeam(id: number): Promise<TeamResponse> {
@@ -276,7 +276,7 @@ export type TeamMemberPage =
 
 export type TeamMemberListView = "member" | "managed" | "managers";
 
-export type TeamMemberListQuery = {
+type TeamMemberListQuery = {
   view: TeamMemberListView;
   page: number;
   pageSize: number;
@@ -326,7 +326,7 @@ export type FeedbackStatus = "REQUESTED" | "DRAFT" | "SENT" | "WITHDRAWN" | "REJ
 
 export type FeedbackListView = "received" | "provided" | "team";
 
-export type FeedbackListQuery = {
+type FeedbackListQuery = {
   view: FeedbackListView;
   page: number;
   pageSize: number;
@@ -363,9 +363,9 @@ export async function listFeedbacks(q: FeedbackListQuery): Promise<FeedbackPage>
   return (await res.json()) as FeedbackPage;
 }
 
-export type CreateFeedbackBody =
+type CreateFeedbackBody =
   paths["/api/v1/feedbacks"]["post"]["requestBody"]["content"]["application/json"];
-export type CreateFeedbackResponse =
+type CreateFeedbackResponse =
   paths["/api/v1/feedbacks"]["post"]["responses"]["201"]["content"]["application/json"];
 
 export async function createFeedback(req: CreateFeedbackBody): Promise<CreateFeedbackResponse> {
@@ -379,7 +379,7 @@ export async function createFeedback(req: CreateFeedbackBody): Promise<CreateFee
 
 export type FeedbackResponse =
   paths["/api/v1/feedbacks/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
-export type UpdateFeedbackBody =
+type UpdateFeedbackBody =
   paths["/api/v1/feedbacks/{id}"]["put"]["requestBody"]["content"]["application/json"];
 
 export async function getFeedback(id: number): Promise<FeedbackResponse> {
@@ -426,7 +426,7 @@ export async function listFeedbackEvents(id: number): Promise<FeedbackEvent[]> {
 export type TemplatePage =
   paths["/api/v1/templates"]["get"]["responses"]["200"]["content"]["application/json"];
 
-export type TemplateListQuery = {
+type TemplateListQuery = {
   page: number;
   pageSize: number;
   sort?: string;
@@ -444,9 +444,9 @@ export async function listTemplates(q: TemplateListQuery): Promise<TemplatePage>
   return (await res.json()) as TemplatePage;
 }
 
-export type CreateTemplateBody =
+type CreateTemplateBody =
   paths["/api/v1/templates"]["post"]["requestBody"]["content"]["application/json"];
-export type CreateTemplateResponse =
+type CreateTemplateResponse =
   paths["/api/v1/templates"]["post"]["responses"]["201"]["content"]["application/json"];
 
 export async function createTemplate(req: CreateTemplateBody): Promise<CreateTemplateResponse> {
@@ -460,7 +460,7 @@ export async function createTemplate(req: CreateTemplateBody): Promise<CreateTem
 
 export type TemplateResponse =
   paths["/api/v1/templates/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
-export type UpdateTemplateBody =
+type UpdateTemplateBody =
   paths["/api/v1/templates/{id}"]["put"]["requestBody"]["content"]["application/json"];
 
 export async function getTemplate(id: number): Promise<TemplateResponse> {
@@ -485,7 +485,7 @@ export async function deleteTemplate(id: number): Promise<void> {
 export type AlertPage =
   paths["/api/v1/alerts"]["get"]["responses"]["200"]["content"]["application/json"];
 
-export type AlertListQuery = {
+type AlertListQuery = {
   page: number;
   pageSize: number;
   sort?: string;
@@ -507,7 +507,7 @@ export async function listAlerts(q: AlertListQuery): Promise<AlertPage> {
 
 export type CreateAlertBody =
   paths["/api/v1/alerts"]["post"]["requestBody"]["content"]["application/json"];
-export type CreateAlertResponse =
+type CreateAlertResponse =
   paths["/api/v1/alerts"]["post"]["responses"]["201"]["content"]["application/json"];
 
 export async function createAlert(req: CreateAlertBody): Promise<CreateAlertResponse> {
@@ -521,7 +521,7 @@ export async function createAlert(req: CreateAlertBody): Promise<CreateAlertResp
 
 export type AlertResponse =
   paths["/api/v1/alerts/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
-export type UpdateAlertBody =
+type UpdateAlertBody =
   paths["/api/v1/alerts/{id}"]["put"]["requestBody"]["content"]["application/json"];
 
 export async function getAlert(id: number): Promise<AlertResponse> {
@@ -557,7 +557,7 @@ export type NotificationPage =
   paths["/api/v1/notifications"]["get"]["responses"]["200"]["content"]["application/json"];
 export type NotificationItem = NotificationPage["items"][number];
 
-export type NotificationListQuery = {
+type NotificationListQuery = {
   page: number;
   pageSize: number;
   sort?: string;
