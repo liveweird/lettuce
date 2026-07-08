@@ -399,4 +399,57 @@ describe("Users page", () => {
     expect(await within(dialog).findByText(/failed to delete user/i)).toBeInTheDocument();
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
+
+  test("restores persisted filters and sort from localStorage into the first query", async () => {
+    localStorage.setItem("lettuce.viewSettings.users.filter.name", JSON.stringify("ali"));
+    localStorage.setItem(
+      "lettuce.viewSettings.users.paging",
+      JSON.stringify({ sortField: "email", sortDir: "desc", pageSize: 40 }),
+    );
+    localStorage.setItem("lettuce.viewSettings.users.filtersOpen", "true");
+    mockUsers(mockFetch);
+    renderUsers();
+
+    await screen.findByText("Alice");
+    const first = userUrls(mockFetch)[0];
+    expect(first).toContain("name=ali");
+    expect(first).toContain("sort=-email");
+    expect(first).toContain("pageSize=40");
+    // The panel opens restored, showing the persisted filter value.
+    expect(screen.getByLabelText("Name")).toHaveValue("ali");
+  });
+
+  test("ignores a persisted sort field that is no longer sortable", async () => {
+    localStorage.setItem(
+      "lettuce.viewSettings.users.paging",
+      JSON.stringify({ sortField: "bogus", sortDir: "desc", pageSize: 999 }),
+    );
+    mockUsers(mockFetch);
+    renderUsers();
+
+    await screen.findByText("Alice");
+    const first = userUrls(mockFetch)[0];
+    expect(first).toContain("sort=-name"); // field falls back to the default, direction survives
+    expect(first).toContain("pageSize=20");
+  });
+
+  test("typing a filter and toggling sort persists them to localStorage", async () => {
+    mockUsers(mockFetch);
+    const user = userEvent.setup();
+    renderUsers();
+
+    await screen.findByText("Alice");
+    await user.click(screen.getByRole("button", { name: /filters/i }));
+    await user.type(screen.getByLabelText("Name"), "Bo");
+    await user.click(screen.getByRole("button", { name: /^email$/i }));
+
+    await waitFor(() => {
+      expect(localStorage.getItem("lettuce.viewSettings.users.filter.name")).toBe(
+        JSON.stringify("Bo"),
+      );
+      expect(
+        JSON.parse(localStorage.getItem("lettuce.viewSettings.users.paging")!),
+      ).toEqual({ sortField: "email", sortDir: "asc", pageSize: 20 });
+    });
+  });
 });

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
@@ -23,15 +22,19 @@ import PaginationBar from "../components/PaginationBar";
 import SortHeader from "../components/SortHeader";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { usePagedSort } from "../hooks/usePagedSort";
+import { isString, useStoredState } from "../hooks/useStoredState";
 import { deleteTemplate, isAdmin, listTemplates } from "../api/client";
 
-type SortField = "name";
+const SORT_FIELDS = ["name"] as const;
+type SortField = (typeof SORT_FIELDS)[number];
+
+const SETTINGS_KEY = "templates";
 
 type TemplateRow = { id: number; name: string };
 
 export default function Templates() {
   const { t } = useTranslation();
-  const [nameFilter, setNameFilter] = useState("");
+  const [nameFilter, setNameFilter] = useStoredState(`${SETTINGS_KEY}.filter.name`, "", isString);
   const activeFilterCount = nameFilter.trim() ? 1 : 0;
 
   const queryClient = useQueryClient();
@@ -40,7 +43,10 @@ export default function Templates() {
   const [debouncedName] = useDebouncedValue(nameFilter, 300);
 
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
-    usePagedSort<SortField>("name", [debouncedName]);
+    usePagedSort<SortField>("name", [debouncedName], {
+      key: SETTINGS_KEY,
+      sortFields: SORT_FIELDS,
+    });
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["templates", page, pageSize, sortParam, debouncedName],
@@ -66,7 +72,7 @@ export default function Templates() {
     <Stack gap="md">
       <Title order={2} data-tour="config-templates">{t("templates.title")}</Title>
 
-      <FilterPanel activeFilterCount={activeFilterCount}>
+      <FilterPanel activeFilterCount={activeFilterCount} storageKey={SETTINGS_KEY}>
         <ClearableTextInput
           label={t("common.field.name")}
           value={nameFilter}

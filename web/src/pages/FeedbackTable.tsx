@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
@@ -31,6 +31,7 @@ import PaginationBar from "../components/PaginationBar";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import SortHeader from "../components/SortHeader";
 import { usePagedSort } from "../hooks/usePagedSort";
+import { isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
 import {
   formatRelativeTime,
   formatTimestamp,
@@ -69,13 +70,15 @@ function PersonCell({
   return <PersonaChip name={display} />;
 }
 
-type SortField =
-  | "requesterName"
-  | "subjectName"
-  | "providerName"
-  | "visibility"
-  | "status"
-  | "lastModified";
+const SORT_FIELDS = [
+  "requesterName",
+  "subjectName",
+  "providerName",
+  "visibility",
+  "status",
+  "lastModified",
+] as const;
+type SortField = (typeof SORT_FIELDS)[number];
 
 type FeedbackRow = FeedbackPage["items"][number];
 
@@ -229,6 +232,7 @@ export default function FeedbackTable({
   providerId,
   subjectId,
   backTo,
+  settingsKey,
 }: {
   view: FeedbackListView;
   // Optional exact-id scope to a single counterparty (used by the per-manager screen).
@@ -236,6 +240,10 @@ export default function FeedbackTable({
   subjectId?: number;
   // When set, the View/Edit links return here instead of the feedback tabs.
   backTo?: string;
+  // localStorage namespace for this instance's filters/sort. Defaults per view; screens
+  // embedding the table in another context (the per-manager page) pass their own so their
+  // settings don't bleed into the main feedback tabs.
+  settingsKey?: string;
 }) {
   const { t, i18n } = useTranslation();
   const currentUserId = getUserId();
@@ -251,14 +259,29 @@ export default function FeedbackTable({
   const backParam = backTo ? `&back=${encodeURIComponent(backTo)}` : "";
   const columnCount = config.personColumns.length + 6; // requester + preview + vis + status + modified + actions
 
-  const [requesterFilter, setRequesterFilter] = useState("");
-  const [providerFilter, setProviderFilter] = useState("");
-  const [subjectFilter, setSubjectFilter] = useState("");
-  const [visibilityFilter, setVisibilityFilter] = useState<FeedbackVisibility | null>(null);
-  const [statusFilter, setStatusFilter] = useState<FeedbackStatus | null>(null);
-  const [lastModifiedFilter, setLastModifiedFilter] = useState<LastModifiedWindow>("all");
+  const storeKey = settingsKey ?? `feedbacks.${view}`;
+  const [requesterFilter, setRequesterFilter] = useStoredState(
+    `${storeKey}.filter.requester`, "", isString,
+  );
+  const [providerFilter, setProviderFilter] = useStoredState(
+    `${storeKey}.filter.provider`, "", isString,
+  );
+  const [subjectFilter, setSubjectFilter] = useStoredState(
+    `${storeKey}.filter.subject`, "", isString,
+  );
+  const [visibilityFilter, setVisibilityFilter] = useStoredState<FeedbackVisibility | null>(
+    `${storeKey}.filter.visibility`, null, isOneOfOrNull(ALL_VISIBILITIES),
+  );
+  const [statusFilter, setStatusFilter] = useStoredState<FeedbackStatus | null>(
+    `${storeKey}.filter.status`, null, isOneOfOrNull(STATUS_VALUES),
+  );
+  const [lastModifiedFilter, setLastModifiedFilter] = useStoredState<LastModifiedWindow>(
+    `${storeKey}.filter.lastModified`, "all", isOneOfOrNull(["all", "week", "month"]),
+  );
   // Team view only: subjects limited to direct reports (default) or the whole management chain.
-  const [reportsScope, setReportsScope] = useState<"direct" | "all">("direct");
+  const [reportsScope, setReportsScope] = useStoredState<"direct" | "all">(
+    `${storeKey}.filter.reportsScope`, "direct", isOneOfOrNull(["direct", "all"]),
+  );
   const includeIndirect = view === "team" && reportsScope === "all";
   // Filters without a rendered input stay "" and count 0, so this is per-view correct.
   // `lastModifiedFilter` defaults to the truthy "all" — compare against it, not truthiness.
@@ -286,15 +309,19 @@ export default function FeedbackTable({
   };
 
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
-    usePagedSort<SortField>(config.defaultSortField, [
-      debouncedRequester,
-      debouncedProvider,
-      debouncedSubject,
-      visibilityFilter,
-      statusFilter,
-      lastModifiedFilter,
-      includeIndirect,
-    ]);
+    usePagedSort<SortField>(
+      config.defaultSortField,
+      [
+        debouncedRequester,
+        debouncedProvider,
+        debouncedSubject,
+        visibilityFilter,
+        statusFilter,
+        lastModifiedFilter,
+        includeIndirect,
+      ],
+      { key: storeKey, sortFields: SORT_FIELDS },
+    );
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: [
@@ -336,7 +363,7 @@ export default function FeedbackTable({
 
   return (
     <Stack gap="md">
-      <FilterPanel activeFilterCount={activeFilterCount}>
+      <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey}>
         <ClearableTextInput
           label={t("common.field.requester")}
           value={requesterFilter}

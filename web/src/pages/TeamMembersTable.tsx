@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
 import {
@@ -30,10 +29,12 @@ import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import { usePagedSort } from "../hooks/usePagedSort";
+import { isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
 import { feedbackAskLink, feedbackProvideLink, feedbackRequestLink } from "../utils/feedbackLinks";
 import { groupTeamRows } from "../utils/teamRows";
 
-type SortField = "name" | "email" | "teamName";
+const SORT_FIELDS = ["name", "email", "teamName"] as const;
+type SortField = (typeof SORT_FIELDS)[number];
 
 const GRID_COLS = { base: 1, sm: 2, lg: 3 };
 
@@ -47,11 +48,21 @@ export default function TeamMembersTable({
   emptyMessage: string;
 }) {
   const { t } = useTranslation();
-  const [nameFilter, setNameFilter] = useState("");
-  const [emailFilter, setEmailFilter] = useState("");
-  const [teamFilter, setTeamFilter] = useState<string | null>(null);
+  // Two dashboard views (peers/subordinates) share this component — settings are per-view.
+  const settingsKey = `teamMembers.${view}`;
+  const [nameFilter, setNameFilter] = useStoredState(`${settingsKey}.filter.name`, "", isString);
+  const [emailFilter, setEmailFilter] = useStoredState(`${settingsKey}.filter.email`, "", isString);
+  const [teamFilter, setTeamFilter] = useStoredState<string | null>(
+    `${settingsKey}.filter.team`,
+    null,
+    (v) => v === null || typeof v === "string",
+  );
   // "My subordinates" only: direct reports (the default) vs. the whole management chain.
-  const [reportsScope, setReportsScope] = useState<"direct" | "all">("direct");
+  const [reportsScope, setReportsScope] = useStoredState<"direct" | "all">(
+    `${settingsKey}.filter.reportsScope`,
+    "direct",
+    isOneOfOrNull(["direct", "all"]),
+  );
   const includeIndirect = view === "managed" && reportsScope === "all";
   const activeFilterCount =
     (nameFilter.trim() ? 1 : 0) +
@@ -63,7 +74,10 @@ export default function TeamMembersTable({
   const [debouncedEmail] = useDebouncedValue(emailFilter, 300);
 
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
-    usePagedSort<SortField>("name", [debouncedName, debouncedEmail, teamFilter, includeIndirect]);
+    usePagedSort<SortField>("name", [debouncedName, debouncedEmail, teamFilter, includeIndirect], {
+      key: settingsKey,
+      sortFields: SORT_FIELDS,
+    });
 
   const { data: teams } = useQuery({
     queryKey: ["teams", "all"],
@@ -118,7 +132,7 @@ export default function TeamMembersTable({
   return (
     <Stack gap="md">
       <Group justify="space-between" align="flex-start" wrap="wrap">
-        <FilterPanel activeFilterCount={activeFilterCount}>
+        <FilterPanel activeFilterCount={activeFilterCount} storageKey={settingsKey}>
           <ClearableTextInput
             label={t("common.field.name")}
             value={nameFilter}
