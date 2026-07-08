@@ -9,6 +9,7 @@ import ch.nokillswit.authz.requireFeedbackWrite
 import ch.nokillswit.infra.db.requireValidReferences
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.optionalBoolean
+import ch.nokillswit.infra.paging.optionalEnum
 import ch.nokillswit.infra.paging.optionalString
 import ch.nokillswit.infra.paging.optionalLong
 import ch.nokillswit.infra.paging.optionalUInt
@@ -104,20 +105,8 @@ fun Application.configureFeedbackRoutes() {
                 val paging = call.parsePaging(
                     sortable = setOf("id", "requesterName", "subjectName", "providerName", "visibility", "status", "lastModified"),
                 )
-                val visibilityFilter = params.optionalString("visibility")?.let { raw ->
-                    runCatching { FeedbackVisibility.valueOf(raw) }.getOrElse {
-                        throw BadRequestException(
-                            "Unknown visibility: $raw (allowed: ${FeedbackVisibility.entries.joinToString { it.name }})",
-                        )
-                    }
-                }
-                val statusFilter = params.optionalString("status")?.let { raw ->
-                    runCatching { FeedbackStatus.valueOf(raw) }.getOrElse {
-                        throw BadRequestException(
-                            "Unknown status: $raw (allowed: ${FeedbackStatus.entries.joinToString { it.name }})",
-                        )
-                    }
-                }
+                val visibilityFilter = params.optionalEnum<FeedbackVisibility>("visibility")
+                val statusFilter = params.optionalEnum<FeedbackStatus>("status")
                 val providerIdFilter = params.optionalUInt("providerId")
                 val subjectIdFilter = params.optionalUInt("subjectId")
                 val lastModifiedGteFilter = params.optionalLong("lastModified[gte]")

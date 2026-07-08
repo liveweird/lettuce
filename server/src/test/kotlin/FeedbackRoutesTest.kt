@@ -904,6 +904,72 @@ class FeedbackRoutesTest {
     }
 
     @Test
+    fun `received list never shows a row the single GET rejects — PUBLIC only while SENT`() = testApplication {
+        usePostgresTestcontainer()
+        val subjectEmail = uniqueEmail("subject")
+        val subjectId = TestUsers.seed(email = subjectEmail, password = "pw", role = UserRole.USER)
+        val providerEmail = uniqueEmail("provider")
+        val providerId = TestUsers.seed(email = providerEmail, password = "pw")
+        val subjectClient = authedClient(subjectEmail, "pw")
+        val providerClient = authedClient(providerEmail, "pw")
+
+        // A PUBLIC feedback about the subject: listed while SENT...
+        val public = createFeedback(subjectId, providerId, FeedbackVisibility.PUBLIC)
+        // ...but a subject-readable one survives withdrawal in the list.
+        val subjectReadable = createFeedback(subjectId, providerId, FeedbackVisibility.PROVIDER_SUBJECT)
+
+        val sentItems = subjectClient.get("/api/v1/feedbacks?view=received").body<FeedbackPageResponse>().items
+        assertTrue(sentItems.any { it.id == public.id })
+        // Consistency: the listed PUBLIC row is also openable.
+        assertEquals(HttpStatusCode.OK, subjectClient.get("/api/v1/feedbacks/${public.id}").status)
+
+        providerClient.post("/api/v1/feedbacks/${public.id}/withdraw")
+        providerClient.post("/api/v1/feedbacks/${subjectReadable.id}/withdraw")
+
+        val afterItems = subjectClient.get("/api/v1/feedbacks?view=received").body<FeedbackPageResponse>().items
+        // The withdrawn PUBLIC row is gone from the list — matching the 403 its single GET returns —
+        // while the withdrawn PROVIDER_SUBJECT row stays listed and openable.
+        assertTrue(afterItems.none { it.id == public.id })
+        assertEquals(HttpStatusCode.Forbidden, subjectClient.get("/api/v1/feedbacks/${public.id}").status)
+        assertTrue(afterItems.any { it.id == subjectReadable.id })
+        assertEquals(HttpStatusCode.OK, subjectClient.get("/api/v1/feedbacks/${subjectReadable.id}").status)
+    }
+
+    @Test
+    fun `received list shows the caller's own PUBLIC request only once it is SENT`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("subject")
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val providerEmail = uniqueEmail("provider")
+        val providerId = TestUsers.seed(email = providerEmail, password = "pw")
+        val client = authedClient(callerEmail, "pw")
+        val providerClient = authedClient(providerEmail, "pw")
+
+        // The caller asked for PUBLIC feedback about themselves. While REQUESTED the single GET
+        // rejects it (the requester branch covers only PROVIDER_REQUESTER*), so the list hides it.
+        val asked = createFeedback(
+            callerId, providerId, FeedbackVisibility.PUBLIC,
+            status = FeedbackStatus.REQUESTED, requesterId = callerId,
+        )
+        val pendingItems = client.get("/api/v1/feedbacks?view=received").body<FeedbackPageResponse>().items
+        assertTrue(pendingItems.none { it.id == asked.id })
+        assertEquals(HttpStatusCode.Forbidden, client.get("/api/v1/feedbacks/${asked.id}").status)
+
+        // Delivered -> listed and openable (the PUBLIC+SENT "anyone" rule).
+        providerClient.post("/api/v1/feedbacks/${asked.id}/pick-up")
+        providerClient.post("/api/v1/feedbacks/${asked.id}/send")
+        val sentItems = client.get("/api/v1/feedbacks?view=received").body<FeedbackPageResponse>().items
+        assertTrue(sentItems.any { it.id == asked.id })
+        assertEquals(HttpStatusCode.OK, client.get("/api/v1/feedbacks/${asked.id}").status)
+
+        // Withdrawn -> gone from both again.
+        providerClient.post("/api/v1/feedbacks/${asked.id}/withdraw")
+        val withdrawnItems = client.get("/api/v1/feedbacks?view=received").body<FeedbackPageResponse>().items
+        assertTrue(withdrawnItems.none { it.id == asked.id })
+        assertEquals(HttpStatusCode.Forbidden, client.get("/api/v1/feedbacks/${asked.id}").status)
+    }
+
+    @Test
     fun `list received resolves joined names and null requester`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("subject")
