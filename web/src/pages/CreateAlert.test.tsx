@@ -75,8 +75,16 @@ describe("CreateAlert page", () => {
     await user.type(screen.getByLabelText("Title"), "Maintenance");
     const content = await screen.findByLabelText("Content");
     await user.type(content, "Down");
-    await user.type(screen.getByLabelText(/visible from/i), "2026-07-01T08:00");
-    await user.type(screen.getByLabelText(/visible until/i), "2026-07-02T08:00");
+    // Both bounds are opt-in: the datetime inputs stay disabled until their checkbox is set.
+    // Checkbox and input share the accessible name, so queries disambiguate by role/selector.
+    const fromInput = screen.getByLabelText(/visible from/i, { selector: "input[type='datetime-local']" });
+    const untilInput = screen.getByLabelText(/visible until/i, { selector: "input[type='datetime-local']" });
+    expect(fromInput).toBeDisabled();
+    expect(untilInput).toBeDisabled();
+    await user.click(screen.getByRole("checkbox", { name: /visible from/i }));
+    await user.click(screen.getByRole("checkbox", { name: /visible until/i }));
+    await user.type(fromInput, "2026-07-01T08:00");
+    await user.type(untilInput, "2026-07-02T08:00");
     await user.click(screen.getByRole("button", { name: /^create$/i }));
 
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/alerts"));
@@ -113,12 +121,65 @@ describe("CreateAlert page", () => {
     await user.type(screen.getByLabelText("Title"), "Window");
     const content = await screen.findByLabelText("Content");
     await user.type(content, "x");
-    await user.type(screen.getByLabelText(/visible from/i), "2026-07-02T08:00");
-    await user.type(screen.getByLabelText(/visible until/i), "2026-07-01T08:00");
+    await user.click(screen.getByRole("checkbox", { name: /visible from/i }));
+    await user.click(screen.getByRole("checkbox", { name: /visible until/i }));
+    await user.type(
+      screen.getByLabelText(/visible from/i, { selector: "input[type='datetime-local']" }),
+      "2026-07-02T08:00",
+    );
+    await user.type(
+      screen.getByLabelText(/visible until/i, { selector: "input[type='datetime-local']" }),
+      "2026-07-01T08:00",
+    );
     await user.click(screen.getByRole("button", { name: /^create$/i }));
 
     expect(await screen.findByText(/must be after/i)).toBeInTheDocument();
     expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  test("a checked bound with no value blocks the submit without a POST", async () => {
+    const user = userEvent.setup();
+    renderCreateAlert();
+
+    await user.type(screen.getByLabelText("Title"), "Incomplete");
+    await user.type(await screen.findByLabelText("Content"), "x");
+    await user.click(screen.getByRole("checkbox", { name: /visible from/i }));
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+
+    expect(await screen.findByText(/pick a date and time/i)).toBeInTheDocument();
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  test("unchecked bounds are sent as null", async () => {
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      if (init?.method === "POST" && url === "/api/v1/alerts") {
+        return Promise.resolve(
+          jsonResponse(201, {
+            id: 8,
+            title: "Unbounded",
+            content: "x",
+            isActive: true,
+            startsAt: null,
+            endsAt: null,
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    const user = userEvent.setup();
+    renderCreateAlert();
+
+    await user.type(screen.getByLabelText("Title"), "Unbounded");
+    await user.type(await screen.findByLabelText("Content"), "x");
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+
+    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/alerts"));
+    const postCall = mockFetch.mock.calls.find(
+      ([url, init]) => (init as RequestInit | undefined)?.method === "POST" && url === "/api/v1/alerts",
+    );
+    const body = JSON.parse((postCall![1] as RequestInit).body as string);
+    expect(body.startsAt).toBeNull();
+    expect(body.endsAt).toBeNull();
   });
 
   test("a 400 from the server shows the validation error alert", async () => {

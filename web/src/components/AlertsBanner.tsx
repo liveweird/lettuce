@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActionIcon, Alert, Group, Paper, Text } from "@mantine/core";
+import { ActionIcon, Alert, Box, Group, Paper, Text } from "@mantine/core";
 import {
   IconChevronDown,
   IconChevronLeft,
@@ -11,6 +11,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { getVisibleAlerts } from "../api/client";
 import MarkdownView from "./MarkdownView";
+import classes from "./AlertsBanner.module.css";
 
 const STORAGE_KEY = "lettuce.alertsBanner";
 
@@ -111,15 +112,32 @@ export default function AlertsBanner() {
       styles={{ body: { minWidth: 0 } }}
     >
       <Group gap="xs" wrap="nowrap" align="flex-start">
-        <Text fw={700} style={{ flex: 1 }}>
-          {current.title}
-        </Text>
+        {/* Inverted chip (white on the banner's own fill color) so the title stays visually
+            senior to any markdown heading in the content without competing on font size. */}
+        <Box style={{ flex: 1, minWidth: 0 }}>
+          <Text
+            component="span"
+            fw={700}
+            size="sm"
+            px={10}
+            py={3}
+            style={{
+              display: "inline-block",
+              backgroundColor: "var(--mantine-color-white)",
+              color: "var(--mantine-color-orange-filled)",
+              borderRadius: "var(--mantine-radius-sm)",
+            }}
+          >
+            {current.title}
+          </Text>
+        </Box>
         {items.length > 1 && (
           <Group gap={4} wrap="nowrap">
             <ActionIcon
               variant="transparent"
               c="white"
               size="sm"
+              className={classes.pagerButton}
               disabled={index <= 0}
               aria-label={t("alerts.banner.previous")}
               onClick={() => setIndex((i) => Math.max(0, i - 1))}
@@ -136,6 +154,7 @@ export default function AlertsBanner() {
               variant="transparent"
               c="white"
               size="sm"
+              className={classes.pagerButton}
               disabled={index >= items.length - 1}
               aria-label={t("alerts.banner.next")}
               onClick={() => setIndex((i) => Math.min(items.length - 1, i + 1))}

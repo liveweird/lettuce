@@ -79,9 +79,16 @@ describe("EditAlert page", () => {
     expect(await screen.findByDisplayValue("Loaded Title")).toBeInTheDocument();
     expect(await screen.findByDisplayValue("# Loaded")).toBeInTheDocument();
     expect(screen.getByRole("switch")).not.toBeChecked();
-    // Bounds render as local datetime-local strings; the unset end stays empty.
-    expect(screen.getByLabelText(/visible from/i)).toHaveValue(epochToDatetimeLocal(STARTS));
-    expect(screen.getByLabelText(/visible until/i)).toHaveValue("");
+    // A set bound comes back with its checkbox checked and the local datetime value;
+    // an unset one stays unchecked with a disabled, empty input.
+    expect(screen.getByRole("checkbox", { name: /visible from/i })).toBeChecked();
+    const fromInput = screen.getByLabelText(/visible from/i, { selector: "input[type='datetime-local']" });
+    expect(fromInput).toBeEnabled();
+    expect(fromInput).toHaveValue(epochToDatetimeLocal(STARTS));
+    expect(screen.getByRole("checkbox", { name: /visible until/i })).not.toBeChecked();
+    const untilInput = screen.getByLabelText(/visible until/i, { selector: "input[type='datetime-local']" });
+    expect(untilInput).toBeDisabled();
+    expect(untilInput).toHaveValue("");
   });
 
   test("404 shows the not-found message with a back link", async () => {

@@ -19,7 +19,15 @@ export default function CreateAlert() {
   const [submitting, setSubmitting] = useState(false);
 
   const form = useForm<AlertFormValues>({
-    initialValues: { title: "", content: "", isActive: true, startsAt: "", endsAt: "" },
+    initialValues: {
+      title: "",
+      content: "",
+      isActive: true,
+      startsAtSet: false,
+      startsAt: "",
+      endsAtSet: false,
+      endsAt: "",
+    },
     validate: alertFormValidation(t),
   });
 
