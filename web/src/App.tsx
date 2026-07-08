@@ -16,6 +16,7 @@ import { useDisclosure } from "@mantine/hooks";
 import {
   IconFileText,
   IconHelp,
+  IconSpeakerphone,
   IconKey,
   IconLayoutDashboard,
   IconMessageCircle,
@@ -37,8 +38,9 @@ import {
 } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { getCurrentUser, getUserId, logout } from "./api/client";
+import { getCurrentUser, getUserId, isAdmin, logout } from "./api/client";
 import { RedirectIfAuthed, RequireAuth, flagSignedOut, notifyAuthChange } from "./auth";
+import AlertsBanner from "./components/AlertsBanner";
 import BrandLogo from "./components/BrandLogo";
 import NotificationsButton from "./components/NotificationsButton";
 import LanguageSwitcher from "./components/LanguageSwitcher";
@@ -68,6 +70,9 @@ const Templates = lazy(() => import("./pages/Templates"));
 const CreateTemplate = lazy(() => import("./pages/CreateTemplate"));
 const EditTemplate = lazy(() => import("./pages/EditTemplate"));
 const ViewTemplate = lazy(() => import("./pages/ViewTemplate"));
+const Alerts = lazy(() => import("./pages/Alerts"));
+const CreateAlert = lazy(() => import("./pages/CreateAlert"));
+const EditAlert = lazy(() => import("./pages/EditAlert"));
 
 function RouteFallback() {
   return (
@@ -220,7 +225,19 @@ function Shell() {
           { to: `/users/${userId}/change-password`, label: "appShell.nav.changePassword", icon: IconKey, tourId: "nav-change-password" },
         ]
       : [];
-  const allEntries: NavEntry[] = [...NAV_ITEMS, ...dynamicItems];
+  // Alert management is ADMIN-only end to end, so non-admins don't get the menu entry.
+  const staticItems: NavEntry[] = NAV_ITEMS.map((e) =>
+    isGroup(e) && e.label === "appShell.nav.config" && isAdmin()
+      ? {
+          ...e,
+          children: [
+            ...e.children,
+            { to: "/alerts", label: "appShell.nav.alerts", icon: IconSpeakerphone },
+          ],
+        }
+      : e,
+  );
+  const allEntries: NavEntry[] = [...staticItems, ...dynamicItems];
   const leafTos = allEntries.flatMap((e) =>
     isGroup(e) ? e.children.map((c) => c.to) : [e.to],
   );
@@ -307,6 +324,7 @@ function Shell() {
       </AppShell.Navbar>
 
       <AppShell.Main id="main-content" tabIndex={-1}>
+        <AlertsBanner />
         <Outlet />
       </AppShell.Main>
     </AppShell>
@@ -350,6 +368,9 @@ export default function App() {
             <Route path="templates/new" element={<CreateTemplate />} />
             <Route path="templates/:id/edit" element={<EditTemplate />} />
             <Route path="templates/:id/view" element={<ViewTemplate />} />
+            <Route path="alerts" element={<Alerts />} />
+            <Route path="alerts/new" element={<CreateAlert />} />
+            <Route path="alerts/:id/edit" element={<EditAlert />} />
           </Route>
         </Route>
       </Routes>
