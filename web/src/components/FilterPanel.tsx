@@ -2,7 +2,7 @@ import { type ReactNode } from "react";
 import { Badge, Button, Group } from "@mantine/core";
 import { IconChevronDown, IconFilter } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
-import { useStoredState } from "../hooks/useStoredState";
+import { isBoolean, useStoredState } from "../hooks/useStoredState";
 
 /**
  * Collapsible list-filter panel: a "Filters" toggle (with an active-count badge) that shows/hides the
@@ -20,11 +20,7 @@ export default function FilterPanel({
   children: ReactNode;
 }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useStoredState(
-    `${storageKey}.filtersOpen`,
-    false,
-    (v) => typeof v === "boolean",
-  );
+  const [open, setOpen] = useStoredState(`${storageKey}.filtersOpen`, false, isBoolean);
   return (
     <div>
       <Group gap="xs" mb={open ? "sm" : 0}>

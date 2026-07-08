@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import type { SortDir } from "../components/SortHeader";
+import { readStoredJson, writeStoredJson } from "./useStoredState";
 
 export const PAGE_SIZE_OPTIONS = [20, 40, 60] as const;
 export const DEFAULT_PAGE_SIZE = 20;
-
-const STORAGE_PREFIX = "lettuce.viewSettings.";
 
 type StoredPaging<F extends string> = { sortField: F; sortDir: SortDir; pageSize: number };
 
@@ -14,20 +13,14 @@ function readStoredPaging<F extends string>(
   key: string,
   sortFields: readonly F[],
 ): Partial<StoredPaging<F>> {
-  try {
-    const raw = localStorage.getItem(`${STORAGE_PREFIX}${key}.paging`);
-    if (raw == null) return {};
-    const parsed = JSON.parse(raw) as Partial<StoredPaging<F>>;
-    return {
-      sortField: sortFields.includes(parsed.sortField as F) ? (parsed.sortField as F) : undefined,
-      sortDir: parsed.sortDir === "asc" || parsed.sortDir === "desc" ? parsed.sortDir : undefined,
-      pageSize: (PAGE_SIZE_OPTIONS as readonly number[]).includes(parsed.pageSize as number)
-        ? parsed.pageSize
-        : undefined,
-    };
-  } catch {
-    return {};
-  }
+  const parsed = (readStoredJson(`${key}.paging`) ?? {}) as Partial<StoredPaging<F>>;
+  return {
+    sortField: sortFields.includes(parsed.sortField as F) ? (parsed.sortField as F) : undefined,
+    sortDir: parsed.sortDir === "asc" || parsed.sortDir === "desc" ? parsed.sortDir : undefined,
+    pageSize: (PAGE_SIZE_OPTIONS as readonly number[]).includes(parsed.pageSize as number)
+      ? parsed.pageSize
+      : undefined,
+  };
 }
 
 /**
@@ -73,14 +66,7 @@ export function usePagedSort<F extends string>(
   const persistKey = persist?.key;
   useEffect(() => {
     if (!persistKey) return;
-    try {
-      localStorage.setItem(
-        `${STORAGE_PREFIX}${persistKey}.paging`,
-        JSON.stringify({ sortField, sortDir, pageSize }),
-      );
-    } catch {
-      // Best-effort persistence only.
-    }
+    writeStoredJson(`${persistKey}.paging`, { sortField, sortDir, pageSize });
   }, [persistKey, sortField, sortDir, pageSize]);
 
   const sortParam = `${sortDir === "desc" ? "-" : ""}${sortField}`;

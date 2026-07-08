@@ -3,7 +3,6 @@ package ch.nokillswit.alerts
 import ch.nokillswit.infra.db.containsPattern
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
-import io.ktor.server.plugins.BadRequestException
 import io.ktor.util.AttributeKey
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.singleOrNull
@@ -11,7 +10,6 @@ import kotlinx.coroutines.flow.toList
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.core.dao.id.UIntIdTable
 import org.jetbrains.exposed.v1.r2dbc.*
-import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
 val AlertServiceKey = AttributeKey<AlertService>("AlertService")
@@ -137,15 +135,7 @@ class AlertService(val database: R2dbcDatabase) {
         return op
     }
 
-    private fun validate(alert: Alert) {
-        if (alert.title.isBlank()) {
-            throw BadRequestException("Alert title must not be blank")
-        }
-        if (alert.content.isBlank()) {
-            throw BadRequestException("Alert content must not be blank")
-        }
-        if (alert.startsAt != null && alert.endsAt != null && alert.startsAt >= alert.endsAt) {
-            throw BadRequestException("Alert start must be before its end")
-        }
-    }
+    // Same rules the route enforces (single source in Alert.kt) — re-checked here so direct
+    // service callers stay guarded too.
+    private fun validate(alert: Alert) = validateAlert(alert)
 }
