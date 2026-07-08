@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActionIcon, Alert, Box, Group, Paper, Text } from "@mantine/core";
+import { ActionIcon, Alert, Box, Group, Portal, Text } from "@mantine/core";
 import {
   IconChevronDown,
   IconChevronLeft,
@@ -14,6 +14,23 @@ import MarkdownView from "./MarkdownView";
 import classes from "./AlertsBanner.module.css";
 
 const STORAGE_KEY = "lettuce.alertsBanner";
+
+/** Height of the permanent slim strip the banner adds above the app header. */
+export const ALERTS_BAR_HEIGHT = 30;
+
+/**
+ * The currently visible alerts, refetched every minute. Shared by Shell (which sizes the
+ * AppShell header) and AlertsBanner — react-query dedupes the identical key to one fetch.
+ */
+export function useVisibleAlerts() {
+  return useQuery({
+    queryKey: ["visibleAlerts"],
+    queryFn: getVisibleAlerts,
+    refetchInterval: 60_000,
+    staleTime: 60_000,
+    retry: false,
+  });
+}
 
 type BannerState = { hidden: boolean; seenMaxId: number };
 
@@ -39,23 +56,19 @@ function writeState(state: BannerState) {
 }
 
 /**
- * The app-wide announcement banner: renders the currently visible alerts (server-decided,
- * refetched every minute) above the page content. The user can hide it to a slim bar and
- * unhide it — never close it. Hidden state persists in localStorage, but a new alert
- * (an unseen id) automatically re-expands the banner.
+ * The app-wide announcement banner, rendered as the first row of AppShell.Header. While any
+ * alerts are visible (server-decided, refetched every minute) a slim orange strip occupies a
+ * permanent row above the header — the only layout impact, and only when alerts appear/expire.
+ * Expanding renders the full banner as a fixed overlay that temporarily covers the strip and
+ * the header, so hiding/showing never reflows the page. The user can hide/show — never close.
+ * Hidden state persists in localStorage, but a new alert (an unseen id) auto-expands it.
  */
 export default function AlertsBanner() {
   const { t } = useTranslation();
   const [hidden, setHidden] = useState(() => readState().hidden);
   const [index, setIndex] = useState(0);
 
-  const { data } = useQuery({
-    queryKey: ["visibleAlerts"],
-    queryFn: getVisibleAlerts,
-    refetchInterval: 60_000,
-    staleTime: 60_000,
-    retry: false,
-  });
+  const { data } = useVisibleAlerts();
 
   const items = data ?? [];
   const maxId = items.reduce((acc, a) => Math.max(acc, a.id), 0);
@@ -78,102 +91,123 @@ export default function AlertsBanner() {
     writeState({ hidden: next, seenMaxId: maxId });
   }
 
-  if (hidden) {
-    return (
-      <Paper bg="orange" c="white" px="md" py={4} radius="sm" mb="md">
-        <Group gap="xs" wrap="nowrap">
-          <IconSpeakerphone size={16} />
-          <Text size="sm" fw={500} style={{ flex: 1 }}>
-            {t("alerts.banner.hiddenCount", { count: items.length })}
-          </Text>
-          <ActionIcon
-            variant="transparent"
-            c="white"
-            size="sm"
-            aria-label={t("alerts.banner.show")}
-            onClick={() => toggleHidden(false)}
-          >
-            <IconChevronDown size={16} />
-          </ActionIcon>
-        </Group>
-      </Paper>
-    );
-  }
-
   // The visible set can shrink between refetches; clamp instead of indexing past the end.
   const current = items[Math.min(index, items.length - 1)];
 
   return (
-    <Alert
-      color="orange"
-      variant="filled"
-      icon={<IconSpeakerphone size={20} />}
-      mb="md"
-      styles={{ body: { minWidth: 0 } }}
-    >
-      <Group gap="xs" wrap="nowrap" align="flex-start">
-        {/* Inverted chip (white on the banner's own fill color) so the title stays visually
-            senior to any markdown heading in the content without competing on font size. */}
-        <Box style={{ flex: 1, minWidth: 0 }}>
-          <Text
-            component="span"
-            fw={700}
-            size="sm"
-            px={10}
-            py={3}
-            style={{
-              display: "inline-block",
-              backgroundColor: "var(--mantine-color-white)",
-              color: "var(--mantine-color-orange-filled)",
-              borderRadius: "var(--mantine-radius-sm)",
-            }}
-          >
-            {current.title}
-          </Text>
-        </Box>
-        {items.length > 1 && (
-          <Group gap={4} wrap="nowrap">
-            <ActionIcon
-              variant="transparent"
-              c="white"
-              size="sm"
-              className={classes.pagerButton}
-              disabled={index <= 0}
-              aria-label={t("alerts.banner.previous")}
-              onClick={() => setIndex((i) => Math.max(0, i - 1))}
-            >
-              <IconChevronLeft size={16} />
-            </ActionIcon>
-            <Text size="sm">
-              {t("alerts.banner.counter", {
-                current: Math.min(index, items.length - 1) + 1,
-                total: items.length,
-              })}
+    <>
+      {/* The permanent strip. When expanded it is fully covered by the overlay below, so it
+          renders as an empty spacer (aria-hidden) — screen readers hear one state, not both. */}
+      <Box
+        h={ALERTS_BAR_HEIGHT}
+        px="md"
+        bg="orange"
+        c="white"
+        aria-hidden={!hidden || undefined}
+      >
+        {hidden && (
+          <Group gap="xs" wrap="nowrap" h="100%">
+            <IconSpeakerphone size={16} />
+            <Text size="sm" fw={500} style={{ flex: 1 }}>
+              {t("alerts.banner.hiddenCount", { count: items.length })}
             </Text>
             <ActionIcon
               variant="transparent"
               c="white"
               size="sm"
-              className={classes.pagerButton}
-              disabled={index >= items.length - 1}
-              aria-label={t("alerts.banner.next")}
-              onClick={() => setIndex((i) => Math.min(items.length - 1, i + 1))}
+              aria-label={t("alerts.banner.show")}
+              onClick={() => toggleHidden(false)}
             >
-              <IconChevronRight size={16} />
+              <IconChevronDown size={16} />
             </ActionIcon>
           </Group>
         )}
-        <ActionIcon
-          variant="transparent"
-          c="white"
-          size="sm"
-          aria-label={t("alerts.banner.hide")}
-          onClick={() => toggleHidden(true)}
-        >
-          <IconChevronUp size={16} />
-        </ActionIcon>
-      </Group>
-      <MarkdownView>{current.content}</MarkdownView>
-    </Alert>
+      </Box>
+
+      {!hidden && (
+        <Portal>
+          {/* Fixed overlay covering the strip + header until hidden again — toggling the
+              banner therefore never shifts the page. z-index sits above the AppShell (100)
+              and below Mantine modals (200). */}
+          <Box style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 150 }}>
+            <Alert
+              color="orange"
+              variant="filled"
+              icon={<IconSpeakerphone size={20} />}
+              radius={0}
+              styles={{
+                root: { boxShadow: "var(--mantine-shadow-md)" },
+                body: { minWidth: 0 },
+              }}
+            >
+              <Group gap="xs" wrap="nowrap" align="flex-start">
+                {/* Inverted chip (white on the banner's own fill color) so the title stays
+                    visually senior to any markdown heading in the content without competing
+                    on font size. */}
+                <Box style={{ flex: 1, minWidth: 0 }}>
+                  <Text
+                    component="span"
+                    fw={700}
+                    size="sm"
+                    px={10}
+                    py={3}
+                    style={{
+                      display: "inline-block",
+                      backgroundColor: "var(--mantine-color-white)",
+                      color: "var(--mantine-color-orange-filled)",
+                      borderRadius: "var(--mantine-radius-sm)",
+                    }}
+                  >
+                    {current.title}
+                  </Text>
+                </Box>
+                {items.length > 1 && (
+                  <Group gap={4} wrap="nowrap">
+                    <ActionIcon
+                      variant="transparent"
+                      c="white"
+                      size="sm"
+                      className={classes.pagerButton}
+                      disabled={index <= 0}
+                      aria-label={t("alerts.banner.previous")}
+                      onClick={() => setIndex((i) => Math.max(0, i - 1))}
+                    >
+                      <IconChevronLeft size={16} />
+                    </ActionIcon>
+                    <Text size="sm">
+                      {t("alerts.banner.counter", {
+                        current: Math.min(index, items.length - 1) + 1,
+                        total: items.length,
+                      })}
+                    </Text>
+                    <ActionIcon
+                      variant="transparent"
+                      c="white"
+                      size="sm"
+                      className={classes.pagerButton}
+                      disabled={index >= items.length - 1}
+                      aria-label={t("alerts.banner.next")}
+                      onClick={() => setIndex((i) => Math.min(items.length - 1, i + 1))}
+                    >
+                      <IconChevronRight size={16} />
+                    </ActionIcon>
+                  </Group>
+                )}
+                <ActionIcon
+                  variant="transparent"
+                  c="white"
+                  size="sm"
+                  aria-label={t("alerts.banner.hide")}
+                  onClick={() => toggleHidden(true)}
+                >
+                  <IconChevronUp size={16} />
+                </ActionIcon>
+              </Group>
+              <MarkdownView>{current.content}</MarkdownView>
+            </Alert>
+          </Box>
+        </Portal>
+      )}
+    </>
   );
 }

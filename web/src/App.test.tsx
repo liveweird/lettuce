@@ -121,12 +121,24 @@ describe("App shell", () => {
     test("shows the signed-in user's name in the header", async () => {
       localStorage.setItem(USER_ID_KEY, "7");
       const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
-      mockFetch.mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({ id: 7, name: "Alice", email: "alice@example.com", role: "USER" }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        ),
-      );
+      // Route by URL: the shell now also fetches the visible alerts, so a single
+      // mockResolvedValueOnce would be consumed by whichever query fires first.
+      mockFetch.mockImplementation((url: string) => {
+        if (url === "/api/v1/users/7") {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({ id: 7, name: "Alice", email: "alice@example.com", role: "USER" }),
+              { status: 200, headers: { "Content-Type": "application/json" } },
+            ),
+          );
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify({ items: [] }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      });
 
       renderApp("/");
 

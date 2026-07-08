@@ -79,6 +79,8 @@ describe("AlertsBanner", () => {
     expect(screen.queryByText(/\*\*down\*\*/)).not.toBeInTheDocument();
     // A single alert shows no pager.
     expect(screen.queryByRole("button", { name: /next alert/i })).not.toBeInTheDocument();
+    // While expanded, the strip under the overlay is a bare spacer — no "hidden" wording.
+    expect(screen.queryByText(/hidden/i)).not.toBeInTheDocument();
   });
 
   test("with several alerts the pager shows the count and browses between them", async () => {
