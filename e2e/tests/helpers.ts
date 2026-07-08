@@ -99,12 +99,26 @@ export function uniqueText(prefix: string): string {
 }
 
 /**
+ * Ensure a list view's filter panel is expanded. Idempotent on purpose: the open/collapsed
+ * state persists per view in localStorage (lettuce.viewSettings.*), so within one test a
+ * revisited page restores the panel open — a blind toggle click would close it again.
+ */
+export async function openFilters(page: Page): Promise<void> {
+  const toggle = page.getByRole("button", { name: "Filters" });
+  await expect(toggle).toBeVisible();
+  if ((await toggle.getAttribute("aria-expanded")) !== "true") {
+    await toggle.click();
+  }
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+}
+
+/**
  * Open /users filtered by `name`, so the row is on page 1 regardless of how many throwaway
  * E2E users prior runs have accumulated in the shared database.
  */
 export async function gotoUserRow(page: Page, name: string): Promise<void> {
   await page.goto("/users");
-  await page.getByRole("button", { name: "Filters" }).click();
+  await openFilters(page);
   await page.getByLabel("Name", { exact: true }).fill(name);
   // Match the name text itself — the cell's accessible name now includes the avatar initials.
   await expect(page.getByText(name, { exact: true }).first()).toBeVisible();

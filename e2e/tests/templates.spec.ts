@@ -8,6 +8,7 @@ import {
   gotoUserRow,
   uniqueText,
   ADMIN,
+  openFilters,
 } from "./helpers";
 
 // Template CRUD (ADMIN-only writes) plus the one place templates are consumed: the "Insert"
@@ -32,7 +33,7 @@ test("admin creates, edits, views, inserts, and deletes a template", async ({ pa
   const id: number = (await created.json()).id;
 
   // It lists (filtered by its unique name) with a content preview.
-  await page.getByRole("button", { name: "Filters" }).click();
+  await openFilters(page);
   await page.getByLabel("Name", { exact: true }).fill(name);
   await expect(page.getByRole("cell", { name, exact: true })).toBeVisible();
   await expect(page.getByText(content).first()).toBeVisible();
@@ -64,7 +65,7 @@ test("admin creates, edits, views, inserts, and deletes a template", async ({ pa
 
   // Delete from the filtered list.
   await page.goto("/templates");
-  await page.getByRole("button", { name: "Filters" }).click();
+  await openFilters(page);
   await page.getByLabel("Name", { exact: true }).fill(renamed);
   await page.getByRole("button", { name: `Delete ${renamed}` }).click();
   await Promise.all([
@@ -76,7 +77,7 @@ test("admin creates, edits, views, inserts, and deletes a template", async ({ pa
   // Verify against a fresh load — the in-place list can lose a refetch race with a stale
   // in-flight response (seen once in CI-style runs; the server row was correctly deleted).
   await page.goto("/templates");
-  await page.getByRole("button", { name: "Filters" }).click();
+  await openFilters(page);
   await page.getByLabel("Name", { exact: true }).fill(renamed);
   await expect(page.getByText("No templates")).toBeVisible();
 });

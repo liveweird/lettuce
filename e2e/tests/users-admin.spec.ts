@@ -6,6 +6,7 @@ import {
   createUserViaUi,
   expectLoginRejected,
   ADMIN,
+  openFilters,
 } from "./helpers";
 
 // Admin user management beyond create/rename (user-edit.spec.ts): role change, the two
@@ -86,7 +87,7 @@ test("admin deletes a user; the deleted account can no longer sign in", async ({
   const user = await createUserViaUi(page, "E2E-Delete");
 
   await page.goto("/users");
-  await page.getByRole("button", { name: "Filters" }).click();
+  await openFilters(page);
   await page.getByLabel("Email", { exact: true }).fill(user.email);
   await page.getByRole("button", { name: `Delete ${user.name}` }).click();
   await Promise.all([
@@ -98,7 +99,7 @@ test("admin deletes a user; the deleted account can no longer sign in", async ({
   // Verify against a fresh load — the in-place list can lose a refetch race with a stale
   // in-flight response.
   await page.goto("/users");
-  await page.getByRole("button", { name: "Filters" }).click();
+  await openFilters(page);
   await page.getByLabel("Email", { exact: true }).fill(user.email);
   await expect(page.getByText("No users")).toBeVisible();
   await logout(page);
