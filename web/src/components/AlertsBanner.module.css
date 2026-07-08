@@ -1,0 +1,7 @@
+/* Mantine's generic disabled look (grey on grey) is unreadable on the filled orange
+   banner; keep the end-of-list affordance but render it as dimmed white. Mantine's own
+   disabled rule is zero-specificity (`:where(...)`), so this plain class rule wins. */
+.pagerButton:disabled {
+  background-color: transparent;
+  color: rgba(255, 255, 255, 0.45);
+}

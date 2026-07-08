@@ -89,10 +89,15 @@ describe("AlertsBanner", () => {
     expect(await screen.findByText("Maintenance")).toBeInTheDocument();
     expect(screen.getByText("1 / 2")).toBeInTheDocument();
     expect(screen.queryByText("New policy")).not.toBeInTheDocument();
+    // At the first alert the back arrow is inactive but stays visible (styled by the
+    // CSS module, not removed) so the pager reads as a coherent control.
+    expect(screen.getByRole("button", { name: /previous alert/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /next alert/i })).toBeEnabled();
 
     await user.click(screen.getByRole("button", { name: /next alert/i }));
     expect(screen.getByText("New policy")).toBeInTheDocument();
     expect(screen.getByText("2 / 2")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /next alert/i })).toBeDisabled();
 
     await user.click(screen.getByRole("button", { name: /previous alert/i }));
     expect(screen.getByText("Maintenance")).toBeInTheDocument();

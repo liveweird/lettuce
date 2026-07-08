@@ -32,7 +32,15 @@ export default function EditAlert() {
   const [submitting, setSubmitting] = useState(false);
 
   const form = useForm<AlertFormValues>({
-    initialValues: { title: "", content: "", isActive: true, startsAt: "", endsAt: "" },
+    initialValues: {
+      title: "",
+      content: "",
+      isActive: true,
+      startsAtSet: false,
+      startsAt: "",
+      endsAtSet: false,
+      endsAt: "",
+    },
     validate: alertFormValidation(t),
   });
 
@@ -51,7 +59,9 @@ export default function EditAlert() {
         title: data.title,
         content: data.content,
         isActive: data.isActive,
+        startsAtSet: data.startsAt != null,
         startsAt: epochToDatetimeLocal(data.startsAt),
+        endsAtSet: data.endsAt != null,
         endsAt: epochToDatetimeLocal(data.endsAt),
       });
     }
