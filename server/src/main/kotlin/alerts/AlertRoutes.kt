@@ -12,7 +12,6 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
 import io.ktor.server.application.*
 import io.ktor.server.auth.authenticate
-import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.request.receive
 import io.ktor.server.resources.delete
 import io.ktor.server.resources.get
@@ -34,24 +33,6 @@ class Alerts {
     @Serializable
     @Resource("visible")
     class Visible(val parent: Alerts = Alerts())
-}
-
-// Column limit (alerts.title varchar(150)) enforced up-front: 400 instead of a DB-level 500.
-private const val MAX_ALERT_TITLE_LENGTH = 150
-private const val MAX_ALERT_CONTENT_LENGTH = 5000
-
-private fun validateAlert(alert: Alert) {
-    if (alert.title.isBlank()) throw BadRequestException("Alert title must not be blank")
-    if (alert.title.length > MAX_ALERT_TITLE_LENGTH) {
-        throw BadRequestException("Alert title must be at most $MAX_ALERT_TITLE_LENGTH characters")
-    }
-    if (alert.content.isBlank()) throw BadRequestException("Alert content must not be blank")
-    if (alert.content.length > MAX_ALERT_CONTENT_LENGTH) {
-        throw BadRequestException("Alert content must be at most $MAX_ALERT_CONTENT_LENGTH characters")
-    }
-    if (alert.startsAt != null && alert.endsAt != null && alert.startsAt >= alert.endsAt) {
-        throw BadRequestException("Alert start must be before its end")
-    }
 }
 
 fun Application.configureAlertRoutes() {

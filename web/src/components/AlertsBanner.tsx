@@ -7,30 +7,12 @@ import {
   IconChevronUp,
   IconSpeakerphone,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { getVisibleAlerts } from "../api/client";
+import { ALERTS_BAR_HEIGHT, useVisibleAlerts } from "../hooks/useVisibleAlerts";
 import MarkdownView from "./MarkdownView";
 import classes from "./AlertsBanner.module.css";
 
 const STORAGE_KEY = "lettuce.alertsBanner";
-
-/** Height of the permanent slim strip the banner adds above the app header. */
-export const ALERTS_BAR_HEIGHT = 30;
-
-/**
- * The currently visible alerts, refetched every minute. Shared by Shell (which sizes the
- * AppShell header) and AlertsBanner — react-query dedupes the identical key to one fetch.
- */
-export function useVisibleAlerts() {
-  return useQuery({
-    queryKey: ["visibleAlerts"],
-    queryFn: getVisibleAlerts,
-    refetchInterval: 60_000,
-    staleTime: 60_000,
-    retry: false,
-  });
-}
 
 type BannerState = { hidden: boolean; seenMaxId: number };
 
@@ -79,6 +61,7 @@ export default function AlertsBanner() {
     const stored = readState();
     if (maxId > stored.seenMaxId) {
       writeState({ hidden: false, seenMaxId: maxId });
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setHidden(false);
     }
   }, [maxId]);

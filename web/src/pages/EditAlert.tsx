@@ -15,11 +15,14 @@ import { useForm } from "@mantine/form";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, getAlert, isAdmin, updateAlert } from "../api/client";
-import AlertFormFields, {
+import AlertFormFields from "../components/AlertFormFields";
+import {
   alertFormValidation,
+  alertSaveErrorMessage,
+  emptyAlertFormValues,
   toAlertBody,
   type AlertFormValues,
-} from "../components/AlertFormFields";
+} from "../utils/alertForm";
 import { epochToDatetimeLocal } from "../utils/datetime";
 
 export default function EditAlert() {
@@ -32,15 +35,7 @@ export default function EditAlert() {
   const [submitting, setSubmitting] = useState(false);
 
   const form = useForm<AlertFormValues>({
-    initialValues: {
-      title: "",
-      content: "",
-      isActive: true,
-      startsAtSet: false,
-      startsAt: "",
-      endsAtSet: false,
-      endsAt: "",
-    },
+    initialValues: emptyAlertFormValues(),
     validate: alertFormValidation(t),
   });
 
@@ -82,19 +77,7 @@ export default function EditAlert() {
       await queryClient.invalidateQueries({ queryKey: ["visibleAlerts"] });
       navigate("/alerts", { replace: true });
     } catch (err) {
-      if (err instanceof ApiError) {
-        if (err.status === 403) {
-          setError(t("alerts.editForbidden"));
-        } else if (err.status === 404) {
-          setError(t("alerts.alertGone"));
-        } else if (err.status === 400) {
-          setError(t("alerts.validationError"));
-        } else {
-          setError(t("alerts.editFailedStatus", { status: err.status }));
-        }
-      } else {
-        setError(t("alerts.editFailedNetwork"));
-      }
+      setError(alertSaveErrorMessage(err, t, "edit"));
     } finally {
       setSubmitting(false);
     }
@@ -111,23 +94,14 @@ export default function EditAlert() {
             <Center py="xl">
               <Loader />
             </Center>
-          ) : notFound ? (
-            <>
-              <Alert color="red" variant="light">
-                {t("alerts.notFound")}
-              </Alert>
-              <Group justify="flex-end">
-                <Button component={RouterLink} to="/alerts" variant="default">
-                  {t("alerts.backToAlerts")}
-                </Button>
-              </Group>
-            </>
           ) : isError ? (
             <>
               <Alert color="red" variant="light">
-                {t("alerts.loadOneFailed", {
-                  suffix: fetchError instanceof ApiError ? ` (${fetchError.status})` : "",
-                })}
+                {notFound
+                  ? t("alerts.notFound")
+                  : t("alerts.loadOneFailed", {
+                      suffix: fetchError instanceof ApiError ? ` (${fetchError.status})` : "",
+                    })}
               </Alert>
               <Group justify="flex-end">
                 <Button component={RouterLink} to="/alerts" variant="default">

@@ -31,7 +31,7 @@ import PaginationBar from "../components/PaginationBar";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import SortHeader from "../components/SortHeader";
 import { usePagedSort } from "../hooks/usePagedSort";
-import { isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
+import { isOneOf, isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
 import {
   formatRelativeTime,
   formatTimestamp,
@@ -276,11 +276,11 @@ export default function FeedbackTable({
     `${storeKey}.filter.status`, null, isOneOfOrNull(STATUS_VALUES),
   );
   const [lastModifiedFilter, setLastModifiedFilter] = useStoredState<LastModifiedWindow>(
-    `${storeKey}.filter.lastModified`, "all", isOneOfOrNull(["all", "week", "month"]),
+    `${storeKey}.filter.lastModified`, "all", isOneOf(["all", "week", "month"]),
   );
   // Team view only: subjects limited to direct reports (default) or the whole management chain.
   const [reportsScope, setReportsScope] = useStoredState<"direct" | "all">(
-    `${storeKey}.filter.reportsScope`, "direct", isOneOfOrNull(["direct", "all"]),
+    `${storeKey}.filter.reportsScope`, "direct", isOneOf(["direct", "all"]),
   );
   const includeIndirect = view === "team" && reportsScope === "all";
   // Filters without a rendered input stay "" and count 0, so this is per-view correct.

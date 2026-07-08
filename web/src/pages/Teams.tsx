@@ -30,7 +30,7 @@ import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { usePagedSort } from "../hooks/usePagedSort";
-import { isString, useStoredState } from "../hooks/useStoredState";
+import { isNumberOrNull, isString, useStoredState } from "../hooks/useStoredState";
 import { deleteTeam, isAdmin, listTeams, listUsers } from "../api/client";
 
 const MANAGER_PICKER_PAGE_SIZE = 100;
@@ -48,7 +48,7 @@ export default function Teams() {
   const [managerIdFilter, setManagerIdFilter] = useStoredState<number | null>(
     `${SETTINGS_KEY}.filter.managerId`,
     null,
-    (v) => v === null || typeof v === "number",
+    isNumberOrNull,
   );
   const activeFilterCount = (nameFilter.trim() ? 1 : 0) + (managerIdFilter != null ? 1 : 0);
 

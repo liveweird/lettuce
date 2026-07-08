@@ -4,12 +4,15 @@ import { Alert, Button, Container, Group, Paper, Stack, Title } from "@mantine/c
 import { useForm } from "@mantine/form";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
-import { ApiError, createAlert, isAdmin } from "../api/client";
-import AlertFormFields, {
+import { createAlert, isAdmin } from "../api/client";
+import AlertFormFields from "../components/AlertFormFields";
+import {
   alertFormValidation,
+  alertSaveErrorMessage,
+  emptyAlertFormValues,
   toAlertBody,
   type AlertFormValues,
-} from "../components/AlertFormFields";
+} from "../utils/alertForm";
 
 export default function CreateAlert() {
   const { t } = useTranslation();
@@ -19,15 +22,7 @@ export default function CreateAlert() {
   const [submitting, setSubmitting] = useState(false);
 
   const form = useForm<AlertFormValues>({
-    initialValues: {
-      title: "",
-      content: "",
-      isActive: true,
-      startsAtSet: false,
-      startsAt: "",
-      endsAtSet: false,
-      endsAt: "",
-    },
+    initialValues: emptyAlertFormValues(),
     validate: alertFormValidation(t),
   });
 
@@ -42,17 +37,7 @@ export default function CreateAlert() {
       await queryClient.invalidateQueries({ queryKey: ["visibleAlerts"] });
       navigate("/alerts", { replace: true });
     } catch (err) {
-      if (err instanceof ApiError) {
-        if (err.status === 403) {
-          setError(t("alerts.createForbidden"));
-        } else if (err.status === 400) {
-          setError(t("alerts.validationError"));
-        } else {
-          setError(t("alerts.createFailedStatus", { status: err.status }));
-        }
-      } else {
-        setError(t("alerts.createFailedNetwork"));
-      }
+      setError(alertSaveErrorMessage(err, t, "create"));
     } finally {
       setSubmitting(false);
     }

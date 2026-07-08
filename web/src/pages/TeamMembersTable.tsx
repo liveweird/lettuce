@@ -29,7 +29,7 @@ import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import { usePagedSort } from "../hooks/usePagedSort";
-import { isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
+import { isOneOf, isString, isStringOrNull, useStoredState } from "../hooks/useStoredState";
 import { feedbackAskLink, feedbackProvideLink, feedbackRequestLink } from "../utils/feedbackLinks";
 import { groupTeamRows } from "../utils/teamRows";
 
@@ -55,13 +55,13 @@ export default function TeamMembersTable({
   const [teamFilter, setTeamFilter] = useStoredState<string | null>(
     `${settingsKey}.filter.team`,
     null,
-    (v) => v === null || typeof v === "string",
+    isStringOrNull,
   );
   // "My subordinates" only: direct reports (the default) vs. the whole management chain.
   const [reportsScope, setReportsScope] = useStoredState<"direct" | "all">(
     `${settingsKey}.filter.reportsScope`,
     "direct",
-    isOneOfOrNull(["direct", "all"]),
+    isOneOf(["direct", "all"]),
   );
   const includeIndirect = view === "managed" && reportsScope === "all";
   const activeFilterCount =
