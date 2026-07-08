@@ -40,7 +40,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { getCurrentUser, getUserId, isAdmin, logout } from "./api/client";
 import { RedirectIfAuthed, RequireAuth, flagSignedOut, notifyAuthChange } from "./auth";
-import AlertsBanner from "./components/AlertsBanner";
+import AlertsBanner, { ALERTS_BAR_HEIGHT, useVisibleAlerts } from "./components/AlertsBanner";
 import BrandLogo from "./components/BrandLogo";
 import NotificationsButton from "./components/NotificationsButton";
 import LanguageSwitcher from "./components/LanguageSwitcher";
@@ -254,10 +254,15 @@ function Shell() {
     notifyAuthChange();
   }
 
+  // While any alerts are visible, the banner strip occupies a permanent row above the header;
+  // AppShell propagates the total height into navbar/main offsets automatically.
+  const { data: visibleAlerts } = useVisibleAlerts();
+  const alertsBarHeight = (visibleAlerts ?? []).length > 0 ? ALERTS_BAR_HEIGHT : 0;
+
   return (
     <TourProvider>
     <AppShell
-      header={{ height: 56 }}
+      header={{ height: 56 + alertsBarHeight }}
       navbar={{ width: 240, breakpoint: "sm", collapsed: { mobile: !opened } }}
       padding="md"
     >
@@ -265,7 +270,8 @@ function Shell() {
         <a href="#main-content" className="skip-link">
           {t("appShell.skipToContent")}
         </a>
-        <Group h="100%" px="md" justify="space-between">
+        <AlertsBanner />
+        <Group h={56} px="md" justify="space-between">
           <Group gap="sm">
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
             <BrandLogo />
@@ -324,7 +330,6 @@ function Shell() {
       </AppShell.Navbar>
 
       <AppShell.Main id="main-content" tabIndex={-1}>
-        <AlertsBanner />
         <Outlet />
       </AppShell.Main>
     </AppShell>
