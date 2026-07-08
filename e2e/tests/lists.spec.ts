@@ -1,4 +1,4 @@
-import { test, expect, login, createUserViaUi, ADMIN } from "./helpers";
+import { test, expect, login, createUserViaUi, ADMIN , openFilters } from "./helpers";
 
 // List-page plumbing on the Users page as the representative (all lists share usePagedSort /
 // FilterPanel / SortHeader / PaginationBar): filtering, clearing, sort toggling, page size.
@@ -11,7 +11,7 @@ test("users list filters, sorts, and changes page size", async ({ page }) => {
   const last = await createUserViaUi(page, `${stamp}-ZZZZ`);
 
   await page.goto("/users");
-  await page.getByRole("button", { name: "Filters" }).click();
+  await openFilters(page);
 
   // Name filter → exactly our two rows, default-sorted by name ascending.
   await page.getByLabel("Name", { exact: true }).fill(stamp);

@@ -6,6 +6,7 @@ import {
   pickSelectOption,
   uniqueText,
   ADMIN,
+  openFilters,
 } from "./helpers";
 
 // Team CRUD + member management + the admin-only manager handoff, all on throwaway users and a
@@ -43,7 +44,9 @@ test("admin creates a team, manages members, reassigns the manager, and deletes 
     ),
     page.getByRole("button", { name: "Add", exact: true }).click(),
   ]);
-  await expect(page.getByRole("cell", { name: userB.name, exact: true })).toBeVisible();
+  // Query by text, not cell name — the PersonaChip's avatar initials are part of the cell's
+  // accessible name (see the testing note in CLAUDE.md), so an exact cell-name match misses.
+  await expect(page.getByRole("table").getByText(userB.name, { exact: true })).toBeVisible();
   await page.getByRole("button", { name: `Remove ${userB.name}` }).click();
   await Promise.all([
     page.waitForResponse(
@@ -51,7 +54,7 @@ test("admin creates a team, manages members, reassigns the manager, and deletes 
     ),
     page.getByRole("dialog").getByRole("button", { name: "Remove", exact: true }).click(),
   ]);
-  await expect(page.getByRole("cell", { name: userB.name, exact: true })).toHaveCount(0);
+  await expect(page.getByRole("table").getByText(userB.name, { exact: true })).toHaveCount(0);
 
   // Edit: rename + reassign the manager (ADMIN-only path).
   await page.goto(`/teams/${teamId}/edit`);
@@ -69,7 +72,7 @@ test("admin creates a team, manages members, reassigns the manager, and deletes 
 
   // Delete from the filtered list; the filtered view then shows no teams.
   await page.goto("/teams");
-  await page.getByRole("button", { name: "Filters" }).click();
+  await openFilters(page);
   await page.getByLabel("Name", { exact: true }).fill(renamed);
   // The filter is debounced; the Delete button auto-waits for the filtered row to render.
   await page.getByRole("button", { name: `Delete ${renamed}` }).click();
@@ -82,7 +85,7 @@ test("admin creates a team, manages members, reassigns the manager, and deletes 
   // Verify against a fresh load — the in-place list can lose a refetch race with a stale
   // in-flight response.
   await page.goto("/teams");
-  await page.getByRole("button", { name: "Filters" }).click();
+  await openFilters(page);
   await page.getByLabel("Name", { exact: true }).fill(renamed);
   await expect(page.getByText("No teams")).toBeVisible();
 });
