@@ -83,6 +83,9 @@ function BoundField({
         aria-label={label}
         disabled={!enabled}
         description={enabled ? undefined : uncheckedHint}
+        // Render the hint/error BELOW the input (default is above it), so the two bound
+        // controls stay level with each other regardless of checkbox state.
+        inputWrapperOrder={["label", "input", "description", "error"]}
         {...form.getInputProps(valueField)}
       />
     </Stack>
