@@ -13,6 +13,21 @@ The typed fetch wrapper lives in `web/src/api/client.ts` — token storage (loca
 
 `openapi-typescript` is installed with `--legacy-peer-deps` because its declared peer is TS `^5` while the scaffold uses TS 6; the generated output is compatible. If you re-`npm install` from scratch, use `npm install --legacy-peer-deps`.
 
+## Changelog & app versioning
+
+The user-facing changelog is a **build-time artifact** — no DB, no API, changes only with a deploy. `web/src/changelog/entries.ts` holds `ChangelogEntry` rows (`version`, `date` `YYYY-MM-DD`, `en`/`pl` **markdown** bodies), newest first, and exports `APP_VERSION = CHANGELOG[0].version` — the app's only human-readable version. **Adding an entry at the top IS the release/version bump**; there is no other version constant to update (the Gradle `1.0.0-SNAPSHOT` is unrelated). Release convention:
+
+- Write both language bodies by hand (or LLM) — never derive them from commit messages. Bodies are *content*, so they live in the data file, not `locales/`; the PL body follows the Polish style rules below (declined loanword `feedback`, inclusive slash forms, active voice).
+- Keep dates strictly descending and both bodies non-empty — pinned by `web/src/changelog/entries.test.ts`.
+- Keep phrases that tests assert on in plain text runs: markdown formatting splits text nodes, and testing-library's `getByText` matches direct text nodes only.
+
+Rendering & UI wiring:
+
+- `pages/Changelog.tsx` (`/changelog`, authenticated, lazy) renders the entries as a Mantine `Timeline` with `MarkdownView` bodies in the viewer's language (EN fallback), and calls `markChangelogSeen()` on mount.
+- `components/VersionStamp.tsx` shows `v<APP_VERSION> · <sha> · <time>`; its optional `to` prop renders it as a router link — the navbar instance links to `/changelog`, the Login instance deliberately stays plain (the route is behind auth). A "Changelog" nav item (`CHANGELOG_NAV` in `App.tsx`) is pinned last, directly above the stamp.
+- The **"what's new" dot** is a red Mantine `Indicator` around the navbar stamp in `App.tsx`, shown while localStorage `lettuce.changelog` (`{seenVersion}`) differs from `APP_VERSION`. It's driven by `hooks/useChangelogSeen.ts` via `useSyncExternalStore` over a module-level listener set — do **not** replace that with a plain localStorage read in state: the shell renders before the page's mark-seen effect, so the dot would only clear on the next navigation. The seen-state is device-level (survives logout, like `lettuce.lang`) and hand-rolls its guarded read/write (the `AlertsBanner` pattern), not `useStoredState` (that hook owns the `lettuce.viewSettings.*` namespace).
+- Tests: `pages/Changelog.test.tsx`, `changelog/entries.test.ts`, the dot/nav cases in `App.test.tsx`, and the link/prefix cases in `components/VersionStamp.test.tsx`.
+
 ## Shared list-page building blocks
 
 The list views come in two shapes — **tables** (Users, Teams, Templates, FeedbackTable: long, paginated, filterable) and **person-card grids** (the dashboard's ManagersTable and TeamMembersTable: a handful of people as `PersonCard`s in a responsive `SimpleGrid` rendered as a semantic `<ul>`). Both are built from shared pieces — a new list should reuse them rather than re-declaring the scaffolding:

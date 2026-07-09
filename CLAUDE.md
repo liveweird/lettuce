@@ -309,7 +309,7 @@ An **Alert** is a broadcast message for **every** user (not recipient-scoped lik
 
 ### Frontend (`web/`)
 
-Vite + React 19 + TypeScript SPA. Frontend conventions live in **`web/CLAUDE.md`** (loads when working under `web/`): dev server & proxy, build, shared list-page building blocks, i18n (EN/PL) rules, build version stamp. Two facts that matter everywhere:
+Vite + React 19 + TypeScript SPA. Frontend conventions live in **`web/CLAUDE.md`** (loads when working under `web/`): dev server & proxy, build, shared list-page building blocks, i18n (EN/PL) rules, build version stamp, and the changelog/app-versioning convention (`web/src/changelog/entries.ts` is the single source of the user-facing version — adding an entry is the release bump). Two facts that matter everywhere:
 
 - The Gradle and npm toolchains are disjoint — never invoke npm from Gradle or vice versa.
 - The OpenAPI spec at `server/src/main/resources/openapi/documentation.yaml` is the hand-maintained contract between backend and frontend — update it in the same change as any route change, then regenerate the SPA's types (`cd web && npm run gen:api`) and commit `web/src/api/schema.ts`.
