@@ -29,5 +29,7 @@
   "createFailedStatus": "Tworzenie nie powiodło się ({{status}})",
   "createFailedNetwork": "Tworzenie nie powiodło się. Sprawdź połączenie i spróbuj ponownie.",
   "editFailedStatus": "Edycja nie powiodła się ({{status}})",
-  "editFailedNetwork": "Edycja nie powiodła się. Sprawdź połączenie i spróbuj ponownie."
+  "editFailedNetwork": "Edycja nie powiodła się. Sprawdź połączenie i spróbuj ponownie.",
+  "discardTitle": "Odrzucić zmiany?",
+  "discardMessage": "Niezapisane zmiany w tym szablonie zostaną utracone."
 }

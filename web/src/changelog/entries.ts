@@ -4,7 +4,7 @@
 // version bump. Bodies are markdown, one per language (content, not chrome — hence not in
 // locales/); keep the phrases tests assert on in plain text runs, and follow the Polish style
 // conventions (declined loanword "feedback", inclusive slash forms, active voice).
-export interface ChangelogEntry {
+interface ChangelogEntry {
   version: string;
   /** Release date, YYYY-MM-DD. Keep the array strictly descending by date. */
   date: string;

@@ -126,7 +126,7 @@ export default function Teams() {
       </FilterPanel>
 
       {isError && (
-        <Alert color="red" title={t("teams.loadFailed")}>
+        <Alert color="red" variant="light" title={t("teams.loadFailed")}>
           {error instanceof Error ? error.message : t("teams.unknownError")}
         </Alert>
       )}

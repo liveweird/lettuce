@@ -14,6 +14,10 @@ enum class FeedbackVisibility {
 @Serializable
 enum class FeedbackStatus { REQUESTED, DRAFT, SENT, WITHDRAWN, REJECTED }
 
+/** Delivered = visible beyond the parties involved (subject, management chain, team lists). */
+val FeedbackStatus.isDelivered: Boolean
+    get() = this == FeedbackStatus.SENT || this == FeedbackStatus.WITHDRAWN
+
 /**
  * Body of `PUT /feedbacks/{id}` — the editable representation of a feedback. Status transitions,
  * party ids, and the requester message are NOT settable here (status moves through the

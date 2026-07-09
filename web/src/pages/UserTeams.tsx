@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Alert,
+  Anchor,
   Button,
   Center,
   Group,
@@ -14,7 +15,7 @@ import {
   Title,
 } from "@mantine/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconPlus, IconTrash, IconUsersGroup } from "@tabler/icons-react";
 import {
   addTeamMember,
   ApiError,
@@ -25,8 +26,10 @@ import {
   removeTeamMember,
 } from "../api/client";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
+import EmptyState from "../components/EmptyState";
 import PersonaChip from "../components/PersonaChip";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
+import { saveErrorMessage } from "../utils/saveError";
 
 type TeamRow = { id: number; name: string };
 
@@ -86,19 +89,15 @@ export default function UserTeams() {
       await queryClient.invalidateQueries({ queryKey: ["userTeams", id] });
     },
     onError: (err) => {
-      if (err instanceof ApiError) {
-        if (err.status === 400) {
-          setAddError(t("users.cannotAddToTeam"));
-        } else if (err.status === 403) {
-          setAddError(t("users.noPermissionModifyTeam"));
-        } else if (err.status === 404) {
-          setAddError(t("users.teamNoLongerExists"));
-        } else {
-          setAddError(t("users.addFailedStatus", { status: err.status }));
-        }
-      } else {
-        setAddError(t("users.addFailedNetwork"));
-      }
+      setAddError(
+        saveErrorMessage(err, t, {
+          forbidden: "users.noPermissionModifyTeam",
+          notFound: "users.teamNoLongerExists",
+          invalid: "users.cannotAddToTeam",
+          failedStatus: "users.addFailedStatus",
+          failed: "users.addFailedNetwork",
+        }),
+      );
     },
   });
 
@@ -155,7 +154,12 @@ export default function UserTeams() {
 
   return (
     <Stack gap="md">
-      <Title order={2}>{t("users.teams")}{displayName ? ` — ${displayName}` : ""}</Title>
+      <Stack gap={4}>
+        <Anchor component={RouterLink} to="/users" size="sm">
+          {t("users.backToUsers")}
+        </Anchor>
+        <Title order={2}>{t("users.teams")}{displayName ? ` — ${displayName}` : ""}</Title>
+      </Stack>
 
       {canManage && (
         <Group align="flex-end" gap="sm">
@@ -193,7 +197,7 @@ export default function UserTeams() {
         </Alert>
       )}
 
-      <Table striped highlightOnHover withTableBorder>
+      <Table highlightOnHover withTableBorder verticalSpacing="sm">
         <Table.Thead>
           <Table.Tr>
             <Table.Th>{t("users.team")}</Table.Th>
@@ -244,23 +248,19 @@ export default function UserTeams() {
           ) : (
             <Table.Tr>
               <Table.Td colSpan={canManage ? 3 : 2}>
-                <Text c="dimmed" ta="center">
-                  {t("users.notMemberOfAnyTeam")}
-                </Text>
+                <EmptyState
+                    icon={<IconUsersGroup size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
+                    label={t("users.notMemberOfAnyTeam")}
+                  />
               </Table.Td>
             </Table.Tr>
           )}
         </Table.Tbody>
       </Table>
 
-      <Group justify="space-between" align="center">
-        <Text size="sm" c="dimmed">
-          {t("common.table.total", { count: memberTeams.length })}
-        </Text>
-        <Button component={RouterLink} to="/users" variant="default">
-          {t("users.backToUsers")}
-        </Button>
-      </Group>
+      <Text size="sm" c="dimmed">
+        {t("common.table.total", { count: memberTeams.length })}
+      </Text>
 
       <ConfirmDeleteModal
         confirm={removeConfirm}

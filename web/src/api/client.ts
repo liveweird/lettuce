@@ -2,7 +2,7 @@ import type { paths } from "./schema";
 import { flagSignedOut, notifyAuthChange } from "../auth";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
-const TOKEN_KEY = "lettuce.auth.token";
+export const TOKEN_KEY = "lettuce.auth.token";
 const REFRESH_TOKEN_KEY = "lettuce.auth.refreshToken";
 const ROLE_KEY = "lettuce.auth.role";
 const USER_ID_KEY = "lettuce.auth.userId";
@@ -18,7 +18,7 @@ export function setToken(token: string | null): void {
   else localStorage.setItem(TOKEN_KEY, token);
 }
 
-export function getRefreshToken(): string | null {
+function getRefreshToken(): string | null {
   return localStorage.getItem(REFRESH_TOKEN_KEY);
 }
 

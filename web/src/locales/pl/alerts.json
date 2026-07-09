@@ -36,6 +36,8 @@
   "createFailedNetwork": "Nie udało się utworzyć alertu — błąd sieci",
   "editFailedStatus": "Nie udało się zapisać alertu ({{status}})",
   "editFailedNetwork": "Nie udało się zapisać alertu — błąd sieci",
+  "discardTitle": "Odrzucić zmiany?",
+  "discardMessage": "Niezapisane zmiany w tym alercie zostaną utracone.",
   "unknownError": "Nieznany błąd",
   "banner": {
     "hide": "Ukryj alerty",

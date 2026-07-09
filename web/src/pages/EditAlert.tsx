@@ -12,18 +12,20 @@ import {
   Title,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
+import { useDisclosure } from "@mantine/hooks";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, getAlert, isAdmin, updateAlert } from "../api/client";
 import AlertFormFields from "../components/AlertFormFields";
+import ConfirmActionModal from "../components/ConfirmActionModal";
 import {
   alertFormValidation,
-  alertSaveErrorMessage,
   emptyAlertFormValues,
   toAlertBody,
   type AlertFormValues,
 } from "../utils/alertForm";
 import { epochToDatetimeLocal } from "../utils/datetime";
+import { saveErrorMessage } from "../utils/saveError";
 
 export default function EditAlert() {
   const { t } = useTranslation();
@@ -33,6 +35,7 @@ export default function EditAlert() {
   const id = Number(params.id);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
 
   const form = useForm<AlertFormValues>({
     initialValues: emptyAlertFormValues(),
@@ -77,7 +80,15 @@ export default function EditAlert() {
       await queryClient.invalidateQueries({ queryKey: ["visibleAlerts"] });
       navigate("/alerts", { replace: true });
     } catch (err) {
-      setError(alertSaveErrorMessage(err, t, "edit"));
+      setError(
+        saveErrorMessage(err, t, {
+          forbidden: "alerts.editForbidden",
+          notFound: "alerts.alertGone",
+          invalid: "alerts.validationError",
+          failedStatus: "alerts.editFailedStatus",
+          failed: "alerts.editFailedNetwork",
+        }),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -119,7 +130,7 @@ export default function EditAlert() {
                   </Alert>
                 )}
                 <Group justify="flex-end" gap="sm">
-                  <Button component={RouterLink} to="/alerts" variant="default">
+                  <Button type="button" variant="default" onClick={openCancel}>
                     {t("common.action.cancel")}
                   </Button>
                   <Button type="submit" loading={submitting}>
@@ -131,6 +142,16 @@ export default function EditAlert() {
           )}
         </Stack>
       </Paper>
+
+      <ConfirmActionModal
+        opened={cancelOpen}
+        onClose={closeCancel}
+        title={t("alerts.discardTitle")}
+        message={t("alerts.discardMessage")}
+        cancelLabel={t("common.action.keepEditing")}
+        confirmLabel={t("common.action.discard")}
+        confirmTo="/alerts"
+      />
     </Container>
   );
 }

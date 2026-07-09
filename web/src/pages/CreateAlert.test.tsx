@@ -217,6 +217,20 @@ describe("CreateAlert page", () => {
     expect(await screen.findByText(/network error/i)).toBeInTheDocument();
   });
 
+  test("Cancel opens a discard confirmation whose Discard links back to /alerts", async () => {
+    const user = userEvent.setup();
+    renderCreateAlert();
+
+    await screen.findByLabelText("Content");
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
+
+    expect(await screen.findByText(/discard changes\?/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/any unsaved changes to this alert will be lost/i),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /discard/i })).toHaveAttribute("href", "/alerts");
+  });
+
   test("non-admin is redirected away without rendering the form", () => {
     localStorage.setItem(ROLE_KEY, "USER");
     renderCreateAlert();

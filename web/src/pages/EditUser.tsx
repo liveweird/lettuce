@@ -29,6 +29,7 @@ import {
   updateUser,
   type UserRole,
 } from "../api/client";
+import { saveErrorMessage } from "../utils/saveError";
 
 type FormValues = {
   name: string;
@@ -89,18 +90,18 @@ export default function EditUser() {
       await queryClient.invalidateQueries({ queryKey: ["user", id] });
       navigate("/users", { replace: true });
     } catch (err) {
-      if (err instanceof ApiError) {
-        if (err.status === 409) {
-          form.setFieldError("email", t("users.emailAlreadyInUse"));
-        } else if (err.status === 403) {
-          setError(t("users.noPermissionEdit"));
-        } else if (err.status === 404) {
-          setError(t("users.userNoLongerExists"));
-        } else {
-          setError(t("users.editFailedStatus", { status: err.status }));
-        }
+      // A duplicate email is a field-level problem, not a page-level one.
+      if (err instanceof ApiError && err.status === 409) {
+        form.setFieldError("email", t("users.emailAlreadyInUse"));
       } else {
-        setError(t("users.editFailedNetwork"));
+        setError(
+          saveErrorMessage(err, t, {
+            forbidden: "users.noPermissionEdit",
+            notFound: "users.userNoLongerExists",
+            failedStatus: "users.editFailedStatus",
+            failed: "users.editFailedNetwork",
+          }),
+        );
       }
     } finally {
       setSubmitting(false);

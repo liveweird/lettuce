@@ -1,7 +1,7 @@
 import { Select } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 
-export type ReportsScope = "direct" | "all";
+type ReportsScope = "direct" | "all";
 
 // The "Reports" filter shared by the manager-facing lists (My subordinates, Feedback →
 // My Team): direct reports only (the default) vs. the whole transitive management chain.

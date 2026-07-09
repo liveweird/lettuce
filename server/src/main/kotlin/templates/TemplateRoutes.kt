@@ -1,5 +1,6 @@
 package ch.nokillswit.templates
 
+import ch.nokillswit.audit.audit
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAdmin
 import ch.nokillswit.infra.paging.parsePaging
@@ -56,10 +57,12 @@ fun Application.configureTemplateRoutes() {
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
             }
             post<Templates> {
-                requireAdmin(call.caller())
+                val caller = call.caller()
+                requireAdmin(caller)
                 val template = call.receive<Template>()
                 validateTemplateName(template.name)
                 val id = templateService.create(template)
+                audit("template.created", "byUserId" to caller.userId.toLong(), "templateId" to id.toLong())
                 call.response.header(HttpHeaders.Location, call.application.href(Templates.Id(id = id)))
                 call.respond(HttpStatusCode.Created, template.toResponse(id))
             }
@@ -73,7 +76,8 @@ fun Application.configureTemplateRoutes() {
                 call.respond(HttpStatusCode.OK, template.toResponse(route.id))
             }
             put<Templates.Id> { route ->
-                requireAdmin(call.caller())
+                val caller = call.caller()
+                requireAdmin(caller)
                 val existing = templateService.read(route.id)
                 if (existing == null) {
                     call.respondProblem(HttpStatusCode.NotFound, "Template not found")
@@ -82,13 +86,16 @@ fun Application.configureTemplateRoutes() {
                 val template = call.receive<Template>()
                 validateTemplateName(template.name)
                 templateService.update(route.id, template)
+                audit("template.updated", "byUserId" to caller.userId.toLong(), "templateId" to route.id.toLong())
                 call.respond(HttpStatusCode.NoContent)
             }
             delete<Templates.Id> { route ->
-                requireAdmin(call.caller())
+                val caller = call.caller()
+                requireAdmin(caller)
                 if (templateService.delete(route.id) == 0) {
                     call.respondProblem(HttpStatusCode.NotFound, "Template not found")
                 } else {
+                    audit("template.deleted", "byUserId" to caller.userId.toLong(), "templateId" to route.id.toLong())
                     call.respond(HttpStatusCode.NoContent)
                 }
             }

@@ -82,7 +82,7 @@ export default function Templates() {
       </FilterPanel>
 
       {isError && (
-        <Alert color="red" title={t("templates.loadFailed")}>
+        <Alert color="red" variant="light" title={t("templates.loadFailed")}>
           {error instanceof Error ? error.message : t("templates.unknownError")}
         </Alert>
       )}

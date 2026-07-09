@@ -143,7 +143,7 @@ export default function Users() {
       </FilterPanel>
 
       {isError && (
-        <Alert color="red" title={t("users.loadUsersFailed")}>
+        <Alert color="red" variant="light" title={t("users.loadUsersFailed")}>
           {error instanceof Error ? error.message : t("users.unknownError")}
         </Alert>
       )}

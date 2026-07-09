@@ -14,10 +14,11 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { ApiError, createFeedback, getUserId, type FeedbackVisibility } from "../api/client";
+import { createFeedback, getUserId, type FeedbackVisibility } from "../api/client";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import PersonaField from "../components/PersonaField";
 import { REQUESTER_VISIBILITIES } from "../utils/feedbackVisibility";
+import { saveErrorMessage } from "../utils/saveError";
 
 // The asker is the requester, so "Ask for feedback" offers the requester-inclusive
 // visibilities — the ones under which the requester (themselves) can read the result.
@@ -66,17 +67,14 @@ export default function AskFeedback() {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
       navigate(backTo, { replace: true });
     } catch (err) {
-      if (err instanceof ApiError) {
-        if (err.status === 403) {
-          setError(t("feedback.error.requestPermission"));
-        } else if (err.status === 400) {
-          setError(t("feedback.error.validationSimple"));
-        } else {
-          setError(t("feedback.error.requestFailedStatus", { status: err.status }));
-        }
-      } else {
-        setError(t("feedback.error.requestFailed"));
-      }
+      setError(
+        saveErrorMessage(err, t, {
+          forbidden: "feedback.error.requestPermission",
+          invalid: "feedback.error.validationSimple",
+          failedStatus: "feedback.error.requestFailedStatus",
+          failed: "feedback.error.requestFailed",
+        }),
+      );
     } finally {
       setSubmitting(false);
     }

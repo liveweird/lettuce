@@ -72,7 +72,7 @@ private val REQUESTER_VISIBILITIES = listOf(
 )
 
 // A feedback the caller is not a party to (Received / My team lists) is only shown once delivered.
-private val DELIVERED_STATUSES = listOf(FeedbackStatus.SENT, FeedbackStatus.WITHDRAWN)
+private val DELIVERED_STATUSES = FeedbackStatus.entries.filter { it.isDelivered }
 
 const val CONTENT_PREVIEW_LENGTH = 200
 

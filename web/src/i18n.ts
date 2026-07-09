@@ -31,9 +31,8 @@ import plChangelog from "./locales/pl/changelog.json";
 import plTour from "./locales/pl/tour.json";
 
 export const SUPPORTED_LANGUAGES = ["en", "pl"] as const;
-export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
-export const LANGUAGE_STORAGE_KEY = "lettuce.lang";
+const LANGUAGE_STORAGE_KEY = "lettuce.lang";
 
 const en = {
   common: enCommon,

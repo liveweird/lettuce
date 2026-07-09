@@ -3,7 +3,7 @@ import type { SortDir } from "../components/SortHeader";
 import { readStoredJson, writeStoredJson } from "./useStoredState";
 
 export const PAGE_SIZE_OPTIONS = [20, 40, 60] as const;
-export const DEFAULT_PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 20;
 
 type StoredPaging<F extends string> = { sortField: F; sortDir: SortDir; pageSize: number };
 
@@ -27,7 +27,7 @@ function readStoredPaging<F extends string>(
  * Where a view persists its list settings (`persist` option below and the page's own filter
  * state via useStoredState): one `lettuce.viewSettings.<viewKey>.*` family per view.
  */
-export type PagedSortPersist<F extends string> = {
+type PagedSortPersist<F extends string> = {
   /** The view's settings namespace, e.g. "users" or "feedbacks.received". */
   key: string;
   /** Runtime whitelist of sortable fields — stored values outside it are discarded. */

@@ -116,7 +116,7 @@ export default function Alerts() {
       </FilterPanel>
 
       {isError && (
-        <Alert color="red" title={t("alerts.loadFailed")}>
+        <Alert color="red" variant="light" title={t("alerts.loadFailed")}>
           {error instanceof Error ? error.message : t("alerts.unknownError")}
         </Alert>
       )}

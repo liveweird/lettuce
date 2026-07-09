@@ -95,16 +95,17 @@ class TeamService(val database: R2dbcDatabase) {
         )
     }
 
-    suspend fun update(id: UInt, team: Team) {
-        suspendTransaction(database) {
-            validateMembership(team)
-            Teams.update({ Teams.id eq id }) {
-                it[name] = team.name
-                it[managerId] = team.managerId
-            }
+    suspend fun update(id: UInt, team: Team): Int = suspendTransaction(database) {
+        validateMembership(team)
+        val updated = Teams.update({ (Teams.id eq id) and (Teams.markedAsDeleted eq false) }) {
+            it[name] = team.name
+            it[managerId] = team.managerId
+        }
+        if (updated > 0) {
             TeamMembers.deleteWhere { TeamMembers.teamId eq id }
             insertMembers(id, team.memberIds)
         }
+        updated
     }
 
     suspend fun delete(id: UInt): Int = suspendTransaction(database) {
@@ -116,7 +117,7 @@ class TeamService(val database: R2dbcDatabase) {
     suspend fun addMember(teamId: UInt, userId: UInt) {
         suspendTransaction(database) {
             val managerId = Teams.selectAll()
-                .where { Teams.id eq teamId }
+                .where { (Teams.id eq teamId) and active() }
                 .singleOrNull()
                 ?.get(Teams.managerId)?.value
                 ?: throw BadRequestException("Team $teamId not found")
@@ -137,6 +138,10 @@ class TeamService(val database: R2dbcDatabase) {
 
     suspend fun removeMember(teamId: UInt, userId: UInt) {
         suspendTransaction(database) {
+            Teams.selectAll()
+                .where { (Teams.id eq teamId) and active() }
+                .singleOrNull()
+                ?: throw BadRequestException("Team $teamId not found")
             val currentMembers = TeamMembers.selectAll()
                 .where { TeamMembers.teamId eq teamId }
                 .map { it[TeamMembers.userId].value }
