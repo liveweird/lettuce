@@ -9,25 +9,25 @@ import {
   Select,
   Stack,
   Table,
-  Text,
   Textarea,
   Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconPlus, IconTrash, IconUserPlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import {
-  ApiError,
   createFeedback,
   getUserId,
   listUsers,
   type FeedbackVisibility,
 } from "../api/client";
 import ConfirmActionModal from "../components/ConfirmActionModal";
+import EmptyState from "../components/EmptyState";
 import PersonaChip from "../components/PersonaChip";
 import PersonaField from "../components/PersonaField";
 import { REQUESTER_VISIBILITIES } from "../utils/feedbackVisibility";
+import { saveErrorMessage } from "../utils/saveError";
 
 // The provider picker realistically chooses from a bounded set; fetch up to the 100-row
 // max (the list endpoint's cap). Fine at this app's scale.
@@ -115,17 +115,14 @@ export default function RequestFeedback() {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
       navigate(backTo, { replace: true });
     } catch (err) {
-      if (err instanceof ApiError) {
-        if (err.status === 403) {
-          setError(t("feedback.error.requestPermission"));
-        } else if (err.status === 400) {
-          setError(t("feedback.error.validationProviders"));
-        } else {
-          setError(t("feedback.error.requestFailedStatus", { status: err.status }));
-        }
-      } else {
-        setError(t("feedback.error.requestFailed"));
-      }
+      setError(
+        saveErrorMessage(err, t, {
+          forbidden: "feedback.error.requestPermission",
+          invalid: "feedback.error.validationProviders",
+          failedStatus: "feedback.error.requestFailedStatus",
+          failed: "feedback.error.requestFailed",
+        }),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -213,9 +210,10 @@ export default function RequestFeedback() {
               ) : (
                 <Table.Tr>
                   <Table.Td colSpan={2}>
-                    <Text c="dimmed" ta="center">
-                      {t("feedback.addAtLeastOneProvider")}
-                    </Text>
+                    <EmptyState
+                        icon={<IconUserPlus size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
+                        label={t("feedback.addAtLeastOneProvider")}
+                      />
                   </Table.Td>
                 </Table.Tr>
               )}

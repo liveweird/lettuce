@@ -8,7 +8,7 @@ import {
 } from "react-joyride";
 import { useTranslation } from "react-i18next";
 
-export type TourJoyrideProps = {
+type TourJoyrideProps = {
   /** Remount key — bumped by the provider to reset Joyride to the first step. */
   tourKey: number;
   steps: Step[];

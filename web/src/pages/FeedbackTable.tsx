@@ -195,11 +195,11 @@ const VIEW_CONFIG: Record<
   team: {
     personColumns: [PROVIDER_COLUMN, SUBJECT_COLUMN],
     defaultSortField: "subjectName",
-    renderAction: (f, { t, currentUserId }) =>
+    renderAction: (f, { t, currentUserId, backParam }) =>
       currentUserId === f.providerId && f.status === "DRAFT" ? (
         <Button
           component={RouterLink}
-          to={`/feedback/${f.id}/edit?subjectName=${encodeURIComponent(f.subjectName)}&from=team`}
+          to={`/feedback/${f.id}/edit?subjectName=${encodeURIComponent(f.subjectName)}&from=team${backParam}`}
           color="blue"
           variant="subtle"
           size="xs"
@@ -213,7 +213,8 @@ const VIEW_CONFIG: Record<
           component={RouterLink}
           to={
             `/feedback/${f.id}/view?as=team&providerName=${encodeURIComponent(f.providerName)}&subjectName=${encodeURIComponent(f.subjectName)}` +
-            (f.requesterName ? `&requesterName=${encodeURIComponent(f.requesterName)}` : "")
+            (f.requesterName ? `&requesterName=${encodeURIComponent(f.requesterName)}` : "") +
+            backParam
           }
           color="blue"
           variant="subtle"
@@ -411,7 +412,7 @@ export default function FeedbackTable({
       </FilterPanel>
 
       {isError && (
-        <Alert color="red" title={t("feedback.loadListError")}>
+        <Alert color="red" variant="light" title={t("feedback.loadListError")}>
           {error instanceof Error ? error.message : t("feedback.unknownError")}
         </Alert>
       )}

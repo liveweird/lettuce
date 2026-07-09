@@ -14,7 +14,7 @@ import {
   Loader,
   Paper,
   Stack,
-  TextInput,
+  Text,
   Title,
 } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
@@ -74,7 +74,9 @@ export default function ViewTemplate() {
             </>
           ) : (
             <>
-              <TextInput label={t("common.field.name")} value={data!.name} disabled />
+              <Input.Wrapper label={t("common.field.name")}>
+                <Text>{data!.name}</Text>
+              </Input.Wrapper>
               <Input.Wrapper label={t("common.field.content")}>
                 <Box
                   style={{

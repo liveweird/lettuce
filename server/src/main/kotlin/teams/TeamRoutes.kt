@@ -1,5 +1,6 @@
 package ch.nokillswit.teams
 
+import ch.nokillswit.audit.audit
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireCanReassignManager
 import ch.nokillswit.authz.requireSelfOrAdmin
@@ -107,6 +108,12 @@ fun Application.configureTeamRoutes() {
                 val id = requireValidReferences("Referenced user does not exist") {
                     teamService.create(team)
                 }
+                audit(
+                    "team.created",
+                    "byUserId" to caller.userId.toLong(),
+                    "teamId" to id.toLong(),
+                    "managerId" to team.managerId.toLong(),
+                )
                 call.response.header(HttpHeaders.Location, call.application.href(Teams.Id(id = id)))
                 call.respond(HttpStatusCode.Created, team.toResponse(id))
             }
@@ -131,9 +138,29 @@ fun Application.configureTeamRoutes() {
                 // Authz before validation: an unauthorized reassignment is 403, not 400.
                 requireCanReassignManager(caller, existing.managerId, team.managerId)
                 validateTeamName(team.name)
-                requireValidReferences("Referenced user does not exist") {
+                val updated = requireValidReferences("Referenced user does not exist") {
                     teamService.update(route.id, team)
                 }
+                if (updated == 0) {
+                    call.respondProblem(HttpStatusCode.NotFound, "Team not found")
+                    return@put
+                }
+                // Team mutations shape who may read subordinates' feedback (the management
+                // chain), so they are audited like user.role_changed. Delta fields only when
+                // something actually changed.
+                val auditFields = mutableListOf<Pair<String, Any?>>(
+                    "byUserId" to caller.userId.toLong(),
+                    "teamId" to route.id.toLong(),
+                )
+                if (team.managerId != existing.managerId) {
+                    auditFields += "managerFrom" to existing.managerId.toLong()
+                    auditFields += "managerTo" to team.managerId.toLong()
+                }
+                val added = team.memberIds.toSet() - existing.memberIds.toSet()
+                val removed = existing.memberIds.toSet() - team.memberIds.toSet()
+                if (added.isNotEmpty()) auditFields += "membersAdded" to added.joinToString(",")
+                if (removed.isNotEmpty()) auditFields += "membersRemoved" to removed.joinToString(",")
+                audit("team.updated", *auditFields.toTypedArray())
                 call.respond(HttpStatusCode.NoContent)
             }
             delete<Teams.Id> { route ->
@@ -144,7 +171,15 @@ fun Application.configureTeamRoutes() {
                     return@delete
                 }
                 requireTeamManagerOrAdmin(caller, existing.managerId)
-                teamService.delete(route.id)
+                if (teamService.delete(route.id) == 0) {
+                    call.respondProblem(HttpStatusCode.NotFound, "Team not found")
+                    return@delete
+                }
+                audit(
+                    "team.deleted",
+                    "byUserId" to caller.userId.toLong(),
+                    "teamId" to route.id.toLong(),
+                )
                 call.respond(HttpStatusCode.NoContent)
             }
             put<Teams.Id.Member> { route ->
@@ -158,6 +193,12 @@ fun Application.configureTeamRoutes() {
                 requireValidReferences("Referenced user does not exist") {
                     teamService.addMember(route.parent.id, route.userId)
                 }
+                audit(
+                    "team.member_added",
+                    "byUserId" to caller.userId.toLong(),
+                    "teamId" to route.parent.id.toLong(),
+                    "memberUserId" to route.userId.toLong(),
+                )
                 call.respond(HttpStatusCode.NoContent)
             }
             delete<Teams.Id.Member> { route ->
@@ -169,6 +210,12 @@ fun Application.configureTeamRoutes() {
                 }
                 requireTeamManagerOrAdmin(caller, existing.managerId)
                 teamService.removeMember(route.parent.id, route.userId)
+                audit(
+                    "team.member_removed",
+                    "byUserId" to caller.userId.toLong(),
+                    "teamId" to route.parent.id.toLong(),
+                    "memberUserId" to route.userId.toLong(),
+                )
                 call.respond(HttpStatusCode.NoContent)
             }
         }

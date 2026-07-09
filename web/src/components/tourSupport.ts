@@ -19,7 +19,7 @@ export function markSeen(userId: number | null) {
   if (userId != null) localStorage.setItem(seenKey(userId), "1");
 }
 
-export type TourStepDef = {
+type TourStepDef = {
   target: string;
   contentKey: string;
   placement?: Step["placement"];
@@ -102,7 +102,7 @@ export function buildSteps(
   }));
 }
 
-export type TourContextValue = { startTour: () => void };
+type TourContextValue = { startTour: () => void };
 export const TourContext = createContext<TourContextValue | null>(null);
 
 export function useTour(): TourContextValue {
@@ -114,6 +114,6 @@ export function useTour(): TourContextValue {
 // Provider-level actions the custom tooltip needs but Joyride's render props don't expose. Joyride
 // renders the tooltip into a portal, but React context still flows through portals, so the tooltip
 // (mounted under TourProvider) can read this.
-export type TourActions = { abandon: () => void };
+type TourActions = { abandon: () => void };
 // Exported for unit tests (so a test can supply a spy `abandon`).
 export const TourActionsContext = createContext<TourActions | null>(null);

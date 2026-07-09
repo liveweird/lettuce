@@ -22,6 +22,7 @@ import {
 import { hasLength, matchesField, useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, changeUserPassword, getUser, getUserId, isAdmin } from "../api/client";
+import { saveErrorMessage } from "../utils/saveError";
 
 type FormValues = {
   currentPassword: string;
@@ -75,18 +76,15 @@ export default function ChangeUserPassword() {
       await queryClient.invalidateQueries({ queryKey: ["user", id] });
       navigate(returnTo, { replace: true });
     } catch (err) {
-      if (err instanceof ApiError) {
-        if (err.status === 403) {
+      setError(
+        saveErrorMessage(err, t, {
           // For a self-change a 403 means the current password didn't verify.
-          setError(isSelf ? t("users.wrongCurrentPassword") : t("users.noPermissionChangePassword"));
-        } else if (err.status === 404) {
-          setError(t("users.userNoLongerExists"));
-        } else {
-          setError(t("users.changeFailedStatus", { status: err.status }));
-        }
-      } else {
-        setError(t("users.changeFailedNetwork"));
-      }
+          forbidden: isSelf ? "users.wrongCurrentPassword" : "users.noPermissionChangePassword",
+          notFound: "users.userNoLongerExists",
+          failedStatus: "users.changeFailedStatus",
+          failed: "users.changeFailedNetwork",
+        }),
+      );
     } finally {
       setSubmitting(false);
     }

@@ -3,13 +3,13 @@ import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
-  ApiError,
   createFeedback,
   getUserId,
   type FeedbackStatus,
   type FeedbackVisibility,
 } from "../api/client";
 import FeedbackForm from "../components/FeedbackForm";
+import { saveErrorMessage } from "../utils/saveError";
 
 export default function CreateFeedback() {
   const { t } = useTranslation();
@@ -47,17 +47,14 @@ export default function CreateFeedback() {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
       navigate(backTo, { replace: true });
     } catch (err) {
-      if (err instanceof ApiError) {
-        if (err.status === 403) {
-          setError(t("feedback.error.providePermission"));
-        } else if (err.status === 400) {
-          setError(t("feedback.error.validation"));
-        } else {
-          setError(t("feedback.error.createFailedStatus", { status: err.status }));
-        }
-      } else {
-        setError(t("feedback.error.createFailed"));
-      }
+      setError(
+        saveErrorMessage(err, t, {
+          forbidden: "feedback.error.providePermission",
+          invalid: "feedback.error.validation",
+          failedStatus: "feedback.error.createFailedStatus",
+          failed: "feedback.error.createFailed",
+        }),
+      );
     } finally {
       setSubmitting(null);
     }

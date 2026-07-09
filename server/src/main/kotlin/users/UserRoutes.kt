@@ -149,12 +149,10 @@ fun Application.configureUserRoutes() {
                 val caller = call.caller()
                 requireSelfOrAdmin(caller, route.parent.id)
                 val req = call.receive<PasswordUpdateRequest>()
-                if (req.password.length < MIN_PASSWORD_LENGTH) {
-                    throw BadRequestException("Password must be at least $MIN_PASSWORD_LENGTH characters")
-                }
                 // Changing one's OWN password always requires the current one (even for an admin);
                 // an admin resetting somebody else's does not. Read before update so a wrong
-                // current password never mutates anything.
+                // current password never mutates anything. Checked BEFORE the length validation
+                // so 403 wins over 400 (the convention everywhere else).
                 if (caller.userId == route.parent.id) {
                     val existing = userService.read(route.parent.id)
                     if (existing == null) {
@@ -170,6 +168,9 @@ fun Application.configureUserRoutes() {
                         )
                         throw ForbiddenException("Current password is missing or incorrect")
                     }
+                }
+                if (req.password.length < MIN_PASSWORD_LENGTH) {
+                    throw BadRequestException("Password must be at least $MIN_PASSWORD_LENGTH characters")
                 }
                 val updated = userService.updatePassword(route.parent.id, hashPassword(req.password))
                 if (updated == 0) {

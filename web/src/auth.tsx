@@ -1,9 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useSyncExternalStore, type ReactElement } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { getToken } from "./api/client";
+import { getToken, TOKEN_KEY } from "./api/client";
 
-const TOKEN_KEY = "lettuce.auth.token";
 const listeners = new Set<() => void>();
 
 function subscribe(cb: () => void): () => void {
@@ -34,7 +33,7 @@ export function consumeSignedOut(): boolean {
   return v;
 }
 
-export function useAuth(): { token: string | null; isAuthenticated: boolean } {
+function useAuth(): { token: string | null; isAuthenticated: boolean } {
   const token = useSyncExternalStore(subscribe, getToken, () => null);
   return { token, isAuthenticated: token !== null };
 }

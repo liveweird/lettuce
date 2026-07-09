@@ -45,6 +45,23 @@ class PasswordChangeTest {
     }
 
     @Test
+    fun `wrong current password wins over a too-short new password`() = testApplication {
+        usePostgresTestcontainer()
+        val email = uniqueEmail("order")
+        val userId = TestUsers.seed(email = email, password = "old-password", role = UserRole.USER)
+        val client = jsonClient()
+        val token = login(client, email, "old-password").token
+
+        // Both violations at once: the 403 (wrong current password) must win over the 400
+        // (too-short new password) — authz before validation, like everywhere else.
+        val response = putPassword(
+            client, token, userId,
+            PasswordUpdateRequest(password = "short", currentPassword = "not-it"),
+        )
+        assertEquals(HttpStatusCode.Forbidden, response.status)
+    }
+
+    @Test
     fun `self-change without or with a wrong current password is 403 and changes nothing`() = testApplication {
         usePostgresTestcontainer()
         val email = uniqueEmail("self")

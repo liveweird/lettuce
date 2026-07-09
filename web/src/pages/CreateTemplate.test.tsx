@@ -210,9 +210,16 @@ describe("CreateTemplate page", () => {
     expect(screen.queryByRole("heading", { name: /create template/i })).not.toBeInTheDocument();
   });
 
-  test("Cancel links back to /templates", async () => {
+  test("Cancel opens a discard confirmation whose Discard links back to /templates", async () => {
+    const user = userEvent.setup();
     renderCreateTemplate();
-    const cancel = await screen.findByRole("link", { name: /cancel/i });
-    expect(cancel).toHaveAttribute("href", "/templates");
+
+    await user.click(await screen.findByRole("button", { name: /^cancel$/i }));
+
+    expect(await screen.findByText(/discard changes\?/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/any unsaved changes to this template will be lost/i),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /discard/i })).toHaveAttribute("href", "/templates");
   });
 });

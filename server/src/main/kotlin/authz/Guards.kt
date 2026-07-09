@@ -3,6 +3,7 @@ package ch.nokillswit.authz
 import ch.nokillswit.feedbacks.Feedback
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
+import ch.nokillswit.feedbacks.isDelivered
 import ch.nokillswit.users.UserRole
 
 fun CallerPrincipal.isAdmin(): Boolean = role == UserRole.ADMIN
@@ -64,7 +65,7 @@ fun canReadFeedback(
     // - status: Sent, Withdawn
     if (caller.userId == feedback.subjectId &&
         (feedback.visibility == FeedbackVisibility.PROVIDER_SUBJECT || feedback.visibility == FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT) &&
-        (feedback.status == FeedbackStatus.SENT || feedback.status == FeedbackStatus.WITHDRAWN)
+        feedback.status.isDelivered
     ) return true
 
     // The SUBJECT's MANAGEMENT CHAIN (their manager, that manager's manager, and so on —
@@ -96,8 +97,7 @@ suspend fun requireFeedbackReadAllowingManager(
     // manager, and so on) may read only once the feedback is delivered (SENT/WITHDRAWN),
     // matching the team list scope — a provider's DRAFT/REQUESTED work stays private to the
     // parties involved.
-    val delivered = feedback.status == FeedbackStatus.SENT || feedback.status == FeedbackStatus.WITHDRAWN
-    if (delivered && managesSubject()) return // DB hit only if needed
+    if (feedback.status.isDelivered && managesSubject()) return // DB hit only if needed
     throw ForbiddenException("Caller may not read this feedback")
 }
 

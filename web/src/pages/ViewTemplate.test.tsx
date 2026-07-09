@@ -61,10 +61,10 @@ describe("ViewTemplate page", () => {
     getReturns(mockFetch, jsonResponse(200, TEMPLATE));
     renderViewTemplate();
 
-    // Name shown read-only.
-    const name = (await screen.findByLabelText("Name")) as HTMLInputElement;
-    expect(name.value).toBe("Welcome");
-    expect(name).toBeDisabled();
+    // Name shown as labeled plain text, not an input.
+    expect(await screen.findByText("Welcome")).toBeInTheDocument();
+    expect(screen.getByText("Name")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
 
     // `# Hi` renders as an <h1>Hi</h1> in the Markdown content.
     expect(screen.getByRole("heading", { name: "Hi" })).toBeInTheDocument();
@@ -74,7 +74,7 @@ describe("ViewTemplate page", () => {
     getReturns(mockFetch, jsonResponse(200, TEMPLATE));
     renderViewTemplate();
 
-    await screen.findByLabelText("Name");
+    await screen.findByText("Welcome");
     expect(screen.getByRole("link", { name: /close/i })).toHaveAttribute("href", "/templates");
     expect(screen.queryByRole("button", { name: /save/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /edit/i })).not.toBeInTheDocument();

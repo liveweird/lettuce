@@ -73,6 +73,30 @@ class TeamRoutesTest {
     }
 
     @Test
+    fun `mutating a soft-deleted team is 404`() = testApplication {
+        usePostgresTestcontainer()
+        val email = uniqueEmail("mgr")
+        val managerId = TestUsers.seed(email = email, password = "pw")
+        val memberId = TestUsers.seed(email = uniqueEmail("m"), password = "pw")
+
+        val client = authedClient(email, "pw")
+        val teamId = client.post("/api/v1/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "Doomed", managerId = managerId, memberIds = listOf(memberId)))
+        }.body<TeamResponse>().id
+        assertEquals(HttpStatusCode.NoContent, client.delete("/api/v1/teams/$teamId").status)
+
+        val putResponse = client.put("/api/v1/teams/$teamId") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "Zombie", managerId = managerId, memberIds = emptyList()))
+        }
+        assertEquals(HttpStatusCode.NotFound, putResponse.status)
+        assertEquals(HttpStatusCode.NotFound, client.delete("/api/v1/teams/$teamId").status)
+        assertEquals(HttpStatusCode.NotFound, client.put("/api/v1/teams/$teamId/members/$memberId").status)
+        assertEquals(HttpStatusCode.NotFound, client.delete("/api/v1/teams/$teamId/members/$memberId").status)
+    }
+
+    @Test
     fun `POST teams accepts an empty member list`() = testApplication {
         usePostgresTestcontainer()
         val email = uniqueEmail("mgr")

@@ -3,13 +3,13 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
-  ApiError,
   createFeedback,
   getUserId,
   type FeedbackStatus,
   type FeedbackVisibility,
 } from "../api/client";
 import FeedbackForm from "../components/FeedbackForm";
+import { saveErrorMessage } from "../utils/saveError";
 
 // Where the new row shows up right after saving — and where Cancel returns to.
 const BACK_TO = "/feedback?tab=provided";
@@ -46,15 +46,15 @@ export default function SelfReflection() {
       await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
       navigate(BACK_TO, { replace: true });
     } catch (err) {
-      if (err instanceof ApiError) {
-        if (err.status === 400) {
-          setError(t("feedback.error.validation"));
-        } else {
-          setError(t("feedback.error.createFailedStatus", { status: err.status }));
-        }
-      } else {
-        setError(t("feedback.error.createFailed"));
-      }
+      // No forbidden key: a 403 (like any other unmatched status) keeps reporting via the
+      // generic status message, exactly as before.
+      setError(
+        saveErrorMessage(err, t, {
+          invalid: "feedback.error.validation",
+          failedStatus: "feedback.error.createFailedStatus",
+          failed: "feedback.error.createFailed",
+        }),
+      );
     } finally {
       setSubmitting(null);
     }

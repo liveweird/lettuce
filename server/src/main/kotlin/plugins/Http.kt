@@ -11,7 +11,6 @@ import io.ktor.server.plugins.defaultheaders.*
 import io.ktor.server.plugins.forwardedheaders.*
 import io.ktor.server.plugins.hsts.*
 import io.ktor.server.plugins.httpsredirect.*
-import io.ktor.server.plugins.openapi.*
 import io.ktor.server.routing.*
 import io.ktor.server.plugins.swagger.*
 
@@ -69,10 +68,7 @@ fun Application.configureHttp() {
         ?.takeIf { it.isNotBlank() }?.toBoolean()
         ?: developmentMode
     if (exposeOpenApi) {
-        routing {
-            openAPI(path = "openapi") {
-            }
-        }
+        // swaggerUI serves both the UI page and the spec (GET /openapi/documentation.yaml).
         routing {
             swaggerUI(path = "openapi") {
             }

@@ -15,7 +15,8 @@ import {
 } from "@mantine/core";
 import { hasLength, useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError, createTeam, isAdmin, listUsers } from "../api/client";
+import { createTeam, isAdmin, listUsers } from "../api/client";
+import { saveErrorMessage } from "../utils/saveError";
 
 const MANAGER_PICKER_PAGE_SIZE = 100;
 
@@ -69,17 +70,14 @@ export default function CreateTeam() {
       await queryClient.invalidateQueries({ queryKey: ["teams"] });
       navigate("/teams", { replace: true });
     } catch (err) {
-      if (err instanceof ApiError) {
-        if (err.status === 403) {
-          setError(t("teams.createForbidden"));
-        } else if (err.status === 400) {
-          setError(t("teams.validationError"));
-        } else {
-          setError(t("teams.createFailedStatus", { status: err.status }));
-        }
-      } else {
-        setError(t("teams.createFailedNetwork"));
-      }
+      setError(
+        saveErrorMessage(err, t, {
+          forbidden: "teams.createForbidden",
+          invalid: "teams.validationError",
+          failedStatus: "teams.createFailedStatus",
+          failed: "teams.createFailedNetwork",
+        }),
+      );
     } finally {
       setSubmitting(false);
     }

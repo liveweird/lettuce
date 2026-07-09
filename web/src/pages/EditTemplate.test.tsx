@@ -190,6 +190,21 @@ describe("EditTemplate page", () => {
     expect(name).toHaveValue("");
   });
 
+  test("Cancel opens a discard confirmation whose Discard links back to /templates", async () => {
+    getReturns(mockFetch, jsonResponse(200, LOADED));
+    const user = userEvent.setup();
+    renderEditTemplate();
+
+    await screen.findByDisplayValue("Loaded Name");
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
+
+    expect(await screen.findByText(/discard changes\?/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/any unsaved changes to this template will be lost/i),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /discard/i })).toHaveAttribute("href", "/templates");
+  });
+
   test("non-admin is redirected to /templates", () => {
     localStorage.setItem(ROLE_KEY, "USER");
     renderEditTemplate();

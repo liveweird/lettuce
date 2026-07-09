@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link as RouterLink, Navigate, useParams } from "react-router-dom";
 import {
   Alert,
+  Anchor,
   Button,
   Center,
   Group,
@@ -14,7 +15,13 @@ import {
   Title,
 } from "@mantine/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { IconMessagePlus, IconMessageQuestion, IconPlus, IconTrash } from "@tabler/icons-react";
+import {
+  IconMessagePlus,
+  IconMessageQuestion,
+  IconPlus,
+  IconTrash,
+  IconUsers,
+} from "@tabler/icons-react";
 import {
   addTeamMember,
   ApiError,
@@ -25,10 +32,12 @@ import {
   removeTeamMember,
 } from "../api/client";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
+import EmptyState from "../components/EmptyState";
 import FeedbackActionButton from "../components/FeedbackActionButton";
 import PersonaChip from "../components/PersonaChip";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { feedbackAskLink, feedbackProvideLink } from "../utils/feedbackLinks";
+import { saveErrorMessage } from "../utils/saveError";
 
 // A single team realistically has a small, bounded set of members; fetch up to the 100-row
 // max so the member list and the add-picker exclusion share one complete source of truth.
@@ -88,19 +97,15 @@ export default function TeamMembers() {
       await queryClient.invalidateQueries({ queryKey: ["teamMembersList", id] });
     },
     onError: (err) => {
-      if (err instanceof ApiError) {
-        if (err.status === 400) {
-          setAddError(t("teams.addMemberInvalid"));
-        } else if (err.status === 403) {
-          setAddError(t("teams.modifyForbidden"));
-        } else if (err.status === 404) {
-          setAddError(t("teams.teamGone"));
-        } else {
-          setAddError(t("teams.addFailedStatus", { status: err.status }));
-        }
-      } else {
-        setAddError(t("teams.addFailedNetwork"));
-      }
+      setAddError(
+        saveErrorMessage(err, t, {
+          forbidden: "teams.modifyForbidden",
+          notFound: "teams.teamGone",
+          invalid: "teams.addMemberInvalid",
+          failedStatus: "teams.addFailedStatus",
+          failed: "teams.addFailedNetwork",
+        }),
+      );
     },
   });
 
@@ -156,10 +161,15 @@ export default function TeamMembers() {
 
   return (
     <Stack gap="md">
-      <Title order={2}>
-        {t("teams.members")}
-        {team ? ` — ${team.name}` : ""}
-      </Title>
+      <Stack gap={4}>
+        <Anchor component={RouterLink} to="/teams" size="sm">
+          {t("teams.backToTeams")}
+        </Anchor>
+        <Title order={2}>
+          {t("teams.members")}
+          {team ? ` — ${team.name}` : ""}
+        </Title>
+      </Stack>
 
       {canManage && (
         <Group align="flex-end" gap="sm">
@@ -197,7 +207,7 @@ export default function TeamMembers() {
         </Alert>
       )}
 
-      <Table striped highlightOnHover withTableBorder>
+      <Table highlightOnHover withTableBorder verticalSpacing="sm">
         <Table.Thead>
           <Table.Tr>
             <Table.Th>{t("common.field.name")}</Table.Th>
@@ -262,23 +272,19 @@ export default function TeamMembers() {
           ) : (
             <Table.Tr>
               <Table.Td colSpan={3}>
-                <Text c="dimmed" ta="center">
-                  {t("teams.noMembersYet")}
-                </Text>
+                <EmptyState
+                    icon={<IconUsers size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
+                    label={t("teams.noMembersYet")}
+                  />
               </Table.Td>
             </Table.Tr>
           )}
         </Table.Tbody>
       </Table>
 
-      <Group justify="space-between" align="center">
-        <Text size="sm" c="dimmed">
-          {t("common.table.total", { count: members.length })}
-        </Text>
-        <Button component={RouterLink} to="/teams" variant="default">
-          {t("teams.backToTeams")}
-        </Button>
-      </Group>
+      <Text size="sm" c="dimmed">
+        {t("common.table.total", { count: members.length })}
+      </Text>
 
       <ConfirmDeleteModal
         confirm={removeConfirm}

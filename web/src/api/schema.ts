@@ -332,12 +332,14 @@ export interface paths {
          * @description Lists feedback records scoped by `view`. Scoping is always relative to the caller,
          *     including ADMIN callers.
          *
-         *     - `view=received` (the default): rows where the caller is the **subject** AND one of:
-         *       (a) the row has no requester and `status` is `SENT`/`WITHDRAWN`; (b) the caller is the
-         *       requester (any status/visibility); or (c) someone else is the requester, `visibility`
-         *       is `PROVIDER_SUBJECT`/`PROVIDER_REQUESTER_SUBJECT`/`PUBLIC`, and `status` is
-         *       `SENT`/`WITHDRAWN`. `PROVIDER_REQUESTER` rows appear only via (b). A `DRAFT`/`REQUESTED`
-         *       row the caller requested has its `contentPreview` redacted (empty) until it is sent.
+         *     - `view=received` (the default): rows where the caller is the **subject**, scoped exactly
+         *       like the single-GET read rules (every listed row is also openable): (a) the caller is
+         *       the requester and `visibility` is `PROVIDER_REQUESTER`/`PROVIDER_REQUESTER_SUBJECT`
+         *       (any status); (b) otherwise (no requester, or someone else's request) `visibility` is
+         *       `PROVIDER_SUBJECT`/`PROVIDER_REQUESTER_SUBJECT` and `status` is `SENT`/`WITHDRAWN`;
+         *       or (c) `visibility` is `PUBLIC` and `status` is `SENT` (in either role). A
+         *       `DRAFT`/`REQUESTED` row the caller requested has its `contentPreview` redacted (empty)
+         *       until it is sent.
          *     - `view=provided`: rows where the caller is the provider, regardless of visibility
          *       (a provider may always read their own records).
          *     - `view=team`: rows where the subject is one of the caller's **direct reports** (a member

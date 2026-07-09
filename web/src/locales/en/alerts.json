@@ -36,6 +36,8 @@
   "createFailedNetwork": "Failed to create the alert — network error",
   "editFailedStatus": "Failed to save the alert ({{status}})",
   "editFailedNetwork": "Failed to save the alert — network error",
+  "discardTitle": "Discard changes?",
+  "discardMessage": "Any unsaved changes to this alert will be lost.",
   "unknownError": "Unknown error",
   "banner": {
     "hide": "Hide alerts",

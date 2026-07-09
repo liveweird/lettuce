@@ -48,9 +48,10 @@ test("admin creates, edits, views, inserts, and deletes a template", async ({ pa
     page.getByRole("button", { name: "Save", exact: true }).click(),
   ]);
 
-  // The read-only view renders the renamed template and its content.
+  // The read-only view renders the renamed template and its content (plain text under a
+  // label — no disabled input anymore, so no label-for association to query by).
   await page.goto(`/templates/${id}/view`);
-  await expect(page.getByLabel("Name")).toHaveValue(renamed);
+  await expect(page.getByText(renamed, { exact: true })).toBeVisible();
   await expect(page.getByText(content)).toBeVisible();
 
   // Insert into a feedback draft: the editor's Template picker pulls the content in.

@@ -23,6 +23,7 @@ import {
 import { hasLength, useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, getTeam, isAdmin, listUsers, updateTeam } from "../api/client";
+import { saveErrorMessage } from "../utils/saveError";
 
 const MANAGER_PICKER_PAGE_SIZE = 100;
 
@@ -97,19 +98,15 @@ export default function EditTeam() {
       await queryClient.invalidateQueries({ queryKey: ["team", id] });
       navigate("/teams", { replace: true });
     } catch (err) {
-      if (err instanceof ApiError) {
-        if (err.status === 403) {
-          setError(t("teams.editForbidden"));
-        } else if (err.status === 404) {
-          setError(t("teams.teamGone"));
-        } else if (err.status === 400) {
-          setError(t("teams.validationError"));
-        } else {
-          setError(t("teams.editFailedStatus", { status: err.status }));
-        }
-      } else {
-        setError(t("teams.editFailedNetwork"));
-      }
+      setError(
+        saveErrorMessage(err, t, {
+          forbidden: "teams.editForbidden",
+          notFound: "teams.teamGone",
+          invalid: "teams.validationError",
+          failedStatus: "teams.editFailedStatus",
+          failed: "teams.editFailedNetwork",
+        }),
+      );
     } finally {
       setSubmitting(false);
     }

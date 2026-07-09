@@ -1,5 +1,6 @@
 package ch.nokillswit.alerts
 
+import ch.nokillswit.audit.audit
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAdmin
 import ch.nokillswit.infra.paging.optionalBoolean
@@ -53,10 +54,13 @@ fun Application.configureAlertRoutes() {
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
             }
             post<Alerts> {
-                requireAdmin(call.caller())
+                val caller = call.caller()
+                requireAdmin(caller)
                 val alert = call.receive<Alert>()
                 validateAlert(alert)
                 val id = alertService.create(alert)
+                // Admin-authored broadcast content: audited so a defaced banner has a trail.
+                audit("alert.created", "byUserId" to caller.userId.toLong(), "alertId" to id.toLong())
                 call.response.header(HttpHeaders.Location, call.application.href(Alerts.Id(id = id)))
                 call.respond(HttpStatusCode.Created, alert.toResponse(id))
             }
@@ -74,20 +78,24 @@ fun Application.configureAlertRoutes() {
                 call.respond(HttpStatusCode.OK, alert.toResponse(route.id))
             }
             put<Alerts.Id> { route ->
-                requireAdmin(call.caller())
+                val caller = call.caller()
+                requireAdmin(caller)
                 val alert = call.receive<Alert>()
                 validateAlert(alert)
                 if (alertService.update(route.id, alert) == 0) {
                     call.respondProblem(HttpStatusCode.NotFound, "Alert not found")
                 } else {
+                    audit("alert.updated", "byUserId" to caller.userId.toLong(), "alertId" to route.id.toLong())
                     call.respond(HttpStatusCode.NoContent)
                 }
             }
             delete<Alerts.Id> { route ->
-                requireAdmin(call.caller())
+                val caller = call.caller()
+                requireAdmin(caller)
                 if (alertService.delete(route.id) == 0) {
                     call.respondProblem(HttpStatusCode.NotFound, "Alert not found")
                 } else {
+                    audit("alert.deleted", "byUserId" to caller.userId.toLong(), "alertId" to route.id.toLong())
                     call.respond(HttpStatusCode.NoContent)
                 }
             }

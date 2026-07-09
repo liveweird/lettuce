@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState } from "react";
-import { Link as RouterLink, Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import {
   Alert,
   Button,
@@ -13,9 +13,12 @@ import {
   Title,
 } from "@mantine/core";
 import { hasLength, useForm } from "@mantine/form";
+import { useDisclosure } from "@mantine/hooks";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError, createTemplate, isAdmin } from "../api/client";
+import ConfirmActionModal from "../components/ConfirmActionModal";
+import { saveErrorMessage } from "../utils/saveError";
 
 const MarkdownEditor = lazy(() => import("../components/MarkdownEditor"));
 
@@ -30,6 +33,7 @@ export default function CreateTemplate() {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
 
   const form = useForm<FormValues>({
     initialValues: { name: "", content: "" },
@@ -48,18 +52,18 @@ export default function CreateTemplate() {
       await queryClient.invalidateQueries({ queryKey: ["templates"] });
       navigate("/templates", { replace: true });
     } catch (err) {
-      if (err instanceof ApiError) {
-        if (err.status === 409) {
-          form.setFieldError("name", t("templates.nameExists"));
-        } else if (err.status === 403) {
-          setError(t("templates.createForbidden"));
-        } else if (err.status === 400) {
-          setError(t("templates.validationError"));
-        } else {
-          setError(t("templates.createFailedStatus", { status: err.status }));
-        }
+      // A duplicate name is a field-level problem, not a page-level one.
+      if (err instanceof ApiError && err.status === 409) {
+        form.setFieldError("name", t("templates.nameExists"));
       } else {
-        setError(t("templates.createFailedNetwork"));
+        setError(
+          saveErrorMessage(err, t, {
+            forbidden: "templates.createForbidden",
+            invalid: "templates.validationError",
+            failedStatus: "templates.createFailedStatus",
+            failed: "templates.createFailedNetwork",
+          }),
+        );
       }
     } finally {
       setSubmitting(false);
@@ -105,7 +109,7 @@ export default function CreateTemplate() {
               </Alert>
             )}
             <Group justify="flex-end" gap="sm">
-              <Button component={RouterLink} to="/templates" variant="default">
+              <Button type="button" variant="default" onClick={openCancel}>
                 {t("common.action.cancel")}
               </Button>
               <Button type="submit" loading={submitting}>
@@ -115,6 +119,16 @@ export default function CreateTemplate() {
           </Stack>
         </form>
       </Paper>
+
+      <ConfirmActionModal
+        opened={cancelOpen}
+        onClose={closeCancel}
+        title={t("templates.discardTitle")}
+        message={t("templates.discardMessage")}
+        cancelLabel={t("common.action.keepEditing")}
+        confirmLabel={t("common.action.discard")}
+        confirmTo="/templates"
+      />
     </Container>
   );
 }

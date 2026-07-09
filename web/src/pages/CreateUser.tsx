@@ -21,6 +21,7 @@ import { hasLength, useForm } from "@mantine/form";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError, createUser, isAdmin, type UserRole } from "../api/client";
 import { generatePassword } from "../utils/password";
+import { saveErrorMessage } from "../utils/saveError";
 
 type FormValues = {
   name: string;
@@ -65,16 +66,17 @@ export default function CreateUser() {
       await queryClient.invalidateQueries({ queryKey: ["users"] });
       setCreated({ email: values.email, password });
     } catch (err) {
-      if (err instanceof ApiError) {
-        if (err.status === 409) {
-          form.setFieldError("email", t("users.emailAlreadyInUse"));
-        } else if (err.status === 403) {
-          setError(t("users.noPermissionCreate"));
-        } else {
-          setError(t("users.createFailedStatus", { status: err.status }));
-        }
+      // A duplicate email is a field-level problem, not a page-level one.
+      if (err instanceof ApiError && err.status === 409) {
+        form.setFieldError("email", t("users.emailAlreadyInUse"));
       } else {
-        setError(t("users.createFailedNetwork"));
+        setError(
+          saveErrorMessage(err, t, {
+            forbidden: "users.noPermissionCreate",
+            failedStatus: "users.createFailedStatus",
+            failed: "users.createFailedNetwork",
+          }),
+        );
       }
     } finally {
       setSubmitting(false);

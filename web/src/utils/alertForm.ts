@@ -1,5 +1,5 @@
 import { hasLength } from "@mantine/form";
-import { ApiError, type CreateAlertBody } from "../api/client";
+import { type CreateAlertBody } from "../api/client";
 import { datetimeLocalToEpoch } from "./datetime";
 
 // Datetime bounds live in the form as <input type="datetime-local"> strings gated by an
@@ -54,22 +54,4 @@ export function toAlertBody(values: AlertFormValues): CreateAlertBody {
     startsAt: values.startsAtSet ? datetimeLocalToEpoch(values.startsAt) : null,
     endsAt: values.endsAtSet ? datetimeLocalToEpoch(values.endsAt) : null,
   };
-}
-
-/**
- * The save-error mapping the create and edit pages share (403/400/status/network, plus the
- * edit-only 404 "gone" case). Returns the user-facing message for the page-level Alert.
- */
-export function alertSaveErrorMessage(
-  err: unknown,
-  t: (key: string, opts?: Record<string, unknown>) => string,
-  mode: "create" | "edit",
-): string {
-  if (err instanceof ApiError) {
-    if (err.status === 403) return t(`alerts.${mode}Forbidden`);
-    if (mode === "edit" && err.status === 404) return t("alerts.alertGone");
-    if (err.status === 400) return t("alerts.validationError");
-    return t(`alerts.${mode}FailedStatus`, { status: err.status });
-  }
-  return t(`alerts.${mode}FailedNetwork`);
 }

@@ -20,7 +20,7 @@ import {
 import "@mdxeditor/editor/style.css";
 import classes from "./MarkdownEditor.module.css";
 
-export type MarkdownEditorProps = {
+type MarkdownEditorProps = {
   value: string;
   onChange: (markdown: string) => void;
   label: string;

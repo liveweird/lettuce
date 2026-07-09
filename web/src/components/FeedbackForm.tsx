@@ -37,7 +37,7 @@ type FormValues = {
   content: string;
 };
 
-export type FeedbackFormProps = {
+type FeedbackFormProps = {
   title: string;
   subjectDisplay: string;
   initialVisibility: FeedbackVisibility;

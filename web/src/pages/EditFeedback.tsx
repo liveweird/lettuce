@@ -38,6 +38,7 @@ import FeedbackForm from "../components/FeedbackForm";
 import PersonaField from "../components/PersonaField";
 import RequesterMessage from "../components/RequesterMessage";
 import { clampVisibility, visibilityValuesFor } from "../utils/feedbackVisibility";
+import { saveErrorMessage } from "../utils/saveError";
 
 const PROVIDED = "/feedback?tab=provided";
 
@@ -107,21 +108,16 @@ export default function EditFeedback() {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
       if (!accepted) navigate(backTo, { replace: true });
     } catch (err) {
-      if (err instanceof ApiError) {
-        if (err.status === 403) {
-          setError(t("feedback.error.editPermission"));
-        } else if (err.status === 404) {
-          setError(t("feedback.error.gone"));
-        } else if (err.status === 409) {
-          setError(t("feedback.error.invalidTransition"));
-        } else if (err.status === 400) {
-          setError(t("feedback.error.validation"));
-        } else {
-          setError(t("feedback.error.saveFailedStatus", { status: err.status }));
-        }
-      } else {
-        setError(t("feedback.error.saveFailed"));
-      }
+      setError(
+        saveErrorMessage(err, t, {
+          forbidden: "feedback.error.editPermission",
+          notFound: "feedback.error.gone",
+          conflict: "feedback.error.invalidTransition",
+          invalid: "feedback.error.validation",
+          failedStatus: "feedback.error.saveFailedStatus",
+          failed: "feedback.error.saveFailed",
+        }),
+      );
     } finally {
       setSubmitting(null);
     }
@@ -140,19 +136,15 @@ export default function EditFeedback() {
       navigate(backTo, { replace: true });
     } catch (err) {
       closeDelete();
-      if (err instanceof ApiError) {
-        if (err.status === 403) {
-          setError(t("feedback.error.editPermission"));
-        } else if (err.status === 404) {
-          setError(t("feedback.error.gone"));
-        } else if (err.status === 400) {
-          setError(t("feedback.error.deleteNotDraft"));
-        } else {
-          setError(t("feedback.error.deleteFailed"));
-        }
-      } else {
-        setError(t("feedback.error.deleteFailed"));
-      }
+      // No failedStatus key: an unmatched status falls to the generic delete-failed message.
+      setError(
+        saveErrorMessage(err, t, {
+          forbidden: "feedback.error.editPermission",
+          notFound: "feedback.error.gone",
+          invalid: "feedback.error.deleteNotDraft",
+          failed: "feedback.error.deleteFailed",
+        }),
+      );
     } finally {
       setDeleting(false);
     }

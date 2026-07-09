@@ -162,6 +162,21 @@ describe("EditAlert page", () => {
     expect(await screen.findByText(/no longer exists/i)).toBeInTheDocument();
   });
 
+  test("Cancel opens a discard confirmation whose Discard links back to /alerts", async () => {
+    getReturns(mockFetch, jsonResponse(200, LOADED));
+    const user = userEvent.setup();
+    renderEditAlert();
+
+    await screen.findByDisplayValue("Loaded Title");
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
+
+    expect(await screen.findByText(/discard changes\?/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/any unsaved changes to this alert will be lost/i),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /discard/i })).toHaveAttribute("href", "/alerts");
+  });
+
   test("non-admin is redirected away", () => {
     localStorage.setItem(ROLE_KEY, "USER");
     renderEditAlert();
