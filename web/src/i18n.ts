@@ -14,6 +14,7 @@ import enTeams from "./locales/en/teams.json";
 import enTemplates from "./locales/en/templates.json";
 import enNotifications from "./locales/en/notifications.json";
 import enAlerts from "./locales/en/alerts.json";
+import enChangelog from "./locales/en/changelog.json";
 import enTour from "./locales/en/tour.json";
 
 import plCommon from "./locales/pl/common.json";
@@ -26,6 +27,7 @@ import plTeams from "./locales/pl/teams.json";
 import plTemplates from "./locales/pl/templates.json";
 import plNotifications from "./locales/pl/notifications.json";
 import plAlerts from "./locales/pl/alerts.json";
+import plChangelog from "./locales/pl/changelog.json";
 import plTour from "./locales/pl/tour.json";
 
 export const SUPPORTED_LANGUAGES = ["en", "pl"] as const;
@@ -44,6 +46,7 @@ const en = {
   templates: enTemplates,
   notifications: enNotifications,
   alerts: enAlerts,
+  changelog: enChangelog,
   tour: enTour,
 };
 
@@ -58,6 +61,7 @@ const pl = {
   templates: plTemplates,
   notifications: plNotifications,
   alerts: plAlerts,
+  changelog: plChangelog,
   tour: plTour,
 };
 

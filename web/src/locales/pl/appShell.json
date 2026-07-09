@@ -11,6 +11,7 @@
     "templates": "Szablony",
     "selfReflection": "Autorefleksja",
     "changePassword": "Zmień hasło",
-    "alerts": "Alerty"
+    "alerts": "Alerty",
+    "changelog": "Historia zmian"
   }
 }
