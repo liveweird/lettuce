@@ -11,6 +11,7 @@
     "templates": "Templates",
     "selfReflection": "Self-reflection",
     "changePassword": "Change password",
-    "alerts": "Alerts"
+    "alerts": "Alerts",
+    "changelog": "Changelog"
   }
 }

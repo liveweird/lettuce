@@ -2,9 +2,10 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter } from "react-router-dom";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App";
+import { APP_VERSION } from "./changelog/entries";
 
 // The guided tour mounts react-joyride (which measures DOM rects) in the authenticated shell;
 // stub it out here so these shell tests don't exercise its layout engine under happy-dom.
@@ -109,6 +110,39 @@ describe("App shell", () => {
       const skip = await screen.findByRole("link", { name: /skip to main content/i });
       expect(skip).toHaveAttribute("href", "#main-content");
       expect(document.querySelector("main#main-content")).not.toBeNull();
+    });
+
+    test("shows a Changelog nav link and a linked version stamp with the what's-new dot", async () => {
+      renderApp("/");
+      const navLink = await screen.findByRole("link", { name: /^changelog$/i });
+      expect(navLink).toHaveAttribute("href", "/changelog");
+      // The version stamp itself is the second affordance for the same route.
+      expect(screen.getByTitle("Build version")).toHaveAttribute("href", "/changelog");
+      // Nothing seen yet in this fresh storage → the dot (carrying the accessible title) shows.
+      expect(screen.getByTitle("What's new")).toBeInTheDocument();
+    });
+
+    test("opening the changelog clears the what's-new dot immediately", async () => {
+      const user = userEvent.setup();
+      renderApp("/");
+      await screen.findByTitle("What's new");
+      await user.click(screen.getByRole("link", { name: /^changelog$/i }));
+      expect(
+        await screen.findByRole("heading", { level: 2, name: "Changelog" }),
+      ).toBeInTheDocument();
+      await waitFor(() =>
+        expect(screen.queryByTitle("What's new")).not.toBeInTheDocument(),
+      );
+      expect(JSON.parse(localStorage.getItem("lettuce.changelog")!)).toEqual({
+        seenVersion: APP_VERSION,
+      });
+    });
+
+    test("shows no dot when the current version was already seen", async () => {
+      localStorage.setItem("lettuce.changelog", JSON.stringify({ seenVersion: APP_VERSION }));
+      renderApp("/");
+      await screen.findByTitle("Build version");
+      expect(screen.queryByTitle("What's new")).not.toBeInTheDocument();
     });
 
     test("shows the logout button", async () => {

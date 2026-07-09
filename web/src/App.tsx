@@ -6,6 +6,7 @@ import {
   Button,
   Center,
   Group,
+  Indicator,
   Loader,
   NavLink,
   Text,
@@ -16,6 +17,7 @@ import { useDisclosure } from "@mantine/hooks";
 import {
   IconFileText,
   IconHelp,
+  IconHistory,
   IconSpeakerphone,
   IconKey,
   IconLayoutDashboard,
@@ -46,6 +48,7 @@ import BrandLogo from "./components/BrandLogo";
 import NotificationsButton from "./components/NotificationsButton";
 import LanguageSwitcher from "./components/LanguageSwitcher";
 import VersionStamp from "./components/VersionStamp";
+import { useChangelogUnseen } from "./hooks/useChangelogSeen";
 import { TourProvider } from "./components/Tour";
 import { useTour } from "./components/tourSupport";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -72,6 +75,7 @@ const CreateTemplate = lazy(() => import("./pages/CreateTemplate"));
 const EditTemplate = lazy(() => import("./pages/EditTemplate"));
 const ViewTemplate = lazy(() => import("./pages/ViewTemplate"));
 const Alerts = lazy(() => import("./pages/Alerts"));
+const Changelog = lazy(() => import("./pages/Changelog"));
 const CreateAlert = lazy(() => import("./pages/CreateAlert"));
 const EditAlert = lazy(() => import("./pages/EditAlert"));
 
@@ -104,6 +108,10 @@ const NAV_ITEMS: ReadonlyArray<NavEntry> = [
     ],
   },
 ];
+
+// Rendered last, directly above the version stamp it pairs with (after the per-user dynamic
+// items), rather than inside NAV_ITEMS.
+const CHANGELOG_NAV: NavLeaf = { to: "/changelog", label: "appShell.nav.changelog", icon: IconHistory };
 
 function HeaderUser() {
   const userId = getUserId();
@@ -238,7 +246,8 @@ function Shell() {
         }
       : e,
   );
-  const allEntries: NavEntry[] = [...staticItems, ...dynamicItems];
+  const allEntries: NavEntry[] = [...staticItems, ...dynamicItems, CHANGELOG_NAV];
+  const changelogUnseen = useChangelogUnseen();
   const leafTos = allEntries.flatMap((e) =>
     isGroup(e) ? e.children.map((c) => c.to) : [e.to],
   );
@@ -327,7 +336,16 @@ function Shell() {
             />
           );
         })}
-        <VersionStamp mt="auto" ta="center" pt="xs" />
+        {/* The title carries the accessible "what's new" name only while the dot is shown. */}
+        <Indicator
+          color="red"
+          size={8}
+          disabled={!changelogUnseen}
+          title={changelogUnseen ? t("changelog.whatsNew") : undefined}
+          mt="auto"
+        >
+          <VersionStamp to="/changelog" ta="center" pt="xs" />
+        </Indicator>
       </AppShell.Navbar>
 
       <AppShell.Main id="main-content" tabIndex={-1}>
@@ -377,6 +395,7 @@ export default function App() {
             <Route path="alerts" element={<Alerts />} />
             <Route path="alerts/new" element={<CreateAlert />} />
             <Route path="alerts/:id/edit" element={<EditAlert />} />
+            <Route path="changelog" element={<Changelog />} />
           </Route>
         </Route>
       </Routes>
