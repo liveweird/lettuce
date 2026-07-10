@@ -89,7 +89,7 @@
   "importTitle": "Mass user import",
   "importFormatHint": "Upload a CSV file with one user per line in the format: name,email. An optional \"name,email\" header line is skipped. Each imported user gets the User role and a generated password.",
   "importFile": "CSV file",
-  "importSendEmails": "Do you want to send the e-mail to the new users?",
+  "importSendEmails": "Email the credentials to the new users",
   "importRun": "Import",
   "importSummary": "Created: {{created}} · Duplicates: {{duplicates}} · Errors: {{errors}}",
   "importPasswordsOnce": "The generated passwords are shown below only once — copy them now if you need them. Once you leave this page they cannot be displayed again.",
@@ -103,7 +103,10 @@
     "EMAIL_FAILED": "Created, email failed",
     "ERROR": "Error"
   },
-  "importUnavailableMail": "This deployment cannot send email. Uncheck the email option and import again.",
   "importRejected": "The file was rejected — check its size (max 200 rows) and format.",
-  "importFailedGeneric": "The import failed. Check your connection and try again."
+  "importFailedGeneric": "The import failed. Check your connection and try again.",
+  "createSendEmail": "Email the credentials to the new user",
+  "credentialsEmailed": "The credentials have been emailed to {{email}}.",
+  "credentialsEmailFailed": "The account was created, but the email could not be delivered — copy the password or use the email draft.",
+  "emailOptionUnavailable": "This deployment cannot send email. Uncheck the email option and try again."
 }

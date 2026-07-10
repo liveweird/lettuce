@@ -90,6 +90,10 @@ fun Application.configureUserRoutes() {
                 if (req.password.length < MIN_PASSWORD_LENGTH) {
                     throw BadRequestException("Password must be at least $MIN_PASSWORD_LENGTH characters")
                 }
+                if (req.sendEmail && mailer == null) {
+                    call.respondMailUnavailable("creating with the email option")
+                    return@post
+                }
                 val user = User(
                     name = req.name,
                     email = req.email,
@@ -104,8 +108,29 @@ fun Application.configureUserRoutes() {
                     "email" to user.email,
                     "role" to user.role.name,
                 )
+                // Same welcome email as the mass import; a delivery failure keeps the account
+                // (the modal still reveals the password) and is reported via emailSent=false.
+                val emailSent: Boolean? = if (req.sendEmail) {
+                    try {
+                        mailer!!.send(
+                            user.email,
+                            welcomeEmailSubject(),
+                            welcomeEmailBody(user.name, user.email, req.password, mailAppUrl),
+                        )
+                        true
+                    } catch (e: Exception) {
+                        log.error("Welcome email to ${user.email} failed", e)
+                        false
+                    }
+                } else null
                 call.response.header(HttpHeaders.Location, call.application.href(Users.Id(id = id)))
-                call.respond(HttpStatusCode.Created, user.toResponse(id))
+                // Plain creates keep the pre-sendEmail wire shape (no emailSent key — Ktor's
+                // default Json encodes even null fields, which strict decoders reject).
+                if (emailSent != null) {
+                    call.respond(HttpStatusCode.Created, UserCreateResponse(id, user.name, user.email, user.role, emailSent))
+                } else {
+                    call.respond(HttpStatusCode.Created, user.toResponse(id))
+                }
             }
             post<Users.Import> {
                 val caller = call.caller()

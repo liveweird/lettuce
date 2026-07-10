@@ -35,7 +35,7 @@ function renderCreateUser() {
 
 async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/name/i), "Alice");
-  await user.type(screen.getByLabelText(/email/i), "alice@example.com");
+  await user.type(screen.getByLabelText(/^email$/i), "alice@example.com");
 }
 
 describe("CreateUser page", () => {
@@ -78,6 +78,7 @@ describe("CreateUser page", () => {
       email: "alice@example.com",
       password: expect.stringMatching(PASSWORD_RE),
       role: "USER",
+      sendEmail: false,
     });
     // Masked by default (shoulder-surfing protection); the eye toggle reveals it.
     expect(screen.queryByText(body.password)).not.toBeInTheDocument();
@@ -168,6 +169,64 @@ describe("CreateUser page", () => {
     expect(body).toContain(password);
     // RFC 6068: mailto bodies use CRLF line breaks.
     expect(body).toContain("\r\n");
+  });
+
+  test("the email checkbox posts sendEmail and the modal confirms delivery", async () => {
+    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          id: 42, name: "Alice", email: "alice@example.com", role: "USER", emailSent: true,
+        }),
+        { status: 201, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderCreateUser();
+    await fillValidForm(user);
+    await user.click(screen.getByLabelText(/email the credentials/i));
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+
+    await screen.findByText("User created");
+    expect(JSON.parse(mockFetch.mock.calls[0][1].body).sendEmail).toBe(true);
+    expect(screen.getByText(/credentials have been emailed to alice@example.com/i)).toBeInTheDocument();
+  });
+
+  test("a failed delivery shows the warning but keeps the account flow intact", async () => {
+    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          id: 42, name: "Alice", email: "alice@example.com", role: "USER", emailSent: false,
+        }),
+        { status: 201, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderCreateUser();
+    await fillValidForm(user);
+    await user.click(screen.getByLabelText(/email the credentials/i));
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+
+    await screen.findByText("User created");
+    expect(screen.getByText(/email could not be delivered/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /copy password/i })).toBeInTheDocument();
+  });
+
+  test("503 with the email option shows the mail-unavailable message", async () => {
+    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+    mockFetch.mockResolvedValueOnce(new Response("{}", { status: 503 }));
+
+    const user = userEvent.setup();
+    renderCreateUser();
+    await fillValidForm(user);
+    await user.click(screen.getByLabelText(/email the credentials/i));
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+
+    expect(await screen.findByText(/cannot send email/i)).toBeInTheDocument();
+    expect(screen.queryByText("User created")).not.toBeInTheDocument();
   });
 
   test("409 surfaces an email-field error and keeps the user on the form", async () => {

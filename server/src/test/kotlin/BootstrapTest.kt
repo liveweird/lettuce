@@ -82,6 +82,8 @@ class BootstrapTest {
         configureApp(
             "jwt.secret" to "strong-${UUID.randomUUID()}",
             "security.encryption.key" to strongEncryptionKey(),
+            // The dev-default `log` mail transport is refused in production (see infra/mail).
+            "mail.transport" to "disabled",
         )
         serverConfig { developmentMode = false }
         try {
@@ -101,6 +103,8 @@ class BootstrapTest {
             "bootstrap.adminInitialPassword" to newPassword,
             "jwt.secret" to "strong-${UUID.randomUUID()}",
             "security.encryption.key" to strongEncryptionKey(),
+            // The dev-default `log` mail transport is refused in production (see infra/mail).
+            "mail.transport" to "disabled",
         )
         serverConfig { developmentMode = false }
         try {
