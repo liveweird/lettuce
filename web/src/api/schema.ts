@@ -158,7 +158,9 @@ export interface paths {
          *     importing anything. A delivery failure after creation yields status `EMAIL_FAILED`
          *     (the account exists; the password is still in the row). `created` counts `CREATED`
          *     plus `EMAIL_FAILED` rows; `errors` counts `PARSE_ERROR` plus `ERROR` rows. Caps:
-         *     200 data rows / 256 KiB of CSV per request (`400` beyond either).
+         *     200 data rows / 256 KiB of CSV per request (`400` beyond either). Deliberately not
+         *     rate-limited per IP (unlike the password reset): the endpoint is admin-only and the
+         *     row/size caps already bound the work per request.
          */
         post: operations["importUsers"];
         delete?: never;

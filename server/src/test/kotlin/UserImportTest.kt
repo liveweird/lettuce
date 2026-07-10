@@ -5,9 +5,6 @@ import ch.nokillswit.users.UserImportRequest
 import ch.nokillswit.users.UserImportResponse
 import ch.nokillswit.users.UserImportStatus
 import ch.nokillswit.users.UserRole
-import ch.qos.logback.classic.Logger
-import ch.qos.logback.classic.spi.ILoggingEvent
-import ch.qos.logback.core.read.ListAppender
 import io.ktor.client.call.body
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -20,7 +17,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import org.slf4j.LoggerFactory
 
 /** POST /api/v1/users/import — per-row CSV import with optional welcome emails. */
 class UserImportTest {
@@ -138,19 +134,18 @@ class UserImportTest {
         TestUsers.seed(email = admin, password = "admin-pass-123")
         val client = authedClient(admin, "admin-pass-123")
         val a = uniqueEmail("import-mail-a")
-        val logger = LoggerFactory.getLogger("ch.nokillswit.mail") as Logger
-        val appender = ListAppender<ILoggingEvent>().also { it.start(); logger.addAppender(it) }
+        val mail = LogCapture("ch.nokillswit.mail")
         try {
             val result = client.import("Mail User,$a", sendEmails = true).body<UserImportResponse>()
             assertEquals(UserImportStatus.CREATED, result.rows.single().status)
             val password = result.rows.single().password!!
             // Emails are sent synchronously within the request, so no polling needed.
-            val message = appender.list.map { it.formattedMessage }.singleOrNull { "To: $a" in it }
+            val message = mail.events.map { it.formattedMessage }.singleOrNull { "To: $a" in it }
             assertNotNull(message, "exactly one welcome email for the created row")
             assertTrue(password in message, "the emailed password matches the response row")
             assertTrue("Twoje konto Lettuce" in message, "bilingual welcome content")
         } finally {
-            logger.detachAppender(appender)
+            mail.detach()
         }
     }
 

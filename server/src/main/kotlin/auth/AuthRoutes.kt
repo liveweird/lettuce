@@ -3,11 +3,13 @@ package ch.nokillswit.auth
 import ch.nokillswit.audit.audit
 import ch.nokillswit.authz.TooManyRequestsException
 import ch.nokillswit.authz.UnauthorizedException
-import ch.nokillswit.infra.mail.MailerKey
+import ch.nokillswit.infra.mail.mailAppUrl
+import ch.nokillswit.infra.mail.mailer
+import ch.nokillswit.infra.mail.respondMailUnavailable
 import ch.nokillswit.plugins.JwtConfig
 import ch.nokillswit.plugins.JwtConfigKey
-import ch.nokillswit.plugins.respondProblem
 import ch.nokillswit.users.UserRole
+import ch.nokillswit.users.validateEmail
 import ch.nokillswit.users.UserServiceKey
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
@@ -74,7 +76,7 @@ fun Application.configureAuthRoutes() {
     val jwtConfig = attributes[JwtConfigKey]
     val userService = attributes[UserServiceKey]
     val blocklist = attributes[TokenBlocklistServiceKey]
-    val mailer = attributes[MailerKey].mailer
+    val mailer = mailer()
 
     // Per-account lockout, complementing the per-IP RateLimit below (which rotating hosts
     // sidestep): N consecutive failures for one email → locked for the configured window.
@@ -89,8 +91,7 @@ fun Application.configureAuthRoutes() {
         minIntervalMillis = environment.config
             .property("security.passwordReset.minIntervalSeconds").getString().toLong() * 1000,
     )
-    val mailAppUrl = environment.config
-        .propertyOrNull("mail.appUrl")?.getString()?.takeIf { it.isNotBlank() }
+    val mailAppUrl = mailAppUrl()
 
     // Verifies signature/issuer/audience/expiry of a presented refresh token. Same secret as the
     // access-token verifier in configureSecurity; the `typ` claim is checked separately below.
@@ -201,15 +202,10 @@ fun Application.configureAuthRoutes() {
             // off the request).
             post("/api/v1/password-reset") {
                 val email = call.receive<PasswordResetRequest>().email.trim()
-                if (email.isBlank() || '@' !in email || email.length > 254) {
-                    throw BadRequestException("A valid email address is required")
-                }
+                validateEmail(email)
                 if (mailer == null) {
                     // mail.transport=disabled — the deployment cannot send email at all.
-                    call.respondProblem(
-                        HttpStatusCode.ServiceUnavailable,
-                        "Password reset is not available on this deployment",
-                    )
+                    call.respondMailUnavailable("password reset")
                     return@post
                 }
                 if (!resetThrottle.tryAcquire(email)) {
