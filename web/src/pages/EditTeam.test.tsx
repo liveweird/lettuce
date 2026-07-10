@@ -32,7 +32,7 @@ const MANAGER_POOL = {
 function renderEditTeam(id: number | string = 2) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MantineProvider>
+    <MantineProvider env="test">
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={[`/teams/${id}/edit`]}>
           <Routes>

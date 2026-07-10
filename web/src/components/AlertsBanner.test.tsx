@@ -26,7 +26,7 @@ function renderBanner() {
     defaultOptions: { queries: { retry: false } },
   });
   return render(
-    <MantineProvider>
+    <MantineProvider env="test">
       <QueryClientProvider client={queryClient}>
         <AlertsBanner />
       </QueryClientProvider>

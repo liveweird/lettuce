@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ── Stage 1: build the React SPA ──────────────────────────────────────────────
-FROM node:22-alpine AS web
+FROM node:24-alpine AS web
 RUN apk add --no-cache git
 WORKDIR /web
 # Install deps first for layer caching. --legacy-peer-deps per web/ README
@@ -36,7 +36,7 @@ COPY server/src/ server/src/
 RUN ./gradlew :server:installDist --no-daemon
 
 # ── Stage 3: runtime ──────────────────────────────────────────────────────────
-FROM eclipse-temurin:21-jre AS runtime
+FROM eclipse-temurin:25-jre AS runtime
 WORKDIR /app
 COPY --from=server /src/server/build/install/server/ ./
 COPY --from=web /web/dist web

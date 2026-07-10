@@ -59,7 +59,7 @@ function page(items: unknown[]) {
 function renderScreen(path = "/users/10/feedbacks?name=Alice") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MantineProvider>
+    <MantineProvider env="test">
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={[path]}>
           <Routes>

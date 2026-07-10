@@ -52,7 +52,7 @@ const ACCEPTED_DRAFT = { ...REQUESTED_FEEDBACK, status: "DRAFT" };
 function renderEditFeedback(query = "?subjectName=Mona") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MantineProvider>
+    <MantineProvider env="test">
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={[`/feedback/5/edit${query}`]}>
           <Routes>

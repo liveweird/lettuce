@@ -38,7 +38,7 @@ spec:
                 secretKeyRef:
                   name: lettuce-secrets
                   key: POSTGRES_USER
-          image: postgres:17-alpine
+          image: postgres:18-alpine
           # kompose emits the compose healthcheck as a single-string argv, which
           # exec can't run — keep the command as a proper argv list. The
           # readinessProbe gates the Service endpoint (the compose
@@ -61,7 +61,7 @@ spec:
             - containerPort: 5432
               protocol: TCP
           volumeMounts:
-            - mountPath: /var/lib/postgresql/data
+            - mountPath: /var/lib/postgresql
               name: postgres-data
       restartPolicy: Always
       volumes:

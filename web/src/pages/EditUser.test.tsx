@@ -20,7 +20,7 @@ function renderEditUser(id: number | string = 7) {
     defaultOptions: { queries: { retry: false } },
   });
   return render(
-    <MantineProvider>
+    <MantineProvider env="test">
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={[`/users/${id}/edit`]}>
           <Routes>

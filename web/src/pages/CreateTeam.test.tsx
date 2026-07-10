@@ -20,7 +20,7 @@ function renderCreateTeam() {
     defaultOptions: { queries: { retry: false } },
   });
   return render(
-    <MantineProvider>
+    <MantineProvider env="test">
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={["/teams/new"]}>
           <Routes>

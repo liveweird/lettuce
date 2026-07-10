@@ -22,7 +22,7 @@ function renderApp(route: string) {
     defaultOptions: { queries: { retry: false } },
   });
   return render(
-    <MantineProvider>
+    <MantineProvider env="test">
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={[route]}>
           <App />

@@ -28,7 +28,7 @@ function getReturns(mockFetch: ReturnType<typeof vi.fn>, response: Response) {
 function renderViewTemplate(entry = "/templates/5/view") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MantineProvider>
+    <MantineProvider env="test">
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={[entry]}>
           <Routes>

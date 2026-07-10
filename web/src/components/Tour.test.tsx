@@ -74,7 +74,7 @@ function Replayer() {
 // (to detect managers), so it must render inside both a Router and a QueryClientProvider.
 const renderTour = (ui: ReactNode) =>
   render(
-    <MantineProvider theme={theme}>
+    <MantineProvider env="test" theme={theme}>
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <MemoryRouter>{ui}</MemoryRouter>
       </QueryClientProvider>

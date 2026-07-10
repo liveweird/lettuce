@@ -22,7 +22,7 @@ function PathProbe() {
 function renderAskFeedback(query = "?providerId=10&providerName=Manny%20Manager") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MantineProvider>
+    <MantineProvider env="test">
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={[`/feedback/ask${query}`]}>
           <Routes>
