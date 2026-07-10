@@ -18,6 +18,7 @@ ktor:
       - ch.nokillswit.plugins.AutoHeadResponseKt.configureAutoHeadResponse
       - ch.nokillswit.plugins.ResourcesKt.configureResources
       # — infrastructure
+      - ch.nokillswit.infra.mail.MailKt.configureMail
       - ch.nokillswit.infra.crypto.CryptoKt.configureCrypto
       - ch.nokillswit.infra.db.FlywayKt.configureFlyway
       - ch.nokillswit.infra.db.DatabaseKt.configureDatabase
@@ -40,6 +41,11 @@ security:
   lockout:
     threshold: "$LOGIN_LOCKOUT_THRESHOLD:5"
     durationSeconds: "$LOGIN_LOCKOUT_DURATION_SECONDS:900"
+  # Self-service password reset (POST /api/v1/password-reset): one request per
+  # submitted email per interval, uniformly whether or not the account exists.
+  # In-memory, per-instance, like the lockout above.
+  passwordReset:
+    minIntervalSeconds: "$PASSWORD_RESET_MIN_INTERVAL_SECONDS:60"
   csrf:
     # TEMPLATE PLACEHOLDER — CSRF protection is off by default because this API
     # authenticates via bearer JWT in the Authorization header, which browsers
@@ -97,6 +103,24 @@ web:
   # assets + SPA fallback to index.html). Empty in local dev, where Vite serves
   # the SPA on :5173; set to /app/web inside the Docker image.
   staticDir: "$WEB_STATIC_DIR:"
+
+mail:
+  # Outbound-email transport (infra/mail/Mail.kt): `log` (dev default — messages,
+  # including generated passwords, go to the ch.nokillswit.mail logger instead of
+  # being sent; production startup REFUSES it), `smtp` (real delivery; blank host
+  # refuses startup in any mode), or `disabled` (the Docker image default — the
+  # password-reset endpoint answers 503).
+  transport: "$MAIL_TRANSPORT:log"
+  smtp:
+    host: "$SMTP_HOST:"
+    port: "$SMTP_PORT:587"
+    user: "$SMTP_USER:"
+    password: "$SMTP_PASSWORD:"
+    startTls: "$SMTP_STARTTLS:true"
+  from: "$MAIL_FROM:lettuce@localhost"
+  # Optional absolute URL of this deployment (e.g. https://lettuce.example.com);
+  # when set, outbound emails include a sign-in link.
+  appUrl: "$MAIL_APP_URL:"
 
 postgres:
   jdbcUrl: "$POSTGRES_JDBC_URL:jdbc:postgresql://localhost:5432/lettuce"

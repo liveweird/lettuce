@@ -16,7 +16,8 @@ describe("Changelog", () => {
     expect(screen.getByRole("heading", { level: 2, name: "Changelog" })).toBeInTheDocument();
     for (const entry of CHANGELOG) {
       expect(screen.getByText(`v${entry.version}`)).toBeInTheDocument();
-      expect(screen.getByText(entry.date)).toBeInTheDocument();
+      // Same-day releases repeat a date, so match at-least-one rather than exactly-one.
+      expect(screen.getAllByText(entry.date).length).toBeGreaterThan(0);
     }
   });
 

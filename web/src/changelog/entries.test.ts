@@ -6,10 +6,15 @@ describe("changelog entries", () => {
     expect(APP_VERSION).toBe(CHANGELOG[0].version);
   });
 
-  test("entries are sorted newest first with strictly descending dates", () => {
+  test("entries are sorted newest first (same-day releases keep authoring order)", () => {
     for (let i = 1; i < CHANGELOG.length; i++) {
-      expect(CHANGELOG[i - 1].date > CHANGELOG[i].date).toBe(true);
+      expect(CHANGELOG[i - 1].date >= CHANGELOG[i].date).toBe(true);
     }
+  });
+
+  test("versions are unique", () => {
+    const versions = CHANGELOG.map((e) => e.version);
+    expect(new Set(versions).size).toBe(versions.length);
   });
 
   test("every entry has a version, an ISO date, and both language bodies", () => {

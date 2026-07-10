@@ -33,6 +33,8 @@ Chromium binaries are already installed (the e2e suite uses them).
 - **Clipboard:** Mantine `CopyButton` only flips to "Copied" when the copy succeeds; headless Chromium needs `browser.newContext({ permissions: ["clipboard-read", "clipboard-write"] })`.
 - **Login:** seed admin `admin@lettuce.local` / `changeme`. Keep logins to a minimum — the per-IP `/login` rate limit produces roaming 429s.
 - **Language probe:** `await page.evaluate(() => localStorage.setItem("lettuce.lang", "pl"))` + reload switches the UI to Polish.
+- **Lazy-route fill race (production bundle only):** after clicking a link to another SPA route, `waitForURL` passes while the OLD page is still rendered (React Router flips the URL before the lazy chunk mounts — instant in Vite dev, slow enough to bite against the built bundle). A locator that matches fields on both pages (e.g. "Email" on login *and* reset-password) silently fills the old page's input, which then unmounts. Always `waitFor()` an element unique to the target page before filling.
+- **Rate-limit self-interference:** `/login`, `/refresh`, and `/password-reset` share small per-IP token buckets (10, 30, and 5 per minute). Curl "warm-up probes" against those endpoints eat the budget of the Playwright run that follows — probe readiness via `GET /` instead, or `docker restart lettuce-app` to reset the in-memory buckets.
 
 ## Cleanup
 

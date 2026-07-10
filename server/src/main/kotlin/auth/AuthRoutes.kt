@@ -3,8 +3,10 @@ package ch.nokillswit.auth
 import ch.nokillswit.audit.audit
 import ch.nokillswit.authz.TooManyRequestsException
 import ch.nokillswit.authz.UnauthorizedException
+import ch.nokillswit.infra.mail.MailerKey
 import ch.nokillswit.plugins.JwtConfig
 import ch.nokillswit.plugins.JwtConfigKey
+import ch.nokillswit.plugins.respondProblem
 import ch.nokillswit.users.UserRole
 import ch.nokillswit.users.UserServiceKey
 import com.auth0.jwt.JWT
@@ -15,6 +17,7 @@ import io.ktor.server.application.*
 import io.ktor.server.auth.authenticate
 import io.ktor.server.auth.jwt.JWTPrincipal
 import io.ktor.server.auth.principal
+import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.plugins.origin
 import io.ktor.server.plugins.ratelimit.RateLimit
 import io.ktor.server.plugins.ratelimit.RateLimitName
@@ -24,14 +27,19 @@ import io.ktor.server.request.receiveNullable
 import io.ktor.server.response.respond
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
+import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlin.time.Duration.Companion.seconds
 
 private const val LOGIN_RATE_LIMIT = "login"
 private const val REFRESH_RATE_LIMIT = "refresh"
+private const val PASSWORD_RESET_RATE_LIMIT = "password-reset"
 
 @Serializable
 data class LoginRequest(val email: String, val password: String)
+
+@Serializable
+data class PasswordResetRequest(val email: String)
 
 @Serializable
 data class RefreshRequest(val refreshToken: String)
@@ -66,6 +74,7 @@ fun Application.configureAuthRoutes() {
     val jwtConfig = attributes[JwtConfigKey]
     val userService = attributes[UserServiceKey]
     val blocklist = attributes[TokenBlocklistServiceKey]
+    val mailer = attributes[MailerKey].mailer
 
     // Per-account lockout, complementing the per-IP RateLimit below (which rotating hosts
     // sidestep): N consecutive failures for one email → locked for the configured window.
@@ -73,6 +82,15 @@ fun Application.configureAuthRoutes() {
         threshold = environment.config.property("security.lockout.threshold").getString().toInt(),
         lockoutMillis = environment.config.property("security.lockout.durationSeconds").getString().toLong() * 1000,
     )
+
+    // Self-service password reset: one request per submitted email per interval, uniformly
+    // whether or not the account exists (the 429 carries no enumeration signal).
+    val resetThrottle = PasswordResetThrottle(
+        minIntervalMillis = environment.config
+            .property("security.passwordReset.minIntervalSeconds").getString().toLong() * 1000,
+    )
+    val mailAppUrl = environment.config
+        .propertyOrNull("mail.appUrl")?.getString()?.takeIf { it.isNotBlank() }
 
     // Verifies signature/issuer/audience/expiry of a presented refresh token. Same secret as the
     // access-token verifier in configureSecurity; the `typ` claim is checked separately below.
@@ -90,6 +108,10 @@ fun Application.configureAuthRoutes() {
         }
         register(RateLimitName(REFRESH_RATE_LIMIT)) {
             rateLimiter(limit = 30, refillPeriod = 60.seconds)
+            requestKey { call -> call.request.origin.remoteHost }
+        }
+        register(RateLimitName(PASSWORD_RESET_RATE_LIMIT)) {
+            rateLimiter(limit = 5, refillPeriod = 60.seconds)
             requestKey { call -> call.request.origin.remoteHost }
         }
     }
@@ -169,6 +191,59 @@ fun Application.configureAuthRoutes() {
                     reject("predates_password_change", rawUserId)
                 }
                 call.respond(jwtConfig.authResponse(userId, user.email, user.role))
+            }
+        }
+        rateLimit(RateLimitName(PASSWORD_RESET_RATE_LIMIT)) {
+            // Self-service reset: generate a new password and email it. Always 202 for a
+            // well-formed request — existence of the account must not be observable, so the
+            // actual work happens asynchronously after the response (uniform latency, no
+            // timing oracle: the lookup, bcrypt hash, and SMTP round-trip all take place
+            // off the request).
+            post("/api/v1/password-reset") {
+                val email = call.receive<PasswordResetRequest>().email.trim()
+                if (email.isBlank() || '@' !in email || email.length > 254) {
+                    throw BadRequestException("A valid email address is required")
+                }
+                if (mailer == null) {
+                    // mail.transport=disabled — the deployment cannot send email at all.
+                    call.respondProblem(
+                        HttpStatusCode.ServiceUnavailable,
+                        "Password reset is not available on this deployment",
+                    )
+                    return@post
+                }
+                if (!resetThrottle.tryAcquire(email)) {
+                    audit("password_reset.throttled", "email" to email)
+                    throw TooManyRequestsException(
+                        "Only one password reset per minute per address — try again shortly",
+                    )
+                }
+                audit("password_reset.requested", "email" to email)
+                val app = call.application
+                app.launch {
+                    try {
+                        val record = userService.findWithIdByEmail(email)
+                        if (record == null) {
+                            audit("password_reset.unknown_email", "email" to email)
+                            return@launch
+                        }
+                        val (userId, user) = record
+                        val newPassword = generatePassword()
+                        // Send FIRST, then store: a delivery failure leaves the old password
+                        // working; a storage failure after delivery is recoverable by retrying.
+                        mailer.send(
+                            to = user.email,
+                            subject = passwordResetEmailSubject(),
+                            body = passwordResetEmailBody(user.name, newPassword, mailAppUrl),
+                        )
+                        userService.updatePassword(userId, hashPassword(newPassword))
+                        audit("password_reset.completed", "email" to user.email, "userId" to userId.toLong())
+                    } catch (e: Exception) {
+                        audit("password_reset.send_failed", "email" to email, "error" to e.message)
+                        app.log.error("Password-reset email delivery failed for $email", e)
+                    }
+                }
+                call.respond(HttpStatusCode.Accepted)
             }
         }
         authenticate {

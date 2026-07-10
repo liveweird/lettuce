@@ -105,6 +105,14 @@ describe("Login page", () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
+  test("links to the password-reset page", () => {
+    renderWithProviders(<Login />, { route: "/login" });
+    expect(screen.getByRole("link", { name: /forgot password/i })).toHaveAttribute(
+      "href",
+      "/reset-password",
+    );
+  });
+
   test("shows a 'signed out' banner after the user logs out, hidden on first interaction", async () => {
     const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
     mockFetch.mockResolvedValueOnce(new Response(null, { status: 204 }));
