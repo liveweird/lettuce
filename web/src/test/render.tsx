@@ -17,7 +17,7 @@ export function renderWithProviders(ui: ReactElement, options: Options = {}) {
   });
   return render(ui, {
     wrapper: ({ children }) => (
-      <MantineProvider theme={theme}>
+      <MantineProvider env="test" theme={theme}>
         <QueryClientProvider client={queryClient}>
           <MemoryRouter initialEntries={[route]}>{children}</MemoryRouter>
         </QueryClientProvider>

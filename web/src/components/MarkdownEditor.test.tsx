@@ -48,7 +48,7 @@ vi.mock("@mdxeditor/editor", () => ({
 }));
 
 function renderEditor(ui: React.ReactElement, colorScheme: "light" | "dark" = "light") {
-  return render(<MantineProvider forceColorScheme={colorScheme}>{ui}</MantineProvider>);
+  return render(<MantineProvider env="test" forceColorScheme={colorScheme}>{ui}</MantineProvider>);
 }
 
 afterEach(cleanup);
@@ -97,7 +97,7 @@ describe("MarkdownEditor", () => {
     // A value change that did not originate from typing (e.g. template insert) is pushed in
     // imperatively, which the mock surfaces as an onChange.
     rerender(
-      <MantineProvider forceColorScheme="light">
+      <MantineProvider env="test" forceColorScheme="light">
         <MarkdownEditor value="two" onChange={onChange} label="Content" />
       </MantineProvider>,
     );

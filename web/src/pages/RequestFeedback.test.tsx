@@ -42,7 +42,7 @@ function setupMocks(mockFetch: FetchMock, onFeedbacks: (init?: RequestInit) => R
 function renderRequestFeedback(query = "?subjectId=7&subjectName=Mona") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MantineProvider>
+    <MantineProvider env="test">
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={[`/feedback/request${query}`]}>
           <Routes>

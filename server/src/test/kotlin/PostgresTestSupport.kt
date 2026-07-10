@@ -4,7 +4,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer
 
 object PostgresTestSupport {
     private val container: PostgreSQLContainer by lazy {
-        PostgreSQLContainer("postgres:17-alpine").apply {
+        PostgreSQLContainer("postgres:18-alpine").apply {
             withDatabaseName("lettuce_test")
             withUsername("lettuce")
             withPassword("lettuce")

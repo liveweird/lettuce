@@ -41,7 +41,7 @@ function isPoolUrl(url: string) {
 function renderTeamMembers(id: number | string = 3) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MantineProvider>
+    <MantineProvider env="test">
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={[`/teams/${id}/members`]}>
           <Routes>

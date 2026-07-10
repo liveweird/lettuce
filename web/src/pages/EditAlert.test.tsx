@@ -25,7 +25,7 @@ function renderEditAlert(entry = "/alerts/5/edit") {
     defaultOptions: { queries: { retry: false } },
   });
   return render(
-    <MantineProvider>
+    <MantineProvider env="test">
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={[entry]}>
           <Routes>

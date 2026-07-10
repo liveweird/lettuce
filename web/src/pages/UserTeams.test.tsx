@@ -52,7 +52,7 @@ function isAllTeamsUrl(url: string) {
 function renderUserTeams(id: number | string = 7, search = "") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MantineProvider>
+    <MantineProvider env="test">
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={[`/users/${id}/teams${search}`]}>
           <Routes>

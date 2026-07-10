@@ -27,7 +27,7 @@ function PathProbe() {
 function renderSelfReflection() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MantineProvider>
+    <MantineProvider env="test">
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={["/feedback/self"]}>
           <Routes>

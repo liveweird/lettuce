@@ -26,7 +26,7 @@ function PathProbe() {
 function renderCreateFeedback(query = "?subjectId=5&subjectName=Mona") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MantineProvider>
+    <MantineProvider env="test">
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={[`/feedback/new${query}`]}>
           <Routes>
@@ -191,7 +191,7 @@ describe("CreateFeedback page", () => {
     const back = "/users/10/feedbacks?name=Alice";
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
-      <MantineProvider>
+      <MantineProvider env="test">
         <QueryClientProvider client={queryClient}>
           <MemoryRouter
             initialEntries={[
