@@ -10,7 +10,9 @@
     "discard": "Odrzuć",
     "keepEditing": "Kontynuuj edycję",
     "logout": "Wyloguj",
-    "copy": "Skopiuj"
+    "copy": "Skopiuj",
+    "showPassword": "Pokaż hasło",
+    "hidePassword": "Ukryj hasło"
   },
   "state": {
     "loading": "Ładowanie…",

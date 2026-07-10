@@ -79,7 +79,13 @@ describe("CreateUser page", () => {
       password: expect.stringMatching(PASSWORD_RE),
       role: "USER",
     });
+    // Masked by default (shoulder-surfing protection); the eye toggle reveals it.
+    expect(screen.queryByText(body.password)).not.toBeInTheDocument();
+    expect(screen.getByText("*".repeat(body.password.length))).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /show password/i }));
     expect(screen.getByText(body.password)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /hide password/i }));
+    expect(screen.queryByText(body.password)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /copy password/i })).toBeInTheDocument();
     // Still on the form route until the admin closes the confirmation.
     expect(screen.queryByTestId("probe")).not.toBeInTheDocument();

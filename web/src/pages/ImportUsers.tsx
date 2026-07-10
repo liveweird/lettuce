@@ -6,9 +6,7 @@ import {
   Badge,
   Button,
   Checkbox,
-  Code,
   Container,
-  CopyButton,
   FileInput,
   Group,
   Paper,
@@ -19,6 +17,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { IconUpload } from "@tabler/icons-react";
+import RevealablePassword from "../components/RevealablePassword";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ApiError,
@@ -152,20 +151,7 @@ export default function ImportUsers() {
                         </Tooltip>
                       </Table.Td>
                       <Table.Td>
-                        {row.password ? (
-                          <Group gap="xs" wrap="nowrap">
-                            <Code>{row.password}</Code>
-                            <CopyButton value={row.password}>
-                              {({ copied, copy }) => (
-                                <Button size="compact-xs" variant="light" onClick={copy}>
-                                  {copied ? t("users.passwordCopied") : t("common.action.copy")}
-                                </Button>
-                              )}
-                            </CopyButton>
-                          </Group>
-                        ) : (
-                          "—"
-                        )}
+                        {row.password ? <RevealablePassword password={row.password} compact /> : "—"}
                       </Table.Td>
                     </Table.Tr>
                   ))}

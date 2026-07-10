@@ -5,9 +5,7 @@ import {
   Alert,
   Button,
   CloseButton,
-  Code,
   Container,
-  CopyButton,
   Group,
   Modal,
   Paper,
@@ -21,6 +19,7 @@ import { IconMail } from "@tabler/icons-react";
 import { hasLength, useForm } from "@mantine/form";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError, createUser, isAdmin, type UserRole } from "../api/client";
+import RevealablePassword from "../components/RevealablePassword";
 import { generatePassword } from "../utils/password";
 import { saveErrorMessage } from "../utils/saveError";
 
@@ -190,18 +189,7 @@ export default function CreateUser() {
         {created && (
           <Stack gap="md">
             <Text>{t("users.generatedPasswordNote", { email: created.email })}</Text>
-            <Group gap="sm" wrap="nowrap">
-              <Code fz="md" px="sm" py={6} style={{ flex: 1, userSelect: "all" }}>
-                {created.password}
-              </Code>
-              <CopyButton value={created.password}>
-                {({ copied, copy }) => (
-                  <Button variant="light" onClick={copy}>
-                    {copied ? t("users.passwordCopied") : t("users.copyPassword")}
-                  </Button>
-                )}
-              </CopyButton>
-            </Group>
+            <RevealablePassword password={created.password} copyLabel={t("users.copyPassword")} />
             <Group justify="space-between">
               <Button component="a" href={mailtoHref} variant="light" leftSection={<IconMail size={16} />}>
                 {t("users.composeOnboardingEmail")}

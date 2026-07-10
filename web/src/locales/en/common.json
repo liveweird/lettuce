@@ -10,7 +10,9 @@
     "discard": "Discard",
     "keepEditing": "Keep editing",
     "logout": "Logout",
-    "copy": "Copy"
+    "copy": "Copy",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
   },
   "state": {
     "loading": "Loading…",
