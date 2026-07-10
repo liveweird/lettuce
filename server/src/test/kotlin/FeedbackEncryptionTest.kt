@@ -194,6 +194,8 @@ class FeedbackEncryptionTest {
         configureApp(
             "jwt.secret" to "strong-${java.util.UUID.randomUUID()}",
             "bootstrap.adminInitialPassword" to "rotated-${java.util.UUID.randomUUID()}",
+            // The dev-default `log` mail transport is refused in production (see infra/mail).
+            "mail.transport" to "disabled",
         )
         serverConfig { developmentMode = false }
         try {

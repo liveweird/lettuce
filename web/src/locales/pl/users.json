@@ -89,7 +89,7 @@
   "importTitle": "Masowy import użytkowników",
   "importFormatHint": "Wgraj plik CSV z jednym użytkownikiem w wierszu, w formacie: nazwa,e-mail. Opcjonalny wiersz nagłówka \"name,email\" jest pomijany. Każdy zaimportowany użytkownik dostaje rolę Użytkownik i wygenerowane hasło.",
   "importFile": "Plik CSV",
-  "importSendEmails": "Czy chcesz wysłać e-mail do nowych użytkowników?",
+  "importSendEmails": "Wyślij nowym użytkownikom e-mail z danymi logowania",
   "importRun": "Importuj",
   "importSummary": "Utworzeni: {{created}} · Duplikaty: {{duplicates}} · Błędy: {{errors}}",
   "importPasswordsOnce": "Wygenerowane hasła są widoczne poniżej tylko raz — skopiuj je teraz, jeśli ich potrzebujesz. Po opuszczeniu tej strony nie będzie można ich ponownie wyświetlić.",
@@ -103,7 +103,10 @@
     "EMAIL_FAILED": "Utworzony, e-mail nie doszedł",
     "ERROR": "Błąd"
   },
-  "importUnavailableMail": "Ta instalacja nie może wysyłać e-maili. Odznacz opcję e-maila i zaimportuj ponownie.",
   "importRejected": "Plik został odrzucony — sprawdź jego rozmiar (maks. 200 wierszy) i format.",
-  "importFailedGeneric": "Import nie powiódł się. Sprawdź połączenie i spróbuj ponownie."
+  "importFailedGeneric": "Import nie powiódł się. Sprawdź połączenie i spróbuj ponownie.",
+  "createSendEmail": "Wyślij nowemu użytkownikowi e-mail z danymi logowania",
+  "credentialsEmailed": "Wysłaliśmy dane logowania na adres {{email}}.",
+  "credentialsEmailFailed": "Utworzyliśmy konto, ale e-mail nie dotarł — skopiuj hasło albo użyj szkicu wiadomości.",
+  "emailOptionUnavailable": "Ta instalacja nie może wysyłać e-maili. Odznacz opcję e-maila i spróbuj ponownie."
 }

@@ -57,6 +57,8 @@ class SecurityConfigTest {
             // isolation. Seed state is restored afterwards.
             "bootstrap.adminInitialPassword" to "rotated-${UUID.randomUUID()}",
             "security.encryption.key" to strongEncryptionKey(),
+            // The dev-default `log` mail transport is refused in production (see infra/mail).
+            "mail.transport" to "disabled",
         )
         serverConfig { developmentMode = false }
         try {

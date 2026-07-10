@@ -38,7 +38,7 @@ async function uploadAndImport(user: ReturnType<typeof userEvent.setup>, sendEma
   // userEvent.upload must target the real <input type="file">.
   const input = document.querySelector<HTMLInputElement>('input[type="file"]')!;
   await user.upload(input, file);
-  if (sendEmails) await user.click(screen.getByLabelText(/send the e-mail/i));
+  if (sendEmails) await user.click(screen.getByLabelText(/email the credentials/i));
   await user.click(screen.getByRole("button", { name: /^import$/i }));
 }
 

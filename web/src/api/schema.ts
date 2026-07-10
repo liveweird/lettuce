@@ -128,6 +128,10 @@ export interface paths {
         /**
          * Create a user
          * @description Requires ADMIN. If the request body omits `role`, the new user defaults to `USER`.
+         *     With `sendEmail: true` the new user is emailed their credentials (the same bilingual
+         *     welcome message as the mass import); `emailSent` in the response reports the delivery
+         *     outcome (a failure keeps the account). Rejected with `503` before creating anything
+         *     when the deployment has no outbound email (`MAIL_TRANSPORT=disabled`).
          */
         post: operations["createUser"];
         delete?: never;
@@ -1002,6 +1006,21 @@ export interface components {
              * @enum {string}
              */
             role?: "ADMIN" | "USER";
+            /**
+             * @description Create only — email the new user their credentials (the bilingual welcome message). Rejected with 503 on a deployment without outbound email.
+             * @default false
+             */
+            sendEmail: boolean;
+        };
+        UserCreateResponse: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            email: string;
+            /** @enum {string} */
+            role: "ADMIN" | "USER";
+            /** @description Present only when sendEmail was requested — false means the delivery failed (the account exists regardless; the password is still shown once). */
+            emailSent?: boolean | null;
         };
         UserUpdateRequest: {
             name: string;
@@ -1654,7 +1673,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UserResponse"];
+                    "application/json": components["schemas"]["UserCreateResponse"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -1678,6 +1697,15 @@ export interface operations {
                 };
             };
             500: components["responses"]["InternalServerError"];
+            /** @description This deployment cannot send email (sendEmail requested) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
         };
     };
     importUsers: {

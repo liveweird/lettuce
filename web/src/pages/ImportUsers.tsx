@@ -60,7 +60,7 @@ export default function ImportUsers() {
       // 503 (deployment without email) is outside saveErrorMessage's vocabulary — special-case
       // it, delegate the rest per convention.
       if (err instanceof ApiError && err.status === 503) {
-        setError(t("users.importUnavailableMail"));
+        setError(t("users.emailOptionUnavailable"));
       } else {
         setError(
           saveErrorMessage(err, t, {

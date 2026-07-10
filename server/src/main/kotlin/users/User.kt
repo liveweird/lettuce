@@ -23,6 +23,20 @@ data class UserRequest(
     val email: String,
     val password: String,
     val role: UserRole? = null,
+    // Create only (PUT ignores it): email the new user their credentials (users/WelcomeEmail.kt),
+    // like the mass import's sendEmails option. 503 on a mail-less deployment.
+    val sendEmail: Boolean = false,
+)
+
+@Serializable
+data class UserCreateResponse(
+    val id: UInt,
+    val name: String,
+    val email: String,
+    val role: UserRole,
+    // Only present when the create requested an email: true = handed to SMTP, false = delivery
+    // failed (the account exists either way — the modal still shows the password).
+    val emailSent: Boolean? = null,
 )
 
 @Serializable

@@ -4,6 +4,7 @@ import { Link as RouterLink, Navigate, useNavigate } from "react-router-dom";
 import {
   Alert,
   Button,
+  Checkbox,
   CloseButton,
   Container,
   Group,
@@ -39,9 +40,13 @@ export default function CreateUser() {
   const [submitting, setSubmitting] = useState(false);
   // Set on successful creation; the confirmation modal is the ONLY place this password ever
   // appears (the server stores just a bcrypt hash), so closing the modal discards it for good.
-  const [created, setCreated] = useState<{ email: string; name: string; password: string } | null>(
-    null,
-  );
+  const [sendEmail, setSendEmail] = useState(false);
+  const [created, setCreated] = useState<{
+    email: string;
+    name: string;
+    password: string;
+    emailSent: boolean | null;
+  } | null>(null);
 
   const form = useForm<FormValues>({
     initialValues: { name: "", email: "", role: "USER" },
@@ -64,13 +69,21 @@ export default function CreateUser() {
     setSubmitting(true);
     const password = generatePassword();
     try {
-      await createUser({ ...values, password });
+      const res = await createUser({ ...values, password, sendEmail });
       await queryClient.invalidateQueries({ queryKey: ["users"] });
-      setCreated({ email: values.email, name: values.name, password });
+      setCreated({
+        email: values.email,
+        name: values.name,
+        password,
+        emailSent: res.emailSent ?? null,
+      });
     } catch (err) {
       // A duplicate email is a field-level problem, not a page-level one.
       if (err instanceof ApiError && err.status === 409) {
         form.setFieldError("email", t("users.emailAlreadyInUse"));
+      } else if (err instanceof ApiError && err.status === 503) {
+        // Deployment without outbound email — outside saveErrorMessage's vocabulary.
+        setError(t("users.emailOptionUnavailable"));
       } else {
         setError(
           saveErrorMessage(err, t, {
@@ -161,6 +174,11 @@ export default function CreateUser() {
               allowDeselect={false}
               {...form.getInputProps("role")}
             />
+            <Checkbox
+              label={t("users.createSendEmail")}
+              checked={sendEmail}
+              onChange={(e) => setSendEmail(e.currentTarget.checked)}
+            />
             {error && (
               <Alert color="red" variant="light">
                 {error}
@@ -192,6 +210,16 @@ export default function CreateUser() {
           <Stack gap="md">
             <Text>{t("users.generatedPasswordNote", { email: created.email })}</Text>
             <RevealablePassword password={created.password} copyLabel={t("users.copyPassword")} />
+            {created.emailSent === true && (
+              <Alert color="teal" variant="light">
+                {t("users.credentialsEmailed", { email: created.email })}
+              </Alert>
+            )}
+            {created.emailSent === false && (
+              <Alert color="orange" variant="light">
+                {t("users.credentialsEmailFailed")}
+              </Alert>
+            )}
             <Group justify="space-between">
               <Button component="a" href={mailtoHref} variant="light" leftSection={<IconMail size={16} />}>
                 {t("users.composeOnboardingEmail")}
