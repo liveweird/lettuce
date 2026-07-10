@@ -17,6 +17,7 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
+import { IconMail } from "@tabler/icons-react";
 import { hasLength, useForm } from "@mantine/form";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError, createUser, isAdmin, type UserRole } from "../api/client";
@@ -39,7 +40,9 @@ export default function CreateUser() {
   const [submitting, setSubmitting] = useState(false);
   // Set on successful creation; the confirmation modal is the ONLY place this password ever
   // appears (the server stores just a bcrypt hash), so closing the modal discards it for good.
-  const [created, setCreated] = useState<{ email: string; password: string } | null>(null);
+  const [created, setCreated] = useState<{ email: string; name: string; password: string } | null>(
+    null,
+  );
 
   const form = useForm<FormValues>({
     initialValues: { name: "", email: "", role: "USER" },
@@ -64,7 +67,7 @@ export default function CreateUser() {
     try {
       await createUser({ ...values, password });
       await queryClient.invalidateQueries({ queryKey: ["users"] });
-      setCreated({ email: values.email, password });
+      setCreated({ email: values.email, name: values.name, password });
     } catch (err) {
       // A duplicate email is a field-level problem, not a page-level one.
       if (err instanceof ApiError && err.status === 409) {
@@ -87,6 +90,23 @@ export default function CreateUser() {
     setCreated(null);
     navigate("/users", { replace: true });
   }
+
+  // Pre-filled onboarding draft for the admin's local mail client. Built entirely client-side —
+  // the password never travels anywhere until the admin actually hits Send in their mail app.
+  // RFC 6068: the recipient's "@" must stay literal (clients don't decode %40 in the To field);
+  // everything else in the address is percent-encoded as usual.
+  const mailtoHref = created
+    ? `mailto:${encodeURIComponent(created.email).replace(/%40/g, "@")}` +
+      `?subject=${encodeURIComponent(t("users.onboardingEmailSubject"))}` +
+      `&body=${encodeURIComponent(
+        t("users.onboardingEmailBody", {
+          name: created.name,
+          url: window.location.origin,
+          password: created.password,
+          // RFC 6068 mandates CRLF line breaks in mailto bodies.
+        }).replace(/\n/g, "\r\n"),
+      )}`
+    : undefined;
 
   return (
     <Container size="xs" px={0}>
@@ -182,7 +202,10 @@ export default function CreateUser() {
                 )}
               </CopyButton>
             </Group>
-            <Group justify="flex-end">
+            <Group justify="space-between">
+              <Button component="a" href={mailtoHref} variant="light" leftSection={<IconMail size={16} />}>
+                {t("users.composeOnboardingEmail")}
+              </Button>
               <Button onClick={closeConfirmation}>{t("common.action.close")}</Button>
             </Group>
           </Stack>

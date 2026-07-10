@@ -132,6 +132,38 @@ describe("CreateUser page", () => {
     await expect(window.navigator.clipboard.readText()).resolves.toBe(password);
   });
 
+  test("onboarding-email link opens a pre-filled mailto draft", async () => {
+    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ id: 42, name: "Alice", email: "alice@example.com", role: "USER" }),
+        { status: 201, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderCreateUser();
+
+    await fillValidForm(user);
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+    await screen.findByText("User created");
+    const password = JSON.parse(mockFetch.mock.calls[0][1].body).password;
+
+    const link = screen.getByRole("link", { name: /compose onboarding email/i });
+    const href = link.getAttribute("href")!;
+    // RFC 6068: the "@" must stay literal or mail clients leave the To: field empty.
+    expect(href).toMatch(/^mailto:alice@example\.com\?/);
+
+    const params = new URLSearchParams(href.slice(href.indexOf("?") + 1));
+    expect(params.get("subject")).toBe("Your Lettuce account is ready");
+    const body = params.get("body")!;
+    expect(body).toContain("Hi Alice,");
+    expect(body).toContain(`Sign in at ${window.location.origin}`);
+    expect(body).toContain(password);
+    // RFC 6068: mailto bodies use CRLF line breaks.
+    expect(body).toContain("\r\n");
+  });
+
   test("409 surfaces an email-field error and keeps the user on the form", async () => {
     const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
     mockFetch.mockResolvedValueOnce(
