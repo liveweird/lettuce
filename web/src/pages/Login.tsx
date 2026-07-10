@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Alert,
+  Anchor,
   Button,
   Center,
   Paper,
@@ -100,6 +101,9 @@ export default function Login() {
               <Button type="submit" loading={submitting} fullWidth>
                 {t("auth.signIn")}
               </Button>
+              <Anchor component={RouterLink} to="/reset-password" size="sm" ta="center">
+                {t("auth.forgotPassword")}
+              </Anchor>
             </Stack>
           </form>
         </Paper>

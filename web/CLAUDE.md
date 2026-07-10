@@ -18,7 +18,7 @@ The typed fetch wrapper lives in `web/src/api/client.ts` — token storage (loca
 The user-facing changelog is a **build-time artifact** — no DB, no API, changes only with a deploy. `web/src/changelog/entries.ts` holds `ChangelogEntry` rows (`version`, `date` `YYYY-MM-DD`, `en`/`pl` **markdown** bodies), newest first, and exports `APP_VERSION = CHANGELOG[0].version` — the app's only human-readable version. **Adding an entry at the top IS the release/version bump**; there is no other version constant to update (the Gradle `1.0.0-SNAPSHOT` is unrelated). Release convention:
 
 - Write both language bodies by hand (or LLM) — never derive them from commit messages. Bodies are *content*, so they live in the data file, not `locales/`; the PL body follows the Polish style rules below (declined loanword `feedback`, inclusive slash forms, active voice).
-- Keep dates strictly descending and both bodies non-empty — pinned by `web/src/changelog/entries.test.ts`.
+- Keep dates descending (same-day releases are fine — newest stays on top), versions unique, and both bodies non-empty — pinned by `web/src/changelog/entries.test.ts`.
 - Keep phrases that tests assert on in plain text runs: markdown formatting splits text nodes, and testing-library's `getByText` matches direct text nodes only.
 
 Rendering & UI wiring:

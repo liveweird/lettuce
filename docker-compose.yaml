@@ -19,6 +19,15 @@ services:
       timeout: 5s
       retries: 5
 
+  mailpit:
+    # Local mail catcher for the demo: the app delivers password-reset emails here.
+    # Read them at http://localhost:8025.
+    image: axllent/mailpit
+    container_name: lettuce-mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+
   app:
     build:
       context: .
@@ -46,6 +55,14 @@ services:
       # BURNED (production mode refuses it). Set your own: `openssl rand -hex 32`. Changing
       # it after data exists requires the rotation procedure (DATA_ENCRYPTION_KEY_PREVIOUS).
       DATA_ENCRYPTION_KEY: "${DATA_ENCRYPTION_KEY:-63c71985aa36dfe66c2cb0fa341e8c9cd365734ad562b64c22a2c96674d515d6}"
+      # Deliver password-reset emails to the bundled Mailpit (UI at :8025) so the
+      # self-service reset flow is fully functional in the demo.
+      MAIL_TRANSPORT: smtp
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_STARTTLS: "false"
+      MAIL_FROM: lettuce@localhost
+      MAIL_APP_URL: http://localhost:8080
     ports:
       - "8080:8080"
     # Ceiling for the tuned JVM (SerialGC + -Xmx256m + C1, baked into bin/server): ~270 MiB RSS

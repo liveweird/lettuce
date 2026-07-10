@@ -61,6 +61,7 @@ const EditFeedback = lazy(() => import("./pages/EditFeedback"));
 const ViewFeedback = lazy(() => import("./pages/ViewFeedback"));
 const ManagerFeedbacks = lazy(() => import("./pages/ManagerFeedbacks"));
 const Login = lazy(() => import("./pages/Login"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const CreateUser = lazy(() => import("./pages/CreateUser"));
 const EditUser = lazy(() => import("./pages/EditUser"));
 const ChangeUserPassword = lazy(() => import("./pages/ChangeUserPassword"));
@@ -365,6 +366,14 @@ export default function App() {
           element={
             <RedirectIfAuthed>
               <Login />
+            </RedirectIfAuthed>
+          }
+        />
+        <Route
+          path="/reset-password"
+          element={
+            <RedirectIfAuthed>
+              <ResetPassword />
             </RedirectIfAuthed>
           }
         />
