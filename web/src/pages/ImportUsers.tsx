@@ -18,6 +18,7 @@ import {
 } from "@mantine/core";
 import { IconUpload } from "@tabler/icons-react";
 import RevealablePassword from "../components/RevealablePassword";
+import { saveErrorMessage } from "../utils/saveError";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ApiError,
@@ -56,12 +57,17 @@ export default function ImportUsers() {
       setResult(res);
       await queryClient.invalidateQueries({ queryKey: ["users"] });
     } catch (err) {
+      // 503 (deployment without email) is outside saveErrorMessage's vocabulary — special-case
+      // it, delegate the rest per convention.
       if (err instanceof ApiError && err.status === 503) {
         setError(t("users.importUnavailableMail"));
-      } else if (err instanceof ApiError && err.status === 400) {
-        setError(t("users.importRejected"));
       } else {
-        setError(t("users.importFailedGeneric"));
+        setError(
+          saveErrorMessage(err, t, {
+            invalid: "users.importRejected",
+            failed: "users.importFailedGeneric",
+          }),
+        );
       }
     } finally {
       setImporting(false);

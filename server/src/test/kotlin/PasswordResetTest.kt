@@ -2,9 +2,6 @@ package ch.nokillswit
 
 import ch.nokillswit.auth.LoginRequest
 import ch.nokillswit.auth.PasswordResetRequest
-import ch.qos.logback.classic.Logger
-import ch.qos.logback.classic.spi.ILoggingEvent
-import ch.qos.logback.core.read.ListAppender
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
@@ -17,8 +14,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlinx.coroutines.delay
-import org.slf4j.LoggerFactory
 
 /**
  * POST /api/v1/password-reset. The test app uses the dev-default `log` mail transport, so
@@ -27,36 +22,13 @@ import org.slf4j.LoggerFactory
  */
 class PasswordResetTest {
 
-    private fun attachAppender(loggerName: String): Pair<Logger, ListAppender<ILoggingEvent>> {
-        val logger = LoggerFactory.getLogger(loggerName) as Logger
-        val appender = ListAppender<ILoggingEvent>()
-        appender.start()
-        logger.addAppender(appender)
-        return logger to appender
-    }
-
-    private suspend fun awaitEvent(
-        appender: ListAppender<ILoggingEvent>,
-        predicate: (ILoggingEvent) -> Boolean,
-    ): ILoggingEvent? {
-        repeat(100) {
-            appender.list.firstOrNull(predicate)?.let { return it }
-            delay(50)
-        }
-        return null
-    }
-
-    /** audit() fields travel as SLF4J key/values, not in the message text. */
-    private fun ILoggingEvent.hasKeyValue(key: String, value: String) =
-        keyValuePairs?.any { it.key == key && it.value == value } == true
-
     @Test
     fun `existing account gets a working new password by email and the old one stops working`() = testApplication {
         usePostgresTestcontainer()
         val email = uniqueEmail("reset")
         TestUsers.seed(email = email, password = "old-password-123", name = "Reset Tester")
-        val (mailLogger, mail) = attachAppender("ch.nokillswit.mail")
-        val (auditLogger, auditEvents) = attachAppender("ch.nokillswit.audit")
+        val mail = LogCapture("ch.nokillswit.mail")
+        val auditEvents = LogCapture("ch.nokillswit.audit")
         try {
             val client = jsonClient()
             val response = client.post("/api/v1/password-reset") {
@@ -68,12 +40,12 @@ class PasswordResetTest {
             // The email is logged BEFORE the new hash is stored — wait for the completion
             // audit event so the login below can't race the DB write.
             assertNotNull(
-                awaitEvent(auditEvents) {
+                auditEvents.awaitEvent {
                     it.message == "password_reset.completed" && it.hasKeyValue("email", email)
                 },
                 "the reset should complete",
             )
-            val message = awaitEvent(mail) { "To: $email" in it.formattedMessage }?.formattedMessage
+            val message = mail.awaitEvent { "To: $email" in it.formattedMessage }?.formattedMessage
             assertNotNull(message, "the reset email should have been delivered (log transport)")
             assertTrue("Nowe hasło" in message, "email should carry the bilingual body")
             val newPassword = Regex("""(?m)^[A-Za-z0-9_-]{16}$""").find(message)?.value
@@ -91,8 +63,8 @@ class PasswordResetTest {
             }
             assertEquals(HttpStatusCode.Unauthorized, oldLogin.status, "the old password must be dead")
         } finally {
-            mailLogger.detachAppender(mail)
-            auditLogger.detachAppender(auditEvents)
+            mail.detach()
+            auditEvents.detach()
         }
     }
 
@@ -100,8 +72,8 @@ class PasswordResetTest {
     fun `unknown email answers 202 identically and sends nothing`() = testApplication {
         usePostgresTestcontainer()
         val email = uniqueEmail("reset-nobody")
-        val (mailLogger, mail) = attachAppender("ch.nokillswit.mail")
-        val (auditLogger, auditEvents) = attachAppender("ch.nokillswit.audit")
+        val mail = LogCapture("ch.nokillswit.mail")
+        val auditEvents = LogCapture("ch.nokillswit.audit")
         try {
             val response = jsonClient().post("/api/v1/password-reset") {
                 contentType(ContentType.Application.Json)
@@ -110,14 +82,14 @@ class PasswordResetTest {
             assertEquals(HttpStatusCode.Accepted, response.status)
             // The async branch signals completion via the audit trail — wait for it, then
             // assert no email went out.
-            val audited = awaitEvent(auditEvents) {
+            val audited = auditEvents.awaitEvent {
                 it.message == "password_reset.unknown_email" && it.hasKeyValue("email", email)
             }
             assertNotNull(audited, "the unknown-email branch should be audited")
-            assertNull(mail.list.firstOrNull { "To: $email" in it.formattedMessage })
+            assertNull(mail.events.firstOrNull { "To: $email" in it.formattedMessage })
         } finally {
-            mailLogger.detachAppender(mail)
-            auditLogger.detachAppender(auditEvents)
+            mail.detach()
+            auditEvents.detach()
         }
     }
 
@@ -156,6 +128,42 @@ class PasswordResetTest {
             setBody(PasswordResetRequest(uniqueEmail("reset-disabled")))
         }
         assertEquals(HttpStatusCode.ServiceUnavailable, response.status)
+    }
+
+    @Test
+    fun `a delivery failure is audited and leaves the old password working`() = testApplication {
+        // Real SMTP transport pointed at a closed port: send() throws AFTER the 202.
+        configureApp(
+            "mail.transport" to "smtp",
+            "mail.smtp.host" to "localhost",
+            "mail.smtp.port" to "1",
+            "mail.smtp.startTls" to "false",
+        )
+        startApplication()
+        val email = uniqueEmail("reset-sendfail")
+        TestUsers.seed(email = email, password = "old-password-123")
+        val auditEvents = LogCapture("ch.nokillswit.audit")
+        try {
+            val response = jsonClient().post("/api/v1/password-reset") {
+                contentType(ContentType.Application.Json)
+                setBody(PasswordResetRequest(email))
+            }
+            assertEquals(HttpStatusCode.Accepted, response.status, "delivery failure must stay unobservable")
+            assertNotNull(
+                auditEvents.awaitEvent {
+                    it.message == "password_reset.send_failed" && it.hasKeyValue("email", email)
+                },
+                "the failed delivery should be audited",
+            )
+            // Send-before-store: the hash was never replaced, so the old password still works.
+            val oldLogin = jsonClient().post("/api/v1/login") {
+                contentType(ContentType.Application.Json)
+                setBody(LoginRequest(email, "old-password-123"))
+            }
+            assertEquals(HttpStatusCode.OK, oldLogin.status, "old password must survive a failed delivery")
+        } finally {
+            auditEvents.detach()
+        }
     }
 
     @Test

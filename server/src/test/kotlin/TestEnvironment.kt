@@ -86,6 +86,39 @@ suspend fun ApplicationTestBuilder.authedClient(email: String, password: String)
     }
 }
 
+/**
+ * Captures a logger's events with a Logback ListAppender (the audit trail on
+ * `ch.nokillswit.audit`, delivered email on the `ch.nokillswit.mail` log transport).
+ * Use in a try/finally with [detach]; [awaitEvent] polls for asynchronously produced events.
+ */
+class LogCapture(loggerName: String) {
+    private val logger = org.slf4j.LoggerFactory.getLogger(loggerName) as ch.qos.logback.classic.Logger
+    private val appender = ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>()
+
+    init {
+        appender.start()
+        logger.addAppender(appender)
+    }
+
+    val events: List<ch.qos.logback.classic.spi.ILoggingEvent> get() = appender.list
+
+    fun detach() = logger.detachAppender(appender)
+
+    suspend fun awaitEvent(
+        predicate: (ch.qos.logback.classic.spi.ILoggingEvent) -> Boolean,
+    ): ch.qos.logback.classic.spi.ILoggingEvent? {
+        repeat(100) {
+            events.firstOrNull(predicate)?.let { return it }
+            kotlinx.coroutines.delay(50)
+        }
+        return null
+    }
+}
+
+/** audit() fields travel as SLF4J key/values, not in the message text. */
+fun ch.qos.logback.classic.spi.ILoggingEvent.hasKeyValue(key: String, value: String) =
+    keyValuePairs?.any { it.key == key && it.value == value } == true
+
 private val sharedTestDatabase: R2dbcDatabase by lazy {
     R2dbcDatabase.connect(
         url = PostgresTestSupport.r2dbcUrl,

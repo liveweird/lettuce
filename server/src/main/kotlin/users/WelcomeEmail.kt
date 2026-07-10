@@ -1,35 +1,26 @@
 package ch.nokillswit.users
 
+import ch.nokillswit.infra.mail.bilingualPasswordEmail
+
 /**
  * Content of the welcome email sent to accounts created by the mass import (when the admin
- * opts in). Bilingual EN then PL like the password-reset email — the server doesn't know the
- * recipient's language — and side-effect-free so it is directly unit-testable. The sign-in
- * link renders only when the deployment's `mail.appUrl` is configured.
+ * opts in). Thin wrapper over the shared bilingual scaffold (infra/mail/BilingualEmail.kt).
+ * NOTE: the single-user creation flow has a CLIENT-side sibling of this message — the mailto
+ * draft built from `users.onboardingEmailSubject/Body` in web/src/locales — keep the two
+ * texts aligned when editing either.
  */
 internal fun welcomeEmailSubject(): String =
-    "Your Lettuce account / Twoje konto Lettuce"
+    "Your Lettuce account is ready / Twoje konto Lettuce jest gotowe"
 
 internal fun welcomeEmailBody(name: String, email: String, password: String, appUrl: String?): String =
-    buildString {
-        appendLine("Hi $name,")
-        appendLine()
-        appendLine(
-            "an account has been created for you in Lettuce. Sign in with your email address " +
-                "($email) and the password below, and change the password after your first sign-in.",
-        )
-        appendLine()
-        appendLine("Cześć $name,")
-        appendLine()
-        appendLine(
-            "utworzyliśmy dla Ciebie konto w Lettuce. Zaloguj się swoim adresem e-mail " +
-                "($email) i hasłem poniżej, a po pierwszym logowaniu zmień hasło.",
-        )
-        appendLine()
-        appendLine("Password / Hasło:")
-        appendLine()
-        appendLine(password)
-        if (!appUrl.isNullOrBlank()) {
-            appendLine()
-            appendLine("Sign in / Zaloguj się: $appUrl")
-        }
-    }
+    bilingualPasswordEmail(
+        name = name,
+        enIntro = "an account has been created for you in Lettuce. Sign in with your email " +
+            "address ($email) and the password below, and change the password after your " +
+            "first sign-in.",
+        plIntro = "utworzyliśmy dla Ciebie konto w Lettuce. Zaloguj się swoim adresem e-mail " +
+            "($email) i hasłem poniżej, a po pierwszym logowaniu zmień hasło.",
+        passwordLabel = "Password / Hasło",
+        password = password,
+        appUrl = appUrl,
+    )

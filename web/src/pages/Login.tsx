@@ -5,18 +5,14 @@ import {
   Alert,
   Anchor,
   Button,
-  Center,
-  Paper,
   PasswordInput,
   Stack,
   TextInput,
-  Title,
 } from "@mantine/core";
 import { isEmail, isNotEmpty, useForm } from "@mantine/form";
 import { ApiError, login } from "../api/client";
 import { consumeSignedOut, notifyAuthChange } from "../auth";
-import BrandLogo from "../components/BrandLogo";
-import VersionStamp from "../components/VersionStamp";
+import AuthCard from "../components/AuthCard";
 
 type LocationState = { from?: { pathname?: string } } | null;
 
@@ -63,52 +59,44 @@ export default function Login() {
   }
 
   return (
-    <Center h="100vh" p="md">
-      <Stack gap="xs">
-        <Paper withBorder shadow="sm" p="xl" radius="md" w={360}>
-          <form onSubmit={form.onSubmit(onSubmit)} noValidate>
-            <Stack>
-              {/* Brand block: tell the user what they are signing in to. */}
-              <Stack align="center" gap={4}>
-                <BrandLogo size={48} />
-                <Title order={2}>{t("appShell.brand")}</Title>
-              </Stack>
-              <Title order={3} ta="center" c="dimmed" fw={500} size="h4">
-                {t("auth.signIn")}
-              </Title>
-              <TextInput
-                label={t("common.field.email")}
-                type="email"
-                autoFocus
-                autoComplete="email"
-                {...form.getInputProps("email")}
-              />
-              <PasswordInput
-                label={t("auth.password")}
-                autoComplete="current-password"
-                {...form.getInputProps("password")}
-              />
-              {signedOut && !form.isDirty() && !error && (
-                <Alert color="blue" variant="light">
-                  {t("auth.signedOut")}
-                </Alert>
-              )}
-              {error && (
-                <Alert color="red" variant="light">
-                  {error}
-                </Alert>
-              )}
-              <Button type="submit" loading={submitting} fullWidth>
-                {t("auth.signIn")}
-              </Button>
-              <Anchor component={RouterLink} to="/reset-password" size="sm" ta="center">
-                {t("auth.forgotPassword")}
-              </Anchor>
-            </Stack>
-          </form>
-        </Paper>
-        <VersionStamp ta="center" />
-      </Stack>
-    </Center>
+    <AuthCard title={t("auth.signIn")}>
+      <form onSubmit={form.onSubmit(onSubmit)} noValidate>
+        <Stack>
+          <TextInput
+            label={t("common.field.email")}
+            type="email"
+            autoFocus
+            autoComplete="email"
+            {...form.getInputProps("email")}
+          />
+          <PasswordInput
+            label={t("auth.password")}
+            autoComplete="current-password"
+            {...form.getInputProps("password")}
+          />
+          {signedOut && !form.isDirty() && !error && (
+            <Alert color="blue" variant="light">
+              {t("auth.signedOut")}
+            </Alert>
+          )}
+          {error && (
+            <Alert color="red" variant="light">
+              {error}
+            </Alert>
+          )}
+          <Button type="submit" loading={submitting} fullWidth>
+            {t("auth.signIn")}
+          </Button>
+          <Anchor
+            component={RouterLink}
+            to="/reset-password"
+            size="sm"
+            ta="center"
+          >
+            {t("auth.forgotPassword")}
+          </Anchor>
+        </Stack>
+      </form>
+    </AuthCard>
   );
 }

@@ -41,6 +41,20 @@ describe("RevealablePassword", () => {
     expect(screen.getByText("*".repeat(PASSWORD.length))).toBeInTheDocument();
   });
 
+  test("compact mode keeps the full mask/reveal/copy behavior", async () => {
+    const user = userEvent.setup();
+    render(
+      <MantineProvider env="test">
+        <RevealablePassword password={PASSWORD} compact />
+      </MantineProvider>,
+    );
+
+    expect(screen.getByText("*".repeat(PASSWORD.length))).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /show password/i }));
+    expect(screen.getByText(PASSWORD)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^copy$/i })).toBeInTheDocument();
+  });
+
   test("copy while masked still copies the real password", async () => {
     const user = userEvent.setup();
     renderIt();

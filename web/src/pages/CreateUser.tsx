@@ -92,6 +92,8 @@ export default function CreateUser() {
 
   // Pre-filled onboarding draft for the admin's local mail client. Built entirely client-side —
   // the password never travels anywhere until the admin actually hits Send in their mail app.
+  // NOTE: the mass import has a SERVER-side sibling of this message (users/WelcomeEmail.kt);
+  // keep the two texts (users.onboardingEmailSubject/Body here) aligned when editing either.
   // RFC 6068: the recipient's "@" must stay literal (clients don't decode %40 in the To field);
   // everything else in the address is percent-encoded as usual.
   const mailtoHref = created

@@ -192,6 +192,8 @@ export async function createUserViaUi(
   ]);
   const id: number = (await created.json()).id;
   const dialog = page.getByRole("dialog");
+  // The password is masked as "*" until revealed (v1.5) — click the eye toggle first.
+  await dialog.getByRole("button", { name: "Show password" }).click();
   const password = (await dialog.locator("code").textContent()) ?? "";
   await dialog.getByRole("button", { name: "Close", exact: true }).last().click();
   await expect(page).toHaveURL(/\/users$/);

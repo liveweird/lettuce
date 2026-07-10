@@ -14,6 +14,26 @@ import {
 // Everything runs on throwaway users created through the real UI — seeded accounts that other
 // specs log in with are never mutated.
 
+test("the one-time password is masked until revealed, and hides again", async ({ page }) => {
+  await login(page, ADMIN);
+  await page.goto("/users/new");
+  const name = `E2E-Reveal ${Date.now()}`;
+  await page.getByRole("textbox", { name: "Name" }).fill(name);
+  await page
+    .getByRole("textbox", { name: "Email" })
+    .fill(`${name.toLowerCase().replace(/[^a-z0-9-]/g, "-")}@lettuce.local`);
+  await page.getByRole("button", { name: "Create" }).click();
+
+  const dialog = page.getByRole("dialog");
+  const code = dialog.locator("code");
+  await expect(code).toHaveText(/^\*+$/); // masked by default
+  await dialog.getByRole("button", { name: "Show password" }).click();
+  await expect(code).toHaveText(/^[A-Za-z0-9_-]{16}$/); // revealed
+  await dialog.getByRole("button", { name: "Hide password" }).click();
+  await expect(code).toHaveText(/^\*+$/); // hidden again
+  await dialog.getByRole("button", { name: "Close", exact: true }).last().click();
+});
+
 test("admin promotes a user to Admin", async ({ page }) => {
   await login(page, ADMIN);
   const user = await createUserViaUi(page, "E2E-Role");

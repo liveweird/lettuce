@@ -1,5 +1,7 @@
 package ch.nokillswit.infra.mail
 
+import ch.nokillswit.plugins.respondProblem
+import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*
 import io.ktor.util.AttributeKey
 
@@ -11,6 +13,20 @@ val MailerKey = AttributeKey<MailerHolder>("Mailer")
 
 /** AttributeKey cannot hold a nullable type, so the optional mailer travels in a holder. */
 class MailerHolder(val mailer: Mailer?)
+
+/** The configured mailer, or null when `mail.transport` is `disabled`. */
+fun Application.mailer(): Mailer? = attributes[MailerKey].mailer
+
+/** The deployment's public URL for sign-in links in emails, or null when unconfigured. */
+fun Application.mailAppUrl(): String? =
+    environment.config.propertyOrNull("mail.appUrl")?.getString()?.takeIf { it.isNotBlank() }
+
+/** The uniform 503 for email-dependent features on a `mail.transport=disabled` deployment. */
+suspend fun ApplicationCall.respondMailUnavailable(feature: String) =
+    respondProblem(
+        HttpStatusCode.ServiceUnavailable,
+        "This deployment cannot send email — $feature is unavailable",
+    )
 
 /**
  * Selects the outbound-email transport from the `mail:` config block and publishes it as
