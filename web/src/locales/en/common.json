@@ -9,7 +9,8 @@
     "create": "Create",
     "discard": "Discard",
     "keepEditing": "Keep editing",
-    "logout": "Logout"
+    "logout": "Logout",
+    "copy": "Copy"
   },
   "state": {
     "loading": "Loading…",

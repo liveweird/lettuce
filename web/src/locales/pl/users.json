@@ -84,5 +84,26 @@
     "currentPasswordRequired": "Obecne hasło jest wymagane"
   },
   "currentPassword": "Obecne hasło",
-  "wrongCurrentPassword": "Obecne hasło jest nieprawidłowe."
+  "wrongCurrentPassword": "Obecne hasło jest nieprawidłowe.",
+  "massImport": "Import masowy",
+  "importTitle": "Masowy import użytkowników",
+  "importFormatHint": "Wgraj plik CSV z jednym użytkownikiem w wierszu, w formacie: nazwa,e-mail. Opcjonalny wiersz nagłówka \"name,email\" jest pomijany. Każdy zaimportowany użytkownik dostaje rolę Użytkownik i wygenerowane hasło.",
+  "importFile": "Plik CSV",
+  "importSendEmails": "Czy chcesz wysłać e-mail do nowych użytkowników?",
+  "importRun": "Importuj",
+  "importSummary": "Utworzeni: {{created}} · Duplikaty: {{duplicates}} · Błędy: {{errors}}",
+  "importPasswordsOnce": "Wygenerowane hasła są widoczne poniżej tylko raz — skopiuj je teraz, jeśli ich potrzebujesz. Po opuszczeniu tej strony nie będzie można ich ponownie wyświetlić.",
+  "importLine": "Wiersz",
+  "importStatusHeader": "Status",
+  "importPassword": "Hasło",
+  "importStatus": {
+    "CREATED": "Utworzony",
+    "DUPLICATE": "Duplikat — pominięty",
+    "PARSE_ERROR": "Błąd parsowania",
+    "EMAIL_FAILED": "Utworzony, e-mail nie doszedł",
+    "ERROR": "Błąd"
+  },
+  "importUnavailableMail": "Ta instalacja nie może wysyłać e-maili. Odznacz opcję e-maila i zaimportuj ponownie.",
+  "importRejected": "Plik został odrzucony — sprawdź jego rozmiar (maks. 200 wierszy) i format.",
+  "importFailedGeneric": "Import nie powiódł się. Sprawdź połączenie i spróbuj ponownie."
 }

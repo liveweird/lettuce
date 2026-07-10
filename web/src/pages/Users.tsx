@@ -22,6 +22,7 @@ import {
   IconPencil,
   IconPlus,
   IconTrash,
+  IconUpload,
   IconUsersGroup,
 } from "@tabler/icons-react";
 import PersonaChip from "../components/PersonaChip";
@@ -323,6 +324,14 @@ export default function Users() {
 
       {admin && (
         <Group justify="flex-end">
+          <Button
+            component={RouterLink}
+            to="/users/import"
+            variant="default"
+            leftSection={<IconUpload size={16} />}
+          >
+            {t("users.massImport")}
+          </Button>
           <Button
             component={RouterLink}
             to="/users/new"

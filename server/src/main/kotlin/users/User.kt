@@ -41,6 +41,49 @@ data class PasswordUpdateRequest(
 )
 
 @Serializable
+data class UserImportRequest(
+    val csv: String,
+    val sendEmails: Boolean = false,
+)
+
+@Serializable
+enum class UserImportStatus {
+    /** Account created (password in [UserImportRow.password], shown to the admin once). */
+    CREATED,
+
+    /** An active account with this email already exists — row skipped. */
+    DUPLICATE,
+
+    /** The line could not be parsed or failed field validation — row skipped. */
+    PARSE_ERROR,
+
+    /** Account created but the welcome email could not be delivered (password still shown). */
+    EMAIL_FAILED,
+
+    /** Any other failure — row skipped. */
+    ERROR,
+}
+
+@Serializable
+data class UserImportRow(
+    /** 1-based line number in the uploaded file. */
+    val line: Int,
+    val name: String? = null,
+    val email: String? = null,
+    val status: UserImportStatus,
+    val message: String? = null,
+    val password: String? = null,
+)
+
+@Serializable
+data class UserImportResponse(
+    val rows: List<UserImportRow>,
+    val created: Int,
+    val duplicates: Int,
+    val errors: Int,
+)
+
+@Serializable
 data class UserResponse(
     val id: UInt,
     val name: String,

@@ -352,12 +352,16 @@ describe("Users page", () => {
     expect(await screen.findByText("No users")).toBeInTheDocument();
   });
 
-  test("admin sees a Create user link; a non-admin does not", async () => {
+  test("admin sees Create user and Mass import links; a non-admin sees neither", async () => {
     mockUsers(mockFetch);
     const { unmount } = renderUsers();
     expect(await screen.findByRole("link", { name: /create user/i })).toHaveAttribute(
       "href",
       "/users/new",
+    );
+    expect(screen.getByRole("link", { name: /mass import/i })).toHaveAttribute(
+      "href",
+      "/users/import",
     );
     unmount();
 
@@ -366,6 +370,7 @@ describe("Users page", () => {
     renderUsers();
     await screen.findByText("Alice");
     expect(screen.queryByRole("link", { name: /create user/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /mass import/i })).not.toBeInTheDocument();
   });
 
   test("the modal Cancel button is disabled while the delete is in flight", async () => {

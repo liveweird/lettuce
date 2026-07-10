@@ -243,6 +243,48 @@ paths:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
         '500': { $ref: '#/components/responses/InternalServerError' }
 
+  /api/v1/users/import:
+    post:
+      tags: [users]
+      operationId: importUsers
+      summary: Mass-import users from CSV (ADMIN only)
+      description: |
+        Creates one account per CSV line (`name,email`; an optional literal `name,email`
+        header and blank lines are skipped; names may contain commas — the line is split on
+        its last comma). Every row imports independently: a parse error, duplicate, or
+        failure on one line never affects the others. Each created account gets role `USER`
+        and a server-generated 16-character password, returned in that row's `password`
+        field — shown to the admin ONCE, never retrievable again. With `sendEmails: true`
+        each new user is emailed their password (bilingual EN/PL); if the deployment has no
+        outbound email (`MAIL_TRANSPORT=disabled`) the request is rejected with `503` before
+        importing anything. A delivery failure after creation yields status `EMAIL_FAILED`
+        (the account exists; the password is still in the row). `created` counts `CREATED`
+        plus `EMAIL_FAILED` rows; `errors` counts `PARSE_ERROR` plus `ERROR` rows. Caps:
+        200 data rows / 256 KiB of CSV per request (`400` beyond either).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserImportRequest'
+      responses:
+        '200':
+          description: Per-row import results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserImportResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+        '503':
+          description: This deployment cannot send email (sendEmails requested)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
   /api/v1/users/{id}:
     parameters:
       - $ref: '#/components/parameters/ResourceId'
@@ -1599,6 +1641,45 @@ components:
           description: |
             Optional. When present, its refresh token is also revoked so an explicit
             logout kills both tokens (the access token is revoked from the bearer).
+
+    UserImportRequest:
+      type: object
+      required: [csv]
+      properties:
+        csv:
+          type: string
+          description: Raw CSV text, `name,email` per line.
+        sendEmails:
+          type: boolean
+          default: false
+          description: Email each newly created user their generated password.
+
+    UserImportRow:
+      type: object
+      required: [line, status]
+      properties:
+        line: { type: integer, description: 1-based line number in the uploaded file. }
+        name: { type: string, nullable: true }
+        email: { type: string, nullable: true }
+        status:
+          type: string
+          enum: [CREATED, DUPLICATE, PARSE_ERROR, EMAIL_FAILED, ERROR]
+        message: { type: string, nullable: true }
+        password:
+          type: string
+          nullable: true
+          description: The generated password (CREATED / EMAIL_FAILED rows only) — shown once.
+
+    UserImportResponse:
+      type: object
+      required: [rows, created, duplicates, errors]
+      properties:
+        rows:
+          type: array
+          items: { $ref: '#/components/schemas/UserImportRow' }
+        created: { type: integer, description: CREATED + EMAIL_FAILED rows. }
+        duplicates: { type: integer }
+        errors: { type: integer, description: PARSE_ERROR + ERROR rows. }
 
     UserRequest:
       type: object

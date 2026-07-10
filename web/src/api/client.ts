@@ -169,6 +169,22 @@ export async function createUser(req: CreateUserBody): Promise<CreateUserRespons
   return (await res.json()) as CreateUserResponse;
 }
 
+type UserImportBody =
+  paths["/api/v1/users/import"]["post"]["requestBody"]["content"]["application/json"];
+export type UserImportResult =
+  paths["/api/v1/users/import"]["post"]["responses"]["200"]["content"]["application/json"];
+export type UserImportRow = UserImportResult["rows"][number];
+
+/** Mass CSV import (ADMIN). 503 when sendEmails is requested on a mail-less deployment. */
+export async function importUsers(req: UserImportBody): Promise<UserImportResult> {
+  const res = await authedFetch("/api/v1/users/import", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return (await res.json()) as UserImportResult;
+}
+
 type UpdateUserBody =
   paths["/api/v1/users/{id}"]["put"]["requestBody"]["content"]["application/json"];
 
