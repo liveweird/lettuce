@@ -1,0 +1,9 @@
+name,email
+Frodo Baggins,frodo@shire.example.com
+Samwise Gamgee,sam@shire.example.com
+Baggins, Bilbo,bilbo@shire.example.com
+Gandalf the Grey,gandalf@istari.example.com
+Demo Duplicate,aaa-one@lettuce.local
+this line has no comma and will fail parsing
+,noname@shire.example.com
+Aragorn son of Arathorn,aragorn@gondor.example.com
