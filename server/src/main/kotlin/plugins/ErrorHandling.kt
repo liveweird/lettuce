@@ -62,7 +62,8 @@ suspend fun ApplicationCall.respondProblem(
 
 private const val PG_UNIQUE_VIOLATION = "23505"
 
-private fun Throwable.isUniqueViolation(): Boolean {
+// Internal (not private): the user-import loop classifies per-row duplicates with it.
+internal fun Throwable.isUniqueViolation(): Boolean {
     var cur: Throwable? = this
     while (cur != null) {
         if (cur is R2dbcException && cur.sqlState == PG_UNIQUE_VIOLATION) return true

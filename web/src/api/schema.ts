@@ -136,6 +136,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mass-import users from CSV (ADMIN only)
+         * @description Creates one account per CSV line (`name,email`; an optional literal `name,email`
+         *     header and blank lines are skipped; names may contain commas — the line is split on
+         *     its last comma). Every row imports independently: a parse error, duplicate, or
+         *     failure on one line never affects the others. Each created account gets role `USER`
+         *     and a server-generated 16-character password, returned in that row's `password`
+         *     field — shown to the admin ONCE, never retrievable again. With `sendEmails: true`
+         *     each new user is emailed their password (bilingual EN/PL); if the deployment has no
+         *     outbound email (`MAIL_TRANSPORT=disabled`) the request is rejected with `503` before
+         *     importing anything. A delivery failure after creation yields status `EMAIL_FAILED`
+         *     (the account exists; the password is still in the row). `created` counts `CREATED`
+         *     plus `EMAIL_FAILED` rows; `errors` counts `PARSE_ERROR` plus `ERROR` rows. Caps:
+         *     200 data rows / 256 KiB of CSV per request (`400` beyond either).
+         */
+        post: operations["importUsers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/{id}": {
         parameters: {
             query?: never;
@@ -929,6 +960,34 @@ export interface components {
              */
             refreshToken?: string;
         };
+        UserImportRequest: {
+            /** @description Raw CSV text, `name,email` per line. */
+            csv: string;
+            /**
+             * @description Email each newly created user their generated password.
+             * @default false
+             */
+            sendEmails: boolean;
+        };
+        UserImportRow: {
+            /** @description 1-based line number in the uploaded file. */
+            line: number;
+            name?: string | null;
+            email?: string | null;
+            /** @enum {string} */
+            status: "CREATED" | "DUPLICATE" | "PARSE_ERROR" | "EMAIL_FAILED" | "ERROR";
+            message?: string | null;
+            /** @description The generated password (CREATED / EMAIL_FAILED rows only) — shown once. */
+            password?: string | null;
+        };
+        UserImportResponse: {
+            rows: components["schemas"]["UserImportRow"][];
+            /** @description CREATED + EMAIL_FAILED rows. */
+            created: number;
+            duplicates: number;
+            /** @description PARSE_ERROR + ERROR rows. */
+            errors: number;
+        };
         UserRequest: {
             name: string;
             /** Format: email */
@@ -1617,6 +1676,43 @@ export interface operations {
                 };
             };
             500: components["responses"]["InternalServerError"];
+        };
+    };
+    importUsers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Per-row import results */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserImportResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalServerError"];
+            /** @description This deployment cannot send email (sendEmails requested) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
         };
     };
     getUser: {

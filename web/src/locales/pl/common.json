@@ -9,7 +9,8 @@
     "create": "Utwórz",
     "discard": "Odrzuć",
     "keepEditing": "Kontynuuj edycję",
-    "logout": "Wyloguj"
+    "logout": "Wyloguj",
+    "copy": "Skopiuj"
   },
   "state": {
     "loading": "Ładowanie…",

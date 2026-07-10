@@ -1,8 +1,11 @@
 package ch.nokillswit.users
 
 import ch.nokillswit.audit.audit
+import ch.nokillswit.auth.generatePassword
 import ch.nokillswit.auth.hashPassword
 import ch.nokillswit.auth.verifyPassword
+import ch.nokillswit.infra.mail.MailerKey
+import ch.nokillswit.plugins.isUniqueViolation
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAdmin
@@ -51,6 +54,10 @@ private fun validateNameAndEmail(name: String, email: String) {
 @Resource("/api/v1/users")
 class Users {
     @Serializable
+    @Resource("import")
+    class Import(val parent: Users = Users())
+
+    @Serializable
     @Resource("{id}")
     class Id(val parent: Users = Users(), val id: UInt) {
         @Serializable
@@ -59,8 +66,16 @@ class Users {
     }
 }
 
+// Caps for the mass import — bcrypt at cost 12 is ~100 ms per row, so the synchronous
+// request must stay bounded; violating either is a clean 400.
+private const val MAX_IMPORT_ROWS = 200
+private const val MAX_IMPORT_CSV_CHARS = 256 * 1024
+
 fun Application.configureUserRoutes() {
     val userService = attributes[UserServiceKey]
+    val mailer = attributes[MailerKey].mailer
+    val mailAppUrl = environment.config
+        .propertyOrNull("mail.appUrl")?.getString()?.takeIf { it.isNotBlank() }
 
     routing {
         authenticate {
@@ -101,6 +116,100 @@ fun Application.configureUserRoutes() {
                 )
                 call.response.header(HttpHeaders.Location, call.application.href(Users.Id(id = id)))
                 call.respond(HttpStatusCode.Created, user.toResponse(id))
+            }
+            post<Users.Import> {
+                val caller = call.caller()
+                requireAdmin(caller)
+                val req = call.receive<UserImportRequest>()
+                if (req.sendEmails && mailer == null) {
+                    call.respondProblem(
+                        HttpStatusCode.ServiceUnavailable,
+                        "This deployment cannot send email — import without the email option",
+                    )
+                    return@post
+                }
+                if (req.csv.length > MAX_IMPORT_CSV_CHARS) {
+                    throw BadRequestException("CSV is too large (max $MAX_IMPORT_CSV_CHARS characters)")
+                }
+
+                // 1-based line numbers; blank lines and an optional literal `name,email`
+                // header (as the first non-blank line) are skipped, everything else is a row.
+                val candidates = req.csv.lines()
+                    .mapIndexedNotNull { idx, raw -> (idx + 1 to raw.trim()).takeIf { it.second.isNotEmpty() } }
+                    .let { nonBlank ->
+                        if (nonBlank.firstOrNull()?.second.equals("name,email", ignoreCase = true)) {
+                            nonBlank.drop(1)
+                        } else nonBlank
+                    }
+                if (candidates.size > MAX_IMPORT_ROWS) {
+                    throw BadRequestException("Too many rows (${candidates.size}; max $MAX_IMPORT_ROWS per import)")
+                }
+
+                val rows = mutableListOf<UserImportRow>()
+                for ((line, text) in candidates) {
+                    // Names may contain commas; emails cannot — split on the LAST one.
+                    val comma = text.lastIndexOf(',')
+                    if (comma < 0) {
+                        rows += UserImportRow(line, status = UserImportStatus.PARSE_ERROR, message = "Expected 'name,email'")
+                        continue
+                    }
+                    val name = text.substring(0, comma).trim()
+                    val email = text.substring(comma + 1).trim()
+                    try {
+                        validateNameAndEmail(name, email)
+                    } catch (e: BadRequestException) {
+                        rows += UserImportRow(line, name, email, UserImportStatus.PARSE_ERROR, e.message)
+                        continue
+                    }
+                    val password = generatePassword()
+                    val id = try {
+                        // Each create is its own transaction, so one failing row never
+                        // poisons its siblings.
+                        userService.create(User(name, email, hashPassword(password), UserRole.USER))
+                    } catch (e: Exception) {
+                        rows += if (e.isUniqueViolation()) {
+                            UserImportRow(line, name, email, UserImportStatus.DUPLICATE, "Email already in use")
+                        } else {
+                            log.error("User import: row $line failed", e)
+                            UserImportRow(line, name, email, UserImportStatus.ERROR, "Could not create the user")
+                        }
+                        continue
+                    }
+                    audit(
+                        "user.created",
+                        "byUserId" to caller.userId.toLong(),
+                        "newUserId" to id.toLong(),
+                        "email" to email,
+                        "role" to UserRole.USER.name,
+                    )
+                    var status = UserImportStatus.CREATED
+                    var message: String? = null
+                    if (req.sendEmails) {
+                        try {
+                            mailer!!.send(email, welcomeEmailSubject(), welcomeEmailBody(name, email, password, mailAppUrl))
+                        } catch (e: Exception) {
+                            log.error("User import: welcome email to $email failed", e)
+                            status = UserImportStatus.EMAIL_FAILED
+                            message = "The account was created but the email could not be delivered"
+                        }
+                    }
+                    rows += UserImportRow(line, name, email, status, message, password)
+                }
+
+                // EMAIL_FAILED rows are still created accounts — they count as created.
+                val created = rows.count { it.status == UserImportStatus.CREATED || it.status == UserImportStatus.EMAIL_FAILED }
+                val duplicates = rows.count { it.status == UserImportStatus.DUPLICATE }
+                val errors = rows.count { it.status == UserImportStatus.PARSE_ERROR || it.status == UserImportStatus.ERROR }
+                audit(
+                    "users.imported",
+                    "byUserId" to caller.userId.toLong(),
+                    "total" to rows.size,
+                    "created" to created,
+                    "duplicates" to duplicates,
+                    "errors" to errors,
+                    "emailsSent" to if (req.sendEmails) rows.count { it.status == UserImportStatus.CREATED } else 0,
+                )
+                call.respond(HttpStatusCode.OK, UserImportResponse(rows, created, duplicates, errors))
             }
             get<Users.Id> { route ->
                 requireSelfOrAdmin(call.caller(), route.id)
