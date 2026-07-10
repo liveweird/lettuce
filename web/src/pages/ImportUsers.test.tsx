@@ -93,8 +93,14 @@ describe("ImportUsers page", () => {
     expect(screen.getByText(/parse error/i)).toBeInTheDocument();
     expect(screen.getByText(/created, email failed/i)).toBeInTheDocument();
     expect(screen.getByText(/^error$/i)).toBeInTheDocument();
+    // Passwords are masked by default; revealing one row leaves the other masked.
+    expect(screen.queryByText("pw-alice-123456")).not.toBeInTheDocument();
+    expect(screen.queryByText("pw-cee-7654321")).not.toBeInTheDocument();
+    expect(screen.getByText("*".repeat("pw-alice-123456".length))).toBeInTheDocument();
+    expect(screen.getByText("*".repeat("pw-cee-7654321".length))).toBeInTheDocument();
+    await user.click(screen.getAllByRole("button", { name: /show password/i })[0]);
     expect(screen.getByText("pw-alice-123456")).toBeInTheDocument();
-    expect(screen.getByText("pw-cee-7654321")).toBeInTheDocument();
+    expect(screen.queryByText("pw-cee-7654321")).not.toBeInTheDocument();
     expect(screen.getByText(/shown below only once/i)).toBeInTheDocument();
     // The upload form is gone.
     expect(screen.queryByRole("button", { name: /^import$/i })).not.toBeInTheDocument();
@@ -118,10 +124,12 @@ describe("ImportUsers page", () => {
     renderImport();
     await uploadAndImport(user);
 
-    await screen.findByText("pw-copy-me-12345");
+    // Copy works while the password is still masked and copies the real value.
+    await screen.findByText("*".repeat("pw-copy-me-12345".length));
     await user.click(screen.getByRole("button", { name: /^copy$/i }));
     expect(await screen.findByRole("button", { name: /^copied$/i })).toBeInTheDocument();
     await expect(window.navigator.clipboard.readText()).resolves.toBe("pw-copy-me-12345");
+    expect(screen.queryByText("pw-copy-me-12345")).not.toBeInTheDocument();
   });
 
   test("503 shows the mail-unavailable message and keeps the form", async () => {
