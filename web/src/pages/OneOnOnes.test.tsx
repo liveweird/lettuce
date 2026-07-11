@@ -34,16 +34,16 @@ describe("OneOnOnes page", () => {
     localStorage.clear();
   });
 
-  test("a non-manager sees only the My 1:1s tab and no create button", async () => {
+  test("a non-manager sees only the subordinate tab and no create button", async () => {
     stubFetch(mockFetch, { isManager: false });
     renderWithProviders(<OneOnOnes />);
 
-    expect(await screen.findByRole("tab", { name: "My 1:1s" })).toBeInTheDocument();
+    expect(await screen.findByRole("tab", { name: "I'm a subordinate" })).toBeInTheDocument();
     await waitFor(() =>
       expect(mockFetch.mock.calls.some(([u]) => String(u).includes("/api/v1/teams?"))).toBe(true),
     );
-    expect(screen.queryByRole("tab", { name: "As manager" })).toBeNull();
-    expect(screen.queryByRole("tab", { name: "My team" })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "I'm a manager" })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "My subordinate's a manager" })).toBeNull();
     expect(screen.queryByRole("link", { name: "New 1:1" })).toBeNull();
   });
 
@@ -51,8 +51,8 @@ describe("OneOnOnes page", () => {
     stubFetch(mockFetch, { isManager: true });
     renderWithProviders(<OneOnOnes />);
 
-    expect(await screen.findByRole("tab", { name: "As manager" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "My team" })).toBeInTheDocument();
+    expect(await screen.findByRole("tab", { name: "I'm a manager" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "My subordinate's a manager" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "New 1:1" })).toHaveAttribute(
       "href",
       "/one-on-ones/new",
@@ -64,7 +64,7 @@ describe("OneOnOnes page", () => {
         mockFetch.mock.calls.some(([u]) => String(u).includes("/api/v1/one-on-ones?view=own")),
       ).toBe(true),
     );
-    await userEvent.click(screen.getByRole("tab", { name: "As manager" }));
+    await userEvent.click(screen.getByRole("tab", { name: "I'm a manager" }));
     await waitFor(() =>
       expect(
         mockFetch.mock.calls.some(([u]) => String(u).includes("/api/v1/one-on-ones?view=managed")),

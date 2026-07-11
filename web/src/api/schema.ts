@@ -648,12 +648,12 @@ export interface paths {
          *
          *     - `view=own` (the default): meetings where the caller is the **subordinate**.
          *     - `view=managed`: meetings where the caller is the **manager** (the author).
-         *     - `view=team`: meetings whose subordinate is one of the caller's **direct reports** (a
-         *       member of a non-deleted team the caller manages) — or, with `includeIndirect=true`,
-         *       anyone in the caller's **transitive management chain**. A caller who manages no team
-         *       gets an empty page. The narrower direct-only default is a list scope, not an
-         *       authorization boundary: the single-GET grants any manager in the subordinate's chain
-         *       read access.
+         *     - `view=team`: meetings run **by the caller's subordinates as managers** — the manager is
+         *       one of the caller's **direct reports** (a member of a non-deleted team the caller
+         *       manages) or, with `includeIndirect=true`, anyone in the caller's **transitive
+         *       management chain**. A caller who manages no team gets an empty page. The narrower
+         *       direct-only default is a list scope, not an authorization boundary: the single-GET
+         *       grants any manager in the subordinate's chain read access.
          *
          *     Rows carry the party names, the meeting date, and per-list counts (`pointCount`,
          *     `decisionCount`, `actionItemCount`, `openActionItemCount`) — never item content.
@@ -2982,7 +2982,7 @@ export interface operations {
                 /** @description Which caller-relative slice of 1:1 meetings to list. */
                 view?: "own" | "managed" | "team";
                 /**
-                 * @description Only valid with `view=team` (else `400`). When `true`, widens the subordinate scope
+                 * @description Only valid with `view=team` (else `400`). When `true`, widens which managers count
                  *     from the caller's direct reports to their whole transitive management chain.
                  */
                 includeIndirect?: boolean;

@@ -459,14 +459,20 @@ class OneOnOneRoutesTest {
     @Test
     fun `list views scope by caller - own, managed, and team with includeIndirect`() = testApplication {
         usePostgresTestcontainer()
+        // Chain: grand → pair.manager → pair.subordinate → subSub.
         val pair = seedPair()
         val grandEmail = uniqueEmail("grand")
         val grandId = TestUsers.seed(grandEmail, "pw", role = UserRole.USER)
         val upperTeam = TestServices.teams.create(Team(name = "oo-upper-${UUID.randomUUID()}", managerId = grandId))
         TestServices.teams.addMember(upperTeam, pair.managerId)
+        val subSubId = TestUsers.seed(uniqueEmail("subsub"), "pw", role = UserRole.USER)
+        val lowerTeam = TestServices.teams.create(Team(name = "oo-lower-${UUID.randomUUID()}", managerId = pair.subordinateId))
+        TestServices.teams.addMember(lowerTeam, subSubId)
 
         val manager = authedClient(pair.managerEmail, "pw")
         val meeting = manager.createMeeting(pair.subordinateId, "2026-07-01")
+        // Run by grand's INDIRECT report (pair.subordinate) as manager.
+        val deepMeeting = authedClient(pair.subordinateEmail, "pw").createMeeting(subSubId, "2026-07-02")
 
         // own (the default view): the subordinate's meetings as subordinate, exactly once.
         val own = authedClient(pair.subordinateEmail, "pw").get("/api/v1/one-on-ones").body<OneOnOnePageResponse>()
@@ -478,16 +484,31 @@ class OneOnOneRoutesTest {
         val managerOwn = manager.get("/api/v1/one-on-ones?view=own").body<OneOnOnePageResponse>()
         assertTrue(managerOwn.items.none { it.id == meeting.id })
 
-        // team for the grand-manager: the subordinate is INDIRECT, so the direct-only default
-        // misses the meeting and includeIndirect=true finds it.
+        // team scopes by the MEETING'S MANAGER being the caller's report: the default sees
+        // meetings run by DIRECT reports (pair.manager), includeIndirect adds those run by
+        // INDIRECT ones (pair.subordinate).
         val grand = authedClient(grandEmail, "pw")
         val direct = grand.get("/api/v1/one-on-ones?view=team").body<OneOnOnePageResponse>()
-        assertTrue(direct.items.none { it.id == meeting.id })
+        assertTrue(direct.items.any { it.id == meeting.id })
+        assertTrue(direct.items.none { it.id == deepMeeting.id })
         val indirect = grand.get("/api/v1/one-on-ones?view=team&includeIndirect=true").body<OneOnOnePageResponse>()
         assertTrue(indirect.items.any { it.id == meeting.id })
-        // But the MANAGER's meeting (with the grand-manager's direct report as subordinate)…
-        // pair.managerId IS grand's direct report — a meeting where the manager is the
-        // subordinate would show. Not created here; the direct view stays empty.
+        assertTrue(indirect.items.any { it.id == deepMeeting.id })
+
+        // The caller's OWN meetings are never in their team view (grand is nobody's report here).
+        val grandsOwnMeeting = grand.createMeeting(pair.managerId, "2026-07-03")
+        val teamAfter = grand.get("/api/v1/one-on-ones?view=team&includeIndirect=true").body<OneOnOnePageResponse>()
+        assertTrue(teamAfter.items.none { it.id == grandsOwnMeeting.id })
+
+        // A PEER manager's meeting with grand's direct report is excluded too — the scope keys
+        // on the meeting's manager, not its subordinate.
+        val peerEmail = uniqueEmail("peer")
+        val peerId = TestUsers.seed(peerEmail, "pw", role = UserRole.USER)
+        val peerTeam = TestServices.teams.create(Team(name = "oo-peer-${UUID.randomUUID()}", managerId = peerId))
+        TestServices.teams.addMember(peerTeam, pair.managerId)
+        val peerMeeting = authedClient(peerEmail, "pw").createMeeting(pair.managerId, "2026-07-04")
+        val teamFinal = grand.get("/api/v1/one-on-ones?view=team&includeIndirect=true").body<OneOnOnePageResponse>()
+        assertTrue(teamFinal.items.none { it.id == peerMeeting.id })
 
         // includeIndirect is a team-view-only parameter.
         assertEquals(

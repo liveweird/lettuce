@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.7.1",
+    date: "2026-07-11",
+    en: `Clearer 1:1 meeting tabs: *I'm a manager* (meetings you run), *I'm a subordinate* (meetings with your manager), and *My subordinate's a manager* — the 1:1s your own reports run with their teams, with the existing direct/all-reports filter. The last tab previously listed meetings by who attended them; it now lists them by who runs them.`,
+    pl: `Czytelniejsze zakładki spotkań 1:1: *Jestem menedżerem/ką* (spotkania, które prowadzisz), *Jestem podwładnym/ą* (spotkania z Twoim menedżerem) oraz *Mój podwładny/a jest menedżerem/ką* — spotkania 1:1, które Twoi podwładni prowadzą ze swoimi zespołami, z dotychczasowym filtrem podwładnych bezpośrednich/wszystkich. Ostatnia zakładka pokazywała wcześniej spotkania według uczestników; teraz pokazuje je według prowadzącego.`,
+  },
+  {
     version: "1.7",
     date: "2026-07-11",
     en: `Managers can now document *1:1 meetings* with their team members: the meeting date, points discussed, decisions made, and action items with an owner, a due date, and a resolved flag. Unresolved action items carry over automatically into the next 1:1 with the same person, with a full cross-meeting history per item. Team members see their meetings read-only and get a notification when one is documented; every change is tracked in the meeting's history.`,
