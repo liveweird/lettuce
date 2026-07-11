@@ -9,6 +9,7 @@ import ch.nokillswit.teams.TeamResponse
 import ch.nokillswit.templates.Template
 import ch.nokillswit.templates.TemplateResponse
 import ch.nokillswit.users.UserRole
+import ch.nokillswit.users.UserUpdateRequest
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
@@ -19,6 +20,7 @@ import io.ktor.client.request.setBody
 import java.util.UUID
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
 import kotlin.test.Test
@@ -180,6 +182,97 @@ class AuditTest {
                 alertId.toLong(),
                 appender.events.first { it.message == "alert.created" }.keyValuePairs.first { it.key == "alertId" }.value,
             )
+        } finally {
+            appender.detach()
+        }
+    }
+
+    @Test
+    fun `user updates emit user updated with deltas only for changed fields`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        val adminId = TestUsers.seed(email = adminEmail, password = "pw")
+        val targetEmail = uniqueEmail("target")
+        val targetId = TestUsers.seed(email = targetEmail, password = "pw", role = UserRole.USER)
+        val appender = LogCapture("ch.nokillswit.audit")
+        try {
+            val client = authedClient(adminEmail, "pw")
+
+            // Name-only change → user.updated with name deltas, no email deltas.
+            client.put("/api/v1/users/$targetId") {
+                contentType(ContentType.Application.Json)
+                setBody(UserUpdateRequest(name = "Renamed", email = targetEmail, role = UserRole.USER))
+            }
+            val nameChange = appender.events.find { it.message == "user.updated" }
+            assertNotNull(nameChange, "expected a user.updated audit event")
+            assertEquals(adminId.toLong(), nameChange.keyValuePairs.first { it.key == "byUserId" }.value)
+            assertEquals(targetId.toLong(), nameChange.keyValuePairs.first { it.key == "targetUserId" }.value)
+            assertEquals("Renamed", nameChange.keyValuePairs.first { it.key == "nameTo" }.value)
+            assertTrue(nameChange.keyValuePairs.none { it.key == "emailFrom" })
+
+            // Email change → email deltas present.
+            val newEmail = uniqueEmail("target-moved")
+            client.put("/api/v1/users/$targetId") {
+                contentType(ContentType.Application.Json)
+                setBody(UserUpdateRequest(name = "Renamed", email = newEmail, role = UserRole.USER))
+            }
+            val emailChange = appender.events.last { it.message == "user.updated" }
+            assertEquals(targetEmail, emailChange.keyValuePairs.first { it.key == "emailFrom" }.value)
+            assertEquals(newEmail, emailChange.keyValuePairs.first { it.key == "emailTo" }.value)
+            assertTrue(emailChange.keyValuePairs.none { it.key == "nameFrom" })
+
+            // Role-only change → user.role_changed but NO further user.updated.
+            client.put("/api/v1/users/$targetId") {
+                contentType(ContentType.Application.Json)
+                setBody(UserUpdateRequest(name = "Renamed", email = newEmail, role = UserRole.ADMIN))
+            }
+            assertNotNull(appender.events.find { it.message == "user.role_changed" })
+            assertEquals(2, appender.events.count { it.message == "user.updated" })
+
+            // No-change PUT → nothing new at all.
+            client.put("/api/v1/users/$targetId") {
+                contentType(ContentType.Application.Json)
+                setBody(UserUpdateRequest(name = "Renamed", email = newEmail, role = UserRole.ADMIN))
+            }
+            assertEquals(2, appender.events.count { it.message == "user.updated" })
+            assertEquals(1, appender.events.count { it.message == "user.role_changed" })
+        } finally {
+            appender.detach()
+        }
+    }
+
+    @Test
+    fun `no-op member mutations and phantom template updates emit no audit events`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw")
+        val managerId = TestUsers.seed(email = uniqueEmail("mgr"), password = "pw", role = UserRole.USER)
+        val memberId = TestUsers.seed(email = uniqueEmail("member"), password = "pw", role = UserRole.USER)
+        val appender = LogCapture("ch.nokillswit.audit")
+        try {
+            val client = authedClient(adminEmail, "pw")
+            val teamId = client.post("/api/v1/teams") {
+                contentType(ContentType.Application.Json)
+                setBody(Team(name = "NoOps", managerId = managerId, memberIds = emptyList()))
+            }.body<TeamResponse>().id
+
+            // Re-adding an existing member is a 204 no-op — audited exactly once.
+            assertEquals(HttpStatusCode.NoContent, client.put("/api/v1/teams/$teamId/members/$memberId").status)
+            assertEquals(HttpStatusCode.NoContent, client.put("/api/v1/teams/$teamId/members/$memberId").status)
+            assertEquals(1, appender.events.count { it.message == "team.member_added" })
+
+            // Removing once is audited; removing a non-member again is a silent 204.
+            assertEquals(HttpStatusCode.NoContent, client.delete("/api/v1/teams/$teamId/members/$memberId").status)
+            assertEquals(HttpStatusCode.NoContent, client.delete("/api/v1/teams/$teamId/members/$memberId").status)
+            assertEquals(1, appender.events.count { it.message == "team.member_removed" })
+
+            // A PUT to a nonexistent template is 404 and must not mint a phantom template.updated.
+            val response = client.put("/api/v1/templates/999999999") {
+                contentType(ContentType.Application.Json)
+                setBody(Template(name = "ghost-${UUID.randomUUID()}", content = "c"))
+            }
+            assertEquals(HttpStatusCode.NotFound, response.status)
+            assertEquals(0, appender.events.count { it.message == "template.updated" })
         } finally {
             appender.detach()
         }

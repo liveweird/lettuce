@@ -35,6 +35,14 @@ class FeedbackServiceTest {
     }
 
     @Test
+    fun `delete returns 0 for a missing feedback`() = testApplication {
+        usePostgresTestcontainer()
+        // The route maps this to 404 and skips the deletion event/notifications (race window:
+        // the row vanished between the route's read and the delete).
+        assertEquals(0, TestServices.feedbacks.delete(999_999_999u))
+    }
+
+    @Test
     fun `transition returns null for a missing feedback`() = testApplication {
         usePostgresTestcontainer()
         // null (as opposed to a notification list) is the "missing row" signal → 404 in the route.

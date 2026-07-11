@@ -33,6 +33,14 @@ import kotlin.test.assertTrue
 
 class OneOnOneRoutesTest {
 
+    @Test
+    fun `service delete returns 0 for a missing meeting`() = testApplication {
+        usePostgresTestcontainer()
+        // The route maps 0 to 404 and skips the DELETED event (race window: the row vanished
+        // between the route's read and the delete).
+        assertEquals(0, TestServices.oneOnOnes.delete(999_999_999u))
+    }
+
     private data class Pair(
         val managerId: UInt,
         val managerEmail: String,

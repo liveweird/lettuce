@@ -192,11 +192,10 @@ fun Application.configureOneOnOneRoutes() {
                 oneOnOneEventService.create(
                     oneOnOneCreationEvent(request.meetingDate, result.carriedOver).toEvent(result.id, caller.userId),
                 )
+                // The create committed (Location header, notification and CREATED event are already
+                // persisted), so a missing re-read is a server-side anomaly, not a client 404.
                 val created = oneOnOneService.read(result.id)
-                if (created == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "1:1 meeting not found")
-                    return@post
-                }
+                    ?: error("1:1 meeting ${result.id} vanished between create and re-read")
                 call.respond(HttpStatusCode.Created, created)
             }
             get<OneOnOnes.Id> { route ->
@@ -243,7 +242,10 @@ fun Application.configureOneOnOneRoutes() {
                     return@delete
                 }
                 requireOneOnOneWrite(caller, existing)
-                oneOnOneService.delete(route.id)
+                if (oneOnOneService.delete(route.id) == 0) {
+                    call.respondProblem(HttpStatusCode.NotFound, "1:1 meeting not found")
+                    return@delete
+                }
                 // Audit the deletion against the acting manager (events outlive the soft-deleted
                 // row). No notification — creation is the only notifying event for 1:1s.
                 oneOnOneEventService.create(oneOnOneDeletionEvent().toEvent(route.id, caller.userId))

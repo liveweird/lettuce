@@ -20,6 +20,14 @@ import kotlin.test.assertTrue
 
 class NotificationRoutesTest {
 
+    @Test
+    fun `service mutations return 0 for a missing notification`() = testApplication {
+        usePostgresTestcontainer()
+        // The routes map 0 to 404 (race window: the row vanished between read and mutation).
+        assertEquals(0, TestNotifications.service.markSeen(999_999_999u))
+        assertEquals(0, TestNotifications.service.markUnseen(999_999_999u))
+        assertEquals(0, TestNotifications.service.delete(999_999_999u))
+    }
 
     @Test
     fun `list returns only the caller's notifications, newest first`() = testApplication {

@@ -114,13 +114,14 @@ class TeamService(val database: R2dbcDatabase) {
         }
     }
 
-    suspend fun addMember(teamId: UInt, userId: UInt) {
+    /** `null` = team missing/soft-deleted, `true` = membership changed, `false` = already a member. */
+    suspend fun addMember(teamId: UInt, userId: UInt): Boolean? =
         suspendTransaction(database) {
             val managerId = Teams.selectAll()
                 .where { (Teams.id eq teamId) and active() }
                 .singleOrNull()
                 ?.get(Teams.managerId)?.value
-                ?: throw BadRequestException("Team $teamId not found")
+                ?: return@suspendTransaction null
             if (userId == managerId) {
                 throw BadRequestException("Manager cannot also be a standard member")
             }
@@ -133,25 +134,20 @@ class TeamService(val database: R2dbcDatabase) {
                     it[TeamMembers.userId] = userId
                 }
             }
+            !alreadyMember
         }
-    }
 
-    suspend fun removeMember(teamId: UInt, userId: UInt) {
+    /** `null` = team missing/soft-deleted, `true` = membership changed, `false` = was not a member. */
+    suspend fun removeMember(teamId: UInt, userId: UInt): Boolean? =
         suspendTransaction(database) {
             Teams.selectAll()
                 .where { (Teams.id eq teamId) and active() }
                 .singleOrNull()
-                ?: throw BadRequestException("Team $teamId not found")
-            val currentMembers = TeamMembers.selectAll()
-                .where { TeamMembers.teamId eq teamId }
-                .map { it[TeamMembers.userId].value }
-                .toList()
-            if (userId !in currentMembers) return@suspendTransaction
+                ?: return@suspendTransaction null
             TeamMembers.deleteWhere {
                 (TeamMembers.teamId eq teamId) and (TeamMembers.userId eq userId)
-            }
+            } > 0
         }
-    }
 
     suspend fun list(filter: TeamListFilter, paging: PageRequest): TeamListResult =
         suspendTransaction(database) {
