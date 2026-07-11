@@ -192,6 +192,16 @@ object TestServices {
     val alerts: ch.nokillswit.alerts.AlertService by lazy {
         ch.nokillswit.alerts.AlertService(sharedTestDatabase)
     }
+    val oneOnOnes: ch.nokillswit.oneonones.OneOnOneService by lazy {
+        ch.nokillswit.oneonones.OneOnOneService(sharedTestDatabase, cipher)
+    }
+}
+
+// Reads the one_on_one_events audit table directly (e.g. to assert events outlive a soft delete).
+object TestOneOnOneEvents {
+    val service: ch.nokillswit.oneonones.OneOnOneEventService by lazy {
+        ch.nokillswit.oneonones.OneOnOneEventService(sharedTestDatabase)
+    }
 }
 
 // There is no create endpoint for notifications (they are minted as a side-effect of

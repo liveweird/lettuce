@@ -4,6 +4,7 @@ import ch.nokillswit.feedbacks.Feedback
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
 import ch.nokillswit.feedbacks.isDelivered
+import ch.nokillswit.oneonones.OneOnOneResponse
 import ch.nokillswit.users.UserRole
 
 fun CallerPrincipal.isAdmin(): Boolean = role == UserRole.ADMIN
@@ -125,5 +126,45 @@ private fun canWriteFeedback(caller: CallerPrincipal, feedback: Feedback): Boole
 fun requireFeedbackWrite(caller: CallerPrincipal, feedback: Feedback) {
     if (!canWriteFeedback(caller, feedback)) {
         throw ForbiddenException("Only the feedback provider may modify this feedback")
+    }
+}
+
+// ── 1:1 meetings ────────────────────────────────────────────────────────────────────────────
+// Existence disclosure: like feedbacks, 1:1 routes read BEFORE guarding (missing → 404,
+// existing-but-forbidden → 403), so an id probe can learn a meeting exists — never its content
+// or parties (ids are sequential; existence is no secret).
+
+/** The cheap (no-DB) read rules: the two parties and ADMIN. The subordinate's wider management
+ *  chain is handled by [requireOneOnOneReadAllowingManager] to keep the DB hit lazy. */
+fun canReadOneOnOne(caller: CallerPrincipal, meeting: OneOnOneResponse): Boolean {
+    if (caller.isAdmin()) return true
+    if (caller.userId == meeting.managerId) return true
+    return caller.userId == meeting.subordinateId
+}
+
+/**
+ * Read guard for the single GET / events / action-item history: the parties and ADMIN pass the
+ * cheap rules; otherwise any manager in the subordinate's transitive management chain (their
+ * manager's manager, and so on) may read — matching the team list scope, whose direct-only
+ * default is a narrower slice of this same right, not a separate authorization.
+ */
+suspend fun requireOneOnOneReadAllowingManager(
+    caller: CallerPrincipal,
+    meeting: OneOnOneResponse,
+    managesSubordinate: suspend () -> Boolean,
+) {
+    if (canReadOneOnOne(caller, meeting)) return // cheap rules first
+    if (managesSubordinate()) return // DB hit only if needed
+    throw ForbiddenException("Caller may not read this 1:1 meeting")
+}
+
+/**
+ * The manager is always the author: only they may edit or delete the meeting. ADMIN is
+ * intentionally NOT granted write access (mirroring [canWriteFeedback]); an admin who is
+ * themselves the manager still qualifies via the userId check.
+ */
+fun requireOneOnOneWrite(caller: CallerPrincipal, meeting: OneOnOneResponse) {
+    if (caller.userId != meeting.managerId) {
+        throw ForbiddenException("Only the meeting's manager may modify this 1:1 meeting")
     }
 }

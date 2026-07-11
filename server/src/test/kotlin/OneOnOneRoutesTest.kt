@@ -1,0 +1,658 @@
+package ch.nokillswit
+
+import ch.nokillswit.notifications.NotificationPageResponse
+import ch.nokillswit.notifications.NotificationType
+import ch.nokillswit.oneonones.ActionItemHistoryResponse
+import ch.nokillswit.oneonones.ActionItemOwner
+import ch.nokillswit.oneonones.OneOnOneActionItemInput
+import ch.nokillswit.oneonones.OneOnOneCreateRequest
+import ch.nokillswit.oneonones.OneOnOneEventListResponse
+import ch.nokillswit.oneonones.OneOnOneEventType
+import ch.nokillswit.oneonones.OneOnOneItemInput
+import ch.nokillswit.oneonones.OneOnOnePageResponse
+import ch.nokillswit.oneonones.OneOnOneResponse
+import ch.nokillswit.oneonones.OneOnOneUpdateRequest
+import ch.nokillswit.teams.Team
+import ch.nokillswit.users.UserRole
+import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.request.delete
+import io.ktor.client.request.get
+import io.ktor.client.request.post
+import io.ktor.client.request.put
+import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
+import io.ktor.server.testing.testApplication
+import java.util.UUID
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+
+class OneOnOneRoutesTest {
+
+    private data class Pair(
+        val managerId: UInt,
+        val managerEmail: String,
+        val subordinateId: UInt,
+        val subordinateEmail: String,
+        val teamId: UInt,
+    )
+
+    /** A manager with one direct report (a fresh team), both role USER. */
+    private suspend fun seedPair(
+        managerName: String = "Mia Manager",
+        subordinateName: String = "Sam Subordinate",
+    ): Pair {
+        val managerEmail = uniqueEmail("manager")
+        val managerId = TestUsers.seed(managerEmail, "pw", name = managerName, role = UserRole.USER)
+        val subordinateEmail = uniqueEmail("subordinate")
+        val subordinateId = TestUsers.seed(subordinateEmail, "pw", name = subordinateName, role = UserRole.USER)
+        val teamId = TestServices.teams.create(Team(name = "oo-${UUID.randomUUID()}", managerId = managerId))
+        TestServices.teams.addMember(teamId, subordinateId)
+        return Pair(managerId, managerEmail, subordinateId, subordinateEmail, teamId)
+    }
+
+    private suspend fun HttpClient.createMeeting(
+        subordinateId: UInt,
+        meetingDate: String = "2026-07-01",
+        points: List<OneOnOneItemInput> = emptyList(),
+        decisions: List<OneOnOneItemInput> = emptyList(),
+        actionItems: List<OneOnOneActionItemInput> = emptyList(),
+    ): OneOnOneResponse {
+        val response = post("/api/v1/one-on-ones") {
+            contentType(ContentType.Application.Json)
+            setBody(OneOnOneCreateRequest(subordinateId, meetingDate, points, decisions, actionItems))
+        }
+        assertEquals(HttpStatusCode.Created, response.status, "create failed")
+        return response.body<OneOnOneResponse>()
+    }
+
+    private fun OneOnOneResponse.toUpdate() = OneOnOneUpdateRequest(
+        meetingDate = meetingDate,
+        points = points.map { OneOnOneItemInput(it.id, it.content) },
+        decisions = decisions.map { OneOnOneItemInput(it.id, it.content) },
+        actionItems = actionItems.map {
+            OneOnOneActionItemInput(it.id, it.content, it.owner, it.dueDate, it.resolved)
+        },
+    )
+
+    // ---- create + read ----
+
+    @Test
+    fun `create and read round-trip preserves list order and fields`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val manager = authedClient(pair.managerEmail, "pw")
+
+        val response = manager.post("/api/v1/one-on-ones") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                OneOnOneCreateRequest(
+                    subordinateId = pair.subordinateId,
+                    meetingDate = "2026-07-01",
+                    points = listOf(OneOnOneItemInput(content = "roadmap"), OneOnOneItemInput(content = "vacation")),
+                    decisions = listOf(OneOnOneItemInput(content = "ship v2 in August")),
+                    actionItems = listOf(
+                        OneOnOneActionItemInput(
+                            content = "prepare demo", owner = ActionItemOwner.SUBORDINATE,
+                            dueDate = "2026-07-15",
+                        ),
+                    ),
+                ),
+            )
+        }
+        assertEquals(HttpStatusCode.Created, response.status)
+        val created = response.body<OneOnOneResponse>()
+        assertEquals("/api/v1/one-on-ones/${created.id}", response.headers["Location"])
+        assertEquals(pair.managerId, created.managerId)
+        assertEquals("Mia Manager", created.managerName)
+        assertEquals(pair.subordinateId, created.subordinateId)
+        assertEquals("Sam Subordinate", created.subordinateName)
+        assertEquals("2026-07-01", created.meetingDate)
+        assertEquals(listOf("roadmap", "vacation"), created.points.map { it.content })
+        assertEquals(listOf("ship v2 in August"), created.decisions.map { it.content })
+        val actionItem = created.actionItems.single()
+        assertEquals("prepare demo", actionItem.content)
+        assertEquals(ActionItemOwner.SUBORDINATE, actionItem.owner)
+        assertEquals("2026-07-15", actionItem.dueDate)
+        assertEquals(false, actionItem.resolved)
+        assertNull(actionItem.copiedFromId)
+
+        val fetched = manager.get("/api/v1/one-on-ones/${created.id}").body<OneOnOneResponse>()
+        assertEquals(created, fetched)
+    }
+
+    @Test
+    fun `only the direct manager may create - no admin on-behalf, no self-service`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val otherPair = seedPair()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(adminEmail, "pw", role = UserRole.ADMIN)
+
+        suspend fun createAs(email: String, subordinateId: UInt): HttpStatusCode =
+            authedClient(email, "pw").post("/api/v1/one-on-ones") {
+                contentType(ContentType.Application.Json)
+                setBody(OneOnOneCreateRequest(subordinateId, "2026-07-01"))
+            }.status
+
+        // A manager of a DIFFERENT team may not document someone else's report.
+        assertEquals(HttpStatusCode.Forbidden, createAs(otherPair.managerEmail, pair.subordinateId))
+        // The manager is always the author: even an ADMIN cannot create on behalf.
+        assertEquals(HttpStatusCode.Forbidden, createAs(adminEmail, pair.subordinateId))
+        // The subordinate cannot document a 1:1 with themselves (they are nobody's direct report here).
+        assertEquals(HttpStatusCode.Forbidden, createAs(pair.subordinateEmail, pair.subordinateId))
+        // A manager cannot hold a 1:1 with themselves (never their own direct report).
+        assertEquals(HttpStatusCode.Forbidden, createAs(pair.managerEmail, pair.managerId))
+        // And the real manager may.
+        assertEquals(HttpStatusCode.Created, createAs(pair.managerEmail, pair.subordinateId))
+    }
+
+    @Test
+    fun `create validates dates, blanks, caps, and forbids item ids`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val manager = authedClient(pair.managerEmail, "pw")
+
+        suspend fun status(request: OneOnOneCreateRequest): HttpStatusCode =
+            manager.post("/api/v1/one-on-ones") {
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }.status
+
+        val base = OneOnOneCreateRequest(pair.subordinateId, "2026-07-01")
+        assertEquals(HttpStatusCode.BadRequest, status(base.copy(meetingDate = "07/01/2026")))
+        assertEquals(HttpStatusCode.BadRequest, status(base.copy(meetingDate = "2026-7-1")))
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            status(base.copy(points = listOf(OneOnOneItemInput(content = "   ")))),
+        )
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            status(base.copy(decisions = listOf(OneOnOneItemInput(content = "x".repeat(4001))))),
+        )
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            status(
+                base.copy(
+                    actionItems = listOf(
+                        OneOnOneActionItemInput(content = "ok", owner = ActionItemOwner.MANAGER, dueDate = "soon"),
+                    ),
+                ),
+            ),
+        )
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            status(base.copy(points = List(101) { OneOnOneItemInput(content = "p$it") })),
+        )
+        // Ids identify existing rows on PUT only.
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            status(base.copy(points = listOf(OneOnOneItemInput(id = 1u, content = "smuggled")))),
+        )
+    }
+
+    // ---- carry-over ----
+
+    @Test
+    fun `unresolved action items are carried over with a reference, resolved ones are not`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val manager = authedClient(pair.managerEmail, "pw")
+
+        val first = manager.createMeeting(
+            pair.subordinateId, "2026-07-01",
+            actionItems = listOf(
+                OneOnOneActionItemInput(content = "draft OKRs", owner = ActionItemOwner.MANAGER, dueDate = "2026-07-10"),
+                OneOnOneActionItemInput(content = "prepare demo", owner = ActionItemOwner.SUBORDINATE),
+            ),
+        )
+        // Resolve the first item.
+        val resolveUpdate = first.toUpdate().let { update ->
+            update.copy(
+                actionItems = update.actionItems.map {
+                    if (it.content == "draft OKRs") it.copy(resolved = true) else it
+                },
+            )
+        }
+        assertEquals(
+            HttpStatusCode.NoContent,
+            manager.put("/api/v1/one-on-ones/${first.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(resolveUpdate)
+            }.status,
+        )
+
+        val second = manager.createMeeting(
+            pair.subordinateId, "2026-07-08",
+            actionItems = listOf(
+                OneOnOneActionItemInput(content = "fresh item", owner = ActionItemOwner.MANAGER),
+            ),
+        )
+        // Carried copy comes FIRST, then the request's own items.
+        assertEquals(listOf("prepare demo", "fresh item"), second.actionItems.map { it.content })
+        val carried = second.actionItems.first()
+        val source = first.actionItems.single { it.content == "prepare demo" }
+        assertEquals(source.id, carried.copiedFromId)
+        assertEquals(ActionItemOwner.SUBORDINATE, carried.owner)
+        assertEquals(false, carried.resolved)
+        assertNull(second.actionItems.last().copiedFromId)
+
+        // The creation event records the carry-over count.
+        val events = manager.get("/api/v1/one-on-ones/${second.id}/events").body<OneOnOneEventListResponse>()
+        val creation = events.items.single()
+        assertEquals(OneOnOneEventType.CREATED, creation.type)
+        assertEquals(mapOf("date" to "2026-07-08", "carriedOver" to "1"), creation.params)
+    }
+
+    @Test
+    fun `carry-over pulls from the LATEST meeting of the pair and chains copy-of-copy`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val manager = authedClient(pair.managerEmail, "pw")
+
+        val first = manager.createMeeting(
+            pair.subordinateId, "2026-07-01",
+            actionItems = listOf(OneOnOneActionItemInput(content = "long runner", owner = ActionItemOwner.MANAGER)),
+        )
+        val second = manager.createMeeting(pair.subordinateId, "2026-07-08")
+        val secondCopy = second.actionItems.single()
+        assertEquals(first.actionItems.single().id, secondCopy.copiedFromId)
+
+        // A back-dated third meeting still pulls from the latest (2026-07-08) meeting — the
+        // documented rule — so its copy chains off the SECOND meeting's copy.
+        val third = manager.createMeeting(pair.subordinateId, "2026-07-05")
+        assertEquals(secondCopy.id, third.actionItems.single().copiedFromId)
+
+        // Carry-over ignores other pairs entirely.
+        val otherPair = seedPair()
+        val otherMeeting = authedClient(otherPair.managerEmail, "pw").createMeeting(otherPair.subordinateId, "2026-07-09")
+        assertTrue(otherMeeting.actionItems.isEmpty())
+    }
+
+    // ---- read matrix ----
+
+    @Test
+    fun `read is granted to parties, admin, and the transitive chain - denied to others`() = testApplication {
+        usePostgresTestcontainer()
+        // Grand-manager → manager → subordinate.
+        val pair = seedPair()
+        val grandEmail = uniqueEmail("grand")
+        val grandId = TestUsers.seed(grandEmail, "pw", role = UserRole.USER)
+        val upperTeam = TestServices.teams.create(Team(name = "oo-upper-${UUID.randomUUID()}", managerId = grandId))
+        TestServices.teams.addMember(upperTeam, pair.managerId)
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(adminEmail, "pw", role = UserRole.ADMIN)
+        val siblingPair = seedPair() // an unrelated manager
+        val strangerEmail = uniqueEmail("stranger")
+        TestUsers.seed(strangerEmail, "pw", role = UserRole.USER)
+
+        val meeting = authedClient(pair.managerEmail, "pw").createMeeting(pair.subordinateId)
+        val url = "/api/v1/one-on-ones/${meeting.id}"
+
+        assertEquals(HttpStatusCode.OK, authedClient(pair.managerEmail, "pw").get(url).status)
+        assertEquals(HttpStatusCode.OK, authedClient(pair.subordinateEmail, "pw").get(url).status)
+        assertEquals(HttpStatusCode.OK, authedClient(adminEmail, "pw").get(url).status)
+        // The manager's own manager is in the subordinate's transitive chain.
+        assertEquals(HttpStatusCode.OK, authedClient(grandEmail, "pw").get(url).status)
+        assertEquals(HttpStatusCode.Forbidden, authedClient(siblingPair.managerEmail, "pw").get(url).status)
+        assertEquals(HttpStatusCode.Forbidden, authedClient(strangerEmail, "pw").get(url).status)
+        // Missing id → 404 (read-before-guard idiom).
+        assertEquals(HttpStatusCode.NotFound, authedClient(pair.managerEmail, "pw").get("/api/v1/one-on-ones/999999").status)
+    }
+
+    // ---- update ----
+
+    @Test
+    fun `PUT is a full replace that preserves ids, rewrites positions, and records per-item events`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val manager = authedClient(pair.managerEmail, "pw")
+
+        val created = manager.createMeeting(
+            pair.subordinateId, "2026-07-01",
+            points = listOf(OneOnOneItemInput(content = "keep"), OneOnOneItemInput(content = "drop")),
+            decisions = listOf(OneOnOneItemInput(content = "decision")),
+            actionItems = listOf(OneOnOneActionItemInput(content = "task", owner = ActionItemOwner.MANAGER)),
+        )
+        val keepId = created.points.first { it.content == "keep" }.id
+        val actionId = created.actionItems.single().id
+
+        val update = OneOnOneUpdateRequest(
+            meetingDate = "2026-07-02",
+            points = listOf(
+                OneOnOneItemInput(content = "brand new first"),
+                OneOnOneItemInput(id = keepId, content = "keep (edited)"),
+            ),
+            decisions = created.decisions.map { OneOnOneItemInput(it.id, it.content) },
+            actionItems = listOf(
+                OneOnOneActionItemInput(
+                    id = actionId, content = "task", owner = ActionItemOwner.SUBORDINATE,
+                    dueDate = "2026-07-20", resolved = true,
+                ),
+            ),
+        )
+        assertEquals(
+            HttpStatusCode.NoContent,
+            manager.put("/api/v1/one-on-ones/${created.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(update)
+            }.status,
+        )
+
+        val after = manager.get("/api/v1/one-on-ones/${created.id}").body<OneOnOneResponse>()
+        assertEquals("2026-07-02", after.meetingDate)
+        assertEquals(listOf("brand new first", "keep (edited)"), after.points.map { it.content })
+        // The surviving row kept its id (identity is stable across edits and reorders).
+        assertEquals(keepId, after.points[1].id)
+        val item = after.actionItems.single()
+        assertEquals(actionId, item.id)
+        assertEquals(ActionItemOwner.SUBORDINATE, item.owner)
+        assertEquals("2026-07-20", item.dueDate)
+        assertEquals(true, item.resolved)
+        assertTrue(after.lastModified >= created.lastModified)
+
+        val events = manager.get("/api/v1/one-on-ones/${created.id}/events").body<OneOnOneEventListResponse>()
+        assertEquals(
+            listOf(
+                OneOnOneEventType.CREATED,
+                OneOnOneEventType.DATE_CHANGED,
+                OneOnOneEventType.POINT_REMOVED,
+                OneOnOneEventType.POINT_EDITED,
+                OneOnOneEventType.POINT_ADDED,
+                OneOnOneEventType.ACTION_ITEM_RESOLVED,
+                OneOnOneEventType.ACTION_ITEM_DUE_DATE_CHANGED,
+                OneOnOneEventType.ACTION_ITEM_OWNER_CHANGED,
+            ),
+            events.items.map { it.type },
+        )
+        // Every event is attributed to the acting manager with their resolved name.
+        assertTrue(events.items.all { it.userId == pair.managerId && it.userName == "Mia Manager" })
+    }
+
+    @Test
+    fun `a no-op PUT mints no events and a foreign item id is a 400`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val manager = authedClient(pair.managerEmail, "pw")
+        val created = manager.createMeeting(
+            pair.subordinateId,
+            points = listOf(OneOnOneItemInput(content = "stable")),
+        )
+        val otherMeeting = manager.createMeeting(pair.subordinateId, "2026-07-02", points = listOf(OneOnOneItemInput(content = "other")))
+
+        assertEquals(
+            HttpStatusCode.NoContent,
+            manager.put("/api/v1/one-on-ones/${created.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(created.toUpdate())
+            }.status,
+        )
+        val events = manager.get("/api/v1/one-on-ones/${created.id}/events").body<OneOnOneEventListResponse>()
+        assertEquals(listOf(OneOnOneEventType.CREATED), events.items.map { it.type })
+
+        // Another meeting's item id in the payload → 400 (never silently reparented).
+        val foreign = created.toUpdate().copy(
+            points = listOf(OneOnOneItemInput(id = otherMeeting.points.single().id, content = "hijack")),
+        )
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            manager.put("/api/v1/one-on-ones/${created.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(foreign)
+            }.status,
+        )
+    }
+
+    @Test
+    fun `only the manager may update or delete - subordinate and admin get 403`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(adminEmail, "pw", role = UserRole.ADMIN)
+        val manager = authedClient(pair.managerEmail, "pw")
+        val created = manager.createMeeting(pair.subordinateId)
+        val body = created.toUpdate()
+
+        for (email in listOf(pair.subordinateEmail, adminEmail)) {
+            val client = authedClient(email, "pw")
+            assertEquals(
+                HttpStatusCode.Forbidden,
+                client.put("/api/v1/one-on-ones/${created.id}") {
+                    contentType(ContentType.Application.Json)
+                    setBody(body)
+                }.status,
+                "PUT as $email",
+            )
+            assertEquals(HttpStatusCode.Forbidden, client.delete("/api/v1/one-on-ones/${created.id}").status, "DELETE as $email")
+        }
+    }
+
+    // ---- delete ----
+
+    @Test
+    fun `delete is a soft delete that hides the meeting but preserves its events`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val manager = authedClient(pair.managerEmail, "pw")
+        val created = manager.createMeeting(pair.subordinateId)
+
+        assertEquals(HttpStatusCode.NoContent, manager.delete("/api/v1/one-on-ones/${created.id}").status)
+        assertEquals(HttpStatusCode.NotFound, manager.get("/api/v1/one-on-ones/${created.id}").status)
+        // Idempotent in effect: a second delete is 404, not 204.
+        assertEquals(HttpStatusCode.NotFound, manager.delete("/api/v1/one-on-ones/${created.id}").status)
+
+        val list = manager.get("/api/v1/one-on-ones?view=managed").body<OneOnOnePageResponse>()
+        assertTrue(list.items.none { it.id == created.id })
+
+        // The audit trail outlives the soft-deleted row (read below the routes).
+        val events = TestOneOnOneEvents.service.listForMeeting(created.id)
+        assertEquals(listOf(OneOnOneEventType.CREATED, OneOnOneEventType.DELETED), events.map { it.type })
+        assertEquals(pair.managerId, events.last().userId)
+    }
+
+    // ---- list views ----
+
+    @Test
+    fun `list views scope by caller - own, managed, and team with includeIndirect`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val grandEmail = uniqueEmail("grand")
+        val grandId = TestUsers.seed(grandEmail, "pw", role = UserRole.USER)
+        val upperTeam = TestServices.teams.create(Team(name = "oo-upper-${UUID.randomUUID()}", managerId = grandId))
+        TestServices.teams.addMember(upperTeam, pair.managerId)
+
+        val manager = authedClient(pair.managerEmail, "pw")
+        val meeting = manager.createMeeting(pair.subordinateId, "2026-07-01")
+
+        // own (the default view): the subordinate's meetings as subordinate, exactly once.
+        val own = authedClient(pair.subordinateEmail, "pw").get("/api/v1/one-on-ones").body<OneOnOnePageResponse>()
+        assertEquals(1, own.items.count { it.id == meeting.id })
+
+        // managed: the manager's meetings as manager (their own view=own is empty).
+        val managed = manager.get("/api/v1/one-on-ones?view=managed").body<OneOnOnePageResponse>()
+        assertTrue(managed.items.any { it.id == meeting.id })
+        val managerOwn = manager.get("/api/v1/one-on-ones?view=own").body<OneOnOnePageResponse>()
+        assertTrue(managerOwn.items.none { it.id == meeting.id })
+
+        // team for the grand-manager: the subordinate is INDIRECT, so the direct-only default
+        // misses the meeting and includeIndirect=true finds it.
+        val grand = authedClient(grandEmail, "pw")
+        val direct = grand.get("/api/v1/one-on-ones?view=team").body<OneOnOnePageResponse>()
+        assertTrue(direct.items.none { it.id == meeting.id })
+        val indirect = grand.get("/api/v1/one-on-ones?view=team&includeIndirect=true").body<OneOnOnePageResponse>()
+        assertTrue(indirect.items.any { it.id == meeting.id })
+        // But the MANAGER's meeting (with the grand-manager's direct report as subordinate)…
+        // pair.managerId IS grand's direct report — a meeting where the manager is the
+        // subordinate would show. Not created here; the direct view stays empty.
+
+        // includeIndirect is a team-view-only parameter.
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            grand.get("/api/v1/one-on-ones?view=own&includeIndirect=true").status,
+        )
+        assertEquals(HttpStatusCode.BadRequest, grand.get("/api/v1/one-on-ones?view=nope").status)
+    }
+
+    @Test
+    fun `list carries child counts, sorts by meetingDate desc by default, and filters by date range`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair(subordinateName = "Zofia Unikat-${UUID.randomUUID().toString().take(8)}")
+        val manager = authedClient(pair.managerEmail, "pw")
+
+        val early = manager.createMeeting(
+            pair.subordinateId, "2026-06-01",
+            points = listOf(OneOnOneItemInput(content = "p1"), OneOnOneItemInput(content = "p2")),
+            decisions = listOf(OneOnOneItemInput(content = "d1")),
+            actionItems = listOf(
+                OneOnOneActionItemInput(content = "open", owner = ActionItemOwner.MANAGER),
+                OneOnOneActionItemInput(content = "done", owner = ActionItemOwner.MANAGER, resolved = true),
+            ),
+        )
+        val late = manager.createMeeting(pair.subordinateId, "2026-07-01")
+
+        val page = manager.get("/api/v1/one-on-ones?view=managed").body<OneOnOnePageResponse>()
+        val ids = page.items.filter { it.id == early.id || it.id == late.id }.map { it.id }
+        assertEquals(listOf(late.id, early.id), ids) // -meetingDate default
+
+        val earlyRow = page.items.single { it.id == early.id }
+        assertEquals(2, earlyRow.pointCount)
+        assertEquals(1, earlyRow.decisionCount)
+        assertEquals(2, earlyRow.actionItemCount)
+        assertEquals(1, earlyRow.openActionItemCount)
+        assertTrue(earlyRow.subordinateName.startsWith("Zofia"))
+        assertEquals(pair.managerId, earlyRow.managerId)
+
+        // Date-range filter (string compare over ISO dates).
+        val filtered = manager.get("/api/v1/one-on-ones?view=managed&meetingDate[gte]=2026-06-15")
+            .body<OneOnOnePageResponse>()
+        assertTrue(filtered.items.any { it.id == late.id })
+        assertTrue(filtered.items.none { it.id == early.id })
+        // Malformed range value → 400.
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            manager.get("/api/v1/one-on-ones?view=managed&meetingDate[gte]=June").status,
+        )
+
+        // The late meeting carried over the "open" action item: counts reflect it.
+        val lateRow = page.items.single { it.id == late.id }
+        assertEquals(1, lateRow.actionItemCount)
+        assertEquals(1, lateRow.openActionItemCount)
+    }
+
+    // ---- action-item history ----
+
+    @Test
+    fun `action item history spans the copy chain and skips soft-deleted meetings`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val manager = authedClient(pair.managerEmail, "pw")
+
+        val first = manager.createMeeting(
+            pair.subordinateId, "2026-07-01",
+            actionItems = listOf(OneOnOneActionItemInput(content = "long runner", owner = ActionItemOwner.MANAGER)),
+        )
+        val second = manager.createMeeting(pair.subordinateId, "2026-07-08")
+        val third = manager.createMeeting(pair.subordinateId, "2026-07-15")
+        val thirdItem = third.actionItems.single()
+
+        // Full chain from the newest copy: three meetings, oldest first.
+        val history = manager.get("/api/v1/one-on-ones/action-items/${thirdItem.id}/history")
+            .body<ActionItemHistoryResponse>()
+        assertEquals(listOf(first.id, second.id, third.id), history.items.map { it.meetingId })
+        assertEquals(listOf("2026-07-01", "2026-07-08", "2026-07-15"), history.items.map { it.meetingDate })
+        assertTrue(history.items.all { it.content == "long runner" })
+
+        // Soft-delete the MIDDLE meeting: its entry disappears but the chain is walked through.
+        assertEquals(HttpStatusCode.NoContent, manager.delete("/api/v1/one-on-ones/${second.id}").status)
+        val afterDelete = manager.get("/api/v1/one-on-ones/action-items/${thirdItem.id}/history")
+            .body<ActionItemHistoryResponse>()
+        assertEquals(listOf(first.id, third.id), afterDelete.items.map { it.meetingId })
+
+        // Walking from the FIRST meeting's item reaches the same chain (descendants direction).
+        val fromRoot = manager.get("/api/v1/one-on-ones/action-items/${first.actionItems.single().id}/history")
+            .body<ActionItemHistoryResponse>()
+        assertEquals(listOf(first.id, third.id), fromRoot.items.map { it.meetingId })
+    }
+
+    @Test
+    fun `action item history is authorized like the meeting and 404s on unknown items`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val strangerEmail = uniqueEmail("stranger")
+        TestUsers.seed(strangerEmail, "pw", role = UserRole.USER)
+        val manager = authedClient(pair.managerEmail, "pw")
+        val meeting = manager.createMeeting(
+            pair.subordinateId,
+            actionItems = listOf(OneOnOneActionItemInput(content = "task", owner = ActionItemOwner.MANAGER)),
+        )
+        val itemId = meeting.actionItems.single().id
+
+        assertEquals(
+            HttpStatusCode.OK,
+            authedClient(pair.subordinateEmail, "pw").get("/api/v1/one-on-ones/action-items/$itemId/history").status,
+        )
+        assertEquals(
+            HttpStatusCode.Forbidden,
+            authedClient(strangerEmail, "pw").get("/api/v1/one-on-ones/action-items/$itemId/history").status,
+        )
+        assertEquals(
+            HttpStatusCode.NotFound,
+            manager.get("/api/v1/one-on-ones/action-items/999999/history").status,
+        )
+    }
+
+    // ---- events endpoint authz ----
+
+    @Test
+    fun `events are readable exactly like the meeting`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val strangerEmail = uniqueEmail("stranger")
+        TestUsers.seed(strangerEmail, "pw", role = UserRole.USER)
+        val manager = authedClient(pair.managerEmail, "pw")
+        val meeting = manager.createMeeting(pair.subordinateId)
+
+        assertEquals(
+            HttpStatusCode.OK,
+            authedClient(pair.subordinateEmail, "pw").get("/api/v1/one-on-ones/${meeting.id}/events").status,
+        )
+        assertEquals(
+            HttpStatusCode.Forbidden,
+            authedClient(strangerEmail, "pw").get("/api/v1/one-on-ones/${meeting.id}/events").status,
+        )
+        assertEquals(HttpStatusCode.NotFound, manager.get("/api/v1/one-on-ones/999999/events").status)
+    }
+
+    // ---- notification ----
+
+    @Test
+    fun `creating a meeting notifies the subordinate with a view link - once, on creation only`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair(managerName = "Nadia Notifier")
+        val manager = authedClient(pair.managerEmail, "pw")
+        val meeting = manager.createMeeting(pair.subordinateId, "2026-07-01")
+
+        val subordinate = authedClient(pair.subordinateEmail, "pw")
+        val notifications = subordinate.get("/api/v1/notifications").body<NotificationPageResponse>()
+        val note = notifications.items.single { it.type == NotificationType.ONE_ON_ONE_CREATED_TO_SUBORDINATE }
+        assertEquals("/one-on-ones/${meeting.id}/view", note.link)
+        assertEquals("Nadia Notifier", note.params["manager"])
+        assertEquals("2026-07-01", note.params["date"])
+
+        // Edits and deletions notify nobody.
+        manager.put("/api/v1/one-on-ones/${meeting.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(meeting.toUpdate().copy(meetingDate = "2026-07-02"))
+        }
+        manager.delete("/api/v1/one-on-ones/${meeting.id}")
+        val after = subordinate.get("/api/v1/notifications").body<NotificationPageResponse>()
+        assertEquals(
+            1,
+            after.items.count { it.type == NotificationType.ONE_ON_ONE_CREATED_TO_SUBORDINATE },
+        )
+    }
+}

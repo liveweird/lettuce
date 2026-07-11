@@ -15,6 +15,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
+  IconCalendarEvent,
   IconFileText,
   IconHelp,
   IconHistory,
@@ -60,6 +61,10 @@ const SelfReflection = lazy(() => import("./pages/SelfReflection"));
 const EditFeedback = lazy(() => import("./pages/EditFeedback"));
 const ViewFeedback = lazy(() => import("./pages/ViewFeedback"));
 const ManagerFeedbacks = lazy(() => import("./pages/ManagerFeedbacks"));
+const OneOnOnes = lazy(() => import("./pages/OneOnOnes"));
+const CreateOneOnOne = lazy(() => import("./pages/CreateOneOnOne"));
+const EditOneOnOne = lazy(() => import("./pages/EditOneOnOne"));
+const ViewOneOnOne = lazy(() => import("./pages/ViewOneOnOne"));
 const Login = lazy(() => import("./pages/Login"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const CreateUser = lazy(() => import("./pages/CreateUser"));
@@ -99,6 +104,7 @@ const isGroup = (e: NavEntry): e is NavGroup => "children" in e;
 const NAV_ITEMS: ReadonlyArray<NavEntry> = [
   { to: "/", label: "appShell.nav.dashboard", icon: IconLayoutDashboard, tourId: "nav-dashboard" },
   { to: "/feedback", label: "appShell.nav.feedback", icon: IconMessageCircle, tourId: "nav-feedback" },
+  { to: "/one-on-ones", label: "appShell.nav.oneOnOnes", icon: IconCalendarEvent },
   {
     label: "appShell.nav.config",
     icon: IconSettings,
@@ -399,6 +405,10 @@ export default function App() {
             <Route path="feedback/:id/edit" element={<EditFeedback />} />
             <Route path="feedback/:id/view" element={<ViewFeedback />} />
             <Route path="users/:userId/feedbacks" element={<ManagerFeedbacks />} />
+            <Route path="one-on-ones" element={<OneOnOnes />} />
+            <Route path="one-on-ones/new" element={<CreateOneOnOne />} />
+            <Route path="one-on-ones/:id/edit" element={<EditOneOnOne />} />
+            <Route path="one-on-ones/:id/view" element={<ViewOneOnOne />} />
             <Route path="templates" element={<Templates />} />
             <Route path="templates/new" element={<CreateTemplate />} />
             <Route path="templates/:id/edit" element={<EditTemplate />} />

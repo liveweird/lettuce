@@ -6,8 +6,8 @@ import ch.nokillswit.infra.db.containsPattern
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.notifications.Notification
-import ch.nokillswit.teams.TeamService
 import ch.nokillswit.teams.directSubordinateIds
+import ch.nokillswit.teams.isInManagementChain
 import ch.nokillswit.teams.transitiveSubordinateIds
 import ch.nokillswit.users.UserService
 import io.ktor.server.plugins.BadRequestException
@@ -358,41 +358,11 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
      * Mirrors the widest ([FeedbackListView.TEAM] with includeIndirect=true) list scope so a
      * manager who can list a subordinate's feedback can also read the individual record
      * (the list's direct-only default is a narrower slice of the same right, not a separate
-     * authorization). Walks upward from the subject
-     * (bounded by chain height); a management cycle terminates via the visited set, and a caller
-     * is never considered their own manager.
+     * authorization). The walk itself lives in teams/ManagementChain.kt ([isInManagementChain])
+     * and is shared with the 1:1 meetings feature.
      */
     suspend fun managesSubject(managerId: UInt, subjectId: UInt): Boolean =
-        suspendTransaction(database) {
-            if (managerId == subjectId) return@suspendTransaction false
-            var frontier = setOf(subjectId)
-            val visited = mutableSetOf<UInt>()
-            while (frontier.isNotEmpty()) {
-                val managers = managersOf(frontier)
-                if (managerId in managers) return@suspendTransaction true
-                visited += frontier
-                frontier = managers - visited
-            }
-            false
-        }
-
-    /** Managers of the non-deleted teams the [userIds] are members of. Runs in the caller's transaction. */
-    private suspend fun managersOf(userIds: Set<UInt>): Set<UInt> =
-        TeamService.TeamMembers
-            .join(
-                TeamService.Teams,
-                JoinType.INNER,
-                onColumn = TeamService.TeamMembers.teamId,
-                otherColumn = TeamService.Teams.id,
-            )
-            .select(TeamService.Teams.managerId)
-            .where {
-                (TeamService.TeamMembers.userId inList userIds) and
-                    (TeamService.Teams.markedAsDeleted eq false)
-            }
-            .map { it[TeamService.Teams.managerId].value }
-            .toList()
-            .toSet()
+        suspendTransaction(database) { isInManagementChain(managerId, subjectId) }
 
     private fun buildPredicate(filter: FeedbackListFilter): Op<Boolean> {
         var op: Op<Boolean> = Op.TRUE
