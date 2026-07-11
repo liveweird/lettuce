@@ -77,8 +77,22 @@ export async function expectLoginRejected(page: Page, email: string, password: s
 }
 
 export async function logout(page: Page): Promise<void> {
+  await collapseAlertsBanner(page);
   await page.getByRole("button", { name: "Logout" }).click();
   await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+}
+
+/**
+ * While an alert is visible, its expanded banner is a fixed overlay that covers the header —
+ * by design the user hides it before reaching the header buttons (logout, bell, language).
+ * Collapse it if present so header clicks aren't intercepted; a no-op when no alert exists.
+ */
+export async function collapseAlertsBanner(page: Page): Promise<void> {
+  const hide = page.getByRole("button", { name: "Hide alerts" });
+  if (await hide.isVisible().catch(() => false)) {
+    await hide.click();
+    await expect(hide).toBeHidden();
+  }
 }
 
 /** The feedback content editor (MDXEditor) is a Lexical contenteditable. */
@@ -156,6 +170,7 @@ export async function expectStatus(page: Page, id: number, expected: string): Pr
 
 /** Open the notifications bell modal; returns the dialog locator. */
 export async function openBell(page: Page) {
+  await collapseAlertsBanner(page); // the expanded banner overlays the header (see logout)
   await page.getByRole("button", { name: /^Notifications/ }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByText("Notifications")).toBeVisible();

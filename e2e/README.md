@@ -44,6 +44,10 @@ endpoints through the UI):
   (`PUT /users/{id}`).
 - `users-admin.spec.ts` — role change; admin password reset vs. self-change (current password
   required, wrong one rejected); delete (deleted account can no longer sign in).
+- `users-import.spec.ts` — mass CSV import: a mixed file imports row-by-row (an imported
+  password signs in); re-importing the same rows yields duplicates, not new accounts.
+- `password-reset.spec.ts` — the "Forgot password?" flow: neutral answer for unknown emails;
+  a reset email delivers a working new password and kills the old one.
 - `teams.spec.ts` — team create / rename / member add + remove / **manager reassignment**
   (admin-only) / delete.
 - `templates.spec.ts` — template CRUD + **Insert** into the feedback editor.
@@ -51,6 +55,13 @@ endpoints through the UI):
   feedbacks screen.
 - `lists.spec.ts` — shared list plumbing on the Users page: filters (+ clear), sort toggle,
   page size.
+- `one-on-ones.spec.ts` — a manager documents a 1:1 (points / decisions / action items) with a
+  direct report, views and deletes it; open action items **carry over** to the next meeting
+  ("Carried over" badge) and the subordinate is **notified** and reads the meeting read-only.
+- `alerts.spec.ts` — admin creates an alert; a regular user sees the **banner**, hides it to the
+  strip and re-shows it (and has no alert management); deactivation and delete remove it.
+- `self-reflection.spec.ts` — a user writes feedback about themselves (both parties "You",
+  the no-requester visibility pair) and finds it delivered in their Provided tab.
 - `i18n.spec.ts` — PL/EN switch, persisted across reload.
 
 Specs log in with the seeded accounts (`admin@lettuce.local`, `manager-aaa@…`, `aaa-one/two/three@…`,
