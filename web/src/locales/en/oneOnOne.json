@@ -2,9 +2,9 @@
   "sectionTitle": "1:1 meetings",
   "newMeeting": "New 1:1",
   "tab": {
-    "own": "My 1:1s",
-    "managed": "As manager",
-    "team": "My team"
+    "own": "I'm a subordinate",
+    "managed": "I'm a manager",
+    "team": "My subordinate's a manager"
   },
   "manager": "Manager",
   "subordinate": "Team member",

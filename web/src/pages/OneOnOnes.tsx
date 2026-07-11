@@ -53,19 +53,19 @@ export default function OneOnOnes() {
       </Group>
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
-          <Tabs.Tab value="own">{t("oneOnOne.tab.own")}</Tabs.Tab>
           {isManager && <Tabs.Tab value="managed">{t("oneOnOne.tab.managed")}</Tabs.Tab>}
+          <Tabs.Tab value="own">{t("oneOnOne.tab.own")}</Tabs.Tab>
           {isManager && <Tabs.Tab value="team">{t("oneOnOne.tab.team")}</Tabs.Tab>}
         </Tabs.List>
 
-        <Tabs.Panel value="own" pt="md">
-          <OneOnOneTable view="own" />
-        </Tabs.Panel>
         {isManager && (
           <Tabs.Panel value="managed" pt="md">
             <OneOnOneTable view="managed" />
           </Tabs.Panel>
         )}
+        <Tabs.Panel value="own" pt="md">
+          <OneOnOneTable view="own" />
+        </Tabs.Panel>
         {isManager && (
           <Tabs.Panel value="team" pt="md">
             <OneOnOneTable view="team" />

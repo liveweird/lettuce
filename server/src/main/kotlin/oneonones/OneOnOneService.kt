@@ -263,13 +263,14 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
             OneOnOneListView.OWN -> Meetings.subordinateId eq callerUserId
             OneOnOneListView.MANAGED -> Meetings.managerId eq callerUserId
             OneOnOneListView.TEAM -> {
-                // Direct reports by default; with includeIndirect the whole transitive chain.
-                // A narrower slice of the single-GET's transitive manager read right, mirroring
-                // the feedback team view — not a separate authorization.
-                val subordinateIds =
+                // Meetings run BY the caller's subordinates as managers — direct reports by
+                // default, the whole transitive chain with includeIndirect. A narrower slice of
+                // the single-GET's transitive manager read right (the subordinate of such a
+                // meeting is always in the caller's chain too) — not a separate authorization.
+                val managerIds =
                     if (includeIndirect) transitiveSubordinateIds(callerUserId)
                     else directSubordinateIds(callerUserId)
-                if (subordinateIds.isEmpty()) Op.FALSE else Meetings.subordinateId inList subordinateIds
+                if (managerIds.isEmpty()) Op.FALSE else Meetings.managerId inList managerIds
             }
         }
         val predicate: Op<Boolean> = scope and buildPredicate(filter) and active()
