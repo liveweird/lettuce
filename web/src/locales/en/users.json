@@ -110,5 +110,10 @@
   "createSendEmail": "Email the credentials to the new user",
   "credentialsEmailed": "The credentials have been emailed to {{email}}.",
   "credentialsEmailFailed": "The account was created, but the email could not be delivered — copy the password or use the email draft.",
-  "emailOptionUnavailable": "This deployment cannot send email. Uncheck the email option and try again."
+  "emailOptionUnavailable": "This deployment cannot send email. Uncheck the email option and try again.",
+  "lastOneOnOne": "Last 1:1",
+  "lastFeedback": "Last feedback",
+  "statNever": "never",
+  "openItemsBadge_one": "{{count}} open item",
+  "openItemsBadge_other": "{{count}} open items"
 }

@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.9",
+    date: "2026-07-12",
+    en: `The *My managers* cards on the Dashboard now show, for each manager, how long ago your last 1:1 with them was, how many action items from that meeting are still open, and when they last gave you feedback.`,
+    pl: `Karty *Moi menedżerowie* na Pulpicie pokazują teraz przy każdym menedżerze/ce, jak dawno odbyło się Wasze ostatnie 1:1, ile zadań z tego spotkania wciąż jest otwartych oraz kiedy ostatnio ta osoba przekazała Ci feedback.`,
+  },
+  {
     version: "1.8.1",
     date: "2026-07-11",
     en: `Notifications got two small upgrades: you can now *delete* a notification from the bell menu, and older notifications are reachable through a pager instead of being cut off at the newest fifty. Plus a round of polish: deleted users are labelled consistently in the 1:1 lists, the *New 1:1* button moved next to the other create buttons, and a load failure no longer shows a misleading "empty list" message underneath the error.`,

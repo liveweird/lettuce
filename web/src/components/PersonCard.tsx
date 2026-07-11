@@ -2,17 +2,19 @@ import { type ReactNode } from "react";
 import { Avatar, Badge, Divider, Group, Paper, Stack, Text } from "@mantine/core";
 
 // One person card in the dashboard grids (managers / peers / subordinates): initials avatar,
-// name, dimmed email, team badges, and the caller-supplied actions row under a divider.
-// Rendered as <li> — the grids are semantic <ul> lists.
+// name, dimmed email, team badges, an optional caller-supplied stats block, and the actions
+// row under a divider. Rendered as <li> — the grids are semantic <ul> lists.
 export default function PersonCard({
   name,
   email,
   teamNames,
+  stats,
   actions,
 }: {
   name: string;
   email: string;
   teamNames: string[];
+  stats?: ReactNode;
   actions: ReactNode;
 }) {
   return (
@@ -36,6 +38,7 @@ export default function PersonCard({
             </Group>
           </Stack>
         </Group>
+        {stats}
         <Divider mt="auto" />
         <Group gap="xs" wrap="wrap">
           {actions}

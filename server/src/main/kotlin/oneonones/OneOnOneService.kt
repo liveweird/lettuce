@@ -45,6 +45,12 @@ data class OneOnOneCreateResult(
     val notifications: List<Notification>,
 )
 
+/** The latest directional 1:1 of a (manager, subordinate) pair — see [OneOnOneService.latestMeetingStats]. */
+data class OneOnOneLatestStats(
+    val meetingDate: String,
+    val openActionItemCount: Int,
+)
+
 /** An action item's history plus the meeting the queried item belongs to (the authz anchor). */
 data class ActionItemHistoryResult(
     val meetingId: UInt,
@@ -102,6 +108,45 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
     /** Whether [managerId] is anywhere in [subordinateId]'s transitive management chain (read rule). */
     suspend fun managesSubordinate(managerId: UInt, subordinateId: UInt): Boolean =
         suspendTransaction(database) { isInManagementChain(managerId, subordinateId) }
+
+    /**
+     * For each manager in [managerIds], the latest non-deleted 1:1 they ran with [subordinateId]
+     * (directional: the manager is the meeting's manager) plus its unresolved action-item count.
+     * Managers with no such meeting are absent from the map. Counts only — nothing is decrypted.
+     */
+    suspend fun latestMeetingStats(
+        managerIds: Set<UInt>,
+        subordinateId: UInt,
+    ): Map<UInt, OneOnOneLatestStats> = suspendTransaction(database) {
+        // One indexed limit-1 lookup per manager (the carry-over query shape in create()); the
+        // set is the caller's managers — a handful — so no multi-group "latest per key" SQL.
+        val latest = mutableMapOf<UInt, Pair<UInt, String>>()
+        managerIds.forEach { managerId ->
+            Meetings.select(Meetings.id, Meetings.meetingDate)
+                .where {
+                    (Meetings.managerId eq managerId) and
+                        (Meetings.subordinateId eq subordinateId) and active()
+                }
+                .orderBy(Meetings.meetingDate to SortOrder.DESC, Meetings.id to SortOrder.DESC)
+                .limit(1)
+                .map { it[Meetings.id].value to it[Meetings.meetingDate] }
+                .singleOrNull()
+                ?.let { latest[managerId] = it }
+        }
+        val meetingIds = latest.values.map { it.first }
+        val openCounts: Map<UInt, Int> = if (meetingIds.isEmpty()) emptyMap() else {
+            val count = ActionItems.id.count()
+            ActionItems.select(ActionItems.meetingId, count)
+                .where { (ActionItems.meetingId inList meetingIds) and (ActionItems.resolved eq false) }
+                .groupBy(ActionItems.meetingId)
+                .map { it[ActionItems.meetingId].value to it[count].toInt() }
+                .toList()
+                .toMap()
+        }
+        latest.mapValues { (_, meeting) ->
+            OneOnOneLatestStats(meeting.second, openCounts[meeting.first] ?: 0)
+        }
+    }
 
     /**
      * Inserts the meeting, copies the unresolved action items of the pair's previous meeting
