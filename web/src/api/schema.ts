@@ -654,6 +654,10 @@ export interface paths {
          *       management chain**. A caller who manages no team gets an empty page. The narrower
          *       direct-only default is a list scope, not an authorization boundary: the single-GET
          *       grants any manager in the subordinate's chain read access.
+         *     - `view=with`: every meeting **between the caller and one counterpart** (`counterpartId`,
+         *       required for this view and rejected on any other), in **either role direction** — the
+         *       pair may have swapped manager/subordinate roles over time. The caller is a party to
+         *       every returned row.
          *
          *     Rows carry the party names, the meeting date, and per-list counts (`pointCount`,
          *     `decisionCount`, `actionItemCount`, `openActionItemCount`) — never item content.
@@ -2980,12 +2984,17 @@ export interface operations {
                  */
                 sort?: components["parameters"]["Sort"];
                 /** @description Which caller-relative slice of 1:1 meetings to list. */
-                view?: "own" | "managed" | "team";
+                view?: "own" | "managed" | "team" | "with";
                 /**
                  * @description Only valid with `view=team` (else `400`). When `true`, widens which managers count
                  *     from the caller's direct reports to their whole transitive management chain.
                  */
                 includeIndirect?: boolean;
+                /**
+                 * @description The other party's user id. Required with `view=with` (else `400`), rejected on any
+                 *     other view (`400`).
+                 */
+                counterpartId?: number;
                 /** @description Case-insensitive substring match against the manager's name. */
                 managerName?: string;
                 /** @description Case-insensitive substring match against the subordinate's name. */

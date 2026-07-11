@@ -14,6 +14,7 @@ import { useDebouncedValue } from "@mantine/hooks";
 import {
   IconArrowDown,
   IconArrowUp,
+  IconCalendarEvent,
   IconMessagePlus,
   IconMessageQuestion,
   IconMessages,
@@ -247,6 +248,21 @@ export default function TeamMembersTable({
                   >
                     {t("teams.feedbacks")}
                   </Button>
+                  {view === "managed" && reportsScope === "direct" && (
+                    // Only DIRECT reports qualify for the 1:1 drill-down, and rows carry no
+                    // direct/indirect marker — so the button exists only while the Reports
+                    // filter guarantees every card is a direct report.
+                    <Button
+                      component={RouterLink}
+                      to={`/users/${m.userId}/one-on-ones?name=${encodeURIComponent(m.name)}&from=subordinates`}
+                      variant="subtle"
+                      size="xs"
+                      leftSection={<IconCalendarEvent size={14} />}
+                      aria-label={t("teams.oneOnOnesWithAria", { name: m.name })}
+                    >
+                      {t("teams.oneOnOnes")}
+                    </Button>
+                  )}
                 </>
               }
             />

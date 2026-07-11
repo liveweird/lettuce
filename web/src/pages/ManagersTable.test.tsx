@@ -83,6 +83,26 @@ describe("ManagersTable", () => {
     );
   });
 
+  test("renders a 1:1 meetings link per manager row pointing at the per-user screen", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        items: [
+          { userId: 1, name: "Manager One", email: "m1@example.com", teamId: 5, teamName: "alpha" },
+        ],
+        page: 1,
+        pageSize: 100,
+        total: 1,
+      }),
+    );
+    renderWithProviders(<ManagersTable />);
+
+    const link = await screen.findByRole("link", { name: "1:1 meetings with Manager One" });
+    expect(link).toHaveAttribute(
+      "href",
+      "/users/1/one-on-ones?name=Manager%20One&from=managers",
+    );
+  });
+
   test("a manager of two of my teams gets one card with both team badges", async () => {
     mockFetch.mockResolvedValue(
       jsonResponse(200, {

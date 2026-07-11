@@ -84,6 +84,34 @@ describe("OneOnOneTable", () => {
     expect(screen.getByRole("button", { name: /Filters/ })).toBeInTheDocument();
   });
 
+  test("the with view mixes both directions: no filter panel, Edit on own rows, View on theirs", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        items: [
+          ROW, // Mia (3) managed the caller (7) — View
+          { ...ROW, id: 12, managerId: 7, managerName: "Me", subordinateId: 3, subordinateName: "Mia Manager" }, // caller managed Mia — Edit
+        ],
+        page: 1,
+        pageSize: 20,
+        total: 2,
+      }),
+    );
+    renderWithProviders(<OneOnOneTable view="with" counterpartId={3} backTo="/users/3/one-on-ones?name=Mia" />);
+
+    const back = encodeURIComponent("/users/3/one-on-ones?name=Mia");
+    const viewLink = await screen.findByRole("link", { name: "View the 1:1 with Mia Manager" });
+    expect(viewLink).toHaveAttribute("href", `/one-on-ones/11/view?from=with&back=${back}`);
+    expect(
+      screen.getByRole("link", { name: "Edit the 1:1 with Mia Manager" }),
+    ).toHaveAttribute("href", `/one-on-ones/12/edit?from=with&back=${back}`);
+
+    // Both parties are fixed, so there is nothing to filter.
+    expect(screen.queryByRole("button", { name: /Filters/ })).toBeNull();
+    const url = String(mockFetch.mock.calls[0][0]);
+    expect(url).toContain("view=with");
+    expect(url).toContain("counterpartId=3");
+  });
+
   test("an empty list renders the empty state", async () => {
     mockFetch.mockResolvedValue(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }));
     renderWithProviders(<OneOnOneTable view="own" />);

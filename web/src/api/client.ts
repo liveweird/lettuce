@@ -461,7 +461,7 @@ export type OneOnOnePage =
 
 export type ActionItemOwner = "MANAGER" | "SUBORDINATE";
 
-export type OneOnOneListView = "own" | "managed" | "team";
+export type OneOnOneListView = "own" | "managed" | "team" | "with";
 
 type OneOnOneListQuery = {
   view: OneOnOneListView;
@@ -472,8 +472,10 @@ type OneOnOneListQuery = {
   subordinateName?: string;
   meetingDateGte?: string;
   meetingDateLte?: string;
-  /** Only valid with view=team: widen the subordinate scope from direct reports to the whole management chain. */
+  /** Only valid with view=team: widen the manager scope from direct reports to the whole management chain. */
   includeIndirect?: boolean;
+  /** Required with view=with: the other party's user id (either role direction). */
+  counterpartId?: number;
 };
 
 export async function listOneOnOnes(q: OneOnOneListQuery): Promise<OneOnOnePage> {
@@ -487,6 +489,7 @@ export async function listOneOnOnes(q: OneOnOneListQuery): Promise<OneOnOnePage>
   if (q.meetingDateGte) params.set("meetingDate[gte]", q.meetingDateGte);
   if (q.meetingDateLte) params.set("meetingDate[lte]", q.meetingDateLte);
   if (q.includeIndirect) params.set("includeIndirect", "true");
+  if (q.counterpartId != null) params.set("counterpartId", String(q.counterpartId));
   const res = await authedFetch(`/api/v1/one-on-ones?${params.toString()}`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json()) as OneOnOnePage;

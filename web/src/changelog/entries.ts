@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.8",
+    date: "2026-07-11",
+    en: `The Dashboard person cards now offer a *1:1 meetings* button for your managers and your direct subordinates. It opens a per-person view of every 1:1 between the two of you — in both directions, so meetings from before a role switch stay visible in one place.`,
+    pl: `Karty osób na Pulpicie mają teraz przycisk *Spotkania 1:1* dla Twoich menedżerów i bezpośrednich podwładnych. Otwiera on widok wszystkich spotkań 1:1 między Wami — w obu kierunkach, więc spotkania sprzed zamiany ról pozostają widoczne w jednym miejscu.`,
+  },
+  {
     version: "1.7.1",
     date: "2026-07-11",
     en: `Clearer 1:1 meeting tabs: *I'm a manager* (meetings you run), *I'm a subordinate* (meetings with your manager), and *My subordinate's a manager* — the 1:1s your own reports run with their teams, with the existing direct/all-reports filter. The last tab previously listed meetings by who attended them; it now lists them by who runs them.`,

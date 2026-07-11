@@ -80,6 +80,7 @@ const SUBORDINATE_COLUMN: PersonColumn = {
 
 type ActionContext = {
   backParam: string;
+  currentUserId: number | null;
   t: (key: string, opts?: Record<string, unknown>) => string;
 };
 
@@ -120,6 +121,27 @@ const VIEW_CONFIG: Record<
       <ViewButton m={m} label={t("common.action.view")} aria={t("oneOnOne.viewWith", { name: m.subordinateName })} backParam={backParam} from="team" />
     ),
   },
+  // The per-person drill-down: both role directions in one table, so the row action depends on
+  // who ran that meeting — the caller edits their own, views the counterpart's.
+  with: {
+    personColumns: [MANAGER_COLUMN, SUBORDINATE_COLUMN],
+    renderAction: (m, { t, backParam, currentUserId }) =>
+      currentUserId != null && m.managerId === currentUserId ? (
+        <Button
+          component={RouterLink}
+          to={`/one-on-ones/${m.id}/edit?from=with${backParam}`}
+          color="blue"
+          variant="subtle"
+          size="xs"
+          leftSection={<IconPencil size={14} />}
+          aria-label={t("oneOnOne.editWith", { name: m.subordinateName })}
+        >
+          {t("common.action.edit")}
+        </Button>
+      ) : (
+        <ViewButton m={m} label={t("common.action.view")} aria={t("oneOnOne.viewWith", { name: m.managerName })} backParam={backParam} from="with" />
+      ),
+  },
 };
 
 function ViewButton({
@@ -150,14 +172,29 @@ function ViewButton({
   );
 }
 
-export default function OneOnOneTable({ view }: { view: OneOnOneListView }) {
+export default function OneOnOneTable({
+  view,
+  counterpartId,
+  settingsKey,
+  backTo,
+}: {
+  view: OneOnOneListView;
+  /** Required with view="with": the other party's user id. */
+  counterpartId?: number;
+  /** Override the localStorage view-settings namespace when embedded outside the main tabs. */
+  settingsKey?: string;
+  /** When set, action links carry a back=… override so detail pages return here. */
+  backTo?: string;
+}) {
   const { t, i18n } = useTranslation();
   const currentUserId = getUserId();
   const config = VIEW_CONFIG[view];
-  const backParam = "";
+  const backParam = backTo ? `&back=${encodeURIComponent(backTo)}` : "";
+  // The drill-down's filters would be useless (both parties are fixed), so "with" has none.
+  const showFilters = view !== "with";
   const columnCount = config.personColumns.length + 6; // date + 3 counts + modified + actions
 
-  const storeKey = `oneOnOnes.${view}`;
+  const storeKey = settingsKey ?? `oneOnOnes.${view}`;
   const [managerFilter, setManagerFilter] = useStoredState(
     `${storeKey}.filter.manager`, "", isString,
   );
@@ -197,6 +234,7 @@ export default function OneOnOneTable({ view }: { view: OneOnOneListView }) {
     queryKey: [
       "oneOnOnes",
       view,
+      counterpartId,
       page,
       pageSize,
       sortParam,
@@ -210,9 +248,10 @@ export default function OneOnOneTable({ view }: { view: OneOnOneListView }) {
         page,
         pageSize,
         sort: sortParam,
-        managerName: debouncedManager || undefined,
-        subordinateName: debouncedSubordinate || undefined,
+        managerName: (showFilters && debouncedManager) || undefined,
+        subordinateName: (showFilters && debouncedSubordinate) || undefined,
         includeIndirect: includeIndirect || undefined,
+        counterpartId,
       }),
     placeholderData: keepPreviousData,
   });
@@ -221,23 +260,25 @@ export default function OneOnOneTable({ view }: { view: OneOnOneListView }) {
 
   return (
     <Stack gap="md">
-      <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey}>
-        {config.personColumns.map((col) => {
-          const filter = personFilters[col.field];
-          return (
-            <ClearableTextInput
-              key={col.field}
-              label={t(col.labelKey)}
-              value={filter.value}
-              onChange={filter.set}
-              clearLabel={t(col.clearFilterLabelKey)}
-            />
-          );
-        })}
-        {view === "team" && (
-          <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />
-        )}
-      </FilterPanel>
+      {showFilters && (
+        <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey}>
+          {config.personColumns.map((col) => {
+            const filter = personFilters[col.field];
+            return (
+              <ClearableTextInput
+                key={col.field}
+                label={t(col.labelKey)}
+                value={filter.value}
+                onChange={filter.set}
+                clearLabel={t(col.clearFilterLabelKey)}
+              />
+            );
+          })}
+          {view === "team" && (
+            <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />
+          )}
+        </FilterPanel>
+      )}
 
       {isError && (
         <Alert color="red" variant="light" title={t("oneOnOne.loadListError")}>
@@ -332,7 +373,7 @@ export default function OneOnOneTable({ view }: { view: OneOnOneListView }) {
                 <Table.Td style={{ whiteSpace: "nowrap" }} title={formatTimestamp(m.lastModified)}>
                   {formatRelativeTime(m.lastModified, i18n.language)}
                 </Table.Td>
-                <Table.Td>{config.renderAction(m, { backParam, t })}</Table.Td>
+                <Table.Td>{config.renderAction(m, { backParam, currentUserId, t })}</Table.Td>
               </Table.Tr>
             ))
           ) : (

@@ -22,7 +22,7 @@ import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
 val OneOnOneServiceKey = AttributeKey<OneOnOneService>("OneOnOneService")
 
-enum class OneOnOneListView { OWN, MANAGED, TEAM }
+enum class OneOnOneListView { OWN, MANAGED, TEAM, WITH }
 
 /** Storage discriminator for the shared points/decisions table. */
 enum class NoteKind { POINT, DECISION }
@@ -258,10 +258,20 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
         filter: OneOnOneListFilter,
         paging: PageRequest,
         includeIndirect: Boolean = false,
+        counterpartId: UInt? = null,
     ): OneOnOneListResult = suspendTransaction(database) {
         val scope: Op<Boolean> = when (view) {
             OneOnOneListView.OWN -> Meetings.subordinateId eq callerUserId
             OneOnOneListView.MANAGED -> Meetings.managerId eq callerUserId
+            OneOnOneListView.WITH -> {
+                // Every 1:1 between the caller and one counterpart, either role direction (the
+                // pair may have switched manager/subordinate roles over time). The caller is a
+                // party to every row, so this adds no new read surface. The route guarantees a
+                // non-null counterpartId.
+                val other = requireNotNull(counterpartId) { "view=with requires counterpartId" }
+                ((Meetings.managerId eq callerUserId) and (Meetings.subordinateId eq other)) or
+                    ((Meetings.managerId eq other) and (Meetings.subordinateId eq callerUserId))
+            }
             OneOnOneListView.TEAM -> {
                 // Meetings run BY the caller's subordinates as managers — direct reports by
                 // default, the whole transitive chain with includeIndirect. A narrower slice of

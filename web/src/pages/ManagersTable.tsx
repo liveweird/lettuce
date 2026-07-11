@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
+  IconCalendarEvent,
   IconMessagePlus,
   IconMessageQuestion,
   IconMessages,
@@ -84,6 +85,16 @@ export default function ManagersTable() {
                     aria-label={t("users.feedbacksWith", { name: m.name })}
                   >
                     {t("users.feedbacks")}
+                  </Button>
+                  <Button
+                    component={RouterLink}
+                    to={`/users/${m.userId}/one-on-ones?name=${encodeURIComponent(m.name)}&from=managers`}
+                    variant="subtle"
+                    size="xs"
+                    leftSection={<IconCalendarEvent size={14} />}
+                    aria-label={t("users.oneOnOnesWith", { name: m.name })}
+                  >
+                    {t("users.oneOnOnes")}
                   </Button>
                 </>
               }

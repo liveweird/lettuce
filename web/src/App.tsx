@@ -61,6 +61,7 @@ const SelfReflection = lazy(() => import("./pages/SelfReflection"));
 const EditFeedback = lazy(() => import("./pages/EditFeedback"));
 const ViewFeedback = lazy(() => import("./pages/ViewFeedback"));
 const ManagerFeedbacks = lazy(() => import("./pages/ManagerFeedbacks"));
+const UserOneOnOnes = lazy(() => import("./pages/UserOneOnOnes"));
 const OneOnOnes = lazy(() => import("./pages/OneOnOnes"));
 const CreateOneOnOne = lazy(() => import("./pages/CreateOneOnOne"));
 const EditOneOnOne = lazy(() => import("./pages/EditOneOnOne"));
@@ -405,6 +406,7 @@ export default function App() {
             <Route path="feedback/:id/edit" element={<EditFeedback />} />
             <Route path="feedback/:id/view" element={<ViewFeedback />} />
             <Route path="users/:userId/feedbacks" element={<ManagerFeedbacks />} />
+            <Route path="users/:userId/one-on-ones" element={<UserOneOnOnes />} />
             <Route path="one-on-ones" element={<OneOnOnes />} />
             <Route path="one-on-ones/new" element={<CreateOneOnOne />} />
             <Route path="one-on-ones/:id/edit" element={<EditOneOnOne />} />

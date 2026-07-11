@@ -519,6 +519,43 @@ class OneOnOneRoutesTest {
     }
 
     @Test
+    fun `view=with lists every meeting between the caller and one counterpart in both role directions`() = testApplication {
+        usePostgresTestcontainer()
+        // The pair swapped roles over time: alice manages bob today, bob managed alice before.
+        val pair = seedPair() // alice = pair.manager, bob = pair.subordinate
+        val reverseTeam = TestServices.teams.create(Team(name = "oo-rev-${UUID.randomUUID()}", managerId = pair.subordinateId))
+        TestServices.teams.addMember(reverseTeam, pair.managerId)
+        val alice = authedClient(pair.managerEmail, "pw")
+        val bob = authedClient(pair.subordinateEmail, "pw")
+        val current = alice.createMeeting(pair.subordinateId, "2026-07-05")
+        val historic = bob.createMeeting(pair.managerId, "2026-01-10")
+        // Noise: alice with a different report, and bob with a report of his own.
+        val otherId = TestUsers.seed(uniqueEmail("other"), "pw", role = UserRole.USER)
+        TestServices.teams.addMember(pair.teamId, otherId)
+        alice.createMeeting(otherId, "2026-07-06")
+        val bobsOtherId = TestUsers.seed(uniqueEmail("bobs-other"), "pw", role = UserRole.USER)
+        TestServices.teams.addMember(reverseTeam, bobsOtherId)
+        bob.createMeeting(bobsOtherId, "2026-07-07")
+
+        val withBob = alice.get("/api/v1/one-on-ones?view=with&counterpartId=${pair.subordinateId}")
+            .body<OneOnOnePageResponse>()
+        assertEquals(setOf(current.id, historic.id), withBob.items.map { it.id }.toSet())
+        assertEquals(2, withBob.total)
+        // Symmetric from bob's side.
+        val withAlice = bob.get("/api/v1/one-on-ones?view=with&counterpartId=${pair.managerId}")
+            .body<OneOnOnePageResponse>()
+        assertEquals(setOf(current.id, historic.id), withAlice.items.map { it.id }.toSet())
+
+        // counterpartId is required for view=with, rejected elsewhere, and must be a UInt.
+        assertEquals(HttpStatusCode.BadRequest, alice.get("/api/v1/one-on-ones?view=with").status)
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            alice.get("/api/v1/one-on-ones?view=own&counterpartId=${pair.subordinateId}").status,
+        )
+        assertEquals(HttpStatusCode.BadRequest, alice.get("/api/v1/one-on-ones?view=with&counterpartId=abc").status)
+    }
+
+    @Test
     fun `list carries child counts, sorts by meetingDate desc by default, and filters by date range`() = testApplication {
         usePostgresTestcontainer()
         val pair = seedPair(subordinateName = "Zofia Unikat-${UUID.randomUUID().toString().take(8)}")

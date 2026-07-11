@@ -40,16 +40,17 @@ const MEETING = {
   ],
 };
 
-function renderEdit() {
+function renderEdit(route = "/one-on-ones/5/edit") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <MantineProvider env="test">
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={["/one-on-ones/5/edit"]}>
+        <MemoryRouter initialEntries={[route]}>
           <Routes>
             <Route path="/one-on-ones/:id/edit" element={<EditOneOnOne />} />
             <Route path="/one-on-ones/:id/view" element={<PathProbe />} />
             <Route path="/one-on-ones" element={<PathProbe />} />
+            <Route path="*" element={<PathProbe />} />
           </Routes>
         </MemoryRouter>
       </QueryClientProvider>
@@ -107,6 +108,17 @@ describe("EditOneOnOne page", () => {
 
     await waitFor(() => expect(screen.getByTestId("probe")).toBeInTheDocument());
     expect(screen.getByTestId("probe")).toHaveTextContent("/one-on-ones/5/view");
+  });
+
+  test("a back override wins over the from-tab mapping after a save", async () => {
+    stubLoad();
+    const back = "/users/8/one-on-ones?name=Sam";
+    renderEdit(`/one-on-ones/5/edit?from=with&back=${encodeURIComponent(back)}`);
+
+    await screen.findByDisplayValue("First point");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(screen.getByTestId("probe")).toBeInTheDocument());
+    expect(screen.getByTestId("probe")).toHaveTextContent(back);
   });
 
   test("editing lists and saving sends a full-replace body that preserves ids", async () => {

@@ -56,12 +56,12 @@ const HISTORY = {
   ],
 };
 
-function renderView() {
+function renderView(route = "/one-on-ones/5/view") {
   return renderWithProviders(
     <Routes>
       <Route path="/one-on-ones/:id/view" element={<ViewOneOnOne />} />
     </Routes>,
-    { route: "/one-on-ones/5/view" },
+    { route },
   );
 }
 
@@ -107,6 +107,14 @@ describe("ViewOneOnOne page", () => {
     // No editing affordances anywhere.
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Add point" })).toBeNull();
+  });
+
+  test("a back override wins over the from-tab mapping for the Close link", async () => {
+    const back = "/users/3/one-on-ones?name=Mia";
+    renderView(`/one-on-ones/5/view?from=with&back=${encodeURIComponent(back)}`);
+
+    expect(await screen.findAllByText("Mia Manager")).not.toHaveLength(0);
+    expect(screen.getByRole("link", { name: "Close" })).toHaveAttribute("href", back);
   });
 
   test("the action-item history modal lists every meeting the item appeared in", async () => {

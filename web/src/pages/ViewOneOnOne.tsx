@@ -31,7 +31,8 @@ export default function ViewOneOnOne() {
   const params = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const from = searchParams.get("from") ?? "own";
-  const backTo = `/one-on-ones?tab=${from === "team" ? "team" : "own"}`;
+  const backOverride = searchParams.get("back");
+  const backTo = backOverride ?? `/one-on-ones?tab=${from === "team" ? "team" : "own"}`;
   const [historyItemId, setHistoryItemId] = useState<number | null>(null);
 
   const id = Number(params.id);

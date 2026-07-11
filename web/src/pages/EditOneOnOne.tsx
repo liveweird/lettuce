@@ -45,7 +45,8 @@ export default function EditOneOnOne() {
   const params = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const from = searchParams.get("from") ?? "managed";
-  const backTo = `/one-on-ones?tab=${from === "team" ? "team" : "managed"}`;
+  const backOverride = searchParams.get("back");
+  const backTo = backOverride ?? `/one-on-ones?tab=${from === "team" ? "team" : "managed"}`;
 
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
