@@ -8,6 +8,7 @@ import ch.nokillswit.infra.db.requireValidReferences
 import ch.nokillswit.infra.paging.SortField
 import ch.nokillswit.infra.paging.optionalBoolean
 import ch.nokillswit.infra.paging.optionalString
+import ch.nokillswit.infra.paging.optionalUInt
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.notifications.NotificationServiceKey
@@ -131,7 +132,8 @@ fun Application.configureOneOnOneRoutes() {
                     "own" -> OneOnOneListView.OWN
                     "managed" -> OneOnOneListView.MANAGED
                     "team" -> OneOnOneListView.TEAM
-                    else -> throw BadRequestException("Unknown view: $raw (allowed: own, managed, team)")
+                    "with" -> OneOnOneListView.WITH
+                    else -> throw BadRequestException("Unknown view: $raw (allowed: own, managed, team, with)")
                 }
                 val paging = call.parsePaging(
                     sortable = setOf("id", "meetingDate", "managerName", "subordinateName", "lastModified"),
@@ -142,6 +144,13 @@ fun Application.configureOneOnOneRoutes() {
                 val includeIndirect = params.optionalBoolean("includeIndirect")
                 if (includeIndirect != null && view != OneOnOneListView.TEAM) {
                     throw BadRequestException("includeIndirect is only supported for view=team")
+                }
+                val counterpartId = params.optionalUInt("counterpartId")
+                if (view == OneOnOneListView.WITH && counterpartId == null) {
+                    throw BadRequestException("counterpartId is required for view=with")
+                }
+                if (view != OneOnOneListView.WITH && counterpartId != null) {
+                    throw BadRequestException("counterpartId is only supported for view=with")
                 }
                 val filter = OneOnOneListFilter(
                     managerName = params.optionalString("managerName"),
@@ -155,6 +164,7 @@ fun Application.configureOneOnOneRoutes() {
                     filter,
                     paging,
                     includeIndirect = includeIndirect == true,
+                    counterpartId = counterpartId,
                 )
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
             }

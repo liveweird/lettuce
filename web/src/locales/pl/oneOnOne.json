@@ -6,6 +6,9 @@
     "managed": "Jestem menedżerem/ką",
     "team": "Mój podwładny/a jest menedżerem/ką"
   },
+  "oneOnOnesWith": "Spotkania 1:1 z {{who}}",
+  "oneOnOnesWithHint": "Wszystkie spotkania 1:1 między Tobą a {{who}}, niezależnie od tego, kto je prowadził.",
+  "userFallback": "użytkownik #{{id}}",
   "manager": "Menedżer",
   "subordinate": "Członek zespołu",
   "clearManagerFilter": "Wyczyść filtr menedżera",

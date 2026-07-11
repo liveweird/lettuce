@@ -6,6 +6,9 @@
     "managed": "I'm a manager",
     "team": "My subordinate's a manager"
   },
+  "oneOnOnesWith": "1:1 meetings with {{who}}",
+  "oneOnOnesWithHint": "Every 1:1 between you and {{who}}, whoever ran it.",
+  "userFallback": "user #{{id}}",
   "manager": "Manager",
   "subordinate": "Team member",
   "clearManagerFilter": "Clear manager filter",

@@ -36,6 +36,8 @@
   "provideFeedbackTo": "Wystaw feedback dla {{name}}",
   "askForFeedbackFrom": "Poproś {{name}} o feedback",
   "feedbacksWith": "Feedbacki dotyczące {{name}}",
+  "oneOnOnes": "Spotkania 1:1",
+  "oneOnOnesWith": "Spotkania 1:1 z {{name}}",
   "editAria": "Edytuj {{name}}",
   "changePasswordFor": "Zmień hasło dla {{name}}",
   "teamsFor": "Zespoły dla {{name}}",

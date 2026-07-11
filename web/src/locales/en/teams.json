@@ -60,5 +60,7 @@
   "requestFeedbackFor": "Request feedback for",
   "requestFeedbackAboutAria": "Request feedback about {{name}}",
   "feedbacks": "Feedbacks",
-  "feedbacksWithAria": "Feedbacks with {{name}}"
+  "feedbacksWithAria": "Feedbacks with {{name}}",
+  "oneOnOnes": "1:1 meetings",
+  "oneOnOnesWithAria": "1:1 meetings with {{name}}"
 }

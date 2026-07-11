@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { fireEvent, renderWithProviders, screen, waitFor, within } from "../test/render";
+import { cleanup, fireEvent, renderWithProviders, screen, waitFor, within } from "../test/render";
 import TeamMembersTable from "./TeamMembersTable";
 import { jsonResponse } from "../test/http";
 
@@ -178,6 +178,38 @@ describe("TeamMembersTable", () => {
     );
     // One per person (Alice's two memberships collapse into one card).
     expect(screen.getAllByRole("link", { name: /feedbacks with/i })).toHaveLength(2);
+  });
+
+  test("managed view (direct mode) adds a 1:1 meetings link per row; peers never get one", async () => {
+    setupMocks(mockFetch);
+    renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
+
+    const link = await screen.findByRole("link", { name: "1:1 meetings with Bob Brown" });
+    expect(link).toHaveAttribute(
+      "href",
+      "/users/11/one-on-ones?name=Bob%20Brown&from=subordinates",
+    );
+    expect(screen.getAllByRole("link", { name: /1:1 meetings with/i })).toHaveLength(2);
+
+    cleanup();
+    setupMocks(mockFetch);
+    renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
+    await screen.findByText("Bob Brown");
+    expect(screen.queryByRole("link", { name: /1:1 meetings with/i })).toBeNull();
+  });
+
+  test("switching the reports scope to all hides the 1:1 buttons (indirect rows are unmarked)", async () => {
+    setupMocks(mockFetch);
+    renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
+
+    await screen.findByRole("link", { name: "1:1 meetings with Bob Brown" });
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+    // happy-dom does not open Mantine comboboxes via userEvent's pointer simulation
+    fireEvent.click(screen.getByLabelText("Reports", { selector: "input" }));
+    fireEvent.click(await screen.findByRole("option", { name: "All reports (including indirect)" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("link", { name: /1:1 meetings with/i })).toBeNull();
+    });
   });
 
   test("typing in the Name filter triggers a debounced refetch and the clear button resets it", async () => {
