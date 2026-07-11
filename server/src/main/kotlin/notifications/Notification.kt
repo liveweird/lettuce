@@ -4,9 +4,9 @@ import ch.nokillswit.infra.paging.PageResponse
 import kotlinx.serialization.Serializable
 
 /**
- * The kind of notification, driving both the recipient's wording and its params. All values are
- * feedback-driven today (produced by feedbacks/FeedbackNotifications.kt); the SPA renders each one
- * in the viewer's language from `notifications.event.*` keys.
+ * The kind of notification, driving both the recipient's wording and its params. Values are
+ * produced by feedbacks/FeedbackNotifications.kt and oneonones/OneOnOneNotifications.kt; the SPA
+ * renders each one in the viewer's language from `notifications.event.*` keys.
  */
 @Serializable
 enum class NotificationType {
@@ -20,6 +20,7 @@ enum class NotificationType {
     FEEDBACK_WITHDRAWN_TO_SUBJECT,
     FEEDBACK_WITHDRAWN_TO_REQUESTER,
     FEEDBACK_DELETED_TO_REQUESTER,
+    ONE_ON_ONE_CREATED_TO_SUBORDINATE,
 }
 
 /**

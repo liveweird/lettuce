@@ -34,6 +34,7 @@ tags:
   - name: users
   - name: teams
   - name: feedbacks
+  - name: one-on-ones
   - name: templates
   - name: notifications
   - name: alerts
@@ -1058,6 +1059,266 @@ paths:
         '409': { $ref: '#/components/responses/InvalidTransition' }
         '500': { $ref: '#/components/responses/InternalServerError' }
 
+  /api/v1/one-on-ones:
+    get:
+      tags: [one-on-ones]
+      operationId: listOneOnOnes
+      summary: List 1:1 meetings for the caller
+      description: |
+        Lists 1:1 meetings scoped by `view`. Scoping is always relative to the caller, including
+        ADMIN callers.
+
+        - `view=own` (the default): meetings where the caller is the **subordinate**.
+        - `view=managed`: meetings where the caller is the **manager** (the author).
+        - `view=team`: meetings whose subordinate is one of the caller's **direct reports** (a
+          member of a non-deleted team the caller manages) — or, with `includeIndirect=true`,
+          anyone in the caller's **transitive management chain**. A caller who manages no team
+          gets an empty page. The narrower direct-only default is a list scope, not an
+          authorization boundary: the single-GET grants any manager in the subordinate's chain
+          read access.
+
+        Rows carry the party names, the meeting date, and per-list counts (`pointCount`,
+        `decisionCount`, `actionItemCount`, `openActionItemCount`) — never item content.
+
+        Supports offset pagination, sorting and filtering.
+
+        - Sortable fields: `id`, `meetingDate`, `managerName`, `subordinateName`, `lastModified`.
+          Default sort is `meetingDate` **descending** (newest meetings first). `id` ascending is
+          always appended as a deterministic tiebreaker.
+        - Filters (all optional, all whitelisted):
+          - `managerName` — case-insensitive substring match against the manager's name.
+          - `subordinateName` — case-insensitive substring match against the subordinate's name.
+          - `meetingDate[gte]` / `meetingDate[lte]` — inclusive ISO-date (`YYYY-MM-DD`) bounds on
+            the meeting date. Malformed dates → `400`.
+
+        Malformed query parameters (unknown view, unknown sort field, out-of-range page/pageSize)
+        respond with `400` and a `ProblemDetail` body.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Sort'
+        - name: view
+          in: query
+          required: false
+          schema: { type: string, enum: [own, managed, team], default: own }
+          description: Which caller-relative slice of 1:1 meetings to list.
+        - name: includeIndirect
+          in: query
+          required: false
+          schema: { type: boolean, default: false }
+          description: |
+            Only valid with `view=team` (else `400`). When `true`, widens the subordinate scope
+            from the caller's direct reports to their whole transitive management chain.
+        - name: managerName
+          in: query
+          required: false
+          schema: { type: string }
+          description: Case-insensitive substring match against the manager's name.
+        - name: subordinateName
+          in: query
+          required: false
+          schema: { type: string }
+          description: Case-insensitive substring match against the subordinate's name.
+        - name: meetingDate[gte]
+          in: query
+          required: false
+          schema: { type: string, format: date }
+          description: Lower bound (inclusive) on the meeting date, ISO `YYYY-MM-DD`.
+        - name: meetingDate[lte]
+          in: query
+          required: false
+          schema: { type: string, format: date }
+          description: Upper bound (inclusive) on the meeting date, ISO `YYYY-MM-DD`.
+      responses:
+        '200':
+          description: A page of 1:1 meetings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OneOnOnePage'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    post:
+      tags: [one-on-ones]
+      operationId: createOneOnOne
+      summary: Document a new 1:1 meeting
+      description: |
+        Creates a 1:1 meeting document. The **manager is always the author**: the caller becomes
+        the meeting's manager (never taken from the body), and the subordinate must be one of the
+        caller's **direct reports** at creation time — there is no ADMIN create-on-behalf.
+
+        **Carry-over**: unresolved action items of the pair's previous meeting (the latest
+        non-deleted meeting of the same manager+subordinate pair by meeting date, id as
+        tiebreaker) are copied into the new meeting server-side, ahead of any `actionItems`
+        supplied here. Each copy snapshots the source's text/owner/due date, starts unresolved,
+        and carries `copiedFromId` — the source item's id — so the item's history across meetings
+        can be reconstructed. Items in this request must NOT carry `id`s (`400`).
+
+        The subordinate is notified (with a view link); this is the feature's only notification —
+        edits and deletions notify nobody. The creation is recorded in the meeting's audit
+        history with the carried-over count.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OneOnOneCreateRequest'
+      responses:
+        '201':
+          description: Created — the full document, including the carried-over action items
+          headers:
+            Location:
+              schema: { type: string }
+              description: URL of the new 1:1 meeting resource
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OneOnOneResponse'
+        '400':
+          description: 'Validation error (malformed ISO date, blank or oversized item text, more than 100 items in a list, item ids in a create payload) or referenced user does not exist'
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: The subordinate is not a direct report of the caller
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/one-on-ones/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [one-on-ones]
+      operationId: getOneOnOne
+      summary: Fetch a 1:1 meeting
+      description: |
+        Returns the full meeting document — parties, date, and the three ordered lists (points
+        discussed, decisions made, action items). Readable by the meeting's **manager**, its
+        **subordinate**, **ADMIN**, and any **manager in the subordinate's transitive management
+        chain** (their manager, that manager's manager, and so on — over non-deleted teams).
+        Anything else is `403`.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OneOnOneResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/OneOnOneNotReadable' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    put:
+      tags: [one-on-ones]
+      operationId: updateOneOnOne
+      summary: Replace a 1:1 meeting's document
+      description: |
+        Full-document replace of the editable representation — the meeting date and the three
+        lists. **Manager-only** (the subordinate has read rights only; ADMIN does not get write
+        access). The parties are immutable after creation.
+
+        Item reconciliation: entries carrying an `id` update that existing row in place; entries
+        without an `id` are inserted; rows missing from the payload are removed. Positions are
+        rewritten from payload order (the list order IS the stored order). Ids that don't belong
+        to this meeting, or duplicated ids, are `400`. `copiedFromId` is server-managed and
+        cannot be changed.
+
+        Every change is recorded in the audit history at per-item granularity (point/decision/
+        action item added, edited, removed; action item resolved/unresolved, due date changed,
+        owner changed; meeting date changed). Pure reordering records nothing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OneOnOneUpdateRequest'
+      responses:
+        '204': { description: Updated }
+        '400':
+          description: 'Validation error (malformed ISO date, blank or oversized item text, more than 100 items in a list, unknown or duplicate item ids)'
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/OneOnOneNotManager' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    delete:
+      tags: [one-on-ones]
+      operationId: deleteOneOnOne
+      summary: Delete a 1:1 meeting
+      description: |
+        Soft-deletes a 1:1 meeting (the row is flagged, not physically removed, and disappears
+        from reads/lists; its audit history is retained). **Manager-only**. Nobody is notified.
+        Action-item copy chains passing through the deleted meeting stay walkable — its entries
+        are merely skipped in history views.
+      responses:
+        '204': { description: Deleted }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/OneOnOneNotManager' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/one-on-ones/{id}/events:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [one-on-ones]
+      operationId: listOneOnOneEvents
+      summary: List a 1:1 meeting's audit history
+      description: |
+        Returns the immutable audit trail for a 1:1 meeting — one entry per creation, per-item
+        change, and deletion — oldest first. Each entry is structural: an event `type` plus a
+        `params` map (1-based positions, ISO dates, owner enum names — never item text), with the
+        acting user resolved to `userName`; no rendered string is stored (clients localize the
+        description). Authorization matches the single-GET above: whoever may read the meeting
+        may read its history. Events are server-generated; there is no create/update/delete
+        endpoint.
+      responses:
+        '200':
+          description: The meeting's events, oldest first
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OneOnOneEventList'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/OneOnOneNotReadable' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/one-on-ones/action-items/{id}/history:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [one-on-ones]
+      operationId: getActionItemHistory
+      summary: List every meeting an action item appeared in
+      description: |
+        Returns the full history of an action item across the chain of carried-over copies — the
+        queried item, its ancestors (via `copiedFromId`), and all descendants (copies of it, and
+        copies of those) — one entry per appearance, ordered by meeting date (meeting id as
+        tiebreaker). Entries whose meeting has been deleted are skipped, but the chain is walked
+        through them, so history survives a deleted intermediate meeting.
+
+        Authorization matches the meeting single-GET, checked against the queried item's meeting
+        (every copy in a chain belongs to the same manager+subordinate pair). `404` when the item
+        does not exist or its meeting has been deleted.
+      responses:
+        '200':
+          description: The action item's appearances, oldest meeting first
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionItemHistoryList'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/OneOnOneNotReadable' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
   /api/v1/templates:
     get:
       tags: [templates]
@@ -1595,6 +1856,18 @@ components:
           schema: { $ref: '#/components/schemas/ProblemDetail' }
     InvalidTransition:
       description: The action is not allowed from the feedback's current status
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+    OneOnOneNotReadable:
+      description: >-
+        Caller is neither a party to the 1:1 meeting, nor ADMIN, nor a manager in the
+        subordinate's management chain
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+    OneOnOneNotManager:
+      description: Caller is not the meeting's manager (the subordinate has read rights only)
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/ProblemDetail' }
@@ -2142,6 +2415,256 @@ components:
           type: array
           items: { $ref: '#/components/schemas/FeedbackEventResponse' }
 
+    OneOnOneItemInput:
+      type: object
+      required: [content]
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+          description: >-
+            Identifies an existing row on PUT (omitted = a new item). Must be omitted on create.
+        content: { type: string, maxLength: 4000, description: Plain unformatted paragraph. }
+
+    OneOnOneActionItemInput:
+      type: object
+      required: [content, owner]
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+          description: >-
+            Identifies an existing row on PUT (omitted = a new item). Must be omitted on create.
+        content: { type: string, maxLength: 4000, description: Plain unformatted paragraph. }
+        owner:
+          type: string
+          enum: [MANAGER, SUBORDINATE]
+          description: Which of the meeting's two parties owns the action item.
+        dueDate:
+          type: string
+          format: date
+          nullable: true
+          description: ISO `YYYY-MM-DD`; null = no due date.
+        resolved: { type: boolean, default: false }
+
+    OneOnOneCreateRequest:
+      type: object
+      required: [subordinateId, meetingDate]
+      properties:
+        subordinateId:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Must be a direct report of the caller (the manager).
+        meetingDate: { type: string, format: date, description: ISO `YYYY-MM-DD`. }
+        points:
+          type: array
+          maxItems: 100
+          default: []
+          items: { $ref: '#/components/schemas/OneOnOneItemInput' }
+          description: Points discussed, in order. Items must not carry ids.
+        decisions:
+          type: array
+          maxItems: 100
+          default: []
+          items: { $ref: '#/components/schemas/OneOnOneItemInput' }
+          description: Decisions made, in order. Items must not carry ids.
+        actionItems:
+          type: array
+          maxItems: 100
+          default: []
+          items: { $ref: '#/components/schemas/OneOnOneActionItemInput' }
+          description: >-
+            Action items, in order; the carried-over copies from the previous meeting are
+            prepended server-side. Items must not carry ids.
+
+    OneOnOneUpdateRequest:
+      type: object
+      required: [meetingDate, points, decisions, actionItems]
+      properties:
+        meetingDate: { type: string, format: date, description: ISO `YYYY-MM-DD`. }
+        points:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/OneOnOneItemInput' }
+        decisions:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/OneOnOneItemInput' }
+        actionItems:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/OneOnOneActionItemInput' }
+
+    OneOnOneItem:
+      type: object
+      required: [id, content]
+      properties:
+        id: { type: integer, format: int64, minimum: 0 }
+        content: { type: string }
+
+    OneOnOneActionItem:
+      type: object
+      required: [id, content, owner, resolved]
+      properties:
+        id: { type: integer, format: int64, minimum: 0 }
+        content: { type: string }
+        owner:
+          type: string
+          enum: [MANAGER, SUBORDINATE]
+        dueDate: { type: string, format: date, nullable: true }
+        resolved: { type: boolean }
+        copiedFromId:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+          description: >-
+            The source action item in the pair's previous meeting this one was carried over
+            from; null for items authored in this meeting (or when the source row no longer
+            exists). Server-managed.
+
+    OneOnOneResponse:
+      type: object
+      required: [id, managerId, managerName, subordinateId, subordinateName, meetingDate, lastModified, points, decisions, actionItems]
+      properties:
+        id: { type: integer, format: int64, minimum: 0 }
+        managerId: { type: integer, format: int64, minimum: 0 }
+        managerName: { type: string }
+        subordinateId: { type: integer, format: int64, minimum: 0 }
+        subordinateName: { type: string }
+        meetingDate: { type: string, format: date }
+        lastModified:
+          type: integer
+          format: int64
+          description: Epoch milliseconds; server-managed, bumped on every update.
+        points:
+          type: array
+          items: { $ref: '#/components/schemas/OneOnOneItem' }
+          description: Points discussed, in stored order.
+        decisions:
+          type: array
+          items: { $ref: '#/components/schemas/OneOnOneItem' }
+          description: Decisions made, in stored order.
+        actionItems:
+          type: array
+          items: { $ref: '#/components/schemas/OneOnOneActionItem' }
+          description: Action items, in stored order.
+
+    OneOnOneListItem:
+      type: object
+      required: [id, managerId, managerName, managerDeleted, subordinateId, subordinateName, subordinateDeleted, meetingDate, lastModified, pointCount, decisionCount, actionItemCount, openActionItemCount]
+      properties:
+        id: { type: integer, format: int64, minimum: 0 }
+        managerId: { type: integer, format: int64, minimum: 0 }
+        managerName: { type: string }
+        managerDeleted: { type: boolean }
+        subordinateId: { type: integer, format: int64, minimum: 0 }
+        subordinateName: { type: string }
+        subordinateDeleted: { type: boolean }
+        meetingDate: { type: string, format: date }
+        lastModified: { type: integer, format: int64 }
+        pointCount: { type: integer, minimum: 0 }
+        decisionCount: { type: integer, minimum: 0 }
+        actionItemCount: { type: integer, minimum: 0 }
+        openActionItemCount:
+          type: integer
+          minimum: 0
+          description: Action items not yet resolved.
+
+    OneOnOnePage:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OneOnOneListItem'
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1, maximum: 100 }
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Row count after filters, before pagination.
+
+    OneOnOneEventResponse:
+      type: object
+      required: [id, meetingId, userId, userName, timestamp, type, params]
+      properties:
+        id: { type: integer, format: int64, minimum: 0 }
+        meetingId: { type: integer, format: int64, minimum: 0 }
+        userId: { type: integer, format: int64, minimum: 0 }
+        userName:
+          type: string
+          description: Display name of the user who performed the change. Server-resolved, read-only.
+        timestamp:
+          type: integer
+          format: int64
+          description: Epoch milliseconds when the event was recorded. Server-managed.
+        type:
+          type: string
+          enum:
+            - CREATED
+            - DELETED
+            - DATE_CHANGED
+            - POINT_ADDED
+            - POINT_EDITED
+            - POINT_REMOVED
+            - DECISION_ADDED
+            - DECISION_EDITED
+            - DECISION_REMOVED
+            - ACTION_ITEM_ADDED
+            - ACTION_ITEM_EDITED
+            - ACTION_ITEM_REMOVED
+            - ACTION_ITEM_RESOLVED
+            - ACTION_ITEM_UNRESOLVED
+            - ACTION_ITEM_DUE_DATE_CHANGED
+            - ACTION_ITEM_OWNER_CHANGED
+          description: Structured event kind; the client renders it in the viewer's language.
+        params:
+          type: object
+          additionalProperties: { type: string }
+          description: |
+            Interpolation params for the localized rendering — 1-based `position`s, ISO dates,
+            owner enum names, the CREATED event's `date`/`carriedOver`. Never item text (the
+            content columns are encrypted at rest; this trail is plaintext by design). Empty
+            object when the event kind needs none.
+
+    OneOnOneEventList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/OneOnOneEventResponse' }
+
+    ActionItemHistoryEntry:
+      type: object
+      required: [actionItemId, meetingId, meetingDate, content, owner, resolved]
+      properties:
+        actionItemId: { type: integer, format: int64, minimum: 0 }
+        meetingId: { type: integer, format: int64, minimum: 0 }
+        meetingDate: { type: string, format: date }
+        content: { type: string }
+        owner:
+          type: string
+          enum: [MANAGER, SUBORDINATE]
+        dueDate: { type: string, format: date, nullable: true }
+        resolved: { type: boolean }
+
+    ActionItemHistoryList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ActionItemHistoryEntry' }
+
     NotificationResponse:
       type: object
       required: [id, recipientId, timestamp, type, params, wasSeen]
@@ -2165,6 +2688,7 @@ components:
             - FEEDBACK_WITHDRAWN_TO_SUBJECT
             - FEEDBACK_WITHDRAWN_TO_REQUESTER
             - FEEDBACK_DELETED_TO_REQUESTER
+            - ONE_ON_ONE_CREATED_TO_SUBORDINATE
           description: Notification kind; the client renders it in the viewer's language.
         params:
           type: object
@@ -2173,7 +2697,8 @@ components:
             Interpolation values for the localized message — party names (proper nouns), e.g.
             `{provider,subject,requester}`; plus `self` — `"self"` for the "about yourself" /
             self-reflection variants, `"reflection"` for a requester's own request-for-a-self-reflection
-            confirmation — driving the SPA's i18next context.
+            confirmation — driving the SPA's i18next context. ONE_ON_ONE_CREATED_TO_SUBORDINATE
+            carries `{manager,date}` (the manager's name and the ISO meeting date).
         link:
           type: string
           nullable: true

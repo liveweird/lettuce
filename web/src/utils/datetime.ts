@@ -29,6 +29,22 @@ export function formatRelativeTime(ms: number, locale: string): string {
   return rtf.format(0, "minute");
 }
 
+// ISO "YYYY-MM-DD" -> a localized date ("Jul 1, 2026" / "1 lip 2026"). The T00:00:00 suffix
+// pins parsing to local time (a bare ISO date would parse as UTC and shift across midnight).
+// Malformed input renders as-is rather than "Invalid Date".
+export function formatIsoDate(iso: string, locale: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(d);
+}
+
+// Today's date as the ISO "YYYY-MM-DD" an <input type="date"> uses (local time).
+export function todayIsoDate(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 // Epoch millis -> value for an <input type="datetime-local"> ("YYYY-MM-DDTHH:mm", local time).
 // Null/undefined -> "" (the input's "unset" value).
 export function epochToDatetimeLocal(ms: number | null | undefined): string {

@@ -30,6 +30,7 @@
     "withdrawnToRequester": "{{provider}} withdrew their feedback about {{subject}} (which you requested).",
     "withdrawnToRequester_self": "{{provider}} withdrew their self-reflection (which you requested).",
     "deletedToRequester": "{{provider}} deleted their feedback about {{subject}} (which you requested).",
-    "deletedToRequester_self": "{{provider}} deleted their self-reflection (which you requested)."
+    "deletedToRequester_self": "{{provider}} deleted their self-reflection (which you requested).",
+    "oneOnOneCreated": "{{manager}} documented a 1:1 meeting with you ({{date}})."
   }
 }

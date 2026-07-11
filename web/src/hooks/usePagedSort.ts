@@ -47,6 +47,7 @@ export function usePagedSort<F extends string>(
   initialSortField: F,
   filterDeps: unknown[],
   persist?: PagedSortPersist<F>,
+  initialSortDir: SortDir = "asc",
 ) {
   // Read storage once (lazy initializer), not on every render.
   const [stored] = useState(() =>
@@ -55,7 +56,7 @@ export function usePagedSort<F extends string>(
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(stored.pageSize ?? DEFAULT_PAGE_SIZE);
   const [sortField, setSortField] = useState<F>(stored.sortField ?? initialSortField);
-  const [sortDir, setSortDir] = useState<SortDir>(stored.sortDir ?? "asc");
+  const [sortDir, setSortDir] = useState<SortDir>(stored.sortDir ?? initialSortDir);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

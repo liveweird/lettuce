@@ -2,6 +2,7 @@ package ch.nokillswit.infra.db
 
 import ch.nokillswit.auth.hashPassword
 import ch.nokillswit.feedbacks.FeedbackServiceKey
+import ch.nokillswit.oneonones.OneOnOneServiceKey
 import ch.nokillswit.users.UserServiceKey
 import io.ktor.server.application.*
 
@@ -65,5 +66,11 @@ suspend fun Application.configureBootstrap() {
     val encrypted = attributes[FeedbackServiceKey].encryptLegacyRows(reencryptAll = rotating)
     if (encrypted > 0) {
         log.info("Bootstrap: ${if (rotating) "re-" else ""}encrypted $encrypted feedback row(s) at rest")
+    }
+    // Same hook for the 1:1 meeting content columns — without it a key rotation would strand
+    // their rows under the previous key once it is removed from the config.
+    val oneOnOneEncrypted = attributes[OneOnOneServiceKey].encryptLegacyRows(reencryptAll = rotating)
+    if (oneOnOneEncrypted > 0) {
+        log.info("Bootstrap: ${if (rotating) "re-" else ""}encrypted $oneOnOneEncrypted 1:1 meeting row(s) at rest")
     }
 }

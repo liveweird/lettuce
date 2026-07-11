@@ -18,6 +18,7 @@ import { useDisclosure } from "@mantine/hooks";
 import {
   IconArrowBackUp,
   IconBell,
+  IconCalendarEvent,
   IconCheck,
   IconChecks,
   IconEyeOff,
@@ -55,6 +56,7 @@ const EVENT_KEY: Record<NotificationItem["type"], string> = {
   FEEDBACK_WITHDRAWN_TO_SUBJECT: "withdrawnToSubject",
   FEEDBACK_WITHDRAWN_TO_REQUESTER: "withdrawnToRequester",
   FEEDBACK_DELETED_TO_REQUESTER: "deletedToRequester",
+  ONE_ON_ONE_CREATED_TO_SUBORDINATE: "oneOnOneCreated",
 };
 
 function describeNotification(n: NotificationItem, t: TFunction): string {
@@ -78,6 +80,7 @@ const TYPE_META: Record<NotificationItem["type"], { icon: typeof IconBell; color
   FEEDBACK_WITHDRAWN_TO_SUBJECT: { icon: IconArrowBackUp, color: "orange" },
   FEEDBACK_WITHDRAWN_TO_REQUESTER: { icon: IconArrowBackUp, color: "orange" },
   FEEDBACK_DELETED_TO_REQUESTER: { icon: IconTrash, color: "gray" },
+  ONE_ON_ONE_CREATED_TO_SUBORDINATE: { icon: IconCalendarEvent, color: "grape" },
 };
 
 // Poll the bell so notifications minted elsewhere (e.g. someone sending you feedback) show up

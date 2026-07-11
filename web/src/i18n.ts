@@ -9,6 +9,7 @@ import enAppShell from "./locales/en/appShell.json";
 import enAuth from "./locales/en/auth.json";
 import enDashboard from "./locales/en/dashboard.json";
 import enFeedback from "./locales/en/feedback.json";
+import enOneOnOne from "./locales/en/oneOnOne.json";
 import enUsers from "./locales/en/users.json";
 import enTeams from "./locales/en/teams.json";
 import enTemplates from "./locales/en/templates.json";
@@ -22,6 +23,7 @@ import plAppShell from "./locales/pl/appShell.json";
 import plAuth from "./locales/pl/auth.json";
 import plDashboard from "./locales/pl/dashboard.json";
 import plFeedback from "./locales/pl/feedback.json";
+import plOneOnOne from "./locales/pl/oneOnOne.json";
 import plUsers from "./locales/pl/users.json";
 import plTeams from "./locales/pl/teams.json";
 import plTemplates from "./locales/pl/templates.json";
@@ -40,6 +42,7 @@ const en = {
   auth: enAuth,
   dashboard: enDashboard,
   feedback: enFeedback,
+  oneOnOne: enOneOnOne,
   users: enUsers,
   teams: enTeams,
   templates: enTemplates,
@@ -55,6 +58,7 @@ const pl = {
   auth: plAuth,
   dashboard: plDashboard,
   feedback: plFeedback,
+  oneOnOne: plOneOnOne,
   users: plUsers,
   teams: plTeams,
   templates: plTemplates,
