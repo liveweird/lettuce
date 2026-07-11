@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useManagerOptions } from "../hooks/useManagerOptions";
 import {
   Link as RouterLink,
   Navigate,
@@ -22,10 +23,8 @@ import {
 } from "@mantine/core";
 import { hasLength, useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError, getTeam, isAdmin, listUsers, updateTeam } from "../api/client";
+import { ApiError, getTeam, isAdmin, updateTeam } from "../api/client";
 import { saveErrorMessage } from "../utils/saveError";
-
-const MANAGER_PICKER_PAGE_SIZE = 100;
 
 type FormValues = {
   name: string;
@@ -58,21 +57,7 @@ export default function EditTeam() {
     retry: false,
   });
 
-  const { data: managerPool, isLoading: managersLoading } = useQuery({
-    queryKey: ["users", "managerPicker"],
-    queryFn: () => listUsers({ page: 1, pageSize: MANAGER_PICKER_PAGE_SIZE, sort: "name" }),
-    staleTime: 5 * 60 * 1000,
-    enabled: isAdmin(),
-  });
-
-  const managerOptions = useMemo(
-    () =>
-      (managerPool?.items ?? []).map((u) => ({
-        value: String(u.id),
-        label: u.name,
-      })),
-    [managerPool],
-  );
+  const { managerOptions, managersLoading } = useManagerOptions(isAdmin());
 
   useEffect(() => {
     if (data) {

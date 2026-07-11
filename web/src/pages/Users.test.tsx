@@ -344,6 +344,8 @@ describe("Users page", () => {
     );
     renderUsers();
     expect(await screen.findByText("Failed to load users")).toBeInTheDocument();
+    // A load failure must not additionally claim the list is empty.
+    expect(screen.queryByText("No users")).toBeNull();
   });
 
   test("shows the empty state when there are no users", async () => {

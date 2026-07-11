@@ -3,8 +3,6 @@ import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
   Button,
-  Center,
-  Loader,
   Select,
   Stack,
   Table,
@@ -24,6 +22,7 @@ import {
 } from "../api/client";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
+import TableLoadingRow from "../components/TableLoadingRow";
 import { StatusBadge, VisibilityBadge } from "../components/FeedbackBadges";
 import PersonaChip from "../components/PersonaChip";
 import FilterPanel from "../components/FilterPanel";
@@ -473,13 +472,7 @@ export default function FeedbackTable({
         </Table.Thead>
         <Table.Tbody>
           {isLoading && !data ? (
-            <Table.Tr>
-              <Table.Td colSpan={columnCount}>
-                <Center py="md">
-                  <Loader size="sm" />
-                </Center>
-              </Table.Td>
-            </Table.Tr>
+            <TableLoadingRow colSpan={columnCount} />
           ) : data && data.items.length > 0 ? (
             data.items.map((f) => (
               <Table.Tr key={f.id}>
@@ -524,7 +517,7 @@ export default function FeedbackTable({
                 <Table.Td>{config.renderAction(f, { currentUserId, backParam, t })}</Table.Td>
               </Table.Tr>
             ))
-          ) : (
+          ) : !isError ? (
             <Table.Tr>
               <Table.Td colSpan={columnCount}>
                 <EmptyState
@@ -533,7 +526,7 @@ export default function FeedbackTable({
                   />
               </Table.Td>
             </Table.Tr>
-          )}
+          ) : null}
         </Table.Tbody>
       </Table>
 

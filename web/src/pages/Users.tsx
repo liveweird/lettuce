@@ -4,9 +4,7 @@ import {
   Alert,
   Badge,
   Button,
-  Center,
   Group,
-  Loader,
   Select,
   Stack,
   Table,
@@ -39,6 +37,7 @@ import { feedbackAskLink, feedbackProvideLink } from "../utils/feedbackLinks";
 import { flagSignedOut, notifyAuthChange } from "../auth";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
+import TableLoadingRow from "../components/TableLoadingRow";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
@@ -189,13 +188,7 @@ export default function Users() {
         </Table.Thead>
         <Table.Tbody>
           {isLoading && !data ? (
-            <Table.Tr>
-              <Table.Td colSpan={columnCount}>
-                <Center py="md">
-                  <Loader size="sm" />
-                </Center>
-              </Table.Td>
-            </Table.Tr>
+            <TableLoadingRow colSpan={columnCount} />
           ) : data && data.items.length > 0 ? (
             data.items.map((u) => (
               <Table.Tr key={u.id}>
@@ -300,7 +293,7 @@ export default function Users() {
                 </Table.Td>
               </Table.Tr>
             ))
-          ) : (
+          ) : !isError ? (
             <Table.Tr>
               <Table.Td colSpan={columnCount}>
                 <EmptyState
@@ -309,7 +302,7 @@ export default function Users() {
                   />
               </Table.Td>
             </Table.Tr>
-          )}
+          ) : null}
         </Table.Tbody>
       </Table>
 

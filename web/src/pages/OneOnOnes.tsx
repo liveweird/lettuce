@@ -39,18 +39,7 @@ export default function OneOnOnes() {
 
   return (
     <Stack gap="md">
-      <Group justify="space-between">
-        <Title order={2}>{t("oneOnOne.sectionTitle")}</Title>
-        {isManager && (
-          <Button
-            component={RouterLink}
-            to="/one-on-ones/new"
-            leftSection={<IconPlus size={16} />}
-          >
-            {t("oneOnOne.newMeeting")}
-          </Button>
-        )}
-      </Group>
+      <Title order={2}>{t("oneOnOne.sectionTitle")}</Title>
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
           {isManager && <Tabs.Tab value="managed">{t("oneOnOne.tab.managed")}</Tabs.Tab>}
@@ -72,6 +61,17 @@ export default function OneOnOnes() {
           </Tabs.Panel>
         )}
       </Tabs>
+      {isManager && (
+        <Group justify="flex-end">
+          <Button
+            component={RouterLink}
+            to="/one-on-ones/new"
+            leftSection={<IconPlus size={16} />}
+          >
+            {t("oneOnOne.newMeeting")}
+          </Button>
+        </Group>
+      )}
     </Stack>
   );
 }

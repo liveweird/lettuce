@@ -185,7 +185,7 @@ export default function TeamMembersTable({
       </Group>
 
       {isError && (
-        <Alert color="red" title={t("teams.loadMembersTableFailed")}>
+        <Alert color="red" variant="light" title={t("teams.loadMembersTableFailed")}>
           {error instanceof Error ? error.message : t("teams.unknownError")}
         </Alert>
       )}

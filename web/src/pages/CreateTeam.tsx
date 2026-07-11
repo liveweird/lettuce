@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useManagerOptions } from "../hooks/useManagerOptions";
 import { Link as RouterLink, Navigate, useNavigate } from "react-router-dom";
 import {
   Alert,
@@ -14,11 +15,9 @@ import {
   Title,
 } from "@mantine/core";
 import { hasLength, useForm } from "@mantine/form";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { createTeam, isAdmin, listUsers } from "../api/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { createTeam, isAdmin } from "../api/client";
 import { saveErrorMessage } from "../utils/saveError";
-
-const MANAGER_PICKER_PAGE_SIZE = 100;
 
 type FormValues = {
   name: string;
@@ -40,21 +39,7 @@ export default function CreateTeam() {
     },
   });
 
-  const { data: managerPool, isLoading: managersLoading } = useQuery({
-    queryKey: ["users", "managerPicker"],
-    queryFn: () => listUsers({ page: 1, pageSize: MANAGER_PICKER_PAGE_SIZE, sort: "name" }),
-    staleTime: 5 * 60 * 1000,
-    enabled: isAdmin(),
-  });
-
-  const managerOptions = useMemo(
-    () =>
-      (managerPool?.items ?? []).map((u) => ({
-        value: String(u.id),
-        label: u.name,
-      })),
-    [managerPool],
-  );
+  const { managerOptions, managersLoading } = useManagerOptions(isAdmin());
 
   if (!isAdmin()) return <Navigate to="/teams" replace />;
 

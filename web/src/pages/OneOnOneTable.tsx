@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
 import { Link as RouterLink } from "react-router-dom";
-import { Alert, Badge, Button, Center, Loader, Stack, Table, Text } from "@mantine/core";
+import { Alert, Badge, Button, Stack, Table, Text } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconCalendarEvent, IconEye, IconPencil } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -13,6 +13,7 @@ import {
 } from "../api/client";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
+import TableLoadingRow from "../components/TableLoadingRow";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import PersonaChip from "../components/PersonaChip";
@@ -21,6 +22,7 @@ import SortHeader from "../components/SortHeader";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOf, isString, useStoredState } from "../hooks/useStoredState";
 import { formatIsoDate, formatRelativeTime, formatTimestamp } from "../utils/datetime";
+import { feedbackPartyName } from "../utils/userDisplay";
 
 const SORT_FIELDS = ["meetingDate", "managerName", "subordinateName", "lastModified"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
@@ -41,11 +43,12 @@ function PersonCell({
   currentUserId: number | null;
   youLabel: string;
 }) {
+  const { t } = useTranslation();
   if (currentUserId != null && userId === currentUserId) {
     return <Text size="sm">{youLabel}</Text>;
   }
   if (deleted) {
-    return <Text size="sm">{name}</Text>;
+    return <Text size="sm">{feedbackPartyName(userId, name, true, currentUserId, t)}</Text>;
   }
   return <PersonaChip name={name} />;
 }
@@ -326,13 +329,7 @@ export default function OneOnOneTable({
         </Table.Thead>
         <Table.Tbody>
           {isLoading && !data ? (
-            <Table.Tr>
-              <Table.Td colSpan={columnCount}>
-                <Center py="md">
-                  <Loader size="sm" />
-                </Center>
-              </Table.Td>
-            </Table.Tr>
+            <TableLoadingRow colSpan={columnCount} />
           ) : data && data.items.length > 0 ? (
             data.items.map((m) => (
               <Table.Tr key={m.id}>
@@ -376,7 +373,7 @@ export default function OneOnOneTable({
                 <Table.Td>{config.renderAction(m, { backParam, currentUserId, t })}</Table.Td>
               </Table.Tr>
             ))
-          ) : (
+          ) : !isError ? (
             <Table.Tr>
               <Table.Td colSpan={columnCount}>
                 <EmptyState
@@ -385,7 +382,7 @@ export default function OneOnOneTable({
                 />
               </Table.Td>
             </Table.Tr>
-          )}
+          ) : null}
         </Table.Tbody>
       </Table>
 

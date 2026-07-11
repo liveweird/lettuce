@@ -33,6 +33,7 @@ import {
 } from "../api/client";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import EmptyState from "../components/EmptyState";
+import TableLoadingRow from "../components/TableLoadingRow";
 import FeedbackActionButton from "../components/FeedbackActionButton";
 import PersonaChip from "../components/PersonaChip";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
@@ -196,13 +197,13 @@ export default function TeamMembers() {
       )}
 
       {canManage && addError && (
-        <Alert color="red" title={t("teams.addMemberFailed")} onClose={() => setAddError(null)} withCloseButton>
+        <Alert color="red" variant="light" title={t("teams.addMemberFailed")} onClose={() => setAddError(null)} withCloseButton>
           {addError}
         </Alert>
       )}
 
       {membersIsError && (
-        <Alert color="red" title={t("teams.loadMembersFailed")}>
+        <Alert color="red" variant="light" title={t("teams.loadMembersFailed")}>
           {membersError instanceof Error ? membersError.message : t("teams.unknownError")}
         </Alert>
       )}
@@ -217,13 +218,7 @@ export default function TeamMembers() {
         </Table.Thead>
         <Table.Tbody>
           {membersLoading && !membersPage ? (
-            <Table.Tr>
-              <Table.Td colSpan={3}>
-                <Center py="md">
-                  <Loader size="sm" />
-                </Center>
-              </Table.Td>
-            </Table.Tr>
+            <TableLoadingRow colSpan={3} />
           ) : members.length > 0 ? (
             members.map((m) => (
               <Table.Tr key={m.id}>
@@ -269,7 +264,7 @@ export default function TeamMembers() {
                 </Table.Td>
               </Table.Tr>
             ))
-          ) : (
+          ) : !membersIsError ? (
             <Table.Tr>
               <Table.Td colSpan={3}>
                 <EmptyState
@@ -278,7 +273,7 @@ export default function TeamMembers() {
                   />
               </Table.Td>
             </Table.Tr>
-          )}
+          ) : null}
         </Table.Tbody>
       </Table>
 

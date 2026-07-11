@@ -1867,7 +1867,7 @@ export interface components {
         PageSize: number;
         /**
          * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
-         *     comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
+         *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
          *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
          *     always appended as a deterministic tiebreaker.
          */
@@ -2002,7 +2002,7 @@ export interface operations {
                 pageSize?: components["parameters"]["PageSize"];
                 /**
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
-                 *     comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
+                 *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
                  *     always appended as a deterministic tiebreaker.
                  */
@@ -2295,7 +2295,7 @@ export interface operations {
                 pageSize?: components["parameters"]["PageSize"];
                 /**
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
-                 *     comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
+                 *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
                  *     always appended as a deterministic tiebreaker.
                  */
@@ -2382,7 +2382,7 @@ export interface operations {
                 pageSize?: components["parameters"]["PageSize"];
                 /**
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
-                 *     comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
+                 *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
                  *     always appended as a deterministic tiebreaker.
                  */
@@ -2617,7 +2617,7 @@ export interface operations {
                 pageSize?: components["parameters"]["PageSize"];
                 /**
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
-                 *     comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
+                 *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
                  *     always appended as a deterministic tiebreaker.
                  */
@@ -2978,7 +2978,7 @@ export interface operations {
                 pageSize?: components["parameters"]["PageSize"];
                 /**
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
-                 *     comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
+                 *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
                  *     always appended as a deterministic tiebreaker.
                  */
@@ -3218,7 +3218,7 @@ export interface operations {
                 pageSize?: components["parameters"]["PageSize"];
                 /**
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
-                 *     comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
+                 *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
                  *     always appended as a deterministic tiebreaker.
                  */
@@ -3421,7 +3421,7 @@ export interface operations {
                 pageSize?: components["parameters"]["PageSize"];
                 /**
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
-                 *     comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
+                 *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
                  *     always appended as a deterministic tiebreaker.
                  */
@@ -3648,7 +3648,7 @@ export interface operations {
                 pageSize?: components["parameters"]["PageSize"];
                 /**
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
-                 *     comma-separated, leftmost wins: `sort=-createdAt,id`. The endpoint declares its
+                 *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
                  *     always appended as a deterministic tiebreaker.
                  */

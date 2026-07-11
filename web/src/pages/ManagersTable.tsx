@@ -41,7 +41,7 @@ export default function ManagersTable() {
   return (
     <>
       {isError && (
-        <Alert color="red" title={t("users.loadManagersFailed")}>
+        <Alert color="red" variant="light" title={t("users.loadManagersFailed")}>
           {error instanceof Error ? error.message : t("users.unknownError")}
         </Alert>
       )}
