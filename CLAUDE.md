@@ -21,7 +21,7 @@ Gradle wrapper is at `./gradlew` (use `gradlew.bat` on Windows). JDK 21 toolchai
 
 ## Architecture
 
-Multi-module Gradle build (Kotlin DSL) defined in `settings.gradle.kts` with three Kotlin modules plus a separate JS frontend in `web/`:
+Multi-module Gradle build (Kotlin DSL) defined in `settings.gradle.kts` with two Kotlin modules plus a separate JS frontend in `web/`:
 
 - **`core`** — Kotlin Multiplatform (JVM target only currently). Shared code consumed by `server`. Holds the OpenTelemetry SDK bootstrap (`getOpenTelemetry(serviceName)`).
 - **`server`** — Kotlin/JVM. The Ktor application. Depends on `core`.
@@ -42,6 +42,7 @@ ch.nokillswit
 ├── infra/db/           Flyway migrations + R2DBC connection bootstrap
 ├── infra/paging/       list-endpoint paging/sort/filter helper (parsePaging, applyPaging)
 ├── infra/mail/         outbound email: Mailer (smtp via Jakarta/Angus, log, disabled) + configureMail (see "Outbound email")
+├── infra/crypto/       field-level encryption: FieldCipher (AES-256-GCM) + configureCrypto (see "Encryption at rest")
 ├── audit/              security audit trail: `audit(event, fields…)` → AUDIT-marked structured logs (see "Audit trail")
 ├── authz/              RBAC guards + CallerPrincipal (see "Authorization model")
 ├── auth/               POST /api/v1/login, /api/v1/refresh, /api/v1/logout, /api/v1/password-reset + token minting + password hashing + LoginThrottle/PasswordResetThrottle
@@ -56,7 +57,7 @@ ch.nokillswit
 
 Routing is feature-local: each feature package registers its own routes from its `configureXxx` module. `plugins/Routing.kt` owns only the SPA: when `WEB_STATIC_DIR` (config key `web.staticDir`) is set, `configureRouting` installs `singlePageApplication` to serve `web/dist` with an `index.html` fallback; when unset (local dev / tests, where Vite serves the SPA), it installs no routes at all (there is no `GET /` placeholder). The scaffolding demo endpoints (`/ws`, `/json/kotlinx-serialization`, `/session/increment`, the "Hello, World!" root) and their plugins (`Sessions`, `Websockets`, the `GreetingService` DI sample, the inert `RequestValidation` rule) have been removed.
 
-Module load order in `application.yaml` matters for inter-module attribute reads: `configureSecurity` puts `JwtConfigKey` in `attributes`; `configureCrypto` (`infra/crypto/Crypto.kt`) puts `FieldCipherKey`; `configureDatabase` reads `FieldCipherKey` (it hands the cipher to `FeedbackService`) and puts `UserServiceKey`; `configureBootstrap` reads `UserServiceKey` and `FeedbackServiceKey` (so it runs right after Database); `configureAuthRoutes` reads `JwtConfigKey` + `UserServiceKey` (and the blocklist key), and `configureUserRoutes` reads `UserServiceKey` (its `authenticate {}` blocks also need `configureSecurity` installed first), so the feature modules must run after both. Current order: plugins → infrastructure (Crypto → Flyway → Database → Bootstrap) → features (users, auth) → catch-all `configureRouting`.
+Module load order in `application.yaml` matters for inter-module attribute reads: `configureSecurity` puts `JwtConfigKey` in `attributes`; `configureCrypto` (`infra/crypto/Crypto.kt`) puts `FieldCipherKey`; `configureDatabase` reads `FieldCipherKey` (it hands the cipher to `FeedbackService`) and puts `UserServiceKey`; `configureBootstrap` reads `UserServiceKey` and `FeedbackServiceKey` (so it runs right after Database); `configureAuthRoutes` reads `JwtConfigKey` + `UserServiceKey` (and the blocklist key), and `configureUserRoutes` reads `UserServiceKey` (its `authenticate {}` blocks also need `configureSecurity` installed first), so the feature modules must run after both. Current order: plugins → infrastructure (Mail → Crypto → Flyway → Database → Bootstrap) → features (users, auth, teams, templates, feedbacks, oneonones, notifications, alerts) → catch-all `configureRouting`.
 
 ### Persistence
 
@@ -97,7 +98,7 @@ Current migrations are `V1`–`V24`: schema for users/teams/feedbacks/revoked-to
 
 **Sorting — `sort` with leading `-` for descending.**
 
-- `sort=field` (asc) or `sort=-field` (desc). Multi-field is comma-separated, leftmost wins: `sort=-createdAt,id`.
+- `sort=field` (asc) or `sort=-field` (desc). Multi-field is comma-separated, leftmost wins: `sort=-lastModified,id`.
 - Each endpoint declares an explicit whitelist of sortable fields in its `*Routes.kt`; unknown field → `400`.
 - Always append `id` ascending as a deterministic tiebreaker so paging is stable.
 - Default sort, if the client sends none, is `id` ascending — state it in the OpenAPI description.
@@ -109,14 +110,14 @@ Current migrations are `V1`–`V24`: schema for users/teams/feedbacks/revoked-to
 - Range/operator filters use bracket suffixes — only the ones a given endpoint actually needs:
   - `field[gte]`, `field[gt]`, `field[lte]`, `field[lt]` for ordered types (timestamps, numbers).
   - No `[like]`, no `[ne]`, no `[in]` (use repetition for `IN`). Keep the operator surface tiny.
-- Free-text search uses a single `q` param. The endpoint decides which columns `q` searches (e.g. users: `name`, `email`); document the searched columns in OpenAPI.
+- Free-text search uses a single `q` param. The endpoint decides which columns `q` searches (e.g. users: `name`, `email`); document the searched columns in OpenAPI. **No endpoint implements `q` yet** — the current UIs use per-column filters; add it (and the reusable `Q` parameter below) with the first endpoint that needs it.
 - Per-column substring search is also allowed when a UI genuinely needs per-column matching that `q` cannot express. The filter param uses the column name directly (e.g. `?name=ali`), is case-insensitive `contains`, and must be documented per-endpoint. First example: `GET /api/v1/users` uses `name` and `email` this way. Reach for `q` first; promote to per-column only when the UI requires it.
 - Booleans are `true`/`false`. Enums use their string name. Malformed values → `400`.
 
 **Naming and OpenAPI plumbing.**
 
 - Param names are `camelCase` to match existing JSON bodies (`pageSize`, not `page_size`).
-- Add reusable parameters `Page`, `PageSize`, `Sort`, `Q` to `#/components/parameters` in `documentation.yaml`, then `$ref` them from each list path. Per-endpoint sortable/filterable fields go in that path's `parameters` list with a `description` listing the whitelist.
+- Add reusable parameters `Page`, `PageSize`, `Sort` (and `Q`, once a `q` endpoint exists) to `#/components/parameters` in `documentation.yaml`, then `$ref` them from each list path. Per-endpoint sortable/filterable fields go in that path's `parameters` list with a `description` listing the whitelist.
 - Pagination envelopes are one schema per resource (`UserPage`, `TeamPage`, …) wrapping the existing `*Response[]` — keep them next to the resource's other schemas.
 
 **Implementation.**
@@ -322,7 +323,7 @@ An **Alert** is a broadcast message for **every** user (not recipient-scoped lik
 
 `plugins/OpenTelemetry.kt` installs `KtorServerTelemetry` and obtains the SDK via `getOpenTelemetry("lettuce")` from the `core` module. `plugins/Monitoring.kt` separately installs Dropwizard metrics (logged via SLF4J every 10s) and the `CallId` plugin using `X-Request-Id`. The SDK is also wired for **logs**: a Logback `OpenTelemetryAppender` (`server/src/main/resources/logback.xml`, the sole root appender) bridges every SLF4J log into the OTel logs SDK, and `getOpenTelemetry` (`core/.../OpenTelemetry.kt`) installs the appender (in `plugins/OpenTelemetry.kt`) and sets the interim exporter to `console`. Defaults are set via `addPropertiesSupplier` (the lowest-precedence config tier) **on purpose**, so the sink can be redirected to a collector by env alone with no code change — set `OTEL_LOGS_EXPORTER=otlp` + `OTEL_EXPORTER_OTLP_ENDPOINT` (the `opentelemetry-exporter-otlp` dep is already on the classpath); `OTEL_TRACES_EXPORTER` likewise. Metrics and traces exporters default to `none` (`otel.metrics.exporter`/`otel.traces.exporter`). **Convention for non-fatal "this should never happen" events:** emit a WARN with the `SHOULD_NEVER_HAPPEN` marker (`MarkerFactory.getMarker`) plus key/value attributes — they flow through the appender to OTel. Reserve it for branches that are genuinely unreachable by ordinary requests (no current usage — `canReadFeedback`'s default-deny used to carry one, but that branch is routinely reached by unauthorized attempts and manager reads, so it was removed).
 
-**Audit trail.** Security-relevant events are structured INFO logs on the dedicated `ch.nokillswit.audit` logger with the `AUDIT` marker, emitted via `audit("area.event", "key" to value, …)` (`audit/Audit.kt`) — they ride the same Logback→OTel pipeline, so shipping them to a collector/SIEM is env-only. Emitted today: `login.success` / `login.failure` (with `reason`) / `login.lockout` / `login.rejected_locked`, `logout`, `refresh.rejected` (with `reason`), `password.changed` / `password.change_denied`, `password_reset.requested` / `password_reset.throttled` / `password_reset.unknown_email` / `password_reset.completed` / `password_reset.send_failed`, `authz.denied` (every 403, from the `StatusPages` handler, with method/path/caller), `user.created` (also once per mass-import row) / `user.deleted` / `user.role_changed`, `users.imported` (batch summary: totals per status), `team.created` / `team.updated` (with `managerFrom`/`managerTo` and `membersAdded`/`membersRemoved` deltas only when they changed — team mutations shape the management chain and hence feedback read scope) / `team.deleted` / `team.member_added` / `team.member_removed`, `alert.created/updated/deleted` (admin-authored broadcast content), and `template.created/updated/deleted`. Feedback mutations are NOT in this list — `feedback_events` is their dedicated per-record trail. Never log secrets (passwords, tokens); emails/ids are fine. When adding a security-relevant mutation or denial path, emit an `audit(...)` event alongside it. Tested in `AuditTest` via a Logback `ListAppender` on the audit logger.
+**Audit trail.** Security-relevant events are structured INFO logs on the dedicated `ch.nokillswit.audit` logger with the `AUDIT` marker, emitted via `audit("area.event", "key" to value, …)` (`audit/Audit.kt`) — they ride the same Logback→OTel pipeline, so shipping them to a collector/SIEM is env-only. Emitted today: `login.success` / `login.failure` (with `reason`) / `login.lockout` / `login.rejected_locked`, `logout`, `refresh.rejected` (with `reason`), `password.changed` / `password.change_denied`, `password_reset.requested` / `password_reset.throttled` / `password_reset.unknown_email` / `password_reset.completed` / `password_reset.send_failed`, `authz.denied` (every 403, from the `StatusPages` handler, with method/path/caller), `user.created` (also once per mass-import row) / `user.deleted` / `user.updated` (name/email changes, with `nameFrom`/`nameTo` and `emailFrom`/`emailTo` deltas only when they changed — email is the login identifier) / `user.role_changed`, `users.imported` (batch summary: totals per status), `team.created` / `team.updated` (with `managerFrom`/`managerTo` and `membersAdded`/`membersRemoved` deltas only when they changed — team mutations shape the management chain and hence feedback read scope) / `team.deleted` / `team.member_added` / `team.member_removed`, `alert.created/updated/deleted` (admin-authored broadcast content), and `template.created/updated/deleted`. Feedback mutations are NOT in this list — `feedback_events` is their dedicated per-record trail. Never log secrets (passwords, tokens); emails/ids are fine. When adding a security-relevant mutation or denial path, emit an `audit(...)` event alongside it. Tested in `AuditTest` via a Logback `ListAppender` on the audit logger.
 
 ### Testing
 
