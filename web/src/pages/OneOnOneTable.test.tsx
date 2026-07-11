@@ -118,10 +118,11 @@ describe("OneOnOneTable", () => {
     expect(await screen.findByText("No 1:1 meetings.")).toBeInTheDocument();
   });
 
-  test("a load failure renders the error alert", async () => {
+  test("a load failure renders the error alert without a misleading empty state", async () => {
     mockFetch.mockResolvedValue(jsonResponse(500, { title: "boom" }));
     renderWithProviders(<OneOnOneTable view="own" />);
     expect(await screen.findByText("Failed to load 1:1 meetings")).toBeInTheDocument();
+    expect(screen.queryByText("No 1:1 meetings.")).toBeNull();
   });
 
   test("the caller's own row renders as plain You, deleted users as plain text", async () => {
@@ -141,5 +142,21 @@ describe("OneOnOneTable", () => {
     expect(await screen.findByText("Mia Manager")).toBeInTheDocument();
     expect(screen.getByText("You")).toBeInTheDocument();
     expect(screen.queryByText("Me Myself")).toBeNull();
+  });
+
+  test("a soft-deleted counterpart carries the (deleted) suffix as plain text", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        items: [{ ...ROW, managerName: "Gone Manager", managerDeleted: true }],
+        page: 1,
+        pageSize: 20,
+        total: 1,
+      }),
+    );
+    renderWithProviders(<OneOnOneTable view="own" />);
+
+    const cell = await screen.findByText("Gone Manager (deleted)");
+    // Plain text, not a PersonaChip (no avatar initials in the cell).
+    expect(cell.closest("tr")!.querySelector(".mantine-Avatar-root")).toBeNull();
   });
 });

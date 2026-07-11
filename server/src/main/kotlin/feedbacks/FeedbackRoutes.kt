@@ -237,7 +237,10 @@ fun Application.configureFeedbackRoutes() {
                 if (existing.status != FeedbackStatus.DRAFT) {
                     throw BadRequestException("Only a draft feedback may be deleted")
                 }
-                feedbackService.delete(route.id)
+                if (feedbackService.delete(route.id) == 0) {
+                    call.respondProblem(HttpStatusCode.NotFound, "Feedback not found")
+                    return@delete
+                }
                 // Audit the deletion against the acting provider (events outlive the soft-deleted row).
                 feedbackEventService.create(feedbackDeletionEvent().toEvent(route.id, caller.userId))
                 // Best-effort side effect: tell the requester (if any) the provider deleted it (no link).

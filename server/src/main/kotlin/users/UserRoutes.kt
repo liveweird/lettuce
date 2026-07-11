@@ -241,6 +241,23 @@ fun Application.configureUserRoutes() {
                 if (updated == 0) {
                     call.respondProblem(HttpStatusCode.NotFound, "User not found")
                 } else {
+                    // Name and email are identity/security-relevant (email is the login identifier);
+                    // audit with deltas only for the fields that actually changed.
+                    if (req.name != existing.name || req.email != existing.email) {
+                        val auditFields = mutableListOf<Pair<String, Any?>>(
+                            "byUserId" to caller.userId.toLong(),
+                            "targetUserId" to route.id.toLong(),
+                        )
+                        if (req.name != existing.name) {
+                            auditFields += "nameFrom" to existing.name
+                            auditFields += "nameTo" to req.name
+                        }
+                        if (req.email != existing.email) {
+                            auditFields += "emailFrom" to existing.email
+                            auditFields += "emailTo" to req.email
+                        }
+                        audit("user.updated", *auditFields.toTypedArray())
+                    }
                     if (req.role != existing.role) {
                         audit(
                             "user.role_changed",

@@ -34,5 +34,7 @@
     "deletedToRequester": "{{provider}} usunął/usunęła swój feedback na temat {{subject}} (o który prosiłeś/aś).",
     "deletedToRequester_self": "{{provider}} usunął/usunęła swoją autorefleksję (o którą prosiłeś/aś).",
     "oneOnOneCreated": "{{manager}} udokumentował/a spotkanie 1:1 z Tobą ({{date}})."
-  }
+  },
+  "delete": "Usuń",
+  "deleteAria": "Usuń powiadomienie {{id}}"
 }

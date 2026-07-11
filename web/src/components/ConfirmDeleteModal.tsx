@@ -30,7 +30,7 @@ export default function ConfirmDeleteModal<T>({
       <Stack gap="md">
         {target && <Text>{body(target)}</Text>}
         {mutation.isError && (
-          <Alert color="red" title={errorTitle}>
+          <Alert color="red" variant="light" title={errorTitle}>
             {mutation.error instanceof Error ? mutation.error.message : unknownError}
           </Alert>
         )}

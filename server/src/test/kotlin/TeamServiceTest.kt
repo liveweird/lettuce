@@ -12,6 +12,7 @@ import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -26,13 +27,37 @@ class TeamServiceTest {
     private val paging = PageRequest(page = 1, pageSize = 100, sort = listOf(SortField("id", descending = false)))
 
     @Test
-    fun `addMember to a missing team is rejected`() = testApplication {
+    fun `addMember and removeMember signal a missing team with null`() = testApplication {
         usePostgresTestcontainer()
         val userId = TestUsers.seed(email = uniqueEmail("member"), password = "pw")
+        assertNull(TestServices.teams.addMember(999_999_999u, userId))
+        assertNull(TestServices.teams.removeMember(999_999_999u, userId))
+
+        // A soft-deleted team is indistinguishable from a missing one.
+        val managerId = TestUsers.seed(email = uniqueEmail("manager"), password = "pw")
+        val teamId = TestServices.teams.create(Team(name = "gone-${UUID.randomUUID()}", managerId = managerId))
+        TestServices.teams.delete(teamId)
+        assertNull(TestServices.teams.addMember(teamId, userId))
+        assertNull(TestServices.teams.removeMember(teamId, userId))
+    }
+
+    @Test
+    fun `addMember and removeMember report whether membership actually changed`() = testApplication {
+        usePostgresTestcontainer()
+        val managerId = TestUsers.seed(email = uniqueEmail("manager"), password = "pw")
+        val userId = TestUsers.seed(email = uniqueEmail("member"), password = "pw")
+        val teamId = TestServices.teams.create(Team(name = "delta-${UUID.randomUUID()}", managerId = managerId))
+
+        assertEquals(true, TestServices.teams.addMember(teamId, userId))
+        assertEquals(false, TestServices.teams.addMember(teamId, userId)) // already a member
+        assertEquals(true, TestServices.teams.removeMember(teamId, userId))
+        assertEquals(false, TestServices.teams.removeMember(teamId, userId)) // was not a member
+
+        // The manager-as-member rule is a genuine 400 and stays an exception.
         val failure = assertFailsWith<BadRequestException> {
-            TestServices.teams.addMember(999_999_999u, userId)
+            TestServices.teams.addMember(teamId, managerId)
         }
-        assertTrue(failure.message!!.contains("not found"))
+        assertTrue(failure.message!!.contains("Manager"))
     }
 
     @Test

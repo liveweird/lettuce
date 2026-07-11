@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.8.1",
+    date: "2026-07-11",
+    en: `Notifications got two small upgrades: you can now *delete* a notification from the bell menu, and older notifications are reachable through a pager instead of being cut off at the newest fifty. Plus a round of polish: deleted users are labelled consistently in the 1:1 lists, the *New 1:1* button moved next to the other create buttons, and a load failure no longer shows a misleading "empty list" message underneath the error.`,
+    pl: `Powiadomienia zyskały dwa drobne ulepszenia: możesz teraz *usunąć* powiadomienie z menu dzwonka, a starsze powiadomienia są dostępne dzięki stronicowaniu, zamiast urywać się na najnowszych pięćdziesięciu. Do tego porcja szlifów: usunięci użytkownicy są spójnie oznaczeni na listach 1:1, przycisk *Nowe 1:1* przeniósł się obok pozostałych przycisków tworzenia, a przy błędzie ładowania nie pojawia się już mylący komunikat o pustej liście pod treścią błędu.`,
+  },
+  {
     version: "1.8",
     date: "2026-07-11",
     en: `The Dashboard person cards now offer a *1:1 meetings* button for your managers and your direct subordinates. It opens a per-person view of every 1:1 between the two of you — in both directions, so meetings from before a role switch stay visible in one place.`,

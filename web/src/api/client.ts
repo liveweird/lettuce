@@ -717,6 +717,11 @@ export async function markAllNotificationsSeen(): Promise<void> {
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
+export async function deleteNotification(id: number): Promise<void> {
+  const res = await authedFetch(`/api/v1/notifications/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
 export async function authedFetch(path: string, init: RequestInit = {}): Promise<Response> {
   let res = await sendWithToken(path, init, getToken());
   if (res.status === 401) {

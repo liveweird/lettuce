@@ -8,6 +8,7 @@ import {
   Indicator,
   Loader,
   Modal,
+  Pagination,
   ScrollArea,
   Stack,
   Text,
@@ -30,10 +31,12 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { useNavigate } from "react-router-dom";
 import {
+  deleteNotification,
   listNotifications,
   markAllNotificationsSeen,
   markNotificationSeen,
@@ -89,11 +92,19 @@ const TYPE_META: Record<NotificationItem["type"], { icon: typeof IconBell; color
 // feedback flows.
 const UNREAD_REFETCH_MS = 30_000;
 
+const PAGE_SIZE = 50;
+
 export default function NotificationsButton() {
   const { t } = useTranslation();
   const [opened, { open, close }] = useDisclosure(false);
+  const [page, setPage] = useState(1);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  function openModal() {
+    setPage(1); // always reopen on the newest page
+    open();
+  }
 
   // Cheap unread count: pageSize 1, read only `total`.
   const unreadQuery = useQuery({
@@ -104,11 +115,20 @@ export default function NotificationsButton() {
   const unreadCount = unreadQuery.data?.total ?? 0;
 
   const listQuery = useQuery({
-    queryKey: ["notifications", "list"],
-    queryFn: () => listNotifications({ page: 1, pageSize: 50, sort: "-timestamp" }),
+    queryKey: ["notifications", "list", page],
+    queryFn: () => listNotifications({ page, pageSize: PAGE_SIZE, sort: "-timestamp" }),
     enabled: opened,
     refetchInterval: UNREAD_REFETCH_MS, // only polls while the modal is open (enabled)
   });
+  const total = listQuery.data?.total ?? 0;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+
+  // Deleting the last row of the last page leaves an empty page — step back instead.
+  useEffect(() => {
+    if (listQuery.data && listQuery.data.items.length === 0 && page > 1) {
+      setPage(page - 1);
+    }
+  }, [listQuery.data, page]);
 
   const markSeen = useMutation({
     mutationFn: (id: number) => markNotificationSeen(id),
@@ -122,6 +142,11 @@ export default function NotificationsButton() {
 
   const markAllSeen = useMutation({
     mutationFn: () => markAllNotificationsSeen(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: number) => deleteNotification(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
   });
 
@@ -147,7 +172,7 @@ export default function NotificationsButton() {
         <ActionIcon
           variant="default"
           size="lg"
-          onClick={open}
+          onClick={openModal}
           aria-label={`${t("notifications.title")} (${t("notifications.unread", { count: unreadCount })})`}
         >
           <IconBell size={18} />
@@ -183,7 +208,7 @@ export default function NotificationsButton() {
                 <Loader />
               </Center>
             ) : listQuery.isError ? (
-              <Alert color="red" title={t("notifications.loadError")}>
+              <Alert color="red" variant="light" title={t("notifications.loadError")}>
                 {listQuery.error instanceof Error ? listQuery.error.message : t("notifications.unknownError")}
               </Alert>
             ) : (listQuery.data?.items.length ?? 0) === 0 ? (
@@ -261,6 +286,17 @@ export default function NotificationsButton() {
                                 </ActionIcon>
                               </Tooltip>
                             )}
+                            <Tooltip label={t("notifications.delete")}>
+                              <ActionIcon
+                                variant="subtle"
+                                color="red"
+                                onClick={() => remove.mutate(n.id)}
+                                loading={remove.isPending && remove.variables === n.id}
+                                aria-label={t("notifications.deleteAria", { id: n.id })}
+                              >
+                                <IconTrash size={16} />
+                              </ActionIcon>
+                            </Tooltip>
                           </Group>
                         </Group>
                       </Box>
@@ -268,6 +304,11 @@ export default function NotificationsButton() {
                   })}
                 </Box>
               </ScrollArea.Autosize>
+            )}
+            {totalPages > 1 && (
+              <Group justify="flex-end" mt="sm">
+                <Pagination size="sm" value={page} onChange={setPage} total={totalPages} />
+              </Group>
             )}
           </Modal.Body>
         </Modal.Content>

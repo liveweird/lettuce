@@ -2,9 +2,7 @@ import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
   Button,
-  Center,
   Group,
-  Loader,
   Stack,
   Table,
   Text,
@@ -16,6 +14,7 @@ import { IconEye, IconFileText, IconPencil, IconPlus, IconTrash } from "@tabler/
 import { useTranslation } from "react-i18next";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
+import TableLoadingRow from "../components/TableLoadingRow";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
@@ -105,13 +104,7 @@ export default function Templates() {
         </Table.Thead>
         <Table.Tbody>
           {isLoading && !data ? (
-            <Table.Tr>
-              <Table.Td colSpan={columnCount}>
-                <Center py="md">
-                  <Loader size="sm" />
-                </Center>
-              </Table.Td>
-            </Table.Tr>
+            <TableLoadingRow colSpan={columnCount} />
           ) : data && data.items.length > 0 ? (
             data.items.map((tpl) => (
               <Table.Tr key={tpl.id}>
@@ -170,7 +163,7 @@ export default function Templates() {
                 </Table.Td>
               </Table.Tr>
             ))
-          ) : (
+          ) : !isError ? (
             <Table.Tr>
               <Table.Td colSpan={columnCount}>
                 <EmptyState
@@ -179,7 +172,7 @@ export default function Templates() {
                   />
               </Table.Td>
             </Table.Tr>
-          )}
+          ) : null}
         </Table.Tbody>
       </Table>
 

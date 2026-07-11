@@ -207,7 +207,7 @@ export default function EditOneOnOne() {
                 <Group justify="space-between">
                   <Button
                     color="red"
-                    variant="outline"
+                    variant="light"
                     onClick={openDelete}
                     disabled={submitting}
                   >

@@ -190,15 +190,22 @@ fun Application.configureTeamRoutes() {
                     return@put
                 }
                 requireTeamManagerOrAdmin(caller, existing.managerId)
-                requireValidReferences("Referenced user does not exist") {
+                val changed = requireValidReferences("Referenced user does not exist") {
                     teamService.addMember(route.parent.id, route.userId)
                 }
-                audit(
-                    "team.member_added",
-                    "byUserId" to caller.userId.toLong(),
-                    "teamId" to route.parent.id.toLong(),
-                    "memberUserId" to route.userId.toLong(),
-                )
+                if (changed == null) {
+                    call.respondProblem(HttpStatusCode.NotFound, "Team not found")
+                    return@put
+                }
+                // Membership shapes the management chain — only audit when something actually changed.
+                if (changed) {
+                    audit(
+                        "team.member_added",
+                        "byUserId" to caller.userId.toLong(),
+                        "teamId" to route.parent.id.toLong(),
+                        "memberUserId" to route.userId.toLong(),
+                    )
+                }
                 call.respond(HttpStatusCode.NoContent)
             }
             delete<Teams.Id.Member> { route ->
@@ -209,13 +216,19 @@ fun Application.configureTeamRoutes() {
                     return@delete
                 }
                 requireTeamManagerOrAdmin(caller, existing.managerId)
-                teamService.removeMember(route.parent.id, route.userId)
-                audit(
-                    "team.member_removed",
-                    "byUserId" to caller.userId.toLong(),
-                    "teamId" to route.parent.id.toLong(),
-                    "memberUserId" to route.userId.toLong(),
-                )
+                val changed = teamService.removeMember(route.parent.id, route.userId)
+                if (changed == null) {
+                    call.respondProblem(HttpStatusCode.NotFound, "Team not found")
+                    return@delete
+                }
+                if (changed) {
+                    audit(
+                        "team.member_removed",
+                        "byUserId" to caller.userId.toLong(),
+                        "teamId" to route.parent.id.toLong(),
+                        "memberUserId" to route.userId.toLong(),
+                    )
+                }
                 call.respond(HttpStatusCode.NoContent)
             }
         }

@@ -1,12 +1,9 @@
-import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
   Button,
-  Center,
   Group,
-  Loader,
   Select,
   Stack,
   Table,
@@ -23,6 +20,7 @@ import {
 } from "@tabler/icons-react";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
+import TableLoadingRow from "../components/TableLoadingRow";
 import SortHeader from "../components/SortHeader";
 import PersonaChip from "../components/PersonaChip";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
@@ -31,9 +29,8 @@ import PaginationBar from "../components/PaginationBar";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isNumberOrNull, isString, useStoredState } from "../hooks/useStoredState";
-import { deleteTeam, isAdmin, listTeams, listUsers } from "../api/client";
-
-const MANAGER_PICKER_PAGE_SIZE = 100;
+import { useManagerOptions } from "../hooks/useManagerOptions";
+import { deleteTeam, isAdmin, listTeams } from "../api/client";
 
 const SORT_FIELDS = ["name"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
@@ -76,20 +73,7 @@ export default function Teams() {
     placeholderData: keepPreviousData,
   });
 
-  const { data: managerPool, isLoading: managersLoading } = useQuery({
-    queryKey: ["users", "managerPicker"],
-    queryFn: () => listUsers({ page: 1, pageSize: MANAGER_PICKER_PAGE_SIZE, sort: "name" }),
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const managerOptions = useMemo(
-    () =>
-      (managerPool?.items ?? []).map((u) => ({
-        value: String(u.id),
-        label: u.name,
-      })),
-    [managerPool],
-  );
+  const { managerOptions, managersLoading } = useManagerOptions();
 
   const deleteConfirm = useDeleteConfirm<TeamRow>({
     mutationFn: (row) => deleteTeam(row.id),
@@ -151,13 +135,7 @@ export default function Teams() {
         </Table.Thead>
         <Table.Tbody>
           {isLoading && !data ? (
-            <Table.Tr>
-              <Table.Td colSpan={columnCount}>
-                <Center py="md">
-                  <Loader size="sm" />
-                </Center>
-              </Table.Td>
-            </Table.Tr>
+            <TableLoadingRow colSpan={columnCount} />
           ) : data && data.items.length > 0 ? (
             data.items.map((team) => (
               <Table.Tr key={team.id}>
@@ -226,7 +204,7 @@ export default function Teams() {
                 </Table.Td>
               </Table.Tr>
             ))
-          ) : (
+          ) : !isError ? (
             <Table.Tr>
               <Table.Td colSpan={columnCount}>
 <EmptyState
@@ -235,7 +213,7 @@ export default function Teams() {
                 />
               </Table.Td>
             </Table.Tr>
-          )}
+          ) : null}
         </Table.Tbody>
       </Table>
 

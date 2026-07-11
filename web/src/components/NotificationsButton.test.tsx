@@ -303,6 +303,81 @@ describe("NotificationsButton", () => {
     expect(screen.getByTestId("path")).toHaveTextContent("/");
   });
 
+  test("Delete issues DELETE for that notification", async () => {
+    setupMocks(mockFetch, [SEEN]);
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      const u = String(url);
+      const method = init?.method ?? "GET";
+      if (method === "DELETE" && /\/api\/v1\/notifications\/\d+$/.test(u)) {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      if (u.startsWith("/api/v1/notifications") && u.includes("wasSeen=false")) {
+        return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 1, total: 0 }));
+      }
+      if (u.startsWith("/api/v1/notifications")) {
+        return Promise.resolve(jsonResponse(200, { items: [SEEN], page: 1, pageSize: 50, total: 1 }));
+      }
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<NotificationsButton />);
+
+    await user.click(await screen.findByRole("button", { name: /unread/i }));
+    await user.click(await screen.findByRole("button", { name: `Delete notification ${SEEN.id}` }));
+
+    await waitFor(() => {
+      expect(
+        mockFetch.mock.calls.some(
+          ([url, init]) =>
+            String(url) === `/api/v1/notifications/${SEEN.id}` &&
+            (init as RequestInit)?.method === "DELETE",
+        ),
+      ).toBe(true);
+    });
+  });
+
+  test("no pager renders when everything fits on one page", async () => {
+    setupMocks(mockFetch, [UNSEEN, SEEN]);
+    const user = userEvent.setup();
+    renderWithProviders(<NotificationsButton />);
+
+    await user.click(await screen.findByRole("button", { name: /unread/i }));
+    await screen.findByText(UNSEEN_TEXT);
+    expect(screen.queryByRole("button", { name: "2" })).toBeNull();
+  });
+
+  test("a pager appears past one page and fetches the requested page", async () => {
+    // 120 rows server-side: 3 pages of 50. The mock echoes the requested page.
+    mockFetch.mockImplementation((url: string) => {
+      const u = String(url);
+      if (u.startsWith("/api/v1/notifications") && u.includes("wasSeen=false")) {
+        return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 1, total: 0 }));
+      }
+      if (u.startsWith("/api/v1/notifications")) {
+        const page = Number(new URLSearchParams(u.split("?")[1]).get("page") ?? "1");
+        const item = { ...SEEN, id: 100 + page, params: { provider: `Page ${page}`, subject: "Kim Coder" } };
+        return Promise.resolve(jsonResponse(200, { items: [item], page, pageSize: 50, total: 120 }));
+      }
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<NotificationsButton />);
+
+    await user.click(await screen.findByRole("button", { name: /unread/i }));
+    await screen.findByText(/You reached out to Page 1/);
+
+    await user.click(screen.getByRole("button", { name: "2" }));
+    await screen.findByText(/You reached out to Page 2/);
+    expect(
+      mockFetch.mock.calls.some(([u]) => String(u).includes("page=2")),
+    ).toBe(true);
+
+    // Reopening always lands back on the newest page.
+    await user.keyboard("{Escape}");
+    await user.click(await screen.findByRole("button", { name: /unread/i }));
+    await screen.findByText(/You reached out to Page 1/);
+  });
+
   test("renders the 'about yourself' wording when params carry the self context", async () => {
     const selfNote: Item = {
       ...UNSEEN,

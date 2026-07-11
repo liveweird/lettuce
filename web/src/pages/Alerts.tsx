@@ -3,9 +3,7 @@ import {
   Alert,
   Badge,
   Button,
-  Center,
   Group,
-  Loader,
   Select,
   Stack,
   Table,
@@ -18,6 +16,7 @@ import { IconPencil, IconPlus, IconSpeakerphone, IconTrash } from "@tabler/icons
 import { useTranslation } from "react-i18next";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
+import TableLoadingRow from "../components/TableLoadingRow";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
@@ -157,13 +156,7 @@ export default function Alerts() {
         </Table.Thead>
         <Table.Tbody>
           {isLoading && !data ? (
-            <Table.Tr>
-              <Table.Td colSpan={columnCount}>
-                <Center py="md">
-                  <Loader size="sm" />
-                </Center>
-              </Table.Td>
-            </Table.Tr>
+            <TableLoadingRow colSpan={columnCount} />
           ) : data && data.items.length > 0 ? (
             data.items.map((alert) => (
               <Table.Tr key={alert.id}>
@@ -216,7 +209,7 @@ export default function Alerts() {
                 </Table.Td>
               </Table.Tr>
             ))
-          ) : (
+          ) : !isError ? (
             <Table.Tr>
               <Table.Td colSpan={columnCount}>
                 <EmptyState
@@ -225,7 +218,7 @@ export default function Alerts() {
                 />
               </Table.Td>
             </Table.Tr>
-          )}
+          ) : null}
         </Table.Tbody>
       </Table>
 

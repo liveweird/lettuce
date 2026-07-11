@@ -76,8 +76,11 @@ fun Application.configureNotificationRoutes() {
                     return@post
                 }
                 requireNotificationRecipient(caller, notification.recipientId)
-                notificationService.markSeen(route.parent.id)
-                call.respond(HttpStatusCode.NoContent)
+                if (notificationService.markSeen(route.parent.id) == 0) {
+                    call.respondProblem(HttpStatusCode.NotFound, "Notification not found")
+                } else {
+                    call.respond(HttpStatusCode.NoContent)
+                }
             }
             post<Notifications.Id.Unseen> { route ->
                 val caller = call.caller()
@@ -87,8 +90,11 @@ fun Application.configureNotificationRoutes() {
                     return@post
                 }
                 requireNotificationRecipient(caller, notification.recipientId)
-                notificationService.markUnseen(route.parent.id)
-                call.respond(HttpStatusCode.NoContent)
+                if (notificationService.markUnseen(route.parent.id) == 0) {
+                    call.respondProblem(HttpStatusCode.NotFound, "Notification not found")
+                } else {
+                    call.respond(HttpStatusCode.NoContent)
+                }
             }
             post<Notifications.SeenAll> {
                 // No per-row guard needed: the update is intrinsically scoped to the caller's own rows.
@@ -104,8 +110,11 @@ fun Application.configureNotificationRoutes() {
                     return@delete
                 }
                 requireNotificationRecipient(caller, notification.recipientId)
-                notificationService.delete(route.id)
-                call.respond(HttpStatusCode.NoContent)
+                if (notificationService.delete(route.id) == 0) {
+                    call.respondProblem(HttpStatusCode.NotFound, "Notification not found")
+                } else {
+                    call.respond(HttpStatusCode.NoContent)
+                }
             }
         }
     }

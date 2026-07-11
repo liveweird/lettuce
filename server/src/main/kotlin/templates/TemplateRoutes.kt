@@ -78,16 +78,14 @@ fun Application.configureTemplateRoutes() {
             put<Templates.Id> { route ->
                 val caller = call.caller()
                 requireAdmin(caller)
-                val existing = templateService.read(route.id)
-                if (existing == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Template not found")
-                    return@put
-                }
                 val template = call.receive<Template>()
                 validateTemplateName(template.name)
-                templateService.update(route.id, template)
-                audit("template.updated", "byUserId" to caller.userId.toLong(), "templateId" to route.id.toLong())
-                call.respond(HttpStatusCode.NoContent)
+                if (templateService.update(route.id, template) == 0) {
+                    call.respondProblem(HttpStatusCode.NotFound, "Template not found")
+                } else {
+                    audit("template.updated", "byUserId" to caller.userId.toLong(), "templateId" to route.id.toLong())
+                    call.respond(HttpStatusCode.NoContent)
+                }
             }
             delete<Templates.Id> { route ->
                 val caller = call.caller()
