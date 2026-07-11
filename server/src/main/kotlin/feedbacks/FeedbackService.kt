@@ -3,6 +3,7 @@ package ch.nokillswit.feedbacks
 import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.infra.crypto.FieldCipher
 import ch.nokillswit.infra.db.containsPattern
+import ch.nokillswit.infra.db.decodeParams
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.notifications.Notification
@@ -237,6 +238,86 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
         rows.size
     }
 
+    /**
+     * The Received-list visibility scope for [callerUserId] — the caller's inbox (subjectId ==
+     * caller), scoped exactly like canReadFeedback (authz/Guards.kt) so every listed row is also
+     * openable:
+     * - as the requester of their own feedback: any status under a requester-readable visibility
+     *   (an unfinished one has its content preview redacted in list());
+     * - as a plain subject (no requester, or someone else's request): only once delivered
+     *   (SENT/WITHDRAWN) under a subject-readable visibility;
+     * - PUBLIC rows in either role: only once SENT (the "anyone" rule).
+     * Shared by [list] and [lastProvidedAt] so the two can never drift apart.
+     */
+    private fun receivedScope(callerUserId: UInt): Op<Boolean> {
+        val publicSent = (Feedbacks.visibility eq FeedbackVisibility.PUBLIC) and
+            (Feedbacks.status eq FeedbackStatus.SENT)
+        val iAmRequester = (Feedbacks.requesterId eq callerUserId) and
+            ((Feedbacks.visibility inList REQUESTER_VISIBILITIES) or publicSent)
+        val asSubjectOnly =
+            (Feedbacks.requesterId.isNull() or (Feedbacks.requesterId neq callerUserId)) and
+                (
+                    ((Feedbacks.visibility inList SUBJECT_VISIBILITIES) and
+                        (Feedbacks.status inList DELIVERED_STATUSES)) or publicSent
+                )
+        return (Feedbacks.subjectId eq callerUserId) and (iAmRequester or asSubjectOnly)
+    }
+
+    /**
+     * For each provider in [providerIds], the epoch-ms moment they last provided [subjectId]
+     * feedback: the newest SENT transition among their currently-SENT, non-deleted feedbacks about
+     * the subject that the subject can see under the Received scoping (never leaks an invisible
+     * feedback). SENT is reachable at most once per feedback (SENT → WITHDRAWN is terminal), so
+     * "the" SENT event is well-defined. Feedbacks predating the events table (pre-V15) have no
+     * SENT event and fall back to lastModified — an upper bound of the true sent moment (content
+     * edits bump it), better than a false "never" next to a feedback the subject can open.
+     * Providers with no qualifying feedback are absent from the map.
+     */
+    suspend fun lastProvidedAt(providerIds: Set<UInt>, subjectId: UInt): Map<UInt, Long> =
+        suspendTransaction(database) {
+            if (providerIds.isEmpty()) return@suspendTransaction emptyMap()
+            val candidates = Feedbacks
+                .select(Feedbacks.id, Feedbacks.providerId, Feedbacks.lastModified)
+                .where {
+                    (Feedbacks.providerId inList providerIds) and
+                        (Feedbacks.status eq FeedbackStatus.SENT) and
+                        active() and
+                        receivedScope(subjectId)
+                }
+                .map { Triple(it[Feedbacks.id].value, it[Feedbacks.providerId].value, it[Feedbacks.lastModified]) }
+                .toList()
+            if (candidates.isEmpty()) return@suspendTransaction emptyMap()
+
+            // The SENT moment lives in the audit trail: STATUS_CHANGED{to=SENT} or a feedback
+            // CREATED directly as SENT. Params are opaque JSON text decoded Kotlin-side (the
+            // repo has no SQL JSON operators); the per-feedback event volume is tiny.
+            val events = FeedbackEventService.FeedbackEvents
+            val sentAt = mutableMapOf<UInt, Long>()
+            events.select(events.feedbackId, events.timestamp, events.eventType, events.params)
+                .where {
+                    (events.feedbackId inList candidates.map { it.first }) and
+                        (
+                            events.eventType inList listOf(
+                                FeedbackEventType.STATUS_CHANGED.name,
+                                FeedbackEventType.CREATED.name,
+                            )
+                        )
+                }
+                .toList()
+                .forEach { row ->
+                    val params = decodeParams(row[events.params])
+                    val isSent = when (row[events.eventType]) {
+                        FeedbackEventType.STATUS_CHANGED.name -> params["to"] == FeedbackStatus.SENT.name
+                        else -> params["status"] == FeedbackStatus.SENT.name
+                    }
+                    if (isSent) sentAt.merge(row[events.feedbackId].value, row[events.timestamp], ::maxOf)
+                }
+
+            candidates
+                .groupBy({ it.second }) { sentAt[it.first] ?: it.third } // pre-V15 fallback: lastModified
+                .mapValues { (_, times) -> times.max() }
+        }
+
     suspend fun list(
         view: FeedbackListView,
         callerUserId: UInt,
@@ -245,26 +326,7 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
         includeIndirect: Boolean = false,
     ): FeedbackListResult = suspendTransaction(database) {
         val scope: Op<Boolean> = when (view) {
-            FeedbackListView.RECEIVED -> {
-                // The caller's inbox (subjectId == caller), scoped exactly like canReadFeedback
-                // (authz/Guards.kt) so every listed row is also openable:
-                // - as the requester of their own feedback: any status under a requester-readable
-                //   visibility (an unfinished one has its content preview redacted below);
-                // - as a plain subject (no requester, or someone else's request): only once
-                //   delivered (SENT/WITHDRAWN) under a subject-readable visibility;
-                // - PUBLIC rows in either role: only once SENT (the "anyone" rule).
-                val publicSent = (Feedbacks.visibility eq FeedbackVisibility.PUBLIC) and
-                    (Feedbacks.status eq FeedbackStatus.SENT)
-                val iAmRequester = (Feedbacks.requesterId eq callerUserId) and
-                    ((Feedbacks.visibility inList REQUESTER_VISIBILITIES) or publicSent)
-                val asSubjectOnly =
-                    (Feedbacks.requesterId.isNull() or (Feedbacks.requesterId neq callerUserId)) and
-                        (
-                            ((Feedbacks.visibility inList SUBJECT_VISIBILITIES) and
-                                (Feedbacks.status inList DELIVERED_STATUSES)) or publicSent
-                        )
-                (Feedbacks.subjectId eq callerUserId) and (iAmRequester or asSubjectOnly)
-            }
+            FeedbackListView.RECEIVED -> receivedScope(callerUserId)
             FeedbackListView.PROVIDED -> Feedbacks.providerId eq callerUserId
             FeedbackListView.TEAM -> {
                 // Direct reports by default; with includeIndirect the whole transitive

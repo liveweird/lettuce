@@ -110,5 +110,12 @@
   "createSendEmail": "Wyślij nowemu użytkownikowi e-mail z danymi logowania",
   "credentialsEmailed": "Wysłaliśmy dane logowania na adres {{email}}.",
   "credentialsEmailFailed": "Utworzyliśmy konto, ale e-mail nie dotarł — skopiuj hasło albo użyj szkicu wiadomości.",
-  "emailOptionUnavailable": "Ta instalacja nie może wysyłać e-maili. Odznacz opcję e-maila i spróbuj ponownie."
+  "emailOptionUnavailable": "Ta instalacja nie może wysyłać e-maili. Odznacz opcję e-maila i spróbuj ponownie.",
+  "lastOneOnOne": "Ostatnie 1:1",
+  "lastFeedback": "Ostatni feedback",
+  "statNever": "nigdy",
+  "openItemsBadge_one": "{{count}} otwarte zadanie",
+  "openItemsBadge_few": "{{count}} otwarte zadania",
+  "openItemsBadge_many": "{{count}} otwartych zadań",
+  "openItemsBadge_other": "{{count}} otwartego zadania"
 }

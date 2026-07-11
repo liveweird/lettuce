@@ -2,6 +2,8 @@ package ch.nokillswit.teams
 
 import ch.nokillswit.audit.audit
 import ch.nokillswit.authz.caller
+import ch.nokillswit.feedbacks.FeedbackServiceKey
+import ch.nokillswit.oneonones.OneOnOneServiceKey
 import ch.nokillswit.authz.requireCanReassignManager
 import ch.nokillswit.authz.requireSelfOrAdmin
 import ch.nokillswit.authz.requireTeamManagerOrAdmin
@@ -57,6 +59,10 @@ private fun validateTeamName(name: String) {
 
 fun Application.configureTeamRoutes() {
     val teamService = attributes[TeamServiceKey]
+    // For the managers-view dashboard stats — composed here at the route so TeamService never
+    // touches other features' tables.
+    val oneOnOneService = attributes[OneOnOneServiceKey]
+    val feedbackService = attributes[FeedbackServiceKey]
 
     routing {
         authenticate {
@@ -98,7 +104,24 @@ fun Application.configureTeamRoutes() {
                     paging,
                     includeIndirect = includeIndirect == true,
                 )
-                call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
+                // The managers view carries per-manager dashboard stats. Page-scoped; rows are
+                // one per (manager, team), so a manager with several shared teams repeats the
+                // same stats on each row.
+                val items = if (view == TeamMemberListView.MANAGERS && result.items.isNotEmpty()) {
+                    val managerIds = result.items.map { it.userId }.toSet()
+                    val oneOnOnes = oneOnOneService.latestMeetingStats(managerIds, caller.userId)
+                    val feedbackAt = feedbackService.lastProvidedAt(managerIds, caller.userId)
+                    result.items.map {
+                        it.copy(
+                            lastOneOnOneDate = oneOnOnes[it.userId]?.meetingDate,
+                            lastOneOnOneOpenItems = oneOnOnes[it.userId]?.openActionItemCount,
+                            lastFeedbackAt = feedbackAt[it.userId],
+                        )
+                    }
+                } else {
+                    result.items
+                }
+                call.respond(HttpStatusCode.OK, paging.toPage(items, result.total))
             }
             post<Teams> {
                 val caller = call.caller()

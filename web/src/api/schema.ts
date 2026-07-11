@@ -294,7 +294,10 @@ export interface paths {
          *       shown with the team they hold under their own manager).
          *     - `view=managers`: the managers of teams where the caller is a member. Each item
          *       describes a manager (in `userId`/`name`/`email`) and the managed team. The
-         *       caller is excluded.
+         *       caller is excluded. Items additionally carry the dashboard stats
+         *       `lastOneOnOneDate` / `lastOneOnOneOpenItems` / `lastFeedbackAt` (see
+         *       `TeamMemberListItem`); a manager appearing once per shared team repeats the
+         *       same stats on each row.
          *
          *     Each item is one (user, team) pair — a user who shares several teams with the
          *     caller appears once per team. Soft-deleted users and soft-deleted teams are
@@ -1285,6 +1288,31 @@ export interface components {
             /** Format: int64 */
             teamId: number;
             teamName: string;
+            /**
+             * @description Only populated for `view=managers`: ISO `YYYY-MM-DD` date of the latest
+             *     non-deleted 1:1 run by this manager (as the meeting's manager) with the
+             *     caller as the subordinate — the directional pairing only, not the
+             *     both-directions history. `null` when no such meeting exists; always `null`
+             *     for other views.
+             */
+            lastOneOnOneDate?: string | null;
+            /**
+             * Format: int64
+             * @description Only populated for `view=managers`: unresolved action items on that latest
+             *     meeting. `null` exactly when `lastOneOnOneDate` is `null`.
+             */
+            lastOneOnOneOpenItems?: number | null;
+            /**
+             * Format: int64
+             * @description Only populated for `view=managers`: epoch milliseconds when this manager last
+             *     provided the caller feedback — the SENT moment (from the feedback audit
+             *     trail) of the newest currently-SENT feedback with the manager as provider and
+             *     the caller as subject that is visible to the caller under the received-view
+             *     scoping. Withdrawn feedback and feedback invisible to the caller never count.
+             *     Feedbacks predating the audit trail fall back to their last-modified time.
+             *     `null` when there is none.
+             */
+            lastFeedbackAt?: number | null;
         };
         TeamMemberPage: {
             items: components["schemas"]["TeamMemberListItem"][];
@@ -2394,7 +2422,8 @@ export interface operations {
                  *     - `managers`: the managers of teams the caller is a member of. Each item's
                  *       `userId`/`name`/`email` describe the manager and `teamId`/`teamName` the
                  *       managed team. The caller is excluded; a manager who manages several of the
-                 *       caller's teams appears once per team.
+                 *       caller's teams appears once per team. Items carry the per-manager
+                 *       dashboard stats fields (see `TeamMemberListItem`).
                  */
                 view?: "member" | "managed" | "managers";
                 /**

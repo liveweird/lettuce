@@ -1,4 +1,4 @@
-import { Alert, Button, SimpleGrid, Skeleton } from "@mantine/core";
+import { Alert, Badge, Button, Group, SimpleGrid, Skeleton, Stack, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -12,8 +12,62 @@ import {
 import { listTeamMembers } from "../api/client";
 import EmptyState from "../components/EmptyState";
 import PersonCard from "../components/PersonCard";
+import { formatIsoDate, formatRelativeTime, formatTimestamp } from "../utils/datetime";
 import { feedbackAskLink, feedbackProvideLink } from "../utils/feedbackLinks";
-import { groupTeamRows } from "../utils/teamRows";
+import { groupTeamRows, type PersonCard as PersonCardData } from "../utils/teamRows";
+
+// A stat line: dimmed label + value (relative phrase with the exact date in the title),
+// or a dimmed "never" when there is nothing yet.
+function StatRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <Group gap="xs" wrap="nowrap">
+      <Text size="xs" c="dimmed">
+        {label}
+      </Text>
+      {children}
+    </Group>
+  );
+}
+
+function ManagerStats({ m }: { m: PersonCardData }) {
+  const { t, i18n } = useTranslation();
+  return (
+    <Stack gap={4}>
+      <StatRow label={t("users.lastOneOnOne")}>
+        {m.lastOneOnOneDate != null ? (
+          <>
+            <Text size="xs" title={formatIsoDate(m.lastOneOnOneDate, i18n.language)}>
+              {formatRelativeTime(new Date(`${m.lastOneOnOneDate}T00:00:00`).getTime(), i18n.language)}
+            </Text>
+            <Badge
+              size="sm"
+              variant="light"
+              color={(m.lastOneOnOneOpenItems ?? 0) > 0 ? "yellow" : "green"}
+              style={{ minWidth: "max-content" }}
+            >
+              {t("users.openItemsBadge", { count: m.lastOneOnOneOpenItems ?? 0 })}
+            </Badge>
+          </>
+        ) : (
+          <Text size="xs" c="dimmed">
+            {t("users.statNever")}
+          </Text>
+        )}
+      </StatRow>
+      <StatRow label={t("users.lastFeedback")}>
+        {m.lastFeedbackAt != null ? (
+          <Text size="xs" title={formatTimestamp(m.lastFeedbackAt)}>
+            {formatRelativeTime(m.lastFeedbackAt, i18n.language)}
+          </Text>
+        ) : (
+          <Text size="xs" c="dimmed">
+            {t("users.statNever")}
+          </Text>
+        )}
+      </StatRow>
+    </Stack>
+  );
+}
 
 // The dashboard "My managers" view: a person-card grid (not a table) — typically 1–3 people,
 // so narrow cards use the width far better than full-width spreadsheet rows.
@@ -54,6 +108,7 @@ export default function ManagersTable() {
               name={m.name}
               email={m.email}
               teamNames={m.teamNames}
+              stats={<ManagerStats m={m} />}
               actions={
                 <>
                   <Button

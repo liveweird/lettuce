@@ -38,6 +38,13 @@ data class TeamMemberListItem(
     val email: String,
     val teamId: UInt,
     val teamName: String,
+    // Dashboard stats, populated only for view=managers; null in every other view.
+    /** ISO `YYYY-MM-DD` of the latest 1:1 run BY this manager with the caller as subordinate. */
+    val lastOneOnOneDate: String? = null,
+    /** Unresolved action items on that meeting; null exactly when [lastOneOnOneDate] is null. */
+    val lastOneOnOneOpenItems: Int? = null,
+    /** Epoch ms this manager last provided the caller feedback they can see (currently SENT). */
+    val lastFeedbackAt: Long? = null,
 )
 
 typealias TeamMemberPageResponse = PageResponse<TeamMemberListItem>
