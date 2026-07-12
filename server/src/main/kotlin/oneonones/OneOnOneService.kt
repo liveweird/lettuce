@@ -117,9 +117,11 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
     suspend fun latestMeetingStats(
         managerIds: Set<UInt>,
         subordinateId: UInt,
-    ): Map<UInt, OneOnOneLatestStats> = latestStatsByKey(managerIds) { managerId ->
-        (Meetings.managerId eq managerId) and (Meetings.subordinateId eq subordinateId)
-    }
+    ): Map<UInt, OneOnOneLatestStats> =
+        if (managerIds.isEmpty()) emptyMap()
+        else latestStatsByKey(managerIds) { managerId ->
+            (Meetings.managerId eq managerId) and (Meetings.subordinateId eq subordinateId)
+        }
 
     /**
      * The mirror of [latestMeetingStats]: for each subordinate in [subordinateIds], the latest
@@ -130,9 +132,11 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
     suspend fun latestMeetingStatsBySubordinate(
         managerId: UInt,
         subordinateIds: Set<UInt>,
-    ): Map<UInt, OneOnOneLatestStats> = latestStatsByKey(subordinateIds) { subordinateId ->
-        (Meetings.managerId eq managerId) and (Meetings.subordinateId eq subordinateId)
-    }
+    ): Map<UInt, OneOnOneLatestStats> =
+        if (subordinateIds.isEmpty()) emptyMap()
+        else latestStatsByKey(subordinateIds) { subordinateId ->
+            (Meetings.managerId eq managerId) and (Meetings.subordinateId eq subordinateId)
+        }
 
     private suspend fun latestStatsByKey(
         keys: Set<UInt>,

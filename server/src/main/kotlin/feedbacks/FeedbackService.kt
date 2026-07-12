@@ -282,8 +282,8 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
      * moment [providerId] last provided them feedback, keyed by subject. No Received scoping — the
      * caller is the provider and always sees their own feedback, so a row whose visibility hides
      * it from the subject (e.g. PROVIDER_REQUESTER) still counts. Self-reflections (provider ==
-     * subject) would qualify, but the managed team view never lists the caller themselves.
-     * Subjects with no qualifying feedback are absent from the map.
+     * subject) would qualify, but neither consumer (the managed and member team views) ever
+     * lists the caller themselves. Subjects with no qualifying feedback are absent from the map.
      */
     suspend fun lastProvidedTo(providerId: UInt, subjectIds: Set<UInt>): Map<UInt, Long> =
         if (subjectIds.isEmpty()) emptyMap()

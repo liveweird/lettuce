@@ -1,0 +1,66 @@
+import { describe, expect, test } from "vitest";
+import { groupTeamRows, type TeamRow } from "./teamRows";
+
+const row = (overrides: Partial<TeamRow> = {}): TeamRow => ({
+  userId: 1,
+  name: "Alice Adams",
+  email: "alice@x.test",
+  teamName: "Platform",
+  ...overrides,
+});
+
+describe("groupTeamRows", () => {
+  test("collapses a user's per-team rows into one card aggregating unique team names", () => {
+    const cards = groupTeamRows([
+      row({ teamName: "Platform" }),
+      row({ teamName: "Support" }),
+      row({ teamName: "Support" }), // duplicate badge must not repeat
+      row({ userId: 2, name: "Bob Brown", email: "bob@x.test", teamName: "Support" }),
+    ]);
+
+    expect(cards).toHaveLength(2);
+    expect(cards[0]).toMatchObject({ userId: 1, name: "Alice Adams", teamNames: ["Platform", "Support"] });
+    expect(cards[1]).toMatchObject({ userId: 2, name: "Bob Brown", teamNames: ["Support"] });
+  });
+
+  test("keeps the API's ordering — first appearance wins", () => {
+    const cards = groupTeamRows([
+      row({ userId: 2, name: "Bob Brown" }),
+      row({ userId: 1 }),
+      row({ userId: 2, name: "Bob Brown", teamName: "Support" }),
+    ]);
+
+    expect(cards.map((c) => c.userId)).toEqual([2, 1]);
+  });
+
+  test("normalizes absent stat fields to null (all five)", () => {
+    const [card] = groupTeamRows([row()]);
+
+    expect(card.lastOneOnOneDate).toBeNull();
+    expect(card.lastOneOnOneOpenItems).toBeNull();
+    expect(card.lastFeedbackAt).toBeNull();
+    expect(card.lastFeedbackGivenAt).toBeNull();
+    expect(card.lastFeedbackReceivedAt).toBeNull();
+  });
+
+  test("carries stats through from the first row of a user (rows repeat identical stats)", () => {
+    const stats = {
+      lastOneOnOneDate: "2026-07-01",
+      lastOneOnOneOpenItems: 0, // zero must survive as 0, not collapse to null
+      lastFeedbackAt: 1780000000000,
+      lastFeedbackGivenAt: 1780000000001,
+      lastFeedbackReceivedAt: 1780000000002,
+    };
+    const [card] = groupTeamRows([
+      row({ ...stats }),
+      row({ teamName: "Support", ...stats }),
+    ]);
+
+    expect(card).toMatchObject(stats);
+    expect(card.teamNames).toEqual(["Platform", "Support"]);
+  });
+
+  test("returns an empty list for no rows", () => {
+    expect(groupTeamRows([])).toEqual([]);
+  });
+});

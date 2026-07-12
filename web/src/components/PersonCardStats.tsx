@@ -16,17 +16,25 @@ function StatRow({ label, children }: { label: string; children: React.ReactNode
   );
 }
 
+// The shared empty state of every stat value: a dimmed "never".
+function NeverText() {
+  const { t } = useTranslation();
+  return (
+    <Text size="xs" c="dimmed">
+      {t("users.statNever")}
+    </Text>
+  );
+}
+
 // An epoch-ms stat value: relative phrase (exact timestamp in the title), or a dimmed "never".
 function TimeStat({ at }: { at: number | null }) {
-  const { t, i18n } = useTranslation();
+  const { i18n } = useTranslation();
   return at != null ? (
     <Text size="xs" title={formatTimestamp(at)}>
       {formatRelativeTime(at, i18n.language)}
     </Text>
   ) : (
-    <Text size="xs" c="dimmed">
-      {t("users.statNever")}
-    </Text>
+    <NeverText />
   );
 }
 
@@ -53,9 +61,7 @@ export default function PersonCardStats({ person }: { person: PersonCardData }) 
             </Badge>
           </>
         ) : (
-          <Text size="xs" c="dimmed">
-            {t("users.statNever")}
-          </Text>
+          <NeverText />
         )}
       </StatRow>
       <StatRow label={t("users.lastFeedback")}>
