@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.15.3",
+    date: "2026-07-12",
+    en: `Starting a 1:1 from a subordinate's Dashboard card or the per-person drill-down now returns you there after you create it — no more landing on the generic managed list. The "New 1:1" button also uses the same plus icon as every other create button.`,
+    pl: `Rozpoczęcie 1:1 z karty podwładnego na Pulpicie lub z widoku konkretnej osoby wraca teraz właśnie tam po utworzeniu spotkania — koniec z lądowaniem na ogólnej liście zarządzanych. Przycisk „Nowe 1:1" ma też tę samą ikonę plusa co pozostałe przyciski tworzenia.`,
+  },
+  {
     version: "1.15.2",
     date: "2026-07-12",
     en: `Creation buttons now speak one language: *New <thing>* (New team, New user, New template, New feedback, New alert, New 1:1) opens a create screen, *Add* appends an item to a list you are editing, and *Create* submits the form. The Polish labels follow suit: *Nowy/Nowe*, *Dodaj*, *Utwórz*.`,

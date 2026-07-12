@@ -749,7 +749,9 @@ class OneOnOneRoutesTest {
         assertTrue(history.items.all { it.content == "long runner" })
 
         // Soft-delete the MIDDLE meeting: its entry disappears but the chain is walked through.
-        assertEquals(HttpStatusCode.NoContent, manager.delete("/api/v1/one-on-ones/${second.id}").status)
+        // Done at the data layer, not via the API: the latest-only-delete rule (v1.14) forbids deleting
+        // a non-tail meeting, so a soft-deleted meeting inside a surviving chain is only reachable this way.
+        TestOneOnOneMaintenance.softDeleteMeeting(second.id)
         val afterDelete = manager.get("/api/v1/one-on-ones/action-items/${thirdItem.id}/history")
             .body<ActionItemHistoryResponse>()
         assertEquals(listOf(first.id, third.id), afterDelete.items.map { it.meetingId })
@@ -764,8 +766,8 @@ class OneOnOneRoutesTest {
         assertEquals("2026-07-01", thirdReread.actionItems.single().firstAppearedOn)
 
         // … and falls forward to the earliest SURVIVING appearance once the root is deleted —
-        // consistent with the first row the history endpoint reports.
-        assertEquals(HttpStatusCode.NoContent, manager.delete("/api/v1/one-on-ones/${first.id}").status)
+        // consistent with the first row the history endpoint reports (data-layer soft-delete, as above).
+        TestOneOnOneMaintenance.softDeleteMeeting(first.id)
         val afterRootDelete = manager.get("/api/v1/one-on-ones/${third.id}").body<OneOnOneResponse>()
         assertNull(
             afterRootDelete.actionItems.single().firstAppearedOn,

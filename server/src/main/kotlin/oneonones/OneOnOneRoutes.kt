@@ -1,6 +1,5 @@
 package ch.nokillswit.oneonones
 
-import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireOneOnOneReadAllowingManager
@@ -219,24 +218,12 @@ fun Application.configureOneOnOneRoutes() {
                     return@put
                 }
                 requireOneOnOneWrite(caller, existing)
-                // Latest-only rule: older meetings of the pair are immutable records.
-                if (!existing.isLatest) {
-                    throw ConflictException(
-                        "Only the pair's latest 1:1 meeting can be modified — older meetings are immutable records",
-                    )
-                }
                 val request = call.receive<OneOnOneUpdateRequest>()
                 validateOneOnOnePayload(
                     request.meetingDate, request.points, request.decisions, request.actionItems,
                 )
-                // Chronological rule: the (latest) meeting's date may not move below the pair's
-                // previous meeting — 1:1s are documented in order.
-                if (existing.minMeetingDate != null && request.meetingDate < existing.minMeetingDate) {
-                    throw ConflictException(
-                        "An earlier 1:1 with this person is already documented (${existing.minMeetingDate}) — " +
-                            "meetings are recorded in chronological order",
-                    )
-                }
+                // The latest-only + chronological write rules live in the service so they validate
+                // atomically with the mutation (409 via ConflictException, mapped by StatusPages).
                 val updated = oneOnOneService.replace(route.id, request)
                 if (updated == 0) {
                     call.respondProblem(HttpStatusCode.NotFound, "1:1 meeting not found")
@@ -257,12 +244,8 @@ fun Application.configureOneOnOneRoutes() {
                     return@delete
                 }
                 requireOneOnOneWrite(caller, existing)
-                // Latest-only rule, same as PUT: deleting an old meeting would rewrite history.
-                if (!existing.isLatest) {
-                    throw ConflictException(
-                        "Only the pair's latest 1:1 meeting can be modified — older meetings are immutable records",
-                    )
-                }
+                // Latest-only rule (deleting an old meeting would rewrite history) is enforced in the
+                // service, atomically with the soft-delete — 409 via ConflictException.
                 if (oneOnOneService.delete(route.id) == 0) {
                     call.respondProblem(HttpStatusCode.NotFound, "1:1 meeting not found")
                     return@delete

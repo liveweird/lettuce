@@ -17,7 +17,7 @@ import { useTranslation } from "react-i18next";
 import { createOneOnOne, listTeamMembers } from "../api/client";
 import PersonaField from "../components/PersonaField";
 import { todayIsoDate } from "../utils/datetime";
-import { saveErrorMessage } from "../utils/saveError";
+import { oneOnOneSaveErrorMessage } from "../utils/oneOnOneForm";
 
 const BACK_TO = "/one-on-ones?tab=managed";
 
@@ -43,7 +43,8 @@ export default function CreateOneOnOne() {
   const preselectedId = Number(searchParams.get("subordinateId"));
   const preselected = Number.isFinite(preselectedId) && preselectedId > 0;
   const subordinateName = searchParams.get("subordinateName");
-  const backTo = searchParams.get("back") ?? BACK_TO;
+  const backParam = searchParams.get("back");
+  const backTo = backParam ?? BACK_TO;
 
   const [subordinate, setSubordinate] = useState<string | null>(
     preselected ? String(preselectedId) : null,
@@ -86,20 +87,16 @@ export default function CreateOneOnOne() {
       await queryClient.invalidateQueries({ queryKey: ["oneOnOnes"] });
       // Creation notifies the subordinate — refresh the bell badge.
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
-      navigate(`/one-on-ones/${created.id}/edit?from=managed`, { replace: true });
+      // Carry the origin (if any) into the edit screen so its Close returns to the card/drill-down
+      // this create was launched from, not the generic managed list.
+      const editUrl = backParam
+        ? `/one-on-ones/${created.id}/edit?from=managed&back=${encodeURIComponent(backParam)}`
+        : `/one-on-ones/${created.id}/edit?from=managed`;
+      navigate(editUrl, { replace: true });
     } catch (err) {
       // Unlike PUT (where 409 means "not the latest"), a create 409 is unambiguous: the date
       // is earlier than the pair's latest meeting (the chronological rule).
-      setError(
-        saveErrorMessage(err, t, {
-          forbidden: "oneOnOne.error.permission",
-          notFound: "oneOnOne.error.gone",
-          conflict: "oneOnOne.error.backdated",
-          invalid: "oneOnOne.error.validation",
-          failedStatus: "oneOnOne.error.saveFailedStatus",
-          failed: "oneOnOne.error.saveFailed",
-        }),
-      );
+      setError(oneOnOneSaveErrorMessage(err, t, "oneOnOne.error.backdated"));
       setSubmitting(false);
     }
   }

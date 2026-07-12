@@ -197,6 +197,22 @@ object TestServices {
     }
 }
 
+// Soft-deletes a 1:1 meeting directly, bypassing the latest-only-delete guard (v1.14). A soft-deleted
+// meeting inside a surviving copy-chain is unreachable via the API — only the pair's tail meeting can
+// be deleted, and carry-over re-parents onto the latest surviving one — so this is the only way to
+// exercise the history walker's skip-but-traverse-through-a-deleted-meeting branch.
+object TestOneOnOneMaintenance {
+    suspend fun softDeleteMeeting(id: UInt) {
+        suspendTransaction(sharedTestDatabase) {
+            ch.nokillswit.oneonones.OneOnOneService.Meetings.update({
+                ch.nokillswit.oneonones.OneOnOneService.Meetings.id eq id
+            }) {
+                it[ch.nokillswit.oneonones.OneOnOneService.Meetings.markedAsDeleted] = true
+            }
+        }
+    }
+}
+
 // Reads the one_on_one_events audit table directly (e.g. to assert events outlive a soft delete).
 object TestOneOnOneEvents {
     val service: ch.nokillswit.oneonones.OneOnOneEventService by lazy {

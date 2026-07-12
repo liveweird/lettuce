@@ -108,13 +108,18 @@ export function oneOnOneFormValidation(t: TFunction, minMeetingDate?: string | n
   };
 }
 
-/** The shared mutation-error -> message mapping for 1:1 save/delete flows. */
-export function oneOnOneSaveErrorMessage(err: unknown, t: TFunction): string {
+// The shared mutation-error -> message mapping for 1:1 save/delete flows. The 409 wording differs by
+// flow — edit hits the latest-only race backstop ("a newer meeting appeared"), while create hits the
+// chronological rule ("this date is earlier than the last 1:1") — so `conflictKey` is overridable.
+export function oneOnOneSaveErrorMessage(
+  err: unknown,
+  t: TFunction,
+  conflictKey: string = "oneOnOne.error.notLatest",
+): string {
   return saveErrorMessage(err, t, {
     forbidden: "oneOnOne.error.permission",
     notFound: "oneOnOne.error.gone",
-    // Latest-only race backstop: a newer meeting appeared while this one was open for editing.
-    conflict: "oneOnOne.error.notLatest",
+    conflict: conflictKey,
     invalid: "oneOnOne.error.validation",
     failedStatus: "oneOnOne.error.saveFailedStatus",
     failed: "oneOnOne.error.saveFailed",

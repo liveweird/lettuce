@@ -124,6 +124,44 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
         .map { it[Meetings.id].value to it[Meetings.meetingDate] }
         .singleOrNull()
 
+    /** The (managerId, subordinateId) pair of a live meeting, or null if missing/deleted. In-txn. */
+    private suspend fun pairOf(id: UInt): Pair<UInt, UInt>? =
+        Meetings.select(Meetings.managerId, Meetings.subordinateId)
+            .where { (Meetings.id eq id) and active() }
+            .map { it[Meetings.managerId].value to it[Meetings.subordinateId].value }
+            .singleOrNull()
+
+    /**
+     * The latest-only + chronological write rules, checked INSIDE the write transaction so they
+     * validate atomically with the mutation — no TOCTOU gap against the route's prior read(). Pass
+     * the incoming date as [newMeetingDate] on replace (enforces the below-previous rule); pass null
+     * on delete (latest-only only). Throws [ConflictException] (→ 409) on violation.
+     */
+    private suspend fun requireWritableMeeting(
+        id: UInt,
+        managerId: UInt,
+        subordinateId: UInt,
+        newMeetingDate: String?,
+    ) {
+        // Latest-only: older meetings of the pair are immutable records.
+        val latest = latestMeetingOfPair(managerId, subordinateId)
+        if (latest != null && latest.first != id) {
+            throw ConflictException(
+                "Only the pair's latest 1:1 meeting can be modified — older meetings are immutable records",
+            )
+        }
+        // Chronological (replace only): the latest meeting's date may not drop below the previous one.
+        if (newMeetingDate != null) {
+            val previous = latestMeetingOfPair(managerId, subordinateId, excludeId = id)
+            if (previous != null && newMeetingDate < previous.second) {
+                throw ConflictException(
+                    "An earlier 1:1 with this person is already documented (${previous.second}) — " +
+                        "meetings are recorded in chronological order",
+                )
+            }
+        }
+    }
+
     /** Whether [subordinateId] is currently a direct report of [managerId] (the create-time rule). */
     suspend fun isDirectReport(managerId: UInt, subordinateId: UInt): Boolean =
         suspendTransaction(database) { subordinateId in directSubordinateIds(managerId) }
@@ -341,6 +379,11 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
      * Returns the affected meeting count (0 → missing/deleted, mapped to 404 by the route).
      */
     suspend fun replace(id: UInt, request: OneOnOneUpdateRequest): Int = suspendTransaction(database) {
+        // Missing/deleted → 0 (route maps to 404) BEFORE the write-rule checks, so a stale id never
+        // masquerades as a 409.
+        val pair = pairOf(id) ?: return@suspendTransaction 0
+        requireWritableMeeting(id, pair.first, pair.second, request.meetingDate)
+
         val updated = Meetings.update({ (Meetings.id eq id) and (Meetings.markedAsDeleted eq false) }) {
             it[meetingDate] = request.meetingDate
             it[lastModified] = System.currentTimeMillis()
@@ -353,6 +396,8 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
     }
 
     suspend fun delete(id: UInt): Int = suspendTransaction(database) {
+        val pair = pairOf(id) ?: return@suspendTransaction 0
+        requireWritableMeeting(id, pair.first, pair.second, null)
         Meetings.update({ (Meetings.id eq id) and (Meetings.markedAsDeleted eq false) }) {
             it[markedAsDeleted] = true
         }
