@@ -3,6 +3,7 @@ package ch.nokillswit.teams
 import ch.nokillswit.audit.audit
 import ch.nokillswit.authz.caller
 import ch.nokillswit.feedbacks.FeedbackServiceKey
+import ch.nokillswit.oneonones.OneOnOneLatestStats
 import ch.nokillswit.oneonones.OneOnOneServiceKey
 import ch.nokillswit.authz.requireCanReassignManager
 import ch.nokillswit.authz.requireSelfOrAdmin
@@ -57,6 +58,19 @@ private fun validateTeamName(name: String) {
     }
 }
 
+// The managers/managed enrichment: one 1:1 + one feedback stat, whose direction the caller
+// chose by which service methods it queried (see the comment at the call site).
+private fun List<TeamMemberListItem>.withDirectionalStats(
+    oneOnOnes: Map<UInt, OneOnOneLatestStats>,
+    feedbackAt: Map<UInt, Long>,
+): List<TeamMemberListItem> = map {
+    it.copy(
+        lastOneOnOneDate = oneOnOnes[it.userId]?.meetingDate,
+        lastOneOnOneOpenItems = oneOnOnes[it.userId]?.openActionItemCount,
+        lastFeedbackAt = feedbackAt[it.userId],
+    )
+}
+
 fun Application.configureTeamRoutes() {
     val teamService = attributes[TeamServiceKey]
     // For the managers/managed-view dashboard stats — composed here at the route so TeamService
@@ -104,30 +118,35 @@ fun Application.configureTeamRoutes() {
                     paging,
                     includeIndirect = includeIndirect == true,
                 )
-                // The managers and managed views carry per-person dashboard stats, direction
-                // switched per view: managers — the row user ran the 1:1 / provided the caller
-                // feedback (received-scoped); managed — the caller did, toward the row user
-                // (provider-side, regardless of includeIndirect). Page-scoped; rows are one per
-                // (user, team), so a user with several shared teams repeats the same stats.
-                val items = if (view != TeamMemberListView.MEMBER && result.items.isNotEmpty()) {
+                // Every view carries per-person dashboard stats, direction switched per view:
+                // managers — the row user ran the 1:1 / provided the caller feedback
+                // (received-scoped); managed — the caller did, toward the row user
+                // (provider-side, regardless of includeIndirect); member — both feedback
+                // directions at once (given provider-side, received received-scoped), with no
+                // 1:1 stat (peers don't run 1:1s with each other). Page-scoped; rows are one
+                // per (user, team), so a user with several shared teams repeats the same stats.
+                val items = if (result.items.isEmpty()) result.items else {
                     val ids = result.items.map { it.userId }.toSet()
-                    val (oneOnOnes, feedbackAt) = when (view) {
-                        TeamMemberListView.MANAGERS ->
-                            oneOnOneService.latestMeetingStats(ids, caller.userId) to
-                                feedbackService.lastProvidedAt(ids, caller.userId)
-                        else ->
-                            oneOnOneService.latestMeetingStatsBySubordinate(caller.userId, ids) to
-                                feedbackService.lastProvidedTo(caller.userId, ids)
-                    }
-                    result.items.map {
-                        it.copy(
-                            lastOneOnOneDate = oneOnOnes[it.userId]?.meetingDate,
-                            lastOneOnOneOpenItems = oneOnOnes[it.userId]?.openActionItemCount,
-                            lastFeedbackAt = feedbackAt[it.userId],
+                    when (view) {
+                        TeamMemberListView.MEMBER -> {
+                            val given = feedbackService.lastProvidedTo(caller.userId, ids)
+                            val received = feedbackService.lastProvidedAt(ids, caller.userId)
+                            result.items.map {
+                                it.copy(
+                                    lastFeedbackGivenAt = given[it.userId],
+                                    lastFeedbackReceivedAt = received[it.userId],
+                                )
+                            }
+                        }
+                        TeamMemberListView.MANAGERS -> result.items.withDirectionalStats(
+                            oneOnOneService.latestMeetingStats(ids, caller.userId),
+                            feedbackService.lastProvidedAt(ids, caller.userId),
+                        )
+                        TeamMemberListView.MANAGED -> result.items.withDirectionalStats(
+                            oneOnOneService.latestMeetingStatsBySubordinate(caller.userId, ids),
+                            feedbackService.lastProvidedTo(caller.userId, ids),
                         )
                     }
-                } else {
-                    result.items
                 }
                 call.respond(HttpStatusCode.OK, paging.toPage(items, result.total))
             }

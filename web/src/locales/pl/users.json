@@ -113,6 +113,8 @@
   "emailOptionUnavailable": "Ta instalacja nie może wysyłać e-maili. Odznacz opcję e-maila i spróbuj ponownie.",
   "lastOneOnOne": "Ostatnie 1:1",
   "lastFeedback": "Ostatni feedback",
+  "feedbackFromMe": "Feedback ode mnie",
+  "feedbackFromThem": "Feedback od tej osoby",
   "statNever": "nigdy",
   "openItemsBadge_one": "{{count}} otwarte zadanie",
   "openItemsBadge_few": "{{count}} otwarte zadania",

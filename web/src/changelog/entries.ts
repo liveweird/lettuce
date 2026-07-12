@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.11",
+    date: "2026-07-12",
+    en: `The *My peers* cards on the Dashboard complete the stats revamp: each teammate card now shows the two feedback directions between you — when you last gave that person feedback, and when they last gave you feedback you can see.`,
+    pl: `Karty *Moi współpracownicy* na Pulpicie domykają odświeżenie statystyk: karta każdej osoby pokazuje teraz oba kierunki feedbacku między Wami — kiedy ostatnio przekazałeś/aś tej osobie feedback oraz kiedy ta osoba ostatnio przekazała Ci feedback, który możesz zobaczyć.`,
+  },
+  {
     version: "1.10",
     date: "2026-07-12",
     en: `The *My subordinates* cards on the Dashboard now show the same stats your manager cards got in 1.9 — from the other side: for each direct report, how long ago your last 1:1 with them was, how many action items from that meeting are still open, and when you last gave them feedback. The stats appear while the Reports filter is set to direct reports.`,

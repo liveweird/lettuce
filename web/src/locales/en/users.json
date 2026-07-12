@@ -113,6 +113,8 @@
   "emailOptionUnavailable": "This deployment cannot send email. Uncheck the email option and try again.",
   "lastOneOnOne": "Last 1:1",
   "lastFeedback": "Last feedback",
+  "feedbackFromMe": "Feedback from me",
+  "feedbackFromThem": "Feedback from them",
   "statNever": "never",
   "openItemsBadge_one": "{{count}} open item",
   "openItemsBadge_other": "{{count}} open items"
