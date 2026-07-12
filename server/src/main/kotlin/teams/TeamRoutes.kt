@@ -73,8 +73,9 @@ private fun List<TeamMemberListItem>.withDirectionalStats(
 
 fun Application.configureTeamRoutes() {
     val teamService = attributes[TeamServiceKey]
-    // For the managers/managed-view dashboard stats — composed here at the route so TeamService
-    // never touches other features' tables.
+    // For the members-list dashboard stats (feedback stats on all three views, 1:1 stats on
+    // managers/managed) — composed here at the route so TeamService never touches other
+    // features' tables.
     val oneOnOneService = attributes[OneOnOneServiceKey]
     val feedbackService = attributes[FeedbackServiceKey]
 
