@@ -64,6 +64,7 @@
   "error": {
     "permission": "You are not allowed to change this 1:1 meeting.",
     "gone": "This 1:1 meeting no longer exists.",
+    "notLatest": "Only the most recent 1:1 meeting with this person can be changed — a newer one exists.",
     "validation": "The meeting could not be saved — check the dates and entries.",
     "saveFailedStatus": "Saving failed (HTTP {{status}}).",
     "saveFailed": "Saving failed. Check your connection and try again.",

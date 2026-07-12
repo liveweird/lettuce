@@ -104,19 +104,24 @@ const VIEW_CONFIG: Record<
   },
   managed: {
     personColumns: [SUBORDINATE_COLUMN],
-    renderAction: (m, { t, backParam }) => (
-      <Button
-        component={RouterLink}
-        to={`/one-on-ones/${m.id}/edit?from=managed${backParam}`}
-        color="blue"
-        variant="subtle"
-        size="xs"
-        leftSection={<IconPencil size={14} />}
-        aria-label={t("oneOnOne.editWith", { name: m.subordinateName })}
-      >
-        {t("common.action.edit")}
-      </Button>
-    ),
+    // Only the pair's LATEST meeting is editable (older ones are immutable records —
+    // the server answers 409), so old rows get the View affordance instead.
+    renderAction: (m, { t, backParam }) =>
+      m.isLatest !== false ? (
+        <Button
+          component={RouterLink}
+          to={`/one-on-ones/${m.id}/edit?from=managed${backParam}`}
+          color="blue"
+          variant="subtle"
+          size="xs"
+          leftSection={<IconPencil size={14} />}
+          aria-label={t("oneOnOne.editWith", { name: m.subordinateName })}
+        >
+          {t("common.action.edit")}
+        </Button>
+      ) : (
+        <ViewButton m={m} label={t("common.action.view")} aria={t("oneOnOne.viewWith", { name: m.subordinateName })} backParam={backParam} from="managed" />
+      ),
   },
   team: {
     personColumns: [MANAGER_COLUMN, SUBORDINATE_COLUMN],
@@ -125,11 +130,11 @@ const VIEW_CONFIG: Record<
     ),
   },
   // The per-person drill-down: both role directions in one table, so the row action depends on
-  // who ran that meeting — the caller edits their own, views the counterpart's.
+  // who ran that meeting — the caller edits their own (latest-only), views everything else.
   with: {
     personColumns: [MANAGER_COLUMN, SUBORDINATE_COLUMN],
     renderAction: (m, { t, backParam, currentUserId }) =>
-      currentUserId != null && m.managerId === currentUserId ? (
+      currentUserId != null && m.managerId === currentUserId && m.isLatest !== false ? (
         <Button
           component={RouterLink}
           to={`/one-on-ones/${m.id}/edit?from=with${backParam}`}

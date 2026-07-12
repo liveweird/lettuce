@@ -84,6 +84,11 @@ export default function EditOneOnOne() {
   if (data && getUserId() !== data.managerId) {
     return <Navigate to={`/one-on-ones/${id}/view`} replace />;
   }
+  // Older meetings of the pair are immutable records (the server would 409) — only the
+  // latest is editable, so anything else opens read-only.
+  if (data && data.isLatest === false) {
+    return <Navigate to={`/one-on-ones/${id}/view`} replace />;
+  }
 
   async function save(values: OneOnOneFormValues) {
     setError(null);

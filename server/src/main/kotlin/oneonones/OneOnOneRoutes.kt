@@ -1,5 +1,6 @@
 package ch.nokillswit.oneonones
 
+import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireOneOnOneReadAllowingManager
@@ -218,6 +219,12 @@ fun Application.configureOneOnOneRoutes() {
                     return@put
                 }
                 requireOneOnOneWrite(caller, existing)
+                // Latest-only rule: older meetings of the pair are immutable records.
+                if (!existing.isLatest) {
+                    throw ConflictException(
+                        "Only the pair's latest 1:1 meeting can be modified — older meetings are immutable records",
+                    )
+                }
                 val request = call.receive<OneOnOneUpdateRequest>()
                 validateOneOnOnePayload(
                     request.meetingDate, request.points, request.decisions, request.actionItems,
@@ -242,6 +249,12 @@ fun Application.configureOneOnOneRoutes() {
                     return@delete
                 }
                 requireOneOnOneWrite(caller, existing)
+                // Latest-only rule, same as PUT: deleting an old meeting would rewrite history.
+                if (!existing.isLatest) {
+                    throw ConflictException(
+                        "Only the pair's latest 1:1 meeting can be modified — older meetings are immutable records",
+                    )
+                }
                 if (oneOnOneService.delete(route.id) == 0) {
                     call.respondProblem(HttpStatusCode.NotFound, "1:1 meeting not found")
                     return@delete

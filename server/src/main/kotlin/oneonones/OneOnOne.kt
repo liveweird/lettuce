@@ -93,6 +93,12 @@ data class OneOnOneResponse(
     val points: List<OneOnOneItemResponse>,
     val decisions: List<OneOnOneItemResponse>,
     val actionItems: List<OneOnOneActionItemResponse>,
+    /**
+     * Whether this is the pair's latest non-deleted meeting (carry-over ordering:
+     * meeting_date DESC, id DESC). Only the latest may be edited or deleted — older meetings
+     * are immutable records (PUT/DELETE → 409) and the SPA opens them read-only.
+     */
+    val isLatest: Boolean = true,
 )
 
 @Serializable
@@ -110,6 +116,8 @@ data class OneOnOneListItem(
     val decisionCount: Int,
     val actionItemCount: Int,
     val openActionItemCount: Int,
+    /** See [OneOnOneResponse.isLatest] — drives the table's Edit-vs-View affordance. */
+    val isLatest: Boolean = true,
 )
 
 typealias OneOnOnePageResponse = PageResponse<OneOnOneListItem>

@@ -72,6 +72,29 @@ describe("OneOnOneTable", () => {
     ).toHaveAttribute("href", "/one-on-ones/11/edit?from=managed");
   });
 
+  test("an old managed meeting (not the pair's latest) offers View instead of Edit", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        items: [
+          { ...ROW, id: 11, managerId: 7, subordinateId: 8, isLatest: false, meetingDate: "2026-06-01" },
+          { ...ROW, id: 12, managerId: 7, subordinateId: 8, isLatest: true },
+        ],
+        page: 1,
+        pageSize: 20,
+        total: 2,
+      }),
+    );
+    renderWithProviders(<OneOnOneTable view="managed" />);
+
+    // The latest keeps its Edit pencil; the older, immutable one opens read-only.
+    expect(
+      await screen.findByRole("link", { name: "Edit the 1:1 with Sam Subordinate" }),
+    ).toHaveAttribute("href", "/one-on-ones/12/edit?from=managed");
+    expect(
+      screen.getByRole("link", { name: "View the 1:1 with Sam Subordinate" }),
+    ).toHaveAttribute("href", "/one-on-ones/11/view?from=managed");
+  });
+
   test("the team view offers the reports-scope filter that widens to the whole chain", async () => {
     mockFetch.mockResolvedValue(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }));
     renderWithProviders(<OneOnOneTable view="team" />);

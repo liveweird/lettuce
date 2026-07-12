@@ -17,6 +17,7 @@ function PathProbe() {
 const MEETING = {
   id: 5,
   managerId: 7,
+  isLatest: true,
   managerName: "Mia Manager",
   subordinateId: 8,
   subordinateName: "Sam Subordinate",
@@ -105,6 +106,15 @@ describe("EditOneOnOne page", () => {
   test("a non-manager is redirected to the read-only view", async () => {
     localStorage.setItem("lettuce.auth.userId", "8"); // the subordinate
     stubLoad();
+    renderEdit();
+
+    await waitFor(() => expect(screen.getByTestId("probe")).toBeInTheDocument());
+    expect(screen.getByTestId("probe")).toHaveTextContent("/one-on-ones/5/view");
+  });
+
+  test("an old meeting of the pair (not the latest) is redirected to the read-only view", async () => {
+    // The manager loads a non-latest meeting: older 1:1s are immutable records.
+    stubLoad({ ...MEETING, isLatest: false });
     renderEdit();
 
     await waitFor(() => expect(screen.getByTestId("probe")).toBeInTheDocument());

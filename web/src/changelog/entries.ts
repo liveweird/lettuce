@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.14",
+    date: "2026-07-12",
+    en: `Past 1:1 meetings are now immutable records: only the most recent meeting with each person can be edited or deleted. Older meetings open read-only, and their table rows offer View instead of Edit. Deleting the most recent meeting makes the previous one editable again.`,
+    pl: `Minione spotkania 1:1 są teraz niezmiennym zapisem: edytować i usuwać można tylko najnowsze spotkanie z daną osobą. Starsze spotkania otwierają się w trybie tylko do odczytu, a ich wiersze w tabeli oferują Podgląd zamiast Edycji. Usunięcie najnowszego spotkania ponownie odblokowuje edycję poprzedniego.`,
+  },
+  {
     version: "1.13.2",
     date: "2026-07-12",
     en: `Visual fix on the 1:1 meeting screens: the header fields (manager, team member, meeting date) now sit flush on one line — the meeting date no longer floats slightly above the others.`,
