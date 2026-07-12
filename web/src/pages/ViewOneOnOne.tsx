@@ -4,10 +4,12 @@ import {
   ActionIcon,
   Alert,
   Badge,
+  Box,
   Button,
   Center,
   Container,
   Group,
+  Input,
   Loader,
   Paper,
   Stack,
@@ -89,12 +91,13 @@ export default function ViewOneOnOne() {
                   name={data.subordinateName}
                   you={currentUserId === data.subordinateId}
                 />
-                <Stack gap={4}>
-                  <Text size="sm" fw={500}>
-                    {t("oneOnOne.meetingDate")}
-                  </Text>
-                  <Text size="sm">{formatIsoDate(data.meetingDate, i18n.language)}</Text>
-                </Stack>
+                {/* Same shell as PersonaField (Input.Wrapper + input-height value row) so the
+                    header columns stay flush. */}
+                <Input.Wrapper label={t("oneOnOne.meetingDate")}>
+                  <Box mih={36} display="flex" style={{ alignItems: "center" }}>
+                    <Text size="sm">{formatIsoDate(data.meetingDate, i18n.language)}</Text>
+                  </Box>
+                </Input.Wrapper>
               </Group>
 
               <Tabs defaultValue="content" keepMounted={false}>

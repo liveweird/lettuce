@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.13.2",
+    date: "2026-07-12",
+    en: `Visual fix on the 1:1 meeting screens: the header fields (manager, team member, meeting date) now sit flush on one line — the meeting date no longer floats slightly above the others.`,
+    pl: `Poprawka wizualna na ekranach spotkań 1:1: pola nagłówka (menedżer, członek zespołu, data spotkania) leżą teraz równo w jednej linii — data spotkania nie unosi się już nieco ponad pozostałymi.`,
+  },
+  {
     version: "1.13.1",
     date: "2026-07-12",
     en: `Carried-over action items on the 1:1 screens now show since when they have been open — the badge reads *Carried over since <date>*, naming the meeting where the item first appeared. Continually postponed items stand out at a glance.`,
