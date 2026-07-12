@@ -1,6 +1,6 @@
 {
   "title": "Zespoły",
-  "createTeam": "Utwórz zespół",
+  "createTeam": "Nowy zespół",
   "editTeam": "Edytuj zespół",
   "members": "Członkowie",
   "team": "Zespół",
@@ -62,5 +62,7 @@
   "feedbacks": "Feedbacki",
   "feedbacksWithAria": "Feedbacki z {{name}}",
   "oneOnOnes": "Spotkania 1:1",
-  "oneOnOnesWithAria": "Spotkania 1:1 z {{name}}"
+  "oneOnOnesWithAria": "Spotkania 1:1 z {{name}}",
+  "addOneOnOne": "Nowe 1:1",
+  "addOneOnOneWithAria": "Nowe 1:1 z {{name}}"
 }

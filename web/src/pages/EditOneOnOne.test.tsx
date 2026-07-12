@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -18,6 +18,7 @@ const MEETING = {
   id: 5,
   managerId: 7,
   isLatest: true,
+  minMeetingDate: null as string | null,
   managerName: "Mia Manager",
   subordinateId: 8,
   subordinateName: "Sam Subordinate",
@@ -87,6 +88,24 @@ describe("EditOneOnOne page", () => {
     });
   }
 
+  test("the date input carries the previous meeting's date as its floor and blocks going below it", async () => {
+    stubLoad({ ...MEETING, minMeetingDate: "2026-06-20" });
+    renderEdit();
+
+    const dateInput = await screen.findByLabelText("Meeting date");
+    expect(dateInput).toHaveAttribute("min", "2026-06-20");
+
+    // Going below the floor is blocked client-side: inline error, no PUT fired.
+    fireEvent.change(dateInput, { target: { value: "2026-06-10" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(
+      await screen.findByText("Cannot be before the previous meeting (2026-06-20)."),
+    ).toBeInTheDocument();
+    expect(
+      mockFetch.mock.calls.some(([, i]) => (i as RequestInit | undefined)?.method === "PUT"),
+    ).toBe(false);
+  });
+
   test("pre-fills the document and shows the carried-over badge", async () => {
     stubLoad();
     renderEdit();
@@ -113,12 +132,13 @@ describe("EditOneOnOne page", () => {
   });
 
   test("an old meeting of the pair (not the latest) is redirected to the read-only view", async () => {
-    // The manager loads a non-latest meeting: older 1:1s are immutable records.
+    // The manager loads a non-latest meeting: older 1:1s are immutable records. The redirect
+    // preserves the originating tab so the view's Close returns where the user started.
     stubLoad({ ...MEETING, isLatest: false });
-    renderEdit();
+    renderEdit("/one-on-ones/5/edit?from=managed");
 
     await waitFor(() => expect(screen.getByTestId("probe")).toBeInTheDocument());
-    expect(screen.getByTestId("probe")).toHaveTextContent("/one-on-ones/5/view");
+    expect(screen.getByTestId("probe")).toHaveTextContent("/one-on-ones/5/view?from=managed");
   });
 
   test("a back override wins over the from-tab mapping after a save", async () => {

@@ -15,6 +15,7 @@ import {
   IconArrowDown,
   IconArrowUp,
   IconCalendarEvent,
+  IconCalendarPlus,
   IconMessagePlus,
   IconMessageQuestion,
   IconMessages,
@@ -249,6 +250,21 @@ export default function TeamMembersTable({
                       aria-label={t("teams.requestFeedbackAboutAria", { name: m.name })}
                     >
                       {t("teams.requestFeedbackFor")}
+                    </Button>
+                  )}
+                  {view === "managed" && reportsScope === "direct" && (
+                    // An ACTION like the feedback buttons above (light variant), not navigation.
+                    // Creating a 1:1 needs a direct report, hence the same gate as the
+                    // drill-down below.
+                    <Button
+                      component={RouterLink}
+                      to={`/one-on-ones/new?subordinateId=${m.userId}&subordinateName=${encodeURIComponent(m.name)}&back=${encodeURIComponent(backTo)}`}
+                      variant="light"
+                      size="xs"
+                      leftSection={<IconCalendarPlus size={14} />}
+                      aria-label={t("teams.addOneOnOneWithAria", { name: m.name })}
+                    >
+                      {t("teams.addOneOnOne")}
                     </Button>
                   )}
                   <Button

@@ -354,10 +354,10 @@ describe("Users page", () => {
     expect(await screen.findByText("No users")).toBeInTheDocument();
   });
 
-  test("admin sees Create user and Mass import links; a non-admin sees neither", async () => {
+  test("admin sees New user and Mass import links; a non-admin sees neither", async () => {
     mockUsers(mockFetch);
     const { unmount } = renderUsers();
-    expect(await screen.findByRole("link", { name: /create user/i })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: /new user/i })).toHaveAttribute(
       "href",
       "/users/new",
     );
@@ -371,7 +371,7 @@ describe("Users page", () => {
     mockUsers(mockFetch);
     renderUsers();
     await screen.findByText("Alice");
-    expect(screen.queryByRole("link", { name: /create user/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /new user/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /mass import/i })).not.toBeInTheDocument();
   });
 

@@ -196,11 +196,19 @@ describe("TeamMembersTable", () => {
     );
     expect(screen.getAllByRole("link", { name: /1:1 meetings with/i })).toHaveLength(2);
 
+    // Same gate: the create shortcut with the subordinate prefilled and the dashboard as back.
+    expect(screen.getByRole("link", { name: "New 1:1 with Bob Brown" })).toHaveAttribute(
+      "href",
+      `/one-on-ones/new?subordinateId=11&subordinateName=Bob%20Brown&back=${encodeURIComponent("/?tab=subordinates")}`,
+    );
+    expect(screen.getAllByRole("link", { name: /new 1:1 with/i })).toHaveLength(2);
+
     cleanup();
     setupMocks(mockFetch);
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
     await screen.findByText("Bob Brown");
     expect(screen.queryByRole("link", { name: /1:1 meetings with/i })).toBeNull();
+    expect(screen.queryByRole("link", { name: /new 1:1 with/i })).toBeNull();
   });
 
   test("switching the reports scope to all hides the 1:1 buttons (indirect rows are unmarked)", async () => {
@@ -215,6 +223,7 @@ describe("TeamMembersTable", () => {
     await waitFor(() => {
       expect(screen.queryByRole("link", { name: /1:1 meetings with/i })).toBeNull();
     });
+    expect(screen.queryByRole("link", { name: /new 1:1 with/i })).toBeNull();
   });
 
   test("typing in the Name filter triggers a debounced refetch and the clear button resets it", async () => {

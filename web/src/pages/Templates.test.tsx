@@ -206,12 +206,12 @@ describe("Templates page", () => {
     expect(await screen.findByText(/failed to load templates/i)).toBeInTheDocument();
   });
 
-  test("admin sees a 'Create template' link pointing at /templates/new", async () => {
+  test("admin sees a 'New template' link pointing at /templates/new", async () => {
     setupMocks(mockFetch, () => templatesPage(SEED));
     renderTemplates();
 
     await screen.findByRole("cell", { name: "Welcome" });
-    const link = screen.getByRole("link", { name: /create template/i });
+    const link = screen.getByRole("link", { name: /new template/i });
     expect(link).toHaveAttribute("href", "/templates/new");
   });
 
@@ -232,7 +232,7 @@ describe("Templates page", () => {
     renderTemplates();
 
     await screen.findByRole("cell", { name: "Welcome" });
-    expect(screen.queryByRole("link", { name: /create template/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /new template/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /^edit /i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^delete /i })).not.toBeInTheDocument();
   });

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { renderWithProviders, screen, waitFor, within } from "../test/render";
+import { cleanup, renderWithProviders, screen, waitFor, within } from "../test/render";
 import ViewOneOnOne from "./ViewOneOnOne";
 import { Route, Routes } from "react-router-dom";
 import { jsonResponse } from "../test/http";
@@ -118,6 +118,25 @@ describe("ViewOneOnOne page", () => {
 
     expect(await screen.findAllByText("Mia Manager")).not.toHaveLength(0);
     expect(screen.getByRole("link", { name: "Close" })).toHaveAttribute("href", back);
+  });
+
+  test("Close returns to the originating tab: managed stays managed, unknown falls back to own", async () => {
+    // The managed tab links old (read-only) rows here with from=managed — closing must not
+    // strand the manager on the "I'm a subordinate" tab.
+    renderView("/one-on-ones/5/view?from=managed");
+    expect(await screen.findAllByText("Mia Manager")).not.toHaveLength(0);
+    expect(screen.getByRole("link", { name: "Close" })).toHaveAttribute(
+      "href",
+      "/one-on-ones?tab=managed",
+    );
+
+    cleanup();
+    renderView("/one-on-ones/5/view?from=bogus");
+    expect(await screen.findAllByText("Mia Manager")).not.toHaveLength(0);
+    expect(screen.getByRole("link", { name: "Close" })).toHaveAttribute(
+      "href",
+      "/one-on-ones?tab=own",
+    );
   });
 
   test("a carried item whose chain no longer survives falls back to the plain badge", async () => {

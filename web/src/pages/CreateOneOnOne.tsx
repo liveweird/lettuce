@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link as RouterLink, useNavigate } from "react-router-dom";
+import { Link as RouterLink, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Alert,
   Button,
@@ -15,8 +15,9 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { createOneOnOne, listTeamMembers } from "../api/client";
+import PersonaField from "../components/PersonaField";
 import { todayIsoDate } from "../utils/datetime";
-import { oneOnOneSaveErrorMessage } from "../utils/oneOnOneForm";
+import { saveErrorMessage } from "../utils/saveError";
 
 const BACK_TO = "/one-on-ones?tab=managed";
 
@@ -28,23 +29,37 @@ const PICKER_PAGE_SIZE = 100;
  * Creating a 1:1 is deliberately minimal — subordinate + date — and immediately lands on the
  * edit screen: the server copies the previous meeting's unresolved action items on create, so
  * the manager starts documenting from the open backlog rather than an empty form.
+ *
+ * The Dashboard's "New 1:1" card button prefills the subordinate via query params
+ * (`subordinateId`/`subordinateName`/`back` — the app-wide create-screen convention); a
+ * prefilled subordinate renders read-only and Cancel returns to `back`.
  */
 export default function CreateOneOnOne() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
 
-  const [subordinate, setSubordinate] = useState<string | null>(null);
+  const preselectedId = Number(searchParams.get("subordinateId"));
+  const preselected = Number.isFinite(preselectedId) && preselectedId > 0;
+  const subordinateName = searchParams.get("subordinateName");
+  const backTo = searchParams.get("back") ?? BACK_TO;
+
+  const [subordinate, setSubordinate] = useState<string | null>(
+    preselected ? String(preselectedId) : null,
+  );
   const [meetingDate, setMeetingDate] = useState(todayIsoDate());
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // view=managed lists the caller's direct reports — exactly who a 1:1 can be held with.
+  // A prefilled subordinate needs no picker (and no fetch).
   const { data: reports } = useQuery({
     queryKey: ["teamMembers", "oneOnOnePicker"],
     queryFn: () =>
       listTeamMembers({ view: "managed", page: 1, pageSize: PICKER_PAGE_SIZE, sort: "name" }),
     staleTime: 5 * 60 * 1000,
+    enabled: !preselected,
   });
 
   // One row per (user, team) arrives; the picker wants one option per person.
@@ -73,7 +88,18 @@ export default function CreateOneOnOne() {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
       navigate(`/one-on-ones/${created.id}/edit?from=managed`, { replace: true });
     } catch (err) {
-      setError(oneOnOneSaveErrorMessage(err, t));
+      // Unlike PUT (where 409 means "not the latest"), a create 409 is unambiguous: the date
+      // is earlier than the pair's latest meeting (the chronological rule).
+      setError(
+        saveErrorMessage(err, t, {
+          forbidden: "oneOnOne.error.permission",
+          notFound: "oneOnOne.error.gone",
+          conflict: "oneOnOne.error.backdated",
+          invalid: "oneOnOne.error.validation",
+          failedStatus: "oneOnOne.error.saveFailedStatus",
+          failed: "oneOnOne.error.saveFailed",
+        }),
+      );
       setSubmitting(false);
     }
   }
@@ -87,16 +113,24 @@ export default function CreateOneOnOne() {
             {t("oneOnOne.createHint")}
           </Text>
 
-          <Select
-            label={t("oneOnOne.subordinate")}
-            placeholder={t("oneOnOne.pickSubordinate")}
-            data={options}
-            value={subordinate}
-            onChange={setSubordinate}
-            searchable
-            clearable
-            nothingFoundMessage={t("oneOnOne.noReports")}
-          />
+          {preselected ? (
+            // Launched from a subordinate's Dashboard card: the party is fixed, not editable.
+            <PersonaField
+              label={t("oneOnOne.subordinate")}
+              name={subordinateName ?? `#${preselectedId}`}
+            />
+          ) : (
+            <Select
+              label={t("oneOnOne.subordinate")}
+              placeholder={t("oneOnOne.pickSubordinate")}
+              data={options}
+              value={subordinate}
+              onChange={setSubordinate}
+              searchable
+              clearable
+              nothingFoundMessage={t("oneOnOne.noReports")}
+            />
+          )}
 
           <TextInput
             type="date"
@@ -113,7 +147,7 @@ export default function CreateOneOnOne() {
           )}
 
           <Group justify="flex-end" gap="sm">
-            <Button component={RouterLink} to={BACK_TO} variant="default" disabled={submitting}>
+            <Button component={RouterLink} to={backTo} variant="default" disabled={submitting}>
               {t("common.action.cancel")}
             </Button>
             <Button

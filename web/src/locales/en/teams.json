@@ -1,6 +1,6 @@
 {
   "title": "Teams",
-  "createTeam": "Create team",
+  "createTeam": "New team",
   "editTeam": "Edit team",
   "members": "Members",
   "team": "Team",
@@ -62,5 +62,7 @@
   "feedbacks": "Feedbacks",
   "feedbacksWithAria": "Feedbacks with {{name}}",
   "oneOnOnes": "1:1 meetings",
-  "oneOnOnesWithAria": "1:1 meetings with {{name}}"
+  "oneOnOnesWithAria": "1:1 meetings with {{name}}",
+  "addOneOnOne": "New 1:1",
+  "addOneOnOneWithAria": "New 1:1 with {{name}}"
 }

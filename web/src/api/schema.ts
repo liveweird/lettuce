@@ -720,6 +720,10 @@ export interface paths {
          *     the meeting's manager (never taken from the body), and the subordinate must be one of the
          *     caller's **direct reports** at creation time — there is no ADMIN create-on-behalf.
          *
+         *     **Chronological order**: `meetingDate` may not be strictly earlier than the pair's
+         *     latest existing meeting (`409`) — 1:1s are documented continuously, in order. The same
+         *     date is allowed (a same-day follow-up), and the pair's first meeting accepts any date.
+         *
          *     **Carry-over**: unresolved action items of the pair's previous meeting (the latest
          *     non-deleted meeting of the same manager+subordinate pair by meeting date, id as
          *     tiebreaker) are copied into the new meeting server-side, ahead of any `actionItems`
@@ -727,9 +731,9 @@ export interface paths {
          *     and carries `copiedFromId` — the source item's id — so the item's history across meetings
          *     can be reconstructed. Items in this request must NOT carry `id`s (`400`).
          *
-         *     The subordinate is notified (with a view link); this is the feature's only notification —
-         *     edits and deletions notify nobody. The creation is recorded in the meeting's audit
-         *     history with the carried-over count.
+         *     Both parties are notified (view links) — creation is the feature's only notifying
+         *     event; edits and deletions notify nobody. The creation is recorded in the meeting's
+         *     audit history with the carried-over count.
          */
         post: operations["createOneOnOne"];
         delete?: never;
@@ -1735,6 +1739,11 @@ export interface components {
              * @default true
              */
             isLatest: boolean;
+            /**
+             * Format: date
+             * @description The pair's previous meeting's date — the chronological floor for this meeting's date (PUT rejects anything below it with 409; the edit form uses it as the date input's `min`). Null when this is the pair's first meeting.
+             */
+            minMeetingDate?: string | null;
         };
         OneOnOneListItem: {
             /** Format: int64 */
@@ -3249,6 +3258,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
+            /** @description The meeting date is earlier than the pair's latest existing meeting — 1:1s are recorded in chronological order (the detail names the conflicting date) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -3312,7 +3330,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["OneOnOneNotManager"];
             404: components["responses"]["NotFound"];
-            /** @description Not the pair's latest meeting — older 1:1s are immutable records */
+            /** @description Not the pair's latest meeting (older 1:1s are immutable records), or the new meeting date would fall before the pair's previous meeting (`minMeetingDate` on the read response is the floor) — meetings stay chronological */
             409: {
                 headers: {
                     [name: string]: unknown;

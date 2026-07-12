@@ -1236,6 +1236,10 @@ paths:
         the meeting's manager (never taken from the body), and the subordinate must be one of the
         caller's **direct reports** at creation time — there is no ADMIN create-on-behalf.
 
+        **Chronological order**: `meetingDate` may not be strictly earlier than the pair's
+        latest existing meeting (`409`) — 1:1s are documented continuously, in order. The same
+        date is allowed (a same-day follow-up), and the pair's first meeting accepts any date.
+
         **Carry-over**: unresolved action items of the pair's previous meeting (the latest
         non-deleted meeting of the same manager+subordinate pair by meeting date, id as
         tiebreaker) are copied into the new meeting server-side, ahead of any `actionItems`
@@ -1243,9 +1247,9 @@ paths:
         and carries `copiedFromId` — the source item's id — so the item's history across meetings
         can be reconstructed. Items in this request must NOT carry `id`s (`400`).
 
-        The subordinate is notified (with a view link); this is the feature's only notification —
-        edits and deletions notify nobody. The creation is recorded in the meeting's audit
-        history with the carried-over count.
+        Both parties are notified (view links) — creation is the feature's only notifying
+        event; edits and deletions notify nobody. The creation is recorded in the meeting's
+        audit history with the carried-over count.
       requestBody:
         required: true
         content:
@@ -1271,6 +1275,13 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: The subordinate is not a direct report of the caller
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '409':
+          description: >-
+            The meeting date is earlier than the pair's latest existing meeting — 1:1s are
+            recorded in chronological order (the detail names the conflicting date)
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
@@ -1339,7 +1350,10 @@ paths:
         '403': { $ref: '#/components/responses/OneOnOneNotManager' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: Not the pair's latest meeting — older 1:1s are immutable records
+          description: >-
+            Not the pair's latest meeting (older 1:1s are immutable records), or the new
+            meeting date would fall before the pair's previous meeting (`minMeetingDate` on the
+            read response is the floor) — meetings stay chronological
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
@@ -2749,6 +2763,14 @@ components:
             Whether this is the pair's latest non-deleted meeting (meeting date, id as
             tiebreaker). Only the latest may be edited or deleted (PUT/DELETE answer 409
             otherwise); clients open older meetings read-only.
+        minMeetingDate:
+          type: string
+          format: date
+          nullable: true
+          description: >-
+            The pair's previous meeting's date — the chronological floor for this meeting's
+            date (PUT rejects anything below it with 409; the edit form uses it as the date
+            input's `min`). Null when this is the pair's first meeting.
 
     OneOnOneListItem:
       type: object

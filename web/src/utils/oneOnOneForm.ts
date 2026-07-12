@@ -83,15 +83,25 @@ export function toUpdateBody(values: OneOnOneFormValues): UpdateOneOnOneBody {
   };
 }
 
-/** Validation shared by the edit form (mirrors the server's checks). */
-export function oneOnOneFormValidation(t: TFunction) {
+/**
+ * Validation shared by the edit form (mirrors the server's checks). [minMeetingDate] is the
+ * pair's previous meeting's date (the server's chronological floor — editing below it is 409);
+ * ISO strings compare chronologically.
+ */
+export function oneOnOneFormValidation(t: TFunction, minMeetingDate?: string | null) {
   const contentRule = (v: string) => {
     if (!v.trim()) return t("oneOnOne.itemRequired");
     if (v.length > MAX_ITEM_LENGTH) return t("oneOnOne.itemTooLong");
     return null;
   };
   return {
-    meetingDate: (v: string) => (v ? null : t("oneOnOne.dateRequired")),
+    meetingDate: (v: string) => {
+      if (!v) return t("oneOnOne.dateRequired");
+      if (minMeetingDate != null && v < minMeetingDate) {
+        return t("oneOnOne.dateBeforePrevious", { date: minMeetingDate });
+      }
+      return null;
+    },
     points: { content: contentRule },
     decisions: { content: contentRule },
     actionItems: { content: contentRule },

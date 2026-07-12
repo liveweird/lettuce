@@ -26,12 +26,12 @@ const REPORTS = {
   total: 3,
 };
 
-function renderCreate() {
+function renderCreate(route = "/one-on-ones/new") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <MantineProvider env="test">
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={["/one-on-ones/new"]}>
+        <MemoryRouter initialEntries={[route]}>
           <Routes>
             <Route path="/one-on-ones/new" element={<CreateOneOnOne />} />
             <Route path="/one-on-ones/:id/edit" element={<PathProbe />} />
@@ -104,10 +104,76 @@ describe("CreateOneOnOne page", () => {
     expect(body.actionItems).toEqual([]);
   });
 
+  test("a prefilled subordinate renders read-only, skips the picker fetch, and creates directly", async () => {
+    mockFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith("/api/v1/one-on-ones") && init?.method === "POST") {
+        return Promise.resolve(
+          jsonResponse(201, {
+            id: 43, managerId: 7, managerName: "Me", subordinateId: 8,
+            subordinateName: "Sam Subordinate", meetingDate: "2026-07-12",
+            lastModified: 1, points: [], decisions: [], actionItems: [],
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }));
+    });
+    renderCreate(
+      "/one-on-ones/new?subordinateId=8&subordinateName=Sam%20Subordinate&back=%2F%3Ftab%3Dsubordinates",
+    );
+
+    // The party is fixed: plain text instead of a picker, Create enabled immediately.
+    expect(await screen.findByText("Sam Subordinate")).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Team member" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Create" })).toBeEnabled();
+    // No picker → no direct-reports fetch.
+    expect(
+      mockFetch.mock.calls.every(([u]) => !String(u).includes("/api/v1/teams/members")),
+    ).toBe(true);
+    // Cancel returns to the originating Dashboard tab.
+    expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute(
+      "href",
+      "/?tab=subordinates",
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Create" }));
+    await waitFor(() => expect(screen.getByTestId("probe")).toBeInTheDocument());
+    expect(screen.getByTestId("probe")).toHaveTextContent("/one-on-ones/43/edit?from=managed");
+
+    const [, init] = mockFetch.mock.calls.find(
+      ([u, i]) => String(u).endsWith("/api/v1/one-on-ones") && (i as RequestInit)?.method === "POST",
+    )!;
+    expect(JSON.parse((init as RequestInit).body as string).subordinateId).toBe(8);
+  });
+
   test("the create button stays disabled until a team member is picked", async () => {
     mockFetch.mockResolvedValue(jsonResponse(200, REPORTS));
     renderCreate();
     expect(await screen.findByRole("button", { name: "Create" })).toBeDisabled();
+  });
+
+  test("a back-dated create (409) surfaces the chronological-order message", async () => {
+    mockFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("/api/v1/teams/members")) return Promise.resolve(jsonResponse(200, REPORTS));
+      if (init?.method === "POST") {
+        return Promise.resolve(
+          jsonResponse(409, { title: "Conflict", status: 409, detail: "A later 1:1 …" }),
+        );
+      }
+      return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }));
+    });
+    renderCreate();
+
+    const picker = await screen.findByRole("combobox", { name: "Team member" });
+    await userEvent.click(picker);
+    await userEvent.click(await screen.findByRole("option", { name: "Zoe Zebra" }));
+    await userEvent.click(screen.getByRole("button", { name: "Create" }));
+
+    expect(
+      await screen.findByText(
+        "This date is earlier than the last 1:1 with this person — meetings are recorded in chronological order.",
+      ),
+    ).toBeInTheDocument();
   });
 
   test("a save failure surfaces the error message", async () => {

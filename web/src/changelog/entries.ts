@@ -16,6 +16,36 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.15.2",
+    date: "2026-07-12",
+    en: `Creation buttons now speak one language: *New <thing>* (New team, New user, New template, New feedback, New alert, New 1:1) opens a create screen, *Add* appends an item to a list you are editing, and *Create* submits the form. The Polish labels follow suit: *Nowy/Nowe*, *Dodaj*, *Utwórz*.`,
+    pl: `Przyciski tworzenia mówią teraz jednym językiem: *Nowy/Nowe <coś>* (Nowy zespół, Nowy użytkownik, Nowy szablon, Nowy feedback, Nowy alert, Nowe 1:1) otwiera ekran tworzenia, *Dodaj* dokłada pozycję do edytowanej listy, a *Utwórz* zatwierdza formularz. Angielskie etykiety idą tym samym śladem: *New*, *Add*, *Create*.`,
+  },
+  {
+    version: "1.15.1",
+    date: "2026-07-12",
+    en: `The *1:1 meetings with …* screen (opened from a subordinate's Dashboard card) now offers its own *New 1:1* button, with that person already selected — same as the button on their card.`,
+    pl: `Ekran *Spotkania 1:1 z…* (otwierany z karty podwładnego na Pulpicie) ma teraz własny przycisk *Nowe 1:1* z tą osobą już wybraną — tak samo jak przycisk na jej karcie.`,
+  },
+  {
+    version: "1.15",
+    date: "2026-07-12",
+    en: `1:1 meetings now stay in chronological order: a new meeting cannot be dated before the most recent one with the same person (same-day follow-ups are fine), and the edit form enforces the same floor on the date field. Documenting 1:1s is a continuous record, not a scrapbook.`,
+    pl: `Spotkania 1:1 zachowują teraz porządek chronologiczny: nowego spotkania nie można datować przed najnowszym spotkaniem z tą samą osobą (dogrywki tego samego dnia są w porządku), a formularz edycji pilnuje tej samej granicy w polu daty. Dokumentowanie 1:1 to ciągły zapis, nie album z wycinkami.`,
+  },
+  {
+    version: "1.14.2",
+    date: "2026-07-12",
+    en: `The *My subordinates* cards on the Dashboard gained a *New 1:1* button: it opens the usual new-meeting screen with that person already selected (and locked), so documenting a fresh 1:1 is one click away.`,
+    pl: `Karty *Moi podwładni* na Pulpicie zyskały przycisk *Nowe 1:1*: otwiera on zwykły ekran nowego spotkania z tą osobą już wybraną (bez możliwości zmiany), więc udokumentowanie świeżego 1:1 jest o jedno kliknięcie.`,
+  },
+  {
+    version: "1.14.1",
+    date: "2026-07-12",
+    en: `Navigation fix: closing a 1:1 meeting opened from the *I'm a manager* tab now returns you there — previously you landed on *I'm a subordinate*. The same context is kept when an older, read-only meeting bounces from its edit link to the view screen.`,
+    pl: `Poprawka nawigacji: zamknięcie spotkania 1:1 otwartego z zakładki *Jestem menedżerem/ką* wraca teraz właśnie tam — wcześniej lądowałeś/aś w *Jestem podwładnym/ą*. Ten sam kontekst jest zachowany, gdy starsze spotkanie (tylko do odczytu) przekierowuje z linku edycji do podglądu.`,
+  },
+  {
     version: "1.14",
     date: "2026-07-12",
     en: `Past 1:1 meetings are now immutable records: only the most recent meeting with each person can be edited or deleted. Older meetings open read-only, and their table rows offer View instead of Edit. Deleting the most recent meeting makes the previous one editable again.`,

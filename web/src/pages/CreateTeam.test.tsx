@@ -75,7 +75,7 @@ describe("CreateTeam page", () => {
     setupMocks(mockFetch);
     renderCreateTeam();
 
-    expect(await screen.findByRole("heading", { name: /create team/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /new team/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/name/i)).toBeInTheDocument();
     const managerInput = screen.getByLabelText(/manager/i, { selector: "input" });
     expect(managerInput).toBeInTheDocument();
