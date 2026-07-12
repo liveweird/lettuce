@@ -23,6 +23,8 @@ export type OneOnOneActionItemDraft = {
   resolved: boolean;
   /** Server-managed carry-over link; read-only, used for the "carried over" badge + history. */
   copiedFromId?: number | null;
+  /** Server-managed: ISO date of the item's earliest surviving appearance; read-only. */
+  firstAppearedOn?: string | null;
 };
 
 export type OneOnOneFormValues = {
@@ -60,6 +62,7 @@ export function toFormValues(doc: OneOnOneResponse): OneOnOneFormValues {
       dueDate: a.dueDate ?? "",
       resolved: a.resolved,
       copiedFromId: a.copiedFromId,
+      firstAppearedOn: a.firstAppearedOn,
     })),
   };
 }

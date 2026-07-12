@@ -282,6 +282,7 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
             .where { ActionItems.meetingId eq id }
             .orderBy(ActionItems.position to SortOrder.ASC, ActionItems.id to SortOrder.ASC)
             .toList()
+        val firstAppearances = firstAppearanceDates(items)
 
         OneOnOneResponse(
             id = id,
@@ -293,7 +294,7 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
             lastModified = row[Meetings.lastModified],
             points = notes.filter { it[Notes.kind] == NoteKind.POINT }.map { it.toItemResponse() },
             decisions = notes.filter { it[Notes.kind] == NoteKind.DECISION }.map { it.toItemResponse() },
-            actionItems = items.map { it.toActionItemResponse() },
+            actionItems = items.map { it.toActionItemResponse(firstAppearances[it[ActionItems.id].value]) },
         )
     }
 
@@ -530,14 +531,67 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
         content = cipher.decrypt(this[Notes.content]),
     )
 
-    private fun ResultRow.toActionItemResponse() = OneOnOneActionItemResponse(
+    private fun ResultRow.toActionItemResponse(firstAppearedOn: String? = null) = OneOnOneActionItemResponse(
         id = this[ActionItems.id].value,
         content = cipher.decrypt(this[ActionItems.content]),
         owner = this[ActionItems.owner],
         dueDate = this[ActionItems.dueDate],
         resolved = this[ActionItems.resolved],
         copiedFromId = this[ActionItems.copiedFromId]?.value,
+        firstAppearedOn = firstAppearedOn,
     )
+
+    /**
+     * itemId → ISO date of each carried item's earliest surviving appearance: the copiedFromId
+     * ancestors are walked per item (chains are a handful of hops, one indexed select each,
+     * cycle-guarded like [actionItemHistory]; ancestor rows are cached across items since
+     * chains of one meeting never overlap but malformed data might), then one batched meeting
+     * lookup picks the smallest non-soft-deleted meeting date — the same meeting the history
+     * modal shows first. Items authored in this meeting (null copiedFromId) are skipped: their
+     * first appearance IS this meeting. Runs in the caller's transaction.
+     */
+    private suspend fun firstAppearanceDates(items: List<ResultRow>): Map<UInt, String> {
+        val carried = items.filter { it[ActionItems.copiedFromId] != null }
+        if (carried.isEmpty()) return emptyMap()
+
+        val rowCache = mutableMapOf<UInt, ResultRow?>()
+        val ancestorMeetingIds = mutableMapOf<UInt, Set<UInt>>()
+        for (item in carried) {
+            val itemId = item[ActionItems.id].value
+            val visited = mutableSetOf(itemId)
+            val meetingIds = mutableSetOf<UInt>()
+            var ancestorId = item[ActionItems.copiedFromId]?.value
+            while (ancestorId != null && ancestorId !in visited) {
+                val currentId = ancestorId
+                visited += currentId
+                val row = rowCache.getOrPut(currentId) {
+                    ActionItems.selectAll()
+                        .where { ActionItems.id eq currentId }
+                        .map { it }
+                        .singleOrNull()
+                } ?: break
+                meetingIds += row[ActionItems.meetingId].value
+                ancestorId = row[ActionItems.copiedFromId]?.value
+            }
+            if (meetingIds.isNotEmpty()) ancestorMeetingIds[itemId] = meetingIds
+        }
+        if (ancestorMeetingIds.isEmpty()) return emptyMap()
+
+        val activeDates = Meetings
+            .select(Meetings.id, Meetings.meetingDate)
+            .where { (Meetings.id inList ancestorMeetingIds.values.flatten().toSet()) and active() }
+            .map { it[Meetings.id].value to it[Meetings.meetingDate] }
+            .toList()
+            .toMap()
+
+        // ISO dates: lexicographic min == chronological min. Items whose every ancestor meeting
+        // is soft-deleted drop out (null firstAppearedOn, like a broken chain).
+        return ancestorMeetingIds
+            .mapNotNull { (itemId, meetingIds) ->
+                meetingIds.mapNotNull { activeDates[it] }.minOrNull()?.let { itemId to it }
+            }
+            .toMap()
+    }
 
     private suspend fun insertNotes(meetingId: UInt, kind: NoteKind, items: List<OneOnOneItemInput>) {
         items.forEachIndexed { index, item ->

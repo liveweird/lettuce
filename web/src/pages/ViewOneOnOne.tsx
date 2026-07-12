@@ -136,8 +136,13 @@ export default function ViewOneOnOne() {
                                     {item.content}
                                   </Text>
                                   {item.copiedFromId != null && (
-                                    <Badge variant="light" color="grape" mt={4}>
-                                      {t("oneOnOne.carriedOver")}
+                                    <Badge variant="light" color="grape" mt={4} style={{ minWidth: "max-content" }}>
+                                      {/* The origin date shows how long the item has been postponed. */}
+                                      {item.firstAppearedOn != null
+                                        ? t("oneOnOne.carriedOverSince", {
+                                            date: formatIsoDate(item.firstAppearedOn, i18n.language),
+                                          })
+                                        : t("oneOnOne.carriedOver")}
                                     </Badge>
                                   )}
                                 </Table.Td>

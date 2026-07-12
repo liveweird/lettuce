@@ -73,6 +73,11 @@ data class OneOnOneActionItemResponse(
     // The source action item in the pair's previous meeting this one was carried over from;
     // null for items authored in this meeting (or when the source row no longer exists).
     val copiedFromId: UInt?,
+    // ISO date of the item's earliest surviving appearance in its carry-over chain — the same
+    // meeting the history modal shows first (soft-deleted ancestor meetings are skipped).
+    // Null when the item first appeared in this meeting (or the chain no longer survives).
+    // Read-model only, never accepted on write.
+    val firstAppearedOn: String? = null,
 )
 
 /** The full meeting document; also the before-image for the per-item event diff. */

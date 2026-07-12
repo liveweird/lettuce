@@ -17,6 +17,7 @@ import type { UseFormReturnType } from "@mantine/form";
 import { IconHistory, IconPlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import type { ActionItemOwner } from "../api/client";
+import { formatIsoDate } from "../utils/datetime";
 import type { OneOnOneFormValues } from "../utils/oneOnOneForm";
 import { emptyActionItemDraft } from "../utils/oneOnOneForm";
 import ActionItemHistoryModal from "./ActionItemHistoryModal";
@@ -37,7 +38,7 @@ export default function ActionItemsEditor({
   managerName: string;
   subordinateName: string;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [historyItemId, setHistoryItemId] = useState<number | null>(null);
   const rows = form.values.actionItems;
   const title = t("oneOnOne.actionItems");
@@ -99,8 +100,13 @@ export default function ActionItemsEditor({
               />
               {row.copiedFromId != null && (
                 <Group gap={4} pb={4}>
-                  <Badge variant="light" color="grape">
-                    {t("oneOnOne.carriedOver")}
+                  <Badge variant="light" color="grape" style={{ minWidth: "max-content" }}>
+                    {/* The origin date shows how long the item has been postponed. */}
+                    {row.firstAppearedOn != null
+                      ? t("oneOnOne.carriedOverSince", {
+                          date: formatIsoDate(row.firstAppearedOn, i18n.language),
+                        })
+                      : t("oneOnOne.carriedOver")}
                   </Badge>
                   <ActionIcon
                     variant="subtle"
