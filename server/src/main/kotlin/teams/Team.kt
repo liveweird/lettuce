@@ -38,12 +38,18 @@ data class TeamMemberListItem(
     val email: String,
     val teamId: UInt,
     val teamName: String,
-    // Dashboard stats, populated only for view=managers; null in every other view.
-    /** ISO `YYYY-MM-DD` of the latest 1:1 run BY this manager with the caller as subordinate. */
+    // Dashboard stats, populated for view=managers and view=managed; null for view=member.
+    // Direction follows the view: managers — the row user is the meeting's manager / feedback
+    // provider; managed — the caller is.
+    /** ISO `YYYY-MM-DD` of the latest 1:1 of the (row user, caller) pair in the view's direction. */
     val lastOneOnOneDate: String? = null,
     /** Unresolved action items on that meeting; null exactly when [lastOneOnOneDate] is null. */
     val lastOneOnOneOpenItems: Int? = null,
-    /** Epoch ms this manager last provided the caller feedback they can see (currently SENT). */
+    /**
+     * Epoch ms of the last currently-SENT feedback in the view's direction: managers — this
+     * manager last provided the caller feedback the caller can see; managed — the caller last
+     * provided this member feedback (provider-side, never visibility-filtered).
+     */
     val lastFeedbackAt: Long? = null,
 )
 

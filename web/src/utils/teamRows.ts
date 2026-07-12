@@ -7,7 +7,7 @@ export type TeamRow = {
   name: string;
   email: string;
   teamName: string;
-  // Dashboard stats — present only on view=managers rows, identical on every row of a user.
+  // Dashboard stats — present on view=managers/managed rows, identical on every row of a user.
   lastOneOnOneDate?: string | null;
   lastOneOnOneOpenItems?: number | null;
   lastFeedbackAt?: number | null;
@@ -35,7 +35,7 @@ export function groupTeamRows(rows: TeamRow[]): PersonCard[] {
         name: r.name,
         email: r.email,
         teamNames: [r.teamName],
-        // Normalize absent → null so the stat-less grids (peers/subordinates) stay uniform.
+        // Normalize absent → null so the stat-less member grid (peers) stays uniform.
         lastOneOnOneDate: r.lastOneOnOneDate ?? null,
         lastOneOnOneOpenItems: r.lastOneOnOneOpenItems ?? null,
         lastFeedbackAt: r.lastFeedbackAt ?? null,

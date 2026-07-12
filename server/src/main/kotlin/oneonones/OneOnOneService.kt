@@ -117,21 +117,38 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
     suspend fun latestMeetingStats(
         managerIds: Set<UInt>,
         subordinateId: UInt,
+    ): Map<UInt, OneOnOneLatestStats> = latestStatsByKey(managerIds) { managerId ->
+        (Meetings.managerId eq managerId) and (Meetings.subordinateId eq subordinateId)
+    }
+
+    /**
+     * The mirror of [latestMeetingStats]: for each subordinate in [subordinateIds], the latest
+     * non-deleted 1:1 [managerId] ran with them (directional: the caller is the meeting's
+     * manager) plus its unresolved action-item count, keyed by subordinate. Subordinates with no
+     * such meeting are absent from the map. Counts only — nothing is decrypted.
+     */
+    suspend fun latestMeetingStatsBySubordinate(
+        managerId: UInt,
+        subordinateIds: Set<UInt>,
+    ): Map<UInt, OneOnOneLatestStats> = latestStatsByKey(subordinateIds) { subordinateId ->
+        (Meetings.managerId eq managerId) and (Meetings.subordinateId eq subordinateId)
+    }
+
+    private suspend fun latestStatsByKey(
+        keys: Set<UInt>,
+        pairFor: (UInt) -> Op<Boolean>,
     ): Map<UInt, OneOnOneLatestStats> = suspendTransaction(database) {
-        // One indexed limit-1 lookup per manager (the carry-over query shape in create()); the
-        // set is the caller's managers — a handful — so no multi-group "latest per key" SQL.
+        // One indexed limit-1 lookup per key (the carry-over query shape in create()); the set
+        // is one page of dashboard cards — a handful — so no multi-group "latest per key" SQL.
         val latest = mutableMapOf<UInt, Pair<UInt, String>>()
-        managerIds.forEach { managerId ->
+        keys.forEach { key ->
             Meetings.select(Meetings.id, Meetings.meetingDate)
-                .where {
-                    (Meetings.managerId eq managerId) and
-                        (Meetings.subordinateId eq subordinateId) and active()
-                }
+                .where { pairFor(key) and active() }
                 .orderBy(Meetings.meetingDate to SortOrder.DESC, Meetings.id to SortOrder.DESC)
                 .limit(1)
                 .map { it[Meetings.id].value to it[Meetings.meetingDate] }
                 .singleOrNull()
-                ?.let { latest[managerId] = it }
+                ?.let { latest[key] = it }
         }
         val meetingIds = latest.values.map { it.first }
         val openCounts: Map<UInt, Int> = if (meetingIds.isEmpty()) emptyMap() else {

@@ -16,6 +16,9 @@ type TeamMemberItem = {
   email: string;
   teamId: number;
   teamName: string;
+  lastOneOnOneDate?: string | null;
+  lastOneOnOneOpenItems?: number | null;
+  lastFeedbackAt?: number | null;
 };
 
 
@@ -402,6 +405,128 @@ describe("TeamMembersTable", () => {
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
 
     expect(await screen.findByText(/failed to load team members/i)).toBeInTheDocument();
+  });
+
+  test("managed view renders the per-subordinate stats: relative 1:1 age, open-items badge, last feedback", async () => {
+    // Fake only Date so Intl.RelativeTimeFormat is deterministic while waitFor keeps real timers.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-07-12T12:00:00"));
+    try {
+      setupMocks(
+        mockFetch,
+        membersPage([
+          {
+            userId: 11, name: "Bob Brown", email: "bob@x.test", teamId: 4, teamName: "Support",
+            lastOneOnOneDate: "2026-07-01",
+            lastOneOnOneOpenItems: 2,
+            lastFeedbackAt: new Date("2026-07-10T12:00:00").getTime(),
+          },
+        ]),
+      );
+      renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
+
+      expect(await screen.findByText("Last 1:1")).toBeInTheDocument();
+      expect(screen.getByText("last week")).toBeInTheDocument(); // 11 days ago, week unit
+      expect(screen.getByText("2 open items")).toBeInTheDocument();
+      expect(screen.getByText("Last feedback")).toBeInTheDocument();
+      expect(screen.getByText("2 days ago")).toBeInTheDocument();
+      // Exact values ride in the title attributes.
+      expect(screen.getByText("last week")).toHaveAttribute("title", "Jul 1, 2026");
+      expect(screen.getByText("2 days ago")).toHaveAttribute("title", "2026-07-10 12:00");
+      expect(screen.queryByText("never")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("stats without data render as never, with no open-items badge", async () => {
+    setupMocks(
+      mockFetch,
+      membersPage([
+        {
+          userId: 11, name: "Bob Brown", email: "bob@x.test", teamId: 4, teamName: "Support",
+          lastOneOnOneDate: null, lastOneOnOneOpenItems: null, lastFeedbackAt: null,
+        },
+      ]),
+    );
+    renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
+
+    expect(await screen.findAllByText("never")).toHaveLength(2);
+    expect(screen.queryByText(/open item/)).toBeNull();
+  });
+
+  test("zero open items renders an explicit 0 badge, not never", async () => {
+    setupMocks(
+      mockFetch,
+      membersPage([
+        {
+          userId: 11, name: "Bob Brown", email: "bob@x.test", teamId: 4, teamName: "Support",
+          lastOneOnOneDate: "2026-07-01", lastOneOnOneOpenItems: 0, lastFeedbackAt: null,
+        },
+      ]),
+    );
+    renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
+
+    expect(await screen.findByText("0 open items")).toBeInTheDocument();
+    expect(screen.getAllByText("never")).toHaveLength(1); // only the feedback stat is empty
+  });
+
+  test("a two-team subordinate's single card renders the stats once", async () => {
+    const stats = {
+      lastOneOnOneDate: "2026-07-01", lastOneOnOneOpenItems: 1,
+      lastFeedbackAt: new Date("2026-07-10T12:00:00").getTime(),
+    };
+    setupMocks(
+      mockFetch,
+      membersPage([
+        { userId: 11, name: "Bob Brown", email: "bob@x.test", teamId: 4, teamName: "Support", ...stats },
+        { userId: 11, name: "Bob Brown", email: "bob@x.test", teamId: 3, teamName: "Platform", ...stats },
+      ]),
+    );
+    renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
+
+    expect(await screen.findAllByText("Bob Brown")).toHaveLength(1);
+    expect(screen.getAllByText("1 open item")).toHaveLength(1);
+    expect(screen.getAllByText("Last feedback")).toHaveLength(1);
+  });
+
+  test("the member view never renders stats, even when rows carry the fields", async () => {
+    setupMocks(
+      mockFetch,
+      membersPage([
+        {
+          userId: 11, name: "Bob Brown", email: "bob@x.test", teamId: 4, teamName: "Support",
+          lastOneOnOneDate: "2026-07-01", lastOneOnOneOpenItems: 1, lastFeedbackAt: 1780000000000,
+        },
+      ]),
+    );
+    renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
+
+    await screen.findByText("Bob Brown");
+    expect(screen.queryByText("Last 1:1")).toBeNull();
+    expect(screen.queryByText("Last feedback")).toBeNull();
+  });
+
+  test("switching the reports scope to all hides the stats (indirect rows are unmarked)", async () => {
+    setupMocks(
+      mockFetch,
+      membersPage([
+        {
+          userId: 11, name: "Bob Brown", email: "bob@x.test", teamId: 4, teamName: "Support",
+          lastOneOnOneDate: "2026-07-01", lastOneOnOneOpenItems: 1, lastFeedbackAt: 1780000000000,
+        },
+      ]),
+    );
+    renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
+
+    expect(await screen.findByText("Last 1:1")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+    // happy-dom does not open Mantine comboboxes via userEvent's pointer simulation
+    fireEvent.click(screen.getByLabelText("Reports", { selector: "input" }));
+    fireEvent.click(await screen.findByRole("option", { name: "All reports (including indirect)" }));
+    await waitFor(() => {
+      expect(screen.queryByText("Last 1:1")).toBeNull();
+    });
   });
 
   test("cards keep the API's ordering (first appearance wins for deduped people)", async () => {
