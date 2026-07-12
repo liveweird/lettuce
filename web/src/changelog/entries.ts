@@ -16,6 +16,18 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.12",
+    date: "2026-07-12",
+    en: `Notifications now cover every moment something starts concerning you: managers are notified when feedback about one of their direct reports is delivered; abandoning a draft notifies the subject just like a retraction (the record appears in their list either way); every password change — by you, by an administrator, or via email reset — leaves a notification; and documenting a 1:1 meeting now confirms to the manager as well as the subordinate.`,
+    pl: `Powiadomienia obejmują teraz każdy moment, w którym coś zaczyna Cię dotyczyć: menedżerowie dostają powiadomienie, gdy feedback o ich bezpośrednim podwładnym zostaje dostarczony; porzucenie szkicu powiadamia osobę, której dotyczył, tak samo jak wycofanie (wpis i tak pojawia się na jej liście); każda zmiana hasła — przez Ciebie, przez administratora lub przez reset e-mailem — zostawia powiadomienie; a udokumentowanie spotkania 1:1 potwierdza się teraz także menedżerowi, nie tylko podwładnemu.`,
+  },
+  {
+    version: "1.11.2",
+    date: "2026-07-12",
+    en: `Sending feedback right away with *Save & send* now notifies the recipient (and the requester, for requested feedback) exactly like sending a saved draft does. Previously only the draft path produced notifications — the direct one was silent.`,
+    pl: `Wysłanie feedbacku od razu przyciskiem *Zapisz i wyślij* powiadamia teraz odbiorcę (a przy feedbacku na prośbę także osobę proszącą) dokładnie tak samo, jak wysłanie zapisanego szkicu. Wcześniej powiadomienia powstawały tylko na ścieżce ze szkicem — bezpośrednia wysyłka była cicha.`,
+  },
+  {
     version: "1.11.1",
     date: "2026-07-12",
     en: `Table headers across the app now carry a subtle green tint, so they stand out clearly from the data rows — in both the light and the dark theme.`,

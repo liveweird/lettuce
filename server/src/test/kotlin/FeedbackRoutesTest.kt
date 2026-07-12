@@ -28,6 +28,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import java.util.UUID
 import kotlinx.coroutines.delay
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -1796,6 +1797,105 @@ class FeedbackRoutesTest {
         assertEquals(NotificationType.FEEDBACK_SENT_TO_PROVIDER, providerNote.type)
         assertEquals("Sam Subject", providerNote.params["subject"])
         assertEquals("/feedback/${created.id}/view", providerNote.link)
+    }
+
+    @Test
+    fun `creating directly as sent notifies subject and provider like the draft transition`() = testApplication {
+        usePostgresTestcontainer()
+        val provider = seedParty("provider", "Pat Provider")
+        val subject = seedParty("subject", "Sam Subject")
+        val providerClient = authedClient(provider.email, "pw")
+
+        // "Save & send" — no draft step. Who gets notified must not depend on how the provider
+        // clicked, so this mints the same set as DRAFT -> SENT.
+        val created = providerClient.post("/api/v1/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                FeedbackCreateRequest(
+                    requesterId = null,
+                    subjectId = subject.id,
+                    providerId = provider.id,
+                    visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                    status = FeedbackStatus.SENT,
+                    content = "Straight to sent",
+                )
+            )
+        }.body<FeedbackResponse>()
+
+        val subjectNote = notificationsOf(subject.email).single()
+        assertEquals(NotificationType.FEEDBACK_SENT_TO_SUBJECT, subjectNote.type)
+        assertEquals("Pat Provider", subjectNote.params["provider"])
+        assertEquals("/feedback/${created.id}/view", subjectNote.link)
+
+        val providerNote = notificationsOf(provider.email).single()
+        assertEquals(NotificationType.FEEDBACK_SENT_TO_PROVIDER, providerNote.type)
+        assertEquals("Sam Subject", providerNote.params["subject"])
+        assertEquals("/feedback/${created.id}/view", providerNote.link)
+    }
+
+    @Test
+    fun `delivering feedback notifies the subject's direct manager with a view link`() = testApplication {
+        usePostgresTestcontainer()
+        val provider = seedParty("provider", "Pat Provider")
+        val subject = seedParty("subject", "Sam Subject")
+        val boss = seedParty("boss", "Bess Boss")
+        val teamId = TestServices.teams.create(Team(name = "mgrnote-${UUID.randomUUID()}", managerId = boss.id))
+        TestServices.teams.addMember(teamId, subject.id)
+        val providerClient = authedClient(provider.email, "pw")
+
+        // Even with a visibility that hides the feedback from the subject, the manager gains
+        // read on delivery, so their note carries an unconditional view link.
+        val created = providerClient.post("/api/v1/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                FeedbackCreateRequest(
+                    requesterId = null,
+                    subjectId = subject.id,
+                    providerId = provider.id,
+                    visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                    status = FeedbackStatus.SENT,
+                    content = "For the manager to learn about",
+                )
+            )
+        }.body<FeedbackResponse>()
+
+        val bossNote = notificationsOf(boss.email).single()
+        assertEquals(NotificationType.FEEDBACK_SENT_TO_MANAGER, bossNote.type)
+        assertEquals("Pat Provider", bossNote.params["provider"])
+        assertEquals("Sam Subject", bossNote.params["subject"])
+        assertEquals("/feedback/${created.id}/view", bossNote.link)
+    }
+
+    @Test
+    fun `abandoning a draft notifies the subject`() = testApplication {
+        usePostgresTestcontainer()
+        val provider = seedParty("provider", "Pat Provider")
+        val subject = seedParty("subject", "Sam Subject")
+        val providerClient = authedClient(provider.email, "pw")
+
+        val draft = providerClient.post("/api/v1/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                FeedbackCreateRequest(
+                    requesterId = null,
+                    subjectId = subject.id,
+                    providerId = provider.id,
+                    visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                    status = FeedbackStatus.DRAFT,
+                    content = "Never delivered",
+                )
+            )
+        }.body<FeedbackResponse>()
+        assertEquals(
+            HttpStatusCode.NoContent,
+            providerClient.post("/api/v1/feedbacks/${draft.id}/withdraw").status,
+        )
+
+        // The abandoned draft lands in the subject's Received list as WITHDRAWN — they are told
+        // why the record exists, exactly like a retraction of a sent feedback.
+        val subjectNote = notificationsOf(subject.email).single()
+        assertEquals(NotificationType.FEEDBACK_WITHDRAWN_TO_SUBJECT, subjectNote.type)
+        assertNull(subjectNote.link)
     }
 
     @Test

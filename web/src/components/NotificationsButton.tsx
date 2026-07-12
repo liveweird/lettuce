@@ -24,6 +24,7 @@ import {
   IconChecks,
   IconEyeOff,
   IconExternalLink,
+  IconKey,
   IconMessageQuestion,
   IconPencil,
   IconSend,
@@ -54,12 +55,15 @@ const EVENT_KEY: Record<NotificationItem["type"], string> = {
   FEEDBACK_SENT_TO_SUBJECT: "sentToSubject",
   FEEDBACK_SENT_TO_PROVIDER: "sentToProvider",
   FEEDBACK_SENT_TO_REQUESTER: "sentToRequester",
+  FEEDBACK_SENT_TO_MANAGER: "sentToManager",
   FEEDBACK_REJECTED_TO_REQUESTER: "rejectedToRequester",
   FEEDBACK_PICKED_UP_TO_REQUESTER: "pickedUpToRequester",
   FEEDBACK_WITHDRAWN_TO_SUBJECT: "withdrawnToSubject",
   FEEDBACK_WITHDRAWN_TO_REQUESTER: "withdrawnToRequester",
   FEEDBACK_DELETED_TO_REQUESTER: "deletedToRequester",
   ONE_ON_ONE_CREATED_TO_SUBORDINATE: "oneOnOneCreated",
+  ONE_ON_ONE_CREATED_TO_MANAGER: "oneOnOneCreatedToManager",
+  PASSWORD_CHANGED: "passwordChanged",
 };
 
 function describeNotification(n: NotificationItem, t: TFunction): string {
@@ -78,12 +82,15 @@ const TYPE_META: Record<NotificationItem["type"], { icon: typeof IconBell; color
   FEEDBACK_SENT_TO_SUBJECT: { icon: IconSend, color: "green" },
   FEEDBACK_SENT_TO_PROVIDER: { icon: IconSend, color: "green" },
   FEEDBACK_SENT_TO_REQUESTER: { icon: IconSend, color: "green" },
+  FEEDBACK_SENT_TO_MANAGER: { icon: IconSend, color: "green" },
   FEEDBACK_REJECTED_TO_REQUESTER: { icon: IconX, color: "red" },
   FEEDBACK_PICKED_UP_TO_REQUESTER: { icon: IconPencil, color: "cyan" },
   FEEDBACK_WITHDRAWN_TO_SUBJECT: { icon: IconArrowBackUp, color: "orange" },
   FEEDBACK_WITHDRAWN_TO_REQUESTER: { icon: IconArrowBackUp, color: "orange" },
   FEEDBACK_DELETED_TO_REQUESTER: { icon: IconTrash, color: "gray" },
   ONE_ON_ONE_CREATED_TO_SUBORDINATE: { icon: IconCalendarEvent, color: "grape" },
+  ONE_ON_ONE_CREATED_TO_MANAGER: { icon: IconCalendarEvent, color: "grape" },
+  PASSWORD_CHANGED: { icon: IconKey, color: "orange" },
 };
 
 // Poll the bell so notifications minted elsewhere (e.g. someone sending you feedback) show up

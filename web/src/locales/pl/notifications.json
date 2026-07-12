@@ -24,6 +24,8 @@
     "sentToProvider": "Wystawiony przez Ciebie feedback na temat {{subject}} został wysłany.",
     "sentToRequester": "Feedback od {{provider}} na temat {{subject}} (na Twoją prośbę) został wysłany.",
     "sentToRequester_self": "Autorefleksja, o którą prosiłeś/aś {{provider}}, została wysłana.",
+    "sentToManager": "{{provider}} wysłał/a feedback na temat {{subject}} — osoby, która Ci podlega.",
+    "sentToManager_self": "{{subject}} — osoba, która Ci podlega — udostępnił/a autorefleksję.",
     "rejectedToRequester": "{{provider}} odmówił/a wystawienia feedbacku na temat {{subject}}.",
     "rejectedToRequester_self": "{{provider}} odmówił/a napisania autorefleksji.",
     "pickedUpToRequester": "{{provider}} przygotowuje właśnie feedback na temat {{subject}}.",
@@ -33,7 +35,11 @@
     "withdrawnToRequester_self": "{{provider}} wycofał/a swoją autorefleksję (o którą prosiłeś/aś).",
     "deletedToRequester": "{{provider}} usunął/usunęła swój feedback na temat {{subject}} (o który prosiłeś/aś).",
     "deletedToRequester_self": "{{provider}} usunął/usunęła swoją autorefleksję (o którą prosiłeś/aś).",
-    "oneOnOneCreated": "{{manager}} udokumentował/a spotkanie 1:1 z Tobą ({{date}})."
+    "oneOnOneCreated": "{{manager}} udokumentował/a spotkanie 1:1 z Tobą ({{date}}).",
+    "oneOnOneCreatedToManager": "Udokumentowałeś/aś spotkanie 1:1 z {{subordinate}} ({{date}}).",
+    "passwordChanged": "Twoje hasło zostało zmienione.",
+    "passwordChanged_admin": "Administrator zmienił Twoje hasło.",
+    "passwordChanged_reset": "Twoje hasło zostało zresetowane przez e-mail."
   },
   "delete": "Usuń",
   "deleteAria": "Usuń powiadomienie {{id}}"

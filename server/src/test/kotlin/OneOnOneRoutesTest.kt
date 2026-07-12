@@ -696,9 +696,9 @@ class OneOnOneRoutesTest {
     // ---- notification ----
 
     @Test
-    fun `creating a meeting notifies the subordinate with a view link - once, on creation only`() = testApplication {
+    fun `creating a meeting notifies both parties with view links - once, on creation only`() = testApplication {
         usePostgresTestcontainer()
-        val pair = seedPair(managerName = "Nadia Notifier")
+        val pair = seedPair(managerName = "Nadia Notifier", subordinateName = "Sub Sam")
         val manager = authedClient(pair.managerEmail, "pw")
         val meeting = manager.createMeeting(pair.subordinateId, "2026-07-01")
 
@@ -708,6 +708,13 @@ class OneOnOneRoutesTest {
         assertEquals("/one-on-ones/${meeting.id}/view", note.link)
         assertEquals("Nadia Notifier", note.params["manager"])
         assertEquals("2026-07-01", note.params["date"])
+
+        // The manager (author) gets a confirmation with the subordinate's name.
+        val managerNote = manager.get("/api/v1/notifications").body<NotificationPageResponse>()
+            .items.single { it.type == NotificationType.ONE_ON_ONE_CREATED_TO_MANAGER }
+        assertEquals("/one-on-ones/${meeting.id}/view", managerNote.link)
+        assertEquals("Sub Sam", managerNote.params["subordinate"])
+        assertEquals("2026-07-01", managerNote.params["date"])
 
         // Edits and deletions notify nobody.
         manager.put("/api/v1/one-on-ones/${meeting.id}") {
@@ -719,6 +726,11 @@ class OneOnOneRoutesTest {
         assertEquals(
             1,
             after.items.count { it.type == NotificationType.ONE_ON_ONE_CREATED_TO_SUBORDINATE },
+        )
+        val managerAfter = manager.get("/api/v1/notifications").body<NotificationPageResponse>()
+        assertEquals(
+            1,
+            managerAfter.items.count { it.type == NotificationType.ONE_ON_ONE_CREATED_TO_MANAGER },
         )
     }
 }
