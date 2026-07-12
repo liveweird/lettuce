@@ -122,11 +122,11 @@ describe("ManagerFeedbacks page", () => {
     expect(editLink).toHaveAttribute("href", expect.stringContaining(`back=${back}`));
   });
 
-  test("the Create feedback button targets the create flow scoped to the manager", async () => {
+  test("the New feedback button targets the create flow scoped to the manager", async () => {
     renderScreen();
 
     const back = encodeURIComponent("/users/10/feedbacks?name=Alice");
-    const createLink = await screen.findByRole("link", { name: /create feedback for alice/i });
+    const createLink = await screen.findByRole("link", { name: /new feedback for alice/i });
     expect(createLink).toHaveAttribute("href", expect.stringContaining("/feedback/new"));
     expect(createLink).toHaveAttribute("href", expect.stringContaining("subjectId=10"));
     expect(createLink).toHaveAttribute("href", expect.stringContaining(`back=${back}`));
@@ -161,7 +161,7 @@ describe("ManagerFeedbacks page", () => {
     const back = encodeURIComponent("/users/10/feedbacks?name=Alice&from=peers");
     const editLink = await screen.findByRole("link", { name: /edit feedback for alice/i });
     expect(editLink).toHaveAttribute("href", expect.stringContaining(`back=${back}`));
-    const createLink = await screen.findByRole("link", { name: /create feedback for alice/i });
+    const createLink = await screen.findByRole("link", { name: /new feedback for alice/i });
     expect(createLink).toHaveAttribute("href", expect.stringContaining(`back=${back}`));
   });
 

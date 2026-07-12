@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -143,5 +143,21 @@ describe("UserOneOnOnes page", () => {
 
     renderScreen("/users/abc/one-on-ones?from=subordinates");
     expect(screen.getByTestId("probe")).toHaveTextContent("/?tab=subordinates");
+  });
+
+  test("from=subordinates offers New 1:1 with the person preselected; from=managers does not", async () => {
+    renderScreen("/users/10/one-on-ones?name=Alice&from=subordinates");
+    const back = encodeURIComponent("/users/10/one-on-ones?name=Alice&from=subordinates");
+    expect(await screen.findByRole("link", { name: "New 1:1" })).toHaveAttribute(
+      "href",
+      `/one-on-ones/new?subordinateId=10&subordinateName=Alice&back=${back}`,
+    );
+
+    // Reached from the managers card, the counterpart is the caller's own manager — a 1:1
+    // can only be created with a direct report, so no button.
+    cleanup();
+    renderScreen();
+    await screen.findByRole("link", { name: /back to my managers/i });
+    expect(screen.queryByRole("link", { name: "New 1:1" })).toBeNull();
   });
 });

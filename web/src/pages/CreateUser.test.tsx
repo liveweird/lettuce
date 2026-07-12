@@ -283,6 +283,6 @@ describe("CreateUser page", () => {
     renderCreateUser();
 
     expect(screen.getByTestId("probe")).toHaveTextContent("/users");
-    expect(screen.queryByRole("heading", { name: /create user/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /new user/i })).not.toBeInTheDocument();
   });
 });

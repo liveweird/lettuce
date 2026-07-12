@@ -2,7 +2,7 @@
   "title": "Templates",
   "template": "Template",
   "empty": "No templates",
-  "create": "Create template",
+  "create": "New template",
   "edit": "Edit template",
   "contentPlaceholder": "Write the template content…",
   "notFound": "Template not found.",

@@ -1,4 +1,5 @@
-import { Anchor, Stack, Text, Title } from "@mantine/core";
+import { Anchor, Button, Group, Stack, Text, Title } from "@mantine/core";
+import { IconPlus } from "@tabler/icons-react";
 import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import OneOnOneTable from "./OneOnOneTable";
@@ -60,6 +61,21 @@ export default function UserOneOnOnes() {
         backTo={backTo}
         settingsKey="userOneOnOnes"
       />
+
+      {fromParam === "subordinates" && (
+        // The meetings list's "New 1:1", with this person preselected (the prefilled create
+        // flow). Only the subordinates origin: a 1:1 needs a direct report — reached from the
+        // managers card, the counterpart is the caller's own manager. Cancel returns here.
+        <Group justify="flex-end">
+          <Button
+            component={RouterLink}
+            to={`/one-on-ones/new?subordinateId=${userId}${name ? `&subordinateName=${encodeURIComponent(name)}` : ""}&back=${encodeURIComponent(backTo)}`}
+            leftSection={<IconPlus size={16} />}
+          >
+            {t("oneOnOne.newMeeting")}
+          </Button>
+        </Group>
+      )}
     </Stack>
   );
 }

@@ -3,6 +3,7 @@ package ch.nokillswit
 import ch.nokillswit.notifications.NotificationPageResponse
 import ch.nokillswit.notifications.NotificationType
 import ch.nokillswit.oneonones.ActionItemHistoryResponse
+import ch.nokillswit.plugins.ProblemDetail
 import ch.nokillswit.oneonones.ActionItemOwner
 import ch.nokillswit.oneonones.OneOnOneActionItemInput
 import ch.nokillswit.oneonones.OneOnOneCreateRequest
@@ -274,9 +275,9 @@ class OneOnOneRoutesTest {
         assertEquals(first.actionItems.single().id, secondCopy.copiedFromId)
         assertEquals("2026-07-01", secondCopy.firstAppearedOn)
 
-        // A back-dated third meeting still pulls from the latest (2026-07-08) meeting — the
-        // documented rule — so its copy chains off the SECOND meeting's copy.
-        val third = manager.createMeeting(pair.subordinateId, "2026-07-05")
+        // The third meeting pulls from the latest (2026-07-08) meeting, so its copy chains off
+        // the SECOND meeting's copy — a copy-of-copy.
+        val third = manager.createMeeting(pair.subordinateId, "2026-07-15")
         val thirdCopy = third.actionItems.single()
         assertEquals(secondCopy.id, thirdCopy.copiedFromId)
         // The origin date is the chain ROOT's meeting, not the immediate parent's.
@@ -452,16 +453,7 @@ class OneOnOneRoutesTest {
         assertEquals(false, listed.items.single { it.id == m1.id }.isLatest)
         assertEquals(true, listed.items.single { it.id == m2.id }.isLatest)
 
-        // A back-dated meeting created later is NOT the latest — date ordering wins, exactly
-        // like carry-over; the newest-dated meeting stays the editable one.
-        val m3 = manager.createMeeting(pair.subordinateId, "2026-07-05")
-        assertEquals(
-            HttpStatusCode.Conflict,
-            manager.put("/api/v1/one-on-ones/${m3.id}") {
-                contentType(ContentType.Application.Json)
-                setBody(m3.toUpdate())
-            }.status,
-        )
+        // The latest stays editable.
         assertEquals(
             HttpStatusCode.NoContent,
             manager.put("/api/v1/one-on-ones/${m2.id}") {
@@ -470,14 +462,72 @@ class OneOnOneRoutesTest {
             }.status,
         )
 
-        // The rule is dynamic: deleting the latest promotes the next one back to editable.
+        // The rule is dynamic: deleting the latest promotes the previous one back to editable.
         assertEquals(HttpStatusCode.NoContent, manager.delete("/api/v1/one-on-ones/${m2.id}").status)
         assertEquals(
             HttpStatusCode.NoContent,
-            manager.put("/api/v1/one-on-ones/${m3.id}") {
+            manager.put("/api/v1/one-on-ones/${m1.id}") {
                 contentType(ContentType.Application.Json)
-                setBody(m3.toUpdate().copy(meetingDate = "2026-07-06"))
+                setBody(m1.toUpdate().copy(meetingDate = "2026-07-02"))
             }.status,
+        )
+    }
+
+    @Test
+    fun `meetings are documented chronologically - a back-dated create or edit is rejected`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val manager = authedClient(pair.managerEmail, "pw")
+
+        val m1 = manager.createMeeting(pair.subordinateId, "2026-07-01")
+        val m2 = manager.createMeeting(pair.subordinateId, "2026-07-08")
+
+        // A create dated before the pair's latest meeting is rejected; the detail names the
+        // conflicting date.
+        val backdated = manager.post("/api/v1/one-on-ones") {
+            contentType(ContentType.Application.Json)
+            setBody(OneOnOneCreateRequest(pair.subordinateId, "2026-07-05", emptyList(), emptyList(), emptyList()))
+        }
+        assertEquals(HttpStatusCode.Conflict, backdated.status)
+        assertTrue(backdated.body<ProblemDetail>().detail!!.contains("2026-07-08"))
+
+        // The SAME date is a legitimate same-day follow-up.
+        val sameDay = manager.createMeeting(pair.subordinateId, "2026-07-08")
+        assertEquals(HttpStatusCode.NoContent, manager.delete("/api/v1/one-on-ones/${sameDay.id}").status)
+
+        // Editing the (latest) meeting's date below the previous meeting's is rejected too …
+        assertEquals(
+            HttpStatusCode.Conflict,
+            manager.put("/api/v1/one-on-ones/${m2.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(m2.toUpdate().copy(meetingDate = "2026-06-30"))
+            }.status,
+        )
+        // … while equal to the previous is allowed.
+        assertEquals(
+            HttpStatusCode.NoContent,
+            manager.put("/api/v1/one-on-ones/${m2.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(m2.toUpdate().copy(meetingDate = "2026-07-01"))
+            }.status,
+        )
+
+        // The read response exposes the floor the edit form uses as the date input's min.
+        assertEquals(
+            "2026-07-01",
+            manager.get("/api/v1/one-on-ones/${m2.id}").body<OneOnOneResponse>().minMeetingDate,
+        )
+        assertEquals(
+            "2026-07-01",
+            manager.get("/api/v1/one-on-ones/${m1.id}").body<OneOnOneResponse>().minMeetingDate,
+        )
+
+        // A fresh pair's FIRST meeting accepts any date — there is nothing to be ordered against.
+        val freshPair = seedPair()
+        val old = authedClient(freshPair.managerEmail, "pw").createMeeting(freshPair.subordinateId, "2020-01-01")
+        assertNull(
+            authedClient(freshPair.managerEmail, "pw")
+                .get("/api/v1/one-on-ones/${old.id}").body<OneOnOneResponse>().minMeetingDate,
         )
     }
 

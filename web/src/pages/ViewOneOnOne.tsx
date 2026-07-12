@@ -34,7 +34,10 @@ export default function ViewOneOnOne() {
   const [searchParams] = useSearchParams();
   const from = searchParams.get("from") ?? "own";
   const backOverride = searchParams.get("back");
-  const backTo = backOverride ?? `/one-on-ones?tab=${from === "team" ? "team" : "own"}`;
+  // `from` mirrors the originating tab (own/managed/team); unknown values fall back to own.
+  // The drill-down flows pass an explicit `back` override instead, which always wins.
+  const backTab = from === "team" || from === "managed" ? from : "own";
+  const backTo = backOverride ?? `/one-on-ones?tab=${backTab}`;
   const [historyItemId, setHistoryItemId] = useState<number | null>(null);
 
   const id = Number(params.id);

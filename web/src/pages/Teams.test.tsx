@@ -302,22 +302,22 @@ describe("Teams page", () => {
     expect(await screen.findByText(/no teams/i)).toBeInTheDocument();
   });
 
-  test("admin sees a 'Create team' link below the table pointing at /teams/new", async () => {
+  test("admin sees a 'New team' link below the table pointing at /teams/new", async () => {
     setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
     renderTeams();
 
     await screen.findByText("Platform");
-    const link = screen.getByRole("link", { name: /create team/i });
+    const link = screen.getByRole("link", { name: /new team/i });
     expect(link).toHaveAttribute("href", "/teams/new");
   });
 
-  test("non-admin does not see a 'Create team' link", async () => {
+  test("non-admin does not see a 'New team' link", async () => {
     localStorage.setItem(ROLE_KEY, "USER");
     setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
     renderTeams();
 
     await screen.findByText("Platform");
-    expect(screen.queryByRole("link", { name: /create team/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /new team/i })).not.toBeInTheDocument();
   });
 
   test("shows '(deleted)' suffix when the manager is soft-deleted", async () => {

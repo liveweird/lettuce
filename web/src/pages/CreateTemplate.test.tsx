@@ -55,7 +55,7 @@ describe("CreateTemplate page", () => {
 
   test("admin sees the form with Name and a WYSIWYG Content field", async () => {
     renderCreateTemplate();
-    expect(await screen.findByRole("heading", { name: /create template/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /new template/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/name/i)).toBeInTheDocument();
     expect(await screen.findByLabelText(/content/i)).toBeInTheDocument();
     // The old side-by-side Preview pane is gone — the editor renders markdown in place.
@@ -207,7 +207,7 @@ describe("CreateTemplate page", () => {
     localStorage.setItem(ROLE_KEY, "USER");
     renderCreateTemplate();
     expect(screen.getByTestId("probe")).toHaveTextContent("/templates");
-    expect(screen.queryByRole("heading", { name: /create template/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /new template/i })).not.toBeInTheDocument();
   });
 
   test("Cancel opens a discard confirmation whose Discard links back to /templates", async () => {

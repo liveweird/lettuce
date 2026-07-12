@@ -1,5 +1,6 @@
 package ch.nokillswit.oneonones
 
+import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.infra.crypto.FieldCipher
 import ch.nokillswit.infra.db.containsPattern
 import ch.nokillswit.infra.paging.PageRequest
@@ -102,15 +103,16 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
     private fun active(): Op<Boolean> = Meetings.markedAsDeleted eq false
 
     /**
-     * The pair's latest non-deleted meeting by `(meeting_date DESC, id DESC)` — the canonical
-     * ordering shared by carry-over, the dashboard stats, and the latest-only write rule.
-     * [excludeId] lets create() ignore the row it just inserted. Runs in the caller's transaction.
+     * The pair's latest non-deleted meeting — `(id, meetingDate)` by the canonical
+     * `(meeting_date DESC, id DESC)` ordering shared by carry-over, the dashboard stats, the
+     * latest-only write rule, and the chronological-order rule. [excludeId] lets read() find
+     * the PREVIOUS meeting relative to the one being read. Runs in the caller's transaction.
      */
-    private suspend fun latestMeetingIdOfPair(
+    private suspend fun latestMeetingOfPair(
         managerId: UInt,
         subordinateId: UInt,
         excludeId: UInt? = null,
-    ): UInt? = Meetings.select(Meetings.id)
+    ): Pair<UInt, String>? = Meetings.select(Meetings.id, Meetings.meetingDate)
         .where {
             (Meetings.managerId eq managerId) and
                 (Meetings.subordinateId eq subordinateId) and
@@ -119,7 +121,7 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
         }
         .orderBy(Meetings.meetingDate to SortOrder.DESC, Meetings.id to SortOrder.DESC)
         .limit(1)
-        .map { it[Meetings.id].value }
+        .map { it[Meetings.id].value to it[Meetings.meetingDate] }
         .singleOrNull()
 
     /** Whether [subordinateId] is currently a direct report of [managerId] (the create-time rule). */
@@ -194,10 +196,22 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
      * Inserts the meeting, copies the unresolved action items of the pair's previous meeting
      * (latest non-deleted one by meeting date, id as tiebreaker) ahead of any items supplied in
      * the request, and returns the id, the carried-over count, and the subordinate's creation
-     * notification (the caller persists it).
+     * notification (the caller persists it). 1:1s are documented chronologically: a meeting
+     * dated STRICTLY earlier than the pair's latest is rejected with 409 (same date is fine —
+     * a same-day follow-up; the pair's first meeting accepts any date).
      */
     suspend fun create(managerId: UInt, request: OneOnOneCreateRequest): OneOnOneCreateResult =
         suspendTransaction(database) {
+            // Resolved BEFORE the insert: it both enforces the chronological rule and is the
+            // carry-over source. ISO dates compare chronologically as strings.
+            val previous = latestMeetingOfPair(managerId, request.subordinateId)
+            if (previous != null && request.meetingDate < previous.second) {
+                throw ConflictException(
+                    "A later 1:1 with this person is already documented (${previous.second}) — " +
+                        "meetings are recorded in chronological order",
+                )
+            }
+
             val meetingId = Meetings.insert {
                 it[this.managerId] = managerId
                 it[subordinateId] = request.subordinateId
@@ -205,7 +219,7 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
                 it[lastModified] = System.currentTimeMillis()
             }[Meetings.id].value
 
-            val previousId = latestMeetingIdOfPair(managerId, request.subordinateId, excludeId = meetingId)
+            val previousId = previous?.first
 
             var carried = 0
             if (previousId != null) {
@@ -297,10 +311,12 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
         val firstAppearances = firstAppearanceDates(items)
         // The latest-only write rule: PUT/DELETE reject non-latest meetings, the SPA hides
         // their edit affordances.
-        val isLatest = latestMeetingIdOfPair(
-            row[Meetings.managerId].value,
-            row[Meetings.subordinateId].value,
-        ) == id
+        val managerId = row[Meetings.managerId].value
+        val subordinateId = row[Meetings.subordinateId].value
+        val isLatest = latestMeetingOfPair(managerId, subordinateId)?.first == id
+        // The chronological floor for edits: the pair's previous meeting's date (the edit form
+        // sets it as the date input's `min`; the PUT route rejects anything below it).
+        val minMeetingDate = latestMeetingOfPair(managerId, subordinateId, excludeId = id)?.second
 
         OneOnOneResponse(
             id = id,
@@ -311,6 +327,7 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
             meetingDate = row[Meetings.meetingDate],
             lastModified = row[Meetings.lastModified],
             isLatest = isLatest,
+            minMeetingDate = minMeetingDate,
             points = notes.filter { it[Notes.kind] == NoteKind.POINT }.map { it.toItemResponse() },
             decisions = notes.filter { it[Notes.kind] == NoteKind.DECISION }.map { it.toItemResponse() },
             actionItems = items.map { it.toActionItemResponse(firstAppearances[it[ActionItems.id].value]) },
@@ -432,7 +449,7 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
         val latestByPair: Map<Pair<UInt, UInt>, UInt?> = rows
             .map { it[Meetings.managerId].value to it[Meetings.subordinateId].value }
             .toSet()
-            .associateWith { (managerId, subordinateId) -> latestMeetingIdOfPair(managerId, subordinateId) }
+            .associateWith { (managerId, subordinateId) -> latestMeetingOfPair(managerId, subordinateId)?.first }
 
         val items = rows.map { row ->
             val meetingId = row[Meetings.id].value

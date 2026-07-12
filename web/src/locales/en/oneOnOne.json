@@ -61,10 +61,12 @@
   "itemRequired": "The entry must not be empty",
   "itemTooLong": "The entry must be at most 4000 characters",
   "dateRequired": "Pick the meeting date",
+  "dateBeforePrevious": "Cannot be before the previous meeting ({{date}}).",
   "error": {
     "permission": "You are not allowed to change this 1:1 meeting.",
     "gone": "This 1:1 meeting no longer exists.",
     "notLatest": "Only the most recent 1:1 meeting with this person can be changed — a newer one exists.",
+    "backdated": "This date is earlier than the last 1:1 with this person — meetings are recorded in chronological order.",
     "validation": "The meeting could not be saved — check the dates and entries.",
     "saveFailedStatus": "Saving failed (HTTP {{status}}).",
     "saveFailed": "Saving failed. Check your connection and try again.",

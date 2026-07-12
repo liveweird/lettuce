@@ -99,6 +99,12 @@ data class OneOnOneResponse(
      * are immutable records (PUT/DELETE → 409) and the SPA opens them read-only.
      */
     val isLatest: Boolean = true,
+    /**
+     * The pair's PREVIOUS meeting's date — the chronological floor for this meeting's date
+     * (1:1s are documented in order: PUT rejects a date below it with 409, and the edit form
+     * sets it as the date input's `min`). Null when this is the pair's first meeting.
+     */
+    val minMeetingDate: String? = null,
 )
 
 @Serializable

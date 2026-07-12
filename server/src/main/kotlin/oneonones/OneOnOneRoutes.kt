@@ -229,6 +229,14 @@ fun Application.configureOneOnOneRoutes() {
                 validateOneOnOnePayload(
                     request.meetingDate, request.points, request.decisions, request.actionItems,
                 )
+                // Chronological rule: the (latest) meeting's date may not move below the pair's
+                // previous meeting — 1:1s are documented in order.
+                if (existing.minMeetingDate != null && request.meetingDate < existing.minMeetingDate) {
+                    throw ConflictException(
+                        "An earlier 1:1 with this person is already documented (${existing.minMeetingDate}) — " +
+                            "meetings are recorded in chronological order",
+                    )
+                }
                 val updated = oneOnOneService.replace(route.id, request)
                 if (updated == 0) {
                     call.respondProblem(HttpStatusCode.NotFound, "1:1 meeting not found")

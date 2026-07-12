@@ -71,7 +71,8 @@ export default function EditOneOnOne() {
 
   const form = useForm<OneOnOneFormValues>({
     initialValues: { meetingDate: "", points: [], decisions: [], actionItems: [] },
-    validate: oneOnOneFormValidation(t),
+    // Chronological floor: the date may not go below the pair's previous meeting.
+    validate: oneOnOneFormValidation(t, data?.minMeetingDate),
   });
 
   // One-shot: seed the form once the document arrives (initialize is a no-op afterwards).
@@ -80,17 +81,29 @@ export default function EditOneOnOne() {
   }
 
   if (!idIsValid) return <Navigate to={backTo} replace />;
+  // Redirects to the read-only view keep the originating context (`from` tab / `back`
+  // override), so its Close button returns where the user actually started.
+  const viewSearch = `?from=${from}${backOverride ? `&back=${encodeURIComponent(backOverride)}` : ""}`;
   // Only the manager edits; anyone else who can read lands on the view screen.
   if (data && getUserId() !== data.managerId) {
-    return <Navigate to={`/one-on-ones/${id}/view`} replace />;
+    return <Navigate to={`/one-on-ones/${id}/view${viewSearch}`} replace />;
   }
   // Older meetings of the pair are immutable records (the server would 409) — only the
   // latest is editable, so anything else opens read-only.
   if (data && data.isLatest === false) {
-    return <Navigate to={`/one-on-ones/${id}/view`} replace />;
+    return <Navigate to={`/one-on-ones/${id}/view${viewSearch}`} replace />;
   }
 
   async function save(values: OneOnOneFormValues) {
+    // Belt-and-braces for the chronological rule (the validate rules and the input's `min`
+    // usually catch it first; the server 409 is the final backstop).
+    if (data?.minMeetingDate != null && values.meetingDate < data.minMeetingDate) {
+      form.setFieldError(
+        "meetingDate",
+        t("oneOnOne.dateBeforePrevious", { date: data.minMeetingDate }),
+      );
+      return;
+    }
     setError(null);
     setSubmitting(true);
     try {
@@ -159,6 +172,8 @@ export default function EditOneOnOne() {
                     type="date"
                     label={t("oneOnOne.meetingDate")}
                     w={180}
+                    // The pair's previous meeting is the chronological floor (server: 409).
+                    min={data.minMeetingDate ?? undefined}
                     {...form.getInputProps("meetingDate")}
                   />
                 </Group>
