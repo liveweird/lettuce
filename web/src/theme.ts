@@ -1,4 +1,5 @@
-import { createTheme, type MantineColorsTuple } from "@mantine/core";
+import { createTheme, Table, type MantineColorsTuple } from "@mantine/core";
+import classes from "./theme.module.css";
 
 // "Lettuce" brand palette — a fresh leaf-green scale (light → dark, indices 0–9).
 const lettuce: MantineColorsTuple = [
@@ -28,4 +29,9 @@ export const theme = createTheme({
   colors: { lettuce },
   fontFamily: sans,
   headings: { fontFamily: sans, fontWeight: "650" },
+  components: {
+    // Every data table in the app: tint the header row so it stands apart from data rows
+    // (see theme.module.css). New tables inherit this automatically.
+    Table: Table.extend({ classNames: { thead: classes.tableHead } }),
+  },
 });

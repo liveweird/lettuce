@@ -1,0 +1,10 @@
+/* All data-table headers: distinguish the thead from data rows with a light brand tint —
+   light scheme: the lightest lettuce green; dark scheme: the body dark grey (dark-7, what the
+   header showed before) nudged toward the brand green, so it reads as "the same grey, tinted"
+   rather than a different grey. Wired theme-wide via Table.extend in theme.ts. */
+.tableHead {
+  background-color: light-dark(
+    var(--mantine-color-lettuce-0),
+    color-mix(in srgb, var(--mantine-color-dark-7) 90%, var(--mantine-color-lettuce-4) 10%)
+  );
+}
