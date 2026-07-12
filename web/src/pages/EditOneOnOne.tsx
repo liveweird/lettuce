@@ -146,7 +146,8 @@ export default function EditOneOnOne() {
           ) : data ? (
             <form onSubmit={form.onSubmit(save)} noValidate>
               <Stack>
-                <Group gap="xl" align="flex-end">
+                {/* PersonaField matches the input height, so the row needs no special align. */}
+                <Group gap="xl">
                   <PersonaField label={t("oneOnOne.manager")} you />
                   <PersonaField label={t("oneOnOne.subordinate")} name={data.subordinateName} />
                   <TextInput
