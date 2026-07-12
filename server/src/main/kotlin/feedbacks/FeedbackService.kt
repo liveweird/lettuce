@@ -7,6 +7,7 @@ import ch.nokillswit.infra.db.decodeParams
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.notifications.Notification
+import ch.nokillswit.teams.directManagerIds
 import ch.nokillswit.teams.directSubordinateIds
 import ch.nokillswit.teams.isInManagementChain
 import ch.nokillswit.teams.transitiveSubordinateIds
@@ -114,11 +115,13 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
             it[lastModified] = System.currentTimeMillis()
         }
         val id = newRecord[Feedbacks.id].value
-        val notifications = if (feedback.status == FeedbackStatus.REQUESTED) {
-            feedbackCreationNotifications(id, feedback, resolvePartyNames(feedback))
-        } else {
-            emptyList()
-        }
+        // The pure mapping decides per status (REQUESTED and direct-SENT notify; DRAFT doesn't).
+        val notifications = feedbackCreationNotifications(
+            id,
+            feedback,
+            resolvePartyNames(feedback),
+            subjectManagerNames = resolveSubjectManagerNames(feedback),
+        )
         FeedbackCreateResult(id, notifications)
     }
 
@@ -191,8 +194,34 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
                 it[lastModified] = System.currentTimeMillis()
             }
             val next = current.copy(status = target)
-            feedbackTransitionNotifications(id, current.status, next, resolvePartyNames(next))
+            feedbackTransitionNotifications(
+                id,
+                current.status,
+                next,
+                resolvePartyNames(next),
+                subjectManagerNames = resolveSubjectManagerNames(next),
+            )
         }
+    }
+
+    /**
+     * id → name of the subject's direct managers, resolved only when the feedback lands in SENT
+     * (the moment they gain read access — see feedbackTransitionNotifications); empty otherwise,
+     * so non-SENT paths pay no extra queries. Soft-deleted managers are skipped.
+     */
+    private suspend fun resolveSubjectManagerNames(feedback: Feedback): Map<UInt, String> {
+        if (feedback.status != FeedbackStatus.SENT) return emptyMap()
+        val managerIds = directManagerIds(feedback.subjectId)
+        if (managerIds.isEmpty()) return emptyMap()
+        return UserService.Users
+            .select(UserService.Users.id, UserService.Users.name)
+            .where {
+                (UserService.Users.id inList managerIds) and
+                    (UserService.Users.markedAsDeleted eq false)
+            }
+            .map { it[UserService.Users.id].value to it[UserService.Users.name] }
+            .toList()
+            .toMap()
     }
 
     /** Transaction-wrapped variant for callers outside an open transaction (e.g. routes). */

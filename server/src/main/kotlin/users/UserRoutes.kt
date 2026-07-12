@@ -13,6 +13,9 @@ import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAdmin
 import ch.nokillswit.authz.requireCanAssignRole
 import ch.nokillswit.authz.requireSelfOrAdmin
+import ch.nokillswit.notifications.Notification
+import ch.nokillswit.notifications.NotificationServiceKey
+import ch.nokillswit.notifications.NotificationType
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.optionalEnum
 import ch.nokillswit.infra.paging.optionalString
@@ -64,6 +67,8 @@ private const val MAX_IMPORT_CSV_CHARS = 256 * 1024
 
 fun Application.configureUserRoutes() {
     val userService = attributes[UserServiceKey]
+    // For the password-changed notification (published by configureDatabase, which loads earlier).
+    val notificationService = attributes[NotificationServiceKey]
     val mailer = mailer()
     val mailAppUrl = mailAppUrl()
 
@@ -306,6 +311,16 @@ fun Application.configureUserRoutes() {
                         "targetUserId" to route.parent.id.toLong(),
                         "byUserId" to caller.userId.toLong(),
                         "selfChange" to (caller.userId == route.parent.id),
+                    )
+                    // The affected user always learns their credential changed — a plain
+                    // confirmation on self-change, an "administrator changed it" wording (the
+                    // `self` param drives the i18next context) when someone else did.
+                    notificationService.create(
+                        Notification(
+                            recipientId = route.parent.id,
+                            type = NotificationType.PASSWORD_CHANGED,
+                            params = if (caller.userId == route.parent.id) emptyMap() else mapOf("self" to "admin"),
+                        ),
                     )
                     call.respond(HttpStatusCode.NoContent)
                 }

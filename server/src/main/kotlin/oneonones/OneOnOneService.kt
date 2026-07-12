@@ -230,13 +230,16 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
             }
 
             val managerName = userName(managerId) ?: "#$managerId"
+            val subordinateName = userName(request.subordinateId) ?: "#${request.subordinateId}"
             OneOnOneCreateResult(
                 id = meetingId,
                 carriedOver = carried,
                 notifications = oneOnOneCreationNotifications(
                     meetingId = meetingId,
+                    managerId = managerId,
                     subordinateId = request.subordinateId,
                     managerName = managerName,
+                    subordinateName = subordinateName,
                     meetingDate = request.meetingDate,
                 ),
             )

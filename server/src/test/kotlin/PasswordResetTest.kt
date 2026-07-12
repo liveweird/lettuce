@@ -2,6 +2,10 @@ package ch.nokillswit
 
 import ch.nokillswit.auth.LoginRequest
 import ch.nokillswit.auth.PasswordResetRequest
+import ch.nokillswit.notifications.NotificationPageResponse
+import ch.nokillswit.notifications.NotificationType
+import io.ktor.client.call.body
+import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
@@ -62,6 +66,13 @@ class PasswordResetTest {
                 setBody(LoginRequest(email, "old-password-123"))
             }
             assertEquals(HttpStatusCode.Unauthorized, oldLogin.status, "the old password must be dead")
+
+            // The owner finds a "password was reset via email" notification after signing in
+            // (minted before the completion audit event awaited above, so no race here).
+            val note = authedClient(email, newPassword)
+                .get("/api/v1/notifications").body<NotificationPageResponse>().items.single()
+            assertEquals(NotificationType.PASSWORD_CHANGED, note.type)
+            assertEquals("reset", note.params["self"])
         } finally {
             mail.detach()
             auditEvents.detach()

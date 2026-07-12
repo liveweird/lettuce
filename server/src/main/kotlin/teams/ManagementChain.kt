@@ -49,6 +49,13 @@ suspend fun isInManagementChain(managerId: UInt, subjectId: UInt): Boolean {
     return false
 }
 
+/**
+ * [userId]'s direct managers: the managers of the non-deleted teams they are a member of.
+ * Never includes [userId] themselves (a manager who is also a member of their own team).
+ * Runs in the caller's transaction.
+ */
+suspend fun directManagerIds(userId: UInt): Set<UInt> = managersOf(setOf(userId)) - userId
+
 /** Managers of the non-deleted teams the [userIds] are members of. Runs in the caller's transaction. */
 private suspend fun managersOf(userIds: Set<UInt>): Set<UInt> =
     TeamService.TeamMembers

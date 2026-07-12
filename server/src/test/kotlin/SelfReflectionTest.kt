@@ -7,6 +7,7 @@ import ch.nokillswit.feedbacks.FeedbackResponse
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
 import ch.nokillswit.notifications.NotificationPageResponse
+import ch.nokillswit.notifications.NotificationType
 import ch.nokillswit.teams.Team
 import ch.nokillswit.users.UserRole
 import io.ktor.client.HttpClient
@@ -137,6 +138,10 @@ class SelfReflectionTest {
         client.post("/api/v1/feedbacks/${created.id}/send")
         client.post("/api/v1/feedbacks/${created.id}/withdraw")
 
+        // A "save & send" self-reflection (created directly as SENT) must stay silent too —
+        // the create path mints the sent set, but every recipient is the acting user.
+        client.createSelf(userId, status = FeedbackStatus.SENT)
+
         // The user is freshly seeded, so any notification here would come from the self actions.
         val notifications = client.get("/api/v1/notifications").body<NotificationPageResponse>()
         assertEquals(0, notifications.total)
@@ -160,6 +165,13 @@ class SelfReflectionTest {
         assertEquals(HttpStatusCode.OK, managerClient.get("/api/v1/feedbacks/${created.id}").status)
         val team = managerClient.get("/api/v1/feedbacks?view=team").body<FeedbackPageResponse>()
         assertTrue(team.items.any { it.id == created.id })
+
+        // The manager gains read at delivery and is told — self-worded (their report shared a
+        // self-reflection), with a view link.
+        val managerNote = managerClient.get("/api/v1/notifications").body<NotificationPageResponse>()
+            .items.single { it.type == NotificationType.FEEDBACK_SENT_TO_MANAGER }
+        assertEquals("self", managerNote.params["self"])
+        assertEquals("/feedback/${created.id}/view", managerNote.link)
     }
 
     @Test

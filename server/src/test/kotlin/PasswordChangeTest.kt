@@ -3,6 +3,8 @@ package ch.nokillswit
 import ch.nokillswit.auth.LoginRequest
 import ch.nokillswit.auth.LoginResponse
 import ch.nokillswit.auth.RefreshRequest
+import ch.nokillswit.notifications.NotificationPageResponse
+import ch.nokillswit.notifications.NotificationType
 import ch.nokillswit.users.PasswordUpdateRequest
 import ch.nokillswit.users.UserRole
 import io.ktor.client.HttpClient
@@ -158,6 +160,41 @@ class PasswordChangeTest {
             contentType(ContentType.Application.Json)
             setBody(LoginRequest(targetEmail, "admin-set-pass-1"))
         }.status)
+
+        // The target is told an administrator changed their credential (`self` = "admin").
+        val note = authedClient(targetEmail, "admin-set-pass-1")
+            .get("/api/v1/notifications").body<NotificationPageResponse>().items.single()
+        assertEquals(NotificationType.PASSWORD_CHANGED, note.type)
+        assertEquals("admin", note.params["self"])
+        assertEquals(null, note.link)
+    }
+
+    @Test
+    fun `a self-change mints a plain password-changed confirmation, a denied one nothing`() = testApplication {
+        usePostgresTestcontainer()
+        val email = uniqueEmail("self-note")
+        val userId = TestUsers.seed(email = email, password = "old-password", role = UserRole.USER)
+        val client = jsonClient()
+        val session = login(client, email, "old-password")
+
+        // A denied attempt mints nothing…
+        val denied = putPassword(
+            client, session.token, userId,
+            PasswordUpdateRequest(password = "brand-new-password", currentPassword = "wrong"),
+        )
+        assertEquals(HttpStatusCode.Forbidden, denied.status)
+
+        val change = putPassword(
+            client, session.token, userId,
+            PasswordUpdateRequest(password = "brand-new-password", currentPassword = "old-password"),
+        )
+        assertEquals(HttpStatusCode.NoContent, change.status)
+
+        // …a successful one mints exactly one, self-worded (no `self` param).
+        val note = authedClient(email, "brand-new-password")
+            .get("/api/v1/notifications").body<NotificationPageResponse>().items.single()
+        assertEquals(NotificationType.PASSWORD_CHANGED, note.type)
+        assertEquals(null, note.params["self"])
     }
 
     @Test

@@ -90,6 +90,36 @@ describe("NotificationsButton", () => {
     localStorage.clear();
   });
 
+  test("renders the v1.12 notification kinds: manager delivery, password change, 1:1 author", async () => {
+    const rows: Item[] = [
+      {
+        id: 11, recipientId: 7, timestamp: Date.now(), wasSeen: false,
+        type: "FEEDBACK_SENT_TO_MANAGER",
+        params: { provider: "Pat Provider", subject: "Sam Subject" },
+        link: "/feedback/9/view",
+      },
+      {
+        id: 12, recipientId: 7, timestamp: Date.now(), wasSeen: false,
+        type: "PASSWORD_CHANGED",
+        params: { self: "admin" },
+        link: null,
+      },
+      {
+        id: 13, recipientId: 7, timestamp: Date.now(), wasSeen: false,
+        type: "ONE_ON_ONE_CREATED_TO_MANAGER",
+        params: { subordinate: "Sam Subject", date: "2026-07-12" },
+        link: "/one-on-ones/3/view",
+      },
+    ];
+    setupMocks(mockFetch, rows, 3);
+    renderWithProviders(<Harness />);
+    await userEvent.setup().click(await screen.findByRole("button", { name: /notifications/i }));
+
+    expect(await screen.findByText("Pat Provider sent feedback about Sam Subject, who reports to you.")).toBeInTheDocument();
+    expect(screen.getByText("An administrator changed your password.")).toBeInTheDocument();
+    expect(screen.getByText("You documented a 1:1 meeting with Sam Subject (2026-07-12).")).toBeInTheDocument();
+  });
+
   test("shows the unread count on the bell button", async () => {
     setupMocks(mockFetch, [UNSEEN, SEEN], 3);
     renderWithProviders(<NotificationsButton />);

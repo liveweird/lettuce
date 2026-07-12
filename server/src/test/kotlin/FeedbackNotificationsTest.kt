@@ -231,10 +231,15 @@ class FeedbackNotificationsTest {
     }
 
     @Test
-    fun `abandoning a draft produces no notifications`() {
-        // DRAFT -> WITHDRAWN is a legal edge but nothing was ever delivered, so nobody is told.
+    fun `abandoning a draft notifies like a retraction`() {
+        // DRAFT -> WITHDRAWN lands in a delivered status: the record appears in the subject's
+        // Received list, so subject + requester are told exactly like SENT -> WITHDRAWN.
         val next = feedback(FeedbackStatus.WITHDRAWN)
-        assertTrue(feedbackTransitionNotifications(6u, FeedbackStatus.DRAFT, next, names).isEmpty())
+        val result = feedbackTransitionNotifications(6u, FeedbackStatus.DRAFT, next, names)
+        assertEquals(setOf(2u, 3u), result.map { it.recipientId }.toSet())
+        assertEquals(NotificationType.FEEDBACK_WITHDRAWN_TO_SUBJECT, result.single { it.recipientId == 2u }.type)
+        assertEquals(NotificationType.FEEDBACK_WITHDRAWN_TO_REQUESTER, result.single { it.recipientId == 3u }.type)
+        assertTrue(result.all { it.link == null })
     }
 
     @Test
@@ -307,9 +312,147 @@ class FeedbackNotificationsTest {
     }
 
     @Test
-    fun `creating a non-requested feedback produces no notification`() {
+    fun `creating a draft produces no notification`() {
         val created = feedback(FeedbackStatus.DRAFT)
         assertTrue(feedbackCreationNotifications(11u, created, names).isEmpty())
+    }
+
+    @Test
+    fun `creating directly as sent notifies subject, provider and requester like the draft transition`() {
+        // "Save & send" with a requester attached (API-only shape): same set as DRAFT -> SENT.
+        val created = feedback(FeedbackStatus.SENT, FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT)
+        val result = feedbackCreationNotifications(42u, created, names)
+
+        assertEquals(3, result.size)
+        val toSubject = result.single { it.recipientId == 2u }
+        assertEquals(NotificationType.FEEDBACK_SENT_TO_SUBJECT, toSubject.type)
+        assertEquals(P, toSubject.params["provider"])
+        assertEquals(S, toSubject.params["subject"])
+        assertEquals("/feedback/42/view", toSubject.link)
+
+        val toProvider = result.single { it.recipientId == 1u }
+        assertEquals(NotificationType.FEEDBACK_SENT_TO_PROVIDER, toProvider.type)
+        assertEquals(S, toProvider.params["subject"])
+        assertEquals("/feedback/42/view", toProvider.link)
+
+        val toRequester = result.single { it.recipientId == 3u }
+        assertEquals(NotificationType.FEEDBACK_SENT_TO_REQUESTER, toRequester.type)
+        assertEquals(R, toRequester.params["requester"])
+        assertEquals("/feedback/42/view", toRequester.link)
+    }
+
+    @Test
+    fun `creating directly as sent without a requester notifies the subject and the provider`() {
+        val created = feedback(
+            FeedbackStatus.SENT,
+            FeedbackVisibility.PROVIDER_SUBJECT,
+            requesterId = null,
+        )
+        val result = feedbackCreationNotifications(42u, created, names)
+        assertEquals(setOf(2u, 1u), result.map { it.recipientId }.toSet())
+        assertEquals("/feedback/42/view", result.single { it.recipientId == 2u }.link)
+    }
+
+    @Test
+    fun `creating directly as sent gates the subject link on visibility`() {
+        val created = feedback(FeedbackStatus.SENT, FeedbackVisibility.PROVIDER_REQUESTER)
+        val result = feedbackCreationNotifications(42u, created, names)
+        assertNull(result.single { it.recipientId == 2u }.link, "subject cannot read PROVIDER_REQUESTER")
+        assertEquals("/feedback/42/view", result.single { it.recipientId == 3u }.link)
+    }
+
+    @Test
+    fun `the subject's managers are notified when feedback lands in sent`() {
+        // PROVIDER_REQUESTER hides the feedback from the subject, but manager read on delivered
+        // feedback is not visibility-gated — the manager's view link is unconditional.
+        val next = feedback(FeedbackStatus.SENT, FeedbackVisibility.PROVIDER_REQUESTER)
+        val managers = mapOf(9u to "Manager Mo", 10u to "Manager Max")
+        val result = feedbackTransitionNotifications(42u, FeedbackStatus.DRAFT, next, names, managers)
+
+        val toManagers = result.filter { it.type == NotificationType.FEEDBACK_SENT_TO_MANAGER }
+        assertEquals(setOf(9u, 10u), toManagers.map { it.recipientId }.toSet())
+        toManagers.forEach {
+            assertEquals(P, it.params["provider"])
+            assertEquals(S, it.params["subject"])
+            assertEquals("/feedback/42/view", it.link)
+        }
+    }
+
+    @Test
+    fun `managers who are themselves a party are not double-notified`() {
+        val next = feedback(FeedbackStatus.SENT)
+        // 1u is the provider, 3u the requester — both already notified in that role.
+        val managers = mapOf(1u to P, 3u to R, 9u to "Manager Mo")
+        val result = feedbackTransitionNotifications(42u, FeedbackStatus.DRAFT, next, names, managers)
+        assertEquals(
+            listOf(9u),
+            result.filter { it.type == NotificationType.FEEDBACK_SENT_TO_MANAGER }.map { it.recipientId },
+        )
+    }
+
+    @Test
+    fun `creating directly as sent notifies the subject's managers too`() {
+        val created = feedback(FeedbackStatus.SENT, FeedbackVisibility.PROVIDER_SUBJECT, requesterId = null)
+        val result = feedbackCreationNotifications(42u, created, names, mapOf(9u to "Manager Mo"))
+        val toManager = result.single { it.type == NotificationType.FEEDBACK_SENT_TO_MANAGER }
+        assertEquals(9u, toManager.recipientId)
+        assertEquals("/feedback/42/view", toManager.link)
+    }
+
+    @Test
+    fun `manager notes only mint on a sent landing`() {
+        // A withdrawal changes nothing for managers who could already read the delivered row.
+        val withdrawn = feedback(FeedbackStatus.WITHDRAWN)
+        val result = feedbackTransitionNotifications(
+            42u, FeedbackStatus.SENT, withdrawn, names, mapOf(9u to "Manager Mo"),
+        )
+        assertTrue(result.none { it.type == NotificationType.FEEDBACK_SENT_TO_MANAGER })
+    }
+
+    @Test
+    fun `a self-reflection keeps the manager note, self-worded`() {
+        // provider == subject: the actor's own notes are dropped, but the manager is not the
+        // actor — they are told their report shared a self-reflection.
+        val created = Feedback(
+            requesterId = null,
+            subjectId = 1u,
+            providerId = 1u,
+            visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+            status = FeedbackStatus.SENT,
+        )
+        val result = feedbackCreationNotifications(42u, created, names, mapOf(9u to "Manager Mo"))
+        val toManager = result.single()
+        assertEquals(9u, toManager.recipientId)
+        assertEquals(NotificationType.FEEDBACK_SENT_TO_MANAGER, toManager.type)
+        assertEquals("self", toManager.params["self"])
+    }
+
+    @Test
+    fun `a standalone self-reflection created as sent produces no notification`() {
+        // provider == subject, no requester: every recipient would be the acting user.
+        val created = Feedback(
+            requesterId = null,
+            subjectId = 1u,
+            providerId = 1u,
+            visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+            status = FeedbackStatus.SENT,
+        )
+        assertTrue(feedbackCreationNotifications(42u, created, names).isEmpty())
+    }
+
+    @Test
+    fun `a requested self-reflection created as sent notifies only the requester, self-worded`() {
+        val created = Feedback(
+            requesterId = 3u,
+            subjectId = 1u,
+            providerId = 1u,
+            visibility = FeedbackVisibility.PROVIDER_REQUESTER,
+            status = FeedbackStatus.SENT,
+        )
+        val toRequester = feedbackCreationNotifications(42u, created, names).single()
+        assertEquals(3u, toRequester.recipientId)
+        assertEquals(NotificationType.FEEDBACK_SENT_TO_REQUESTER, toRequester.type)
+        assertEquals("self", toRequester.params["self"])
     }
 
     @Test

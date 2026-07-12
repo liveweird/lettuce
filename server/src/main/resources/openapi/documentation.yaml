@@ -2769,22 +2769,28 @@ components:
             - FEEDBACK_SENT_TO_SUBJECT
             - FEEDBACK_SENT_TO_PROVIDER
             - FEEDBACK_SENT_TO_REQUESTER
+            - FEEDBACK_SENT_TO_MANAGER
             - FEEDBACK_REJECTED_TO_REQUESTER
             - FEEDBACK_PICKED_UP_TO_REQUESTER
             - FEEDBACK_WITHDRAWN_TO_SUBJECT
             - FEEDBACK_WITHDRAWN_TO_REQUESTER
             - FEEDBACK_DELETED_TO_REQUESTER
             - ONE_ON_ONE_CREATED_TO_SUBORDINATE
+            - ONE_ON_ONE_CREATED_TO_MANAGER
+            - PASSWORD_CHANGED
           description: Notification kind; the client renders it in the viewer's language.
         params:
           type: object
           additionalProperties: { type: string }
           description: |
             Interpolation values for the localized message — party names (proper nouns), e.g.
-            `{provider,subject,requester}`; plus `self` — `"self"` for the "about yourself" /
-            self-reflection variants, `"reflection"` for a requester's own request-for-a-self-reflection
-            confirmation — driving the SPA's i18next context. ONE_ON_ONE_CREATED_TO_SUBORDINATE
-            carries `{manager,date}` (the manager's name and the ISO meeting date).
+            `{provider,subject,requester}`; plus `self` — the SPA's i18next context carrier:
+            `"self"` for the "about yourself" / self-reflection variants, `"reflection"` for a
+            requester's own request-for-a-self-reflection confirmation, and on PASSWORD_CHANGED
+            `"admin"` (an administrator reset it) or `"reset"` (self-service email reset; absent
+            = the user changed it themselves). ONE_ON_ONE_CREATED_TO_SUBORDINATE carries
+            `{manager,date}` and ONE_ON_ONE_CREATED_TO_MANAGER `{subordinate,date}` (the
+            counterpart's name and the ISO meeting date).
         link:
           type: string
           nullable: true

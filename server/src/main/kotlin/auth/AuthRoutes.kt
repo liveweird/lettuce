@@ -6,6 +6,9 @@ import ch.nokillswit.authz.UnauthorizedException
 import ch.nokillswit.infra.mail.mailAppUrl
 import ch.nokillswit.infra.mail.mailer
 import ch.nokillswit.infra.mail.respondMailUnavailable
+import ch.nokillswit.notifications.Notification
+import ch.nokillswit.notifications.NotificationServiceKey
+import ch.nokillswit.notifications.NotificationType
 import ch.nokillswit.plugins.JwtConfig
 import ch.nokillswit.plugins.JwtConfigKey
 import ch.nokillswit.users.UserRole
@@ -76,6 +79,8 @@ fun Application.configureAuthRoutes() {
     val jwtConfig = attributes[JwtConfigKey]
     val userService = attributes[UserServiceKey]
     val blocklist = attributes[TokenBlocklistServiceKey]
+    // For the password-changed notification on reset (published by configureDatabase).
+    val notificationService = attributes[NotificationServiceKey]
     val mailer = mailer()
 
     // Per-account lockout, complementing the per-IP RateLimit below (which rotating hosts
@@ -233,6 +238,17 @@ fun Application.configureAuthRoutes() {
                             body = passwordResetEmailBody(user.name, newPassword, mailAppUrl),
                         )
                         userService.updatePassword(userId, hashPassword(newPassword))
+                        // The owner sees the confirmation once they sign in with the new
+                        // password; the `self` param drives the "reset via email" wording.
+                        // Minted BEFORE the completion audit so the audit event is a reliable
+                        // "everything happened" barrier (tests await it).
+                        notificationService.create(
+                            Notification(
+                                recipientId = userId,
+                                type = NotificationType.PASSWORD_CHANGED,
+                                params = mapOf("self" to "reset"),
+                            ),
+                        )
                         audit("password_reset.completed", "email" to user.email, "userId" to userId.toLong())
                     } catch (e: Exception) {
                         audit("password_reset.send_failed", "email" to email, "error" to e.message)
