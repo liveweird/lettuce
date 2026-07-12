@@ -760,7 +760,11 @@ export interface paths {
          * Replace a 1:1 meeting's document
          * @description Full-document replace of the editable representation — the meeting date and the three
          *     lists. **Manager-only** (the subordinate has read rights only; ADMIN does not get write
-         *     access). The parties are immutable after creation.
+         *     access). The parties are immutable after creation. **Only the pair's latest non-deleted
+         *     meeting** (by meeting date, id as tiebreaker — the carry-over ordering) **may be
+         *     edited**; older meetings are immutable records and answer `409` (the `isLatest` flag on
+         *     the read/list responses tells clients up-front). Deleting the latest meeting makes the
+         *     previous one the pair's latest again.
          *
          *     Item reconciliation: entries carrying an `id` update that existing row in place; entries
          *     without an `id` are inserted; rows missing from the payload are removed. Positions are
@@ -777,7 +781,9 @@ export interface paths {
         /**
          * Delete a 1:1 meeting
          * @description Soft-deletes a 1:1 meeting (the row is flagged, not physically removed, and disappears
-         *     from reads/lists; its audit history is retained). **Manager-only**. Nobody is notified.
+         *     from reads/lists; its audit history is retained). **Manager-only**, and — like PUT —
+         *     **only the pair's latest meeting** (older ones are immutable records, `409`); deleting
+         *     the latest makes the previous one the pair's latest again. Nobody is notified.
          *     Action-item copy chains passing through the deleted meeting stay walkable — its entries
          *     are merely skipped in history views.
          */
@@ -1724,6 +1730,11 @@ export interface components {
             decisions: components["schemas"]["OneOnOneItem"][];
             /** @description Action items, in stored order. */
             actionItems: components["schemas"]["OneOnOneActionItem"][];
+            /**
+             * @description Whether this is the pair's latest non-deleted meeting (meeting date, id as tiebreaker). Only the latest may be edited or deleted (PUT/DELETE answer 409 otherwise); clients open older meetings read-only.
+             * @default true
+             */
+            isLatest: boolean;
         };
         OneOnOneListItem: {
             /** Format: int64 */
@@ -1745,6 +1756,11 @@ export interface components {
             actionItemCount: number;
             /** @description Action items not yet resolved. */
             openActionItemCount: number;
+            /**
+             * @description Whether this row is its pair's latest non-deleted meeting — see `OneOnOneResponse.isLatest`. Drives the client's Edit-vs-View affordance.
+             * @default true
+             */
+            isLatest: boolean;
         };
         OneOnOnePage: {
             items: components["schemas"]["OneOnOneListItem"][];
@@ -3296,6 +3312,15 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["OneOnOneNotManager"];
             404: components["responses"]["NotFound"];
+            /** @description Not the pair's latest meeting — older 1:1s are immutable records */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -3320,6 +3345,15 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["OneOnOneNotManager"];
             404: components["responses"]["NotFound"];
+            /** @description Not the pair's latest meeting — older 1:1s are immutable records */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             500: components["responses"]["InternalServerError"];
         };
     };

@@ -64,6 +64,7 @@
   "error": {
     "permission": "Nie możesz zmieniać tego spotkania 1:1.",
     "gone": "To spotkanie 1:1 już nie istnieje.",
+    "notLatest": "Zmieniać można tylko najnowsze spotkanie 1:1 z tą osobą — istnieje już nowsze.",
     "validation": "Nie udało się zapisać spotkania — sprawdź daty i pozycje list.",
     "saveFailedStatus": "Zapis nie powiódł się (HTTP {{status}}).",
     "saveFailed": "Zapis nie powiódł się. Sprawdź połączenie i spróbuj ponownie.",

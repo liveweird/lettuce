@@ -103,6 +103,8 @@ export function oneOnOneSaveErrorMessage(err: unknown, t: TFunction): string {
   return saveErrorMessage(err, t, {
     forbidden: "oneOnOne.error.permission",
     notFound: "oneOnOne.error.gone",
+    // Latest-only race backstop: a newer meeting appeared while this one was open for editing.
+    conflict: "oneOnOne.error.notLatest",
     invalid: "oneOnOne.error.validation",
     failedStatus: "oneOnOne.error.saveFailedStatus",
     failed: "oneOnOne.error.saveFailed",

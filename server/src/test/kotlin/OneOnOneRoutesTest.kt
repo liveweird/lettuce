@@ -397,7 +397,11 @@ class OneOnOneRoutesTest {
             pair.subordinateId,
             points = listOf(OneOnOneItemInput(content = "stable")),
         )
-        val otherMeeting = manager.createMeeting(pair.subordinateId, "2026-07-02", points = listOf(OneOnOneItemInput(content = "other")))
+        // A DIFFERENT pair's meeting supplies the foreign item id — a second meeting of the
+        // same pair would make `created` non-latest and the PUTs below 409 instead.
+        val otherPair = seedPair()
+        val otherMeeting = authedClient(otherPair.managerEmail, "pw")
+            .createMeeting(otherPair.subordinateId, "2026-07-02", points = listOf(OneOnOneItemInput(content = "other")))
 
         assertEquals(
             HttpStatusCode.NoContent,
@@ -418,6 +422,61 @@ class OneOnOneRoutesTest {
             manager.put("/api/v1/one-on-ones/${created.id}") {
                 contentType(ContentType.Application.Json)
                 setBody(foreign)
+            }.status,
+        )
+    }
+
+    @Test
+    fun `only the latest meeting of the pair may be edited or deleted`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val manager = authedClient(pair.managerEmail, "pw")
+
+        val m1 = manager.createMeeting(pair.subordinateId, "2026-07-01")
+        val m2 = manager.createMeeting(pair.subordinateId, "2026-07-08")
+
+        // The older meeting is an immutable record now: PUT and DELETE both 409.
+        assertEquals(
+            HttpStatusCode.Conflict,
+            manager.put("/api/v1/one-on-ones/${m1.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(m1.toUpdate().copy(meetingDate = "2026-07-02"))
+            }.status,
+        )
+        assertEquals(HttpStatusCode.Conflict, manager.delete("/api/v1/one-on-ones/${m1.id}").status)
+
+        // The read/list responses expose the flag the SPA keys its affordances on.
+        assertEquals(false, manager.get("/api/v1/one-on-ones/${m1.id}").body<OneOnOneResponse>().isLatest)
+        assertEquals(true, manager.get("/api/v1/one-on-ones/${m2.id}").body<OneOnOneResponse>().isLatest)
+        val listed = manager.get("/api/v1/one-on-ones?view=managed&pageSize=100").body<OneOnOnePageResponse>()
+        assertEquals(false, listed.items.single { it.id == m1.id }.isLatest)
+        assertEquals(true, listed.items.single { it.id == m2.id }.isLatest)
+
+        // A back-dated meeting created later is NOT the latest — date ordering wins, exactly
+        // like carry-over; the newest-dated meeting stays the editable one.
+        val m3 = manager.createMeeting(pair.subordinateId, "2026-07-05")
+        assertEquals(
+            HttpStatusCode.Conflict,
+            manager.put("/api/v1/one-on-ones/${m3.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(m3.toUpdate())
+            }.status,
+        )
+        assertEquals(
+            HttpStatusCode.NoContent,
+            manager.put("/api/v1/one-on-ones/${m2.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(m2.toUpdate())
+            }.status,
+        )
+
+        // The rule is dynamic: deleting the latest promotes the next one back to editable.
+        assertEquals(HttpStatusCode.NoContent, manager.delete("/api/v1/one-on-ones/${m2.id}").status)
+        assertEquals(
+            HttpStatusCode.NoContent,
+            manager.put("/api/v1/one-on-ones/${m3.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(m3.toUpdate().copy(meetingDate = "2026-07-06"))
             }.status,
         )
     }

@@ -101,6 +101,27 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
 
     private fun active(): Op<Boolean> = Meetings.markedAsDeleted eq false
 
+    /**
+     * The pair's latest non-deleted meeting by `(meeting_date DESC, id DESC)` — the canonical
+     * ordering shared by carry-over, the dashboard stats, and the latest-only write rule.
+     * [excludeId] lets create() ignore the row it just inserted. Runs in the caller's transaction.
+     */
+    private suspend fun latestMeetingIdOfPair(
+        managerId: UInt,
+        subordinateId: UInt,
+        excludeId: UInt? = null,
+    ): UInt? = Meetings.select(Meetings.id)
+        .where {
+            (Meetings.managerId eq managerId) and
+                (Meetings.subordinateId eq subordinateId) and
+                (if (excludeId == null) Op.TRUE else Meetings.id neq excludeId) and
+                active()
+        }
+        .orderBy(Meetings.meetingDate to SortOrder.DESC, Meetings.id to SortOrder.DESC)
+        .limit(1)
+        .map { it[Meetings.id].value }
+        .singleOrNull()
+
     /** Whether [subordinateId] is currently a direct report of [managerId] (the create-time rule). */
     suspend fun isDirectReport(managerId: UInt, subordinateId: UInt): Boolean =
         suspendTransaction(database) { subordinateId in directSubordinateIds(managerId) }
@@ -184,16 +205,7 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
                 it[lastModified] = System.currentTimeMillis()
             }[Meetings.id].value
 
-            val previousId = Meetings.select(Meetings.id)
-                .where {
-                    (Meetings.managerId eq managerId) and
-                        (Meetings.subordinateId eq request.subordinateId) and
-                        (Meetings.id neq meetingId) and active()
-                }
-                .orderBy(Meetings.meetingDate to SortOrder.DESC, Meetings.id to SortOrder.DESC)
-                .limit(1)
-                .map { it[Meetings.id].value }
-                .singleOrNull()
+            val previousId = latestMeetingIdOfPair(managerId, request.subordinateId, excludeId = meetingId)
 
             var carried = 0
             if (previousId != null) {
@@ -283,6 +295,12 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
             .orderBy(ActionItems.position to SortOrder.ASC, ActionItems.id to SortOrder.ASC)
             .toList()
         val firstAppearances = firstAppearanceDates(items)
+        // The latest-only write rule: PUT/DELETE reject non-latest meetings, the SPA hides
+        // their edit affordances.
+        val isLatest = latestMeetingIdOfPair(
+            row[Meetings.managerId].value,
+            row[Meetings.subordinateId].value,
+        ) == id
 
         OneOnOneResponse(
             id = id,
@@ -292,6 +310,7 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
             subordinateName = row[subordinateUsers[UserService.Users.name]],
             meetingDate = row[Meetings.meetingDate],
             lastModified = row[Meetings.lastModified],
+            isLatest = isLatest,
             points = notes.filter { it[Notes.kind] == NoteKind.POINT }.map { it.toItemResponse() },
             decisions = notes.filter { it[Notes.kind] == NoteKind.DECISION }.map { it.toItemResponse() },
             actionItems = items.map { it.toActionItemResponse(firstAppearances[it[ActionItems.id].value]) },
@@ -407,6 +426,14 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
                 .toMap()
         }
 
+        // The latest-only write rule needs each row flagged: one limit-1 lookup per distinct
+        // pair on the page (same cost profile as the dashboard stats enrichments) so the table
+        // offers Edit only where a PUT would succeed.
+        val latestByPair: Map<Pair<UInt, UInt>, UInt?> = rows
+            .map { it[Meetings.managerId].value to it[Meetings.subordinateId].value }
+            .toSet()
+            .associateWith { (managerId, subordinateId) -> latestMeetingIdOfPair(managerId, subordinateId) }
+
         val items = rows.map { row ->
             val meetingId = row[Meetings.id].value
             val open = actionItemCounts[meetingId to false] ?: 0
@@ -425,6 +452,7 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
                 decisionCount = noteCounts[meetingId to NoteKind.DECISION] ?: 0,
                 actionItemCount = open + closed,
                 openActionItemCount = open,
+                isLatest = latestByPair[row[Meetings.managerId].value to row[Meetings.subordinateId].value] == meetingId,
             )
         }
         OneOnOneListResult(items = items, total = total)
