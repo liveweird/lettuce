@@ -287,7 +287,11 @@ export interface paths {
          *
          *     - `view=member` (the default): members of teams where the caller is a member.
          *       The caller's own rows are excluded. Team managers never appear — a manager is
-         *       not a `team_members` row.
+         *       not a `team_members` row. Items carry the peer feedback stats
+         *       `lastFeedbackGivenAt` / `lastFeedbackReceivedAt` (see `TeamMemberListItem`) —
+         *       when the caller last provided this peer feedback, and when this peer last
+         *       provided the caller feedback the caller can see. Peers run no 1:1s with each
+         *       other in this model, so there is no 1:1 stat.
          *     - `view=managed`: members of teams where the caller is the manager. With
          *       `includeIndirect=true`, additionally the members of teams managed by anyone in
          *       the caller's transitive management chain (the caller's indirect reports, each
@@ -300,8 +304,10 @@ export interface paths {
          *       caller is excluded. Items carry the same dashboard stats fields with this
          *       manager as the 1:1's manager / the feedback's provider.
          *
-         *     In both stats-carrying views a user appearing once per shared team repeats the
-         *     same stats on each row; the fields are always `null` for `view=member`.
+         *     In every view a user appearing once per shared team repeats the same stats on
+         *     each row. The `lastOneOnOne*`/`lastFeedbackAt` trio is always `null` for
+         *     `view=member`; the given/received pair is always `null` for `view=managers` and
+         *     `view=managed`.
          *
          *     Each item is one (user, team) pair — a user who shares several teams with the
          *     caller appears once per team. Soft-deleted users and soft-deleted teams are
@@ -1322,6 +1328,27 @@ export interface components {
              *     is none.
              */
             lastFeedbackAt?: number | null;
+            /**
+             * Format: int64
+             * @description Populated only for `view=member`; always `null` otherwise. Epoch milliseconds
+             *     of the SENT moment (from the feedback audit trail) of the caller's newest
+             *     currently-SENT feedback about this peer — provider-side, never
+             *     visibility-filtered (the caller authored it). Withdrawn feedback never
+             *     counts; feedbacks predating the audit trail fall back to their last-modified
+             *     time. `null` when there is none.
+             */
+            lastFeedbackGivenAt?: number | null;
+            /**
+             * Format: int64
+             * @description Populated only for `view=member`; always `null` otherwise. Epoch milliseconds
+             *     of the SENT moment (from the feedback audit trail) of the newest
+             *     currently-SENT feedback this peer provided about the caller, restricted to
+             *     feedback visible to the caller under the received-view scoping — feedback
+             *     invisible to the caller never counts. Withdrawn feedback never counts;
+             *     feedbacks predating the audit trail fall back to their last-modified time.
+             *     `null` when there is none.
+             */
+            lastFeedbackReceivedAt?: number | null;
         };
         TeamMemberPage: {
             items: components["schemas"]["TeamMemberListItem"][];
@@ -2426,7 +2453,9 @@ export interface operations {
                 sort?: components["parameters"]["Sort"];
                 /**
                  * @description Which caller-relative slice to list.
-                 *     - `member`: members of teams the caller belongs to.
+                 *     - `member`: members of teams the caller belongs to. Items carry the peer
+                 *       feedback stats `lastFeedbackGivenAt` / `lastFeedbackReceivedAt` (see
+                 *       `TeamMemberListItem`); no 1:1 stat.
                  *     - `managed`: members of teams the caller manages. Items carry the dashboard
                  *       stats fields (see `TeamMemberListItem`) with the caller as the 1:1's
                  *       manager / the feedback's provider.

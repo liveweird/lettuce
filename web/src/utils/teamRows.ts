@@ -7,10 +7,13 @@ export type TeamRow = {
   name: string;
   email: string;
   teamName: string;
-  // Dashboard stats — present on view=managers/managed rows, identical on every row of a user.
+  // Dashboard stats, identical on every row of a user: the 1:1/lastFeedbackAt trio on
+  // view=managers/managed rows, the given/received pair on view=member rows.
   lastOneOnOneDate?: string | null;
   lastOneOnOneOpenItems?: number | null;
   lastFeedbackAt?: number | null;
+  lastFeedbackGivenAt?: number | null;
+  lastFeedbackReceivedAt?: number | null;
 };
 
 export type PersonCard = {
@@ -21,6 +24,8 @@ export type PersonCard = {
   lastOneOnOneDate: string | null;
   lastOneOnOneOpenItems: number | null;
   lastFeedbackAt: number | null;
+  lastFeedbackGivenAt: number | null;
+  lastFeedbackReceivedAt: number | null;
 };
 
 export function groupTeamRows(rows: TeamRow[]): PersonCard[] {
@@ -35,10 +40,13 @@ export function groupTeamRows(rows: TeamRow[]): PersonCard[] {
         name: r.name,
         email: r.email,
         teamNames: [r.teamName],
-        // Normalize absent → null so the stat-less member grid (peers) stays uniform.
+        // Normalize absent → null so every grid can render its "never" empty states
+        // off the fields the other views don't populate.
         lastOneOnOneDate: r.lastOneOnOneDate ?? null,
         lastOneOnOneOpenItems: r.lastOneOnOneOpenItems ?? null,
         lastFeedbackAt: r.lastFeedbackAt ?? null,
+        lastFeedbackGivenAt: r.lastFeedbackGivenAt ?? null,
+        lastFeedbackReceivedAt: r.lastFeedbackReceivedAt ?? null,
       });
     }
   }

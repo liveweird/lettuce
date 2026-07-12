@@ -16,6 +16,20 @@ function StatRow({ label, children }: { label: string; children: React.ReactNode
   );
 }
 
+// An epoch-ms stat value: relative phrase (exact timestamp in the title), or a dimmed "never".
+function TimeStat({ at }: { at: number | null }) {
+  const { t, i18n } = useTranslation();
+  return at != null ? (
+    <Text size="xs" title={formatTimestamp(at)}>
+      {formatRelativeTime(at, i18n.language)}
+    </Text>
+  ) : (
+    <Text size="xs" c="dimmed">
+      {t("users.statNever")}
+    </Text>
+  );
+}
+
 // The dashboard-card stats block shared by the "My managers" and "My subordinates" grids.
 // The labels are deliberately direction-neutral — each card is about the pictured person,
 // so "Last 1:1" / "Last feedback" read correctly whichever party ran/provided it.
@@ -45,15 +59,23 @@ export default function PersonCardStats({ person }: { person: PersonCardData }) 
         )}
       </StatRow>
       <StatRow label={t("users.lastFeedback")}>
-        {person.lastFeedbackAt != null ? (
-          <Text size="xs" title={formatTimestamp(person.lastFeedbackAt)}>
-            {formatRelativeTime(person.lastFeedbackAt, i18n.language)}
-          </Text>
-        ) : (
-          <Text size="xs" c="dimmed">
-            {t("users.statNever")}
-          </Text>
-        )}
+        <TimeStat at={person.lastFeedbackAt} />
+      </StatRow>
+    </Stack>
+  );
+}
+
+// The peers-grid variant: no 1:1 row (peers don't run 1:1s with each other) — instead the
+// two feedback directions between the caller and the pictured person.
+export function PeerCardStats({ person }: { person: PersonCardData }) {
+  const { t } = useTranslation();
+  return (
+    <Stack gap={4}>
+      <StatRow label={t("users.feedbackFromMe")}>
+        <TimeStat at={person.lastFeedbackGivenAt} />
+      </StatRow>
+      <StatRow label={t("users.feedbackFromThem")}>
+        <TimeStat at={person.lastFeedbackReceivedAt} />
       </StatRow>
     </Stack>
   );

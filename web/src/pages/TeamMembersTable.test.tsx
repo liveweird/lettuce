@@ -19,6 +19,8 @@ type TeamMemberItem = {
   lastOneOnOneDate?: string | null;
   lastOneOnOneOpenItems?: number | null;
   lastFeedbackAt?: number | null;
+  lastFeedbackGivenAt?: number | null;
+  lastFeedbackReceivedAt?: number | null;
 };
 
 
@@ -490,7 +492,7 @@ describe("TeamMembersTable", () => {
     expect(screen.getAllByText("Last feedback")).toHaveLength(1);
   });
 
-  test("the member view never renders stats, even when rows carry the fields", async () => {
+  test("the member view ignores 1:1/directional fields even when rows carry them", async () => {
     setupMocks(
       mockFetch,
       membersPage([
@@ -505,6 +507,78 @@ describe("TeamMembersTable", () => {
     await screen.findByText("Bob Brown");
     expect(screen.queryByText("Last 1:1")).toBeNull();
     expect(screen.queryByText("Last feedback")).toBeNull();
+    expect(screen.queryByText(/open item/)).toBeNull();
+    // The peer stats render off their own (absent → never) fields instead.
+    expect(screen.getByText("Feedback from me")).toBeInTheDocument();
+    expect(screen.getAllByText("never")).toHaveLength(2);
+  });
+
+  test("member view renders the two peer feedback stats with relative times", async () => {
+    // Fake only Date so Intl.RelativeTimeFormat is deterministic while waitFor keeps real timers.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-07-12T12:00:00"));
+    try {
+      setupMocks(
+        mockFetch,
+        membersPage([
+          {
+            userId: 11, name: "Bob Brown", email: "bob@x.test", teamId: 4, teamName: "Support",
+            lastFeedbackGivenAt: new Date("2026-07-10T12:00:00").getTime(),
+            lastFeedbackReceivedAt: new Date("2026-07-05T12:00:00").getTime(),
+          },
+        ]),
+      );
+      renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
+
+      expect(await screen.findByText("Feedback from me")).toBeInTheDocument();
+      expect(screen.getByText("2 days ago")).toBeInTheDocument();
+      expect(screen.getByText("Feedback from them")).toBeInTheDocument();
+      expect(screen.getByText("last week")).toBeInTheDocument();
+      // Exact values ride in the title attributes.
+      expect(screen.getByText("2 days ago")).toHaveAttribute("title", "2026-07-10 12:00");
+      expect(screen.getByText("last week")).toHaveAttribute("title", "2026-07-05 12:00");
+      expect(screen.queryByText("never")).toBeNull();
+      // No 1:1 row and no direction-neutral feedback row on peer cards.
+      expect(screen.queryByText("Last 1:1")).toBeNull();
+      expect(screen.queryByText("Last feedback")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("peer stats without data render as never", async () => {
+    setupMocks(
+      mockFetch,
+      membersPage([
+        {
+          userId: 11, name: "Bob Brown", email: "bob@x.test", teamId: 4, teamName: "Support",
+          lastFeedbackGivenAt: null, lastFeedbackReceivedAt: null,
+        },
+      ]),
+    );
+    renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
+
+    expect(await screen.findAllByText("never")).toHaveLength(2);
+    expect(screen.queryByText(/open item/)).toBeNull();
+  });
+
+  test("a two-team peer's single card renders the peer stats once", async () => {
+    const stats = {
+      lastFeedbackGivenAt: new Date("2026-07-10T12:00:00").getTime(),
+      lastFeedbackReceivedAt: new Date("2026-07-05T12:00:00").getTime(),
+    };
+    setupMocks(
+      mockFetch,
+      membersPage([
+        { userId: 11, name: "Bob Brown", email: "bob@x.test", teamId: 4, teamName: "Support", ...stats },
+        { userId: 11, name: "Bob Brown", email: "bob@x.test", teamId: 3, teamName: "Platform", ...stats },
+      ]),
+    );
+    renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
+
+    expect(await screen.findAllByText("Bob Brown")).toHaveLength(1);
+    expect(screen.getAllByText("Feedback from me")).toHaveLength(1);
+    expect(screen.getAllByText("Feedback from them")).toHaveLength(1);
   });
 
   test("switching the reports scope to all hides the stats (indirect rows are unmarked)", async () => {

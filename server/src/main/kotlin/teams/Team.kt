@@ -38,9 +38,10 @@ data class TeamMemberListItem(
     val email: String,
     val teamId: UInt,
     val teamName: String,
-    // Dashboard stats, populated for view=managers and view=managed; null for view=member.
-    // Direction follows the view: managers — the row user is the meeting's manager / feedback
-    // provider; managed — the caller is.
+    // Dashboard stats. The 1:1/lastFeedbackAt trio is populated for view=managers and
+    // view=managed (direction follows the view: managers — the row user is the meeting's
+    // manager / feedback provider; managed — the caller is); the given/received pair below
+    // is populated only for view=member, where both feedback directions show at once.
     /** ISO `YYYY-MM-DD` of the latest 1:1 of the (row user, caller) pair in the view's direction. */
     val lastOneOnOneDate: String? = null,
     /** Unresolved action items on that meeting; null exactly when [lastOneOnOneDate] is null. */
@@ -51,6 +52,18 @@ data class TeamMemberListItem(
      * provided this member feedback (provider-side, never visibility-filtered).
      */
     val lastFeedbackAt: Long? = null,
+    /**
+     * Epoch ms of the SENT moment of the caller's newest currently-SENT feedback about this
+     * peer (provider-side, never visibility-filtered — the caller authored it). Populated only
+     * for view=member; null for the other views.
+     */
+    val lastFeedbackGivenAt: Long? = null,
+    /**
+     * Epoch ms of the SENT moment of the newest currently-SENT feedback this peer provided
+     * about the caller that the caller can see (received-scoped — an invisible feedback never
+     * leaks). Populated only for view=member; null for the other views.
+     */
+    val lastFeedbackReceivedAt: Long? = null,
 )
 
 typealias TeamMemberPageResponse = PageResponse<TeamMemberListItem>
