@@ -49,8 +49,9 @@ suspend fun ApplicationCall.respondProblem(
     status: HttpStatusCode,
     detail: String? = null,
     title: String = status.description,
+    instance: String? = null,
 ) {
-    val problem = ProblemDetail(title = title, status = status.value, detail = detail)
+    val problem = ProblemDetail(title = title, status = status.value, detail = detail, instance = instance)
     respond(
         TextContent(
             problemSerializer.encodeToString(ProblemDetail.serializer(), problem),
@@ -111,7 +112,7 @@ fun Application.configureErrorHandling() {
             call.respondProblem(HttpStatusCode.Forbidden, cause.message ?: "Forbidden")
         }
         exception<ConflictException> { call, cause ->
-            call.respondProblem(HttpStatusCode.Conflict, cause.message ?: "Conflict")
+            call.respondProblem(HttpStatusCode.Conflict, cause.message ?: "Conflict", instance = cause.instance)
         }
         // Non-unique DB failures fall through to a 500 problem (logged) instead of rethrowing,
         // which would escape StatusPages and yield a bodiless default 500.

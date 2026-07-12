@@ -95,6 +95,11 @@ describe("EditFeedback page", () => {
     );
     // No requester on this feedback → no "requested by" clause in the people line.
     expect(screen.queryByText(/requested by/)).toBeNull();
+    // Editing an existing draft must never fire the create screens' duplicate check —
+    // the loaded feedback IS the record such a check would find.
+    expect(
+      mockFetch.mock.calls.every(([u]) => !String(u).includes("duplicate-check")),
+    ).toBe(true);
   });
 
   test("a self-reflection draft renders the subject as plain You, not a chip", async () => {

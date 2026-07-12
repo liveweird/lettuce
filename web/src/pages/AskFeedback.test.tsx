@@ -57,6 +57,35 @@ describe("AskFeedback page", () => {
     expect(screen.queryByRole("heading", { name: /ask for feedback/i })).toBeNull();
   });
 
+  test("warns early and disables the request when this ask is already pending", async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (String(url).startsWith("/api/v1/feedbacks/duplicate-check")) {
+        return Promise.resolve(jsonResponse(200, { existingId: 33, existingStatus: "REQUESTED" }));
+      }
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    renderAskFeedback();
+
+    expect(
+      await screen.findByText(
+        "This feedback has already been requested and is waiting for the provider.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open the existing feedback" })).toHaveAttribute(
+      "href",
+      "/feedback/33/view",
+    );
+    expect(screen.getByRole("button", { name: /send request/i })).toBeDisabled();
+
+    // The check fires with the ask triple: subject == requester == me (3), provider from the URL.
+    const checkUrl = mockFetch.mock.calls
+      .map(([u]) => String(u))
+      .find((u) => u.includes("duplicate-check"));
+    expect(checkUrl).toContain("subjectId=3");
+    expect(checkUrl).toContain("providerId=10");
+    expect(checkUrl).toContain("requesterId=3");
+  });
+
   test("shows the provider and offers the requester-inclusive visibilities", async () => {
     renderAskFeedback();
 

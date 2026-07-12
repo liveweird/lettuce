@@ -12,7 +12,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
 import { useQuery } from "@tanstack/react-query";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   getTemplate,
@@ -67,6 +67,9 @@ type FeedbackFormProps = {
   // parent's confirmation flow; `deleting` drives its loading state.
   onDelete?: () => void;
   deleting?: boolean;
+  // The no-duplicate early warning (create flows only — edit never passes it): rendered above
+  // the editor, and while present both save actions are disabled (the server would 409 anyway).
+  duplicate?: ReactNode;
 };
 
 export default function FeedbackForm({
@@ -89,6 +92,7 @@ export default function FeedbackForm({
   currentStatus,
   onDelete,
   deleting = false,
+  duplicate,
 }: FeedbackFormProps) {
   const { t } = useTranslation();
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
@@ -238,6 +242,7 @@ export default function FeedbackForm({
               lastModified={lastModified}
             />
             <RequesterMessage value={requesterMessage} collapsible />
+            {duplicate}
             {feedbackId != null ? (
               <Tabs
                 defaultValue="content"
@@ -296,7 +301,7 @@ export default function FeedbackForm({
                 type="submit"
                 variant="light"
                 loading={submitting === "DRAFT"}
-                disabled={submitting !== null || deleting}
+                disabled={submitting !== null || deleting || duplicate != null}
               >
                 {t("feedback.action.saveDraft")}
               </Button>
@@ -304,7 +309,7 @@ export default function FeedbackForm({
                 type="button"
                 onClick={() => onSubmit("SENT", form.values)}
                 loading={submitting === "SENT"}
-                disabled={submitting !== null || deleting}
+                disabled={submitting !== null || deleting || duplicate != null}
               >
                 {t("feedback.action.saveAndSend")}
               </Button>

@@ -410,6 +410,25 @@ export async function createFeedback(req: CreateFeedbackBody): Promise<CreateFee
   return (await res.json()) as CreateFeedbackResponse;
 }
 
+export type DuplicateCheckResponse =
+  paths["/api/v1/feedbacks/duplicate-check"]["get"]["responses"]["200"]["content"]["application/json"];
+
+// The no-duplicate early check backing the create screens' warning (see FeedbackForm/create pages).
+export async function checkFeedbackDuplicate(params: {
+  subjectId: number;
+  providerId: number;
+  requesterId?: number;
+}): Promise<DuplicateCheckResponse> {
+  const query = new URLSearchParams({
+    subjectId: String(params.subjectId),
+    providerId: String(params.providerId),
+  });
+  if (params.requesterId != null) query.set("requesterId", String(params.requesterId));
+  const res = await authedFetch(`/api/v1/feedbacks/duplicate-check?${query}`);
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return (await res.json()) as DuplicateCheckResponse;
+}
+
 export type FeedbackResponse =
   paths["/api/v1/feedbacks/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
 type UpdateFeedbackBody =

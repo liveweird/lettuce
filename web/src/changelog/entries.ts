@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.13",
+    date: "2026-07-12",
+    en: `No more accidental duplicates: while a feedback for the same subject, provider, and requester is still in progress (a draft or a pending request), a second one cannot be created. The create screens tell you right away — before you type anything — and link straight to the existing feedback.`,
+    pl: `Koniec z przypadkowymi duplikatami: dopóki feedback dla tej samej osoby, wystawiającego i proszącego jest w toku (szkic lub oczekująca prośba), nie da się utworzyć drugiego. Ekrany tworzenia informują o tym od razu — zanim cokolwiek wpiszesz — i prowadzą prosto do istniejącego feedbacku.`,
+  },
+  {
     version: "1.12",
     date: "2026-07-12",
     en: `Notifications now cover every moment something starts concerning you: managers are notified when feedback about one of their direct reports is delivered; abandoning a draft notifies the subject just like a retraction (the record appears in their list either way); every password change — by you, by an administrator, or via email reset — leaves a notification; and documenting a 1:1 meeting now confirms to the manager as well as the subordinate.`,

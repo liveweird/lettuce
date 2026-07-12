@@ -77,6 +77,10 @@ private val REQUESTER_VISIBILITIES = listOf(
 // A feedback the caller is not a party to (Received / My team lists) is only shown once delivered.
 private val DELIVERED_STATUSES = FeedbackStatus.entries.filter { it.isDelivered }
 
+// "In progress" for the no-duplicate invariant: a second feedback with the same
+// (subject, provider, requester) triple may not be created while one of these exists.
+private val OPEN_STATUSES = listOf(FeedbackStatus.DRAFT, FeedbackStatus.REQUESTED)
+
 const val CONTENT_PREVIEW_LENGTH = 200
 
 // content/requester_message are encrypted at rest (see infra/crypto/FieldCipher.kt): the cipher
@@ -104,6 +108,15 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
      */
     suspend fun create(feedback: Feedback): FeedbackCreateResult = suspendTransaction(database) {
         validate(current = null, next = feedback)
+        // No-duplicate invariant: while a feedback with the same (subject, provider, requester)
+        // triple is still in progress (DRAFT or REQUESTED), a second one may not be created —
+        // finish or discard the existing one instead (the 409's instance points at it).
+        findOpenDuplicateInTx(feedback.subjectId, feedback.providerId, feedback.requesterId)?.let { (dupId, _) ->
+            throw ConflictException(
+                "A feedback for this subject, provider and requester is already in progress",
+                instance = "/api/v1/feedbacks/$dupId",
+            )
+        }
         val newRecord = Feedbacks.insert {
             it[requesterId] = feedback.requesterId
             it[subjectId] = feedback.subjectId
@@ -189,6 +202,22 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
             if (!isAllowedTransition(current.status, target)) {
                 throw ConflictException("Invalid status transition: ${current.status} -> $target")
             }
+            if (target == FeedbackStatus.DRAFT) {
+                // Pick-up guard: a request may not become a second draft when a matching one
+                // already exists (reachable only with duplicates predating the create-time
+                // no-duplicate invariant).
+                findOpenDuplicateInTx(
+                    current.subjectId,
+                    current.providerId,
+                    current.requesterId,
+                    statuses = listOf(FeedbackStatus.DRAFT),
+                )?.let { (dupId, _) ->
+                    throw ConflictException(
+                        "A draft for this subject, provider and requester already exists",
+                        instance = "/api/v1/feedbacks/$dupId",
+                    )
+                }
+            }
             Feedbacks.update({ (Feedbacks.id eq id) and (Feedbacks.markedAsDeleted eq false) }) {
                 it[status] = target
                 it[lastModified] = System.currentTimeMillis()
@@ -223,6 +252,42 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
             .toList()
             .toMap()
     }
+
+    /**
+     * The in-progress duplicate of a prospective feedback, if any: the oldest active row in
+     * DRAFT or REQUESTED status with the same (subject, provider, requester) triple — a null
+     * requester matches only null. Backs the create/pick-up no-duplicate invariant and the
+     * `duplicate-check` endpoint's early warning. Returns id + status, or null.
+     */
+    suspend fun findOpenDuplicate(
+        subjectId: UInt,
+        providerId: UInt,
+        requesterId: UInt?,
+    ): Pair<UInt, FeedbackStatus>? =
+        suspendTransaction(database) { findOpenDuplicateInTx(subjectId, providerId, requesterId) }
+
+    private suspend fun findOpenDuplicateInTx(
+        subjectId: UInt,
+        providerId: UInt,
+        requesterId: UInt?,
+        statuses: List<FeedbackStatus> = OPEN_STATUSES,
+    ): Pair<UInt, FeedbackStatus>? =
+        Feedbacks
+            .select(Feedbacks.id, Feedbacks.status)
+            .where {
+                (Feedbacks.subjectId eq subjectId) and
+                    (Feedbacks.providerId eq providerId) and
+                    (
+                        if (requesterId == null) Feedbacks.requesterId.isNull()
+                        else Feedbacks.requesterId eq requesterId
+                    ) and
+                    (Feedbacks.status inList statuses) and
+                    active()
+            }
+            .orderBy(Feedbacks.id to SortOrder.ASC)
+            .limit(1)
+            .map { it[Feedbacks.id].value to it[Feedbacks.status] }
+            .singleOrNull()
 
     /** Transaction-wrapped variant for callers outside an open transaction (e.g. routes). */
     suspend fun partyNames(feedback: Feedback): Map<UInt, String> =

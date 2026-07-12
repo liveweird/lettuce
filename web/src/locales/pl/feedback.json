@@ -92,9 +92,15 @@
     "peers": "Moi współpracownicy",
     "subordinates": "Moi podwładni"
   },
+  "duplicate": {
+    "draft": "Szkic tego feedbacku już istnieje.",
+    "requested": "O ten feedback już poproszono — czeka na wystawiającego.",
+    "open": "Otwórz istniejący feedback"
+  },
   "error": {
     "changePermission": "Nie masz uprawnień do zmiany tego feedbacku.",
     "gone": "Feedback już nie istnieje.",
+    "duplicate": "Taki feedback już istnieje.",
     "invalidTransition": "Ta zmiana statusu jest niedozwolona.",
     "updateFailedStatus": "Aktualizacja nie powiodła się ({{status}}).",
     "updateFailed": "Aktualizacja nie powiodła się. Sprawdź połączenie i spróbuj ponownie.",

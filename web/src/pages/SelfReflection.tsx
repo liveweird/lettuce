@@ -8,7 +8,9 @@ import {
   type FeedbackStatus,
   type FeedbackVisibility,
 } from "../api/client";
+import DuplicateFeedbackAlert from "../components/DuplicateFeedbackAlert";
 import FeedbackForm from "../components/FeedbackForm";
+import { useFeedbackDuplicate } from "../hooks/useFeedbackDuplicate";
 import { saveErrorMessage } from "../utils/saveError";
 
 // Where the new row shows up right after saving — and where Cancel returns to.
@@ -27,6 +29,10 @@ export default function SelfReflection() {
   const [submitting, setSubmitting] = useState<FeedbackStatus | null>(null);
 
   const userId = getUserId();
+  // Warn about an in-progress self-reflection before typing (hook order: before the redirect).
+  const duplicate = useFeedbackDuplicate(
+    userId != null ? { subjectId: userId, providerId: userId } : null,
+  );
   if (userId == null) return <Navigate to="/" replace />;
 
   async function submit(
@@ -50,6 +56,7 @@ export default function SelfReflection() {
       // generic status message, exactly as before.
       setError(
         saveErrorMessage(err, t, {
+          conflict: "feedback.error.duplicate",
           invalid: "feedback.error.validation",
           failedStatus: "feedback.error.createFailedStatus",
           failed: "feedback.error.createFailed",
@@ -73,6 +80,14 @@ export default function SelfReflection() {
       showTemplateInsert
       discardTitle={t("feedback.discardCreateTitle")}
       discardMessage={t("feedback.discardCreateMessage")}
+      duplicate={
+        duplicate.existingId != null ? (
+          <DuplicateFeedbackAlert
+            status={duplicate.existingStatus ?? "DRAFT"}
+            to={`/feedback/${duplicate.existingId}/edit`}
+          />
+        ) : undefined
+      }
     />
   );
 }
