@@ -120,3 +120,14 @@ data class FeedbackListItem(
 )
 
 typealias FeedbackPageResponse = PageResponse<FeedbackListItem>
+
+/**
+ * GET /api/v1/feedbacks/duplicate-check: the in-progress duplicate for a prospective
+ * (subject, provider, requester) triple, if any — both fields null when there is none.
+ * Backs the SPA's early warning on the create screens.
+ */
+@Serializable
+data class DuplicateCheckResponse(
+    val existingId: UInt?,
+    val existingStatus: FeedbackStatus?,
+)

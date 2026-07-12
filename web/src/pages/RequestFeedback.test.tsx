@@ -135,6 +135,53 @@ describe("RequestFeedback page", () => {
     });
   });
 
+  test("a selected provider with an existing request is flagged and blocks submitting", async () => {
+    mockFetch.mockImplementation((url: string) => {
+      const u = String(url);
+      if (u.startsWith("/api/v1/users?")) {
+        return Promise.resolve(
+          jsonResponse(200, { items: USER_POOL, page: 1, pageSize: 100, total: USER_POOL.length }),
+        );
+      }
+      if (u.startsWith("/api/v1/feedbacks/duplicate-check")) {
+        const providerId = new URL(u, "http://localhost").searchParams.get("providerId");
+        return Promise.resolve(
+          providerId === "10"
+            ? jsonResponse(200, { existingId: 77, existingStatus: "REQUESTED" })
+            : jsonResponse(200, { existingId: null, existingStatus: null }),
+        );
+      }
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    const user = userEvent.setup();
+    renderRequestFeedback();
+    await screen.findByText("Mona");
+
+    // Alice (10) already has this request in progress: her row is flagged with a view link
+    // and Request is blocked.
+    await addProvider(user, "Alice Provider");
+    expect(
+      await screen.findByText(
+        "This feedback has already been requested and is waiting for the provider.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open the existing feedback" })).toHaveAttribute(
+      "href",
+      "/feedback/77/view",
+    );
+    expect(screen.getByRole("button", { name: /^request$/i })).toBeDisabled();
+
+    // A clean provider (Bob, 11) doesn't unblock while Alice stays selected…
+    await addProvider(user, "Bob Provider");
+    expect(screen.getByRole("button", { name: /^request$/i })).toBeDisabled();
+
+    // …removing the flagged provider re-enables Request.
+    await user.click(screen.getByRole("button", { name: /remove alice provider/i }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /^request$/i })).toBeEnabled(),
+    );
+  });
+
   test("adding a provider lists them; removing clears back to the empty state", async () => {
     setupMocks(mockFetch, () => jsonResponse(201, { id: 1 }));
     const user = userEvent.setup();

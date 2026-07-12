@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
-import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { Link as RouterLink, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Alert,
+  Anchor,
   Button,
   Container,
   Group,
@@ -9,6 +10,7 @@ import {
   Select,
   Stack,
   Table,
+  Text,
   Textarea,
   Title,
 } from "@mantine/core";
@@ -17,6 +19,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconPlus, IconTrash, IconUserPlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import {
+  checkFeedbackDuplicate,
   createFeedback,
   getUserId,
   listUsers,
@@ -66,6 +69,30 @@ export default function RequestFeedback() {
   });
 
   const subjectIdIsValid = Number.isFinite(subjectId) && subjectId > 0;
+
+  // Early no-duplicate check, one triple per picked provider: providers whose feedback is
+  // already in progress get an inline warning with a link, and Request stays disabled until
+  // they are removed (the server would 409 anyway).
+  const selectedIds = selected.map((p) => p.id).sort((a, b) => a - b);
+  const { data: duplicateData } = useQuery({
+    queryKey: ["feedbackDuplicate", "request", subjectId, requesterId, selectedIds.join(",")],
+    queryFn: async () => {
+      const entries = await Promise.all(
+        selectedIds.map(async (providerId) => {
+          const result = await checkFeedbackDuplicate({
+            subjectId,
+            providerId,
+            requesterId: requesterId!,
+          });
+          return [providerId, result] as const;
+        }),
+      );
+      return new Map(entries.filter(([, r]) => r.existingId != null));
+    },
+    enabled: subjectIdIsValid && requesterId != null && selectedIds.length > 0,
+  });
+  const duplicates = duplicateData ?? new Map<number, { existingId?: number | null; existingStatus?: string | null }>();
+  const hasDuplicates = selected.some((p) => duplicates.has(p.id));
 
   // A provider cannot be the requester (requester ≠ provider) and cannot be already chosen.
   // The subject IS offered: picking them asks the subject for a self-reflection
@@ -118,6 +145,7 @@ export default function RequestFeedback() {
       setError(
         saveErrorMessage(err, t, {
           forbidden: "feedback.error.requestPermission",
+          conflict: "feedback.error.duplicate",
           invalid: "feedback.error.validationProviders",
           failedStatus: "feedback.error.requestFailedStatus",
           failed: "feedback.error.requestFailed",
@@ -192,6 +220,22 @@ export default function RequestFeedback() {
                   <Table.Tr key={p.id}>
                     <Table.Td>
                       <PersonaChip name={p.name} />
+                      {duplicates.has(p.id) && (
+                        <Text size="xs" c="orange.8" mt={4}>
+                          {duplicates.get(p.id)?.existingStatus === "DRAFT"
+                            ? t("feedback.duplicate.draft")
+                            : t("feedback.duplicate.requested")}{" "}
+                          <Anchor
+                            component={RouterLink}
+                            to={`/feedback/${duplicates.get(p.id)?.existingId}/view`}
+                            size="xs"
+                            fw={600}
+                            c="orange"
+                          >
+                            {t("feedback.duplicate.open")}
+                          </Anchor>
+                        </Text>
+                      )}
                     </Table.Td>
                     <Table.Td>
                       <Button
@@ -234,7 +278,7 @@ export default function RequestFeedback() {
               type="button"
               onClick={submit}
               loading={submitting}
-              disabled={selected.length === 0}
+              disabled={selected.length === 0 || hasDuplicates}
             >
               {t("feedback.action.request")}
             </Button>

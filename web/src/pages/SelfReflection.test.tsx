@@ -67,6 +67,24 @@ describe("SelfReflection page", () => {
     );
   });
 
+  test("warns early and disables saving while a self-reflection is in progress", async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (String(url).startsWith("/api/v1/feedbacks/duplicate-check")) {
+        return Promise.resolve(jsonResponse(200, { existingId: 21, existingStatus: "DRAFT" }));
+      }
+      return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 100, total: 0 }));
+    });
+    renderSelfReflection();
+
+    expect(await screen.findByText("A draft of this feedback already exists.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open the existing feedback" })).toHaveAttribute(
+      "href",
+      "/feedback/21/edit",
+    );
+    expect(screen.getByRole("button", { name: /^save draft$/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /save & send/i })).toBeDisabled();
+  });
+
   test("visibility offers only Provider+subject and Public", async () => {
     const user = userEvent.setup();
     renderSelfReflection();

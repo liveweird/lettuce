@@ -843,7 +843,11 @@ paths:
       description: >-
         Any authenticated user may create a feedback record they are a party to. The provider may
         equal the subject — a self-reflection (feedback about yourself) — either standalone or
-        with a requester (someone requesting a self-reflection from the subject).
+        with a requester (someone requesting a self-reflection from the subject). Creation is
+        rejected with `409` while a feedback with the same (subject, provider, requester) triple
+        — a null requester matches only null — is still in progress (active `DRAFT` or
+        `REQUESTED`); the `ProblemDetail.instance` carries `/api/v1/feedbacks/{id}` of the
+        existing record. Clients should pre-check via `GET /api/v1/feedbacks/duplicate-check`.
       requestBody:
         required: true
         content:
@@ -869,6 +873,58 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Caller is not a party (provider or requester) to the feedback and not ADMIN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '409':
+          description: >-
+            A feedback with the same (subject, provider, requester) triple is already in
+            progress (`DRAFT` or `REQUESTED`); `instance` is the existing record's API path.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/feedbacks/duplicate-check:
+    get:
+      tags: [feedbacks]
+      operationId: checkFeedbackDuplicate
+      summary: Check for an in-progress duplicate of a prospective feedback
+      description: >-
+        Returns the active `DRAFT`/`REQUESTED` feedback matching the given
+        (subject, provider, requester) triple, if any — the create screens call this up-front so
+        the user is warned (with a link) before filling the form. A null/omitted `requesterId`
+        matches only rows without a requester. The caller must be the prospective provider or
+        requester (or ADMIN) — the same party rule as creation, so a matching row always has the
+        caller as a party and no unrelated draft's existence can be probed.
+      parameters:
+        - name: subjectId
+          in: query
+          required: true
+          schema: { type: integer, format: int64, minimum: 0 }
+        - name: providerId
+          in: query
+          required: true
+          schema: { type: integer, format: int64, minimum: 0 }
+        - name: requesterId
+          in: query
+          required: false
+          schema: { type: integer, format: int64, minimum: 0 }
+      responses:
+        '200':
+          description: The duplicate, or nulls when there is none
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DuplicateCheckResponse'
+        '400':
+          description: Missing or malformed subjectId/providerId/requesterId
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is neither the prospective provider nor requester and not ADMIN
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
@@ -1068,7 +1124,10 @@ paths:
       summary: Pick up a feedback request (REQUESTED → DRAFT)
       description: |
         The provider accepts a pending request and starts a draft. Provider-only, no request body.
-        Valid only from REQUESTED (otherwise 409). Notifies the requester.
+        Valid only from REQUESTED (otherwise 409). Also 409 when an active DRAFT with the same
+        (subject, provider, requester) triple already exists (`instance` carries its API path) —
+        reachable only with duplicates predating the create-time no-duplicate invariant.
+        Notifies the requester.
       responses:
         '204': { description: Transitioned }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -2357,6 +2416,24 @@ components:
           format: int64
           minimum: 0
           description: Row count after filters, before pagination.
+
+    DuplicateCheckResponse:
+      type: object
+      description: >-
+        The in-progress duplicate for a prospective (subject, provider, requester) triple —
+        both fields null when there is none.
+      properties:
+        existingId:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+          description: Id of the active DRAFT/REQUESTED feedback matching the triple.
+        existingStatus:
+          type: string
+          enum: [REQUESTED, DRAFT]
+          nullable: true
+          description: Its status; null exactly when `existingId` is null.
 
     TemplateRequest:
       type: object

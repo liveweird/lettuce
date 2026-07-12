@@ -458,9 +458,29 @@ export interface paths {
         put?: never;
         /**
          * Create a feedback record
-         * @description Any authenticated user may create a feedback record they are a party to. The provider may equal the subject — a self-reflection (feedback about yourself) — either standalone or with a requester (someone requesting a self-reflection from the subject).
+         * @description Any authenticated user may create a feedback record they are a party to. The provider may equal the subject — a self-reflection (feedback about yourself) — either standalone or with a requester (someone requesting a self-reflection from the subject). Creation is rejected with `409` while a feedback with the same (subject, provider, requester) triple — a null requester matches only null — is still in progress (active `DRAFT` or `REQUESTED`); the `ProblemDetail.instance` carries `/api/v1/feedbacks/{id}` of the existing record. Clients should pre-check via `GET /api/v1/feedbacks/duplicate-check`.
          */
         post: operations["createFeedback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/feedbacks/duplicate-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check for an in-progress duplicate of a prospective feedback
+         * @description Returns the active `DRAFT`/`REQUESTED` feedback matching the given (subject, provider, requester) triple, if any — the create screens call this up-front so the user is warned (with a link) before filling the form. A null/omitted `requesterId` matches only rows without a requester. The caller must be the prospective provider or requester (or ADMIN) — the same party rule as creation, so a matching row always has the caller as a party and no unrelated draft's existence can be probed.
+         */
+        get: operations["checkFeedbackDuplicate"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -638,7 +658,10 @@ export interface paths {
         /**
          * Pick up a feedback request (REQUESTED → DRAFT)
          * @description The provider accepts a pending request and starts a draft. Provider-only, no request body.
-         *     Valid only from REQUESTED (otherwise 409). Notifies the requester.
+         *     Valid only from REQUESTED (otherwise 409). Also 409 when an active DRAFT with the same
+         *     (subject, provider, requester) triple already exists (`instance` carries its API path) —
+         *     reachable only with duplicates predating the create-time no-duplicate invariant.
+         *     Notifies the requester.
          */
         post: operations["pickUpFeedback"];
         delete?: never;
@@ -1463,6 +1486,19 @@ export interface components {
              * @description Row count after filters, before pagination.
              */
             total: number;
+        };
+        /** @description The in-progress duplicate for a prospective (subject, provider, requester) triple — both fields null when there is none. */
+        DuplicateCheckResponse: {
+            /**
+             * Format: int64
+             * @description Id of the active DRAFT/REQUESTED feedback matching the triple.
+             */
+            existingId?: number | null;
+            /**
+             * @description Its status; null exactly when `existingId` is null.
+             * @enum {string|null}
+             */
+            existingStatus?: "REQUESTED" | "DRAFT" | null;
         };
         TemplateRequest: {
             name: string;
@@ -2776,6 +2812,59 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             /** @description Caller is not a party (provider or requester) to the feedback and not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A feedback with the same (subject, provider, requester) triple is already in progress (`DRAFT` or `REQUESTED`); `instance` is the existing record's API path. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    checkFeedbackDuplicate: {
+        parameters: {
+            query: {
+                subjectId: number;
+                providerId: number;
+                requesterId?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The duplicate, or nulls when there is none */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DuplicateCheckResponse"];
+                };
+            };
+            /** @description Missing or malformed subjectId/providerId/requesterId */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is neither the prospective provider nor requester and not ADMIN */
             403: {
                 headers: {
                     [name: string]: unknown;

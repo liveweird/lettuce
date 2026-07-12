@@ -4,8 +4,16 @@ class UnauthorizedException(message: String = "Authentication required") : Runti
 
 class ForbiddenException(message: String = "Forbidden") : RuntimeException(message)
 
-/** Requested action conflicts with the resource's current state (e.g. an invalid status transition). */
-class ConflictException(message: String = "Conflict") : RuntimeException(message)
+/**
+ * Requested action conflicts with the resource's current state (e.g. an invalid status
+ * transition, or a duplicate of an in-progress resource). [instance] optionally points at the
+ * conflicting resource (an API path) and rides the ProblemDetail `instance` field, so clients
+ * can link to it.
+ */
+class ConflictException(
+    message: String = "Conflict",
+    val instance: String? = null,
+) : RuntimeException(message)
 
 /**
  * Caller-specific throttling (e.g. the per-account login lockout) → 429 with the given detail.

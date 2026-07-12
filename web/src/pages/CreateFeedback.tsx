@@ -8,7 +8,9 @@ import {
   type FeedbackStatus,
   type FeedbackVisibility,
 } from "../api/client";
+import DuplicateFeedbackAlert from "../components/DuplicateFeedbackAlert";
 import FeedbackForm from "../components/FeedbackForm";
+import { useFeedbackDuplicate } from "../hooks/useFeedbackDuplicate";
 import { saveErrorMessage } from "../utils/saveError";
 
 export default function CreateFeedback() {
@@ -26,6 +28,11 @@ export default function CreateFeedback() {
   const providerId = getUserId();
 
   const subjectIdIsValid = Number.isFinite(subjectId) && subjectId > 0;
+  // Warn about an in-progress duplicate before the user types anything (hook order: before
+  // the redirect early-return).
+  const duplicate = useFeedbackDuplicate(
+    subjectIdIsValid && providerId != null ? { subjectId, providerId } : null,
+  );
   if (!subjectIdIsValid || providerId == null) return <Navigate to="/" replace />;
 
   async function submit(
@@ -50,6 +57,7 @@ export default function CreateFeedback() {
       setError(
         saveErrorMessage(err, t, {
           forbidden: "feedback.error.providePermission",
+          conflict: "feedback.error.duplicate",
           invalid: "feedback.error.validation",
           failedStatus: "feedback.error.createFailedStatus",
           failed: "feedback.error.createFailed",
@@ -77,6 +85,15 @@ export default function CreateFeedback() {
       showTemplateInsert
       discardTitle={t("feedback.discardCreateTitle")}
       discardMessage={t("feedback.discardCreateMessage")}
+      duplicate={
+        duplicate.existingId != null ? (
+          // The caller is the provider, so the edit route (or its triage screen) is theirs.
+          <DuplicateFeedbackAlert
+            status={duplicate.existingStatus ?? "DRAFT"}
+            to={`/feedback/${duplicate.existingId}/edit`}
+          />
+        ) : undefined
+      }
     />
   );
 }

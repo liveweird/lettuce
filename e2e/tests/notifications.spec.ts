@@ -8,16 +8,19 @@ import {
   gotoUserRow,
   MANAGER_AAA,
   AAA_ONE,
+  AAA_TWO,
 } from "./helpers";
 
 // Bell mechanics: unread badge, per-notification seen/unseen toggles, and "Mark all as seen".
-// Two asks from AAA One give Manager AAA at least two fresh unseen notifications to work with;
-// the spec never asserts absolute counts (the shared DB accumulates notifications across runs).
+// One ask each from AAA One and AAA Two gives Manager AAA at least two fresh unseen
+// notifications to work with — a second ask with the SAME triple would be blocked by the
+// no-duplicate constraint (v1.13). The spec never asserts absolute counts (the shared DB
+// accumulates notifications across runs).
 test("recipient toggles seen/unseen and marks all notifications as seen", async ({ page }) => {
-  // Mint two provider-side notifications for Manager AAA.
-  await login(page, AAA_ONE);
+  // Mint two provider-side notifications for Manager AAA — one ask per requester.
   const ids: number[] = [];
-  for (let i = 0; i < 2; i++) {
+  for (const requester of [AAA_ONE, AAA_TWO]) {
+    await login(page, requester);
     await gotoUserRow(page, "Manager AAA");
     await page.getByRole("link", { name: "Ask Manager AAA for feedback" }).click();
     const [created] = await Promise.all([
@@ -27,8 +30,8 @@ test("recipient toggles seen/unseen and marks all notifications as seen", async 
       page.getByRole("button", { name: "Send request" }).click(),
     ]);
     ids.push((await created.json()).id);
+    await logout(page);
   }
-  await logout(page);
 
   await login(page, MANAGER_AAA);
   const dialog = await openBell(page);

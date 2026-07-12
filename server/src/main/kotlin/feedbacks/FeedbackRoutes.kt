@@ -36,6 +36,11 @@ import kotlinx.serialization.Serializable
 @Serializable
 @Resource("/api/v1/feedbacks")
 class Feedbacks {
+    // The no-duplicate early check for the SPA create screens (see the GET handler).
+    @Serializable
+    @Resource("duplicate-check")
+    class DuplicateCheck(val parent: Feedbacks = Feedbacks())
+
     @Serializable
     @Resource("{id}")
     class Id(val parent: Feedbacks = Feedbacks(), val id: UInt) {
@@ -132,6 +137,29 @@ fun Application.configureFeedbackRoutes() {
                     includeIndirect = includeIndirect == true,
                 )
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
+            }
+            get<Feedbacks.DuplicateCheck> {
+                val caller = call.caller()
+                val params = call.request.queryParameters
+                val subjectId = params.optionalUInt("subjectId")
+                    ?: throw BadRequestException("subjectId is required")
+                val providerId = params.optionalUInt("providerId")
+                    ?: throw BadRequestException("providerId is required")
+                val requesterId = params.optionalUInt("requesterId")
+                // Same party rule as creation: only someone who could create this feedback may
+                // probe for its in-progress duplicate — and a matching DRAFT/REQUESTED row always
+                // has the caller as a party, so no private draft's existence can leak.
+                if (!caller.isAdmin() &&
+                    caller.userId != providerId &&
+                    caller.userId != requesterId
+                ) {
+                    throw ForbiddenException("You may only check feedback you would provide or request")
+                }
+                val duplicate = feedbackService.findOpenDuplicate(subjectId, providerId, requesterId)
+                call.respond(
+                    HttpStatusCode.OK,
+                    DuplicateCheckResponse(existingId = duplicate?.first, existingStatus = duplicate?.second),
+                )
             }
             post<Feedbacks> {
                 val caller = call.caller()

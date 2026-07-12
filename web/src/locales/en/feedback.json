@@ -92,9 +92,15 @@
     "peers": "My peers",
     "subordinates": "My subordinates"
   },
+  "duplicate": {
+    "draft": "A draft of this feedback already exists.",
+    "requested": "This feedback has already been requested and is waiting for the provider.",
+    "open": "Open the existing feedback"
+  },
   "error": {
     "changePermission": "You don't have permission to change this feedback.",
     "gone": "Feedback no longer exists.",
+    "duplicate": "Such a feedback already exists.",
     "invalidTransition": "This status change is not allowed.",
     "updateFailedStatus": "Update failed ({{status}}).",
     "updateFailed": "Update failed. Check your connection and try again.",

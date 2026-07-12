@@ -16,7 +16,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { createFeedback, getUserId, type FeedbackVisibility } from "../api/client";
 import ConfirmActionModal from "../components/ConfirmActionModal";
+import DuplicateFeedbackAlert from "../components/DuplicateFeedbackAlert";
 import PersonaField from "../components/PersonaField";
+import { useFeedbackDuplicate } from "../hooks/useFeedbackDuplicate";
 import { REQUESTER_VISIBILITIES } from "../utils/feedbackVisibility";
 import { saveErrorMessage } from "../utils/saveError";
 
@@ -46,6 +48,12 @@ export default function AskFeedback() {
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
 
   const providerIdIsValid = Number.isFinite(providerId) && providerId > 0;
+  // Warn up-front when this exact ask already exists (subject == requester == me).
+  const duplicate = useFeedbackDuplicate(
+    providerIdIsValid && requesterId != null
+      ? { subjectId: requesterId, providerId, requesterId }
+      : null,
+  );
   if (!providerIdIsValid || requesterId == null) return <Navigate to={backTo} replace />;
 
   async function submit() {
@@ -70,6 +78,7 @@ export default function AskFeedback() {
       setError(
         saveErrorMessage(err, t, {
           forbidden: "feedback.error.requestPermission",
+          conflict: "feedback.error.duplicate",
           invalid: "feedback.error.validationSimple",
           failedStatus: "feedback.error.requestFailedStatus",
           failed: "feedback.error.requestFailed",
@@ -93,6 +102,14 @@ export default function AskFeedback() {
             />
             <PersonaField label={t("common.field.subject")} you />
           </Group>
+
+          {duplicate.existingId != null && (
+            // The caller is the requester of the existing row, so the view route is theirs.
+            <DuplicateFeedbackAlert
+              status={duplicate.existingStatus ?? "REQUESTED"}
+              to={`/feedback/${duplicate.existingId}/view`}
+            />
+          )}
 
           <Select
             label={t("common.field.visibility")}
@@ -123,7 +140,12 @@ export default function AskFeedback() {
             <Button type="button" variant="default" onClick={openCancel} disabled={submitting}>
               {t("common.action.cancel")}
             </Button>
-            <Button type="button" onClick={submit} loading={submitting}>
+            <Button
+              type="button"
+              onClick={submit}
+              loading={submitting}
+              disabled={duplicate.existingId != null}
+            >
               {t("feedback.action.sendRequest")}
             </Button>
           </Group>

@@ -77,6 +77,32 @@ describe("CreateFeedback page", () => {
     expect(options).toEqual(["Provider + subject", "Public"]);
   });
 
+  test("warns early and disables saving while a duplicate draft is in progress", async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (String(url).startsWith("/api/v1/feedbacks/duplicate-check")) {
+        return Promise.resolve(jsonResponse(200, { existingId: 42, existingStatus: "DRAFT" }));
+      }
+      return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 100, total: 0 }));
+    });
+    renderCreateFeedback();
+
+    expect(await screen.findByText("A draft of this feedback already exists.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open the existing feedback" })).toHaveAttribute(
+      "href",
+      "/feedback/42/edit",
+    );
+    expect(screen.getByRole("button", { name: /^save draft$/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /save & send/i })).toBeDisabled();
+
+    // The check fires with the page's triple (subject from the URL, caller as provider).
+    const checkUrl = mockFetch.mock.calls
+      .map(([u]) => String(u))
+      .find((u) => u.includes("duplicate-check"));
+    expect(checkUrl).toContain("subjectId=5");
+    expect(checkUrl).toContain("providerId=7");
+    expect(checkUrl).not.toContain("requesterId");
+  });
+
   test("Save draft submits a DRAFT with no requester and redirects to the dashboard", async () => {
     // A fresh Response per call: the templates GET on mount must not consume the body
     // that the createFeedback POST also needs to read.
