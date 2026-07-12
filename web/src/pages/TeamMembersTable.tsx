@@ -15,10 +15,10 @@ import {
   IconArrowDown,
   IconArrowUp,
   IconCalendarEvent,
-  IconCalendarPlus,
   IconMessagePlus,
   IconMessageQuestion,
   IconMessages,
+  IconPlus,
   IconUserPlus,
   IconUsersGroup,
 } from "@tabler/icons-react";
@@ -34,6 +34,7 @@ import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOf, isString, isStringOrNull, useStoredState } from "../hooks/useStoredState";
 import { feedbackAskLink, feedbackProvideLink, feedbackRequestLink } from "../utils/feedbackLinks";
+import { oneOnOneCreateLink } from "../utils/oneOnOneLinks";
 import { groupTeamRows } from "../utils/teamRows";
 
 const SORT_FIELDS = ["name", "email", "teamName"] as const;
@@ -258,10 +259,10 @@ export default function TeamMembersTable({
                     // drill-down below.
                     <Button
                       component={RouterLink}
-                      to={`/one-on-ones/new?subordinateId=${m.userId}&subordinateName=${encodeURIComponent(m.name)}&back=${encodeURIComponent(backTo)}`}
+                      to={oneOnOneCreateLink(m.userId, m.name, backTo)}
                       variant="light"
                       size="xs"
-                      leftSection={<IconCalendarPlus size={14} />}
+                      leftSection={<IconPlus size={14} />}
                       aria-label={t("teams.addOneOnOneWithAria", { name: m.name })}
                     >
                       {t("teams.addOneOnOne")}

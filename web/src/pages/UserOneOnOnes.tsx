@@ -2,6 +2,7 @@ import { Anchor, Button, Group, Stack, Text, Title } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { oneOnOneCreateLink } from "../utils/oneOnOneLinks";
 import OneOnOneTable from "./OneOnOneTable";
 
 // Which dashboard tab this screen was opened from, so the "Back to …" link and the
@@ -69,7 +70,7 @@ export default function UserOneOnOnes() {
         <Group justify="flex-end">
           <Button
             component={RouterLink}
-            to={`/one-on-ones/new?subordinateId=${userId}${name ? `&subordinateName=${encodeURIComponent(name)}` : ""}&back=${encodeURIComponent(backTo)}`}
+            to={oneOnOneCreateLink(userId, name, backTo)}
             leftSection={<IconPlus size={16} />}
           >
             {t("oneOnOne.newMeeting")}

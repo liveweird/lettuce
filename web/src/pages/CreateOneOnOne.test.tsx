@@ -137,7 +137,11 @@ describe("CreateOneOnOne page", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Create" }));
     await waitFor(() => expect(screen.getByTestId("probe")).toBeInTheDocument());
-    expect(screen.getByTestId("probe")).toHaveTextContent("/one-on-ones/43/edit?from=managed");
+    // The edit screen keeps the origin (`back`) so its Close returns to the launching card, not the
+    // generic managed list.
+    expect(screen.getByTestId("probe")).toHaveTextContent(
+      "/one-on-ones/43/edit?from=managed&back=%2F%3Ftab%3Dsubordinates",
+    );
 
     const [, init] = mockFetch.mock.calls.find(
       ([u, i]) => String(u).endsWith("/api/v1/one-on-ones") && (i as RequestInit)?.method === "POST",

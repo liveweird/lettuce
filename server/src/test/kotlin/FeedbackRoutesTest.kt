@@ -850,6 +850,9 @@ class FeedbackRoutesTest {
         val callerEmail = uniqueEmail("subject")
         val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
         val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw")
+        // A second provider so the two self-requested rows differ on the (subject, provider, requester)
+        // triple — otherwise the no-duplicate invariant 409s the second create.
+        val provider2Id = TestUsers.seed(email = uniqueEmail("provider2"), password = "pw")
         val client = authedClient(callerEmail, "pw")
 
         // Self-asked feedback (subject == requester == caller) with a requester-only visibility that
@@ -859,7 +862,7 @@ class FeedbackRoutesTest {
             status = FeedbackStatus.REQUESTED, requesterId = callerId, content = "secret",
         )
         val sent = createFeedback(
-            callerId, providerId, FeedbackVisibility.PROVIDER_REQUESTER,
+            callerId, provider2Id, FeedbackVisibility.PROVIDER_REQUESTER,
             status = FeedbackStatus.SENT, requesterId = callerId, content = "delivered",
         )
 
@@ -878,6 +881,9 @@ class FeedbackRoutesTest {
         val providerEmail = uniqueEmail("provider")
         val providerId = TestUsers.seed(email = providerEmail, password = "pw")
         val requesterId = TestUsers.seed(email = uniqueEmail("requester"), password = "pw")
+        // A second requester (also "someone else") so the two pending requests differ on the
+        // (subject, provider, requester) triple — otherwise the no-duplicate invariant 409s the second.
+        val requester2Id = TestUsers.seed(email = uniqueEmail("requester2"), password = "pw")
         val subjectClient = authedClient(subjectEmail, "pw")
         val providerClient = authedClient(providerEmail, "pw")
 
@@ -888,7 +894,7 @@ class FeedbackRoutesTest {
         )
         val toReject = createFeedback(
             subjectId, providerId, FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT,
-            status = FeedbackStatus.REQUESTED, requesterId = requesterId,
+            status = FeedbackStatus.REQUESTED, requesterId = requester2Id,
         )
         providerClient.post("/api/v1/feedbacks/${toReject.id}/reject")
 
@@ -1073,6 +1079,9 @@ class FeedbackRoutesTest {
     fun `received list hides drafts from the subject`() = testApplication {
         usePostgresTestcontainer()
         val provider = seedParty("provider", "Pat Provider")
+        // A second provider so the draft and the delivered row differ on the (subject, provider, requester)
+        // triple — otherwise the no-duplicate invariant 409s the second create.
+        val provider2 = seedParty("provider2", "Pat Provider Two")
         val subject = seedParty("subject", "Sam Subject")
         val providerClient = authedClient(provider.email, "pw")
         val subjectClient = authedClient(subject.email, "pw")
@@ -1082,7 +1091,7 @@ class FeedbackRoutesTest {
             visibility = FeedbackVisibility.PROVIDER_SUBJECT, status = FeedbackStatus.DRAFT,
         )
         val sent = createFeedback(
-            subjectId = subject.id, providerId = provider.id,
+            subjectId = subject.id, providerId = provider2.id,
             visibility = FeedbackVisibility.PUBLIC, status = FeedbackStatus.SENT,
         )
 
@@ -1230,6 +1239,9 @@ class FeedbackRoutesTest {
         val manager = seedParty("manager", "Manny Manager")
         val subordinate = seedParty("sub", "Sam Sub")
         val provider = seedParty("provider", "Pat Provider")
+        // A second provider for the delivered row so it does not share the (subject, provider, null)
+        // triple with the non-party draft (a) — otherwise the no-duplicate invariant 409s it.
+        val provider2 = seedParty("provider2", "Pat Provider Two")
         val otherRequester = seedParty("requester", "Rita Requester")
         val managerClient = authedClient(manager.email, "pw")
         val providerClient = authedClient(provider.email, "pw")
@@ -1254,7 +1266,7 @@ class FeedbackRoutesTest {
         )
         // (d) a delivered feedback — non-party, but SENT → shown.
         val sent = createFeedback(
-            subordinate.id, provider.id, FeedbackVisibility.PUBLIC, status = FeedbackStatus.SENT,
+            subordinate.id, provider2.id, FeedbackVisibility.PUBLIC, status = FeedbackStatus.SENT,
         )
 
         val items = managerClient.get("/api/v1/feedbacks?view=team").body<FeedbackPageResponse>().items
@@ -1268,6 +1280,9 @@ class FeedbackRoutesTest {
         val midManager = seedParty("mid", "Mia Mid")
         val subordinate = seedParty("sub", "Sam Sub")
         val provider = seedParty("provider", "Pat Provider")
+        // A second provider for the delivered row about the indirect subordinate so it does not share
+        // the (subject, provider, null) triple with the non-party draft — else the invariant 409s it.
+        val provider2 = seedParty("provider2", "Pat Provider Two")
         val grandManagerClient = authedClient(grandManager.email, "pw")
         val midManagerClient = authedClient(midManager.email, "pw")
 
@@ -1290,7 +1305,7 @@ class FeedbackRoutesTest {
             midManager.id, provider.id, FeedbackVisibility.PUBLIC, status = FeedbackStatus.SENT,
         )
         val aboutSub = createFeedback(
-            subordinate.id, provider.id, FeedbackVisibility.PROVIDER_SUBJECT, status = FeedbackStatus.SENT,
+            subordinate.id, provider2.id, FeedbackVisibility.PROVIDER_SUBJECT, status = FeedbackStatus.SENT,
         )
 
         // Default (and explicit false): direct reports only — just the row about the mid manager.
