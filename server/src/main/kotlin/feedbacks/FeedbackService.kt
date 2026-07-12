@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.singleOrNull
 import kotlinx.coroutines.flow.toList
 import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.core.dao.id.EntityID
 import org.jetbrains.exposed.v1.core.dao.id.UIntIdTable
 import org.jetbrains.exposed.v1.r2dbc.*
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
@@ -267,24 +268,46 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
      * For each provider in [providerIds], the epoch-ms moment they last provided [subjectId]
      * feedback: the newest SENT transition among their currently-SENT, non-deleted feedbacks about
      * the subject that the subject can see under the Received scoping (never leaks an invisible
-     * feedback). SENT is reachable at most once per feedback (SENT → WITHDRAWN is terminal), so
-     * "the" SENT event is well-defined. Feedbacks predating the events table (pre-V15) have no
-     * SENT event and fall back to lastModified — an upper bound of the true sent moment (content
-     * edits bump it), better than a false "never" next to a feedback the subject can open.
-     * Providers with no qualifying feedback are absent from the map.
+     * feedback). Providers with no qualifying feedback are absent from the map.
      */
     suspend fun lastProvidedAt(providerIds: Set<UInt>, subjectId: UInt): Map<UInt, Long> =
+        if (providerIds.isEmpty()) emptyMap()
+        else lastSentAtBy(
+            Feedbacks.providerId,
+            (Feedbacks.providerId inList providerIds) and receivedScope(subjectId),
+        )
+
+    /**
+     * The provider-side mirror of [lastProvidedAt]: for each subject in [subjectIds], the epoch-ms
+     * moment [providerId] last provided them feedback, keyed by subject. No Received scoping — the
+     * caller is the provider and always sees their own feedback, so a row whose visibility hides
+     * it from the subject (e.g. PROVIDER_REQUESTER) still counts. Self-reflections (provider ==
+     * subject) would qualify, but the managed team view never lists the caller themselves.
+     * Subjects with no qualifying feedback are absent from the map.
+     */
+    suspend fun lastProvidedTo(providerId: UInt, subjectIds: Set<UInt>): Map<UInt, Long> =
+        if (subjectIds.isEmpty()) emptyMap()
+        else lastSentAtBy(
+            Feedbacks.subjectId,
+            (Feedbacks.providerId eq providerId) and (Feedbacks.subjectId inList subjectIds),
+        )
+
+    /**
+     * Per [keyColumn] value, the newest SENT moment among the currently-SENT, non-deleted
+     * feedbacks matching [scope]. SENT is reachable at most once per feedback (SENT → WITHDRAWN
+     * is terminal), so "the" SENT event is well-defined. Feedbacks predating the events table
+     * (pre-V15) have no SENT event and fall back to lastModified — an upper bound of the true
+     * sent moment (content edits bump it), better than a false "never".
+     */
+    private suspend fun lastSentAtBy(
+        keyColumn: Column<EntityID<UInt>>,
+        scope: Op<Boolean>,
+    ): Map<UInt, Long> =
         suspendTransaction(database) {
-            if (providerIds.isEmpty()) return@suspendTransaction emptyMap()
             val candidates = Feedbacks
-                .select(Feedbacks.id, Feedbacks.providerId, Feedbacks.lastModified)
-                .where {
-                    (Feedbacks.providerId inList providerIds) and
-                        (Feedbacks.status eq FeedbackStatus.SENT) and
-                        active() and
-                        receivedScope(subjectId)
-                }
-                .map { Triple(it[Feedbacks.id].value, it[Feedbacks.providerId].value, it[Feedbacks.lastModified]) }
+                .select(Feedbacks.id, keyColumn, Feedbacks.lastModified)
+                .where { scope and (Feedbacks.status eq FeedbackStatus.SENT) and active() }
+                .map { Triple(it[Feedbacks.id].value, it[keyColumn].value, it[Feedbacks.lastModified]) }
                 .toList()
             if (candidates.isEmpty()) return@suspendTransaction emptyMap()
 

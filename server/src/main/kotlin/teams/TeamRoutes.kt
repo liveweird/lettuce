@@ -59,8 +59,8 @@ private fun validateTeamName(name: String) {
 
 fun Application.configureTeamRoutes() {
     val teamService = attributes[TeamServiceKey]
-    // For the managers-view dashboard stats — composed here at the route so TeamService never
-    // touches other features' tables.
+    // For the managers/managed-view dashboard stats — composed here at the route so TeamService
+    // never touches other features' tables.
     val oneOnOneService = attributes[OneOnOneServiceKey]
     val feedbackService = attributes[FeedbackServiceKey]
 
@@ -104,13 +104,21 @@ fun Application.configureTeamRoutes() {
                     paging,
                     includeIndirect = includeIndirect == true,
                 )
-                // The managers view carries per-manager dashboard stats. Page-scoped; rows are
-                // one per (manager, team), so a manager with several shared teams repeats the
-                // same stats on each row.
-                val items = if (view == TeamMemberListView.MANAGERS && result.items.isNotEmpty()) {
-                    val managerIds = result.items.map { it.userId }.toSet()
-                    val oneOnOnes = oneOnOneService.latestMeetingStats(managerIds, caller.userId)
-                    val feedbackAt = feedbackService.lastProvidedAt(managerIds, caller.userId)
+                // The managers and managed views carry per-person dashboard stats, direction
+                // switched per view: managers — the row user ran the 1:1 / provided the caller
+                // feedback (received-scoped); managed — the caller did, toward the row user
+                // (provider-side, regardless of includeIndirect). Page-scoped; rows are one per
+                // (user, team), so a user with several shared teams repeats the same stats.
+                val items = if (view != TeamMemberListView.MEMBER && result.items.isNotEmpty()) {
+                    val ids = result.items.map { it.userId }.toSet()
+                    val (oneOnOnes, feedbackAt) = when (view) {
+                        TeamMemberListView.MANAGERS ->
+                            oneOnOneService.latestMeetingStats(ids, caller.userId) to
+                                feedbackService.lastProvidedAt(ids, caller.userId)
+                        else ->
+                            oneOnOneService.latestMeetingStatsBySubordinate(caller.userId, ids) to
+                                feedbackService.lastProvidedTo(caller.userId, ids)
+                    }
                     result.items.map {
                         it.copy(
                             lastOneOnOneDate = oneOnOnes[it.userId]?.meetingDate,

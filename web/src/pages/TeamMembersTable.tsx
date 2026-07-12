@@ -26,6 +26,7 @@ import { listAllTeams, listTeamMembers, type TeamMemberListView } from "../api/c
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
 import PersonCard from "../components/PersonCard";
+import PersonCardStats from "../components/PersonCardStats";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
@@ -204,6 +205,12 @@ export default function TeamMembersTable({
               name={m.name}
               email={m.email}
               teamNames={m.teamNames}
+              // Stats only while every card is a direct report (same rationale as the 1:1
+              // drill-down gate below): rows carry no direct/indirect marker, and indirect
+              // reports can't have 1:1s with the caller, so "never" would just be noise.
+              stats={
+                view === "managed" && reportsScope === "direct" ? <PersonCardStats person={m} /> : undefined
+              }
               actions={
                 <>
                   <Button
