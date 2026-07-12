@@ -1696,6 +1696,11 @@ export interface components {
              * @description The source action item in the pair's previous meeting this one was carried over from; null for items authored in this meeting (or when the source row no longer exists). Server-managed.
              */
             copiedFromId?: number | null;
+            /**
+             * Format: date
+             * @description ISO date of the item's earliest surviving appearance in its carry-over chain — the same meeting the item's history shows first (soft-deleted ancestor meetings are skipped). Null when the item first appeared in this meeting or the chain no longer survives. Server-managed, read-only.
+             */
+            firstAppearedOn?: string | null;
         };
         OneOnOneResponse: {
             /** Format: int64 */

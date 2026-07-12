@@ -35,6 +35,7 @@ const MEETING = {
       dueDate: "2026-07-15",
       resolved: false,
       copiedFromId: 40,
+      firstAppearedOn: "2026-06-01",
     },
     { id: 42, content: "Fresh task", owner: "MANAGER", dueDate: null, resolved: false, copiedFromId: null },
   ],
@@ -95,7 +96,7 @@ describe("EditOneOnOne page", () => {
     expect(screen.getByDisplayValue("Carried task")).toBeInTheDocument();
     expect(screen.getByDisplayValue("2026-07-01")).toBeInTheDocument();
     // Only the carried item is badged.
-    expect(screen.getAllByText("Carried over")).toHaveLength(1);
+    expect(screen.getAllByText("Carried over since Jun 1, 2026")).toHaveLength(1);
     // The manager renders as plain "You" (also the owner-select label), the subordinate by name.
     expect(screen.getAllByText("You").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Sam Subordinate").length).toBeGreaterThan(0);

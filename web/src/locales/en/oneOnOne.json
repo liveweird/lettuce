@@ -47,6 +47,7 @@
   "resolved": "Resolved",
   "open": "Open",
   "carriedOver": "Carried over",
+  "carriedOverSince": "Carried over since {{date}}",
   "itemHistoryAria": "Show the history of action item {{position}}",
   "itemHistoryTitle": "Action item history",
   "itemHistoryError": "Failed to load the action item's history.",

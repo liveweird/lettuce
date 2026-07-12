@@ -47,6 +47,7 @@
   "resolved": "Zrealizowane",
   "open": "Otwarte",
   "carriedOver": "Przeniesione",
+  "carriedOverSince": "Przeniesione od {{date}}",
   "itemHistoryAria": "Pokaż historię zadania {{position}}",
   "itemHistoryTitle": "Historia zadania",
   "itemHistoryError": "Nie udało się wczytać historii zadania.",

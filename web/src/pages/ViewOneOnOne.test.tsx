@@ -28,6 +28,7 @@ const MEETING = {
       dueDate: "2026-07-15",
       resolved: false,
       copiedFromId: 40,
+      firstAppearedOn: "2026-06-01",
     },
     { id: 42, content: "Book the room", owner: "MANAGER", dueDate: null, resolved: true, copiedFromId: null },
   ],
@@ -101,7 +102,9 @@ describe("ViewOneOnOne page", () => {
     expect(screen.getByText("Vacation plans")).toBeInTheDocument();
     expect(screen.getByText("Ship v2 in August")).toBeInTheDocument();
     expect(screen.getByText("Prepare the demo")).toBeInTheDocument();
-    expect(screen.getByText("Carried over")).toBeInTheDocument();
+    // The carried item names its origin meeting's date; the fresh one carries no badge.
+    expect(screen.getByText("Carried over since Jun 1, 2026")).toBeInTheDocument();
+    expect(screen.queryByText(/^Carried over$/)).toBeNull();
     expect(screen.getByText("Open")).toBeInTheDocument();
     expect(screen.getByText("Resolved")).toBeInTheDocument();
     // No editing affordances anywhere.
@@ -115,6 +118,33 @@ describe("ViewOneOnOne page", () => {
 
     expect(await screen.findAllByText("Mia Manager")).not.toHaveLength(0);
     expect(screen.getByRole("link", { name: "Close" })).toHaveAttribute("href", back);
+  });
+
+  test("a carried item whose chain no longer survives falls back to the plain badge", async () => {
+    const meeting = {
+      ...MEETING,
+      actionItems: [
+        {
+          id: 41,
+          content: "Prepare the demo",
+          owner: "SUBORDINATE",
+          dueDate: null,
+          resolved: false,
+          copiedFromId: 40,
+          firstAppearedOn: null,
+        },
+      ],
+    };
+    mockFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/events")) return Promise.resolve(jsonResponse(200, { items: [] }));
+      if (url.includes("/api/v1/one-on-ones/5")) return Promise.resolve(jsonResponse(200, meeting));
+      return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }));
+    });
+    renderView();
+
+    expect(await screen.findByText("Carried over")).toBeInTheDocument();
+    expect(screen.queryByText(/Carried over since/)).toBeNull();
   });
 
   test("the action-item history modal lists every meeting the item appeared in", async () => {

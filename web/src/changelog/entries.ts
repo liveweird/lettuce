@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.13.1",
+    date: "2026-07-12",
+    en: `Carried-over action items on the 1:1 screens now show since when they have been open — the badge reads *Carried over since <date>*, naming the meeting where the item first appeared. Continually postponed items stand out at a glance.`,
+    pl: `Przenoszone zadania na ekranach 1:1 pokazują teraz, od kiedy pozostają otwarte — plakietka brzmi *Przeniesione od <data>*, wskazując spotkanie, na którym zadanie pojawiło się po raz pierwszy. Stale odkładane zadania widać na pierwszy rzut oka.`,
+  },
+  {
     version: "1.13",
     date: "2026-07-12",
     en: `No more accidental duplicates: while a feedback for the same subject, provider, and requester is still in progress (a draft or a pending request), a second one cannot be created. The create screens tell you right away — before you type anything — and link straight to the existing feedback.`,

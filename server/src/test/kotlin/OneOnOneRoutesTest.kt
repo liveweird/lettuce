@@ -248,6 +248,9 @@ class OneOnOneRoutesTest {
         assertEquals(ActionItemOwner.SUBORDINATE, carried.owner)
         assertEquals(false, carried.resolved)
         assertNull(second.actionItems.last().copiedFromId)
+        // The carried copy reports where the item first appeared; the fresh one doesn't.
+        assertEquals("2026-07-01", carried.firstAppearedOn)
+        assertNull(second.actionItems.last().firstAppearedOn)
 
         // The creation event records the carry-over count.
         val events = manager.get("/api/v1/one-on-ones/${second.id}/events").body<OneOnOneEventListResponse>()
@@ -269,11 +272,15 @@ class OneOnOneRoutesTest {
         val second = manager.createMeeting(pair.subordinateId, "2026-07-08")
         val secondCopy = second.actionItems.single()
         assertEquals(first.actionItems.single().id, secondCopy.copiedFromId)
+        assertEquals("2026-07-01", secondCopy.firstAppearedOn)
 
         // A back-dated third meeting still pulls from the latest (2026-07-08) meeting — the
         // documented rule — so its copy chains off the SECOND meeting's copy.
         val third = manager.createMeeting(pair.subordinateId, "2026-07-05")
-        assertEquals(secondCopy.id, third.actionItems.single().copiedFromId)
+        val thirdCopy = third.actionItems.single()
+        assertEquals(secondCopy.id, thirdCopy.copiedFromId)
+        // The origin date is the chain ROOT's meeting, not the immediate parent's.
+        assertEquals("2026-07-01", thirdCopy.firstAppearedOn)
 
         // Carry-over ignores other pairs entirely.
         val otherPair = seedPair()
@@ -642,6 +649,19 @@ class OneOnOneRoutesTest {
         val fromRoot = manager.get("/api/v1/one-on-ones/action-items/${first.actionItems.single().id}/history")
             .body<ActionItemHistoryResponse>()
         assertEquals(listOf(first.id, third.id), fromRoot.items.map { it.meetingId })
+
+        // firstAppearedOn survives the deleted middle hop (the root is intact) …
+        val thirdReread = manager.get("/api/v1/one-on-ones/${third.id}").body<OneOnOneResponse>()
+        assertEquals("2026-07-01", thirdReread.actionItems.single().firstAppearedOn)
+
+        // … and falls forward to the earliest SURVIVING appearance once the root is deleted —
+        // consistent with the first row the history endpoint reports.
+        assertEquals(HttpStatusCode.NoContent, manager.delete("/api/v1/one-on-ones/${first.id}").status)
+        val afterRootDelete = manager.get("/api/v1/one-on-ones/${third.id}").body<OneOnOneResponse>()
+        assertNull(
+            afterRootDelete.actionItems.single().firstAppearedOn,
+            "both ancestor meetings deleted → no surviving appearance",
+        )
     }
 
     @Test
