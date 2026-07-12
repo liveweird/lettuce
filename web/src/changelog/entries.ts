@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.11.1",
+    date: "2026-07-12",
+    en: `Table headers across the app now carry a subtle green tint, so they stand out clearly from the data rows — in both the light and the dark theme.`,
+    pl: `Nagłówki tabel w całej aplikacji mają teraz delikatne zielone tło, dzięki czemu wyraźnie odróżniają się od wierszy z danymi — zarówno w jasnym, jak i ciemnym motywie.`,
+  },
+  {
     version: "1.11",
     date: "2026-07-12",
     en: `The *My peers* cards on the Dashboard complete the stats revamp: each teammate card now shows the two feedback directions between you — when you last gave that person feedback, and when they last gave you feedback you can see.`,
