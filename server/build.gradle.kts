@@ -89,5 +89,12 @@ dependencies {
     testImplementation(kotlin("test"))
     testImplementation(ktorLibs.client.contentNegotiation)
     testImplementation(ktorLibs.server.testHost)
+    testImplementation(libs.swagger.request.validator.core)
     testImplementation(libs.testcontainers.postgresql)
+}
+
+// Every test-client interaction with /api/ is validated against the OpenAPI spec (see
+// OpenApiConformance.kt). `-Dopenapi.conformance=warn|off` relaxes it for drift triage.
+tasks.withType<Test> {
+    systemProperty("openapi.conformance", System.getProperty("openapi.conformance", "fail"))
 }

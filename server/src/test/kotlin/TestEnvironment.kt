@@ -11,6 +11,7 @@ import ch.nokillswit.users.User
 import ch.nokillswit.users.UserRole
 import ch.nokillswit.users.UserService
 import io.ktor.client.HttpClient
+import io.ktor.client.HttpClientConfig
 import io.ktor.client.call.body
 import io.ktor.client.plugins.DefaultRequest
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -56,9 +57,16 @@ suspend fun ApplicationTestBuilder.usePostgresTestcontainer() {
     startApplication()
 }
 
-fun ApplicationTestBuilder.jsonClient(): HttpClient = createClient {
+/**
+ * Shared config for every test HTTP client: JSON (+ problem+json) negotiation and the
+ * [OpenApiConformance] plugin, which validates each /api/ interaction against the OpenAPI spec.
+ */
+fun HttpClientConfig<*>.lettuceTestClientDefaults() {
     install(ContentNegotiation) { json(); json(contentType = ContentType.parse("application/problem+json")) }
+    install(OpenApiConformance)
 }
+
+fun ApplicationTestBuilder.jsonClient(): HttpClient = createClient { lettuceTestClientDefaults() }
 
 /** A unique throwaway email so tests never collide on the partial-unique active-email index. */
 fun uniqueEmail(prefix: String) = "$prefix-${java.util.UUID.randomUUID()}@test"
@@ -79,7 +87,7 @@ suspend fun ApplicationTestBuilder.authedClient(email: String, password: String)
         setBody(LoginRequest(email, password))
     }.body<LoginResponse>().token
     return createClient {
-        install(ContentNegotiation) { json(); json(contentType = ContentType.parse("application/problem+json")) }
+        lettuceTestClientDefaults()
         install(DefaultRequest) {
             header(HttpHeaders.Authorization, "Bearer $token")
         }

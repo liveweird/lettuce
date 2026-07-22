@@ -10,7 +10,6 @@ import ch.nokillswit.users.UserUpdateRequest
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.DefaultRequest
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.put
@@ -19,7 +18,6 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
-import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlin.test.Test
@@ -41,7 +39,7 @@ class PayloadValidationTest {
             setBody(LoginRequest(email, "pw-123456789"))
         }.body<LoginResponse>().token
         return createClient {
-            install(ContentNegotiation) { json(); json(contentType = ContentType.parse("application/problem+json")) }
+            lettuceTestClientDefaults()
             install(DefaultRequest) { header(HttpHeaders.Authorization, "Bearer $token") }
         }
     }

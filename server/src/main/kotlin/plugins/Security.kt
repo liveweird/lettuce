@@ -28,6 +28,11 @@ fun Application.configureSecurity() {
             allowOrigin("http://localhost:8080")
             originMatchesHost()
             checkHeader("X-CSRF-Token")
+            // The plugin's default rejection is a text/plain 400 and runs before StatusPages —
+            // emit the RFC 7807 body here so every error response stays problem+json.
+            onFailure { message ->
+                respondProblem(HttpStatusCode.BadRequest, "Cross-site request validation failed: $message")
+            }
         }
     }
     val jwtConfig = JwtConfig(
