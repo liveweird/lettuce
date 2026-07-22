@@ -1219,6 +1219,7 @@ export interface components {
             name: string;
             /** Format: email */
             email: string;
+            /** @description At most 71 bytes in UTF-8 (bcrypt limit) — longer is rejected with 400. */
             password: string;
             /**
              * @description Honoured only when the caller is ADMIN. Non-ADMIN callers must omit this
@@ -1255,6 +1256,7 @@ export interface components {
             role: "ADMIN" | "USER";
         };
         PasswordUpdateRequest: {
+            /** @description At most 71 bytes in UTF-8 (bcrypt limit) — longer is rejected with 400. */
             password: string;
             /**
              * @description Required when the caller changes their own password (verified against the
@@ -2282,6 +2284,7 @@ export interface operations {
                     "application/json": components["schemas"]["UserResponse"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             /** @description Caller is not the target user and not ADMIN */
             403: {
@@ -2360,6 +2363,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             /** @description Caller is not ADMIN */
             403: {
@@ -2589,6 +2593,7 @@ export interface operations {
                     "application/json": components["schemas"]["TeamResponse"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             500: components["responses"]["InternalServerError"];
@@ -2657,6 +2662,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             /** @description Caller is not the team's manager and not ADMIN */
             403: {
@@ -2732,6 +2738,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             /** @description Caller is not the team's manager and not ADMIN */
             403: {
@@ -2926,6 +2933,7 @@ export interface operations {
                     "application/json": components["schemas"]["FeedbackResponse"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             /** @description Caller's relationship to the row does not satisfy `visibility` */
             403: {
@@ -3046,6 +3054,7 @@ export interface operations {
                     "application/json": components["schemas"]["FeedbackEventList"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             /** @description Caller may not read this feedback */
             403: {
@@ -3078,6 +3087,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["FeedbackNotProvider"];
             404: components["responses"]["NotFound"];
@@ -3103,6 +3113,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["FeedbackNotProvider"];
             404: components["responses"]["NotFound"];
@@ -3128,6 +3139,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["FeedbackNotProvider"];
             404: components["responses"]["NotFound"];
@@ -3153,6 +3165,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["FeedbackNotProvider"];
             404: components["responses"]["NotFound"];
@@ -3290,6 +3303,7 @@ export interface operations {
                     "application/json": components["schemas"]["OneOnOneResponse"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["OneOnOneNotReadable"];
             404: components["responses"]["NotFound"];
@@ -3360,6 +3374,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["OneOnOneNotManager"];
             404: components["responses"]["NotFound"];
@@ -3395,6 +3410,7 @@ export interface operations {
                     "application/json": components["schemas"]["OneOnOneEventList"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["OneOnOneNotReadable"];
             404: components["responses"]["NotFound"];
@@ -3421,6 +3437,7 @@ export interface operations {
                     "application/json": components["schemas"]["ActionItemHistoryList"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["OneOnOneNotReadable"];
             404: components["responses"]["NotFound"];
@@ -3539,6 +3556,7 @@ export interface operations {
                     "application/json": components["schemas"]["TemplateResponse"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             500: components["responses"]["InternalServerError"];
@@ -3616,6 +3634,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             /** @description Caller is not ADMIN */
             403: {
@@ -3766,6 +3785,7 @@ export interface operations {
                     "application/json": components["schemas"]["AlertResponse"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             /** @description Caller is not ADMIN */
             403: {
@@ -3843,6 +3863,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             /** @description Caller is not ADMIN */
             403: {
@@ -3914,6 +3935,7 @@ export interface operations {
                     "application/json": components["schemas"]["NotificationResponse"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             /** @description Caller is neither the recipient nor ADMIN */
             403: {
@@ -3946,6 +3968,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             /** @description Caller is neither the recipient nor ADMIN */
             403: {
@@ -3978,6 +4001,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             /** @description Caller is neither the recipient nor ADMIN */
             403: {
@@ -4010,6 +4034,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             /** @description Caller is neither the recipient nor ADMIN */
             403: {

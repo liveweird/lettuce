@@ -53,3 +53,6 @@ h2.trace.db
 # regenerate rather than commit). Covers both the repo-root and server/ generation dirs.
 /docs/
 server/docs/
+
+# Schemathesis run cache (the manual fuzz pass documented in CLAUDE.md runs from the repo root).
+.schemathesis/

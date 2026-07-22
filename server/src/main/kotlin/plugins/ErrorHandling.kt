@@ -63,18 +63,33 @@ suspend fun ApplicationCall.respondProblem(
 
 private const val PG_UNIQUE_VIOLATION = "23505"
 
-// Internal (not private): the user-import loop classifies per-row duplicates with it.
-internal fun Throwable.isUniqueViolation(): Boolean {
+// character_not_in_repertoire: PostgreSQL rejects NUL (0x00) inside text values — a client
+// error (nothing legitimate contains NUL), not a server fault.
+private const val PG_CHARACTER_NOT_IN_REPERTOIRE = "22021"
+
+private fun Throwable.hasSqlState(state: String): Boolean {
     var cur: Throwable? = this
     while (cur != null) {
-        if (cur is R2dbcException && cur.sqlState == PG_UNIQUE_VIOLATION) return true
+        if (cur is R2dbcException && cur.sqlState == state) return true
         cur = cur.cause
     }
     return false
 }
 
+// Internal (not private): the user-import loop classifies per-row duplicates with it.
+internal fun Throwable.isUniqueViolation(): Boolean = hasSqlState(PG_UNIQUE_VIOLATION)
+
+internal fun Throwable.isCharacterNotInRepertoire(): Boolean = hasSqlState(PG_CHARACTER_NOT_IN_REPERTOIRE)
+
 private suspend fun ApplicationCall.respondConflict() =
     respondProblem(HttpStatusCode.Conflict, "Resource already exists")
+
+private suspend fun ApplicationCall.respondDbFailure(cause: Throwable) = when {
+    cause.isUniqueViolation() -> respondConflict()
+    cause.isCharacterNotInRepertoire() ->
+        respondProblem(HttpStatusCode.BadRequest, "Text must not contain the NUL character")
+    else -> respondInternalError(cause)
+}
 
 private suspend fun ApplicationCall.respondInternalError(cause: Throwable) {
     application.log.error("Unhandled exception while processing ${request.local.method.value} ${request.local.uri}", cause)
@@ -117,10 +132,10 @@ fun Application.configureErrorHandling() {
         // Non-unique DB failures fall through to a 500 problem (logged) instead of rethrowing,
         // which would escape StatusPages and yield a bodiless default 500.
         exception<ExposedSQLException> { call, cause ->
-            if (cause.isUniqueViolation()) call.respondConflict() else call.respondInternalError(cause)
+            call.respondDbFailure(cause)
         }
         exception<R2dbcException> { call, cause ->
-            if (cause.isUniqueViolation()) call.respondConflict() else call.respondInternalError(cause)
+            call.respondDbFailure(cause)
         }
         exception<Throwable> { call, cause ->
             call.respondInternalError(cause)
