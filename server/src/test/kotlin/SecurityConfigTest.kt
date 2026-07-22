@@ -128,7 +128,10 @@ class SecurityConfigTest {
         }
         assertEquals("https://app.example.com", allowed.headers[HttpHeaders.AccessControlAllowOrigin])
 
-        val denied = client.get("/api/v1/notifications") {
+        // The CORS plugin rejects a disallowed origin with a bare 403 before the route runs —
+        // an infrastructure-level response outside the OpenAPI contract, so this one request
+        // deliberately uses an unvalidated client (no OpenApiConformance).
+        val denied = createClient { }.get("/api/v1/notifications") {
             header(HttpHeaders.Origin, "https://evil.example")
         }
         assertEquals(null, denied.headers[HttpHeaders.AccessControlAllowOrigin])
@@ -167,5 +170,7 @@ class SecurityConfigTest {
             setBody(LoginRequest("admin@lettuce.local", "changeme"))
         }
         assertEquals(HttpStatusCode.BadRequest, response.status)
+        // The rejection keeps the house rule: every error body is RFC 7807 problem+json.
+        assertTrue(response.headers[HttpHeaders.ContentType]?.startsWith("application/problem+json") == true)
     }
 }

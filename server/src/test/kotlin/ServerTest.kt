@@ -11,7 +11,7 @@ class ServerTest {
     @Test
     fun `unauthenticated API request returns a 401 problem+json body`() = testApplication {
         usePostgresTestcontainer()
-        val response = client.get("/api/v1/users")
+        val response = jsonClient().get("/api/v1/users")
         assertEquals(HttpStatusCode.Unauthorized, response.status)
         assertTrue(
             response.headers["Content-Type"]?.startsWith("application/problem+json") == true,
@@ -23,7 +23,7 @@ class ServerTest {
     @Test
     fun `security headers are set on responses`() = testApplication {
         usePostgresTestcontainer()
-        val response = client.get("/api/v1/users")
+        val response = jsonClient().get("/api/v1/users")
         assertEquals("nosniff", response.headers["X-Content-Type-Options"])
         assertEquals("DENY", response.headers["X-Frame-Options"])
         assertEquals("no-referrer", response.headers["Referrer-Policy"])

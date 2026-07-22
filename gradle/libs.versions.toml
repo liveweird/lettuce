@@ -10,6 +10,7 @@ opentelemetry = "1.63.0"
 opentelemetry-ktor = "2.29.0-alpha"
 opentelemetry-semconv = "1.43.0"
 r2dbc-postgresql = "1.1.2.RELEASE"
+swagger-request-validator = "2.45.1"
 testcontainers = "2.0.5"
 
 [libraries]
@@ -28,6 +29,7 @@ opentelemetry-sdkAutoconfigure = { module = "io.opentelemetry:opentelemetry-sdk-
 opentelemetry-semconv = { module = "io.opentelemetry.semconv:opentelemetry-semconv", version.ref = "opentelemetry-semconv" }
 postgresql = { module = "org.postgresql:postgresql", version = "42.7.13" }
 r2dbc-postgresql = { module = "org.postgresql:r2dbc-postgresql", version.ref = "r2dbc-postgresql" }
+swagger-request-validator-core = { module = "com.atlassian.oai:swagger-request-validator-core", version.ref = "swagger-request-validator" }
 testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql", version.ref = "testcontainers" }
 
 [plugins]
