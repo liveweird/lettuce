@@ -99,6 +99,23 @@ class LoginTest {
     }
 
     @Test
+    fun `over-long password on an existing account returns 401 - not a 500 enumeration oracle`() = testApplication {
+        usePostgresTestcontainer()
+        val email = uniqueEmail("longpw")
+        TestUsers.seed(email = email, password = "right-pw")
+
+        // Over bcrypt's 72-byte limit the hasher throws; verifyPassword must treat it as
+        // non-matching, or the 500 (existing account) vs 401 (unknown email) difference
+        // would disclose account existence.
+        val response = jsonClient().post("/api/v1/login") {
+            contentType(ContentType.Application.Json)
+            setBody(LoginRequest(email, "x".repeat(200)))
+        }
+
+        assertEquals(HttpStatusCode.Unauthorized, response.status)
+    }
+
+    @Test
     fun `repeated login attempts are rate limited with 429`() = testApplication {
         usePostgresTestcontainer()
         val client = jsonClient()

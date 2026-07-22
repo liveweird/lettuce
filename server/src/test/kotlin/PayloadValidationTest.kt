@@ -10,6 +10,7 @@ import ch.nokillswit.users.UserUpdateRequest
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.DefaultRequest
+import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.put
@@ -61,8 +62,35 @@ class PayloadValidationTest {
         assertEquals(HttpStatusCode.BadRequest, createStatus("Ok", "a".repeat(255) + "@x", "pw-123456789"))
         assertEquals(HttpStatusCode.BadRequest, createStatus("Ok", "no-at-sign.example", "pw-123456789"))
         assertEquals(HttpStatusCode.BadRequest, createStatus("Ok", uniqueEmail("u"), "short"))
+        // Over bcrypt's 71-UTF-8-byte ceiling: a 400, not a 500 from the hasher — by char count…
+        assertEquals(HttpStatusCode.BadRequest, createStatus("Ok", uniqueEmail("u"), "x".repeat(72)))
+        // …and by byte count (36 × 2-byte 'ó' = 72 bytes from only 36 chars).
+        assertEquals(HttpStatusCode.BadRequest, createStatus("Ok", uniqueEmail("u"), "ó".repeat(36)))
         // Control: a valid payload passes.
         assertEquals(HttpStatusCode.Created, createStatus("Ok", uniqueEmail("u"), "pw-123456789"))
+    }
+
+    @Test
+    fun `a NUL character in stored text is a 400 problem - not a 500`() = testApplication {
+        usePostgresTestcontainer()
+        val client = adminClient()
+        // PostgreSQL rejects 0x00 inside text values (SQLSTATE 22021); the central mapping in
+        // ErrorHandling.kt turns that into a 400 for every plaintext column at once.
+        val response = client.post("/api/v1/users") {
+            contentType(ContentType.Application.Json)
+            setBody(UserRequest(name = "bad\u0000name", email = uniqueEmail("nul"), password = "pw-123456789"))
+        }
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+    }
+
+    @Test
+    fun `a non-numeric or out-of-range path id is a 400 problem`() = testApplication {
+        usePostgresTestcontainer()
+        val client = adminClient()
+        // Ktor's resource transform rejects both before the handler; the spec declares the 400
+        // (the OpenApiConformance plugin checks that declaration on these very requests).
+        assertEquals(HttpStatusCode.BadRequest, client.get("/api/v1/users/not-a-number").status)
+        assertEquals(HttpStatusCode.BadRequest, client.get("/api/v1/users/4161833451198").status)
     }
 
     @Test

@@ -103,6 +103,22 @@ class PasswordChangeTest {
     }
 
     @Test
+    fun `a new password over bcrypt's byte ceiling is rejected with 400`() = testApplication {
+        usePostgresTestcontainer()
+        val email = uniqueEmail("overlong")
+        val userId = TestUsers.seed(email = email, password = "old-password", role = UserRole.USER)
+        val client = jsonClient()
+        val token = login(client, email, "old-password").token
+
+        // 72 bytes > MAX_PASSWORD_BYTES (71): without the validator, bcrypt would throw a 500.
+        val response = putPassword(
+            client, token, userId,
+            PasswordUpdateRequest(password = "x".repeat(72), currentPassword = "old-password"),
+        )
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+    }
+
+    @Test
     fun `a successful self-change invalidates outstanding refresh tokens`() = testApplication {
         usePostgresTestcontainer()
         val email = uniqueEmail("revoke")

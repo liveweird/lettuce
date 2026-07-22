@@ -1,6 +1,8 @@
 package ch.nokillswit.users
 
 import ch.nokillswit.audit.audit
+import ch.nokillswit.auth.MAX_PASSWORD_BYTES
+import ch.nokillswit.auth.exceedsBcryptLimit
 import ch.nokillswit.auth.generatePassword
 import ch.nokillswit.auth.hashPassword
 import ch.nokillswit.auth.verifyPassword
@@ -41,6 +43,17 @@ import kotlinx.serialization.Serializable
 
 /** Minimum accepted password length for create and change. */
 const val MIN_PASSWORD_LENGTH = 10
+
+/** Shared password rule for create and change: the minimum plus bcrypt's byte ceiling. */
+internal fun validatePassword(password: String) {
+    if (password.length < MIN_PASSWORD_LENGTH) {
+        throw BadRequestException("Password must be at least $MIN_PASSWORD_LENGTH characters")
+    }
+    // Longer input would make bcrypt throw (a 500) — see MAX_PASSWORD_BYTES in auth/Passwords.kt.
+    if (exceedsBcryptLimit(password)) {
+        throw BadRequestException("Password must be at most $MAX_PASSWORD_BYTES bytes in UTF-8")
+    }
+}
 
 // Field validation (incl. the shared email rule) lives in users/Validation.kt.
 
@@ -92,9 +105,7 @@ fun Application.configureUserRoutes() {
                 requireAdmin(caller)
                 val req = call.receive<UserRequest>()
                 validateNameAndEmail(req.name, req.email)
-                if (req.password.length < MIN_PASSWORD_LENGTH) {
-                    throw BadRequestException("Password must be at least $MIN_PASSWORD_LENGTH characters")
-                }
+                validatePassword(req.password)
                 if (req.sendEmail && mailer == null) {
                     call.respondMailUnavailable("creating with the email option")
                     return@post
@@ -299,9 +310,7 @@ fun Application.configureUserRoutes() {
                         throw ForbiddenException("Current password is missing or incorrect")
                     }
                 }
-                if (req.password.length < MIN_PASSWORD_LENGTH) {
-                    throw BadRequestException("Password must be at least $MIN_PASSWORD_LENGTH characters")
-                }
+                validatePassword(req.password)
                 val updated = userService.updatePassword(route.parent.id, hashPassword(req.password))
                 if (updated == 0) {
                     call.respondProblem(HttpStatusCode.NotFound, "User not found")

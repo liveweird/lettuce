@@ -313,6 +313,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Caller is not the target user and not ADMIN
@@ -360,6 +361,7 @@ paths:
       description: Requires ADMIN.
       responses:
         '204': { description: Deleted }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Caller is not ADMIN
@@ -614,6 +616,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TeamResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalServerError' }
@@ -655,6 +658,7 @@ paths:
       description: Requires the caller to be the team's current manager, or to be ADMIN.
       responses:
         '204': { description: Deleted }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Caller is not the team's manager and not ADMIN
@@ -699,6 +703,7 @@ paths:
         is never a `team_members` row, so this endpoint cannot affect them.
       responses:
         '204': { description: Removed (or was not a member) }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Caller is not the team's manager and not ADMIN
@@ -965,6 +970,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/FeedbackResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Caller's relationship to the row does not satisfy `visibility`
@@ -1052,6 +1058,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/FeedbackEventList'
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Caller may not read this feedback
@@ -1075,6 +1082,7 @@ paths:
         notified — the other recipients would be the acting user.
       responses:
         '204': { description: Transitioned }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/FeedbackNotProvider' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -1093,6 +1101,7 @@ paths:
         self-reflection (provider == subject) only the requester, if any, is notified.
       responses:
         '204': { description: Transitioned }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/FeedbackNotProvider' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -1110,6 +1119,7 @@ paths:
         REQUESTED (otherwise 409). Notifies the requester.
       responses:
         '204': { description: Transitioned }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/FeedbackNotProvider' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -1130,6 +1140,7 @@ paths:
         Notifies the requester.
       responses:
         '204': { description: Transitioned }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/FeedbackNotProvider' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -1307,6 +1318,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OneOnOneResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/OneOnOneNotReadable' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -1371,6 +1383,7 @@ paths:
         are merely skipped in history views.
       responses:
         '204': { description: Deleted }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/OneOnOneNotManager' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -1403,6 +1416,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OneOnOneEventList'
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/OneOnOneNotReadable' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -1432,6 +1446,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ActionItemHistoryList'
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/OneOnOneNotReadable' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -1530,6 +1545,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TemplateResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalServerError' }
@@ -1571,6 +1587,7 @@ paths:
       description: ADMIN only.
       responses:
         '204': { description: Deleted }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Caller is not ADMIN
@@ -1701,6 +1718,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AlertResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Caller is not ADMIN
@@ -1742,6 +1760,7 @@ paths:
       description: ADMIN only.
       responses:
         '204': { description: Deleted }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Caller is not ADMIN
@@ -1807,6 +1826,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotificationResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Caller is neither the recipient nor ADMIN
@@ -1822,6 +1842,7 @@ paths:
       description: The recipient or an ADMIN may delete.
       responses:
         '204': { description: Deleted }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Caller is neither the recipient nor ADMIN
@@ -1842,6 +1863,7 @@ paths:
         Sets `wasSeen` to `true`. Idempotent. The recipient or an ADMIN may call it.
       responses:
         '204': { description: Marked as seen }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Caller is neither the recipient nor ADMIN
@@ -1862,6 +1884,7 @@ paths:
         Sets `wasSeen` to `false`. Idempotent. The recipient or an ADMIN may call it.
       responses:
         '204': { description: Marked as unseen }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Caller is neither the recipient nor ADMIN
@@ -1899,12 +1922,13 @@ components:
       name: id
       in: path
       required: true
-      schema: { type: integer, format: int64, minimum: 0 }
+      # int32: ids are 32-bit server-side; a non-numeric or out-of-range id is a 400.
+      schema: { type: integer, format: int32, minimum: 0 }
     UserIdInPath:
       name: userId
       in: path
       required: true
-      schema: { type: integer, format: int64, minimum: 0 }
+      schema: { type: integer, format: int32, minimum: 0 }
     Page:
       name: page
       in: query
@@ -2090,7 +2114,11 @@ components:
       properties:
         name: { type: string, maxLength: 50 }
         email: { type: string, format: email, maxLength: 254 }
-        password: { type: string, minLength: 10 }
+        password:
+          type: string
+          minLength: 10
+          maxLength: 64
+          description: At most 71 bytes in UTF-8 (bcrypt limit) — longer is rejected with 400.
         role:
           type: string
           enum: [ADMIN, USER]
@@ -2137,7 +2165,11 @@ components:
       type: object
       required: [password]
       properties:
-        password: { type: string, minLength: 10 }
+        password:
+          type: string
+          minLength: 10
+          maxLength: 64
+          description: At most 71 bytes in UTF-8 (bcrypt limit) — longer is rejected with 400.
         currentPassword:
           type: string
           description: |
