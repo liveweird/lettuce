@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.15.5",
+    date: "2026-07-23",
+    en: `The per-person "Feedbacks with …" screen (opened from the Dashboard's managers, peers and subordinates cards) now shows its two directions — *From them to you* and *From you to them* — as tabs instead of two stacked lists, and returning from a feedback you opened there lands back on the tab you left.`,
+    pl: `Ekran „Feedbacki dotyczące …" (otwierany z kart menedżerów, współpracowników i podwładnych na Pulpicie) pokazuje teraz oba kierunki — *Od nich do Ciebie* i *Od Ciebie do nich* — jako zakładki zamiast dwóch list jedna pod drugą, a powrót z otwartego tam feedbacku prowadzi z powrotem do zakładki, z której wyszedłeś/aś.`,
+  },
+  {
     version: "1.15.4",
     date: "2026-07-23",
     en: `The guided tour caught up with the app: it now walks you through the 1:1 meetings section (including the manager-side tabs, shown only to managers) and points out Self-reflection. Replay it anytime from the "?" button in the header.`,

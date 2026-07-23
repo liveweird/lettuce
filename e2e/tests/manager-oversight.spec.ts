@@ -34,12 +34,13 @@ test("manager sees a delivered team feedback in the team tab and the per-user sc
   await sortNewestFirst(page);
   await expect(page.locator(`a[href*="/feedback/${id}/view"]`).first()).toBeVisible();
 
-  // The per-user screen renders both directions; our feedback sits in "From you to AAA One".
+  // The per-user screen offers the two directions as tabs (received active by default);
+  // our feedback sits in "From you to AAA One".
   await page.goto(`/users/${subjectId}/feedbacks?name=${encodeURIComponent("AAA One")}&from=subordinates`);
   await expect(page.getByRole("heading", { name: "Feedbacks with AAA One" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "From AAA One to you" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "From you to AAA One" })).toBeVisible();
-  // Our feedback lives in the second table ("From you to AAA One") — sort that one newest-first.
-  await sortNewestFirst(page, 1);
+  await expect(page.getByRole("tab", { name: "From AAA One to you" })).toBeVisible();
+  await page.getByRole("tab", { name: "From you to AAA One" }).click();
+  // Only the active tab's table is mounted — sort it newest-first.
+  await sortNewestFirst(page);
   await expect(page.locator(`a[href*="/feedback/${id}/view"]`).first()).toBeVisible();
 });

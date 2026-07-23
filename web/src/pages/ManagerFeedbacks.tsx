@@ -1,4 +1,4 @@
-import { Anchor, Button, Group, Stack, Text, Title } from "@mantine/core";
+import { Anchor, Button, Group, Stack, Tabs, Text, Title } from "@mantine/core";
 import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { IconMessagePlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
@@ -19,31 +19,52 @@ function isOriginKey(value: string | null): value is OriginKey {
   return value != null && value in ORIGIN;
 }
 
-// A per-user, two-way feedback view reached from Dashboard → My managers / My peers.
-// List 1: feedbacks the other person gave me (them = provider, I = subject) — only the
-//   ones I'm allowed to see (the "received" view already enforces that server-side).
-// List 2: feedbacks I gave them (I = provider, they = subject) — all statuses.
+const TABS = ["received", "provided"] as const;
+type DirectionTab = (typeof TABS)[number];
+
+function isDirectionTab(value: string | null): value is DirectionTab {
+  return TABS.includes(value as DirectionTab);
+}
+
+// A per-user, two-way feedback view reached from Dashboard → My managers / My peers /
+// My subordinates, one direction per tab:
+// "From them to you": feedbacks the other person gave me (them = provider, I = subject) —
+//   only the ones I'm allowed to see (the "received" view already enforces that server-side).
+// "From you to them": feedbacks I gave them (I = provider, they = subject) — all statuses.
 export default function ManagerFeedbacks() {
   const { t } = useTranslation();
   const params = useParams<{ userId: string }>();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const name = searchParams.get("name");
   const fromParam = searchParams.get("from");
   const origin = ORIGIN[isOriginKey(fromParam) ? fromParam : "managers"];
+
+  const requestedTab = searchParams.get("tab");
+  const activeTab: DirectionTab = isDirectionTab(requestedTab) ? requestedTab : "received";
 
   const userId = Number(params.userId);
   const idIsValid = Number.isFinite(userId) && userId > 0;
 
   if (!idIsValid) return <Navigate to={origin.to} replace />;
 
+  function selectTab(value: string | null) {
+    if (!isDirectionTab(value)) return;
+    // The functional form preserves the other params (name/from).
+    setSearchParams((current) => {
+      current.set("tab", value);
+      return current;
+    });
+  }
+
   const who = name ?? t("feedback.userFallback", { id: userId });
   // Where the Edit/View/Create detail pages return to: this very screen, keeping the
-  // origin so the "Back to …" link stays correct after a round-trip.
+  // origin — and the active tab, so a round-trip lands back on the direction it started
+  // from — so the "Back to …" link stays correct after a round-trip.
   const query = new URLSearchParams();
   if (name) query.set("name", name);
   if (isOriginKey(fromParam)) query.set("from", fromParam);
-  const queryString = query.toString();
-  const backTo = `/users/${userId}/feedbacks${queryString ? `?${queryString}` : ""}`;
+  query.set("tab", activeTab);
+  const backTo = `/users/${userId}/feedbacks?${query.toString()}`;
 
   return (
     <Stack gap="lg">
@@ -54,41 +75,50 @@ export default function ManagerFeedbacks() {
         <Title order={2}>{t("feedback.feedbacksWith", { who })}</Title>
       </Stack>
 
-      <Stack gap="sm">
-        <Title order={4}>{t("feedback.fromToYou", { who })}</Title>
-        <Text size="sm" c="dimmed">
-          {t("feedback.providedAboutYou", { who })}
-        </Text>
-        <FeedbackTable
-          view="received"
-          providerId={userId}
-          backTo={backTo}
-          settingsKey="managerFeedbacks.received"
-        />
-      </Stack>
+      <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
+        <Tabs.List>
+          <Tabs.Tab value="received">{t("feedback.fromToYou", { who })}</Tabs.Tab>
+          <Tabs.Tab value="provided">{t("feedback.fromYouTo", { who })}</Tabs.Tab>
+        </Tabs.List>
 
-      <Stack gap="sm">
-        <Title order={4}>{t("feedback.fromYouTo", { who })}</Title>
-        <Text size="sm" c="dimmed">
-          {t("feedback.providedAbout", { who })}
-        </Text>
-        <FeedbackTable
-          view="provided"
-          subjectId={userId}
-          backTo={backTo}
-          settingsKey="managerFeedbacks.provided"
-        />
-        <Group justify="flex-end">
-          <Button
-            component={RouterLink}
-            to={feedbackProvideLink(userId, who, backTo)}
-            leftSection={<IconMessagePlus size={16} />}
-            aria-label={t("feedback.createFeedbackFor", { who })}
-          >
-            {t("feedback.createFeedback")}
-          </Button>
-        </Group>
-      </Stack>
+        <Tabs.Panel value="received" pt="md">
+          <Stack gap="sm">
+            <Text size="sm" c="dimmed">
+              {t("feedback.providedAboutYou", { who })}
+            </Text>
+            <FeedbackTable
+              view="received"
+              providerId={userId}
+              backTo={backTo}
+              settingsKey="managerFeedbacks.received"
+            />
+          </Stack>
+        </Tabs.Panel>
+
+        <Tabs.Panel value="provided" pt="md">
+          <Stack gap="sm">
+            <Text size="sm" c="dimmed">
+              {t("feedback.providedAbout", { who })}
+            </Text>
+            <FeedbackTable
+              view="provided"
+              subjectId={userId}
+              backTo={backTo}
+              settingsKey="managerFeedbacks.provided"
+            />
+            <Group justify="flex-end">
+              <Button
+                component={RouterLink}
+                to={feedbackProvideLink(userId, who, backTo)}
+                leftSection={<IconMessagePlus size={16} />}
+                aria-label={t("feedback.createFeedbackFor", { who })}
+              >
+                {t("feedback.createFeedback")}
+              </Button>
+            </Group>
+          </Stack>
+        </Tabs.Panel>
+      </Tabs>
     </Stack>
   );
 }
