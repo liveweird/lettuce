@@ -105,7 +105,7 @@ const isGroup = (e: NavEntry): e is NavGroup => "children" in e;
 const NAV_ITEMS: ReadonlyArray<NavEntry> = [
   { to: "/", label: "appShell.nav.dashboard", icon: IconLayoutDashboard, tourId: "nav-dashboard" },
   { to: "/feedback", label: "appShell.nav.feedback", icon: IconMessageCircle, tourId: "nav-feedback" },
-  { to: "/one-on-ones", label: "appShell.nav.oneOnOnes", icon: IconCalendarEvent },
+  { to: "/one-on-ones", label: "appShell.nav.oneOnOnes", icon: IconCalendarEvent, tourId: "nav-one-on-ones" },
   {
     label: "appShell.nav.config",
     icon: IconSettings,

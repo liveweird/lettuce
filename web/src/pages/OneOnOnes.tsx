@@ -42,9 +42,19 @@ export default function OneOnOnes() {
       <Title order={2}>{t("oneOnOne.sectionTitle")}</Title>
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
-          {isManager && <Tabs.Tab value="managed">{t("oneOnOne.tab.managed")}</Tabs.Tab>}
-          <Tabs.Tab value="own">{t("oneOnOne.tab.own")}</Tabs.Tab>
-          {isManager && <Tabs.Tab value="team">{t("oneOnOne.tab.team")}</Tabs.Tab>}
+          {isManager && (
+            <Tabs.Tab value="managed" data-tour="one-on-one-managed">
+              {t("oneOnOne.tab.managed")}
+            </Tabs.Tab>
+          )}
+          <Tabs.Tab value="own" data-tour="one-on-one-own">
+            {t("oneOnOne.tab.own")}
+          </Tabs.Tab>
+          {isManager && (
+            <Tabs.Tab value="team" data-tour="one-on-one-team">
+              {t("oneOnOne.tab.team")}
+            </Tabs.Tab>
+          )}
         </Tabs.List>
 
         {isManager && (
