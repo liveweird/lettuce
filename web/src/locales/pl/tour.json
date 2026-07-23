@@ -20,6 +20,10 @@
     "feedbackReceived": "Otrzymane — feedback, który otrzymałeś/aś od innych.",
     "feedbackProvided": "Wystawione — feedback, który wystawiłeś/aś innym.",
     "feedbackTeam": "Mój zespół — feedback w zespołach, którymi zarządzasz.",
+    "oneOnOnes": "Spotkania 1:1 — dokumentuj wyniki spotkań menedżera z podwładnym/ą: omówione punkty, podjęte decyzje i zadania. Otwarte zadania przechodzą do kolejnego spotkania.",
+    "oneOnOneOwn": "Jestem podwładnym/ą — spotkania 1:1, które Twój menedżer prowadzi z Tobą.",
+    "oneOnOneManaged": "Jestem menedżerem/ką — spotkania 1:1, które prowadzisz ze swoimi podwładnymi; tutaj utworzysz nowe spotkanie.",
+    "oneOnOneTeam": "Mój podwładny/a jest menedżerem/ką — spotkania 1:1 prowadzone przez menedżerów, którzy Ci podlegają.",
     "config": "Konfiguracja — użytkownicy, zespoły i szablony feedbacku.",
     "configUsers": "Użytkownicy — katalog osób (administratorzy zarządzają kontami).",
     "configTeams": "Zespoły — zespoły i ich członkowie.",
@@ -27,6 +31,7 @@
     "notifications": "Powiadomienia: tutaj poinformujemy Cię, gdy feedback zostanie zamówiony, wysłany lub wycofany.",
     "language": "W każdej chwili zmień język interfejsu (English / Polski).",
     "theme": "Przełączaj tryb jasny i ciemny.",
+    "selfReflection": "Autorefleksja — napisz feedback o sobie. Po wysłaniu przeczytają go Twoi menedżerowie.",
     "account": "Twoje konto — tutaj zmienisz hasło.",
     "logout": "Wyloguj się, gdy skończysz.",
     "replay": "To wszystko! Przewodnik możesz odtworzyć w każdej chwili stąd."

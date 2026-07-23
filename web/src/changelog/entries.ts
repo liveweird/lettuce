@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.15.4",
+    date: "2026-07-23",
+    en: `The guided tour caught up with the app: it now walks you through the 1:1 meetings section (including the manager-side tabs, shown only to managers) and points out Self-reflection. Replay it anytime from the "?" button in the header.`,
+    pl: `Przewodnik dogonił aplikację: teraz oprowadza po sekcji spotkań 1:1 (łącznie z zakładkami menedżerskimi, widocznymi tylko dla menedżerów) i pokazuje Autorefleksję. Odtworzysz go w każdej chwili przyciskiem „?" w nagłówku.`,
+  },
+  {
     version: "1.15.3",
     date: "2026-07-12",
     en: `Starting a 1:1 from a subordinate's Dashboard card or the per-person drill-down now returns you there after you create it — no more landing on the generic managed list. The "New 1:1" button also uses the same plus icon as every other create button.`,

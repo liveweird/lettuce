@@ -118,14 +118,25 @@ describe("Tour", () => {
     expect(steps[0].content).toBe(TOUR_STEPS[0].contentKey);
   });
 
-  test("buildSteps gates the Feedback 'My team' step on being a manager", () => {
+  test("buildSteps gates the manager-only steps on being a manager", () => {
     const t = (k: string) => k;
     const nonManager = buildSteps(t, false);
     const manager = buildSteps(t, true);
 
-    expect(nonManager.some((s) => s.target === '[data-tour="feedback-team"]')).toBe(false);
-    expect(manager.some((s) => s.target === '[data-tour="feedback-team"]')).toBe(true);
-    expect(manager.length).toBe(nonManager.length + 1);
+    // Feedback "My team" + the two manager-side 1:1 tabs are manager-only.
+    const managerOnlyTargets = [
+      '[data-tour="feedback-team"]',
+      '[data-tour="one-on-one-managed"]',
+      '[data-tour="one-on-one-team"]',
+    ];
+    for (const target of managerOnlyTargets) {
+      expect(nonManager.some((s) => s.target === target), target).toBe(false);
+      expect(manager.some((s) => s.target === target), target).toBe(true);
+    }
+    expect(manager.length).toBe(nonManager.length + managerOnlyTargets.length);
+    // The 1:1 nav step and its "own" tab are for everyone.
+    expect(nonManager.some((s) => s.target === '[data-tour="nav-one-on-ones"]')).toBe(true);
+    expect(nonManager.some((s) => s.target === '[data-tour="one-on-one-own"]')).toBe(true);
   });
 
   test("buildSteps numbers each step header as 'Step X of Y' against the filtered total", () => {
@@ -141,8 +152,8 @@ describe("Tour", () => {
   test("steps with a navTo change the view via their before hook before showing", async () => {
     const t = (k: string) => k;
     const navigateTo = vi.fn(() => Promise.resolve());
-    // manager=true so the Feedback "My team" step is included.
-    const steps = buildSteps(t, true, navigateTo);
+    // manager=true so the Feedback "My team" step is included; userId feeds the :userId navTo.
+    const steps = buildSteps(t, true, navigateTo, 7);
 
     const cases: { target: string; path: string }[] = [
       // Each lazy section's nav step navigates a step early so its subsections' targets exist.
@@ -154,10 +165,19 @@ describe("Tour", () => {
       { target: '[data-tour="feedback-received"]', path: "/feedback?tab=received" },
       { target: '[data-tour="feedback-provided"]', path: "/feedback?tab=provided" },
       { target: '[data-tour="feedback-team"]', path: "/feedback?tab=team" },
+      { target: '[data-tour="nav-one-on-ones"]', path: "/one-on-ones?tab=managed" },
+      { target: '[data-tour="one-on-one-managed"]', path: "/one-on-ones?tab=managed" },
+      { target: '[data-tour="one-on-one-own"]', path: "/one-on-ones?tab=own" },
+      { target: '[data-tour="one-on-one-team"]', path: "/one-on-ones?tab=team" },
       { target: '[data-tour="nav-config"]', path: "/users" },
       { target: '[data-tour="config-users"]', path: "/users" },
       { target: '[data-tour="config-teams"]', path: "/teams" },
       { target: '[data-tour="config-templates"]', path: "/templates" },
+      // These anchor on the navbar leaf but also open the actual screen (":userId" resolved).
+      { target: '[data-tour="nav-self-reflection"]', path: "/feedback/self" },
+      { target: '[data-tour="nav-change-password"]', path: "/users/7/change-password" },
+      // The closing step returns home.
+      { target: '[data-tour="replay"]', path: "/" },
     ];
     for (const { target, path } of cases) {
       const step = steps.find((s) => s.target === target);
@@ -167,9 +187,39 @@ describe("Tour", () => {
     }
     expect(navigateTo).toHaveBeenCalledTimes(cases.length);
 
-    // A step without navTo (the welcome step) carries no before hook.
+    // A step without navTo (the welcome step) still has a before hook (it pins the scroll to
+    // the top) but never navigates.
+    navigateTo.mockClear();
     const welcome = steps.find((s) => s.target === "body");
-    expect(welcome?.before).toBeUndefined();
+    await welcome!.before!({} as never);
+    expect(navigateTo).not.toHaveBeenCalled();
+  });
+
+  test("a :userId navTo degrades to not navigating when the caller id is unknown", async () => {
+    const navigateTo = vi.fn(() => Promise.resolve());
+    const steps = buildSteps((k) => k, false, navigateTo, null);
+
+    const account = steps.find((s) => s.target === '[data-tour="nav-change-password"]');
+    await account!.before!({} as never);
+    expect(navigateTo).not.toHaveBeenCalled();
+    // Static navTo steps are unaffected by the missing id.
+    const selfReflection = steps.find((s) => s.target === '[data-tour="nav-self-reflection"]');
+    await selfReflection!.before!({} as never);
+    expect(navigateTo).toHaveBeenCalledWith("/feedback/self", '[data-tour="nav-self-reflection"]');
+  });
+
+  test("every step disables Joyride scrolling and pins the window to the top itself", async () => {
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+    try {
+      const steps = buildSteps((k) => k, true, vi.fn(() => Promise.resolve()));
+      // Joyride's own scroll would drag page titles under the fixed header — off on every step.
+      expect(steps.every((s) => s.skipScroll === true)).toBe(true);
+      for (const step of steps) await step.before!({} as never);
+      expect(scrollTo).toHaveBeenCalledTimes(steps.length);
+      expect(scrollTo).toHaveBeenLastCalledWith({ top: 0 });
+    } finally {
+      scrollTo.mockRestore();
+    }
   });
 
   test("waitForElement resolves once a matching element appears (cold lazy route)", async () => {

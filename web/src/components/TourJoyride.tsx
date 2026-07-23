@@ -42,7 +42,6 @@ export default function TourJoyride({
       steps={steps}
       run={run}
       continuous
-      scrollToFirstStep
       onEvent={handleEvent}
       tooltipComponent={tooltipComponent}
       options={{ zIndex: 10000 }}

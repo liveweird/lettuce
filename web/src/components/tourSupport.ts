@@ -23,15 +23,21 @@ type TourStepDef = {
   target: string;
   contentKey: string;
   placement?: Step["placement"];
-  /** Shown only to callers who manage a team (the Feedback "My team" tab is manager-only). */
+  /** Shown only to callers who manage a team (e.g. the Feedback "My team" tab and the 1:1
+   *  "I'm a manager" / "My subordinate's a manager" tabs are manager-only). */
   managerOnly?: boolean;
-  /** When set, navigate to this URL before the step is shown (e.g. switch a tab / open a route). */
+  /** When set, navigate to this URL before the step is shown (e.g. switch a tab / open a route).
+   *  A literal `:userId` segment is replaced with the caller's id by buildSteps. */
   navTo?: string;
 };
 
 // Anchored to the always-present AppShell header + navbar, so every target is in the DOM and no
 // cross-route navigation is needed. A missing/hidden target (e.g. a collapsed mobile navbar) is
 // skipped by Joyride rather than breaking the tour.
+// Scrolling contract: every target must sit in fixed chrome (header/navbar) or at the very top of
+// a page's content (tab bar, page title). buildSteps pins the window scroll to the top on every
+// step and disables Joyride's own scrolling (which would pull a page title halfway under the fixed
+// header) — a below-the-fold target would therefore end up off-screen.
 export const TOUR_STEPS: TourStepDef[] = [
   { target: "body", contentKey: "tour.steps.welcome", placement: "center" },
   // Navigate to each lazy-loaded section a step early (on its nav step) so the route is mounted
@@ -48,6 +54,13 @@ export const TOUR_STEPS: TourStepDef[] = [
   { target: '[data-tour="feedback-received"]', contentKey: "tour.steps.feedbackReceived", placement: "bottom", navTo: "/feedback?tab=received" },
   { target: '[data-tour="feedback-provided"]', contentKey: "tour.steps.feedbackProvided", placement: "bottom", navTo: "/feedback?tab=provided" },
   { target: '[data-tour="feedback-team"]', contentKey: "tour.steps.feedbackTeam", placement: "bottom", navTo: "/feedback?tab=team", managerOnly: true },
+  // The 1:1 meetings section + its tabs, toured in the page's visual order (managed | own | team);
+  // "managed"/"team" are manager-only (matches the page). The nav step's ?tab=managed is safe for
+  // non-managers: the page's activeTab logic falls back to "own", which is their next step anyway.
+  { target: '[data-tour="nav-one-on-ones"]', contentKey: "tour.steps.oneOnOnes", placement: "right", navTo: "/one-on-ones?tab=managed" },
+  { target: '[data-tour="one-on-one-managed"]', contentKey: "tour.steps.oneOnOneManaged", placement: "bottom", navTo: "/one-on-ones?tab=managed", managerOnly: true },
+  { target: '[data-tour="one-on-one-own"]', contentKey: "tour.steps.oneOnOneOwn", placement: "bottom", navTo: "/one-on-ones?tab=own" },
+  { target: '[data-tour="one-on-one-team"]', contentKey: "tour.steps.oneOnOneTeam", placement: "bottom", navTo: "/one-on-ones?tab=team", managerOnly: true },
   // The Config section + its three subsections (separate routes). The nav step navigates into the
   // section a step early so the lazy /users route is mounted before its subsection target is needed.
   { target: '[data-tour="nav-config"]', contentKey: "tour.steps.config", placement: "right", navTo: "/users" },
@@ -57,9 +70,12 @@ export const TOUR_STEPS: TourStepDef[] = [
   { target: '[data-tour="notifications"]', contentKey: "tour.steps.notifications", placement: "bottom" },
   { target: '[data-tour="language"]', contentKey: "tour.steps.language", placement: "bottom" },
   { target: '[data-tour="theme"]', contentKey: "tour.steps.theme", placement: "bottom" },
-  { target: '[data-tour="nav-change-password"]', contentKey: "tour.steps.account", placement: "right" },
+  // These two anchor on the navbar leaf but also open the actual screen behind it.
+  { target: '[data-tour="nav-self-reflection"]', contentKey: "tour.steps.selfReflection", placement: "right", navTo: "/feedback/self" },
+  { target: '[data-tour="nav-change-password"]', contentKey: "tour.steps.account", placement: "right", navTo: "/users/:userId/change-password" },
   { target: '[data-tour="logout"]', contentKey: "tour.steps.logout", placement: "bottom" },
-  { target: '[data-tour="replay"]', contentKey: "tour.steps.replay", placement: "bottom" },
+  // The closing step returns home, so the tour doesn't park the user on the change-password form.
+  { target: '[data-tour="replay"]', contentKey: "tour.steps.replay", placement: "bottom", navTo: "/" },
 ];
 
 /**
@@ -83,22 +99,39 @@ export function buildSteps(
   translate: (key: string, opts?: Record<string, unknown>) => string,
   manager: boolean,
   navigateTo?: (path: string, target?: string) => Promise<void> | void,
+  userId?: number | null,
 ): Step[] {
   // The total is the audience-filtered count, so headers read "Step X of Y" against the steps this
   // caller will actually see.
   const defs = TOUR_STEPS.filter((s) => !s.managerOnly || manager);
   const total = defs.length;
+  // A per-user navTo (`:userId`) is unresolvable without a caller id — degrade to not navigating
+  // (defensive only; the tour never runs unauthenticated).
+  const resolveNavTo = (navTo: string): string | undefined =>
+    navTo.includes(":userId")
+      ? userId != null
+        ? navTo.replace(":userId", String(userId))
+        : undefined
+      : navTo;
   return defs.map((s, i) => ({
     target: s.target,
     title: translate("tour.stepCounter", { current: i + 1, total }),
     content: translate(s.contentKey),
     placement: s.placement,
     disableBeacon: true,
-    // Steps with a `navTo` change the view (tab/route) before they show; the tour awaits this hook,
-    // which navigates and then waits for the step's target to actually mount (cold lazy routes).
-    ...(s.navTo && navigateTo
-      ? { before: async () => { await navigateTo(s.navTo!, s.target); } }
-      : {}),
+    // Joyride's own scrolling is disabled: it aligns targets ~20px from the viewport top, which
+    // drags page titles halfway under the fixed AppShell header. No target needs scrolling (see
+    // the contract above) — instead every step resets the scroll itself in its `before` hook.
+    skipScroll: true,
+    // Steps with a `navTo` change the view (tab/route) before they show; the tour awaits this
+    // hook, which navigates and then waits for the step's target to actually mount (cold lazy
+    // routes). Every step then pins the window to the top, clearing residue from Joyride-scrolled
+    // pre-fix sessions or a replay started mid-scroll.
+    before: async () => {
+      const navTo = s.navTo && resolveNavTo(s.navTo);
+      if (navTo && navigateTo) await navigateTo(navTo, s.target);
+      window.scrollTo({ top: 0 });
+    },
   }));
 }
 

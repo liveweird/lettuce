@@ -20,6 +20,10 @@
     "feedbackReceived": "Received — feedback others have given you.",
     "feedbackProvided": "Provided — feedback you have given to others.",
     "feedbackTeam": "My team — feedback across the teams you manage.",
+    "oneOnOnes": "1:1 meetings — document the outcomes of one-on-ones between a manager and a direct report: points discussed, decisions made and action items. Open action items carry over to the next meeting.",
+    "oneOnOneOwn": "I'm a subordinate — the 1:1 meetings your manager holds with you.",
+    "oneOnOneManaged": "I'm a manager — the 1:1s you hold with your direct reports; new meetings start here.",
+    "oneOnOneTeam": "My subordinate's a manager — 1:1s held by the managers who report to you.",
     "config": "Config — users, teams and feedback templates.",
     "configUsers": "Users — the people directory (admins manage accounts).",
     "configTeams": "Teams — teams and their membership.",
@@ -27,6 +31,7 @@
     "notifications": "Notifications: you'll be alerted here when feedback is requested, sent or withdrawn.",
     "language": "Switch the interface language (English / Polski) at any time.",
     "theme": "Toggle light and dark mode.",
+    "selfReflection": "Self-reflection — write feedback about yourself. Once sent, your managers can read it.",
     "account": "Your account — change your password here.",
     "logout": "Sign out when you're done.",
     "replay": "That's it! Replay this tour anytime from here."

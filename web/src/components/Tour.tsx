@@ -94,7 +94,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
       if (target) void waitForElement(target).then(resolve);
       else setTimeout(resolve, 0);
     });
-  const steps = buildSteps((k, o) => t(k, o), isManager, navigateTo);
+  const steps = buildSteps((k, o) => t(k, o), isManager, navigateTo, userId);
 
   // Auto-start once per account: run on mount when authenticated and not yet seen.
   const [run, setRun] = useState(() => userId != null && !hasSeenTour(userId));
