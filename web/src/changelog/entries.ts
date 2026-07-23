@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.15.6",
+    date: "2026-07-23",
+    en: `On the Users list and the team members screen, the per-row *Provide feedback* and *Ask for feedback* buttons are now grouped behind a single compact *Feedback* dropdown, so rows take less horizontal space. The Dashboard cards keep their inline buttons.`,
+    pl: `Na liście użytkowników i na ekranie członków zespołu przyciski *Wystaw feedback* i *Poproś o feedback* w wierszach są teraz zgrupowane w jednej zwięzłej liście rozwijanej *Feedback*, dzięki czemu wiersze zajmują mniej miejsca w poziomie. Karty na Pulpicie zachowują osobne przyciski.`,
+  },
+  {
     version: "1.15.5",
     date: "2026-07-23",
     en: `The per-person "Feedbacks with …" screen (opened from the Dashboard's managers, peers and subordinates cards) now shows its two directions — *From them to you* and *From you to them* — as tabs instead of two stacked lists, and returning from a feedback you opened there lands back on the tab you left.`,

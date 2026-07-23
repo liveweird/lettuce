@@ -2,6 +2,7 @@ import {
   test,
   expect,
   login,
+  clickAskForFeedback,
   logout,
   typeContent,
   gotoUserRow,
@@ -15,7 +16,7 @@ import {
 async function ask(page: import("@playwright/test").Page, requester: string): Promise<number> {
   await login(page, requester);
   await gotoUserRow(page, "Manager AAA");
-  await page.getByRole("link", { name: "Ask Manager AAA for feedback" }).click();
+  await clickAskForFeedback(page, "Manager AAA");
   await expect(page).toHaveURL(/\/feedback\/ask/);
   const [created] = await Promise.all([
     page.waitForResponse(

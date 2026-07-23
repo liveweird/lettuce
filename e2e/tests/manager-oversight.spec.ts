@@ -2,6 +2,7 @@ import {
   test,
   expect,
   login,
+  clickProvideFeedback,
   typeContent,
   sortNewestFirst,
   uniqueText,
@@ -18,7 +19,7 @@ test("manager sees a delivered team feedback in the team tab and the per-user sc
 
   // Deliver a feedback about AAA One (create directly as SENT); capture both ids.
   await page.goto("/users");
-  await page.getByRole("link", { name: "Provide feedback for AAA One" }).click();
+  await clickProvideFeedback(page, "AAA One");
   await typeContent(page, body);
   const [created] = await Promise.all([
     page.waitForResponse(

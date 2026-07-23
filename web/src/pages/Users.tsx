@@ -15,8 +15,6 @@ import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   IconKey,
-  IconMessagePlus,
-  IconMessageQuestion,
   IconPencil,
   IconPlus,
   IconTrash,
@@ -32,7 +30,7 @@ import {
   logout,
   type UserRole,
 } from "../api/client";
-import FeedbackActionButton from "../components/FeedbackActionButton";
+import FeedbackActionsMenu from "../components/FeedbackActionsMenu";
 import { feedbackAskLink, feedbackProvideLink } from "../utils/feedbackLinks";
 import { flagSignedOut, notifyAuthChange } from "../auth";
 import ClearableTextInput from "../components/ClearableTextInput";
@@ -113,7 +111,7 @@ export default function Users() {
   });
 
   const total = data?.total ?? 0;
-  const columnCount = 9;
+  const columnCount = 8;
 
   return (
     <Stack gap="md">
@@ -178,8 +176,7 @@ export default function Users() {
                 onToggle={toggleSort}
               />
             </Table.Th>
-            <Table.Th aria-label={t("users.provideFeedback")} style={{ width: 1 }} />
-            <Table.Th aria-label={t("users.askForFeedback")} style={{ width: 1 }} />
+            <Table.Th aria-label={t("users.feedbackActions")} style={{ width: 1 }} />
             <Table.Th aria-label={t("common.action.edit")} style={{ width: 1 }} />
             <Table.Th aria-label={t("users.changePassword")} style={{ width: 1 }} />
             <Table.Th aria-label={t("users.teams")} style={{ width: 1 }} />
@@ -212,21 +209,10 @@ export default function Users() {
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                   {u.id !== currentUserId && (
-                    <FeedbackActionButton
-                      to={feedbackProvideLink(u.id, u.name)}
-                      icon={<IconMessagePlus size={14} />}
-                      label={t("users.provideFeedback")}
-                      ariaLabel={t("users.provideFeedbackFor", { name: u.name })}
-                    />
-                  )}
-                </Table.Td>
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
-                  {u.id !== currentUserId && (
-                    <FeedbackActionButton
-                      to={feedbackAskLink(u.id, u.name, "/users")}
-                      icon={<IconMessageQuestion size={14} />}
-                      label={t("users.askForFeedback")}
-                      ariaLabel={t("users.askForFeedbackFrom", { name: u.name })}
+                    <FeedbackActionsMenu
+                      provideTo={feedbackProvideLink(u.id, u.name)}
+                      askTo={feedbackAskLink(u.id, u.name, "/users")}
+                      name={u.name}
                     />
                   )}
                 </Table.Td>
