@@ -3,7 +3,7 @@ import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-
 import { IconMessagePlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import FeedbackTable from "./FeedbackTable";
-import { feedbackProvideLink } from "../utils/feedbackLinks";
+import { feedbackProvideLink, userFeedbacksLink } from "../utils/feedbackLinks";
 
 // Which screen this one was opened from (a Dashboard tab, the Users list, or a team's members
 // roster), so the "Back to …" link and the invalid-id redirect return there. Defaults to managers
@@ -72,10 +72,10 @@ export default function ManagerFeedbacks() {
 
   function selectTab(value: string | null) {
     if (!isDirectionTab(value)) return;
-    // The functional form preserves the other params (name/from).
-    setSearchParams((current) => {
-      current.set("tab", value);
-      return current;
+    // The functional form preserves the other params (name/from/teamId).
+    setSearchParams((params) => {
+      params.set("tab", value);
+      return params;
     });
   }
 
@@ -83,12 +83,13 @@ export default function ManagerFeedbacks() {
   // Where the Edit/View/Create detail pages return to: this very screen, keeping the
   // origin — and the active tab, so a round-trip lands back on the direction it started
   // from — so the "Back to …" link stays correct after a round-trip.
-  const query = new URLSearchParams();
-  if (name) query.set("name", name);
-  if (isOriginKey(fromParam)) query.set("from", fromParam);
-  if (teamId != null) query.set("teamId", String(teamId));
-  query.set("tab", activeTab);
-  const backTo = `/users/${userId}/feedbacks?${query.toString()}`;
+  const backTo = userFeedbacksLink(
+    userId,
+    name,
+    isOriginKey(fromParam) ? fromParam : undefined,
+    teamId ?? undefined,
+    activeTab,
+  );
 
   return (
     <Stack gap="lg">

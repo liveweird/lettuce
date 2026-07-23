@@ -23,15 +23,20 @@ export function feedbackRequestLink(subjectId: number, subjectName: string, back
 /**
  * The per-person two-way feedbacks drill-down (`/users/:userId/feedbacks`). `from` names the
  * originating screen (an ORIGIN key of ManagerFeedbacks — drives its "Back to …" link); the
- * `members` origin additionally needs the `teamId` to link back to that team's roster.
+ * `members` origin additionally needs the `teamId` to link back to that team's roster. `tab`
+ * targets a direction tab — ManagerFeedbacks itself uses it to build its round-trip `back` URLs.
  */
 export function userFeedbacksLink(
   userId: number,
-  name: string,
+  name: string | null,
   from?: string,
   teamId?: number,
+  tab?: string,
 ): string {
-  const fromPart = from ? `&from=${from}` : "";
-  const teamPart = teamId != null ? `&teamId=${teamId}` : "";
-  return `/users/${userId}/feedbacks?name=${encodeURIComponent(name)}${fromPart}${teamPart}`;
+  const query = new URLSearchParams();
+  if (name != null) query.set("name", name);
+  if (from) query.set("from", from);
+  if (teamId != null) query.set("teamId", String(teamId));
+  if (tab) query.set("tab", tab);
+  return `/users/${userId}/feedbacks?${query.toString()}`;
 }
