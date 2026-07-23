@@ -139,7 +139,22 @@ export async function gotoUserRow(page: Page, name: string): Promise<void> {
 }
 
 /**
- * Create a feedback about `subjectName` through the real UI ("Provide feedback for …" on /users).
+ * On a row-based screen (/users, team members), open the row's "Feedback ▾" dropdown and click
+ * its "Provide feedback for …" item (the actions are grouped in a menu since v1.15.6).
+ */
+export async function clickProvideFeedback(page: Page, subjectName: string) {
+  await page.getByRole("button", { name: `Feedback actions for ${subjectName}` }).click();
+  await page.getByRole("menuitem", { name: `Provide feedback for ${subjectName}` }).click();
+}
+
+/** Same dropdown, the "Ask <name> for feedback" item. */
+export async function clickAskForFeedback(page: Page, providerName: string) {
+  await page.getByRole("button", { name: `Feedback actions for ${providerName}` }).click();
+  await page.getByRole("menuitem", { name: `Ask ${providerName} for feedback` }).click();
+}
+
+/**
+ * Create a feedback about `subjectName` through the real UI (the Feedback menu on /users).
  * `action` picks the create button: "Save draft" (→ DRAFT) or "Save & send" (→ SENT, a single
  * create-as-SENT POST). Returns the new feedback's id captured from the API response.
  */
@@ -150,7 +165,7 @@ export async function provideFeedback(
   action: "Save draft" | "Save & send" = "Save draft",
 ): Promise<number> {
   await gotoUserRow(page, subjectName);
-  await page.getByRole("link", { name: `Provide feedback for ${subjectName}` }).click();
+  await clickProvideFeedback(page, subjectName);
   await expect(page).toHaveURL(/\/feedback\/new/);
   await typeContent(page, body);
   const [created] = await Promise.all([

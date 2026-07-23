@@ -126,41 +126,29 @@ describe("TeamMembers page", () => {
     expect(screen.queryByLabelText("Add a user")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^remove /i })).not.toBeInTheDocument();
 
-    // But "Provide feedback" IS available to non-admins — it is for everyone.
-    expect(screen.getByRole("link", { name: "Provide feedback for Carol" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Provide feedback for Dave" })).toBeInTheDocument();
+    // But the Feedback actions menu IS available to non-admins — it is for everyone.
+    expect(screen.getByRole("button", { name: "Feedback actions for Carol" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Feedback actions for Dave" })).toBeInTheDocument();
 
     // The add-picker user pool was never fetched.
     expect(mockFetch.mock.calls.some(([u]) => typeof u === "string" && isPoolUrl(u))).toBe(false);
   });
 
-  test("each member row has a Provide feedback link to the new-feedback form", async () => {
+  test("each member row's Feedback menu offers Provide and Ask links, returning here", async () => {
     mockFetch.mockImplementation((url: string) => {
       if (url === "/api/v1/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
       if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
       if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
       return Promise.resolve(jsonResponse(404, {}));
     });
+    const user = userEvent.setup();
     renderTeamMembers(3);
 
-    const link = await screen.findByRole("link", { name: "Provide feedback for Carol" });
-    expect(link).toHaveAttribute(
-      "href",
-      "/feedback/new?subjectId=1&subjectName=Carol",
-    );
-  });
-
-  test("each member row has an Ask for feedback link back to this members page", async () => {
-    mockFetch.mockImplementation((url: string) => {
-      if (url === "/api/v1/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
-      if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
-      if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
-      return Promise.resolve(jsonResponse(404, {}));
-    });
-    renderTeamMembers(3);
-
-    const link = await screen.findByRole("link", { name: "Ask Carol for feedback" });
-    expect(link).toHaveAttribute(
+    await user.click(await screen.findByRole("button", { name: "Feedback actions for Carol" }));
+    expect(
+      await screen.findByRole("menuitem", { name: "Provide feedback for Carol" }),
+    ).toHaveAttribute("href", "/feedback/new?subjectId=1&subjectName=Carol");
+    expect(screen.getByRole("menuitem", { name: "Ask Carol for feedback" })).toHaveAttribute(
       "href",
       `/feedback/ask?providerId=1&providerName=Carol&back=${encodeURIComponent("/teams/3/members")}`,
     );

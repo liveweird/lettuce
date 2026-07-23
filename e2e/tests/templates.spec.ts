@@ -2,6 +2,7 @@ import {
   test,
   expect,
   login,
+  clickProvideFeedback,
   contentEditor,
   typeContent,
   pickSelectOption,
@@ -56,7 +57,7 @@ test("admin creates, edits, views, inserts, and deletes a template", async ({ pa
 
   // Insert into a feedback draft: the editor's Template picker pulls the content in.
   await gotoUserRow(page, "AAA One");
-  await page.getByRole("link", { name: "Provide feedback for AAA One" }).click();
+  await clickProvideFeedback(page, "AAA One");
   await pickSelectOption(page, "Template", renamed);
   await page.getByRole("button", { name: "Insert", exact: true }).click();
   await expect(contentEditor(page)).toContainText(content);

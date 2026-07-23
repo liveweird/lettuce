@@ -134,25 +134,31 @@ describe("Users page", () => {
     expect(links[1]).toHaveAttribute("href", `/users/2/teams?name=${encodeURIComponent("Bob")}`);
   });
 
-  test("non-admin sees Provide feedback and Teams, but no Edit/Delete", async () => {
+  test("non-admin sees the Feedback menu and Teams, but no Edit/Delete", async () => {
     localStorage.setItem(ROLE_KEY, "USER");
     mockListThen(mockFetch);
+    const user = userEvent.setup();
     renderUsers();
 
     await screen.findByText("Alice");
     expect(screen.queryByRole("button", { name: /^delete /i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /^edit /i })).not.toBeInTheDocument();
-    // The actions column still renders because every user can provide feedback —
+    // The actions column still renders because every user can provide/ask feedback —
     // but not on their own row (the current user is Alice, id 1).
-    expect(screen.getByRole("link", { name: /provide feedback for bob/i })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /provide feedback for alice/i })).not.toBeInTheDocument();
-    // Every user can also ask another user for feedback — but not themselves.
-    const ask = screen.getByRole("link", { name: /ask bob for feedback/i });
-    expect(ask).toHaveAttribute(
+    expect(screen.getByRole("button", { name: /feedback actions for bob/i })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /feedback actions for alice/i }),
+    ).not.toBeInTheDocument();
+
+    // The dropdown groups both actions, keeping the old links' accessible names.
+    await user.click(screen.getByRole("button", { name: /feedback actions for bob/i }));
+    expect(
+      await screen.findByRole("menuitem", { name: /provide feedback for bob/i }),
+    ).toHaveAttribute("href", `/feedback/new?subjectId=2&subjectName=${encodeURIComponent("Bob")}`);
+    expect(screen.getByRole("menuitem", { name: /ask bob for feedback/i })).toHaveAttribute(
       "href",
       `/feedback/ask?providerId=2&providerName=${encodeURIComponent("Bob")}&back=${encodeURIComponent("/users")}`,
     );
-    expect(screen.queryByRole("link", { name: /ask alice for feedback/i })).not.toBeInTheDocument();
     // Non-admins now also get a (read-only) Teams link per row.
     expect(screen.getAllByRole("link", { name: /^teams for /i })).toHaveLength(2);
   });

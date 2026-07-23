@@ -16,8 +16,6 @@ import {
 } from "@mantine/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  IconMessagePlus,
-  IconMessageQuestion,
   IconPlus,
   IconTrash,
   IconUsers,
@@ -34,7 +32,7 @@ import {
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import EmptyState from "../components/EmptyState";
 import TableLoadingRow from "../components/TableLoadingRow";
-import FeedbackActionButton from "../components/FeedbackActionButton";
+import FeedbackActionsMenu from "../components/FeedbackActionsMenu";
 import PersonaChip from "../components/PersonaChip";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { feedbackAskLink, feedbackProvideLink } from "../utils/feedbackLinks";
@@ -233,19 +231,10 @@ export default function TeamMembers() {
                 <Table.Td>
                   <Group gap="xs" wrap="nowrap" justify="flex-end">
                     {m.id !== currentUserId && (
-                      <FeedbackActionButton
-                        to={feedbackProvideLink(m.id, m.name)}
-                        icon={<IconMessagePlus size={14} />}
-                        label={t("users.provideFeedback")}
-                        ariaLabel={t("users.provideFeedbackFor", { name: m.name })}
-                      />
-                    )}
-                    {m.id !== currentUserId && (
-                      <FeedbackActionButton
-                        to={feedbackAskLink(m.id, m.name, `/teams/${id}/members`)}
-                        icon={<IconMessageQuestion size={14} />}
-                        label={t("users.askForFeedback")}
-                        ariaLabel={t("users.askForFeedbackFrom", { name: m.name })}
+                      <FeedbackActionsMenu
+                        provideTo={feedbackProvideLink(m.id, m.name)}
+                        askTo={feedbackAskLink(m.id, m.name, `/teams/${id}/members`)}
+                        name={m.name}
                       />
                     )}
                     {canManage && (

@@ -2,6 +2,7 @@ import {
   test,
   expect,
   login,
+  clickAskForFeedback,
   logout,
   openBell,
   notificationCard,
@@ -22,7 +23,7 @@ test("recipient toggles seen/unseen and marks all notifications as seen", async 
   for (const requester of [AAA_ONE, AAA_TWO]) {
     await login(page, requester);
     await gotoUserRow(page, "Manager AAA");
-    await page.getByRole("link", { name: "Ask Manager AAA for feedback" }).click();
+    await clickAskForFeedback(page, "Manager AAA");
     const [created] = await Promise.all([
       page.waitForResponse(
         (r) => r.url().endsWith("/api/v1/feedbacks") && r.request().method() === "POST" && r.ok(),

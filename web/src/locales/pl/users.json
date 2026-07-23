@@ -7,6 +7,8 @@
   "team": "Zespół",
   "provideFeedback": "Wystaw feedback",
   "askForFeedback": "Poproś o feedback",
+  "feedbackActions": "Feedback",
+  "feedbackActionsFor": "Akcje feedbacku dla {{name}}",
   "feedbacks": "Feedbacki",
   "noUsers": "Brak użytkowników",
   "noManagers": "Brak menedżerów",
