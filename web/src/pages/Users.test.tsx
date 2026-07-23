@@ -159,6 +159,11 @@ describe("Users page", () => {
       "href",
       `/feedback/ask?providerId=2&providerName=${encodeURIComponent("Bob")}&back=${encodeURIComponent("/users")}`,
     );
+    // The drill-down item carries from=users so its "Back to …" link returns here.
+    expect(screen.getByRole("menuitem", { name: /feedbacks with bob/i })).toHaveAttribute(
+      "href",
+      `/users/2/feedbacks?name=${encodeURIComponent("Bob")}&from=users`,
+    );
     // Non-admins now also get a (read-only) Teams link per row.
     expect(screen.getAllByRole("link", { name: /^teams for /i })).toHaveLength(2);
   });

@@ -35,7 +35,7 @@ import TableLoadingRow from "../components/TableLoadingRow";
 import FeedbackActionsMenu from "../components/FeedbackActionsMenu";
 import PersonaChip from "../components/PersonaChip";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
-import { feedbackAskLink, feedbackProvideLink } from "../utils/feedbackLinks";
+import { feedbackAskLink, feedbackProvideLink, userFeedbacksLink } from "../utils/feedbackLinks";
 import { saveErrorMessage } from "../utils/saveError";
 
 // A single team realistically has a small, bounded set of members; fetch up to the 100-row
@@ -234,6 +234,7 @@ export default function TeamMembers() {
                       <FeedbackActionsMenu
                         provideTo={feedbackProvideLink(m.id, m.name)}
                         askTo={feedbackAskLink(m.id, m.name, `/teams/${id}/members`)}
+                        listTo={userFeedbacksLink(m.id, m.name, "members", id)}
                         name={m.name}
                       />
                     )}

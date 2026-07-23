@@ -90,7 +90,9 @@
   "origin": {
     "managers": "My managers",
     "peers": "My peers",
-    "subordinates": "My subordinates"
+    "subordinates": "My subordinates",
+    "users": "Users",
+    "members": "Team members"
   },
   "duplicate": {
     "draft": "A draft of this feedback already exists.",

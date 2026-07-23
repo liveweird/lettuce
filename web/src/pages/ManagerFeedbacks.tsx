@@ -5,18 +5,40 @@ import { useTranslation } from "react-i18next";
 import FeedbackTable from "./FeedbackTable";
 import { feedbackProvideLink } from "../utils/feedbackLinks";
 
-// Which dashboard tab this screen was opened from, so the "Back to …" link and the
-// invalid-id redirect return there. Defaults to managers for older links lacking `from`.
+// Which screen this one was opened from (a Dashboard tab, the Users list, or a team's members
+// roster), so the "Back to …" link and the invalid-id redirect return there. Defaults to managers
+// for older links lacking `from`.
 const ORIGIN = {
   managers: { labelKey: "feedback.origin.managers", to: "/?tab=managers" },
   peers: { labelKey: "feedback.origin.peers", to: "/?tab=peers" },
   subordinates: { labelKey: "feedback.origin.subordinates", to: "/?tab=subordinates" },
+  users: { labelKey: "feedback.origin.users", to: "/users" },
+  // `members` has no static target — it needs the `teamId` param; see resolveOrigin.
+  members: { labelKey: "feedback.origin.members", to: "/teams" },
 } as const;
 
 type OriginKey = keyof typeof ORIGIN;
 
 function isOriginKey(value: string | null): value is OriginKey {
   return value != null && value in ORIGIN;
+}
+
+function parsePositiveInt(value: string | null): number | null {
+  const n = Number(value);
+  return value != null && Number.isInteger(n) && n > 0 ? n : null;
+}
+
+// The `members` origin is only usable with a valid teamId (its back target is that team's
+// roster); without one it degrades to the default `managers` origin.
+function resolveOrigin(
+  fromParam: string | null,
+  teamId: number | null,
+): { labelKey: string; to: string } {
+  const key: OriginKey =
+    isOriginKey(fromParam) && (fromParam !== "members" || teamId != null) ? fromParam : "managers";
+  return key === "members"
+    ? { labelKey: ORIGIN.members.labelKey, to: `/teams/${teamId}/members` }
+    : ORIGIN[key];
 }
 
 const TABS = ["received", "provided"] as const;
@@ -37,7 +59,8 @@ export default function ManagerFeedbacks() {
   const [searchParams, setSearchParams] = useSearchParams();
   const name = searchParams.get("name");
   const fromParam = searchParams.get("from");
-  const origin = ORIGIN[isOriginKey(fromParam) ? fromParam : "managers"];
+  const teamId = parsePositiveInt(searchParams.get("teamId"));
+  const origin = resolveOrigin(fromParam, teamId);
 
   const requestedTab = searchParams.get("tab");
   const activeTab: DirectionTab = isDirectionTab(requestedTab) ? requestedTab : "received";
@@ -63,6 +86,7 @@ export default function ManagerFeedbacks() {
   const query = new URLSearchParams();
   if (name) query.set("name", name);
   if (isOriginKey(fromParam)) query.set("from", fromParam);
+  if (teamId != null) query.set("teamId", String(teamId));
   query.set("tab", activeTab);
   const backTo = `/users/${userId}/feedbacks?${query.toString()}`;
 

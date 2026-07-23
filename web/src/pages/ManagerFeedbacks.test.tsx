@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
@@ -218,5 +218,46 @@ describe("ManagerFeedbacks page", () => {
     expect(
       await screen.findByRole("link", { name: /back to my subordinates/i }),
     ).toHaveAttribute("href", "/?tab=subordinates");
+  });
+
+  test("from=users shows a Back to Users link and redirects invalid ids to /users", async () => {
+    renderScreen("/users/10/feedbacks?name=Alice&from=users");
+    expect(await screen.findByRole("link", { name: /back to users/i })).toHaveAttribute(
+      "href",
+      "/users",
+    );
+
+    cleanup();
+    renderScreen("/users/abc/feedbacks?from=users");
+    expect(screen.getByTestId("probe")).toHaveTextContent("/users");
+  });
+
+  test("from=members carries the team id into the Back link and the detail-link back params", async () => {
+    renderScreen("/users/10/feedbacks?name=Alice&from=members&teamId=3");
+
+    expect(await screen.findByRole("link", { name: /back to team members/i })).toHaveAttribute(
+      "href",
+      "/teams/3/members",
+    );
+
+    // Round-trips keep the origin: back carries from + teamId (+ the active tab).
+    const back = encodeURIComponent("/users/10/feedbacks?name=Alice&from=members&teamId=3&tab=received");
+    const viewLink = await screen.findByRole("link", { name: /view feedback from alice/i });
+    expect(viewLink).toHaveAttribute("href", expect.stringContaining(`back=${back}`));
+  });
+
+  test("from=members without a valid teamId degrades to the managers origin", async () => {
+    renderScreen("/users/10/feedbacks?name=Alice&from=members");
+    expect(await screen.findByRole("link", { name: /back to my managers/i })).toHaveAttribute(
+      "href",
+      "/?tab=managers",
+    );
+
+    cleanup();
+    renderScreen("/users/10/feedbacks?name=Alice&from=members&teamId=abc");
+    expect(await screen.findByRole("link", { name: /back to my managers/i })).toHaveAttribute(
+      "href",
+      "/?tab=managers",
+    );
   });
 });

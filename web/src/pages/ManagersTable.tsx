@@ -13,7 +13,7 @@ import { listTeamMembers } from "../api/client";
 import EmptyState from "../components/EmptyState";
 import PersonCard from "../components/PersonCard";
 import PersonCardStats from "../components/PersonCardStats";
-import { feedbackAskLink, feedbackProvideLink } from "../utils/feedbackLinks";
+import { feedbackAskLink, feedbackProvideLink, userFeedbacksLink } from "../utils/feedbackLinks";
 import { groupTeamRows } from "../utils/teamRows";
 
 // The dashboard "My managers" view: a person-card grid (not a table) — typically 1–3 people,
@@ -80,7 +80,7 @@ export default function ManagersTable() {
                   </Button>
                   <Button
                     component={RouterLink}
-                    to={`/users/${m.userId}/feedbacks?name=${encodeURIComponent(m.name)}`}
+                    to={userFeedbacksLink(m.userId, m.name)}
                     variant="subtle"
                     size="xs"
                     leftSection={<IconMessages size={14} />}

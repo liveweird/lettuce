@@ -33,7 +33,7 @@ import PaginationBar from "../components/PaginationBar";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOf, isString, isStringOrNull, useStoredState } from "../hooks/useStoredState";
-import { feedbackAskLink, feedbackProvideLink, feedbackRequestLink } from "../utils/feedbackLinks";
+import { feedbackAskLink, feedbackProvideLink, feedbackRequestLink, userFeedbacksLink } from "../utils/feedbackLinks";
 import { oneOnOneCreateLink } from "../utils/oneOnOneLinks";
 import { groupTeamRows } from "../utils/teamRows";
 
@@ -270,7 +270,7 @@ export default function TeamMembersTable({
                   )}
                   <Button
                     component={RouterLink}
-                    to={`/users/${m.userId}/feedbacks?name=${encodeURIComponent(m.name)}&from=${view === "managed" ? "subordinates" : "peers"}`}
+                    to={userFeedbacksLink(m.userId, m.name, view === "managed" ? "subordinates" : "peers")}
                     variant="subtle"
                     size="xs"
                     leftSection={<IconMessages size={14} />}

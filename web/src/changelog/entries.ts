@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.15.7",
+    date: "2026-07-23",
+    en: `The row *Feedback* dropdown (Users list and team members screen) gained a third entry: *List feedbacks* opens the two-way "Feedbacks with …" view for that person, and its "Back to …" link correctly returns to the screen you came from.`,
+    pl: `Lista rozwijana *Feedback* w wierszach (lista użytkowników i ekran członków zespołu) zyskała trzecią pozycję: *Pokaż feedbacki* otwiera dwukierunkowy widok „Feedbacki dotyczące …" danej osoby, a jego link „Powrót do …" poprawnie wraca do ekranu, z którego przyszedłeś/aś.`,
+  },
+  {
     version: "1.15.6",
     date: "2026-07-23",
     en: `On the Users list and the team members screen, the per-row *Provide feedback* and *Ask for feedback* buttons are now grouped behind a single compact *Feedback* dropdown, so rows take less horizontal space. The Dashboard cards keep their inline buttons.`,

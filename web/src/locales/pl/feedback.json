@@ -90,7 +90,9 @@
   "origin": {
     "managers": "Moi menedżerowie",
     "peers": "Moi współpracownicy",
-    "subordinates": "Moi podwładni"
+    "subordinates": "Moi podwładni",
+    "users": "Użytkownicy",
+    "members": "Członkowie zespołu"
   },
   "duplicate": {
     "draft": "Szkic tego feedbacku już istnieje.",
