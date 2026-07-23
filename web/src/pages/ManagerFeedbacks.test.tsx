@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -93,43 +94,84 @@ describe("ManagerFeedbacks page", () => {
     localStorage.clear();
   });
 
-  test("renders both sections and scopes each list to the manager by id", async () => {
+  test("shows the two directions as tabs, received active by default and scoped to the manager", async () => {
     renderScreen();
 
-    expect(await screen.findByText("From Alice to you")).toBeInTheDocument();
-    expect(screen.getByText("From you to Alice")).toBeInTheDocument();
+    // Both directions are offered as tabs; only the received panel is mounted initially.
+    expect(await screen.findByRole("tab", { name: "From Alice to you" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByRole("tab", { name: "From you to Alice" })).toHaveAttribute(
+      "aria-selected",
+      "false",
+    );
 
     await waitFor(() => {
       const urls = mockFetch.mock.calls.map(([u]) => u as string);
-      // List 1: feedbacks the manager provided to me.
+      // The received list: feedbacks the manager provided to me.
       expect(urls.some((u) => u.includes("view=received") && u.includes("providerId=10"))).toBe(true);
-      // List 2: feedbacks I provided to the manager (all statuses).
+    });
+    // The provided list is not fetched until its tab is opened (keepMounted=false).
+    expect(mockFetch.mock.calls.map(([u]) => u as string).some((u) => u.includes("view=provided"))).toBe(false);
+
+    await userEvent.click(screen.getByRole("tab", { name: "From you to Alice" }));
+    await waitFor(() => {
+      const urls = mockFetch.mock.calls.map(([u]) => u as string);
+      // The provided list: feedbacks I provided to the manager (all statuses).
       expect(urls.some((u) => u.includes("view=provided") && u.includes("subjectId=10"))).toBe(true);
     });
   });
 
-  test("received rows get a View link, provided drafts get an Edit link, both returning here", async () => {
+  test("received rows get a View link, provided drafts get an Edit link, each returning to its tab", async () => {
     renderScreen();
-
-    const back = encodeURIComponent("/users/10/feedbacks?name=Alice");
 
     const viewLink = await screen.findByRole("link", { name: /view feedback from alice/i });
     expect(viewLink).toHaveAttribute("href", expect.stringContaining("/feedback/1/view"));
-    expect(viewLink).toHaveAttribute("href", expect.stringContaining(`back=${back}`));
+    expect(viewLink).toHaveAttribute(
+      "href",
+      expect.stringContaining(`back=${encodeURIComponent("/users/10/feedbacks?name=Alice&tab=received")}`),
+    );
 
+    await userEvent.click(screen.getByRole("tab", { name: "From you to Alice" }));
     const editLink = await screen.findByRole("link", { name: /edit feedback for alice/i });
     expect(editLink).toHaveAttribute("href", expect.stringContaining("/feedback/2/edit"));
-    expect(editLink).toHaveAttribute("href", expect.stringContaining(`back=${back}`));
+    expect(editLink).toHaveAttribute(
+      "href",
+      expect.stringContaining(`back=${encodeURIComponent("/users/10/feedbacks?name=Alice&tab=provided")}`),
+    );
   });
 
-  test("the New feedback button targets the create flow scoped to the manager", async () => {
+  test("the provided tab's New feedback button targets the create flow scoped to the manager", async () => {
     renderScreen();
 
-    const back = encodeURIComponent("/users/10/feedbacks?name=Alice");
+    await userEvent.click(await screen.findByRole("tab", { name: "From you to Alice" }));
+    const back = encodeURIComponent("/users/10/feedbacks?name=Alice&tab=provided");
     const createLink = await screen.findByRole("link", { name: /new feedback for alice/i });
     expect(createLink).toHaveAttribute("href", expect.stringContaining("/feedback/new"));
     expect(createLink).toHaveAttribute("href", expect.stringContaining("subjectId=10"));
     expect(createLink).toHaveAttribute("href", expect.stringContaining(`back=${back}`));
+  });
+
+  test("a ?tab=provided deep link opens the provided tab directly", async () => {
+    renderScreen("/users/10/feedbacks?name=Alice&tab=provided");
+
+    expect(await screen.findByRole("tab", { name: "From you to Alice" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(await screen.findByRole("link", { name: /edit feedback for alice/i })).toBeInTheDocument();
+    // The received list is not fetched (its panel is unmounted).
+    expect(mockFetch.mock.calls.map(([u]) => u as string).some((u) => u.includes("view=received"))).toBe(false);
+  });
+
+  test("an invalid ?tab falls back to the received tab", async () => {
+    renderScreen("/users/10/feedbacks?name=Alice&tab=nonsense");
+
+    expect(await screen.findByRole("tab", { name: "From Alice to you" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 
   test("an invalid user id redirects back to the managers tab", () => {
@@ -140,7 +182,7 @@ describe("ManagerFeedbacks page", () => {
 
   test("falls back to a placeholder name when none is provided", async () => {
     renderScreen("/users/10/feedbacks");
-    expect(await screen.findByText("From user #10 to you")).toBeInTheDocument();
+    expect(await screen.findByRole("tab", { name: "From user #10 to you" })).toBeInTheDocument();
   });
 
   test("the Back to My managers link points at the managers tab", async () => {
@@ -157,8 +199,9 @@ describe("ManagerFeedbacks page", () => {
       await screen.findByRole("link", { name: /back to my peers/i }),
     ).toHaveAttribute("href", "/?tab=peers");
 
-    // Edit/Create links return to this peers-scoped screen (back carries from=peers).
-    const back = encodeURIComponent("/users/10/feedbacks?name=Alice&from=peers");
+    // Edit/Create links return to this peers-scoped screen (back carries from=peers + the tab).
+    await userEvent.click(screen.getByRole("tab", { name: "From you to Alice" }));
+    const back = encodeURIComponent("/users/10/feedbacks?name=Alice&from=peers&tab=provided");
     const editLink = await screen.findByRole("link", { name: /edit feedback for alice/i });
     expect(editLink).toHaveAttribute("href", expect.stringContaining(`back=${back}`));
     const createLink = await screen.findByRole("link", { name: /new feedback for alice/i });
