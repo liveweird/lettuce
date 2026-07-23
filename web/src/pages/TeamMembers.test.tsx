@@ -152,6 +152,11 @@ describe("TeamMembers page", () => {
       "href",
       `/feedback/ask?providerId=1&providerName=Carol&back=${encodeURIComponent("/teams/3/members")}`,
     );
+    // The drill-down item carries from=members + the team id so "Back to …" returns to this roster.
+    expect(screen.getByRole("menuitem", { name: "Feedbacks with Carol" })).toHaveAttribute(
+      "href",
+      "/users/1/feedbacks?name=Carol&from=members&teamId=3",
+    );
   });
 
   test("add picker excludes current members and the manager, and PUTs the membership", async () => {

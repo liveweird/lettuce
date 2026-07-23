@@ -31,7 +31,7 @@ import {
   type UserRole,
 } from "../api/client";
 import FeedbackActionsMenu from "../components/FeedbackActionsMenu";
-import { feedbackAskLink, feedbackProvideLink } from "../utils/feedbackLinks";
+import { feedbackAskLink, feedbackProvideLink, userFeedbacksLink } from "../utils/feedbackLinks";
 import { flagSignedOut, notifyAuthChange } from "../auth";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
@@ -212,6 +212,7 @@ export default function Users() {
                     <FeedbackActionsMenu
                       provideTo={feedbackProvideLink(u.id, u.name)}
                       askTo={feedbackAskLink(u.id, u.name, "/users")}
+                      listTo={userFeedbacksLink(u.id, u.name, "users")}
                       name={u.name}
                     />
                   )}

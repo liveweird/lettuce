@@ -19,3 +19,19 @@ export function feedbackAskLink(providerId: number, providerName: string, back?:
 export function feedbackRequestLink(subjectId: number, subjectName: string, back?: string): string {
   return withBack(`/feedback/request?subjectId=${subjectId}&subjectName=${encodeURIComponent(subjectName)}`, back);
 }
+
+/**
+ * The per-person two-way feedbacks drill-down (`/users/:userId/feedbacks`). `from` names the
+ * originating screen (an ORIGIN key of ManagerFeedbacks — drives its "Back to …" link); the
+ * `members` origin additionally needs the `teamId` to link back to that team's roster.
+ */
+export function userFeedbacksLink(
+  userId: number,
+  name: string,
+  from?: string,
+  teamId?: number,
+): string {
+  const fromPart = from ? `&from=${from}` : "";
+  const teamPart = teamId != null ? `&teamId=${teamId}` : "";
+  return `/users/${userId}/feedbacks?name=${encodeURIComponent(name)}${fromPart}${teamPart}`;
+}
