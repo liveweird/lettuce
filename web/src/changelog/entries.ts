@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.15.9",
+    date: "2026-07-24",
+    en: `When editing a 1:1 meeting, all three lists — *Points discussed*, *Decisions made* and *Action items* — now number their rows (separately per list), so you can see the order you are rearranging with the up/down arrows.`,
+    pl: `Podczas edycji spotkania 1:1 wszystkie trzy listy — *Omówione punkty*, *Podjęte decyzje* i *Zadania* — numerują teraz swoje wiersze (osobno w każdej liście), więc widzisz kolejność, którą zmieniasz strzałkami w górę/w dół.`,
+  },
+  {
     version: "1.15.8",
     date: "2026-07-24",
     en: `On the read-only 1:1 meeting view, the *Action items* table now shows each item's position in a leading *#* column — the saved order was always there, but only *Points discussed* and *Decisions made* displayed their numbering.`,

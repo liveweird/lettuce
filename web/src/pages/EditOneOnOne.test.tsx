@@ -120,6 +120,10 @@ describe("EditOneOnOne page", () => {
     // The manager renders as plain "You" (also the owner-select label), the subordinate by name.
     expect(screen.getAllByText("You").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Sam Subordinate").length).toBeGreaterThan(0);
+    // Every list numbers its rows independently: "1." on the first point, the decision, and
+    // the first action item; "2." on the second point and second action item.
+    expect(screen.getAllByText("1.")).toHaveLength(3);
+    expect(screen.getAllByText("2.")).toHaveLength(2);
   });
 
   test("a non-manager is redirected to the read-only view", async () => {
@@ -198,6 +202,14 @@ describe("EditOneOnOne page", () => {
     await userEvent.click(
       screen.getByRole("button", { name: "Move Points discussed entry 1 down" }),
     );
+
+    // Ordinals stay fixed to positions while the content moves: the row now holding
+    // "Second point" reads "1.".
+    const movedRow = screen
+      .getByDisplayValue("Second point")
+      .closest(".mantine-Paper-root") as HTMLElement;
+    expect(within(movedRow).getByText("1.")).toBeInTheDocument();
+
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() =>
