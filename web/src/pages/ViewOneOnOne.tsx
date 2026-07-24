@@ -127,6 +127,7 @@ export default function ViewOneOnOne() {
                         <Table withTableBorder verticalSpacing="sm">
                           <Table.Thead>
                             <Table.Tr>
+                              <Table.Th style={{ width: 1 }}>{t("common.table.position")}</Table.Th>
                               <Table.Th>{t("common.field.content")}</Table.Th>
                               <Table.Th>{t("oneOnOne.owner")}</Table.Th>
                               <Table.Th>{t("oneOnOne.dueDate")}</Table.Th>
@@ -137,6 +138,11 @@ export default function ViewOneOnOne() {
                           <Table.Tbody>
                             {data.actionItems.map((item, index) => (
                               <Table.Tr key={item.id}>
+                                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                                  <Text size="sm" c="dimmed">
+                                    {index + 1}
+                                  </Text>
+                                </Table.Td>
                                 <Table.Td>
                                   <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
                                     {item.content}

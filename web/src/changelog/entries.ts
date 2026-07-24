@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.15.8",
+    date: "2026-07-24",
+    en: `On the read-only 1:1 meeting view, the *Action items* table now shows each item's position in a leading *#* column — the saved order was always there, but only *Points discussed* and *Decisions made* displayed their numbering.`,
+    pl: `W widoku spotkania 1:1 tylko do odczytu tabela *Zadania* pokazuje teraz pozycję każdego zadania w początkowej kolumnie *Lp.* — zapisana kolejność zawsze istniała, ale numerację wyświetlały dotąd tylko *Omówione punkty* i *Podjęte decyzje*.`,
+  },
+  {
     version: "1.15.7",
     date: "2026-07-23",
     en: `The row *Feedback* dropdown (Users list and team members screen) gained a third entry: *List feedbacks* opens the two-way "Feedbacks with …" view for that person, and its "Back to …" link correctly returns to the screen you came from.`,

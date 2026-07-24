@@ -37,6 +37,7 @@
     "preview": "Podgląd"
   },
   "table": {
+    "position": "Lp.",
     "actions": "Akcje",
     "total": "łącznie: {{count}}",
     "perPage": "{{count}} / strona"
