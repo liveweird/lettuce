@@ -39,6 +39,9 @@ export default function ParagraphListEditor({
       {rows.map((row, index) => (
         <Paper key={row.key} withBorder p="sm" radius="md">
           <Group align="flex-start" gap="xs" wrap="nowrap">
+            <Text size="sm" c="dimmed" w={24} ta="right" pt={8} style={{ flexShrink: 0 }}>
+              {index + 1}.
+            </Text>
             <Textarea
               style={{ flex: 1 }}
               autosize
