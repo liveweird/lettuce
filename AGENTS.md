@@ -19,7 +19,7 @@ Package deployments with `./gradlew :server:installDist`; do not use `buildFatJa
 
 ## Coding Style & Naming Conventions
 
-Use four-space indentation for Kotlin and two spaces for TypeScript/TSX. Follow existing Kotlin package boundaries and name Ktor wiring functions `configureXxx`. Use PascalCase for React components and Kotlin types, camelCase for functions and variables, and `V<number>__description.sql` for Flyway migrations. ESLint enforces frontend rules; TypeScript is configured with strict unused-code checks. Regenerate `web/src/api/schema.ts` with `npm run gen:api` after OpenAPI changes.
+Use four-space indentation for Kotlin and two spaces for TypeScript/TSX. Follow existing Kotlin package boundaries and name Ktor wiring functions `configureXxx`. Use PascalCase for React components and Kotlin types, camelCase for functions and variables, and `V<number>__description.sql` for Flyway migrations. ESLint enforces frontend rules; TypeScript is configured with strict unused-code checks. Regenerate `web/src/api/schema.ts` with `npm run gen:api` after OpenAPI changes. API design (URLs, pagination, errors, status codes, naming) follows the authoritative rulebook in `api-guidelines/API-GUIDELINES.md` — lint spec changes with its Spectral ruleset.
 
 ## Testing Guidelines
 
