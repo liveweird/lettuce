@@ -107,6 +107,13 @@ describe("ViewOneOnOne page", () => {
     expect(screen.queryByText(/^Carried over$/)).toBeNull();
     expect(screen.getByText("Open")).toBeInTheDocument();
     expect(screen.getByText("Resolved")).toBeInTheDocument();
+    // Action items are numbered like the points/decisions lists: a leading "#" column
+    // whose ordinal follows the saved order.
+    expect(screen.getByRole("columnheader", { name: "#" })).toBeInTheDocument();
+    const rowOf = (content: string) =>
+      screen.getByText(content).closest("tr") as HTMLElement;
+    expect(within(rowOf("Prepare the demo")).getByText("1")).toBeInTheDocument();
+    expect(within(rowOf("Book the room")).getByText("2")).toBeInTheDocument();
     // No editing affordances anywhere.
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Add point" })).toBeNull();

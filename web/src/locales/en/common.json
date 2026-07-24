@@ -37,6 +37,7 @@
     "preview": "Preview"
   },
   "table": {
+    "position": "#",
     "actions": "Actions",
     "total": "{{count}} total",
     "perPage": "{{count}} / page"
