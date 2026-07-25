@@ -1479,14 +1479,18 @@ paths:
         Supports offset pagination, sorting and filtering.
 
         - Sortable fields: `id`, `managerName`, `subordinateName`, `title`, `type`, `status`,
-          `createdAt`, `lastModified`. Default sort is `createdAt` **descending** (newest goals
-          first). `id` ascending is always appended as a deterministic tiebreaker.
+          `targetValue`, `currentValue`, `createdAt`, `lastModified`. Default sort is `createdAt`
+          **descending** (newest goals first). `id` ascending is always appended as a
+          deterministic tiebreaker. The value columns are null for BINARY goals, so mixed-type
+          lists sort those rows together at one end (database NULL ordering).
         - Filters (all optional, all whitelisted):
           - `managerName` / `subordinateName` — case-insensitive substring match against the
             party's name.
+          - `managerId` / `subordinateId` — exact party-id match (e.g. the per-manager
+            drill-down combines `view=own` with `managerId`).
           - `title` — case-insensitive substring match against the goal title.
           - `type` / `status` — exact enum-name match.
-          - `lastModified[gte]` — inclusive epoch-millis lower bound.
+          - `createdAt[gte]` / `lastModified[gte]` — inclusive epoch-millis lower bounds.
 
         Malformed query parameters (unknown view, unknown sort field, out-of-range page/pageSize)
         respond with `400` and a `ProblemDetail` body.
@@ -1516,6 +1520,16 @@ paths:
           required: false
           schema: { type: string }
           description: Case-insensitive substring match against the subordinate's name.
+        - name: managerId
+          in: query
+          required: false
+          schema: { type: integer, format: int64, minimum: 0 }
+          description: Exact manager-id match.
+        - name: subordinateId
+          in: query
+          required: false
+          schema: { type: integer, format: int64, minimum: 0 }
+          description: Exact subordinate-id match.
         - name: title
           in: query
           required: false
@@ -1531,6 +1545,11 @@ paths:
           required: false
           schema: { type: string, enum: [DRAFT, ACTIVE, CLOSED] }
           description: Exact status match.
+        - name: createdAt[gte]
+          in: query
+          required: false
+          schema: { type: integer, format: int64, minimum: 0 }
+          description: Lower bound (inclusive) on the creation moment, epoch milliseconds.
         - name: lastModified[gte]
           in: query
           required: false

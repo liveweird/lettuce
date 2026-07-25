@@ -736,6 +736,71 @@ class GoalRoutesTest {
         assertEquals(HttpStatusCode.BadRequest, manager.get("/api/v1/goals?status=SHINY").status)
     }
 
+    @Test
+    fun `exact party-id filters and the createdAt window scope the list`() = testApplication {
+        usePostgresTestcontainer()
+        // Two managers over the same subordinate cohort keeps the own view ambiguous without
+        // the managerId filter — exactly the per-manager drill-down's situation.
+        val pairA = seedPair()
+        val pairB = seedPair()
+        val sharedSubordinateEmail = pairA.subordinateEmail
+        val teamB = TestServices.teams.create(Team(name = "goal-b-${UUID.randomUUID()}", managerId = pairB.managerId))
+        TestServices.teams.addMember(teamB, pairA.subordinateId)
+
+        val before = System.currentTimeMillis()
+        val fromA = authedClient(pairA.managerEmail, "pw").createGoal(pairA.subordinateId, title = "from A")
+        val fromB = authedClient(pairB.managerEmail, "pw").createGoal(pairA.subordinateId, title = "from B")
+
+        val subordinate = authedClient(sharedSubordinateEmail, "pw")
+        // Unfiltered own view sees both; managerId narrows to one.
+        assertEquals(
+            setOf(fromA.id, fromB.id),
+            subordinate.get("/api/v1/goals").body<GoalPageResponse>().items.map { it.id }.toSet(),
+        )
+        assertEquals(
+            listOf(fromA.id),
+            subordinate.get("/api/v1/goals?managerId=${pairA.managerId}").body<GoalPageResponse>()
+                .items.map { it.id },
+        )
+        // subordinateId narrows the manager's view symmetrically.
+        assertEquals(
+            listOf(fromB.id),
+            authedClient(pairB.managerEmail, "pw")
+                .get("/api/v1/goals?view=managed&subordinateId=${pairA.subordinateId}")
+                .body<GoalPageResponse>().items.map { it.id },
+        )
+        // createdAt[gte]: everything here was created after `before`; a future bound excludes all.
+        assertEquals(
+            2,
+            subordinate.get("/api/v1/goals?createdAt[gte]=$before").body<GoalPageResponse>().total,
+        )
+        assertEquals(
+            0,
+            subordinate.get("/api/v1/goals?createdAt[gte]=${before + 3_600_000}")
+                .body<GoalPageResponse>().total,
+        )
+        assertEquals(HttpStatusCode.BadRequest, subordinate.get("/api/v1/goals?managerId=abc").status)
+    }
+
+    @Test
+    fun `the value columns are sortable`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val manager = authedClient(pair.managerEmail, "pw")
+        val marker = "vals-${UUID.randomUUID().toString().take(8)}"
+        val small = manager.createGoal(pair.subordinateId, title = "$marker small", targetValue = 1.0)
+        val large = manager.createGoal(pair.subordinateId, title = "$marker large", targetValue = 9.0)
+
+        suspend fun ids(sort: String) = manager
+            .get("/api/v1/goals?view=managed&title=$marker&sort=$sort")
+            .body<GoalPageResponse>().items.map { it.id }
+
+        assertEquals(listOf(small.id, large.id), ids("targetValue"))
+        assertEquals(listOf(large.id, small.id), ids("-targetValue"))
+        // currentValue is accepted too (both rows are 0.0 — id tiebreaker keeps it deterministic).
+        assertEquals(listOf(small.id, large.id), ids("currentValue"))
+    }
+
     // ---- events endpoint ----
 
     @Test

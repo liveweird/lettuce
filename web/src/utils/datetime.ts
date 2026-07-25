@@ -64,6 +64,13 @@ export function datetimeLocalToEpoch(value: string): number | null {
   return Number.isNaN(ms) ? null : ms;
 }
 
+// Epoch millis -> a localized absolute date ("Jul 1, 2026" / "1 lip 2026"), no time part.
+// Used where the moment matters at day granularity over long spans (a goal's creation date) —
+// relative phrasing degrades into "3 months ago" there.
+export function formatDate(ms: number, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(new Date(ms));
+}
+
 // Recency windows for the "Last modified" list filter.
 export type LastModifiedWindow = "all" | "week" | "month";
 
@@ -83,5 +90,23 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export function lastModifiedCutoff(w: LastModifiedWindow): number | undefined {
   if (w === "week") return Date.now() - 7 * DAY_MS;
   if (w === "month") return Date.now() - 30 * DAY_MS;
+  return undefined;
+}
+
+// Creation-date windows for the goals list filter (goals live for months, so the windows are
+// wider than the lastModified ones).
+export type CreatedWindow = "all" | "month" | "sixMonths";
+
+export function createdWindowOptions(t: (key: string) => string) {
+  return [
+    { value: "all", label: t("common.state.all") },
+    { value: "month", label: t("goal.createdWindow.month") },
+    { value: "sixMonths", label: t("goal.createdWindow.sixMonths") },
+  ];
+}
+
+export function createdWindowCutoff(w: CreatedWindow): number | undefined {
+  if (w === "month") return Date.now() - 30 * DAY_MS;
+  if (w === "sixMonths") return Date.now() - 182 * DAY_MS;
   return undefined;
 }

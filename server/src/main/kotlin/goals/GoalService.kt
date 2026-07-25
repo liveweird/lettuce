@@ -28,9 +28,12 @@ enum class GoalListView { OWN, MANAGED, TEAM }
 data class GoalListFilter(
     val managerName: String? = null,
     val subordinateName: String? = null,
+    val managerId: UInt? = null,
+    val subordinateId: UInt? = null,
     val title: String? = null,
     val type: GoalType? = null,
     val status: GoalStatus? = null,
+    val createdAtGte: Long? = null,
     val lastModifiedGte: Long? = null,
 )
 
@@ -49,6 +52,10 @@ private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
     "title" to GoalService.Goals.title,
     "type" to GoalService.Goals.type,
     "status" to GoalService.Goals.status,
+    // Nullable value columns: BINARY rows sort as SQL NULLs (first on DESC, last on ASC) —
+    // documented in the spec; acceptable for mixed-type lists.
+    "targetValue" to GoalService.Goals.targetValue,
+    "currentValue" to GoalService.Goals.currentValue,
     "createdAt" to GoalService.Goals.createdAt,
     "lastModified" to GoalService.Goals.lastModified,
 )
@@ -378,11 +385,14 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
         filter.subordinateName?.takeIf { it.isNotBlank() }?.let {
             op = op and (subordinateUsers[UserService.Users.name].lowerCase() like containsPattern(it))
         }
+        filter.managerId?.let { op = op and (Goals.managerId eq it) }
+        filter.subordinateId?.let { op = op and (Goals.subordinateId eq it) }
         filter.title?.takeIf { it.isNotBlank() }?.let {
             op = op and (Goals.title.lowerCase() like containsPattern(it))
         }
         filter.type?.let { op = op and (Goals.type eq it) }
         filter.status?.let { op = op and (Goals.status eq it) }
+        filter.createdAtGte?.let { op = op and (Goals.createdAt greaterEq it) }
         filter.lastModifiedGte?.let { op = op and (Goals.lastModified greaterEq it) }
         return op
     }

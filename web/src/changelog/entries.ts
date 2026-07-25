@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.16.0",
+    date: "2026-07-25",
+    en: `Goals arrive: a manager can set tracked goals for their team members (done/not-done, numeric, or percentage targets). Each manager card on the Dashboard's *My managers* tab gained a *Goals* button opening the list of goals that manager set for you — filterable by title, creation date and status, sortable and paginated — and every goal opens into a full view with its description, progress and change history. Managers activate, close (with a summary) and reopen goals, and you get a notification on every such change.`,
+    pl: `Nadchodzą cele: menedżer może wyznaczać członkom zespołu śledzone cele (zrobione/niezrobione, liczbowe lub procentowe). Każda karta menedżera na zakładce *Moi menedżerowie* na Pulpicie zyskała przycisk *Cele*, otwierający listę celów, które ten menedżer wyznaczył dla Ciebie — filtrowaną po tytule, dacie utworzenia i statusie, sortowaną i stronicowaną — a każdy cel otwiera się w pełnym widoku z opisem, postępem i historią zmian. Menedżerowie aktywują, zamykają (z podsumowaniem) i ponownie otwierają cele, a Ty dostajesz powiadomienie o każdej takiej zmianie.`,
+  },
+  {
     version: "1.15.9",
     date: "2026-07-24",
     en: `When editing a 1:1 meeting, all three lists — *Points discussed*, *Decisions made* and *Action items* — now number their rows (separately per list), so you can see the order you are rearranging with the up/down arrows.`,

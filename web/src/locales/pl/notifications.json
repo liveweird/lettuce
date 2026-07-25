@@ -37,6 +37,10 @@
     "deletedToRequester_self": "{{provider}} usunął/usunęła swoją autorefleksję (o którą prosiłeś/aś).",
     "oneOnOneCreated": "{{manager}} udokumentował/a spotkanie 1:1 z Tobą ({{date}}).",
     "oneOnOneCreatedToManager": "Udokumentowałeś/aś spotkanie 1:1 z {{subordinate}} ({{date}}).",
+    "goalActivated": "{{manager}} aktywował/a dla Ciebie cel „{{title}}”.",
+    "goalDeactivated": "{{manager}} cofnął/cofnęła cel „{{title}}” do szkicu.",
+    "goalClosed": "{{manager}} zamknął/zamknęła cel „{{title}}”.",
+    "goalReopened": "{{manager}} ponownie otworzył/a cel „{{title}}”.",
     "passwordChanged": "Twoje hasło zostało zmienione.",
     "passwordChanged_admin": "Administrator zmienił Twoje hasło.",
     "passwordChanged_reset": "Twoje hasło zostało zresetowane przez e-mail."

@@ -28,6 +28,7 @@ import {
   IconMessageQuestion,
   IconPencil,
   IconSend,
+  IconTargetArrow,
   IconTrash,
   IconX,
 } from "@tabler/icons-react";
@@ -63,6 +64,10 @@ const EVENT_KEY: Record<NotificationItem["type"], string> = {
   FEEDBACK_DELETED_TO_REQUESTER: "deletedToRequester",
   ONE_ON_ONE_CREATED_TO_SUBORDINATE: "oneOnOneCreated",
   ONE_ON_ONE_CREATED_TO_MANAGER: "oneOnOneCreatedToManager",
+  GOAL_ACTIVATED_TO_SUBORDINATE: "goalActivated",
+  GOAL_DEACTIVATED_TO_SUBORDINATE: "goalDeactivated",
+  GOAL_CLOSED_TO_SUBORDINATE: "goalClosed",
+  GOAL_REOPENED_TO_SUBORDINATE: "goalReopened",
   PASSWORD_CHANGED: "passwordChanged",
 };
 
@@ -90,6 +95,10 @@ const TYPE_META: Record<NotificationItem["type"], { icon: typeof IconBell; color
   FEEDBACK_DELETED_TO_REQUESTER: { icon: IconTrash, color: "gray" },
   ONE_ON_ONE_CREATED_TO_SUBORDINATE: { icon: IconCalendarEvent, color: "grape" },
   ONE_ON_ONE_CREATED_TO_MANAGER: { icon: IconCalendarEvent, color: "grape" },
+  GOAL_ACTIVATED_TO_SUBORDINATE: { icon: IconTargetArrow, color: "green" },
+  GOAL_DEACTIVATED_TO_SUBORDINATE: { icon: IconTargetArrow, color: "orange" },
+  GOAL_CLOSED_TO_SUBORDINATE: { icon: IconTargetArrow, color: "blue" },
+  GOAL_REOPENED_TO_SUBORDINATE: { icon: IconTargetArrow, color: "cyan" },
   PASSWORD_CHANGED: { icon: IconKey, color: "orange" },
 };
 
