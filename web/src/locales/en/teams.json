@@ -64,5 +64,7 @@
   "oneOnOnes": "1:1 meetings",
   "oneOnOnesWithAria": "1:1 meetings with {{name}}",
   "addOneOnOne": "New 1:1",
-  "addOneOnOneWithAria": "New 1:1 with {{name}}"
+  "addOneOnOneWithAria": "New 1:1 with {{name}}",
+  "goals": "Goals",
+  "goalsForAria": "Goals for {{name}}"
 }

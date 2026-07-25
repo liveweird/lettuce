@@ -50,12 +50,15 @@ function CurrentCell({ goal, locale }: { goal: GoalListItem; locale: string }) {
 export default function GoalTable({
   view,
   managerId,
+  subordinateId,
   settingsKey,
   backTo,
 }: {
   view: GoalListView;
   /** Scope to one manager's goals (the per-manager drill-down). */
   managerId?: number;
+  /** Scope to one subordinate's goals (the per-subordinate drill-down). */
+  subordinateId?: number;
   /** Override the localStorage view-settings namespace when embedded outside the main tabs. */
   settingsKey?: string;
   /** When set, action links carry a back=… override so detail pages return here. */
@@ -92,6 +95,7 @@ export default function GoalTable({
       "goals",
       view,
       managerId,
+      subordinateId,
       page,
       pageSize,
       sortParam,
@@ -108,6 +112,7 @@ export default function GoalTable({
         title: debouncedTitle || undefined,
         status: statusFilter ?? undefined,
         managerId,
+        subordinateId,
         createdAtGte: createdWindowCutoff(createdWindow),
       }),
     placeholderData: keepPreviousData,

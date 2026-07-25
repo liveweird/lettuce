@@ -19,6 +19,7 @@ import {
   IconMessageQuestion,
   IconMessages,
   IconPlus,
+  IconTargetArrow,
   IconUserPlus,
   IconUsersGroup,
 } from "@tabler/icons-react";
@@ -291,6 +292,19 @@ export default function TeamMembersTable({
                       aria-label={t("teams.oneOnOnesWithAria", { name: m.name })}
                     >
                       {t("teams.oneOnOnes")}
+                    </Button>
+                  )}
+                  {view === "managed" && reportsScope === "direct" && (
+                    // Same direct-only gate: goals are set for direct reports, like 1:1s.
+                    <Button
+                      component={RouterLink}
+                      to={`/users/${m.userId}/goals?name=${encodeURIComponent(m.name)}&from=subordinates`}
+                      variant="subtle"
+                      size="xs"
+                      leftSection={<IconTargetArrow size={14} />}
+                      aria-label={t("teams.goalsForAria", { name: m.name })}
+                    >
+                      {t("teams.goals")}
                     </Button>
                   )}
                 </>

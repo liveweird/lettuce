@@ -1,6 +1,13 @@
 {
   "goalsWith": "Goals from {{who}}",
   "goalsWithHint": "The goals {{who}} set for you and how they are progressing.",
+  "goalsFor": "Goals for {{who}}",
+  "goalsForHint": "The goals you set for {{who}} and how they are progressing.",
+  "newGoal": "New goal",
+  "createTitle": "New goal",
+  "createHint": "Pick the team member and define the goal. It starts as a draft — activate it when it should go live.",
+  "pickSubordinate": "Pick a team member",
+  "noReports": "No direct reports available",
   "userFallback": "user #{{id}}",
   "title": "Title",
   "createdAt": "Created",
@@ -74,7 +81,9 @@
     "invalid": "The goal could not be saved — check the fields and try again.",
     "invalidTransition": "This action is not available in the goal's current status.",
     "updateFailed": "Could not update the goal.",
-    "updateFailedStatus": "Could not update the goal (error {{status}})."
+    "updateFailedStatus": "Could not update the goal (error {{status}}).",
+    "createForbidden": "You may only set goals for your direct reports.",
+    "createFailed": "Could not create the goal."
   },
   "event": {
     "created": "Goal created ({{type}}).",
