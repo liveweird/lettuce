@@ -35,6 +35,7 @@ tags:
   - name: teams
   - name: feedbacks
   - name: one-on-ones
+  - name: goals
   - name: templates
   - name: notifications
   - name: alerts
@@ -1452,6 +1453,397 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalServerError' }
 
+  /api/v1/goals:
+    get:
+      tags: [goals]
+      operationId: listGoals
+      summary: List goals for the caller
+      description: |
+        Lists goals scoped by `view`. Scoping is always relative to the caller, including ADMIN
+        callers.
+
+        - `view=own` (the default): goals where the caller is the **subordinate**.
+        - `view=managed`: goals where the caller is the **manager** (the author).
+        - `view=team`: goals set **by the caller's subordinates as managers** — the goal's
+          manager is one of the caller's **direct reports** (a member of a non-deleted team the
+          caller manages) or, with `includeIndirect=true`, anyone in the caller's **transitive
+          management chain**. DRAFT goals are excluded — a draft stays private to the pair until
+          activated, matching the single-GET's chain rule. A caller who manages no team gets an
+          empty page. The narrower direct-only default is a list scope, not an authorization
+          boundary: the single-GET grants any manager in the subordinate's chain read access to
+          a non-DRAFT goal.
+
+        Rows carry the party names, title, type, status, and the value fields — never the
+        description or summary.
+
+        Supports offset pagination, sorting and filtering.
+
+        - Sortable fields: `id`, `managerName`, `subordinateName`, `title`, `type`, `status`,
+          `createdAt`, `lastModified`. Default sort is `createdAt` **descending** (newest goals
+          first). `id` ascending is always appended as a deterministic tiebreaker.
+        - Filters (all optional, all whitelisted):
+          - `managerName` / `subordinateName` — case-insensitive substring match against the
+            party's name.
+          - `title` — case-insensitive substring match against the goal title.
+          - `type` / `status` — exact enum-name match.
+          - `lastModified[gte]` — inclusive epoch-millis lower bound.
+
+        Malformed query parameters (unknown view, unknown sort field, out-of-range page/pageSize)
+        respond with `400` and a `ProblemDetail` body.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Sort'
+        - name: view
+          in: query
+          required: false
+          schema: { type: string, enum: [own, managed, team], default: own }
+          description: Which caller-relative slice of goals to list.
+        - name: includeIndirect
+          in: query
+          required: false
+          schema: { type: boolean, default: false }
+          description: |
+            Only valid with `view=team` (else `400`). When `true`, widens which managers count
+            from the caller's direct reports to their whole transitive management chain.
+        - name: managerName
+          in: query
+          required: false
+          schema: { type: string }
+          description: Case-insensitive substring match against the manager's name.
+        - name: subordinateName
+          in: query
+          required: false
+          schema: { type: string }
+          description: Case-insensitive substring match against the subordinate's name.
+        - name: title
+          in: query
+          required: false
+          schema: { type: string }
+          description: Case-insensitive substring match against the goal title.
+        - name: type
+          in: query
+          required: false
+          schema: { type: string, enum: [BINARY, NUMBER, PERCENTAGE] }
+          description: Exact goal-type match.
+        - name: status
+          in: query
+          required: false
+          schema: { type: string, enum: [DRAFT, ACTIVE, CLOSED] }
+          description: Exact status match.
+        - name: lastModified[gte]
+          in: query
+          required: false
+          schema: { type: integer, format: int64, minimum: 0 }
+          description: Lower bound (inclusive) on the last-modified moment, epoch milliseconds.
+      responses:
+        '200':
+          description: A page of goals
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoalPage'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    post:
+      tags: [goals]
+      operationId: createGoal
+      summary: Set a new goal for a direct report
+      description: |
+        Creates a goal, always in **DRAFT** status. The **manager is always the author**: the
+        caller becomes the goal's manager (never taken from the body), and the subordinate must
+        be one of the caller's **direct reports** at creation time — there is no ADMIN
+        create-on-behalf.
+
+        The value fields are type-specific: `targetValue` is **required** for NUMBER and
+        PERCENTAGE goals (0–100 for PERCENTAGE) and **must be absent** for BINARY goals. The
+        current value starts at the type's zero (`0.0` / not achieved) and only becomes editable
+        (via `PUT /goals/{id}/progress`) once the goal is ACTIVE.
+
+        Nobody is notified — a draft is private to the pair until activated. The creation is
+        recorded in the goal's audit history.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoalCreateRequest'
+      responses:
+        '201':
+          description: Created — the full goal document
+          headers:
+            Location:
+              schema: { type: string }
+              description: URL of the new goal resource
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoalResponse'
+        '400':
+          description: >-
+            Validation error (blank or oversized title/description, a target value that is
+            missing, out of range, or not applicable to the goal type) or referenced user does
+            not exist
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: The subordinate is not a direct report of the caller
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/goals/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [goals]
+      operationId: getGoal
+      summary: Fetch a goal
+      description: |
+        Returns the full goal document — parties, definition, value fields, status, and (once
+        closed at least once) the summary. Readable by the goal's **manager**, its
+        **subordinate**, and **ADMIN** at every status; a **manager in the subordinate's
+        transitive management chain** (their manager, that manager's manager, and so on — over
+        non-deleted teams) may read it only once it has left DRAFT (ACTIVE/CLOSED) — a draft
+        stays private to the pair. Anything else is `403`.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoalResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/GoalNotReadable' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    put:
+      tags: [goals]
+      operationId: updateGoalDefinition
+      summary: Edit a draft goal's definition
+      description: |
+        Edits the goal's definition — title, description, type, and target. **Manager-only**
+        (the subordinate has read rights only; ADMIN does not get write access) and
+        **DRAFT-only**: an ACTIVE or CLOSED goal's definition is immutable (`409`) — deactivate
+        it first to edit. The parties, status, current value, and summary are not settable here
+        (status moves through the action endpoints, the current value through
+        `PUT /goals/{id}/progress`, the summary through the close action).
+
+        Changing the type re-initializes the value fields for the new type (BINARY: not
+        achieved; NUMBER/PERCENTAGE: `0.0`), discarding any previously recorded progress — the
+        audit events explain the reset. Every changed aspect is recorded in the audit history;
+        a no-op PUT records nothing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoalDefinitionUpdate'
+      responses:
+        '204': { description: Updated }
+        '400':
+          description: >-
+            Validation error (blank or oversized title/description, a target value that is
+            missing, out of range, or not applicable to the goal type)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/GoalNotManager' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: The goal is not in DRAFT status — its definition is immutable
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    delete:
+      tags: [goals]
+      operationId: deleteGoal
+      summary: Delete a draft goal
+      description: |
+        Soft-deletes a goal (the row is flagged, not physically removed, and disappears from
+        reads/lists; its audit history is retained). **Manager-only** and **DRAFT-only** —
+        ACTIVE and CLOSED goals are records and answer `400`; close (or reopen) them through
+        the transitions instead. Nobody is notified.
+      responses:
+        '204': { description: Deleted }
+        '400':
+          description: The goal is not in DRAFT status — only a draft goal may be deleted
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/GoalNotManager' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/goals/{id}/progress:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    put:
+      tags: [goals]
+      operationId: updateGoalProgress
+      summary: Update an active goal's current value
+      description: |
+        Updates the goal's current value — the only edit an **ACTIVE** goal accepts (any other
+        status is `409`). **Manager-only**. Exactly the field matching the goal's type must be
+        set: `achieved` for a BINARY goal, `currentValue` for NUMBER and PERCENTAGE (0–100 for
+        PERCENTAGE); the mismatched field is `400`. The change is recorded in the audit history
+        (from/to values); a no-op update records nothing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoalProgressUpdate'
+      responses:
+        '204': { description: Updated }
+        '400':
+          description: >-
+            The value field does not match the goal's type, is missing, or is out of range
+            (PERCENTAGE is 0–100)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/GoalNotManager' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: The goal is not ACTIVE — the current value is only editable while it is
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/goals/{id}/activate:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [goals]
+      operationId: activateGoal
+      summary: Activate a draft goal
+      description: |
+        Moves the goal `DRAFT → ACTIVE` (any other current status is `409`). **Manager-only.**
+        Once active, the goal becomes visible to the subordinate's wider management chain and
+        its current value becomes editable via `PUT /goals/{id}/progress`. The subordinate is
+        notified; the transition is recorded in the audit history.
+      responses:
+        '204': { description: Activated }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/GoalNotManager' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/GoalInvalidTransition' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/goals/{id}/deactivate:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [goals]
+      operationId: deactivateGoal
+      summary: Return an active goal to draft
+      description: |
+        Moves the goal `ACTIVE → DRAFT` (any other current status is `409`), making its
+        definition editable again. **Manager-only.** Recorded progress is kept (unless the type
+        is later changed in the draft, which re-initializes the value fields). The subordinate
+        is notified; the transition is recorded in the audit history.
+      responses:
+        '204': { description: Returned to draft }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/GoalNotManager' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/GoalInvalidTransition' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/goals/{id}/close:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [goals]
+      operationId: closeGoal
+      summary: Close an active goal
+      description: |
+        Moves the goal `ACTIVE → CLOSED` (any other current status is `409`). **Manager-only.**
+        Closing always records the body's **summary** (required, non-blank — the only moment
+        the summary is settable). The current value is frozen as-is — update it via
+        `PUT /goals/{id}/progress` *before* closing. The subordinate is notified; the
+        transition is recorded in the audit history.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoalCloseRequest'
+      responses:
+        '204': { description: Closed }
+        '400':
+          description: The summary is missing, blank, or oversized
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/GoalNotManager' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/GoalInvalidTransition' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/goals/{id}/reopen:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [goals]
+      operationId: reopenGoal
+      summary: Reopen a closed goal
+      description: |
+        Moves the goal `CLOSED → ACTIVE` (any other current status is `409`). **Manager-only.**
+        The stored summary is kept as a record of the previous closure and will be overwritten
+        at the next close. The subordinate is notified; the transition is recorded in the audit
+        history.
+      responses:
+        '204': { description: Reopened }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/GoalNotManager' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/GoalInvalidTransition' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/goals/{id}/events:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [goals]
+      operationId: listGoalEvents
+      summary: List a goal's audit history
+      description: |
+        Returns the immutable audit trail for a goal — one entry per creation, changed
+        definition aspect, progress update, status transition, and deletion — oldest first. Each
+        entry is structural: an event `type` plus a `params` map (enum names and numeric values
+        — never title/description/summary text), with the acting user resolved to `userName`; no
+        rendered string is stored (clients localize the description). Authorization matches the
+        single-GET above: whoever may read the goal may read its history. Events are
+        server-generated; there is no create/update/delete endpoint.
+      responses:
+        '200':
+          description: The goal's events, oldest first
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoalEventList'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/GoalNotReadable' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
   /api/v1/templates:
     get:
       tags: [templates]
@@ -2010,6 +2402,25 @@ components:
           schema: { $ref: '#/components/schemas/ProblemDetail' }
     OneOnOneNotManager:
       description: Caller is not the meeting's manager (the subordinate has read rights only)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+    GoalNotReadable:
+      description: >-
+        Caller is neither a party to the goal, nor ADMIN, nor a manager in the subordinate's
+        management chain — or the goal is still a DRAFT, which the wider chain may not see
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+    GoalNotManager:
+      description: Caller is not the goal's manager (the subordinate has read rights only)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+    GoalInvalidTransition:
+      description: >-
+        The action is not allowed from the goal's current status (the machine is
+        DRAFT ↔ ACTIVE ↔ CLOSED, never skipping ACTIVE)
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/ProblemDetail' }
@@ -2920,6 +3331,208 @@ components:
           type: array
           items: { $ref: '#/components/schemas/ActionItemHistoryEntry' }
 
+    GoalCreateRequest:
+      type: object
+      required: [subordinateId, title, type]
+      properties:
+        subordinateId:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Must be a direct report of the caller (the manager).
+        title:
+          type: string
+          maxLength: 200
+          description: Plaintext (unlike description/summary) — lists sort and filter on it.
+        description: { type: string, maxLength: 4000, default: '' }
+        type:
+          type: string
+          enum: [BINARY, NUMBER, PERCENTAGE]
+          description: How progress is tracked; decides which value fields apply.
+        targetValue:
+          type: number
+          format: double
+          nullable: true
+          description: >-
+            Required for NUMBER and PERCENTAGE (0–100 for PERCENTAGE); must be absent for
+            BINARY.
+
+    GoalDefinitionUpdate:
+      type: object
+      required: [title, type]
+      properties:
+        title: { type: string, maxLength: 200 }
+        description: { type: string, maxLength: 4000, default: '' }
+        type:
+          type: string
+          enum: [BINARY, NUMBER, PERCENTAGE]
+          description: >-
+            Changing the type re-initializes the value fields for the new type, discarding any
+            recorded progress.
+        targetValue:
+          type: number
+          format: double
+          nullable: true
+          description: >-
+            Required for NUMBER and PERCENTAGE (0–100 for PERCENTAGE); must be absent for
+            BINARY.
+
+    GoalProgressUpdate:
+      type: object
+      properties:
+        currentValue:
+          type: number
+          format: double
+          nullable: true
+          description: >-
+            The new current value — required for NUMBER and PERCENTAGE goals (0–100 for
+            PERCENTAGE); must be absent for BINARY.
+        achieved:
+          type: boolean
+          nullable: true
+          description: The new done-flag — required for BINARY goals; must be absent otherwise.
+
+    GoalCloseRequest:
+      type: object
+      required: [summary]
+      properties:
+        summary:
+          type: string
+          minLength: 1
+          maxLength: 4000
+          description: The closing summary — required and non-blank; recorded on the goal.
+
+    GoalResponse:
+      type: object
+      required: [id, managerId, managerName, subordinateId, subordinateName, createdAt, title, description, type, targetValue, currentValue, achieved, status, summary, lastModified]
+      properties:
+        id: { type: integer, format: int64, minimum: 0 }
+        managerId: { type: integer, format: int64, minimum: 0 }
+        managerName: { type: string }
+        subordinateId: { type: integer, format: int64, minimum: 0 }
+        subordinateName: { type: string }
+        createdAt:
+          type: integer
+          format: int64
+          description: Epoch milliseconds; server-managed, immutable.
+        title: { type: string }
+        description: { type: string }
+        type:
+          type: string
+          enum: [BINARY, NUMBER, PERCENTAGE]
+        targetValue:
+          type: number
+          format: double
+          nullable: true
+          description: Null for BINARY goals.
+        currentValue:
+          type: number
+          format: double
+          nullable: true
+          description: Null for BINARY goals; starts at 0.0, editable only while ACTIVE.
+        achieved:
+          type: boolean
+          nullable: true
+          description: Null unless BINARY; starts false, editable only while ACTIVE.
+        status:
+          type: string
+          enum: [DRAFT, ACTIVE, CLOSED]
+        summary:
+          type: string
+          nullable: true
+          description: >-
+            Non-null once the goal has been closed at least once — kept on reopen, overwritten
+            at the next close.
+        lastModified:
+          type: integer
+          format: int64
+          description: Epoch milliseconds; server-managed, bumped on every mutation.
+
+    GoalListItem:
+      type: object
+      required: [id, managerId, managerName, managerDeleted, subordinateId, subordinateName, subordinateDeleted, title, type, targetValue, currentValue, achieved, status, createdAt, lastModified]
+      properties:
+        id: { type: integer, format: int64, minimum: 0 }
+        managerId: { type: integer, format: int64, minimum: 0 }
+        managerName: { type: string }
+        managerDeleted: { type: boolean }
+        subordinateId: { type: integer, format: int64, minimum: 0 }
+        subordinateName: { type: string }
+        subordinateDeleted: { type: boolean }
+        title: { type: string }
+        type:
+          type: string
+          enum: [BINARY, NUMBER, PERCENTAGE]
+        targetValue: { type: number, format: double, nullable: true }
+        currentValue: { type: number, format: double, nullable: true }
+        achieved: { type: boolean, nullable: true }
+        status:
+          type: string
+          enum: [DRAFT, ACTIVE, CLOSED]
+        createdAt: { type: integer, format: int64 }
+        lastModified: { type: integer, format: int64 }
+
+    GoalPage:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/GoalListItem'
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1, maximum: 100 }
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Row count after filters, before pagination.
+
+    GoalEventResponse:
+      type: object
+      required: [id, goalId, userId, userName, timestamp, type, params]
+      properties:
+        id: { type: integer, format: int64, minimum: 0 }
+        goalId: { type: integer, format: int64, minimum: 0 }
+        userId: { type: integer, format: int64, minimum: 0 }
+        userName:
+          type: string
+          description: Display name of the user who performed the change. Server-resolved, read-only.
+        timestamp:
+          type: integer
+          format: int64
+          description: Epoch milliseconds when the event was recorded. Server-managed.
+        type:
+          type: string
+          enum:
+            - CREATED
+            - TITLE_CHANGED
+            - DESCRIPTION_CHANGED
+            - TYPE_CHANGED
+            - TARGET_CHANGED
+            - PROGRESS_UPDATED
+            - ACHIEVED_CHANGED
+            - STATUS_CHANGED
+            - DELETED
+          description: Structured event kind; the client renders it in the viewer's language.
+        params:
+          type: object
+          additionalProperties: { type: string }
+          description: |
+            Interpolation params for the localized rendering — enum names (`from`/`to` statuses
+            and types, the CREATED event's `type`) and numeric values (target/progress
+            `from`/`to`, `""` = no value). Never title/description/summary text (description and
+            summary are encrypted at rest; this trail is plaintext by design). Empty object when
+            the event kind needs none.
+
+    GoalEventList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/GoalEventResponse' }
+
     NotificationResponse:
       type: object
       required: [id, recipientId, timestamp, type, params, wasSeen]
@@ -2946,6 +3559,10 @@ components:
             - FEEDBACK_DELETED_TO_REQUESTER
             - ONE_ON_ONE_CREATED_TO_SUBORDINATE
             - ONE_ON_ONE_CREATED_TO_MANAGER
+            - GOAL_ACTIVATED_TO_SUBORDINATE
+            - GOAL_DEACTIVATED_TO_SUBORDINATE
+            - GOAL_CLOSED_TO_SUBORDINATE
+            - GOAL_REOPENED_TO_SUBORDINATE
             - PASSWORD_CHANGED
           description: Notification kind; the client renders it in the viewer's language.
         params:
@@ -2959,7 +3576,8 @@ components:
             `"admin"` (an administrator reset it) or `"reset"` (self-service email reset; absent
             = the user changed it themselves). ONE_ON_ONE_CREATED_TO_SUBORDINATE carries
             `{manager,date}` and ONE_ON_ONE_CREATED_TO_MANAGER `{subordinate,date}` (the
-            counterpart's name and the ISO meeting date).
+            counterpart's name and the ISO meeting date). The GOAL_* kinds carry
+            `{manager,title}` — the manager's name and the goal's plaintext title.
         link:
           type: string
           nullable: true

@@ -855,6 +855,274 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/goals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List goals for the caller
+         * @description Lists goals scoped by `view`. Scoping is always relative to the caller, including ADMIN
+         *     callers.
+         *
+         *     - `view=own` (the default): goals where the caller is the **subordinate**.
+         *     - `view=managed`: goals where the caller is the **manager** (the author).
+         *     - `view=team`: goals set **by the caller's subordinates as managers** — the goal's
+         *       manager is one of the caller's **direct reports** (a member of a non-deleted team the
+         *       caller manages) or, with `includeIndirect=true`, anyone in the caller's **transitive
+         *       management chain**. DRAFT goals are excluded — a draft stays private to the pair until
+         *       activated, matching the single-GET's chain rule. A caller who manages no team gets an
+         *       empty page. The narrower direct-only default is a list scope, not an authorization
+         *       boundary: the single-GET grants any manager in the subordinate's chain read access to
+         *       a non-DRAFT goal.
+         *
+         *     Rows carry the party names, title, type, status, and the value fields — never the
+         *     description or summary.
+         *
+         *     Supports offset pagination, sorting and filtering.
+         *
+         *     - Sortable fields: `id`, `managerName`, `subordinateName`, `title`, `type`, `status`,
+         *       `createdAt`, `lastModified`. Default sort is `createdAt` **descending** (newest goals
+         *       first). `id` ascending is always appended as a deterministic tiebreaker.
+         *     - Filters (all optional, all whitelisted):
+         *       - `managerName` / `subordinateName` — case-insensitive substring match against the
+         *         party's name.
+         *       - `title` — case-insensitive substring match against the goal title.
+         *       - `type` / `status` — exact enum-name match.
+         *       - `lastModified[gte]` — inclusive epoch-millis lower bound.
+         *
+         *     Malformed query parameters (unknown view, unknown sort field, out-of-range page/pageSize)
+         *     respond with `400` and a `ProblemDetail` body.
+         */
+        get: operations["listGoals"];
+        put?: never;
+        /**
+         * Set a new goal for a direct report
+         * @description Creates a goal, always in **DRAFT** status. The **manager is always the author**: the
+         *     caller becomes the goal's manager (never taken from the body), and the subordinate must
+         *     be one of the caller's **direct reports** at creation time — there is no ADMIN
+         *     create-on-behalf.
+         *
+         *     The value fields are type-specific: `targetValue` is **required** for NUMBER and
+         *     PERCENTAGE goals (0–100 for PERCENTAGE) and **must be absent** for BINARY goals. The
+         *     current value starts at the type's zero (`0.0` / not achieved) and only becomes editable
+         *     (via `PUT /goals/{id}/progress`) once the goal is ACTIVE.
+         *
+         *     Nobody is notified — a draft is private to the pair until activated. The creation is
+         *     recorded in the goal's audit history.
+         */
+        post: operations["createGoal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Fetch a goal
+         * @description Returns the full goal document — parties, definition, value fields, status, and (once
+         *     closed at least once) the summary. Readable by the goal's **manager**, its
+         *     **subordinate**, and **ADMIN** at every status; a **manager in the subordinate's
+         *     transitive management chain** (their manager, that manager's manager, and so on — over
+         *     non-deleted teams) may read it only once it has left DRAFT (ACTIVE/CLOSED) — a draft
+         *     stays private to the pair. Anything else is `403`.
+         */
+        get: operations["getGoal"];
+        /**
+         * Edit a draft goal's definition
+         * @description Edits the goal's definition — title, description, type, and target. **Manager-only**
+         *     (the subordinate has read rights only; ADMIN does not get write access) and
+         *     **DRAFT-only**: an ACTIVE or CLOSED goal's definition is immutable (`409`) — deactivate
+         *     it first to edit. The parties, status, current value, and summary are not settable here
+         *     (status moves through the action endpoints, the current value through
+         *     `PUT /goals/{id}/progress`, the summary through the close action).
+         *
+         *     Changing the type re-initializes the value fields for the new type (BINARY: not
+         *     achieved; NUMBER/PERCENTAGE: `0.0`), discarding any previously recorded progress — the
+         *     audit events explain the reset. Every changed aspect is recorded in the audit history;
+         *     a no-op PUT records nothing.
+         */
+        put: operations["updateGoalDefinition"];
+        post?: never;
+        /**
+         * Delete a draft goal
+         * @description Soft-deletes a goal (the row is flagged, not physically removed, and disappears from
+         *     reads/lists; its audit history is retained). **Manager-only** and **DRAFT-only** —
+         *     ACTIVE and CLOSED goals are records and answer `400`; close (or reopen) them through
+         *     the transitions instead. Nobody is notified.
+         */
+        delete: operations["deleteGoal"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/{id}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update an active goal's current value
+         * @description Updates the goal's current value — the only edit an **ACTIVE** goal accepts (any other
+         *     status is `409`). **Manager-only**. Exactly the field matching the goal's type must be
+         *     set: `achieved` for a BINARY goal, `currentValue` for NUMBER and PERCENTAGE (0–100 for
+         *     PERCENTAGE); the mismatched field is `400`. The change is recorded in the audit history
+         *     (from/to values); a no-op update records nothing.
+         */
+        put: operations["updateGoalProgress"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/{id}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Activate a draft goal
+         * @description Moves the goal `DRAFT → ACTIVE` (any other current status is `409`). **Manager-only.**
+         *     Once active, the goal becomes visible to the subordinate's wider management chain and
+         *     its current value becomes editable via `PUT /goals/{id}/progress`. The subordinate is
+         *     notified; the transition is recorded in the audit history.
+         */
+        post: operations["activateGoal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/{id}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Return an active goal to draft
+         * @description Moves the goal `ACTIVE → DRAFT` (any other current status is `409`), making its
+         *     definition editable again. **Manager-only.** Recorded progress is kept (unless the type
+         *     is later changed in the draft, which re-initializes the value fields). The subordinate
+         *     is notified; the transition is recorded in the audit history.
+         */
+        post: operations["deactivateGoal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/{id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close an active goal
+         * @description Moves the goal `ACTIVE → CLOSED` (any other current status is `409`). **Manager-only.**
+         *     Closing always records the body's **summary** (required, non-blank — the only moment
+         *     the summary is settable). The current value is frozen as-is — update it via
+         *     `PUT /goals/{id}/progress` *before* closing. The subordinate is notified; the
+         *     transition is recorded in the audit history.
+         */
+        post: operations["closeGoal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/{id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reopen a closed goal
+         * @description Moves the goal `CLOSED → ACTIVE` (any other current status is `409`). **Manager-only.**
+         *     The stored summary is kept as a record of the previous closure and will be overwritten
+         *     at the next close. The subordinate is notified; the transition is recorded in the audit
+         *     history.
+         */
+        post: operations["reopenGoal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/{id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List a goal's audit history
+         * @description Returns the immutable audit trail for a goal — one entry per creation, changed
+         *     definition aspect, progress update, status transition, and deletion — oldest first. Each
+         *     entry is structural: an event `type` plus a `params` map (enum names and numeric values
+         *     — never title/description/summary text), with the acting user resolved to `userName`; no
+         *     rendered string is stored (clients localize the description). Authorization matches the
+         *     single-GET above: whoever may read the goal may read its history. Events are
+         *     server-generated; there is no create/update/delete endpoint.
+         */
+        get: operations["listGoalEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/templates": {
         parameters: {
             query?: never;
@@ -1832,6 +2100,164 @@ export interface components {
         ActionItemHistoryList: {
             items: components["schemas"]["ActionItemHistoryEntry"][];
         };
+        GoalCreateRequest: {
+            /**
+             * Format: int64
+             * @description Must be a direct report of the caller (the manager).
+             */
+            subordinateId: number;
+            /** @description Plaintext (unlike description/summary) — lists sort and filter on it. */
+            title: string;
+            /** @default  */
+            description: string;
+            /**
+             * @description How progress is tracked; decides which value fields apply.
+             * @enum {string}
+             */
+            type: "BINARY" | "NUMBER" | "PERCENTAGE";
+            /**
+             * Format: double
+             * @description Required for NUMBER and PERCENTAGE (0–100 for PERCENTAGE); must be absent for BINARY.
+             */
+            targetValue?: number | null;
+        };
+        GoalDefinitionUpdate: {
+            title: string;
+            /** @default  */
+            description: string;
+            /**
+             * @description Changing the type re-initializes the value fields for the new type, discarding any recorded progress.
+             * @enum {string}
+             */
+            type: "BINARY" | "NUMBER" | "PERCENTAGE";
+            /**
+             * Format: double
+             * @description Required for NUMBER and PERCENTAGE (0–100 for PERCENTAGE); must be absent for BINARY.
+             */
+            targetValue?: number | null;
+        };
+        GoalProgressUpdate: {
+            /**
+             * Format: double
+             * @description The new current value — required for NUMBER and PERCENTAGE goals (0–100 for PERCENTAGE); must be absent for BINARY.
+             */
+            currentValue?: number | null;
+            /** @description The new done-flag — required for BINARY goals; must be absent otherwise. */
+            achieved?: boolean | null;
+        };
+        GoalCloseRequest: {
+            /** @description The closing summary — required and non-blank; recorded on the goal. */
+            summary: string;
+        };
+        GoalResponse: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            managerId: number;
+            managerName: string;
+            /** Format: int64 */
+            subordinateId: number;
+            subordinateName: string;
+            /**
+             * Format: int64
+             * @description Epoch milliseconds; server-managed, immutable.
+             */
+            createdAt: number;
+            title: string;
+            description: string;
+            /** @enum {string} */
+            type: "BINARY" | "NUMBER" | "PERCENTAGE";
+            /**
+             * Format: double
+             * @description Null for BINARY goals.
+             */
+            targetValue: number | null;
+            /**
+             * Format: double
+             * @description Null for BINARY goals; starts at 0.0, editable only while ACTIVE.
+             */
+            currentValue: number | null;
+            /** @description Null unless BINARY; starts false, editable only while ACTIVE. */
+            achieved: boolean | null;
+            /** @enum {string} */
+            status: "DRAFT" | "ACTIVE" | "CLOSED";
+            /** @description Non-null once the goal has been closed at least once — kept on reopen, overwritten at the next close. */
+            summary: string | null;
+            /**
+             * Format: int64
+             * @description Epoch milliseconds; server-managed, bumped on every mutation.
+             */
+            lastModified: number;
+        };
+        GoalListItem: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            managerId: number;
+            managerName: string;
+            managerDeleted: boolean;
+            /** Format: int64 */
+            subordinateId: number;
+            subordinateName: string;
+            subordinateDeleted: boolean;
+            title: string;
+            /** @enum {string} */
+            type: "BINARY" | "NUMBER" | "PERCENTAGE";
+            /** Format: double */
+            targetValue: number | null;
+            /** Format: double */
+            currentValue: number | null;
+            achieved: boolean | null;
+            /** @enum {string} */
+            status: "DRAFT" | "ACTIVE" | "CLOSED";
+            /** Format: int64 */
+            createdAt: number;
+            /** Format: int64 */
+            lastModified: number;
+        };
+        GoalPage: {
+            items: components["schemas"]["GoalListItem"][];
+            page: number;
+            pageSize: number;
+            /**
+             * Format: int64
+             * @description Row count after filters, before pagination.
+             */
+            total: number;
+        };
+        GoalEventResponse: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            goalId: number;
+            /** Format: int64 */
+            userId: number;
+            /** @description Display name of the user who performed the change. Server-resolved, read-only. */
+            userName: string;
+            /**
+             * Format: int64
+             * @description Epoch milliseconds when the event was recorded. Server-managed.
+             */
+            timestamp: number;
+            /**
+             * @description Structured event kind; the client renders it in the viewer's language.
+             * @enum {string}
+             */
+            type: "CREATED" | "TITLE_CHANGED" | "DESCRIPTION_CHANGED" | "TYPE_CHANGED" | "TARGET_CHANGED" | "PROGRESS_UPDATED" | "ACHIEVED_CHANGED" | "STATUS_CHANGED" | "DELETED";
+            /**
+             * @description Interpolation params for the localized rendering — enum names (`from`/`to` statuses
+             *     and types, the CREATED event's `type`) and numeric values (target/progress
+             *     `from`/`to`, `""` = no value). Never title/description/summary text (description and
+             *     summary are encrypted at rest; this trail is plaintext by design). Empty object when
+             *     the event kind needs none.
+             */
+            params: {
+                [key: string]: string;
+            };
+        };
+        GoalEventList: {
+            items: components["schemas"]["GoalEventResponse"][];
+        };
         NotificationResponse: {
             /** Format: int64 */
             id: number;
@@ -1846,7 +2272,7 @@ export interface components {
              * @description Notification kind; the client renders it in the viewer's language.
              * @enum {string}
              */
-            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "PASSWORD_CHANGED";
+            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_CLOSED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "PASSWORD_CHANGED";
             /**
              * @description Interpolation values for the localized message — party names (proper nouns), e.g.
              *     `{provider,subject,requester}`; plus `self` — the SPA's i18next context carrier:
@@ -1855,7 +2281,8 @@ export interface components {
              *     `"admin"` (an administrator reset it) or `"reset"` (self-service email reset; absent
              *     = the user changed it themselves). ONE_ON_ONE_CREATED_TO_SUBORDINATE carries
              *     `{manager,date}` and ONE_ON_ONE_CREATED_TO_MANAGER `{subordinate,date}` (the
-             *     counterpart's name and the ISO meeting date).
+             *     counterpart's name and the ISO meeting date). The GOAL_* kinds carry
+             *     `{manager,title}` — the manager's name and the goal's plaintext title.
              */
             params: {
                 [key: string]: string;
@@ -1985,6 +2412,33 @@ export interface components {
         };
         /** @description Caller is not the meeting's manager (the subordinate has read rights only) */
         OneOnOneNotManager: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetail"];
+            };
+        };
+        /** @description Caller is neither a party to the goal, nor ADMIN, nor a manager in the subordinate's management chain — or the goal is still a DRAFT, which the wider chain may not see */
+        GoalNotReadable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetail"];
+            };
+        };
+        /** @description Caller is not the goal's manager (the subordinate has read rights only) */
+        GoalNotManager: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetail"];
+            };
+        };
+        /** @description The action is not allowed from the goal's current status (the machine is DRAFT ↔ ACTIVE ↔ CLOSED, never skipping ACTIVE) */
+        GoalInvalidTransition: {
             headers: {
                 [name: string]: unknown;
             };
@@ -3440,6 +3894,401 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["OneOnOneNotReadable"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listGoals: {
+        parameters: {
+            query?: {
+                /** @description 1-based page index. Defaults to 1. */
+                page?: components["parameters"]["Page"];
+                /** @description Rows per page. Defaults to 20, maximum 100. */
+                pageSize?: components["parameters"]["PageSize"];
+                /**
+                 * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
+                 *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
+                 *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
+                 *     always appended as a deterministic tiebreaker.
+                 */
+                sort?: components["parameters"]["Sort"];
+                /** @description Which caller-relative slice of goals to list. */
+                view?: "own" | "managed" | "team";
+                /**
+                 * @description Only valid with `view=team` (else `400`). When `true`, widens which managers count
+                 *     from the caller's direct reports to their whole transitive management chain.
+                 */
+                includeIndirect?: boolean;
+                /** @description Case-insensitive substring match against the manager's name. */
+                managerName?: string;
+                /** @description Case-insensitive substring match against the subordinate's name. */
+                subordinateName?: string;
+                /** @description Case-insensitive substring match against the goal title. */
+                title?: string;
+                /** @description Exact goal-type match. */
+                type?: "BINARY" | "NUMBER" | "PERCENTAGE";
+                /** @description Exact status match. */
+                status?: "DRAFT" | "ACTIVE" | "CLOSED";
+                /** @description Lower bound (inclusive) on the last-modified moment, epoch milliseconds. */
+                "lastModified[gte]"?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of goals */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    createGoal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoalCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Created — the full goal document */
+            201: {
+                headers: {
+                    /** @description URL of the new goal resource */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalResponse"];
+                };
+            };
+            /** @description Validation error (blank or oversized title/description, a target value that is missing, out of range, or not applicable to the goal type) or referenced user does not exist */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description The subordinate is not a direct report of the caller */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getGoal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["GoalNotReadable"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    updateGoalDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoalDefinitionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation error (blank or oversized title/description, a target value that is missing, out of range, or not applicable to the goal type) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["GoalNotManager"];
+            404: components["responses"]["NotFound"];
+            /** @description The goal is not in DRAFT status — its definition is immutable */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    deleteGoal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The goal is not in DRAFT status — only a draft goal may be deleted */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["GoalNotManager"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    updateGoalProgress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoalProgressUpdate"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The value field does not match the goal's type, is missing, or is out of range (PERCENTAGE is 0–100) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["GoalNotManager"];
+            404: components["responses"]["NotFound"];
+            /** @description The goal is not ACTIVE — the current value is only editable while it is */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    activateGoal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Activated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["GoalNotManager"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["GoalInvalidTransition"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    deactivateGoal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Returned to draft */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["GoalNotManager"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["GoalInvalidTransition"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    closeGoal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoalCloseRequest"];
+            };
+        };
+        responses: {
+            /** @description Closed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The summary is missing, blank, or oversized */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["GoalNotManager"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["GoalInvalidTransition"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    reopenGoal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reopened */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["GoalNotManager"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["GoalInvalidTransition"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listGoalEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The goal's events, oldest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalEventList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["GoalNotReadable"];
             404: components["responses"]["NotFound"];
             500: components["responses"]["InternalServerError"];
         };
