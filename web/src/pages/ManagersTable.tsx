@@ -7,6 +7,7 @@ import {
   IconMessagePlus,
   IconMessageQuestion,
   IconMessages,
+  IconTargetArrow,
   IconUsersGroup,
 } from "@tabler/icons-react";
 import { listTeamMembers } from "../api/client";
@@ -97,6 +98,16 @@ export default function ManagersTable() {
                     aria-label={t("users.oneOnOnesWith", { name: m.name })}
                   >
                     {t("users.oneOnOnes")}
+                  </Button>
+                  <Button
+                    component={RouterLink}
+                    to={`/users/${m.userId}/goals?name=${encodeURIComponent(m.name)}&from=managers`}
+                    variant="subtle"
+                    size="xs"
+                    leftSection={<IconTargetArrow size={14} />}
+                    aria-label={t("users.goalsWith", { name: m.name })}
+                  >
+                    {t("users.goals")}
                   </Button>
                 </>
               }

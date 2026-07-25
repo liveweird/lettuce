@@ -120,6 +120,37 @@ describe("NotificationsButton", () => {
     expect(screen.getByText("You documented a 1:1 meeting with Sam Subject (2026-07-12).")).toBeInTheDocument();
   });
 
+  test("renders the four goal-transition kinds with the manager's name and the goal title", async () => {
+    const rows: Item[] = (
+      [
+        ["GOAL_ACTIVATED_TO_SUBORDINATE", 21],
+        ["GOAL_DEACTIVATED_TO_SUBORDINATE", 22],
+        ["GOAL_CLOSED_TO_SUBORDINATE", 23],
+        ["GOAL_REOPENED_TO_SUBORDINATE", 24],
+      ] as const
+    ).map(([type, id]) => ({
+      id,
+      recipientId: 7,
+      timestamp: Date.now(),
+      wasSeen: false,
+      type,
+      params: { manager: "Mona Manager", title: "Raise coverage" },
+      link: "/goals/5/view",
+    }));
+    setupMocks(mockFetch, rows, 4);
+    renderWithProviders(<Harness />);
+    await userEvent.setup().click(await screen.findByRole("button", { name: /notifications/i }));
+
+    expect(
+      await screen.findByText('Mona Manager activated the goal "Raise coverage" for you.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Mona Manager returned the goal "Raise coverage" to draft.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Mona Manager closed the goal "Raise coverage".')).toBeInTheDocument();
+    expect(screen.getByText('Mona Manager reopened the goal "Raise coverage".')).toBeInTheDocument();
+  });
+
   test("shows the unread count on the bell button", async () => {
     setupMocks(mockFetch, [UNSEEN, SEEN], 3);
     renderWithProviders(<NotificationsButton />);

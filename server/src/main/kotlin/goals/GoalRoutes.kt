@@ -10,6 +10,7 @@ import ch.nokillswit.infra.paging.optionalBoolean
 import ch.nokillswit.infra.paging.optionalEnum
 import ch.nokillswit.infra.paging.optionalLong
 import ch.nokillswit.infra.paging.optionalString
+import ch.nokillswit.infra.paging.optionalUInt
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.notifications.NotificationServiceKey
@@ -121,7 +122,7 @@ fun Application.configureGoalRoutes() {
                 val paging = call.parsePaging(
                     sortable = setOf(
                         "id", "managerName", "subordinateName", "title", "type", "status",
-                        "createdAt", "lastModified",
+                        "targetValue", "currentValue", "createdAt", "lastModified",
                     ),
                     defaultSort = listOf(SortField("createdAt", descending = true)),
                 )
@@ -132,9 +133,12 @@ fun Application.configureGoalRoutes() {
                 val filter = GoalListFilter(
                     managerName = params.optionalString("managerName"),
                     subordinateName = params.optionalString("subordinateName"),
+                    managerId = params.optionalUInt("managerId"),
+                    subordinateId = params.optionalUInt("subordinateId"),
                     title = params.optionalString("title"),
                     type = params.optionalEnum<GoalType>("type"),
                     status = params.optionalEnum<GoalStatus>("status"),
+                    createdAtGte = params.optionalLong("createdAt[gte]"),
                     lastModifiedGte = params.optionalLong("lastModified[gte]"),
                 )
                 val result = goalService.list(

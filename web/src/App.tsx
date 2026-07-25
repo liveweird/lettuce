@@ -66,6 +66,9 @@ const OneOnOnes = lazy(() => import("./pages/OneOnOnes"));
 const CreateOneOnOne = lazy(() => import("./pages/CreateOneOnOne"));
 const EditOneOnOne = lazy(() => import("./pages/EditOneOnOne"));
 const ViewOneOnOne = lazy(() => import("./pages/ViewOneOnOne"));
+const UserGoals = lazy(() => import("./pages/UserGoals"));
+const EditGoal = lazy(() => import("./pages/EditGoal"));
+const ViewGoal = lazy(() => import("./pages/ViewGoal"));
 const Login = lazy(() => import("./pages/Login"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const CreateUser = lazy(() => import("./pages/CreateUser"));
@@ -411,6 +414,9 @@ export default function App() {
             <Route path="one-on-ones/new" element={<CreateOneOnOne />} />
             <Route path="one-on-ones/:id/edit" element={<EditOneOnOne />} />
             <Route path="one-on-ones/:id/view" element={<ViewOneOnOne />} />
+            <Route path="users/:userId/goals" element={<UserGoals />} />
+            <Route path="goals/:id/edit" element={<EditGoal />} />
+            <Route path="goals/:id/view" element={<ViewGoal />} />
             <Route path="templates" element={<Templates />} />
             <Route path="templates/new" element={<CreateTemplate />} />
             <Route path="templates/:id/edit" element={<EditTemplate />} />

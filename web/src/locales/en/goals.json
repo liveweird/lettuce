@@ -1,0 +1,93 @@
+{
+  "goalsWith": "Goals from {{who}}",
+  "goalsWithHint": "The goals {{who}} set for you and how they are progressing.",
+  "userFallback": "user #{{id}}",
+  "title": "Title",
+  "createdAt": "Created",
+  "target": "Target",
+  "current": "Current",
+  "clearTitleFilter": "Clear title filter",
+  "createdWindow": {
+    "month": "Last month",
+    "sixMonths": "Last six months"
+  },
+  "rowsPerPage": "Goals per page",
+  "noGoals": "No goals yet.",
+  "loadListError": "Could not load goals",
+  "unknownError": "Unknown error",
+  "viewAria": "View goal {{title}}",
+  "editAria": "Edit goal {{title}}",
+  "status": {
+    "DRAFT": "Draft",
+    "ACTIVE": "Active",
+    "CLOSED": "Closed"
+  },
+  "type": {
+    "label": "Type",
+    "BINARY": "Done / not done",
+    "NUMBER": "Number",
+    "PERCENTAGE": "Percentage"
+  },
+  "viewTitle": "Goal",
+  "editTitle": "Edit goal",
+  "editProgressTitle": "Update progress",
+  "manager": "Manager",
+  "subordinate": "Team member",
+  "description": "Description",
+  "summary": "Summary",
+  "achieved": "Achieved",
+  "notAchieved": "Not achieved",
+  "currentOfTarget": "{{current}} of the {{target}} target",
+  "typeChangeWarning": "Changing the goal type resets its target and recorded progress.",
+  "history": "History",
+  "noHistory": "No history.",
+  "action": {
+    "activate": "Activate",
+    "deactivate": "Return to draft",
+    "close": "Close goal",
+    "reopen": "Reopen"
+  },
+  "closeTitle": "Close this goal?",
+  "closeMessage": "Closing records the goal as finished, with a summary of how it went. You can reopen it later if needed.",
+  "summaryLabel": "Summary",
+  "summaryPlaceholder": "How did the goal go?",
+  "summaryRequired": "A summary is required to close a goal",
+  "discardTitle": "Discard changes?",
+  "discardMessage": "Discard changes? The goal will stay as it was.",
+  "deleteTitle": "Delete this draft goal?",
+  "deleteMessage": "The goal will disappear from all lists; its history is retained. This cannot be undone.",
+  "validation": {
+    "titleRequired": "A title is required",
+    "titleTooLong": "The title must be at most {{max}} characters",
+    "descriptionTooLong": "The description must be at most {{max}} characters",
+    "targetRequired": "A target value is required for this goal type",
+    "percentageRange": "A percentage must be between 0 and 100",
+    "currentRequired": "A current value is required"
+  },
+  "error": {
+    "notFound": "This goal does not exist or was deleted.",
+    "viewPermission": "You may not view this goal.",
+    "loadFailed": "Could not load the goal.",
+    "savePermission": "Only the goal's manager may change it.",
+    "gone": "This goal no longer exists.",
+    "conflict": "The goal's status changed in the meantime — reload and try again.",
+    "invalid": "The goal could not be saved — check the fields and try again.",
+    "invalidTransition": "This action is not available in the goal's current status.",
+    "updateFailed": "Could not update the goal.",
+    "updateFailedStatus": "Could not update the goal (error {{status}})."
+  },
+  "event": {
+    "created": "Goal created ({{type}}).",
+    "titleChanged": "Title changed.",
+    "descriptionChanged": "Description changed.",
+    "typeChanged": "Type changed from {{from}} to {{to}}.",
+    "targetSet": "Target set to {{to}}.",
+    "targetCleared": "Target removed.",
+    "targetChanged": "Target changed from {{from}} to {{to}}.",
+    "progressUpdated": "Progress updated from {{from}} to {{to}}.",
+    "achievedYes": "Marked as achieved.",
+    "achievedNo": "Marked as not achieved.",
+    "statusChanged": "Status changed from {{from}} to {{to}}.",
+    "deleted": "Goal deleted."
+  }
+}

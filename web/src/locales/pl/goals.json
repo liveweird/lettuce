@@ -1,0 +1,93 @@
+{
+  "goalsWith": "Cele od {{who}}",
+  "goalsWithHint": "Cele, które {{who}} wyznaczył/a dla Ciebie, i ich postęp.",
+  "userFallback": "użytkownik nr {{id}}",
+  "title": "Tytuł",
+  "createdAt": "Utworzono",
+  "target": "Wartość docelowa",
+  "current": "Wartość bieżąca",
+  "clearTitleFilter": "Wyczyść filtr tytułu",
+  "createdWindow": {
+    "month": "Ostatni miesiąc",
+    "sixMonths": "Ostatnie pół roku"
+  },
+  "rowsPerPage": "Celów na stronę",
+  "noGoals": "Nie ma jeszcze żadnych celów.",
+  "loadListError": "Nie udało się wczytać celów",
+  "unknownError": "Nieznany błąd",
+  "viewAria": "Zobacz cel {{title}}",
+  "editAria": "Edytuj cel {{title}}",
+  "status": {
+    "DRAFT": "Szkic",
+    "ACTIVE": "Aktywny",
+    "CLOSED": "Zamknięty"
+  },
+  "type": {
+    "label": "Typ",
+    "BINARY": "Zrobione / niezrobione",
+    "NUMBER": "Liczba",
+    "PERCENTAGE": "Procent"
+  },
+  "viewTitle": "Cel",
+  "editTitle": "Edytuj cel",
+  "editProgressTitle": "Zaktualizuj postęp",
+  "manager": "Menedżer",
+  "subordinate": "Członek zespołu",
+  "description": "Opis",
+  "summary": "Podsumowanie",
+  "achieved": "Osiągnięty",
+  "notAchieved": "Nieosiągnięty",
+  "currentOfTarget": "{{current}} z docelowych {{target}}",
+  "typeChangeWarning": "Zmiana typu celu resetuje wartość docelową i zapisany postęp.",
+  "history": "Historia",
+  "noHistory": "Brak historii.",
+  "action": {
+    "activate": "Aktywuj",
+    "deactivate": "Wróć do szkicu",
+    "close": "Zamknij cel",
+    "reopen": "Otwórz ponownie"
+  },
+  "closeTitle": "Zamknąć ten cel?",
+  "closeMessage": "Zamknięcie oznacza cel jako ukończony i zapisuje podsumowanie. W razie potrzeby możesz go później otworzyć ponownie.",
+  "summaryLabel": "Podsumowanie",
+  "summaryPlaceholder": "Jak poszła realizacja celu?",
+  "summaryRequired": "Do zamknięcia celu wymagane jest podsumowanie",
+  "discardTitle": "Odrzucić zmiany?",
+  "discardMessage": "Odrzucić zmiany? Cel pozostanie w niezmienionej postaci.",
+  "deleteTitle": "Usunąć ten szkic celu?",
+  "deleteMessage": "Cel zniknie ze wszystkich list; historia zmian zostanie zachowana. Tej operacji nie można cofnąć.",
+  "validation": {
+    "titleRequired": "Tytuł jest wymagany",
+    "titleTooLong": "Tytuł może mieć najwyżej {{max}} znaków",
+    "descriptionTooLong": "Opis może mieć najwyżej {{max}} znaków",
+    "targetRequired": "Dla tego typu celu wartość docelowa jest wymagana",
+    "percentageRange": "Procent musi być z zakresu od 0 do 100",
+    "currentRequired": "Wartość bieżąca jest wymagana"
+  },
+  "error": {
+    "notFound": "Ten cel nie istnieje lub został usunięty.",
+    "viewPermission": "Nie możesz zobaczyć tego celu.",
+    "loadFailed": "Nie udało się wczytać celu.",
+    "savePermission": "Tylko menedżer celu może go zmieniać.",
+    "gone": "Ten cel już nie istnieje.",
+    "conflict": "Status celu w międzyczasie się zmienił — odśwież i spróbuj ponownie.",
+    "invalid": "Nie udało się zapisać celu — sprawdź pola i spróbuj ponownie.",
+    "invalidTransition": "Ta akcja nie jest dostępna w bieżącym statusie celu.",
+    "updateFailed": "Nie udało się zaktualizować celu.",
+    "updateFailedStatus": "Nie udało się zaktualizować celu (błąd {{status}})."
+  },
+  "event": {
+    "created": "Utworzono cel ({{type}}).",
+    "titleChanged": "Zmieniono tytuł.",
+    "descriptionChanged": "Zmieniono opis.",
+    "typeChanged": "Zmieniono typ z {{from}} na {{to}}.",
+    "targetSet": "Ustawiono wartość docelową na {{to}}.",
+    "targetCleared": "Usunięto wartość docelową.",
+    "targetChanged": "Zmieniono wartość docelową z {{from}} na {{to}}.",
+    "progressUpdated": "Zaktualizowano postęp z {{from}} na {{to}}.",
+    "achievedYes": "Oznaczono jako osiągnięty.",
+    "achievedNo": "Oznaczono jako nieosiągnięty.",
+    "statusChanged": "Zmieniono status z {{from}} na {{to}}.",
+    "deleted": "Usunięto cel."
+  }
+}

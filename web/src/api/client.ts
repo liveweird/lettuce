@@ -569,6 +569,113 @@ export async function getActionItemHistory(id: number): Promise<ActionItemHistor
   return ((await res.json()) as ActionItemHistoryList).items;
 }
 
+export type GoalPage =
+  paths["/api/v1/goals"]["get"]["responses"]["200"]["content"]["application/json"];
+export type GoalListItem = GoalPage["items"][number];
+export type GoalResponse =
+  paths["/api/v1/goals/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
+export type GoalStatus = GoalResponse["status"];
+export type GoalType = GoalResponse["type"];
+
+export type GoalListView = "own" | "managed" | "team";
+
+type GoalListQuery = {
+  view: GoalListView;
+  page: number;
+  pageSize: number;
+  sort?: string;
+  title?: string;
+  status?: GoalStatus;
+  type?: GoalType;
+  managerId?: number;
+  subordinateId?: number;
+  createdAtGte?: number;
+  /** Only valid with view=team: widen the manager scope from direct reports to the whole management chain. */
+  includeIndirect?: boolean;
+};
+
+export async function listGoals(q: GoalListQuery): Promise<GoalPage> {
+  const params = new URLSearchParams();
+  params.set("view", q.view);
+  params.set("page", String(q.page));
+  params.set("pageSize", String(q.pageSize));
+  if (q.sort) params.set("sort", q.sort);
+  if (q.title) params.set("title", q.title);
+  if (q.status) params.set("status", q.status);
+  if (q.type) params.set("type", q.type);
+  if (q.managerId != null) params.set("managerId", String(q.managerId));
+  if (q.subordinateId != null) params.set("subordinateId", String(q.subordinateId));
+  if (q.createdAtGte != null) params.set("createdAt[gte]", String(q.createdAtGte));
+  if (q.includeIndirect) params.set("includeIndirect", "true");
+  const res = await authedFetch(`/api/v1/goals?${params.toString()}`);
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return (await res.json()) as GoalPage;
+}
+
+export type GoalDefinitionUpdateBody =
+  paths["/api/v1/goals/{id}"]["put"]["requestBody"]["content"]["application/json"];
+export type GoalProgressUpdateBody =
+  paths["/api/v1/goals/{id}/progress"]["put"]["requestBody"]["content"]["application/json"];
+type GoalCloseBody =
+  paths["/api/v1/goals/{id}/close"]["post"]["requestBody"]["content"]["application/json"];
+
+export async function getGoal(id: number): Promise<GoalResponse> {
+  const res = await authedFetch(`/api/v1/goals/${id}`);
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return (await res.json()) as GoalResponse;
+}
+
+export async function updateGoalDefinition(id: number, body: GoalDefinitionUpdateBody): Promise<void> {
+  const res = await authedFetch(`/api/v1/goals/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
+export async function updateGoalProgress(id: number, body: GoalProgressUpdateBody): Promise<void> {
+  const res = await authedFetch(`/api/v1/goals/${id}/progress`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
+export async function deleteGoal(id: number): Promise<void> {
+  const res = await authedFetch(`/api/v1/goals/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
+// Lifecycle transitions are POST action sub-resources; each names one edge of the
+// DRAFT <-> ACTIVE <-> CLOSED machine, so a goal not at the edge's source status returns 409.
+async function goalTransition(id: number, action: string): Promise<void> {
+  const res = await authedFetch(`/api/v1/goals/${id}/${action}`, { method: "POST" });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
+export const activateGoal = (id: number) => goalTransition(id, "activate");
+export const deactivateGoal = (id: number) => goalTransition(id, "deactivate");
+export const reopenGoal = (id: number) => goalTransition(id, "reopen");
+
+// Close is the one bodied transition — it always records the summary.
+export async function closeGoal(id: number, body: GoalCloseBody): Promise<void> {
+  const res = await authedFetch(`/api/v1/goals/${id}/close`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
+export type GoalEventList =
+  paths["/api/v1/goals/{id}/events"]["get"]["responses"]["200"]["content"]["application/json"];
+export type GoalEvent = GoalEventList["items"][number];
+
+export async function listGoalEvents(id: number): Promise<GoalEvent[]> {
+  const res = await authedFetch(`/api/v1/goals/${id}/events`);
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return ((await res.json()) as GoalEventList).items;
+}
+
 export type TemplatePage =
   paths["/api/v1/templates"]["get"]["responses"]["200"]["content"]["application/json"];
 

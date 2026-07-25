@@ -884,14 +884,18 @@ export interface paths {
          *     Supports offset pagination, sorting and filtering.
          *
          *     - Sortable fields: `id`, `managerName`, `subordinateName`, `title`, `type`, `status`,
-         *       `createdAt`, `lastModified`. Default sort is `createdAt` **descending** (newest goals
-         *       first). `id` ascending is always appended as a deterministic tiebreaker.
+         *       `targetValue`, `currentValue`, `createdAt`, `lastModified`. Default sort is `createdAt`
+         *       **descending** (newest goals first). `id` ascending is always appended as a
+         *       deterministic tiebreaker. The value columns are null for BINARY goals, so mixed-type
+         *       lists sort those rows together at one end (database NULL ordering).
          *     - Filters (all optional, all whitelisted):
          *       - `managerName` / `subordinateName` — case-insensitive substring match against the
          *         party's name.
+         *       - `managerId` / `subordinateId` — exact party-id match (e.g. the per-manager
+         *         drill-down combines `view=own` with `managerId`).
          *       - `title` — case-insensitive substring match against the goal title.
          *       - `type` / `status` — exact enum-name match.
-         *       - `lastModified[gte]` — inclusive epoch-millis lower bound.
+         *       - `createdAt[gte]` / `lastModified[gte]` — inclusive epoch-millis lower bounds.
          *
          *     Malformed query parameters (unknown view, unknown sort field, out-of-range page/pageSize)
          *     respond with `400` and a `ProblemDetail` body.
@@ -3923,12 +3927,18 @@ export interface operations {
                 managerName?: string;
                 /** @description Case-insensitive substring match against the subordinate's name. */
                 subordinateName?: string;
+                /** @description Exact manager-id match. */
+                managerId?: number;
+                /** @description Exact subordinate-id match. */
+                subordinateId?: number;
                 /** @description Case-insensitive substring match against the goal title. */
                 title?: string;
                 /** @description Exact goal-type match. */
                 type?: "BINARY" | "NUMBER" | "PERCENTAGE";
                 /** @description Exact status match. */
                 status?: "DRAFT" | "ACTIVE" | "CLOSED";
+                /** @description Lower bound (inclusive) on the creation moment, epoch milliseconds. */
+                "createdAt[gte]"?: number;
                 /** @description Lower bound (inclusive) on the last-modified moment, epoch milliseconds. */
                 "lastModified[gte]"?: number;
             };
