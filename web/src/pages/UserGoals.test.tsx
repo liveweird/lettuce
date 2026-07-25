@@ -113,4 +113,40 @@ describe("UserGoals page", () => {
       await screen.findByRole("link", { name: /back to my managers/i }),
     ).toHaveAttribute("href", "/?tab=managers");
   });
+
+  test("the managers origin offers no New goal button", async () => {
+    renderScreen();
+    await screen.findByText("Goals from Alice");
+    expect(screen.queryByRole("link", { name: "New goal" })).toBeNull();
+  });
+
+  test("from=subordinates flips the direction: managed view scoped to the subordinate", async () => {
+    renderScreen("/users/10/goals?name=Bob&from=subordinates");
+
+    expect(await screen.findByText("Goals for Bob")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /back to my subordinates/i }),
+    ).toHaveAttribute("href", "/?tab=subordinates");
+    await waitFor(() => {
+      const urls = mockFetch.mock.calls.map(([u]) => String(u));
+      expect(urls.some((u) => u.includes("view=managed") && u.includes("subordinateId=10"))).toBe(
+        true,
+      );
+    });
+  });
+
+  test("from=subordinates offers New goal with the person preselected, returning here", async () => {
+    renderScreen("/users/10/goals?name=Bob&from=subordinates");
+
+    const back = encodeURIComponent("/users/10/goals?name=Bob&from=subordinates");
+    expect(await screen.findByRole("link", { name: "New goal" })).toHaveAttribute(
+      "href",
+      `/goals/new?subordinateId=10&subordinateName=Bob&back=${back}`,
+    );
+  });
+
+  test("an invalid id under the subordinates origin returns to its tab", () => {
+    renderScreen("/users/abc/goals?from=subordinates");
+    expect(screen.getByTestId("probe")).toHaveTextContent("/?tab=subordinates");
+  });
 });

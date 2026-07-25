@@ -211,6 +211,35 @@ describe("TeamMembersTable", () => {
     expect(screen.queryByRole("link", { name: /new 1:1 with/i })).toBeNull();
   });
 
+  test("managed view (direct mode) adds a Goals link per row; peers never get one", async () => {
+    setupMocks(mockFetch);
+    renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
+
+    const link = await screen.findByRole("link", { name: "Goals for Bob Brown" });
+    expect(link).toHaveAttribute("href", "/users/11/goals?name=Bob%20Brown&from=subordinates");
+    expect(screen.getAllByRole("link", { name: /goals for/i })).toHaveLength(2);
+
+    cleanup();
+    setupMocks(mockFetch);
+    renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
+    await screen.findByText("Bob Brown");
+    expect(screen.queryByRole("link", { name: /goals for/i })).toBeNull();
+  });
+
+  test("switching the reports scope to all hides the Goals buttons like the 1:1 ones", async () => {
+    setupMocks(mockFetch);
+    renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
+    await screen.findByRole("link", { name: "Goals for Bob Brown" });
+
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+    // happy-dom does not open Mantine comboboxes via userEvent's pointer simulation
+    fireEvent.click(screen.getByLabelText("Reports", { selector: "input" }));
+    fireEvent.click(await screen.findByRole("option", { name: "All reports (including indirect)" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("link", { name: /goals for/i })).toBeNull();
+    });
+  });
+
   test("switching the reports scope to all hides the 1:1 buttons (indirect rows are unmarked)", async () => {
     setupMocks(mockFetch);
     renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);

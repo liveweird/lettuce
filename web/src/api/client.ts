@@ -612,6 +612,19 @@ export async function listGoals(q: GoalListQuery): Promise<GoalPage> {
   return (await res.json()) as GoalPage;
 }
 
+export type GoalCreateBody =
+  paths["/api/v1/goals"]["post"]["requestBody"]["content"]["application/json"];
+
+// Always creates a DRAFT; the caller is the manager and the subordinate must be a direct report.
+export async function createGoal(body: GoalCreateBody): Promise<GoalResponse> {
+  const res = await authedFetch("/api/v1/goals", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return (await res.json()) as GoalResponse;
+}
+
 export type GoalDefinitionUpdateBody =
   paths["/api/v1/goals/{id}"]["put"]["requestBody"]["content"]["application/json"];
 export type GoalProgressUpdateBody =

@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.17.0",
+    date: "2026-07-25",
+    en: `Managers can now create goals. Each direct-report card on the Dashboard's *My subordinates* tab gained a *Goals* button opening the list of goals you set for that person, and at its bottom a *New goal* button (the *New 1:1* pattern) opens the goal form with that team member preselected — title, description, type and target. A created goal starts as a draft and lands on its view, where *Activate* is one click away.`,
+    pl: `Menedżerowie mogą teraz tworzyć cele. Każda karta bezpośredniego podwładnego na zakładce *Moi podwładni* na Pulpicie zyskała przycisk *Cele*, otwierający listę celów, które wyznaczyłeś/aś tej osobie, a na jej dole przycisk *Nowy cel* (wzorem *Nowe 1:1*) otwiera formularz celu z wybranym już członkiem zespołu — tytuł, opis, typ i wartość docelowa. Utworzony cel zaczyna jako szkic i otwiera się w swoim widoku, gdzie *Aktywuj* jest o jedno kliknięcie.`,
+  },
+  {
     version: "1.16.0",
     date: "2026-07-25",
     en: `Goals arrive: a manager can set tracked goals for their team members (done/not-done, numeric, or percentage targets). Each manager card on the Dashboard's *My managers* tab gained a *Goals* button opening the list of goals that manager set for you — filterable by title, creation date and status, sortable and paginated — and every goal opens into a full view with its description, progress and change history. Managers activate, close (with a summary) and reopen goals, and you get a notification on every such change.`,

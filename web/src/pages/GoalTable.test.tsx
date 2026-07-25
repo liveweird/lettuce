@@ -104,6 +104,18 @@ describe("GoalTable", () => {
     expect(url).toContain(`sort=${encodeURIComponent("-createdAt")}`);
   });
 
+  test("a fixed subordinateId lands in the query string (the per-subordinate drill-down)", async () => {
+    renderWithProviders(
+      <GoalTable view="managed" subordinateId={7} settingsKey="userGoals.managed" />,
+    );
+    await screen.findByText("Ship four reports");
+
+    const url = String(mockFetch.mock.calls[0][0]);
+    expect(url).toContain("view=managed");
+    expect(url).toContain("subordinateId=7");
+    expect(url).not.toContain("managerId=");
+  });
+
   test("the title, created-window, and status filters land in the query string and persist", async () => {
     const user = userEvent.setup();
     renderWithProviders(<GoalTable view="own" managerId={10} settingsKey="userGoals" />);

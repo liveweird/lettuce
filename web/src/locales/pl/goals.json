@@ -1,6 +1,13 @@
 {
   "goalsWith": "Cele od {{who}}",
   "goalsWithHint": "Cele, które {{who}} wyznaczył/a dla Ciebie, i ich postęp.",
+  "goalsFor": "Cele dla {{who}}",
+  "goalsForHint": "Cele, które wyznaczyłeś/aś dla {{who}}, i ich postęp.",
+  "newGoal": "Nowy cel",
+  "createTitle": "Nowy cel",
+  "createHint": "Wybierz członka zespołu i zdefiniuj cel. Zaczyna jako szkic — aktywuj go, gdy ma zacząć obowiązywać.",
+  "pickSubordinate": "Wybierz członka zespołu",
+  "noReports": "Brak bezpośrednich podwładnych",
   "userFallback": "użytkownik nr {{id}}",
   "title": "Tytuł",
   "createdAt": "Utworzono",
@@ -74,7 +81,9 @@
     "invalid": "Nie udało się zapisać celu — sprawdź pola i spróbuj ponownie.",
     "invalidTransition": "Ta akcja nie jest dostępna w bieżącym statusie celu.",
     "updateFailed": "Nie udało się zaktualizować celu.",
-    "updateFailedStatus": "Nie udało się zaktualizować celu (błąd {{status}})."
+    "updateFailedStatus": "Nie udało się zaktualizować celu (błąd {{status}}).",
+    "createForbidden": "Możesz wyznaczać cele tylko swoim bezpośrednim podwładnym.",
+    "createFailed": "Nie udało się utworzyć celu."
   },
   "event": {
     "created": "Utworzono cel ({{type}}).",

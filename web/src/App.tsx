@@ -67,6 +67,7 @@ const CreateOneOnOne = lazy(() => import("./pages/CreateOneOnOne"));
 const EditOneOnOne = lazy(() => import("./pages/EditOneOnOne"));
 const ViewOneOnOne = lazy(() => import("./pages/ViewOneOnOne"));
 const UserGoals = lazy(() => import("./pages/UserGoals"));
+const CreateGoal = lazy(() => import("./pages/CreateGoal"));
 const EditGoal = lazy(() => import("./pages/EditGoal"));
 const ViewGoal = lazy(() => import("./pages/ViewGoal"));
 const Login = lazy(() => import("./pages/Login"));
@@ -415,6 +416,7 @@ export default function App() {
             <Route path="one-on-ones/:id/edit" element={<EditOneOnOne />} />
             <Route path="one-on-ones/:id/view" element={<ViewOneOnOne />} />
             <Route path="users/:userId/goals" element={<UserGoals />} />
+            <Route path="goals/new" element={<CreateGoal />} />
             <Route path="goals/:id/edit" element={<EditGoal />} />
             <Route path="goals/:id/view" element={<ViewGoal />} />
             <Route path="templates" element={<Templates />} />
