@@ -27,6 +27,8 @@ import { useTranslation } from "react-i18next";
 import {
   activateGoal,
   ApiError,
+  closeGoal,
+  deactivateGoal,
   deleteGoal,
   getGoal,
   getUserId,
@@ -35,6 +37,7 @@ import {
   type GoalType,
 } from "../api/client";
 import ConfirmActionModal from "../components/ConfirmActionModal";
+import GoalCloseModal from "../components/GoalCloseModal";
 import GoalHistory from "../components/GoalHistory";
 import PersonaField from "../components/PersonaField";
 import {
@@ -75,10 +78,13 @@ export default function EditGoal() {
   const [error, setError] = useState<string | null>(null);
   // Which submit is in flight — drives the pressed button's spinner while all buttons disable
   // (the FeedbackForm `submitting === "DRAFT"` idiom).
-  const [submitting, setSubmitting] = useState<"draft" | "activate" | "progress" | null>(null);
+  const [submitting, setSubmitting] = useState<
+    "draft" | "activate" | "progress" | "deactivate" | "close" | null
+  >(null);
   const [deleting, setDeleting] = useState(false);
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
   const [deleteOpen, { open: openDelete, close: closeDelete }] = useDisclosure(false);
+  const [closeOpen, setCloseOpen] = useState(false);
 
   const id = Number(params.id);
   const idIsValid = Number.isFinite(id) && id > 0;
@@ -153,10 +159,14 @@ export default function EditGoal() {
     }
   }
 
-  async function saveProgress(values: ProgressFormValues) {
+  async function saveProgress(
+    values: ProgressFormValues,
+    then: "none" | "deactivate" | "close" = "none",
+    summary?: string,
+  ) {
     if (!data) return;
     setError(null);
-    setSubmitting("progress");
+    setSubmitting(then === "none" ? "progress" : then);
     try {
       await updateGoalProgress(
         id,
@@ -164,10 +174,27 @@ export default function EditGoal() {
           ? { achieved: values.achieved }
           : { currentValue: Number(values.currentValue) },
       );
+      if (then === "deactivate") {
+        // Save first so no typed value is lost, then step back to draft — and stay: the
+        // refetched DRAFT re-renders this route as the definition editor (the EditFeedback
+        // "Accept reloads in place" precedent), which is exactly why one deactivates.
+        await deactivateGoal(id);
+        queryClient.invalidateQueries({ queryKey: ["goals"] });
+        queryClient.invalidateQueries({ queryKey: ["goalEvents", id] });
+        queryClient.invalidateQueries({ queryKey: ["notifications"] });
+        await queryClient.invalidateQueries({ queryKey: ["goal", id] });
+        setSubmitting(null);
+        return;
+      }
+      if (then === "close") {
+        await closeGoal(id, { summary: summary ?? "" });
+        queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      }
       await afterSave();
     } catch (err) {
       setError(goalSaveErrorMessage(err, t));
       setSubmitting(null);
+      setCloseOpen(false);
     }
   }
 
@@ -337,7 +364,7 @@ export default function EditGoal() {
               </Stack>
             </form>
           ) : data ? (
-            <form onSubmit={progressForm.onSubmit(saveProgress)} noValidate>
+            <form onSubmit={progressForm.onSubmit((values) => saveProgress(values))} noValidate>
               <Stack>
                 <Group gap="xl">
                   <PersonaField label={t("goal.manager")} you />
@@ -405,18 +432,44 @@ export default function EditGoal() {
                 )}
 
                 {/* No discard confirm: a one-field progress tweak isn't a long-form editor. */}
-                <Group justify="flex-end" gap="sm">
+                <Group justify="space-between" gap="sm">
                   <Button
                     type="button"
-                    variant="default"
-                    onClick={() => navigate(backTo)}
+                    variant="light"
+                    // Validated like the other submits; saves the progress before stepping back.
+                    onClick={() => progressForm.onSubmit((values) => saveProgress(values, "deactivate"))()}
+                    loading={submitting === "deactivate"}
                     disabled={submitting !== null}
                   >
-                    {t("common.action.cancel")}
+                    {t("goal.action.deactivate")}
                   </Button>
-                  <Button type="submit" loading={submitting === "progress"}>
-                    {t("common.action.save")}
-                  </Button>
+                  <Group gap="sm">
+                    <Button
+                      type="button"
+                      variant="default"
+                      onClick={() => navigate(backTo)}
+                      disabled={submitting !== null}
+                    >
+                      {t("common.action.cancel")}
+                    </Button>
+                    <Button
+                      type="submit"
+                      variant="light"
+                      loading={submitting === "progress"}
+                      disabled={submitting !== null}
+                    >
+                      {t("common.action.save")}
+                    </Button>
+                    <Button
+                      type="button"
+                      // Validate first, then collect the mandatory summary in the close dialog.
+                      onClick={() => progressForm.onSubmit(() => setCloseOpen(true))()}
+                      loading={submitting === "close"}
+                      disabled={submitting !== null}
+                    >
+                      {t("goal.action.saveAndClose")}
+                    </Button>
+                  </Group>
                 </Group>
               </Stack>
             </form>
@@ -442,6 +495,12 @@ export default function EditGoal() {
         confirmLabel={t("common.action.delete")}
         loading={deleting}
         onConfirm={remove}
+      />
+      <GoalCloseModal
+        opened={closeOpen}
+        onClose={() => setCloseOpen(false)}
+        loading={submitting === "close"}
+        onConfirm={(summary) => void saveProgress(progressForm.values, "close", summary)}
       />
     </Container>
   );

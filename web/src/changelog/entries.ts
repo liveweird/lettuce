@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.17.2",
+    date: "2026-07-26",
+    en: `The active goal editor completes the pattern: its footer now offers *Return to draft* (saves your progress, then reopens the definition for editing right there) and *Save & close* (saves and opens the closing dialog, which requires a summary) alongside the plain *Save*.`,
+    pl: `Edytor aktywnego celu domyka wzorzec: jego stopka oferuje teraz *Wróć do szkicu* (zapisuje postęp i od razu otwiera definicję do edycji) oraz *Zapisz i zamknij* (zapisuje i otwiera okno zamknięcia, które wymaga podsumowania) obok zwykłego *Zapisz*.`,
+  },
+  {
     version: "1.17.1",
     date: "2026-07-26",
     en: `The draft goal editor can now move the goal forward directly: its footer offers *Save draft* and *Save & activate* (the feedback editor's pattern), so activating a finished draft no longer requires a detour through the goal's view.`,
