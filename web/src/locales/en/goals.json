@@ -54,7 +54,8 @@
     "close": "Close goal",
     "reopen": "Reopen",
     "saveDraft": "Save draft",
-    "saveAndActivate": "Save & activate"
+    "saveAndActivate": "Save & activate",
+    "saveAndClose": "Save & close"
   },
   "closeTitle": "Close this goal?",
   "closeMessage": "Closing records the goal as finished, with a summary of how it went. You can reopen it later if needed.",

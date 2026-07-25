@@ -54,7 +54,8 @@
     "close": "Zamknij cel",
     "reopen": "Otwórz ponownie",
     "saveDraft": "Zapisz wersję roboczą",
-    "saveAndActivate": "Zapisz i aktywuj"
+    "saveAndActivate": "Zapisz i aktywuj",
+    "saveAndClose": "Zapisz i zamknij"
   },
   "closeTitle": "Zamknąć ten cel?",
   "closeMessage": "Zamknięcie oznacza cel jako ukończony i zapisuje podsumowanie. W razie potrzeby możesz go później otworzyć ponownie.",

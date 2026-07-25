@@ -301,6 +301,109 @@ describe("EditGoal page", () => {
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/users/7/goals"));
   });
 
+  test("ACTIVE: Return to draft saves progress, deactivates, and re-renders as the definition editor in place", async () => {
+    let deactivated = false;
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      const u = String(url);
+      const method = init?.method ?? "GET";
+      if (method === "PUT") return Promise.resolve(new Response(null, { status: 204 }));
+      if (method === "POST" && u === "/api/v1/goals/5/deactivate") {
+        deactivated = true;
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      if (u.includes("/events")) return Promise.resolve(jsonResponse(200, { items: [] }));
+      if (u.includes("/api/v1/goals/5")) {
+        return Promise.resolve(
+          jsonResponse(200, deactivated ? DRAFT_GOAL : { ...DRAFT_GOAL, status: "ACTIVE", currentValue: 45 }),
+        );
+      }
+      return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }));
+    });
+    const user = userEvent.setup();
+    renderScreen();
+
+    await screen.findByLabelText(/current/i);
+    await user.click(screen.getByRole("button", { name: /return to draft/i }));
+
+    // In place: the same route now shows the DRAFT definition form — no navigation happened.
+    expect(await screen.findByLabelText(/title/i)).toHaveValue("Raise coverage");
+    expect(screen.queryByTestId("probe")).toBeNull();
+    expect(
+      mockFetch.mock.calls.some(
+        ([u, init]) =>
+          String(u) === "/api/v1/goals/5/progress" && (init as RequestInit)?.method === "PUT",
+      ),
+    ).toBe(true);
+  });
+
+  test("ACTIVE: Save & close collects the mandatory summary, then PUTs progress and POSTs close", async () => {
+    setupMocks({ ...DRAFT_GOAL, status: "ACTIVE", currentValue: 45 });
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      const u = String(url);
+      const method = init?.method ?? "GET";
+      if (method === "PUT" || method === "POST") {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      if (u.includes("/events")) return Promise.resolve(jsonResponse(200, { items: [] }));
+      return Promise.resolve(jsonResponse(200, { ...DRAFT_GOAL, status: "ACTIVE", currentValue: 45 }));
+    });
+    const user = userEvent.setup();
+    renderScreen();
+
+    const current = await screen.findByLabelText(/current/i);
+    await user.clear(current);
+    await user.type(current, "80");
+    await user.click(screen.getByRole("button", { name: /^save & close$/i }));
+    const dialog = await screen.findByRole("dialog");
+
+    // A blank summary is blocked inside the dialog — nothing has been sent yet.
+    await user.click(within(dialog).getByRole("button", { name: /close goal/i }));
+    expect(await within(dialog).findByText("A summary is required to close a goal")).toBeInTheDocument();
+    expect(mockFetch.mock.calls.some(([u]) => String(u).includes("/close"))).toBe(false);
+
+    await user.type(within(dialog).getByLabelText(/summary/i), "Wrapped up ahead of time");
+    await user.click(within(dialog).getByRole("button", { name: /close goal/i }));
+
+    await waitFor(() => {
+      const put = mockFetch.mock.calls.find(
+        ([u, init]) =>
+          String(u) === "/api/v1/goals/5/progress" && (init as RequestInit)?.method === "PUT",
+      );
+      expect(put).toBeDefined();
+      expect(JSON.parse((put![1] as RequestInit).body as string)).toEqual({ currentValue: 80 });
+      const close = mockFetch.mock.calls.find(([u]) => String(u) === "/api/v1/goals/5/close");
+      expect(close).toBeDefined();
+      expect(JSON.parse((close![1] as RequestInit).body as string)).toEqual({
+        summary: "Wrapped up ahead of time",
+      });
+    });
+    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/users/7/goals"));
+  });
+
+  test("ACTIVE: a 409 on the close step shows the conflict message and stays", async () => {
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      const u = String(url);
+      const method = init?.method ?? "GET";
+      if (method === "PUT") return Promise.resolve(new Response(null, { status: 204 }));
+      if (method === "POST") return Promise.resolve(jsonResponse(409, { title: "conflict" }));
+      if (u.includes("/events")) return Promise.resolve(jsonResponse(200, { items: [] }));
+      return Promise.resolve(jsonResponse(200, { ...DRAFT_GOAL, status: "ACTIVE", currentValue: 45 }));
+    });
+    const user = userEvent.setup();
+    renderScreen();
+
+    await screen.findByLabelText(/current/i);
+    await user.click(screen.getByRole("button", { name: /^save & close$/i }));
+    const dialog = await screen.findByRole("dialog");
+    await user.type(within(dialog).getByLabelText(/summary/i), "s");
+    await user.click(within(dialog).getByRole("button", { name: /close goal/i }));
+
+    expect(
+      await screen.findByText("The goal's status changed in the meantime — reload and try again."),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("probe")).toBeNull();
+  });
+
   test("ACTIVE (binary): the achieved switch PUTs the flag to /progress", async () => {
     setupMocks({
       ...DRAFT_GOAL,
