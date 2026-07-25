@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.18.0",
+    date: "2026-07-26",
+    en: `A new *My goals* entry in the left menu opens all the goals your managers set for you — across every manager — in one list, with a *Manager* column (sortable and filterable) showing who each goal comes from. Opening a goal from a notification now also returns you to *My goals* instead of the dashboard.`,
+    pl: `Nowa pozycja *Moje cele* w lewym menu otwiera wszystkie cele wyznaczone Ci przez menedżerów — od wszystkich naraz — na jednej liście, z kolumną *Menedżer* (sortowaną i filtrowaną) pokazującą, od kogo pochodzi każdy cel. Otwarcie celu z powiadomienia wraca teraz także do *Moich celów* zamiast na pulpit.`,
+  },
+  {
     version: "1.17.2",
     date: "2026-07-26",
     en: `The active goal editor completes the pattern: its footer now offers *Return to draft* (saves your progress, then reopens the definition for editing right there) and *Save & close* (saves and opens the closing dialog, which requires a summary) alongside the plain *Save*.`,

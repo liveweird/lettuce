@@ -16,6 +16,7 @@ import EmptyState from "../components/EmptyState";
 import FilterPanel from "../components/FilterPanel";
 import GoalStatusBadge from "../components/GoalStatusBadge";
 import PaginationBar from "../components/PaginationBar";
+import PersonaChip from "../components/PersonaChip";
 import SortHeader from "../components/SortHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
 import { usePagedSort } from "../hooks/usePagedSort";
@@ -28,8 +29,16 @@ import {
   type CreatedWindow,
 } from "../utils/datetime";
 import { AchievedBadge, formatGoalValue } from "../utils/goalValues";
+import { feedbackPartyName } from "../utils/userDisplay";
 
-const SORT_FIELDS = ["title", "createdAt", "status", "targetValue", "currentValue"] as const;
+const SORT_FIELDS = [
+  "title",
+  "managerName",
+  "createdAt",
+  "status",
+  "targetValue",
+  "currentValue",
+] as const;
 type SortField = (typeof SORT_FIELDS)[number];
 
 const CREATED_WINDOWS = ["all", "month", "sixMonths"] as const;
@@ -67,10 +76,16 @@ export default function GoalTable({
   const { t, i18n } = useTranslation();
   const currentUserId = getUserId();
   const backParam = backTo ? `&back=${encodeURIComponent(backTo)}` : "";
-  const columnCount = 6; // title + created + status + target + current + actions
+  // The cross-manager "My goals" list must show who set each goal; the drill-downs pin a party
+  // and keep the compact shape.
+  const showManager = view === "own" && managerId == null;
+  const columnCount = (showManager ? 7 : 6); // title (+ manager) + created + status + target + current + actions
 
   const storeKey = settingsKey ?? `goals.${view}`;
   const [titleFilter, setTitleFilter] = useStoredState(`${storeKey}.filter.title`, "", isString);
+  const [managerFilter, setManagerFilter] = useStoredState(
+    `${storeKey}.filter.manager`, "", isString,
+  );
   const [createdWindow, setCreatedWindow] = useStoredState<CreatedWindow>(
     `${storeKey}.filter.createdWindow`, "all", isOneOf(CREATED_WINDOWS),
   );
@@ -78,14 +93,18 @@ export default function GoalTable({
     `${storeKey}.filter.status`, null, isOneOfOrNull(STATUS_VALUES),
   );
   const activeFilterCount =
-    (titleFilter.trim() ? 1 : 0) + (createdWindow !== "all" ? 1 : 0) + (statusFilter ? 1 : 0);
+    (titleFilter.trim() ? 1 : 0) +
+    (showManager && managerFilter.trim() ? 1 : 0) +
+    (createdWindow !== "all" ? 1 : 0) +
+    (statusFilter ? 1 : 0);
 
   const [debouncedTitle] = useDebouncedValue(titleFilter, 300);
+  const [debouncedManager] = useDebouncedValue(managerFilter, 300);
 
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
     usePagedSort<SortField>(
       "createdAt",
-      [debouncedTitle, createdWindow, statusFilter],
+      [debouncedTitle, debouncedManager, createdWindow, statusFilter],
       { key: storeKey, sortFields: SORT_FIELDS },
       "desc", // newest goals first (the server's default order)
     );
@@ -100,6 +119,7 @@ export default function GoalTable({
       pageSize,
       sortParam,
       debouncedTitle,
+      debouncedManager,
       createdWindow,
       statusFilter,
     ],
@@ -110,6 +130,7 @@ export default function GoalTable({
         pageSize,
         sort: sortParam,
         title: debouncedTitle || undefined,
+        managerName: (showManager && debouncedManager) || undefined,
         status: statusFilter ?? undefined,
         managerId,
         subordinateId,
@@ -129,6 +150,14 @@ export default function GoalTable({
           onChange={setTitleFilter}
           clearLabel={t("goal.clearTitleFilter")}
         />
+        {showManager && (
+          <ClearableTextInput
+            label={t("goal.manager")}
+            value={managerFilter}
+            onChange={setManagerFilter}
+            clearLabel={t("goal.clearManagerFilter")}
+          />
+        )}
         <Select
           label={t("goal.createdAt")}
           data={createdWindowOptions(t)}
@@ -168,6 +197,17 @@ export default function GoalTable({
                 onToggle={toggleSort}
               />
             </Table.Th>
+            {showManager && (
+              <Table.Th>
+                <SortHeader
+                  field="managerName"
+                  label={t("goal.manager")}
+                  activeField={sortField}
+                  activeDir={sortDir}
+                  onToggle={toggleSort}
+                />
+              </Table.Th>
+            )}
             <Table.Th>
               <SortHeader
                 field="createdAt"
@@ -223,6 +263,17 @@ export default function GoalTable({
                       {g.title}
                     </Text>
                   </Table.Td>
+                  {showManager && (
+                    <Table.Td>
+                      {g.managerDeleted ? (
+                        <Text size="sm">
+                          {feedbackPartyName(g.managerId, g.managerName, true, currentUserId, t)}
+                        </Text>
+                      ) : (
+                        <PersonaChip name={g.managerName} />
+                      )}
+                    </Table.Td>
+                  )}
                   <Table.Td style={{ whiteSpace: "nowrap" }} title={formatTimestamp(g.createdAt)}>
                     {formatDate(g.createdAt, i18n.language)}
                   </Table.Td>

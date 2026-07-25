@@ -585,6 +585,7 @@ type GoalListQuery = {
   pageSize: number;
   sort?: string;
   title?: string;
+  managerName?: string;
   status?: GoalStatus;
   type?: GoalType;
   managerId?: number;
@@ -601,6 +602,7 @@ export async function listGoals(q: GoalListQuery): Promise<GoalPage> {
   params.set("pageSize", String(q.pageSize));
   if (q.sort) params.set("sort", q.sort);
   if (q.title) params.set("title", q.title);
+  if (q.managerName) params.set("managerName", q.managerName);
   if (q.status) params.set("status", q.status);
   if (q.type) params.set("type", q.type);
   if (q.managerId != null) params.set("managerId", String(q.managerId));
