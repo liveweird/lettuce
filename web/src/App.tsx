@@ -26,6 +26,7 @@ import {
   IconMoon,
   IconSettings,
   IconSun,
+  IconTargetArrow,
   IconUserCircle,
   IconUserScan,
   IconUsers,
@@ -67,6 +68,7 @@ const CreateOneOnOne = lazy(() => import("./pages/CreateOneOnOne"));
 const EditOneOnOne = lazy(() => import("./pages/EditOneOnOne"));
 const ViewOneOnOne = lazy(() => import("./pages/ViewOneOnOne"));
 const UserGoals = lazy(() => import("./pages/UserGoals"));
+const MyGoals = lazy(() => import("./pages/MyGoals"));
 const CreateGoal = lazy(() => import("./pages/CreateGoal"));
 const EditGoal = lazy(() => import("./pages/EditGoal"));
 const ViewGoal = lazy(() => import("./pages/ViewGoal"));
@@ -110,6 +112,7 @@ const NAV_ITEMS: ReadonlyArray<NavEntry> = [
   { to: "/", label: "appShell.nav.dashboard", icon: IconLayoutDashboard, tourId: "nav-dashboard" },
   { to: "/feedback", label: "appShell.nav.feedback", icon: IconMessageCircle, tourId: "nav-feedback" },
   { to: "/one-on-ones", label: "appShell.nav.oneOnOnes", icon: IconCalendarEvent, tourId: "nav-one-on-ones" },
+  { to: "/goals", label: "appShell.nav.myGoals", icon: IconTargetArrow },
   {
     label: "appShell.nav.config",
     icon: IconSettings,
@@ -416,6 +419,7 @@ export default function App() {
             <Route path="one-on-ones/:id/edit" element={<EditOneOnOne />} />
             <Route path="one-on-ones/:id/view" element={<ViewOneOnOne />} />
             <Route path="users/:userId/goals" element={<UserGoals />} />
+            <Route path="goals" element={<MyGoals />} />
             <Route path="goals/new" element={<CreateGoal />} />
             <Route path="goals/:id/edit" element={<EditGoal />} />
             <Route path="goals/:id/view" element={<ViewGoal />} />

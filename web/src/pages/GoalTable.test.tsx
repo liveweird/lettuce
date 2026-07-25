@@ -104,6 +104,37 @@ describe("GoalTable", () => {
     expect(url).toContain(`sort=${encodeURIComponent("-createdAt")}`);
   });
 
+  test("the unpinned own view adds the Manager column and its filter", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<GoalTable view="own" settingsKey="goals.own" />);
+    await screen.findByText("Ship four reports");
+
+    // Column: sortable header + chip cells.
+    expect(screen.getAllByText("Alice").length).toBeGreaterThan(0);
+    await user.click(screen.getByRole("button", { name: "Manager" }));
+    await waitFor(() => {
+      expect(mockFetch.mock.calls.some(([u]) => String(u).includes("sort=managerName"))).toBe(true);
+    });
+
+    // Filter: lands as managerName= in the query string.
+    await user.click(screen.getByRole("button", { name: /filters/i }));
+    await user.type(screen.getByLabelText("Manager"), "ali");
+    await waitFor(() => {
+      expect(mockFetch.mock.calls.some(([u]) => String(u).includes("managerName=ali"))).toBe(true);
+    });
+  });
+
+  test("a pinned manager hides the Manager column and filter (the drill-down shape)", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<GoalTable view="own" managerId={10} settingsKey="userGoals" />);
+    await screen.findByText("Ship four reports");
+
+    expect(screen.queryByRole("button", { name: "Manager" })).toBeNull();
+    expect(screen.queryByText("Alice")).toBeNull(); // no manager cells either
+    await user.click(screen.getByRole("button", { name: /filters/i }));
+    expect(screen.queryByLabelText("Manager")).toBeNull();
+  });
+
   test("a fixed subordinateId lands in the query string (the per-subordinate drill-down)", async () => {
     renderWithProviders(
       <GoalTable view="managed" subordinateId={7} settingsKey="userGoals.managed" />,

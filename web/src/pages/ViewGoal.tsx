@@ -126,9 +126,9 @@ export default function ViewGoal() {
   const queryClient = useQueryClient();
   const from = searchParams.get("from") ?? "own";
   const backOverride = searchParams.get("back");
-  // No /goals tab page exists yet, so bare visits (e.g. a notification link) fall back to the
-  // dashboard; drill-down flows pass an explicit `back` override, which always wins.
-  const backTo = backOverride ?? "/";
+  // Bare visits (e.g. a notification link) fall back to the "My goals" page; drill-down flows
+  // pass an explicit `back` override, which always wins.
+  const backTo = backOverride ?? "/goals";
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [closeOpened, setCloseOpened] = useState(false);

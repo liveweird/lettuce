@@ -72,8 +72,8 @@ export default function EditGoal() {
   const [searchParams] = useSearchParams();
   const from = searchParams.get("from") ?? "own";
   const backOverride = searchParams.get("back");
-  // No /goals tab page exists yet — bare visits fall back to the dashboard (see ViewGoal).
-  const backTo = backOverride ?? "/";
+  // Bare visits fall back to the "My goals" page (see ViewGoal); real flows pass `back`.
+  const backTo = backOverride ?? "/goals";
 
   const [error, setError] = useState<string | null>(null);
   // Which submit is in flight — drives the pressed button's spinner while all buttons disable
