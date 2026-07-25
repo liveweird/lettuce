@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.17.1",
+    date: "2026-07-26",
+    en: `The draft goal editor can now move the goal forward directly: its footer offers *Save draft* and *Save & activate* (the feedback editor's pattern), so activating a finished draft no longer requires a detour through the goal's view.`,
+    pl: `Edytor szkicu celu może teraz od razu przenieść cel dalej: jego stopka oferuje *Zapisz wersję roboczą* i *Zapisz i aktywuj* (wzorem edytora feedbacku), więc aktywacja gotowego szkicu nie wymaga już wchodzenia w widok celu.`,
+  },
+  {
     version: "1.17.0",
     date: "2026-07-25",
     en: `Managers can now create goals. Each direct-report card on the Dashboard's *My subordinates* tab gained a *Goals* button opening the list of goals you set for that person, and at its bottom a *New goal* button (the *New 1:1* pattern) opens the goal form with that team member preselected — title, description, type and target. A created goal starts as a draft and lands on its view, where *Activate* is one click away.`,

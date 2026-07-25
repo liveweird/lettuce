@@ -52,7 +52,9 @@
     "activate": "Activate",
     "deactivate": "Return to draft",
     "close": "Close goal",
-    "reopen": "Reopen"
+    "reopen": "Reopen",
+    "saveDraft": "Save draft",
+    "saveAndActivate": "Save & activate"
   },
   "closeTitle": "Close this goal?",
   "closeMessage": "Closing records the goal as finished, with a summary of how it went. You can reopen it later if needed.",

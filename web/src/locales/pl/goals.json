@@ -52,7 +52,9 @@
     "activate": "Aktywuj",
     "deactivate": "Wróć do szkicu",
     "close": "Zamknij cel",
-    "reopen": "Otwórz ponownie"
+    "reopen": "Otwórz ponownie",
+    "saveDraft": "Zapisz wersję roboczą",
+    "saveAndActivate": "Zapisz i aktywuj"
   },
   "closeTitle": "Zamknąć ten cel?",
   "closeMessage": "Zamknięcie oznacza cel jako ukończony i zapisuje podsumowanie. W razie potrzeby możesz go później otworzyć ponownie.",
