@@ -25,6 +25,7 @@ import { useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
+  activateGoal,
   ApiError,
   deleteGoal,
   getGoal,
@@ -72,7 +73,9 @@ export default function EditGoal() {
   const backTo = backOverride ?? "/";
 
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  // Which submit is in flight — drives the pressed button's spinner while all buttons disable
+  // (the FeedbackForm `submitting === "DRAFT"` idiom).
+  const [submitting, setSubmitting] = useState<"draft" | "activate" | "progress" | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
   const [deleteOpen, { open: openDelete, close: closeDelete }] = useDisclosure(false);
@@ -133,22 +136,27 @@ export default function EditGoal() {
     navigate(backTo, { replace: true });
   }
 
-  async function saveDefinition(values: GoalDefinitionFormValues) {
+  async function saveDefinition(values: GoalDefinitionFormValues, activate = false) {
     setError(null);
-    setSubmitting(true);
+    setSubmitting(activate ? "activate" : "draft");
     try {
       await updateGoalDefinition(id, toDefinitionBody(values));
+      if (activate) {
+        await activateGoal(id);
+        // Activation notifies the subordinate — refresh the bell badge.
+        queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      }
       await afterSave();
     } catch (err) {
       setError(goalSaveErrorMessage(err, t));
-      setSubmitting(false);
+      setSubmitting(null);
     }
   }
 
   async function saveProgress(values: ProgressFormValues) {
     if (!data) return;
     setError(null);
-    setSubmitting(true);
+    setSubmitting("progress");
     try {
       await updateGoalProgress(
         id,
@@ -159,7 +167,7 @@ export default function EditGoal() {
       await afterSave();
     } catch (err) {
       setError(goalSaveErrorMessage(err, t));
-      setSubmitting(false);
+      setSubmitting(null);
     }
   }
 
@@ -210,7 +218,7 @@ export default function EditGoal() {
               </Group>
             </>
           ) : data && isDraft ? (
-            <form onSubmit={definitionForm.onSubmit(saveDefinition)} noValidate>
+            <form onSubmit={definitionForm.onSubmit((values) => saveDefinition(values))} noValidate>
               <Stack>
                 <Group gap="xl">
                   <PersonaField label={t("goal.manager")} you />
@@ -288,16 +296,41 @@ export default function EditGoal() {
                   </Alert>
                 )}
 
-                <Group justify="space-between">
-                  <Button color="red" variant="light" onClick={openDelete} disabled={submitting}>
+                <Group justify="space-between" gap="sm">
+                  <Button
+                    color="red"
+                    variant="light"
+                    onClick={openDelete}
+                    disabled={submitting !== null || deleting}
+                  >
                     {t("common.action.delete")}
                   </Button>
                   <Group gap="sm">
-                    <Button type="button" variant="default" onClick={openCancel} disabled={submitting}>
+                    <Button
+                      type="button"
+                      variant="default"
+                      onClick={openCancel}
+                      disabled={submitting !== null || deleting}
+                    >
                       {t("common.action.cancel")}
                     </Button>
-                    <Button type="submit" loading={submitting}>
-                      {t("common.action.save")}
+                    <Button
+                      type="submit"
+                      variant="light"
+                      loading={submitting === "draft"}
+                      disabled={submitting !== null || deleting}
+                    >
+                      {t("goal.action.saveDraft")}
+                    </Button>
+                    <Button
+                      type="button"
+                      // Runs the form validation first (calling the onSubmit handler with no
+                      // event), then saves and activates in one go — the "Save & send" pattern.
+                      onClick={() => definitionForm.onSubmit((values) => saveDefinition(values, true))()}
+                      loading={submitting === "activate"}
+                      disabled={submitting !== null || deleting}
+                    >
+                      {t("goal.action.saveAndActivate")}
                     </Button>
                   </Group>
                 </Group>
@@ -377,11 +410,11 @@ export default function EditGoal() {
                     type="button"
                     variant="default"
                     onClick={() => navigate(backTo)}
-                    disabled={submitting}
+                    disabled={submitting !== null}
                   >
                     {t("common.action.cancel")}
                   </Button>
-                  <Button type="submit" loading={submitting}>
+                  <Button type="submit" loading={submitting === "progress"}>
                     {t("common.action.save")}
                   </Button>
                 </Group>

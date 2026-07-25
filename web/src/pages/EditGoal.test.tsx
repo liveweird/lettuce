@@ -119,7 +119,7 @@ describe("EditGoal page", () => {
     const target = screen.getByLabelText(/target/i);
     await user.clear(target);
     await user.type(target, "95");
-    await user.click(screen.getByRole("button", { name: /^save$/i }));
+    await user.click(screen.getByRole("button", { name: /^save draft$/i }));
 
     await waitFor(() => {
       const put = mockFetch.mock.calls.find(
@@ -142,7 +142,7 @@ describe("EditGoal page", () => {
     renderScreen();
 
     await user.clear(await screen.findByLabelText(/title/i));
-    await user.click(screen.getByRole("button", { name: /^save$/i }));
+    await user.click(screen.getByRole("button", { name: /^save draft$/i }));
 
     expect(await screen.findByText("A title is required")).toBeInTheDocument();
     expect(
@@ -165,7 +165,7 @@ describe("EditGoal page", () => {
     ).toBeInTheDocument();
     expect(screen.queryByLabelText(/target/i)).toBeNull(); // BINARY has no target input
 
-    await user.click(screen.getByRole("button", { name: /^save$/i }));
+    await user.click(screen.getByRole("button", { name: /^save draft$/i }));
     await waitFor(() => {
       const put = mockFetch.mock.calls.find(
         ([u, init]) => String(u) === "/api/v1/goals/5" && (init as RequestInit)?.method === "PUT",
@@ -213,6 +213,67 @@ describe("EditGoal page", () => {
     expect(
       mockFetch.mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === "PUT"),
     ).toBe(false);
+  });
+
+  test("DRAFT: Save & activate PUTs the definition, POSTs activate, and navigates back", async () => {
+    setupMocks();
+    const user = userEvent.setup();
+    renderScreen();
+
+    await screen.findByLabelText(/title/i);
+    await user.click(screen.getByRole("button", { name: /^save & activate$/i }));
+
+    await waitFor(() => {
+      const put = mockFetch.mock.calls.find(
+        ([u, init]) => String(u) === "/api/v1/goals/5" && (init as RequestInit)?.method === "PUT",
+      );
+      expect(put).toBeDefined();
+      expect(
+        mockFetch.mock.calls.some(
+          ([u, init]) =>
+            String(u) === "/api/v1/goals/5/activate" && (init as RequestInit)?.method === "POST",
+        ),
+      ).toBe(true);
+    });
+    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/users/7/goals"));
+  });
+
+  test("DRAFT: validation blocks Save & activate too", async () => {
+    setupMocks();
+    const user = userEvent.setup();
+    renderScreen();
+
+    await user.clear(await screen.findByLabelText(/title/i));
+    await user.click(screen.getByRole("button", { name: /^save & activate$/i }));
+
+    expect(await screen.findByText("A title is required")).toBeInTheDocument();
+    expect(
+      mockFetch.mock.calls.some(([, init]) => {
+        const method = (init as RequestInit | undefined)?.method;
+        return method === "PUT" || method === "POST";
+      }),
+    ).toBe(false);
+  });
+
+  test("DRAFT: a 409 on the activate step shows the conflict message and stays", async () => {
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      const u = String(url);
+      const method = init?.method ?? "GET";
+      if (method === "PUT") return Promise.resolve(new Response(null, { status: 204 }));
+      if (method === "POST") return Promise.resolve(jsonResponse(409, { title: "conflict" }));
+      if (u.includes("/events")) return Promise.resolve(jsonResponse(200, { items: [] }));
+      return Promise.resolve(jsonResponse(200, DRAFT_GOAL));
+    });
+    const user = userEvent.setup();
+    renderScreen();
+
+    await screen.findByLabelText(/title/i);
+    await user.click(screen.getByRole("button", { name: /^save & activate$/i }));
+
+    expect(
+      await screen.findByText("The goal's status changed in the meantime — reload and try again."),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("probe")).toBeNull();
   });
 
   test("ACTIVE (numeric): the progress form PUTs the new current value to /progress", async () => {
@@ -280,7 +341,7 @@ describe("EditGoal page", () => {
     renderScreen();
 
     await screen.findByLabelText(/title/i);
-    await user.click(screen.getByRole("button", { name: /^save$/i }));
+    await user.click(screen.getByRole("button", { name: /^save draft$/i }));
 
     expect(
       await screen.findByText("The goal's status changed in the meantime — reload and try again."),
