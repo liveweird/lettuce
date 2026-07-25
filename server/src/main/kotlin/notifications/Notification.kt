@@ -5,9 +5,10 @@ import kotlinx.serialization.Serializable
 
 /**
  * The kind of notification, driving both the recipient's wording and its params. Values are
- * produced by feedbacks/FeedbackNotifications.kt, oneonones/OneOnOneNotifications.kt, and the
- * password-change paths (users/UserRoutes.kt, auth/AuthRoutes.kt); the SPA renders each one in
- * the viewer's language from `notifications.event.*` keys.
+ * produced by feedbacks/FeedbackNotifications.kt, oneonones/OneOnOneNotifications.kt,
+ * goals/GoalNotifications.kt, and the password-change paths (users/UserRoutes.kt,
+ * auth/AuthRoutes.kt); the SPA renders each one in the viewer's language from
+ * `notifications.event.*` keys.
  */
 @Serializable
 enum class NotificationType {
@@ -24,6 +25,10 @@ enum class NotificationType {
     FEEDBACK_DELETED_TO_REQUESTER,
     ONE_ON_ONE_CREATED_TO_SUBORDINATE,
     ONE_ON_ONE_CREATED_TO_MANAGER,
+    GOAL_ACTIVATED_TO_SUBORDINATE,
+    GOAL_DEACTIVATED_TO_SUBORDINATE,
+    GOAL_CLOSED_TO_SUBORDINATE,
+    GOAL_REOPENED_TO_SUBORDINATE,
     PASSWORD_CHANGED,
 }
 

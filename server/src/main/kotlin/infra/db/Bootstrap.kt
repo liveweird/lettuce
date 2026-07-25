@@ -2,6 +2,7 @@ package ch.nokillswit.infra.db
 
 import ch.nokillswit.auth.hashPassword
 import ch.nokillswit.feedbacks.FeedbackServiceKey
+import ch.nokillswit.goals.GoalServiceKey
 import ch.nokillswit.oneonones.OneOnOneServiceKey
 import ch.nokillswit.users.UserServiceKey
 import io.ktor.server.application.*
@@ -72,5 +73,10 @@ suspend fun Application.configureBootstrap() {
     val oneOnOneEncrypted = attributes[OneOnOneServiceKey].encryptLegacyRows(reencryptAll = rotating)
     if (oneOnOneEncrypted > 0) {
         log.info("Bootstrap: ${if (rotating) "re-" else ""}encrypted $oneOnOneEncrypted 1:1 meeting row(s) at rest")
+    }
+    // And for the goal description/summary columns, for the same rotation reason.
+    val goalsEncrypted = attributes[GoalServiceKey].encryptLegacyRows(reencryptAll = rotating)
+    if (goalsEncrypted > 0) {
+        log.info("Bootstrap: ${if (rotating) "re-" else ""}encrypted $goalsEncrypted goal row(s) at rest")
     }
 }

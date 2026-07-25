@@ -8,6 +8,10 @@ import ch.nokillswit.feedbacks.FeedbackEventService
 import ch.nokillswit.feedbacks.FeedbackEventServiceKey
 import ch.nokillswit.feedbacks.FeedbackService
 import ch.nokillswit.feedbacks.FeedbackServiceKey
+import ch.nokillswit.goals.GoalEventService
+import ch.nokillswit.goals.GoalEventServiceKey
+import ch.nokillswit.goals.GoalService
+import ch.nokillswit.goals.GoalServiceKey
 import ch.nokillswit.infra.crypto.FieldCipherKey
 import ch.nokillswit.notifications.NotificationService
 import ch.nokillswit.notifications.NotificationServiceKey
@@ -37,6 +41,8 @@ suspend fun Application.configureDatabase() {
     attributes.put(FeedbackEventServiceKey, FeedbackEventService(database))
     attributes.put(OneOnOneServiceKey, OneOnOneService(database, attributes[FieldCipherKey]))
     attributes.put(OneOnOneEventServiceKey, OneOnOneEventService(database))
+    attributes.put(GoalServiceKey, GoalService(database, attributes[FieldCipherKey]))
+    attributes.put(GoalEventServiceKey, GoalEventService(database))
     attributes.put(TemplateServiceKey, TemplateService(database))
     attributes.put(NotificationServiceKey, NotificationService(database))
     attributes.put(AlertServiceKey, AlertService(database))

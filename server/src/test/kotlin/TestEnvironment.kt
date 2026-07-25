@@ -203,6 +203,9 @@ object TestServices {
     val oneOnOnes: ch.nokillswit.oneonones.OneOnOneService by lazy {
         ch.nokillswit.oneonones.OneOnOneService(sharedTestDatabase, cipher)
     }
+    val goals: ch.nokillswit.goals.GoalService by lazy {
+        ch.nokillswit.goals.GoalService(sharedTestDatabase, cipher)
+    }
 }
 
 // Soft-deletes a 1:1 meeting directly, bypassing the latest-only-delete guard (v1.14). A soft-deleted
@@ -225,6 +228,13 @@ object TestOneOnOneMaintenance {
 object TestOneOnOneEvents {
     val service: ch.nokillswit.oneonones.OneOnOneEventService by lazy {
         ch.nokillswit.oneonones.OneOnOneEventService(sharedTestDatabase)
+    }
+}
+
+// Reads the goal_events audit table directly (e.g. to assert events outlive a soft delete).
+object TestGoalEvents {
+    val service: ch.nokillswit.goals.GoalEventService by lazy {
+        ch.nokillswit.goals.GoalEventService(sharedTestDatabase)
     }
 }
 

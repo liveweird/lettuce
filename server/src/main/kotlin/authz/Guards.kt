@@ -4,6 +4,8 @@ import ch.nokillswit.feedbacks.Feedback
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
 import ch.nokillswit.feedbacks.isDelivered
+import ch.nokillswit.goals.GoalResponse
+import ch.nokillswit.goals.GoalStatus
 import ch.nokillswit.oneonones.OneOnOneResponse
 import ch.nokillswit.users.UserRole
 
@@ -166,5 +168,47 @@ suspend fun requireOneOnOneReadAllowingManager(
 fun requireOneOnOneWrite(caller: CallerPrincipal, meeting: OneOnOneResponse) {
     if (caller.userId != meeting.managerId) {
         throw ForbiddenException("Only the meeting's manager may modify this 1:1 meeting")
+    }
+}
+
+// ── Goals ───────────────────────────────────────────────────────────────────────────────────
+// Existence disclosure: like feedbacks and 1:1s, goal routes read BEFORE guarding (missing →
+// 404, existing-but-forbidden → 403), so an id probe can learn a goal exists — never its
+// content or parties (ids are sequential; existence is no secret).
+
+/** The cheap (no-DB) read rules: the two parties and ADMIN, at every status. The subordinate's
+ *  wider management chain is handled by [requireGoalReadAllowingManager] to keep the DB hit lazy. */
+fun canReadGoal(caller: CallerPrincipal, goal: GoalResponse): Boolean {
+    if (caller.isAdmin()) return true
+    if (caller.userId == goal.managerId) return true
+    return caller.userId == goal.subordinateId
+}
+
+/**
+ * Read guard for the single GET / events: the parties and ADMIN pass the cheap rules; otherwise
+ * any manager in the subordinate's transitive management chain (their manager's manager, and so
+ * on) may read only once the goal has left DRAFT (ACTIVE/CLOSED) — a manager's draft stays
+ * private to the pair, matching the team list scope (whose status != DRAFT filter is the same
+ * rule, not a separate authorization) and mirroring the delivered-only feedback chain rule.
+ */
+suspend fun requireGoalReadAllowingManager(
+    caller: CallerPrincipal,
+    goal: GoalResponse,
+    managesSubordinate: suspend () -> Boolean,
+) {
+    if (canReadGoal(caller, goal)) return // cheap rules first
+    if (goal.status != GoalStatus.DRAFT && managesSubordinate()) return // DB hit only if needed
+    throw ForbiddenException("Caller may not read this goal")
+}
+
+/**
+ * The manager is always the author: only they may edit, transition, or delete the goal — the
+ * subordinate has read rights only. ADMIN is intentionally NOT granted write access (mirroring
+ * [canWriteFeedback]); an admin who is themselves the manager still qualifies via the userId
+ * check.
+ */
+fun requireGoalWrite(caller: CallerPrincipal, goal: GoalResponse) {
+    if (caller.userId != goal.managerId) {
+        throw ForbiddenException("Only the goal's manager may modify this goal")
     }
 }
