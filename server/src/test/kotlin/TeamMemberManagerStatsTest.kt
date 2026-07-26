@@ -8,6 +8,10 @@ import ch.nokillswit.feedbacks.FeedbackEventType
 import ch.nokillswit.feedbacks.FeedbackResponse
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
+import ch.nokillswit.goals.GoalCloseRequest
+import ch.nokillswit.goals.GoalCreateRequest
+import ch.nokillswit.goals.GoalResponse
+import ch.nokillswit.goals.GoalType
 import ch.nokillswit.oneonones.ActionItemOwner
 import ch.nokillswit.oneonones.OneOnOneActionItemInput
 import ch.nokillswit.oneonones.OneOnOneCreateRequest
@@ -72,6 +76,60 @@ class TeamMemberManagerStatsTest {
     private fun item(content: String, resolved: Boolean = false) =
         OneOnOneActionItemInput(content = content, owner = ActionItemOwner.SUBORDINATE, resolved = resolved)
 
+    private suspend fun HttpClient.createGoal(subordinateId: UInt, title: String): GoalResponse {
+        val response = post("/api/v1/goals") {
+            contentType(ContentType.Application.Json)
+            setBody(GoalCreateRequest(subordinateId = subordinateId, title = title, type = GoalType.BINARY))
+        }
+        assertEquals(HttpStatusCode.Created, response.status, "goal create failed")
+        return response.body<GoalResponse>()
+    }
+
+    @Test
+    fun `activeGoalCount counts only this manager's ACTIVE goals for the caller`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw")
+        val callerEmail = uniqueEmail("caller")
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", name = "Caller", role = UserRole.USER)
+        val mgrEmail = uniqueEmail("mgr")
+        val managerId = TestUsers.seed(email = mgrEmail, password = "pw", name = "Mgr", role = UserRole.USER)
+        val admin = authedClient(adminEmail, "pw")
+        admin.createTeam("goal-cnt-${UUID.randomUUID()}", managerId, listOf(callerId))
+        // The reverse team (the caller manages the manager) lets us pin the direction below.
+        admin.createTeam("goal-rev-${UUID.randomUUID()}", callerId, listOf(managerId))
+
+        val caller = authedClient(callerEmail, "pw")
+        val manager = authedClient(mgrEmail, "pw")
+
+        // A goal-less pair shows 0, not null (a count has no "absent" state on this view).
+        assertEquals(0, caller.managerItem(managerId).activeGoalCount)
+
+        // A DRAFT never counts.
+        val first = manager.createGoal(callerId, "count me later")
+        assertEquals(0, caller.managerItem(managerId).activeGoalCount)
+
+        manager.post("/api/v1/goals/${first.id}/activate")
+        assertEquals(1, caller.managerItem(managerId).activeGoalCount)
+
+        val second = manager.createGoal(callerId, "count me too")
+        manager.post("/api/v1/goals/${second.id}/activate")
+        assertEquals(2, caller.managerItem(managerId).activeGoalCount)
+
+        // The reverse direction (a goal the caller set FOR this manager) never counts here.
+        val reverse = caller.createGoal(managerId, "wrong direction")
+        caller.post("/api/v1/goals/${reverse.id}/activate")
+        assertEquals(2, caller.managerItem(managerId).activeGoalCount)
+
+        // Closing takes a goal back out of the count.
+        val closed = manager.post("/api/v1/goals/${first.id}/close") {
+            contentType(ContentType.Application.Json)
+            setBody(GoalCloseRequest(summary = "done"))
+        }
+        assertEquals(HttpStatusCode.NoContent, closed.status)
+        assertEquals(1, caller.managerItem(managerId).activeGoalCount)
+    }
+
     @Test
     fun `stats are null without data and never populated outside the managers view`() = testApplication {
         usePostgresTestcontainer()
@@ -88,6 +146,7 @@ class TeamMemberManagerStatsTest {
         assertNull(manager.lastOneOnOneDate)
         assertNull(manager.lastOneOnOneOpenItems)
         assertNull(manager.lastFeedbackAt)
+        assertEquals(0, manager.activeGoalCount) // a count, not an "absent" stat
 
         // The member view lists the peer — its rows never carry stats.
         val members = caller.get("/api/v1/teams/members?view=member").body<TeamMemberPageResponse>()
@@ -95,6 +154,7 @@ class TeamMemberManagerStatsTest {
         assertNull(peer.lastOneOnOneDate)
         assertNull(peer.lastOneOnOneOpenItems)
         assertNull(peer.lastFeedbackAt)
+        assertNull(peer.activeGoalCount)
     }
 
     @Test

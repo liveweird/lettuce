@@ -154,6 +154,7 @@ describe("ManagersTable", () => {
               lastOneOnOneDate: "2026-07-01",
               lastOneOnOneOpenItems: 2,
               lastFeedbackAt: new Date("2026-07-10T12:00:00").getTime(),
+              activeGoalCount: 3,
             },
           ],
           page: 1,
@@ -171,6 +172,8 @@ describe("ManagersTable", () => {
       // Exact values ride in the title attributes.
       expect(screen.getByText("last week")).toHaveAttribute("title", "Jul 1, 2026");
       expect(screen.getByText("2 days ago")).toHaveAttribute("title", "2026-07-10 12:00");
+      expect(screen.getByText("Active goals")).toBeInTheDocument();
+      expect(screen.getByText("3")).toBeInTheDocument();
       expect(screen.queryByText("never")).toBeNull();
     } finally {
       vi.useRealTimers();
@@ -184,6 +187,7 @@ describe("ManagersTable", () => {
           {
             userId: 1, name: "Manager One", email: "m1@example.com", teamId: 5, teamName: "alpha",
             lastOneOnOneDate: null, lastOneOnOneOpenItems: null, lastFeedbackAt: null,
+            activeGoalCount: null,
           },
         ],
         page: 1,
@@ -195,6 +199,9 @@ describe("ManagersTable", () => {
 
     expect(await screen.findAllByText("never")).toHaveLength(2);
     expect(screen.queryByText(/open item/)).toBeNull();
+    // The goal count is a number, never "never" — absent renders as an explicit 0.
+    expect(screen.getByText("Active goals")).toBeInTheDocument();
+    expect(screen.getByText("0")).toBeInTheDocument();
   });
 
   test("zero open items renders an explicit 0 badge, not never", async () => {

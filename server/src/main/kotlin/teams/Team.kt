@@ -64,6 +64,13 @@ data class TeamMemberListItem(
      * leaks). Populated only for view=member; null for the other views.
      */
     val lastFeedbackReceivedAt: Long? = null,
+    /**
+     * ACTIVE goals of the (row user, caller) pair in the view's direction: managers — goals
+     * this manager set for the caller; managed — goals the caller set for this member. `0`
+     * when the pair has none (a count has no "absent" state on those views); null only for
+     * view=member, which carries no goal stat.
+     */
+    val activeGoalCount: Int? = null,
 )
 
 typealias TeamMemberPageResponse = PageResponse<TeamMemberListItem>

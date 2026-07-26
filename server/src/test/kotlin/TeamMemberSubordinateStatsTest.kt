@@ -28,6 +28,10 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
 import java.util.UUID
+import ch.nokillswit.goals.GoalCloseRequest
+import ch.nokillswit.goals.GoalCreateRequest
+import ch.nokillswit.goals.GoalResponse
+import ch.nokillswit.goals.GoalType
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.r2dbc.deleteWhere
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
@@ -76,6 +80,54 @@ class TeamMemberSubordinateStatsTest {
 
     private fun item(content: String, resolved: Boolean = false) =
         OneOnOneActionItemInput(content = content, owner = ActionItemOwner.SUBORDINATE, resolved = resolved)
+
+    private suspend fun HttpClient.createGoal(subordinateId: UInt, title: String): GoalResponse {
+        val response = post("/api/v1/goals") {
+            contentType(ContentType.Application.Json)
+            setBody(GoalCreateRequest(subordinateId = subordinateId, title = title, type = GoalType.BINARY))
+        }
+        assertEquals(HttpStatusCode.Created, response.status, "goal create failed")
+        return response.body<GoalResponse>()
+    }
+
+    @Test
+    fun `activeGoalCount counts only the caller's ACTIVE goals for this subordinate`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw")
+        val callerEmail = uniqueEmail("caller")
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", name = "Caller", role = UserRole.USER)
+        val subEmail = uniqueEmail("sub")
+        val subId = TestUsers.seed(email = subEmail, password = "pw", name = "Sub", role = UserRole.USER)
+        val admin = authedClient(adminEmail, "pw")
+        admin.createTeam("goal-cnt-${UUID.randomUUID()}", callerId, listOf(subId))
+        // The reverse team (the subordinate manages the caller) pins the direction below.
+        admin.createTeam("goal-rev-${UUID.randomUUID()}", subId, listOf(callerId))
+
+        val caller = authedClient(callerEmail, "pw")
+        val sub = authedClient(subEmail, "pw")
+
+        // A goal-less pair shows 0, not null; a DRAFT never counts.
+        assertEquals(0, caller.subordinateItem(subId).activeGoalCount)
+        val first = caller.createGoal(subId, "count me later")
+        assertEquals(0, caller.subordinateItem(subId).activeGoalCount)
+
+        caller.post("/api/v1/goals/${first.id}/activate")
+        assertEquals(1, caller.subordinateItem(subId).activeGoalCount)
+
+        // The reverse direction (a goal the subordinate set FOR the caller) never counts here.
+        val reverse = sub.createGoal(callerId, "wrong direction")
+        sub.post("/api/v1/goals/${reverse.id}/activate")
+        assertEquals(1, caller.subordinateItem(subId).activeGoalCount)
+
+        // Closing takes the goal back out of the count.
+        val closed = caller.post("/api/v1/goals/${first.id}/close") {
+            contentType(ContentType.Application.Json)
+            setBody(GoalCloseRequest(summary = "done"))
+        }
+        assertEquals(HttpStatusCode.NoContent, closed.status)
+        assertEquals(0, caller.subordinateItem(subId).activeGoalCount)
+    }
 
     @Test
     fun `stats are null without data and never populated for the member view`() = testApplication {

@@ -43,6 +43,7 @@
   "oneOnOnesWith": "1:1 meetings with {{name}}",
   "goals": "Goals",
   "goalsWith": "Goals from {{name}}",
+  "activeGoals": "Active goals",
   "editAria": "Edit {{name}}",
   "changePasswordFor": "Change password for {{name}}",
   "teamsFor": "Teams for {{name}}",

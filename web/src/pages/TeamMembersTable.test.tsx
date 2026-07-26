@@ -21,6 +21,7 @@ type TeamMemberItem = {
   lastFeedbackAt?: number | null;
   lastFeedbackGivenAt?: number | null;
   lastFeedbackReceivedAt?: number | null;
+  activeGoalCount?: number | null;
 };
 
 
@@ -460,6 +461,7 @@ describe("TeamMembersTable", () => {
             lastOneOnOneDate: "2026-07-01",
             lastOneOnOneOpenItems: 2,
             lastFeedbackAt: new Date("2026-07-10T12:00:00").getTime(),
+            activeGoalCount: 3,
           },
         ]),
       );
@@ -473,6 +475,8 @@ describe("TeamMembersTable", () => {
       // Exact values ride in the title attributes.
       expect(screen.getByText("last week")).toHaveAttribute("title", "Jul 1, 2026");
       expect(screen.getByText("2 days ago")).toHaveAttribute("title", "2026-07-10 12:00");
+      expect(screen.getByText("Active goals")).toBeInTheDocument();
+      expect(screen.getByText("3")).toBeInTheDocument();
       expect(screen.queryByText("never")).toBeNull();
     } finally {
       vi.useRealTimers();
@@ -486,6 +490,7 @@ describe("TeamMembersTable", () => {
         {
           userId: 11, name: "Bob Brown", email: "bob@x.test", teamId: 4, teamName: "Support",
           lastOneOnOneDate: null, lastOneOnOneOpenItems: null, lastFeedbackAt: null,
+          activeGoalCount: null,
         },
       ]),
     );
@@ -493,6 +498,9 @@ describe("TeamMembersTable", () => {
 
     expect(await screen.findAllByText("never")).toHaveLength(2);
     expect(screen.queryByText(/open item/)).toBeNull();
+    // The goal count is a number, never "never" — absent renders as an explicit 0.
+    expect(screen.getByText("Active goals")).toBeInTheDocument();
+    expect(screen.getByText("0")).toBeInTheDocument();
   });
 
   test("zero open items renders an explicit 0 badge, not never", async () => {
@@ -537,6 +545,7 @@ describe("TeamMembersTable", () => {
         {
           userId: 11, name: "Bob Brown", email: "bob@x.test", teamId: 4, teamName: "Support",
           lastOneOnOneDate: "2026-07-01", lastOneOnOneOpenItems: 1, lastFeedbackAt: 1780000000000,
+          activeGoalCount: 2,
         },
       ]),
     );
@@ -546,6 +555,7 @@ describe("TeamMembersTable", () => {
     expect(screen.queryByText("Last 1:1")).toBeNull();
     expect(screen.queryByText("Last feedback")).toBeNull();
     expect(screen.queryByText(/open item/)).toBeNull();
+    expect(screen.queryByText("Active goals")).toBeNull();
     // The peer stats render off their own (absent → never) fields instead.
     expect(screen.getByText("Feedback from me")).toBeInTheDocument();
     expect(screen.getAllByText("never")).toHaveLength(2);

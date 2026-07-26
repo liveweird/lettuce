@@ -297,17 +297,18 @@ export interface paths {
          *       the caller's transitive management chain (the caller's indirect reports, each
          *       shown with the team they hold under their own manager). Items carry the
          *       dashboard stats `lastOneOnOneDate` / `lastOneOnOneOpenItems` / `lastFeedbackAt`
-         *       (see `TeamMemberListItem`) with the caller as the 1:1's manager / the feedback's
-         *       provider, regardless of `includeIndirect`.
+         *       / `activeGoalCount` (see `TeamMemberListItem`) with the caller as the 1:1's
+         *       manager / the feedback's provider / the goals' manager, regardless of
+         *       `includeIndirect`.
          *     - `view=managers`: the managers of teams where the caller is a member. Each item
          *       describes a manager (in `userId`/`name`/`email`) and the managed team. The
          *       caller is excluded. Items carry the same dashboard stats fields with this
-         *       manager as the 1:1's manager / the feedback's provider.
+         *       manager as the 1:1's manager / the feedback's provider / the goals' manager.
          *
          *     In every view a user appearing once per shared team repeats the same stats on
-         *     each row. The `lastOneOnOne*`/`lastFeedbackAt` trio is always `null` for
-         *     `view=member`; the given/received pair is always `null` for `view=managers` and
-         *     `view=managed`.
+         *     each row. The `lastOneOnOne*`/`lastFeedbackAt`/`activeGoalCount` set is always
+         *     `null` for `view=member`; the given/received pair is always `null` for
+         *     `view=managers` and `view=managed`.
          *
          *     Each item is one (user, team) pair — a user who shares several teams with the
          *     caller appears once per team. Soft-deleted users and soft-deleted teams are
@@ -1656,6 +1657,16 @@ export interface components {
              *     `null` when there is none.
              */
             lastFeedbackReceivedAt?: number | null;
+            /**
+             * Format: int64
+             * @description Populated for `view=managers` and `view=managed`; always `null` for
+             *     `view=member` (peers have no goal relationship). The number of ACTIVE
+             *     (non-deleted) goals of the (row user, caller) pair in the view's direction —
+             *     `managers`: goals this manager set for the caller; `managed`: goals the
+             *     caller set for this member. `0` when the pair has none; DRAFT and CLOSED
+             *     goals never count.
+             */
+            activeGoalCount?: number | null;
         };
         TeamMemberPage: {
             items: components["schemas"]["TeamMemberListItem"][];
@@ -2989,12 +3000,13 @@ export interface operations {
                  *       `TeamMemberListItem`); no 1:1 stat.
                  *     - `managed`: members of teams the caller manages. Items carry the dashboard
                  *       stats fields (see `TeamMemberListItem`) with the caller as the 1:1's
-                 *       manager / the feedback's provider.
+                 *       manager / the feedback's provider / the goals' manager.
                  *     - `managers`: the managers of teams the caller is a member of. Each item's
                  *       `userId`/`name`/`email` describe the manager and `teamId`/`teamName` the
                  *       managed team. The caller is excluded; a manager who manages several of the
                  *       caller's teams appears once per team. Items carry the dashboard stats
-                 *       fields with this manager as the 1:1's manager / the feedback's provider.
+                 *       fields with this manager as the 1:1's manager / the feedback's provider /
+                 *       the goals' manager.
                  */
                 view?: "member" | "managed" | "managers";
                 /**

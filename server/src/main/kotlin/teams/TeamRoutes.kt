@@ -3,6 +3,7 @@ package ch.nokillswit.teams
 import ch.nokillswit.audit.audit
 import ch.nokillswit.authz.caller
 import ch.nokillswit.feedbacks.FeedbackServiceKey
+import ch.nokillswit.goals.GoalServiceKey
 import ch.nokillswit.oneonones.OneOnOneLatestStats
 import ch.nokillswit.oneonones.OneOnOneServiceKey
 import ch.nokillswit.authz.requireCanReassignManager
@@ -58,16 +59,19 @@ private fun validateTeamName(name: String) {
     }
 }
 
-// The managers/managed enrichment: one 1:1 + one feedback stat, whose direction the caller
-// chose by which service methods it queried (see the comment at the call site).
+// The managers/managed enrichment: one 1:1 stat, one feedback stat, and the active-goal count,
+// whose direction the caller chose by which service methods it queried (see the call site).
 private fun List<TeamMemberListItem>.withDirectionalStats(
     oneOnOnes: Map<UInt, OneOnOneLatestStats>,
     feedbackAt: Map<UInt, Long>,
+    activeGoals: Map<UInt, Int>,
 ): List<TeamMemberListItem> = map {
     it.copy(
         lastOneOnOneDate = oneOnOnes[it.userId]?.meetingDate,
         lastOneOnOneOpenItems = oneOnOnes[it.userId]?.openActionItemCount,
         lastFeedbackAt = feedbackAt[it.userId],
+        // A count has no "absent" state on these views — a pair with no active goals shows 0.
+        activeGoalCount = activeGoals[it.userId] ?: 0,
     )
 }
 
@@ -78,6 +82,7 @@ fun Application.configureTeamRoutes() {
     // features' tables.
     val oneOnOneService = attributes[OneOnOneServiceKey]
     val feedbackService = attributes[FeedbackServiceKey]
+    val goalService = attributes[GoalServiceKey]
 
     routing {
         authenticate {
@@ -142,10 +147,12 @@ fun Application.configureTeamRoutes() {
                         TeamMemberListView.MANAGERS -> result.items.withDirectionalStats(
                             oneOnOneService.latestMeetingStats(ids, caller.userId),
                             feedbackService.lastProvidedAt(ids, caller.userId),
+                            goalService.activeGoalCountsByManager(ids, caller.userId),
                         )
                         TeamMemberListView.MANAGED -> result.items.withDirectionalStats(
                             oneOnOneService.latestMeetingStatsBySubordinate(caller.userId, ids),
                             feedbackService.lastProvidedTo(caller.userId, ids),
+                            goalService.activeGoalCountsBySubordinate(caller.userId, ids),
                         )
                     }
                 }

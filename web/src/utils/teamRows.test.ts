@@ -33,7 +33,7 @@ describe("groupTeamRows", () => {
     expect(cards.map((c) => c.userId)).toEqual([2, 1]);
   });
 
-  test("normalizes absent stat fields to null (all five)", () => {
+  test("normalizes absent stat fields to null (all six)", () => {
     const [card] = groupTeamRows([row()]);
 
     expect(card.lastOneOnOneDate).toBeNull();
@@ -41,6 +41,7 @@ describe("groupTeamRows", () => {
     expect(card.lastFeedbackAt).toBeNull();
     expect(card.lastFeedbackGivenAt).toBeNull();
     expect(card.lastFeedbackReceivedAt).toBeNull();
+    expect(card.activeGoalCount).toBeNull();
   });
 
   test("carries stats through from the first row of a user (rows repeat identical stats)", () => {
@@ -50,6 +51,7 @@ describe("groupTeamRows", () => {
       lastFeedbackAt: 1780000000000,
       lastFeedbackGivenAt: 1780000000001,
       lastFeedbackReceivedAt: 1780000000002,
+      activeGoalCount: 0, // zero must survive as 0, not collapse to null
     };
     const [card] = groupTeamRows([
       row({ ...stats }),

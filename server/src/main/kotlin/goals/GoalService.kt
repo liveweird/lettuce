@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.singleOrNull
 import kotlinx.coroutines.flow.toList
 import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.core.dao.id.EntityID
 import org.jetbrains.exposed.v1.core.dao.id.UIntIdTable
 import org.jetbrains.exposed.v1.r2dbc.*
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
@@ -283,6 +284,44 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
             }
             .toList()
         GoalListResult(items = rows, total = total)
+    }
+
+    /**
+     * Per manager in [managerIds], how many ACTIVE goals they currently have set for
+     * [subordinateId] — the "My managers" dashboard-card stat. Managers with none are absent
+     * from the map. Only ACTIVE is counted (drafts are pair-private anyway; CLOSED are records),
+     * and an ACTIVE goal is always visible to both parties, so no visibility filtering applies.
+     */
+    suspend fun activeGoalCountsByManager(
+        managerIds: Set<UInt>,
+        subordinateId: UInt,
+    ): Map<UInt, Int> =
+        if (managerIds.isEmpty()) emptyMap()
+        else activeCountsBy(Goals.managerId) {
+            (Goals.managerId inList managerIds) and (Goals.subordinateId eq subordinateId)
+        }
+
+    /** The "My subordinates" mirror of [activeGoalCountsByManager], keyed by subordinate. */
+    suspend fun activeGoalCountsBySubordinate(
+        managerId: UInt,
+        subordinateIds: Set<UInt>,
+    ): Map<UInt, Int> =
+        if (subordinateIds.isEmpty()) emptyMap()
+        else activeCountsBy(Goals.subordinateId) {
+            (Goals.managerId eq managerId) and (Goals.subordinateId inList subordinateIds)
+        }
+
+    private suspend fun activeCountsBy(
+        keyColumn: Column<EntityID<UInt>>,
+        scope: () -> Op<Boolean>,
+    ): Map<UInt, Int> = suspendTransaction(database) {
+        val count = Goals.id.count()
+        Goals.select(keyColumn, count)
+            .where { scope() and (Goals.status eq GoalStatus.ACTIVE) and active() }
+            .groupBy(keyColumn)
+            .map { it[keyColumn].value to it[count].toInt() }
+            .toList()
+            .toMap()
     }
 
     /** True iff [subordinateId] is currently a member of a non-deleted team [managerId] manages. */

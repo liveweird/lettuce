@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.18.1",
+    date: "2026-07-26",
+    en: `The manager and subordinate cards on the Dashboard now show *Active goals* — the number of currently active goals between you and that person (goals they set for you on the *My managers* tab, goals you set for them on *My subordinates*), next to the existing *Last 1:1* and *Last feedback* stats.`,
+    pl: `Karty menedżerów i podwładnych na Pulpicie pokazują teraz *Aktywne cele* — liczbę aktualnie aktywnych celów między Tobą a daną osobą (cele wyznaczone Tobie na zakładce *Moi menedżerowie*, cele wyznaczone przez Ciebie na *Moich podwładnych*), obok dotychczasowych statystyk *Ostatnie 1:1* i *Ostatni feedback*.`,
+  },
+  {
     version: "1.18.0",
     date: "2026-07-26",
     en: `A new *My goals* entry in the left menu opens all the goals your managers set for you — across every manager — in one list, with a *Manager* column (sortable and filterable) showing who each goal comes from. Opening a goal from a notification now also returns you to *My goals* instead of the dashboard.`,
