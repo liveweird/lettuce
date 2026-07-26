@@ -16,7 +16,7 @@ import EmptyState from "../components/EmptyState";
 import FilterPanel from "../components/FilterPanel";
 import GoalStatusBadge from "../components/GoalStatusBadge";
 import PaginationBar from "../components/PaginationBar";
-import PersonaChip from "../components/PersonaChip";
+import PersonCell from "../components/PersonCell";
 import SortHeader from "../components/SortHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
 import { usePagedSort } from "../hooks/usePagedSort";
@@ -28,33 +28,64 @@ import {
   formatTimestamp,
   type CreatedWindow,
 } from "../utils/datetime";
-import { AchievedBadge, formatGoalValue } from "../utils/goalValues";
-import { feedbackPartyName } from "../utils/userDisplay";
+import { goalEditLink, goalViewLink } from "../utils/goalLinks";
+import { formatGoalValue, GoalCurrentValue } from "../utils/goalValues";
 
-const SORT_FIELDS = [
-  "title",
-  "managerName",
-  "createdAt",
-  "status",
-  "targetValue",
-  "currentValue",
-] as const;
-type SortField = (typeof SORT_FIELDS)[number];
+const BASE_SORT_FIELDS = ["title", "createdAt", "status", "targetValue", "currentValue"] as const;
+type SortField = (typeof BASE_SORT_FIELDS)[number] | "managerName" | "subordinateName";
 
 const CREATED_WINDOWS = ["all", "month", "sixMonths"] as const;
 const STATUS_VALUES = ["DRAFT", "ACTIVE", "CLOSED"] as const;
 
-// The BINARY current-value cell is the achieved pill; the numeric types show their numbers.
-function CurrentCell({ goal, locale }: { goal: GoalListItem; locale: string }) {
-  if (goal.type === "BINARY") return <AchievedBadge achieved={goal.achieved === true} />;
-  return <>{formatGoalValue(goal.type, goal.currentValue, locale)}</>;
-}
+// The one filterable + sortable person column a goals view shows (the OneOnOneTable idiom):
+// whose goals these are is pinned by the embedding page, so the *other* party is the column.
+type PersonColumn = {
+  field: "managerName" | "subordinateName";
+  labelKey: string;
+  clearFilterLabelKey: string;
+  /** localStorage atom under the view's settings namespace. */
+  storageAtom: string;
+  id: (g: GoalListItem) => number;
+  name: (g: GoalListItem) => string;
+  deleted: (g: GoalListItem) => boolean;
+};
+
+const MANAGER_COLUMN: PersonColumn = {
+  field: "managerName",
+  labelKey: "goal.manager",
+  clearFilterLabelKey: "goal.clearManagerFilter",
+  storageAtom: "filter.manager",
+  id: (g) => g.managerId,
+  name: (g) => g.managerName,
+  deleted: (g) => g.managerDeleted,
+};
+
+const SUBORDINATE_COLUMN: PersonColumn = {
+  field: "subordinateName",
+  labelKey: "goal.subordinate",
+  clearFilterLabelKey: "goal.clearSubordinateFilter",
+  storageAtom: "filter.subordinate",
+  id: (g) => g.subordinateId,
+  name: (g) => g.subordinateName,
+  deleted: (g) => g.subordinateDeleted,
+};
+
+// Per-view differences, declaratively (the OneOnOneTable/FeedbackTable shape): which person
+// column the view shows — own = who set the goal, managed/team = whose goal it is / who set it.
+// The row action is NOT per-view: at any view the goal's manager edits DRAFT/ACTIVE rows and
+// everyone else views (the server enforces the same rule).
+const VIEW_CONFIG: Record<GoalListView, { personColumn: PersonColumn }> = {
+  own: { personColumn: MANAGER_COLUMN },
+  managed: { personColumn: SUBORDINATE_COLUMN },
+  team: { personColumn: MANAGER_COLUMN },
+};
 
 /**
- * The goals list — filters (title substring, creation window, status), sortable columns, paging.
- * Reusable across the caller-relative views like OneOnOneTable; today only `own` is exercised
- * (the per-manager drill-down pins `managerId`, so no person column is rendered yet — the
- * managed/team configurations arrive with the /goals tabs).
+ * The goals list — filters (title substring, person substring, creation window, status),
+ * sortable columns, paging. Reusable across the caller-relative views like OneOnOneTable;
+ * exercised today by MyGoals (`own`, unpinned) and the /users/:id/goals drill-downs (`own`
+ * pinned by managerId, `managed` pinned by subordinateId). The person column hides when its
+ * party is pinned — the embedding page already names that person in its title.
  */
 export default function GoalTable({
   view,
@@ -75,16 +106,20 @@ export default function GoalTable({
 }) {
   const { t, i18n } = useTranslation();
   const currentUserId = getUserId();
-  const backParam = backTo ? `&back=${encodeURIComponent(backTo)}` : "";
-  // The cross-manager "My goals" list must show who set each goal; the drill-downs pin a party
-  // and keep the compact shape.
-  const showManager = view === "own" && managerId == null;
-  const columnCount = (showManager ? 7 : 6); // title (+ manager) + created + status + target + current + actions
+  const { personColumn } = VIEW_CONFIG[view];
+  const personPinned =
+    (personColumn.field === "managerName" && managerId != null) ||
+    (personColumn.field === "subordinateName" && subordinateId != null);
+  const showPerson = !personPinned;
+  const sortFields: readonly SortField[] = showPerson
+    ? [...BASE_SORT_FIELDS, personColumn.field]
+    : BASE_SORT_FIELDS;
+  const columnCount = sortFields.length + 1; // sortable columns + the actions column
 
   const storeKey = settingsKey ?? `goals.${view}`;
   const [titleFilter, setTitleFilter] = useStoredState(`${storeKey}.filter.title`, "", isString);
-  const [managerFilter, setManagerFilter] = useStoredState(
-    `${storeKey}.filter.manager`, "", isString,
+  const [personFilter, setPersonFilter] = useStoredState(
+    `${storeKey}.${personColumn.storageAtom}`, "", isString,
   );
   const [createdWindow, setCreatedWindow] = useStoredState<CreatedWindow>(
     `${storeKey}.filter.createdWindow`, "all", isOneOf(CREATED_WINDOWS),
@@ -94,18 +129,18 @@ export default function GoalTable({
   );
   const activeFilterCount =
     (titleFilter.trim() ? 1 : 0) +
-    (showManager && managerFilter.trim() ? 1 : 0) +
+    (showPerson && personFilter.trim() ? 1 : 0) +
     (createdWindow !== "all" ? 1 : 0) +
     (statusFilter ? 1 : 0);
 
   const [debouncedTitle] = useDebouncedValue(titleFilter, 300);
-  const [debouncedManager] = useDebouncedValue(managerFilter, 300);
+  const [debouncedPerson] = useDebouncedValue(personFilter, 300);
 
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
     usePagedSort<SortField>(
       "createdAt",
-      [debouncedTitle, debouncedManager, createdWindow, statusFilter],
-      { key: storeKey, sortFields: SORT_FIELDS },
+      [debouncedTitle, debouncedPerson, createdWindow, statusFilter],
+      { key: storeKey, sortFields },
       "desc", // newest goals first (the server's default order)
     );
 
@@ -119,7 +154,7 @@ export default function GoalTable({
       pageSize,
       sortParam,
       debouncedTitle,
-      debouncedManager,
+      debouncedPerson,
       createdWindow,
       statusFilter,
     ],
@@ -130,7 +165,10 @@ export default function GoalTable({
         pageSize,
         sort: sortParam,
         title: debouncedTitle || undefined,
-        managerName: (showManager && debouncedManager) || undefined,
+        managerName:
+          (showPerson && personColumn.field === "managerName" && debouncedPerson) || undefined,
+        subordinateName:
+          (showPerson && personColumn.field === "subordinateName" && debouncedPerson) || undefined,
         status: statusFilter ?? undefined,
         managerId,
         subordinateId,
@@ -150,12 +188,12 @@ export default function GoalTable({
           onChange={setTitleFilter}
           clearLabel={t("goal.clearTitleFilter")}
         />
-        {showManager && (
+        {showPerson && (
           <ClearableTextInput
-            label={t("goal.manager")}
-            value={managerFilter}
-            onChange={setManagerFilter}
-            clearLabel={t("goal.clearManagerFilter")}
+            label={t(personColumn.labelKey)}
+            value={personFilter}
+            onChange={setPersonFilter}
+            clearLabel={t(personColumn.clearFilterLabelKey)}
           />
         )}
         <Select
@@ -197,11 +235,11 @@ export default function GoalTable({
                 onToggle={toggleSort}
               />
             </Table.Th>
-            {showManager && (
+            {showPerson && (
               <Table.Th>
                 <SortHeader
-                  field="managerName"
-                  label={t("goal.manager")}
+                  field={personColumn.field}
+                  label={t(personColumn.labelKey)}
                   activeField={sortField}
                   activeDir={sortDir}
                   onToggle={toggleSort}
@@ -256,6 +294,7 @@ export default function GoalTable({
                 currentUserId != null &&
                 g.managerId === currentUserId &&
                 (g.status === "DRAFT" || g.status === "ACTIVE");
+              const backParam = backTo || undefined;
               return (
                 <Table.Tr key={g.id}>
                   <Table.Td>
@@ -263,15 +302,14 @@ export default function GoalTable({
                       {g.title}
                     </Text>
                   </Table.Td>
-                  {showManager && (
+                  {showPerson && (
                     <Table.Td>
-                      {g.managerDeleted ? (
-                        <Text size="sm">
-                          {feedbackPartyName(g.managerId, g.managerName, true, currentUserId, t)}
-                        </Text>
-                      ) : (
-                        <PersonaChip name={g.managerName} />
-                      )}
+                      <PersonCell
+                        userId={personColumn.id(g)}
+                        name={personColumn.name(g)}
+                        deleted={personColumn.deleted(g)}
+                        currentUserId={currentUserId}
+                      />
                     </Table.Td>
                   )}
                   <Table.Td style={{ whiteSpace: "nowrap" }} title={formatTimestamp(g.createdAt)}>
@@ -284,13 +322,18 @@ export default function GoalTable({
                     {formatGoalValue(g.type, g.targetValue, i18n.language)}
                   </Table.Td>
                   <Table.Td style={{ whiteSpace: "nowrap" }}>
-                    <CurrentCell goal={g} locale={i18n.language} />
+                    <GoalCurrentValue
+                      type={g.type}
+                      currentValue={g.currentValue}
+                      achieved={g.achieved}
+                      locale={i18n.language}
+                    />
                   </Table.Td>
                   <Table.Td>
                     {canEdit ? (
                       <Button
                         component={RouterLink}
-                        to={`/goals/${g.id}/edit?from=${view}${backParam}`}
+                        to={goalEditLink(g.id, view, backParam)}
                         color="blue"
                         variant="subtle"
                         size="xs"
@@ -302,7 +345,7 @@ export default function GoalTable({
                     ) : (
                       <Button
                         component={RouterLink}
-                        to={`/goals/${g.id}/view?from=${view}${backParam}`}
+                        to={goalViewLink(g.id, view, backParam)}
                         color="blue"
                         variant="subtle"
                         size="xs"

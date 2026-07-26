@@ -43,6 +43,7 @@
   "editProgressTitle": "Zaktualizuj postęp",
   "manager": "Menedżer",
   "subordinate": "Członek zespołu",
+  "clearSubordinateFilter": "Wyczyść filtr członka zespołu",
   "description": "Opis",
   "summary": "Podsumowanie",
   "achieved": "Osiągnięty",

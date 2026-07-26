@@ -586,6 +586,7 @@ type GoalListQuery = {
   sort?: string;
   title?: string;
   managerName?: string;
+  subordinateName?: string;
   status?: GoalStatus;
   type?: GoalType;
   managerId?: number;
@@ -603,6 +604,7 @@ export async function listGoals(q: GoalListQuery): Promise<GoalPage> {
   if (q.sort) params.set("sort", q.sort);
   if (q.title) params.set("title", q.title);
   if (q.managerName) params.set("managerName", q.managerName);
+  if (q.subordinateName) params.set("subordinateName", q.subordinateName);
   if (q.status) params.set("status", q.status);
   if (q.type) params.set("type", q.type);
   if (q.managerId != null) params.set("managerId", String(q.managerId));

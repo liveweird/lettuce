@@ -85,11 +85,13 @@ export function lastModifiedOptions(t: (key: string) => string) {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// Rolling lower bound, recomputed per call so windows always track "now".
+const daysAgo = (days: number) => Date.now() - days * DAY_MS;
+
 // Epoch-millis lower bound for the window, or undefined for "all".
-// Rolling windows, recomputed per call so they always track "now".
 export function lastModifiedCutoff(w: LastModifiedWindow): number | undefined {
-  if (w === "week") return Date.now() - 7 * DAY_MS;
-  if (w === "month") return Date.now() - 30 * DAY_MS;
+  if (w === "week") return daysAgo(7);
+  if (w === "month") return daysAgo(30);
   return undefined;
 }
 
@@ -106,7 +108,7 @@ export function createdWindowOptions(t: (key: string) => string) {
 }
 
 export function createdWindowCutoff(w: CreatedWindow): number | undefined {
-  if (w === "month") return Date.now() - 30 * DAY_MS;
-  if (w === "sixMonths") return Date.now() - 182 * DAY_MS;
+  if (w === "month") return daysAgo(30);
+  if (w === "sixMonths") return daysAgo(182);
   return undefined;
 }

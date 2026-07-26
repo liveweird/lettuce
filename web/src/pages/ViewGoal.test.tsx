@@ -155,6 +155,30 @@ describe("ViewGoal page", () => {
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/users/7/goals"));
   });
 
+  test("a running action spins only its own button, not its ACTIVE sibling", async () => {
+    localStorage.setItem(USER_ID_KEY, "7");
+    setupMocks();
+    // Keep the deactivate POST pending so the in-flight state is observable.
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      const u = String(url);
+      const method = init?.method ?? "GET";
+      if (method === "POST") return new Promise<Response>(() => {});
+      if (u.includes("/events")) return Promise.resolve(jsonResponse(200, { items: [] }));
+      if (u.includes("/api/v1/goals/5")) return Promise.resolve(jsonResponse(200, GOAL));
+      return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }));
+    });
+    const user = userEvent.setup();
+    renderScreen();
+
+    await user.click(await screen.findByRole("button", { name: /return to draft/i }));
+
+    const deactivate = screen.getByRole("button", { name: /return to draft/i });
+    const close = screen.getByRole("button", { name: /close goal/i });
+    await waitFor(() => expect(deactivate).toHaveAttribute("data-loading", "true"));
+    expect(close).not.toHaveAttribute("data-loading");
+    expect(close).toBeDisabled(); // still blocked from double-firing, just not spinning
+  });
+
   test("closing requires a summary in the modal and posts it", async () => {
     localStorage.setItem(USER_ID_KEY, "7");
     setupMocks();

@@ -43,6 +43,7 @@
   "editProgressTitle": "Update progress",
   "manager": "Manager",
   "subordinate": "Team member",
+  "clearSubordinateFilter": "Clear team member filter",
   "description": "Description",
   "summary": "Summary",
   "achieved": "Achieved",

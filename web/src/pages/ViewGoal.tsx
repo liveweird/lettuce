@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link as RouterLink, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Alert,
-  Box,
   Button,
   Center,
   Container,
@@ -10,7 +9,6 @@ import {
   Input,
   Loader,
   Paper,
-  Progress,
   Stack,
   Tabs,
   Text,
@@ -27,7 +25,6 @@ import {
   getGoal,
   getUserId,
   reopenGoal,
-  type GoalResponse,
   type GoalStatus,
 } from "../api/client";
 import GoalCloseModal from "../components/GoalCloseModal";
@@ -35,8 +32,12 @@ import GoalHistory from "../components/GoalHistory";
 import GoalStatusBadge from "../components/GoalStatusBadge";
 import MarkdownView from "../components/MarkdownView";
 import PersonaField from "../components/PersonaField";
+import ProseBox from "../components/ProseBox";
+import ReadOnlyField from "../components/ReadOnlyField";
 import { formatDate } from "../utils/datetime";
-import { AchievedBadge, formatGoalValue } from "../utils/goalValues";
+import { goalEditLink } from "../utils/goalLinks";
+import { invalidateGoal } from "../utils/goalQueries";
+import { GoalValues } from "../utils/goalValues";
 
 // The manager's lifecycle actions per status. The view screen is their single home — CLOSED
 // goals have no edit form, so Reopen could live nowhere else, and keeping all four here means
@@ -51,72 +52,6 @@ const ACTIONS: Record<GoalStatus, { labelKey: string; run?: (id: number) => Prom
   CLOSED: [{ labelKey: "goal.action.reopen", run: reopenGoal, primary: true }],
 };
 
-// The bordered read-only prose box (the ViewTemplate/ViewFeedback shell).
-function ProseBox({ children }: { children: React.ReactNode }) {
-  return (
-    <Box
-      style={{
-        border: "1px solid var(--mantine-color-default-border)",
-        borderRadius: "var(--mantine-radius-default)",
-        padding: "var(--mantine-spacing-sm)",
-        minHeight: "calc(3lh + 2 * var(--mantine-spacing-sm))",
-        overflow: "auto",
-      }}
-    >
-      {children}
-    </Box>
-  );
-}
-
-// The type-specific value block: a progress bar for PERCENTAGE, two labeled numbers for
-// NUMBER, the achieved pill for BINARY.
-function GoalValues({ goal, locale }: { goal: GoalResponse; locale: string }) {
-  const { t } = useTranslation();
-  if (goal.type === "BINARY") {
-    return (
-      <Input.Wrapper label={t("goal.current")}>
-        <Box mih={36} display="flex" style={{ alignItems: "center" }}>
-          <AchievedBadge achieved={goal.achieved === true} />
-        </Box>
-      </Input.Wrapper>
-    );
-  }
-  const target = formatGoalValue(goal.type, goal.targetValue, locale);
-  const current = formatGoalValue(goal.type, goal.currentValue, locale);
-  return (
-    <Stack gap="xs">
-      <Group gap="xl">
-        <Input.Wrapper label={t("goal.target")}>
-          <Box mih={36} display="flex" style={{ alignItems: "center" }}>
-            <Text size="sm">{target}</Text>
-          </Box>
-        </Input.Wrapper>
-        <Input.Wrapper label={t("goal.current")}>
-          <Box mih={36} display="flex" style={{ alignItems: "center" }}>
-            <Text size="sm">{current}</Text>
-          </Box>
-        </Input.Wrapper>
-      </Group>
-      {goal.type === "PERCENTAGE" && (
-        <>
-          <Progress
-            value={goal.currentValue ?? 0}
-            color={
-              goal.targetValue != null && (goal.currentValue ?? 0) >= goal.targetValue
-                ? "green"
-                : "lettuce"
-            }
-            aria-label={t("goal.current")}
-          />
-          <Text size="sm" c="dimmed">
-            {t("goal.currentOfTarget", { current, target })}
-          </Text>
-        </>
-      )}
-    </Stack>
-  );
-}
-
 /** The goal document: read-only for everyone, plus the manager's lifecycle actions. */
 export default function ViewGoal() {
   const { t, i18n } = useTranslation();
@@ -129,7 +64,9 @@ export default function ViewGoal() {
   // Bare visits (e.g. a notification link) fall back to the "My goals" page; drill-down flows
   // pass an explicit `back` override, which always wins.
   const backTo = backOverride ?? "/goals";
-  const [submitting, setSubmitting] = useState(false);
+  // Which action is in flight (its labelKey) — per-action, so on ACTIVE clicking Return-to-draft
+  // spins only that button, not Close (the EditGoal/FeedbackForm idiom).
+  const [submitting, setSubmitting] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [closeOpened, setCloseOpened] = useState(false);
 
@@ -155,15 +92,12 @@ export default function ViewGoal() {
         ? t("goal.error.viewPermission")
         : t("goal.error.loadFailed");
 
-  async function runAction(run: (id: number) => Promise<void>) {
-    setSubmitting(true);
+  async function runAction(actionKey: string, run: (id: number) => Promise<void>) {
+    setSubmitting(actionKey);
     setActionError(null);
     try {
       await run(id);
-      await queryClient.invalidateQueries({ queryKey: ["goals"] });
-      await queryClient.invalidateQueries({ queryKey: ["goal", id] });
-      queryClient.invalidateQueries({ queryKey: ["goalEvents", id] });
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      await invalidateGoal(queryClient, id);
       navigate(backTo, { replace: true });
     } catch (err) {
       setActionError(
@@ -173,12 +107,12 @@ export default function ViewGoal() {
             ? t("goal.error.savePermission")
             : t("goal.error.updateFailed"),
       );
-      setSubmitting(false);
+      setSubmitting(null);
       setCloseOpened(false);
     }
   }
 
-  const editSearch = `?from=${from}${backOverride ? `&back=${encodeURIComponent(backOverride)}` : ""}`;
+  const editLink = goalEditLink(id, from, backOverride ?? undefined);
 
   return (
     <Container size="md" px={0}>
@@ -201,25 +135,20 @@ export default function ViewGoal() {
               <Group gap="xl">
                 <PersonaField
                   label={t("goal.manager")}
-                  name={data.managerName ?? undefined}
+                  name={data.managerName}
                   you={currentUserId === data.managerId}
                 />
                 <PersonaField
                   label={t("goal.subordinate")}
-                  name={data.subordinateName ?? undefined}
+                  name={data.subordinateName}
                   you={currentUserId === data.subordinateId}
                 />
-                {/* Same shell as PersonaField so the header columns stay flush. */}
-                <Input.Wrapper label={t("goal.type.label")}>
-                  <Box mih={36} display="flex" style={{ alignItems: "center" }}>
-                    <Text size="sm">{t(`goal.type.${data.type}`)}</Text>
-                  </Box>
-                </Input.Wrapper>
-                <Input.Wrapper label={t("goal.createdAt")}>
-                  <Box mih={36} display="flex" style={{ alignItems: "center" }}>
-                    <Text size="sm">{formatDate(data.createdAt, i18n.language)}</Text>
-                  </Box>
-                </Input.Wrapper>
+                <ReadOnlyField label={t("goal.type.label")}>
+                  <Text size="sm">{t(`goal.type.${data.type}`)}</Text>
+                </ReadOnlyField>
+                <ReadOnlyField label={t("goal.createdAt")}>
+                  <Text size="sm">{formatDate(data.createdAt, i18n.language)}</Text>
+                </ReadOnlyField>
               </Group>
 
               <Tabs defaultValue="content" keepMounted={false}>
@@ -267,16 +196,16 @@ export default function ViewGoal() {
           )}
 
           <Group justify="flex-end" gap="sm">
-            <Button component={RouterLink} to={backTo} variant="default" disabled={submitting}>
+            <Button component={RouterLink} to={backTo} variant="default" disabled={submitting != null}>
               {t("common.action.close")}
             </Button>
             {isManager && data && (data.status === "DRAFT" || data.status === "ACTIVE") && (
               <Button
                 component={RouterLink}
-                to={`/goals/${id}/edit${editSearch}`}
+                to={editLink}
                 variant="light"
                 leftSection={<IconPencil size={16} />}
-                disabled={submitting}
+                disabled={submitting != null}
               >
                 {t("common.action.edit")}
               </Button>
@@ -287,13 +216,13 @@ export default function ViewGoal() {
                 <Button
                   key={action.labelKey}
                   variant={action.primary ? "filled" : "light"}
-                  loading={submitting && !closeOpened}
-                  disabled={submitting}
+                  loading={submitting === action.labelKey && !closeOpened}
+                  disabled={submitting != null}
                   onClick={() => {
                     if (action.close) {
                       setCloseOpened(true);
                     } else if (action.run) {
-                      void runAction(action.run);
+                      void runAction(action.labelKey, action.run);
                     }
                   }}
                 >
@@ -307,8 +236,10 @@ export default function ViewGoal() {
       <GoalCloseModal
         opened={closeOpened}
         onClose={() => setCloseOpened(false)}
-        loading={submitting}
-        onConfirm={(summary) => void runAction((goalId) => closeGoal(goalId, { summary }))}
+        loading={submitting != null}
+        onConfirm={(summary) =>
+          void runAction("goal.action.close", (goalId) => closeGoal(goalId, { summary }))
+        }
       />
     </Container>
   );

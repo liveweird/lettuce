@@ -18,6 +18,7 @@ import { createOneOnOne, listTeamMembers } from "../api/client";
 import PersonaField from "../components/PersonaField";
 import { todayIsoDate } from "../utils/datetime";
 import { oneOnOneSaveErrorMessage } from "../utils/oneOnOneForm";
+import { invalidateOneOnOne } from "../utils/oneOnOneQueries";
 
 const BACK_TO = "/one-on-ones?tab=managed";
 
@@ -84,9 +85,8 @@ export default function CreateOneOnOne() {
         decisions: [],
         actionItems: [],
       });
-      await queryClient.invalidateQueries({ queryKey: ["oneOnOnes"] });
-      // Creation notifies the subordinate — refresh the bell badge.
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      // Creation notifies the subordinate and moves the cards' "Last 1:1" stat.
+      await invalidateOneOnOne(queryClient);
       // Carry the origin (if any) into the edit screen so its Close returns to the card/drill-down
       // this create was launched from, not the generic managed list.
       const editUrl = backParam

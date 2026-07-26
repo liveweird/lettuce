@@ -35,6 +35,7 @@ import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOf, isString, isStringOrNull, useStoredState } from "../hooks/useStoredState";
 import { feedbackAskLink, feedbackProvideLink, feedbackRequestLink, userFeedbacksLink } from "../utils/feedbackLinks";
+import { userGoalsLink } from "../utils/goalLinks";
 import { oneOnOneCreateLink } from "../utils/oneOnOneLinks";
 import { groupTeamRows } from "../utils/teamRows";
 
@@ -298,7 +299,7 @@ export default function TeamMembersTable({
                     // Same direct-only gate: goals are set for direct reports, like 1:1s.
                     <Button
                       component={RouterLink}
-                      to={`/users/${m.userId}/goals?name=${encodeURIComponent(m.name)}&from=subordinates`}
+                      to={userGoalsLink(m.userId, m.name, "subordinates")}
                       variant="subtle"
                       size="xs"
                       leftSection={<IconTargetArrow size={14} />}

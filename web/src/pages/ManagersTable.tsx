@@ -15,6 +15,7 @@ import EmptyState from "../components/EmptyState";
 import PersonCard from "../components/PersonCard";
 import PersonCardStats from "../components/PersonCardStats";
 import { feedbackAskLink, feedbackProvideLink, userFeedbacksLink } from "../utils/feedbackLinks";
+import { userGoalsLink } from "../utils/goalLinks";
 import { groupTeamRows } from "../utils/teamRows";
 
 // The dashboard "My managers" view: a person-card grid (not a table) — typically 1–3 people,
@@ -101,7 +102,7 @@ export default function ManagersTable() {
                   </Button>
                   <Button
                     component={RouterLink}
-                    to={`/users/${m.userId}/goals?name=${encodeURIComponent(m.name)}&from=managers`}
+                    to={userGoalsLink(m.userId, m.name, "managers")}
                     variant="subtle"
                     size="xs"
                     leftSection={<IconTargetArrow size={14} />}

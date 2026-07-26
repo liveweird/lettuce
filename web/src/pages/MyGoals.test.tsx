@@ -70,13 +70,11 @@ describe("MyGoals page", () => {
     });
   });
 
-  test("row links return to /goals", async () => {
+  test("row links carry no back override — the detail pages already default to /goals", async () => {
     renderWithProviders(<MyGoals />);
 
     const view = await screen.findByRole("link", { name: "View goal Ship four reports" });
-    expect(view).toHaveAttribute(
-      "href",
-      expect.stringContaining(`back=${encodeURIComponent("/goals")}`),
-    );
+    expect(view).toHaveAttribute("href", expect.stringContaining("from=own"));
+    expect(view.getAttribute("href")).not.toContain("back=");
   });
 });

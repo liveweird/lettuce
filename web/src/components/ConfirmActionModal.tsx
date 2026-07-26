@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link as RouterLink } from "react-router-dom";
-import { Button, Group, Modal, Stack, Text } from "@mantine/core";
+import { Button, Group, Modal, Stack, Text, type MantineColor } from "@mantine/core";
 
 // The shared confirm-before-acting modal (discard, reject, delete, withdraw, …): a message
 // plus a neutral cancel and a red confirm (`confirmColor` overrides the red for the rare
@@ -31,7 +31,7 @@ export default function ConfirmActionModal({
   onConfirm?: () => void;
   confirmTo?: string;
   loading?: boolean;
-  confirmColor?: string;
+  confirmColor?: MantineColor;
 }) {
   return (
     <Modal
