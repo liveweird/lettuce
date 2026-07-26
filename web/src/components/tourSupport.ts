@@ -69,14 +69,18 @@ export const TOUR_STEPS: TourStepDef[] = [
   { target: '[data-tour="config-users"]', contentKey: "tour.steps.configUsers", placement: "bottom", navTo: "/users" },
   { target: '[data-tour="config-teams"]', contentKey: "tour.steps.configTeams", placement: "bottom", navTo: "/teams" },
   { target: '[data-tour="config-templates"]', contentKey: "tour.steps.configTemplates", placement: "bottom", navTo: "/templates" },
+  // The remaining left-menu leaves — each anchors on the navbar leaf but also opens the actual
+  // screen behind it. The whole left menu is toured before the header icons below.
+  { target: '[data-tour="nav-self-reflection"]', contentKey: "tour.steps.selfReflection", placement: "right", navTo: "/feedback/self" },
+  { target: '[data-tour="nav-change-password"]', contentKey: "tour.steps.account", placement: "right", navTo: "/users/:userId/change-password" },
+  // Opening /changelog marks the "what's new" dot as seen — coherent: the user just saw it.
+  { target: '[data-tour="nav-changelog"]', contentKey: "tour.steps.changelog", placement: "right", navTo: "/changelog" },
+  // The header chrome, left to right.
   { target: '[data-tour="notifications"]', contentKey: "tour.steps.notifications", placement: "bottom" },
   { target: '[data-tour="language"]', contentKey: "tour.steps.language", placement: "bottom" },
   { target: '[data-tour="theme"]', contentKey: "tour.steps.theme", placement: "bottom" },
-  // These two anchor on the navbar leaf but also open the actual screen behind it.
-  { target: '[data-tour="nav-self-reflection"]', contentKey: "tour.steps.selfReflection", placement: "right", navTo: "/feedback/self" },
-  { target: '[data-tour="nav-change-password"]', contentKey: "tour.steps.account", placement: "right", navTo: "/users/:userId/change-password" },
   { target: '[data-tour="logout"]', contentKey: "tour.steps.logout", placement: "bottom" },
-  // The closing step returns home, so the tour doesn't park the user on the change-password form.
+  // The closing step returns home, so the tour doesn't park the user on the changelog page.
   { target: '[data-tour="replay"]', contentKey: "tour.steps.replay", placement: "bottom", navTo: "/" },
 ];
 
