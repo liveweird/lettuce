@@ -67,6 +67,16 @@ export default function PersonCardStats({ person }: { person: PersonCardData }) 
       <StatRow label={t("users.lastFeedback")}>
         <TimeStat at={person.lastFeedbackAt} />
       </StatRow>
+      <StatRow label={t("users.activeGoals")}>
+        <Badge
+          size="sm"
+          variant="light"
+          color={(person.activeGoalCount ?? 0) > 0 ? "green" : "gray"}
+          style={{ minWidth: "max-content" }}
+        >
+          {person.activeGoalCount ?? 0}
+        </Badge>
+      </StatRow>
     </Stack>
   );
 }

@@ -14,6 +14,7 @@ export type TeamRow = {
   lastFeedbackAt?: number | null;
   lastFeedbackGivenAt?: number | null;
   lastFeedbackReceivedAt?: number | null;
+  activeGoalCount?: number | null;
 };
 
 export type PersonCard = {
@@ -26,6 +27,7 @@ export type PersonCard = {
   lastFeedbackAt: number | null;
   lastFeedbackGivenAt: number | null;
   lastFeedbackReceivedAt: number | null;
+  activeGoalCount: number | null;
 };
 
 export function groupTeamRows(rows: TeamRow[]): PersonCard[] {
@@ -47,6 +49,7 @@ export function groupTeamRows(rows: TeamRow[]): PersonCard[] {
         lastFeedbackAt: r.lastFeedbackAt ?? null,
         lastFeedbackGivenAt: r.lastFeedbackGivenAt ?? null,
         lastFeedbackReceivedAt: r.lastFeedbackReceivedAt ?? null,
+        activeGoalCount: r.activeGoalCount ?? null,
       });
     }
   }

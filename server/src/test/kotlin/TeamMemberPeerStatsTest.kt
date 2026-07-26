@@ -99,6 +99,7 @@ class TeamMemberPeerStatsTest {
         assertNull(peer.lastOneOnOneDate)
         assertNull(peer.lastOneOnOneOpenItems)
         assertNull(peer.lastFeedbackAt)
+        assertNull(peer.activeGoalCount) // peers have no goal relationship — null, never 0
 
         // Feedback that populates the directional views' lastFeedbackAt must never bleed
         // into the member-only given/received pair.
