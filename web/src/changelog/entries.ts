@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.18.6",
+    date: "2026-07-26",
+    en: `Polish under the hood: the Dashboard's *Active goals* and *Last 1:1* card stats now refresh immediately after you change a goal or 1:1 meeting (no page reload needed); on a goal's page each action button shows its own progress spinner; and goal lists show plain *You* instead of your own avatar chip.`,
+    pl: `Szlify pod maską: statystyki *Aktywne cele* i *Ostatnie 1:1* na kartach Pulpitu odświeżają się teraz natychmiast po zmianie celu lub spotkania 1:1 (bez przeładowania strony); na stronie celu każdy przycisk akcji pokazuje własny wskaźnik postępu; a listy celów pokazują zwykłe *Ty* zamiast Twojego własnego awatara.`,
+  },
+  {
     version: "1.18.5",
     date: "2026-07-26",
     en: `The guided tour now walks the whole left menu first — including a new step for the *Changelog* page — and only then the top-right header icons (notifications, language, theme).`,

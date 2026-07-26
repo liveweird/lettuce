@@ -37,6 +37,7 @@ import {
   toUpdateBody,
   type OneOnOneFormValues,
 } from "../utils/oneOnOneForm";
+import { invalidateOneOnOne } from "../utils/oneOnOneQueries";
 
 export default function EditOneOnOne() {
   const { t } = useTranslation();
@@ -108,9 +109,7 @@ export default function EditOneOnOne() {
     setSubmitting(true);
     try {
       await updateOneOnOne(id, toUpdateBody(values));
-      await queryClient.invalidateQueries({ queryKey: ["oneOnOnes"] });
-      await queryClient.invalidateQueries({ queryKey: ["oneOnOne", id] });
-      queryClient.invalidateQueries({ queryKey: ["oneOnOneEvents", id] });
+      await invalidateOneOnOne(queryClient, id);
       navigate(backTo, { replace: true });
     } catch (err) {
       setError(oneOnOneSaveErrorMessage(err, t));
@@ -123,7 +122,7 @@ export default function EditOneOnOne() {
     setDeleting(true);
     try {
       await deleteOneOnOne(id);
-      await queryClient.invalidateQueries({ queryKey: ["oneOnOnes"] });
+      await invalidateOneOnOne(queryClient);
       queryClient.removeQueries({ queryKey: ["oneOnOne", id] });
       navigate(backTo, { replace: true });
     } catch (err) {

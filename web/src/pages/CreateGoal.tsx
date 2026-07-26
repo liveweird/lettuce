@@ -1,37 +1,22 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import {
-  Alert,
-  Button,
-  Container,
-  Group,
-  NumberInput,
-  Paper,
-  Select,
-  Skeleton,
-  Stack,
-  Text,
-  TextInput,
-  Title,
-} from "@mantine/core";
+import { Alert, Button, Container, Group, Paper, Select, Stack, Text, Title } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { activateGoal, createGoal, listTeamMembers } from "../api/client";
 import ConfirmActionModal from "../components/ConfirmActionModal";
+import GoalDefinitionFields from "../components/GoalDefinitionFields";
 import PersonaField from "../components/PersonaField";
 import {
   goalDefinitionValidation,
-  MAX_GOAL_TEXT_LENGTH,
-  MAX_GOAL_TITLE_LENGTH,
   toDefinitionBody,
   type GoalDefinitionFormValues,
 } from "../utils/goalForm";
+import { invalidateGoal } from "../utils/goalQueries";
 import { saveErrorMessage } from "../utils/saveError";
-
-// ~0.5 MB of MDXEditor — loaded only when this create screen actually renders.
-const MarkdownEditor = lazy(() => import("../components/MarkdownEditor"));
+import { groupTeamRows } from "../utils/teamRows";
 
 // Default cancel target when no `back` param is present: the subordinates grid, the only
 // entry point that links here today.
@@ -82,14 +67,12 @@ export default function CreateGoal() {
     staleTime: 5 * 60 * 1000,
     enabled: !preselected,
   });
-  const options = useMemo(() => {
-    // The members list has one row per (user, team) — dedupe to one option per person.
-    const byId = new Map<number, string>();
-    for (const row of reports?.items ?? []) {
-      if (!byId.has(row.userId)) byId.set(row.userId, row.name);
-    }
-    return [...byId.entries()].map(([value, label]) => ({ value: String(value), label }));
-  }, [reports]);
+  const options = useMemo(
+    // The members list has one row per (user, team) — groupTeamRows dedupes to one per person.
+    () =>
+      groupTeamRows(reports?.items ?? []).map((p) => ({ value: String(p.userId), label: p.name })),
+    [reports],
+  );
 
   async function save(values: GoalDefinitionFormValues) {
     if (!subordinate) return;
@@ -128,8 +111,7 @@ export default function CreateGoal() {
     setActivating(true);
     try {
       await activateGoal(createdId);
-      await queryClient.invalidateQueries({ queryKey: ["goals"] });
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      await invalidateGoal(queryClient, createdId);
       navigate(backTo, { replace: true });
     } catch (err) {
       // The goal stays a DRAFT — close the prompt and surface the error on the form
@@ -178,50 +160,7 @@ export default function CreateGoal() {
               )}
             </Group>
 
-            <TextInput
-              label={t("goal.title")}
-              maxLength={MAX_GOAL_TITLE_LENGTH}
-              withAsterisk
-              {...form.getInputProps("title")}
-            />
-            <Stack gap={4}>
-              <Suspense fallback={<Skeleton height={220} radius="sm" />}>
-                <MarkdownEditor
-                  label={t("goal.description")}
-                  value={form.values.description}
-                  onChange={(md) => form.setFieldValue("description", md)}
-                  maxLength={MAX_GOAL_TEXT_LENGTH}
-                />
-              </Suspense>
-              {form.errors.description && (
-                <Text size="sm" c="red">
-                  {form.errors.description}
-                </Text>
-              )}
-            </Stack>
-            <Group gap="xl" align="flex-start">
-              <Select
-                label={t("goal.type.label")}
-                data={(["BINARY", "NUMBER", "PERCENTAGE"] as const).map((type) => ({
-                  value: type,
-                  label: t(`goal.type.${type}`),
-                }))}
-                allowDeselect={false}
-                w={200}
-                {...form.getInputProps("type")}
-              />
-              {form.values.type !== "BINARY" && (
-                <NumberInput
-                  label={t("goal.target")}
-                  withAsterisk
-                  w={200}
-                  min={form.values.type === "PERCENTAGE" ? 0 : undefined}
-                  max={form.values.type === "PERCENTAGE" ? 100 : undefined}
-                  suffix={form.values.type === "PERCENTAGE" ? "%" : undefined}
-                  {...form.getInputProps("targetValue")}
-                />
-              )}
-            </Group>
+            <GoalDefinitionFields form={form} />
 
             {error && (
               <Alert color="red" variant="light">

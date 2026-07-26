@@ -145,6 +145,45 @@ describe("GoalTable", () => {
     expect(url).toContain("view=managed");
     expect(url).toContain("subordinateId=7");
     expect(url).not.toContain("managerId=");
+    // Pinned party → no person column (the embedding page names them in its title).
+    expect(screen.queryByRole("button", { name: "Team member" })).toBeNull();
+  });
+
+  test("the unpinned managed view adds the Team member column and its filter", async () => {
+    localStorage.setItem(USER_ID_KEY, "10"); // the manager's own list
+    const user = userEvent.setup();
+    renderWithProviders(<GoalTable view="managed" settingsKey="goals.managed" />);
+    await screen.findByText("Ship four reports");
+
+    // Column: sortable header + the subordinate's chip cells.
+    expect(screen.getAllByText("Me").length).toBeGreaterThan(0);
+    await user.click(screen.getByRole("button", { name: "Team member" }));
+    await waitFor(() => {
+      expect(mockFetch.mock.calls.some(([u]) => String(u).includes("sort=subordinateName"))).toBe(
+        true,
+      );
+    });
+
+    // Filter: lands as subordinateName= in the query string.
+    await user.click(screen.getByRole("button", { name: /filters/i }));
+    await user.type(screen.getByLabelText("Team member"), "me");
+    await waitFor(() => {
+      expect(mockFetch.mock.calls.some(([u]) => String(u).includes("subordinateName=me"))).toBe(
+        true,
+      );
+    });
+  });
+
+  test("the person cell renders the viewer as plain You, not a chip", async () => {
+    // The caller (id 7) appears as the subordinate of every row — the managed unpinned view
+    // would never show self rows in practice, so probe via the own view with a self manager.
+    localStorage.setItem(USER_ID_KEY, "10"); // Alice herself viewing an own list
+    renderWithProviders(<GoalTable view="own" settingsKey="goals.own" />);
+    await screen.findByText("Ship four reports");
+
+    // Every manager cell is the viewer — plain "You", no avatar chip for self.
+    expect(screen.getAllByText("You").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Alice")).toBeNull();
   });
 
   test("the title, created-window, and status filters land in the query string and persist", async () => {

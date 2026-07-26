@@ -10,7 +10,6 @@ import ch.nokillswit.teams.directSubordinateIds
 import ch.nokillswit.teams.isInManagementChain
 import ch.nokillswit.teams.transitiveSubordinateIds
 import ch.nokillswit.users.UserService
-import io.ktor.server.plugins.BadRequestException
 import io.ktor.util.AttributeKey
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.singleOrNull
@@ -186,11 +185,11 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
                 .map { it.toGoalRow() }
                 .singleOrNull()
                 ?: return@suspendTransaction null
-            if (current.status != from || !isAllowedTransition(from, target)) {
+            // Each endpoint names a whole edge of the DRAFT <-> ACTIVE <-> CLOSED machine, so the
+            // from-status check alone gates it; the summary was validated by the route
+            // (validateGoalSummary) before the transaction.
+            if (current.status != from) {
                 throw ConflictException("Invalid status transition: ${current.status} -> $target")
-            }
-            if (target == GoalStatus.CLOSED && summary.isNullOrBlank()) {
-                throw BadRequestException("Closing a goal requires a summary")
             }
             Goals.update({ (Goals.id eq id) and (Goals.markedAsDeleted eq false) }) {
                 it[status] = target
@@ -297,9 +296,10 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
         subordinateId: UInt,
     ): Map<UInt, Int> =
         if (managerIds.isEmpty()) emptyMap()
-        else activeCountsBy(Goals.managerId) {
-            (Goals.managerId inList managerIds) and (Goals.subordinateId eq subordinateId)
-        }
+        else activeCountsBy(
+            Goals.managerId,
+            (Goals.managerId inList managerIds) and (Goals.subordinateId eq subordinateId),
+        )
 
     /** The "My subordinates" mirror of [activeGoalCountsByManager], keyed by subordinate. */
     suspend fun activeGoalCountsBySubordinate(
@@ -307,17 +307,18 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
         subordinateIds: Set<UInt>,
     ): Map<UInt, Int> =
         if (subordinateIds.isEmpty()) emptyMap()
-        else activeCountsBy(Goals.subordinateId) {
-            (Goals.managerId eq managerId) and (Goals.subordinateId inList subordinateIds)
-        }
+        else activeCountsBy(
+            Goals.subordinateId,
+            (Goals.managerId eq managerId) and (Goals.subordinateId inList subordinateIds),
+        )
 
     private suspend fun activeCountsBy(
         keyColumn: Column<EntityID<UInt>>,
-        scope: () -> Op<Boolean>,
+        scope: Op<Boolean>,
     ): Map<UInt, Int> = suspendTransaction(database) {
         val count = Goals.id.count()
         Goals.select(keyColumn, count)
-            .where { scope() and (Goals.status eq GoalStatus.ACTIVE) and active() }
+            .where { scope and (Goals.status eq GoalStatus.ACTIVE) and active() }
             .groupBy(keyColumn)
             .map { it[keyColumn].value to it[count].toInt() }
             .toList()
@@ -446,12 +447,4 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
         GoalType.NUMBER, GoalType.PERCENTAGE -> null
     }
 
-    // DRAFT <-> ACTIVE <-> CLOSED, both directions, never skipping ACTIVE.
-    private fun isAllowedTransition(from: GoalStatus, to: GoalStatus): Boolean = when (from to to) {
-        GoalStatus.DRAFT to GoalStatus.ACTIVE,
-        GoalStatus.ACTIVE to GoalStatus.DRAFT,
-        GoalStatus.ACTIVE to GoalStatus.CLOSED,
-        GoalStatus.CLOSED to GoalStatus.ACTIVE -> true
-        else -> false
-    }
 }

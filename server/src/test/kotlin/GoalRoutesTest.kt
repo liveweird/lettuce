@@ -20,8 +20,10 @@ import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.put
+import io.ktor.client.request.request
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
+import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
@@ -250,6 +252,39 @@ class GoalRoutesTest {
         assertEquals(HttpStatusCode.NotFound, client.get("/api/v1/goals/999999/events").status)
         assertEquals(HttpStatusCode.NotFound, client.post("/api/v1/goals/999999/activate").status)
         assertEquals(HttpStatusCode.NotFound, client.delete("/api/v1/goals/999999").status)
+        // The remaining mutations read (→404) before receiving any body, so none is needed.
+        assertEquals(HttpStatusCode.NotFound, client.put("/api/v1/goals/999999").status)
+        assertEquals(HttpStatusCode.NotFound, client.put("/api/v1/goals/999999/progress").status)
+        assertEquals(HttpStatusCode.NotFound, client.post("/api/v1/goals/999999/deactivate").status)
+        assertEquals(HttpStatusCode.NotFound, client.post("/api/v1/goals/999999/close").status)
+        assertEquals(HttpStatusCode.NotFound, client.post("/api/v1/goals/999999/reopen").status)
+    }
+
+    @Test
+    fun `goal endpoints require authentication`() = testApplication {
+        usePostgresTestcontainer()
+        val client = jsonClient()
+        val endpoints = listOf(
+            HttpMethod.Get to "/api/v1/goals",
+            HttpMethod.Post to "/api/v1/goals",
+            HttpMethod.Get to "/api/v1/goals/1",
+            HttpMethod.Put to "/api/v1/goals/1",
+            HttpMethod.Put to "/api/v1/goals/1/progress",
+            HttpMethod.Post to "/api/v1/goals/1/activate",
+            HttpMethod.Post to "/api/v1/goals/1/deactivate",
+            HttpMethod.Post to "/api/v1/goals/1/close",
+            HttpMethod.Post to "/api/v1/goals/1/reopen",
+            HttpMethod.Get to "/api/v1/goals/1/events",
+            HttpMethod.Delete to "/api/v1/goals/1",
+        )
+        for ((verb, path) in endpoints) {
+            val response = client.request(path) { method = verb }
+            assertEquals(
+                HttpStatusCode.Unauthorized,
+                response.status,
+                "$verb $path expected 401, got ${response.status}",
+            )
+        }
     }
 
     // ---- transitions ----
@@ -350,13 +385,36 @@ class GoalRoutesTest {
         val manager = authedClient(pair.managerEmail, "pw")
         val created = manager.createGoal(pair.subordinateId)
 
+        val subordinate = authedClient(pair.subordinateEmail, "pw")
         assertEquals(
             HttpStatusCode.Forbidden,
-            authedClient(pair.subordinateEmail, "pw").post("/api/v1/goals/${created.id}/activate").status,
+            subordinate.post("/api/v1/goals/${created.id}/activate").status,
         )
         assertEquals(
             HttpStatusCode.Forbidden,
             authedClient(adminEmail, "pw").post("/api/v1/goals/${created.id}/activate").status,
+        )
+
+        // The other three edges are equally manager-only — probed at their valid source status,
+        // so the 403 (guard) is what fires, not a 409. Close is checked with NO body: since the
+        // guard runs before the body is received, a foreign caller learns nothing — not even
+        // that their payload was malformed.
+        manager.post("/api/v1/goals/${created.id}/activate")
+        assertEquals(
+            HttpStatusCode.Forbidden,
+            subordinate.post("/api/v1/goals/${created.id}/deactivate").status,
+        )
+        assertEquals(
+            HttpStatusCode.Forbidden,
+            subordinate.post("/api/v1/goals/${created.id}/close").status,
+        )
+        manager.post("/api/v1/goals/${created.id}/close") {
+            contentType(ContentType.Application.Json)
+            setBody(GoalCloseRequest(summary = "closed for the reopen probe"))
+        }
+        assertEquals(
+            HttpStatusCode.Forbidden,
+            subordinate.post("/api/v1/goals/${created.id}/reopen").status,
         )
     }
 

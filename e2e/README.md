@@ -58,6 +58,12 @@ endpoints through the UI):
 - `one-on-ones.spec.ts` — a manager documents a 1:1 (points / decisions / action items) with a
   direct report, views and deletes it; open action items **carry over** to the next meeting
   ("Carried over" badge) and the subordinate is **notified** and reads the meeting read-only.
+- `goals.spec.ts` — a manager walks a goal around the whole lifecycle (draft via the
+  activate-prompt's **No**, Save & activate, progress update, close-with-summary, reopen,
+  DRAFT-only delete); creating with **Yes** activates on the spot, **notifies** the
+  subordinate, and shows read-only in their **My goals**.
+- `tour.spec.ts` — replays the guided tour as a manager and walks all 26 steps, pinning the
+  landmark order (whole left menu — Changelog included — before the header icons).
 - `alerts.spec.ts` — admin creates an alert; a regular user sees the **banner**, hides it to the
   strip and re-shows it (and has no alert management); deactivation and delete remove it.
 - `self-reflection.spec.ts` — a user writes feedback about themselves (both parties "You",

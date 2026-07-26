@@ -1,58 +1,28 @@
 import { Anchor, Button, Group, Stack, Text, Title } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
-import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-router-dom";
+import { Link as RouterLink, Navigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useDashboardDrillDown, type DashboardOriginKey } from "../hooks/useDashboardDrillDown";
 import { goalCreateLink } from "../utils/goalLinks";
 import GoalTable from "./GoalTable";
 
-// Which dashboard tab this screen was opened from — it decides both the "Back to …" link and
-// the direction of the list: from the managers grid the caller is the subordinate (goals the
-// clicked manager set for them), from the subordinates grid the caller is the manager (goals
-// they set for the clicked report). Defaults to managers for older links lacking `from`.
-const ORIGIN = {
-  managers: {
-    labelKey: "feedback.origin.managers",
-    to: "/?tab=managers",
-    titleKey: "goal.goalsWith",
-    hintKey: "goal.goalsWithHint",
-  },
-  subordinates: {
-    labelKey: "feedback.origin.subordinates",
-    to: "/?tab=subordinates",
-    titleKey: "goal.goalsFor",
-    hintKey: "goal.goalsForHint",
-  },
-} as const;
-
-type OriginKey = keyof typeof ORIGIN;
-
-function isOriginKey(value: string | null): value is OriginKey {
-  return value != null && value in ORIGIN;
-}
+// The origin also decides the direction of the list: from the managers grid the caller is the
+// subordinate (goals the clicked manager set for them), from the subordinates grid the caller
+// is the manager (goals they set for the clicked report).
+const WORDING: Record<DashboardOriginKey, { titleKey: string; hintKey: string }> = {
+  managers: { titleKey: "goal.goalsWith", hintKey: "goal.goalsWithHint" },
+  subordinates: { titleKey: "goal.goalsFor", hintKey: "goal.goalsForHint" },
+};
 
 // The per-person goals drill-down reached from Dashboard → My managers / My subordinates.
 export default function UserGoals() {
   const { t } = useTranslation();
-  const params = useParams<{ userId: string }>();
-  const [searchParams] = useSearchParams();
-  const name = searchParams.get("name");
-  const fromParam = searchParams.get("from");
-  const originKey: OriginKey = isOriginKey(fromParam) ? fromParam : "managers";
-  const origin = ORIGIN[originKey];
-
-  const userId = Number(params.userId);
-  const idIsValid = Number.isFinite(userId) && userId > 0;
+  const { userId, idIsValid, name, originKey, origin, backTo } = useDashboardDrillDown("goals");
 
   if (!idIsValid) return <Navigate to={origin.to} replace />;
 
   const who = name ?? t("goal.userFallback", { id: userId });
-  // Where the View/Edit/Create pages return to: this very screen, keeping the origin so the
-  // "Back to …" link stays correct after a round-trip.
-  const query = new URLSearchParams();
-  if (name) query.set("name", name);
-  if (isOriginKey(fromParam)) query.set("from", fromParam);
-  const queryString = query.toString();
-  const backTo = `/users/${userId}/goals${queryString ? `?${queryString}` : ""}`;
+  const wording = WORDING[originKey];
 
   return (
     <Stack gap="lg">
@@ -60,9 +30,9 @@ export default function UserGoals() {
         <Anchor component={RouterLink} to={origin.to} size="sm">
           {t("feedback.backToLabel", { label: t(origin.labelKey) })}
         </Anchor>
-        <Title order={2}>{t(origin.titleKey, { who })}</Title>
+        <Title order={2}>{t(wording.titleKey, { who })}</Title>
         <Text size="sm" c="dimmed">
-          {t(origin.hintKey, { who })}
+          {t(wording.hintKey, { who })}
         </Text>
       </Stack>
 

@@ -5,7 +5,6 @@ import {
 } from "react-router-dom";
 import {
   Alert,
-  Box,
   Button,
   Center,
   Container,
@@ -21,6 +20,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ApiError, getTemplate } from "../api/client";
 import MarkdownView from "../components/MarkdownView";
+import ProseBox from "../components/ProseBox";
 
 export default function ViewTemplate() {
   const { t } = useTranslation();
@@ -78,17 +78,9 @@ export default function ViewTemplate() {
                 <Text>{data!.name}</Text>
               </Input.Wrapper>
               <Input.Wrapper label={t("common.field.content")}>
-                <Box
-                  style={{
-                    border: "1px solid var(--mantine-color-default-border)",
-                    borderRadius: "var(--mantine-radius-default)",
-                    padding: "var(--mantine-spacing-sm)",
-                    minHeight: "calc(6lh + 2 * var(--mantine-spacing-sm))",
-                    overflow: "auto",
-                  }}
-                >
+                <ProseBox minHeightLines={6}>
                   <MarkdownView>{data!.content}</MarkdownView>
-                </Box>
+                </ProseBox>
               </Input.Wrapper>
               <Group justify="flex-end">
                 <Button component={RouterLink} to="/templates" variant="default">

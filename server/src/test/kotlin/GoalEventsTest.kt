@@ -33,6 +33,7 @@ class GoalEventsTest {
         title = title, description = description, type = type,
         targetValue = targetValue, currentValue = currentValue, achieved = achieved,
         status = status, summary = summary, lastModified = 0L,
+        managerName = "Manager", subordinateName = "Subordinate",
     )
 
     @Test

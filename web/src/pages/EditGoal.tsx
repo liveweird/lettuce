@@ -1,23 +1,16 @@
-import { lazy, Suspense, useState } from "react";
+import { useState } from "react";
 import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Alert,
-  Box,
   Button,
   Center,
   Container,
   Group,
-  Input,
   Loader,
-  NumberInput,
   Paper,
-  Select,
-  Skeleton,
   Stack,
-  Switch,
   Tabs,
   Text,
-  TextInput,
   Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
@@ -38,31 +31,27 @@ import {
 } from "../api/client";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import GoalCloseModal from "../components/GoalCloseModal";
+import GoalDefinitionFields from "../components/GoalDefinitionFields";
 import GoalHistory from "../components/GoalHistory";
+import GoalProgressFields, { type GoalProgressFormValues } from "../components/GoalProgressFields";
 import PersonaField from "../components/PersonaField";
+import ReadOnlyField from "../components/ReadOnlyField";
 import {
   goalDefinitionValidation,
   goalSaveErrorMessage,
-  MAX_GOAL_TEXT_LENGTH,
-  MAX_GOAL_TITLE_LENGTH,
   toDefinitionBody,
   toDefinitionFormValues,
   type GoalDefinitionFormValues,
 } from "../utils/goalForm";
-import { formatGoalValue } from "../utils/goalValues";
-
-// ~0.5 MB of MDXEditor — loaded only when the DRAFT definition branch actually renders.
-const MarkdownEditor = lazy(() => import("../components/MarkdownEditor"));
-
-interface ProgressFormValues {
-  currentValue: number | string;
-  achieved: boolean;
-}
+import { goalViewLink } from "../utils/goalLinks";
+import { invalidateGoal } from "../utils/goalQueries";
 
 /**
  * The manager's status-dependent editor on one route (the EditFeedback precedent): a DRAFT
  * renders the definition form, an ACTIVE the progress form; a CLOSED goal (nothing editable —
- * reopen it from the view screen) and any non-manager redirect to the read-only view.
+ * reopen it from the view screen) and any non-manager redirect to the read-only view. The
+ * field blocks live in GoalDefinitionFields / GoalProgressFields (the FeedbackForm shape);
+ * this route owns the branching, submission, and footers.
  */
 export default function EditGoal() {
   const { t, i18n } = useTranslation();
@@ -105,7 +94,7 @@ export default function EditGoal() {
     initialValues: { title: "", description: "", type: "NUMBER", targetValue: "" },
     validate: goalDefinitionValidation(t),
   });
-  const progressForm = useForm<ProgressFormValues>({
+  const progressForm = useForm<GoalProgressFormValues>({
     initialValues: { currentValue: "", achieved: false },
     validate: {
       currentValue: (value, values) => validateProgressValue(value, values, data?.type, t),
@@ -125,20 +114,18 @@ export default function EditGoal() {
 
   if (!idIsValid) return <Navigate to={backTo} replace />;
   // Redirects to the read-only view keep the originating context (`from` / `back` override).
-  const viewSearch = `?from=${from}${backOverride ? `&back=${encodeURIComponent(backOverride)}` : ""}`;
+  const viewLink = goalViewLink(id, from, backOverride ?? undefined);
   // Only the manager edits; anyone else who can read lands on the view screen.
   if (data && getUserId() !== data.managerId) {
-    return <Navigate to={`/goals/${id}/view${viewSearch}`} replace />;
+    return <Navigate to={viewLink} replace />;
   }
   // A CLOSED goal has nothing editable — its only action (Reopen) lives on the view screen.
   if (data && data.status === "CLOSED") {
-    return <Navigate to={`/goals/${id}/view${viewSearch}`} replace />;
+    return <Navigate to={viewLink} replace />;
   }
 
   async function afterSave() {
-    await queryClient.invalidateQueries({ queryKey: ["goals"] });
-    await queryClient.invalidateQueries({ queryKey: ["goal", id] });
-    queryClient.invalidateQueries({ queryKey: ["goalEvents", id] });
+    await invalidateGoal(queryClient, id);
     navigate(backTo, { replace: true });
   }
 
@@ -147,11 +134,7 @@ export default function EditGoal() {
     setSubmitting(activate ? "activate" : "draft");
     try {
       await updateGoalDefinition(id, toDefinitionBody(values));
-      if (activate) {
-        await activateGoal(id);
-        // Activation notifies the subordinate — refresh the bell badge.
-        queryClient.invalidateQueries({ queryKey: ["notifications"] });
-      }
+      if (activate) await activateGoal(id);
       await afterSave();
     } catch (err) {
       setError(goalSaveErrorMessage(err, t));
@@ -160,7 +143,7 @@ export default function EditGoal() {
   }
 
   async function saveProgress(
-    values: ProgressFormValues,
+    values: GoalProgressFormValues,
     then: "none" | "deactivate" | "close" = "none",
     summary?: string,
   ) {
@@ -179,16 +162,12 @@ export default function EditGoal() {
         // refetched DRAFT re-renders this route as the definition editor (the EditFeedback
         // "Accept reloads in place" precedent), which is exactly why one deactivates.
         await deactivateGoal(id);
-        queryClient.invalidateQueries({ queryKey: ["goals"] });
-        queryClient.invalidateQueries({ queryKey: ["goalEvents", id] });
-        queryClient.invalidateQueries({ queryKey: ["notifications"] });
-        await queryClient.invalidateQueries({ queryKey: ["goal", id] });
+        await invalidateGoal(queryClient, id);
         setSubmitting(null);
         return;
       }
       if (then === "close") {
         await closeGoal(id, { summary: summary ?? "" });
-        queryClient.invalidateQueries({ queryKey: ["notifications"] });
       }
       await afterSave();
     } catch (err) {
@@ -203,7 +182,7 @@ export default function EditGoal() {
     setDeleting(true);
     try {
       await deleteGoal(id);
-      await queryClient.invalidateQueries({ queryKey: ["goals"] });
+      await invalidateGoal(queryClient);
       queryClient.removeQueries({ queryKey: ["goal", id] });
       navigate(backTo, { replace: true });
     } catch (err) {
@@ -249,7 +228,7 @@ export default function EditGoal() {
               <Stack>
                 <Group gap="xl">
                   <PersonaField label={t("goal.manager")} you />
-                  <PersonaField label={t("goal.subordinate")} name={data.subordinateName ?? undefined} />
+                  <PersonaField label={t("goal.subordinate")} name={data.subordinateName} />
                 </Group>
 
                 <Tabs defaultValue="content" keepMounted={false}>
@@ -259,57 +238,7 @@ export default function EditGoal() {
                   </Tabs.List>
 
                   <Tabs.Panel value="content" pt="md">
-                    <Stack gap="lg">
-                      <TextInput
-                        label={t("goal.title")}
-                        maxLength={MAX_GOAL_TITLE_LENGTH}
-                        withAsterisk
-                        {...definitionForm.getInputProps("title")}
-                      />
-                      <Stack gap={4}>
-                        <Suspense fallback={<Skeleton height={220} radius="sm" />}>
-                          <MarkdownEditor
-                            label={t("goal.description")}
-                            value={definitionForm.values.description}
-                            onChange={(md) => definitionForm.setFieldValue("description", md)}
-                            maxLength={MAX_GOAL_TEXT_LENGTH}
-                          />
-                        </Suspense>
-                        {definitionForm.errors.description && (
-                          <Text size="sm" c="red">
-                            {definitionForm.errors.description}
-                          </Text>
-                        )}
-                      </Stack>
-                      <Group gap="xl" align="flex-start">
-                        <Select
-                          label={t("goal.type.label")}
-                          data={(["BINARY", "NUMBER", "PERCENTAGE"] as const).map((type) => ({
-                            value: type,
-                            label: t(`goal.type.${type}`),
-                          }))}
-                          allowDeselect={false}
-                          w={200}
-                          {...definitionForm.getInputProps("type")}
-                        />
-                        {definitionForm.values.type !== "BINARY" && (
-                          <NumberInput
-                            label={t("goal.target")}
-                            withAsterisk
-                            w={200}
-                            min={definitionForm.values.type === "PERCENTAGE" ? 0 : undefined}
-                            max={definitionForm.values.type === "PERCENTAGE" ? 100 : undefined}
-                            suffix={definitionForm.values.type === "PERCENTAGE" ? "%" : undefined}
-                            {...definitionForm.getInputProps("targetValue")}
-                          />
-                        )}
-                      </Group>
-                      {typeChanged && (
-                        <Text size="sm" c="orange">
-                          {t("goal.typeChangeWarning")}
-                        </Text>
-                      )}
-                    </Stack>
+                    <GoalDefinitionFields form={definitionForm} typeChangeWarning={typeChanged} />
                   </Tabs.Panel>
 
                   <Tabs.Panel value="history" pt="md">
@@ -368,12 +297,10 @@ export default function EditGoal() {
               <Stack>
                 <Group gap="xl">
                   <PersonaField label={t("goal.manager")} you />
-                  <PersonaField label={t("goal.subordinate")} name={data.subordinateName ?? undefined} />
-                  <Input.Wrapper label={t("goal.type.label")}>
-                    <Box mih={36} display="flex" style={{ alignItems: "center" }}>
-                      <Text size="sm">{t(`goal.type.${data.type}`)}</Text>
-                    </Box>
-                  </Input.Wrapper>
+                  <PersonaField label={t("goal.subordinate")} name={data.subordinateName} />
+                  <ReadOnlyField label={t("goal.type.label")}>
+                    <Text size="sm">{t(`goal.type.${data.type}`)}</Text>
+                  </ReadOnlyField>
                 </Group>
 
                 <Tabs defaultValue="content" keepMounted={false}>
@@ -383,41 +310,7 @@ export default function EditGoal() {
                   </Tabs.List>
 
                   <Tabs.Panel value="content" pt="md">
-                    <Stack gap="lg">
-                      {/* The definition is frozen while ACTIVE (deactivate to edit it) — only
-                          the current value is live. */}
-                      <Input.Wrapper label={t("goal.title")}>
-                        <Text fw={500}>{data.title}</Text>
-                      </Input.Wrapper>
-                      {data.type === "BINARY" ? (
-                        <Switch
-                          label={t("goal.achieved")}
-                          checked={progressForm.values.achieved}
-                          onChange={(event) =>
-                            progressForm.setFieldValue("achieved", event.currentTarget.checked)
-                          }
-                        />
-                      ) : (
-                        <Group gap="xl" align="flex-start">
-                          <Input.Wrapper label={t("goal.target")}>
-                            <Box mih={36} display="flex" style={{ alignItems: "center" }}>
-                              <Text size="sm">
-                                {formatGoalValue(data.type, data.targetValue, i18n.language)}
-                              </Text>
-                            </Box>
-                          </Input.Wrapper>
-                          <NumberInput
-                            label={t("goal.current")}
-                            withAsterisk
-                            w={200}
-                            min={data.type === "PERCENTAGE" ? 0 : undefined}
-                            max={data.type === "PERCENTAGE" ? 100 : undefined}
-                            suffix={data.type === "PERCENTAGE" ? "%" : undefined}
-                            {...progressForm.getInputProps("currentValue")}
-                          />
-                        </Group>
-                      )}
-                    </Stack>
+                    <GoalProgressFields goal={data} form={progressForm} locale={i18n.language} />
                   </Tabs.Panel>
 
                   <Tabs.Panel value="history" pt="md">
@@ -509,7 +402,7 @@ export default function EditGoal() {
 // The ACTIVE progress rule for the numeric types (BINARY's Switch needs no validation).
 function validateProgressValue(
   value: number | string,
-  _values: ProgressFormValues,
+  _values: GoalProgressFormValues,
   type: GoalType | undefined,
   t: (key: string) => string,
 ): string | null {

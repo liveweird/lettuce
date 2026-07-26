@@ -16,7 +16,8 @@ export default function MyGoals() {
         </Text>
       </Stack>
 
-      <GoalTable view="own" backTo="/goals" />
+      {/* No backTo: the detail pages already default their return target to /goals. */}
+      <GoalTable view="own" />
     </Stack>
   );
 }
