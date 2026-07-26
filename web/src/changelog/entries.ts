@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.18.2",
+    date: "2026-07-26",
+    en: `Creating a goal now takes you straight to its editor — the same place a new 1:1 meeting lands — so you can keep refining the draft or activate it with one click, instead of passing through the read-only view first.`,
+    pl: `Utworzenie celu przenosi Cię teraz prosto do jego edytora — tam, gdzie ląduje też nowe spotkanie 1:1 — więc możesz dalej dopracowywać szkic albo aktywować go jednym kliknięciem, zamiast przechodzić najpierw przez widok tylko do odczytu.`,
+  },
+  {
     version: "1.18.1",
     date: "2026-07-26",
     en: `The manager and subordinate cards on the Dashboard now show *Active goals* — the number of currently active goals between you and that person (goals they set for you on the *My managers* tab, goals you set for them on *My subordinates*), next to the existing *Last 1:1* and *Last feedback* stats.`,

@@ -100,7 +100,7 @@ describe("CreateGoal page", () => {
     await user.type(target, "4");
   }
 
-  test("picks a deduped direct report, creates, and lands on the goal's view", async () => {
+  test("picks a deduped direct report, creates, and lands in the goal's editor", async () => {
     const user = userEvent.setup();
     renderScreen();
 
@@ -116,7 +116,7 @@ describe("CreateGoal page", () => {
     await user.click(screen.getByRole("button", { name: /^create$/i }));
 
     await waitFor(() => {
-      expect(screen.getByTestId("probe")).toHaveTextContent("/goals/42/view?from=managed");
+      expect(screen.getByTestId("probe")).toHaveTextContent("/goals/42/edit?from=managed");
     });
     const post = mockFetch.mock.calls.find(
       ([u, init]) => String(u) === "/api/v1/goals" && (init as RequestInit)?.method === "POST",
@@ -146,7 +146,7 @@ describe("CreateGoal page", () => {
     await user.click(screen.getByRole("button", { name: /^create$/i }));
     await waitFor(() => {
       expect(screen.getByTestId("probe")).toHaveTextContent(
-        "/goals/42/view?from=managed&back=%2Fusers%2F8%2Fgoals%3Ffrom%3Dsubordinates",
+        "/goals/42/edit?from=managed&back=%2Fusers%2F8%2Fgoals%3Ffrom%3Dsubordinates",
       );
     });
   });
