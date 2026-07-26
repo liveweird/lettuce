@@ -77,6 +77,9 @@ describe("CreateGoal page", () => {
       if ((init?.method ?? "GET") === "POST" && u === "/api/v1/goals") {
         return Promise.resolve(jsonResponse(201, CREATED));
       }
+      if ((init?.method ?? "GET") === "POST" && u === "/api/v1/goals/42/activate") {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
       if (u.includes("/api/v1/teams/members")) {
         return Promise.resolve(jsonResponse(200, REPORTS));
       }
@@ -100,7 +103,7 @@ describe("CreateGoal page", () => {
     await user.type(target, "4");
   }
 
-  test("picks a deduped direct report, creates, and lands in the goal's editor", async () => {
+  test("picks a deduped direct report, creates, answers No, and returns to the origin", async () => {
     const user = userEvent.setup();
     renderScreen();
 
@@ -115,9 +118,10 @@ describe("CreateGoal page", () => {
 
     await user.click(screen.getByRole("button", { name: /^create$/i }));
 
-    await waitFor(() => {
-      expect(screen.getByTestId("probe")).toHaveTextContent("/goals/42/edit?from=managed");
-    });
+    // The goal is created first; the activate prompt then appears.
+    expect(
+      await screen.findByText("Do you want to activate the goal immediately?"),
+    ).toBeInTheDocument();
     const post = mockFetch.mock.calls.find(
       ([u, init]) => String(u) === "/api/v1/goals" && (init as RequestInit)?.method === "POST",
     );
@@ -128,9 +132,18 @@ describe("CreateGoal page", () => {
       type: "NUMBER",
       targetValue: 4,
     });
+
+    // No → the draft is kept (no activate call) and we return to the default origin.
+    await user.click(screen.getByRole("button", { name: /^no$/i }));
+    await waitFor(() => {
+      expect(screen.getByTestId("probe")).toHaveTextContent("/?tab=subordinates");
+    });
+    expect(
+      mockFetch.mock.calls.some(([u]) => String(u).includes("/activate")),
+    ).toBe(false);
   });
 
-  test("a prefilled subordinate renders read-only, skips the picker fetch, and keeps back", async () => {
+  test("a prefilled subordinate skips the picker; Yes activates and returns to back", async () => {
     const user = userEvent.setup();
     renderScreen(
       "/goals/new?subordinateId=8&subordinateName=Sam%20Subordinate&back=%2Fusers%2F8%2Fgoals%3Ffrom%3Dsubordinates",
@@ -144,11 +157,36 @@ describe("CreateGoal page", () => {
 
     await fillDefinition(user);
     await user.click(screen.getByRole("button", { name: /^create$/i }));
+
+    // Yes → the fresh draft is activated, then we return to the back target.
+    await user.click(await screen.findByRole("button", { name: /^yes$/i }));
     await waitFor(() => {
-      expect(screen.getByTestId("probe")).toHaveTextContent(
-        "/goals/42/edit?from=managed&back=%2Fusers%2F8%2Fgoals%3Ffrom%3Dsubordinates",
-      );
+      expect(screen.getByTestId("probe")).toHaveTextContent("/users/8/goals?from=subordinates");
     });
+    expect(
+      mockFetch.mock.calls.some(
+        ([u, init]) =>
+          String(u) === "/api/v1/goals/42/activate" && (init as RequestInit)?.method === "POST",
+      ),
+    ).toBe(true);
+  });
+
+  test("dismissing the activate prompt keeps the draft and returns to back", async () => {
+    const user = userEvent.setup();
+    renderScreen("/goals/new?subordinateId=8&subordinateName=Sam&back=%2F%3Ftab%3Dsubordinates");
+
+    await fillDefinition(user);
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+
+    await screen.findByText("Do you want to activate the goal immediately?");
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => {
+      expect(screen.getByTestId("probe")).toHaveTextContent("/?tab=subordinates");
+    });
+    expect(
+      mockFetch.mock.calls.some(([u]) => String(u).includes("/activate")),
+    ).toBe(false);
   });
 
   test("a BINARY goal posts a null target and hides the target input", async () => {

@@ -67,6 +67,8 @@
   "summaryRequired": "A summary is required to close a goal",
   "discardTitle": "Discard changes?",
   "discardMessage": "Discard changes? The goal will stay as it was.",
+  "activatePromptTitle": "Activate the goal?",
+  "activatePromptQuestion": "Do you want to activate the goal immediately?",
   "deleteTitle": "Delete this draft goal?",
   "deleteMessage": "The goal will disappear from all lists; its history is retained. This cannot be undone.",
   "validation": {
@@ -89,7 +91,8 @@
     "updateFailed": "Could not update the goal.",
     "updateFailedStatus": "Could not update the goal (error {{status}}).",
     "createForbidden": "You may only set goals for your direct reports.",
-    "createFailed": "Could not create the goal."
+    "createFailed": "Could not create the goal.",
+    "activateAfterCreateFailed": "The goal was created as a draft, but activating it failed — you can activate it from its view."
   },
   "event": {
     "created": "Goal created ({{type}}).",

@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.18.3",
+    date: "2026-07-26",
+    en: `After creating a goal you're now asked whether to activate it immediately — *Yes* makes it active on the spot, *No* keeps it a draft — and either way you return to the screen you started from, instead of landing in the goal's editor.`,
+    pl: `Po utworzeniu celu pojawia się teraz pytanie, czy od razu go aktywować — *Tak* natychmiast go aktywuje, *Nie* pozostawia szkic — i niezależnie od odpowiedzi wracasz na ekran, z którego przyszedłeś/przyszłaś, zamiast lądować w edytorze celu.`,
+  },
+  {
     version: "1.18.2",
     date: "2026-07-26",
     en: `Creating a goal now takes you straight to its editor — the same place a new 1:1 meeting lands — so you can keep refining the draft or activate it with one click, instead of passing through the read-only view first.`,
