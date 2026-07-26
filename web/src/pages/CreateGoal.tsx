@@ -41,7 +41,8 @@ const PICKER_PAGE_SIZE = 100;
 /**
  * The manager's goal-create screen: pick (or arrive with) a direct report, define the goal —
  * the same definition fields the DRAFT editor offers — and Create. The goal always lands as
- * DRAFT; on success the manager lands on its view, where Activate is one click away.
+ * DRAFT; on success the manager lands in its DRAFT editor (the 1:1-creation pattern — whoever
+ * can edit goes straight to edit mode), where Save & activate is one click away.
  */
 export default function CreateGoal() {
   const { t } = useTranslation();
@@ -94,10 +95,10 @@ export default function CreateGoal() {
         ...toDefinitionBody(values),
       });
       await queryClient.invalidateQueries({ queryKey: ["goals"] });
-      const viewUrl = backParam
-        ? `/goals/${created.id}/view?from=managed&back=${encodeURIComponent(backParam)}`
-        : `/goals/${created.id}/view?from=managed`;
-      navigate(viewUrl, { replace: true });
+      const editUrl = backParam
+        ? `/goals/${created.id}/edit?from=managed&back=${encodeURIComponent(backParam)}`
+        : `/goals/${created.id}/edit?from=managed`;
+      navigate(editUrl, { replace: true });
     } catch (err) {
       setError(
         saveErrorMessage(err, t, {
