@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.18.4",
+    date: "2026-07-26",
+    en: `The guided tour now also introduces the *My goals* page — the step comes right after the 1:1 meetings section.`,
+    pl: `Samouczek obejmuje teraz także stronę *Moje cele* — ten krok pojawia się zaraz po sekcji spotkań 1:1.`,
+  },
+  {
     version: "1.18.3",
     date: "2026-07-26",
     en: `After creating a goal you're now asked whether to activate it immediately — *Yes* makes it active on the spot, *No* keeps it a draft — and either way you return to the screen you started from, instead of landing in the goal's editor.`,

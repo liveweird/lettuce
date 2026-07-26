@@ -24,6 +24,7 @@
     "oneOnOneOwn": "I'm a subordinate — the 1:1 meetings your manager holds with you.",
     "oneOnOneManaged": "I'm a manager — the 1:1s you hold with your direct reports; new meetings start here.",
     "oneOnOneTeam": "My subordinate's a manager — 1:1s held by the managers who report to you.",
+    "myGoals": "My goals — all the goals your managers set for you, in one list across every manager. Open a goal to see its details and history.",
     "config": "Config — users, teams and feedback templates.",
     "configUsers": "Users — the people directory (admins manage accounts).",
     "configTeams": "Teams — teams and their membership.",
