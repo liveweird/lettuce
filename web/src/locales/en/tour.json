@@ -34,6 +34,7 @@
     "theme": "Toggle light and dark mode.",
     "selfReflection": "Self-reflection — write feedback about yourself. Once sent, your managers can read it.",
     "account": "Your account — change your password here.",
+    "changelog": "Changelog — what's new in each release. A red dot on the version stamp below marks changes you haven't seen yet.",
     "logout": "Sign out when you're done.",
     "replay": "That's it! Replay this tour anytime from here."
   }

@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.18.5",
+    date: "2026-07-26",
+    en: `The guided tour now walks the whole left menu first — including a new step for the *Changelog* page — and only then the top-right header icons (notifications, language, theme).`,
+    pl: `Samouczek przechodzi teraz najpierw przez całe lewe menu — w tym nowy krok dla strony *Historia zmian* — a dopiero potem przez ikony w prawym górnym rogu (powiadomienia, język, motyw).`,
+  },
+  {
     version: "1.18.4",
     date: "2026-07-26",
     en: `The guided tour now also introduces the *My goals* page — the step comes right after the 1:1 meetings section.`,

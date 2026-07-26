@@ -127,7 +127,7 @@ const NAV_ITEMS: ReadonlyArray<NavEntry> = [
 
 // Rendered last, directly above the version stamp it pairs with (after the per-user dynamic
 // items), rather than inside NAV_ITEMS.
-const CHANGELOG_NAV: NavLeaf = { to: "/changelog", label: "appShell.nav.changelog", icon: IconHistory };
+const CHANGELOG_NAV: NavLeaf = { to: "/changelog", label: "appShell.nav.changelog", icon: IconHistory, tourId: "nav-changelog" };
 
 function HeaderUser() {
   const userId = getUserId();
