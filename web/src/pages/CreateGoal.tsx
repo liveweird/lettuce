@@ -18,7 +18,7 @@ import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { createGoal, listTeamMembers } from "../api/client";
+import { activateGoal, createGoal, listTeamMembers } from "../api/client";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import PersonaField from "../components/PersonaField";
 import {
@@ -41,8 +41,8 @@ const PICKER_PAGE_SIZE = 100;
 /**
  * The manager's goal-create screen: pick (or arrive with) a direct report, define the goal —
  * the same definition fields the DRAFT editor offers — and Create. The goal always lands as
- * DRAFT; on success the manager lands in its DRAFT editor (the 1:1-creation pattern — whoever
- * can edit goes straight to edit mode), where Save & activate is one click away.
+ * DRAFT; on success a prompt asks whether to activate it immediately (Yes runs the
+ * DRAFT→ACTIVE transition), and either answer returns to the originating screen (`backTo`).
  */
 export default function CreateGoal() {
   const { t } = useTranslation();
@@ -61,6 +61,12 @@ export default function CreateGoal() {
   );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Set once the goal exists — opens the activate prompt and retires the Create button
+  // (the goal is already created; resubmitting would only 409 on the no-duplicate check).
+  const [createdId, setCreatedId] = useState<number | null>(null);
+  const [activating, setActivating] = useState(false);
+  // Closes the prompt without navigating — only the activate-failure path uses it.
+  const [promptClosed, setPromptClosed] = useState(false);
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
 
   const form = useForm<GoalDefinitionFormValues>({
@@ -95,10 +101,10 @@ export default function CreateGoal() {
         ...toDefinitionBody(values),
       });
       await queryClient.invalidateQueries({ queryKey: ["goals"] });
-      const editUrl = backParam
-        ? `/goals/${created.id}/edit?from=managed&back=${encodeURIComponent(backParam)}`
-        : `/goals/${created.id}/edit?from=managed`;
-      navigate(editUrl, { replace: true });
+      // The goal exists as a DRAFT — ask whether to activate it right away; either answer
+      // then returns to the originating screen.
+      setSubmitting(false);
+      setCreatedId(created.id);
     } catch (err) {
       setError(
         saveErrorMessage(err, t, {
@@ -109,6 +115,33 @@ export default function CreateGoal() {
         }),
       );
       setSubmitting(false);
+    }
+  }
+
+  // "No" (or dismissing the prompt): keep the draft, return to where the user came from.
+  function finishAsDraft() {
+    navigate(backTo, { replace: true });
+  }
+
+  async function activateNow() {
+    if (createdId == null) return;
+    setActivating(true);
+    try {
+      await activateGoal(createdId);
+      await queryClient.invalidateQueries({ queryKey: ["goals"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      navigate(backTo, { replace: true });
+    } catch (err) {
+      // The goal stays a DRAFT — close the prompt and surface the error on the form
+      // (Create is retired; the goal is reachable from the origin list).
+      setPromptClosed(true);
+      setActivating(false);
+      setError(
+        saveErrorMessage(err, t, {
+          conflict: "goal.error.conflict",
+          failed: "goal.error.activateAfterCreateFailed",
+        }),
+      );
     }
   }
 
@@ -200,7 +233,11 @@ export default function CreateGoal() {
               <Button type="button" variant="default" onClick={openCancel} disabled={submitting}>
                 {t("common.action.cancel")}
               </Button>
-              <Button type="submit" loading={submitting} disabled={!subordinate}>
+              <Button
+                type="submit"
+                loading={submitting}
+                disabled={!subordinate || createdId != null}
+              >
                 {t("common.action.create")}
               </Button>
             </Group>
@@ -217,6 +254,20 @@ export default function CreateGoal() {
         cancelLabel={t("common.action.keepEditing")}
         confirmLabel={t("common.action.discard")}
         confirmTo={backTo}
+      />
+
+      {/* Post-create prompt: Yes activates the fresh draft, No (or dismiss) keeps it —
+          either way the user returns to the screen they came from. */}
+      <ConfirmActionModal
+        opened={createdId != null && !promptClosed}
+        onClose={finishAsDraft}
+        title={t("goal.activatePromptTitle")}
+        message={t("goal.activatePromptQuestion")}
+        cancelLabel={t("common.state.no")}
+        confirmLabel={t("common.state.yes")}
+        confirmColor="green"
+        onConfirm={activateNow}
+        loading={activating}
       />
     </Container>
   );
