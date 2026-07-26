@@ -82,7 +82,7 @@ fun Application.configureGoalRoutes() {
         goalId: UInt,
         from: GoalStatus,
         target: GoalStatus,
-        summary: String? = null,
+        receiveSummary: (suspend () -> String?)? = null,
     ) {
         val caller = call.caller()
         val existing = goalService.read(goalId)
@@ -91,13 +91,10 @@ fun Application.configureGoalRoutes() {
             return
         }
         requireGoalWrite(caller, existing)
-        // Validated after the write guard so a non-manager's blank summary is still 403, not 400.
-        if (target == GoalStatus.CLOSED) {
-            if (summary.isNullOrBlank()) throw BadRequestException("Closing a goal requires a non-blank summary")
-            if (summary.length > MAX_GOAL_TEXT_LENGTH) {
-                throw BadRequestException("Goal summary must be at most $MAX_GOAL_TEXT_LENGTH characters")
-            }
-        }
+        // The close body is received (and validated) only after the write guard, so a
+        // non-manager's malformed or blank summary is still 403 on a foreign goal, not 400.
+        val summary = receiveSummary?.invoke()
+        if (target == GoalStatus.CLOSED) validateGoalSummary(summary)
         val toNotify = goalService.transition(goalId, from, target, summary)
         if (toNotify == null) {
             call.respondProblem(HttpStatusCode.NotFound, "Goal not found")
@@ -166,11 +163,10 @@ fun Application.configureGoalRoutes() {
                 // Audit: record the creation against the acting manager. No notification — the
                 // goal is a private draft until activated.
                 goalEventService.create(goalCreationEvent(request.type).toEvent(id, caller.userId))
+                // The create committed (Location set, CREATED event persisted), so a missing
+                // re-read is a server-side anomaly, not a client 404.
                 val created = goalService.read(id)
-                if (created == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Goal not found")
-                    return@post
-                }
+                    ?: error("Goal $id vanished between create and re-read")
                 call.respond(HttpStatusCode.Created, created)
             }
             get<Goals.Id> { route ->
@@ -235,11 +231,9 @@ fun Application.configureGoalRoutes() {
                 transitionTo(call, route.parent.id, from = GoalStatus.ACTIVE, target = GoalStatus.DRAFT)
             }
             post<Goals.Id.Close> { route ->
-                val body = call.receive<GoalCloseRequest>()
-                transitionTo(
-                    call, route.parent.id,
-                    from = GoalStatus.ACTIVE, target = GoalStatus.CLOSED, summary = body.summary,
-                )
+                transitionTo(call, route.parent.id, from = GoalStatus.ACTIVE, target = GoalStatus.CLOSED) {
+                    call.receive<GoalCloseRequest>().summary
+                }
             }
             post<Goals.Id.Reopen> { route ->
                 transitionTo(call, route.parent.id, from = GoalStatus.CLOSED, target = GoalStatus.ACTIVE)

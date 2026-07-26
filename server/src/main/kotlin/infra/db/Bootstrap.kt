@@ -29,8 +29,9 @@ internal val DEMO_SEED_EMAILS = listOf(
  * - Outside development mode the V9 demo users are soft-deleted, and startup **fails closed**
  *   (mirroring the JWT-secret check in plugins/Security.kt) if any active account still carries
  *   the well-known seed hash — a deployment cannot boot with the `changeme` backdoor present.
- * - Runs the encryption-at-rest backfill for feedback content (legacy plaintext rows, and a full
- *   re-encrypt while a rotation previousKey is configured).
+ * - Runs the encryption-at-rest backfills — feedback content, 1:1 notes/action items, and goal
+ *   description/summary (legacy plaintext rows, and a full re-encrypt while a rotation
+ *   previousKey is configured).
  */
 suspend fun Application.configureBootstrap() {
     val userService = attributes[UserServiceKey]

@@ -77,8 +77,8 @@ data class GoalResponse(
     val summary: String?,
     val lastModified: Long,
     // Resolved party display names.
-    val managerName: String? = null,
-    val subordinateName: String? = null,
+    val managerName: String,
+    val subordinateName: String,
 )
 
 @Serializable
@@ -160,6 +160,17 @@ internal fun validateGoalDefinition(title: String, description: String, type: Go
  * set — [GoalProgressUpdate.achieved] for BINARY, [GoalProgressUpdate.currentValue] for
  * NUMBER/PERCENTAGE (0–100 for PERCENTAGE).
  */
+/**
+ * Validates the close action's summary: required non-blank, bounded like the description. The
+ * single home of the rule — the service trusts the route to have run it (see transitionTo).
+ */
+internal fun validateGoalSummary(summary: String?) {
+    if (summary.isNullOrBlank()) throw BadRequestException("Closing a goal requires a non-blank summary")
+    if (summary.length > MAX_GOAL_TEXT_LENGTH) {
+        throw BadRequestException("Goal summary must be at most $MAX_GOAL_TEXT_LENGTH characters")
+    }
+}
+
 internal fun validateGoalProgress(type: GoalType, update: GoalProgressUpdate) {
     when (type) {
         GoalType.BINARY -> {
