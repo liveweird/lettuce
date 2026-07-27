@@ -34,10 +34,10 @@ import MarkdownView from "../components/MarkdownView";
 import PersonaField from "../components/PersonaField";
 import ProseBox from "../components/ProseBox";
 import ReadOnlyField from "../components/ReadOnlyField";
-import { formatDate } from "../utils/datetime";
+import { formatDate, formatIsoDate } from "../utils/datetime";
 import { goalEditLink } from "../utils/goalLinks";
 import { invalidateGoal } from "../utils/goalQueries";
-import { GoalValues } from "../utils/goalValues";
+import { GoalValues, isGoalOverdue, OverdueBadge } from "../utils/goalValues";
 
 // The manager's lifecycle actions per status. The view screen is their single home — CLOSED
 // goals have no edit form, so Reopen could live nowhere else, and keeping all four here means
@@ -101,11 +101,15 @@ export default function ViewGoal() {
       navigate(backTo, { replace: true });
     } catch (err) {
       setActionError(
-        err instanceof ApiError && (err.status === 409 || err.status === 400)
-          ? t("goal.error.invalidTransition")
-          : err instanceof ApiError && err.status === 403
-            ? t("goal.error.savePermission")
-            : t("goal.error.updateFailed"),
+        // A 400 on a transition can only be the activate gate (a stale due date) — the close
+        // modal already refuses a blank summary client-side.
+        err instanceof ApiError && err.status === 400
+          ? t("goal.error.activateOverdue")
+          : err instanceof ApiError && err.status === 409
+            ? t("goal.error.invalidTransition")
+            : err instanceof ApiError && err.status === 403
+              ? t("goal.error.savePermission")
+              : t("goal.error.updateFailed"),
       );
       setSubmitting(null);
       setCloseOpened(false);
@@ -148,6 +152,12 @@ export default function ViewGoal() {
                 </ReadOnlyField>
                 <ReadOnlyField label={t("goal.createdAt")}>
                   <Text size="sm">{formatDate(data.createdAt, i18n.language)}</Text>
+                </ReadOnlyField>
+                <ReadOnlyField label={t("goal.dueDate")}>
+                  <Group gap="xs" wrap="nowrap">
+                    <Text size="sm">{formatIsoDate(data.dueDate, i18n.language)}</Text>
+                    {isGoalOverdue(data.status, data.dueDate) && <OverdueBadge />}
+                  </Group>
                 </ReadOnlyField>
               </Group>
 

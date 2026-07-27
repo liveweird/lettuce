@@ -41,6 +41,7 @@ const CREATED = {
   subordinateId: 8,
   subordinateName: "Sam Subordinate",
   createdAt: Date.now(),
+  dueDate: "2099-06-15",
   title: "Ship it",
   description: "",
   type: "NUMBER",
@@ -101,6 +102,7 @@ describe("CreateGoal page", () => {
     const target = screen.getByLabelText(/target/i);
     await user.clear(target);
     await user.type(target, "4");
+    fireEvent.change(screen.getByLabelText(/due date/i), { target: { value: "2099-06-15" } });
   }
 
   test("picks a deduped direct report, creates, answers No, and returns to the origin", async () => {
@@ -131,6 +133,7 @@ describe("CreateGoal page", () => {
       description: "",
       type: "NUMBER",
       targetValue: 4,
+      dueDate: "2099-06-15",
     });
 
     // No → the draft is kept (no activate call) and we return to the default origin.
@@ -194,6 +197,7 @@ describe("CreateGoal page", () => {
     renderScreen("/goals/new?subordinateId=8&subordinateName=Sam");
 
     await user.type(await screen.findByLabelText(/title/i), "Get certified");
+    fireEvent.change(screen.getByLabelText(/due date/i), { target: { value: "2099-06-15" } });
     fireEvent.click(screen.getByLabelText("Type", { selector: "input" }));
     fireEvent.click(await screen.findByRole("option", { name: "Done / not done" }));
     expect(screen.queryByLabelText(/target/i)).toBeNull();
@@ -211,7 +215,7 @@ describe("CreateGoal page", () => {
     });
   });
 
-  test("validation blocks a blank title and a missing target", async () => {
+  test("validation blocks a blank title, a missing target, and a missing due date", async () => {
     const user = userEvent.setup();
     renderScreen("/goals/new?subordinateId=8&subordinateName=Sam");
 
@@ -222,6 +226,21 @@ describe("CreateGoal page", () => {
     expect(
       screen.getByText("A target value is required for this goal type"),
     ).toBeInTheDocument();
+    expect(screen.getByText("A due date is required")).toBeInTheDocument();
+    expect(
+      mockFetch.mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === "POST"),
+    ).toBe(false);
+  });
+
+  test("validation blocks a past due date", async () => {
+    const user = userEvent.setup();
+    renderScreen("/goals/new?subordinateId=8&subordinateName=Sam");
+
+    await fillDefinition(user);
+    fireEvent.change(screen.getByLabelText(/due date/i), { target: { value: "2020-01-01" } });
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+
+    expect(await screen.findByText("The due date cannot be in the past")).toBeInTheDocument();
     expect(
       mockFetch.mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === "POST"),
     ).toBe(false);

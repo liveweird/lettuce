@@ -885,7 +885,7 @@ export interface paths {
          *     Supports offset pagination, sorting and filtering.
          *
          *     - Sortable fields: `id`, `managerName`, `subordinateName`, `title`, `type`, `status`,
-         *       `targetValue`, `currentValue`, `createdAt`, `lastModified`. Default sort is `createdAt`
+         *       `targetValue`, `currentValue`, `createdAt`, `dueDate`, `lastModified`. Default sort is `createdAt`
          *       **descending** (newest goals first). `id` ascending is always appended as a
          *       deterministic tiebreaker. The value columns are null for BINARY goals, so mixed-type
          *       lists sort those rows together at one end (database NULL ordering).
@@ -913,7 +913,8 @@ export interface paths {
          *     The value fields are type-specific: `targetValue` is **required** for NUMBER and
          *     PERCENTAGE goals (0–100 for PERCENTAGE) and **must be absent** for BINARY goals. The
          *     current value starts at the type's zero (`0.0` / not achieved) and only becomes editable
-         *     (via `PUT /goals/{id}/progress`) once the goal is ACTIVE.
+         *     (via `PUT /goals/{id}/progress`) once the goal is ACTIVE. The **due date** is required
+         *     and must not be earlier than the current date.
          *
          *     Nobody is notified — a draft is private to the pair until activated. The creation is
          *     recorded in the goal's audit history.
@@ -946,7 +947,9 @@ export interface paths {
         get: operations["getGoal"];
         /**
          * Edit a draft goal's definition
-         * @description Edits the goal's definition — title, description, type, and target. **Manager-only**
+         * @description Edits the goal's definition — title, description, type, target, and due date (the due
+         *     date is editable **only** here and at creation, i.e. only while DRAFT, and must not be
+         *     earlier than the current date). **Manager-only**
          *     (the subordinate has read rights only; ADMIN does not get write access) and
          *     **DRAFT-only**: an ACTIVE or CLOSED goal's definition is immutable (`409`) — deactivate
          *     it first to edit. The parties, status, current value, and summary are not settable here
@@ -1013,9 +1016,11 @@ export interface paths {
         /**
          * Activate a draft goal
          * @description Moves the goal `DRAFT → ACTIVE` (any other current status is `409`). **Manager-only.**
-         *     Once active, the goal becomes visible to the subordinate's wider management chain and
-         *     its current value becomes editable via `PUT /goals/{id}/progress`. The subordinate is
-         *     notified; the transition is recorded in the audit history.
+         *     The goal's **due date must not be in the past** (`400`) — a stale draft must be given a
+         *     fresh due date (via `PUT /goals/{id}`) before it can be activated. Once active, the
+         *     goal becomes visible to the subordinate's wider management chain and its current value
+         *     becomes editable via `PUT /goals/{id}/progress`. The subordinate is notified; the
+         *     transition is recorded in the audit history.
          */
         post: operations["activateGoal"];
         delete?: never;
@@ -2135,6 +2140,11 @@ export interface components {
              * @description Required for NUMBER and PERCENTAGE (0–100 for PERCENTAGE); must be absent for BINARY.
              */
             targetValue?: number | null;
+            /**
+             * Format: date
+             * @description ISO `YYYY-MM-DD`; must not be earlier than the current date.
+             */
+            dueDate: string;
         };
         GoalDefinitionUpdate: {
             title: string;
@@ -2150,6 +2160,11 @@ export interface components {
              * @description Required for NUMBER and PERCENTAGE (0–100 for PERCENTAGE); must be absent for BINARY.
              */
             targetValue?: number | null;
+            /**
+             * Format: date
+             * @description ISO `YYYY-MM-DD`; must not be earlier than the current date. Editable only while DRAFT (this endpoint is DRAFT-only).
+             */
+            dueDate: string;
         };
         GoalProgressUpdate: {
             /**
@@ -2178,6 +2193,11 @@ export interface components {
              * @description Epoch milliseconds; server-managed, immutable.
              */
             createdAt: number;
+            /**
+             * Format: date
+             * @description ISO `YYYY-MM-DD`; never earlier than the day it was last saved. Editable only while DRAFT.
+             */
+            dueDate: string;
             title: string;
             description: string;
             /** @enum {string} */
@@ -2227,6 +2247,8 @@ export interface components {
             status: "DRAFT" | "ACTIVE" | "CLOSED";
             /** Format: int64 */
             createdAt: number;
+            /** Format: date */
+            dueDate: string;
             /** Format: int64 */
             lastModified: number;
         };
@@ -2258,11 +2280,12 @@ export interface components {
              * @description Structured event kind; the client renders it in the viewer's language.
              * @enum {string}
              */
-            type: "CREATED" | "TITLE_CHANGED" | "DESCRIPTION_CHANGED" | "TYPE_CHANGED" | "TARGET_CHANGED" | "PROGRESS_UPDATED" | "ACHIEVED_CHANGED" | "STATUS_CHANGED" | "DELETED";
+            type: "CREATED" | "TITLE_CHANGED" | "DESCRIPTION_CHANGED" | "TYPE_CHANGED" | "TARGET_CHANGED" | "DUE_DATE_CHANGED" | "PROGRESS_UPDATED" | "ACHIEVED_CHANGED" | "STATUS_CHANGED" | "DELETED";
             /**
              * @description Interpolation params for the localized rendering — enum names (`from`/`to` statuses
-             *     and types, the CREATED event's `type`) and numeric values (target/progress
-             *     `from`/`to`, `""` = no value). Never title/description/summary text (description and
+             *     and types, the CREATED event's `type`), numeric values (target/progress
+             *     `from`/`to`, `""` = no value), and ISO dates (the due-date change's `from`/`to`).
+             *     Never title/description/summary text (description and
              *     summary are encrypted at rest; this trail is plaintext by design). Empty object when
              *     the event kind needs none.
              */
@@ -3998,7 +4021,7 @@ export interface operations {
                     "application/json": components["schemas"]["GoalResponse"];
                 };
             };
-            /** @description Validation error (blank or oversized title/description, a target value that is missing, out of range, or not applicable to the goal type) or referenced user does not exist */
+            /** @description Validation error (blank or oversized title/description, a target value that is missing, out of range, or not applicable to the goal type, a due date that is missing, malformed, or in the past) or referenced user does not exist */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -4069,7 +4092,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Validation error (blank or oversized title/description, a target value that is missing, out of range, or not applicable to the goal type) */
+            /** @description Validation error (blank or oversized title/description, a target value that is missing, out of range, or not applicable to the goal type, a due date that is missing, malformed, or in the past) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -4190,7 +4213,15 @@ export interface operations {
                 };
                 content?: never;
             };
-            400: components["responses"]["BadRequest"];
+            /** @description The goal's due date is in the past — update it before activating */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["GoalNotManager"];
             404: components["responses"]["NotFound"];

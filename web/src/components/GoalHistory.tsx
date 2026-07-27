@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { listGoalEvents, type GoalEvent } from "../api/client";
-import { formatTimestamp } from "../utils/datetime";
+import { formatIsoDate, formatTimestamp } from "../utils/datetime";
 
 // Render a structured goal audit event in the current language. Params carry enum names and
 // numeric values only (never title/description/summary text), so the wording names the aspect,
@@ -32,6 +32,11 @@ function describeEvent(e: GoalEvent, t: TFunction, locale: string): string {
       if (!p.to) return t("goal.event.targetCleared");
       if (!p.from) return t("goal.event.targetSet", { to: num(p.to) });
       return t("goal.event.targetChanged", { from: num(p.from), to: num(p.to) });
+    case "DUE_DATE_CHANGED":
+      return t("goal.event.dueDateChanged", {
+        from: formatIsoDate(p.from ?? "", locale),
+        to: formatIsoDate(p.to ?? "", locale),
+      });
     case "PROGRESS_UPDATED":
       return t("goal.event.progressUpdated", { from: num(p.from), to: num(p.to) });
     case "ACHIEVED_CHANGED":

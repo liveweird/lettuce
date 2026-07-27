@@ -1,5 +1,6 @@
 import type { TFunction } from "i18next";
 import type { GoalDefinitionUpdateBody, GoalResponse, GoalType } from "../api/client";
+import { todayIsoDate } from "./datetime";
 import { saveErrorMessage } from "./saveError";
 
 export const MAX_GOAL_TITLE_LENGTH = 200;
@@ -12,6 +13,7 @@ export interface GoalDefinitionFormValues {
   description: string;
   type: GoalType;
   targetValue: number | string;
+  dueDate: string;
 }
 
 export function toDefinitionFormValues(goal: GoalResponse): GoalDefinitionFormValues {
@@ -20,6 +22,7 @@ export function toDefinitionFormValues(goal: GoalResponse): GoalDefinitionFormVa
     description: goal.description,
     type: goal.type,
     targetValue: goal.targetValue ?? "",
+    dueDate: goal.dueDate,
   };
 }
 
@@ -32,6 +35,7 @@ export function toDefinitionBody(values: GoalDefinitionFormValues): GoalDefiniti
     // numeric types, so the fallback is defensive only.
     targetValue:
       values.type === "BINARY" || values.targetValue === "" ? null : Number(values.targetValue),
+    dueDate: values.dueDate,
   };
 }
 
@@ -58,6 +62,13 @@ export function goalDefinitionValidation(t: TFunction) {
       if (values.type === "PERCENTAGE" && (numeric < 0 || numeric > 100)) {
         return t("goal.validation.percentageRange");
       }
+      return null;
+    },
+    // ISO strings compare chronologically, so a plain string compare mirrors the server rule
+    // (dueDate === today is valid).
+    dueDate: (value: string) => {
+      if (!value) return t("goal.validation.dueDateRequired");
+      if (value < todayIsoDate()) return t("goal.validation.dueDateInPast");
       return null;
     },
   };

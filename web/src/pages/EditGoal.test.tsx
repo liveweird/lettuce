@@ -28,6 +28,7 @@ const DRAFT_GOAL = {
   subordinateId: 8,
   subordinateName: "Sub Ordinate",
   createdAt: new Date(2026, 5, 1).getTime(),
+  dueDate: "2099-06-15",
   title: "Raise coverage",
   description: "Initial description",
   type: "PERCENTAGE",
@@ -113,12 +114,15 @@ describe("EditGoal page", () => {
     expect(await screen.findByLabelText("Description", { selector: "textarea" })).toHaveValue(
       "Initial description",
     );
+    // The due date is prefilled from the document and editable in DRAFT.
+    expect(screen.getByLabelText(/due date/i)).toHaveValue("2099-06-15");
 
     await user.clear(title);
     await user.type(title, "Raise coverage further");
     const target = screen.getByLabelText(/target/i);
     await user.clear(target);
     await user.type(target, "95");
+    fireEvent.change(screen.getByLabelText(/due date/i), { target: { value: "2099-09-01" } });
     await user.click(screen.getByRole("button", { name: /^save draft$/i }));
 
     await waitFor(() => {
@@ -131,6 +135,7 @@ describe("EditGoal page", () => {
         description: "Initial description",
         type: "PERCENTAGE",
         targetValue: 95,
+        dueDate: "2099-09-01",
       });
     });
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/users/7/goals"));
@@ -276,6 +281,17 @@ describe("EditGoal page", () => {
     expect(screen.queryByTestId("probe")).toBeNull();
   });
 
+  test("ACTIVE: a past due date renders read-only with the overdue badge", async () => {
+    setupMocks({ ...DRAFT_GOAL, status: "ACTIVE", currentValue: 45, dueDate: "2020-01-01" });
+    renderScreen();
+
+    await screen.findByLabelText(/current/i);
+    // Read-only display (no date input on the progress branch) + the overdue signal.
+    expect(screen.queryByLabelText("Due date", { selector: "input" })).toBeNull();
+    expect(screen.getByText("Jan 1, 2020")).toBeInTheDocument();
+    expect(screen.getByText("Overdue")).toBeInTheDocument();
+  });
+
   test("ACTIVE (numeric): the progress form PUTs the new current value to /progress", async () => {
     setupMocks({ ...DRAFT_GOAL, status: "ACTIVE", currentValue: 45 });
     const user = userEvent.setup();
@@ -286,6 +302,9 @@ describe("EditGoal page", () => {
     expect(screen.getByText("Update progress")).toBeInTheDocument();
     // The definition is frozen: no title input, just the read-only display.
     expect(screen.queryByRole("textbox", { name: "Title" })).toBeNull();
+    // A future due date shows plainly, without the overdue badge.
+    expect(screen.getByText("Jun 15, 2099")).toBeInTheDocument();
+    expect(screen.queryByText("Overdue")).toBeNull();
     await user.clear(current);
     await user.type(current, "60");
     await user.click(screen.getByRole("button", { name: /^save$/i }));

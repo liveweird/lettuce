@@ -3,6 +3,8 @@ package ch.nokillswit.goals
 import ch.nokillswit.infra.paging.PageResponse
 import io.ktor.server.plugins.BadRequestException
 import kotlinx.serialization.Serializable
+import java.time.LocalDate
+import java.time.format.DateTimeParseException
 
 @Serializable
 enum class GoalType { BINARY, NUMBER, PERCENTAGE }
@@ -26,6 +28,7 @@ data class GoalCreateRequest(
     val description: String = "",
     val type: GoalType,
     val targetValue: Double? = null,
+    val dueDate: String,
 )
 
 /**
@@ -40,6 +43,7 @@ data class GoalDefinitionUpdate(
     val description: String = "",
     val type: GoalType,
     val targetValue: Double? = null,
+    val dueDate: String,
 )
 
 /**
@@ -65,6 +69,8 @@ data class GoalResponse(
     val managerId: UInt,
     val subordinateId: UInt,
     val createdAt: Long,
+    // ISO YYYY-MM-DD; never earlier than its save day, editable only while DRAFT.
+    val dueDate: String,
     val title: String,
     val description: String,
     val type: GoalType,
@@ -97,6 +103,7 @@ data class GoalListItem(
     val achieved: Boolean?,
     val status: GoalStatus,
     val createdAt: Long,
+    val dueDate: String,
     val lastModified: Long,
 )
 
@@ -129,9 +136,17 @@ data class GoalEventListResponse(
 /**
  * Validates a goal's definition fields (create and DRAFT edit): title/description bounds plus the
  * type-specific target rule — BINARY carries no target (its progress is the [GoalResponse.achieved]
- * flag), NUMBER requires a finite target, PERCENTAGE a target within 0–100.
+ * flag), NUMBER requires a finite target, PERCENTAGE a target within 0–100 — plus the due-date
+ * rule (see [validateGoalDueDate]).
  */
-internal fun validateGoalDefinition(title: String, description: String, type: GoalType, targetValue: Double?) {
+internal fun validateGoalDefinition(
+    title: String,
+    description: String,
+    type: GoalType,
+    targetValue: Double?,
+    dueDate: String,
+    today: LocalDate = LocalDate.now(),
+) {
     if (title.isBlank()) throw BadRequestException("Goal title must not be blank")
     if (title.length > MAX_GOAL_TITLE_LENGTH) {
         throw BadRequestException("Goal title must be at most $MAX_GOAL_TITLE_LENGTH characters")
@@ -153,6 +168,23 @@ internal fun validateGoalDefinition(title: String, description: String, type: Go
             }
         }
     }
+    validateGoalDueDate(dueDate, today)
+}
+
+/**
+ * Validates the due date: strict zero-padded ISO `YYYY-MM-DD` (anything else would break the
+ * VARCHAR column's lexicographic == chronological ordering) and not earlier than [today]
+ * (`== today` is allowed). Runs on every definition save and again on the DRAFT→ACTIVE
+ * transition (the route calls it directly — a stale draft must pick a fresh date to activate).
+ */
+internal fun validateGoalDueDate(dueDate: String, today: LocalDate = LocalDate.now()) {
+    val parsed = try {
+        if (dueDate.length != 10) throw DateTimeParseException("wrong length", dueDate, 0)
+        LocalDate.parse(dueDate)
+    } catch (_: DateTimeParseException) {
+        throw BadRequestException("Goal due date must be an ISO date (YYYY-MM-DD)")
+    }
+    if (parsed < today) throw BadRequestException("Goal due date must not be in the past")
 }
 
 /**

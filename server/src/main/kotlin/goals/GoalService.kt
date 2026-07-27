@@ -57,6 +57,8 @@ private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
     "targetValue" to GoalService.Goals.targetValue,
     "currentValue" to GoalService.Goals.currentValue,
     "createdAt" to GoalService.Goals.createdAt,
+    // ISO YYYY-MM-DD in a VARCHAR: lexicographic == chronological, so a plain column sort works.
+    "dueDate" to GoalService.Goals.dueDate,
     "lastModified" to GoalService.Goals.lastModified,
 )
 
@@ -69,6 +71,7 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
         val managerId = reference("manager_id", UserService.Users)
         val subordinateId = reference("subordinate_id", UserService.Users)
         val createdAt = long("created_at")
+        val dueDate = varchar("due_date", 10)
         val title = varchar("title", MAX_GOAL_TITLE_LENGTH)
         val description = text("description")
         val type = enumerationByName("type", 20, GoalType::class)
@@ -89,12 +92,13 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
      * relationship; the definition invariants are validated here. Returns the new id.
      */
     suspend fun create(managerId: UInt, request: GoalCreateRequest): UInt = suspendTransaction(database) {
-        validateGoalDefinition(request.title, request.description, request.type, request.targetValue)
+        validateGoalDefinition(request.title, request.description, request.type, request.targetValue, request.dueDate)
         val now = System.currentTimeMillis()
         Goals.insert {
             it[this.managerId] = managerId
             it[subordinateId] = request.subordinateId
             it[createdAt] = now
+            it[dueDate] = request.dueDate
             it[title] = request.title
             it[description] = cipher.encrypt(request.description)
             it[type] = request.type
@@ -131,9 +135,10 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
         if (current.first != GoalStatus.DRAFT) {
             throw ConflictException("Only a DRAFT goal's definition may be edited")
         }
-        validateGoalDefinition(update.title, update.description, update.type, update.targetValue)
+        validateGoalDefinition(update.title, update.description, update.type, update.targetValue, update.dueDate)
         val typeChanged = current.second != update.type
         Goals.update({ (Goals.id eq id) and (Goals.markedAsDeleted eq false) }) {
+            it[dueDate] = update.dueDate
             it[title] = update.title
             it[description] = cipher.encrypt(update.description)
             it[type] = update.type
@@ -254,6 +259,7 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
                 Goals.achieved,
                 Goals.status,
                 Goals.createdAt,
+                Goals.dueDate,
                 Goals.lastModified,
                 managerUsers[UserService.Users.name],
                 managerUsers[UserService.Users.markedAsDeleted],
@@ -278,6 +284,7 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
                     achieved = row[Goals.achieved],
                     status = row[Goals.status],
                     createdAt = row[Goals.createdAt],
+                    dueDate = row[Goals.dueDate],
                     lastModified = row[Goals.lastModified],
                 )
             }
@@ -381,6 +388,7 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
         managerId = this[Goals.managerId].value,
         subordinateId = this[Goals.subordinateId].value,
         createdAt = this[Goals.createdAt],
+        dueDate = this[Goals.dueDate],
         title = this[Goals.title],
         description = cipher.decrypt(this[Goals.description]),
         type = this[Goals.type],

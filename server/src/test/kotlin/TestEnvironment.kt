@@ -231,6 +231,21 @@ object TestOneOnOneEvents {
     }
 }
 
+// Backdates a goal's due date directly, bypassing the not-in-the-past validation — the only way
+// to put a goal into the "stale due date" state (e.g. to exercise the activate gate or the SPA's
+// overdue signal), since the API refuses past dates on every write.
+object TestGoalMaintenance {
+    suspend fun setDueDate(id: UInt, dueDate: String) {
+        suspendTransaction(sharedTestDatabase) {
+            ch.nokillswit.goals.GoalService.Goals.update({
+                ch.nokillswit.goals.GoalService.Goals.id eq id
+            }) {
+                it[ch.nokillswit.goals.GoalService.Goals.dueDate] = dueDate
+            }
+        }
+    }
+}
+
 // Reads the goal_events audit table directly (e.g. to assert events outlive a soft delete).
 object TestGoalEvents {
     val service: ch.nokillswit.goals.GoalEventService by lazy {

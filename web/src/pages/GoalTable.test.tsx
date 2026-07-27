@@ -17,6 +17,7 @@ const BASE = {
   subordinateName: "Me",
   subordinateDeleted: false,
   createdAt: new Date(2026, 5, 1).getTime(),
+  dueDate: "2099-06-15",
   lastModified: new Date(2026, 6, 1).getTime(),
 };
 
@@ -74,7 +75,7 @@ describe("GoalTable", () => {
     localStorage.clear();
   });
 
-  test("renders the five columns with per-type value cells", async () => {
+  test("renders the columns with per-type value cells and the due dates", async () => {
     renderWithProviders(<GoalTable view="own" managerId={10} settingsKey="userGoals" />);
 
     expect(await screen.findByText("Ship four reports")).toBeInTheDocument();
@@ -91,6 +92,27 @@ describe("GoalTable", () => {
     expect(screen.getByText("Active")).toBeInTheDocument();
     expect(screen.getByText("Draft")).toBeInTheDocument();
     expect(screen.getByText("Closed")).toBeInTheDocument();
+    // Due dates (all far-future here, so no overdue badge).
+    expect(screen.getAllByText("Jun 15, 2099").length).toBe(3);
+    expect(screen.queryByText("Overdue")).toBeNull();
+  });
+
+  test("an ACTIVE goal past its due date gets the overdue badge; DRAFT and CLOSED do not", async () => {
+    // Every row's due date is long past — only the ACTIVE one may signal overdue.
+    mockFetch.mockResolvedValue(
+      jsonResponse(
+        200,
+        page([
+          { ...NUMBER_GOAL, dueDate: "2020-01-01" },
+          { ...PERCENTAGE_GOAL, dueDate: "2020-01-01" },
+          { ...BINARY_GOAL, dueDate: "2020-01-01" },
+        ]),
+      ),
+    );
+    renderWithProviders(<GoalTable view="own" managerId={10} settingsKey="userGoals" />);
+
+    expect(await screen.findByText("Ship four reports")).toBeInTheDocument();
+    expect(screen.getAllByText("Overdue").length).toBe(1);
   });
 
   test("queries with the fixed managerId and the default -createdAt sort", async () => {
@@ -242,6 +264,23 @@ describe("GoalTable", () => {
     await user.click(screen.getByRole("button", { name: "Target" }));
     await waitFor(() => {
       expect(mockFetch.mock.calls.some(([u]) => String(u).includes("sort=targetValue"))).toBe(true);
+    });
+  });
+
+  test("the Due date column is sortable", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<GoalTable view="own" managerId={10} settingsKey="userGoals" />);
+    await screen.findByText("Ship four reports");
+
+    await user.click(screen.getByRole("button", { name: "Due date" }));
+    await waitFor(() => {
+      expect(mockFetch.mock.calls.some(([u]) => String(u).includes("sort=dueDate"))).toBe(true);
+    });
+    await user.click(screen.getByRole("button", { name: "Due date" }));
+    await waitFor(() => {
+      expect(
+        mockFetch.mock.calls.some(([u]) => String(u).includes(`sort=${encodeURIComponent("-dueDate")}`)),
+      ).toBe(true);
     });
   });
 

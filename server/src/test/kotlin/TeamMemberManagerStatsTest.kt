@@ -79,7 +79,11 @@ class TeamMemberManagerStatsTest {
     private suspend fun HttpClient.createGoal(subordinateId: UInt, title: String): GoalResponse {
         val response = post("/api/v1/goals") {
             contentType(ContentType.Application.Json)
-            setBody(GoalCreateRequest(subordinateId = subordinateId, title = title, type = GoalType.BINARY))
+            setBody(
+                GoalCreateRequest(
+                    subordinateId = subordinateId, title = title, type = GoalType.BINARY, dueDate = "2099-12-31",
+                ),
+            )
         }
         assertEquals(HttpStatusCode.Created, response.status, "goal create failed")
         return response.body<GoalResponse>()

@@ -14,6 +14,8 @@
   "userFallback": "user #{{id}}",
   "title": "Title",
   "createdAt": "Created",
+  "dueDate": "Due date",
+  "overdue": "Overdue",
   "target": "Target",
   "current": "Current",
   "clearTitleFilter": "Clear title filter",
@@ -78,7 +80,9 @@
     "descriptionTooLong": "The description must be at most {{max}} characters",
     "targetRequired": "A target value is required for this goal type",
     "percentageRange": "A percentage must be between 0 and 100",
-    "currentRequired": "A current value is required"
+    "currentRequired": "A current value is required",
+    "dueDateRequired": "A due date is required",
+    "dueDateInPast": "The due date cannot be in the past"
   },
   "error": {
     "notFound": "This goal does not exist or was deleted.",
@@ -93,7 +97,8 @@
     "updateFailedStatus": "Could not update the goal (error {{status}}).",
     "createForbidden": "You may only set goals for your direct reports.",
     "createFailed": "Could not create the goal.",
-    "activateAfterCreateFailed": "The goal was created as a draft, but activating it failed — you can activate it from its view."
+    "activateAfterCreateFailed": "The goal was created as a draft, but activating it failed — you can activate it from its view.",
+    "activateOverdue": "The goal's due date has passed — set a new due date before activating."
   },
   "event": {
     "created": "Goal created ({{type}}).",
@@ -103,6 +108,7 @@
     "targetSet": "Target set to {{to}}.",
     "targetCleared": "Target removed.",
     "targetChanged": "Target changed from {{from}} to {{to}}.",
+    "dueDateChanged": "Due date changed from {{from}} to {{to}}.",
     "progressUpdated": "Progress updated from {{from}} to {{to}}.",
     "achievedYes": "Marked as achieved.",
     "achievedNo": "Marked as not achieved.",

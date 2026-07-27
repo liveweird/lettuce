@@ -1,5 +1,5 @@
 import { Link as RouterLink } from "react-router-dom";
-import { Alert, Button, Select, Stack, Table, Text } from "@mantine/core";
+import { Alert, Button, Group, Select, Stack, Table, Text } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconEye, IconPencil, IconTargetArrow } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -25,13 +25,14 @@ import {
   createdWindowCutoff,
   createdWindowOptions,
   formatDate,
+  formatIsoDate,
   formatTimestamp,
   type CreatedWindow,
 } from "../utils/datetime";
 import { goalEditLink, goalViewLink } from "../utils/goalLinks";
-import { formatGoalValue, GoalCurrentValue } from "../utils/goalValues";
+import { formatGoalValue, GoalCurrentValue, isGoalOverdue, OverdueBadge } from "../utils/goalValues";
 
-const BASE_SORT_FIELDS = ["title", "createdAt", "status", "targetValue", "currentValue"] as const;
+const BASE_SORT_FIELDS = ["title", "createdAt", "dueDate", "status", "targetValue", "currentValue"] as const;
 type SortField = (typeof BASE_SORT_FIELDS)[number] | "managerName" | "subordinateName";
 
 const CREATED_WINDOWS = ["all", "month", "sixMonths"] as const;
@@ -257,6 +258,15 @@ export default function GoalTable({
             </Table.Th>
             <Table.Th>
               <SortHeader
+                field="dueDate"
+                label={t("goal.dueDate")}
+                activeField={sortField}
+                activeDir={sortDir}
+                onToggle={toggleSort}
+              />
+            </Table.Th>
+            <Table.Th>
+              <SortHeader
                 field="status"
                 label={t("common.field.status")}
                 activeField={sortField}
@@ -314,6 +324,12 @@ export default function GoalTable({
                   )}
                   <Table.Td style={{ whiteSpace: "nowrap" }} title={formatTimestamp(g.createdAt)}>
                     {formatDate(g.createdAt, i18n.language)}
+                  </Table.Td>
+                  <Table.Td style={{ whiteSpace: "nowrap" }}>
+                    <Group gap="xs" wrap="nowrap">
+                      <Text size="sm">{formatIsoDate(g.dueDate, i18n.language)}</Text>
+                      {isGoalOverdue(g.status, g.dueDate) && <OverdueBadge />}
+                    </Group>
                   </Table.Td>
                   <Table.Td style={{ whiteSpace: "nowrap" }}>
                     <GoalStatusBadge status={g.status} />

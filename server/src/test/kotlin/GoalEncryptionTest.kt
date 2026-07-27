@@ -76,6 +76,7 @@ class GoalEncryptionTest {
                     title = "Public title",
                     description = secretDescription,
                     type = GoalType.BINARY,
+                    dueDate = "2099-12-31",
                 ),
             )
         }.body<GoalResponse>()
@@ -126,6 +127,7 @@ class GoalEncryptionTest {
                 it[GoalService.Goals.managerId] = managerId
                 it[GoalService.Goals.subordinateId] = subordinateId
                 it[GoalService.Goals.createdAt] = now
+                it[GoalService.Goals.dueDate] = "2099-12-31"
                 it[GoalService.Goals.title] = "Legacy goal"
                 it[GoalService.Goals.description] = "legacy plain description"
                 it[GoalService.Goals.type] = GoalType.NUMBER
@@ -166,6 +168,7 @@ class GoalEncryptionTest {
                 description = "rotate this description",
                 type = GoalType.NUMBER,
                 targetValue = 3.0,
+                dueDate = "2099-12-31",
             ),
         )
         TestServices.goals.transition(id, GoalStatus.DRAFT, GoalStatus.ACTIVE)

@@ -24,6 +24,7 @@ const FROM_ALICE = {
   achieved: null,
   status: "ACTIVE",
   createdAt: new Date(2026, 5, 1).getTime(),
+  dueDate: "2099-06-15",
   lastModified: new Date(2026, 6, 1).getTime(),
 };
 const FROM_BOB = {
