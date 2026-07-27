@@ -83,6 +83,7 @@ const CreateTeam = lazy(() => import("./pages/CreateTeam"));
 const EditTeam = lazy(() => import("./pages/EditTeam"));
 const Teams = lazy(() => import("./pages/Teams"));
 const TeamMembers = lazy(() => import("./pages/TeamMembers"));
+const TeamSubordinates = lazy(() => import("./pages/TeamSubordinates"));
 const Users = lazy(() => import("./pages/Users"));
 const Templates = lazy(() => import("./pages/Templates"));
 const CreateTemplate = lazy(() => import("./pages/CreateTemplate"));
@@ -405,6 +406,7 @@ export default function App() {
             <Route path="teams/new" element={<CreateTeam />} />
             <Route path="teams/:id/edit" element={<EditTeam />} />
             <Route path="teams/:id/members" element={<TeamMembers />} />
+            <Route path="teams/:teamId/subordinates" element={<TeamSubordinates />} />
             <Route path="feedback" element={<Feedback />} />
             <Route path="feedback/new" element={<CreateFeedback />} />
             <Route path="feedback/request" element={<RequestFeedback />} />

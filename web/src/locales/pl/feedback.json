@@ -92,7 +92,8 @@
     "peers": "Moi współpracownicy",
     "subordinates": "Moi podwładni",
     "users": "Użytkownicy",
-    "members": "Członkowie zespołu"
+    "members": "Członkowie zespołu",
+    "team": "Podwładni zespołu"
   },
   "duplicate": {
     "draft": "Szkic tego feedbacku już istnieje.",

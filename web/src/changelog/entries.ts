@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.20.0",
+    date: "2026-07-27",
+    en: `A new **My teams** tab on the Dashboard lists the teams you manage. Each team opens its own members view — the same cards, stats, and actions as *My subordinates*, just limited to that one team — and every screen you open from there (feedback forms, 1:1s, goals) brings you back to it.`,
+    pl: `Nowa zakładka **Moje zespoły** na Pulpicie pokazuje zespoły, którymi zarządzasz. Każdy zespół otwiera własny widok członków — te same karty, statystyki i akcje co *Moi podwładni*, tylko ograniczone do tego jednego zespołu — a każdy ekran otwarty z tego miejsca (formularze feedbacku, spotkania 1:1, cele) przywraca Cię do niego.`,
+  },
+  {
     version: "1.19.0",
     date: "2026-07-27",
     en: `Goals now have a **due date** — the date by which the goal should be completed. It is required when creating a goal, editable while the goal is a draft, and shown on the goal's pages and as a new sortable *Due date* column in every goals list. The due date can never be set in the past, a stale draft must get a fresh date before it can be activated, and an active goal past its due date is flagged with an orange *Overdue* badge.`,

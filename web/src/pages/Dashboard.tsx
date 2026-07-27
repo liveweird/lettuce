@@ -2,9 +2,10 @@ import { Stack, Tabs, Title } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import ManagersTable from "./ManagersTable";
+import MyTeamsTable from "./MyTeamsTable";
 import TeamMembersTable from "./TeamMembersTable";
 
-const TABS = ["managers", "peers", "subordinates"] as const;
+const TABS = ["managers", "peers", "subordinates", "myTeams"] as const;
 type DashboardTab = (typeof TABS)[number];
 
 function isDashboardTab(value: string | null): value is DashboardTab {
@@ -39,6 +40,9 @@ export default function Dashboard() {
           <Tabs.Tab value="subordinates" data-tour="dashboard-subordinates">
             {t("dashboard.tabs.subordinates")}
           </Tabs.Tab>
+          <Tabs.Tab value="myTeams" data-tour="dashboard-myTeams">
+            {t("dashboard.tabs.myTeams")}
+          </Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="managers" pt="md">
@@ -49,6 +53,9 @@ export default function Dashboard() {
         </Tabs.Panel>
         <Tabs.Panel value="subordinates" pt="md">
           <TeamMembersTable view="managed" emptyMessage={t("dashboard.empty.teamMembers")} />
+        </Tabs.Panel>
+        <Tabs.Panel value="myTeams" pt="md">
+          <MyTeamsTable />
         </Tabs.Panel>
       </Tabs>
     </Stack>

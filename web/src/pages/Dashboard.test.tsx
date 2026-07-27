@@ -27,18 +27,19 @@ describe("Dashboard", () => {
     localStorage.clear();
   });
 
-  test("shows three tabs and lazily loads each tab's view", async () => {
+  test("shows four tabs and lazily loads each tab's view", async () => {
     mockFetch.mockImplementation(() =>
       Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 })),
     );
     const user = userEvent.setup();
     renderWithProviders(<Dashboard />);
 
-    // Page heading plus the three tabs (the section names are now tabs, not headings).
+    // Page heading plus the four tabs (the section names are now tabs, not headings).
     expect(screen.getByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "My managers" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "My peers" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "My subordinates" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "My teams" })).toBeInTheDocument();
 
     // The tabs carry the data-tour anchors the guided tour targets for its subsection steps.
     expect(screen.getByRole("tab", { name: "My managers" })).toHaveAttribute(
@@ -52,6 +53,10 @@ describe("Dashboard", () => {
     expect(screen.getByRole("tab", { name: "My subordinates" })).toHaveAttribute(
       "data-tour",
       "dashboard-subordinates",
+    );
+    expect(screen.getByRole("tab", { name: "My teams" })).toHaveAttribute(
+      "data-tour",
+      "dashboard-myTeams",
     );
 
     // The default (managers) tab loads its view on mount.
@@ -68,9 +73,16 @@ describe("Dashboard", () => {
     await user.click(screen.getByRole("tab", { name: "My subordinates" }));
     expect(await screen.findByText("No team members")).toBeInTheDocument();
 
+    // My teams queries the teams list scoped to the caller (localStorage userId = 7).
+    await user.click(screen.getByRole("tab", { name: "My teams" }));
+    expect(await screen.findByText("No managed teams")).toBeInTheDocument();
+
     const urls = mockFetch.mock.calls.map(([url]) => String(url));
     expect(urls.some((url) => url.includes("/api/v1/teams/members?view=member"))).toBe(true);
     expect(urls.some((url) => url.includes("/api/v1/teams/members?view=managed"))).toBe(true);
+    expect(
+      urls.some((url) => url.includes("/api/v1/teams?") && url.includes("managerId=7")),
+    ).toBe(true);
   });
 
   test("honors ?tab=peers from the URL", async () => {
@@ -96,6 +108,21 @@ describe("Dashboard", () => {
     await waitFor(() => {
       const urls = mockFetch.mock.calls.map(([url]) => String(url));
       expect(urls.some((url) => url.includes("/api/v1/teams/members?view=managed"))).toBe(true);
+    });
+  });
+
+  test("honors ?tab=myTeams from the URL", async () => {
+    mockFetch.mockImplementation(() =>
+      Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 })),
+    );
+    renderWithProviders(<Dashboard />, { route: "/?tab=myTeams" });
+
+    expect(await screen.findByText("No managed teams")).toBeInTheDocument();
+    await waitFor(() => {
+      const urls = mockFetch.mock.calls.map(([url]) => String(url));
+      expect(
+        urls.some((url) => url.includes("/api/v1/teams?") && url.includes("managerId=7")),
+      ).toBe(true);
     });
   });
 
