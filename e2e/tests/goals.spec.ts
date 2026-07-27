@@ -6,6 +6,14 @@ import type { Page } from "@playwright/test";
 // Goals are new rows, so seeded accounts are never mutated; every spec deletes what it creates
 // (delete is DRAFT-only, so cleanup deactivates first when needed).
 
+// Today as the ISO YYYY-MM-DD an <input type="date"> takes (local time) — the earliest valid
+// due date, so specs never race midnight.
+function todayIso(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 // Open the per-subordinate goals drill-down via the dashboard card, like a user would.
 async function gotoSubordinateGoals(page: Page): Promise<void> {
   await page.goto("/?tab=subordinates");
@@ -19,6 +27,7 @@ async function createGoal(page: Page, title: string, activate: boolean): Promise
   await expect(page).toHaveURL(/\/goals\/new/);
   await page.getByLabel("Title").fill(title);
   await page.getByLabel("Target").fill("5");
+  await page.getByLabel("Due date").fill(todayIso());
   const [created] = await Promise.all([
     page.waitForResponse(
       (r) => r.url().endsWith("/api/v1/goals") && r.request().method() === "POST" && r.ok(),
