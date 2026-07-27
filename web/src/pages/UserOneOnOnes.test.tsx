@@ -160,4 +160,26 @@ describe("UserOneOnOnes page", () => {
     await screen.findByRole("link", { name: /back to my managers/i });
     expect(screen.queryByRole("link", { name: "New 1:1" })).toBeNull();
   });
+
+  test("from=team returns to the team view and offers New 1:1 with the team origin preserved", async () => {
+    renderScreen("/users/10/one-on-ones?name=Alice&from=team&teamId=5");
+
+    expect(await screen.findByRole("link", { name: /back to team subordinates/i })).toHaveAttribute(
+      "href",
+      "/teams/5/subordinates",
+    );
+    const back = encodeURIComponent("/users/10/one-on-ones?name=Alice&from=team&teamId=5");
+    expect(screen.getByRole("link", { name: "New 1:1" })).toHaveAttribute(
+      "href",
+      `/one-on-ones/new?subordinateId=10&subordinateName=Alice&back=${back}`,
+    );
+  });
+
+  test("from=team without a valid teamId degrades to the managers origin", async () => {
+    renderScreen("/users/10/one-on-ones?name=Alice&from=team");
+    expect(
+      await screen.findByRole("link", { name: /back to my managers/i }),
+    ).toHaveAttribute("href", "/?tab=managers");
+    expect(screen.queryByRole("link", { name: "New 1:1" })).toBeNull();
+  });
 });

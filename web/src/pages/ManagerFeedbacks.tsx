@@ -13,8 +13,9 @@ const ORIGIN = {
   peers: { labelKey: "feedback.origin.peers", to: "/?tab=peers" },
   subordinates: { labelKey: "feedback.origin.subordinates", to: "/?tab=subordinates" },
   users: { labelKey: "feedback.origin.users", to: "/users" },
-  // `members` has no static target — it needs the `teamId` param; see resolveOrigin.
+  // `members` and `team` have no static target — they need the `teamId` param; see resolveOrigin.
   members: { labelKey: "feedback.origin.members", to: "/teams" },
+  team: { labelKey: "feedback.origin.team", to: "/teams" },
 } as const;
 
 type OriginKey = keyof typeof ORIGIN;
@@ -28,17 +29,19 @@ function parsePositiveInt(value: string | null): number | null {
   return value != null && Number.isInteger(n) && n > 0 ? n : null;
 }
 
-// The `members` origin is only usable with a valid teamId (its back target is that team's
-// roster); without one it degrades to the default `managers` origin.
+// The `members` (team roster) and `team` (team-scoped subordinates view) origins are only
+// usable with a valid teamId — their back targets are that team's screens; without one they
+// degrade to the default `managers` origin.
 function resolveOrigin(
   fromParam: string | null,
   teamId: number | null,
 ): { labelKey: string; to: string } {
+  const parameterized = fromParam === "members" || fromParam === "team";
   const key: OriginKey =
-    isOriginKey(fromParam) && (fromParam !== "members" || teamId != null) ? fromParam : "managers";
-  return key === "members"
-    ? { labelKey: ORIGIN.members.labelKey, to: `/teams/${teamId}/members` }
-    : ORIGIN[key];
+    isOriginKey(fromParam) && (!parameterized || teamId != null) ? fromParam : "managers";
+  if (key === "members") return { labelKey: ORIGIN.members.labelKey, to: `/teams/${teamId}/members` };
+  if (key === "team") return { labelKey: ORIGIN.team.labelKey, to: `/teams/${teamId}/subordinates` };
+  return ORIGIN[key];
 }
 
 const TABS = ["received", "provided"] as const;

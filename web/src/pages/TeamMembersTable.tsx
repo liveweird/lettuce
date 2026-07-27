@@ -36,7 +36,7 @@ import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOf, isString, isStringOrNull, useStoredState } from "../hooks/useStoredState";
 import { feedbackAskLink, feedbackProvideLink, feedbackRequestLink, userFeedbacksLink } from "../utils/feedbackLinks";
 import { userGoalsLink } from "../utils/goalLinks";
-import { oneOnOneCreateLink } from "../utils/oneOnOneLinks";
+import { oneOnOneCreateLink, userOneOnOnesLink } from "../utils/oneOnOneLinks";
 import { groupTeamRows } from "../utils/teamRows";
 
 const SORT_FIELDS = ["name", "email", "teamName"] as const;
@@ -45,17 +45,31 @@ type SortField = (typeof SORT_FIELDS)[number];
 const GRID_COLS = { base: 1, sm: 2, lg: 3 };
 
 // The dashboard "My peers" / "My subordinates" views: a person-card grid (same card language
-// as ManagersTable), keeping the table era's filters, sorting, and pagination.
+// as ManagersTable), keeping the table era's filters, sorting, and pagination. With `teamId`
+// the grid pins to one managed team (the /teams/:id/subordinates view): the team and reports
+// filters unmount (a specific managed team is inherently direct reports) and the drill-down
+// links carry the parameterized `team` origin so round-trips return to the team view.
 export default function TeamMembersTable({
   view,
   emptyMessage,
+  teamId,
+  settingsKey: settingsKeyProp,
+  backTo: backToProp,
 }: {
   view: TeamMemberListView;
   emptyMessage: string;
+  /** Pin the grid to one managed team (hides the team + reports-scope filters). */
+  teamId?: number;
+  /** Override the localStorage view-settings namespace when embedded outside the main tabs. */
+  settingsKey?: string;
+  /** When set, action links carry this as their return target instead of the dashboard tab. */
+  backTo?: string;
 }) {
   const { t } = useTranslation();
-  // Two dashboard views (peers/subordinates) share this component — settings are per-view.
-  const settingsKey = `teamMembers.${view}`;
+  const pinned = teamId != null;
+  // Two dashboard views (peers/subordinates) share this component — settings are per-view;
+  // embeddings (the team-scoped view) pass their own namespace so filters don't bleed.
+  const settingsKey = settingsKeyProp ?? `teamMembers.${view}`;
   const [nameFilter, setNameFilter] = useStoredState(`${settingsKey}.filter.name`, "", isString);
   const [emailFilter, setEmailFilter] = useStoredState(`${settingsKey}.filter.email`, "", isString);
   const [teamFilter, setTeamFilter] = useStoredState<string | null>(
@@ -69,25 +83,32 @@ export default function TeamMembersTable({
     "direct",
     isOneOf(["direct", "all"]),
   );
-  const includeIndirect = view === "managed" && reportsScope === "all";
+  const includeIndirect = !pinned && view === "managed" && reportsScope === "all";
+  // A pinned managed team is inherently direct reports, so the direct-only affordances
+  // (stats, 1:1s, goals) stay available without the Reports filter.
+  const scopeIsDirect = pinned || reportsScope === "direct";
+  // The pinned team is not a user-cleared filter, so it never counts.
+  const effectiveTeamId = teamId ?? (teamFilter ? Number(teamFilter) : undefined);
   const activeFilterCount =
     (nameFilter.trim() ? 1 : 0) +
     (emailFilter.trim() ? 1 : 0) +
-    (teamFilter ? 1 : 0) +
+    (!pinned && teamFilter ? 1 : 0) +
     (includeIndirect ? 1 : 0);
 
   const [debouncedName] = useDebouncedValue(nameFilter, 300);
   const [debouncedEmail] = useDebouncedValue(emailFilter, 300);
 
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
-    usePagedSort<SortField>("name", [debouncedName, debouncedEmail, teamFilter, includeIndirect], {
-      key: settingsKey,
-      sortFields: SORT_FIELDS,
-    });
+    usePagedSort<SortField>(
+      "name",
+      [debouncedName, debouncedEmail, effectiveTeamId, includeIndirect],
+      { key: settingsKey, sortFields: SORT_FIELDS },
+    );
 
   const { data: teams } = useQuery({
     queryKey: ["teams", "all"],
     queryFn: listAllTeams,
+    enabled: !pinned, // only feeds the team Select, which a pinned grid never mounts
   });
   const teamOptions = (teams ?? []).map((team) => ({ value: String(team.id), label: team.name }));
 
@@ -100,7 +121,7 @@ export default function TeamMembersTable({
       sortParam,
       debouncedName,
       debouncedEmail,
-      teamFilter,
+      effectiveTeamId,
       includeIndirect,
     ],
     queryFn: () =>
@@ -111,7 +132,7 @@ export default function TeamMembersTable({
         sort: sortParam,
         name: debouncedName || undefined,
         email: debouncedEmail || undefined,
-        teamId: teamFilter ? Number(teamFilter) : undefined,
+        teamId: effectiveTeamId,
         includeIndirect: includeIndirect || undefined,
       }),
     placeholderData: keepPreviousData,
@@ -119,9 +140,15 @@ export default function TeamMembersTable({
 
   const total = data?.total ?? 0;
 
-  // The Dashboard tab this view lives in, so feedback flows can return here on Cancel.
+  // The screen this grid lives in, so feedback/1:1 flows can return here on Cancel — the
+  // Dashboard tab by default, the team-scoped view when embedded there.
   const tab = view === "managed" ? "subordinates" : "peers";
-  const backTo = `/?tab=${tab}`;
+  const backTo = backToProp ?? `/?tab=${tab}`;
+  // The per-person drill-downs' origin: the pinned view threads `team` + teamId through so
+  // their "Back to …" returns to /teams/:id/subordinates.
+  const drillFrom = pinned ? "team" : view === "managed" ? "subordinates" : "peers";
+  const managedFrom: "team" | "subordinates" = pinned ? "team" : "subordinates";
+  const drillTeamId = pinned ? teamId : undefined;
 
   // One card per person; a member of two of the caller's teams gets aggregated team badges.
   // PaginationBar still shows the server total (memberships), which can slightly exceed the
@@ -151,17 +178,19 @@ export default function TeamMembersTable({
             onChange={setEmailFilter}
             clearLabel={t("teams.clearEmailFilter")}
           />
-          <Select
-            label={t("teams.team")}
-            placeholder={t("common.state.any")}
-            data={teamOptions}
-            value={teamFilter}
-            onChange={setTeamFilter}
-            clearable
-            clearButtonProps={{ "aria-label": t("teams.clearTeamFilter") }}
-            searchable
-          />
-          {view === "managed" && (
+          {!pinned && (
+            <Select
+              label={t("teams.team")}
+              placeholder={t("common.state.any")}
+              data={teamOptions}
+              value={teamFilter}
+              onChange={setTeamFilter}
+              clearable
+              clearButtonProps={{ "aria-label": t("teams.clearTeamFilter") }}
+              searchable
+            />
+          )}
+          {view === "managed" && !pinned && (
             <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />
           )}
         </FilterPanel>
@@ -217,7 +246,7 @@ export default function TeamMembersTable({
               stats={
                 view === "member" ? (
                   <PeerCardStats person={m} />
-                ) : view === "managed" && reportsScope === "direct" ? (
+                ) : view === "managed" && scopeIsDirect ? (
                   <PersonCardStats person={m} />
                 ) : undefined
               }
@@ -255,7 +284,7 @@ export default function TeamMembersTable({
                       {t("teams.requestFeedbackFor")}
                     </Button>
                   )}
-                  {view === "managed" && reportsScope === "direct" && (
+                  {view === "managed" && scopeIsDirect && (
                     // An ACTION like the feedback buttons above (light variant), not navigation.
                     // Creating a 1:1 needs a direct report, hence the same gate as the
                     // drill-down below.
@@ -272,7 +301,7 @@ export default function TeamMembersTable({
                   )}
                   <Button
                     component={RouterLink}
-                    to={userFeedbacksLink(m.userId, m.name, view === "managed" ? "subordinates" : "peers")}
+                    to={userFeedbacksLink(m.userId, m.name, drillFrom, drillTeamId)}
                     variant="subtle"
                     size="xs"
                     leftSection={<IconMessages size={14} />}
@@ -280,13 +309,13 @@ export default function TeamMembersTable({
                   >
                     {t("teams.feedbacks")}
                   </Button>
-                  {view === "managed" && reportsScope === "direct" && (
+                  {view === "managed" && scopeIsDirect && (
                     // Only DIRECT reports qualify for the 1:1 drill-down, and rows carry no
-                    // direct/indirect marker — so the button exists only while the Reports
-                    // filter guarantees every card is a direct report.
+                    // direct/indirect marker — so the button exists only while the scope
+                    // guarantees every card is a direct report.
                     <Button
                       component={RouterLink}
-                      to={`/users/${m.userId}/one-on-ones?name=${encodeURIComponent(m.name)}&from=subordinates`}
+                      to={userOneOnOnesLink(m.userId, m.name, managedFrom, drillTeamId)}
                       variant="subtle"
                       size="xs"
                       leftSection={<IconCalendarEvent size={14} />}
@@ -295,11 +324,11 @@ export default function TeamMembersTable({
                       {t("teams.oneOnOnes")}
                     </Button>
                   )}
-                  {view === "managed" && reportsScope === "direct" && (
+                  {view === "managed" && scopeIsDirect && (
                     // Same direct-only gate: goals are set for direct reports, like 1:1s.
                     <Button
                       component={RouterLink}
-                      to={userGoalsLink(m.userId, m.name, "subordinates")}
+                      to={userGoalsLink(m.userId, m.name, managedFrom, drillTeamId)}
                       variant="subtle"
                       size="xs"
                       leftSection={<IconTargetArrow size={14} />}

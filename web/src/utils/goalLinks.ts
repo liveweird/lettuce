@@ -31,7 +31,18 @@ export function goalEditLink(id: number, from?: string, back?: string): string {
   return `/goals/${id}/edit${detailSearch(from, back)}`;
 }
 
-/** The per-user goals drill-down (`/users/:id/goals`), as linked from the dashboard cards. */
-export function userGoalsLink(userId: number, name: string, from: "managers" | "subordinates"): string {
-  return `/users/${userId}/goals?name=${encodeURIComponent(name)}&from=${from}`;
+/**
+ * The per-user goals drill-down (`/users/:id/goals`), as linked from the dashboard cards.
+ * `teamId` only matters with `from="team"` (the team-scoped subordinates view) — it lets the
+ * drill-down's "Back to …" return to that team's view.
+ */
+export function userGoalsLink(
+  userId: number,
+  name: string,
+  from: "managers" | "subordinates" | "team",
+  teamId?: number,
+): string {
+  let url = `/users/${userId}/goals?name=${encodeURIComponent(name)}&from=${from}`;
+  if (teamId != null) url += `&teamId=${teamId}`;
+  return url;
 }
