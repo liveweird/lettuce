@@ -8,6 +8,7 @@ CREATE TABLE goals (
     manager_id        BIGINT           NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     subordinate_id    BIGINT           NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     created_at        BIGINT           NOT NULL,  -- epoch millis, immutable
+    due_date          VARCHAR(10)      NOT NULL,  -- ISO YYYY-MM-DD (lexicographic == chronological); >= creation day, DRAFT-only editable
     title             VARCHAR(200)     NOT NULL,  -- plaintext: lists sort/filter on it
     description       TEXT             NOT NULL,  -- encrypted at rest (enc:v1:…), never filtered/sorted in SQL
     type              VARCHAR(20)      NOT NULL CHECK (type IN ('BINARY', 'NUMBER', 'PERCENTAGE')),

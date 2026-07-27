@@ -1481,7 +1481,7 @@ paths:
         Supports offset pagination, sorting and filtering.
 
         - Sortable fields: `id`, `managerName`, `subordinateName`, `title`, `type`, `status`,
-          `targetValue`, `currentValue`, `createdAt`, `lastModified`. Default sort is `createdAt`
+          `targetValue`, `currentValue`, `createdAt`, `dueDate`, `lastModified`. Default sort is `createdAt`
           **descending** (newest goals first). `id` ascending is always appended as a
           deterministic tiebreaker. The value columns are null for BINARY goals, so mixed-type
           lists sort those rows together at one end (database NULL ordering).
@@ -1580,7 +1580,8 @@ paths:
         The value fields are type-specific: `targetValue` is **required** for NUMBER and
         PERCENTAGE goals (0–100 for PERCENTAGE) and **must be absent** for BINARY goals. The
         current value starts at the type's zero (`0.0` / not achieved) and only becomes editable
-        (via `PUT /goals/{id}/progress`) once the goal is ACTIVE.
+        (via `PUT /goals/{id}/progress`) once the goal is ACTIVE. The **due date** is required
+        and must not be earlier than the current date.
 
         Nobody is notified — a draft is private to the pair until activated. The creation is
         recorded in the goal's audit history.
@@ -1604,8 +1605,8 @@ paths:
         '400':
           description: >-
             Validation error (blank or oversized title/description, a target value that is
-            missing, out of range, or not applicable to the goal type) or referenced user does
-            not exist
+            missing, out of range, or not applicable to the goal type, a due date that is
+            missing, malformed, or in the past) or referenced user does not exist
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
@@ -1648,7 +1649,9 @@ paths:
       operationId: updateGoalDefinition
       summary: Edit a draft goal's definition
       description: |
-        Edits the goal's definition — title, description, type, and target. **Manager-only**
+        Edits the goal's definition — title, description, type, target, and due date (the due
+        date is editable **only** here and at creation, i.e. only while DRAFT, and must not be
+        earlier than the current date). **Manager-only**
         (the subordinate has read rights only; ADMIN does not get write access) and
         **DRAFT-only**: an ACTIVE or CLOSED goal's definition is immutable (`409`) — deactivate
         it first to edit. The parties, status, current value, and summary are not settable here
@@ -1670,7 +1673,8 @@ paths:
         '400':
           description: >-
             Validation error (blank or oversized title/description, a target value that is
-            missing, out of range, or not applicable to the goal type)
+            missing, out of range, or not applicable to the goal type, a due date that is
+            missing, malformed, or in the past)
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
@@ -1751,12 +1755,18 @@ paths:
       summary: Activate a draft goal
       description: |
         Moves the goal `DRAFT → ACTIVE` (any other current status is `409`). **Manager-only.**
-        Once active, the goal becomes visible to the subordinate's wider management chain and
-        its current value becomes editable via `PUT /goals/{id}/progress`. The subordinate is
-        notified; the transition is recorded in the audit history.
+        The goal's **due date must not be in the past** (`400`) — a stale draft must be given a
+        fresh due date (via `PUT /goals/{id}`) before it can be activated. Once active, the
+        goal becomes visible to the subordinate's wider management chain and its current value
+        becomes editable via `PUT /goals/{id}/progress`. The subordinate is notified; the
+        transition is recorded in the audit history.
       responses:
         '204': { description: Activated }
-        '400': { $ref: '#/components/responses/BadRequest' }
+        '400':
+          description: The goal's due date is in the past — update it before activating
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/GoalNotManager' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -3366,7 +3376,7 @@ components:
 
     GoalCreateRequest:
       type: object
-      required: [subordinateId, title, type]
+      required: [subordinateId, title, type, dueDate]
       properties:
         subordinateId:
           type: integer
@@ -3389,10 +3399,15 @@ components:
           description: >-
             Required for NUMBER and PERCENTAGE (0–100 for PERCENTAGE); must be absent for
             BINARY.
+        dueDate:
+          type: string
+          format: date
+          description: >-
+            ISO `YYYY-MM-DD`; must not be earlier than the current date.
 
     GoalDefinitionUpdate:
       type: object
-      required: [title, type]
+      required: [title, type, dueDate]
       properties:
         title: { type: string, maxLength: 200 }
         description: { type: string, maxLength: 4000, default: '' }
@@ -3409,6 +3424,12 @@ components:
           description: >-
             Required for NUMBER and PERCENTAGE (0–100 for PERCENTAGE); must be absent for
             BINARY.
+        dueDate:
+          type: string
+          format: date
+          description: >-
+            ISO `YYYY-MM-DD`; must not be earlier than the current date. Editable only while
+            DRAFT (this endpoint is DRAFT-only).
 
     GoalProgressUpdate:
       type: object
@@ -3437,7 +3458,7 @@ components:
 
     GoalResponse:
       type: object
-      required: [id, managerId, managerName, subordinateId, subordinateName, createdAt, title, description, type, targetValue, currentValue, achieved, status, summary, lastModified]
+      required: [id, managerId, managerName, subordinateId, subordinateName, createdAt, dueDate, title, description, type, targetValue, currentValue, achieved, status, summary, lastModified]
       properties:
         id: { type: integer, format: int64, minimum: 0 }
         managerId: { type: integer, format: int64, minimum: 0 }
@@ -3448,6 +3469,12 @@ components:
           type: integer
           format: int64
           description: Epoch milliseconds; server-managed, immutable.
+        dueDate:
+          type: string
+          format: date
+          description: >-
+            ISO `YYYY-MM-DD`; never earlier than the day it was last saved. Editable only while
+            DRAFT.
         title: { type: string }
         description: { type: string }
         type:
@@ -3483,7 +3510,7 @@ components:
 
     GoalListItem:
       type: object
-      required: [id, managerId, managerName, managerDeleted, subordinateId, subordinateName, subordinateDeleted, title, type, targetValue, currentValue, achieved, status, createdAt, lastModified]
+      required: [id, managerId, managerName, managerDeleted, subordinateId, subordinateName, subordinateDeleted, title, type, targetValue, currentValue, achieved, status, createdAt, dueDate, lastModified]
       properties:
         id: { type: integer, format: int64, minimum: 0 }
         managerId: { type: integer, format: int64, minimum: 0 }
@@ -3503,6 +3530,7 @@ components:
           type: string
           enum: [DRAFT, ACTIVE, CLOSED]
         createdAt: { type: integer, format: int64 }
+        dueDate: { type: string, format: date }
         lastModified: { type: integer, format: int64 }
 
     GoalPage:
@@ -3543,6 +3571,7 @@ components:
             - DESCRIPTION_CHANGED
             - TYPE_CHANGED
             - TARGET_CHANGED
+            - DUE_DATE_CHANGED
             - PROGRESS_UPDATED
             - ACHIEVED_CHANGED
             - STATUS_CHANGED
@@ -3553,8 +3582,9 @@ components:
           additionalProperties: { type: string }
           description: |
             Interpolation params for the localized rendering — enum names (`from`/`to` statuses
-            and types, the CREATED event's `type`) and numeric values (target/progress
-            `from`/`to`, `""` = no value). Never title/description/summary text (description and
+            and types, the CREATED event's `type`), numeric values (target/progress
+            `from`/`to`, `""` = no value), and ISO dates (the due-date change's `from`/`to`).
+            Never title/description/summary text (description and
             summary are encrypted at rest; this trail is plaintext by design). Empty object when
             the event kind needs none.
 

@@ -91,6 +91,9 @@ fun Application.configureGoalRoutes() {
             return
         }
         requireGoalWrite(caller, existing)
+        // Activation only (not reopen — CLOSED->ACTIVE must stay open for overdue goals, whose
+        // due date is DRAFT-only editable): a stale draft must pick a fresh due date first.
+        if (from == GoalStatus.DRAFT && target == GoalStatus.ACTIVE) validateGoalDueDate(existing.dueDate)
         // The close body is received (and validated) only after the write guard, so a
         // non-manager's malformed or blank summary is still 403 on a foreign goal, not 400.
         val summary = receiveSummary?.invoke()
@@ -119,7 +122,7 @@ fun Application.configureGoalRoutes() {
                 val paging = call.parsePaging(
                     sortable = setOf(
                         "id", "managerName", "subordinateName", "title", "type", "status",
-                        "targetValue", "currentValue", "createdAt", "lastModified",
+                        "targetValue", "currentValue", "createdAt", "dueDate", "lastModified",
                     ),
                     defaultSort = listOf(SortField("createdAt", descending = true)),
                 )

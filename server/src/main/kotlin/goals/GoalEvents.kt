@@ -20,6 +20,7 @@ enum class GoalEventType {
     DESCRIPTION_CHANGED,
     TYPE_CHANGED,
     TARGET_CHANGED,
+    DUE_DATE_CHANGED,
     PROGRESS_UPDATED,
     ACHIEVED_CHANGED,
     STATUS_CHANGED,
@@ -42,7 +43,8 @@ internal fun goalCreationEvent(type: GoalType): GoalEventDescriptor =
 
 /**
  * Structured events recorded on a DRAFT definition edit: one per changed aspect, in a stable
- * title → description → type → target order. A no-op PUT returns an empty list (no empty events).
+ * title → description → type → target → due date order. A no-op PUT returns an empty list (no
+ * empty events).
  */
 internal fun goalDefinitionUpdateEvents(
     before: GoalResponse,
@@ -65,6 +67,13 @@ internal fun goalDefinitionUpdateEvents(
         events += GoalEventDescriptor(
             GoalEventType.TARGET_CHANGED,
             mapOf("from" to valueParam(before.targetValue), "to" to valueParam(after.targetValue)),
+        )
+    }
+    if (before.dueDate != after.dueDate) {
+        // ISO dates are content-free (like enum names/numbers) — safe in the plaintext params.
+        events += GoalEventDescriptor(
+            GoalEventType.DUE_DATE_CHANGED,
+            mapOf("from" to before.dueDate, "to" to after.dueDate),
         )
     }
     return events

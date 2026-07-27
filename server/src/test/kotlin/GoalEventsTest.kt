@@ -28,8 +28,9 @@ class GoalEventsTest {
         achieved: Boolean? = null,
         status: GoalStatus = GoalStatus.DRAFT,
         summary: String? = null,
+        dueDate: String = "2099-12-31",
     ) = GoalResponse(
-        id = 1u, managerId = 2u, subordinateId = 3u, createdAt = 0L,
+        id = 1u, managerId = 2u, subordinateId = 3u, createdAt = 0L, dueDate = dueDate,
         title = title, description = description, type = type,
         targetValue = targetValue, currentValue = currentValue, achieved = achieved,
         status = status, summary = summary, lastModified = 0L,
@@ -53,6 +54,7 @@ class GoalEventsTest {
                 description = "New description",
                 type = GoalType.PERCENTAGE,
                 targetValue = 80.0,
+                dueDate = "2100-06-15",
             ),
         )
         assertEquals(
@@ -61,11 +63,13 @@ class GoalEventsTest {
                 GoalEventType.DESCRIPTION_CHANGED,
                 GoalEventType.TYPE_CHANGED,
                 GoalEventType.TARGET_CHANGED,
+                GoalEventType.DUE_DATE_CHANGED,
             ),
             events.map { it.type },
         )
         assertEquals(mapOf("from" to "NUMBER", "to" to "PERCENTAGE"), events[2].params)
         assertEquals(mapOf("from" to "10.0", "to" to "80.0"), events[3].params)
+        assertEquals(mapOf("from" to "2099-12-31", "to" to "2100-06-15"), events[4].params)
     }
 
     @Test
@@ -78,6 +82,7 @@ class GoalEventsTest {
                 description = before.description,
                 type = before.type,
                 targetValue = before.targetValue,
+                dueDate = before.dueDate,
             ),
         )
         assertTrue(events.isEmpty())
@@ -92,6 +97,7 @@ class GoalEventsTest {
                 description = "Secret description",
                 type = GoalType.BINARY,
                 targetValue = null,
+                dueDate = "2099-12-31",
             ),
         )
         val target = toBinary.single { it.type == GoalEventType.TARGET_CHANGED }
@@ -107,6 +113,7 @@ class GoalEventsTest {
                 description = "Brand-new description",
                 type = GoalType.NUMBER,
                 targetValue = 10.0,
+                dueDate = "2099-12-31",
             ),
         )
         events.flatMap { it.params.values }.forEach { value ->
