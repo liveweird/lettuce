@@ -150,4 +150,36 @@ describe("UserGoals page", () => {
     renderScreen("/users/abc/goals?from=subordinates");
     expect(screen.getByTestId("probe")).toHaveTextContent("/?tab=subordinates");
   });
+
+  test("from=team behaves like the manager side and returns to the team view", async () => {
+    renderScreen("/users/10/goals?name=Bob&from=team&teamId=5");
+
+    expect(await screen.findByText("Goals for Bob")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /back to team subordinates/i })).toHaveAttribute(
+      "href",
+      "/teams/5/subordinates",
+    );
+    await waitFor(() => {
+      const urls = mockFetch.mock.calls.map(([u]) => String(u));
+      expect(urls.some((u) => u.includes("view=managed") && u.includes("subordinateId=10"))).toBe(
+        true,
+      );
+    });
+    // New goal is offered, and its back target preserves the team origin for the round-trip.
+    const back = encodeURIComponent("/users/10/goals?name=Bob&from=team&teamId=5");
+    expect(screen.getByRole("link", { name: "New goal" })).toHaveAttribute(
+      "href",
+      `/goals/new?subordinateId=10&subordinateName=Bob&back=${back}`,
+    );
+  });
+
+  test("from=team without a valid teamId degrades to the managers origin", async () => {
+    renderScreen("/users/10/goals?name=Alice&from=team");
+
+    expect(await screen.findByText("Goals from Alice")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /back to my managers/i }),
+    ).toHaveAttribute("href", "/?tab=managers");
+    expect(screen.queryByRole("link", { name: "New goal" })).toBeNull();
+  });
 });

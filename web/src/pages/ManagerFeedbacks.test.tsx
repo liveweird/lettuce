@@ -260,4 +260,19 @@ describe("ManagerFeedbacks page", () => {
       "/?tab=managers",
     );
   });
+
+  test("from=team returns to the team-scoped subordinates view; without teamId it degrades", async () => {
+    renderScreen("/users/10/feedbacks?name=Alice&from=team&teamId=3");
+    expect(await screen.findByRole("link", { name: /back to team subordinates/i })).toHaveAttribute(
+      "href",
+      "/teams/3/subordinates",
+    );
+
+    cleanup();
+    renderScreen("/users/10/feedbacks?name=Alice&from=team");
+    expect(await screen.findByRole("link", { name: /back to my managers/i })).toHaveAttribute(
+      "href",
+      "/?tab=managers",
+    );
+  });
 });

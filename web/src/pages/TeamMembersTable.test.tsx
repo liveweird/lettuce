@@ -662,3 +662,114 @@ describe("TeamMembersTable", () => {
     expect(within(cards[1]).getByText("Bob Brown")).toBeInTheDocument();
   });
 });
+
+// The team-scoped embedding (/teams/:id/subordinates): the grid pins to one managed team.
+describe("TeamMembersTable pinned to a team", () => {
+  let mockFetch: FetchMock;
+
+  const PINNED_PROPS = {
+    view: "managed",
+    teamId: 5,
+    settingsKey: "teamSubordinates",
+    backTo: "/teams/5/subordinates",
+    emptyMessage: "No team members",
+  } as const;
+
+  beforeEach(() => {
+    mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
+    localStorage.setItem(TOKEN_KEY, "fake-token");
+    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(USER_ID_KEY, "7");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  test("queries with the pinned teamId, never includeIndirect, and skips the teams lookup", async () => {
+    setupMocks(mockFetch);
+    renderWithProviders(<TeamMembersTable {...PINNED_PROPS} />);
+
+    await screen.findByText("Bob Brown");
+    const urls = memberUrls(mockFetch);
+    expect(urls[0]).toContain("view=managed");
+    expect(urls[0]).toContain("teamId=5");
+    expect(urls.every((u) => !u.includes("includeIndirect"))).toBe(true);
+    // The team Select never mounts, so the all-teams lookup never fires.
+    const teamListCalls = mockFetch.mock.calls
+      .map(([url]) => String(url))
+      .filter((url) => url.startsWith("/api/v1/teams?"));
+    expect(teamListCalls).toHaveLength(0);
+  });
+
+  test("hides the team and reports-scope filters; name and email stay", async () => {
+    setupMocks(mockFetch);
+    const user = userEvent.setup();
+    renderWithProviders(<TeamMembersTable {...PINNED_PROPS} />);
+    await screen.findByText("Bob Brown");
+
+    await user.click(screen.getByRole("button", { name: /filters/i }));
+    expect(screen.getByLabelText("Name")).toBeInTheDocument();
+    expect(screen.getByLabelText("Email")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Team", { selector: "input" })).toBeNull();
+    expect(screen.queryByLabelText("Reports", { selector: "input" })).toBeNull();
+  });
+
+  test("cards keep the direct-report affordances: stats, New 1:1, 1:1s, Goals", async () => {
+    setupMocks(mockFetch);
+    renderWithProviders(<TeamMembersTable {...PINNED_PROPS} />);
+    await screen.findByText("Bob Brown");
+
+    // The stats block renders (direct scope is forced by the pin).
+    expect(screen.getAllByText("Last 1:1").length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: /new 1:1 with bob brown/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /1:1 meetings with bob brown/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /goals for bob brown/i })).toBeInTheDocument();
+  });
+
+  test("action links return to the team view; drill-downs carry the team origin", async () => {
+    setupMocks(mockFetch);
+    renderWithProviders(<TeamMembersTable {...PINNED_PROPS} />);
+    await screen.findByText("Bob Brown");
+
+    const back = encodeURIComponent("/teams/5/subordinates");
+    expect(screen.getByRole("link", { name: /provide feedback to bob brown/i })).toHaveAttribute(
+      "href",
+      `/feedback/new?subjectId=11&subjectName=Bob%20Brown&back=${back}`,
+    );
+    expect(screen.getByRole("link", { name: /new 1:1 with bob brown/i })).toHaveAttribute(
+      "href",
+      `/one-on-ones/new?subordinateId=11&subordinateName=Bob%20Brown&back=${back}`,
+    );
+    expect(screen.getByRole("link", { name: /feedbacks with bob brown/i })).toHaveAttribute(
+      "href",
+      "/users/11/feedbacks?name=Bob+Brown&from=team&teamId=5",
+    );
+    expect(screen.getByRole("link", { name: /1:1 meetings with bob brown/i })).toHaveAttribute(
+      "href",
+      "/users/11/one-on-ones?name=Bob%20Brown&from=team&teamId=5",
+    );
+    expect(screen.getByRole("link", { name: /goals for bob brown/i })).toHaveAttribute(
+      "href",
+      "/users/11/goals?name=Bob%20Brown&from=team&teamId=5",
+    );
+  });
+
+  test("filter state persists under the embedded settings namespace", async () => {
+    setupMocks(mockFetch);
+    const user = userEvent.setup();
+    renderWithProviders(<TeamMembersTable {...PINNED_PROPS} />);
+    await screen.findByText("Bob Brown");
+
+    await user.click(screen.getByRole("button", { name: /filters/i }));
+    await user.type(screen.getByLabelText("Name"), "bo");
+    await waitFor(() => {
+      expect(
+        localStorage.getItem("lettuce.viewSettings.teamSubordinates.filter.name"),
+      ).toContain("bo");
+    });
+    expect(localStorage.getItem("lettuce.viewSettings.teamMembers.managed.filter.name")).toBeNull();
+  });
+});

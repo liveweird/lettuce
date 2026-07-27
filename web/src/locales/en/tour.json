@@ -16,6 +16,7 @@
     "dashboardManagers": "My managers — the people you report to.",
     "dashboardPeers": "My peers — teammates who share a manager with you.",
     "dashboardSubordinates": "My subordinates — the people who report to you (if you lead a team).",
+    "dashboardMyTeams": "My teams — the teams you manage, each opening its own members view.",
     "feedback": "Feedback: give, request and review feedback across the Received, Provided and My team tabs.",
     "feedbackReceived": "Received — feedback others have given you.",
     "feedbackProvided": "Provided — feedback you have given to others.",

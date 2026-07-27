@@ -3,10 +3,14 @@
   "tabs": {
     "managers": "Moi menedżerowie",
     "peers": "Moi współpracownicy",
-    "subordinates": "Moi podwładni"
+    "subordinates": "Moi podwładni",
+    "myTeams": "Moje zespoły"
   },
   "empty": {
     "teammates": "Brak współpracowników",
-    "teamMembers": "Brak członków zespołu"
-  }
+    "teamMembers": "Brak członków zespołu",
+    "myTeams": "Brak zarządzanych zespołów"
+  },
+  "teamFallback": "Zespół #{{id}}",
+  "teamSubordinatesHint": "Członkowie tego zespołu — z tymi samymi kartami i akcjami co Moi podwładni."
 }

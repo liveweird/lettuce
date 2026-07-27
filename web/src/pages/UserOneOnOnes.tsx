@@ -11,7 +11,7 @@ import OneOnOneTable from "./OneOnOneTable";
 // may have swapped manager/subordinate roles over time), as a single chronological table.
 export default function UserOneOnOnes() {
   const { t } = useTranslation();
-  const { userId, idIsValid, name, originKey, origin, backTo } =
+  const { userId, idIsValid, name, origin, callerManages, backTo } =
     useDashboardDrillDown("one-on-ones");
 
   if (!idIsValid) return <Navigate to={origin.to} replace />;
@@ -37,9 +37,9 @@ export default function UserOneOnOnes() {
         settingsKey="userOneOnOnes"
       />
 
-      {originKey === "subordinates" && (
+      {callerManages && (
         // The meetings list's "New 1:1", with this person preselected (the prefilled create
-        // flow). Only the subordinates origin: a 1:1 needs a direct report — reached from the
+        // flow). Only the manager-side origins: a 1:1 needs a direct report — reached from the
         // managers card, the counterpart is the caller's own manager. Cancel returns here.
         <Group justify="flex-end">
           <Button

@@ -7,17 +7,21 @@ import { goalCreateLink } from "../utils/goalLinks";
 import GoalTable from "./GoalTable";
 
 // The origin also decides the direction of the list: from the managers grid the caller is the
-// subordinate (goals the clicked manager set for them), from the subordinates grid the caller
-// is the manager (goals they set for the clicked report).
+// subordinate (goals the clicked manager set for them), from the subordinates grid or a
+// team-scoped subordinates view the caller is the manager (goals they set for the clicked
+// report — same wording either way).
 const WORDING: Record<DashboardOriginKey, { titleKey: string; hintKey: string }> = {
   managers: { titleKey: "goal.goalsWith", hintKey: "goal.goalsWithHint" },
   subordinates: { titleKey: "goal.goalsFor", hintKey: "goal.goalsForHint" },
+  team: { titleKey: "goal.goalsFor", hintKey: "goal.goalsForHint" },
 };
 
-// The per-person goals drill-down reached from Dashboard → My managers / My subordinates.
+// The per-person goals drill-down reached from Dashboard → My managers / My subordinates, or
+// from a team-scoped subordinates view (`from=team&teamId=…`).
 export default function UserGoals() {
   const { t } = useTranslation();
-  const { userId, idIsValid, name, originKey, origin, backTo } = useDashboardDrillDown("goals");
+  const { userId, idIsValid, name, originKey, origin, callerManages, backTo } =
+    useDashboardDrillDown("goals");
 
   if (!idIsValid) return <Navigate to={origin.to} replace />;
 
@@ -36,7 +40,7 @@ export default function UserGoals() {
         </Text>
       </Stack>
 
-      {originKey === "subordinates" ? (
+      {callerManages ? (
         // The caller is the manager: their goals for this direct report, editable per status.
         <GoalTable
           view="managed"
@@ -49,9 +53,9 @@ export default function UserGoals() {
         <GoalTable view="own" managerId={userId} backTo={backTo} settingsKey="userGoals" />
       )}
 
-      {originKey === "subordinates" && (
+      {callerManages && (
         // The list's "New goal", with this direct report preselected (the prefilled create
-        // flow) — the New-1:1 pattern; only the manager-side origin can create.
+        // flow) — the New-1:1 pattern; only the manager-side origins can create.
         <Group justify="flex-end">
           <Button
             component={RouterLink}

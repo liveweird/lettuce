@@ -1,45 +1,70 @@
 import { useParams, useSearchParams } from "react-router-dom";
 
-// Which dashboard tab a per-user drill-down (/users/:userId/…) was opened from — decides the
-// "Back to …" link and the invalid-id redirect. Only the managers/subordinates grids link to
-// these screens; defaults to managers for older links lacking `from`. ManagerFeedbacks has a
-// wider origin set (users list, team rosters + teamId) and keeps its own resolver.
+// Which screen a per-user drill-down (/users/:userId/…) was opened from — decides the
+// "Back to …" link and the invalid-id redirect. The managers/subordinates grids and the
+// team-scoped subordinates view link to these screens; defaults to managers for older links
+// lacking `from`. ManagerFeedbacks has a wider origin set (users list, team rosters + teamId)
+// and keeps its own resolver.
 export const DASHBOARD_ORIGINS = {
   managers: { labelKey: "feedback.origin.managers", to: "/?tab=managers" },
   subordinates: { labelKey: "feedback.origin.subordinates", to: "/?tab=subordinates" },
 } as const;
 
-export type DashboardOriginKey = keyof typeof DASHBOARD_ORIGINS;
+// `team` is the parameterized origin (the ManagerFeedbacks `members` precedent): its back
+// target needs the `teamId` param, so it has no static entry in DASHBOARD_ORIGINS.
+export type DashboardOriginKey = keyof typeof DASHBOARD_ORIGINS | "team";
 
-function isOriginKey(value: string | null): value is DashboardOriginKey {
+function isStaticOriginKey(value: string | null): value is keyof typeof DASHBOARD_ORIGINS {
   return value != null && value in DASHBOARD_ORIGINS;
+}
+
+function parsePositiveInt(value: string | null): number | null {
+  const n = Number(value);
+  return value != null && Number.isInteger(n) && n > 0 ? n : null;
 }
 
 /**
  * The shared scaffolding of the per-person drill-down screens (UserGoals, UserOneOnOnes):
- * parses `:userId` + `name`/`from`, resolves the origin, and rebuilds `backTo` — the drill-down's
- * own URL with origin preserved, handed to detail pages so a round-trip returns here intact.
+ * parses `:userId` + `name`/`from` (+ `teamId` for the team origin), resolves the origin, and
+ * rebuilds `backTo` — the drill-down's own URL with origin preserved, handed to detail pages so
+ * a round-trip returns here intact. `from=team` without a valid teamId degrades to `managers`
+ * (the ManagerFeedbacks `members` rule). `callerManages` is true for the origins where the
+ * caller is the manager of the viewed person (subordinates grid, team view) — the gate for
+ * manager-only affordances.
  */
 export function useDashboardDrillDown(basePath: string): {
   userId: number;
   idIsValid: boolean;
   name: string | null;
   originKey: DashboardOriginKey;
-  origin: (typeof DASHBOARD_ORIGINS)[DashboardOriginKey];
+  origin: { labelKey: string; to: string };
+  callerManages: boolean;
   backTo: string;
 } {
   const params = useParams<{ userId: string }>();
   const [searchParams] = useSearchParams();
   const name = searchParams.get("name");
   const fromParam = searchParams.get("from");
-  const originKey: DashboardOriginKey = isOriginKey(fromParam) ? fromParam : "managers";
+  const teamId = parsePositiveInt(searchParams.get("teamId"));
+
+  const originKey: DashboardOriginKey =
+    fromParam === "team" && teamId != null
+      ? "team"
+      : isStaticOriginKey(fromParam)
+        ? fromParam
+        : "managers";
+  const origin =
+    originKey === "team"
+      ? { labelKey: "feedback.origin.team", to: `/teams/${teamId}/subordinates` }
+      : DASHBOARD_ORIGINS[originKey];
 
   const userId = Number(params.userId);
   const idIsValid = Number.isFinite(userId) && userId > 0;
 
   const query = new URLSearchParams();
   if (name) query.set("name", name);
-  if (isOriginKey(fromParam)) query.set("from", fromParam);
+  if (originKey !== "managers" || fromParam === "managers") query.set("from", originKey);
+  if (originKey === "team") query.set("teamId", String(teamId));
   const queryString = query.toString();
 
   return {
@@ -47,7 +72,8 @@ export function useDashboardDrillDown(basePath: string): {
     idIsValid,
     name,
     originKey,
-    origin: DASHBOARD_ORIGINS[originKey],
+    origin,
+    callerManages: originKey !== "managers",
     backTo: `/users/${userId}/${basePath}${queryString ? `?${queryString}` : ""}`,
   };
 }

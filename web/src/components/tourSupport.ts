@@ -49,6 +49,7 @@ export const TOUR_STEPS: TourStepDef[] = [
   { target: '[data-tour="dashboard-managers"]', contentKey: "tour.steps.dashboardManagers", placement: "bottom", navTo: "/?tab=managers" },
   { target: '[data-tour="dashboard-peers"]', contentKey: "tour.steps.dashboardPeers", placement: "bottom", navTo: "/?tab=peers" },
   { target: '[data-tour="dashboard-subordinates"]', contentKey: "tour.steps.dashboardSubordinates", placement: "bottom", navTo: "/?tab=subordinates" },
+  { target: '[data-tour="dashboard-myTeams"]', contentKey: "tour.steps.dashboardMyTeams", placement: "bottom", navTo: "/?tab=myTeams" },
   { target: '[data-tour="nav-feedback"]', contentKey: "tour.steps.feedback", placement: "right", navTo: "/feedback?tab=received" },
   // The Feedback section's three subsections. "My team" is manager-only (matches the page).
   { target: '[data-tour="feedback-received"]', contentKey: "tour.steps.feedbackReceived", placement: "bottom", navTo: "/feedback?tab=received" },
