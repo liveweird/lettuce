@@ -24,6 +24,7 @@ const GOAL = {
   subordinateId: 8,
   subordinateName: "Sub Ordinate",
   createdAt: new Date(2026, 5, 1).getTime(),
+  dueDate: "2099-06-15",
   title: "Raise coverage",
   description: "Get the suite green **and keep it there**",
   type: "PERCENTAGE",
@@ -90,8 +91,26 @@ describe("ViewGoal page", () => {
     expect(screen.getByText("and keep it there")).toBeInTheDocument();
     expect(screen.getByText("90%")).toBeInTheDocument();
     expect(screen.getByText("45% of the 90% target")).toBeInTheDocument();
+    // The due date is far in the future — shown, but not flagged.
+    expect(screen.getByText("Due date")).toBeInTheDocument();
+    expect(screen.getByText("Jun 15, 2099")).toBeInTheDocument();
+    expect(screen.queryByText("Overdue")).toBeNull();
     // No summary section while the goal was never closed.
     expect(screen.queryByText("Summary")).toBeNull();
+  });
+
+  test("an ACTIVE goal past its due date shows the overdue badge; a CLOSED one does not", async () => {
+    setupMocks({ ...GOAL, dueDate: "2020-01-01" });
+    renderScreen();
+
+    expect(await screen.findByText("Jan 1, 2020")).toBeInTheDocument();
+    expect(screen.getByText("Overdue")).toBeInTheDocument();
+
+    cleanup();
+    setupMocks({ ...GOAL, dueDate: "2020-01-01", status: "CLOSED", summary: "done" });
+    renderScreen();
+    expect(await screen.findByText("Jan 1, 2020")).toBeInTheDocument();
+    expect(screen.queryByText("Overdue")).toBeNull();
   });
 
   test("a closed goal shows its summary pre-wrapped and the achieved pill for BINARY", async () => {

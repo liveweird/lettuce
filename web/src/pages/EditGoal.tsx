@@ -36,6 +36,8 @@ import GoalHistory from "../components/GoalHistory";
 import GoalProgressFields, { type GoalProgressFormValues } from "../components/GoalProgressFields";
 import PersonaField from "../components/PersonaField";
 import ReadOnlyField from "../components/ReadOnlyField";
+import { formatIsoDate } from "../utils/datetime";
+import { isGoalOverdue, OverdueBadge } from "../utils/goalValues";
 import {
   goalDefinitionValidation,
   goalSaveErrorMessage,
@@ -91,7 +93,7 @@ export default function EditGoal() {
   });
 
   const definitionForm = useForm<GoalDefinitionFormValues>({
-    initialValues: { title: "", description: "", type: "NUMBER", targetValue: "" },
+    initialValues: { title: "", description: "", type: "NUMBER", targetValue: "", dueDate: "" },
     validate: goalDefinitionValidation(t),
   });
   const progressForm = useForm<GoalProgressFormValues>({
@@ -300,6 +302,13 @@ export default function EditGoal() {
                   <PersonaField label={t("goal.subordinate")} name={data.subordinateName} />
                   <ReadOnlyField label={t("goal.type.label")}>
                     <Text size="sm">{t(`goal.type.${data.type}`)}</Text>
+                  </ReadOnlyField>
+                  {/* The due date is DRAFT-only editable — here (ACTIVE) it is a fixed fact. */}
+                  <ReadOnlyField label={t("goal.dueDate")}>
+                    <Group gap="xs" wrap="nowrap">
+                      <Text size="sm">{formatIsoDate(data.dueDate, i18n.language)}</Text>
+                      {isGoalOverdue(data.status, data.dueDate) && <OverdueBadge />}
+                    </Group>
                   </ReadOnlyField>
                 </Group>
 

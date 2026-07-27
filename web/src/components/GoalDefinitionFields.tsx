@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Group, NumberInput, Select, Skeleton, Stack, Text, TextInput } from "@mantine/core";
 import type { UseFormReturnType } from "@mantine/form";
 import { useTranslation } from "react-i18next";
+import { todayIsoDate } from "../utils/datetime";
 import {
   MAX_GOAL_TEXT_LENGTH,
   MAX_GOAL_TITLE_LENGTH,
@@ -70,6 +71,14 @@ export default function GoalDefinitionFields({
             {...form.getInputProps("targetValue")}
           />
         )}
+        <TextInput
+          type="date"
+          label={t("goal.dueDate")}
+          withAsterisk
+          w={180}
+          min={todayIsoDate()}
+          {...form.getInputProps("dueDate")}
+        />
       </Group>
       {typeChangeWarning && (
         <Text size="sm" c="orange">

@@ -14,6 +14,8 @@
   "userFallback": "użytkownik nr {{id}}",
   "title": "Tytuł",
   "createdAt": "Utworzono",
+  "dueDate": "Termin",
+  "overdue": "Po terminie",
   "target": "Wartość docelowa",
   "current": "Wartość bieżąca",
   "clearTitleFilter": "Wyczyść filtr tytułu",
@@ -78,7 +80,9 @@
     "descriptionTooLong": "Opis może mieć najwyżej {{max}} znaków",
     "targetRequired": "Dla tego typu celu wartość docelowa jest wymagana",
     "percentageRange": "Procent musi być z zakresu od 0 do 100",
-    "currentRequired": "Wartość bieżąca jest wymagana"
+    "currentRequired": "Wartość bieżąca jest wymagana",
+    "dueDateRequired": "Termin jest wymagany",
+    "dueDateInPast": "Termin nie może być w przeszłości"
   },
   "error": {
     "notFound": "Ten cel nie istnieje lub został usunięty.",
@@ -93,7 +97,8 @@
     "updateFailedStatus": "Nie udało się zaktualizować celu (błąd {{status}}).",
     "createForbidden": "Możesz wyznaczać cele tylko swoim bezpośrednim podwładnym.",
     "createFailed": "Nie udało się utworzyć celu.",
-    "activateAfterCreateFailed": "Cel został utworzony jako szkic, ale jego aktywacja się nie powiodła — możesz aktywować go z jego widoku."
+    "activateAfterCreateFailed": "Cel został utworzony jako szkic, ale jego aktywacja się nie powiodła — możesz aktywować go z jego widoku.",
+    "activateOverdue": "Termin celu minął — ustaw nowy termin, zanim go aktywujesz."
   },
   "event": {
     "created": "Utworzono cel ({{type}}).",
@@ -103,6 +108,7 @@
     "targetSet": "Ustawiono wartość docelową na {{to}}.",
     "targetCleared": "Usunięto wartość docelową.",
     "targetChanged": "Zmieniono wartość docelową z {{from}} na {{to}}.",
+    "dueDateChanged": "Zmieniono termin z {{from}} na {{to}}.",
     "progressUpdated": "Zaktualizowano postęp z {{from}} na {{to}}.",
     "achievedYes": "Oznaczono jako osiągnięty.",
     "achievedNo": "Oznaczono jako nieosiągnięty.",

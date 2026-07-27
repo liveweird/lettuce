@@ -1,7 +1,28 @@
+/* eslint-disable react-refresh/only-export-components */
+// A deliberately mixed file (the auth.tsx precedent): the goal value/overdue helpers and their
+// small presentational components share one home, at the cost of Fast Refresh for it.
 import { Badge, Group, Progress, Stack, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
-import type { GoalResponse, GoalType } from "../api/client";
+import type { GoalResponse, GoalStatus, GoalType } from "../api/client";
 import ReadOnlyField from "../components/ReadOnlyField";
+import { todayIsoDate } from "./datetime";
+
+// A goal is overdue only while ACTIVE (a draft has no deadline pressure yet, a closed goal is a
+// record) — ISO strings compare chronologically, so a plain string compare suffices.
+export function isGoalOverdue(status: GoalStatus, dueDate: string): boolean {
+  return status === "ACTIVE" && dueDate < todayIsoDate();
+}
+
+// The "past its due date" pill next to due-date renderings (table cell, view/edit headers).
+// Orange = warning; red stays reserved for errors/destructive actions.
+export function OverdueBadge() {
+  const { t } = useTranslation();
+  return (
+    <Badge variant="light" color="orange" style={{ minWidth: "max-content" }}>
+      {t("goal.overdue")}
+    </Badge>
+  );
+}
 
 // A goal's numeric value rendered for its type: locale-formatted number, "%"-suffixed for
 // PERCENTAGE, an em dash for null (a BINARY goal's numeric columns). BINARY progress is the

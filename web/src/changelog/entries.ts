@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.19.0",
+    date: "2026-07-27",
+    en: `Goals now have a **due date** — the date by which the goal should be completed. It is required when creating a goal, editable while the goal is a draft, and shown on the goal's pages and as a new sortable *Due date* column in every goals list. The due date can never be set in the past, a stale draft must get a fresh date before it can be activated, and an active goal past its due date is flagged with an orange *Overdue* badge.`,
+    pl: `Cele mają teraz **termin** — datę, do której cel powinien zostać zrealizowany. Jest wymagany przy tworzeniu celu, edytowalny póki cel jest szkicem i widoczny na stronach celu oraz jako nowa sortowalna kolumna *Termin* na każdej liście celów. Terminu nie można ustawić w przeszłości, przeterminowany szkic musi dostać nowy termin przed aktywacją, a aktywny cel po terminie jest oznaczony pomarańczową plakietką *Po terminie*.`,
+  },
+  {
     version: "1.18.6",
     date: "2026-07-26",
     en: `Polish under the hood: the Dashboard's *Active goals* and *Last 1:1* card stats now refresh immediately after you change a goal or 1:1 meeting (no page reload needed); on a goal's page each action button shows its own progress spinner; and goal lists show plain *You* instead of your own avatar chip.`,
