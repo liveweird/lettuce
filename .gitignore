@@ -56,3 +56,7 @@ server/docs/
 
 # Schemathesis run cache (the manual fuzz pass documented in CLAUDE.md runs from the repo root).
 .schemathesis/
+
+# Node (web/ and e2e/ have their own ignores; this backstops stray root-level caches —
+# e.g. vitest run from the repo root once left node_modules/.vite here, and it got committed)
+node_modules/
