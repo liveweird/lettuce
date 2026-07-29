@@ -1,9 +1,11 @@
 import { type ReactNode } from "react";
 import { Avatar, Badge, Divider, Group, Paper, Stack, Text } from "@mantine/core";
 
-// One person card in the dashboard grids (managers / peers / subordinates): initials avatar,
-// name, dimmed email, team badges, an optional caller-supplied stats block, and the actions
-// row under a divider. Rendered as <li> — the grids are semantic <ul> lists.
+// One person card in the dashboard grids (managers / peers / subordinates) and the
+// user-details view: initials avatar, name, dimmed email, team badges, an optional
+// caller-supplied stats block, and an optional actions row under a divider (omitted
+// together with the divider when the viewer gets no actions — the self-view case).
+// Rendered as <li> — the grids are semantic <ul> lists.
 export default function PersonCard({
   name,
   email,
@@ -15,7 +17,7 @@ export default function PersonCard({
   email: string;
   teamNames: string[];
   stats?: ReactNode;
-  actions: ReactNode;
+  actions?: ReactNode;
 }) {
   return (
     <Paper component="li" withBorder radius="md" p="md">
@@ -39,10 +41,14 @@ export default function PersonCard({
           </Stack>
         </Group>
         {stats}
-        <Divider mt="auto" />
-        <Group gap="xs" wrap="wrap">
-          {actions}
-        </Group>
+        {actions != null && (
+          <>
+            <Divider mt="auto" />
+            <Group gap="xs" wrap="wrap">
+              {actions}
+            </Group>
+          </>
+        )}
       </Stack>
     </Paper>
   );

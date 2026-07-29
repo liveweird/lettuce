@@ -16,6 +16,7 @@ import PersonCard from "../components/PersonCard";
 import PersonCardStats from "../components/PersonCardStats";
 import { feedbackAskLink, feedbackProvideLink, userFeedbacksLink } from "../utils/feedbackLinks";
 import { userGoalsLink } from "../utils/goalLinks";
+import { userOneOnOnesLink } from "../utils/oneOnOneLinks";
 import { groupTeamRows } from "../utils/teamRows";
 
 // The dashboard "My managers" view: a person-card grid (not a table) — typically 1–3 people,
@@ -92,7 +93,7 @@ export default function ManagersTable() {
                   </Button>
                   <Button
                     component={RouterLink}
-                    to={`/users/${m.userId}/one-on-ones?name=${encodeURIComponent(m.name)}&from=managers`}
+                    to={userOneOnOnesLink(m.userId, m.name, "managers")}
                     variant="subtle"
                     size="xs"
                     leftSection={<IconCalendarEvent size={14} />}
