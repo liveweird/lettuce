@@ -124,7 +124,7 @@ function TeamNode({ data }: NodeProps<TeamNodeType>) {
     >
       <Handle type="target" position={Position.Top} style={HANDLE_STYLE} isConnectable={false} />
       <UnstyledButton
-        onClick={() => navigate(`/teams/${data.teamId}/members`)}
+        onClick={() => navigate(`/teams/${data.teamId}/members?from=org`)}
         aria-label={t("teams.membersOfAria", { name: data.name })}
         style={{ minWidth: 0 }}
       >

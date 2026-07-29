@@ -129,7 +129,8 @@ describe("OrgChart page", () => {
     renderOrg();
 
     await user.click(await screen.findByRole("button", { name: "Members of CCC" }));
-    expect(screen.getByTestId("probe")).toHaveTextContent("/teams/3/members");
+    // The org origin rides along so the roster's back link returns to the chart.
+    expect(screen.getByTestId("probe")).toHaveTextContent("/teams/3/members?from=org");
   });
 
   test("shows the empty state when there are no teams", async () => {
