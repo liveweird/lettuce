@@ -1,6 +1,6 @@
 import { expect, login, MANAGER_AAA, test } from "./helpers";
 
-// The guided tour, actually walked: replay it as a manager (the widest audience — 29 steps)
+// The guided tour, actually walked: replay it as a manager (the widest audience — 30 steps)
 // and assert the landmark order the tour promises — every left-menu section (Changelog
 // included) before the header icons. Anchors/steps that vanish or reorder fail this walk.
 // The suite's tour-seen stub only suppresses the AUTO-start; the replay button always works.
@@ -23,12 +23,12 @@ const LANDMARKS = [
   "Replay this tour",
 ];
 
-test("the guided tour walks all 29 manager steps in the documented order", async ({ page }) => {
+test("the guided tour walks all 30 manager steps in the documented order", async ({ page }) => {
   await login(page, MANAGER_AAA);
   await page.locator('[data-tour="replay"]').click();
 
   const seen: string[] = [];
-  for (let step = 1; step <= 32; step++) {
+  for (let step = 1; step <= 33; step++) {
     const counter = page.getByText(new RegExp(`^Step ${step} of \\d+$`));
     await expect(counter).toBeVisible();
     // The custom tooltip is the innermost element wrapping the counter + content + buttons.
@@ -42,7 +42,7 @@ test("the guided tour walks all 29 manager steps in the documented order", async
     await tooltip.getByRole("button", { name: "Next", exact: true }).click();
   }
 
-  expect(seen).toHaveLength(29);
+  expect(seen).toHaveLength(30);
   // Each landmark appears, strictly after the previous one.
   let cursor = -1;
   for (const landmark of LANDMARKS) {

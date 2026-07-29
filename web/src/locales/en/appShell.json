@@ -10,6 +10,7 @@
     "config": "Config",
     "users": "Users",
     "teams": "Teams",
+    "orgChart": "Org chart",
     "templates": "Templates",
     "selfReflection": "Self-reflection",
     "changePassword": "Change password",

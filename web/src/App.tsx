@@ -18,6 +18,7 @@ import {
   IconCalendarEvent,
   IconFileText,
   IconHelp,
+  IconHierarchy,
   IconHistory,
   IconSpeakerphone,
   IconKey,
@@ -85,6 +86,8 @@ const EditTeam = lazy(() => import("./pages/EditTeam"));
 const Teams = lazy(() => import("./pages/Teams"));
 const TeamMembers = lazy(() => import("./pages/TeamMembers"));
 const TeamSubordinates = lazy(() => import("./pages/TeamSubordinates"));
+// Lazy like MarkdownEditor: @xyflow/react + dagre stay out of the main bundle.
+const OrgChart = lazy(() => import("./pages/OrgChart"));
 const Users = lazy(() => import("./pages/Users"));
 const Templates = lazy(() => import("./pages/Templates"));
 const CreateTemplate = lazy(() => import("./pages/CreateTemplate"));
@@ -122,6 +125,7 @@ const NAV_ITEMS: ReadonlyArray<NavEntry> = [
     children: [
       { to: "/users", label: "appShell.nav.users", icon: IconUsers },
       { to: "/teams", label: "appShell.nav.teams", icon: IconUsersGroup },
+      { to: "/org", label: "appShell.nav.orgChart", icon: IconHierarchy },
       { to: "/templates", label: "appShell.nav.templates", icon: IconFileText },
     ],
   },
@@ -409,6 +413,7 @@ export default function App() {
             <Route path="teams/:id/edit" element={<EditTeam />} />
             <Route path="teams/:id/members" element={<TeamMembers />} />
             <Route path="teams/:teamId/subordinates" element={<TeamSubordinates />} />
+            <Route path="org" element={<OrgChart />} />
             <Route path="feedback" element={<Feedback />} />
             <Route path="feedback/new" element={<CreateFeedback />} />
             <Route path="feedback/request" element={<RequestFeedback />} />

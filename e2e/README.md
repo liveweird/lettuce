@@ -65,7 +65,9 @@ endpoints through the UI):
 - `dashboard-my-teams.spec.ts` — the Dashboard **My teams** tab: a manager's teams (and only
   theirs), the per-team subordinates view with the same cards/stats/actions as My subordinates,
   a drill-down round-trip back to it, and a non-manager's empty state.
-- `tour.spec.ts` — replays the guided tour as a manager and walks all 29 steps, pinning the
+- `org-chart.spec.ts` — the org-chart canvas: seed org nodes render; a person node opens the
+  user-details view (and returns), a team node opens the roster.
+- `tour.spec.ts` — replays the guided tour as a manager and walks all 30 steps, pinning the
   landmark order (whole left menu — Changelog included — before the header icons).
 - `alerts.spec.ts` — admin creates an alert; a regular user sees the **banner**, hides it to the
   strip and re-shows it (and has no alert management); deactivation and delete remove it.
