@@ -237,6 +237,16 @@ describe("UserDetails page", () => {
     );
   });
 
+  test("the teams origin links back to the teams list", async () => {
+    mockApi(mockFetch, { managers: [BOB_ROW] });
+    renderDetails("/users/5/details?name=Bob&from=teams");
+
+    expect(await screen.findByRole("link", { name: "← Back to Teams" })).toHaveAttribute(
+      "href",
+      "/teams",
+    );
+  });
+
   test("a members origin without a teamId degrades to the users list", async () => {
     mockApi(mockFetch, { member: [BOB_ROW] });
     renderDetails("/users/5/details?name=Bob&from=members");

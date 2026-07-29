@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.22.2",
+    date: "2026-07-30",
+    en: `The *Teams* list now offers *User details* right next to each team's manager, opening the manager's relationship-aware card; its back link returns to the teams list. On the *Users* list the row actions lead with *User details* and *Teams*.`,
+    pl: `Lista *Zespoły* oferuje teraz *Szczegóły użytkownika* tuż obok menedżera każdego zespołu — przycisk otwiera kartę menedżera dobraną według Waszej relacji, a link powrotny prowadzi z powrotem do listy zespołów. Na liście *Użytkownicy* akcje wiersza zaczynają się teraz od *Szczegółów użytkownika* i *Zespołów*.`,
+  },
+  {
     version: "1.22.1",
     date: "2026-07-30",
     en: `The guided tour caught up with the new *Goals* page: it now walks both tabs — *My goals* for everyone, and *Goals I've set* (with its Reports filter) for managers.`,

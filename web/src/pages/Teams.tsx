@@ -13,6 +13,7 @@ import {
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  IconId,
   IconPencil,
   IconPlus,
   IconTrash,
@@ -30,7 +31,8 @@ import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isNumberOrNull, isString, useStoredState } from "../hooks/useStoredState";
 import { useManagerOptions } from "../hooks/useManagerOptions";
-import { deleteTeam, isAdmin, listTeams } from "../api/client";
+import { deleteTeam, getUserId, isAdmin, listTeams } from "../api/client";
+import { userDetailsLink } from "../utils/userLinks";
 
 const SORT_FIELDS = ["name"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
@@ -51,6 +53,7 @@ export default function Teams() {
 
   const queryClient = useQueryClient();
   const admin = isAdmin();
+  const currentUserId = getUserId();
 
   const [debouncedName] = useDebouncedValue(nameFilter, 300);
 
@@ -151,7 +154,25 @@ export default function Teams() {
                       {t("teams.deletedSuffix")}
                     </Text>
                   ) : (
-                    <PersonaChip name={team.managerName} />
+                    // The manager's details button lives inside this cell — next to the chip
+                    // and carrying the manager's name in its aria — so whose details it opens
+                    // is unambiguous. Hidden on one's own persona (the /users own-row rule).
+                    <Group gap="xs" wrap="nowrap">
+                      <PersonaChip name={team.managerName} />
+                      {team.managerId !== currentUserId && (
+                        <Button
+                          component={RouterLink}
+                          to={userDetailsLink(team.managerId, team.managerName, "teams")}
+                          color="blue"
+                          variant="subtle"
+                          size="xs"
+                          leftSection={<IconId size={14} />}
+                          aria-label={t("users.detailsFor", { name: team.managerName })}
+                        >
+                          {t("users.details")}
+                        </Button>
+                      )}
+                    </Group>
                   )}
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>

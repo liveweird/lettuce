@@ -331,6 +331,33 @@ describe("Teams page", () => {
     expect(await screen.findByRole("cell", { name: /^Zed \(deleted\)$/ })).toBeInTheDocument();
   });
 
+  test("each manager chip carries a User details link with the teams origin", async () => {
+    setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
+    renderTeams();
+
+    const links = await screen.findAllByRole("link", { name: /^user details for /i });
+    expect(links).toHaveLength(2);
+    expect(links[0]).toHaveAttribute("href", "/users/10/details?name=Alice+Manager&from=teams");
+    expect(links[1]).toHaveAttribute("href", "/users/11/details?name=Bob+Manager&from=teams");
+  });
+
+  test("no User details link for a deleted manager or one's own persona", async () => {
+    localStorage.setItem("lettuce.auth.userId", "10"); // the caller IS Alice Manager
+    setupMocks(mockFetch, () =>
+      teamsPage([
+        ...SEED_TEAMS,
+        { id: 99, name: "Orphan", managerId: 42, managerName: "Zed", managerDeleted: true },
+      ]),
+    );
+    renderTeams();
+
+    await screen.findByText("Bob Manager");
+    // Only Bob's row qualifies: Alice's row is the caller's own persona, Zed is deleted.
+    const links = screen.getAllByRole("link", { name: /^user details for /i });
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAttribute("href", expect.stringContaining("/users/11/details"));
+  });
+
   test("admin sees a Delete button in each row", async () => {
     setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
     renderTeams();
