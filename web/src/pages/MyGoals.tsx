@@ -45,8 +45,14 @@ export default function MyGoals() {
       <Title order={2}>{t("goal.sectionTitle")}</Title>
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
-          <Tabs.Tab value="own">{t("goal.tab.own")}</Tabs.Tab>
-          {isManager && <Tabs.Tab value="managed">{t("goal.tab.managed")}</Tabs.Tab>}
+          <Tabs.Tab value="own" data-tour="goals-own">
+            {t("goal.tab.own")}
+          </Tabs.Tab>
+          {isManager && (
+            <Tabs.Tab value="managed" data-tour="goals-managed">
+              {t("goal.tab.managed")}
+            </Tabs.Tab>
+          )}
         </Tabs.List>
 
         <Tabs.Panel value="own" pt="md">

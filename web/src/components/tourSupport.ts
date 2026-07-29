@@ -62,8 +62,13 @@ export const TOUR_STEPS: TourStepDef[] = [
   { target: '[data-tour="one-on-one-managed"]', contentKey: "tour.steps.oneOnOneManaged", placement: "bottom", navTo: "/one-on-ones?tab=managed", managerOnly: true },
   { target: '[data-tour="one-on-one-own"]', contentKey: "tour.steps.oneOnOneOwn", placement: "bottom", navTo: "/one-on-ones?tab=own" },
   { target: '[data-tour="one-on-one-team"]', contentKey: "tour.steps.oneOnOneTeam", placement: "bottom", navTo: "/one-on-ones?tab=team", managerOnly: true },
-  // Goals — every user has the page (their own goals; managers get a second tab), so no audience gate.
+  // Goals — every user has the page (their own goals; managers get a second tab), so no audience
+  // gate on the nav step; it navigates into /goals so the tab headers below are mounted.
   { target: '[data-tour="nav-my-goals"]', contentKey: "tour.steps.myGoals", placement: "right", navTo: "/goals" },
+  { target: '[data-tour="goals-own"]', contentKey: "tour.steps.goalsOwn", placement: "bottom", navTo: "/goals?tab=own" },
+  // The managed tab header only mounts for managers — the gate keeps waitForElement from
+  // burning its timeout on a target that never appears.
+  { target: '[data-tour="goals-managed"]', contentKey: "tour.steps.goalsManaged", placement: "bottom", navTo: "/goals?tab=managed", managerOnly: true },
   // The Config section + its three subsections (separate routes). The nav step navigates into the
   // section a step early so the lazy /users route is mounted before its subsection target is needed.
   { target: '[data-tour="nav-config"]', contentKey: "tour.steps.config", placement: "right", navTo: "/users" },
