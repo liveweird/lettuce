@@ -63,7 +63,7 @@ export default function EditGoal() {
   const [searchParams] = useSearchParams();
   const from = searchParams.get("from") ?? "own";
   const backOverride = searchParams.get("back");
-  // Bare visits fall back to the "My goals" page (see ViewGoal); real flows pass `back`.
+  // Bare visits fall back to the Goals page's My-goals tab (see ViewGoal); real flows pass `back`.
   const backTo = backOverride ?? "/goals";
 
   const [error, setError] = useState<string | null>(null);

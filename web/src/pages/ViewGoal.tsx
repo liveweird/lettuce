@@ -61,7 +61,8 @@ export default function ViewGoal() {
   const queryClient = useQueryClient();
   const from = searchParams.get("from") ?? "own";
   const backOverride = searchParams.get("back");
-  // Bare visits (e.g. a notification link) fall back to the "My goals" page; drill-down flows
+  // Bare visits (e.g. a notification link) fall back to the Goals page's My-goals tab —
+  // right for notification landings, which are always subordinate-directed; drill-down flows
   // pass an explicit `back` override, which always wins.
   const backTo = backOverride ?? "/goals";
   // Which action is in flight (its labelKey) — per-action, so on ACTIVE clicking Return-to-draft
