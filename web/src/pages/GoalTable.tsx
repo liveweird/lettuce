@@ -17,6 +17,7 @@ import FilterPanel from "../components/FilterPanel";
 import GoalStatusBadge from "../components/GoalStatusBadge";
 import PaginationBar from "../components/PaginationBar";
 import PersonCell from "../components/PersonCell";
+import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import SortHeader from "../components/SortHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
 import { usePagedSort } from "../hooks/usePagedSort";
@@ -37,6 +38,7 @@ type SortField = (typeof BASE_SORT_FIELDS)[number] | "managerName" | "subordinat
 
 const CREATED_WINDOWS = ["all", "month", "sixMonths"] as const;
 const STATUS_VALUES = ["DRAFT", "ACTIVE", "CLOSED"] as const;
+const REPORTS_SCOPES = ["direct", "all"] as const;
 
 // The one filterable + sortable person column a goals view shows (the OneOnOneTable idiom):
 // whose goals these are is pinned by the embedding page, so the *other* party is the column.
@@ -94,6 +96,7 @@ export default function GoalTable({
   subordinateId,
   settingsKey,
   backTo,
+  withReportsScope,
 }: {
   view: GoalListView;
   /** Scope to one manager's goals (the per-manager drill-down). */
@@ -104,6 +107,11 @@ export default function GoalTable({
   settingsKey?: string;
   /** When set, action links carry a back=… override so detail pages return here. */
   backTo?: string;
+  /**
+   * Show the "Reports" direct/all filter and derive the includeIndirect API param from it
+   * (the TeamMembersTable pattern) — the manager-side "Goals I've set" tab.
+   */
+  withReportsScope?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const currentUserId = getUserId();
@@ -128,11 +136,16 @@ export default function GoalTable({
   const [statusFilter, setStatusFilter] = useStoredState<GoalStatus | null>(
     `${storeKey}.filter.status`, null, isOneOfOrNull(STATUS_VALUES),
   );
+  const [reportsScope, setReportsScope] = useStoredState<(typeof REPORTS_SCOPES)[number]>(
+    `${storeKey}.filter.reportsScope`, "direct", isOneOf(REPORTS_SCOPES),
+  );
+  const includeIndirect = withReportsScope === true && reportsScope === "all";
   const activeFilterCount =
     (titleFilter.trim() ? 1 : 0) +
     (showPerson && personFilter.trim() ? 1 : 0) +
     (createdWindow !== "all" ? 1 : 0) +
-    (statusFilter ? 1 : 0);
+    (statusFilter ? 1 : 0) +
+    (includeIndirect ? 1 : 0);
 
   const [debouncedTitle] = useDebouncedValue(titleFilter, 300);
   const [debouncedPerson] = useDebouncedValue(personFilter, 300);
@@ -140,7 +153,7 @@ export default function GoalTable({
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
     usePagedSort<SortField>(
       "createdAt",
-      [debouncedTitle, debouncedPerson, createdWindow, statusFilter],
+      [debouncedTitle, debouncedPerson, createdWindow, statusFilter, includeIndirect],
       { key: storeKey, sortFields },
       "desc", // newest goals first (the server's default order)
     );
@@ -158,6 +171,7 @@ export default function GoalTable({
       debouncedPerson,
       createdWindow,
       statusFilter,
+      includeIndirect,
     ],
     queryFn: () =>
       listGoals({
@@ -174,6 +188,7 @@ export default function GoalTable({
         managerId,
         subordinateId,
         createdAtGte: createdWindowCutoff(createdWindow),
+        includeIndirect: includeIndirect || undefined,
       }),
     placeholderData: keepPreviousData,
   });
@@ -216,6 +231,7 @@ export default function GoalTable({
           allowDeselect={false}
           w={160}
         />
+        {withReportsScope && <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />}
       </FilterPanel>
 
       {isError && (

@@ -227,7 +227,21 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
     ): GoalListResult = suspendTransaction(database) {
         val scope: Op<Boolean> = when (view) {
             GoalListView.OWN -> Goals.subordinateId eq callerUserId
-            GoalListView.MANAGED -> Goals.managerId eq callerUserId
+            GoalListView.MANAGED ->
+                if (!includeIndirect) {
+                    Goals.managerId eq callerUserId
+                } else {
+                    // The widened "Reports: all" scope: the caller's own goals at any status,
+                    // plus goals set by managers in their transitive chain — whose DRAFTs stay
+                    // hidden (the single-GET's chain rule), so every listed row is openable.
+                    val chain = transitiveSubordinateIds(callerUserId)
+                    if (chain.isEmpty()) {
+                        Goals.managerId eq callerUserId
+                    } else {
+                        (Goals.managerId eq callerUserId) or
+                            ((Goals.managerId inList chain) and (Goals.status neq GoalStatus.DRAFT))
+                    }
+                }
             GoalListView.TEAM -> {
                 // Goals set by the caller's direct reports (as managers), widened by
                 // includeIndirect to the transitive chain. DRAFT goals are excluded — they stay

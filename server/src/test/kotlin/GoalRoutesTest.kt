@@ -768,11 +768,44 @@ class GoalRoutesTest {
             .body<GoalPageResponse>()
         assertEquals(listOf(active.id), indirect.items.map { it.id })
 
-        // includeIndirect is team-only.
+        // includeIndirect is manager-side only — the own view rejects it.
         assertEquals(
             HttpStatusCode.BadRequest,
             great.get("/api/v1/goals?view=own&includeIndirect=true").status,
         )
+    }
+
+    @Test
+    fun `includeIndirect widens the managed view to goals set within the chain`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val (grandEmail, _) = seedGrandManager(pair)
+
+        // The mid manager's goals for their report: one DRAFT (private to the pair), one ACTIVE.
+        val manager = authedClient(pair.managerEmail, "pw")
+        val midDraft = manager.createGoal(pair.subordinateId, title = "mgd-draft-${pair.managerId}")
+        val midActive = manager.createGoal(pair.subordinateId, title = "mgd-active-${pair.managerId}")
+        manager.post("/api/v1/goals/${midActive.id}/activate")
+
+        // The grand-manager's own goal — a DRAFT for the mid manager (their direct report).
+        val grand = authedClient(grandEmail, "pw")
+        val ownDraft = grand.createGoal(pair.managerId, title = "mgd-own-${pair.managerId}")
+
+        // Direct-only managed: exactly the caller's own goals, drafts included.
+        val direct = grand.get("/api/v1/goals?view=managed").body<GoalPageResponse>()
+        assertEquals(listOf(ownDraft.id), direct.items.map { it.id })
+
+        // Widened: own goals (still drafts included) plus the chain manager's non-DRAFT goals —
+        // the chain's drafts stay hidden, mirroring the single-GET's chain rule.
+        val widened = grand.get("/api/v1/goals?view=managed&includeIndirect=true").body<GoalPageResponse>()
+        assertEquals(setOf(ownDraft.id, midActive.id), widened.items.map { it.id }.toSet())
+        assertFalse(widened.items.any { it.id == midDraft.id })
+        // ...and every listed row is openable.
+        assertEquals(HttpStatusCode.OK, grand.get("/api/v1/goals/${midActive.id}").status)
+
+        // A manager whose chain sets no goals gets exactly their own managed view.
+        val mid = manager.get("/api/v1/goals?view=managed&includeIndirect=true").body<GoalPageResponse>()
+        assertEquals(setOf(midDraft.id, midActive.id), mid.items.map { it.id }.toSet())
     }
 
     @Test

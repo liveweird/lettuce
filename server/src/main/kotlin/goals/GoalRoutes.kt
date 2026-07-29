@@ -127,8 +127,8 @@ fun Application.configureGoalRoutes() {
                     defaultSort = listOf(SortField("createdAt", descending = true)),
                 )
                 val includeIndirect = params.optionalBoolean("includeIndirect")
-                if (includeIndirect != null && view != GoalListView.TEAM) {
-                    throw BadRequestException("includeIndirect is only supported for view=team")
+                if (includeIndirect != null && view == GoalListView.OWN) {
+                    throw BadRequestException("includeIndirect is only supported for view=managed and view=team")
                 }
                 val filter = GoalListFilter(
                     managerName = params.optionalString("managerName"),

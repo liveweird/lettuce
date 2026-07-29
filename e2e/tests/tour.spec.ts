@@ -9,7 +9,7 @@ const LANDMARKS = [
   "Take a quick tour",
   "Feedback",
   "1:1 meetings",
-  "My goals — all the goals",
+  "Goals — the goals your managers set",
   "Config — users, teams",
   "Self-reflection",
   "Your account",

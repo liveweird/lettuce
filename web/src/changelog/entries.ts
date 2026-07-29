@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.22.0",
+    date: "2026-07-29",
+    en: `The left-menu *My goals* is now **Goals**, with two tabs. *My goals* is the list you know — every goal your managers set for you. The new *Goals I've set* tab (managers only) lists the goals you created across all your team members, with a subordinate column and filter, plus a *Reports* filter: your own goals by default, or — with *All reports (including indirect)* — also the goals set by managers further down your chain (their drafts stay private).`,
+    pl: `Pozycja *Moje cele* w lewym menu to teraz **Cele**, z dwiema zakładkami. *Moje cele* to znana Ci lista — wszystkie cele wyznaczone Ci przez menedżerów. Nowa zakładka *Cele wyznaczone przeze mnie* (tylko dla menedżerów) pokazuje cele, które utworzyłeś/aś dla wszystkich swoich podwładnych, z kolumną i filtrem podwładnego oraz filtrem *Podwładni*: domyślnie Twoje własne cele, a z opcją *Wszyscy podwładni (także pośredni)* — również cele wyznaczone przez menedżerów niżej w Twoim łańcuchu (ich szkice pozostają prywatne).`,
+  },
+  {
     version: "1.21.0",
     date: "2026-07-29",
     en: `A new read-only **User details** view shows a person's card — the same card as on the Dashboard, picked by your relationship to them (one of your managers, one of your subordinates, or a peer), with the matching stats and quick actions. Open it with the new *User details* button next to each person on the *Users* list and on a team's members list; a link takes you back to where you came from.`,

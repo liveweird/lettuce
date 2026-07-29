@@ -121,6 +121,46 @@ test("a manager walks a goal around the whole lifecycle: draft, activate, progre
   await expect(goalRow(page, title)).toHaveCount(0);
 });
 
+test("the Goals-I've-set tab: Reports widens from own goals to goals set down the chain", async ({ page }) => {
+  const title = uniqueText("E2E-goal-chain");
+
+  // Manager AAA activates a goal for AAA Three — a chain goal from Manager CCC's viewpoint
+  // (Manager AAA is a member of team CCC, which Manager CCC manages).
+  await login(page, MANAGER_AAA);
+  await gotoSubordinateGoals(page);
+  const id = await createGoal(page, title, true);
+
+  await logout(page);
+  await login(page, "manager-ccc@lettuce.local");
+  await page.goto("/goals?tab=managed");
+  await expect(page.getByRole("tab", { name: "Goals I've set" })).toBeVisible();
+  // Scope the walk to the unique title (a shared database may hold other goals), and let the
+  // filtered response land before asserting absence — direct scope must not leak the chain goal.
+  await page.getByRole("button", { name: "Filters" }).click();
+  await Promise.all([
+    page.waitForResponse((r) => r.url().includes("title=") && r.ok()),
+    page.getByLabel("Title").fill(title),
+  ]);
+  await expect(goalRow(page, title)).toHaveCount(0);
+
+  // Widen Reports to the whole chain: Manager AAA's active goal appears, read-only.
+  await Promise.all([
+    page.waitForResponse((r) => r.url().includes("includeIndirect=true") && r.ok()),
+    (async () => {
+      await page.getByRole("combobox", { name: "Reports" }).click();
+      await page.getByRole("option", { name: "All reports (including indirect)" }).click();
+    })(),
+  ]);
+  await expect(goalRow(page, title).getByText("Active", { exact: true })).toBeVisible();
+  await expect(goalRow(page, title).getByRole("link", { name: `View goal ${title}` })).toBeVisible();
+  await expect(goalRow(page, title).getByRole("link", { name: `Edit goal ${title}` })).toHaveCount(0);
+
+  // Cleanup by the goal's own manager.
+  await logout(page);
+  await login(page, MANAGER_AAA);
+  await deleteGoal(page, id);
+});
+
 test("activating at creation notifies the subordinate, who sees the goal read-only in My goals", async ({ page }) => {
   const title = uniqueText("E2E-goal-active");
 
