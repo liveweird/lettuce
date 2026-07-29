@@ -40,6 +40,21 @@ test("the Users list opens the details view in every relationship flavor", async
   await expect(page.getByRole("link", { name: "Feedbacks with BBB One" })).toBeVisible();
 });
 
+test("the teams list's manager chip opens the details view and round-trips back", async ({ page }) => {
+  await login(page, MANAGER_AAA);
+  await page.goto("/teams");
+  // Filter to team CCC (leftover E2E-* teams may crowd page 1), whose manager is Manager CCC.
+  const toggle = page.getByRole("button", { name: "Filters" });
+  if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
+  await page.getByLabel("Name", { exact: true }).fill("CCC");
+  await page.getByRole("link", { name: "User details for Manager CCC" }).click();
+
+  // Manager CCC manages the caller's team CCC → the managers-tab card, back to /teams.
+  await expect(page.getByText("One of your managers")).toBeVisible();
+  await page.getByRole("link", { name: /Back to Teams/ }).click();
+  await expect(page).toHaveURL(/\/teams$/);
+});
+
 test("a team roster opens the peer flavor and round-trips back to the roster", async ({ page }) => {
   await login(page, MANAGER_AAA);
   await page.goto("/teams");

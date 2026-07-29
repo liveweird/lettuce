@@ -6,7 +6,7 @@
 export function userDetailsLink(
   userId: number,
   name?: string | null,
-  from?: "users" | "members",
+  from?: "users" | "members" | "teams",
   teamId?: number,
 ): string {
   const query = new URLSearchParams();
