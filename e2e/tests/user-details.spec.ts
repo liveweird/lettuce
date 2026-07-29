@@ -1,34 +1,38 @@
-import { expect, login, MANAGER_AAA, test } from "./helpers";
+import { expect, gotoUserRow, login, MANAGER_AAA, test } from "./helpers";
 
 // The read-only user-details view (v1.21.0): /users/:userId/details renders the person's
 // dashboard card, flavor picked by the viewer's relationship to them (their manager beats
 // my-direct-report beats peer), reached via the "User details" buttons on /users and on a
-// team's members roster. Read-only: no data is created or mutated.
+// team's members roster. Read-only: no data is created or mutated. Every /users click goes
+// through gotoUserRow — accumulated E2E-* throwaways push seed rows off page 1 otherwise.
 
 test("the Users list opens the details view in every relationship flavor", async ({ page }) => {
   await login(page, MANAGER_AAA);
-  await page.goto("/users");
 
-  // Everyone gets the button — except one's own row (a relationship needs someone else).
-  await expect(page.getByRole("link", { name: "User details for AAA One" })).toBeVisible();
+  // One's own row never gets the button (a relationship needs someone else).
+  await gotoUserRow(page, "Manager AAA");
   await expect(page.getByRole("link", { name: "User details for Manager AAA" })).toHaveCount(0);
 
   // Manager CCC manages team CCC, of which Manager AAA is a member → the managers-tab card.
+  await gotoUserRow(page, "Manager CCC");
   await page.getByRole("link", { name: "User details for Manager CCC" }).click();
   await expect(page.getByText("One of your managers")).toBeVisible();
   await expect(page.getByText("Last 1:1")).toBeVisible();
   await expect(page.getByRole("link", { name: "Goals from Manager CCC" })).toBeVisible();
 
-  // Back to the list, then a direct report → the subordinates-tab card with its actions.
+  // The back link returns to the users list (then re-filter for the next person).
   await page.getByRole("link", { name: /Back to Users/ }).click();
   await expect(page).toHaveURL(/\/users$/);
+
+  // A direct report → the subordinates-tab card with its actions.
+  await gotoUserRow(page, "AAA One");
   await page.getByRole("link", { name: "User details for AAA One" }).click();
   await expect(page.getByText("One of your subordinates")).toBeVisible();
   await expect(page.getByRole("link", { name: "New 1:1 with AAA One" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Request feedback about AAA One" })).toBeVisible();
 
   // An unrelated user (team BBB) still gets a card — no relationship hint, no stats.
-  await page.getByRole("link", { name: /Back to Users/ }).click();
+  await gotoUserRow(page, "BBB One");
   await page.getByRole("link", { name: "User details for BBB One" }).click();
   await expect(page.getByText("bbb-one@lettuce.local")).toBeVisible();
   await expect(page.getByText(/One of your/)).toHaveCount(0);
