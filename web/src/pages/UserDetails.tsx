@@ -122,10 +122,10 @@ export default function UserDetails() {
     originKey === "members" ? teamId : undefined,
   );
 
+  // Undefined (not an empty fragment) when the viewer gets no actions — PersonCard then
+  // omits the divider + actions row entirely (the self-view case).
   const actions =
-    person == null || selfView ? (
-      <></>
-    ) : relationship === "manager" ? (
+    person == null || selfView ? undefined : relationship === "manager" ? (
       // The /?tab=managers card's actions (users.* labels), returning here instead of the tab.
       <>
         <Button
