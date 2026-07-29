@@ -134,6 +134,17 @@ describe("Users page", () => {
     expect(links[1]).toHaveAttribute("href", `/users/2/teams?name=${encodeURIComponent("Bob")}`);
   });
 
+  test("every row links to the user details view — except one's own", async () => {
+    mockListThen(mockFetch);
+    renderUsers();
+
+    await screen.findByText("Alice");
+    // The current user is Alice (id 1) — her own row gets no details link, Bob's does.
+    const links = screen.getAllByRole("link", { name: /^user details for /i });
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAttribute("href", "/users/2/details?name=Bob&from=users");
+  });
+
   test("non-admin sees the Feedback menu and Teams, but no Edit/Delete", async () => {
     localStorage.setItem(ROLE_KEY, "USER");
     mockListThen(mockFetch);

@@ -16,6 +16,7 @@ import {
 } from "@mantine/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  IconId,
   IconPlus,
   IconTrash,
   IconUsers,
@@ -36,6 +37,7 @@ import FeedbackActionsMenu from "../components/FeedbackActionsMenu";
 import PersonaChip from "../components/PersonaChip";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { feedbackAskLink, feedbackProvideLink, userFeedbacksLink } from "../utils/feedbackLinks";
+import { userDetailsLink } from "../utils/userLinks";
 import { saveErrorMessage } from "../utils/saveError";
 
 // A single team realistically has a small, bounded set of members; fetch up to the 100-row
@@ -230,6 +232,22 @@ export default function TeamMembers() {
                 </Table.Td>
                 <Table.Td>
                   <Group gap="xs" wrap="nowrap" justify="flex-end">
+                    {/* The relationship-aware read-only card view — everyone, except one's own
+                        row (the card flavors describe the viewer's relationship to someone
+                        else); the members origin threads the teamId back here. */}
+                    {m.id !== currentUserId && (
+                      <Button
+                        component={RouterLink}
+                        to={userDetailsLink(m.id, m.name, "members", id)}
+                        color="blue"
+                        variant="subtle"
+                        size="xs"
+                        leftSection={<IconId size={14} />}
+                        aria-label={t("users.detailsFor", { name: m.name })}
+                      >
+                        {t("users.details")}
+                      </Button>
+                    )}
                     {m.id !== currentUserId && (
                       <FeedbackActionsMenu
                         provideTo={feedbackProvideLink(m.id, m.name)}

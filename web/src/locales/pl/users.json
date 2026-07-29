@@ -3,6 +3,14 @@
   "createUser": "Nowy użytkownik",
   "editUser": "Edytuj użytkownika",
   "changePassword": "Zmień hasło",
+  "details": "Szczegóły użytkownika",
+  "detailsFor": "Szczegóły użytkownika {{name}}",
+  "detailsTitle": "Szczegóły użytkownika",
+  "relationship": {
+    "manager": "Jeden/Jedna z Twoich menedżerów",
+    "subordinate": "Jeden/Jedna z Twoich podwładnych",
+    "peer": "Jeden/Jedna z Twoich współpracowników"
+  },
   "teams": "Zespoły",
   "team": "Zespół",
   "provideFeedback": "Wystaw feedback",

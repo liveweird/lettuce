@@ -79,6 +79,7 @@ const ImportUsers = lazy(() => import("./pages/ImportUsers"));
 const EditUser = lazy(() => import("./pages/EditUser"));
 const ChangeUserPassword = lazy(() => import("./pages/ChangeUserPassword"));
 const UserTeams = lazy(() => import("./pages/UserTeams"));
+const UserDetails = lazy(() => import("./pages/UserDetails"));
 const CreateTeam = lazy(() => import("./pages/CreateTeam"));
 const EditTeam = lazy(() => import("./pages/EditTeam"));
 const Teams = lazy(() => import("./pages/Teams"));
@@ -402,6 +403,7 @@ export default function App() {
             <Route path="users/:id/edit" element={<EditUser />} />
             <Route path="users/:id/change-password" element={<ChangeUserPassword />} />
             <Route path="users/:id/teams" element={<UserTeams />} />
+            <Route path="users/:userId/details" element={<UserDetails />} />
             <Route path="teams" element={<Teams />} />
             <Route path="teams/new" element={<CreateTeam />} />
             <Route path="teams/:id/edit" element={<EditTeam />} />

@@ -3,6 +3,14 @@
   "createUser": "New user",
   "editUser": "Edit user",
   "changePassword": "Change password",
+  "details": "User details",
+  "detailsFor": "User details for {{name}}",
+  "detailsTitle": "User details",
+  "relationship": {
+    "manager": "One of your managers",
+    "subordinate": "One of your subordinates",
+    "peer": "One of your peers"
+  },
   "teams": "Teams",
   "team": "Team",
   "provideFeedback": "Provide feedback",

@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.21.0",
+    date: "2026-07-29",
+    en: `A new read-only **User details** view shows a person's card — the same card as on the Dashboard, picked by your relationship to them (one of your managers, one of your subordinates, or a peer), with the matching stats and quick actions. Open it with the new *User details* button next to each person on the *Users* list and on a team's members list; a link takes you back to where you came from.`,
+    pl: `Nowy widok **Szczegóły użytkownika** (tylko do odczytu) pokazuje kartę osoby — taką samą jak na Pulpicie, dobraną według Twojej relacji z tą osobą (jeden/jedna z Twoich menedżerów, podwładnych albo współpracowników), z pasującymi statystykami i szybkimi akcjami. Otwórz go nowym przyciskiem *Szczegóły użytkownika* obok każdej osoby na liście *Użytkownicy* oraz na liście członków zespołu; link przeniesie Cię z powrotem tam, skąd przyszedłeś/przyszłaś.`,
+  },
+  {
     version: "1.20.0",
     date: "2026-07-27",
     en: `A new **My teams** tab on the Dashboard lists the teams you manage. Each team opens its own members view — the same cards, stats, and actions as *My subordinates*, just limited to that one team — and every screen you open from there (feedback forms, 1:1s, goals) brings you back to it.`,

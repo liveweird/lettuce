@@ -14,6 +14,7 @@ import {
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  IconId,
   IconKey,
   IconPencil,
   IconPlus,
@@ -32,6 +33,7 @@ import {
 } from "../api/client";
 import FeedbackActionsMenu from "../components/FeedbackActionsMenu";
 import { feedbackAskLink, feedbackProvideLink, userFeedbacksLink } from "../utils/feedbackLinks";
+import { userDetailsLink } from "../utils/userLinks";
 import { flagSignedOut, notifyAuthChange } from "../auth";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
@@ -111,7 +113,7 @@ export default function Users() {
   });
 
   const total = data?.total ?? 0;
-  const columnCount = 8;
+  const columnCount = 9;
 
   return (
     <Stack gap="md">
@@ -177,6 +179,7 @@ export default function Users() {
               />
             </Table.Th>
             <Table.Th aria-label={t("users.feedbackActions")} style={{ width: 1 }} />
+            <Table.Th aria-label={t("users.details")} style={{ width: 1 }} />
             <Table.Th aria-label={t("common.action.edit")} style={{ width: 1 }} />
             <Table.Th aria-label={t("users.changePassword")} style={{ width: 1 }} />
             <Table.Th aria-label={t("users.teams")} style={{ width: 1 }} />
@@ -215,6 +218,23 @@ export default function Users() {
                       listTo={userFeedbacksLink(u.id, u.name, "users")}
                       name={u.name}
                     />
+                  )}
+                </Table.Td>
+                {/* The relationship-aware read-only card view — everyone, except one's own row
+                    (the card flavors describe the viewer's relationship to someone else). */}
+                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  {u.id !== currentUserId && (
+                    <Button
+                      component={RouterLink}
+                      to={userDetailsLink(u.id, u.name, "users")}
+                      color="blue"
+                      variant="subtle"
+                      size="xs"
+                      leftSection={<IconId size={14} />}
+                      aria-label={t("users.detailsFor", { name: u.name })}
+                    >
+                      {t("users.details")}
+                    </Button>
                   )}
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
