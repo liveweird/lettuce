@@ -130,6 +130,18 @@ describe("TeamMembers page", () => {
     expect(screen.getByRole("button", { name: "Feedback actions for Carol" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Feedback actions for Dave" })).toBeInTheDocument();
 
+    // And so is the User details link, carrying the members origin + teamId back here.
+    const detailLinks = screen.getAllByRole("link", { name: /^user details for /i });
+    expect(detailLinks).toHaveLength(2);
+    expect(detailLinks[0]).toHaveAttribute(
+      "href",
+      "/users/1/details?name=Carol&from=members&teamId=3",
+    );
+    expect(detailLinks[1]).toHaveAttribute(
+      "href",
+      "/users/2/details?name=Dave&from=members&teamId=3",
+    );
+
     // The add-picker user pool was never fetched.
     expect(mockFetch.mock.calls.some(([u]) => typeof u === "string" && isPoolUrl(u))).toBe(false);
   });

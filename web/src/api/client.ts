@@ -347,6 +347,19 @@ export async function listAllTeams(): Promise<TeamPage["items"]> {
   }
 }
 
+/** Every row of one caller-relative view, paging until the server total is reached — the
+ * listAllTeams idiom, for callers that need to find a specific person rather than a page. */
+export async function listAllTeamMembers(view: TeamMemberListView): Promise<TeamMemberPage["items"]> {
+  const items: TeamMemberPage["items"] = [];
+  let page = 1;
+  for (;;) {
+    const result = await listTeamMembers({ view, page, pageSize: 100 });
+    items.push(...result.items);
+    if (items.length >= result.total || result.items.length === 0) return items;
+    page += 1;
+  }
+}
+
 export type FeedbackPage =
   paths["/api/v1/feedbacks"]["get"]["responses"]["200"]["content"]["application/json"];
 
