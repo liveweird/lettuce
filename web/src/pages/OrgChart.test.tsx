@@ -1,0 +1,148 @@
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { Route, Routes, useLocation } from "react-router-dom";
+import { renderWithProviders, screen } from "../test/render";
+import OrgChart from "./OrgChart";
+import { jsonResponse } from "../test/http";
+
+// happy-dom can't measure the canvas, so React Flow itself is mocked — but the mock renders
+// the page's REAL custom node components (via nodeTypes), so PersonNode/TeamNode logic
+// (aria labels, self/deleted gating, navigation) is exercised. The mockMarkdownEditor idiom.
+vi.mock("@xyflow/react", () => ({
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  ReactFlow: ({ nodes, edges, nodeTypes }: any) => (
+    <div data-testid="canvas" data-edge-count={edges.length}>
+      {nodes.map((n: any) => {
+        const NodeComponent = nodeTypes[n.type];
+        return <NodeComponent key={n.id} data={n.data} />;
+      })}
+    </div>
+  ),
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+  Handle: () => null,
+  Controls: () => null,
+  Background: () => null,
+  BackgroundVariant: { Dots: "dots" },
+  Position: { Top: "top", Bottom: "bottom" },
+  MarkerType: { ArrowClosed: "arrowclosed" },
+}));
+
+const TOKEN_KEY = "lettuce.auth.token";
+const USER_ID_KEY = "lettuce.auth.userId";
+
+type FetchMock = ReturnType<typeof vi.fn>;
+
+const TEAMS = [
+  { id: 1, name: "AAA", managerId: 10, managerName: "Manager AAA", managerDeleted: false },
+  { id: 3, name: "CCC", managerId: 12, managerName: "Manager CCC", managerDeleted: false },
+  { id: 9, name: "Orphan", managerId: 42, managerName: "Zed", managerDeleted: true },
+];
+const MEMBERS: Record<number, number[]> = { 1: [1], 3: [10], 9: [] };
+const USERS = [
+  { id: 1, name: "AAA One", email: "a1@x", role: "USER" },
+  { id: 10, name: "Manager AAA", email: "ma@x", role: "USER" },
+  { id: 12, name: "Manager CCC", email: "mc@x", role: "USER" },
+];
+
+function mockApi(mockFetch: FetchMock, teams = TEAMS) {
+  mockFetch.mockImplementation((url: string) => {
+    const u = String(url);
+    const single = u.match(/^\/api\/v1\/teams\/(\d+)$/);
+    if (single) {
+      const id = Number(single[1]);
+      const team = teams.find((t) => t.id === id)!;
+      return Promise.resolve(
+        jsonResponse(200, { id, name: team.name, managerId: team.managerId, memberIds: MEMBERS[id] ?? [] }),
+      );
+    }
+    if (u.startsWith("/api/v1/teams?"))
+      return Promise.resolve(jsonResponse(200, { items: teams, page: 1, pageSize: 100, total: teams.length }));
+    if (u.startsWith("/api/v1/users?"))
+      return Promise.resolve(jsonResponse(200, { items: USERS, page: 1, pageSize: 100, total: USERS.length }));
+    return Promise.resolve(jsonResponse(404, {}));
+  });
+}
+
+function PathProbe() {
+  const location = useLocation();
+  return <div data-testid="probe">{location.pathname + location.search}</div>;
+}
+
+function renderOrg() {
+  return renderWithProviders(
+    <Routes>
+      <Route path="/org" element={<OrgChart />} />
+      <Route path="/users/:userId/details" element={<PathProbe />} />
+      <Route path="/teams/:id/members" element={<PathProbe />} />
+    </Routes>,
+    { route: "/org" },
+  );
+}
+
+describe("OrgChart page", () => {
+  let mockFetch: FetchMock;
+
+  beforeEach(() => {
+    mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
+    localStorage.setItem(TOKEN_KEY, "fake-token");
+    localStorage.setItem(USER_ID_KEY, "12"); // the caller is Manager CCC
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  test("renders people and teams as nodes with the edges wired", async () => {
+    mockApi(mockFetch);
+    renderOrg();
+
+    // The heading (with the tour anchor) renders immediately; nodes after the data lands.
+    expect(screen.getByRole("heading", { name: "Org chart" })).toHaveAttribute("data-tour", "config-org");
+    expect(await screen.findByText("AAA One")).toBeInTheDocument();
+    expect(screen.getByText("Manager AAA")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Members of AAA" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Members of CCC" })).toBeInTheDocument();
+    // 3 manages edges + 2 member edges.
+    expect(screen.getByTestId("canvas")).toHaveAttribute("data-edge-count", "5");
+  });
+
+  test("person nodes open the details view with the org origin — except self and deleted", async () => {
+    mockApi(mockFetch);
+    const user = userEvent.setup();
+    renderOrg();
+
+    // A deleted manager renders plain and dimmed, not clickable.
+    expect(await screen.findByText(/Zed \(deleted\)/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "User details for Zed" })).not.toBeInTheDocument();
+    // One's own node is plain too.
+    expect(screen.queryByRole("button", { name: "User details for Manager CCC" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "User details for Manager AAA" }));
+    expect(screen.getByTestId("probe")).toHaveTextContent("/users/10/details?name=Manager+AAA&from=org");
+  });
+
+  test("team nodes open the roster", async () => {
+    mockApi(mockFetch);
+    const user = userEvent.setup();
+    renderOrg();
+
+    await user.click(await screen.findByRole("button", { name: "Members of CCC" }));
+    expect(screen.getByTestId("probe")).toHaveTextContent("/teams/3/members");
+  });
+
+  test("shows the empty state when there are no teams", async () => {
+    mockApi(mockFetch, []);
+    renderOrg();
+
+    expect(await screen.findByText(/No teams yet/)).toBeInTheDocument();
+  });
+
+  test("shows an alert when the composition fails", async () => {
+    mockFetch.mockImplementation(() => Promise.resolve(jsonResponse(500, { error: "boom" })));
+    renderOrg();
+
+    expect(await screen.findByText("Failed to load the organization")).toBeInTheDocument();
+  });
+});

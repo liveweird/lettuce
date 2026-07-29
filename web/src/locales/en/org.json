@@ -1,0 +1,10 @@
+{
+  "title": "Org chart",
+  "hint": "How the organization fits together: a manager runs each team, members belong to it, and a member may manage a team of their own. Click a person for their details, a team for its roster.",
+  "legendManages": "manages",
+  "legendMember": "member",
+  "deletedTag": "(deleted)",
+  "empty": "No teams yet — the chart appears once the first team exists.",
+  "loadFailed": "Failed to load the organization",
+  "unknownError": "Unknown error"
+}

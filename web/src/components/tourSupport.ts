@@ -74,6 +74,7 @@ export const TOUR_STEPS: TourStepDef[] = [
   { target: '[data-tour="nav-config"]', contentKey: "tour.steps.config", placement: "right", navTo: "/users" },
   { target: '[data-tour="config-users"]', contentKey: "tour.steps.configUsers", placement: "bottom", navTo: "/users" },
   { target: '[data-tour="config-teams"]', contentKey: "tour.steps.configTeams", placement: "bottom", navTo: "/teams" },
+  { target: '[data-tour="config-org"]', contentKey: "tour.steps.configOrg", placement: "bottom", navTo: "/org" },
   { target: '[data-tour="config-templates"]', contentKey: "tour.steps.configTemplates", placement: "bottom", navTo: "/templates" },
   // The remaining left-menu leaves — each anchors on the navbar leaf but also opens the actual
   // screen behind it. The whole left menu is toured before the header icons below.

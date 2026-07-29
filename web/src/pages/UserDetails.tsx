@@ -94,17 +94,23 @@ export default function UserDetails() {
   const nameParam = search.get("name");
   const teamIdRaw = Number(search.get("teamId"));
   const teamId = Number.isFinite(teamIdRaw) && teamIdRaw > 0 ? teamIdRaw : undefined;
-  // The members origin needs its teamId to link back to that roster; the teams origin is the
-  // teams list's manager chip. Anything else degrades to the users list.
+  // The members origin needs its teamId to link back to that roster; teams is the teams list's
+  // manager chip; org is the org-chart canvas. Anything else degrades to the users list.
   const fromParam = search.get("from");
-  const originKey: "users" | "members" | "teams" =
-    fromParam === "members" && teamId != null ? "members" : fromParam === "teams" ? "teams" : "users";
+  const originKey: "users" | "members" | "teams" | "org" =
+    fromParam === "members" && teamId != null
+      ? "members"
+      : fromParam === "teams" || fromParam === "org"
+        ? fromParam
+        : "users";
   const origin =
     originKey === "members"
       ? { labelKey: "feedback.origin.members", to: `/teams/${teamId}/members` }
       : originKey === "teams"
         ? { labelKey: "feedback.origin.teams", to: "/teams" }
-        : { labelKey: "feedback.origin.users", to: "/users" };
+        : originKey === "org"
+          ? { labelKey: "feedback.origin.org", to: "/org" }
+          : { labelKey: "feedback.origin.users", to: "/users" };
   const selfView = userId === getUserId();
 
   const { data, isLoading, isError, error } = useQuery({

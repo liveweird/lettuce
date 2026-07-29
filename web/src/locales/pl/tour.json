@@ -31,6 +31,7 @@
     "config": "Konfiguracja — użytkownicy, zespoły i szablony feedbacku.",
     "configUsers": "Użytkownicy — katalog osób (administratorzy zarządzają kontami).",
     "configTeams": "Zespoły — zespoły i ich członkowie.",
+    "configOrg": "Struktura organizacji — cała organizacja na jednym diagramie: menedżerowie, ich zespoły i członkowie, w tym członkowie kierujący własnymi zespołami.",
     "configTemplates": "Szablony — szablony feedbacku do wielokrotnego użytku.",
     "notifications": "Powiadomienia: tutaj poinformujemy Cię, gdy feedback zostanie zamówiony, wysłany lub wycofany.",
     "language": "W każdej chwili zmień język interfejsu (English / Polski).",

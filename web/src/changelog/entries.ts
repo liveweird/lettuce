@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.23.0",
+    date: "2026-07-30",
+    en: `A new **Org chart** (Config → Org chart) draws the whole organization on one zoomable canvas: each manager connects down to the teams they run, teams connect to their members — and a member who manages a team of their own links onward, so the full chain is visible at a glance. Click a person to open their details, or a team to open its roster. The guided tour introduces the new page.`,
+    pl: `Nowa **Struktura organizacji** (Konfiguracja → Struktura organizacji) rysuje całą organizację na jednym przybliżanym diagramie: każdy menedżer łączy się w dół z zespołami, którymi kieruje, zespoły ze swoimi członkami — a członek kierujący własnym zespołem prowadzi dalej, więc cały łańcuch widać od razu. Kliknij osobę, aby otworzyć jej szczegóły, albo zespół, aby zobaczyć jego skład. Samouczek przedstawia nową stronę.`,
+  },
+  {
     version: "1.22.2",
     date: "2026-07-30",
     en: `The *Teams* list now offers *User details* right next to each team's manager, opening the manager's relationship-aware card; its back link returns to the teams list. On the *Users* list the row actions lead with *User details* and *Teams*.`,

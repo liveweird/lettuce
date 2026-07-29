@@ -18,6 +18,7 @@ import enNotifications from "./locales/en/notifications.json";
 import enAlerts from "./locales/en/alerts.json";
 import enChangelog from "./locales/en/changelog.json";
 import enTour from "./locales/en/tour.json";
+import enOrg from "./locales/en/org.json";
 
 import plCommon from "./locales/pl/common.json";
 import plAppShell from "./locales/pl/appShell.json";
@@ -33,6 +34,7 @@ import plNotifications from "./locales/pl/notifications.json";
 import plAlerts from "./locales/pl/alerts.json";
 import plChangelog from "./locales/pl/changelog.json";
 import plTour from "./locales/pl/tour.json";
+import plOrg from "./locales/pl/org.json";
 
 export const SUPPORTED_LANGUAGES = ["en", "pl"] as const;
 
@@ -53,6 +55,7 @@ const en = {
   alerts: enAlerts,
   changelog: enChangelog,
   tour: enTour,
+  org: enOrg,
 };
 
 const pl = {
@@ -70,6 +73,7 @@ const pl = {
   alerts: plAlerts,
   changelog: plChangelog,
   tour: plTour,
+  org: plOrg,
 };
 
 i18n

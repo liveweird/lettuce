@@ -31,6 +31,7 @@
     "config": "Config — users, teams and feedback templates.",
     "configUsers": "Users — the people directory (admins manage accounts).",
     "configTeams": "Teams — teams and their membership.",
+    "configOrg": "Org chart — the whole organization on one canvas: managers, their teams, and the members below, including members who manage teams of their own.",
     "configTemplates": "Templates — reusable feedback templates.",
     "notifications": "Notifications: you'll be alerted here when feedback is requested, sent or withdrawn.",
     "language": "Switch the interface language (English / Polski) at any time.",

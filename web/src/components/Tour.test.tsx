@@ -178,6 +178,7 @@ describe("Tour", () => {
       { target: '[data-tour="nav-config"]', path: "/users" },
       { target: '[data-tour="config-users"]', path: "/users" },
       { target: '[data-tour="config-teams"]', path: "/teams" },
+      { target: '[data-tour="config-org"]', path: "/org" },
       { target: '[data-tour="config-templates"]', path: "/templates" },
       // These anchor on the navbar leaf but also open the actual screen (":userId" resolved).
       { target: '[data-tour="nav-self-reflection"]', path: "/feedback/self" },

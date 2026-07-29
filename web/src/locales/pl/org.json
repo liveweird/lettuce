@@ -1,0 +1,10 @@
+{
+  "title": "Struktura organizacji",
+  "hint": "Jak organizacja się składa: każdym zespołem kieruje menedżer, członkowie do niego należą, a członek może kierować własnym zespołem. Kliknij osobę, aby zobaczyć jej szczegóły, albo zespół, aby zobaczyć jego skład.",
+  "legendManages": "kieruje",
+  "legendMember": "członek",
+  "deletedTag": "(usunięty/a)",
+  "empty": "Nie ma jeszcze zespołów — struktura pojawi się, gdy powstanie pierwszy zespół.",
+  "loadFailed": "Nie udało się wczytać organizacji",
+  "unknownError": "Nieznany błąd"
+}
