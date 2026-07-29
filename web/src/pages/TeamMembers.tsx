@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link as RouterLink, Navigate, useParams } from "react-router-dom";
+import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Alert,
   Anchor,
@@ -49,6 +49,14 @@ type MemberRow = { id: number; name: string };
 export default function TeamMembers() {
   const { t } = useTranslation();
   const params = useParams<{ id: string }>();
+  // The org chart opens rosters with ?from=org — back links return there, not to the teams
+  // list (the UserDetails origin idiom, reduced to the one extra origin this page can have).
+  const [searchParams] = useSearchParams();
+  const fromOrg = searchParams.get("from") === "org";
+  const backTo = fromOrg ? "/org" : "/teams";
+  const backLabel = fromOrg
+    ? t("feedback.backToLabel", { label: t("feedback.origin.org") })
+    : t("teams.backToTeams");
   const id = Number(params.id);
   const idIsValid = Number.isFinite(id) && id > 0;
   const queryClient = useQueryClient();
@@ -152,8 +160,8 @@ export default function TeamMembers() {
             : `${t("teams.loadTeamFailed")}${teamError instanceof ApiError ? ` (${teamError.status})` : ""}.`}
         </Alert>
         <Group justify="flex-end">
-          <Button component={RouterLink} to="/teams" variant="default">
-            {t("teams.backToTeams")}
+          <Button component={RouterLink} to={backTo} variant="default">
+            {backLabel}
           </Button>
         </Group>
       </Stack>
@@ -163,8 +171,8 @@ export default function TeamMembers() {
   return (
     <Stack gap="md">
       <Stack gap={4}>
-        <Anchor component={RouterLink} to="/teams" size="sm">
-          {t("teams.backToTeams")}
+        <Anchor component={RouterLink} to={backTo} size="sm">
+          {backLabel}
         </Anchor>
         <Title order={2}>
           {t("teams.members")}

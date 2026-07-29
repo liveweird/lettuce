@@ -38,12 +38,12 @@ function isPoolUrl(url: string) {
   return url.startsWith("/api/v1/users?") && !url.includes("teamId=");
 }
 
-function renderTeamMembers(id: number | string = 3) {
+function renderTeamMembers(id: number | string = 3, search = "") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <MantineProvider env="test">
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={[`/teams/${id}/members`]}>
+        <MemoryRouter initialEntries={[`/teams/${id}/members${search}`]}>
           <Routes>
             <Route path="/teams/:id/members" element={<TeamMembers />} />
           </Routes>
@@ -104,6 +104,22 @@ describe("TeamMembers page", () => {
 
     const membersCall = mockFetch.mock.calls.find(([u]) => typeof u === "string" && isMembersUrl(u));
     expect(membersCall).toBeDefined();
+  });
+
+  test("opened from the org chart, the back link returns to /org instead of the teams list", async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (url === "/api/v1/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
+      if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
+      if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    renderTeamMembers(3, "?from=org");
+
+    expect(await screen.findByRole("link", { name: "← Back to Org chart" })).toHaveAttribute(
+      "href",
+      "/org",
+    );
+    expect(screen.queryByText("Back to teams")).not.toBeInTheDocument();
   });
 
   test("non-admin gets a read-only roster: no add picker, no remove buttons", async () => {

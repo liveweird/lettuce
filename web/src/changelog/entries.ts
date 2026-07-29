@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.23.1",
+    date: "2026-07-30",
+    en: `Fix: opening a team from the *Org chart* now shows a *Back to Org chart* link on the roster — previously it pointed back to the teams list.`,
+    pl: `Poprawka: po otwarciu zespołu ze *Struktury organizacji* lista członków ma teraz link *Powrót do: Struktura organizacji* — wcześniej prowadził z powrotem do listy zespołów.`,
+  },
+  {
     version: "1.23.0",
     date: "2026-07-30",
     en: `A new **Org chart** (Config → Org chart) draws the whole organization on one zoomable canvas: each manager connects down to the teams they run, teams connect to their members — and a member who manages a team of their own links onward, so the full chain is visible at a glance. Click a person to open their details, or a team to open its roster. The guided tour introduces the new page.`,
