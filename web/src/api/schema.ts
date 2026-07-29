@@ -869,7 +869,11 @@ export interface paths {
          *     callers.
          *
          *     - `view=own` (the default): goals where the caller is the **subordinate**.
-         *     - `view=managed`: goals where the caller is the **manager** (the author).
+         *     - `view=managed`: goals where the caller is the **manager** (the author). With
+         *       `includeIndirect=true`, additionally goals set **by managers in the caller's
+         *       transitive management chain** — excluding their DRAFT goals (a draft stays private
+         *       to its pair until activated, matching the single-GET's chain rule; the caller's own
+         *       DRAFTs are always listed).
          *     - `view=team`: goals set **by the caller's subordinates as managers** — the goal's
          *       manager is one of the caller's **direct reports** (a member of a non-deleted team the
          *       caller manages) or, with `includeIndirect=true`, anyone in the caller's **transitive
@@ -3954,8 +3958,11 @@ export interface operations {
                 /** @description Which caller-relative slice of goals to list. */
                 view?: "own" | "managed" | "team";
                 /**
-                 * @description Only valid with `view=team` (else `400`). When `true`, widens which managers count
-                 *     from the caller's direct reports to their whole transitive management chain.
+                 * @description Only valid with `view=managed` and `view=team` (else `400`). For `view=managed`,
+                 *     `true` widens the list from the caller's own goals to also include goals set by
+                 *     managers in their transitive management chain (their DRAFTs excluded). For
+                 *     `view=team`, `true` widens which managers count from the caller's direct reports
+                 *     to their whole transitive management chain.
                  */
                 includeIndirect?: boolean;
                 /** @description Case-insensitive substring match against the manager's name. */

@@ -3,8 +3,13 @@
   "goalsWithHint": "The goals {{who}} set for you and how they are progressing.",
   "goalsFor": "Goals for {{who}}",
   "goalsForHint": "The goals you set for {{who}} and how they are progressing.",
-  "myGoalsTitle": "My goals",
+  "sectionTitle": "Goals",
+  "tab": {
+    "own": "My goals",
+    "managed": "Goals I've set"
+  },
   "myGoalsHint": "The goals your managers set for you, across all of them.",
+  "managedGoalsHint": "The goals you've set for your reports. Switch Reports to also include goals set further down your chain.",
   "clearManagerFilter": "Clear manager filter",
   "newGoal": "New goal",
   "createTitle": "New goal",
