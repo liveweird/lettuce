@@ -302,6 +302,8 @@ describe("EditGoal page", () => {
     expect(screen.getByText("Update progress")).toBeInTheDocument();
     // The definition is frozen: no title input, just the read-only display.
     expect(screen.queryByRole("textbox", { name: "Title" })).toBeNull();
+    expect(screen.getByText("Initial description")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Description" })).toBeNull();
     // A future due date shows plainly, without the overdue badge.
     expect(screen.getByText("Jun 15, 2099")).toBeInTheDocument();
     expect(screen.queryByText("Overdue")).toBeNull();
