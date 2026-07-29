@@ -178,11 +178,11 @@ export default function Users() {
                 onToggle={toggleSort}
               />
             </Table.Th>
-            <Table.Th aria-label={t("users.feedbackActions")} style={{ width: 1 }} />
             <Table.Th aria-label={t("users.details")} style={{ width: 1 }} />
+            <Table.Th aria-label={t("users.teams")} style={{ width: 1 }} />
+            <Table.Th aria-label={t("users.feedbackActions")} style={{ width: 1 }} />
             <Table.Th aria-label={t("common.action.edit")} style={{ width: 1 }} />
             <Table.Th aria-label={t("users.changePassword")} style={{ width: 1 }} />
-            <Table.Th aria-label={t("users.teams")} style={{ width: 1 }} />
             <Table.Th aria-label={t("common.action.delete")} style={{ width: 1 }} />
           </Table.Tr>
         </Table.Thead>
@@ -210,16 +210,6 @@ export default function Users() {
                     {t(`common.role.${u.role}`)}
                   </Badge>
                 </Table.Td>
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
-                  {u.id !== currentUserId && (
-                    <FeedbackActionsMenu
-                      provideTo={feedbackProvideLink(u.id, u.name)}
-                      askTo={feedbackAskLink(u.id, u.name, "/users")}
-                      listTo={userFeedbacksLink(u.id, u.name, "users")}
-                      name={u.name}
-                    />
-                  )}
-                </Table.Td>
                 {/* The relationship-aware read-only card view — everyone, except one's own row
                     (the card flavors describe the viewer's relationship to someone else). */}
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
@@ -235,6 +225,31 @@ export default function Users() {
                     >
                       {t("users.details")}
                     </Button>
+                  )}
+                </Table.Td>
+                {/* Everyone gets Teams — read-only for non-admins. The name param feeds the
+                    heading there without a getUser call (which is self-or-admin only). */}
+                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  <Button
+                    component={RouterLink}
+                    to={`/users/${u.id}/teams?name=${encodeURIComponent(u.name)}`}
+                    color="blue"
+                    variant="subtle"
+                    size="xs"
+                    leftSection={<IconUsersGroup size={14} />}
+                    aria-label={t("users.teamsFor", { name: u.name })}
+                  >
+                    {t("users.teams")}
+                  </Button>
+                </Table.Td>
+                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  {u.id !== currentUserId && (
+                    <FeedbackActionsMenu
+                      provideTo={feedbackProvideLink(u.id, u.name)}
+                      askTo={feedbackAskLink(u.id, u.name, "/users")}
+                      listTo={userFeedbacksLink(u.id, u.name, "users")}
+                      name={u.name}
+                    />
                   )}
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
@@ -266,21 +281,6 @@ export default function Users() {
                       {t("users.changePassword")}
                     </Button>
                   )}
-                </Table.Td>
-                {/* Everyone gets Teams — read-only for non-admins. The name param feeds the
-                    heading there without a getUser call (which is self-or-admin only). */}
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
-                  <Button
-                    component={RouterLink}
-                    to={`/users/${u.id}/teams?name=${encodeURIComponent(u.name)}`}
-                    color="blue"
-                    variant="subtle"
-                    size="xs"
-                    leftSection={<IconUsersGroup size={14} />}
-                    aria-label={t("users.teamsFor", { name: u.name })}
-                  >
-                    {t("users.teams")}
-                  </Button>
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                   {admin && (
