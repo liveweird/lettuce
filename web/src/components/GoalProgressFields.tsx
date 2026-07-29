@@ -3,6 +3,8 @@ import type { UseFormReturnType } from "@mantine/form";
 import { useTranslation } from "react-i18next";
 import type { GoalResponse } from "../api/client";
 import ReadOnlyField from "./ReadOnlyField";
+import ProseBox from "./ProseBox";
+import MarkdownView from "./MarkdownView";
 import { formatGoalValue } from "../utils/goalValues";
 
 export interface GoalProgressFormValues {
@@ -30,6 +32,11 @@ export default function GoalProgressFields({
       {/* The definition is frozen while ACTIVE (deactivate to edit it) — only the value is live. */}
       <Input.Wrapper label={t("goal.title")}>
         <Text fw={500}>{goal.title}</Text>
+      </Input.Wrapper>
+      <Input.Wrapper label={t("goal.description")}>
+        <ProseBox>
+          <MarkdownView>{goal.description}</MarkdownView>
+        </ProseBox>
       </Input.Wrapper>
       {goal.type === "BINARY" ? (
         <Switch
