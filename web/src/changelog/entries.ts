@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.22.1",
+    date: "2026-07-30",
+    en: `The guided tour caught up with the new *Goals* page: it now walks both tabs — *My goals* for everyone, and *Goals I've set* (with its Reports filter) for managers.`,
+    pl: `Samouczek nadrobił nową stronę *Cele*: przechodzi teraz przez obie zakładki — *Moje cele* dla wszystkich oraz *Cele wyznaczone przeze mnie* (z filtrem Podwładni) dla menedżerów.`,
+  },
+  {
     version: "1.22.0",
     date: "2026-07-29",
     en: `The left-menu *My goals* is now **Goals**, with two tabs. *My goals* is the list you know — every goal your managers set for you. The new *Goals I've set* tab (managers only) lists the goals you created across all your team members, with a subordinate column and filter, plus a *Reports* filter: your own goals by default, or — with *All reports (including indirect)* — also the goals set by managers further down your chain (their drafts stay private).`,

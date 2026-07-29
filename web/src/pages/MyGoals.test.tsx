@@ -92,7 +92,11 @@ describe("MyGoals page", () => {
     renderWithProviders(<MyGoals />);
 
     expect(await screen.findByRole("heading", { name: "Goals" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "My goals" })).toBeInTheDocument();
+    // The tab carries the guided tour's anchor.
+    expect(screen.getByRole("tab", { name: "My goals" })).toHaveAttribute(
+      "data-tour",
+      "goals-own",
+    );
     // Wait for the rows, not just the chrome (the tab renders before the data arrives).
     expect(await screen.findByText("Alice")).toBeInTheDocument();
     expect(screen.getByText("Bob")).toBeInTheDocument();
@@ -124,7 +128,10 @@ describe("MyGoals page", () => {
     const user = userEvent.setup();
     renderWithProviders(<MyGoals />);
 
-    await user.click(await screen.findByRole("tab", { name: "Goals I've set" }));
+    const managedTab = await screen.findByRole("tab", { name: "Goals I've set" });
+    // The manager-only tab carries the guided tour's anchor.
+    expect(managedTab).toHaveAttribute("data-tour", "goals-managed");
+    await user.click(managedTab);
 
     expect(await screen.findByText("Carol")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Team member" })).toBeInTheDocument();

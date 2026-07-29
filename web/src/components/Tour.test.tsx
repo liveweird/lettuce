@@ -123,20 +123,23 @@ describe("Tour", () => {
     const nonManager = buildSteps(t, false);
     const manager = buildSteps(t, true);
 
-    // Feedback "My team" + the two manager-side 1:1 tabs are manager-only.
+    // Feedback "My team", the two manager-side 1:1 tabs, and the Goals-I've-set tab are
+    // manager-only.
     const managerOnlyTargets = [
       '[data-tour="feedback-team"]',
       '[data-tour="one-on-one-managed"]',
       '[data-tour="one-on-one-team"]',
+      '[data-tour="goals-managed"]',
     ];
     for (const target of managerOnlyTargets) {
       expect(nonManager.some((s) => s.target === target), target).toBe(false);
       expect(manager.some((s) => s.target === target), target).toBe(true);
     }
     expect(manager.length).toBe(nonManager.length + managerOnlyTargets.length);
-    // The 1:1 nav step and its "own" tab are for everyone.
+    // The 1:1 nav step and its "own" tab are for everyone — as is the Goals "My goals" tab.
     expect(nonManager.some((s) => s.target === '[data-tour="nav-one-on-ones"]')).toBe(true);
     expect(nonManager.some((s) => s.target === '[data-tour="one-on-one-own"]')).toBe(true);
+    expect(nonManager.some((s) => s.target === '[data-tour="goals-own"]')).toBe(true);
   });
 
   test("buildSteps numbers each step header as 'Step X of Y' against the filtered total", () => {
@@ -169,6 +172,9 @@ describe("Tour", () => {
       { target: '[data-tour="one-on-one-managed"]', path: "/one-on-ones?tab=managed" },
       { target: '[data-tour="one-on-one-own"]', path: "/one-on-ones?tab=own" },
       { target: '[data-tour="one-on-one-team"]', path: "/one-on-ones?tab=team" },
+      { target: '[data-tour="nav-my-goals"]', path: "/goals" },
+      { target: '[data-tour="goals-own"]', path: "/goals?tab=own" },
+      { target: '[data-tour="goals-managed"]', path: "/goals?tab=managed" },
       { target: '[data-tour="nav-config"]', path: "/users" },
       { target: '[data-tour="config-users"]', path: "/users" },
       { target: '[data-tour="config-teams"]', path: "/teams" },
