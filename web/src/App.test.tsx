@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter } from "react-router-dom";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App";
 import { APP_VERSION } from "./changelog/entries";
@@ -181,6 +181,11 @@ describe("App shell", () => {
         "/api/v1/users/7",
         expect.any(Object),
       );
+      // The header renders the app-wide initials avatar (PersonaChip convention),
+      // not a static glyph — Mantine derives "AL" from the single-word name.
+      const header = screen.getByRole("banner");
+      expect(header.querySelector(".mantine-Avatar-root")).not.toBeNull();
+      expect(within(header).getByText("AL")).toBeInTheDocument();
     });
   });
 
