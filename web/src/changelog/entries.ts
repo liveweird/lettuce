@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.23.2",
+    date: "2026-07-31",
+    en: `The top bar now shows your initials avatar next to your name — the same colored avatar you know from the dashboard cards and lists — instead of a generic icon.`,
+    pl: `Górny pasek pokazuje teraz obok Twojego imienia awatar z inicjałami — ten sam kolorowy awatar, który znasz z kart pulpitu i list — zamiast ogólnej ikony.`,
+  },
+  {
     version: "1.23.1",
     date: "2026-07-30",
     en: `Fix: opening a team from the *Org chart* now shows a *Back to Org chart* link on the roster — previously it pointed back to the teams list.`,

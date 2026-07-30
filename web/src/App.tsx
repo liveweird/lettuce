@@ -2,6 +2,7 @@ import { lazy, Suspense, useState } from "react";
 import {
   ActionIcon,
   AppShell,
+  Avatar,
   Burger,
   Button,
   Center,
@@ -28,7 +29,6 @@ import {
   IconSettings,
   IconSun,
   IconTargetArrow,
-  IconUserCircle,
   IconUserScan,
   IconUsers,
   IconUsersGroup,
@@ -147,7 +147,7 @@ function HeaderUser() {
   if (!data) return null;
   return (
     <Group gap="xs" wrap="nowrap">
-      <IconUserCircle size={18} stroke={1.5} />
+      <Avatar name={data.name} color="initials" size={22} radius="xl" />
       <Text size="sm" fw={500} truncate maw={160}>
         {data.name}
       </Text>
