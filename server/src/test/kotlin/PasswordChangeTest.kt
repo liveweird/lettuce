@@ -50,7 +50,7 @@ class PasswordChangeTest {
     fun `wrong current password wins over a too-short new password`() = testApplication {
         usePostgresTestcontainer()
         val email = uniqueEmail("order")
-        val userId = TestUsers.seed(email = email, password = "old-password", role = UserRole.USER)
+        val userId = TestUsers.seed(email = email, password = "old-password", roles = emptySet())
         val client = jsonClient()
         val token = login(client, email, "old-password").token
 
@@ -67,7 +67,7 @@ class PasswordChangeTest {
     fun `self-change without or with a wrong current password is 403 and changes nothing`() = testApplication {
         usePostgresTestcontainer()
         val email = uniqueEmail("self")
-        val userId = TestUsers.seed(email = email, password = "old-password", role = UserRole.USER)
+        val userId = TestUsers.seed(email = email, password = "old-password", roles = emptySet())
         val client = jsonClient()
         val token = login(client, email, "old-password").token
 
@@ -91,7 +91,7 @@ class PasswordChangeTest {
     fun `a new password shorter than 10 characters is rejected with 400`() = testApplication {
         usePostgresTestcontainer()
         val email = uniqueEmail("short")
-        val userId = TestUsers.seed(email = email, password = "old-password", role = UserRole.USER)
+        val userId = TestUsers.seed(email = email, password = "old-password", roles = emptySet())
         val client = jsonClient()
         val token = login(client, email, "old-password").token
 
@@ -106,7 +106,7 @@ class PasswordChangeTest {
     fun `a new password over bcrypt's byte ceiling is rejected with 400`() = testApplication {
         usePostgresTestcontainer()
         val email = uniqueEmail("overlong")
-        val userId = TestUsers.seed(email = email, password = "old-password", role = UserRole.USER)
+        val userId = TestUsers.seed(email = email, password = "old-password", roles = emptySet())
         val client = jsonClient()
         val token = login(client, email, "old-password").token
 
@@ -122,7 +122,7 @@ class PasswordChangeTest {
     fun `a successful self-change invalidates outstanding refresh tokens`() = testApplication {
         usePostgresTestcontainer()
         val email = uniqueEmail("revoke")
-        val userId = TestUsers.seed(email = email, password = "old-password", role = UserRole.USER)
+        val userId = TestUsers.seed(email = email, password = "old-password", roles = emptySet())
         val client = jsonClient()
         val session = login(client, email, "old-password")
 
@@ -163,9 +163,9 @@ class PasswordChangeTest {
     fun `an admin resets another user's password without the current one`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "admin-pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "admin-pw", roles = setOf(UserRole.ADMIN))
         val targetEmail = uniqueEmail("target")
-        val targetId = TestUsers.seed(email = targetEmail, password = "old-password", role = UserRole.USER)
+        val targetId = TestUsers.seed(email = targetEmail, password = "old-password", roles = emptySet())
         val client = jsonClient()
         val adminToken = login(client, adminEmail, "admin-pw").token
 
@@ -189,7 +189,7 @@ class PasswordChangeTest {
     fun `a self-change mints a plain password-changed confirmation, a denied one nothing`() = testApplication {
         usePostgresTestcontainer()
         val email = uniqueEmail("self-note")
-        val userId = TestUsers.seed(email = email, password = "old-password", role = UserRole.USER)
+        val userId = TestUsers.seed(email = email, password = "old-password", roles = emptySet())
         val client = jsonClient()
         val session = login(client, email, "old-password")
 
@@ -217,7 +217,7 @@ class PasswordChangeTest {
     fun `an admin changing their OWN password still needs the current one`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin-self")
-        val adminId = TestUsers.seed(email = adminEmail, password = "admin-pw", role = UserRole.ADMIN)
+        val adminId = TestUsers.seed(email = adminEmail, password = "admin-pw", roles = setOf(UserRole.ADMIN))
         val client = jsonClient()
         val token = login(client, adminEmail, "admin-pw").token
 

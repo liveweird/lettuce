@@ -6,8 +6,8 @@ import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.teams.TeamService
 import io.ktor.util.AttributeKey
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.singleOrNull
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.flow.toSet
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.core.dao.id.UIntIdTable
 import org.jetbrains.exposed.v1.r2dbc.*
@@ -19,6 +19,7 @@ val UserServiceKey = AttributeKey<UserService>("UserService")
 data class UserListFilter(
     val name: String? = null,
     val email: String? = null,
+    /** Has-role filter: only users holding this additional role. */
     val role: UserRole? = null,
     val teamId: UInt? = null,
 )
@@ -32,7 +33,6 @@ private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
     "id" to UserService.Users.id,
     "name" to UserService.Users.name,
     "email" to UserService.Users.email,
-    "role" to UserService.Users.role,
 )
 
 class UserService(val database: R2dbcDatabase) {
@@ -43,9 +43,14 @@ class UserService(val database: R2dbcDatabase) {
         // so this column carries no `.uniqueIndex()`.
         val email = varchar("email", length = 254)
         val passwordHash = varchar("password_hash", length = 255)
-        val role = varchar("role", length = 20)
         val markedAsDeleted = bool("marked_as_deleted").default(false)
         val passwordChangedAt = long("password_changed_at").default(0)
+    }
+
+    object UserRoles : Table("user_roles") {
+        val userId = reference("user_id", Users)
+        val role = varchar("role", length = 30)
+        override val primaryKey = PrimaryKey(userId, role)
     }
 
     suspend fun create(user: User): UInt = suspendTransaction(database) {
@@ -53,17 +58,21 @@ class UserService(val database: R2dbcDatabase) {
             it[name] = user.name
             it[email] = user.email
             it[passwordHash] = user.passwordHash
-            it[role] = user.role.name
         }
-        newRecord[Users.id].value
+        val id = newRecord[Users.id].value
+        insertRoles(id, user.roles)
+        id
     }
 
     suspend fun read(id: UInt): User? {
         return suspendTransaction(database) {
+            // Materialize the row before the roles query — no nested statement
+            // while the row flow is still being consumed.
             Users.selectAll()
                 .where { (Users.id eq id) and active() }
-                .map { it.toUser() }
+                .toList()
                 .singleOrNull()
+                ?.toUser(rolesOf(id))
         }
     }
 
@@ -71,18 +80,27 @@ class UserService(val database: R2dbcDatabase) {
         return suspendTransaction(database) {
             Users.selectAll()
                 .where { (Users.email eq email) and active() }
-                .map { it[Users.id].value to it.toUser() }
+                .toList()
                 .singleOrNull()
+                ?.let {
+                    val id = it[Users.id].value
+                    id to it.toUser(rolesOf(id))
+                }
         }
     }
 
     suspend fun update(id: UInt, user: User): Int = suspendTransaction(database) {
-        Users.update({ (Users.id eq id) and (Users.markedAsDeleted eq false) }) {
+        val affected = Users.update({ (Users.id eq id) and (Users.markedAsDeleted eq false) }) {
             it[name] = user.name
             it[email] = user.email
             it[passwordHash] = user.passwordHash
-            it[role] = user.role.name
         }
+        if (affected > 0) {
+            // Wholesale replace — the set is tiny and this is idempotent and diff-free.
+            UserRoles.deleteWhere { UserRoles.userId eq id }
+            insertRoles(id, user.roles)
+        }
+        affected
     }
 
     suspend fun updatePassword(id: UInt, passwordHash: String): Int = suspendTransaction(database) {
@@ -115,6 +133,8 @@ class UserService(val database: R2dbcDatabase) {
     }
 
     suspend fun delete(id: UInt): Int = suspendTransaction(database) {
+        // Roles rows are left in place: users never hard-delete, and a restored
+        // account keeps what it had.
         Users.update({ (Users.id eq id) and (Users.markedAsDeleted eq false) }) {
             it[markedAsDeleted] = true
         }
@@ -132,14 +152,42 @@ class UserService(val database: R2dbcDatabase) {
                         id = row[Users.id].value,
                         name = row[Users.name],
                         email = row[Users.email],
-                        role = UserRole.valueOf(row[Users.role]),
+                        roles = emptyList(),
                     )
                 }
                 .toList()
-            UserListResult(items = rows, total = total)
+            // One grouped query for the whole page — no per-row lookups.
+            val rolesByUser = rolesByUserIds(rows.map { it.id })
+            val items = rows.map { it.copy(roles = rolesByUser[it.id].orEmpty().sortedBy { r -> r.name }) }
+            UserListResult(items = items, total = total)
         }
 
     private fun active(): Op<Boolean> = Users.markedAsDeleted eq false
+
+    /** Must run inside a transaction. */
+    private suspend fun rolesOf(id: UInt): Set<UserRole> =
+        UserRoles.selectAll()
+            .where { UserRoles.userId eq id }
+            .map { UserRole.valueOf(it[UserRoles.role]) }
+            .toSet()
+
+    /** Must run inside a transaction. */
+    private suspend fun rolesByUserIds(ids: List<UInt>): Map<UInt, List<UserRole>> =
+        if (ids.isEmpty()) emptyMap()
+        else UserRoles.selectAll()
+            .where { UserRoles.userId inList ids }
+            .toList()
+            .groupBy({ it[UserRoles.userId].value }, { UserRole.valueOf(it[UserRoles.role]) })
+
+    /** Must run inside a transaction. */
+    private suspend fun insertRoles(id: UInt, roles: Set<UserRole>) {
+        roles.forEach { r ->
+            UserRoles.insert {
+                it[UserRoles.userId] = id
+                it[UserRoles.role] = r.name
+            }
+        }
+    }
 
     private fun buildPredicate(filter: UserListFilter): Op<Boolean> {
         var op: Op<Boolean> = Op.TRUE
@@ -150,7 +198,8 @@ class UserService(val database: R2dbcDatabase) {
             op = op and (Users.email.lowerCase() like containsPattern(it))
         }
         filter.role?.let {
-            op = op and (Users.role eq it.name)
+            val holders = UserRoles.select(UserRoles.userId).where { UserRoles.role eq it.name }
+            op = op and (Users.id inSubQuery holders)
         }
         filter.teamId?.let {
             val memberUserIds = TeamService.TeamMembers
@@ -161,11 +210,11 @@ class UserService(val database: R2dbcDatabase) {
         return op
     }
 
-    private fun ResultRow.toUser() = User(
+    private fun ResultRow.toUser(roles: Set<UserRole>) = User(
         name = this[Users.name],
         email = this[Users.email],
         passwordHash = this[Users.passwordHash],
-        role = UserRole.valueOf(this[Users.role]),
+        roles = roles,
         passwordChangedAt = this[Users.passwordChangedAt],
     )
 }

@@ -24,7 +24,8 @@ class PrincipalAuthTest {
     private fun mintToken(
         email: String? = "user@test",
         userId: Long? = 1L,
-        role: String? = "USER",
+        roles: Array<String>? = arrayOf(),
+        legacyRole: String? = null,
     ): String {
         var builder = JWT.create()
             .withAudience("lettuce-api")
@@ -33,7 +34,8 @@ class PrincipalAuthTest {
             .withExpiresAt(Date(System.currentTimeMillis() + 60_000))
         if (email != null) builder = builder.withClaim("email", email)
         if (userId != null) builder = builder.withClaim("userId", userId)
-        if (role != null) builder = builder.withClaim("role", role)
+        if (roles != null) builder = builder.withArrayClaim("roles", roles)
+        if (legacyRole != null) builder = builder.withClaim("role", legacyRole)
         return builder.sign(Algorithm.HMAC256("secret"))
     }
 
@@ -58,14 +60,31 @@ class PrincipalAuthTest {
     }
 
     @Test
-    fun `token missing the role claim is rejected with 401`() = testApplication {
+    fun `token missing the roles claim is rejected with 401`() = testApplication {
         usePostgresTestcontainer()
-        assertRejected(mintToken(role = null))
+        assertRejected(mintToken(roles = null))
     }
 
     @Test
-    fun `token with an unknown role is rejected with 401`() = testApplication {
+    fun `pre-migration token carrying only the legacy role string claim is rejected with 401`() = testApplication {
+        // A stale access token from before the roles-array change: the SPA recovers by
+        // silently refreshing (the refresh flow re-reads roles from the DB).
         usePostgresTestcontainer()
-        assertRejected(mintToken(role = "WIZARD"))
+        assertRejected(mintToken(roles = null, legacyRole = "ADMIN"))
+    }
+
+    @Test
+    fun `token with an unknown role in the set is rejected with 401`() = testApplication {
+        usePostgresTestcontainer()
+        assertRejected(mintToken(roles = arrayOf("WIZARD")))
+    }
+
+    @Test
+    fun `token with an empty roles set authenticates as a regular user`() = testApplication {
+        usePostgresTestcontainer()
+        val response = jsonClient().get("/api/v1/notifications") {
+            header(HttpHeaders.Authorization, "Bearer ${mintToken(roles = arrayOf())}")
+        }
+        assertEquals(HttpStatusCode.OK, response.status)
     }
 }

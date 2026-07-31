@@ -29,7 +29,7 @@ class TemplateTest {
     fun `admin can create, read, list, update and delete a template`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
         val client = authedClient(adminEmail, "pw")
 
         val name = uniqueName("welcome")
@@ -65,7 +65,7 @@ class TemplateTest {
     fun `duplicate name returns 409`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
         val client = authedClient(adminEmail, "pw")
 
         val name = uniqueName("dupe")
@@ -86,7 +86,7 @@ class TemplateTest {
     fun `blank name returns 400`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
         val client = authedClient(adminEmail, "pw")
 
         val response = client.post("/api/v1/templates") {
@@ -106,9 +106,9 @@ class TemplateTest {
     fun `non-admin may read and list but not write`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
         val userEmail = uniqueEmail("user")
-        TestUsers.seed(email = userEmail, password = "pw", role = UserRole.USER)
+        TestUsers.seed(email = userEmail, password = "pw", roles = emptySet())
 
         val adminClient = authedClient(adminEmail, "pw")
         val userClient = authedClient(userEmail, "pw")
@@ -156,7 +156,7 @@ class TemplateTest {
     fun `list filters by name and paginates with a stable envelope`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
         val client = authedClient(adminEmail, "pw")
 
         val prefix = uniqueName("page")
@@ -185,7 +185,7 @@ class TemplateTest {
     fun `list sorts by name descending`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
         val client = authedClient(adminEmail, "pw")
 
         val prefix = uniqueName("sort")
@@ -201,7 +201,7 @@ class TemplateTest {
     fun `list name filter is case-insensitive substring and escapes wildcards`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
         val client = authedClient(adminEmail, "pw")
 
         val prefix = uniqueName("ci")
@@ -223,7 +223,7 @@ class TemplateTest {
     fun `list caps contentPreview at 200 characters`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
         val client = authedClient(adminEmail, "pw")
 
         val longName = uniqueName("long")
@@ -241,7 +241,7 @@ class TemplateTest {
     fun `list rejects malformed query parameters`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
         val client = authedClient(adminEmail, "pw")
 
         assertEquals(HttpStatusCode.BadRequest, client.get("/api/v1/templates?page=0").status)
@@ -257,7 +257,7 @@ class TemplateTest {
     fun `update to a name already used by another template returns 409`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
         val client = authedClient(adminEmail, "pw")
 
         val nameA = uniqueName("a")
@@ -279,7 +279,7 @@ class TemplateTest {
     fun `update to a blank name returns 400`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
         val client = authedClient(adminEmail, "pw")
 
         val created = client.post("/api/v1/templates") {
@@ -298,7 +298,7 @@ class TemplateTest {
     fun `delete of a non-existent template returns 404`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
         val client = authedClient(adminEmail, "pw")
 
         // Deleting a row that does not exist reports 404 (consistent across resources).
@@ -309,7 +309,7 @@ class TemplateTest {
     fun `list returns an empty envelope when nothing matches`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
         val client = authedClient(adminEmail, "pw")
 
         val page = client.get("/api/v1/templates?name=${uniqueName("none")}").body<TemplatePageResponse>()
@@ -321,7 +321,7 @@ class TemplateTest {
     fun `update of a non-existent template returns 404`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
         val client = authedClient(adminEmail, "pw")
 
         val response = client.put("/api/v1/templates/999999") {
@@ -335,7 +335,7 @@ class TemplateTest {
     fun `soft-deleted template is invisible to read, update, delete and list`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
         val client = authedClient(adminEmail, "pw")
 
         val name = uniqueName("doomed")
@@ -365,7 +365,7 @@ class TemplateTest {
     fun `a soft-deleted template's name can be reused`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
         val client = authedClient(adminEmail, "pw")
 
         val name = uniqueName("reusable")
@@ -391,7 +391,7 @@ class TemplateTest {
     fun `create sets a Location header pointing at the new template`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
         val client = authedClient(adminEmail, "pw")
 
         val created = client.post("/api/v1/templates") {

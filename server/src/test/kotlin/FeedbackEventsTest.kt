@@ -70,8 +70,8 @@ class FeedbackEventsTest {
     fun `creating and transitioning a feedback records audit events against the actor`() = testApplication {
         usePostgresTestcontainer()
         val providerEmail = uniqueEmail("provider")
-        val providerId = TestUsers.seed(email = providerEmail, password = "pw", name = "Paula", role = UserRole.USER)
-        val subjectId = TestUsers.seed(email = uniqueEmail("subject"), password = "pw", role = UserRole.USER)
+        val providerId = TestUsers.seed(email = providerEmail, password = "pw", name = "Paula", roles = emptySet())
+        val subjectId = TestUsers.seed(email = uniqueEmail("subject"), password = "pw", roles = emptySet())
         val provider = authedClient(providerEmail, "pw")
 
         val created = provider.post("/api/v1/feedbacks") {
@@ -110,8 +110,8 @@ class FeedbackEventsTest {
     fun `editing content (same status) records a content event`() = testApplication {
         usePostgresTestcontainer()
         val providerEmail = uniqueEmail("provider")
-        val providerId = TestUsers.seed(email = providerEmail, password = "pw", role = UserRole.USER)
-        val subjectId = TestUsers.seed(email = uniqueEmail("subject"), password = "pw", role = UserRole.USER)
+        val providerId = TestUsers.seed(email = providerEmail, password = "pw", roles = emptySet())
+        val subjectId = TestUsers.seed(email = uniqueEmail("subject"), password = "pw", roles = emptySet())
         val provider = authedClient(providerEmail, "pw")
 
         val created = provider.post("/api/v1/feedbacks") {
@@ -141,10 +141,10 @@ class FeedbackEventsTest {
     fun `events are readable only by those who may read the feedback`() = testApplication {
         usePostgresTestcontainer()
         val providerEmail = uniqueEmail("provider")
-        val providerId = TestUsers.seed(email = providerEmail, password = "pw", role = UserRole.USER)
-        val subjectId = TestUsers.seed(email = uniqueEmail("subject"), password = "pw", role = UserRole.USER)
+        val providerId = TestUsers.seed(email = providerEmail, password = "pw", roles = emptySet())
+        val subjectId = TestUsers.seed(email = uniqueEmail("subject"), password = "pw", roles = emptySet())
         val strangerEmail = uniqueEmail("stranger")
-        TestUsers.seed(email = strangerEmail, password = "pw", role = UserRole.USER)
+        TestUsers.seed(email = strangerEmail, password = "pw", roles = emptySet())
         val provider = authedClient(providerEmail, "pw")
 
         // A PROVIDER_SUBJECT draft: only provider/subject (and admins) may read it.
@@ -173,7 +173,7 @@ class FeedbackEventsTest {
     fun `the events endpoint returns 404 for a missing feedback`() = testApplication {
         usePostgresTestcontainer()
         val email = uniqueEmail("user")
-        TestUsers.seed(email = email, password = "pw", role = UserRole.USER)
+        TestUsers.seed(email = email, password = "pw", roles = emptySet())
 
         assertEquals(
             HttpStatusCode.NotFound,
@@ -185,8 +185,8 @@ class FeedbackEventsTest {
     fun `soft-deleting a feedback preserves its events and records a deletion event`() = testApplication {
         usePostgresTestcontainer()
         val providerEmail = uniqueEmail("provider")
-        val providerId = TestUsers.seed(email = providerEmail, password = "pw", role = UserRole.USER)
-        val subjectId = TestUsers.seed(email = uniqueEmail("subject"), password = "pw", role = UserRole.USER)
+        val providerId = TestUsers.seed(email = providerEmail, password = "pw", roles = emptySet())
+        val subjectId = TestUsers.seed(email = uniqueEmail("subject"), password = "pw", roles = emptySet())
         val provider = authedClient(providerEmail, "pw")
 
         val created = provider.post("/api/v1/feedbacks") {

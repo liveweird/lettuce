@@ -59,19 +59,20 @@ data class LoginResponse(
     val refreshToken: String,
     val refreshExpiresAt: Long,
     val userId: UInt,
-    val role: UserRole,
+    /** Additional roles of the authenticated user — empty for a regular user. */
+    val roles: List<UserRole>,
 )
 
-private fun JwtConfig.authResponse(userId: UInt, email: String, role: UserRole): LoginResponse {
-    val access = issueAccessToken(userId, email, role)
-    val refresh = issueRefreshToken(userId, email, role)
+private fun JwtConfig.authResponse(userId: UInt, email: String, roles: Set<UserRole>): LoginResponse {
+    val access = issueAccessToken(userId, email, roles)
+    val refresh = issueRefreshToken(userId, email, roles)
     return LoginResponse(
         token = access.token,
         expiresAt = access.expiresAt,
         refreshToken = refresh.token,
         refreshExpiresAt = refresh.expiresAt,
         userId = userId,
-        role = role,
+        roles = roles.sortedBy { it.name },
     )
 }
 
@@ -148,7 +149,7 @@ fun Application.configureAuthRoutes() {
                 loginThrottle.recordSuccess(req.email)
                 val (userId, user) = record
                 audit("login.success", "email" to user.email, "userId" to userId.toLong())
-                call.respond(jwtConfig.authResponse(userId, user.email, user.role))
+                call.respond(jwtConfig.authResponse(userId, user.email, user.roles))
             }
         }
         rateLimit(RateLimitName(REFRESH_RATE_LIMIT)) {
@@ -185,7 +186,7 @@ fun Application.configureAuthRoutes() {
                 }
                 val userId = rawUserId?.toUInt() ?: reject("malformed")
                 // One read: confirm the user still exists and isn't soft-deleted, and pick up their
-                // current role/email so changes take effect on the next refresh.
+                // current roles/email so changes take effect on the next refresh.
                 val user = userService.read(userId)
                     ?: reject("user_gone", rawUserId)
                 // A password change invalidates all refresh tokens minted before it (tokens
@@ -196,7 +197,7 @@ fun Application.configureAuthRoutes() {
                 if (issuedAtSec < user.passwordChangedAt / 1000) {
                     reject("predates_password_change", rawUserId)
                 }
-                call.respond(jwtConfig.authResponse(userId, user.email, user.role))
+                call.respond(jwtConfig.authResponse(userId, user.email, user.roles))
             }
         }
         rateLimit(RateLimitName(PASSWORD_RESET_RATE_LIMIT)) {

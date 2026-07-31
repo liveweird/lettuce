@@ -13,7 +13,7 @@ import ch.nokillswit.plugins.isUniqueViolation
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAdmin
-import ch.nokillswit.authz.requireCanAssignRole
+import ch.nokillswit.authz.requireCanAssignRoles
 import ch.nokillswit.authz.requireSelfOrAdmin
 import ch.nokillswit.notifications.Notification
 import ch.nokillswit.notifications.NotificationServiceKey
@@ -57,6 +57,9 @@ internal fun validatePassword(password: String) {
 
 // Field validation (incl. the shared email rule) lives in users/Validation.kt.
 
+/** Audit format for a roles set: comma-joined sorted names, "" = no additional roles. */
+private fun Set<UserRole>.joinedNames(): String = map { it.name }.sorted().joinToString(",")
+
 @Serializable
 @Resource("/api/v1/users")
 class Users {
@@ -89,7 +92,7 @@ fun Application.configureUserRoutes() {
         authenticate {
             get<Users> {
                 call.caller()
-                val paging = call.parsePaging(sortable = setOf("id", "name", "email", "role"))
+                val paging = call.parsePaging(sortable = setOf("id", "name", "email"))
                 val params = call.request.queryParameters
                 val filter = UserListFilter(
                     name = params.optionalString("name"),
@@ -114,7 +117,7 @@ fun Application.configureUserRoutes() {
                     name = req.name,
                     email = req.email,
                     passwordHash = hashPassword(req.password),
-                    role = req.role ?: UserRole.USER,
+                    roles = req.roles?.toSet() ?: emptySet(),
                 )
                 val id = userService.create(user)
                 audit(
@@ -122,7 +125,7 @@ fun Application.configureUserRoutes() {
                     "byUserId" to caller.userId.toLong(),
                     "newUserId" to id.toLong(),
                     "email" to user.email,
-                    "role" to user.role.name,
+                    "roles" to user.roles.joinedNames(),
                 )
                 // Same welcome email as the mass import; a delivery failure keeps the account
                 // (the modal still reveals the password) and is reported via emailSent=false.
@@ -143,7 +146,7 @@ fun Application.configureUserRoutes() {
                 // Plain creates keep the pre-sendEmail wire shape (no emailSent key — Ktor's
                 // default Json encodes even null fields, which strict decoders reject).
                 if (emailSent != null) {
-                    call.respond(HttpStatusCode.Created, UserCreateResponse(id, user.name, user.email, user.role, emailSent))
+                    call.respond(HttpStatusCode.Created, UserCreateResponse(id, user.name, user.email, user.roles.sortedBy { it.name }, emailSent))
                 } else {
                     call.respond(HttpStatusCode.Created, user.toResponse(id))
                 }
@@ -180,7 +183,7 @@ fun Application.configureUserRoutes() {
                     val id = try {
                         // Each create is its own transaction, so one failing row never
                         // poisons its siblings.
-                        userService.create(User(name, email, hashPassword(password), UserRole.USER))
+                        userService.create(User(name, email, hashPassword(password)))
                     } catch (e: Exception) {
                         rows += if (e.isUniqueViolation()) {
                             UserImportRow(line, name, email, UserImportStatus.DUPLICATE, "Email already in use")
@@ -195,7 +198,7 @@ fun Application.configureUserRoutes() {
                         "byUserId" to caller.userId.toLong(),
                         "newUserId" to id.toLong(),
                         "email" to email,
-                        "role" to UserRole.USER.name,
+                        "roles" to "",
                     )
                     var status = UserImportStatus.CREATED
                     var message: String? = null
@@ -244,14 +247,14 @@ fun Application.configureUserRoutes() {
                     call.respondProblem(HttpStatusCode.NotFound, "User not found")
                     return@put
                 }
-                // Authz before validation: an unauthorized role change is 403, not 400.
-                requireCanAssignRole(caller, existing.role, req.role)
+                // Authz before validation: an unauthorized roles change is 403, not 400.
+                requireCanAssignRoles(caller, existing.roles, req.roles.toSet())
                 validateNameAndEmail(req.name, req.email)
                 val user = User(
                     name = req.name,
                     email = req.email,
                     passwordHash = existing.passwordHash,
-                    role = req.role,
+                    roles = req.roles.toSet(),
                 )
                 val updated = userService.update(route.id, user)
                 if (updated == 0) {
@@ -274,13 +277,13 @@ fun Application.configureUserRoutes() {
                         }
                         audit("user.updated", *auditFields.toTypedArray())
                     }
-                    if (req.role != existing.role) {
+                    if (req.roles.toSet() != existing.roles) {
                         audit(
-                            "user.role_changed",
+                            "user.roles_changed",
                             "byUserId" to caller.userId.toLong(),
                             "targetUserId" to route.id.toLong(),
-                            "from" to existing.role.name,
-                            "to" to req.role.name,
+                            "from" to existing.roles.joinedNames(),
+                            "to" to req.roles.toSet().joinedNames(),
                         )
                     }
                     call.respond(HttpStatusCode.NoContent)

@@ -8,7 +8,8 @@ import io.ktor.server.auth.principal
 data class CallerPrincipal(
     val userId: UInt,
     val email: String,
-    val role: UserRole,
+    /** Additional roles — every caller is implicitly a regular user; empty = no extra privileges. */
+    val roles: Set<UserRole>,
 )
 
 fun ApplicationCall.caller(): CallerPrincipal {
@@ -18,9 +19,11 @@ fun ApplicationCall.caller(): CallerPrincipal {
         ?: throw UnauthorizedException("Missing email claim")
     val userIdLong = principal.payload.getClaim("userId").asLong()
         ?: throw UnauthorizedException("Missing userId claim")
-    val roleName = principal.payload.getClaim("role").asString()
-        ?: throw UnauthorizedException("Missing role claim")
-    val role = runCatching { UserRole.valueOf(roleName) }
-        .getOrElse { throw UnauthorizedException("Unknown role $roleName") }
-    return CallerPrincipal(userId = userIdLong.toUInt(), email = email, role = role)
+    val roleNames = principal.payload.getClaim("roles").asList(String::class.java)
+        ?: throw UnauthorizedException("Missing roles claim")
+    val roles = roleNames.map { name ->
+        runCatching { UserRole.valueOf(name) }
+            .getOrElse { throw UnauthorizedException("Unknown role $name") }
+    }.toSet()
+    return CallerPrincipal(userId = userIdLong.toUInt(), email = email, roles = roles)
 }

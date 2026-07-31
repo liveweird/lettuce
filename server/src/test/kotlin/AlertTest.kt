@@ -44,7 +44,7 @@ class AlertTest {
     fun `admin can create, read, list, update and delete an alert`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
         val client = authedClient(adminEmail, "pw")
 
         val title = uniqueTitle("maintenance")
@@ -95,9 +95,9 @@ class AlertTest {
     fun `non-admin may read visible alerts but nothing else`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
         val userEmail = uniqueEmail("user")
-        TestUsers.seed(email = userEmail, password = "pw", role = UserRole.USER)
+        TestUsers.seed(email = userEmail, password = "pw", roles = emptySet())
 
         val adminClient = authedClient(adminEmail, "pw")
         val userClient = authedClient(userEmail, "pw")
@@ -133,7 +133,7 @@ class AlertTest {
     fun `create and update reject invalid payloads`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
         val client = authedClient(adminEmail, "pw")
 
         suspend fun createStatus(alert: Alert): HttpStatusCode = client.post("/api/v1/alerts") {
@@ -168,7 +168,7 @@ class AlertTest {
     fun `list rejects malformed query parameters`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
         val client = authedClient(adminEmail, "pw")
 
         assertEquals(HttpStatusCode.BadRequest, client.get("/api/v1/alerts?page=0").status)
@@ -181,7 +181,7 @@ class AlertTest {
     fun `list filters by title and isActive, sorts and paginates`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
         val client = authedClient(adminEmail, "pw")
 
         val prefix = uniqueTitle("page")
@@ -211,7 +211,7 @@ class AlertTest {
     fun `visible returns only active alerts inside their window`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
         val client = authedClient(adminEmail, "pw")
 
         val now = System.currentTimeMillis()
@@ -281,7 +281,7 @@ class AlertTest {
     fun `soft-deleted alert is invisible to read, update, delete and list`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
         val client = authedClient(adminEmail, "pw")
 
         val title = uniqueTitle("doomed")
@@ -306,7 +306,7 @@ class AlertTest {
     fun `update and delete of a non-existent alert return 404`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
         val client = authedClient(adminEmail, "pw")
 
         val put = client.put("/api/v1/alerts/999999") {

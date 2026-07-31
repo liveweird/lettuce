@@ -4,7 +4,8 @@ import ch.nokillswit.authz.CallerPrincipal
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.canReadFeedback
 import ch.nokillswit.authz.canReadFeedbackContent
-import ch.nokillswit.authz.requireCanAssignRole
+import ch.nokillswit.authz.isAdmin
+import ch.nokillswit.authz.requireCanAssignRoles
 import ch.nokillswit.feedbacks.Feedback
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
@@ -21,11 +22,11 @@ import kotlin.test.assertTrue
  */
 class GuardsTest {
 
-    private val provider = CallerPrincipal(userId = 1u, email = "provider@test", role = UserRole.USER)
-    private val subject = CallerPrincipal(userId = 2u, email = "subject@test", role = UserRole.USER)
-    private val requester = CallerPrincipal(userId = 3u, email = "requester@test", role = UserRole.USER)
-    private val stranger = CallerPrincipal(userId = 9u, email = "stranger@test", role = UserRole.USER)
-    private val admin = CallerPrincipal(userId = 10u, email = "admin@test", role = UserRole.ADMIN)
+    private val provider = CallerPrincipal(userId = 1u, email = "provider@test", roles = emptySet())
+    private val subject = CallerPrincipal(userId = 2u, email = "subject@test", roles = emptySet())
+    private val requester = CallerPrincipal(userId = 3u, email = "requester@test", roles = emptySet())
+    private val stranger = CallerPrincipal(userId = 9u, email = "stranger@test", roles = emptySet())
+    private val admin = CallerPrincipal(userId = 10u, email = "admin@test", roles = setOf(UserRole.ADMIN))
 
     private fun feedback(
         status: FeedbackStatus,
@@ -137,20 +138,33 @@ class GuardsTest {
         assertTrue(canReadFeedbackContent(requester, sent))
     }
 
-    // ── requireCanAssignRole ───────────────────────────────────────────────────
+    // ── requireCanAssignRoles ──────────────────────────────────────────────────
 
     @Test
-    fun `keeping or omitting the current role is not a role change`() {
-        // A non-admin resubmitting their unchanged role must not trip the guard.
-        requireCanAssignRole(subject, current = UserRole.USER, requested = UserRole.USER)
-        requireCanAssignRole(subject, current = UserRole.USER, requested = null)
+    fun `resubmitting or omitting the current roles set is not a roles change`() {
+        // A non-admin resubmitting their unchanged roles must not trip the guard.
+        requireCanAssignRoles(subject, current = emptySet(), requested = emptySet())
+        requireCanAssignRoles(subject, current = emptySet(), requested = null)
+        requireCanAssignRoles(subject, current = setOf(UserRole.ADMIN), requested = setOf(UserRole.ADMIN))
     }
 
     @Test
-    fun `only an admin may change a role`() {
+    fun `only an admin may change the roles set`() {
         assertFailsWith<ForbiddenException> {
-            requireCanAssignRole(subject, current = UserRole.USER, requested = UserRole.ADMIN)
+            requireCanAssignRoles(subject, current = emptySet(), requested = setOf(UserRole.ADMIN))
         }
-        requireCanAssignRole(admin, current = UserRole.USER, requested = UserRole.ADMIN)
+        assertFailsWith<ForbiddenException> {
+            // Dropping a role is a change too, admin-only like granting one.
+            requireCanAssignRoles(subject, current = setOf(UserRole.ADMIN), requested = emptySet())
+        }
+        requireCanAssignRoles(admin, current = emptySet(), requested = setOf(UserRole.ADMIN))
+    }
+
+    // ── isAdmin ────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `isAdmin means the ADMIN role is in the caller's set`() {
+        assertFalse(stranger.isAdmin())
+        assertTrue(admin.isAdmin())
     }
 }

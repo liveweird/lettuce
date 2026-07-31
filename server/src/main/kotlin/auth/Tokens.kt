@@ -15,17 +15,17 @@ const val TOKEN_TYPE_REFRESH = "refresh"
 data class IssuedToken(val token: String, val expiresAt: Long)
 
 /** Short-lived token carried as the API bearer. */
-fun JwtConfig.issueAccessToken(userId: UInt, email: String, role: UserRole): IssuedToken =
-    issueToken(userId, email, role, TOKEN_TYPE_ACCESS, accessExpiresInSeconds)
+fun JwtConfig.issueAccessToken(userId: UInt, email: String, roles: Set<UserRole>): IssuedToken =
+    issueToken(userId, email, roles, TOKEN_TYPE_ACCESS, accessExpiresInSeconds)
 
 /** Longer-lived token exchanged at POST /api/v1/refresh for a fresh pair. */
-fun JwtConfig.issueRefreshToken(userId: UInt, email: String, role: UserRole): IssuedToken =
-    issueToken(userId, email, role, TOKEN_TYPE_REFRESH, refreshExpiresInSeconds)
+fun JwtConfig.issueRefreshToken(userId: UInt, email: String, roles: Set<UserRole>): IssuedToken =
+    issueToken(userId, email, roles, TOKEN_TYPE_REFRESH, refreshExpiresInSeconds)
 
 private fun JwtConfig.issueToken(
     userId: UInt,
     email: String,
-    role: UserRole,
+    roles: Set<UserRole>,
     typ: String,
     ttlSeconds: Long,
 ): IssuedToken {
@@ -38,7 +38,7 @@ private fun JwtConfig.issueToken(
         .withJWTId(UUID.randomUUID().toString())
         .withClaim("email", email)
         .withClaim("userId", userId.toLong())
-        .withClaim("role", role.name)
+        .withArrayClaim("roles", roles.map { it.name }.sorted().toTypedArray())
         .withClaim("typ", typ)
         .withExpiresAt(Date(expiresAt))
         .sign(Algorithm.HMAC256(secret))

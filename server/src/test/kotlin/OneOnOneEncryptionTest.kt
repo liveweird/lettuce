@@ -57,8 +57,8 @@ class OneOnOneEncryptionTest {
     fun `note and action item content are ciphertext in the DB but plaintext over the API`() = testApplication {
         usePostgresTestcontainer()
         val managerEmail = uniqueEmail("manager")
-        val managerId = TestUsers.seed(managerEmail, "pw", role = UserRole.USER)
-        val subordinateId = TestUsers.seed(uniqueEmail("subordinate"), "pw", role = UserRole.USER)
+        val managerId = TestUsers.seed(managerEmail, "pw", roles = emptySet())
+        val subordinateId = TestUsers.seed(uniqueEmail("subordinate"), "pw", roles = emptySet())
         val teamId = TestServices.teams.create(Team(name = "oo-enc-${UUID.randomUUID()}", managerId = managerId))
         TestServices.teams.addMember(teamId, subordinateId)
         val manager = authedClient(managerEmail, "pw")
@@ -116,8 +116,8 @@ class OneOnOneEncryptionTest {
     fun `carried-over copies are re-encrypted rather than blanked or leaked`() = testApplication {
         usePostgresTestcontainer()
         val managerEmail = uniqueEmail("manager")
-        val managerId = TestUsers.seed(managerEmail, "pw", role = UserRole.USER)
-        val subordinateId = TestUsers.seed(uniqueEmail("subordinate"), "pw", role = UserRole.USER)
+        val managerId = TestUsers.seed(managerEmail, "pw", roles = emptySet())
+        val subordinateId = TestUsers.seed(uniqueEmail("subordinate"), "pw", roles = emptySet())
         val teamId = TestServices.teams.create(Team(name = "oo-enc-${UUID.randomUUID()}", managerId = managerId))
         TestServices.teams.addMember(teamId, subordinateId)
         val manager = authedClient(managerEmail, "pw")
@@ -148,8 +148,8 @@ class OneOnOneEncryptionTest {
     @Test
     fun `rotation - encryptLegacyRows rewrites both tables under the current key`() = testApplication {
         usePostgresTestcontainer()
-        val managerId = TestUsers.seed(uniqueEmail("manager"), "pw", role = UserRole.USER)
-        val subordinateId = TestUsers.seed(uniqueEmail("subordinate"), "pw", role = UserRole.USER)
+        val managerId = TestUsers.seed(uniqueEmail("manager"), "pw", roles = emptySet())
+        val subordinateId = TestUsers.seed(uniqueEmail("subordinate"), "pw", roles = emptySet())
         val teamId = TestServices.teams.create(Team(name = "oo-rot-${UUID.randomUUID()}", managerId = managerId))
         TestServices.teams.addMember(teamId, subordinateId)
         val oldKey = DEV_DATA_ENCRYPTION_KEY

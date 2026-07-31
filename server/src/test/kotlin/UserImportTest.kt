@@ -33,7 +33,7 @@ class UserImportTest {
         val admin = uniqueEmail("import-admin")
         TestUsers.seed(email = admin, password = "admin-pass-123")
         val existing = uniqueEmail("import-existing")
-        TestUsers.seed(email = existing, password = "x".repeat(12), role = UserRole.USER)
+        TestUsers.seed(email = existing, password = "x".repeat(12), roles = emptySet())
         val client = authedClient(admin, "admin-pass-123")
 
         val a = uniqueEmail("import-a")
@@ -115,7 +115,7 @@ class UserImportTest {
         val admin = uniqueEmail("import-admin4")
         TestUsers.seed(email = admin, password = "admin-pass-123")
         val user = uniqueEmail("import-plain-user")
-        TestUsers.seed(email = user, password = "user-pass-1234", role = UserRole.USER)
+        TestUsers.seed(email = user, password = "user-pass-1234", roles = emptySet())
 
         val adminClient = authedClient(admin, "admin-pass-123")
         val tooManyRows = (1..201).joinToString("\n") { "User $it,${uniqueEmail("cap-$it")}" }

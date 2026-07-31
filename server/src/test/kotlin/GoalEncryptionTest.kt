@@ -60,8 +60,8 @@ class GoalEncryptionTest {
     fun `description and summary are ciphertext in the DB but plaintext over the API`() = testApplication {
         usePostgresTestcontainer()
         val managerEmail = uniqueEmail("goal-enc-manager")
-        val managerId = TestUsers.seed(managerEmail, "pw", role = UserRole.USER)
-        val subordinateId = TestUsers.seed(uniqueEmail("goal-enc-sub"), "pw", role = UserRole.USER)
+        val managerId = TestUsers.seed(managerEmail, "pw", roles = emptySet())
+        val subordinateId = TestUsers.seed(uniqueEmail("goal-enc-sub"), "pw", roles = emptySet())
         val teamId = TestServices.teams.create(Team(name = "goal-enc-${UUID.randomUUID()}", managerId = managerId))
         TestServices.teams.addMember(teamId, subordinateId)
         val manager = authedClient(managerEmail, "pw")
@@ -117,8 +117,8 @@ class GoalEncryptionTest {
     @Test
     fun `legacy plaintext rows are encrypted by the startup backfill`() = testApplication {
         usePostgresTestcontainer()
-        val managerId = TestUsers.seed(uniqueEmail("goal-legacy-manager"), "pw", role = UserRole.USER)
-        val subordinateId = TestUsers.seed(uniqueEmail("goal-legacy-sub"), "pw", role = UserRole.USER)
+        val managerId = TestUsers.seed(uniqueEmail("goal-legacy-manager"), "pw", roles = emptySet())
+        val subordinateId = TestUsers.seed(uniqueEmail("goal-legacy-sub"), "pw", roles = emptySet())
 
         // A pre-encryption row, as a legacy deployment would have written it.
         val now = System.currentTimeMillis()
@@ -153,8 +153,8 @@ class GoalEncryptionTest {
     @Test
     fun `rotation - encryptLegacyRows rewrites description and summary under the current key`() = testApplication {
         usePostgresTestcontainer()
-        val managerId = TestUsers.seed(uniqueEmail("goal-rot-manager"), "pw", role = UserRole.USER)
-        val subordinateId = TestUsers.seed(uniqueEmail("goal-rot-sub"), "pw", role = UserRole.USER)
+        val managerId = TestUsers.seed(uniqueEmail("goal-rot-manager"), "pw", roles = emptySet())
+        val subordinateId = TestUsers.seed(uniqueEmail("goal-rot-sub"), "pw", roles = emptySet())
         val oldKey = DEV_DATA_ENCRYPTION_KEY
         val newKey = "0000000000000000000000000000000000000000000000000000000000000009"
 

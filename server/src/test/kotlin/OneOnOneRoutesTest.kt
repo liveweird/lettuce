@@ -56,9 +56,9 @@ class OneOnOneRoutesTest {
         subordinateName: String = "Sam Subordinate",
     ): Pair {
         val managerEmail = uniqueEmail("manager")
-        val managerId = TestUsers.seed(managerEmail, "pw", name = managerName, role = UserRole.USER)
+        val managerId = TestUsers.seed(managerEmail, "pw", name = managerName, roles = emptySet())
         val subordinateEmail = uniqueEmail("subordinate")
-        val subordinateId = TestUsers.seed(subordinateEmail, "pw", name = subordinateName, role = UserRole.USER)
+        val subordinateId = TestUsers.seed(subordinateEmail, "pw", name = subordinateName, roles = emptySet())
         val teamId = TestServices.teams.create(Team(name = "oo-${UUID.randomUUID()}", managerId = managerId))
         TestServices.teams.addMember(teamId, subordinateId)
         return Pair(managerId, managerEmail, subordinateId, subordinateEmail, teamId)
@@ -140,7 +140,7 @@ class OneOnOneRoutesTest {
         val pair = seedPair()
         val otherPair = seedPair()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(adminEmail, "pw", role = UserRole.ADMIN)
+        TestUsers.seed(adminEmail, "pw", roles = setOf(UserRole.ADMIN))
 
         suspend fun createAs(email: String, subordinateId: UInt): HttpStatusCode =
             authedClient(email, "pw").post("/api/v1/one-on-ones") {
@@ -297,14 +297,14 @@ class OneOnOneRoutesTest {
         // Grand-manager → manager → subordinate.
         val pair = seedPair()
         val grandEmail = uniqueEmail("grand")
-        val grandId = TestUsers.seed(grandEmail, "pw", role = UserRole.USER)
+        val grandId = TestUsers.seed(grandEmail, "pw", roles = emptySet())
         val upperTeam = TestServices.teams.create(Team(name = "oo-upper-${UUID.randomUUID()}", managerId = grandId))
         TestServices.teams.addMember(upperTeam, pair.managerId)
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(adminEmail, "pw", role = UserRole.ADMIN)
+        TestUsers.seed(adminEmail, "pw", roles = setOf(UserRole.ADMIN))
         val siblingPair = seedPair() // an unrelated manager
         val strangerEmail = uniqueEmail("stranger")
-        TestUsers.seed(strangerEmail, "pw", role = UserRole.USER)
+        TestUsers.seed(strangerEmail, "pw", roles = emptySet())
 
         val meeting = authedClient(pair.managerEmail, "pw").createMeeting(pair.subordinateId)
         val url = "/api/v1/one-on-ones/${meeting.id}"
@@ -536,7 +536,7 @@ class OneOnOneRoutesTest {
         usePostgresTestcontainer()
         val pair = seedPair()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(adminEmail, "pw", role = UserRole.ADMIN)
+        TestUsers.seed(adminEmail, "pw", roles = setOf(UserRole.ADMIN))
         val manager = authedClient(pair.managerEmail, "pw")
         val created = manager.createMeeting(pair.subordinateId)
         val body = created.toUpdate()
@@ -586,10 +586,10 @@ class OneOnOneRoutesTest {
         // Chain: grand → pair.manager → pair.subordinate → subSub.
         val pair = seedPair()
         val grandEmail = uniqueEmail("grand")
-        val grandId = TestUsers.seed(grandEmail, "pw", role = UserRole.USER)
+        val grandId = TestUsers.seed(grandEmail, "pw", roles = emptySet())
         val upperTeam = TestServices.teams.create(Team(name = "oo-upper-${UUID.randomUUID()}", managerId = grandId))
         TestServices.teams.addMember(upperTeam, pair.managerId)
-        val subSubId = TestUsers.seed(uniqueEmail("subsub"), "pw", role = UserRole.USER)
+        val subSubId = TestUsers.seed(uniqueEmail("subsub"), "pw", roles = emptySet())
         val lowerTeam = TestServices.teams.create(Team(name = "oo-lower-${UUID.randomUUID()}", managerId = pair.subordinateId))
         TestServices.teams.addMember(lowerTeam, subSubId)
 
@@ -627,7 +627,7 @@ class OneOnOneRoutesTest {
         // A PEER manager's meeting with grand's direct report is excluded too — the scope keys
         // on the meeting's manager, not its subordinate.
         val peerEmail = uniqueEmail("peer")
-        val peerId = TestUsers.seed(peerEmail, "pw", role = UserRole.USER)
+        val peerId = TestUsers.seed(peerEmail, "pw", roles = emptySet())
         val peerTeam = TestServices.teams.create(Team(name = "oo-peer-${UUID.randomUUID()}", managerId = peerId))
         TestServices.teams.addMember(peerTeam, pair.managerId)
         val peerMeeting = authedClient(peerEmail, "pw").createMeeting(pair.managerId, "2026-07-04")
@@ -654,10 +654,10 @@ class OneOnOneRoutesTest {
         val current = alice.createMeeting(pair.subordinateId, "2026-07-05")
         val historic = bob.createMeeting(pair.managerId, "2026-01-10")
         // Noise: alice with a different report, and bob with a report of his own.
-        val otherId = TestUsers.seed(uniqueEmail("other"), "pw", role = UserRole.USER)
+        val otherId = TestUsers.seed(uniqueEmail("other"), "pw", roles = emptySet())
         TestServices.teams.addMember(pair.teamId, otherId)
         alice.createMeeting(otherId, "2026-07-06")
-        val bobsOtherId = TestUsers.seed(uniqueEmail("bobs-other"), "pw", role = UserRole.USER)
+        val bobsOtherId = TestUsers.seed(uniqueEmail("bobs-other"), "pw", roles = emptySet())
         TestServices.teams.addMember(reverseTeam, bobsOtherId)
         bob.createMeeting(bobsOtherId, "2026-07-07")
 
@@ -780,7 +780,7 @@ class OneOnOneRoutesTest {
         usePostgresTestcontainer()
         val pair = seedPair()
         val strangerEmail = uniqueEmail("stranger")
-        TestUsers.seed(strangerEmail, "pw", role = UserRole.USER)
+        TestUsers.seed(strangerEmail, "pw", roles = emptySet())
         val manager = authedClient(pair.managerEmail, "pw")
         val meeting = manager.createMeeting(
             pair.subordinateId,
@@ -809,7 +809,7 @@ class OneOnOneRoutesTest {
         usePostgresTestcontainer()
         val pair = seedPair()
         val strangerEmail = uniqueEmail("stranger")
-        TestUsers.seed(strangerEmail, "pw", role = UserRole.USER)
+        TestUsers.seed(strangerEmail, "pw", roles = emptySet())
         val manager = authedClient(pair.managerEmail, "pw")
         val meeting = manager.createMeeting(pair.subordinateId)
 
