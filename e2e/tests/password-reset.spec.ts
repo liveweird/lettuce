@@ -1,4 +1,4 @@
-import { test, expect, login, logout, createUserViaUi, ADMIN, uniqueText } from "./helpers";
+import { test, expect, expectLoginRejected, login, logout, createUserViaUi, ADMIN, uniqueText } from "./helpers";
 
 // Self-service password reset (v1.3): the "Forgot password?" flow on the login screen.
 // The full email roundtrip needs the compose stack's Mailpit catcher (http://localhost:8025);
@@ -72,10 +72,7 @@ test("a reset email delivers a working new password and kills the old one", asyn
   await login(page, user.email, newPassword!);
   await logout(page);
 
-  // The old password no longer works.
-  await page.goto("/login");
-  await page.getByRole("textbox", { name: "Email" }).fill(user.email);
-  await page.getByRole("textbox", { name: "Password" }).fill(user.password);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByText("Invalid email or password")).toBeVisible();
+  // The old password no longer works. Via the retrying helper — a one-shot click can land
+  // on the per-IP login bucket's 429 message instead of the rejection (roaming-429 shape).
+  await expectLoginRejected(page, user.email, user.password);
 });

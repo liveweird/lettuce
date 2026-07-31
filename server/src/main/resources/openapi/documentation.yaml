@@ -7,9 +7,16 @@ info:
 
     Authorization model: layered RBAC.
     - Every user is implicitly a regular user; additional global roles
-      (currently only `ADMIN`) are carried as the `roles` array and only ever
+      (`ADMIN`, `HR`) are carried as the `roles` array and only ever
       ADD privileges on top of that baseline. ADMIN bypasses every
-      per-resource check EXCEPT feedback writes (see below). The JWT issued at
+      per-resource check EXCEPT feedback writes (see below). `HR` is a
+      read-only auditor: read access equal to ADMIN's — every user, team,
+      feedback, 1:1 meeting, and goal, drafts included, content never
+      redacted — plus the auditor list view (`view=user`), while its WRITE
+      access stays exactly regular-user (none of ADMIN's write or management
+      bypasses, and no notification or alert-management access). Reads that
+      are granted by the HR privilege are recorded in the security audit
+      trail (`hr.read` / `hr.list`). The JWT issued at
       /login carries the caller's `roles` and userId; per-request team
       membership and feedback relationships are looked up from the database.
     - Team-scoped authority: the user identified by `teams.manager_id`
@@ -193,7 +200,7 @@ paths:
         - name: role
           in: query
           required: false
-          schema: { type: string, enum: [ADMIN] }
+          schema: { type: string, enum: [ADMIN, HR] }
           description: Only users holding this additional role.
         - name: teamId
           in: query
@@ -309,7 +316,7 @@ paths:
       tags: [users]
       operationId: getUser
       summary: Fetch a user by id
-      description: Requires the caller to be the target user, or to be ADMIN.
+      description: Requires the caller to be the target user, ADMIN, or HR (HR reads are audit-logged).
       responses:
         '200':
           description: OK
@@ -320,7 +327,7 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
-          description: Caller is not the target user and not ADMIN
+          description: Caller is not the target user, not ADMIN, and not HR
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
@@ -725,8 +732,8 @@ paths:
       operationId: listFeedbacks
       summary: List feedbacks for the caller
       description: |
-        Lists feedback records scoped by `view`. Scoping is always relative to the caller,
-        including ADMIN callers.
+        Lists feedback records scoped by `view`. Scoping is always relative to the caller —
+        including ADMIN callers — except `view=user`, the HR/ADMIN auditor view.
 
         - `view=received` (the default): rows where the caller is the **subject**, scoped exactly
           like the single-GET read rules (every listed row is also openable): (a) the caller is
@@ -748,6 +755,11 @@ paths:
           the requester of an unfinished row, its `contentPreview` is redacted (empty) until sent.
           Note the narrower direct-only default is a list scope, not an authorization boundary:
           the single-GET grants any manager in the subject's chain read access once delivered.
+        - `view=user` (HR or ADMIN only, else `403`; requires `userId`): the auditor view —
+          every feedback the given user is a party to (subject, provider, or requester), at
+          every status and visibility, DRAFTs included; `contentPreview` is never redacted.
+          HR usage is recorded in the security audit trail. The ordinary sort/filter/paging
+          parameters apply on top.
 
         Supports offset pagination, sorting and filtering.
 
@@ -779,8 +791,17 @@ paths:
         - name: view
           in: query
           required: false
-          schema: { type: string, enum: [received, provided, team], default: received }
-          description: Which caller-relative slice of feedbacks to list.
+          schema: { type: string, enum: [received, provided, team, user], default: received }
+          description: >-
+            Which slice of feedbacks to list — caller-relative, except the HR/ADMIN
+            auditor view `user`.
+        - name: userId
+          in: query
+          required: false
+          schema: { type: integer, format: int64, minimum: 0 }
+          description: |
+            Required with `view=user` (`400` when missing there, `400` with any other view):
+            the user whose records the auditor view lists.
         - name: includeIndirect
           in: query
           required: false
@@ -846,6 +867,11 @@ paths:
                 $ref: '#/components/schemas/FeedbackPage'
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: view=user requested without the HR or ADMIN role
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
         '500': { $ref: '#/components/responses/InternalServerError' }
     post:
       tags: [feedbacks]
@@ -1159,7 +1185,8 @@ paths:
       operationId: listOneOnOnes
       summary: List 1:1 meetings for the caller
       description: |
-        Lists 1:1 meetings scoped by `view`. Scoping is always relative to the caller, including
+        Lists 1:1 meetings scoped by `view`. Except `view=user` (the HR/ADMIN auditor view),
+        scoping is always relative to the caller, including
         ADMIN callers.
 
         - `view=own` (the default): meetings where the caller is the **subordinate**.
@@ -1174,6 +1201,10 @@ paths:
           required for this view and rejected on any other), in **either role direction** — the
           pair may have swapped manager/subordinate roles over time. The caller is a party to
           every returned row.
+        - `view=user` (HR or ADMIN only, else `403`; requires `userId`): the auditor view —
+          every meeting the given user is a party to, in either role direction. HR usage is
+          recorded in the security audit trail. The ordinary sort/filter/paging parameters
+          apply on top.
 
         Rows carry the party names, the meeting date, and per-list counts (`pointCount`,
         `decisionCount`, `actionItemCount`, `openActionItemCount`) — never item content.
@@ -1198,8 +1229,10 @@ paths:
         - name: view
           in: query
           required: false
-          schema: { type: string, enum: [own, managed, team, with], default: own }
-          description: Which caller-relative slice of 1:1 meetings to list.
+          schema: { type: string, enum: [own, managed, team, with, user], default: own }
+          description: >-
+            Which slice of 1:1 meetings to list — caller-relative, except the HR/ADMIN
+            auditor view `user`.
         - name: includeIndirect
           in: query
           required: false
@@ -1214,6 +1247,13 @@ paths:
           description: |
             The other party's user id. Required with `view=with` (else `400`), rejected on any
             other view (`400`).
+        - name: userId
+          in: query
+          required: false
+          schema: { type: integer, format: int64, minimum: 0 }
+          description: |
+            Required with `view=user` (`400` when missing there, `400` with any other view):
+            the user whose records the auditor view lists.
         - name: managerName
           in: query
           required: false
@@ -1243,6 +1283,11 @@ paths:
                 $ref: '#/components/schemas/OneOnOnePage'
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: view=user requested without the HR or ADMIN role
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
         '500': { $ref: '#/components/responses/InternalServerError' }
     post:
       tags: [one-on-ones]
@@ -1464,7 +1509,8 @@ paths:
       operationId: listGoals
       summary: List goals for the caller
       description: |
-        Lists goals scoped by `view`. Scoping is always relative to the caller, including ADMIN
+        Lists goals scoped by `view`. Except `view=user` (the HR/ADMIN auditor view), scoping
+        is always relative to the caller, including ADMIN
         callers.
 
         - `view=own` (the default): goals where the caller is the **subordinate**.
@@ -1481,6 +1527,10 @@ paths:
           empty page. The narrower direct-only default is a list scope, not an authorization
           boundary: the single-GET grants any manager in the subordinate's chain read access to
           a non-DRAFT goal.
+        - `view=user` (HR or ADMIN only, else `403`; requires `userId`): the auditor view —
+          every goal the given user is a party to (manager or subordinate), at every status,
+          DRAFTs included. HR usage is recorded in the security audit trail. The ordinary
+          sort/filter/paging parameters apply on top.
 
         Rows carry the party names, title, type, status, and the value fields — never the
         description or summary.
@@ -1510,8 +1560,17 @@ paths:
         - name: view
           in: query
           required: false
-          schema: { type: string, enum: [own, managed, team], default: own }
-          description: Which caller-relative slice of goals to list.
+          schema: { type: string, enum: [own, managed, team, user], default: own }
+          description: >-
+            Which slice of goals to list — caller-relative, except the HR/ADMIN auditor
+            view `user`.
+        - name: userId
+          in: query
+          required: false
+          schema: { type: integer, format: int64, minimum: 0 }
+          description: |
+            Required with `view=user` (`400` when missing there, `400` with any other view):
+            the user whose records the auditor view lists.
         - name: includeIndirect
           in: query
           required: false
@@ -1576,6 +1635,11 @@ paths:
                 $ref: '#/components/schemas/GoalPage'
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: view=user requested without the HR or ADMIN role
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
         '500': { $ref: '#/components/responses/InternalServerError' }
     post:
       tags: [goals]
@@ -2501,7 +2565,7 @@ components:
         userId: { type: integer, format: int64, minimum: 0 }
         roles:
           type: array
-          items: { type: string, enum: [ADMIN] }
+          items: { type: string, enum: [ADMIN, HR] }
           description: Additional roles of the authenticated user — empty for a regular user.
 
     RefreshRequest:
@@ -2573,7 +2637,7 @@ components:
           description: At most 71 bytes in UTF-8 (bcrypt limit) — longer is rejected with 400.
         roles:
           type: array
-          items: { type: string, enum: [ADMIN] }
+          items: { type: string, enum: [ADMIN, HR] }
           description: |
             Additional roles (every user is implicitly a regular user). Create is
             ADMIN-only, so any set may be given; omitted defaults to no additional
@@ -2593,7 +2657,7 @@ components:
         email: { type: string }
         roles:
           type: array
-          items: { type: string, enum: [ADMIN] }
+          items: { type: string, enum: [ADMIN, HR] }
         emailSent:
           type: boolean
           nullable: true
@@ -2608,7 +2672,7 @@ components:
         email: { type: string, format: email, maxLength: 254 }
         roles:
           type: array
-          items: { type: string, enum: [ADMIN] }
+          items: { type: string, enum: [ADMIN, HR] }
           description: |
             Part of the full representation (PUT). Changing the set requires ADMIN; a non-ADMIN
             caller must send the set the user already has, otherwise the request is rejected with 403.
@@ -2637,7 +2701,7 @@ components:
         email: { type: string, format: email }
         roles:
           type: array
-          items: { type: string, enum: [ADMIN] }
+          items: { type: string, enum: [ADMIN, HR] }
           description: Additional roles — empty for a regular user.
 
     UserPage:

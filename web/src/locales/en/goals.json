@@ -119,5 +119,7 @@
     "achievedNo": "Marked as not achieved.",
     "statusChanged": "Status changed from {{from}} to {{to}}.",
     "deleted": "Goal deleted."
-  }
+  },
+  "goalsAudit": "All goals of {{who}}",
+  "goalsAuditHint": "Every goal {{who}} is a party to — as manager or team member — at every status. Read-only."
 }

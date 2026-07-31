@@ -119,5 +119,7 @@
     "achievedNo": "Oznaczono jako nieosiągnięty.",
     "statusChanged": "Zmieniono status z {{from}} na {{to}}.",
     "deleted": "Usunięto cel."
-  }
+  },
+  "goalsAudit": "Wszystkie cele: {{who}}",
+  "goalsAuditHint": "Każdy cel, którego stroną jest {{who}} — jako menedżer/ka lub członek/członkini zespołu — w każdym statusie. Tylko do odczytu."
 }

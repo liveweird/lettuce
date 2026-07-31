@@ -97,5 +97,7 @@
     "dueDateChanged": "Zmieniono termin zadania {{position}} z {{from}} na {{to}}.",
     "dueDateCleared": "Usunięto termin zadania {{position}}.",
     "ownerChanged": "Zmieniono właściciela zadania {{position}} z {{from}} na {{to}}."
-  }
+  },
+  "oneOnOnesAudit": "Wszystkie spotkania 1:1: {{who}}",
+  "oneOnOnesAuditHint": "Każde spotkanie 1:1, w którym {{who}} brał/a udział, w dowolnej roli. Tylko do odczytu."
 }

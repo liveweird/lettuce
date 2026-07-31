@@ -132,5 +132,12 @@
   "openItemsBadge_one": "{{count}} open item",
   "openItemsBadge_other": "{{count}} open items",
   "rolesNone": "No additional roles",
-  "removeRole": "Remove role {{role}}"
+  "removeRole": "Remove role {{role}}",
+  "audit": {
+    "title": "Audit",
+    "hint": "Read-only auditor access to everything {{name}} is a party to — feedbacks, 1:1 meetings, and goals. This access is recorded.",
+    "feedbacksAria": "Audit feedbacks of {{name}}",
+    "oneOnOnesAria": "Audit 1:1 meetings of {{name}}",
+    "goalsAria": "Audit goals of {{name}}"
+  }
 }

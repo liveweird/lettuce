@@ -95,5 +95,7 @@
     "dueDateChanged": "Due date of action item {{position}} changed from {{from}} to {{to}}.",
     "dueDateCleared": "Due date of action item {{position}} removed.",
     "ownerChanged": "Owner of action item {{position}} changed from {{from}} to {{to}}."
-  }
+  },
+  "oneOnOnesAudit": "All 1:1 meetings of {{who}}",
+  "oneOnOnesAuditHint": "Every 1:1 meeting {{who}} took part in, in either role. Read-only."
 }

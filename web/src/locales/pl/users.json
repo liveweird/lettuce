@@ -134,5 +134,12 @@
   "openItemsBadge_many": "{{count}} otwartych zadań",
   "openItemsBadge_other": "{{count}} otwartego zadania",
   "rolesNone": "Brak dodatkowych ról",
-  "removeRole": "Usuń rolę {{role}}"
+  "removeRole": "Usuń rolę {{role}}",
+  "audit": {
+    "title": "Audyt",
+    "hint": "Audytorski dostęp tylko do odczytu do wszystkiego, czego stroną jest {{name}} — feedbacków, spotkań 1:1 i celów. Ten dostęp jest rejestrowany.",
+    "feedbacksAria": "Audytuj feedbacki: {{name}}",
+    "oneOnOnesAria": "Audytuj spotkania 1:1: {{name}}",
+    "goalsAria": "Audytuj cele: {{name}}"
+  }
 }

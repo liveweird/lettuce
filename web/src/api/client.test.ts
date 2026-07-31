@@ -2,8 +2,10 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   ApiError,
   authedFetch,
+  canAudit,
   getRoles,
   getToken,
+  isHr,
   getUserId,
   isAdmin,
   listFeedbacks,
@@ -66,6 +68,17 @@ describe("session accessors", () => {
     expect(isAdmin()).toBe(true);
     localStorage.setItem(ROLE_KEY, "[]");
     expect(isAdmin()).toBe(false);
+  });
+
+  test("HR is a known role; isHr and canAudit reflect it without granting isAdmin", () => {
+    localStorage.setItem(ROLE_KEY, JSON.stringify(["HR"]));
+    expect(getRoles()).toEqual(["HR"]);
+    expect(isHr()).toBe(true);
+    expect(canAudit()).toBe(true);
+    expect(isAdmin()).toBe(false);
+    localStorage.setItem(ROLE_KEY, JSON.stringify(["ADMIN"]));
+    expect(isHr()).toBe(false);
+    expect(canAudit()).toBe(true);
   });
 
   test("getUserId parses a finite number or returns null", () => {

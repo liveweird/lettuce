@@ -29,6 +29,7 @@ import {
   isAdmin,
   listUsers,
   logout,
+  USER_ROLES,
   type UserRole,
 } from "../api/client";
 import FeedbackActionsMenu from "../components/FeedbackActionsMenu";
@@ -55,7 +56,7 @@ type UserRow = { id: number; name: string; email: string };
 
 export default function Users() {
   const { t } = useTranslation();
-  const ROLE_OPTIONS = (["ADMIN"] as UserRole[]).map((value) => ({
+  const ROLE_OPTIONS = USER_ROLES.map((value) => ({
     value,
     label: t(`common.role.${value}`),
   }));
@@ -64,7 +65,7 @@ export default function Users() {
   const [roleFilter, setRoleFilter] = useStoredState<UserRole | null>(
     `${SETTINGS_KEY}.filter.role`,
     null,
-    isOneOfOrNull(["ADMIN"]),
+    isOneOfOrNull([...USER_ROLES]),
   );
   const activeFilterCount =
     (nameFilter.trim() ? 1 : 0) + (emailFilter.trim() ? 1 : 0) + (roleFilter ? 1 : 0);
@@ -200,7 +201,7 @@ export default function Users() {
                         <Badge
                           key={role}
                           variant="filled"
-                          color="grape"
+                          color={role === "HR" ? "cyan" : "grape"}
                           style={{ minWidth: "max-content" }}
                           aria-label={t("common.field.roles")}
                         >

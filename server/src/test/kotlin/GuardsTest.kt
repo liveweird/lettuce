@@ -4,8 +4,20 @@ import ch.nokillswit.authz.CallerPrincipal
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.canReadFeedback
 import ch.nokillswit.authz.canReadFeedbackContent
+import ch.nokillswit.authz.hasFullReadAccess
 import ch.nokillswit.authz.isAdmin
+import ch.nokillswit.authz.isHr
+import ch.nokillswit.authz.requireAuditListAccess
 import ch.nokillswit.authz.requireCanAssignRoles
+import ch.nokillswit.authz.requireFeedbackReadAllowingManager
+import ch.nokillswit.authz.requireGoalReadAllowingManager
+import ch.nokillswit.authz.requireOneOnOneReadAllowingManager
+import ch.nokillswit.authz.requireUserRead
+import ch.nokillswit.goals.GoalResponse
+import ch.nokillswit.goals.GoalStatus
+import ch.nokillswit.goals.GoalType
+import ch.nokillswit.oneonones.OneOnOneResponse
+import kotlinx.coroutines.runBlocking
 import ch.nokillswit.feedbacks.Feedback
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
@@ -27,6 +39,7 @@ class GuardsTest {
     private val requester = CallerPrincipal(userId = 3u, email = "requester@test", roles = emptySet())
     private val stranger = CallerPrincipal(userId = 9u, email = "stranger@test", roles = emptySet())
     private val admin = CallerPrincipal(userId = 10u, email = "admin@test", roles = setOf(UserRole.ADMIN))
+    private val hr = CallerPrincipal(userId = 11u, email = "hr@test", roles = setOf(UserRole.HR))
 
     private fun feedback(
         status: FeedbackStatus,
@@ -160,11 +173,127 @@ class GuardsTest {
         requireCanAssignRoles(admin, current = emptySet(), requested = setOf(UserRole.ADMIN))
     }
 
-    // ── isAdmin ────────────────────────────────────────────────────────────────
+    // ── isAdmin / isHr ─────────────────────────────────────────────────────────
 
     @Test
     fun `isAdmin means the ADMIN role is in the caller's set`() {
         assertFalse(stranger.isAdmin())
         assertTrue(admin.isAdmin())
+        assertFalse(hr.isAdmin())
+    }
+
+    @Test
+    fun `hasFullReadAccess covers ADMIN and HR, nobody else`() {
+        assertTrue(admin.hasFullReadAccess())
+        assertTrue(hr.hasFullReadAccess())
+        assertTrue(hr.isHr())
+        assertFalse(stranger.hasFullReadAccess())
+        assertFalse(provider.hasFullReadAccess())
+    }
+
+    // ── HR auditor reads ───────────────────────────────────────────────────────
+
+    /** A chain lambda that must never run: HR/party reads settle before the DB walk. */
+    private val neverWalkChain: suspend () -> Boolean = { throw AssertionError("chain walk must not run") }
+
+    private fun meeting(id: UInt = 40u) = OneOnOneResponse(
+        id = id,
+        managerId = provider.userId,
+        managerName = "Manager",
+        subordinateId = subject.userId,
+        subordinateName = "Subordinate",
+        meetingDate = "2026-07-01",
+        lastModified = 0,
+        points = emptyList(),
+        decisions = emptyList(),
+        actionItems = emptyList(),
+    )
+
+    private fun goal(status: GoalStatus, id: UInt = 50u) = GoalResponse(
+        id = id,
+        managerId = provider.userId,
+        subordinateId = subject.userId,
+        createdAt = 0,
+        dueDate = "2027-01-01",
+        title = "Goal",
+        description = "",
+        type = GoalType.BINARY,
+        targetValue = null,
+        currentValue = null,
+        achieved = false,
+        status = status,
+        summary = null,
+        lastModified = 0,
+        managerName = "Manager",
+        subordinateName = "Subordinate",
+    )
+
+    @Test
+    fun `hr reads any feedback at any status without the chain walk`() {
+        runBlocking {
+            // DRAFT with a private visibility — nobody but the provider (and ADMIN) could read it.
+            val draft = feedback(FeedbackStatus.DRAFT, FeedbackVisibility.PROVIDER_SUBJECT)
+            requireFeedbackReadAllowingManager(hr, draft, feedbackId = 30u, managesSubject = neverWalkChain)
+            // A plain stranger still cannot (chain walk allowed to run and say no).
+            assertFailsWith<ForbiddenException> {
+                requireFeedbackReadAllowingManager(stranger, draft, feedbackId = 30u) { false }
+            }
+        }
+    }
+
+    @Test
+    fun `hr reads any one-on-one without the chain walk`() {
+        runBlocking {
+            requireOneOnOneReadAllowingManager(hr, meeting(), managesSubordinate = neverWalkChain)
+            assertFailsWith<ForbiddenException> {
+                requireOneOnOneReadAllowingManager(stranger, meeting()) { false }
+            }
+        }
+    }
+
+    @Test
+    fun `hr reads goals at every status including DRAFT, chain managers still do not see drafts`() {
+        runBlocking {
+            requireGoalReadAllowingManager(hr, goal(GoalStatus.DRAFT), managesSubordinate = neverWalkChain)
+            requireGoalReadAllowingManager(hr, goal(GoalStatus.ACTIVE), managesSubordinate = neverWalkChain)
+            // A chain manager (managesSubordinate = true) is still shut out of a DRAFT.
+            assertFailsWith<ForbiddenException> {
+                requireGoalReadAllowingManager(stranger, goal(GoalStatus.DRAFT)) { true }
+            }
+        }
+    }
+
+    @Test
+    fun `hr sees feedback content everywhere, even as a watching requester would not`() {
+        val draft = feedback(FeedbackStatus.DRAFT, FeedbackVisibility.PROVIDER_REQUESTER, requesterId = requester.userId)
+        assertTrue(canReadFeedbackContent(hr, draft))
+    }
+
+    @Test
+    fun `requireUserRead grants self, admin, and hr - denies everyone else`() {
+        requireUserRead(subject, subject.userId)
+        requireUserRead(admin, subject.userId)
+        requireUserRead(hr, subject.userId)
+        assertFailsWith<ForbiddenException> { requireUserRead(stranger, subject.userId) }
+    }
+
+    @Test
+    fun `requireAuditListAccess admits hr and admin only`() {
+        requireAuditListAccess(hr, "goal", subject.userId)
+        requireAuditListAccess(admin, "goal", subject.userId)
+        assertFailsWith<ForbiddenException> { requireAuditListAccess(stranger, "goal", subject.userId) }
+    }
+
+    @Test
+    fun `hr gains no write access anywhere`() {
+        // The write guards are userId-keyed; HR (not a party) must fail all of them.
+        val sent = feedback(FeedbackStatus.SENT, FeedbackVisibility.PUBLIC)
+        assertFailsWith<ForbiddenException> { ch.nokillswit.authz.requireFeedbackWrite(hr, sent) }
+        assertFailsWith<ForbiddenException> { ch.nokillswit.authz.requireOneOnOneWrite(hr, meeting()) }
+        assertFailsWith<ForbiddenException> { ch.nokillswit.authz.requireGoalWrite(hr, goal(GoalStatus.ACTIVE)) }
+        assertFailsWith<ForbiddenException> { ch.nokillswit.authz.requireAdmin(hr) }
+        assertFailsWith<ForbiddenException> {
+            requireCanAssignRoles(hr, current = emptySet(), requested = setOf(UserRole.ADMIN))
+        }
     }
 }

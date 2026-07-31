@@ -4,6 +4,7 @@ import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.canReadFeedbackContent
 import ch.nokillswit.authz.isAdmin
+import ch.nokillswit.authz.requireAuditListAccess
 import ch.nokillswit.authz.requireFeedbackReadAllowingManager
 import ch.nokillswit.authz.requireFeedbackWrite
 import ch.nokillswit.infra.db.requireValidReferences
@@ -105,7 +106,8 @@ fun Application.configureFeedbackRoutes() {
                     "received" -> FeedbackListView.RECEIVED
                     "provided" -> FeedbackListView.PROVIDED
                     "team" -> FeedbackListView.TEAM
-                    else -> throw BadRequestException("Unknown view: $raw (allowed: received, provided, team)")
+                    "user" -> FeedbackListView.USER
+                    else -> throw BadRequestException("Unknown view: $raw (allowed: received, provided, team, user)")
                 }
                 val paging = call.parsePaging(
                     sortable = setOf("id", "requesterName", "subjectName", "providerName", "visibility", "status", "lastModified"),
@@ -118,6 +120,18 @@ fun Application.configureFeedbackRoutes() {
                 val includeIndirect = params.optionalBoolean("includeIndirect")
                 if (includeIndirect != null && view != FeedbackListView.TEAM) {
                     throw BadRequestException("includeIndirect is only supported for view=team")
+                }
+                // The auditor view (HR/ADMIN): view-shape validation like counterpartId on the
+                // 1:1 list, then the role gate (which audit-logs HR usage).
+                val userId = params.optionalUInt("userId")
+                if (view == FeedbackListView.USER && userId == null) {
+                    throw BadRequestException("userId is required for view=user")
+                }
+                if (view != FeedbackListView.USER && userId != null) {
+                    throw BadRequestException("userId is only supported for view=user")
+                }
+                if (view == FeedbackListView.USER) {
+                    requireAuditListAccess(caller, "feedback", userId!!)
                 }
                 val filter = FeedbackListFilter(
                     requesterName = params.optionalString("requesterName"),
@@ -135,6 +149,7 @@ fun Application.configureFeedbackRoutes() {
                     filter,
                     paging,
                     includeIndirect = includeIndirect == true,
+                    targetUserId = userId,
                 )
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
             }
@@ -194,7 +209,7 @@ fun Application.configureFeedbackRoutes() {
                     call.respondProblem(HttpStatusCode.NotFound, "Feedback not found")
                     return@get
                 }
-                requireFeedbackReadAllowingManager(caller, feedback) {
+                requireFeedbackReadAllowingManager(caller, feedback, route.id) {
                     feedbackService.managesSubject(caller.userId, feedback.subjectId)
                 }
                 val names = feedbackService.partyNames(feedback)
@@ -245,7 +260,7 @@ fun Application.configureFeedbackRoutes() {
                     return@get
                 }
                 // Whoever may read the feedback may read its history.
-                requireFeedbackReadAllowingManager(caller, feedback) {
+                requireFeedbackReadAllowingManager(caller, feedback, feedbackId) {
                     feedbackService.managesSubject(caller.userId, feedback.subjectId)
                 }
                 call.respond(

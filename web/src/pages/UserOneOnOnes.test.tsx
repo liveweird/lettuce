@@ -117,6 +117,34 @@ describe("UserOneOnOnes page", () => {
     expect(viewLink).toHaveAttribute("href", expect.stringContaining(`back=${back}`));
   });
 
+  test("mode=audit with the HR role renders the auditor view (view=user)", async () => {
+    localStorage.setItem(ROLE_KEY, JSON.stringify(["HR"]));
+    renderScreen("/users/10/one-on-ones?name=Alice&from=details&mode=audit");
+
+    expect(await screen.findByText("All 1:1 meetings of Alice")).toBeInTheDocument();
+    await waitFor(() => {
+      const urls = mockFetch.mock.calls.map(([u]) => String(u));
+      expect(urls.some((u) => u.includes("view=user") && u.includes("userId=10"))).toBe(true);
+    });
+    // Read-only: never a "New 1:1" in audit mode; the back link returns to the details page.
+    expect(screen.queryByRole("link", { name: /new 1:1/i })).toBeNull();
+    expect(screen.getByRole("link", { name: /back to user details/i })).toHaveAttribute(
+      "href",
+      "/users/10/details?name=Alice",
+    );
+  });
+
+  test("mode=audit without an auditor role silently falls back to the pair view", async () => {
+    renderScreen("/users/10/one-on-ones?name=Alice&from=managers&mode=audit");
+
+    expect(await screen.findByText("1:1 meetings with Alice")).toBeInTheDocument();
+    await waitFor(() => {
+      const urls = mockFetch.mock.calls.map(([u]) => String(u));
+      expect(urls.some((u) => u.includes("view=with") && u.includes("counterpartId=10"))).toBe(true);
+      expect(urls.some((u) => u.includes("view=user"))).toBe(false);
+    });
+  });
+
   test("an invalid user id redirects back to the managers tab", () => {
     renderScreen("/users/abc/one-on-ones");
     expect(screen.getByTestId("probe")).toHaveTextContent("/?tab=managers");

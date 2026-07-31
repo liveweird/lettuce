@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.25.0",
+    date: "2026-07-31",
+    en: `A new **HR** role turns its holder into a read-only auditor: they can browse everything any user is a party to — feedbacks (drafts included), 1:1 meetings, and goals — without gaining any write access; other users' data stays exactly as editable as before, which for HR means not at all. Auditors reach it from a user's details page via the new *Audit* section, and every such access is recorded in the security audit trail. Admins get the same browsing surface.`,
+    pl: `Nowa rola **HR** czyni jej posiadacza/posiadaczkę audytorem tylko do odczytu: może przeglądać wszystko, czego stroną jest dowolny użytkownik — feedbacki (łącznie ze szkicami), spotkania 1:1 i cele — nie zyskując żadnych praw zapisu; dane innych użytkowników pozostają dokładnie tak edytowalne jak wcześniej, czyli dla HR wcale. Audytorzy docierają do nich ze strony szczegółów użytkownika przez nową sekcję *Audyt*, a każdy taki dostęp jest rejestrowany w dzienniku bezpieczeństwa. Administratorzy dostają tę samą możliwość przeglądania.`,
+  },
+  {
     version: "1.24.1",
     date: "2026-07-31",
     en: `Accessibility fix: the remove button on each selected role in the *Roles* field now announces itself to screen readers ("Remove role Admin") instead of being an unnamed button.`,

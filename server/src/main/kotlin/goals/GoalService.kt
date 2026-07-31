@@ -23,7 +23,7 @@ import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
 val GoalServiceKey = AttributeKey<GoalService>("GoalService")
 
-enum class GoalListView { OWN, MANAGED, TEAM }
+enum class GoalListView { OWN, MANAGED, TEAM, USER }
 
 data class GoalListFilter(
     val managerName: String? = null,
@@ -224,9 +224,18 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
         filter: GoalListFilter,
         paging: PageRequest,
         includeIndirect: Boolean = false,
+        targetUserId: UInt? = null,
     ): GoalListResult = suspendTransaction(database) {
         val scope: Op<Boolean> = when (view) {
             GoalListView.OWN -> Goals.subordinateId eq callerUserId
+            GoalListView.USER -> {
+                // Auditor view (HR/ADMIN, gated route-side via requireAuditListAccess): every
+                // goal the target is a party to, at every status — DRAFTs included (HR read
+                // equals ADMIN read, unlike the chain views below). The route guarantees a
+                // non-null userId.
+                val target = requireNotNull(targetUserId) { "view=user requires userId" }
+                (Goals.managerId eq target) or (Goals.subordinateId eq target)
+            }
             GoalListView.MANAGED ->
                 if (!includeIndirect) {
                     Goals.managerId eq callerUserId

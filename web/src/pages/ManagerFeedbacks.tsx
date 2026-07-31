@@ -2,8 +2,10 @@ import { Anchor, Button, Group, Stack, Tabs, Text, Title } from "@mantine/core";
 import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { IconMessagePlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
+import { canAudit } from "../api/client";
 import FeedbackTable from "./FeedbackTable";
 import { feedbackProvideLink, userFeedbacksLink } from "../utils/feedbackLinks";
+import { userDetailsLink } from "../utils/userLinks";
 
 // Which screen this one was opened from (a Dashboard tab, the Users list, or a team's members
 // roster), so the "Back to …" link and the invalid-id redirect return there. Defaults to managers
@@ -16,6 +18,8 @@ const ORIGIN = {
   // `members` and `team` have no static target — they need the `teamId` param; see resolveOrigin.
   members: { labelKey: "feedback.origin.members", to: "/teams" },
   team: { labelKey: "feedback.origin.team", to: "/teams" },
+  // `details` needs the userId — resolved separately in the component (the audit entry point).
+  details: { labelKey: "feedback.origin.details", to: "/users" },
 } as const;
 
 type OriginKey = keyof typeof ORIGIN;
@@ -63,13 +67,18 @@ export default function ManagerFeedbacks() {
   const name = searchParams.get("name");
   const fromParam = searchParams.get("from");
   const teamId = parsePositiveInt(searchParams.get("teamId"));
-  const origin = resolveOrigin(fromParam, teamId);
 
   const requestedTab = searchParams.get("tab");
   const activeTab: DirectionTab = isDirectionTab(requestedTab) ? requestedTab : "received";
 
   const userId = Number(params.userId);
   const idIsValid = Number.isFinite(userId) && userId > 0;
+  const origin =
+    fromParam === "details" && idIsValid
+      ? { labelKey: ORIGIN.details.labelKey, to: userDetailsLink(userId, name) }
+      : resolveOrigin(fromParam, teamId);
+  // Non-auditors silently fall back to the pair tabs (the EditGoal self-heal spirit).
+  const auditMode = searchParams.get("mode") === "audit" && canAudit();
 
   if (!idIsValid) return <Navigate to={origin.to} replace />;
 
@@ -91,8 +100,33 @@ export default function ManagerFeedbacks() {
     name,
     isOriginKey(fromParam) ? fromParam : undefined,
     teamId ?? undefined,
-    activeTab,
+    auditMode ? undefined : activeTab,
+    auditMode,
   );
+
+  if (auditMode) {
+    // The HR/ADMIN auditor view: one table with everything this person is a party to
+    // (either direction, every status), read-only — replaces the two pair tabs.
+    return (
+      <Stack gap="lg">
+        <Stack gap={4}>
+          <Anchor component={RouterLink} to={origin.to} size="sm">
+            {t("feedback.backToLabel", { label: t(origin.labelKey) })}
+          </Anchor>
+          <Title order={2}>{t("feedback.feedbacksAudit", { who })}</Title>
+          <Text size="sm" c="dimmed">
+            {t("feedback.feedbacksAuditHint", { who })}
+          </Text>
+        </Stack>
+        <FeedbackTable
+          view="user"
+          userId={userId}
+          backTo={backTo}
+          settingsKey="managerFeedbacks.audit"
+        />
+      </Stack>
+    );
+  }
 
   return (
     <Stack gap="lg">

@@ -10,7 +10,8 @@ const LEGACY_ROLE_KEY = "lettuce.auth.role";
 const USER_ID_KEY = "lettuce.auth.userId";
 
 /** Additional roles — every user is implicitly a regular user; an empty set means no extra privileges. */
-export type UserRole = "ADMIN";
+export const USER_ROLES = ["ADMIN", "HR"] as const;
+export type UserRole = (typeof USER_ROLES)[number];
 
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
@@ -33,7 +34,7 @@ function setRefreshToken(token: string | null): void {
 export function getRoles(): UserRole[] {
   try {
     const parsed: unknown = JSON.parse(localStorage.getItem(ROLES_KEY) ?? "[]");
-    return Array.isArray(parsed) ? parsed.filter((r): r is UserRole => r === "ADMIN") : [];
+    return Array.isArray(parsed) ? parsed.filter((r): r is UserRole => USER_ROLES.includes(r)) : [];
   } catch {
     return [];
   }
@@ -48,6 +49,15 @@ export function getUserId(): number | null {
 
 export function isAdmin(): boolean {
   return getRoles().includes("ADMIN");
+}
+
+export function isHr(): boolean {
+  return getRoles().includes("HR");
+}
+
+/** Mirror of the server's hasFullReadAccess: may use the auditor read surface (view=user). */
+export function canAudit(): boolean {
+  return isAdmin() || isHr();
 }
 
 function clearSession(): void {
@@ -390,7 +400,7 @@ export type FeedbackVisibility =
   | "PUBLIC";
 export type FeedbackStatus = "REQUESTED" | "DRAFT" | "SENT" | "WITHDRAWN" | "REJECTED";
 
-export type FeedbackListView = "received" | "provided" | "team";
+export type FeedbackListView = "received" | "provided" | "team" | "user";
 
 type FeedbackListQuery = {
   view: FeedbackListView;
@@ -407,6 +417,8 @@ type FeedbackListQuery = {
   lastModifiedGte?: number;
   /** Only valid with view=team: widen the subject scope from direct reports to the whole management chain. */
   includeIndirect?: boolean;
+  /** Required with view=user (the HR/ADMIN auditor view): whose records to list. */
+  userId?: number;
 };
 
 export async function listFeedbacks(q: FeedbackListQuery): Promise<FeedbackPage> {
@@ -424,6 +436,7 @@ export async function listFeedbacks(q: FeedbackListQuery): Promise<FeedbackPage>
   if (q.status) params.set("status", q.status);
   if (q.lastModifiedGte != null) params.set("lastModified[gte]", String(q.lastModifiedGte));
   if (q.includeIndirect) params.set("includeIndirect", "true");
+  if (q.userId != null) params.set("userId", String(q.userId));
   const res = await authedFetch(`/api/v1/feedbacks?${params.toString()}`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json()) as FeedbackPage;
@@ -513,7 +526,7 @@ export type OneOnOnePage =
 
 export type ActionItemOwner = "MANAGER" | "SUBORDINATE";
 
-export type OneOnOneListView = "own" | "managed" | "team" | "with";
+export type OneOnOneListView = "own" | "managed" | "team" | "with" | "user";
 
 type OneOnOneListQuery = {
   view: OneOnOneListView;
@@ -528,6 +541,8 @@ type OneOnOneListQuery = {
   includeIndirect?: boolean;
   /** Required with view=with: the other party's user id (either role direction). */
   counterpartId?: number;
+  /** Required with view=user (the HR/ADMIN auditor view): whose records to list. */
+  userId?: number;
 };
 
 export async function listOneOnOnes(q: OneOnOneListQuery): Promise<OneOnOnePage> {
@@ -542,6 +557,7 @@ export async function listOneOnOnes(q: OneOnOneListQuery): Promise<OneOnOnePage>
   if (q.meetingDateLte) params.set("meetingDate[lte]", q.meetingDateLte);
   if (q.includeIndirect) params.set("includeIndirect", "true");
   if (q.counterpartId != null) params.set("counterpartId", String(q.counterpartId));
+  if (q.userId != null) params.set("userId", String(q.userId));
   const res = await authedFetch(`/api/v1/one-on-ones?${params.toString()}`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json()) as OneOnOnePage;
@@ -610,7 +626,7 @@ export type GoalResponse =
 export type GoalStatus = GoalResponse["status"];
 export type GoalType = GoalResponse["type"];
 
-export type GoalListView = "own" | "managed" | "team";
+export type GoalListView = "own" | "managed" | "team" | "user";
 
 type GoalListQuery = {
   view: GoalListView;
@@ -627,6 +643,8 @@ type GoalListQuery = {
   createdAtGte?: number;
   /** Only valid with view=team: widen the manager scope from direct reports to the whole management chain. */
   includeIndirect?: boolean;
+  /** Required with view=user (the HR/ADMIN auditor view): whose records to list. */
+  userId?: number;
 };
 
 export async function listGoals(q: GoalListQuery): Promise<GoalPage> {
@@ -644,6 +662,7 @@ export async function listGoals(q: GoalListQuery): Promise<GoalPage> {
   if (q.subordinateId != null) params.set("subordinateId", String(q.subordinateId));
   if (q.createdAtGte != null) params.set("createdAt[gte]", String(q.createdAtGte));
   if (q.includeIndirect) params.set("includeIndirect", "true");
+  if (q.userId != null) params.set("userId", String(q.userId));
   const res = await authedFetch(`/api/v1/goals?${params.toString()}`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json()) as GoalPage;
