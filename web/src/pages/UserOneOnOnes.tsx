@@ -11,7 +11,7 @@ import OneOnOneTable from "./OneOnOneTable";
 // may have swapped manager/subordinate roles over time), as a single chronological table.
 export default function UserOneOnOnes() {
   const { t } = useTranslation();
-  const { userId, idIsValid, name, origin, callerManages, backTo } =
+  const { userId, idIsValid, name, origin, callerManages, auditMode, backTo } =
     useDashboardDrillDown("one-on-ones");
 
   if (!idIsValid) return <Navigate to={origin.to} replace />;
@@ -24,18 +24,30 @@ export default function UserOneOnOnes() {
         <Anchor component={RouterLink} to={origin.to} size="sm">
           {t("feedback.backToLabel", { label: t(origin.labelKey) })}
         </Anchor>
-        <Title order={2}>{t("oneOnOne.oneOnOnesWith", { who })}</Title>
+        <Title order={2}>
+          {t(auditMode ? "oneOnOne.oneOnOnesAudit" : "oneOnOne.oneOnOnesWith", { who })}
+        </Title>
         <Text size="sm" c="dimmed">
-          {t("oneOnOne.oneOnOnesWithHint", { who })}
+          {t(auditMode ? "oneOnOne.oneOnOnesAuditHint" : "oneOnOne.oneOnOnesWithHint", { who })}
         </Text>
       </Stack>
 
-      <OneOnOneTable
-        view="with"
-        counterpartId={userId}
-        backTo={backTo}
-        settingsKey="userOneOnOnes"
-      />
+      {auditMode ? (
+        // The HR/ADMIN auditor view: every 1:1 this person is a party to, read-only.
+        <OneOnOneTable
+          view="user"
+          userId={userId}
+          backTo={backTo}
+          settingsKey="userOneOnOnes.audit"
+        />
+      ) : (
+        <OneOnOneTable
+          view="with"
+          counterpartId={userId}
+          backTo={backTo}
+          settingsKey="userOneOnOnes"
+        />
+      )}
 
       {callerManages && (
         // The meetings list's "New 1:1", with this person preselected (the prefilled create

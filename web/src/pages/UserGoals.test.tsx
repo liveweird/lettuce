@@ -97,6 +97,29 @@ describe("UserGoals page", () => {
     expect(viewLink).toHaveAttribute("href", expect.stringContaining(`back=${back}`));
   });
 
+  test("mode=audit with the ADMIN role renders the auditor view (view=user)", async () => {
+    localStorage.setItem(ROLE_KEY, JSON.stringify(["ADMIN"]));
+    renderScreen("/users/10/goals?name=Alice&from=details&mode=audit");
+
+    expect(await screen.findByText("All goals of Alice")).toBeInTheDocument();
+    await waitFor(() => {
+      const urls = mockFetch.mock.calls.map(([u]) => String(u));
+      expect(urls.some((u) => u.includes("view=user") && u.includes("userId=10"))).toBe(true);
+    });
+    expect(screen.queryByRole("link", { name: /new goal/i })).toBeNull();
+  });
+
+  test("mode=audit without an auditor role silently falls back to the origin view", async () => {
+    renderScreen("/users/10/goals?name=Alice&from=managers&mode=audit");
+
+    expect(await screen.findByText("Goals from Alice")).toBeInTheDocument();
+    await waitFor(() => {
+      const urls = mockFetch.mock.calls.map(([u]) => String(u));
+      expect(urls.some((u) => u.includes("view=own") && u.includes("managerId=10"))).toBe(true);
+      expect(urls.some((u) => u.includes("view=user"))).toBe(false);
+    });
+  });
+
   test("an invalid user id redirects back to the managers tab", () => {
     renderScreen("/users/abc/goals");
     expect(screen.getByTestId("probe")).toHaveTextContent("/?tab=managers");

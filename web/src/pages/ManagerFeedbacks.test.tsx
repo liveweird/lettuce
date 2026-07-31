@@ -174,6 +174,30 @@ describe("ManagerFeedbacks page", () => {
     );
   });
 
+  test("mode=audit with the HR role replaces the tabs with the auditor table", async () => {
+    localStorage.setItem(ROLE_KEY, JSON.stringify(["HR"]));
+    renderScreen("/users/10/feedbacks?name=Alice&from=details&mode=audit");
+
+    expect(await screen.findByText("All feedbacks of Alice")).toBeInTheDocument();
+    // No direction tabs in audit mode.
+    expect(screen.queryByRole("tab")).toBeNull();
+    await waitFor(() => {
+      const urls = mockFetch.mock.calls.map(([u]) => String(u));
+      expect(urls.some((u) => u.includes("view=user") && u.includes("userId=10"))).toBe(true);
+    });
+  });
+
+  test("mode=audit without an auditor role silently falls back to the pair tabs", async () => {
+    renderScreen("/users/10/feedbacks?name=Alice&mode=audit");
+
+    expect(await screen.findByRole("tab", { name: "From Alice to you" })).toBeInTheDocument();
+    await waitFor(() => {
+      const urls = mockFetch.mock.calls.map(([u]) => String(u));
+      expect(urls.some((u) => u.includes("view=received"))).toBe(true);
+      expect(urls.some((u) => u.includes("view=user"))).toBe(false);
+    });
+  });
+
   test("an invalid user id redirects back to the managers tab", () => {
     renderScreen("/users/abc/feedbacks");
     expect(screen.getByTestId("probe")).toHaveTextContent("/?tab=managers");

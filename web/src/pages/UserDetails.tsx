@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-router-dom";
-import { Alert, Anchor, Button, SimpleGrid, Skeleton, Stack, Text, Title } from "@mantine/core";
+import { Alert, Anchor, Button, Group, Paper, SimpleGrid, Skeleton, Stack, Text, Title } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import {
   IconCalendarEvent,
@@ -12,7 +12,7 @@ import {
   IconUserPlus,
   IconUsersGroup,
 } from "@tabler/icons-react";
-import { getUserId, listAllTeamMembers, listTeams, listUsers } from "../api/client";
+import { canAudit, getUserId, listAllTeamMembers, listTeams, listUsers } from "../api/client";
 import EmptyState from "../components/EmptyState";
 import PersonCard from "../components/PersonCard";
 import PersonCardStats, { PeerCardStats } from "../components/PersonCardStats";
@@ -350,6 +350,54 @@ export default function UserDetails() {
           icon={<IconUsersGroup size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
           label={t("users.userNotFound")}
         />
+      )}
+
+      {canAudit() && !selfView && person != null && (
+        // The HR/ADMIN auditor entry point: read-only drill-downs into EVERYTHING this person
+        // is a party to (both directions, every status), regardless of the viewer's own
+        // relationship to them. Server-side this is view=user; HR usage is audit-logged.
+        <Paper withBorder p="md" radius="md">
+          <Stack gap="xs">
+            <Text size="sm" fw={500}>
+              {t("users.audit.title")}
+            </Text>
+            <Text size="sm" c="dimmed">
+              {t("users.audit.hint", { name: person.name })}
+            </Text>
+            <Group gap="xs">
+              <Button
+                component={RouterLink}
+                to={userFeedbacksLink(person.userId, person.name, "details", undefined, undefined, true)}
+                variant="subtle"
+                size="xs"
+                leftSection={<IconMessages size={14} />}
+                aria-label={t("users.audit.feedbacksAria", { name: person.name })}
+              >
+                {t("users.feedbacks")}
+              </Button>
+              <Button
+                component={RouterLink}
+                to={userOneOnOnesLink(person.userId, person.name, "details", undefined, true)}
+                variant="subtle"
+                size="xs"
+                leftSection={<IconCalendarEvent size={14} />}
+                aria-label={t("users.audit.oneOnOnesAria", { name: person.name })}
+              >
+                {t("users.oneOnOnes")}
+              </Button>
+              <Button
+                component={RouterLink}
+                to={userGoalsLink(person.userId, person.name, "details", undefined, true)}
+                variant="subtle"
+                size="xs"
+                leftSection={<IconTargetArrow size={14} />}
+                aria-label={t("users.audit.goalsAria", { name: person.name })}
+              >
+                {t("users.goals")}
+              </Button>
+            </Group>
+          </Stack>
+        </Paper>
       )}
     </Stack>
   );

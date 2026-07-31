@@ -47,7 +47,6 @@ type PersonColumn = {
   labelKey: string;
   clearFilterLabelKey: string;
   /** localStorage atom under the view's settings namespace. */
-  storageAtom: string;
   id: (g: GoalListItem) => number;
   name: (g: GoalListItem) => string;
   deleted: (g: GoalListItem) => boolean;
@@ -57,7 +56,6 @@ const MANAGER_COLUMN: PersonColumn = {
   field: "managerName",
   labelKey: "goal.manager",
   clearFilterLabelKey: "goal.clearManagerFilter",
-  storageAtom: "filter.manager",
   id: (g) => g.managerId,
   name: (g) => g.managerName,
   deleted: (g) => g.managerDeleted,
@@ -67,20 +65,21 @@ const SUBORDINATE_COLUMN: PersonColumn = {
   field: "subordinateName",
   labelKey: "goal.subordinate",
   clearFilterLabelKey: "goal.clearSubordinateFilter",
-  storageAtom: "filter.subordinate",
   id: (g) => g.subordinateId,
   name: (g) => g.subordinateName,
   deleted: (g) => g.subordinateDeleted,
 };
 
 // Per-view differences, declaratively (the OneOnOneTable/FeedbackTable shape): which person
-// column the view shows — own = who set the goal, managed/team = whose goal it is / who set it.
-// The row action is NOT per-view: at any view the goal's manager edits DRAFT/ACTIVE rows and
-// everyone else views (the server enforces the same rule).
-const VIEW_CONFIG: Record<GoalListView, { personColumn: PersonColumn }> = {
-  own: { personColumn: MANAGER_COLUMN },
-  managed: { personColumn: SUBORDINATE_COLUMN },
-  team: { personColumn: MANAGER_COLUMN },
+// columns the view shows — own = who set the goal, managed/team = whose goal it is / who set
+// it, and the HR/ADMIN auditor view (`user`) shows both parties (the audited person can sit on
+// either side). The row action is NOT per-view: at any view the goal's manager edits
+// DRAFT/ACTIVE rows and everyone else views (the server enforces the same rule).
+const VIEW_CONFIG: Record<GoalListView, { personColumns: PersonColumn[] }> = {
+  own: { personColumns: [MANAGER_COLUMN] },
+  managed: { personColumns: [SUBORDINATE_COLUMN] },
+  team: { personColumns: [MANAGER_COLUMN] },
+  user: { personColumns: [MANAGER_COLUMN, SUBORDINATE_COLUMN] },
 };
 
 /**
@@ -94,6 +93,7 @@ export default function GoalTable({
   view,
   managerId,
   subordinateId,
+  userId,
   settingsKey,
   backTo,
   withReportsScope,
@@ -103,6 +103,8 @@ export default function GoalTable({
   managerId?: number;
   /** Scope to one subordinate's goals (the per-subordinate drill-down). */
   subordinateId?: number;
+  /** Required with view="user" (the HR/ADMIN auditor view): whose goals to list. */
+  userId?: number;
   /** Override the localStorage view-settings namespace when embedded outside the main tabs. */
   settingsKey?: string;
   /** When set, action links carry a back=… override so detail pages return here. */
@@ -115,21 +117,35 @@ export default function GoalTable({
 }) {
   const { t, i18n } = useTranslation();
   const currentUserId = getUserId();
-  const { personColumn } = VIEW_CONFIG[view];
-  const personPinned =
-    (personColumn.field === "managerName" && managerId != null) ||
-    (personColumn.field === "subordinateName" && subordinateId != null);
-  const showPerson = !personPinned;
-  const sortFields: readonly SortField[] = showPerson
-    ? [...BASE_SORT_FIELDS, personColumn.field]
-    : BASE_SORT_FIELDS;
+  const { personColumns } = VIEW_CONFIG[view];
+  // A person column hides when a drill-down pins that party — the page names them already.
+  const visibleColumns = personColumns.filter(
+    (c) =>
+      !(c.field === "managerName" && managerId != null) &&
+      !(c.field === "subordinateName" && subordinateId != null),
+  );
+  const sortFields: readonly SortField[] = [
+    ...BASE_SORT_FIELDS,
+    ...visibleColumns.map((c) => c.field),
+  ];
   const columnCount = sortFields.length + 1; // sortable columns + the actions column
 
   const storeKey = settingsKey ?? `goals.${view}`;
   const [titleFilter, setTitleFilter] = useStoredState(`${storeKey}.filter.title`, "", isString);
-  const [personFilter, setPersonFilter] = useStoredState(
-    `${storeKey}.${personColumn.storageAtom}`, "", isString,
+  // One atom per party (the OneOnOneTable scheme; single-column views keep their old keys).
+  const [managerFilter, setManagerFilter] = useStoredState(
+    `${storeKey}.filter.manager`, "", isString,
   );
+  const [subordinateFilter, setSubordinateFilter] = useStoredState(
+    `${storeKey}.filter.subordinate`, "", isString,
+  );
+  const personFilters: Record<
+    PersonColumn["field"],
+    { value: string; set: (v: string) => void }
+  > = {
+    managerName: { value: managerFilter, set: setManagerFilter },
+    subordinateName: { value: subordinateFilter, set: setSubordinateFilter },
+  };
   const [createdWindow, setCreatedWindow] = useStoredState<CreatedWindow>(
     `${storeKey}.filter.createdWindow`, "all", isOneOf(CREATED_WINDOWS),
   );
@@ -142,18 +158,21 @@ export default function GoalTable({
   const includeIndirect = withReportsScope === true && reportsScope === "all";
   const activeFilterCount =
     (titleFilter.trim() ? 1 : 0) +
-    (showPerson && personFilter.trim() ? 1 : 0) +
+    visibleColumns.filter((c) => personFilters[c.field].value.trim()).length +
     (createdWindow !== "all" ? 1 : 0) +
     (statusFilter ? 1 : 0) +
     (includeIndirect ? 1 : 0);
 
   const [debouncedTitle] = useDebouncedValue(titleFilter, 300);
-  const [debouncedPerson] = useDebouncedValue(personFilter, 300);
+  const [debouncedManager] = useDebouncedValue(managerFilter, 300);
+  const [debouncedSubordinate] = useDebouncedValue(subordinateFilter, 300);
+  const managerVisible = visibleColumns.some((c) => c.field === "managerName");
+  const subordinateVisible = visibleColumns.some((c) => c.field === "subordinateName");
 
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
     usePagedSort<SortField>(
       "createdAt",
-      [debouncedTitle, debouncedPerson, createdWindow, statusFilter, includeIndirect],
+      [debouncedTitle, debouncedManager, debouncedSubordinate, createdWindow, statusFilter, includeIndirect],
       { key: storeKey, sortFields },
       "desc", // newest goals first (the server's default order)
     );
@@ -164,11 +183,13 @@ export default function GoalTable({
       view,
       managerId,
       subordinateId,
+      userId,
       page,
       pageSize,
       sortParam,
       debouncedTitle,
-      debouncedPerson,
+      debouncedManager,
+      debouncedSubordinate,
       createdWindow,
       statusFilter,
       includeIndirect,
@@ -180,15 +201,14 @@ export default function GoalTable({
         pageSize,
         sort: sortParam,
         title: debouncedTitle || undefined,
-        managerName:
-          (showPerson && personColumn.field === "managerName" && debouncedPerson) || undefined,
-        subordinateName:
-          (showPerson && personColumn.field === "subordinateName" && debouncedPerson) || undefined,
+        managerName: (managerVisible && debouncedManager) || undefined,
+        subordinateName: (subordinateVisible && debouncedSubordinate) || undefined,
         status: statusFilter ?? undefined,
         managerId,
         subordinateId,
         createdAtGte: createdWindowCutoff(createdWindow),
         includeIndirect: includeIndirect || undefined,
+        userId,
       }),
     placeholderData: keepPreviousData,
   });
@@ -204,14 +224,15 @@ export default function GoalTable({
           onChange={setTitleFilter}
           clearLabel={t("goal.clearTitleFilter")}
         />
-        {showPerson && (
+        {visibleColumns.map((c) => (
           <ClearableTextInput
-            label={t(personColumn.labelKey)}
-            value={personFilter}
-            onChange={setPersonFilter}
-            clearLabel={t(personColumn.clearFilterLabelKey)}
+            key={c.field}
+            label={t(c.labelKey)}
+            value={personFilters[c.field].value}
+            onChange={personFilters[c.field].set}
+            clearLabel={t(c.clearFilterLabelKey)}
           />
-        )}
+        ))}
         <Select
           label={t("goal.createdAt")}
           data={createdWindowOptions(t)}
@@ -252,17 +273,17 @@ export default function GoalTable({
                 onToggle={toggleSort}
               />
             </Table.Th>
-            {showPerson && (
-              <Table.Th>
+            {visibleColumns.map((c) => (
+              <Table.Th key={c.field}>
                 <SortHeader
-                  field={personColumn.field}
-                  label={t(personColumn.labelKey)}
+                  field={c.field}
+                  label={t(c.labelKey)}
                   activeField={sortField}
                   activeDir={sortDir}
                   onToggle={toggleSort}
                 />
               </Table.Th>
-            )}
+            ))}
             <Table.Th>
               <SortHeader
                 field="createdAt"
@@ -328,16 +349,16 @@ export default function GoalTable({
                       {g.title}
                     </Text>
                   </Table.Td>
-                  {showPerson && (
-                    <Table.Td>
+                  {visibleColumns.map((c) => (
+                    <Table.Td key={c.field}>
                       <PersonCell
-                        userId={personColumn.id(g)}
-                        name={personColumn.name(g)}
-                        deleted={personColumn.deleted(g)}
+                        userId={c.id(g)}
+                        name={c.name(g)}
+                        deleted={c.deleted(g)}
                         currentUserId={currentUserId}
                       />
                     </Table.Td>
-                  )}
+                  ))}
                   <Table.Td style={{ whiteSpace: "nowrap" }} title={formatTimestamp(g.createdAt)}>
                     {formatDate(g.createdAt, i18n.language)}
                   </Table.Td>

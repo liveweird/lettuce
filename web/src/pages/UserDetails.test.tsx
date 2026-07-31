@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -215,6 +215,43 @@ describe("UserDetails page", () => {
     expect(await screen.findByText("bob@example.com")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /provide feedback/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /feedbacks with/i })).not.toBeInTheDocument();
+  });
+
+  test("an auditor viewer gets the Audit drill-downs on any card", async () => {
+    localStorage.setItem(ROLE_KEY, JSON.stringify(["HR"]));
+    // Bob is unrelated to the HR viewer — the audit section shows regardless of relationship.
+    mockApi(mockFetch, { users: [{ id: 5, name: "Bob", email: "bob@example.com", roles: [] }] });
+    renderDetails();
+
+    expect(await screen.findByText("Audit")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Audit feedbacks of Bob" })).toHaveAttribute(
+      "href",
+      "/users/5/feedbacks?name=Bob&from=details&mode=audit",
+    );
+    expect(screen.getByRole("link", { name: "Audit 1:1 meetings of Bob" })).toHaveAttribute(
+      "href",
+      "/users/5/one-on-ones?name=Bob&from=details&mode=audit",
+    );
+    expect(screen.getByRole("link", { name: "Audit goals of Bob" })).toHaveAttribute(
+      "href",
+      "/users/5/goals?name=Bob&from=details&mode=audit",
+    );
+  });
+
+  test("regular viewers and self-views get no Audit section", async () => {
+    mockApi(mockFetch, { users: [{ id: 5, name: "Bob", email: "bob@example.com", roles: [] }] });
+    renderDetails();
+    expect(await screen.findByText("bob@example.com")).toBeInTheDocument();
+    expect(screen.queryByText("Audit")).toBeNull();
+
+    cleanup();
+    // An admin viewing THEMSELVES: no audit section on one's own page either.
+    localStorage.setItem(ROLE_KEY, JSON.stringify(["ADMIN"]));
+    localStorage.setItem(USER_ID_KEY, "5");
+    mockApi(mockFetch, { users: [{ id: 5, name: "Bob", email: "bob@example.com", roles: [] }] });
+    renderDetails();
+    expect(await screen.findByText("bob@example.com")).toBeInTheDocument();
+    expect(screen.queryByText("Audit")).toBeNull();
   });
 
   test("defaults the back link to the users list", async () => {

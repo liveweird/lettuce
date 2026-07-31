@@ -95,7 +95,8 @@
     "members": "Team members",
     "teams": "Teams",
     "org": "Org chart",
-    "team": "Team subordinates"
+    "team": "Team subordinates",
+    "details": "User details"
   },
   "duplicate": {
     "draft": "A draft of this feedback already exists.",
@@ -140,5 +141,7 @@
     "contentUpdated": "Content updated.",
     "contentAndVisibilityUpdated": "Content and visibility updated.",
     "visibilityChanged": "Visibility changed to {{to}}."
-  }
+  },
+  "feedbacksAudit": "All feedbacks of {{who}}",
+  "feedbacksAuditHint": "Every feedback {{who}} is a party to — as subject, provider, or requester — at every status. Read-only."
 }

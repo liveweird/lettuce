@@ -66,7 +66,8 @@
     "PUBLIC": "Public"
   },
   "role": {
-    "ADMIN": "Admin"
+    "ADMIN": "Admin",
+    "HR": "HR"
   },
   "sort": {
     "label": "Sort by",

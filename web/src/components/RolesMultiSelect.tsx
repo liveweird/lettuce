@@ -1,6 +1,6 @@
 import { MultiSelect, Pill, type MultiSelectProps } from "@mantine/core";
 import { useTranslation } from "react-i18next";
-import type { UserRole } from "../api/client";
+import { USER_ROLES, type UserRole } from "../api/client";
 
 /**
  * The Roles field shared by the user create/edit forms: one option per additional role, empty =
@@ -15,7 +15,7 @@ export default function RolesMultiSelect(
     <MultiSelect
       label={t("common.field.roles")}
       placeholder={props.value?.length === 0 ? t("users.rolesNone") : undefined}
-      data={[{ value: "ADMIN", label: t("common.role.ADMIN") }]}
+      data={USER_ROLES.map((value) => ({ value, label: t(`common.role.${value}`) }))}
       renderPill={({ option, onRemove, disabled }) => (
         <Pill
           withRemoveButton={!disabled}

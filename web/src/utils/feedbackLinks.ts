@@ -32,11 +32,13 @@ export function userFeedbacksLink(
   from?: string,
   teamId?: number,
   tab?: string,
+  audit?: boolean,
 ): string {
   const query = new URLSearchParams();
   if (name != null) query.set("name", name);
   if (from) query.set("from", from);
   if (teamId != null) query.set("teamId", String(teamId));
   if (tab) query.set("tab", tab);
+  if (audit) query.set("mode", "audit");
   return `/users/${userId}/feedbacks?${query.toString()}`;
 }

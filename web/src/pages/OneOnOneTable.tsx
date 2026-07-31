@@ -129,6 +129,14 @@ const VIEW_CONFIG: Record<
       <ViewButton m={m} label={t("common.action.view")} aria={t("oneOnOne.viewWith", { name: m.subordinateName })} backParam={backParam} from="team" />
     ),
   },
+  // The HR/ADMIN auditor view (view=user&userId=X): everything X is a party to, read-only —
+  // the auditor is never a party, so the action is always View.
+  user: {
+    personColumns: [MANAGER_COLUMN, SUBORDINATE_COLUMN],
+    renderAction: (m, { t, backParam }) => (
+      <ViewButton m={m} label={t("common.action.view")} aria={t("oneOnOne.viewWith", { name: m.subordinateName })} backParam={backParam} />
+    ),
+  },
   // The per-person drill-down: both role directions in one table, so the row action depends on
   // who ran that meeting — the caller edits their own (latest-only), views everything else.
   with: {
@@ -183,12 +191,15 @@ function ViewButton({
 export default function OneOnOneTable({
   view,
   counterpartId,
+  userId,
   settingsKey,
   backTo,
 }: {
   view: OneOnOneListView;
   /** Required with view="with": the other party's user id. */
   counterpartId?: number;
+  /** Required with view="user" (the HR/ADMIN auditor view): whose meetings to list. */
+  userId?: number;
   /** Override the localStorage view-settings namespace when embedded outside the main tabs. */
   settingsKey?: string;
   /** When set, action links carry a back=… override so detail pages return here. */
@@ -243,6 +254,7 @@ export default function OneOnOneTable({
       "oneOnOnes",
       view,
       counterpartId,
+      userId,
       page,
       pageSize,
       sortParam,
@@ -260,6 +272,7 @@ export default function OneOnOneTable({
         subordinateName: (showFilters && debouncedSubordinate) || undefined,
         includeIndirect: includeIndirect || undefined,
         counterpartId,
+        userId,
       }),
     placeholderData: keepPreviousData,
   });

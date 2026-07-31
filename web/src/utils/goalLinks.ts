@@ -39,10 +39,12 @@ export function goalEditLink(id: number, from?: string, back?: string): string {
 export function userGoalsLink(
   userId: number,
   name: string,
-  from: "managers" | "subordinates" | "team",
+  from: "managers" | "subordinates" | "team" | "details",
   teamId?: number,
+  audit?: boolean,
 ): string {
   let url = `/users/${userId}/goals?name=${encodeURIComponent(name)}&from=${from}`;
   if (teamId != null) url += `&teamId=${teamId}`;
+  if (audit) url += `&mode=audit`;
   return url;
 }

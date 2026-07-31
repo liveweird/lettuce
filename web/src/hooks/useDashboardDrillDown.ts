@@ -1,4 +1,6 @@
 import { useParams, useSearchParams } from "react-router-dom";
+import { canAudit } from "../api/client";
+import { userDetailsLink } from "../utils/userLinks";
 
 // Which screen a per-user drill-down (/users/:userId/…) was opened from — decides the
 // "Back to …" link and the invalid-id redirect. The managers/subordinates grids and the
@@ -11,8 +13,9 @@ export const DASHBOARD_ORIGINS = {
 } as const;
 
 // `team` is the parameterized origin (the ManagerFeedbacks `members` precedent): its back
-// target needs the `teamId` param, so it has no static entry in DASHBOARD_ORIGINS.
-export type DashboardOriginKey = keyof typeof DASHBOARD_ORIGINS | "team";
+// target needs the `teamId` param, so it has no static entry in DASHBOARD_ORIGINS. `details`
+// returns to the person's read-only details page (the audit-mode entry point).
+export type DashboardOriginKey = keyof typeof DASHBOARD_ORIGINS | "team" | "details";
 
 function isStaticOriginKey(value: string | null): value is keyof typeof DASHBOARD_ORIGINS {
   return value != null && value in DASHBOARD_ORIGINS;
@@ -39,6 +42,8 @@ export function useDashboardDrillDown(basePath: string): {
   originKey: DashboardOriginKey;
   origin: { labelKey: string; to: string };
   callerManages: boolean;
+  /** `?mode=audit` requested by an HR/ADMIN caller: the page renders the auditor view. */
+  auditMode: boolean;
   backTo: string;
 } {
   const params = useParams<{ userId: string }>();
@@ -46,25 +51,32 @@ export function useDashboardDrillDown(basePath: string): {
   const name = searchParams.get("name");
   const fromParam = searchParams.get("from");
   const teamId = parsePositiveInt(searchParams.get("teamId"));
-
-  const originKey: DashboardOriginKey =
-    fromParam === "team" && teamId != null
-      ? "team"
-      : isStaticOriginKey(fromParam)
-        ? fromParam
-        : "managers";
-  const origin =
-    originKey === "team"
-      ? { labelKey: "feedback.origin.team", to: `/teams/${teamId}/subordinates` }
-      : DASHBOARD_ORIGINS[originKey];
+  // Non-auditors silently fall back to the normal mode (the EditGoal self-heal spirit).
+  const auditMode = searchParams.get("mode") === "audit" && canAudit();
 
   const userId = Number(params.userId);
   const idIsValid = Number.isFinite(userId) && userId > 0;
+
+  const originKey: DashboardOriginKey =
+    fromParam === "details"
+      ? "details"
+      : fromParam === "team" && teamId != null
+        ? "team"
+        : isStaticOriginKey(fromParam)
+          ? fromParam
+          : "managers";
+  const origin =
+    originKey === "team"
+      ? { labelKey: "feedback.origin.team", to: `/teams/${teamId}/subordinates` }
+      : originKey === "details"
+        ? { labelKey: "feedback.origin.details", to: userDetailsLink(userId, name) }
+        : DASHBOARD_ORIGINS[originKey];
 
   const query = new URLSearchParams();
   if (name) query.set("name", name);
   if (originKey !== "managers" || fromParam === "managers") query.set("from", originKey);
   if (originKey === "team") query.set("teamId", String(teamId));
+  if (auditMode) query.set("mode", "audit");
   const queryString = query.toString();
 
   return {
@@ -73,7 +85,8 @@ export function useDashboardDrillDown(basePath: string): {
     name,
     originKey,
     origin,
-    callerManages: originKey !== "managers",
+    callerManages: !auditMode && originKey !== "managers" && originKey !== "details",
+    auditMode,
     backTo: `/users/${userId}/${basePath}${queryString ? `?${queryString}` : ""}`,
   };
 }

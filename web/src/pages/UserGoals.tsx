@@ -14,19 +14,23 @@ const WORDING: Record<DashboardOriginKey, { titleKey: string; hintKey: string }>
   managers: { titleKey: "goal.goalsWith", hintKey: "goal.goalsWithHint" },
   subordinates: { titleKey: "goal.goalsFor", hintKey: "goal.goalsForHint" },
   team: { titleKey: "goal.goalsFor", hintKey: "goal.goalsForHint" },
+  // The audit entry point (User details): wording is overridden by the audit block below.
+  details: { titleKey: "goal.goalsAudit", hintKey: "goal.goalsAuditHint" },
 };
 
 // The per-person goals drill-down reached from Dashboard → My managers / My subordinates, or
 // from a team-scoped subordinates view (`from=team&teamId=…`).
 export default function UserGoals() {
   const { t } = useTranslation();
-  const { userId, idIsValid, name, originKey, origin, callerManages, backTo } =
+  const { userId, idIsValid, name, originKey, origin, callerManages, auditMode, backTo } =
     useDashboardDrillDown("goals");
 
   if (!idIsValid) return <Navigate to={origin.to} replace />;
 
   const who = name ?? t("goal.userFallback", { id: userId });
-  const wording = WORDING[originKey];
+  const wording = auditMode
+    ? { titleKey: "goal.goalsAudit", hintKey: "goal.goalsAuditHint" }
+    : WORDING[originKey];
 
   return (
     <Stack gap="lg">
@@ -40,7 +44,10 @@ export default function UserGoals() {
         </Text>
       </Stack>
 
-      {callerManages ? (
+      {auditMode ? (
+        // The HR/ADMIN auditor view: every goal this person is a party to, read-only.
+        <GoalTable view="user" userId={userId} backTo={backTo} settingsKey="userGoals.audit" />
+      ) : callerManages ? (
         // The caller is the manager: their goals for this direct report, editable per status.
         <GoalTable
           view="managed"
