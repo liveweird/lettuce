@@ -130,6 +130,8 @@ describe("EditUser page", () => {
     renderEditUser(7);
 
     await screen.findByDisplayValue("Alice");
+    // The selected role renders as a pill whose remove button is accessibly named (v1.24.1).
+    expect(screen.getByRole("button", { name: "Remove role Admin" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /^save$/i }));
 
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/users"));

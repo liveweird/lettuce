@@ -9,7 +9,6 @@ import {
   Container,
   Group,
   Modal,
-  MultiSelect,
   Paper,
   Stack,
   Text,
@@ -21,6 +20,7 @@ import { hasLength, useForm } from "@mantine/form";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError, createUser, isAdmin, type UserRole } from "../api/client";
 import RevealablePassword from "../components/RevealablePassword";
+import RolesMultiSelect from "../components/RolesMultiSelect";
 import { generatePassword } from "../utils/password";
 import { saveErrorMessage } from "../utils/saveError";
 
@@ -165,12 +165,7 @@ export default function CreateUser() {
               rightSectionPointerEvents="auto"
               {...form.getInputProps("email")}
             />
-            <MultiSelect
-              label={t("common.field.roles")}
-              placeholder={form.values.roles.length === 0 ? t("users.rolesNone") : undefined}
-              data={[{ value: "ADMIN", label: t("common.role.ADMIN") }]}
-              {...form.getInputProps("roles")}
-            />
+            <RolesMultiSelect {...form.getInputProps("roles")} />
             <Checkbox
               label={t("users.createSendEmail")}
               checked={sendEmail}

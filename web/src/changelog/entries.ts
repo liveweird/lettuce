@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.24.1",
+    date: "2026-07-31",
+    en: `Accessibility fix: the remove button on each selected role in the *Roles* field now announces itself to screen readers ("Remove role Admin") instead of being an unnamed button.`,
+    pl: `Poprawka dostępności: przycisk usuwania przy każdej wybranej roli w polu *Role* przedstawia się teraz czytnikom ekranu („Usuń rolę Administrator") zamiast być przyciskiem bez nazwy.`,
+  },
+  {
     version: "1.24.0",
     date: "2026-07-31",
     en: `User roles work differently now: everyone is a regular user by default, and roles such as **Admin** are additional grants on top — a user can hold none, one, or (in the future) several. The user form's single role dropdown became a *Roles* multi-select, the *Users* list shows a badge per additional role (and a dash for none), and the role column is no longer sortable. Nothing changes about what admins can do — their privileges still add to, never replace, regular-user rights.`,
