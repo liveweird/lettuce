@@ -34,12 +34,14 @@ test("the one-time password is masked until revealed, and hides again", async ({
   await dialog.getByRole("button", { name: "Close", exact: true }).last().click();
 });
 
-test("admin promotes a user to Admin", async ({ page }) => {
+test("admin grants and revokes the Admin role", async ({ page }) => {
   await login(page, ADMIN);
   const user = await createUserViaUi(page, "E2E-Role");
 
+  // Grant: pick Admin in the Roles multi-select (a new user starts with no additional roles).
   await page.goto(`/users/${user.id}/edit`);
-  await page.getByRole("combobox", { name: "Role" }).click();
+  const rolesField = page.getByRole("combobox", { name: "Roles" });
+  await rolesField.click();
   await page.getByRole("option", { name: "Admin" }).click();
   await Promise.all([
     page.waitForResponse(
@@ -47,8 +49,26 @@ test("admin promotes a user to Admin", async ({ page }) => {
     ),
     page.getByRole("button", { name: "Save" }).click(),
   ]);
+
+  // The grant survived: the edit form shows the Admin pill.
   await page.goto(`/users/${user.id}/edit`);
-  await expect(page.getByRole("combobox", { name: "Role" })).toHaveValue("Admin");
+  await expect(page.getByText("Admin", { exact: true })).toBeVisible();
+
+  // Revoke: with the field focused, Backspace removes the last pill; save — back to no roles.
+  // Escape closes the dropdown first, so the "Admin" OPTION can't satisfy the count assertion.
+  await page.getByRole("combobox", { name: "Roles" }).click();
+  await page.keyboard.press("Backspace");
+  await page.keyboard.press("Escape");
+  await expect(page.getByText("Admin", { exact: true })).toHaveCount(0);
+  await Promise.all([
+    page.waitForResponse(
+      (r) => new RegExp(`/api/v1/users/${user.id}$`).test(r.url()) && r.request().method() === "PUT" && r.ok(),
+    ),
+    page.getByRole("button", { name: "Save" }).click(),
+  ]);
+  await page.goto(`/users/${user.id}/edit`);
+  await expect(page.getByRole("combobox", { name: "Roles" })).toBeVisible();
+  await expect(page.getByText("Admin", { exact: true })).toHaveCount(0);
 });
 
 test("admin resets a password; the user then changes their own (current password required)", async ({
