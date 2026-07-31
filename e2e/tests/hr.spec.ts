@@ -8,7 +8,34 @@ import {
   gotoUserRow,
   ADMIN,
   MANAGER_AAA,
+  PASSWORD,
 } from "./helpers";
+
+// The probe DRAFT minted below (manager-aaa → AAA One) would block any later spec's create on
+// the same pair via the no-duplicate invariant, so it is deleted via the API even on failure.
+let probeFeedbackId: number | null = null;
+
+test.afterEach(async ({ request }) => {
+  if (probeFeedbackId == null) return;
+  const id = probeFeedbackId;
+  probeFeedbackId = null;
+  // Retry through the per-IP login bucket like helpers.login() does.
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const res = await request.post("/api/v1/login", {
+      data: { email: MANAGER_AAA, password: PASSWORD },
+    });
+    if (res.ok()) {
+      const { token } = (await res.json()) as { token: string };
+      await request.delete(`/api/v1/feedbacks/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return;
+    }
+    if (res.status() !== 429) break;
+    await new Promise((r) => setTimeout(r, 10_000));
+  }
+  throw new Error(`hr.spec cleanup failed: could not delete probe feedback ${id}`);
+});
 
 // The HR auditor role (v1.25.0): read-only access to everything any user is a party to —
 // browsed from the user-details Audit section — with zero write affordances and no admin
@@ -36,7 +63,7 @@ test("an HR auditor browses another pair's private draft read-only", async ({ pa
   //    provider, ADMIN, and HR (the strongest audit-read proof).
   const probe = `E2E-HR audit probe ${Date.now()}`;
   await login(page, MANAGER_AAA);
-  await provideFeedback(page, "AAA One", probe, "Save draft");
+  probeFeedbackId = await provideFeedback(page, "AAA One", probe, "Save draft");
   await logout(page);
 
   // 3. The auditor reaches AAA One's details; the Audit section is offered.
