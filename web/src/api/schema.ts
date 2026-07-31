@@ -185,7 +185,7 @@ export interface paths {
         };
         /**
          * Fetch a user by id
-         * @description Requires the caller to be the target user, or to be ADMIN.
+         * @description Requires the caller to be the target user, ADMIN, or HR (HR reads are audit-logged).
          */
         get: operations["getUser"];
         /**
@@ -408,8 +408,8 @@ export interface paths {
         };
         /**
          * List feedbacks for the caller
-         * @description Lists feedback records scoped by `view`. Scoping is always relative to the caller,
-         *     including ADMIN callers.
+         * @description Lists feedback records scoped by `view`. Scoping is always relative to the caller —
+         *     including ADMIN callers — except `view=user`, the HR/ADMIN auditor view.
          *
          *     - `view=received` (the default): rows where the caller is the **subject**, scoped exactly
          *       like the single-GET read rules (every listed row is also openable): (a) the caller is
@@ -431,6 +431,11 @@ export interface paths {
          *       the requester of an unfinished row, its `contentPreview` is redacted (empty) until sent.
          *       Note the narrower direct-only default is a list scope, not an authorization boundary:
          *       the single-GET grants any manager in the subject's chain read access once delivered.
+         *     - `view=user` (HR or ADMIN only, else `403`; requires `userId`): the auditor view —
+         *       every feedback the given user is a party to (subject, provider, or requester), at
+         *       every status and visibility, DRAFTs included; `contentPreview` is never redacted.
+         *       HR usage is recorded in the security audit trail. The ordinary sort/filter/paging
+         *       parameters apply on top.
          *
          *     Supports offset pagination, sorting and filtering.
          *
@@ -681,7 +686,8 @@ export interface paths {
         };
         /**
          * List 1:1 meetings for the caller
-         * @description Lists 1:1 meetings scoped by `view`. Scoping is always relative to the caller, including
+         * @description Lists 1:1 meetings scoped by `view`. Except `view=user` (the HR/ADMIN auditor view),
+         *     scoping is always relative to the caller, including
          *     ADMIN callers.
          *
          *     - `view=own` (the default): meetings where the caller is the **subordinate**.
@@ -696,6 +702,10 @@ export interface paths {
          *       required for this view and rejected on any other), in **either role direction** — the
          *       pair may have swapped manager/subordinate roles over time. The caller is a party to
          *       every returned row.
+         *     - `view=user` (HR or ADMIN only, else `403`; requires `userId`): the auditor view —
+         *       every meeting the given user is a party to, in either role direction. HR usage is
+         *       recorded in the security audit trail. The ordinary sort/filter/paging parameters
+         *       apply on top.
          *
          *     Rows carry the party names, the meeting date, and per-list counts (`pointCount`,
          *     `decisionCount`, `actionItemCount`, `openActionItemCount`) — never item content.
@@ -866,7 +876,8 @@ export interface paths {
         };
         /**
          * List goals for the caller
-         * @description Lists goals scoped by `view`. Scoping is always relative to the caller, including ADMIN
+         * @description Lists goals scoped by `view`. Except `view=user` (the HR/ADMIN auditor view), scoping
+         *     is always relative to the caller, including ADMIN
          *     callers.
          *
          *     - `view=own` (the default): goals where the caller is the **subordinate**.
@@ -883,6 +894,10 @@ export interface paths {
          *       empty page. The narrower direct-only default is a list scope, not an authorization
          *       boundary: the single-GET grants any manager in the subordinate's chain read access to
          *       a non-DRAFT goal.
+         *     - `view=user` (HR or ADMIN only, else `403`; requires `userId`): the auditor view —
+         *       every goal the given user is a party to (manager or subordinate), at every status,
+         *       DRAFTs included. HR usage is recorded in the security audit trail. The ordinary
+         *       sort/filter/paging parameters apply on top.
          *
          *     Rows carry the party names, title, type, status, and the value fields — never the
          *     description or summary.
@@ -1454,7 +1469,7 @@ export interface components {
             /** Format: int64 */
             userId: number;
             /** @description Additional roles of the authenticated user — empty for a regular user. */
-            roles: "ADMIN"[];
+            roles: ("ADMIN" | "HR")[];
         };
         RefreshRequest: {
             /** @description The refresh token previously issued by /login or /refresh. */
@@ -1506,7 +1521,7 @@ export interface components {
              *     ADMIN-only, so any set may be given; omitted defaults to no additional
              *     roles.
              */
-            roles?: "ADMIN"[];
+            roles?: ("ADMIN" | "HR")[];
             /**
              * @description Create only — email the new user their credentials (the bilingual welcome message). Rejected with 503 on a deployment without outbound email.
              * @default false
@@ -1518,7 +1533,7 @@ export interface components {
             id: number;
             name: string;
             email: string;
-            roles: "ADMIN"[];
+            roles: ("ADMIN" | "HR")[];
             /** @description Present only when sendEmail was requested — false means the delivery failed (the account exists regardless; the password is still shown once). */
             emailSent?: boolean | null;
         };
@@ -1530,7 +1545,7 @@ export interface components {
              * @description Part of the full representation (PUT). Changing the set requires ADMIN; a non-ADMIN
              *     caller must send the set the user already has, otherwise the request is rejected with 403.
              */
-            roles: "ADMIN"[];
+            roles: ("ADMIN" | "HR")[];
         };
         PasswordUpdateRequest: {
             /** @description At most 71 bytes in UTF-8 (bcrypt limit) — longer is rejected with 400. */
@@ -1548,7 +1563,7 @@ export interface components {
             /** Format: email */
             email: string;
             /** @description Additional roles — empty for a regular user. */
-            roles: "ADMIN"[];
+            roles: ("ADMIN" | "HR")[];
         };
         UserPage: {
             items: components["schemas"]["UserResponse"][];
@@ -2635,7 +2650,7 @@ export interface operations {
                 /** @description Case-insensitive substring match against the user's email. */
                 email?: string;
                 /** @description Only users holding this additional role. */
-                role?: "ADMIN";
+                role?: "ADMIN" | "HR";
                 /** @description Filter to users who are members of the given team. */
                 teamId?: number;
             };
@@ -2774,7 +2789,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            /** @description Caller is not the target user and not ADMIN */
+            /** @description Caller is not the target user, not ADMIN, and not HR */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3256,8 +3271,13 @@ export interface operations {
                  *     always appended as a deterministic tiebreaker.
                  */
                 sort?: components["parameters"]["Sort"];
-                /** @description Which caller-relative slice of feedbacks to list. */
-                view?: "received" | "provided" | "team";
+                /** @description Which slice of feedbacks to list — caller-relative, except the HR/ADMIN auditor view `user`. */
+                view?: "received" | "provided" | "team" | "user";
+                /**
+                 * @description Required with `view=user` (`400` when missing there, `400` with any other view):
+                 *     the user whose records the auditor view lists.
+                 */
+                userId?: number;
                 /**
                  * @description Only valid with `view=team` (else `400`). When `true`, widens the subject scope
                  *     from the caller's direct reports to their whole transitive management chain:
@@ -3300,6 +3320,15 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            /** @description view=user requested without the HR or ADMIN role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -3676,8 +3705,8 @@ export interface operations {
                  *     always appended as a deterministic tiebreaker.
                  */
                 sort?: components["parameters"]["Sort"];
-                /** @description Which caller-relative slice of 1:1 meetings to list. */
-                view?: "own" | "managed" | "team" | "with";
+                /** @description Which slice of 1:1 meetings to list — caller-relative, except the HR/ADMIN auditor view `user`. */
+                view?: "own" | "managed" | "team" | "with" | "user";
                 /**
                  * @description Only valid with `view=team` (else `400`). When `true`, widens which managers count
                  *     from the caller's direct reports to their whole transitive management chain.
@@ -3688,6 +3717,11 @@ export interface operations {
                  *     other view (`400`).
                  */
                 counterpartId?: number;
+                /**
+                 * @description Required with `view=user` (`400` when missing there, `400` with any other view):
+                 *     the user whose records the auditor view lists.
+                 */
+                userId?: number;
                 /** @description Case-insensitive substring match against the manager's name. */
                 managerName?: string;
                 /** @description Case-insensitive substring match against the subordinate's name. */
@@ -3714,6 +3748,15 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            /** @description view=user requested without the HR or ADMIN role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -3947,8 +3990,13 @@ export interface operations {
                  *     always appended as a deterministic tiebreaker.
                  */
                 sort?: components["parameters"]["Sort"];
-                /** @description Which caller-relative slice of goals to list. */
-                view?: "own" | "managed" | "team";
+                /** @description Which slice of goals to list — caller-relative, except the HR/ADMIN auditor view `user`. */
+                view?: "own" | "managed" | "team" | "user";
+                /**
+                 * @description Required with `view=user` (`400` when missing there, `400` with any other view):
+                 *     the user whose records the auditor view lists.
+                 */
+                userId?: number;
                 /**
                  * @description Only valid with `view=managed` and `view=team` (else `400`). For `view=managed`,
                  *     `true` widens the list from the caller's own goals to also include goals set by
@@ -3993,6 +4041,15 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            /** @description view=user requested without the HR or ADMIN role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             500: components["responses"]["InternalServerError"];
         };
     };

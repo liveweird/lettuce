@@ -7,9 +7,13 @@ import kotlinx.serialization.Serializable
  * Additional roles a user may hold. Every user is implicitly a regular user (USER is never
  * stored or transmitted); values here only ever ADD privileges on top of that baseline.
  * A future role is just a new value — no migration needed (user_roles has no CHECK).
+ *
+ * [ADMIN] — full management rights (bypasses every per-resource check except feedback/1:1/goal
+ * writes). [HR] — read-only auditor: read access equal to ADMIN's (drafts included), zero
+ * write or management privileges; HR-privileged reads are audit-logged (`hr.read`/`hr.list`).
  */
 @Serializable
-enum class UserRole { ADMIN }
+enum class UserRole { ADMIN, HR }
 
 @Serializable
 data class User(

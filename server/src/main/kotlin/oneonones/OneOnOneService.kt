@@ -23,7 +23,7 @@ import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
 val OneOnOneServiceKey = AttributeKey<OneOnOneService>("OneOnOneService")
 
-enum class OneOnOneListView { OWN, MANAGED, TEAM, WITH }
+enum class OneOnOneListView { OWN, MANAGED, TEAM, WITH, USER }
 
 /** Storage discriminator for the shared points/decisions table. */
 enum class NoteKind { POINT, DECISION }
@@ -410,10 +410,18 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
         paging: PageRequest,
         includeIndirect: Boolean = false,
         counterpartId: UInt? = null,
+        targetUserId: UInt? = null,
     ): OneOnOneListResult = suspendTransaction(database) {
         val scope: Op<Boolean> = when (view) {
             OneOnOneListView.OWN -> Meetings.subordinateId eq callerUserId
             OneOnOneListView.MANAGED -> Meetings.managerId eq callerUserId
+            OneOnOneListView.USER -> {
+                // Auditor view (HR/ADMIN, gated route-side via requireAuditListAccess): every
+                // meeting the target is a party to, either role direction. The route guarantees
+                // a non-null userId.
+                val target = requireNotNull(targetUserId) { "view=user requires userId" }
+                (Meetings.managerId eq target) or (Meetings.subordinateId eq target)
+            }
             OneOnOneListView.WITH -> {
                 // Every 1:1 between the caller and one counterpart, either role direction (the
                 // pair may have switched manager/subordinate roles over time). The caller is a

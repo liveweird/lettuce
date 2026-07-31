@@ -2,6 +2,7 @@ package ch.nokillswit.goals
 
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.caller
+import ch.nokillswit.authz.requireAuditListAccess
 import ch.nokillswit.authz.requireGoalReadAllowingManager
 import ch.nokillswit.authz.requireGoalWrite
 import ch.nokillswit.infra.db.requireValidReferences
@@ -117,7 +118,8 @@ fun Application.configureGoalRoutes() {
                     "own" -> GoalListView.OWN
                     "managed" -> GoalListView.MANAGED
                     "team" -> GoalListView.TEAM
-                    else -> throw BadRequestException("Unknown view: $raw (allowed: own, managed, team)")
+                    "user" -> GoalListView.USER
+                    else -> throw BadRequestException("Unknown view: $raw (allowed: own, managed, team, user)")
                 }
                 val paging = call.parsePaging(
                     sortable = setOf(
@@ -127,8 +129,20 @@ fun Application.configureGoalRoutes() {
                     defaultSort = listOf(SortField("createdAt", descending = true)),
                 )
                 val includeIndirect = params.optionalBoolean("includeIndirect")
-                if (includeIndirect != null && view == GoalListView.OWN) {
+                if (includeIndirect != null && view != GoalListView.MANAGED && view != GoalListView.TEAM) {
                     throw BadRequestException("includeIndirect is only supported for view=managed and view=team")
+                }
+                // The auditor view (HR/ADMIN): view-shape validation like counterpartId on the
+                // 1:1 list, then the role gate (which audit-logs HR usage).
+                val userId = params.optionalUInt("userId")
+                if (view == GoalListView.USER && userId == null) {
+                    throw BadRequestException("userId is required for view=user")
+                }
+                if (view != GoalListView.USER && userId != null) {
+                    throw BadRequestException("userId is only supported for view=user")
+                }
+                if (view == GoalListView.USER) {
+                    requireAuditListAccess(caller, "goal", userId!!)
                 }
                 val filter = GoalListFilter(
                     managerName = params.optionalString("managerName"),
@@ -147,6 +161,7 @@ fun Application.configureGoalRoutes() {
                     filter,
                     paging,
                     includeIndirect = includeIndirect == true,
+                    targetUserId = userId,
                 )
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
             }

@@ -15,6 +15,7 @@ import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAdmin
 import ch.nokillswit.authz.requireCanAssignRoles
 import ch.nokillswit.authz.requireSelfOrAdmin
+import ch.nokillswit.authz.requireUserRead
 import ch.nokillswit.notifications.Notification
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.notifications.NotificationType
@@ -230,7 +231,7 @@ fun Application.configureUserRoutes() {
                 call.respond(HttpStatusCode.OK, UserImportResponse(rows, created, duplicates, errors))
             }
             get<Users.Id> { route ->
-                requireSelfOrAdmin(call.caller(), route.id)
+                requireUserRead(call.caller(), route.id)
                 val user = userService.read(route.id)
                 if (user != null) {
                     call.respond(HttpStatusCode.OK, user.toResponse(route.id))

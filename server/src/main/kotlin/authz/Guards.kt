@@ -1,5 +1,6 @@
 package ch.nokillswit.authz
 
+import ch.nokillswit.audit.audit
 import ch.nokillswit.feedbacks.Feedback
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
@@ -11,6 +12,29 @@ import ch.nokillswit.users.UserRole
 
 fun CallerPrincipal.isAdmin(): Boolean = UserRole.ADMIN in roles
 
+fun CallerPrincipal.isHr(): Boolean = UserRole.HR in roles
+
+/** Read-everything privilege: ADMIN, or the HR auditor role (whose reads are audit-logged). */
+fun CallerPrincipal.hasFullReadAccess(): Boolean = isAdmin() || isHr()
+
+/**
+ * Grants a read via the HR auditor role and records it (`hr.read`). Call AFTER the ordinary
+ * rules (party/ADMIN/…) have missed, so the event only fires when the HR privilege is the
+ * granting reason — one deliberate exception: an HR caller who is also in the record's
+ * management chain is logged here without the chain walk (still an auditor-capable read,
+ * and it saves the DB hit).
+ */
+private fun grantHrRead(caller: CallerPrincipal, resource: String, resourceId: UInt): Boolean {
+    if (!caller.isHr()) return false
+    audit(
+        "hr.read",
+        "resource" to resource,
+        "resourceId" to resourceId.toLong(),
+        "byUserId" to caller.userId.toLong(),
+    )
+    return true
+}
+
 fun requireAdmin(caller: CallerPrincipal) {
     if (!caller.isAdmin()) throw ForbiddenException("Admin role required")
 }
@@ -18,6 +42,36 @@ fun requireAdmin(caller: CallerPrincipal) {
 fun requireSelfOrAdmin(caller: CallerPrincipal, targetUserId: UInt) {
     if (caller.isAdmin()) return
     if (caller.userId != targetUserId) throw ForbiddenException("Caller may only act on their own user")
+}
+
+/**
+ * Read guard for GET /users/{id}: self, ADMIN, or HR (audited). Reads-only sibling of
+ * [requireSelfOrAdmin] — the PUT/password sites keep that guard, so HR never gains the writes.
+ * Runs guard-before-read like the original (API-ERR-006 uniform 403 preserved; the hr.read
+ * event may therefore cite a nonexistent id — it records the attempt, which is fine).
+ */
+fun requireUserRead(caller: CallerPrincipal, targetUserId: UInt) {
+    if (caller.isAdmin() || caller.userId == targetUserId) return
+    if (grantHrRead(caller, "user", targetUserId)) return
+    throw ForbiddenException("Caller may only act on their own user")
+}
+
+/**
+ * Gate for the auditor list view (`view=user` on the feedback/1:1/goal lists): HR or ADMIN.
+ * HR usage is recorded (`hr.list`); ADMIN reads stay unlogged like everywhere else.
+ */
+fun requireAuditListAccess(caller: CallerPrincipal, resource: String, targetUserId: UInt) {
+    if (!caller.hasFullReadAccess()) {
+        throw ForbiddenException("HR or Admin role required for view=user")
+    }
+    if (!caller.isAdmin()) {
+        audit(
+            "hr.list",
+            "resource" to resource,
+            "targetUserId" to targetUserId.toLong(),
+            "byUserId" to caller.userId.toLong(),
+        )
+    }
 }
 
 fun requireTeamManagerOrAdmin(caller: CallerPrincipal, managerId: UInt) {
@@ -93,9 +147,13 @@ fun canReadFeedback(
 suspend fun requireFeedbackReadAllowingManager(
     caller: CallerPrincipal,
     feedback: Feedback,
+    feedbackId: UInt,
     managesSubject: suspend () -> Boolean,
 ) {
     if (canReadFeedback(caller, feedback)) return // cheap rules first
+    // HR auditor: reads everything (drafts included), audit-logged. Before the chain walk —
+    // no DB hit for HR.
+    if (grantHrRead(caller, "feedback", feedbackId)) return
     // Any manager in the subject's management chain (direct or transitive — their manager's
     // manager, and so on) may read only once the feedback is delivered (SENT/WITHDRAWN),
     // matching the team list scope — a provider's DRAFT/REQUESTED work stays private to the
@@ -112,7 +170,7 @@ suspend fun requireFeedbackReadAllowingManager(
  * as before.
  */
 fun canReadFeedbackContent(caller: CallerPrincipal, feedback: Feedback): Boolean {
-    if (caller.isAdmin()) return true
+    if (caller.hasFullReadAccess()) return true // ADMIN, and the HR auditor (never blanked)
     if (caller.userId == feedback.providerId) return true
     val unfinished =
         feedback.status == FeedbackStatus.DRAFT || feedback.status == FeedbackStatus.REQUESTED
@@ -156,6 +214,8 @@ suspend fun requireOneOnOneReadAllowingManager(
     managesSubordinate: suspend () -> Boolean,
 ) {
     if (canReadOneOnOne(caller, meeting)) return // cheap rules first
+    // HR auditor: reads everything, audit-logged. Before the chain walk — no DB hit for HR.
+    if (grantHrRead(caller, "oneOnOne", meeting.id)) return
     if (managesSubordinate()) return // DB hit only if needed
     throw ForbiddenException("Caller may not read this 1:1 meeting")
 }
@@ -197,6 +257,9 @@ suspend fun requireGoalReadAllowingManager(
     managesSubordinate: suspend () -> Boolean,
 ) {
     if (canReadGoal(caller, goal)) return // cheap rules first
+    // HR auditor: reads everything — deliberately BEFORE the chain rule, so HR (unlike chain
+    // managers) also sees DRAFT goals. Audit-logged; no DB hit for HR.
+    if (grantHrRead(caller, "goal", goal.id)) return
     if (goal.status != GoalStatus.DRAFT && managesSubordinate()) return // DB hit only if needed
     throw ForbiddenException("Caller may not read this goal")
 }

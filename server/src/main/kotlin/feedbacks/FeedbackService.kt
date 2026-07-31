@@ -26,7 +26,7 @@ import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
 val FeedbackServiceKey = AttributeKey<FeedbackService>("FeedbackService")
 
-enum class FeedbackListView { RECEIVED, PROVIDED, TEAM }
+enum class FeedbackListView { RECEIVED, PROVIDED, TEAM, USER }
 
 data class FeedbackListFilter(
     val requesterName: String? = null,
@@ -441,10 +441,20 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
         filter: FeedbackListFilter,
         paging: PageRequest,
         includeIndirect: Boolean = false,
+        targetUserId: UInt? = null,
     ): FeedbackListResult = suspendTransaction(database) {
         val scope: Op<Boolean> = when (view) {
             FeedbackListView.RECEIVED -> receivedScope(callerUserId)
             FeedbackListView.PROVIDED -> Feedbacks.providerId eq callerUserId
+            FeedbackListView.USER -> {
+                // Auditor view (HR/ADMIN, gated route-side via requireAuditListAccess): every
+                // feedback the target is a party to, at every status and visibility — HR read
+                // equals ADMIN read. The route guarantees a non-null userId.
+                val target = requireNotNull(targetUserId) { "view=user requires userId" }
+                (Feedbacks.subjectId eq target) or
+                    (Feedbacks.providerId eq target) or
+                    (Feedbacks.requesterId eq target)
+            }
             FeedbackListView.TEAM -> {
                 // Direct reports by default; with includeIndirect the whole transitive
                 // management chain (members of teams the caller manages, plus recursively
@@ -506,10 +516,12 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
             .applyPaging(paging, SORTABLE_COLUMNS)
             .map { row ->
                 // Mirror canReadFeedbackContent: a requester watching an unfinished feedback sees
-                // that it exists but not its content.
+                // that it exists but not its content. The auditor view is never redacted —
+                // HR/ADMIN read includes content (the widened canReadFeedbackContent).
                 val unfinished = row[Feedbacks.status] == FeedbackStatus.DRAFT ||
                     row[Feedbacks.status] == FeedbackStatus.REQUESTED
-                val redactContent = unfinished && row[Feedbacks.requesterId]?.value == callerUserId
+                val redactContent = view != FeedbackListView.USER &&
+                    unfinished && row[Feedbacks.requesterId]?.value == callerUserId
                 FeedbackListItem(
                     id = row[Feedbacks.id].value,
                     requesterId = row[Feedbacks.requesterId]?.value,

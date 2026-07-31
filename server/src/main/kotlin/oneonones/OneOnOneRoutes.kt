@@ -2,6 +2,7 @@ package ch.nokillswit.oneonones
 
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.caller
+import ch.nokillswit.authz.requireAuditListAccess
 import ch.nokillswit.authz.requireOneOnOneReadAllowingManager
 import ch.nokillswit.authz.requireOneOnOneWrite
 import ch.nokillswit.infra.db.requireValidReferences
@@ -133,7 +134,8 @@ fun Application.configureOneOnOneRoutes() {
                     "managed" -> OneOnOneListView.MANAGED
                     "team" -> OneOnOneListView.TEAM
                     "with" -> OneOnOneListView.WITH
-                    else -> throw BadRequestException("Unknown view: $raw (allowed: own, managed, team, with)")
+                    "user" -> OneOnOneListView.USER
+                    else -> throw BadRequestException("Unknown view: $raw (allowed: own, managed, team, with, user)")
                 }
                 val paging = call.parsePaging(
                     sortable = setOf("id", "meetingDate", "managerName", "subordinateName", "lastModified"),
@@ -152,6 +154,18 @@ fun Application.configureOneOnOneRoutes() {
                 if (view != OneOnOneListView.WITH && counterpartId != null) {
                     throw BadRequestException("counterpartId is only supported for view=with")
                 }
+                // The auditor view (HR/ADMIN): view-shape validation like counterpartId above,
+                // then the role gate (which audit-logs HR usage).
+                val userId = params.optionalUInt("userId")
+                if (view == OneOnOneListView.USER && userId == null) {
+                    throw BadRequestException("userId is required for view=user")
+                }
+                if (view != OneOnOneListView.USER && userId != null) {
+                    throw BadRequestException("userId is only supported for view=user")
+                }
+                if (view == OneOnOneListView.USER) {
+                    requireAuditListAccess(caller, "oneOnOne", userId!!)
+                }
                 val filter = OneOnOneListFilter(
                     managerName = params.optionalString("managerName"),
                     subordinateName = params.optionalString("subordinateName"),
@@ -165,6 +179,7 @@ fun Application.configureOneOnOneRoutes() {
                     paging,
                     includeIndirect = includeIndirect == true,
                     counterpartId = counterpartId,
+                    targetUserId = userId,
                 )
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
             }
