@@ -9,8 +9,8 @@ import {
   Container,
   Group,
   Modal,
+  MultiSelect,
   Paper,
-  Select,
   Stack,
   Text,
   TextInput,
@@ -27,7 +27,7 @@ import { saveErrorMessage } from "../utils/saveError";
 type FormValues = {
   name: string;
   email: string;
-  role: UserRole;
+  roles: UserRole[];
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -49,7 +49,8 @@ export default function CreateUser() {
   } | null>(null);
 
   const form = useForm<FormValues>({
-    initialValues: { name: "", email: "", role: "USER" },
+    // Roles hold only ADDITIONAL privileges — a new user starts as a plain user (empty set).
+    initialValues: { name: "", email: "", roles: [] },
     validate: {
       name: hasLength({ min: 1, max: 50 }, t("users.validation.nameLength")),
       email: (value) => {
@@ -58,7 +59,6 @@ export default function CreateUser() {
         if (value.length > 254) return t("users.validation.emailTooLong");
         return null;
       },
-      role: (value) => (value === "USER" || value === "ADMIN" ? null : t("users.validation.roleRequired")),
     },
   });
 
@@ -165,14 +165,11 @@ export default function CreateUser() {
               rightSectionPointerEvents="auto"
               {...form.getInputProps("email")}
             />
-            <Select
-              label={t("common.field.role")}
-              data={[
-                { value: "USER", label: t("common.role.USER") },
-                { value: "ADMIN", label: t("common.role.ADMIN") },
-              ]}
-              allowDeselect={false}
-              {...form.getInputProps("role")}
+            <MultiSelect
+              label={t("common.field.roles")}
+              placeholder={form.values.roles.length === 0 ? t("users.rolesNone") : undefined}
+              data={[{ value: "ADMIN", label: t("common.role.ADMIN") }]}
+              {...form.getInputProps("roles")}
             />
             <Checkbox
               label={t("users.createSendEmail")}

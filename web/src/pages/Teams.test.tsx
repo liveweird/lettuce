@@ -8,7 +8,7 @@ import Teams from "./Teams";
 import { jsonResponse } from "../test/http";
 
 const TOKEN_KEY = "lettuce.auth.token";
-const ROLE_KEY = "lettuce.auth.role";
+const ROLE_KEY = "lettuce.auth.roles";
 
 type FetchMock = ReturnType<typeof vi.fn>;
 
@@ -31,7 +31,7 @@ function teamsPage(
   });
 }
 
-function usersPage(items: Array<{ id: number; name: string; email: string; role: "ADMIN" | "USER" }>) {
+function usersPage(items: Array<{ id: number; name: string; email: string; roles: Array<"ADMIN"> }>) {
   return jsonResponse(200, { items, page: 1, pageSize: 100, total: items.length });
 }
 
@@ -41,8 +41,8 @@ const SEED_TEAMS = [
 ];
 
 const SEED_MANAGERS = [
-  { id: 10, name: "Alice Manager", email: "alice@example.com", role: "ADMIN" as const },
-  { id: 11, name: "Bob Manager", email: "bob@example.com", role: "USER" as const },
+  { id: 10, name: "Alice Manager", email: "alice@example.com", roles: ["ADMIN" as const] },
+  { id: 11, name: "Bob Manager", email: "bob@example.com", roles: [] as Array<"ADMIN"> },
 ];
 
 function routeFor(url: string): "teams" | "users" | "other" {
@@ -82,7 +82,7 @@ describe("Teams page", () => {
     mockFetch = vi.fn();
     vi.stubGlobal("fetch", mockFetch);
     localStorage.setItem(TOKEN_KEY, "fake-token");
-    localStorage.setItem(ROLE_KEY, "ADMIN");
+    localStorage.setItem(ROLE_KEY, JSON.stringify(["ADMIN"]));
   });
 
   afterEach(() => {
@@ -312,7 +312,7 @@ describe("Teams page", () => {
   });
 
   test("non-admin does not see a 'New team' link", async () => {
-    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(ROLE_KEY, "[]");
     setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
     renderTeams();
 
@@ -377,7 +377,7 @@ describe("Teams page", () => {
   });
 
   test("non-admin sees Members links but not Edit or Delete controls", async () => {
-    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(ROLE_KEY, "[]");
     setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
     renderTeams();
 
@@ -391,7 +391,7 @@ describe("Teams page", () => {
   });
 
   test("non-admin does not see Delete buttons", async () => {
-    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(ROLE_KEY, "[]");
     setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
     renderTeams();
 

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   ApiError,
   authedFetch,
-  getRole,
+  getRoles,
   getToken,
   getUserId,
   isAdmin,
@@ -20,7 +20,7 @@ function tokenPair(overrides: Record<string, unknown> = {}): Record<string, unkn
     expiresAt: 1,
     refreshToken: "new-refresh",
     refreshExpiresAt: 2,
-    role: "USER",
+    roles: [],
     userId: 7,
     ...overrides,
   };
@@ -28,7 +28,7 @@ function tokenPair(overrides: Record<string, unknown> = {}): Record<string, unkn
 
 const TOKEN_KEY = "lettuce.auth.token";
 const REFRESH_TOKEN_KEY = "lettuce.auth.refreshToken";
-const ROLE_KEY = "lettuce.auth.role";
+const ROLE_KEY = "lettuce.auth.roles";
 const USER_ID_KEY = "lettuce.auth.userId";
 
 type FetchMock = ReturnType<typeof vi.fn>;
@@ -55,14 +55,16 @@ describe("session accessors", () => {
     expect(getToken()).toBeNull();
   });
 
-  test("getRole only accepts known roles; isAdmin reflects it", () => {
-    expect(getRole()).toBeNull();
-    localStorage.setItem(ROLE_KEY, "BOGUS");
-    expect(getRole()).toBeNull();
-    localStorage.setItem(ROLE_KEY, "ADMIN");
-    expect(getRole()).toBe("ADMIN");
+  test("getRoles filters unknown values and survives corrupt storage; isAdmin reflects it", () => {
+    expect(getRoles()).toEqual([]);
+    localStorage.setItem(ROLE_KEY, "not-json{");
+    expect(getRoles()).toEqual([]);
+    localStorage.setItem(ROLE_KEY, JSON.stringify({ nope: true }));
+    expect(getRoles()).toEqual([]);
+    localStorage.setItem(ROLE_KEY, JSON.stringify(["BOGUS", "ADMIN"]));
+    expect(getRoles()).toEqual(["ADMIN"]);
     expect(isAdmin()).toBe(true);
-    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(ROLE_KEY, "[]");
     expect(isAdmin()).toBe(false);
   });
 
@@ -76,14 +78,14 @@ describe("session accessors", () => {
 });
 
 describe("login", () => {
-  test("stores access token, refresh token, role and userId on success", async () => {
+  test("stores access token, refresh token, roles and userId on success", async () => {
     mockFetch.mockResolvedValue(
       jsonResponse(200, {
         token: "jwt-123",
         expiresAt: 1,
         refreshToken: "refresh-123",
         refreshExpiresAt: 2,
-        role: "ADMIN",
+        roles: ["ADMIN"],
         userId: 7,
       }),
     );
@@ -91,7 +93,7 @@ describe("login", () => {
     expect(data.token).toBe("jwt-123");
     expect(localStorage.getItem(TOKEN_KEY)).toBe("jwt-123");
     expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBe("refresh-123");
-    expect(localStorage.getItem(ROLE_KEY)).toBe("ADMIN");
+    expect(localStorage.getItem(ROLE_KEY)).toBe(JSON.stringify(["ADMIN"]));
     expect(localStorage.getItem(USER_ID_KEY)).toBe("7");
   });
 
@@ -111,7 +113,9 @@ describe("logout", () => {
   test("posts the bearer token and refresh token, then clears the session", async () => {
     localStorage.setItem(TOKEN_KEY, "jwt-123");
     localStorage.setItem(REFRESH_TOKEN_KEY, "refresh-123");
-    localStorage.setItem(ROLE_KEY, "ADMIN");
+    localStorage.setItem(ROLE_KEY, JSON.stringify(["ADMIN"]));
+    // A pre-roles-set session may still carry the legacy single-role key; clearSession removes it too.
+    localStorage.setItem("lettuce.auth.role", "ADMIN");
     localStorage.setItem(USER_ID_KEY, "7");
     mockFetch.mockResolvedValue(new Response(null, { status: 204 }));
 
@@ -125,6 +129,7 @@ describe("logout", () => {
     expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
     expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBeNull();
     expect(localStorage.getItem(ROLE_KEY)).toBeNull();
+    expect(localStorage.getItem("lettuce.auth.role")).toBeNull();
     expect(localStorage.getItem(USER_ID_KEY)).toBeNull();
   });
 
@@ -149,7 +154,7 @@ describe("authedFetch", () => {
 
   test("clears the session on a 401 when there is no refresh token", async () => {
     localStorage.setItem(TOKEN_KEY, "jwt-123");
-    localStorage.setItem(ROLE_KEY, "ADMIN");
+    localStorage.setItem(ROLE_KEY, JSON.stringify(["ADMIN"]));
     mockFetch.mockResolvedValue(jsonResponse(401, { title: "Unauthorized", status: 401 }));
 
     const res = await authedFetch("/api/v1/users");

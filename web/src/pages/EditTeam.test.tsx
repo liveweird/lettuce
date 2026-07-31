@@ -8,7 +8,7 @@ import EditTeam from "./EditTeam";
 import { jsonResponse } from "../test/http";
 
 const TOKEN_KEY = "lettuce.auth.token";
-const ROLE_KEY = "lettuce.auth.role";
+const ROLE_KEY = "lettuce.auth.roles";
 
 type FetchMock = ReturnType<typeof vi.fn>;
 
@@ -21,8 +21,8 @@ function PathProbe() {
 const TEAM = { id: 2, name: "Platform", managerId: 10, memberIds: [1, 2] };
 const MANAGER_POOL = {
   items: [
-    { id: 10, name: "Mona Manager", email: "mona@example.com", role: "ADMIN" as const },
-    { id: 11, name: "Bob Manager", email: "bob@example.com", role: "USER" as const },
+    { id: 10, name: "Mona Manager", email: "mona@example.com", roles: ["ADMIN"] as const },
+    { id: 11, name: "Bob Manager", email: "bob@example.com", roles: [] as const },
   ],
   page: 1,
   pageSize: 100,
@@ -52,7 +52,7 @@ describe("EditTeam page", () => {
     mockFetch = vi.fn();
     vi.stubGlobal("fetch", mockFetch);
     localStorage.setItem(TOKEN_KEY, "fake-token");
-    localStorage.setItem(ROLE_KEY, "ADMIN");
+    localStorage.setItem(ROLE_KEY, JSON.stringify(["ADMIN"]));
   });
 
   afterEach(() => {
@@ -135,7 +135,7 @@ describe("EditTeam page", () => {
   });
 
   test("non-admin is redirected to /teams without fetching", () => {
-    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(ROLE_KEY, "[]");
     renderEditTeam(2);
     expect(screen.getByTestId("probe")).toHaveTextContent("/teams");
     expect(mockFetch).not.toHaveBeenCalled();

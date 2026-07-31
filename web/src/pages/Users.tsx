@@ -46,7 +46,7 @@ import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
 
-const SORT_FIELDS = ["name", "email", "role"] as const;
+const SORT_FIELDS = ["name", "email"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
 
 const SETTINGS_KEY = "users";
@@ -55,7 +55,7 @@ type UserRow = { id: number; name: string; email: string };
 
 export default function Users() {
   const { t } = useTranslation();
-  const ROLE_OPTIONS = (["ADMIN", "USER"] as UserRole[]).map((value) => ({
+  const ROLE_OPTIONS = (["ADMIN"] as UserRole[]).map((value) => ({
     value,
     label: t(`common.role.${value}`),
   }));
@@ -64,7 +64,7 @@ export default function Users() {
   const [roleFilter, setRoleFilter] = useStoredState<UserRole | null>(
     `${SETTINGS_KEY}.filter.role`,
     null,
-    isOneOfOrNull(["ADMIN", "USER"]),
+    isOneOfOrNull(["ADMIN"]),
   );
   const activeFilterCount =
     (nameFilter.trim() ? 1 : 0) + (emailFilter.trim() ? 1 : 0) + (roleFilter ? 1 : 0);
@@ -169,15 +169,8 @@ export default function Users() {
                 onToggle={toggleSort}
               />
             </Table.Th>
-            <Table.Th>
-              <SortHeader
-                field="role"
-                label={t("common.field.role")}
-                activeField={sortField}
-                activeDir={sortDir}
-                onToggle={toggleSort}
-              />
-            </Table.Th>
+            {/* A roles set has no order — plain header, deliberately not a SortHeader. */}
+            <Table.Th>{t("common.field.roles")}</Table.Th>
             <Table.Th aria-label={t("users.details")} style={{ width: 1 }} />
             <Table.Th aria-label={t("users.teams")} style={{ width: 1 }} />
             <Table.Th aria-label={t("users.feedbackActions")} style={{ width: 1 }} />
@@ -201,14 +194,25 @@ export default function Users() {
                   </Text>
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
-                  <Badge
-                    variant={u.role === "ADMIN" ? "filled" : "light"}
-                    color={u.role === "ADMIN" ? "grape" : "gray"}
-                    style={{ minWidth: "max-content" }}
-                    aria-label={t("common.field.role")}
-                  >
-                    {t(`common.role.${u.role}`)}
-                  </Badge>
+                  {u.roles.length > 0 ? (
+                    <Group gap={4} wrap="nowrap">
+                      {u.roles.map((role) => (
+                        <Badge
+                          key={role}
+                          variant="filled"
+                          color="grape"
+                          style={{ minWidth: "max-content" }}
+                          aria-label={t("common.field.roles")}
+                        >
+                          {t(`common.role.${role}`)}
+                        </Badge>
+                      ))}
+                    </Group>
+                  ) : (
+                    <Text size="sm" c="dimmed" aria-label={t("common.field.roles")}>
+                      —
+                    </Text>
+                  )}
                 </Table.Td>
                 {/* The relationship-aware read-only card view — everyone, except one's own row
                     (the card flavors describe the viewer's relationship to someone else). */}

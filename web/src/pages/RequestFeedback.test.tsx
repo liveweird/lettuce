@@ -8,7 +8,7 @@ import RequestFeedback from "./RequestFeedback";
 import { jsonResponse } from "../test/http";
 
 const TOKEN_KEY = "lettuce.auth.token";
-const ROLE_KEY = "lettuce.auth.role";
+const ROLE_KEY = "lettuce.auth.roles";
 const USER_ID_KEY = "lettuce.auth.userId";
 
 type FetchMock = ReturnType<typeof vi.fn>;
@@ -21,10 +21,10 @@ function PathProbe() {
 
 // Requester is user 3; subject is user 7 (Mona). Providers are users 10/11.
 const USER_POOL = [
-  { id: 3, name: "Me Myself", email: "me@example.com", role: "USER" as const },
-  { id: 7, name: "Mona Subject", email: "mona@example.com", role: "USER" as const },
-  { id: 10, name: "Alice Provider", email: "alice@example.com", role: "USER" as const },
-  { id: 11, name: "Bob Provider", email: "bob@example.com", role: "USER" as const },
+  { id: 3, name: "Me Myself", email: "me@example.com", roles: [] as const },
+  { id: 7, name: "Mona Subject", email: "mona@example.com", roles: [] as const },
+  { id: 10, name: "Alice Provider", email: "alice@example.com", roles: [] as const },
+  { id: 11, name: "Bob Provider", email: "bob@example.com", roles: [] as const },
 ];
 
 function setupMocks(mockFetch: FetchMock, onFeedbacks: (init?: RequestInit) => Response) {
@@ -73,7 +73,7 @@ describe("RequestFeedback page", () => {
     mockFetch = vi.fn();
     vi.stubGlobal("fetch", mockFetch);
     localStorage.setItem(TOKEN_KEY, "fake-token");
-    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(ROLE_KEY, "[]");
     localStorage.setItem(USER_ID_KEY, "3");
   });
 

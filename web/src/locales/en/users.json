@@ -96,14 +96,13 @@
     "emailTooLong": "Email is too long",
     "passwordLength": "Password must be at least 10 characters",
     "passwordsMismatch": "Passwords do not match",
-    "roleRequired": "Role is required",
     "currentPasswordRequired": "Current password is required"
   },
   "currentPassword": "Current password",
   "wrongCurrentPassword": "The current password is incorrect.",
   "massImport": "Mass import",
   "importTitle": "Mass user import",
-  "importFormatHint": "Upload a CSV file with one user per line in the format: name,email. An optional \"name,email\" header line is skipped. Each imported user gets the User role and a generated password.",
+  "importFormatHint": "Upload a CSV file with one user per line in the format: name,email. An optional \"name,email\" header line is skipped. Each imported user is created as a regular user (no additional roles) with a generated password.",
   "importFile": "CSV file",
   "importSendEmails": "Email the credentials to the new users",
   "importRun": "Import",
@@ -131,5 +130,6 @@
   "feedbackFromThem": "Feedback from them",
   "statNever": "never",
   "openItemsBadge_one": "{{count}} open item",
-  "openItemsBadge_other": "{{count}} open items"
+  "openItemsBadge_other": "{{count}} open items",
+  "rolesNone": "No additional roles"
 }

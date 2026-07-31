@@ -26,6 +26,7 @@
     "name": "Name",
     "email": "Email",
     "role": "Role",
+    "roles": "Roles",
     "subject": "Subject",
     "provider": "Provider",
     "requester": "Requester",
@@ -65,8 +66,7 @@
     "PUBLIC": "Public"
   },
   "role": {
-    "ADMIN": "Admin",
-    "USER": "User"
+    "ADMIN": "Admin"
   },
   "sort": {
     "label": "Sort by",

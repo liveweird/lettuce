@@ -55,7 +55,7 @@ import {
 import { renderWithProviders } from "../test/render";
 
 const USER_ID_KEY = "lettuce.auth.userId";
-const ROLE_KEY = "lettuce.auth.role";
+const ROLE_KEY = "lettuce.auth.roles";
 
 type JoyrideProps = {
   run: boolean;
@@ -86,7 +86,7 @@ describe("Tour", () => {
     joyrideSpy.mockClear();
     localStorage.clear();
     localStorage.setItem(USER_ID_KEY, "7");
-    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(ROLE_KEY, "[]");
     // The manager-detection query resolves to "no managed teams" → isManager false, deterministically.
     vi.stubGlobal(
       "fetch",

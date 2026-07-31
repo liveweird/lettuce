@@ -8,7 +8,7 @@ import Templates from "./Templates";
 import { jsonResponse } from "../test/http";
 
 const TOKEN_KEY = "lettuce.auth.token";
-const ROLE_KEY = "lettuce.auth.role";
+const ROLE_KEY = "lettuce.auth.roles";
 
 type FetchMock = ReturnType<typeof vi.fn>;
 
@@ -54,7 +54,7 @@ describe("Templates page", () => {
     mockFetch = vi.fn();
     vi.stubGlobal("fetch", mockFetch);
     localStorage.setItem(TOKEN_KEY, "fake-token");
-    localStorage.setItem(ROLE_KEY, "ADMIN");
+    localStorage.setItem(ROLE_KEY, JSON.stringify(["ADMIN"]));
   });
 
   afterEach(() => {
@@ -227,7 +227,7 @@ describe("Templates page", () => {
   });
 
   test("non-admin sees neither Create, Edit, nor Delete controls", async () => {
-    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(ROLE_KEY, "[]");
     setupMocks(mockFetch, () => templatesPage(SEED));
     renderTemplates();
 
@@ -238,7 +238,7 @@ describe("Templates page", () => {
   });
 
   test("non-admin sees a View link per row pointing at the view route", async () => {
-    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(ROLE_KEY, "[]");
     setupMocks(mockFetch, () => templatesPage(SEED));
     renderTemplates();
 

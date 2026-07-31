@@ -5,7 +5,7 @@ import FeedbackTable from "./FeedbackTable";
 import { jsonResponse } from "../test/http";
 
 const TOKEN_KEY = "lettuce.auth.token";
-const ROLE_KEY = "lettuce.auth.role";
+const ROLE_KEY = "lettuce.auth.roles";
 const USER_ID_KEY = "lettuce.auth.userId";
 
 type FetchMock = ReturnType<typeof vi.fn>;
@@ -85,7 +85,7 @@ describe("FeedbackTable (received view)", () => {
     mockFetch = vi.fn();
     vi.stubGlobal("fetch", mockFetch);
     localStorage.setItem(TOKEN_KEY, "fake-token");
-    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(ROLE_KEY, "[]");
     localStorage.setItem(USER_ID_KEY, "7");
   });
 
@@ -351,7 +351,7 @@ describe("FeedbackTable (provided view)", () => {
     mockFetch = vi.fn();
     vi.stubGlobal("fetch", mockFetch);
     localStorage.setItem(TOKEN_KEY, "fake-token");
-    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(ROLE_KEY, "[]");
     // A non-party id so the seeded subjects render as names; the "You" case has its own test.
     localStorage.setItem(USER_ID_KEY, "99");
   });

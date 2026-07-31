@@ -33,7 +33,7 @@ describe("Login page", () => {
     const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
     mockFetch.mockResolvedValueOnce(
       new Response(
-        JSON.stringify({ token: "abc.def.ghi", expiresAt: 0, userId: 1, role: "USER" }),
+        JSON.stringify({ token: "abc.def.ghi", expiresAt: 0, userId: 1, roles: [] }),
         { status: 200, headers: { "Content-Type": "application/json" } },
       ),
     );
@@ -142,7 +142,7 @@ describe("Login page", () => {
     const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
     mockFetch.mockResolvedValueOnce(
       new Response(
-        JSON.stringify({ token: "abc.def.ghi", expiresAt: 0, userId: 1, role: "USER" }),
+        JSON.stringify({ token: "abc.def.ghi", expiresAt: 0, userId: 1, roles: [] }),
         { status: 200, headers: { "Content-Type": "application/json" } },
       ),
     );

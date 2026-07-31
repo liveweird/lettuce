@@ -7,7 +7,7 @@ import ViewTemplate from "./ViewTemplate";
 import { jsonResponse } from "../test/http";
 
 const TOKEN_KEY = "lettuce.auth.token";
-const ROLE_KEY = "lettuce.auth.role";
+const ROLE_KEY = "lettuce.auth.roles";
 
 
 function PathProbe() {
@@ -49,7 +49,7 @@ describe("ViewTemplate page", () => {
     vi.stubGlobal("fetch", mockFetch);
     localStorage.setItem(TOKEN_KEY, "fake-token");
     // A non-admin may reach this read-only page.
-    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(ROLE_KEY, "[]");
   });
 
   afterEach(() => {

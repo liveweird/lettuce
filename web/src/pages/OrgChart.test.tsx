@@ -39,9 +39,9 @@ const TEAMS = [
 ];
 const MEMBERS: Record<number, number[]> = { 1: [1], 3: [10], 9: [] };
 const USERS = [
-  { id: 1, name: "AAA One", email: "a1@x", role: "USER" },
-  { id: 10, name: "Manager AAA", email: "ma@x", role: "USER" },
-  { id: 12, name: "Manager CCC", email: "mc@x", role: "USER" },
+  { id: 1, name: "AAA One", email: "a1@x", roles: [] },
+  { id: 10, name: "Manager AAA", email: "ma@x", roles: [] },
+  { id: 12, name: "Manager CCC", email: "mc@x", roles: [] },
 ];
 
 function mockApi(mockFetch: FetchMock, teams = TEAMS) {

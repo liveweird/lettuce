@@ -8,7 +8,7 @@ import UserTeams from "./UserTeams";
 import { jsonResponse } from "../test/http";
 
 const TOKEN_KEY = "lettuce.auth.token";
-const ROLE_KEY = "lettuce.auth.role";
+const ROLE_KEY = "lettuce.auth.roles";
 
 type FetchMock = ReturnType<typeof vi.fn>;
 
@@ -30,7 +30,7 @@ function teamsPage(items: TeamItem[]) {
   });
 }
 
-const TARGET_USER = { id: 7, name: "Alice", email: "alice@example.com", role: "USER" as const };
+const TARGET_USER = { id: 7, name: "Alice", email: "alice@example.com", roles: [] as const };
 
 // Team 1: Alice is already a member. Team 2: not a member (candidate). Team 3: Alice manages it.
 const MEMBER_TEAMS: TeamItem[] = [
@@ -92,7 +92,7 @@ describe("UserTeams page", () => {
     mockFetch = vi.fn();
     vi.stubGlobal("fetch", mockFetch);
     localStorage.setItem(TOKEN_KEY, "fake-token");
-    localStorage.setItem(ROLE_KEY, "ADMIN");
+    localStorage.setItem(ROLE_KEY, JSON.stringify(["ADMIN"]));
   });
 
   afterEach(() => {
@@ -119,7 +119,7 @@ describe("UserTeams page", () => {
   });
 
   test("non-admin gets a read-only list: no add picker, no remove buttons", async () => {
-    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(ROLE_KEY, "[]");
     mockFetch.mockImplementation((url: string) => {
       if (isMembersUrl(url)) return Promise.resolve(teamsPage(MEMBER_TEAMS));
       // getUser (self-or-admin) and the all-teams pool must not be fetched for non-admins.

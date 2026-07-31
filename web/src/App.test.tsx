@@ -161,7 +161,7 @@ describe("App shell", () => {
         if (url === "/api/v1/users/7") {
           return Promise.resolve(
             new Response(
-              JSON.stringify({ id: 7, name: "Alice", email: "alice@example.com", role: "USER" }),
+              JSON.stringify({ id: 7, name: "Alice", email: "alice@example.com", roles: [] }),
               { status: 200, headers: { "Content-Type": "application/json" } },
             ),
           );

@@ -7,7 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import CreateUser from "./CreateUser";
 
 const TOKEN_KEY = "lettuce.auth.token";
-const ROLE_KEY = "lettuce.auth.role";
+const ROLE_KEY = "lettuce.auth.roles";
 const PASSWORD_RE = /^[A-Za-z0-9_-]{16}$/;
 
 function PathProbe() {
@@ -42,7 +42,7 @@ describe("CreateUser page", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
     localStorage.setItem(TOKEN_KEY, "fake-token");
-    localStorage.setItem(ROLE_KEY, "ADMIN");
+    localStorage.setItem(ROLE_KEY, JSON.stringify(["ADMIN"]));
   });
 
   afterEach(() => {
@@ -55,7 +55,7 @@ describe("CreateUser page", () => {
     const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
     mockFetch.mockResolvedValueOnce(
       new Response(
-        JSON.stringify({ id: 42, name: "Alice", email: "alice@example.com", role: "USER" }),
+        JSON.stringify({ id: 42, name: "Alice", email: "alice@example.com", roles: [] }),
         { status: 201, headers: { "Content-Type": "application/json" } },
       ),
     );
@@ -77,7 +77,7 @@ describe("CreateUser page", () => {
       name: "Alice",
       email: "alice@example.com",
       password: expect.stringMatching(PASSWORD_RE),
-      role: "USER",
+      roles: [],
       sendEmail: false,
     });
     // Masked by default (shoulder-surfing protection); the eye toggle reveals it.
@@ -96,7 +96,7 @@ describe("CreateUser page", () => {
     const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
     mockFetch.mockResolvedValueOnce(
       new Response(
-        JSON.stringify({ id: 42, name: "Alice", email: "alice@example.com", role: "USER" }),
+        JSON.stringify({ id: 42, name: "Alice", email: "alice@example.com", roles: [] }),
         { status: 201, headers: { "Content-Type": "application/json" } },
       ),
     );
@@ -120,7 +120,7 @@ describe("CreateUser page", () => {
     const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
     mockFetch.mockResolvedValueOnce(
       new Response(
-        JSON.stringify({ id: 42, name: "Alice", email: "alice@example.com", role: "USER" }),
+        JSON.stringify({ id: 42, name: "Alice", email: "alice@example.com", roles: [] }),
         { status: 201, headers: { "Content-Type": "application/json" } },
       ),
     );
@@ -143,7 +143,7 @@ describe("CreateUser page", () => {
     const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
     mockFetch.mockResolvedValueOnce(
       new Response(
-        JSON.stringify({ id: 42, name: "Alice", email: "alice@example.com", role: "USER" }),
+        JSON.stringify({ id: 42, name: "Alice", email: "alice@example.com", roles: [] }),
         { status: 201, headers: { "Content-Type": "application/json" } },
       ),
     );
@@ -176,7 +176,7 @@ describe("CreateUser page", () => {
     mockFetch.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
-          id: 42, name: "Alice", email: "alice@example.com", role: "USER", emailSent: true,
+          id: 42, name: "Alice", email: "alice@example.com", roles: [], emailSent: true,
         }),
         { status: 201, headers: { "Content-Type": "application/json" } },
       ),
@@ -198,7 +198,7 @@ describe("CreateUser page", () => {
     mockFetch.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
-          id: 42, name: "Alice", email: "alice@example.com", role: "USER", emailSent: false,
+          id: 42, name: "Alice", email: "alice@example.com", roles: [], emailSent: false,
         }),
         { status: 201, headers: { "Content-Type": "application/json" } },
       ),
@@ -278,7 +278,7 @@ describe("CreateUser page", () => {
   });
 
   test("non-admin is redirected to /users", async () => {
-    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(ROLE_KEY, "[]");
 
     renderCreateUser();
 
