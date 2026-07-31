@@ -14,7 +14,6 @@ import {
   Container,
   Group,
   Loader,
-  MultiSelect,
   Paper,
   Stack,
   TextInput,
@@ -29,6 +28,7 @@ import {
   updateUser,
   type UserRole,
 } from "../api/client";
+import RolesMultiSelect from "../components/RolesMultiSelect";
 import { saveErrorMessage } from "../utils/saveError";
 
 type FormValues = {
@@ -181,12 +181,7 @@ export default function EditUser() {
                   rightSectionPointerEvents="auto"
                   {...form.getInputProps("email")}
                 />
-                <MultiSelect
-                  label={t("common.field.roles")}
-                  placeholder={form.values.roles.length === 0 ? t("users.rolesNone") : undefined}
-                  data={[{ value: "ADMIN", label: t("common.role.ADMIN") }]}
-                  {...form.getInputProps("roles")}
-                />
+                <RolesMultiSelect {...form.getInputProps("roles")} />
                 {error && (
                   <Alert color="red" variant="light">
                     {error}

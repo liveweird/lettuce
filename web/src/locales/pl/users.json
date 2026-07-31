@@ -133,5 +133,6 @@
   "openItemsBadge_few": "{{count}} otwarte zadania",
   "openItemsBadge_many": "{{count}} otwartych zadań",
   "openItemsBadge_other": "{{count}} otwartego zadania",
-  "rolesNone": "Brak dodatkowych ról"
+  "rolesNone": "Brak dodatkowych ról",
+  "removeRole": "Usuń rolę {{role}}"
 }

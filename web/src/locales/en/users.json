@@ -131,5 +131,6 @@
   "statNever": "never",
   "openItemsBadge_one": "{{count}} open item",
   "openItemsBadge_other": "{{count}} open items",
-  "rolesNone": "No additional roles"
+  "rolesNone": "No additional roles",
+  "removeRole": "Remove role {{role}}"
 }

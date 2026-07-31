@@ -58,11 +58,10 @@ test("admin grants and revokes the Admin role", async ({ page }) => {
   const adminPill = page.locator("#main-content").getByText("Admin", { exact: true });
   await expect(adminPill).toBeVisible();
 
-  // Revoke: focus the field (NOT click — with a pill present Mantine hides the inner input and
-  // the wrapper intercepts pointer events) and Backspace removes the last pill. The pill's
-  // remove button carries no accessible name, so the keyboard path is the reliable one.
-  await page.getByRole("combobox", { name: "Roles" }).focus();
-  await page.keyboard.press("Backspace");
+  // Revoke: the pill's remove button is accessibly named since v1.24.1 — click it.
+  // (Clicking the combobox itself would time out here: with a pill present Mantine hides the
+  // inner input and the wrapper intercepts pointer events.)
+  await page.getByRole("button", { name: "Remove role Admin" }).click();
   await expect(adminPill).toHaveCount(0);
   await Promise.all([
     page.waitForResponse(
