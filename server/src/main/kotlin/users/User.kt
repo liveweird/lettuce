@@ -3,15 +3,20 @@ package ch.nokillswit.users
 import ch.nokillswit.infra.paging.PageResponse
 import kotlinx.serialization.Serializable
 
+/**
+ * Additional roles a user may hold. Every user is implicitly a regular user (USER is never
+ * stored or transmitted); values here only ever ADD privileges on top of that baseline.
+ * A future role is just a new value — no migration needed (user_roles has no CHECK).
+ */
 @Serializable
-enum class UserRole { ADMIN, USER }
+enum class UserRole { ADMIN }
 
 @Serializable
 data class User(
     val name: String,
     val email: String,
     val passwordHash: String,
-    val role: UserRole = UserRole.USER,
+    val roles: Set<UserRole> = emptySet(),
     // Epoch millis of the last password change (0 = never). Server-internal; used to
     // invalidate refresh tokens minted before the change (see /api/v1/refresh).
     val passwordChangedAt: Long = 0,
@@ -22,7 +27,7 @@ data class UserRequest(
     val name: String,
     val email: String,
     val password: String,
-    val role: UserRole? = null,
+    val roles: List<UserRole>? = null,
     // Create only (PUT ignores it): email the new user their credentials (users/WelcomeEmail.kt),
     // like the mass import's sendEmails option. 503 on a mail-less deployment.
     val sendEmail: Boolean = false,
@@ -33,7 +38,7 @@ data class UserCreateResponse(
     val id: UInt,
     val name: String,
     val email: String,
-    val role: UserRole,
+    val roles: List<UserRole>,
     // Only present when the create requested an email: true = handed to SMTP, false = delivery
     // failed (the account exists either way — the modal still shows the password).
     val emailSent: Boolean? = null,
@@ -43,7 +48,7 @@ data class UserCreateResponse(
 data class UserUpdateRequest(
     val name: String,
     val email: String,
-    val role: UserRole,
+    val roles: List<UserRole>,
 )
 
 @Serializable
@@ -102,9 +107,9 @@ data class UserResponse(
     val id: UInt,
     val name: String,
     val email: String,
-    val role: UserRole,
+    val roles: List<UserRole>,
 )
 
 typealias UserPageResponse = PageResponse<UserResponse>
 
-fun User.toResponse(id: UInt) = UserResponse(id, name, email, role)
+fun User.toResponse(id: UInt) = UserResponse(id, name, email, roles.sortedBy { it.name })

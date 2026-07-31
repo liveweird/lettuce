@@ -100,7 +100,7 @@ class UserRoutesTest {
         val updatedEmail = uniqueEmail("upd")
         val put = client.put("/api/v1/users/${created.id}") {
             contentType(ContentType.Application.Json)
-            setBody(UserUpdateRequest(name = "New", email = updatedEmail, role = UserRole.USER))
+            setBody(UserUpdateRequest(name = "New", email = updatedEmail, roles = emptyList()))
         }
         assertEquals(HttpStatusCode.NoContent, put.status)
 
@@ -126,7 +126,7 @@ class UserRoutesTest {
         val newEmail = uniqueEmail("pwd-renamed")
         val put = client.put("/api/v1/users/${created.id}") {
             contentType(ContentType.Application.Json)
-            setBody(UserUpdateRequest(name = "Patrick", email = newEmail, role = UserRole.USER))
+            setBody(UserUpdateRequest(name = "Patrick", email = newEmail, roles = emptyList()))
         }
         assertEquals(HttpStatusCode.NoContent, put.status)
 
@@ -142,7 +142,7 @@ class UserRoutesTest {
     fun `PUT users id password changes the password so login uses the new one`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw-123456789", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw-123456789", roles = setOf(UserRole.ADMIN))
 
         val client = authedClient(adminEmail, "pw-123456789")
         val userEmail = uniqueEmail("pwd")
@@ -175,11 +175,11 @@ class UserRoutesTest {
     fun `PUT users id password forbids a non-admin changing another user's password`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
-        TestUsers.seed(email = callerEmail, password = "pw-123456789", role = UserRole.USER)
+        TestUsers.seed(email = callerEmail, password = "pw-123456789", roles = emptySet())
         val targetId = TestUsers.seed(
             email = uniqueEmail("target"),
             password = "pw-123456789",
-            role = UserRole.USER,
+            roles = emptySet(),
         )
 
         val response = authedClient(callerEmail, "pw-123456789").put("/api/v1/users/$targetId/password") {
@@ -193,25 +193,25 @@ class UserRoutesTest {
     fun `PUT users id lets admin change another user's role`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw-123456789", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw-123456789", roles = setOf(UserRole.ADMIN))
         val targetId = TestUsers.seed(
             email = uniqueEmail("target"),
             password = "pw-123456789",
-            role = UserRole.USER,
+            roles = emptySet(),
         )
 
         val client = authedClient(adminEmail, "pw-123456789")
         val read = client.get("/api/v1/users/$targetId").body<UserResponse>()
-        assertEquals(UserRole.USER, read.role)
+        assertEquals(emptyList(), read.roles)
 
         val put = client.put("/api/v1/users/$targetId") {
             contentType(ContentType.Application.Json)
-            setBody(UserUpdateRequest(name = read.name, email = read.email, role = UserRole.ADMIN))
+            setBody(UserUpdateRequest(name = read.name, email = read.email, roles = listOf(UserRole.ADMIN)))
         }
         assertEquals(HttpStatusCode.NoContent, put.status)
 
         val after = client.get("/api/v1/users/$targetId").body<UserResponse>()
-        assertEquals(UserRole.ADMIN, after.role)
+        assertEquals(listOf(UserRole.ADMIN), after.roles)
     }
 
     @Test
@@ -222,7 +222,7 @@ class UserRoutesTest {
 
         val response = authedClient(callerEmail, "pw-123456789").put("/api/v1/users/999999") {
             contentType(ContentType.Application.Json)
-            setBody(UserUpdateRequest(name = "Ghost", email = uniqueEmail("ghost"), role = UserRole.USER))
+            setBody(UserUpdateRequest(name = "Ghost", email = uniqueEmail("ghost"), roles = emptyList()))
         }
         assertEquals(HttpStatusCode.NotFound, response.status)
     }
@@ -315,7 +315,7 @@ class UserRoutesTest {
 
         val put = client.put("/api/v1/users/${created.id}") {
             contentType(ContentType.Application.Json)
-            setBody(UserUpdateRequest(name = "Resurrected", email = uniqueEmail("res"), role = UserRole.USER))
+            setBody(UserUpdateRequest(name = "Resurrected", email = uniqueEmail("res"), roles = emptyList()))
         }
         assertEquals(HttpStatusCode.NotFound, put.status)
     }
@@ -391,7 +391,7 @@ class UserRoutesTest {
     fun `a soft-deleted user's email can be reused`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw-123456789", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw-123456789", roles = setOf(UserRole.ADMIN))
         val client = authedClient(adminEmail, "pw-123456789")
 
         val sharedEmail = uniqueEmail("reusable")
@@ -440,7 +440,7 @@ class UserRoutesTest {
 
         val response = client.put("/api/v1/users/${userB.id}") {
             contentType(ContentType.Application.Json)
-            setBody(UserUpdateRequest(name = "B", email = emailA, role = UserRole.USER))
+            setBody(UserUpdateRequest(name = "B", email = emailA, roles = emptyList()))
         }
         assertEquals(HttpStatusCode.Conflict, response.status)
         assertEquals(HttpStatusCode.Conflict.value, response.body<ProblemDetail>().status)
@@ -542,20 +542,19 @@ class UserRoutesTest {
         val tag = UUID.randomUUID().toString().substring(0, 8)
         client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "role-$tag-admin", email = uniqueEmail("ra-$tag"), password = "pw-123456789", role = UserRole.ADMIN))
+            setBody(UserRequest(name = "role-$tag-admin", email = uniqueEmail("ra-$tag"), password = "pw-123456789", roles = listOf(UserRole.ADMIN)))
         }
         client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "role-$tag-user", email = uniqueEmail("ru-$tag"), password = "pw-123456789", role = UserRole.USER))
+            setBody(UserRequest(name = "role-$tag-user", email = uniqueEmail("ru-$tag"), password = "pw-123456789", roles = emptyList()))
         }
 
         val admins = client.get("/api/v1/users?name=role-$tag&role=ADMIN").body<UserPageResponse>()
         assertEquals(1L, admins.total)
-        assertEquals(UserRole.ADMIN, admins.items.single().role)
+        assertEquals(listOf(UserRole.ADMIN), admins.items.single().roles)
 
-        val users = client.get("/api/v1/users?name=role-$tag&role=USER").body<UserPageResponse>()
-        assertEquals(1L, users.total)
-        assertEquals(UserRole.USER, users.items.single().role)
+        // USER is implicit, never a stored role — as a filter value it is malformed.
+        assertEquals(HttpStatusCode.BadRequest, client.get("/api/v1/users?name=role-$tag&role=USER").status)
     }
 
     @Test
@@ -563,7 +562,7 @@ class UserRoutesTest {
         usePostgresTestcontainer()
         val tag = UUID.randomUUID().toString().substring(0, 8)
         val callerEmail = uniqueEmail("admin-$tag")
-        TestUsers.seed(email = callerEmail, password = "pw-123456789", role = UserRole.ADMIN, name = "Admin-$tag")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789", roles = setOf(UserRole.ADMIN), name = "Admin-$tag")
         val managerId = TestUsers.seed(email = uniqueEmail("mgr-$tag"), password = "pw-123456789", name = "Mgr-$tag")
         val memberA = TestUsers.seed(email = uniqueEmail("a-$tag"), password = "pw-123456789", name = "MemberA-$tag")
         val memberB = TestUsers.seed(email = uniqueEmail("b-$tag"), password = "pw-123456789", name = "MemberB-$tag")
@@ -637,6 +636,16 @@ class UserRoutesTest {
     }
 
     @Test
+    fun `GET users no longer sorts by role`() = testApplication {
+        // A roles set has no total order — `role` left the sortable whitelist with the V27 change.
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("caller")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789")
+        val response = authedClient(callerEmail, "pw-123456789").get("/api/v1/users?sort=role")
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+    }
+
+    @Test
     fun `GET users with pageSize over max returns 400`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
@@ -678,25 +687,64 @@ class UserRoutesTest {
     fun `GET users applies name and role filters together`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw-123456789", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw-123456789", roles = setOf(UserRole.ADMIN))
         val client = authedClient(adminEmail, "pw-123456789")
 
         // Shared name tag isolates this test's rows in the shared DB; roles differ so the
         // combined name+role filter must intersect, not just match one dimension.
         val tag = UUID.randomUUID().toString().take(8)
-        val targetEmail = uniqueEmail("u")
+        val adminTargetEmail = uniqueEmail("a")
         client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "u-$tag", email = targetEmail, password = "pw-123456789", role = UserRole.USER))
+            setBody(UserRequest(name = "u-$tag", email = uniqueEmail("u"), password = "pw-123456789", roles = emptyList()))
         }
         client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "a-$tag", email = uniqueEmail("a"), password = "pw-123456789", role = UserRole.ADMIN))
+            setBody(UserRequest(name = "a-$tag", email = adminTargetEmail, password = "pw-123456789", roles = listOf(UserRole.ADMIN)))
         }
 
-        // name=$tag alone matches both; role=USER alone matches many; together → only the USER row.
-        val page = client.get("/api/v1/users?name=$tag&role=USER").body<UserPageResponse>()
+        // name=$tag alone matches both; role=ADMIN alone matches many; together → only the admin row.
+        val page = client.get("/api/v1/users?name=$tag&role=ADMIN").body<UserPageResponse>()
         assertEquals(1, page.total)
-        assertEquals(listOf(targetEmail), page.items.map { it.email })
+        assertEquals(listOf(adminTargetEmail), page.items.map { it.email })
+    }
+
+    @Test
+    fun `V27 backfill moved the seed roles into user_roles`() = testApplication {
+        // The V6 admin and V9 demo users were inserted via the old users.role column; V27
+        // migrates that column into the join table. Login responses read the new storage.
+        usePostgresTestcontainer()
+        val admin = jsonClient().post("/api/v1/login") {
+            contentType(ContentType.Application.Json)
+            setBody(LoginRequest(ch.nokillswit.infra.db.SEED_ADMIN_EMAIL, "changeme"))
+        }.body<LoginResponse>()
+        assertEquals(listOf(UserRole.ADMIN), admin.roles)
+
+        val demo = jsonClient().post("/api/v1/login") {
+            contentType(ContentType.Application.Json)
+            setBody(LoginRequest(ch.nokillswit.infra.db.DEMO_SEED_EMAILS.first(), "changeme"))
+        }.body<LoginResponse>()
+        assertEquals(emptyList(), demo.roles)
+    }
+
+    @Test
+    fun `service round-trips the roles set on create and wholesale-replaces it on update`() = testApplication {
+        usePostgresTestcontainer()
+        val service = TestServices.users
+        val id = service.create(
+            ch.nokillswit.users.User(
+                name = "Roles Roundtrip",
+                email = uniqueEmail("roundtrip"),
+                passwordHash = "x",
+                roles = setOf(UserRole.ADMIN),
+            )
+        )
+        val created = service.read(id)
+        assertNotNull(created)
+        assertEquals(setOf(UserRole.ADMIN), created.roles)
+
+        val updated = service.update(id, created.copy(roles = emptySet()))
+        assertEquals(1, updated)
+        assertEquals(emptySet(), service.read(id)?.roles)
     }
 }

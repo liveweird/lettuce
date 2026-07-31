@@ -33,7 +33,7 @@ class PayloadValidationTest {
 
     private suspend fun ApplicationTestBuilder.adminClient(): HttpClient {
         val email = uniqueEmail("admin")
-        TestUsers.seed(email = email, password = "pw-123456789", role = UserRole.ADMIN)
+        TestUsers.seed(email = email, password = "pw-123456789", roles = setOf(UserRole.ADMIN))
         val base = jsonClient()
         val token = base.post("/api/v1/login") {
             contentType(ContentType.Application.Json)
@@ -101,7 +101,7 @@ class PayloadValidationTest {
 
         val response = client.put("/api/v1/users/$id") {
             contentType(ContentType.Application.Json)
-            setBody(UserUpdateRequest(name = "x".repeat(51), email = uniqueEmail("t"), role = UserRole.USER))
+            setBody(UserUpdateRequest(name = "x".repeat(51), email = uniqueEmail("t"), roles = emptyList()))
         }
         assertEquals(HttpStatusCode.BadRequest, response.status)
     }

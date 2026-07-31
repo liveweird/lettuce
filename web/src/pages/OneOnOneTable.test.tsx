@@ -28,7 +28,7 @@ describe("OneOnOneTable", () => {
     mockFetch = vi.fn();
     vi.stubGlobal("fetch", mockFetch);
     localStorage.setItem("lettuce.auth.token", "fake-token");
-    localStorage.setItem("lettuce.auth.role", "USER");
+    localStorage.setItem("lettuce.auth.roles", "[]");
     localStorage.setItem("lettuce.auth.userId", "7");
   });
 

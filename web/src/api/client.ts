@@ -4,10 +4,13 @@ import { flagSignedOut, notifyAuthChange } from "../auth";
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 export const TOKEN_KEY = "lettuce.auth.token";
 const REFRESH_TOKEN_KEY = "lettuce.auth.refreshToken";
-const ROLE_KEY = "lettuce.auth.role";
+const ROLES_KEY = "lettuce.auth.roles";
+// Pre-roles-set sessions stored a single role under this key; clearSession removes it too.
+const LEGACY_ROLE_KEY = "lettuce.auth.role";
 const USER_ID_KEY = "lettuce.auth.userId";
 
-export type UserRole = "ADMIN" | "USER";
+/** Additional roles — every user is implicitly a regular user; an empty set means no extra privileges. */
+export type UserRole = "ADMIN";
 
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
@@ -27,9 +30,13 @@ function setRefreshToken(token: string | null): void {
   else localStorage.setItem(REFRESH_TOKEN_KEY, token);
 }
 
-export function getRole(): UserRole | null {
-  const raw = localStorage.getItem(ROLE_KEY);
-  return raw === "ADMIN" || raw === "USER" ? raw : null;
+export function getRoles(): UserRole[] {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(ROLES_KEY) ?? "[]");
+    return Array.isArray(parsed) ? parsed.filter((r): r is UserRole => r === "ADMIN") : [];
+  } catch {
+    return [];
+  }
 }
 
 export function getUserId(): number | null {
@@ -40,21 +47,22 @@ export function getUserId(): number | null {
 }
 
 export function isAdmin(): boolean {
-  return getRole() === "ADMIN";
+  return getRoles().includes("ADMIN");
 }
 
 function clearSession(): void {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
-  localStorage.removeItem(ROLE_KEY);
+  localStorage.removeItem(ROLES_KEY);
+  localStorage.removeItem(LEGACY_ROLE_KEY);
   localStorage.removeItem(USER_ID_KEY);
 }
 
-// Persist the access + refresh pair (and the current role/userId) returned by /login or /refresh.
+// Persist the access + refresh pair (and the current roles/userId) returned by /login or /refresh.
 function persistSession(data: LoginOk): void {
   setToken(data.token);
   setRefreshToken(data.refreshToken);
-  localStorage.setItem(ROLE_KEY, data.role);
+  localStorage.setItem(ROLES_KEY, JSON.stringify(data.roles));
   localStorage.setItem(USER_ID_KEY, String(data.userId));
 }
 

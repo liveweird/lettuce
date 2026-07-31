@@ -46,10 +46,10 @@ class FeedbackDuplicateTest {
 
     private suspend fun seedTriad(): Triad {
         val providerEmail = uniqueEmail("provider")
-        val providerId = TestUsers.seed(providerEmail, "pw", name = "Pat Provider", role = ch.nokillswit.users.UserRole.USER)
-        val subjectId = TestUsers.seed(uniqueEmail("subject"), "pw", name = "Sam Subject", role = ch.nokillswit.users.UserRole.USER)
+        val providerId = TestUsers.seed(providerEmail, "pw", name = "Pat Provider", roles = emptySet())
+        val subjectId = TestUsers.seed(uniqueEmail("subject"), "pw", name = "Sam Subject", roles = emptySet())
         val requesterEmail = uniqueEmail("requester")
-        val requesterId = TestUsers.seed(requesterEmail, "pw", name = "Rita Requester", role = ch.nokillswit.users.UserRole.USER)
+        val requesterId = TestUsers.seed(requesterEmail, "pw", name = "Rita Requester", roles = emptySet())
         return Triad(providerEmail, providerId, subjectId, requesterEmail, requesterId)
     }
 
@@ -119,7 +119,7 @@ class FeedbackDuplicateTest {
     fun `a different triple or a closed status does not block`() = testApplication {
         usePostgresTestcontainer()
         val t = seedTriad()
-        val other = TestUsers.seed(uniqueEmail("other"), "pw", name = "Olga Other", role = ch.nokillswit.users.UserRole.USER)
+        val other = TestUsers.seed(uniqueEmail("other"), "pw", name = "Olga Other", roles = emptySet())
         val provider = authedClient(t.providerEmail, "pw")
         // The existing no-requester DRAFT.
         val existingDraft = provider.createFeedback(t.subjectId, t.providerId).body<FeedbackResponse>()

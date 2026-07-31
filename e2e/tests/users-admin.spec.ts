@@ -34,13 +34,36 @@ test("the one-time password is masked until revealed, and hides again", async ({
   await dialog.getByRole("button", { name: "Close", exact: true }).last().click();
 });
 
-test("admin promotes a user to Admin", async ({ page }) => {
+test("admin grants and revokes the Admin role", async ({ page }) => {
   await login(page, ADMIN);
   const user = await createUserViaUi(page, "E2E-Role");
 
+  // Grant: pick Admin in the Roles multi-select (a new user starts with no additional roles).
   await page.goto(`/users/${user.id}/edit`);
-  await page.getByRole("combobox", { name: "Role" }).click();
+  const rolesField = page.getByRole("combobox", { name: "Roles" });
+  await rolesField.click();
   await page.getByRole("option", { name: "Admin" }).click();
+  // A multi-select keeps its dropdown open for further picks — close it so it can't cover Save.
+  await page.keyboard.press("Escape");
+  await Promise.all([
+    page.waitForResponse(
+      (r) => new RegExp(`/api/v1/users/${user.id}$`).test(r.url()) && r.request().method() === "PUT" && r.ok(),
+    ),
+    page.getByRole("button", { name: "Save" }).click(),
+  ]);
+
+  // The grant survived: the edit form shows the Admin pill. Scope to the main content —
+  // Mantine keeps the (hidden) dropdown option markup in the DOM outside it even when closed.
+  await page.goto(`/users/${user.id}/edit`);
+  const adminPill = page.locator("#main-content").getByText("Admin", { exact: true });
+  await expect(adminPill).toBeVisible();
+
+  // Revoke: focus the field (NOT click — with a pill present Mantine hides the inner input and
+  // the wrapper intercepts pointer events) and Backspace removes the last pill. The pill's
+  // remove button carries no accessible name, so the keyboard path is the reliable one.
+  await page.getByRole("combobox", { name: "Roles" }).focus();
+  await page.keyboard.press("Backspace");
+  await expect(adminPill).toHaveCount(0);
   await Promise.all([
     page.waitForResponse(
       (r) => new RegExp(`/api/v1/users/${user.id}$`).test(r.url()) && r.request().method() === "PUT" && r.ok(),
@@ -48,7 +71,8 @@ test("admin promotes a user to Admin", async ({ page }) => {
     page.getByRole("button", { name: "Save" }).click(),
   ]);
   await page.goto(`/users/${user.id}/edit`);
-  await expect(page.getByRole("combobox", { name: "Role" })).toHaveValue("Admin");
+  await expect(page.getByRole("combobox", { name: "Roles" })).toBeVisible();
+  await expect(adminPill).toHaveCount(0);
 });
 
 test("admin resets a password; the user then changes their own (current password required)", async ({

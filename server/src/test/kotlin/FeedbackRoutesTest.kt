@@ -821,7 +821,7 @@ class FeedbackRoutesTest {
     fun `list received returns only caller-as-subject rows with subject-readable visibilities`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("subject")
-        val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", roles = emptySet())
         val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw")
         val requesterId = TestUsers.seed(email = uniqueEmail("requester"), password = "pw")
         val otherSubjectId = TestUsers.seed(email = uniqueEmail("other"), password = "pw")
@@ -848,7 +848,7 @@ class FeedbackRoutesTest {
     fun `received list shows feedback the subject requested for themselves under any visibility and status`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("subject")
-        val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", roles = emptySet())
         val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw")
         // A second provider so the two self-requested rows differ on the (subject, provider, requester)
         // triple — otherwise the no-duplicate invariant 409s the second create.
@@ -877,7 +877,7 @@ class FeedbackRoutesTest {
     fun `received list hides another user's request about the subject until it is delivered`() = testApplication {
         usePostgresTestcontainer()
         val subjectEmail = uniqueEmail("subject")
-        val subjectId = TestUsers.seed(email = subjectEmail, password = "pw", role = UserRole.USER)
+        val subjectId = TestUsers.seed(email = subjectEmail, password = "pw", roles = emptySet())
         val providerEmail = uniqueEmail("provider")
         val providerId = TestUsers.seed(email = providerEmail, password = "pw")
         val requesterId = TestUsers.seed(email = uniqueEmail("requester"), password = "pw")
@@ -914,7 +914,7 @@ class FeedbackRoutesTest {
     fun `received list never shows a row the single GET rejects — PUBLIC only while SENT`() = testApplication {
         usePostgresTestcontainer()
         val subjectEmail = uniqueEmail("subject")
-        val subjectId = TestUsers.seed(email = subjectEmail, password = "pw", role = UserRole.USER)
+        val subjectId = TestUsers.seed(email = subjectEmail, password = "pw", roles = emptySet())
         val providerEmail = uniqueEmail("provider")
         val providerId = TestUsers.seed(email = providerEmail, password = "pw")
         val subjectClient = authedClient(subjectEmail, "pw")
@@ -946,7 +946,7 @@ class FeedbackRoutesTest {
     fun `received list shows the caller's own PUBLIC request only once it is SENT`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("subject")
-        val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", roles = emptySet())
         val providerEmail = uniqueEmail("provider")
         val providerId = TestUsers.seed(email = providerEmail, password = "pw")
         val client = authedClient(callerEmail, "pw")
@@ -980,7 +980,7 @@ class FeedbackRoutesTest {
     fun `list received resolves joined names and null requester`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("subject")
-        val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", roles = emptySet())
         val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw", name = "Paula Provider")
         val requesterId = TestUsers.seed(email = uniqueEmail("requester"), password = "pw", name = "Rita Requester")
         val client = authedClient(callerEmail, "pw")
@@ -1006,7 +1006,7 @@ class FeedbackRoutesTest {
     fun `list received caps contentPreview at 200 characters`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("subject")
-        val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", roles = emptySet())
         val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw")
         val client = authedClient(callerEmail, "pw")
 
@@ -1020,7 +1020,7 @@ class FeedbackRoutesTest {
     fun `list received filters by names visibility and status`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("subject")
-        val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", roles = emptySet())
         val aliceId = TestUsers.seed(email = uniqueEmail("alice"), password = "pw", name = "Alice Provider")
         val bobId = TestUsers.seed(email = uniqueEmail("bob"), password = "pw", name = "Bob Provider")
         val requesterId = TestUsers.seed(email = uniqueEmail("carol"), password = "pw", name = "Carol Requester")
@@ -1345,7 +1345,7 @@ class FeedbackRoutesTest {
     fun `list scopes to a single counterparty by providerId and subjectId`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
-        val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", roles = emptySet())
         val aliceId = TestUsers.seed(email = uniqueEmail("alice"), password = "pw", name = "Alice")
         val bobId = TestUsers.seed(email = uniqueEmail("bob"), password = "pw", name = "Bob")
         val client = authedClient(callerEmail, "pw")
@@ -1372,7 +1372,7 @@ class FeedbackRoutesTest {
     fun `list rejects malformed providerId and subjectId`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("caller")
-        TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        TestUsers.seed(email = callerEmail, password = "pw", roles = emptySet())
         val client = authedClient(callerEmail, "pw")
 
         assertEquals(
@@ -1389,7 +1389,7 @@ class FeedbackRoutesTest {
     fun `list received sorts by providerName descending and defaults to id ascending`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("subject")
-        val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", roles = emptySet())
         val aliceId = TestUsers.seed(email = uniqueEmail("alice"), password = "pw", name = "Alice Provider")
         val bobId = TestUsers.seed(email = uniqueEmail("bob"), password = "pw", name = "Bob Provider")
         val client = authedClient(callerEmail, "pw")
@@ -1408,7 +1408,7 @@ class FeedbackRoutesTest {
     fun `list received paginates with stable pages`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("subject")
-        val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", roles = emptySet())
         val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw")
         val client = authedClient(callerEmail, "pw")
 
@@ -1428,7 +1428,7 @@ class FeedbackRoutesTest {
     fun `list provided returns caller-as-provider rows regardless of visibility`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("provider")
-        val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", roles = emptySet())
         val subjectId = TestUsers.seed(email = uniqueEmail("subject"), password = "pw")
         val requesterId = TestUsers.seed(email = uniqueEmail("requester"), password = "pw")
         val otherProviderId = TestUsers.seed(email = uniqueEmail("other"), password = "pw")
@@ -1456,7 +1456,7 @@ class FeedbackRoutesTest {
     fun `list provided resolves subject names and supports subjectName filter and sort`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("provider")
-        val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", roles = emptySet())
         val annId = TestUsers.seed(email = uniqueEmail("ann"), password = "pw", name = "Ann Subject")
         val zoeId = TestUsers.seed(email = uniqueEmail("zoe"), password = "pw", name = "Zoe Subject")
         val client = authedClient(callerEmail, "pw")
@@ -1479,7 +1479,7 @@ class FeedbackRoutesTest {
     fun `list received rejects malformed query parameters`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("subject")
-        TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        TestUsers.seed(email = callerEmail, password = "pw", roles = emptySet())
         val client = authedClient(callerEmail, "pw")
 
         val badRequests = listOf(
@@ -1606,7 +1606,7 @@ class FeedbackRoutesTest {
     fun `list filters by lastModified gte`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("subject")
-        val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", roles = emptySet())
         val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw")
         val client = authedClient(callerEmail, "pw")
 
@@ -1636,7 +1636,7 @@ class FeedbackRoutesTest {
     fun `list exposes lastModified and sorts by it`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("subject")
-        val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", roles = emptySet())
         val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw")
         val client = authedClient(callerEmail, "pw")
 
@@ -1702,7 +1702,7 @@ class FeedbackRoutesTest {
     fun `list team is empty for a caller who manages no team`() = testApplication {
         usePostgresTestcontainer()
         val callerEmail = uniqueEmail("loner")
-        val callerId = TestUsers.seed(email = callerEmail, password = "pw", role = UserRole.USER)
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", roles = emptySet())
         val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw")
         val client = authedClient(callerEmail, "pw")
 
@@ -1761,7 +1761,7 @@ class FeedbackRoutesTest {
 
     private suspend fun seedParty(prefix: String, name: String): Party {
         val email = uniqueEmail(prefix)
-        return Party(email, TestUsers.seed(email = email, password = "pw", role = UserRole.USER, name = name))
+        return Party(email, TestUsers.seed(email = email, password = "pw", roles = emptySet(), name = name))
     }
 
     private suspend fun ApplicationTestBuilder.notificationsOf(email: String): List<NotificationResponse> =

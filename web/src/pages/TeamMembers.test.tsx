@@ -8,12 +8,12 @@ import TeamMembers from "./TeamMembers";
 import { jsonResponse } from "../test/http";
 
 const TOKEN_KEY = "lettuce.auth.token";
-const ROLE_KEY = "lettuce.auth.role";
+const ROLE_KEY = "lettuce.auth.roles";
 
 type FetchMock = ReturnType<typeof vi.fn>;
 
 
-type UserItem = { id: number; name: string; email: string; role: "ADMIN" | "USER" };
+type UserItem = { id: number; name: string; email: string; roles: Array<"ADMIN"> };
 
 function usersPage(items: UserItem[]) {
   return jsonResponse(200, { items, page: 1, pageSize: 100, total: items.length });
@@ -22,13 +22,13 @@ function usersPage(items: UserItem[]) {
 // Team 3 is managed by user 10; its members are users 1 and 2.
 const TEAM = { id: 3, name: "Platform", managerId: 10, memberIds: [1, 2] };
 const MEMBERS: UserItem[] = [
-  { id: 1, name: "Carol", email: "carol@example.com", role: "USER" },
-  { id: 2, name: "Dave", email: "dave@example.com", role: "USER" },
+  { id: 1, name: "Carol", email: "carol@example.com", roles: [] },
+  { id: 2, name: "Dave", email: "dave@example.com", roles: [] },
 ];
 const ALL_USERS: UserItem[] = [
   ...MEMBERS,
-  { id: 9, name: "Erin", email: "erin@example.com", role: "USER" },
-  { id: 10, name: "Mona Manager", email: "mona@example.com", role: "ADMIN" },
+  { id: 9, name: "Erin", email: "erin@example.com", roles: [] },
+  { id: 10, name: "Mona Manager", email: "mona@example.com", roles: ["ADMIN"] },
 ];
 
 function isMembersUrl(url: string) {
@@ -81,7 +81,7 @@ describe("TeamMembers page", () => {
     mockFetch = vi.fn();
     vi.stubGlobal("fetch", mockFetch);
     localStorage.setItem(TOKEN_KEY, "fake-token");
-    localStorage.setItem(ROLE_KEY, "ADMIN");
+    localStorage.setItem(ROLE_KEY, JSON.stringify(["ADMIN"]));
   });
 
   afterEach(() => {
@@ -123,7 +123,7 @@ describe("TeamMembers page", () => {
   });
 
   test("non-admin gets a read-only roster: no add picker, no remove buttons", async () => {
-    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(ROLE_KEY, "[]");
     mockFetch.mockImplementation((url: string) => {
       if (url === "/api/v1/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
       if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));

@@ -7,7 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ImportUsers from "./ImportUsers";
 
 const TOKEN_KEY = "lettuce.auth.token";
-const ROLE_KEY = "lettuce.auth.role";
+const ROLE_KEY = "lettuce.auth.roles";
 
 function PathProbe() {
   const location = useLocation();
@@ -46,7 +46,7 @@ describe("ImportUsers page", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
     localStorage.setItem(TOKEN_KEY, "fake-token");
-    localStorage.setItem(ROLE_KEY, "ADMIN");
+    localStorage.setItem(ROLE_KEY, JSON.stringify(["ADMIN"]));
   });
 
   afterEach(() => {
@@ -150,7 +150,7 @@ describe("ImportUsers page", () => {
   });
 
   test("non-admin is redirected to /users", () => {
-    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(ROLE_KEY, "[]");
     renderImport();
     expect(screen.getByTestId("probe")).toHaveTextContent("/users");
     expect(screen.queryByText(/mass user import/i)).not.toBeInTheDocument();

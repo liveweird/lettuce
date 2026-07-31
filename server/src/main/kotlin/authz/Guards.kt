@@ -9,7 +9,7 @@ import ch.nokillswit.goals.GoalStatus
 import ch.nokillswit.oneonones.OneOnOneResponse
 import ch.nokillswit.users.UserRole
 
-fun CallerPrincipal.isAdmin(): Boolean = role == UserRole.ADMIN
+fun CallerPrincipal.isAdmin(): Boolean = UserRole.ADMIN in roles
 
 fun requireAdmin(caller: CallerPrincipal) {
     if (!caller.isAdmin()) throw ForbiddenException("Admin role required")
@@ -37,9 +37,9 @@ fun requireNotificationRecipient(caller: CallerPrincipal, recipientId: UInt) {
     if (caller.userId != recipientId) throw ForbiddenException("Caller may only access their own notifications")
 }
 
-fun requireCanAssignRole(caller: CallerPrincipal, current: UserRole, requested: UserRole?) {
-    if (requested == null || requested == current) return // no role change requested
-    if (!caller.isAdmin()) throw ForbiddenException("Only admins may change a user's role")
+fun requireCanAssignRoles(caller: CallerPrincipal, current: Set<UserRole>, requested: Set<UserRole>?) {
+    if (requested == null || requested == current) return // no roles change requested
+    if (!caller.isAdmin()) throw ForbiddenException("Only admins may change a user's roles")
 }
 
 fun canReadFeedback(

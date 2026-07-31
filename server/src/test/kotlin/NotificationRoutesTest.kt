@@ -33,8 +33,8 @@ class NotificationRoutesTest {
     fun `list returns only the caller's notifications, newest first`() = testApplication {
         usePostgresTestcontainer()
         val recipientEmail = uniqueEmail("recipient")
-        val recipientId = TestUsers.seed(email = recipientEmail, password = "pw", role = UserRole.USER)
-        val otherId = TestUsers.seed(email = uniqueEmail("other"), password = "pw", role = UserRole.USER)
+        val recipientId = TestUsers.seed(email = recipientEmail, password = "pw", roles = emptySet())
+        val otherId = TestUsers.seed(email = uniqueEmail("other"), password = "pw", roles = emptySet())
         val client = authedClient(recipientEmail, "pw")
 
         val older = TestNotifications.seed(recipientId, label = "older")
@@ -55,7 +55,7 @@ class NotificationRoutesTest {
     fun `list filters by wasSeen and rejects a malformed value`() = testApplication {
         usePostgresTestcontainer()
         val recipientEmail = uniqueEmail("recipient")
-        val recipientId = TestUsers.seed(email = recipientEmail, password = "pw", role = UserRole.USER)
+        val recipientId = TestUsers.seed(email = recipientEmail, password = "pw", roles = emptySet())
         val client = authedClient(recipientEmail, "pw")
 
         val seen = TestNotifications.seed(recipientId, label = "seen one")
@@ -75,11 +75,11 @@ class NotificationRoutesTest {
     fun `read is allowed for the recipient and ADMIN but forbidden for others`() = testApplication {
         usePostgresTestcontainer()
         val recipientEmail = uniqueEmail("recipient")
-        val recipientId = TestUsers.seed(email = recipientEmail, password = "pw", role = UserRole.USER)
+        val recipientId = TestUsers.seed(email = recipientEmail, password = "pw", roles = emptySet())
         val strangerEmail = uniqueEmail("stranger")
-        TestUsers.seed(email = strangerEmail, password = "pw", role = UserRole.USER)
+        TestUsers.seed(email = strangerEmail, password = "pw", roles = emptySet())
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw", role = UserRole.ADMIN)
+        TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
 
         val id = TestNotifications.seed(recipientId, label = "hi", link = "/x")
 
@@ -107,9 +107,9 @@ class NotificationRoutesTest {
     fun `mark seen flips the flag, is idempotent, and is recipient-scoped`() = testApplication {
         usePostgresTestcontainer()
         val recipientEmail = uniqueEmail("recipient")
-        val recipientId = TestUsers.seed(email = recipientEmail, password = "pw", role = UserRole.USER)
+        val recipientId = TestUsers.seed(email = recipientEmail, password = "pw", roles = emptySet())
         val strangerEmail = uniqueEmail("stranger")
-        TestUsers.seed(email = strangerEmail, password = "pw", role = UserRole.USER)
+        TestUsers.seed(email = strangerEmail, password = "pw", roles = emptySet())
 
         val id = TestNotifications.seed(recipientId)
         val client = authedClient(recipientEmail, "pw")
@@ -132,9 +132,9 @@ class NotificationRoutesTest {
     fun `mark unseen flips the flag back, is idempotent, and is recipient-scoped`() = testApplication {
         usePostgresTestcontainer()
         val recipientEmail = uniqueEmail("recipient")
-        val recipientId = TestUsers.seed(email = recipientEmail, password = "pw", role = UserRole.USER)
+        val recipientId = TestUsers.seed(email = recipientEmail, password = "pw", roles = emptySet())
         val strangerEmail = uniqueEmail("stranger")
-        TestUsers.seed(email = strangerEmail, password = "pw", role = UserRole.USER)
+        TestUsers.seed(email = strangerEmail, password = "pw", roles = emptySet())
 
         val id = TestNotifications.seed(recipientId)
         val client = authedClient(recipientEmail, "pw")
@@ -159,9 +159,9 @@ class NotificationRoutesTest {
     fun `mark all seen flips every unseen of the caller, is idempotent, and is caller-scoped`() = testApplication {
         usePostgresTestcontainer()
         val recipientEmail = uniqueEmail("recipient")
-        val recipientId = TestUsers.seed(email = recipientEmail, password = "pw", role = UserRole.USER)
+        val recipientId = TestUsers.seed(email = recipientEmail, password = "pw", roles = emptySet())
         val strangerEmail = uniqueEmail("stranger")
-        val strangerId = TestUsers.seed(email = strangerEmail, password = "pw", role = UserRole.USER)
+        val strangerId = TestUsers.seed(email = strangerEmail, password = "pw", roles = emptySet())
         val client = authedClient(recipientEmail, "pw")
         val strangerClient = authedClient(strangerEmail, "pw")
 
@@ -189,9 +189,9 @@ class NotificationRoutesTest {
     fun `delete removes the notification and is recipient-scoped`() = testApplication {
         usePostgresTestcontainer()
         val recipientEmail = uniqueEmail("recipient")
-        val recipientId = TestUsers.seed(email = recipientEmail, password = "pw", role = UserRole.USER)
+        val recipientId = TestUsers.seed(email = recipientEmail, password = "pw", roles = emptySet())
         val strangerEmail = uniqueEmail("stranger")
-        TestUsers.seed(email = strangerEmail, password = "pw", role = UserRole.USER)
+        TestUsers.seed(email = strangerEmail, password = "pw", roles = emptySet())
         val client = authedClient(recipientEmail, "pw")
         val strangerClient = authedClient(strangerEmail, "pw")
 
@@ -219,7 +219,7 @@ class NotificationRoutesTest {
     fun `soft-deleted notification is invisible to read, seen, unseen, delete and list`() = testApplication {
         usePostgresTestcontainer()
         val recipientEmail = uniqueEmail("recipient")
-        val recipientId = TestUsers.seed(email = recipientEmail, password = "pw", role = UserRole.USER)
+        val recipientId = TestUsers.seed(email = recipientEmail, password = "pw", roles = emptySet())
         val client = authedClient(recipientEmail, "pw")
 
         val keep = TestNotifications.seed(recipientId, label = "keep")

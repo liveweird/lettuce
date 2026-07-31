@@ -7,7 +7,7 @@ import UserDetails from "./UserDetails";
 import { jsonResponse } from "../test/http";
 
 const TOKEN_KEY = "lettuce.auth.token";
-const ROLE_KEY = "lettuce.auth.role";
+const ROLE_KEY = "lettuce.auth.roles";
 const USER_ID_KEY = "lettuce.auth.userId";
 
 function PathProbe() {
@@ -65,7 +65,7 @@ function mockApi(
     managers?: MemberRow[];
     managed?: MemberRow[];
     member?: MemberRow[];
-    users?: Array<{ id: number; name: string; email: string; role: "ADMIN" | "USER" }>;
+    users?: Array<{ id: number; name: string; email: string; roles: Array<"ADMIN"> }>;
     teams?: Array<{ id: number; name: string }>;
   },
 ) {
@@ -92,7 +92,7 @@ describe("UserDetails page", () => {
     mockFetch = vi.fn();
     vi.stubGlobal("fetch", mockFetch);
     localStorage.setItem(TOKEN_KEY, "fake-token");
-    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(ROLE_KEY, "[]");
     localStorage.setItem(USER_ID_KEY, "1");
   });
 
@@ -179,7 +179,7 @@ describe("UserDetails page", () => {
 
   test("an unrelated user still gets a card from the open users list, without stats", async () => {
     mockApi(mockFetch, {
-      users: [{ id: 5, name: "Bob", email: "bob@example.com", role: "USER" }],
+      users: [{ id: 5, name: "Bob", email: "bob@example.com", roles: [] }],
       teams: [{ id: 9, name: "Elsewhere" }],
     });
     renderDetails();
@@ -208,7 +208,7 @@ describe("UserDetails page", () => {
   test("viewing yourself renders the card without actions", async () => {
     localStorage.setItem(USER_ID_KEY, "5");
     mockApi(mockFetch, {
-      users: [{ id: 5, name: "Bob", email: "bob@example.com", role: "USER" }],
+      users: [{ id: 5, name: "Bob", email: "bob@example.com", roles: [] }],
     });
     renderDetails();
 

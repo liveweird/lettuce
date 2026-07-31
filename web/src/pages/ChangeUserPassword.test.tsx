@@ -8,7 +8,7 @@ import ChangeUserPassword from "./ChangeUserPassword";
 import { jsonResponse } from "../test/http";
 
 const TOKEN_KEY = "lettuce.auth.token";
-const ROLE_KEY = "lettuce.auth.role";
+const ROLE_KEY = "lettuce.auth.roles";
 const USER_ID_KEY = "lettuce.auth.userId";
 
 function PathProbe() {
@@ -36,7 +36,7 @@ function renderChangePassword(id: number | string = 7) {
 }
 
 
-const EXISTING_USER = { id: 7, name: "Alice", email: "alice@example.com", role: "USER" as const };
+const EXISTING_USER = { id: 7, name: "Alice", email: "alice@example.com", roles: [] as const };
 
 describe("ChangeUserPassword page", () => {
   let mockFetch: ReturnType<typeof vi.fn>;
@@ -45,7 +45,7 @@ describe("ChangeUserPassword page", () => {
     mockFetch = vi.fn();
     vi.stubGlobal("fetch", mockFetch);
     localStorage.setItem(TOKEN_KEY, "fake-token");
-    localStorage.setItem(ROLE_KEY, "ADMIN");
+    localStorage.setItem(ROLE_KEY, JSON.stringify(["ADMIN"]));
   });
 
   afterEach(() => {
@@ -103,7 +103,7 @@ describe("ChangeUserPassword page", () => {
   });
 
   test("non-admin changing another user is redirected to /users", async () => {
-    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(ROLE_KEY, "[]");
     localStorage.setItem(USER_ID_KEY, "99");
 
     renderChangePassword(7);
@@ -113,7 +113,7 @@ describe("ChangeUserPassword page", () => {
   });
 
   test("non-admin changing their OWN password provides the current one and PUTs both", async () => {
-    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(ROLE_KEY, "[]");
     localStorage.setItem(USER_ID_KEY, "7");
     mockFetch.mockResolvedValueOnce(jsonResponse(200, EXISTING_USER));
     mockFetch.mockResolvedValueOnce(new Response(null, { status: 204 }));
@@ -137,7 +137,7 @@ describe("ChangeUserPassword page", () => {
   });
 
   test("self-change without the current password is blocked client-side", async () => {
-    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(ROLE_KEY, "[]");
     localStorage.setItem(USER_ID_KEY, "7");
     mockFetch.mockResolvedValueOnce(jsonResponse(200, EXISTING_USER));
 
@@ -153,7 +153,7 @@ describe("ChangeUserPassword page", () => {
   });
 
   test("self-change with a wrong current password surfaces the 403 as a friendly error", async () => {
-    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(ROLE_KEY, "[]");
     localStorage.setItem(USER_ID_KEY, "7");
     mockFetch.mockResolvedValueOnce(jsonResponse(200, EXISTING_USER));
     mockFetch.mockResolvedValueOnce(

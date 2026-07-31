@@ -8,7 +8,7 @@ import EditUser from "./EditUser";
 import { jsonResponse } from "../test/http";
 
 const TOKEN_KEY = "lettuce.auth.token";
-const ROLE_KEY = "lettuce.auth.role";
+const ROLE_KEY = "lettuce.auth.roles";
 
 function PathProbe() {
   const location = useLocation();
@@ -34,7 +34,7 @@ function renderEditUser(id: number | string = 7) {
 }
 
 
-const EXISTING_USER = { id: 7, name: "Alice", email: "alice@example.com", role: "USER" as const };
+const EXISTING_USER = { id: 7, name: "Alice", email: "alice@example.com", roles: [] as const };
 
 describe("EditUser page", () => {
   let mockFetch: ReturnType<typeof vi.fn>;
@@ -43,7 +43,7 @@ describe("EditUser page", () => {
     mockFetch = vi.fn();
     vi.stubGlobal("fetch", mockFetch);
     localStorage.setItem(TOKEN_KEY, "fake-token");
-    localStorage.setItem(ROLE_KEY, "ADMIN");
+    localStorage.setItem(ROLE_KEY, JSON.stringify(["ADMIN"]));
   });
 
   afterEach(() => {
@@ -76,12 +76,12 @@ describe("EditUser page", () => {
     expect(JSON.parse(putCall![1].body)).toEqual({
       name: "Alicia",
       email: "alice@example.com",
-      role: "USER",
+      roles: [],
     });
   });
 
   test("non-admin is redirected to /users without fetching", () => {
-    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(ROLE_KEY, "[]");
     renderEditUser(7);
     expect(screen.getByTestId("probe")).toHaveTextContent("/users");
     expect(mockFetch).not.toHaveBeenCalled();
@@ -117,13 +117,13 @@ describe("EditUser page", () => {
     expect(screen.queryByRole("button", { name: /^save$/i })).not.toBeInTheDocument();
   });
 
-  test("submitted PUT body includes the role field", async () => {
-    // The "pre-fills + PUTs" test above already verifies that the role round-trips
-    // from GET into the PUT body. We don't drive the Mantine Select widget directly
+  test("submitted PUT body includes the roles field", async () => {
+    // The "pre-fills + PUTs" test above already verifies that the roles round-trip
+    // from GET into the PUT body. We don't drive the Mantine MultiSelect widget directly
     // because its open-on-click behavior is unreliable under happy-dom. The
-    // positive admin-role-change path is covered by the backend
+    // positive admin-roles-change path is covered by the backend
     // `PUT users id lets admin change another user's role` test.
-    mockFetch.mockResolvedValueOnce(jsonResponse(200, { ...EXISTING_USER, role: "ADMIN" }));
+    mockFetch.mockResolvedValueOnce(jsonResponse(200, { ...EXISTING_USER, roles: ["ADMIN"] }));
     mockFetch.mockResolvedValueOnce(new Response(null, { status: 204 }));
 
     const user = userEvent.setup();
@@ -134,7 +134,7 @@ describe("EditUser page", () => {
 
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/users"));
     const putCall = mockFetch.mock.calls.find(([, init]) => init?.method === "PUT");
-    expect(JSON.parse(putCall![1].body).role).toBe("ADMIN");
+    expect(JSON.parse(putCall![1].body).roles).toEqual(["ADMIN"]);
   });
 
   test("non-numeric id in URL redirects to /users without fetching", () => {

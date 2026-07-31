@@ -96,14 +96,13 @@
     "emailTooLong": "Adres e-mail jest zbyt długi",
     "passwordLength": "Hasło musi mieć co najmniej 10 znaków",
     "passwordsMismatch": "Hasła nie są zgodne",
-    "roleRequired": "Rola jest wymagana",
     "currentPasswordRequired": "Obecne hasło jest wymagane"
   },
   "currentPassword": "Obecne hasło",
   "wrongCurrentPassword": "Obecne hasło jest nieprawidłowe.",
   "massImport": "Import masowy",
   "importTitle": "Masowy import użytkowników",
-  "importFormatHint": "Wgraj plik CSV z jednym użytkownikiem w wierszu, w formacie: nazwa,e-mail. Opcjonalny wiersz nagłówka \"name,email\" jest pomijany. Każdy zaimportowany użytkownik dostaje rolę Użytkownik i wygenerowane hasło.",
+  "importFormatHint": "Wgraj plik CSV z jednym użytkownikiem w wierszu, w formacie: nazwa,e-mail. Opcjonalny wiersz nagłówka \"name,email\" jest pomijany. Każdy zaimportowany użytkownik jest tworzony jako zwykły użytkownik (bez dodatkowych ról) i dostaje wygenerowane hasło.",
   "importFile": "Plik CSV",
   "importSendEmails": "Wyślij nowym użytkownikom e-mail z danymi logowania",
   "importRun": "Importuj",
@@ -133,5 +132,6 @@
   "openItemsBadge_one": "{{count}} otwarte zadanie",
   "openItemsBadge_few": "{{count}} otwarte zadania",
   "openItemsBadge_many": "{{count}} otwartych zadań",
-  "openItemsBadge_other": "{{count}} otwartego zadania"
+  "openItemsBadge_other": "{{count}} otwartego zadania",
+  "rolesNone": "Brak dodatkowych ról"
 }

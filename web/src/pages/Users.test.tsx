@@ -8,7 +8,7 @@ import Users from "./Users";
 import { jsonResponse } from "../test/http";
 
 const TOKEN_KEY = "lettuce.auth.token";
-const ROLE_KEY = "lettuce.auth.role";
+const ROLE_KEY = "lettuce.auth.roles";
 const USER_ID_KEY = "lettuce.auth.userId";
 
 function PathProbe() {
@@ -37,13 +37,13 @@ function renderUsers() {
 type FetchMock = ReturnType<typeof vi.fn>;
 
 
-function listResponse(items: Array<{ id: number; name: string; email: string; role: "ADMIN" | "USER" }>) {
+function listResponse(items: Array<{ id: number; name: string; email: string; roles: Array<"ADMIN"> }>) {
   return jsonResponse(200, { items, page: 1, pageSize: 20, total: items.length });
 }
 
 const SEED_USERS = [
-  { id: 1, name: "Alice", email: "alice@example.com", role: "ADMIN" as const },
-  { id: 2, name: "Bob", email: "bob@example.com", role: "USER" as const },
+  { id: 1, name: "Alice", email: "alice@example.com", roles: ["ADMIN" as const] },
+  { id: 2, name: "Bob", email: "bob@example.com", roles: [] as Array<"ADMIN"> },
 ];
 
 function mockListThen(mockFetch: FetchMock, ...followups: Response[]) {
@@ -79,7 +79,7 @@ describe("Users page", () => {
     mockFetch = vi.fn();
     vi.stubGlobal("fetch", mockFetch);
     localStorage.setItem(TOKEN_KEY, "fake-token");
-    localStorage.setItem(ROLE_KEY, "ADMIN");
+    localStorage.setItem(ROLE_KEY, JSON.stringify(["ADMIN"]));
     localStorage.setItem(USER_ID_KEY, "1");
   });
 
@@ -146,7 +146,7 @@ describe("Users page", () => {
   });
 
   test("non-admin sees the Feedback menu and Teams, but no Edit/Delete", async () => {
-    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(ROLE_KEY, "[]");
     mockListThen(mockFetch);
     const user = userEvent.setup();
     renderUsers();
@@ -389,7 +389,7 @@ describe("Users page", () => {
     );
     unmount();
 
-    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(ROLE_KEY, "[]");
     mockUsers(mockFetch);
     renderUsers();
     await screen.findByText("Alice");

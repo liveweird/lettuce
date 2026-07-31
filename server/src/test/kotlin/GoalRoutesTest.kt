@@ -48,9 +48,9 @@ class GoalRoutesTest {
     /** A manager with one direct report (a fresh team per call, so tests never interfere). */
     private suspend fun seedPair(): GoalPair {
         val managerEmail = uniqueEmail("goal-manager")
-        val managerId = TestUsers.seed(managerEmail, "pw", name = "Mona Manager", role = UserRole.USER)
+        val managerId = TestUsers.seed(managerEmail, "pw", name = "Mona Manager", roles = emptySet())
         val subordinateEmail = uniqueEmail("goal-subordinate")
-        val subordinateId = TestUsers.seed(subordinateEmail, "pw", name = "Sub Ordinate", role = UserRole.USER)
+        val subordinateId = TestUsers.seed(subordinateEmail, "pw", name = "Sub Ordinate", roles = emptySet())
         val teamId = TestServices.teams.create(Team(name = "goal-${UUID.randomUUID()}", managerId = managerId))
         TestServices.teams.addMember(teamId, subordinateId)
         return GoalPair(managerId, managerEmail, subordinateId, subordinateEmail)
@@ -59,7 +59,7 @@ class GoalRoutesTest {
     /** Puts [pair]'s manager into a team managed by a new grand-manager; returns (email, id). */
     private suspend fun seedGrandManager(pair: GoalPair): Pair<String, UInt> {
         val grandEmail = uniqueEmail("goal-grand")
-        val grandId = TestUsers.seed(grandEmail, "pw", name = "Grand Manager", role = UserRole.USER)
+        val grandId = TestUsers.seed(grandEmail, "pw", name = "Grand Manager", roles = emptySet())
         val teamId = TestServices.teams.create(Team(name = "goal-g-${UUID.randomUUID()}", managerId = grandId))
         TestServices.teams.addMember(teamId, pair.managerId)
         return grandEmail to grandId
@@ -155,9 +155,9 @@ class GoalRoutesTest {
         usePostgresTestcontainer()
         val pair = seedPair()
         val outsiderEmail = uniqueEmail("goal-outsider")
-        TestUsers.seed(outsiderEmail, "pw", role = UserRole.USER)
+        TestUsers.seed(outsiderEmail, "pw", roles = emptySet())
         val adminEmail = uniqueEmail("goal-admin")
-        TestUsers.seed(adminEmail, "pw", role = UserRole.ADMIN)
+        TestUsers.seed(adminEmail, "pw", roles = setOf(UserRole.ADMIN))
 
         suspend fun HttpClient.tryCreate(subordinateId: UInt) = post("/api/v1/goals") {
             contentType(ContentType.Application.Json)
@@ -227,9 +227,9 @@ class GoalRoutesTest {
         val pair = seedPair()
         val (grandEmail, _) = seedGrandManager(pair)
         val strangerEmail = uniqueEmail("goal-stranger")
-        TestUsers.seed(strangerEmail, "pw", role = UserRole.USER)
+        TestUsers.seed(strangerEmail, "pw", roles = emptySet())
         val adminEmail = uniqueEmail("goal-admin")
-        TestUsers.seed(adminEmail, "pw", role = UserRole.ADMIN)
+        TestUsers.seed(adminEmail, "pw", roles = setOf(UserRole.ADMIN))
 
         val manager = authedClient(pair.managerEmail, "pw")
         val created = manager.createGoal(pair.subordinateId)
@@ -265,7 +265,7 @@ class GoalRoutesTest {
     fun `missing goals are 404 - id probes learn existence, never content`() = testApplication {
         usePostgresTestcontainer()
         val email = uniqueEmail("goal-user")
-        TestUsers.seed(email, "pw", role = UserRole.USER)
+        TestUsers.seed(email, "pw", roles = emptySet())
         val client = authedClient(email, "pw")
 
         assertEquals(HttpStatusCode.NotFound, client.get("/api/v1/goals/999999").status)
@@ -401,7 +401,7 @@ class GoalRoutesTest {
         usePostgresTestcontainer()
         val pair = seedPair()
         val adminEmail = uniqueEmail("goal-admin")
-        TestUsers.seed(adminEmail, "pw", role = UserRole.ADMIN)
+        TestUsers.seed(adminEmail, "pw", roles = setOf(UserRole.ADMIN))
         val manager = authedClient(pair.managerEmail, "pw")
         val created = manager.createGoal(pair.subordinateId)
 
@@ -752,7 +752,7 @@ class GoalRoutesTest {
         val (_, grandId) = seedGrandManager(pair)
         // A great-grand-manager above the grand-manager.
         val greatEmail = uniqueEmail("goal-great")
-        val greatId = TestUsers.seed(greatEmail, "pw", role = UserRole.USER)
+        val greatId = TestUsers.seed(greatEmail, "pw", roles = emptySet())
         val teamId = TestServices.teams.create(Team(name = "goal-gg-${UUID.randomUUID()}", managerId = greatId))
         TestServices.teams.addMember(teamId, grandId)
 
@@ -1003,7 +1003,7 @@ class GoalRoutesTest {
         usePostgresTestcontainer()
         val pair = seedPair()
         val strangerEmail = uniqueEmail("goal-stranger")
-        TestUsers.seed(strangerEmail, "pw", role = UserRole.USER)
+        TestUsers.seed(strangerEmail, "pw", roles = emptySet())
         val manager = authedClient(pair.managerEmail, "pw")
         val created = manager.createGoal(pair.subordinateId)
 

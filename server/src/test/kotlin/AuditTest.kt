@@ -75,7 +75,7 @@ class AuditTest {
     fun `a forbidden request emits an authz denied event with the caller id`() = testApplication {
         usePostgresTestcontainer()
         val email = uniqueEmail("authz")
-        val callerId = TestUsers.seed(email = email, password = "pw-123456789", role = UserRole.USER)
+        val callerId = TestUsers.seed(email = email, password = "pw-123456789", roles = emptySet())
         val otherId = TestUsers.seed(email = uniqueEmail("other"), password = "pw-123456789")
         val appender = LogCapture("ch.nokillswit.audit")
         try {
@@ -104,9 +104,9 @@ class AuditTest {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
         val adminId = TestUsers.seed(email = adminEmail, password = "pw")
-        val managerId = TestUsers.seed(email = uniqueEmail("mgr"), password = "pw", role = UserRole.USER)
-        val newManagerId = TestUsers.seed(email = uniqueEmail("mgr2"), password = "pw", role = UserRole.USER)
-        val memberId = TestUsers.seed(email = uniqueEmail("member"), password = "pw", role = UserRole.USER)
+        val managerId = TestUsers.seed(email = uniqueEmail("mgr"), password = "pw", roles = emptySet())
+        val newManagerId = TestUsers.seed(email = uniqueEmail("mgr2"), password = "pw", roles = emptySet())
+        val memberId = TestUsers.seed(email = uniqueEmail("member"), password = "pw", roles = emptySet())
         val appender = LogCapture("ch.nokillswit.audit")
         try {
             val client = authedClient(adminEmail, "pw")
@@ -193,7 +193,7 @@ class AuditTest {
         val adminEmail = uniqueEmail("admin")
         val adminId = TestUsers.seed(email = adminEmail, password = "pw")
         val targetEmail = uniqueEmail("target")
-        val targetId = TestUsers.seed(email = targetEmail, password = "pw", role = UserRole.USER)
+        val targetId = TestUsers.seed(email = targetEmail, password = "pw", roles = emptySet())
         val appender = LogCapture("ch.nokillswit.audit")
         try {
             val client = authedClient(adminEmail, "pw")
@@ -201,7 +201,7 @@ class AuditTest {
             // Name-only change → user.updated with name deltas, no email deltas.
             client.put("/api/v1/users/$targetId") {
                 contentType(ContentType.Application.Json)
-                setBody(UserUpdateRequest(name = "Renamed", email = targetEmail, role = UserRole.USER))
+                setBody(UserUpdateRequest(name = "Renamed", email = targetEmail, roles = emptyList()))
             }
             val nameChange = appender.events.find { it.message == "user.updated" }
             assertNotNull(nameChange, "expected a user.updated audit event")
@@ -214,28 +214,31 @@ class AuditTest {
             val newEmail = uniqueEmail("target-moved")
             client.put("/api/v1/users/$targetId") {
                 contentType(ContentType.Application.Json)
-                setBody(UserUpdateRequest(name = "Renamed", email = newEmail, role = UserRole.USER))
+                setBody(UserUpdateRequest(name = "Renamed", email = newEmail, roles = emptyList()))
             }
             val emailChange = appender.events.last { it.message == "user.updated" }
             assertEquals(targetEmail, emailChange.keyValuePairs.first { it.key == "emailFrom" }.value)
             assertEquals(newEmail, emailChange.keyValuePairs.first { it.key == "emailTo" }.value)
             assertTrue(emailChange.keyValuePairs.none { it.key == "nameFrom" })
 
-            // Role-only change → user.role_changed but NO further user.updated.
+            // Roles-only change → user.roles_changed but NO further user.updated.
             client.put("/api/v1/users/$targetId") {
                 contentType(ContentType.Application.Json)
-                setBody(UserUpdateRequest(name = "Renamed", email = newEmail, role = UserRole.ADMIN))
+                setBody(UserUpdateRequest(name = "Renamed", email = newEmail, roles = listOf(UserRole.ADMIN)))
             }
-            assertNotNull(appender.events.find { it.message == "user.role_changed" })
+            val rolesChange = appender.events.find { it.message == "user.roles_changed" }
+            assertNotNull(rolesChange, "expected a user.roles_changed audit event")
+            assertEquals("", rolesChange.keyValuePairs.first { it.key == "from" }.value)
+            assertEquals("ADMIN", rolesChange.keyValuePairs.first { it.key == "to" }.value)
             assertEquals(2, appender.events.count { it.message == "user.updated" })
 
             // No-change PUT → nothing new at all.
             client.put("/api/v1/users/$targetId") {
                 contentType(ContentType.Application.Json)
-                setBody(UserUpdateRequest(name = "Renamed", email = newEmail, role = UserRole.ADMIN))
+                setBody(UserUpdateRequest(name = "Renamed", email = newEmail, roles = listOf(UserRole.ADMIN)))
             }
             assertEquals(2, appender.events.count { it.message == "user.updated" })
-            assertEquals(1, appender.events.count { it.message == "user.role_changed" })
+            assertEquals(1, appender.events.count { it.message == "user.roles_changed" })
         } finally {
             appender.detach()
         }
@@ -246,8 +249,8 @@ class AuditTest {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
         TestUsers.seed(email = adminEmail, password = "pw")
-        val managerId = TestUsers.seed(email = uniqueEmail("mgr"), password = "pw", role = UserRole.USER)
-        val memberId = TestUsers.seed(email = uniqueEmail("member"), password = "pw", role = UserRole.USER)
+        val managerId = TestUsers.seed(email = uniqueEmail("mgr"), password = "pw", roles = emptySet())
+        val memberId = TestUsers.seed(email = uniqueEmail("member"), password = "pw", roles = emptySet())
         val appender = LogCapture("ch.nokillswit.audit")
         try {
             val client = authedClient(adminEmail, "pw")

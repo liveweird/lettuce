@@ -26,6 +26,7 @@
     "name": "Nazwa",
     "email": "E-mail",
     "role": "Rola",
+    "roles": "Role",
     "subject": "Podmiot",
     "provider": "Wystawiający",
     "requester": "Proszący",
@@ -65,8 +66,7 @@
     "PUBLIC": "Publiczna"
   },
   "role": {
-    "ADMIN": "Administrator",
-    "USER": "Użytkownik"
+    "ADMIN": "Administrator"
   },
   "sort": {
     "label": "Sortuj według",

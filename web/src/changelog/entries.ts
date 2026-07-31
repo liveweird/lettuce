@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.24.0",
+    date: "2026-07-31",
+    en: `User roles work differently now: everyone is a regular user by default, and roles such as **Admin** are additional grants on top — a user can hold none, one, or (in the future) several. The user form's single role dropdown became a *Roles* multi-select, the *Users* list shows a badge per additional role (and a dash for none), and the role column is no longer sortable. Nothing changes about what admins can do — their privileges still add to, never replace, regular-user rights.`,
+    pl: `Role użytkowników działają teraz inaczej: każdy jest domyślnie zwykłym użytkownikiem, a role takie jak **Administrator** są dodatkowymi uprawnieniami — użytkownik może nie mieć żadnej, mieć jedną albo (w przyszłości) kilka. Pojedyncza lista rozwijana roli w formularzu użytkownika stała się polem wielokrotnego wyboru *Role*, lista *Użytkownicy* pokazuje odznakę dla każdej dodatkowej roli (a kreskę przy jej braku), a kolumny ról nie da się już sortować. Zakres możliwości administratorów się nie zmienia — ich uprawnienia nadal dodają się do praw zwykłego użytkownika, nigdy ich nie zastępują.`,
+  },
+  {
     version: "1.23.2",
     date: "2026-07-31",
     en: `The top bar now shows your initials avatar next to your name — the same colored avatar you know from the dashboard cards and lists — instead of a generic icon.`,

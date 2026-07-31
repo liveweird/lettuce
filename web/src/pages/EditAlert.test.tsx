@@ -13,7 +13,7 @@ import { jsonResponse } from "../test/http";
 vi.mock("../components/MarkdownEditor", async () => (await import("../test/mockMarkdownEditor")).mockMarkdownEditorModule());
 
 const TOKEN_KEY = "lettuce.auth.token";
-const ROLE_KEY = "lettuce.auth.role";
+const ROLE_KEY = "lettuce.auth.roles";
 
 function PathProbe() {
   const location = useLocation();
@@ -64,7 +64,7 @@ describe("EditAlert page", () => {
     mockFetch = vi.fn();
     vi.stubGlobal("fetch", mockFetch);
     localStorage.setItem(TOKEN_KEY, "fake-token");
-    localStorage.setItem(ROLE_KEY, "ADMIN");
+    localStorage.setItem(ROLE_KEY, JSON.stringify(["ADMIN"]));
   });
 
   afterEach(() => {
@@ -178,7 +178,7 @@ describe("EditAlert page", () => {
   });
 
   test("non-admin is redirected away", () => {
-    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(ROLE_KEY, "[]");
     renderEditAlert();
     expect(screen.getByTestId("probe")).toHaveTextContent("/");
     expect(mockFetch).not.toHaveBeenCalled();

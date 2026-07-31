@@ -112,12 +112,12 @@ export interface paths {
          * List users
          * @description Any authenticated user may list. Supports offset pagination, sorting and filtering.
          *
-         *     - Sortable fields: `id`, `name`, `email`, `role`. Default sort is `id` ascending.
+         *     - Sortable fields: `id`, `name`, `email`. Default sort is `id` ascending.
          *       `id` ascending is always appended as a deterministic tiebreaker.
          *     - Filters (all optional, all whitelisted):
          *       - `name` — case-insensitive substring match against `name`.
          *       - `email` — case-insensitive substring match against `email`.
-         *       - `role` — exact match, `ADMIN` or `USER`.
+         *       - `role` — has-role match: only users holding this additional role (`ADMIN`).
          *       - `teamId` — restrict to users who are members of the given team.
          *
          *     Malformed query parameters (unknown sort field, unknown role, out-of-range page/pageSize)
@@ -127,7 +127,8 @@ export interface paths {
         put?: never;
         /**
          * Create a user
-         * @description Requires ADMIN. If the request body omits `role`, the new user defaults to `USER`.
+         * @description Requires ADMIN. If the request body omits `roles`, the new user gets no additional
+         *     roles (every user is implicitly a regular user).
          *     With `sendEmail: true` the new user is emailed their credentials (the same bilingual
          *     welcome message as the mass import); `emailSent` in the response reports the delivery
          *     outcome (a failure keeps the account). Rejected with `503` before creating anything
@@ -154,8 +155,8 @@ export interface paths {
          * @description Creates one account per CSV line (`name,email`; an optional literal `name,email`
          *     header and blank lines are skipped; names may contain commas — the line is split on
          *     its last comma). Every row imports independently: a parse error, duplicate, or
-         *     failure on one line never affects the others. Each created account gets role `USER`
-         *     and a server-generated 16-character password, returned in that row's `password`
+         *     failure on one line never affects the others. Each created account is a regular user
+         *     (no additional roles) with a server-generated 16-character password, returned in that row's `password`
          *     field — shown to the admin ONCE, never retrievable again. With `sendEmails: true`
          *     each new user is emailed their password (bilingual EN/PL); if the deployment has no
          *     outbound email (`MAIL_TRANSPORT=disabled`) the request is rejected with `503` before
@@ -189,10 +190,10 @@ export interface paths {
         get: operations["getUser"];
         /**
          * Replace a user
-         * @description Replaces a user's editable representation — `name`, `email`, and `role` (all required).
+         * @description Replaces a user's editable representation — `name`, `email`, and `roles` (all required).
          *     The password is NOT part of this representation (it has its own `PUT /users/{id}/password`
          *     sub-resource and is preserved here). Requires the caller to be the target user, or ADMIN.
-         *     Only ADMIN may change a user's `role`; a non-ADMIN caller must send the value the user
+         *     Only ADMIN may change a user's `roles`; a non-ADMIN caller must send the set the user
          *     already has, otherwise the request is rejected with 403.
          */
         put: operations["replaceUser"];
@@ -1452,11 +1453,8 @@ export interface components {
             refreshExpiresAt: number;
             /** Format: int64 */
             userId: number;
-            /**
-             * @description Global role of the authenticated user.
-             * @enum {string}
-             */
-            role: "ADMIN" | "USER";
+            /** @description Additional roles of the authenticated user — empty for a regular user. */
+            roles: "ADMIN"[];
         };
         RefreshRequest: {
             /** @description The refresh token previously issued by /login or /refresh. */
@@ -1504,12 +1502,11 @@ export interface components {
             /** @description At most 71 bytes in UTF-8 (bcrypt limit) — longer is rejected with 400. */
             password: string;
             /**
-             * @description Honoured only when the caller is ADMIN. Non-ADMIN callers must omit this
-             *     field or send the value the user already has, otherwise the request is
-             *     rejected with 403. Omitted on create defaults to USER.
-             * @enum {string}
+             * @description Additional roles (every user is implicitly a regular user). Create is
+             *     ADMIN-only, so any set may be given; omitted defaults to no additional
+             *     roles.
              */
-            role?: "ADMIN" | "USER";
+            roles?: "ADMIN"[];
             /**
              * @description Create only — email the new user their credentials (the bilingual welcome message). Rejected with 503 on a deployment without outbound email.
              * @default false
@@ -1521,8 +1518,7 @@ export interface components {
             id: number;
             name: string;
             email: string;
-            /** @enum {string} */
-            role: "ADMIN" | "USER";
+            roles: "ADMIN"[];
             /** @description Present only when sendEmail was requested — false means the delivery failed (the account exists regardless; the password is still shown once). */
             emailSent?: boolean | null;
         };
@@ -1531,11 +1527,10 @@ export interface components {
             /** Format: email */
             email: string;
             /**
-             * @description Part of the full representation (PUT). Changing it requires ADMIN; a non-ADMIN caller
-             *     must send the value the user already has, otherwise the request is rejected with 403.
-             * @enum {string}
+             * @description Part of the full representation (PUT). Changing the set requires ADMIN; a non-ADMIN
+             *     caller must send the set the user already has, otherwise the request is rejected with 403.
              */
-            role: "ADMIN" | "USER";
+            roles: "ADMIN"[];
         };
         PasswordUpdateRequest: {
             /** @description At most 71 bytes in UTF-8 (bcrypt limit) — longer is rejected with 400. */
@@ -1552,11 +1547,8 @@ export interface components {
             name: string;
             /** Format: email */
             email: string;
-            /**
-             * @description Global role.
-             * @enum {string}
-             */
-            role: "ADMIN" | "USER";
+            /** @description Additional roles — empty for a regular user. */
+            roles: "ADMIN"[];
         };
         UserPage: {
             items: components["schemas"]["UserResponse"][];
@@ -2642,8 +2634,8 @@ export interface operations {
                 name?: string;
                 /** @description Case-insensitive substring match against the user's email. */
                 email?: string;
-                /** @description Exact match against the user's global role. */
-                role?: "ADMIN" | "USER";
+                /** @description Only users holding this additional role. */
+                role?: "ADMIN";
                 /** @description Filter to users who are members of the given team. */
                 teamId?: number;
             };
@@ -2819,7 +2811,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            /** @description Caller is not the target user and not ADMIN, or attempted to escalate role */
+            /** @description Caller is not the target user and not ADMIN, or attempted to change roles */
             403: {
                 headers: {
                     [name: string]: unknown;

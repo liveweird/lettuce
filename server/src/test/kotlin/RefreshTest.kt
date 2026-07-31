@@ -52,7 +52,7 @@ class RefreshTest {
             .withJWTId(UUID.randomUUID().toString())
             .withClaim("email", "x@test")
             .withClaim("userId", userId)
-            .withClaim("role", "USER")
+            .withArrayClaim("roles", arrayOf<String>())
             .withClaim("typ", typ)
             .withExpiresAt(expiresAt)
             .sign(Algorithm.HMAC256("secret"))
@@ -85,6 +85,8 @@ class RefreshTest {
         assertEquals(HttpStatusCode.OK, refreshed.status)
         val body = refreshed.body<LoginResponse>()
         assertNotEquals(first.refreshToken, body.refreshToken, "a fresh refresh token is minted")
+        // Roles are re-read from the DB on every refresh (the seed helper defaults to ADMIN).
+        assertEquals(listOf(ch.nokillswit.users.UserRole.ADMIN), body.roles)
 
         // The new access token authenticates a protected route.
         val authed = client.get("/api/v1/users/$userId") {

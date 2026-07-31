@@ -8,7 +8,7 @@ import ViewFeedback from "./ViewFeedback";
 import { jsonResponse } from "../test/http";
 
 const TOKEN_KEY = "lettuce.auth.token";
-const ROLE_KEY = "lettuce.auth.role";
+const ROLE_KEY = "lettuce.auth.roles";
 const USER_ID_KEY = "lettuce.auth.userId";
 
 type FetchMock = ReturnType<typeof vi.fn>;
@@ -52,7 +52,7 @@ describe("ViewFeedback page", () => {
     mockFetch = vi.fn();
     vi.stubGlobal("fetch", mockFetch);
     localStorage.setItem(TOKEN_KEY, "fake-token");
-    localStorage.setItem(ROLE_KEY, "USER");
+    localStorage.setItem(ROLE_KEY, "[]");
     localStorage.setItem(USER_ID_KEY, "7");
   });
 

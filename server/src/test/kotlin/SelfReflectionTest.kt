@@ -35,7 +35,7 @@ class SelfReflectionTest {
 
     private suspend fun ApplicationTestBuilder.selfUser(): Triple<String, UInt, HttpClient> {
         val email = uniqueEmail("selfie")
-        val id = TestUsers.seed(email = email, password = "pw", role = UserRole.USER)
+        val id = TestUsers.seed(email = email, password = "pw", roles = emptySet())
         return Triple(email, id, authedClient(email, "pw"))
     }
 
@@ -93,7 +93,7 @@ class SelfReflectionTest {
         usePostgresTestcontainer()
         val (_, userId, client) = selfUser()
         val requesterEmail = uniqueEmail("req-manager")
-        val requesterId = TestUsers.seed(email = requesterEmail, password = "pw", role = UserRole.USER)
+        val requesterId = TestUsers.seed(email = requesterEmail, password = "pw", roles = emptySet())
         val requesterClient = authedClient(requesterEmail, "pw")
 
         // The requester asks the subject themselves for feedback — a requested self-reflection.
@@ -152,7 +152,7 @@ class SelfReflectionTest {
         usePostgresTestcontainer()
         val (_, userId, client) = selfUser()
         val managerEmail = uniqueEmail("manager")
-        val managerId = TestUsers.seed(email = managerEmail, password = "pw", role = UserRole.USER)
+        val managerId = TestUsers.seed(email = managerEmail, password = "pw", roles = emptySet())
         val teamId = TestServices.teams.create(Team(name = "self-${UUID.randomUUID()}", managerId = managerId))
         TestServices.teams.addMember(teamId, userId)
         val managerClient = authedClient(managerEmail, "pw")
@@ -179,7 +179,7 @@ class SelfReflectionTest {
         usePostgresTestcontainer()
         val (_, userId, client) = selfUser()
         val otherEmail = uniqueEmail("bystander")
-        TestUsers.seed(email = otherEmail, password = "pw", role = UserRole.USER)
+        TestUsers.seed(email = otherEmail, password = "pw", roles = emptySet())
         val otherClient = authedClient(otherEmail, "pw")
 
         val private = client.createSelf(userId, status = FeedbackStatus.SENT)
