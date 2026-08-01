@@ -4,6 +4,7 @@
   "legendManages": "kieruje",
   "legendMember": "członek",
   "deletedTag": "(usunięty/a)",
+  "unattachedLabel": "Poza zespołami",
   "empty": "Nie ma jeszcze zespołów — struktura pojawi się, gdy powstanie pierwszy zespół.",
   "loadFailed": "Nie udało się wczytać organizacji",
   "unknownError": "Nieznany błąd"

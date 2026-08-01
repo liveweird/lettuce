@@ -18,6 +18,13 @@ test("the org chart renders the seed org and drills into details and rosters", a
   // The caller's own node is plain — no details affordance for oneself.
   await expect(page.getByRole("button", { name: "User details for AAA One" })).toHaveCount(0);
 
+  // People in no team (the seed Administrator) render too, under the section label, as
+  // ordinary clickable nodes (v1.30.2). exact: true — dev volumes hold arbitrary E2E-* names.
+  await expect(page.getByText("Not in any team", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "User details for Administrator", exact: true }),
+  ).toBeVisible();
+
   // A person node opens the details view with the org origin, and the back link returns here.
   await page.getByRole("button", { name: "User details for Manager AAA" }).click();
   await expect(page.getByText("One of your managers")).toBeVisible();

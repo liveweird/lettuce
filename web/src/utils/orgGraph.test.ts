@@ -5,6 +5,7 @@ import {
   personNodeId,
   PERSON_NODE_SIZE,
   teamNodeId,
+  UNATTACHED_SECTION_ID,
   type OrgMembership,
   type OrgTeamInput,
 } from "./orgGraph";
@@ -27,15 +28,29 @@ const USERS = new Map<number, string>([
   [10, "Manager AAA"],
   [11, "Manager BBB"],
   [12, "Manager CCC"],
+  [99, "Floater"], // in no team, manages none — must still get a node
 ]);
 
 describe("buildOrgGraph", () => {
   test("builds unique person nodes with manages and member edges", () => {
     const { nodes, edges } = buildOrgGraph(TEAMS, MEMBERSHIPS, USERS);
 
-    // 6 people (each once, despite Manager AAA appearing as manager AND member) + 3 teams.
-    expect(nodes.filter((n) => n.kind === "person")).toHaveLength(6);
+    // 7 people (each once, despite Manager AAA appearing as manager AND member; the teamless
+    // Floater included) + 3 teams.
+    expect(nodes.filter((n) => n.kind === "person")).toHaveLength(7);
     expect(nodes.filter((n) => n.kind === "team")).toHaveLength(3);
+    // The teamless user's node exists and carries no edge — the layout's section test relies
+    // on exactly this shape.
+    expect(nodes).toContainEqual({
+      id: personNodeId(99),
+      kind: "person",
+      userId: 99,
+      name: "Floater",
+      deleted: false,
+    });
+    expect(edges.some((e) => e.source === personNodeId(99) || e.target === personNodeId(99))).toBe(
+      false,
+    );
 
     // One manages edge per team, one member edge per membership row.
     expect(edges.filter((e) => e.kind === "manages")).toHaveLength(3);
@@ -84,7 +99,8 @@ describe("layoutOrgGraph", () => {
     const { nodes, edges } = buildOrgGraph(TEAMS, MEMBERSHIPS, USERS);
     const positioned = layoutOrgGraph(nodes, edges);
 
-    expect(positioned).toHaveLength(nodes.length);
+    // Every node plus the appended "Not in any team" section label (Floater is unattached).
+    expect(positioned).toHaveLength(nodes.length + 1);
     for (const node of positioned) {
       expect(Number.isFinite(node.x)).toBe(true);
       expect(Number.isFinite(node.y)).toBe(true);
@@ -93,6 +109,52 @@ describe("layoutOrgGraph", () => {
     const grand = positioned.find((n) => n.id === personNodeId(12))!;
     const grandTeam = positioned.find((n) => n.id === teamNodeId(3))!;
     expect(grand.y + PERSON_NODE_SIZE.height).toBeLessThanOrEqual(grandTeam.y);
+  });
+
+  test("teamless people land below the chart, under the section label", () => {
+    const { nodes, edges } = buildOrgGraph(TEAMS, MEMBERSHIPS, USERS);
+    const positioned = layoutOrgGraph(nodes, edges);
+
+    const section = positioned.find((n) => n.id === UNATTACHED_SECTION_ID)!;
+    expect(section.kind).toBe("section");
+    const floater = positioned.find((n) => n.id === personNodeId(99))!;
+    // The whole chart proper (everyone with an edge) sits above the section, which sits above
+    // the teamless row. A manager who belongs to no team (Manager CCC) stays in the chart.
+    const chartBottom = Math.max(
+      ...positioned
+        .filter((n) => n.id !== UNATTACHED_SECTION_ID && n.id !== personNodeId(99))
+        .map((n) => n.y),
+    );
+    expect(section.y).toBeGreaterThan(chartBottom);
+    expect(floater.y).toBeGreaterThan(section.y);
+  });
+
+  test("no section node when everyone is attached to a team", () => {
+    const attachedOnly = new Map([...USERS].filter(([id]) => id !== 99));
+    const { nodes, edges } = buildOrgGraph(TEAMS, MEMBERSHIPS, attachedOnly);
+    const positioned = layoutOrgGraph(nodes, edges);
+
+    expect(positioned).toHaveLength(nodes.length);
+    expect(positioned.some((n) => n.kind === "section")).toBe(false);
+  });
+
+  test("with no teams at all, the section starts at the top and the rows wrap", () => {
+    const users = new Map([
+      [1, "A"],
+      [2, "B"],
+      [3, "C"],
+      [4, "D"],
+    ]);
+    const { nodes, edges } = buildOrgGraph([], [], users);
+    const positioned = layoutOrgGraph(nodes, edges);
+
+    const section = positioned.find((n) => n.id === UNATTACHED_SECTION_ID)!;
+    expect(section).toMatchObject({ x: 0, y: 0 });
+    // Minimum three columns: the fourth person wraps to a second row, under the first.
+    const first = positioned.find((n) => n.id === personNodeId(1))!;
+    const fourth = positioned.find((n) => n.id === personNodeId(4))!;
+    expect(fourth.x).toBe(first.x);
+    expect(fourth.y).toBeGreaterThan(first.y);
   });
 
   test("survives a management cycle (the acyclicer breaks it instead of throwing)", () => {
