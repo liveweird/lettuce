@@ -18,12 +18,16 @@ export default function GoalCloseModal({
   onConfirm,
   loading = false,
   keyPrefix = "goal",
+  // The summary bound, overridable per feature so a caller is never silently capped by the
+  // goals constant (both features use 4000 today).
+  maxLength = MAX_GOAL_TEXT_LENGTH,
 }: {
   opened: boolean;
   onClose: () => void;
   onConfirm: (summary: string) => void;
   loading?: boolean;
   keyPrefix?: "goal" | "teamKpi";
+  maxLength?: number;
 }) {
   const { t } = useTranslation();
   const [summary, setSummary] = useState("");
@@ -57,7 +61,7 @@ export default function GoalCloseModal({
             setError(null);
           }}
           error={error}
-          maxLength={MAX_GOAL_TEXT_LENGTH}
+          maxLength={maxLength}
           autosize
           minRows={4}
           withAsterisk

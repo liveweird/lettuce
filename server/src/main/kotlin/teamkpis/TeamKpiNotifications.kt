@@ -6,8 +6,9 @@ import ch.nokillswit.notifications.NotificationType
 /**
  * Pure mapping from a team-KPI status transition to the notifications it should produce: every
  * current team member is told their manager moved the KPI — except the acting manager themselves,
- * who may also be a member of their own team and must not self-notify. Transitions are the only
- * notifying events; creation (a private draft), edits, and deletion notify nobody.
+ * who may also be a member of their own team and must not self-notify. Transitions and the data-point
+ * mutations (see [teamKpiValueNotifications]) are the only notifying events; creation (a
+ * private draft), definition edits, and deletion notify nobody.
  * Side-effect-free (no DB) like goals/GoalNotifications.kt; [TeamKpiService.transition] resolves
  * the current membership and manager name inside its transaction and the route persists the
  * result.

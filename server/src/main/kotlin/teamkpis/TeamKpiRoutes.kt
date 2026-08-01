@@ -98,6 +98,39 @@ fun Application.configureTeamKpiRoutes() {
         ).forEach { notificationService.create(it) }
     }
 
+    // The uniform read preamble (the 404-before-403 idiom): resolves the KPI and enforces the
+    // document read rule (manager / audited HR at any status; member / chain once out of
+    // DRAFT). A null return means the 404 response was already sent; the guard itself throws
+    // ForbiddenException. Shared by the document, values, and events GETs.
+    suspend fun readGuardedKpi(call: ApplicationCall, kpiId: UInt): TeamKpiResponse? {
+        val caller = call.caller()
+        val kpi = kpiService.read(kpiId)
+        if (kpi == null) {
+            call.respondProblem(HttpStatusCode.NotFound, "Team KPI not found")
+            return null
+        }
+        requireTeamKpiReadAllowingChain(
+            caller,
+            kpi,
+            isTeamMember = { kpiService.isTeamMember(caller.userId, kpi.teamId) },
+            managesTeamManager = { kpiService.managesManagerOf(caller.userId, kpi.managerId) },
+        )
+        return kpi
+    }
+
+    // The write sibling: current-manager-only (nobody else — ADMIN included). Same null = the
+    // 404 was already sent contract; guards run BEFORE any body is received, so an outsider's
+    // malformed payload is still 403.
+    suspend fun writeGuardedKpi(call: ApplicationCall, kpiId: UInt): TeamKpiResponse? {
+        val kpi = kpiService.read(kpiId)
+        if (kpi == null) {
+            call.respondProblem(HttpStatusCode.NotFound, "Team KPI not found")
+            return null
+        }
+        requireTeamKpiWrite(call.caller(), kpi)
+        return kpi
+    }
+
     // Shared handler for the lifecycle-transition action endpoints: current-manager-only, 404
     // when missing, 409 (via ConflictException in the service) when the KPI is not at the edge's
     // source status, otherwise it applies the change, delivers the members' notifications, and
@@ -111,13 +144,7 @@ fun Application.configureTeamKpiRoutes() {
         target: TeamKpiStatus,
         receiveSummary: (suspend () -> String?)? = null,
     ) {
-        val caller = call.caller()
-        val existing = kpiService.read(kpiId)
-        if (existing == null) {
-            call.respondProblem(HttpStatusCode.NotFound, "Team KPI not found")
-            return
-        }
-        requireTeamKpiWrite(caller, existing)
+        writeGuardedKpi(call, kpiId) ?: return
         // The archive body is received (and validated) only after the write guard, so a
         // non-manager's malformed or blank summary is still 403 on a foreign KPI, not 400.
         val summary = receiveSummary?.invoke()
@@ -128,7 +155,7 @@ fun Application.configureTeamKpiRoutes() {
             return
         }
         toNotify.forEach { notificationService.create(it) }
-        kpiEventService.create(teamKpiTransitionEvent(from, target).toEvent(kpiId, caller.userId))
+        kpiEventService.create(teamKpiTransitionEvent(from, target).toEvent(kpiId, call.caller().userId))
         call.respond(HttpStatusCode.NoContent)
     }
 
@@ -184,28 +211,11 @@ fun Application.configureTeamKpiRoutes() {
                 call.respond(HttpStatusCode.Created, created)
             }
             get<TeamKpis.Id> { route ->
-                val caller = call.caller()
-                val kpi = kpiService.read(route.id)
-                if (kpi == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Team KPI not found")
-                    return@get
-                }
-                requireTeamKpiReadAllowingChain(
-                    caller,
-                    kpi,
-                    isTeamMember = { kpiService.isTeamMember(caller.userId, kpi.teamId) },
-                    managesTeamManager = { kpiService.managesManagerOf(caller.userId, kpi.managerId) },
-                )
+                val kpi = readGuardedKpi(call, route.id) ?: return@get
                 call.respond(HttpStatusCode.OK, kpi)
             }
             put<TeamKpis.Id> { route ->
-                val caller = call.caller()
-                val existing = kpiService.read(route.id)
-                if (existing == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Team KPI not found")
-                    return@put
-                }
-                requireTeamKpiWrite(caller, existing)
+                val existing = writeGuardedKpi(call, route.id) ?: return@put
                 val edit = call.receive<TeamKpiDefinitionUpdate>()
                 // DRAFT-only (else 409) and per-type validation both happen in the service,
                 // atomically with the update.
@@ -216,37 +226,20 @@ fun Application.configureTeamKpiRoutes() {
                 }
                 // Audit: one event per changed aspect; a no-op PUT records nothing.
                 teamKpiDefinitionUpdateEvents(existing, edit).forEach { descriptor ->
-                    kpiEventService.create(descriptor.toEvent(route.id, caller.userId))
+                    kpiEventService.create(descriptor.toEvent(route.id, call.caller().userId))
                 }
                 call.respond(HttpStatusCode.NoContent)
             }
             get<TeamKpis.Id.Values> { route ->
-                val caller = call.caller()
-                val kpiId = route.parent.id
-                val kpi = kpiService.read(kpiId)
-                if (kpi == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Team KPI not found")
-                    return@get
-                }
                 // Whoever may read the KPI may read its data points (the KPI data tab and the
                 // Graph tab both feed on them).
-                requireTeamKpiReadAllowingChain(
-                    caller,
-                    kpi,
-                    isTeamMember = { kpiService.isTeamMember(caller.userId, kpi.teamId) },
-                    managesTeamManager = { kpiService.managesManagerOf(caller.userId, kpi.managerId) },
-                )
+                val kpiId = route.parent.id
+                readGuardedKpi(call, kpiId) ?: return@get
                 call.respond(HttpStatusCode.OK, TeamKpiValueListResponse(kpiService.listValues(kpiId)))
             }
             post<TeamKpis.Id.Values> { route ->
-                val caller = call.caller()
                 val kpiId = route.parent.id
-                val existing = kpiService.read(kpiId)
-                if (existing == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Team KPI not found")
-                    return@post
-                }
-                requireTeamKpiWrite(caller, existing)
+                val existing = writeGuardedKpi(call, kpiId) ?: return@post
                 val write = call.receive<TeamKpiValueWrite>()
                 // ACTIVE-only (else 409) and the value/date checks both happen in the service;
                 // a duplicate date raises 23505 → 409 via the central mapping.
@@ -256,7 +249,8 @@ fun Application.configureTeamKpiRoutes() {
                     return@post
                 }
                 kpiEventService.create(
-                    teamKpiValueRecordedEvent(write.date!!, write.value!!).toEvent(kpiId, caller.userId),
+                    teamKpiValueRecordedEvent(write.date!!, write.value!!)
+                        .toEvent(kpiId, call.caller().userId),
                 )
                 notifyValueChange(
                     existing,
@@ -274,14 +268,8 @@ fun Application.configureTeamKpiRoutes() {
                 )
             }
             put<TeamKpis.Id.Values.ValueId> { route ->
-                val caller = call.caller()
                 val kpiId = route.parent.parent.id
-                val existing = kpiService.read(kpiId)
-                if (existing == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Team KPI not found")
-                    return@put
-                }
-                requireTeamKpiWrite(caller, existing)
+                val existing = writeGuardedKpi(call, kpiId) ?: return@put
                 val write = call.receive<TeamKpiValueWrite>()
                 val correction = kpiService.correctValue(kpiId, route.valueId, write)
                 if (correction == null) {
@@ -292,7 +280,7 @@ fun Application.configureTeamKpiRoutes() {
                 if (correction.changed) {
                     kpiEventService.create(
                         teamKpiValueCorrectedEvent(correction.old, write.date!!, write.value!!)
-                            .toEvent(kpiId, caller.userId),
+                            .toEvent(kpiId, call.caller().userId),
                     )
                     notifyValueChange(
                         existing,
@@ -309,20 +297,14 @@ fun Application.configureTeamKpiRoutes() {
                 call.respond(HttpStatusCode.NoContent)
             }
             delete<TeamKpis.Id.Values.ValueId> { route ->
-                val caller = call.caller()
                 val kpiId = route.parent.parent.id
-                val existing = kpiService.read(kpiId)
-                if (existing == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Team KPI not found")
-                    return@delete
-                }
-                requireTeamKpiWrite(caller, existing)
+                val existing = writeGuardedKpi(call, kpiId) ?: return@delete
                 val removed = kpiService.removeValue(kpiId, route.valueId)
                 if (removed == null) {
                     call.respondProblem(HttpStatusCode.NotFound, "Team KPI data point not found")
                     return@delete
                 }
-                kpiEventService.create(teamKpiValueRemovedEvent(removed).toEvent(kpiId, caller.userId))
+                kpiEventService.create(teamKpiValueRemovedEvent(removed).toEvent(kpiId, call.caller().userId))
                 notifyValueChange(
                     existing,
                     kpiId,
@@ -346,30 +328,13 @@ fun Application.configureTeamKpiRoutes() {
                 transitionTo(call, route.parent.id, from = TeamKpiStatus.ARCHIVED, target = TeamKpiStatus.ACTIVE)
             }
             get<TeamKpis.Id.Events> { route ->
-                val caller = call.caller()
-                val kpiId = route.parent.id
-                val kpi = kpiService.read(kpiId)
-                if (kpi == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Team KPI not found")
-                    return@get
-                }
                 // Whoever may read the KPI may read its history (the Graph tab feeds on it).
-                requireTeamKpiReadAllowingChain(
-                    caller,
-                    kpi,
-                    isTeamMember = { kpiService.isTeamMember(caller.userId, kpi.teamId) },
-                    managesTeamManager = { kpiService.managesManagerOf(caller.userId, kpi.managerId) },
-                )
+                val kpiId = route.parent.id
+                readGuardedKpi(call, kpiId) ?: return@get
                 call.respond(HttpStatusCode.OK, TeamKpiEventListResponse(kpiEventService.listForKpi(kpiId)))
             }
             delete<TeamKpis.Id> { route ->
-                val caller = call.caller()
-                val existing = kpiService.read(route.id)
-                if (existing == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Team KPI not found")
-                    return@delete
-                }
-                requireTeamKpiWrite(caller, existing)
+                val existing = writeGuardedKpi(call, route.id) ?: return@delete
                 // Delete is a draft-only action; ACTIVE/ARCHIVED KPIs are archived (or reopened)
                 // through the transitions instead, keeping the record.
                 if (existing.status != TeamKpiStatus.DRAFT) {
@@ -381,7 +346,7 @@ fun Application.configureTeamKpiRoutes() {
                 }
                 // Audit the deletion against the acting manager (events outlive the soft-deleted
                 // row). No notification — deleting a private draft is invisible activity.
-                kpiEventService.create(teamKpiDeletionEvent().toEvent(route.id, caller.userId))
+                kpiEventService.create(teamKpiDeletionEvent().toEvent(route.id, call.caller().userId))
                 call.respond(HttpStatusCode.NoContent)
             }
         }

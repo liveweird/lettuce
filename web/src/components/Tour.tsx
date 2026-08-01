@@ -7,8 +7,8 @@ const TourJoyride = lazy(() => import("./TourJoyride"));
 import { Button, Group, Paper, Stack, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { getUserId, listTeams } from "../api/client";
+import { getUserId } from "../api/client";
+import { useIsManager } from "../hooks/useIsManager";
 // Steps, seen-state, contexts and useTour live in tourSupport.ts so this file only exports
 // components (react-refresh/only-export-components).
 import {
@@ -77,14 +77,9 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const userId = getUserId();
-  // Whether the caller manages a team — gates the Feedback "My team" subsection step. Shares the
-  // Feedback page's query cache key so it dedupes.
-  const { data: managedTeams } = useQuery({
-    queryKey: ["managedTeams", userId],
-    queryFn: () => listTeams({ page: 1, pageSize: 1, managerId: userId! }),
-    enabled: userId !== null,
-  });
-  const isManager = (managedTeams?.total ?? 0) > 0;
+  // Whether the caller manages a team — gates the manager-only steps. The shared hook's cache
+  // key dedupes this with the tab-gate queries on the feature pages.
+  const isManager = useIsManager();
   // A step's `navTo` switches the view before it shows — the target pages derive their state from
   // the URL. Wait for the step's target to mount before resolving so Joyride never tries to show a
   // step whose (possibly cold lazy-loaded) target isn't there yet.

@@ -83,7 +83,7 @@ export default function CreateGoal() {
         subordinateId: Number(subordinate),
         ...toDefinitionBody(values),
       });
-      await queryClient.invalidateQueries({ queryKey: ["goals"] });
+      await invalidateGoal(queryClient);
       // The goal exists as a DRAFT — ask whether to activate it right away; either answer
       // then returns to the originating screen.
       setSubmitting(false);

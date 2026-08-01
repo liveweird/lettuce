@@ -1,9 +1,8 @@
 import { Button, Group, Stack, Tabs, Title } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
 import { Link as RouterLink, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { getUserId, listTeams } from "../api/client";
+import { useIsManager } from "../hooks/useIsManager";
 import OneOnOneTable from "./OneOnOneTable";
 
 const TABS = ["own", "managed", "team"] as const;
@@ -16,14 +15,8 @@ function isOneOnOneTab(value: string | null): value is OneOnOneTab {
 export default function OneOnOnes() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const userId = getUserId();
 
-  const { data: managedTeams } = useQuery({
-    queryKey: ["managedTeams", userId],
-    queryFn: () => listTeams({ page: 1, pageSize: 1, managerId: userId! }),
-    enabled: userId !== null,
-  });
-  const isManager = (managedTeams?.total ?? 0) > 0;
+  const isManager = useIsManager();
 
   const requestedTab = searchParams.get("tab");
   const activeTab: OneOnOneTab =

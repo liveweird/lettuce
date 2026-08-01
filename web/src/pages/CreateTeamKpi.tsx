@@ -77,7 +77,7 @@ export default function CreateTeamKpi() {
         teamId: Number(team),
         ...toKpiDefinitionBody(values),
       });
-      await queryClient.invalidateQueries({ queryKey: ["teamKpis"] });
+      await invalidateTeamKpi(queryClient);
       // The KPI exists as a DRAFT — ask whether to activate it right away; either answer
       // then returns to the originating screen.
       setSubmitting(false);

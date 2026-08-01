@@ -21,6 +21,19 @@ import kotlin.test.assertTrue
 class NotificationRoutesTest {
 
     @Test
+    fun `a malformed notification id is 400 on every id-bearing operation`() = testApplication {
+        usePostgresTestcontainer()
+        val email = uniqueEmail("notif-badid")
+        TestUsers.seed(email, "pw", roles = emptySet())
+        val client = authedClient(email, "pw")
+        // The resources plugin rejects a non-numeric {id} before any handler runs.
+        assertEquals(HttpStatusCode.BadRequest, client.get("/api/v1/notifications/not-a-number").status)
+        assertEquals(HttpStatusCode.BadRequest, client.delete("/api/v1/notifications/not-a-number").status)
+        assertEquals(HttpStatusCode.BadRequest, client.post("/api/v1/notifications/not-a-number/seen").status)
+        assertEquals(HttpStatusCode.BadRequest, client.post("/api/v1/notifications/not-a-number/unseen").status)
+    }
+
+    @Test
     fun `service mutations return 0 for a missing notification`() = testApplication {
         usePostgresTestcontainer()
         // The routes map 0 to 404 (race window: the row vanished between read and mutation).

@@ -16,8 +16,8 @@ const MarkdownEditor = lazy(() => import("./MarkdownEditor"));
  * the create screen and the DRAFT editor — the GoalDefinitionFields shape minus the due date,
  * with the type Select limited to NUMBER/PERCENTAGE (no BINARY flavor, so the target input is
  * always present). The embedding form owns submission, footer buttons, and the surrounding
- * layout; `typeChangeWarning` is the DRAFT editor's "changing the type discards recorded
- * progress" notice.
+ * layout; `typeChangeWarning` is the DRAFT editor's "changing the type removes all collected
+ * data points" notice.
  */
 export default function TeamKpiDefinitionFields({
   form,
