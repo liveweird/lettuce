@@ -35,8 +35,16 @@ const FOREIGN_ARCHIVED = {
   currentValue: 80,
   status: "ARCHIVED",
 };
+const OWN_DRAFT = {
+  ...BASE,
+  id: 3,
+  title: "Ship the docs",
+  status: "DRAFT",
+  targetValue: 8,
+  currentValue: 0,
+};
 
-function mockApi(mockFetch: FetchMock, kpis: unknown[] = [BASE, FOREIGN_ARCHIVED]) {
+function mockApi(mockFetch: FetchMock, kpis: unknown[] = [BASE, FOREIGN_ARCHIVED, OWN_DRAFT]) {
   mockFetch.mockImplementation((url: string) => {
     const u = String(url);
     if (u.startsWith("/api/v1/team-kpis?"))
@@ -68,7 +76,7 @@ describe("TeamKpiTable", () => {
     localStorage.clear();
   });
 
-  test("renders the columns with per-type values; every row action is View", async () => {
+  test("renders the columns with per-type values; only the manager's DRAFT rows offer Edit", async () => {
     mockApi(mockFetch);
     renderWithProviders(<TeamKpiTable view="managed" />);
 
@@ -80,11 +88,13 @@ describe("TeamKpiTable", () => {
     expect(screen.getByText("Active")).toBeInTheDocument();
     expect(screen.getByText("Archived")).toBeInTheDocument();
 
-    // The row action is always View (v1.29.0) — even for the manager of an ACTIVE row; the
-    // manager's affordances live on the view screen.
+    // The manager's DRAFT row opens the editor directly (v1.29.1); everything else — the
+    // manager's own ACTIVE row included — opens the view screen, which owns the data-point
+    // editing and lifecycle actions.
+    expect(screen.getByRole("link", { name: "Edit team KPI Ship the docs" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View team KPI Deploy weekly" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View team KPI Bug backlog" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /Edit team KPI/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Edit team KPI Deploy weekly" })).not.toBeInTheDocument();
   });
 
   test("a pinned teamId hides the Team column and scopes the query", async () => {

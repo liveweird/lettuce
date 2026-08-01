@@ -1,3 +1,7 @@
+// The charts stylesheet rides this lazy chunk (this is the only @mantine/charts consumer), so
+// it stays out of the main bundle. Without it the tooltip renders unstyled — the color-swatch
+// <svg> falls back to the 300x150 default and the card explodes into scattered fragments.
+import "@mantine/charts/styles.css";
 import { Stack, Text } from "@mantine/core";
 import { ChartTooltip, LineChart } from "@mantine/charts";
 import { useQuery } from "@tanstack/react-query";

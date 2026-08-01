@@ -67,12 +67,13 @@ commit** — this list is the suite's coverage map, and it has drifted twice.
   theirs), the per-team subordinates view with the same cards/stats/actions as My subordinates,
   a drill-down round-trip back to it, and a non-manager's empty state.
 - `team-kpis.spec.ts` — a manager walks a team KPI around the whole lifecycle from the My-teams
-  **Team KPIs** drill-down (the row action is always **View**; the DRAFT editor via the view's
-  Edit link, Save & activate, then the **KPI data** tab's inline editing — add a backdated and
-  a later point, correct one, remove one, the list's Current following the max-dated point —
-  the **Graph** tab, archive-with-summary, reopen, DRAFT-only delete); creating with **Yes**
-  activates on the spot, **notifies the members** (the "Go to" link opens the document), and
-  shows read-only — no lifecycle/Edit/Add-value affordances — in their **My teams' KPIs**.
+  **Team KPIs** drill-down (a DRAFT row's action is **Edit** straight into the editor, every
+  other row **View**; Save & activate, then the **KPI data** tab's inline editing — add a
+  backdated and a later point, correct one, remove one, the list's Current following the
+  max-dated point — the **Graph** tab, archive-with-summary, reopen, DRAFT-only delete);
+  creating with **Yes** activates on the spot, **notifies the members** (the "Go to" link opens
+  the document), and shows read-only — no lifecycle/Edit/Add-value affordances — in their
+  **My teams' KPIs**.
 - `org-chart.spec.ts` — the org-chart canvas: seed org nodes render; a person node opens the
   user-details view (and returns), a team node opens the roster.
 - `tour.spec.ts` — replays the guided tour as a manager and walks all 33 steps, pinning the

@@ -39,21 +39,9 @@ export default function TeamKpis() {
         <Anchor component={RouterLink} to={BACK_TO} size="sm">
           {t("feedback.backToLabel", { label: t("dashboard.tabs.myTeams") })}
         </Anchor>
-        <Group justify="space-between" align="flex-start">
-          <Title order={2}>
-            {t("teamKpi.kpisOf", { team: team?.name ?? t("dashboard.teamFallback", { id: teamId }) })}
-          </Title>
-          {isManager && (
-            <Button
-              component={RouterLink}
-              to={teamKpiCreateLink(teamId, team?.name, backTo)}
-              size="xs"
-              leftSection={<IconPlus size={14} />}
-            >
-              {t("teamKpi.newKpi")}
-            </Button>
-          )}
-        </Group>
+        <Title order={2}>
+          {t("teamKpi.kpisOf", { team: team?.name ?? t("dashboard.teamFallback", { id: teamId }) })}
+        </Title>
         <Text size="sm" c="dimmed">
           {t("teamKpi.kpisOfHint")}
         </Text>
@@ -66,6 +54,20 @@ export default function TeamKpis() {
       )}
 
       <TeamKpiTable view="managed" teamId={teamId} settingsKey="teamKpis.team" backTo={backTo} />
+
+      {isManager && (
+        // The prefilled create entry point, below the list — the house footer convention
+        // (the UserGoals pattern).
+        <Group justify="flex-end">
+          <Button
+            component={RouterLink}
+            to={teamKpiCreateLink(teamId, team?.name, backTo)}
+            leftSection={<IconPlus size={16} />}
+          >
+            {t("teamKpi.newKpi")}
+          </Button>
+        </Group>
+      )}
     </Stack>
   );
 }

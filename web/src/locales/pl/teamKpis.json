@@ -27,6 +27,7 @@
   "loadListError": "Nie udało się wczytać KPI zespołów",
   "unknownError": "Nieznany błąd",
   "viewAria": "Zobacz KPI zespołu {{title}}",
+  "editAria": "Edytuj KPI zespołu {{title}}",
   "type": {
     "label": "Typ",
     "NUMBER": "Liczba",
