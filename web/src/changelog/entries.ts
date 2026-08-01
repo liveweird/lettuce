@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.30.0",
+    date: "2026-08-02",
+    en: `Team members now hear about their KPIs' data changing, not just their lifecycle: when the manager records, corrects, or removes a data point, every member gets a notification naming the value and its date ("Mona recorded 72% for Jul 27, 2026 on the KPI …"), linking straight to the KPI. Activation and archiving notified already — the set is now complete.`,
+    pl: `Członkowie zespołu dowiadują się teraz o zmianach danych swoich KPI, nie tylko o ich cyklu życia: gdy menedżer zapisze, poprawi lub usunie punkt danych, każdy członek dostaje powiadomienie z wartością i jej datą („Mona zapisała 72% z dnia 27 lip 2026 w KPI …"), prowadzące prosto do KPI. Aktywacja i archiwizacja powiadamiały już wcześniej — zestaw jest teraz kompletny.`,
+  },
+  {
     version: "1.29.2",
     date: "2026-08-01",
     en: `A percentage team KPI's history now says so: value and target entries carry the % suffix ("Value 72% recorded for Jul 27, 2026."), matching how the rest of the screen formats them.`,

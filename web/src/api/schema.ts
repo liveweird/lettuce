@@ -1300,8 +1300,9 @@ export interface paths {
          *     required and must not be in the future (today is allowed). At most **one value per
          *     date**: a date that already has a data point is `409` — correct the existing point
          *     instead. The KPI's denormalized `currentValue`/`currentValueDate` are recomputed from
-         *     the max-dated point in the same transaction, and the addition mints a `VALUE_RECORDED`
-         *     audit event (params `{date, value}`).
+         *     the max-dated point in the same transaction, the addition mints a `VALUE_RECORDED`
+         *     audit event (params `{date, value}`), and every current team member (except the acting
+         *     manager) is notified with a link to the KPI.
          */
         post: operations["addTeamKpiValue"];
         delete?: never;
@@ -1329,8 +1330,9 @@ export interface paths {
          *     apply; moving the point onto a date that already has another data point is `409`. The
          *     denormalized `currentValue`/`currentValueDate` are recomputed in the same transaction.
          *     A real change mints a `VALUE_CORRECTED` audit event (params
-         *     `{fromDate, fromValue, toDate, toValue}` — always all four); an exact no-op records
-         *     nothing and still answers `204`.
+         *     `{fromDate, fromValue, toDate, toValue}` — always all four) and notifies every current
+         *     team member (except the acting manager) with a link to the KPI; an exact no-op records
+         *     nothing, notifies nobody, and still answers `204`.
          */
         put: operations["updateTeamKpiValue"];
         post?: never;
@@ -1341,7 +1343,8 @@ export interface paths {
          *     status is `409`). **Current-manager-only.** The denormalized
          *     `currentValue`/`currentValueDate` are recomputed in the same transaction: removing the
          *     latest-dated point rolls the current value back to the next-latest (or `0.0`/null when
-         *     none remain).
+         *     none remain). Every current team member (except the acting manager) is notified with a
+         *     link to the KPI.
          */
         delete: operations["deleteTeamKpiValue"];
         options?: never;
@@ -2835,7 +2838,7 @@ export interface components {
              * @description Notification kind; the client renders it in the viewer's language.
              * @enum {string}
              */
-            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_CLOSED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PASSWORD_CHANGED";
+            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_CLOSED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PASSWORD_CHANGED";
             /**
              * @description Interpolation values for the localized message — party names (proper nouns), e.g.
              *     `{provider,subject,requester}`; plus `self` — the SPA's i18next context carrier:

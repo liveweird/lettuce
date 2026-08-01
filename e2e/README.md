@@ -71,9 +71,9 @@ commit** — this list is the suite's coverage map, and it has drifted twice.
   other row **View**; Save & activate, then the **KPI data** tab's inline editing — add a
   backdated and a later point, correct one, remove one, the list's Current following the
   max-dated point — the **Graph** tab, archive-with-summary, reopen, DRAFT-only delete);
-  creating with **Yes** activates on the spot, **notifies the members** (the "Go to" link opens
-  the document), and shows read-only — no lifecycle/Edit/Add-value affordances — in their
-  **My teams' KPIs**.
+  creating with **Yes** activates on the spot and **notifies the members** — as does the
+  manager recording a data point (the bell shows both; "Go to" opens the document) — and the
+  KPI shows read-only — no lifecycle/Edit/Add-value affordances — in their **My teams' KPIs**.
 - `org-chart.spec.ts` — the org-chart canvas: seed org nodes render; a person node opens the
   user-details view (and returns), a team node opens the roster.
 - `tour.spec.ts` — replays the guided tour as a manager and walks all 33 steps, pinning the

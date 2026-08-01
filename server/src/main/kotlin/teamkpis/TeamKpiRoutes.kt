@@ -13,6 +13,7 @@ import ch.nokillswit.infra.paging.optionalUInt
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.notifications.NotificationServiceKey
+import ch.nokillswit.notifications.NotificationType
 import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -75,6 +76,27 @@ fun Application.configureTeamKpiRoutes() {
     val kpiService = attributes[TeamKpiServiceKey]
     val kpiEventService = attributes[TeamKpiEventServiceKey]
     val notificationService = attributes[NotificationServiceKey]
+
+    // Fan out a data-point mutation to the team's current members (minus the acting manager) —
+    // [existing] is the pre-mutation read, which carries every display field the message needs.
+    suspend fun notifyValueChange(
+        existing: TeamKpiResponse,
+        kpiId: UInt,
+        type: NotificationType,
+        valueParams: Map<String, String>,
+    ) {
+        teamKpiValueNotifications(
+            kpiId = kpiId,
+            type = type,
+            memberIds = kpiService.memberIds(existing.teamId),
+            actingManagerId = existing.managerId,
+            managerName = existing.managerName,
+            title = existing.title,
+            teamName = existing.teamName,
+            kpiType = existing.type,
+            valueParams = valueParams,
+        ).forEach { notificationService.create(it) }
+    }
 
     // Shared handler for the lifecycle-transition action endpoints: current-manager-only, 404
     // when missing, 409 (via ConflictException in the service) when the KPI is not at the edge's
@@ -236,6 +258,12 @@ fun Application.configureTeamKpiRoutes() {
                 kpiEventService.create(
                     teamKpiValueRecordedEvent(write.date!!, write.value!!).toEvent(kpiId, caller.userId),
                 )
+                notifyValueChange(
+                    existing,
+                    kpiId,
+                    NotificationType.TEAM_KPI_VALUE_RECORDED_TO_MEMBER,
+                    mapOf("date" to write.date, "value" to write.value.toString()),
+                )
                 call.response.header(
                     HttpHeaders.Location,
                     call.application.href(TeamKpis.Id.Values.ValueId(route, newId)),
@@ -260,11 +288,22 @@ fun Application.configureTeamKpiRoutes() {
                     call.respondProblem(HttpStatusCode.NotFound, "Team KPI data point not found")
                     return@put
                 }
-                // An exact no-op corrected nothing — no event, still 204.
+                // An exact no-op corrected nothing — no event, no notification, still 204.
                 if (correction.changed) {
                     kpiEventService.create(
                         teamKpiValueCorrectedEvent(correction.old, write.date!!, write.value!!)
                             .toEvent(kpiId, caller.userId),
+                    )
+                    notifyValueChange(
+                        existing,
+                        kpiId,
+                        NotificationType.TEAM_KPI_VALUE_CORRECTED_TO_MEMBER,
+                        mapOf(
+                            "fromDate" to correction.old.date,
+                            "fromValue" to correction.old.value.toString(),
+                            "toDate" to write.date,
+                            "toValue" to write.value.toString(),
+                        ),
                     )
                 }
                 call.respond(HttpStatusCode.NoContent)
@@ -284,6 +323,12 @@ fun Application.configureTeamKpiRoutes() {
                     return@delete
                 }
                 kpiEventService.create(teamKpiValueRemovedEvent(removed).toEvent(kpiId, caller.userId))
+                notifyValueChange(
+                    existing,
+                    kpiId,
+                    NotificationType.TEAM_KPI_VALUE_REMOVED_TO_MEMBER,
+                    mapOf("date" to removed.date, "value" to removed.value.toString()),
+                )
                 call.respond(HttpStatusCode.NoContent)
             }
             post<TeamKpis.Id.Activate> { route ->

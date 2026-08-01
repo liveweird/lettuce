@@ -608,6 +608,63 @@ class TeamKpiRoutesTest {
     }
 
     @Test
+    fun `every data-point mutation notifies the members with the value params - a no-op stays silent`() = testApplication {
+        usePostgresTestcontainer()
+        val team = seedTeam()
+        val manager = authedClient(team.managerEmail, "pw")
+        val created = manager.createKpi(team.teamId, title = "Notify the data", type = TeamKpiType.PERCENTAGE, targetValue = 90.0)
+        manager.post("/api/v1/team-kpis/${created.id}/activate")
+
+        val point = manager.addValue(created.id, "2026-07-27", 72.0)
+        // A real correction notifies; the exact no-op resubmission stays silent.
+        manager.put("/api/v1/team-kpis/${created.id}/values/${point.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(TeamKpiValueWrite(date = "2026-07-28", value = 75.0))
+        }
+        manager.put("/api/v1/team-kpis/${created.id}/values/${point.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(TeamKpiValueWrite(date = "2026-07-28", value = 75.0))
+        }
+        manager.delete("/api/v1/team-kpis/${created.id}/values/${point.id}")
+
+        for (email in listOf(team.memberEmail, team.member2Email)) {
+            val member = authedClient(email, "pw")
+            val notes = member.get("/api/v1/notifications?pageSize=50").body<NotificationPageResponse>()
+                .items.filter { it.params["title"] == "Notify the data" && it.type.name.contains("VALUE") }
+            // Exactly one notification per real mutation — the no-op correction minted nothing
+            // (three notes total, one of each kind; order left to the timestamp sort).
+            assertEquals(3, notes.size)
+            assertEquals(
+                setOf(
+                    NotificationType.TEAM_KPI_VALUE_RECORDED_TO_MEMBER,
+                    NotificationType.TEAM_KPI_VALUE_CORRECTED_TO_MEMBER,
+                    NotificationType.TEAM_KPI_VALUE_REMOVED_TO_MEMBER,
+                ),
+                notes.map { it.type }.toSet(),
+            )
+            notes.forEach { note ->
+                assertEquals("Mona Manager", note.params["manager"])
+                assertEquals("PERCENTAGE", note.params["kpiType"])
+                assertEquals("/team-kpis/${created.id}/view", note.link)
+            }
+            val recorded = notes.single { it.type == NotificationType.TEAM_KPI_VALUE_RECORDED_TO_MEMBER }
+            assertEquals("2026-07-27", recorded.params["date"])
+            assertEquals("72.0", recorded.params["value"])
+            val corrected = notes.single { it.type == NotificationType.TEAM_KPI_VALUE_CORRECTED_TO_MEMBER }
+            assertEquals(
+                mapOf("fromDate" to "2026-07-27", "fromValue" to "72.0", "toDate" to "2026-07-28", "toValue" to "75.0"),
+                corrected.params.filterKeys { it.startsWith("from") || it.startsWith("to") },
+            )
+            val removed = notes.single { it.type == NotificationType.TEAM_KPI_VALUE_REMOVED_TO_MEMBER }
+            assertEquals("2026-07-28", removed.params["date"])
+            assertEquals("75.0", removed.params["value"])
+        }
+        // The acting manager (not a member of their own team here) gets nothing.
+        val managerNotes = manager.get("/api/v1/notifications?pageSize=50").body<NotificationPageResponse>()
+        assertTrue(managerNotes.items.none { it.params["title"] == "Notify the data" })
+    }
+
+    @Test
     fun `values are read by whoever reads the KPI and written by nobody else`() = testApplication {
         usePostgresTestcontainer()
         val team = seedTeam()
