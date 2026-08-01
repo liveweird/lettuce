@@ -78,17 +78,25 @@ test("a manager walks a team KPI around the whole lifecycle, and the Graph plots
   await page.getByRole("button", { name: "Save & activate", exact: true }).click();
   await expect(kpiRow(page, title).getByText("Active", { exact: true })).toBeVisible();
 
-  // The ACTIVE editor is the progress form: record a current value.
+  // The ACTIVE editor is the progress form: record a value measured on an explicit past date
+  // (the input defaults to today; backdating is allowed, the future is not).
   await kpiRow(page, title).getByRole("link", { name: `Edit team KPI ${title}` }).click();
   await page.getByLabel("Current").fill("30");
+  await page.getByLabel("Value date").fill("2026-07-01");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page).toHaveURL(/\/teams\/\d+\/kpis/);
   await expect(kpiRow(page, title).getByText("30", { exact: true })).toBeVisible();
 
-  // The Graph tab plots the recorded progress against the dashed target line.
+  // The view shows the value's date; the Graph tab (also on the ACTIVE editor) plots the
+  // recorded progress against the dashed target line.
   await page.goto(`/team-kpis/${id}/view`);
+  await expect(page.getByText("(as of Jul 1, 2026)")).toBeVisible();
   await page.getByRole("tab", { name: "Graph" }).click();
   await expect(page.getByText("The KPI's value over time", { exact: false })).toBeVisible();
+  await page.goto(`/team-kpis/${id}/edit`);
+  await page.getByRole("tab", { name: "Graph" }).click();
+  await expect(page.getByText("The KPI's value over time", { exact: false })).toBeVisible();
+  await page.goto(`/team-kpis/${id}/view`);
 
   // Close from the view screen — the summary is mandatory.
   await page.getByRole("button", { name: "Close KPI", exact: true }).click();

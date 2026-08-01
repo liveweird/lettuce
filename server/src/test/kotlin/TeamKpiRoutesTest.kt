@@ -251,7 +251,7 @@ class TeamKpiRoutesTest {
             HttpStatusCode.NoContent,
             manager.put("/api/v1/team-kpis/${created.id}/progress") {
                 contentType(ContentType.Application.Json)
-                setBody(TeamKpiProgressUpdate(currentValue = 6.5))
+                setBody(TeamKpiProgressUpdate(currentValue = 6.5, date = "2026-07-01"))
             }.status,
         )
         assertEquals(
@@ -264,6 +264,7 @@ class TeamKpiRoutesTest {
         val closed = manager.get("/api/v1/team-kpis/${created.id}").body<TeamKpiResponse>()
         assertEquals(TeamKpiStatus.CLOSED, closed.status)
         assertEquals(6.5, closed.currentValue)
+        assertEquals("2026-07-01", closed.currentValueDate)
         assertEquals("Solid year", closed.summary)
 
         assertEquals(HttpStatusCode.NoContent, manager.post("/api/v1/team-kpis/${created.id}/reopen").status)
@@ -319,7 +320,7 @@ class TeamKpiRoutesTest {
             HttpStatusCode.Forbidden,
             member.put("/api/v1/team-kpis/${created.id}/progress") {
                 contentType(ContentType.Application.Json)
-                setBody(TeamKpiProgressUpdate(currentValue = 1.0))
+                setBody(TeamKpiProgressUpdate(currentValue = 1.0, date = "2026-07-01"))
             }.status,
         )
     }
@@ -415,10 +416,24 @@ class TeamKpiRoutesTest {
                 setBody(edit)
             }.status,
         )
+
+        // A type change back in DRAFT resets the recorded progress, its date included.
+        manager.put("/api/v1/team-kpis/${created.id}/progress") {
+            contentType(ContentType.Application.Json)
+            setBody(TeamKpiProgressUpdate(currentValue = 40.0, date = "2026-07-15"))
+        }
+        manager.post("/api/v1/team-kpis/${created.id}/deactivate")
+        manager.put("/api/v1/team-kpis/${created.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(edit.copy(type = TeamKpiType.NUMBER, targetValue = 10.0))
+        }
+        val reset = manager.get("/api/v1/team-kpis/${created.id}").body<TeamKpiResponse>()
+        assertEquals(0.0, reset.currentValue)
+        assertEquals(null, reset.currentValueDate)
     }
 
     @Test
-    fun `the progress PUT is ACTIVE-only and records the from-to event series`() = testApplication {
+    fun `the progress PUT is ACTIVE-only and records the dated event series`() = testApplication {
         usePostgresTestcontainer()
         val team = seedTeam()
         val manager = authedClient(team.managerEmail, "pw")
@@ -429,31 +444,84 @@ class TeamKpiRoutesTest {
             HttpStatusCode.Conflict,
             manager.put("/api/v1/team-kpis/${created.id}/progress") {
                 contentType(ContentType.Application.Json)
-                setBody(TeamKpiProgressUpdate(currentValue = 1.0))
+                setBody(TeamKpiProgressUpdate(currentValue = 1.0, date = "2026-07-01"))
             }.status,
         )
 
         manager.post("/api/v1/team-kpis/${created.id}/activate")
-        for (value in listOf(2.0, 5.0)) {
+        for ((value, date) in listOf(2.0 to "2026-07-01", 5.0 to "2026-07-10")) {
             manager.put("/api/v1/team-kpis/${created.id}/progress") {
                 contentType(ContentType.Application.Json)
-                setBody(TeamKpiProgressUpdate(currentValue = value))
+                setBody(TeamKpiProgressUpdate(currentValue = value, date = date))
             }
         }
-        // An out-of-range PERCENTAGE-style guard: NUMBER accepts any finite value, but a
-        // missing value is still 400.
-        assertEquals(
-            HttpStatusCode.BadRequest,
-            manager.put("/api/v1/team-kpis/${created.id}/progress") {
-                contentType(ContentType.Application.Json)
-                setBody(TeamKpiProgressUpdate())
-            }.status,
-        )
+        // A missing value is 400, as are a missing, malformed, or future date.
+        for (body in listOf(
+            TeamKpiProgressUpdate(date = "2026-07-11"),
+            TeamKpiProgressUpdate(currentValue = 6.0),
+            TeamKpiProgressUpdate(currentValue = 6.0, date = "2026-7-11"),
+            TeamKpiProgressUpdate(currentValue = 6.0, date = "2999-01-01"),
+        )) {
+            assertEquals(
+                HttpStatusCode.BadRequest,
+                manager.put("/api/v1/team-kpis/${created.id}/progress") {
+                    contentType(ContentType.Application.Json)
+                    setBody(body)
+                }.status,
+            )
+        }
 
-        // The event trail carries the whole value series — the Graph tab's data source.
+        // The event trail carries the whole dated value series — the Graph tab's data source.
         val events = manager.get("/api/v1/team-kpis/${created.id}/events").body<TeamKpiEventListResponse>()
         val progress = events.items.filter { it.type == TeamKpiEventType.PROGRESS_UPDATED }
-        assertEquals(listOf("0.0" to "2.0", "2.0" to "5.0"), progress.map { it.params["from"] to it.params["to"] })
+        assertEquals(
+            listOf("2.0" to "2026-07-01", "5.0" to "2026-07-10"),
+            progress.map { it.params["to"] to it.params["date"] },
+        )
+        val read = manager.get("/api/v1/team-kpis/${created.id}").body<TeamKpiResponse>()
+        assertEquals(5.0, read.currentValue)
+        assertEquals("2026-07-10", read.currentValueDate)
+    }
+
+    @Test
+    fun `latest-dated wins - a backdated value lands in the events but never overwrites Current`() = testApplication {
+        usePostgresTestcontainer()
+        val team = seedTeam()
+        val manager = authedClient(team.managerEmail, "pw")
+        val created = manager.createKpi(team.teamId)
+        manager.post("/api/v1/team-kpis/${created.id}/activate")
+
+        manager.put("/api/v1/team-kpis/${created.id}/progress") {
+            contentType(ContentType.Application.Json)
+            setBody(TeamKpiProgressUpdate(currentValue = 50.0, date = "2026-07-20"))
+        }
+        // Backfill an OLDER measurement: recorded as an event, Current untouched.
+        assertEquals(
+            HttpStatusCode.NoContent,
+            manager.put("/api/v1/team-kpis/${created.id}/progress") {
+                contentType(ContentType.Application.Json)
+                setBody(TeamKpiProgressUpdate(currentValue = 30.0, date = "2026-07-05"))
+            }.status,
+        )
+        val afterBackfill = manager.get("/api/v1/team-kpis/${created.id}").body<TeamKpiResponse>()
+        assertEquals(50.0, afterBackfill.currentValue)
+        assertEquals("2026-07-20", afterBackfill.currentValueDate)
+
+        // A same-date re-recording DOES overwrite (>= keeps the newest submission for the day).
+        manager.put("/api/v1/team-kpis/${created.id}/progress") {
+            contentType(ContentType.Application.Json)
+            setBody(TeamKpiProgressUpdate(currentValue = 55.0, date = "2026-07-20"))
+        }
+        val afterSameDay = manager.get("/api/v1/team-kpis/${created.id}").body<TeamKpiResponse>()
+        assertEquals(55.0, afterSameDay.currentValue)
+
+        // All three recordings are on the trail.
+        val events = manager.get("/api/v1/team-kpis/${created.id}/events").body<TeamKpiEventListResponse>()
+        val progress = events.items.filter { it.type == TeamKpiEventType.PROGRESS_UPDATED }
+        assertEquals(
+            listOf("50.0" to "2026-07-20", "30.0" to "2026-07-05", "55.0" to "2026-07-20"),
+            progress.map { it.params["to"] to it.params["date"] },
+        )
     }
 
     // ---- deletion ----
@@ -570,7 +638,7 @@ class TeamKpiRoutesTest {
             HttpStatusCode.NoContent,
             newManager.put("/api/v1/team-kpis/${created.id}/progress") {
                 contentType(ContentType.Application.Json)
-                setBody(TeamKpiProgressUpdate(currentValue = 3.0))
+                setBody(TeamKpiProgressUpdate(currentValue = 3.0, date = "2026-07-01"))
             }.status,
         )
         assertEquals(

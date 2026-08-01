@@ -34,6 +34,7 @@ class TeamKpiEventsTest {
         type = TeamKpiType.NUMBER,
         targetValue = 10.0,
         currentValue = 4.0,
+        currentValueDate = "2026-07-20",
         status = TeamKpiStatus.DRAFT,
         summary = null,
         lastModified = 1000L,
@@ -101,13 +102,29 @@ class TeamKpiEventsTest {
     }
 
     @Test
-    fun `progress update carries from and to, and a no-op mints nothing`() {
-        val event = teamKpiProgressUpdateEvent(before, TeamKpiProgressUpdate(currentValue = 7.5))
+    fun `progress update carries the value and its date, and an exact no-op mints nothing`() {
+        val event = teamKpiProgressUpdateEvent(
+            before,
+            TeamKpiProgressUpdate(currentValue = 7.5, date = "2026-08-01"),
+        )
         assertNotNull(event)
         assertEquals(TeamKpiEventType.PROGRESS_UPDATED, event.type)
-        assertEquals(mapOf("from" to "4.0", "to" to "7.5"), event.params)
+        assertEquals(mapOf("to" to "7.5", "date" to "2026-08-01"), event.params)
 
-        assertNull(teamKpiProgressUpdateEvent(before, TeamKpiProgressUpdate(currentValue = 4.0)))
+        // Same value + same date as the latest-dated record = exact no-op.
+        assertNull(
+            teamKpiProgressUpdateEvent(before, TeamKpiProgressUpdate(currentValue = 4.0, date = "2026-07-20")),
+        )
+    }
+
+    @Test
+    fun `re-recording the same value on a new date mints an event`() {
+        val event = teamKpiProgressUpdateEvent(
+            before,
+            TeamKpiProgressUpdate(currentValue = 4.0, date = "2026-07-25"),
+        )
+        assertNotNull(event)
+        assertEquals(mapOf("to" to "4.0", "date" to "2026-07-25"), event.params)
     }
 
     @Test

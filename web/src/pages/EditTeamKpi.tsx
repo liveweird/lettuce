@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Alert,
@@ -8,6 +8,7 @@ import {
   Group,
   Loader,
   Paper,
+  Skeleton,
   Stack,
   Tabs,
   Text,
@@ -42,8 +43,13 @@ import {
   toKpiDefinitionFormValues,
   type TeamKpiDefinitionFormValues,
 } from "../utils/teamKpiForm";
+import { todayIsoDate } from "../utils/datetime";
 import { teamKpiViewLink } from "../utils/teamKpiLinks";
 import { invalidateTeamKpi } from "../utils/teamKpiQueries";
+
+// The chart is the only @mantine/charts (recharts) consumer — lazy so the libraries stay out of
+// the main bundle (the ViewTeamKpi pattern; both routes share the one chunk).
+const TeamKpiChart = lazy(() => import("../components/TeamKpiChart"));
 
 /**
  * The manager's status-dependent editor on one route (the EditGoal precedent): a DRAFT renders
@@ -91,9 +97,10 @@ export default function EditTeamKpi() {
     validate: teamKpiDefinitionValidation(t),
   });
   const progressForm = useForm<TeamKpiProgressFormValues>({
-    initialValues: { currentValue: "" },
+    initialValues: { currentValue: "", date: todayIsoDate() },
     validate: {
       currentValue: (value) => validateProgressValue(value, data?.type, t),
+      date: (value) => validateProgressDate(value, t),
     },
   });
 
@@ -102,7 +109,9 @@ export default function EditTeamKpi() {
     definitionForm.initialize(toKpiDefinitionFormValues(data));
   }
   if (data && data.status === "ACTIVE" && !progressForm.initialized) {
-    progressForm.initialize({ currentValue: data.currentValue });
+    // The date deliberately seeds to today, not currentValueDate — a fresh recording defaults
+    // to "measured now" and backdating is the explicit choice.
+    progressForm.initialize({ currentValue: data.currentValue, date: todayIsoDate() });
   }
 
   if (!idIsValid) return <Navigate to={backTo} replace />;
@@ -144,7 +153,7 @@ export default function EditTeamKpi() {
     setError(null);
     setSubmitting(then === "none" ? "progress" : then);
     try {
-      await updateTeamKpiProgress(id, { currentValue: Number(values.currentValue) });
+      await updateTeamKpiProgress(id, { currentValue: Number(values.currentValue), date: values.date });
       if (then === "deactivate") {
         // Save first so no typed value is lost, then step back to draft — and stay: the
         // refetched DRAFT re-renders this route as the definition editor (the EditGoal
@@ -306,11 +315,18 @@ export default function EditTeamKpi() {
                 <Tabs defaultValue="content" keepMounted={false}>
                   <Tabs.List>
                     <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
+                    <Tabs.Tab value="graph">{t("teamKpi.graph")}</Tabs.Tab>
                     <Tabs.Tab value="history">{t("teamKpi.history")}</Tabs.Tab>
                   </Tabs.List>
 
                   <Tabs.Panel value="content" pt="md">
                     <TeamKpiProgressFields kpi={data} form={progressForm} locale={i18n.language} />
+                  </Tabs.Panel>
+
+                  <Tabs.Panel value="graph" pt="md">
+                    <Suspense fallback={<Skeleton height={280} radius="sm" />}>
+                      <TeamKpiChart kpi={data} />
+                    </Suspense>
                   </Tabs.Panel>
 
                   <Tabs.Panel value="history" pt="md">
@@ -412,5 +428,13 @@ function validateProgressValue(
   if (type === "PERCENTAGE" && (Number(value) < 0 || Number(value) > 100)) {
     return t("teamKpi.validation.percentageRange");
   }
+  return null;
+}
+
+// The value-date rule (mirrors the server: required; today or the past, never the future —
+// ISO strings compare chronologically, the goalForm due-date idiom inverted).
+function validateProgressDate(value: string, t: (key: string) => string): string | null {
+  if (!value) return t("teamKpi.validation.dateRequired");
+  if (value > todayIsoDate()) return t("teamKpi.validation.dateInFuture");
   return null;
 }

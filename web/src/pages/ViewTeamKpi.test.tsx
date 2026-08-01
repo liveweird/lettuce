@@ -37,6 +37,7 @@ const KPI = {
   type: "NUMBER",
   targetValue: 52,
   currentValue: 12,
+  currentValueDate: null,
   status: "ACTIVE",
   summary: null,
   lastModified: new Date(2026, 6, 1).getTime(),
@@ -123,6 +124,37 @@ describe("ViewTeamKpi", () => {
     // Origin point + one PROGRESS_UPDATED; the reference line sits at the target.
     expect(chart).toHaveAttribute("data-points", "2");
     expect(chart).toHaveAttribute("data-reference-y", "52");
+  });
+
+  test("a single value backdated before creation still renders the chart, not the empty note", async () => {
+    const preCreation = [
+      {
+        id: 2,
+        kpiId: 5,
+        userId: 7,
+        userName: "Me",
+        timestamp: KPI.createdAt + 1000,
+        type: "PROGRESS_UPDATED",
+        params: { to: "30.0", date: "2026-01-15" }, // before createdAt (May 2026) → origin suppressed
+      },
+    ];
+    mockApi(mockFetch, KPI, preCreation);
+    const user = userEvent.setup();
+    renderView();
+    await screen.findByText("Deploy weekly");
+
+    await user.click(screen.getByRole("tab", { name: "Graph" }));
+    const chart = await screen.findByTestId("line-chart");
+    expect(chart).toHaveAttribute("data-points", "1");
+    expect(screen.queryByText(/No progress has been recorded yet/)).not.toBeInTheDocument();
+  });
+
+  test("the Current value carries an as-of note once a dated value is recorded", async () => {
+    mockApi(mockFetch, { ...KPI, currentValueDate: "2026-07-20" });
+    renderView();
+
+    expect(await screen.findByText("Deploy weekly")).toBeInTheDocument();
+    expect(screen.getByText(/\(as of .*2026.*\)/)).toBeInTheDocument();
   });
 
   test("a non-manager viewer gets no action buttons", async () => {

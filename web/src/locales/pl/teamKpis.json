@@ -20,6 +20,8 @@
   "createdAt": "Utworzono",
   "target": "Wartość docelowa",
   "current": "Wartość bieżąca",
+  "valueDate": "Data wartości",
+  "asOf": "(na dzień {{date}})",
   "clearTitleFilter": "Wyczyść filtr tytułu",
   "clearTeamFilter": "Wyczyść filtr zespołu",
   "rowsPerPage": "KPI na stronę",
@@ -71,7 +73,9 @@
     "descriptionTooLong": "Opis może mieć najwyżej {{max}} znaków",
     "targetRequired": "Wartość docelowa jest wymagana",
     "percentageRange": "Procent musi być z zakresu od 0 do 100",
-    "currentRequired": "Wartość bieżąca jest wymagana"
+    "currentRequired": "Wartość bieżąca jest wymagana",
+    "dateRequired": "Data wartości jest wymagana",
+    "dateInFuture": "Data wartości nie może być w przyszłości"
   },
   "error": {
     "notFound": "To KPI zespołu nie istnieje lub zostało usunięte.",
@@ -95,6 +99,7 @@
     "typeChanged": "Zmieniono typ z {{from}} na {{to}}.",
     "targetChanged": "Zmieniono wartość docelową z {{from}} na {{to}}.",
     "progressUpdated": "Zaktualizowano postęp z {{from}} na {{to}}.",
+    "progressRecorded": "Zapisano wartość {{to}} na dzień {{date}}.",
     "statusChanged": "Zmieniono status z {{from}} na {{to}}.",
     "deleted": "Usunięto KPI zespołu."
   }

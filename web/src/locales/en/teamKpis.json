@@ -20,6 +20,8 @@
   "createdAt": "Created",
   "target": "Target",
   "current": "Current",
+  "valueDate": "Value date",
+  "asOf": "(as of {{date}})",
   "clearTitleFilter": "Clear title filter",
   "clearTeamFilter": "Clear team filter",
   "rowsPerPage": "KPIs per page",
@@ -71,7 +73,9 @@
     "descriptionTooLong": "The description must be at most {{max}} characters",
     "targetRequired": "A target value is required",
     "percentageRange": "A percentage must be between 0 and 100",
-    "currentRequired": "A current value is required"
+    "currentRequired": "A current value is required",
+    "dateRequired": "A value date is required",
+    "dateInFuture": "The value date cannot be in the future"
   },
   "error": {
     "notFound": "This team KPI does not exist or was deleted.",
@@ -95,6 +99,7 @@
     "typeChanged": "Type changed from {{from}} to {{to}}.",
     "targetChanged": "Target changed from {{from}} to {{to}}.",
     "progressUpdated": "Progress updated from {{from}} to {{to}}.",
+    "progressRecorded": "Value {{to}} recorded as of {{date}}.",
     "statusChanged": "Status changed from {{from}} to {{to}}.",
     "deleted": "Team KPI deleted."
   }

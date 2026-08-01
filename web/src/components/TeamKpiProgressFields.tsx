@@ -1,4 +1,4 @@
-import { Group, Input, NumberInput, Stack, Text } from "@mantine/core";
+import { Group, Input, NumberInput, Stack, Text, TextInput } from "@mantine/core";
 import type { UseFormReturnType } from "@mantine/form";
 import { useTranslation } from "react-i18next";
 import type { TeamKpiResponse } from "../api/client";
@@ -6,15 +6,18 @@ import ReadOnlyField from "./ReadOnlyField";
 import ProseBox from "./ProseBox";
 import MarkdownView from "./MarkdownView";
 import { formatGoalValue } from "../utils/goalValues";
+import { todayIsoDate } from "../utils/datetime";
 
 export interface TeamKpiProgressFormValues {
   currentValue: number | string;
+  date: string;
 }
 
 /**
  * The ACTIVE editor's field block: the frozen definition (title, description, target) plus the
- * one live value — the current-value NumberInput (there is no BINARY flavor). The embedding
- * form owns submission and the footer.
+ * live pair — the current-value NumberInput (there is no BINARY flavor) and the date the value
+ * was measured (today or earlier — the mirror of the goal due-date input, which bounds with
+ * `min`). The embedding form owns submission and the footer.
  */
 export default function TeamKpiProgressFields({
   kpi,
@@ -49,6 +52,14 @@ export default function TeamKpiProgressFields({
           max={kpi.type === "PERCENTAGE" ? 100 : undefined}
           suffix={kpi.type === "PERCENTAGE" ? "%" : undefined}
           {...form.getInputProps("currentValue")}
+        />
+        <TextInput
+          type="date"
+          label={t("teamKpi.valueDate")}
+          withAsterisk
+          w={180}
+          max={todayIsoDate()}
+          {...form.getInputProps("date")}
         />
       </Group>
     </Stack>
