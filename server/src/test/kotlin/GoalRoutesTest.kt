@@ -222,7 +222,7 @@ class GoalRoutesTest {
     // ---- read authorization ----
 
     @Test
-    fun `read matrix - parties and ADMIN always, chain managers only once out of DRAFT`() = testApplication {
+    fun `read matrix - parties always, chain managers only once out of DRAFT, admin never specially`() = testApplication {
         usePostgresTestcontainer()
         val pair = seedPair()
         val (grandEmail, _) = seedGrandManager(pair)
@@ -234,13 +234,14 @@ class GoalRoutesTest {
         val manager = authedClient(pair.managerEmail, "pw")
         val created = manager.createGoal(pair.subordinateId)
 
-        // DRAFT: the pair and ADMIN read it; the wider chain and strangers do not.
+        // DRAFT: only the pair reads it; ADMIN (a management role), the wider chain, and
+        // strangers do not.
         assertEquals(HttpStatusCode.OK, manager.get("/api/v1/goals/${created.id}").status)
         assertEquals(
             HttpStatusCode.OK,
             authedClient(pair.subordinateEmail, "pw").get("/api/v1/goals/${created.id}").status,
         )
-        assertEquals(HttpStatusCode.OK, authedClient(adminEmail, "pw").get("/api/v1/goals/${created.id}").status)
+        assertEquals(HttpStatusCode.Forbidden, authedClient(adminEmail, "pw").get("/api/v1/goals/${created.id}").status)
         assertEquals(
             HttpStatusCode.Forbidden,
             authedClient(grandEmail, "pw").get("/api/v1/goals/${created.id}").status,

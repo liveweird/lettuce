@@ -229,10 +229,9 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
         val scope: Op<Boolean> = when (view) {
             GoalListView.OWN -> Goals.subordinateId eq callerUserId
             GoalListView.USER -> {
-                // Auditor view (HR/ADMIN, gated route-side via requireAuditListAccess): every
-                // goal the target is a party to, at every status — DRAFTs included (HR read
-                // equals ADMIN read, unlike the chain views below). The route guarantees a
-                // non-null userId.
+                // Auditor view (HR-only, gated route-side via requireAuditListAccess): every
+                // goal the target is a party to, at every status — DRAFTs included, unlike
+                // the chain views below. The route guarantees a non-null userId.
                 val target = requireNotNull(targetUserId) { "view=user requires userId" }
                 (Goals.managerId eq target) or (Goals.subordinateId eq target)
             }

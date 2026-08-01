@@ -273,21 +273,21 @@ class AuthorizationTest {
                 "subject" to HttpStatusCode.OK,
                 "requester" to HttpStatusCode.Forbidden,
                 "stranger" to HttpStatusCode.Forbidden,
-                "admin" to HttpStatusCode.OK,
+                "admin" to HttpStatusCode.Forbidden,
             ),
             FeedbackVisibility.PROVIDER_REQUESTER to mapOf(
                 "provider" to HttpStatusCode.OK,
                 "subject" to HttpStatusCode.Forbidden,
                 "requester" to HttpStatusCode.OK,
                 "stranger" to HttpStatusCode.Forbidden,
-                "admin" to HttpStatusCode.OK,
+                "admin" to HttpStatusCode.Forbidden,
             ),
             FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT to mapOf(
                 "provider" to HttpStatusCode.OK,
                 "subject" to HttpStatusCode.OK,
                 "requester" to HttpStatusCode.OK,
                 "stranger" to HttpStatusCode.Forbidden,
-                "admin" to HttpStatusCode.OK,
+                "admin" to HttpStatusCode.Forbidden,
             ),
             FeedbackVisibility.PUBLIC to mapOf(
                 "provider" to HttpStatusCode.OK,
@@ -537,7 +537,7 @@ class AuthorizationTest {
     }
 
     @Test
-    fun `admin may read but not modify a feedback`() = testApplication {
+    fun `admin has no special feedback access - non-party reads and writes are denied`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
         TestUsers.seed(email = adminEmail, password = "pw-123456789", roles = setOf(UserRole.ADMIN))
@@ -562,11 +562,16 @@ class AuthorizationTest {
             )
         }.body<FeedbackResponse>()
 
-        // Admin may read every feedback…
-        assertEquals(HttpStatusCode.OK, adminClient.get("/api/v1/feedbacks/${created.id}").status)
+        // A non-party admin may not read a non-public feedback — nor its events, nor probe
+        // the pair via duplicate-check (the party rule applies to everyone now).
+        assertEquals(HttpStatusCode.Forbidden, adminClient.get("/api/v1/feedbacks/${created.id}").status)
+        assertEquals(HttpStatusCode.Forbidden, adminClient.get("/api/v1/feedbacks/${created.id}/events").status)
+        assertEquals(
+            HttpStatusCode.Forbidden,
+            adminClient.get("/api/v1/feedbacks/duplicate-check?subjectId=$subjectId&providerId=$providerId").status,
+        )
 
-        // …but may not modify one they don't provide: a valid SENT → WITHDRAWN transition is
-        // rejected at the write guard (403), which runs before any transition validation.
+        // Writes are denied like before.
         assertEquals(
             HttpStatusCode.Forbidden,
             adminClient.post("/api/v1/feedbacks/${created.id}/withdraw").status,
@@ -576,15 +581,36 @@ class AuthorizationTest {
             adminClient.delete("/api/v1/feedbacks/${created.id}").status,
         )
 
-        // The admin's denied attempts left the feedback untouched, and the provider can still write.
-        assertEquals(
-            FeedbackStatus.SENT,
-            adminClient.get("/api/v1/feedbacks/${created.id}").body<FeedbackResponse>().status,
-        )
+        // The denied attempts left the feedback untouched, and the provider can still write.
         assertEquals(
             HttpStatusCode.NoContent,
             providerClient.post("/api/v1/feedbacks/${created.id}/withdraw").status,
         )
+    }
+
+    @Test
+    fun `admin reads a PUBLIC delivered feedback like any user - standard rights are kept`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw-123456789", roles = setOf(UserRole.ADMIN))
+        val providerEmail = uniqueEmail("provider")
+        val providerId = TestUsers.seed(email = providerEmail, password = "pw-123456789", roles = emptySet())
+        val subjectId = TestUsers.seed(email = uniqueEmail("subject"), password = "pw-123456789", roles = emptySet())
+
+        val created = authedClient(providerEmail, "pw-123456789").post("/api/v1/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                FeedbackCreateRequest(
+                    subjectId = subjectId,
+                    providerId = providerId,
+                    visibility = FeedbackVisibility.PUBLIC,
+                    status = FeedbackStatus.SENT,
+                    content = "public praise",
+                ),
+            )
+        }.body<FeedbackResponse>()
+
+        assertEquals(HttpStatusCode.OK, authedClient(adminEmail, "pw-123456789").get("/api/v1/feedbacks/${created.id}").status)
     }
 
     @Test
@@ -689,7 +715,8 @@ class AuthorizationTest {
     }
 
     @Test
-    fun `an admin may create feedback on behalf of others`() = testApplication {
+    fun `an admin may not create feedback on behalf of others`() = testApplication {
+        // The management role has no feedback privileges: the party rule applies to everyone.
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
         TestUsers.seed(email = adminEmail, password = "pw-123456789", roles = setOf(UserRole.ADMIN))
@@ -708,7 +735,7 @@ class AuthorizationTest {
                 ),
             )
         }
-        assertEquals(HttpStatusCode.Created, response.status)
+        assertEquals(HttpStatusCode.Forbidden, response.status)
     }
 
     @Test

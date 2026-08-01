@@ -447,9 +447,9 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
             FeedbackListView.RECEIVED -> receivedScope(callerUserId)
             FeedbackListView.PROVIDED -> Feedbacks.providerId eq callerUserId
             FeedbackListView.USER -> {
-                // Auditor view (HR/ADMIN, gated route-side via requireAuditListAccess): every
-                // feedback the target is a party to, at every status and visibility — HR read
-                // equals ADMIN read. The route guarantees a non-null userId.
+                // Auditor view (HR-only, gated route-side via requireAuditListAccess): every
+                // feedback the target is a party to, at every status and visibility.
+                // The route guarantees a non-null userId.
                 val target = requireNotNull(targetUserId) { "view=user requires userId" }
                 (Feedbacks.subjectId eq target) or
                     (Feedbacks.providerId eq target) or
@@ -517,7 +517,7 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
             .map { row ->
                 // Mirror canReadFeedbackContent: a requester watching an unfinished feedback sees
                 // that it exists but not its content. The auditor view is never redacted —
-                // HR/ADMIN read includes content (the widened canReadFeedbackContent).
+                // the HR read includes content (canReadFeedbackContent).
                 val unfinished = row[Feedbacks.status] == FeedbackStatus.DRAFT ||
                     row[Feedbacks.status] == FeedbackStatus.REQUESTED
                 val redactContent = view != FeedbackListView.USER &&

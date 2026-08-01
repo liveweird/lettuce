@@ -72,7 +72,7 @@ class NotificationRoutesTest {
     }
 
     @Test
-    fun `read is allowed for the recipient and ADMIN but forbidden for others`() = testApplication {
+    fun `read is recipient-only - strangers and ADMIN alike are forbidden`() = testApplication {
         usePostgresTestcontainer()
         val recipientEmail = uniqueEmail("recipient")
         val recipientId = TestUsers.seed(email = recipientEmail, password = "pw", roles = emptySet())
@@ -97,8 +97,9 @@ class NotificationRoutesTest {
         val strangerClient = authedClient(strangerEmail, "pw")
         assertEquals(HttpStatusCode.Forbidden, strangerClient.get("/api/v1/notifications/$id").status)
 
+        // Notifications are personal: not even ADMIN may read someone else's.
         val adminClient = authedClient(adminEmail, "pw")
-        assertEquals(HttpStatusCode.OK, adminClient.get("/api/v1/notifications/$id").status)
+        assertEquals(HttpStatusCode.Forbidden, adminClient.get("/api/v1/notifications/$id").status)
 
         assertEquals(HttpStatusCode.NotFound, recipientClient.get("/api/v1/notifications/999999").status)
     }
@@ -209,7 +210,7 @@ class NotificationRoutesTest {
     fun `delete of a non-existent notification returns 404`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw") // ADMIN bypasses the recipient guard
+        TestUsers.seed(email = adminEmail, password = "pw") // any caller: missing rows 404 before the guard
         val client = authedClient(adminEmail, "pw")
 
         assertEquals(HttpStatusCode.NotFound, client.delete("/api/v1/notifications/999999").status)

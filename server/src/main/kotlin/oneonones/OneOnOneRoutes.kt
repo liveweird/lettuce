@@ -154,8 +154,8 @@ fun Application.configureOneOnOneRoutes() {
                 if (view != OneOnOneListView.WITH && counterpartId != null) {
                     throw BadRequestException("counterpartId is only supported for view=with")
                 }
-                // The auditor view (HR/ADMIN): view-shape validation like counterpartId above,
-                // then the role gate (which audit-logs HR usage).
+                // The auditor view (HR-only): view-shape validation like counterpartId above,
+                // then the role gate (every use is audit-logged).
                 val userId = params.optionalUInt("userId")
                 if (view == OneOnOneListView.USER && userId == null) {
                     throw BadRequestException("userId is required for view=user")

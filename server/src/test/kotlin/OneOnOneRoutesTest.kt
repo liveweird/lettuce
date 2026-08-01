@@ -292,7 +292,7 @@ class OneOnOneRoutesTest {
     // ---- read matrix ----
 
     @Test
-    fun `read is granted to parties, admin, and the transitive chain - denied to others`() = testApplication {
+    fun `read is granted to parties and the transitive chain - denied to admin and others`() = testApplication {
         usePostgresTestcontainer()
         // Grand-manager → manager → subordinate.
         val pair = seedPair()
@@ -311,7 +311,8 @@ class OneOnOneRoutesTest {
 
         assertEquals(HttpStatusCode.OK, authedClient(pair.managerEmail, "pw").get(url).status)
         assertEquals(HttpStatusCode.OK, authedClient(pair.subordinateEmail, "pw").get(url).status)
-        assertEquals(HttpStatusCode.OK, authedClient(adminEmail, "pw").get(url).status)
+        // ADMIN is a management role: no special 1:1 read.
+        assertEquals(HttpStatusCode.Forbidden, authedClient(adminEmail, "pw").get(url).status)
         // The manager's own manager is in the subordinate's transitive chain.
         assertEquals(HttpStatusCode.OK, authedClient(grandEmail, "pw").get(url).status)
         assertEquals(HttpStatusCode.Forbidden, authedClient(siblingPair.managerEmail, "pw").get(url).status)

@@ -4,7 +4,8 @@ import ch.nokillswit.authz.CallerPrincipal
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.canReadFeedback
 import ch.nokillswit.authz.canReadFeedbackContent
-import ch.nokillswit.authz.hasFullReadAccess
+import ch.nokillswit.authz.canReadGoal
+import ch.nokillswit.authz.canReadOneOnOne
 import ch.nokillswit.authz.isAdmin
 import ch.nokillswit.authz.isHr
 import ch.nokillswit.authz.requireAuditListAccess
@@ -121,10 +122,12 @@ class GuardsTest {
     }
 
     @Test
-    fun `admin and provider read everything regardless of status and visibility`() {
+    fun `only the provider reads a hidden draft - admin is an ordinary non-party now`() {
         val hidden = feedback(FeedbackStatus.DRAFT, FeedbackVisibility.PROVIDER_SUBJECT)
-        assertTrue(canReadFeedback(admin, hidden))
         assertTrue(canReadFeedback(provider, hidden))
+        // ADMIN is a management role: no special feedback read (PUBLIC+SENT still applies).
+        assertFalse(canReadFeedback(admin, hidden))
+        assertTrue(canReadFeedback(admin, feedback(FeedbackStatus.SENT, FeedbackVisibility.PUBLIC)))
     }
 
     // ── canReadFeedbackContent ─────────────────────────────────────────────────
@@ -139,7 +142,8 @@ class GuardsTest {
         )
         assertFalse(canReadFeedbackContent(requester, draft))
         assertFalse(canReadFeedbackContent(requester, requested))
-        // A reader who is not the requester (e.g. a managing caller) still sees the content.
+        // A reader who is not the requester (e.g. a managing caller) still sees the content —
+        // the admin case is the same generic non-requester rule, not a privilege.
         assertTrue(canReadFeedbackContent(stranger, draft))
         assertTrue(canReadFeedbackContent(admin, draft))
         assertTrue(canReadFeedbackContent(provider, draft))
@@ -183,12 +187,19 @@ class GuardsTest {
     }
 
     @Test
-    fun `hasFullReadAccess covers ADMIN and HR, nobody else`() {
-        assertTrue(admin.hasFullReadAccess())
-        assertTrue(hr.hasFullReadAccess())
+    fun `isHr covers exactly the HR role`() {
         assertTrue(hr.isHr())
-        assertFalse(stranger.hasFullReadAccess())
-        assertFalse(provider.hasFullReadAccess())
+        assertFalse(admin.isHr())
+        assertFalse(stranger.isHr())
+    }
+
+    @Test
+    fun `admin has no special read on one-on-ones, goals, or others' notifications`() {
+        assertFalse(canReadOneOnOne(admin, meeting()))
+        assertFalse(canReadGoal(admin, goal(GoalStatus.ACTIVE)))
+        assertFailsWith<ForbiddenException> {
+            ch.nokillswit.authz.requireNotificationRecipient(admin, subject.userId)
+        }
     }
 
     // ── HR auditor reads ───────────────────────────────────────────────────────
@@ -278,9 +289,9 @@ class GuardsTest {
     }
 
     @Test
-    fun `requireAuditListAccess admits hr and admin only`() {
+    fun `requireAuditListAccess admits hr only`() {
         requireAuditListAccess(hr, "goal", subject.userId)
-        requireAuditListAccess(admin, "goal", subject.userId)
+        assertFailsWith<ForbiddenException> { requireAuditListAccess(admin, "goal", subject.userId) }
         assertFailsWith<ForbiddenException> { requireAuditListAccess(stranger, "goal", subject.userId) }
     }
 

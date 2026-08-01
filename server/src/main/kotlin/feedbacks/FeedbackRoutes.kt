@@ -3,7 +3,6 @@ package ch.nokillswit.feedbacks
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.canReadFeedbackContent
-import ch.nokillswit.authz.isAdmin
 import ch.nokillswit.authz.requireAuditListAccess
 import ch.nokillswit.authz.requireFeedbackReadAllowingManager
 import ch.nokillswit.authz.requireFeedbackWrite
@@ -121,8 +120,8 @@ fun Application.configureFeedbackRoutes() {
                 if (includeIndirect != null && view != FeedbackListView.TEAM) {
                     throw BadRequestException("includeIndirect is only supported for view=team")
                 }
-                // The auditor view (HR/ADMIN): view-shape validation like counterpartId on the
-                // 1:1 list, then the role gate (which audit-logs HR usage).
+                // The auditor view (HR-only): view-shape validation like counterpartId on the
+                // 1:1 list, then the role gate (every use is audit-logged).
                 val userId = params.optionalUInt("userId")
                 if (view == FeedbackListView.USER && userId == null) {
                     throw BadRequestException("userId is required for view=user")
@@ -164,10 +163,7 @@ fun Application.configureFeedbackRoutes() {
                 // Same party rule as creation: only someone who could create this feedback may
                 // probe for its in-progress duplicate — and a matching DRAFT/REQUESTED row always
                 // has the caller as a party, so no private draft's existence can leak.
-                if (!caller.isAdmin() &&
-                    caller.userId != providerId &&
-                    caller.userId != requesterId
-                ) {
+                if (caller.userId != providerId && caller.userId != requesterId) {
                     throw ForbiddenException("You may only check feedback you would provide or request")
                 }
                 val duplicate = feedbackService.findOpenDuplicate(subjectId, providerId, requesterId)
@@ -180,12 +176,10 @@ fun Application.configureFeedbackRoutes() {
                 val caller = call.caller()
                 val feedback = call.receive<FeedbackCreateRequest>().toFeedback()
                 // A caller may only create feedback they are a party to — the provider (they author
-                // it) or the requester (they ask for it). Admins may create on behalf of others.
-                // Prevents authoring feedback as someone else or forging a request from someone else.
-                if (!caller.isAdmin() &&
-                    caller.userId != feedback.providerId &&
-                    caller.userId != feedback.requesterId
-                ) {
+                // it) or the requester (they ask for it). Nobody creates on behalf of others
+                // (ADMIN included): this prevents authoring feedback as someone else or forging a
+                // request from someone else.
+                if (caller.userId != feedback.providerId && caller.userId != feedback.requesterId) {
                     throw ForbiddenException("You may only create feedback you provide or request")
                 }
                 val result = requireValidReferences("Referenced user does not exist") {
