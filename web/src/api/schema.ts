@@ -509,6 +509,8 @@ export interface paths {
          *     caller's relationship to the row, the `visibility` and (for subject/manager/public) the
          *     `status`:
          *     - The **provider** may always read, at any status/visibility. (ADMIN gets no special access.)
+         *     - the **HR auditor** may always read, at any status/visibility — drafts included
+         *       (audit-logged).
          *     - the **requester** may read at any status, but only when `visibility` is
          *       `PROVIDER_REQUESTER` or `PROVIDER_REQUESTER_SUBJECT`.
          *     - the **subject** may read only when `visibility` is `PROVIDER_SUBJECT` or
@@ -523,8 +525,9 @@ export interface paths {
          *
          *     Content redaction: a requester may see that a feedback they requested exists, but while it
          *     is unfinished (`DRAFT`/`REQUESTED`) the `content` field is returned as an empty string for
-         *     that requester; it becomes visible once the feedback is sent. The field is therefore not
-         *     guaranteed non-empty and is omitted from `required`.
+         *     that requester; it becomes visible once the feedback is sent. The HR auditor is exempt —
+         *     even as the requester of an unfinished feedback, HR content is never redacted. The field
+         *     is therefore not guaranteed non-empty and is omitted from `required`.
          */
         get: operations["getFeedback"];
         /**
@@ -3455,7 +3458,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            /** @description Caller's relationship to the row does not satisfy `visibility` */
+            /** @description Caller is not the HR auditor and their relationship to the row does not satisfy `visibility` */
             403: {
                 headers: {
                     [name: string]: unknown;
