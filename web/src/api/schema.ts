@@ -409,7 +409,7 @@ export interface paths {
         /**
          * List feedbacks for the caller
          * @description Lists feedback records scoped by `view`. Scoping is always relative to the caller —
-         *     including ADMIN callers — except `view=user`, the HR/ADMIN auditor view.
+         *     including ADMIN callers — except `view=user`, the HR auditor view.
          *
          *     - `view=received` (the default): rows where the caller is the **subject**, scoped exactly
          *       like the single-GET read rules (every listed row is also openable): (a) the caller is
@@ -431,7 +431,7 @@ export interface paths {
          *       the requester of an unfinished row, its `contentPreview` is redacted (empty) until sent.
          *       Note the narrower direct-only default is a list scope, not an authorization boundary:
          *       the single-GET grants any manager in the subject's chain read access once delivered.
-         *     - `view=user` (HR or ADMIN only, else `403`; requires `userId`): the auditor view —
+         *     - `view=user` (HR only, else `403`; requires `userId`): the auditor view —
          *       every feedback the given user is a party to (subject, provider, or requester), at
          *       every status and visibility, DRAFTs included; `contentPreview` is never redacted.
          *       HR usage is recorded in the security audit trail. The ordinary sort/filter/paging
@@ -483,7 +483,7 @@ export interface paths {
         };
         /**
          * Check for an in-progress duplicate of a prospective feedback
-         * @description Returns the active `DRAFT`/`REQUESTED` feedback matching the given (subject, provider, requester) triple, if any — the create screens call this up-front so the user is warned (with a link) before filling the form. A null/omitted `requesterId` matches only rows without a requester. The caller must be the prospective provider or requester (or ADMIN) — the same party rule as creation, so a matching row always has the caller as a party and no unrelated draft's existence can be probed.
+         * @description Returns the active `DRAFT`/`REQUESTED` feedback matching the given (subject, provider, requester) triple, if any — the create screens call this up-front so the user is warned (with a link) before filling the form. A null/omitted `requesterId` matches only rows without a requester. The caller must be the prospective provider or requester — the same party rule as creation, so a matching row always has the caller as a party and no unrelated draft's existence can be probed.
          */
         get: operations["checkFeedbackDuplicate"];
         put?: never;
@@ -508,7 +508,7 @@ export interface paths {
          * @description Authorization (`canReadFeedback`) is evaluated in this order — read access depends on the
          *     caller's relationship to the row, the `visibility` and (for subject/manager/public) the
          *     `status`:
-         *     - ADMIN and the **provider** may always read, at any status/visibility.
+         *     - The **provider** may always read, at any status/visibility. (ADMIN gets no special access.)
          *     - the **requester** may read at any status, but only when `visibility` is
          *       `PROVIDER_REQUESTER` or `PROVIDER_REQUESTER_SUBJECT`.
          *     - the **subject** may read only when `visibility` is `PROVIDER_SUBJECT` or
@@ -530,7 +530,7 @@ export interface paths {
         /**
          * Edit a feedback's content and visibility
          * @description Edits the feedback's editable representation — `content` and `visibility`. Only the record's
-         *     provider (ADMIN does not get feedback write access) may edit. **Status is not changed here**:
+         *     provider may edit — nobody else, ADMIN included. **Status is not changed here**:
          *     lifecycle transitions go through the `POST /feedbacks/{id}/{send,withdraw,reject,pick-up}`
          *     action sub-resources (mirroring notifications' `seen`/`unseen` actions). Party ids and the
          *     requester message are immutable after creation.
@@ -540,7 +540,7 @@ export interface paths {
         /**
          * Delete a feedback record
          * @description Soft-deletes a feedback (the row is flagged, not physically removed, and disappears from
-         *     reads/lists). Only the record's **provider** may delete (ADMIN does not get feedback write
+         *     reads/lists). Only the record's **provider** may delete (nobody else, ADMIN included, has feedback write
          *     access), and only while the feedback is in **DRAFT** status. If the feedback has a requester,
          *     they receive a notification that the provider deleted it (no link). The deletion is recorded
          *     in the feedback's audit history.
@@ -686,7 +686,7 @@ export interface paths {
         };
         /**
          * List 1:1 meetings for the caller
-         * @description Lists 1:1 meetings scoped by `view`. Except `view=user` (the HR/ADMIN auditor view),
+         * @description Lists 1:1 meetings scoped by `view`. Except `view=user` (the HR auditor view),
          *     scoping is always relative to the caller, including
          *     ADMIN callers.
          *
@@ -702,7 +702,7 @@ export interface paths {
          *       required for this view and rejected on any other), in **either role direction** — the
          *       pair may have swapped manager/subordinate roles over time. The caller is a party to
          *       every returned row.
-         *     - `view=user` (HR or ADMIN only, else `403`; requires `userId`): the auditor view —
+         *     - `view=user` (HR only, else `403`; requires `userId`): the auditor view —
          *       every meeting the given user is a party to, in either role direction. HR usage is
          *       recorded in the security audit trail. The ordinary sort/filter/paging parameters
          *       apply on top.
@@ -767,16 +767,16 @@ export interface paths {
          * Fetch a 1:1 meeting
          * @description Returns the full meeting document — parties, date, and the three ordered lists (points
          *     discussed, decisions made, action items). Readable by the meeting's **manager**, its
-         *     **subordinate**, **ADMIN**, and any **manager in the subordinate's transitive management
-         *     chain** (their manager, that manager's manager, and so on — over non-deleted teams).
-         *     Anything else is `403`.
+         *     **subordinate**, the **HR auditor** (audit-logged), and any **manager in the
+         *     subordinate's transitive management chain** (their manager, that manager's manager, and
+         *     so on — over non-deleted teams). Anything else — ADMIN included — is `403`.
          */
         get: operations["getOneOnOne"];
         /**
          * Replace a 1:1 meeting's document
          * @description Full-document replace of the editable representation — the meeting date and the three
-         *     lists. **Manager-only** (the subordinate has read rights only; ADMIN does not get write
-         *     access). The parties are immutable after creation. **Only the pair's latest non-deleted
+         *     lists. **Manager-only** (the subordinate has read rights only; nobody else — ADMIN
+         *     included — gets write access). The parties are immutable after creation. **Only the pair's latest non-deleted
          *     meeting** (by meeting date, id as tiebreaker — the carry-over ordering) **may be
          *     edited**; older meetings are immutable records and answer `409` (the `isLatest` flag on
          *     the read/list responses tells clients up-front). Deleting the latest meeting makes the
@@ -876,7 +876,7 @@ export interface paths {
         };
         /**
          * List goals for the caller
-         * @description Lists goals scoped by `view`. Except `view=user` (the HR/ADMIN auditor view), scoping
+         * @description Lists goals scoped by `view`. Except `view=user` (the HR auditor view), scoping
          *     is always relative to the caller, including ADMIN
          *     callers.
          *
@@ -894,7 +894,7 @@ export interface paths {
          *       empty page. The narrower direct-only default is a list scope, not an authorization
          *       boundary: the single-GET grants any manager in the subordinate's chain read access to
          *       a non-DRAFT goal.
-         *     - `view=user` (HR or ADMIN only, else `403`; requires `userId`): the auditor view —
+         *     - `view=user` (HR only, else `403`; requires `userId`): the auditor view —
          *       every goal the given user is a party to (manager or subordinate), at every status,
          *       DRAFTs included. HR usage is recorded in the security audit trail. The ordinary
          *       sort/filter/paging parameters apply on top.
@@ -959,10 +959,11 @@ export interface paths {
          * Fetch a goal
          * @description Returns the full goal document — parties, definition, value fields, status, and (once
          *     closed at least once) the summary. Readable by the goal's **manager**, its
-         *     **subordinate**, and **ADMIN** at every status; a **manager in the subordinate's
-         *     transitive management chain** (their manager, that manager's manager, and so on — over
-         *     non-deleted teams) may read it only once it has left DRAFT (ACTIVE/CLOSED) — a draft
-         *     stays private to the pair. Anything else is `403`.
+         *     **subordinate**, and the **HR auditor** (audit-logged) at every status; a **manager in
+         *     the subordinate's transitive management chain** (their manager, that manager's manager,
+         *     and so on — over non-deleted teams) may read it only once it has left DRAFT
+         *     (ACTIVE/CLOSED) — a draft stays private to the pair. Anything else — ADMIN included —
+         *     is `403`.
          */
         get: operations["getGoal"];
         /**
@@ -970,8 +971,8 @@ export interface paths {
          * @description Edits the goal's definition — title, description, type, target, and due date (the due
          *     date is editable **only** here and at creation, i.e. only while DRAFT, and must not be
          *     earlier than the current date). **Manager-only**
-         *     (the subordinate has read rights only; ADMIN does not get write access) and
-         *     **DRAFT-only**: an ACTIVE or CLOSED goal's definition is immutable (`409`) — deactivate
+         *     (the subordinate has read rights only; nobody else — ADMIN included — gets write
+         *     access) and **DRAFT-only**: an ACTIVE or CLOSED goal's definition is immutable (`409`) — deactivate
          *     it first to edit. The parties, status, current value, and summary are not settable here
          *     (status moves through the action endpoints, the current value through
          *     `PUT /goals/{id}/progress`, the summary through the close action).
@@ -1355,14 +1356,14 @@ export interface paths {
         };
         /**
          * Fetch a notification
-         * @description The recipient or an ADMIN may read.
+         * @description Recipient-only.
          */
         get: operations["getNotification"];
         put?: never;
         post?: never;
         /**
          * Delete a notification
-         * @description The recipient or an ADMIN may delete.
+         * @description Recipient-only.
          */
         delete: operations["deleteNotification"];
         options?: never;
@@ -1383,7 +1384,7 @@ export interface paths {
         put?: never;
         /**
          * Mark a notification as seen
-         * @description Sets `wasSeen` to `true`. Idempotent. The recipient or an ADMIN may call it.
+         * @description Sets `wasSeen` to `true`. Idempotent. Recipient-only.
          */
         post: operations["markNotificationSeen"];
         delete?: never;
@@ -1405,7 +1406,7 @@ export interface paths {
         put?: never;
         /**
          * Mark a notification as unseen
-         * @description Sets `wasSeen` to `false`. Idempotent. The recipient or an ADMIN may call it.
+         * @description Sets `wasSeen` to `false`. Idempotent. Recipient-only.
          */
         post: operations["markNotificationUnseen"];
         delete?: never;
@@ -1427,7 +1428,8 @@ export interface paths {
          * Mark all of the caller's notifications as seen
          * @description Sets `wasSeen` to `true` for every one of the authenticated caller's still-unseen
          *     notifications, in a single request. Idempotent. Intrinsically scoped to the caller's own
-         *     notifications (no `{id}`, no recipient guard); there is no ADMIN cross-user bypass.
+         *     notifications (no `{id}`, no recipient guard — like every notification endpoint,
+         *     recipient-only).
          *     Deliberately asymmetric: there is no `unseen-all` counterpart — un-seeing is a
          *     per-notification action (`POST /notifications/{id}/unseen`).
          */
@@ -2450,7 +2452,7 @@ export interface components {
                 "application/problem+json": components["schemas"]["ProblemDetail"];
             };
         };
-        /** @description Caller is neither a party to the 1:1 meeting, nor ADMIN, nor a manager in the subordinate's management chain */
+        /** @description Caller is neither a party to the 1:1 meeting, nor the HR auditor, nor a manager in the subordinate's management chain */
         OneOnOneNotReadable: {
             headers: {
                 [name: string]: unknown;
@@ -2468,7 +2470,7 @@ export interface components {
                 "application/problem+json": components["schemas"]["ProblemDetail"];
             };
         };
-        /** @description Caller is neither a party to the goal, nor ADMIN, nor a manager in the subordinate's management chain — or the goal is still a DRAFT, which the wider chain may not see */
+        /** @description Caller is neither a party to the goal, nor the HR auditor, nor a manager in the subordinate's management chain — or the goal is still a DRAFT, which the wider chain may not see */
         GoalNotReadable: {
             headers: {
                 [name: string]: unknown;
@@ -3271,7 +3273,7 @@ export interface operations {
                  *     always appended as a deterministic tiebreaker.
                  */
                 sort?: components["parameters"]["Sort"];
-                /** @description Which slice of feedbacks to list — caller-relative, except the HR/ADMIN auditor view `user`. */
+                /** @description Which slice of feedbacks to list — caller-relative, except the HR auditor view `user`. */
                 view?: "received" | "provided" | "team" | "user";
                 /**
                  * @description Required with `view=user` (`400` when missing there, `400` with any other view):
@@ -3320,7 +3322,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            /** @description view=user requested without the HR or ADMIN role */
+            /** @description view=user requested without the HR role */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3366,7 +3368,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
-            /** @description Caller is not a party (provider or requester) to the feedback and not ADMIN */
+            /** @description Caller is not a party (provider or requester) to the feedback */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3419,7 +3421,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
-            /** @description Caller is neither the prospective provider nor requester and not ADMIN */
+            /** @description Caller is neither the prospective provider nor requester */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3705,7 +3707,7 @@ export interface operations {
                  *     always appended as a deterministic tiebreaker.
                  */
                 sort?: components["parameters"]["Sort"];
-                /** @description Which slice of 1:1 meetings to list — caller-relative, except the HR/ADMIN auditor view `user`. */
+                /** @description Which slice of 1:1 meetings to list — caller-relative, except the HR auditor view `user`. */
                 view?: "own" | "managed" | "team" | "with" | "user";
                 /**
                  * @description Only valid with `view=team` (else `400`). When `true`, widens which managers count
@@ -3748,7 +3750,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            /** @description view=user requested without the HR or ADMIN role */
+            /** @description view=user requested without the HR role */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3990,7 +3992,7 @@ export interface operations {
                  *     always appended as a deterministic tiebreaker.
                  */
                 sort?: components["parameters"]["Sort"];
-                /** @description Which slice of goals to list — caller-relative, except the HR/ADMIN auditor view `user`. */
+                /** @description Which slice of goals to list — caller-relative, except the HR auditor view `user`. */
                 view?: "own" | "managed" | "team" | "user";
                 /**
                  * @description Required with `view=user` (`400` when missing there, `400` with any other view):
@@ -4041,7 +4043,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            /** @description view=user requested without the HR or ADMIN role */
+            /** @description view=user requested without the HR role */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4895,7 +4897,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            /** @description Caller is neither the recipient nor ADMIN */
+            /** @description Caller is not the recipient */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4928,7 +4930,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            /** @description Caller is neither the recipient nor ADMIN */
+            /** @description Caller is not the recipient */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4961,7 +4963,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            /** @description Caller is neither the recipient nor ADMIN */
+            /** @description Caller is not the recipient */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4994,7 +4996,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            /** @description Caller is neither the recipient nor ADMIN */
+            /** @description Caller is not the recipient */
             403: {
                 headers: {
                     [name: string]: unknown;
