@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.30.2",
+    date: "2026-08-02",
+    en: `The org chart no longer loses people: users who belong to no team (and manage none) now appear in a **Not in any team** section below the chart, as ordinary clickable nodes — previously they were missing from the picture entirely.`,
+    pl: `Struktura organizacji nie gubi już ludzi: osoby, które nie należą do żadnego zespołu (i żadnym nie kierują), pojawiają się teraz w sekcji **Poza zespołami** pod strukturą, jako zwykłe klikalne kafelki — wcześniej w ogóle brakowało ich na obrazie.`,
+  },
+  {
     version: "1.30.1",
     date: "2026-08-02",
     en: `Housekeeping after the Team-KPI releases: the guided tour caught up with reality (KPIs are *archived*, not closed; the KPI data tab and the wider notification bell get a mention), the Goals page's "Goals I've set" tab gained its own **New goal** button (no more detouring through a subordinate's card), and KPIs of a disbanded team now say *(deleted)* next to the team's name in the list.`,

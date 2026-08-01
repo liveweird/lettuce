@@ -74,7 +74,8 @@ commit** — this list is the suite's coverage map, and it has drifted twice.
   creating with **Yes** activates on the spot and **notifies the members** — as does the
   manager recording a data point (the bell shows both; "Go to" opens the document) — and the
   KPI shows read-only — no lifecycle/Edit/Add-value affordances — in their **My teams' KPIs**.
-- `org-chart.spec.ts` — the org-chart canvas: seed org nodes render; a person node opens the
+- `org-chart.spec.ts` — the org-chart canvas: seed org nodes render, teamless people (the seed
+  Administrator) appear under the "Not in any team" section; a person node opens the
   user-details view (and returns), a team node opens the roster.
 - `tour.spec.ts` — replays the guided tour as a manager and walks all 33 steps, pinning the
   landmark order (whole left menu — Changelog included — before the header icons).

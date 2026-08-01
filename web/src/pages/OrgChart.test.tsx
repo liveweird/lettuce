@@ -42,9 +42,10 @@ const USERS = [
   { id: 1, name: "AAA One", email: "a1@x", roles: [] },
   { id: 10, name: "Manager AAA", email: "ma@x", roles: [] },
   { id: 12, name: "Manager CCC", email: "mc@x", roles: [] },
+  { id: 50, name: "Floater", email: "fl@x", roles: [] }, // in no team — the unattached section
 ];
 
-function mockApi(mockFetch: FetchMock, teams = TEAMS) {
+function mockApi(mockFetch: FetchMock, teams = TEAMS, users = USERS) {
   mockFetch.mockImplementation((url: string) => {
     const u = String(url);
     const single = u.match(/^\/api\/v1\/teams\/(\d+)$/);
@@ -58,7 +59,7 @@ function mockApi(mockFetch: FetchMock, teams = TEAMS) {
     if (u.startsWith("/api/v1/teams?"))
       return Promise.resolve(jsonResponse(200, { items: teams, page: 1, pageSize: 100, total: teams.length }));
     if (u.startsWith("/api/v1/users?"))
-      return Promise.resolve(jsonResponse(200, { items: USERS, page: 1, pageSize: 100, total: USERS.length }));
+      return Promise.resolve(jsonResponse(200, { items: users, page: 1, pageSize: 100, total: users.length }));
     return Promise.resolve(jsonResponse(404, {}));
   });
 }
@@ -106,6 +107,9 @@ describe("OrgChart page", () => {
     expect(screen.getByRole("button", { name: "Members of CCC" })).toBeInTheDocument();
     // 3 manages edges + 2 member edges.
     expect(screen.getByTestId("canvas")).toHaveAttribute("data-edge-count", "5");
+    // The teamless user renders too, under the section label, as an ordinary clickable node.
+    expect(screen.getByText("Not in any team")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "User details for Floater" })).toBeInTheDocument();
   });
 
   test("person nodes open the details view with the org origin — except self and deleted", async () => {
@@ -133,8 +137,18 @@ describe("OrgChart page", () => {
     expect(screen.getByTestId("probe")).toHaveTextContent("/teams/3/members?from=org");
   });
 
-  test("shows the empty state when there are no teams", async () => {
+  test("with no teams the people still render in the unattached section", async () => {
     mockApi(mockFetch, []);
+    renderOrg();
+
+    expect(await screen.findByText("Not in any team")).toBeInTheDocument();
+    expect(screen.getByText("Floater")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "User details for AAA One" })).toBeInTheDocument();
+    expect(screen.queryByText(/No teams yet/)).not.toBeInTheDocument();
+  });
+
+  test("shows the empty state only when there are no teams AND no users", async () => {
+    mockApi(mockFetch, [], []);
     renderOrg();
 
     expect(await screen.findByText(/No teams yet/)).toBeInTheDocument();

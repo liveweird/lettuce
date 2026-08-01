@@ -24,6 +24,7 @@ import {
   buildOrgGraph,
   layoutOrgGraph,
   PERSON_NODE_SIZE,
+  SECTION_NODE_SIZE,
   TEAM_NODE_SIZE,
   type OrgMembership,
 } from "../utils/orgGraph";
@@ -140,8 +141,24 @@ function TeamNode({ data }: NodeProps<TeamNodeType>) {
   );
 }
 
+// The dimmed heading over the "Not in any team" rows (people the layout parked below the
+// chart). Pure label — no handles, no click.
+function SectionNode() {
+  const { t } = useTranslation();
+  return (
+    <Text
+      size="sm"
+      fw={600}
+      c="dimmed"
+      style={{ width: SECTION_NODE_SIZE.width, height: SECTION_NODE_SIZE.height }}
+    >
+      {t("org.unattachedLabel")}
+    </Text>
+  );
+}
+
 // Module-scope so React Flow doesn't re-register node types every render.
-const NODE_TYPES = { person: PersonNode, team: TeamNode };
+const NODE_TYPES = { person: PersonNode, team: TeamNode, section: SectionNode };
 
 const MANAGES_STROKE = "var(--mantine-color-lettuce-filled)";
 const MEMBER_STROKE = "var(--mantine-color-dimmed)";
@@ -176,13 +193,22 @@ export default function OrgChart() {
               data: { userId: n.userId, name: n.name, deleted: n.deleted, self: n.userId === currentUserId },
               draggable: false,
             } satisfies Node)
-          : ({
-              id: n.id,
-              type: "team",
-              position: { x: n.x, y: n.y },
-              data: { teamId: n.teamId, name: n.name },
-              draggable: false,
-            } satisfies Node),
+          : n.kind === "team"
+            ? ({
+                id: n.id,
+                type: "team",
+                position: { x: n.x, y: n.y },
+                data: { teamId: n.teamId, name: n.name },
+                draggable: false,
+              } satisfies Node)
+            : ({
+                id: n.id,
+                type: "section",
+                position: { x: n.x, y: n.y },
+                data: {},
+                draggable: false,
+                selectable: false, // a plain label — nothing to click (cf. the note below)
+              } satisfies Node),
       ),
     [data, currentUserId],
   );
