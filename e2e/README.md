@@ -71,6 +71,13 @@ endpoints through the UI):
   landmark order (whole left menu — Changelog included — before the header icons).
 - `alerts.spec.ts` — admin creates an alert; a regular user sees the **banner**, hides it to the
   strip and re-shows it (and has no alert management); deactivation and delete remove it.
+- `user-details.spec.ts` — the read-only user-details view: the "User details" buttons on the
+  users list and a team roster open the person's dashboard card in every relationship flavor
+  (their-manager / my-direct-report / unrelated fallback), with origin-aware back links.
+- `hr.spec.ts` — the HR auditor role: an admin grants HR to a throwaway user; the auditor
+  browses another pair's **private draft** read-only via the user-details **Audit** section
+  (feedbacks / 1:1s / goals drill-downs), with zero write affordances and no admin surface —
+  while the seed **admin gets no Audit section at all** (management-only ADMIN, v1.26.0).
 - `self-reflection.spec.ts` — a user writes feedback about themselves (both parties "You",
   the no-requester visibility pair) and finds it delivered in their Provided tab.
 - `i18n.spec.ts` — PL/EN switch, persisted across reload.
