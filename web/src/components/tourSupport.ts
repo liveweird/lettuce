@@ -69,6 +69,10 @@ export const TOUR_STEPS: TourStepDef[] = [
   // The managed tab header only mounts for managers — the gate keeps waitForElement from
   // burning its timeout on a target that never appears.
   { target: '[data-tour="goals-managed"]', contentKey: "tour.steps.goalsManaged", placement: "bottom", navTo: "/goals?tab=managed", managerOnly: true },
+  // Team KPIs — the same shape as Goals: everyone has the member view, managers a second tab.
+  { target: '[data-tour="nav-team-kpis"]', contentKey: "tour.steps.teamKpis", placement: "right", navTo: "/team-kpis" },
+  { target: '[data-tour="team-kpis-own"]', contentKey: "tour.steps.teamKpisOwn", placement: "bottom", navTo: "/team-kpis?tab=own" },
+  { target: '[data-tour="team-kpis-managed"]', contentKey: "tour.steps.teamKpisManaged", placement: "bottom", navTo: "/team-kpis?tab=managed", managerOnly: true },
   // The Config section + its three subsections (separate routes). The nav step navigates into the
   // section a step early so the lazy /users route is mounted before its subsection target is needed.
   { target: '[data-tour="nav-config"]', contentKey: "tour.steps.config", placement: "right", navTo: "/users" },

@@ -745,6 +745,130 @@ export async function listGoalEvents(id: number): Promise<GoalEvent[]> {
   return ((await res.json()) as GoalEventList).items;
 }
 
+export type TeamKpiPage =
+  paths["/api/v1/team-kpis"]["get"]["responses"]["200"]["content"]["application/json"];
+export type TeamKpiListItem = TeamKpiPage["items"][number];
+export type TeamKpiResponse =
+  paths["/api/v1/team-kpis/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
+export type TeamKpiStatus = TeamKpiResponse["status"];
+export type TeamKpiType = TeamKpiResponse["type"];
+
+export type TeamKpiListView = "own" | "managed";
+
+type TeamKpiListQuery = {
+  view: TeamKpiListView;
+  page: number;
+  pageSize: number;
+  sort?: string;
+  title?: string;
+  teamName?: string;
+  status?: TeamKpiStatus;
+  type?: TeamKpiType;
+  /** Exact team match — the per-team drill-down. */
+  teamId?: number;
+  createdAtGte?: number;
+};
+
+export async function listTeamKpis(q: TeamKpiListQuery): Promise<TeamKpiPage> {
+  const params = new URLSearchParams();
+  params.set("view", q.view);
+  params.set("page", String(q.page));
+  params.set("pageSize", String(q.pageSize));
+  if (q.sort) params.set("sort", q.sort);
+  if (q.title) params.set("title", q.title);
+  if (q.teamName) params.set("teamName", q.teamName);
+  if (q.status) params.set("status", q.status);
+  if (q.type) params.set("type", q.type);
+  if (q.teamId != null) params.set("teamId", String(q.teamId));
+  if (q.createdAtGte != null) params.set("createdAt[gte]", String(q.createdAtGte));
+  const res = await authedFetch(`/api/v1/team-kpis?${params.toString()}`);
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return (await res.json()) as TeamKpiPage;
+}
+
+export type TeamKpiCreateBody =
+  paths["/api/v1/team-kpis"]["post"]["requestBody"]["content"]["application/json"];
+
+// Always creates a DRAFT; the caller must be the team's current manager.
+export async function createTeamKpi(body: TeamKpiCreateBody): Promise<TeamKpiResponse> {
+  const res = await authedFetch("/api/v1/team-kpis", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return (await res.json()) as TeamKpiResponse;
+}
+
+export type TeamKpiDefinitionUpdateBody =
+  paths["/api/v1/team-kpis/{id}"]["put"]["requestBody"]["content"]["application/json"];
+export type TeamKpiProgressUpdateBody =
+  paths["/api/v1/team-kpis/{id}/progress"]["put"]["requestBody"]["content"]["application/json"];
+type TeamKpiCloseBody =
+  paths["/api/v1/team-kpis/{id}/close"]["post"]["requestBody"]["content"]["application/json"];
+
+export async function getTeamKpi(id: number): Promise<TeamKpiResponse> {
+  const res = await authedFetch(`/api/v1/team-kpis/${id}`);
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return (await res.json()) as TeamKpiResponse;
+}
+
+export async function updateTeamKpiDefinition(
+  id: number,
+  body: TeamKpiDefinitionUpdateBody,
+): Promise<void> {
+  const res = await authedFetch(`/api/v1/team-kpis/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
+export async function updateTeamKpiProgress(
+  id: number,
+  body: TeamKpiProgressUpdateBody,
+): Promise<void> {
+  const res = await authedFetch(`/api/v1/team-kpis/${id}/progress`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
+export async function deleteTeamKpi(id: number): Promise<void> {
+  const res = await authedFetch(`/api/v1/team-kpis/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
+// Lifecycle transitions are POST action sub-resources; each names one edge of the
+// DRAFT <-> ACTIVE <-> CLOSED machine, so a KPI not at the edge's source status returns 409.
+async function teamKpiTransition(id: number, action: string): Promise<void> {
+  const res = await authedFetch(`/api/v1/team-kpis/${id}/${action}`, { method: "POST" });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
+export const activateTeamKpi = (id: number) => teamKpiTransition(id, "activate");
+export const deactivateTeamKpi = (id: number) => teamKpiTransition(id, "deactivate");
+export const reopenTeamKpi = (id: number) => teamKpiTransition(id, "reopen");
+
+// Close is the one bodied transition — it always records the summary.
+export async function closeTeamKpi(id: number, body: TeamKpiCloseBody): Promise<void> {
+  const res = await authedFetch(`/api/v1/team-kpis/${id}/close`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
+export type TeamKpiEventList =
+  paths["/api/v1/team-kpis/{id}/events"]["get"]["responses"]["200"]["content"]["application/json"];
+export type TeamKpiEvent = TeamKpiEventList["items"][number];
+
+export async function listTeamKpiEvents(id: number): Promise<TeamKpiEvent[]> {
+  const res = await authedFetch(`/api/v1/team-kpis/${id}/events`);
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return ((await res.json()) as TeamKpiEventList).items;
+}
+
 export type TemplatePage =
   paths["/api/v1/templates"]["get"]["responses"]["200"]["content"]["application/json"];
 

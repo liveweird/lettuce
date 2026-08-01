@@ -1,0 +1,58 @@
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { renderWithProviders, screen } from "../test/render";
+import TeamKpiHistory from "./TeamKpiHistory";
+import { jsonResponse } from "../test/http";
+
+const TOKEN_KEY = "lettuce.auth.token";
+
+type FetchMock = ReturnType<typeof vi.fn>;
+
+function event(id: number, type: string, params: Record<string, string> = {}) {
+  return { id, kpiId: 5, userId: 2, userName: "Mona", timestamp: 1700000000000 + id, type, params };
+}
+
+describe("TeamKpiHistory", () => {
+  let mockFetch: FetchMock;
+
+  beforeEach(() => {
+    mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
+    localStorage.setItem(TOKEN_KEY, "fake-token");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  test("renders each event kind in the viewer's language, oldest first", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        items: [
+          event(1, "CREATED", { type: "NUMBER" }),
+          event(2, "TITLE_CHANGED"),
+          event(3, "TYPE_CHANGED", { from: "NUMBER", to: "PERCENTAGE" }),
+          event(4, "TARGET_CHANGED", { from: "10.0", to: "80.0" }),
+          event(5, "PROGRESS_UPDATED", { from: "0.0", to: "40.0" }),
+          event(6, "STATUS_CHANGED", { from: "DRAFT", to: "ACTIVE" }),
+          event(7, "DELETED"),
+        ],
+      }),
+    );
+    renderWithProviders(<TeamKpiHistory kpiId={5} />);
+
+    expect(await screen.findByText("Team KPI created (Number).")).toBeInTheDocument();
+    expect(screen.getByText("Title changed.")).toBeInTheDocument();
+    expect(screen.getByText("Type changed from Number to Percentage.")).toBeInTheDocument();
+    expect(screen.getByText("Target changed from 10 to 80.")).toBeInTheDocument();
+    expect(screen.getByText("Progress updated from 0 to 40.")).toBeInTheDocument();
+    expect(screen.getByText("Status changed from Draft to Active.")).toBeInTheDocument();
+    expect(screen.getByText("Team KPI deleted.")).toBeInTheDocument();
+  });
+
+  test("an empty history renders the empty-state note", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(200, { items: [] }));
+    renderWithProviders(<TeamKpiHistory kpiId={5} />);
+    expect(await screen.findByText("No history.")).toBeInTheDocument();
+  });
+});

@@ -59,6 +59,16 @@ describe("MyTeamsTable", () => {
       "href",
       "/teams/5/subordinates",
     );
+
+    // And a Team-KPIs button opening the team's KPI drill-down (v1.27.0).
+    expect(screen.getByRole("link", { name: "Team KPIs of Platform" })).toHaveAttribute(
+      "href",
+      "/teams/3/kpis",
+    );
+    expect(screen.getByRole("link", { name: "Team KPIs of Support" })).toHaveAttribute(
+      "href",
+      "/teams/5/kpis",
+    );
   });
 
   test("the name filter lands in the query string", async () => {

@@ -123,13 +123,14 @@ describe("Tour", () => {
     const nonManager = buildSteps(t, false);
     const manager = buildSteps(t, true);
 
-    // Feedback "My team", the two manager-side 1:1 tabs, and the Goals-I've-set tab are
-    // manager-only.
+    // Feedback "My team", the two manager-side 1:1 tabs, and the manager-side Goals and
+    // Team-KPI tabs are manager-only.
     const managerOnlyTargets = [
       '[data-tour="feedback-team"]',
       '[data-tour="one-on-one-managed"]',
       '[data-tour="one-on-one-team"]',
       '[data-tour="goals-managed"]',
+      '[data-tour="team-kpis-managed"]',
     ];
     for (const target of managerOnlyTargets) {
       expect(nonManager.some((s) => s.target === target), target).toBe(false);
@@ -140,6 +141,7 @@ describe("Tour", () => {
     expect(nonManager.some((s) => s.target === '[data-tour="nav-one-on-ones"]')).toBe(true);
     expect(nonManager.some((s) => s.target === '[data-tour="one-on-one-own"]')).toBe(true);
     expect(nonManager.some((s) => s.target === '[data-tour="goals-own"]')).toBe(true);
+    expect(nonManager.some((s) => s.target === '[data-tour="team-kpis-own"]')).toBe(true);
   });
 
   test("buildSteps numbers each step header as 'Step X of Y' against the filtered total", () => {

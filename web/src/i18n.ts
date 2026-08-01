@@ -11,6 +11,7 @@ import enDashboard from "./locales/en/dashboard.json";
 import enFeedback from "./locales/en/feedback.json";
 import enOneOnOne from "./locales/en/oneOnOne.json";
 import enGoals from "./locales/en/goals.json";
+import enTeamKpis from "./locales/en/teamKpis.json";
 import enUsers from "./locales/en/users.json";
 import enTeams from "./locales/en/teams.json";
 import enTemplates from "./locales/en/templates.json";
@@ -27,6 +28,7 @@ import plDashboard from "./locales/pl/dashboard.json";
 import plFeedback from "./locales/pl/feedback.json";
 import plOneOnOne from "./locales/pl/oneOnOne.json";
 import plGoals from "./locales/pl/goals.json";
+import plTeamKpis from "./locales/pl/teamKpis.json";
 import plUsers from "./locales/pl/users.json";
 import plTeams from "./locales/pl/teams.json";
 import plTemplates from "./locales/pl/templates.json";
@@ -48,6 +50,7 @@ const en = {
   feedback: enFeedback,
   oneOnOne: enOneOnOne,
   goal: enGoals,
+  teamKpi: enTeamKpis,
   users: enUsers,
   teams: enTeams,
   templates: enTemplates,
@@ -66,6 +69,7 @@ const pl = {
   feedback: plFeedback,
   oneOnOne: plOneOnOne,
   goal: plGoals,
+  teamKpi: plTeamKpis,
   users: plUsers,
   teams: plTeams,
   templates: plTemplates,

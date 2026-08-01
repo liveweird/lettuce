@@ -3,7 +3,7 @@ import { Link as RouterLink } from "react-router-dom";
 import { Alert, Button, Stack, Table, Text } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { IconUsers } from "@tabler/icons-react";
+import { IconChartLine, IconUsers } from "@tabler/icons-react";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
 import FilterPanel from "../components/FilterPanel";
@@ -13,6 +13,7 @@ import TableLoadingRow from "../components/TableLoadingRow";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isString, useStoredState } from "../hooks/useStoredState";
 import { getUserId, listTeams } from "../api/client";
+import { teamKpisLink } from "../utils/teamKpiLinks";
 
 const SORT_FIELDS = ["name"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
@@ -110,6 +111,17 @@ export default function MyTeamsTable() {
                     aria-label={t("teams.membersOfAria", { name: team.name })}
                   >
                     {t("teams.members")}
+                  </Button>
+                  <Button
+                    component={RouterLink}
+                    to={teamKpisLink(team.id)}
+                    color="blue"
+                    variant="subtle"
+                    size="xs"
+                    leftSection={<IconChartLine size={14} />}
+                    aria-label={t("teams.kpisOfAria", { name: team.name })}
+                  >
+                    {t("teams.kpis")}
                   </Button>
                 </Table.Td>
               </Table.Tr>
