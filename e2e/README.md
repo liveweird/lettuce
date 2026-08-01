@@ -23,7 +23,8 @@ npm test                      # brings the stack up (docker compose), runs specs
 ## What's covered
 
 Real user journeys, prioritizing the feedback lifecycle (which validates the POST-action verb
-endpoints through the UI):
+endpoints through the UI). **A new spec file must land with its bullet below in the same
+commit** — this list is the suite's coverage map, and it has drifted twice.
 
 - `auth.spec.ts` — login / logout / invalid credentials.
 - `feedback-provide.spec.ts` — provide → save draft → **send** → **withdraw** (create, `PUT` content,
