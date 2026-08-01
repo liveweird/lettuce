@@ -69,20 +69,21 @@ export default function MyTeamKpis() {
         {isManager && (
           <Tabs.Panel value="managed" pt="md">
             <Stack gap="md">
-              <Group justify="space-between" align="flex-start">
-                <Text size="sm" c="dimmed">
-                  {t("teamKpi.managedKpisHint")}
-                </Text>
+              <Text size="sm" c="dimmed">
+                {t("teamKpi.managedKpisHint")}
+              </Text>
+              <TeamKpiTable view="managed" backTo="/team-kpis?tab=managed" />
+              {/* The create entry point sits below the list — the house footer convention
+                  (the UserGoals pattern). */}
+              <Group justify="flex-end">
                 <Button
                   component={RouterLink}
                   to={teamKpiCreateLink(undefined, undefined, "/team-kpis?tab=managed")}
-                  size="xs"
-                  leftSection={<IconPlus size={14} />}
+                  leftSection={<IconPlus size={16} />}
                 >
                   {t("teamKpi.newKpi")}
                 </Button>
               </Group>
-              <TeamKpiTable view="managed" backTo="/team-kpis?tab=managed" />
             </Stack>
           </Tabs.Panel>
         )}

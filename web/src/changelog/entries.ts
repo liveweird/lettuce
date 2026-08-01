@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.29.1",
+    date: "2026-08-01",
+    en: `Team-KPI polish: the graph's hover tooltip renders as one tidy card again (a missing chart stylesheet had been scattering its pieces across the plot), a draft KPI's row button in the lists is now **Edit** — straight into the editor, no detour through the view — and the *New team KPI* button moved below the list, where every other create button in the app lives.`,
+    pl: `Szlify KPI zespołów: dymek na wykresie znów wyświetla się jako jedna schludna karta (brakujący arkusz stylów wykresów rozrzucał jego elementy po całym rysunku), przycisk wiersza szkicu KPI na listach to teraz **Edytuj** — prosto do edytora, bez skoku przez widok — a przycisk *Nowe KPI zespołu* przeniósł się pod listę, gdzie mieszkają wszystkie pozostałe przyciski tworzenia w aplikacji.`,
+  },
+  {
     version: "1.29.0",
     date: "2026-08-01",
     en: `The Team-KPI screen was rebuilt around **editable data points**: one screen with four tabs — *General* (title, description, type, target), the new **KPI data** (every collected date + value, newest first, where the manager of an active KPI adds, corrects, and removes points directly — each change applies immediately), *Graph*, and *History*. Lists always open a KPI in this view (the separate progress editor is gone), the current value simply follows the latest-dated point, and closing a KPI is now called **archiving** — the status reads *Archived*. The graph also got two fixes: hovering a point no longer conjures a phantom second value, and the dashed target line stays visible even when all recorded values are far from it.`,

@@ -1,10 +1,10 @@
 import { Link as RouterLink } from "react-router-dom";
 import { Alert, Button, Select, Stack, Table, Text } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
-import { IconChartLine, IconEye } from "@tabler/icons-react";
+import { IconChartLine, IconEye, IconPencil } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { listTeamKpis, type TeamKpiListView, type TeamKpiStatus } from "../api/client";
+import { getUserId, listTeamKpis, type TeamKpiListView, type TeamKpiStatus } from "../api/client";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
 import FilterPanel from "../components/FilterPanel";
@@ -22,7 +22,7 @@ import {
   type CreatedWindow,
 } from "../utils/datetime";
 import { formatGoalValue } from "../utils/goalValues";
-import { teamKpiViewLink } from "../utils/teamKpiLinks";
+import { teamKpiEditLink, teamKpiViewLink } from "../utils/teamKpiLinks";
 
 const BASE_SORT_FIELDS = ["title", "createdAt", "status", "targetValue", "currentValue"] as const;
 type SortField = (typeof BASE_SORT_FIELDS)[number] | "teamName";
@@ -35,8 +35,9 @@ const STATUS_VALUES = ["DRAFT", "ACTIVE", "ARCHIVED"] as const;
  * sortable columns, paging; the GoalTable shape. Reusable across the caller-relative views:
  * MyTeamKpis embeds `own` and `managed` unpinned (a Team column shows, since rows span teams),
  * the /teams/:id/kpis drill-down pins one team via `teamId` (the Team column hides — the page
- * names the team already). The row action is always View (v1.29.0) — the view screen is THE KPI
- * screen; the manager's affordances (data points, lifecycle, the DRAFT editor link) live there.
+ * names the team already). The row action is View — except the manager's own DRAFT rows, which
+ * open the definition editor directly (v1.29.1; a draft has nothing to view). ACTIVE rows stay
+ * View even for the manager: the view screen is THE KPI screen and owns the data-point editing.
  */
 export default function TeamKpiTable({
   view,
@@ -53,6 +54,7 @@ export default function TeamKpiTable({
   backTo?: string;
 }) {
   const { t, i18n } = useTranslation();
+  const currentUserId = getUserId();
   const teamColumnVisible = teamId == null;
   const sortFields: readonly SortField[] = teamColumnVisible
     ? [...BASE_SORT_FIELDS, "teamName"]
@@ -227,6 +229,9 @@ export default function TeamKpiTable({
           ) : data && data.items.length > 0 ? (
             data.items.map((k) => {
               const backParam = backTo || undefined;
+              // DRAFT-only (the GoalTable idiom, narrowed): everything else opens the view.
+              const canEdit =
+                currentUserId != null && k.managerId === currentUserId && k.status === "DRAFT";
               return (
                 <Table.Tr key={k.id}>
                   {teamColumnVisible && (
@@ -254,17 +259,31 @@ export default function TeamKpiTable({
                     {formatGoalValue(k.type, k.currentValue, i18n.language)}
                   </Table.Td>
                   <Table.Td>
-                    <Button
-                      component={RouterLink}
-                      to={teamKpiViewLink(k.id, backParam)}
-                      color="blue"
-                      variant="subtle"
-                      size="xs"
-                      leftSection={<IconEye size={14} />}
-                      aria-label={t("teamKpi.viewAria", { title: k.title })}
-                    >
-                      {t("common.action.view")}
-                    </Button>
+                    {canEdit ? (
+                      <Button
+                        component={RouterLink}
+                        to={teamKpiEditLink(k.id, backParam)}
+                        color="blue"
+                        variant="subtle"
+                        size="xs"
+                        leftSection={<IconPencil size={14} />}
+                        aria-label={t("teamKpi.editAria", { title: k.title })}
+                      >
+                        {t("common.action.edit")}
+                      </Button>
+                    ) : (
+                      <Button
+                        component={RouterLink}
+                        to={teamKpiViewLink(k.id, backParam)}
+                        color="blue"
+                        variant="subtle"
+                        size="xs"
+                        leftSection={<IconEye size={14} />}
+                        aria-label={t("teamKpi.viewAria", { title: k.title })}
+                      >
+                        {t("common.action.view")}
+                      </Button>
+                    )}
                   </Table.Td>
                 </Table.Tr>
               );

@@ -89,10 +89,8 @@ test("a manager walks a team KPI around the whole lifecycle, managing its data p
   const id = await createKpi(page, title, false); // "No" keeps the draft
   await expect(kpiRow(page, title).getByText("Draft", { exact: true })).toBeVisible();
 
-  // The row action is always View; the DRAFT editor is reached via the view's Edit link.
-  await kpiRow(page, title).getByRole("link", { name: `View team KPI ${title}` }).click();
-  await expect(page).toHaveURL(new RegExp(`/team-kpis/${id}/view`));
-  await page.getByRole("link", { name: "Edit", exact: true }).click();
+  // The manager's DRAFT row opens the definition editor directly (v1.29.1).
+  await kpiRow(page, title).getByRole("link", { name: `Edit team KPI ${title}` }).click();
   await expect(page).toHaveURL(new RegExp(`/team-kpis/${id}/edit`));
   await page.getByRole("button", { name: "Save & activate", exact: true }).click();
   await expect(kpiRow(page, title).getByText("Active", { exact: true })).toBeVisible();

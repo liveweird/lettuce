@@ -27,6 +27,7 @@
   "loadListError": "Could not load team KPIs",
   "unknownError": "Unknown error",
   "viewAria": "View team KPI {{title}}",
+  "editAria": "Edit team KPI {{title}}",
   "type": {
     "label": "Type",
     "NUMBER": "Number",
