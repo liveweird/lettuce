@@ -1282,12 +1282,17 @@ export interface paths {
         };
         get?: never;
         /**
-         * Update an active team KPI's current value
-         * @description Updates the KPI's current value — the only edit an **ACTIVE** KPI accepts (any other
+         * Record an active team KPI's dated value
+         * @description Records a dated value for the KPI — the only edit an **ACTIVE** KPI accepts (any other
          *     status is `409`). **Current-manager-only.** `currentValue` is always required (finite;
-         *     0–100 for PERCENTAGE). The change is recorded in the audit history (from/to values) —
-         *     the view screen's value-over-time graph derives from exactly these events; a no-op
-         *     update records nothing.
+         *     0–100 for PERCENTAGE), and `date` — the ISO `YYYY-MM-DD` date the value was measured —
+         *     is required and must not be in the future (today is allowed). **Latest-dated wins**: the
+         *     KPI's `currentValue`/`currentValueDate` are overwritten only when `date` is on or after
+         *     the stored `currentValueDate`; a backdated update older than that lands only in the audit
+         *     history (and hence the graph). Every recording mints a `PROGRESS_UPDATED` audit event
+         *     (params `{to, date}`) — the view screen's value-over-time graph derives from exactly
+         *     these events; an exact no-op (same value, same date as the latest-dated record) records
+         *     nothing.
          */
         put: operations["updateTeamKpiProgress"];
         post?: never;
@@ -1415,11 +1420,12 @@ export interface paths {
          * List a team KPI's audit history
          * @description Returns the immutable audit trail for a team KPI — one entry per creation, changed
          *     definition aspect, progress update, status transition, and deletion — oldest first.
-         *     Each entry is structural: an event `type` plus a `params` map (enum names and numeric
-         *     values — never title/description/summary text), with the acting user resolved to
-         *     `userName`; no rendered string is stored (clients localize the description). The
-         *     `PROGRESS_UPDATED` entries' `from`/`to` values are the data behind the view screen's
-         *     value-over-time graph. Authorization matches the single-GET above: whoever may read
+         *     Each entry is structural: an event `type` plus a `params` map (enum names, numeric
+         *     values, and ISO dates — never title/description/summary text), with the acting user
+         *     resolved to `userName`; no rendered string is stored (clients localize the description).
+         *     The `PROGRESS_UPDATED` entries' `to`/`date` params are the data behind the view screen's
+         *     value-over-time graph (pre-v1.28 entries carry `from`/`to` with no date; clients fall
+         *     back to the event timestamp for those). Authorization matches the single-GET above: whoever may read
          *     the KPI may read its history. Events are server-generated; there is no
          *     create/update/delete endpoint.
          */
@@ -2626,9 +2632,14 @@ export interface components {
         TeamKpiProgressUpdate: {
             /**
              * Format: double
-             * @description The new current value — always required (finite; 0–100 for PERCENTAGE).
+             * @description The recorded value — always required (finite; 0–100 for PERCENTAGE).
              */
             currentValue: number;
+            /**
+             * Format: date
+             * @description The ISO YYYY-MM-DD date the value was measured — required, strict zero-padded, and never in the future (today is allowed).
+             */
+            date: string;
         };
         TeamKpiCloseRequest: {
             /** @description The closing summary — required and non-blank; recorded on the KPI. */
@@ -2664,6 +2675,11 @@ export interface components {
              * @description Starts at 0.0, editable only while ACTIVE.
              */
             currentValue: number;
+            /**
+             * Format: date
+             * @description ISO YYYY-MM-DD date of the latest-dated recorded value — null until progress is first recorded, cleared by a type-change reset. A backdated progress update older than this never overwrites currentValue ("latest-dated wins").
+             */
+            currentValueDate: string | null;
             /** @enum {string} */
             status: "DRAFT" | "ACTIVE" | "CLOSED";
             /** @description Non-null once the KPI has been closed at least once — kept on reopen, overwritten at the next close. */
@@ -2730,11 +2746,13 @@ export interface components {
             type: "CREATED" | "TITLE_CHANGED" | "DESCRIPTION_CHANGED" | "TYPE_CHANGED" | "TARGET_CHANGED" | "PROGRESS_UPDATED" | "STATUS_CHANGED" | "DELETED";
             /**
              * @description Interpolation params for the localized rendering — enum names (`from`/`to`
-             *     statuses and types, the CREATED event's `type`) and numeric values (target/progress
-             *     `from`/`to`). The `PROGRESS_UPDATED` values feed the view screen's value-over-time
-             *     graph. Never title/description/summary text (description and summary are encrypted
-             *     at rest; this trail is plaintext by design). Empty object when the event kind needs
-             *     none.
+             *     statuses and types, the CREATED event's `type`), numeric values (target `from`/`to`),
+             *     and ISO dates. A `PROGRESS_UPDATED` event carries `{to, date}` — the recorded value
+             *     and its user-supplied measurement date — feeding the view screen's value-over-time
+             *     graph; pre-v1.28 entries carry `{from, to}` with no date (clients fall back to the
+             *     event timestamp). Never title/description/summary text (description and summary are
+             *     encrypted at rest; this trail is plaintext by design). Empty object when the event
+             *     kind needs none.
              */
             params: {
                 [key: string]: string;
@@ -5092,7 +5110,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The current value is missing, not finite, or out of range (PERCENTAGE is 0–100) */
+            /** @description The current value is missing, not finite, or out of range (PERCENTAGE is 0–100); or the date is missing, not a strict ISO YYYY-MM-DD, or in the future */
             400: {
                 headers: {
                     [name: string]: unknown;

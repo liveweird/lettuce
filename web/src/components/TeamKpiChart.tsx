@@ -26,8 +26,13 @@ export default function TeamKpiChart({ kpi }: { kpi: TeamKpiResponse }) {
   const locale = i18n.language;
   const formatValue = (value: number) => formatGoalValue(kpi.type, value, locale);
 
-  // A single synthesized origin means no progress was ever recorded — a line needs two points.
-  if (points.length < 2) {
+  // Empty only when no value was ever recorded (the series is just the synthesized origin).
+  // Not a point-count check: a single value backdated before creation suppresses the origin and
+  // legitimately yields a one-point series, which still renders (as a dot).
+  const hasRecorded = events.some(
+    (e) => e.type === "PROGRESS_UPDATED" && Number.isFinite(Number(e.params?.to)),
+  );
+  if (!hasRecorded) {
     return (
       <Text c="dimmed" size="sm">
         {t("teamKpi.graphEmpty")}

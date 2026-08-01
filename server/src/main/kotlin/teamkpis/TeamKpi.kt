@@ -2,6 +2,8 @@ package ch.nokillswit.teamkpis
 
 import ch.nokillswit.infra.paging.PageResponse
 import io.ktor.server.plugins.BadRequestException
+import java.time.LocalDate
+import java.time.format.DateTimeParseException
 import kotlinx.serialization.Serializable
 
 // No BINARY on purpose: a team KPI is always a measured value, so target/current are non-null
@@ -45,10 +47,16 @@ data class TeamKpiDefinitionUpdate(
     val targetValue: Double? = null,
 )
 
-/** Body of `PUT /team-kpis/{id}/progress` — the only edit an ACTIVE KPI accepts. */
+/**
+ * Body of `PUT /team-kpis/{id}/progress` — the only edit an ACTIVE KPI accepts. [date] is the
+ * user-supplied date the value was measured (ISO `YYYY-MM-DD`, today or earlier — never the
+ * future); both fields stay nullable in the request so a missing one is a validated 400, not a
+ * deserialization error (see [validateTeamKpiProgress]).
+ */
 @Serializable
 data class TeamKpiProgressUpdate(
     val currentValue: Double? = null,
+    val date: String? = null,
 )
 
 /** Body of `POST /team-kpis/{id}/close` — closing always records a non-blank summary. */
@@ -75,6 +83,10 @@ data class TeamKpiResponse(
     val type: TeamKpiType,
     val targetValue: Double,
     val currentValue: Double,
+    // The date of the latest-dated recorded value (ISO YYYY-MM-DD); null until progress is first
+    // recorded, and cleared by a type-change reset. A backdated update older than this never
+    // overwrites currentValue ("latest-dated wins").
+    val currentValueDate: String?,
     val status: TeamKpiStatus,
     // Non-null once the KPI has been closed at least once (kept on reopen, overwritten at the
     // next close).
@@ -153,15 +165,32 @@ internal fun validateTeamKpiDefinition(
 
 /**
  * Validates a progress update: [TeamKpiProgressUpdate.currentValue] is always required (there is
- * no BINARY flavor), finite, and 0–100 for a PERCENTAGE KPI.
+ * no BINARY flavor), finite, and 0–100 for a PERCENTAGE KPI; [TeamKpiProgressUpdate.date] is
+ * required, strict zero-padded ISO `YYYY-MM-DD` (anything else would break the VARCHAR column's
+ * lexicographic == chronological ordering), and not after [today] (`== today` is allowed — the
+ * value was measured then, so it can never be in the future). [today] is injectable for tests,
+ * the validateGoalDueDate idiom.
  */
-internal fun validateTeamKpiProgress(type: TeamKpiType, update: TeamKpiProgressUpdate) {
+internal fun validateTeamKpiProgress(
+    type: TeamKpiType,
+    update: TeamKpiProgressUpdate,
+    today: LocalDate = LocalDate.now(),
+) {
     val value = update.currentValue
         ?: throw BadRequestException("A team KPI progress update requires 'currentValue'")
     if (!value.isFinite()) throw BadRequestException("Current value must be a finite number")
     if (type == TeamKpiType.PERCENTAGE && value !in 0.0..100.0) {
         throw BadRequestException("A PERCENTAGE current value must be between 0 and 100")
     }
+    val date = update.date
+        ?: throw BadRequestException("A team KPI progress update requires 'date'")
+    val parsed = try {
+        if (date.length != 10) throw DateTimeParseException("wrong length", date, 0)
+        LocalDate.parse(date)
+    } catch (_: DateTimeParseException) {
+        throw BadRequestException("Progress date must be an ISO date (YYYY-MM-DD)")
+    }
+    if (parsed > today) throw BadRequestException("Progress date must not be in the future")
 }
 
 /**

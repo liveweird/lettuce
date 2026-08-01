@@ -15,6 +15,7 @@ const KPI: TeamKpiResponse = {
   type: "NUMBER",
   targetValue: 10,
   currentValue: 5,
+  currentValueDate: null,
   status: "ACTIVE",
   summary: null,
   lastModified: 5000,
@@ -25,10 +26,24 @@ function event(partial: Partial<TeamKpiEvent> & Pick<TeamKpiEvent, "type" | "tim
 }
 
 describe("buildTeamKpiSeries", () => {
-  test("synthesizes the origin at createdAt and maps each PROGRESS_UPDATED to its `to` value", () => {
+  test("synthesizes the origin at createdAt and plots each PROGRESS_UPDATED at its recorded date", () => {
+    const d1 = Date.parse("2026-07-01");
+    const d2 = Date.parse("2026-07-10");
     const events = [
       event({ type: "CREATED", timestamp: 1000, params: { type: "NUMBER" } }),
       event({ type: "STATUS_CHANGED", timestamp: 1500, params: { from: "DRAFT", to: "ACTIVE" } }),
+      event({ type: "PROGRESS_UPDATED", timestamp: 2000, params: { to: "2.5", date: "2026-07-01" } }),
+      event({ type: "PROGRESS_UPDATED", timestamp: 3000, params: { to: "5.0", date: "2026-07-10" } }),
+    ];
+    expect(buildTeamKpiSeries(KPI, events)).toEqual([
+      { ts: 1000, value: 0 },
+      { ts: d1, value: 2.5 },
+      { ts: d2, value: 5 },
+    ]);
+  });
+
+  test("legacy date-less events fall back to the event timestamp", () => {
+    const events = [
       event({ type: "PROGRESS_UPDATED", timestamp: 2000, params: { from: "0.0", to: "2.5" } }),
       event({ type: "PROGRESS_UPDATED", timestamp: 3000, params: { from: "2.5", to: "5.0" } }),
     ];
@@ -36,6 +51,32 @@ describe("buildTeamKpiSeries", () => {
       { ts: 1000, value: 0 },
       { ts: 2000, value: 2.5 },
       { ts: 3000, value: 5 },
+    ]);
+  });
+
+  test("backdated points are sorted into chronological order", () => {
+    const events = [
+      event({ type: "PROGRESS_UPDATED", timestamp: 2000, params: { to: "50.0", date: "2026-07-20" } }),
+      // Backfilled later, dated earlier — must land between the origin and the July-20 point.
+      event({ type: "PROGRESS_UPDATED", timestamp: 3000, params: { to: "30.0", date: "2026-07-05" } }),
+    ];
+    expect(buildTeamKpiSeries(KPI, events)).toEqual([
+      { ts: 1000, value: 0 },
+      { ts: Date.parse("2026-07-05"), value: 30 },
+      { ts: Date.parse("2026-07-20"), value: 50 },
+    ]);
+  });
+
+  test("the origin is suppressed when a recorded point predates the KPI's creation", () => {
+    const kpi = { ...KPI, createdAt: Date.parse("2026-07-10") };
+    const events = [
+      event({ type: "PROGRESS_UPDATED", timestamp: 2000, params: { to: "30.0", date: "2026-07-01" } }),
+      event({ type: "PROGRESS_UPDATED", timestamp: 3000, params: { to: "50.0", date: "2026-07-20" } }),
+    ];
+    // No dip to 0 at creation between the two recorded values.
+    expect(buildTeamKpiSeries(kpi, events)).toEqual([
+      { ts: Date.parse("2026-07-01"), value: 30 },
+      { ts: Date.parse("2026-07-20"), value: 50 },
     ]);
   });
 

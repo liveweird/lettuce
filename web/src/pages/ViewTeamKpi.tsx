@@ -34,7 +34,7 @@ import MarkdownView from "../components/MarkdownView";
 import ProseBox from "../components/ProseBox";
 import ReadOnlyField from "../components/ReadOnlyField";
 import TeamKpiHistory from "../components/TeamKpiHistory";
-import { formatDate } from "../utils/datetime";
+import { formatDate, formatIsoDate } from "../utils/datetime";
 import { formatGoalValue } from "../utils/goalValues";
 import { teamKpiEditLink } from "../utils/teamKpiLinks";
 import { invalidateTeamKpi } from "../utils/teamKpiQueries";
@@ -177,7 +177,17 @@ export default function ViewTeamKpi() {
                         <Text size="sm">{formatGoalValue(data.type, data.targetValue, i18n.language)}</Text>
                       </ReadOnlyField>
                       <ReadOnlyField label={t("teamKpi.current")}>
-                        <Text size="sm">{formatGoalValue(data.type, data.currentValue, i18n.language)}</Text>
+                        <Text size="sm">
+                          {formatGoalValue(data.type, data.currentValue, i18n.language)}
+                          {data.currentValueDate && (
+                            <Text span size="sm" c="dimmed">
+                              {" "}
+                              {t("teamKpi.asOf", {
+                                date: formatIsoDate(data.currentValueDate, i18n.language),
+                              })}
+                            </Text>
+                          )}
+                        </Text>
                       </ReadOnlyField>
                     </Group>
                     {data.summary != null && data.summary !== "" && (

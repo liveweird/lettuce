@@ -3,11 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { listTeamKpiEvents, type TeamKpiEvent } from "../api/client";
-import { formatTimestamp } from "../utils/datetime";
+import { formatIsoDate, formatTimestamp } from "../utils/datetime";
 
-// Render a structured team-KPI audit event in the current language. Params carry enum names and
-// numeric values only (never title/description/summary text), so the wording names the aspect,
-// not the content.
+// Render a structured team-KPI audit event in the current language. Params carry enum names,
+// numeric values, and ISO dates only (never title/description/summary text), so the wording
+// names the aspect, not the content.
 function describeEvent(e: TeamKpiEvent, t: TFunction, locale: string): string {
   const p = e.params ?? {};
   // Server values are raw Double strings ("40.0"); format per locale, pass anything odd through.
@@ -30,7 +30,11 @@ function describeEvent(e: TeamKpiEvent, t: TFunction, locale: string): string {
     case "TARGET_CHANGED":
       return t("teamKpi.event.targetChanged", { from: num(p.from), to: num(p.to) });
     case "PROGRESS_UPDATED":
-      return t("teamKpi.event.progressUpdated", { from: num(p.from), to: num(p.to) });
+      // v1.28+ events carry the recorded value + its measurement date; pre-v1.28 ones the
+      // from/to pair — keep both renderable (the trail is immutable).
+      return p.date
+        ? t("teamKpi.event.progressRecorded", { to: num(p.to), date: formatIsoDate(p.date, locale) })
+        : t("teamKpi.event.progressUpdated", { from: num(p.from), to: num(p.to) });
     case "STATUS_CHANGED":
       return t("teamKpi.event.statusChanged", {
         from: t(`goal.status.${p.from}`),

@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.28.0",
+    date: "2026-08-01",
+    en: `Team-KPI refinements: recording a value now asks **when it was measured** — the new *Value date* field defaults to today and accepts any past date (never a future one), so history can be backfilled; the graph plots each value at its measurement date, the KPI's *Current* value always reflects the latest-dated recording (a backfill never overwrites it), and the view shows *Current* with its "as of" date. The **Graph** tab is also available while updating progress, so a manager sees the trend as they record.`,
+    pl: `Usprawnienia KPI zespołów: przy zapisie wartości aplikacja pyta teraz, **kiedy ją zmierzono** — nowe pole *Data wartości* domyślnie wskazuje dziś i przyjmuje dowolną datę z przeszłości (nigdy z przyszłości), więc można uzupełniać historię wstecz; wykres umieszcza każdą wartość pod datą pomiaru, *Wartość bieżąca* KPI zawsze odpowiada zapisowi o najnowszej dacie (uzupełnienie wsteczne nigdy jej nie nadpisuje), a widok pokazuje ją wraz z datą „na dzień". Zakładka **Wykres** jest też dostępna podczas aktualizacji postępu, więc menedżer widzi trend już w trakcie zapisywania.`,
+  },
+  {
     version: "1.27.0",
     date: "2026-08-01",
     en: `New feature: **Team KPIs** — measurable indicators a manager sets for a whole team (a number or a percentage, with a target and a tracked current value; same draft/active/closed lifecycle as goals, without a due date). The team's current manager defines and updates them; team members see every active or closed KPI of their teams under the new left-menu **Team KPIs** section and are notified about status changes. Each KPI's view offers a **Graph** tab plotting its value over time against the target, and the Dashboard's *My teams* tab gained a per-team **Team KPIs** button.`,

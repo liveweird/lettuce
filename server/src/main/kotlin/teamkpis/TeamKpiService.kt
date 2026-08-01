@@ -69,6 +69,7 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
         val type = enumerationByName("type", 20, TeamKpiType::class)
         val targetValue = double("target_value")
         val currentValue = double("current_value")
+        val currentValueDate = varchar("current_value_date", 10).nullable()
         val status = enumerationByName("status", 20, TeamKpiStatus::class)
         val summary = text("summary").nullable()
         val lastModified = long("last_modified")
@@ -93,6 +94,7 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
             it[type] = request.type
             it[targetValue] = request.targetValue!!
             it[currentValue] = 0.0
+            it[currentValueDate] = null
             it[status] = TeamKpiStatus.DRAFT
             it[summary] = null
             it[lastModified] = now
@@ -131,26 +133,36 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
             it[type] = update.type
             it[targetValue] = update.targetValue!!
             it[currentValue] = if (typeChanged) 0.0 else current.third
+            // A type change resets the recorded progress, its date included.
+            if (typeChanged) it[currentValueDate] = null
             it[lastModified] = System.currentTimeMillis()
         }
     }
 
     /**
-     * Updates an ACTIVE KPI's current value. Returns the affected-row count (0 →
-     * missing/deleted → 404); throws [ConflictException] (→ 409) when the KPI is not ACTIVE.
+     * Records an ACTIVE KPI's dated value. Latest-dated wins: the row's currentValue (+ its date)
+     * is overwritten only when [TeamKpiProgressUpdate.date] is on or after the stored
+     * current_value_date (ISO string compare; a null stored date always loses) — a backdated
+     * update older than that lands only in the audit events (and hence the graph), while
+     * lastModified still moves. Returns the affected-row count (0 → missing/deleted → 404);
+     * throws [ConflictException] (→ 409) when the KPI is not ACTIVE.
      */
     suspend fun updateProgress(id: UInt, update: TeamKpiProgressUpdate): Int = suspendTransaction(database) {
         val current = TeamKpis.selectAll()
             .where { (TeamKpis.id eq id) and active() }
-            .map { it[TeamKpis.status] to it[TeamKpis.type] }
+            .map { Triple(it[TeamKpis.status], it[TeamKpis.type], it[TeamKpis.currentValueDate]) }
             .singleOrNull()
             ?: return@suspendTransaction 0
         if (current.first != TeamKpiStatus.ACTIVE) {
             throw ConflictException("Only an ACTIVE team KPI's current value may be updated")
         }
         validateTeamKpiProgress(current.second, update)
+        val latestDated = current.third == null || update.date!! >= current.third!!
         TeamKpis.update({ (TeamKpis.id eq id) and (TeamKpis.markedAsDeleted eq false) }) {
-            it[currentValue] = update.currentValue!!
+            if (latestDated) {
+                it[currentValue] = update.currentValue!!
+                it[currentValueDate] = update.date
+            }
             it[lastModified] = System.currentTimeMillis()
         }
     }
@@ -380,6 +392,7 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
         type = this[TeamKpis.type],
         targetValue = this[TeamKpis.targetValue],
         currentValue = this[TeamKpis.currentValue],
+        currentValueDate = this[TeamKpis.currentValueDate],
         status = this[TeamKpis.status],
         summary = this[TeamKpis.summary]?.let(cipher::decrypt),
         lastModified = this[TeamKpis.lastModified],
