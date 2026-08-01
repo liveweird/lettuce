@@ -2,18 +2,21 @@ import { Text, Timeline } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { listTeamKpiEvents, type TeamKpiEvent } from "../api/client";
+import { listTeamKpiEvents, type TeamKpiEvent, type TeamKpiType } from "../api/client";
 import { formatIsoDate, formatTimestamp } from "../utils/datetime";
+import { formatGoalValue } from "../utils/goalValues";
 
 // Render a structured team-KPI audit event in the current language. Params carry enum names,
 // numeric values, and ISO dates only (never title/description/summary text), so the wording
 // names the aspect, not the content.
-function describeEvent(e: TeamKpiEvent, t: TFunction, locale: string): string {
+function describeEvent(e: TeamKpiEvent, t: TFunction, locale: string, type: TeamKpiType): string {
   const p = e.params ?? {};
-  // Server values are raw Double strings ("40.0"); format per locale, pass anything odd through.
+  // Server values are raw Double strings ("40.0"); format per the KPI's type (the "%" suffix for
+  // PERCENTAGE) and locale, pass anything odd through. Rendered with the CURRENT type — a type
+  // change wipes the data points, so pre-change VALUE_* entries are already historical anyway.
   const num = (raw: string | undefined) => {
     const parsed = Number(raw);
-    return raw && Number.isFinite(parsed) ? new Intl.NumberFormat(locale).format(parsed) : (raw ?? "");
+    return raw && Number.isFinite(parsed) ? formatGoalValue(type, parsed, locale) : (raw ?? "");
   };
   switch (e.type) {
     case "CREATED":
@@ -60,7 +63,7 @@ function describeEvent(e: TeamKpiEvent, t: TFunction, locale: string): string {
 }
 
 /** The team KPI's audit history as a timeline (oldest first), or an empty-state note. */
-export default function TeamKpiHistory({ kpiId }: { kpiId: number }) {
+export default function TeamKpiHistory({ kpiId, type }: { kpiId: number; type: TeamKpiType }) {
   const { t, i18n } = useTranslation();
   const { data: events } = useQuery({
     queryKey: ["teamKpiEvents", kpiId],
@@ -78,7 +81,7 @@ export default function TeamKpiHistory({ kpiId }: { kpiId: number }) {
   return (
     <Timeline bulletSize={12} lineWidth={2}>
       {events.map((e) => (
-        <Timeline.Item key={e.id} title={describeEvent(e, t, i18n.language)}>
+        <Timeline.Item key={e.id} title={describeEvent(e, t, i18n.language, type)}>
           <Text size="xs" c="dimmed">
             {e.userName} · {formatTimestamp(e.timestamp)}
           </Text>

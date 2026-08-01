@@ -46,7 +46,7 @@ describe("TeamKpiHistory", () => {
         ],
       }),
     );
-    renderWithProviders(<TeamKpiHistory kpiId={5} />);
+    renderWithProviders(<TeamKpiHistory kpiId={5} type="NUMBER" />);
 
     expect(await screen.findByText("Team KPI created (Number).")).toBeInTheDocument();
     expect(screen.getByText("Title changed.")).toBeInTheDocument();
@@ -63,9 +63,24 @@ describe("TeamKpiHistory", () => {
     expect(screen.getByText("Team KPI deleted.")).toBeInTheDocument();
   });
 
+  test("a PERCENTAGE KPI's value and target params carry the % suffix", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        items: [
+          event(1, "TARGET_CHANGED", { from: "80.0", to: "82.0" }),
+          event(2, "VALUE_RECORDED", { date: "2026-07-27", value: "72.0" }),
+        ],
+      }),
+    );
+    renderWithProviders(<TeamKpiHistory kpiId={5} type="PERCENTAGE" />);
+
+    expect(await screen.findByText("Value 72% recorded for Jul 27, 2026.")).toBeInTheDocument();
+    expect(screen.getByText("Target changed from 80% to 82%.")).toBeInTheDocument();
+  });
+
   test("an empty history renders the empty-state note", async () => {
     mockFetch.mockResolvedValue(jsonResponse(200, { items: [] }));
-    renderWithProviders(<TeamKpiHistory kpiId={5} />);
+    renderWithProviders(<TeamKpiHistory kpiId={5} type="NUMBER" />);
     expect(await screen.findByText("No history.")).toBeInTheDocument();
   });
 });
