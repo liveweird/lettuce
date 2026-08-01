@@ -72,7 +72,7 @@ const SUBORDINATE_COLUMN: PersonColumn = {
 
 // Per-view differences, declaratively (the OneOnOneTable/FeedbackTable shape): which person
 // columns the view shows — own = who set the goal, managed/team = whose goal it is / who set
-// it, and the HR/ADMIN auditor view (`user`) shows both parties (the audited person can sit on
+// it, and the HR auditor view (`user`) shows both parties (the audited person can sit on
 // either side). The row action is NOT per-view: at any view the goal's manager edits
 // DRAFT/ACTIVE rows and everyone else views (the server enforces the same rule).
 const VIEW_CONFIG: Record<GoalListView, { personColumns: PersonColumn[] }> = {
@@ -103,7 +103,7 @@ export default function GoalTable({
   managerId?: number;
   /** Scope to one subordinate's goals (the per-subordinate drill-down). */
   subordinateId?: number;
-  /** Required with view="user" (the HR/ADMIN auditor view): whose goals to list. */
+  /** Required with view="user" (the HR auditor view): whose goals to list. */
   userId?: number;
   /** Override the localStorage view-settings namespace when embedded outside the main tabs. */
   settingsKey?: string;

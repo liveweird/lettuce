@@ -3,7 +3,7 @@ import { renderWithProviders, screen, waitFor } from "../test/render";
 import FeedbackTable from "./FeedbackTable";
 import { jsonResponse } from "../test/http";
 
-// The HR/ADMIN auditor view (view=user&userId=X): both party columns, every status,
+// The HR auditor view (view=user&userId=X): both party columns, every status,
 // always a View action — even on a row the auditor themselves provided.
 
 const TOKEN_KEY = "lettuce.auth.token";

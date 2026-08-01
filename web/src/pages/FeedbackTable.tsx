@@ -191,7 +191,7 @@ const VIEW_CONFIG: Record<
         </Button>
       ),
   },
-  // The HR/ADMIN auditor view (view=user&userId=X): everything X is a party to, read-only —
+  // The HR auditor view (view=user&userId=X): everything X is a party to, read-only —
   // the auditor is never a party, so the action is always View.
   user: {
     personColumns: [PROVIDER_COLUMN, SUBJECT_COLUMN],
@@ -262,7 +262,7 @@ export default function FeedbackTable({
   // Optional exact-id scope to a single counterparty (used by the per-manager screen).
   providerId?: number;
   subjectId?: number;
-  // Required with view=user (the HR/ADMIN auditor view): whose records to list.
+  // Required with view=user (the HR auditor view): whose records to list.
   userId?: number;
   // When set, the View/Edit links return here instead of the feedback tabs.
   backTo?: string;

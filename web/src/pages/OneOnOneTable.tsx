@@ -129,7 +129,7 @@ const VIEW_CONFIG: Record<
       <ViewButton m={m} label={t("common.action.view")} aria={t("oneOnOne.viewWith", { name: m.subordinateName })} backParam={backParam} from="team" />
     ),
   },
-  // The HR/ADMIN auditor view (view=user&userId=X): everything X is a party to, read-only —
+  // The HR auditor view (view=user&userId=X): everything X is a party to, read-only —
   // the auditor is never a party, so the action is always View.
   user: {
     personColumns: [MANAGER_COLUMN, SUBORDINATE_COLUMN],
@@ -198,7 +198,7 @@ export default function OneOnOneTable({
   view: OneOnOneListView;
   /** Required with view="with": the other party's user id. */
   counterpartId?: number;
-  /** Required with view="user" (the HR/ADMIN auditor view): whose meetings to list. */
+  /** Required with view="user" (the HR auditor view): whose meetings to list. */
   userId?: number;
   /** Override the localStorage view-settings namespace when embedded outside the main tabs. */
   settingsKey?: string;

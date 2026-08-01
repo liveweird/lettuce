@@ -33,7 +33,7 @@ export default function UserOneOnOnes() {
       </Stack>
 
       {auditMode ? (
-        // The HR/ADMIN auditor view: every 1:1 this person is a party to, read-only.
+        // The HR auditor view: every 1:1 this person is a party to, read-only.
         <OneOnOneTable
           view="user"
           userId={userId}

@@ -238,7 +238,15 @@ describe("UserDetails page", () => {
     );
   });
 
-  test("regular viewers and self-views get no Audit section", async () => {
+  test("regular viewers, ADMIN-only viewers, and self-views get no Audit section", async () => {
+    mockApi(mockFetch, { users: [{ id: 5, name: "Bob", email: "bob@example.com", roles: [] }] });
+    renderDetails();
+    expect(await screen.findByText("bob@example.com")).toBeInTheDocument();
+    expect(screen.queryByText("Audit")).toBeNull();
+
+    cleanup();
+    // An ADMIN viewing someone else: management role, not an auditor — no Audit section (v1.26.0).
+    localStorage.setItem(ROLE_KEY, JSON.stringify(["ADMIN"]));
     mockApi(mockFetch, { users: [{ id: 5, name: "Bob", email: "bob@example.com", roles: [] }] });
     renderDetails();
     expect(await screen.findByText("bob@example.com")).toBeInTheDocument();

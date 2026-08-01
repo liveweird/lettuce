@@ -45,7 +45,7 @@ export default function UserGoals() {
       </Stack>
 
       {auditMode ? (
-        // The HR/ADMIN auditor view: every goal this person is a party to, read-only.
+        // The HR auditor view: every goal this person is a party to, read-only.
         <GoalTable view="user" userId={userId} backTo={backTo} settingsKey="userGoals.audit" />
       ) : callerManages ? (
         // The caller is the manager: their goals for this direct report, editable per status.

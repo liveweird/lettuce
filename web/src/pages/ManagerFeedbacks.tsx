@@ -105,7 +105,7 @@ export default function ManagerFeedbacks() {
   );
 
   if (auditMode) {
-    // The HR/ADMIN auditor view: one table with everything this person is a party to
+    // The HR auditor view: one table with everything this person is a party to
     // (either direction, every status), read-only — replaces the two pair tabs.
     return (
       <Stack gap="lg">
