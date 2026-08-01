@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.29.2",
+    date: "2026-08-01",
+    en: `A percentage team KPI's history now says so: value and target entries carry the % suffix ("Value 72% recorded for Jul 27, 2026."), matching how the rest of the screen formats them.`,
+    pl: `Historia procentowego KPI zespołu w końcu to pokazuje: wpisy o wartościach i celu mają przyrostek % („Zapisano wartość 72% z dnia 27 lip 2026"), tak jak formatuje je reszta ekranu.`,
+  },
+  {
     version: "1.29.1",
     date: "2026-08-01",
     en: `Team-KPI polish: the graph's hover tooltip renders as one tidy card again (a missing chart stylesheet had been scattering its pieces across the plot), a draft KPI's row button in the lists is now **Edit** — straight into the editor, no detour through the view — and the *New team KPI* button moved below the list, where every other create button in the app lives.`,

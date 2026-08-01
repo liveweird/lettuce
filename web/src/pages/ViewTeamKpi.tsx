@@ -210,7 +210,7 @@ export default function ViewTeamKpi() {
                 </Tabs.Panel>
 
                 <Tabs.Panel value="history" pt="md">
-                  <TeamKpiHistory kpiId={id} />
+                  <TeamKpiHistory kpiId={id} type={data.type} />
                 </Tabs.Panel>
               </Tabs>
             </>
