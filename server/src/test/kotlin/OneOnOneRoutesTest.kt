@@ -726,6 +726,50 @@ class OneOnOneRoutesTest {
         assertEquals(1, lateRow.openActionItemCount)
     }
 
+    @Test
+    fun `list filters compose - party names and both date bounds narrow the rows`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair() // "Mia Manager" / "Sam Subordinate", fresh team per call
+        val manager = authedClient(pair.managerEmail, "pw")
+        val june = manager.createMeeting(pair.subordinateId, "2026-06-01")
+        val july = manager.createMeeting(pair.subordinateId, "2026-07-01")
+
+        suspend fun ids(query: String): Set<UInt> =
+            manager.get("/api/v1/one-on-ones?view=managed&$query").body<OneOnOnePageResponse>()
+                .items.map { it.id }.toSet()
+
+        // Party-name substrings, case-insensitive; a non-matching one excludes everything.
+        assertEquals(setOf(june.id, july.id), ids("managerName=mia"))
+        assertEquals(emptySet(), ids("managerName=zzz-nobody"))
+        assertEquals(setOf(june.id, july.id), ids("subordinateName=sam"))
+        assertEquals(emptySet(), ids("subordinateName=zzz-nobody"))
+        // meetingDate[lte] alone, and both bounds as a window.
+        assertEquals(setOf(june.id), ids("meetingDate[lte]=2026-06-30"))
+        assertEquals(setOf(july.id), ids("meetingDate[gte]=2026-06-15&meetingDate[lte]=2026-07-15"))
+
+        // Blank filter strings are no-ops. The route's optionalString never forwards blanks, so
+        // this is service-level only — pinned so the guards stay.
+        val paging = ch.nokillswit.infra.paging.PageRequest(
+            page = 1,
+            pageSize = 100,
+            sort = listOf(ch.nokillswit.infra.paging.SortField("id", descending = false)),
+        )
+        val unfiltered = TestServices.oneOnOnes.list(
+            ch.nokillswit.oneonones.OneOnOneListView.MANAGED,
+            pair.managerId,
+            ch.nokillswit.oneonones.OneOnOneListFilter(),
+            paging,
+        )
+        val blankFiltered = TestServices.oneOnOnes.list(
+            ch.nokillswit.oneonones.OneOnOneListView.MANAGED,
+            pair.managerId,
+            ch.nokillswit.oneonones.OneOnOneListFilter(managerName = " ", subordinateName = ""),
+            paging,
+        )
+        assertEquals(unfiltered.total, blankFiltered.total)
+        assertEquals(2, unfiltered.total)
+    }
+
     // ---- action-item history ----
 
     @Test

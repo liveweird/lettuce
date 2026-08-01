@@ -5,6 +5,8 @@ import ch.nokillswit.goals.GoalCreateRequest
 import ch.nokillswit.goals.GoalDefinitionUpdate
 import ch.nokillswit.goals.GoalEventListResponse
 import ch.nokillswit.goals.GoalEventType
+import ch.nokillswit.goals.GoalListFilter
+import ch.nokillswit.goals.GoalListView
 import ch.nokillswit.goals.GoalPageResponse
 import ch.nokillswit.goals.GoalProgressUpdate
 import ch.nokillswit.goals.GoalResponse
@@ -896,6 +898,66 @@ class GoalRoutesTest {
                 .body<GoalPageResponse>().total,
         )
         assertEquals(HttpStatusCode.BadRequest, subordinate.get("/api/v1/goals?managerId=abc").status)
+    }
+
+    @Test
+    fun `list filters compose - names, title, type, status and lastModified all narrow the rows`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair() // manager "Mona Manager", subordinate "Sub Ordinate"
+        val manager = authedClient(pair.managerEmail, "pw")
+        val marker = "flt-${UUID.randomUUID().toString().take(8)}"
+
+        val binary = manager.createGoal(
+            pair.subordinateId,
+            title = "$marker-binary",
+            type = GoalType.BINARY,
+            targetValue = null,
+        )
+        val number = manager.createGoal(pair.subordinateId, title = "$marker-number")
+        assertEquals(
+            HttpStatusCode.NoContent,
+            manager.post("/api/v1/goals/${number.id}/activate").status,
+        )
+
+        suspend fun total(query: String): Long =
+            manager.get("/api/v1/goals?view=managed&title=$marker&$query").body<GoalPageResponse>().total
+
+        // title substring alone (both rows carry the marker; the narrower substring picks one)
+        assertEquals(2, total(""))
+        assertEquals(
+            1,
+            manager.get("/api/v1/goals?view=managed&title=$marker-binary").body<GoalPageResponse>().total,
+        )
+        // type + status equality
+        assertEquals(1, total("type=BINARY"))
+        assertEquals(1, total("status=ACTIVE"))
+        assertEquals(setOf(binary.id), manager.get("/api/v1/goals?view=managed&title=$marker&status=DRAFT")
+            .body<GoalPageResponse>().items.map { it.id }.toSet())
+        // party-name substrings, case-insensitive; a non-matching one excludes everything
+        assertEquals(2, total("managerName=mona"))
+        assertEquals(0, total("managerName=zzz-nobody"))
+        assertEquals(2, total("subordinateName=ordinate"))
+        assertEquals(0, total("subordinateName=zzz-nobody"))
+        // lastModified[gte]: everything here is newer than epoch 0; a far-future bound excludes all
+        assertEquals(2, total("lastModified[gte]=0"))
+        assertEquals(0, total("lastModified[gte]=${System.currentTimeMillis() + 3_600_000}"))
+
+        // Blank filter strings are no-ops. The route's optionalString never forwards blanks, so
+        // this is service-level only — pinned so the guards stay.
+        val paging = ch.nokillswit.infra.paging.PageRequest(
+            page = 1,
+            pageSize = 100,
+            sort = listOf(ch.nokillswit.infra.paging.SortField("id", descending = false)),
+        )
+        val unfiltered = TestServices.goals.list(GoalListView.MANAGED, pair.managerId, GoalListFilter(), paging)
+        val blankFiltered = TestServices.goals.list(
+            GoalListView.MANAGED,
+            pair.managerId,
+            GoalListFilter(managerName = " ", subordinateName = "", title = "  "),
+            paging,
+        )
+        assertEquals(unfiltered.total, blankFiltered.total)
+        assertEquals(2, unfiltered.total)
     }
 
     @Test

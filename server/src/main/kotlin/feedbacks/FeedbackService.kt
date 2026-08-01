@@ -104,10 +104,10 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
     /**
      * Inserts the feedback and returns its id together with any notifications its creation should
      * produce (currently only a brand-new REQUESTED feedback notifies the provider). The caller
-     * persists them, mirroring [update].
+     * persists them, mirroring [transition].
      */
     suspend fun create(feedback: Feedback): FeedbackCreateResult = suspendTransaction(database) {
-        validate(current = null, next = feedback)
+        validate(feedback)
         // No-duplicate invariant: while a feedback with the same (subject, provider, requester)
         // triple is still in progress (DRAFT or REQUESTED), a second one may not be created —
         // finish or discard the existing one instead (the 409's instance points at it).
@@ -168,16 +168,7 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
                 .map { it.toFeedback() }
                 .singleOrNull()
                 ?: return@suspendTransaction 0
-            // A feedback with a requester must not use PROVIDER_SUBJECT (which would exclude them).
-            if (current.requesterId != null && visibility == FeedbackVisibility.PROVIDER_SUBJECT) {
-                throw BadRequestException(
-                    "A feedback with a requester must not use PROVIDER_SUBJECT visibility",
-                )
-            }
-            // And without a requester, PROVIDER_REQUESTER is contradictory (see validate()).
-            if (current.requesterId == null && visibility == FeedbackVisibility.PROVIDER_REQUESTER) {
-                throw BadRequestException("PROVIDER_REQUESTER visibility requires a requester")
-            }
+            requireCoherentVisibility(current.requesterId, visibility)
             Feedbacks.update({ (Feedbacks.id eq id) and (Feedbacks.markedAsDeleted eq false) }) {
                 it[this.content] = cipher.encrypt(content)
                 it[this.visibility] = visibility
@@ -574,7 +565,24 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
         return op
     }
 
-    private fun validate(current: Feedback?, next: Feedback) {
+    /**
+     * The visibility ↔ requester coherence rules, shared by creation ([validate]) and
+     * [editContent] (the only mutation that can change visibility). Status transitions are NOT
+     * checked here — they are [transition]'s rule (a 409, not a 400).
+     */
+    private fun requireCoherentVisibility(requesterId: UInt?, visibility: FeedbackVisibility) {
+        if (requesterId != null && visibility == FeedbackVisibility.PROVIDER_SUBJECT) {
+            throw BadRequestException("A feedback with a requester must not use PROVIDER_SUBJECT visibility")
+        }
+        // The mirror image: PROVIDER_REQUESTER visibility excludes the subject, so without a
+        // requester nobody but the provider could ever read it — and the subject's Received
+        // list would leak its preview (no-requester rows skip the visibility filter there).
+        if (requesterId == null && visibility == FeedbackVisibility.PROVIDER_REQUESTER) {
+            throw BadRequestException("PROVIDER_REQUESTER visibility requires a requester")
+        }
+    }
+
+    private fun validate(next: Feedback) {
         // provider == subject is the SELF-REFLECTION case: feedback about yourself. It may exist
         // on its own (the SPA's Self-reflection screen, no requester) or with a requester — a
         // manager's "Request feedback" may include the subject among the providers, asking them
@@ -583,20 +591,9 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
         if (next.requesterId != null && next.requesterId == next.providerId) {
             throw BadRequestException("Requester cannot also be the provider")
         }
-        if (next.requesterId != null && next.visibility == FeedbackVisibility.PROVIDER_SUBJECT) {
-            throw BadRequestException("A feedback with a requester must not use PROVIDER_SUBJECT visibility")
-        }
-        // The mirror image: PROVIDER_REQUESTER visibility excludes the subject, so without a
-        // requester nobody but the provider could ever read it — and the subject's Received
-        // list would leak its preview (no-requester rows skip the visibility filter there).
-        if (next.requesterId == null && next.visibility == FeedbackVisibility.PROVIDER_REQUESTER) {
-            throw BadRequestException("PROVIDER_REQUESTER visibility requires a requester")
-        }
+        requireCoherentVisibility(next.requesterId, next.visibility)
         if (next.status == FeedbackStatus.REQUESTED && next.requesterId == null) {
             throw BadRequestException("Requested status requires a requester")
-        }
-        if (current != null && current.status != next.status && !isAllowedTransition(current.status, next.status)) {
-            throw BadRequestException("Invalid status transition: ${current.status} -> ${next.status}")
         }
     }
 
