@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.30.1",
+    date: "2026-08-02",
+    en: `Housekeeping after the Team-KPI releases: the guided tour caught up with reality (KPIs are *archived*, not closed; the KPI data tab and the wider notification bell get a mention), the Goals page's "Goals I've set" tab gained its own **New goal** button (no more detouring through a subordinate's card), and KPIs of a disbanded team now say *(deleted)* next to the team's name in the list.`,
+    pl: `Porządki po wydaniach KPI zespołów: samouczek dogonił rzeczywistość (KPI się *archiwizuje*, nie zamyka; zakładka Dane KPI i szerszy dzwonek powiadomień doczekały się wzmianki), zakładka „Cele wyznaczone przeze mnie" na stronie Celów zyskała własny przycisk **Nowy cel** (koniec z okrężną drogą przez kartę podwładnego), a KPI rozwiązanego zespołu mają teraz dopisek *(usunięty)* przy nazwie zespołu na liście.`,
+  },
+  {
     version: "1.30.0",
     date: "2026-08-02",
     en: `Team members now hear about their KPIs' data changing, not just their lifecycle: when the manager records, corrects, or removes a data point, every member gets a notification naming the value and its date ("Mona recorded 72% for Jul 27, 2026 on the KPI …"), linking straight to the KPI. Activation and archiving notified already — the set is now complete.`,

@@ -1,8 +1,9 @@
-import { Stack, Tabs, Text, Title } from "@mantine/core";
-import { useQuery } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
+import { Button, Group, Stack, Tabs, Text, Title } from "@mantine/core";
+import { IconPlus } from "@tabler/icons-react";
+import { Link as RouterLink, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { getUserId, listTeams } from "../api/client";
+import { useIsManager } from "../hooks/useIsManager";
+import { goalCreateLink } from "../utils/goalLinks";
 import GoalTable from "./GoalTable";
 
 const TABS = ["own", "managed"] as const;
@@ -19,14 +20,8 @@ function isGoalsTab(value: string | null): value is GoalsTab {
 export default function MyGoals() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const userId = getUserId();
 
-  const { data: managedTeams } = useQuery({
-    queryKey: ["managedTeams", userId],
-    queryFn: () => listTeams({ page: 1, pageSize: 1, managerId: userId! }),
-    enabled: userId !== null,
-  });
-  const isManager = (managedTeams?.total ?? 0) > 0;
+  const isManager = useIsManager();
 
   const requestedTab = searchParams.get("tab");
   const activeTab: GoalsTab =
@@ -71,6 +66,18 @@ export default function MyGoals() {
                 {t("goal.managedGoalsHint")}
               </Text>
               <GoalTable view="managed" withReportsScope backTo="/goals?tab=managed" />
+              {/* The create entry point sits below the list — the house footer convention
+                  (the MyTeamKpis/UserGoals pattern); CreateGoal's direct-report picker
+                  handles the unprefilled case. */}
+              <Group justify="flex-end">
+                <Button
+                  component={RouterLink}
+                  to={goalCreateLink(undefined, undefined, "/goals?tab=managed")}
+                  leftSection={<IconPlus size={16} />}
+                >
+                  {t("goal.newGoal")}
+                </Button>
+              </Group>
             </Stack>
           </Tabs.Panel>
         )}

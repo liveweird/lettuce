@@ -2,16 +2,21 @@
 // in one place instead of being hand-assembled at call sites — the feedbackLinks pattern.
 // Optional parts are appended only when given.
 
-/** The goal create screen, optionally prefilled with the subordinate and a return target. */
+/**
+ * The goal create screen, optionally prefilled with the subordinate and a return target.
+ * Without a subordinate the create screen shows its direct-report picker (the
+ * teamKpiCreateLink shape).
+ */
 export function goalCreateLink(
-  subordinateId: number,
+  subordinateId?: number,
   subordinateName?: string | null,
   back?: string,
 ): string {
-  let url = `/goals/new?subordinateId=${subordinateId}`;
-  if (subordinateName) url += `&subordinateName=${encodeURIComponent(subordinateName)}`;
-  if (back) url += `&back=${encodeURIComponent(back)}`;
-  return url;
+  const parts: string[] = [];
+  if (subordinateId != null) parts.push(`subordinateId=${subordinateId}`);
+  if (subordinateName) parts.push(`subordinateName=${encodeURIComponent(subordinateName)}`);
+  if (back) parts.push(`back=${encodeURIComponent(back)}`);
+  return `/goals/new${parts.length ? `?${parts.join("&")}` : ""}`;
 }
 
 function detailSearch(from?: string, back?: string): string {

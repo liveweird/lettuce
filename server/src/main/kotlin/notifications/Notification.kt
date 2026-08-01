@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 /**
  * The kind of notification, driving both the recipient's wording and its params. Values are
  * produced by feedbacks/FeedbackNotifications.kt, oneonones/OneOnOneNotifications.kt,
- * goals/GoalNotifications.kt, and the password-change paths (users/UserRoutes.kt,
+ * goals/GoalNotifications.kt, teamkpis/TeamKpiNotifications.kt, and the password-change paths (users/UserRoutes.kt,
  * auth/AuthRoutes.kt); the SPA renders each one in the viewer's language from
  * `notifications.event.*` keys.
  */

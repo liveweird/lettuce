@@ -331,6 +331,16 @@ class TeamKpiRoutesTest {
                 setBody(TeamKpiValueWrite(date = "2026-07-01", value = 1.0))
             }.status,
         )
+        // The bodied transition too — the guard runs before the body is even received.
+        assertEquals(
+            HttpStatusCode.Forbidden,
+            member.post("/api/v1/team-kpis/${created.id}/archive") {
+                contentType(ContentType.Application.Json)
+                setBody(TeamKpiArchiveRequest(summary = "not yours"))
+            }.status,
+        )
+        // And an unknown id on a transition is 404, for the manager.
+        assertEquals(HttpStatusCode.NotFound, manager.post("/api/v1/team-kpis/999999/reopen").status)
     }
 
     @Test
@@ -446,6 +456,66 @@ class TeamKpiRoutesTest {
             setBody(edit.copy(title = "Same type, new words", type = TeamKpiType.NUMBER, targetValue = 10.0))
         }
         assertEquals(listOf("2026-07-16"), manager.listValues(created.id).map { it.date })
+    }
+
+    @Test
+    fun `the definition PUT rejects bad payloads, outsiders, and unknown ids distinctly`() = testApplication {
+        usePostgresTestcontainer()
+        val team = seedTeam()
+        val manager = authedClient(team.managerEmail, "pw")
+        val created = manager.createKpi(team.teamId)
+        val edit = TeamKpiDefinitionUpdate(
+            title = "Valid title",
+            description = "",
+            type = TeamKpiType.NUMBER,
+            targetValue = 10.0,
+        )
+
+        // 400: a blank title fails validation (for the manager, on a real DRAFT).
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            manager.put("/api/v1/team-kpis/${created.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(edit.copy(title = "   "))
+            }.status,
+        )
+        // 403: a member holds read rights only — even with a valid payload.
+        val member = authedClient(team.memberEmail, "pw")
+        assertEquals(
+            HttpStatusCode.Forbidden,
+            member.put("/api/v1/team-kpis/${created.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(edit)
+            }.status,
+        )
+        // 404: an unknown id, for the manager.
+        assertEquals(
+            HttpStatusCode.NotFound,
+            manager.put("/api/v1/team-kpis/999999") {
+                contentType(ContentType.Application.Json)
+                setBody(edit)
+            }.status,
+        )
+    }
+
+    @Test
+    fun `every team-KPI operation is 401 without a token`() = testApplication {
+        usePostgresTestcontainer()
+        val client = jsonClient()
+        val gets = listOf(
+            "/api/v1/team-kpis", "/api/v1/team-kpis/1", "/api/v1/team-kpis/1/values",
+            "/api/v1/team-kpis/1/events",
+        )
+        gets.forEach { assertEquals(HttpStatusCode.Unauthorized, client.get(it).status, it) }
+        val posts = listOf(
+            "/api/v1/team-kpis", "/api/v1/team-kpis/1/values", "/api/v1/team-kpis/1/activate",
+            "/api/v1/team-kpis/1/deactivate", "/api/v1/team-kpis/1/archive", "/api/v1/team-kpis/1/reopen",
+        )
+        posts.forEach { assertEquals(HttpStatusCode.Unauthorized, client.post(it).status, it) }
+        val puts = listOf("/api/v1/team-kpis/1", "/api/v1/team-kpis/1/values/1")
+        puts.forEach { assertEquals(HttpStatusCode.Unauthorized, client.put(it).status, it) }
+        val deletes = listOf("/api/v1/team-kpis/1", "/api/v1/team-kpis/1/values/1")
+        deletes.forEach { assertEquals(HttpStatusCode.Unauthorized, client.delete(it).status, it) }
     }
 
     // ---- data points ----
@@ -697,6 +767,12 @@ class TeamKpiRoutesTest {
             member.delete("/api/v1/team-kpis/${created.id}/values/${point.id}").status,
         )
 
+        // A malformed valueId is 400 (the resources plugin rejects it before any handler).
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            manager.delete("/api/v1/team-kpis/${created.id}/values/not-a-number").status,
+        )
+
         // A valueId belonging to another KPI is 404, not a cross-KPI edit.
         val other = manager.createKpi(team.teamId, title = "Other KPI")
         manager.post("/api/v1/team-kpis/${other.id}/activate")
@@ -708,7 +784,8 @@ class TeamKpiRoutesTest {
             }.status,
         )
 
-        // Once archived the points are frozen (409), but still readable.
+        // Once archived the points are frozen — add, correct, and remove are all 409 — but
+        // still readable.
         manager.post("/api/v1/team-kpis/${created.id}/archive") {
             contentType(ContentType.Application.Json)
             setBody(TeamKpiArchiveRequest(summary = "frozen"))
@@ -719,6 +796,10 @@ class TeamKpiRoutesTest {
                 contentType(ContentType.Application.Json)
                 setBody(TeamKpiValueWrite(date = "2026-07-02", value = 4.0))
             }.status,
+        )
+        assertEquals(
+            HttpStatusCode.Conflict,
+            manager.delete("/api/v1/team-kpis/${created.id}/values/${point.id}").status,
         )
         assertEquals(1, member.listValues(created.id).size)
     }

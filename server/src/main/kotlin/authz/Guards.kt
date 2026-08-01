@@ -282,7 +282,7 @@ fun requireGoalWrite(caller: CallerPrincipal, goal: GoalResponse) {
  * Read guard for the single GET / events: the team's current manager reads at every status; the
  * HR auditor reads everything, DRAFTs included (audit-logged); otherwise a current team member,
  * or any manager in the chain ABOVE the team's manager (their manager, transitively), may read
- * only once the KPI has left DRAFT (ACTIVE/CLOSED) — a draft stays private to the manager,
+ * only once the KPI has left DRAFT (ACTIVE/ARCHIVED) — a draft stays private to the manager,
  * matching the member list scope (whose status != DRAFT filter is the same rule, not a separate
  * authorization) and mirroring the goal chain rule.
  */

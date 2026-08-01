@@ -1,8 +1,7 @@
 import { Stack, Tabs, Title } from "@mantine/core";
-import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { getUserId, listTeams } from "../api/client";
+import { useIsManager } from "../hooks/useIsManager";
 import FeedbackTable from "./FeedbackTable";
 
 const TABS = ["received", "provided", "team"] as const;
@@ -15,14 +14,8 @@ function isFeedbackTab(value: string | null): value is FeedbackTab {
 export default function Feedback() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const userId = getUserId();
 
-  const { data: managedTeams } = useQuery({
-    queryKey: ["managedTeams", userId],
-    queryFn: () => listTeams({ page: 1, pageSize: 1, managerId: userId! }),
-    enabled: userId !== null,
-  });
-  const isManager = (managedTeams?.total ?? 0) > 0;
+  const isManager = useIsManager();
 
   const requestedTab = searchParams.get("tab");
   const activeTab: FeedbackTab =

@@ -238,6 +238,9 @@ export default function TeamKpiTable({
                     <Table.Td>
                       <Text size="sm" lineClamp={1} style={{ wordBreak: "break-word" }}>
                         {k.teamName}
+                        {/* The managed view keeps a disbanded team's KPIs as history — say so
+                            (the view-header affordance, on the list). */}
+                        {k.teamDeleted ? ` (${t("teamKpi.teamDeleted")})` : ""}
                       </Text>
                     </Table.Td>
                   )}

@@ -15,12 +15,12 @@ function detailSearch(back?: string): string {
   return back ? `?back=${encodeURIComponent(back)}` : "";
 }
 
-/** The read-only KPI document (Content / Graph / History tabs). */
+/** THE KPI screen (General / KPI data / Graph / History tabs; the manager edits data points inline). */
 export function teamKpiViewLink(id: number, back?: string): string {
   return `/team-kpis/${id}/view${detailSearch(back)}`;
 }
 
-/** The status-branching KPI editor. */
+/** The DRAFT definition editor (everything else redirects to the view). */
 export function teamKpiEditLink(id: number, back?: string): string {
   return `/team-kpis/${id}/edit${detailSearch(back)}`;
 }

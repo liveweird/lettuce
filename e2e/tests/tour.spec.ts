@@ -13,7 +13,7 @@ const LANDMARKS = [
   "My goals — the goals your managers set",
   "Goals I've set — the goals you've set",
   "Team KPIs — the measurable indicators",
-  "My teams' KPIs — the active and closed KPIs",
+  "My teams' KPIs — the active and archived KPIs",
   "KPIs I've set — the KPIs of the teams you manage",
   "Config — users, teams",
   "Self-reflection",

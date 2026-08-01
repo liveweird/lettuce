@@ -97,6 +97,12 @@ describe("TeamKpiTable", () => {
     expect(screen.queryByRole("link", { name: "Edit team KPI Deploy weekly" })).not.toBeInTheDocument();
   });
 
+  test("a soft-deleted team's row says so in the Team cell", async () => {
+    mockApi(mockFetch, [{ ...BASE, teamName: "Team Gone", teamDeleted: true, status: "ARCHIVED" }]);
+    renderWithProviders(<TeamKpiTable view="managed" settingsKey="teamKpis.test4" />);
+    expect(await screen.findByText(/Team Gone \(deleted\)/)).toBeInTheDocument();
+  });
+
   test("a pinned teamId hides the Team column and scopes the query", async () => {
     mockApi(mockFetch, [BASE]);
     renderWithProviders(<TeamKpiTable view="managed" teamId={10} settingsKey="teamKpis.test" />);

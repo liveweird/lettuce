@@ -144,6 +144,13 @@ describe("MyGoals page", () => {
     // Edit/View return to this tab, not the default own tab.
     const edit = screen.getByRole("link", { name: "Edit goal Mentor the intern" });
     expect(edit.getAttribute("href")).toContain(`back=${encodeURIComponent("/goals?tab=managed")}`);
+
+    // The footer create entry point (v1.30.1 — the MyTeamKpis pattern): unprefilled create,
+    // returning to this tab.
+    const create = screen.getByRole("link", { name: "New goal" });
+    expect(create.getAttribute("href")).toContain("/goals/new");
+    expect(create.getAttribute("href")).not.toContain("subordinateId");
+    expect(create.getAttribute("href")).toContain(`back=${encodeURIComponent("/goals?tab=managed")}`);
   });
 
   test("manager: switching Reports to all adds includeIndirect=true to the managed query", async () => {
