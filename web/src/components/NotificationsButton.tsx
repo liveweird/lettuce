@@ -71,7 +71,7 @@ const EVENT_KEY: Record<NotificationItem["type"], string> = {
   GOAL_REOPENED_TO_SUBORDINATE: "goalReopened",
   TEAM_KPI_ACTIVATED_TO_MEMBER: "teamKpiActivated",
   TEAM_KPI_DEACTIVATED_TO_MEMBER: "teamKpiDeactivated",
-  TEAM_KPI_CLOSED_TO_MEMBER: "teamKpiClosed",
+  TEAM_KPI_ARCHIVED_TO_MEMBER: "teamKpiArchived",
   TEAM_KPI_REOPENED_TO_MEMBER: "teamKpiReopened",
   PASSWORD_CHANGED: "passwordChanged",
 };
@@ -106,7 +106,7 @@ const TYPE_META: Record<NotificationItem["type"], { icon: typeof IconBell; color
   GOAL_REOPENED_TO_SUBORDINATE: { icon: IconTargetArrow, color: "cyan" },
   TEAM_KPI_ACTIVATED_TO_MEMBER: { icon: IconChartLine, color: "green" },
   TEAM_KPI_DEACTIVATED_TO_MEMBER: { icon: IconChartLine, color: "orange" },
-  TEAM_KPI_CLOSED_TO_MEMBER: { icon: IconChartLine, color: "blue" },
+  TEAM_KPI_ARCHIVED_TO_MEMBER: { icon: IconChartLine, color: "blue" },
   TEAM_KPI_REOPENED_TO_MEMBER: { icon: IconChartLine, color: "cyan" },
   PASSWORD_CHANGED: { icon: IconKey, color: "orange" },
 };

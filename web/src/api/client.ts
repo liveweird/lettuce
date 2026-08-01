@@ -801,10 +801,13 @@ export async function createTeamKpi(body: TeamKpiCreateBody): Promise<TeamKpiRes
 
 export type TeamKpiDefinitionUpdateBody =
   paths["/api/v1/team-kpis/{id}"]["put"]["requestBody"]["content"]["application/json"];
-export type TeamKpiProgressUpdateBody =
-  paths["/api/v1/team-kpis/{id}/progress"]["put"]["requestBody"]["content"]["application/json"];
-type TeamKpiCloseBody =
-  paths["/api/v1/team-kpis/{id}/close"]["post"]["requestBody"]["content"]["application/json"];
+export type TeamKpiValueList =
+  paths["/api/v1/team-kpis/{id}/values"]["get"]["responses"]["200"]["content"]["application/json"];
+export type TeamKpiValue = TeamKpiValueList["items"][number];
+export type TeamKpiValueWriteBody =
+  paths["/api/v1/team-kpis/{id}/values"]["post"]["requestBody"]["content"]["application/json"];
+type TeamKpiArchiveBody =
+  paths["/api/v1/team-kpis/{id}/archive"]["post"]["requestBody"]["content"]["application/json"];
 
 export async function getTeamKpi(id: number): Promise<TeamKpiResponse> {
   const res = await authedFetch(`/api/v1/team-kpis/${id}`);
@@ -823,14 +826,39 @@ export async function updateTeamKpiDefinition(
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
-export async function updateTeamKpiProgress(
+// The KPI's collected data points, sorted by date newest first (the KPI-data tab and the
+// graph both feed on this list).
+export async function listTeamKpiValues(id: number): Promise<TeamKpiValue[]> {
+  const res = await authedFetch(`/api/v1/team-kpis/${id}/values`);
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return ((await res.json()) as TeamKpiValueList).items;
+}
+
+// Data points are only mutable while the KPI is ACTIVE (409 otherwise); a duplicate date is
+// also 409 — at most one value per date.
+export async function addTeamKpiValue(id: number, body: TeamKpiValueWriteBody): Promise<TeamKpiValue> {
+  const res = await authedFetch(`/api/v1/team-kpis/${id}/values`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return (await res.json()) as TeamKpiValue;
+}
+
+export async function updateTeamKpiValue(
   id: number,
-  body: TeamKpiProgressUpdateBody,
+  valueId: number,
+  body: TeamKpiValueWriteBody,
 ): Promise<void> {
-  const res = await authedFetch(`/api/v1/team-kpis/${id}/progress`, {
+  const res = await authedFetch(`/api/v1/team-kpis/${id}/values/${valueId}`, {
     method: "PUT",
     body: JSON.stringify(body),
   });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
+export async function deleteTeamKpiValue(id: number, valueId: number): Promise<void> {
+  const res = await authedFetch(`/api/v1/team-kpis/${id}/values/${valueId}`, { method: "DELETE" });
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
@@ -840,7 +868,7 @@ export async function deleteTeamKpi(id: number): Promise<void> {
 }
 
 // Lifecycle transitions are POST action sub-resources; each names one edge of the
-// DRAFT <-> ACTIVE <-> CLOSED machine, so a KPI not at the edge's source status returns 409.
+// DRAFT <-> ACTIVE <-> ARCHIVED machine, so a KPI not at the edge's source status returns 409.
 async function teamKpiTransition(id: number, action: string): Promise<void> {
   const res = await authedFetch(`/api/v1/team-kpis/${id}/${action}`, { method: "POST" });
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
@@ -850,9 +878,9 @@ export const activateTeamKpi = (id: number) => teamKpiTransition(id, "activate")
 export const deactivateTeamKpi = (id: number) => teamKpiTransition(id, "deactivate");
 export const reopenTeamKpi = (id: number) => teamKpiTransition(id, "reopen");
 
-// Close is the one bodied transition — it always records the summary.
-export async function closeTeamKpi(id: number, body: TeamKpiCloseBody): Promise<void> {
-  const res = await authedFetch(`/api/v1/team-kpis/${id}/close`, {
+// Archive is the one bodied transition — it always records the summary.
+export async function archiveTeamKpi(id: number, body: TeamKpiArchiveBody): Promise<void> {
+  const res = await authedFetch(`/api/v1/team-kpis/${id}/archive`, {
     method: "POST",
     body: JSON.stringify(body),
   });

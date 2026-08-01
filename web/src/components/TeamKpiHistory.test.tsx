@@ -33,10 +33,16 @@ describe("TeamKpiHistory", () => {
           event(2, "TITLE_CHANGED"),
           event(3, "TYPE_CHANGED", { from: "NUMBER", to: "PERCENTAGE" }),
           event(4, "TARGET_CHANGED", { from: "10.0", to: "80.0" }),
-          event(5, "PROGRESS_UPDATED", { from: "0.0", to: "40.0" }),
-          event(6, "PROGRESS_UPDATED", { to: "45.0", date: "2026-07-20" }),
-          event(7, "STATUS_CHANGED", { from: "DRAFT", to: "ACTIVE" }),
-          event(8, "DELETED"),
+          event(5, "VALUE_RECORDED", { date: "2026-07-20", value: "45.0" }),
+          event(6, "VALUE_CORRECTED", {
+            fromDate: "2026-07-20",
+            fromValue: "45.0",
+            toDate: "2026-07-21",
+            toValue: "47.5",
+          }),
+          event(7, "VALUE_REMOVED", { date: "2026-07-21", value: "47.5" }),
+          event(8, "STATUS_CHANGED", { from: "ACTIVE", to: "ARCHIVED" }),
+          event(9, "DELETED"),
         ],
       }),
     );
@@ -44,12 +50,16 @@ describe("TeamKpiHistory", () => {
 
     expect(await screen.findByText("Team KPI created (Number).")).toBeInTheDocument();
     expect(screen.getByText("Title changed.")).toBeInTheDocument();
-    expect(screen.getByText("Type changed from Number to Percentage.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Type changed from Number to Percentage — the collected data points were removed."),
+    ).toBeInTheDocument();
     expect(screen.getByText("Target changed from 10 to 80.")).toBeInTheDocument();
-    // Pre-v1.28 events (no date) keep the from-to wording; dated ones say when.
-    expect(screen.getByText("Progress updated from 0 to 40.")).toBeInTheDocument();
-    expect(screen.getByText("Value 45 recorded as of Jul 20, 2026.")).toBeInTheDocument();
-    expect(screen.getByText("Status changed from Draft to Active.")).toBeInTheDocument();
+    expect(screen.getByText("Value 45 recorded for Jul 20, 2026.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Data point corrected: 45 on Jul 20, 2026 → 47.5 on Jul 21, 2026."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Removed the value 47.5 of Jul 21, 2026.")).toBeInTheDocument();
+    expect(screen.getByText("Status changed from Active to Archived.")).toBeInTheDocument();
     expect(screen.getByText("Team KPI deleted.")).toBeInTheDocument();
   });
 

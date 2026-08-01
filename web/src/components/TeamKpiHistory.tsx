@@ -29,16 +29,27 @@ function describeEvent(e: TeamKpiEvent, t: TFunction, locale: string): string {
       });
     case "TARGET_CHANGED":
       return t("teamKpi.event.targetChanged", { from: num(p.from), to: num(p.to) });
-    case "PROGRESS_UPDATED":
-      // v1.28+ events carry the recorded value + its measurement date; pre-v1.28 ones the
-      // from/to pair — keep both renderable (the trail is immutable).
-      return p.date
-        ? t("teamKpi.event.progressRecorded", { to: num(p.to), date: formatIsoDate(p.date, locale) })
-        : t("teamKpi.event.progressUpdated", { from: num(p.from), to: num(p.to) });
+    case "VALUE_RECORDED":
+      return t("teamKpi.event.valueRecorded", {
+        value: num(p.value),
+        date: formatIsoDate(p.date ?? "", locale),
+      });
+    case "VALUE_CORRECTED":
+      return t("teamKpi.event.valueCorrected", {
+        fromValue: num(p.fromValue),
+        fromDate: formatIsoDate(p.fromDate ?? "", locale),
+        toValue: num(p.toValue),
+        toDate: formatIsoDate(p.toDate ?? "", locale),
+      });
+    case "VALUE_REMOVED":
+      return t("teamKpi.event.valueRemoved", {
+        value: num(p.value),
+        date: formatIsoDate(p.date ?? "", locale),
+      });
     case "STATUS_CHANGED":
       return t("teamKpi.event.statusChanged", {
-        from: t(`goal.status.${p.from}`),
-        to: t(`goal.status.${p.to}`),
+        from: t(`teamKpi.status.${p.from}`),
+        to: t(`teamKpi.status.${p.to}`),
       });
     case "DELETED":
       return t("teamKpi.event.deleted");

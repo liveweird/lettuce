@@ -2,20 +2,20 @@ package ch.nokillswit
 
 import ch.nokillswit.teamkpis.TeamKpiDefinitionUpdate
 import ch.nokillswit.teamkpis.TeamKpiEventType
-import ch.nokillswit.teamkpis.TeamKpiProgressUpdate
 import ch.nokillswit.teamkpis.TeamKpiResponse
 import ch.nokillswit.teamkpis.TeamKpiStatus
 import ch.nokillswit.teamkpis.TeamKpiType
+import ch.nokillswit.teamkpis.TeamKpiValueResponse
 import ch.nokillswit.teamkpis.teamKpiCreationEvent
 import ch.nokillswit.teamkpis.teamKpiDefinitionUpdateEvents
 import ch.nokillswit.teamkpis.teamKpiDeletionEvent
-import ch.nokillswit.teamkpis.teamKpiProgressUpdateEvent
 import ch.nokillswit.teamkpis.teamKpiTransitionEvent
+import ch.nokillswit.teamkpis.teamKpiValueCorrectedEvent
+import ch.nokillswit.teamkpis.teamKpiValueRecordedEvent
+import ch.nokillswit.teamkpis.teamKpiValueRemovedEvent
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** Pure unit tests of the team-KPI event descriptor builders (no DB, no HTTP). */
@@ -102,29 +102,32 @@ class TeamKpiEventsTest {
     }
 
     @Test
-    fun `progress update carries the value and its date, and an exact no-op mints nothing`() {
-        val event = teamKpiProgressUpdateEvent(
-            before,
-            TeamKpiProgressUpdate(currentValue = 7.5, date = "2026-08-01"),
-        )
-        assertNotNull(event)
-        assertEquals(TeamKpiEventType.PROGRESS_UPDATED, event.type)
-        assertEquals(mapOf("to" to "7.5", "date" to "2026-08-01"), event.params)
-
-        // Same value + same date as the latest-dated record = exact no-op.
-        assertNull(
-            teamKpiProgressUpdateEvent(before, TeamKpiProgressUpdate(currentValue = 4.0, date = "2026-07-20")),
-        )
+    fun `a recorded data point carries its date and value`() {
+        val event = teamKpiValueRecordedEvent("2026-08-01", 7.5)
+        assertEquals(TeamKpiEventType.VALUE_RECORDED, event.type)
+        assertEquals(mapOf("date" to "2026-08-01", "value" to "7.5"), event.params)
     }
 
     @Test
-    fun `re-recording the same value on a new date mints an event`() {
-        val event = teamKpiProgressUpdateEvent(
-            before,
-            TeamKpiProgressUpdate(currentValue = 4.0, date = "2026-07-25"),
+    fun `a corrected data point always carries all four params, even for a one-dimension change`() {
+        val old = TeamKpiValueResponse(id = 9u, date = "2026-07-20", value = 4.0)
+        assertEquals(
+            mapOf("fromDate" to "2026-07-20", "fromValue" to "4.0", "toDate" to "2026-07-25", "toValue" to "6.0"),
+            teamKpiValueCorrectedEvent(old, "2026-07-25", 6.0).params,
         )
-        assertNotNull(event)
-        assertEquals(mapOf("to" to "4.0", "date" to "2026-07-25"), event.params)
+        // Only the value changed — the unchanged date still appears on both sides.
+        assertEquals(
+            mapOf("fromDate" to "2026-07-20", "fromValue" to "4.0", "toDate" to "2026-07-20", "toValue" to "5.5"),
+            teamKpiValueCorrectedEvent(old, "2026-07-20", 5.5).params,
+        )
+        assertEquals(TeamKpiEventType.VALUE_CORRECTED, teamKpiValueCorrectedEvent(old, "2026-07-20", 5.5).type)
+    }
+
+    @Test
+    fun `a removed data point carries its date and value`() {
+        val event = teamKpiValueRemovedEvent(TeamKpiValueResponse(id = 9u, date = "2026-07-20", value = 4.0))
+        assertEquals(TeamKpiEventType.VALUE_REMOVED, event.type)
+        assertEquals(mapOf("date" to "2026-07-20", "value" to "4.0"), event.params)
     }
 
     @Test

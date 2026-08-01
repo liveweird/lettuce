@@ -11,9 +11,10 @@ import kotlinx.serialization.Serializable
 @Serializable
 enum class TeamKpiType { NUMBER, PERCENTAGE }
 
-// Same status strings as GoalStatus — deliberate, the SPA reuses the goal status badge.
+// DRAFT <-> ACTIVE <-> ARCHIVED — the goals machine with the terminal state renamed (a KPI is
+// archived, not closed). Distinct strings from GoalStatus, so the SPA has its own status badge.
 @Serializable
-enum class TeamKpiStatus { DRAFT, ACTIVE, CLOSED }
+enum class TeamKpiStatus { DRAFT, ACTIVE, ARCHIVED }
 
 const val MAX_TEAM_KPI_TITLE_LENGTH = 200
 const val MAX_TEAM_KPI_TEXT_LENGTH = 4000
@@ -22,7 +23,7 @@ const val MAX_TEAM_KPI_TEXT_LENGTH = 4000
  * Body of `POST /team-kpis` — the status is always DRAFT, so it is not settable here. The caller
  * must be [teamId]'s current manager (route-checked); [targetValue] stays nullable in the request
  * so a missing target is a validated 400, not a deserialization error (see
- * [validateTeamKpiDefinition]). The current value starts at 0.0 and is only editable once ACTIVE.
+ * [validateTeamKpiDefinition]). Data points are only recordable once ACTIVE.
  */
 @Serializable
 data class TeamKpiCreateRequest(
@@ -36,8 +37,8 @@ data class TeamKpiCreateRequest(
 /**
  * Body of `PUT /team-kpis/{id}` — the editable representation of a DRAFT KPI (title, description,
  * type, target). The team, status, and the value/summary fields are NOT settable here: status
- * moves through the `POST /team-kpis/{id}/{action}` endpoints, the current value through
- * `PUT /team-kpis/{id}/progress`, and the summary through the close action.
+ * moves through the `POST /team-kpis/{id}/{action}` endpoints, the data points through the
+ * `…/{id}/values` sub-resource, and the summary through the archive action.
  */
 @Serializable
 data class TeamKpiDefinitionUpdate(
@@ -48,20 +49,34 @@ data class TeamKpiDefinitionUpdate(
 )
 
 /**
- * Body of `PUT /team-kpis/{id}/progress` — the only edit an ACTIVE KPI accepts. [date] is the
- * user-supplied date the value was measured (ISO `YYYY-MM-DD`, today or earlier — never the
- * future); both fields stay nullable in the request so a missing one is a validated 400, not a
- * deserialization error (see [validateTeamKpiProgress]).
+ * Body of `POST /team-kpis/{id}/values` and `PUT /team-kpis/{id}/values/{valueId}` — one data
+ * point. [date] is the user-supplied date the value was measured (ISO `YYYY-MM-DD`, today or
+ * earlier — never the future); both fields stay nullable in the request so a missing one is a
+ * validated 400, not a deserialization error (see [validateTeamKpiValue]). At most one value per
+ * date per KPI — a duplicate date is a 409 (unique constraint).
  */
 @Serializable
-data class TeamKpiProgressUpdate(
-    val currentValue: Double? = null,
+data class TeamKpiValueWrite(
     val date: String? = null,
+    val value: Double? = null,
 )
 
-/** Body of `POST /team-kpis/{id}/close` — closing always records a non-blank summary. */
+/** One collected data point of a team KPI. */
 @Serializable
-data class TeamKpiCloseRequest(
+data class TeamKpiValueResponse(
+    val id: UInt,
+    val date: String,
+    val value: Double,
+)
+
+@Serializable
+data class TeamKpiValueListResponse(
+    val items: List<TeamKpiValueResponse>,
+)
+
+/** Body of `POST /team-kpis/{id}/archive` — archiving always records a non-blank summary. */
+@Serializable
+data class TeamKpiArchiveRequest(
     val summary: String,
 )
 
@@ -82,14 +97,13 @@ data class TeamKpiResponse(
     val description: String,
     val type: TeamKpiType,
     val targetValue: Double,
+    // Denormalized from the data points: the max-dated value (0.0 when there are none) and its
+    // date (null when there are none) — recomputed inside every values-mutation transaction.
     val currentValue: Double,
-    // The date of the latest-dated recorded value (ISO YYYY-MM-DD); null until progress is first
-    // recorded, and cleared by a type-change reset. A backdated update older than this never
-    // overwrites currentValue ("latest-dated wins").
     val currentValueDate: String?,
     val status: TeamKpiStatus,
-    // Non-null once the KPI has been closed at least once (kept on reopen, overwritten at the
-    // next close).
+    // Non-null once the KPI has been archived at least once (kept on reopen, overwritten at the
+    // next archive).
     val summary: String?,
     val lastModified: Long,
 )
@@ -164,41 +178,41 @@ internal fun validateTeamKpiDefinition(
 }
 
 /**
- * Validates a progress update: [TeamKpiProgressUpdate.currentValue] is always required (there is
- * no BINARY flavor), finite, and 0–100 for a PERCENTAGE KPI; [TeamKpiProgressUpdate.date] is
+ * Validates a data point (add and correct): [TeamKpiValueWrite.value] is always required (there is
+ * no BINARY flavor), finite, and 0–100 for a PERCENTAGE KPI; [TeamKpiValueWrite.date] is
  * required, strict zero-padded ISO `YYYY-MM-DD` (anything else would break the VARCHAR column's
  * lexicographic == chronological ordering), and not after [today] (`== today` is allowed — the
  * value was measured then, so it can never be in the future). [today] is injectable for tests,
  * the validateGoalDueDate idiom.
  */
-internal fun validateTeamKpiProgress(
+internal fun validateTeamKpiValue(
     type: TeamKpiType,
-    update: TeamKpiProgressUpdate,
+    write: TeamKpiValueWrite,
     today: LocalDate = LocalDate.now(),
 ) {
-    val value = update.currentValue
-        ?: throw BadRequestException("A team KPI progress update requires 'currentValue'")
-    if (!value.isFinite()) throw BadRequestException("Current value must be a finite number")
+    val value = write.value
+        ?: throw BadRequestException("A team KPI data point requires 'value'")
+    if (!value.isFinite()) throw BadRequestException("Value must be a finite number")
     if (type == TeamKpiType.PERCENTAGE && value !in 0.0..100.0) {
-        throw BadRequestException("A PERCENTAGE current value must be between 0 and 100")
+        throw BadRequestException("A PERCENTAGE value must be between 0 and 100")
     }
-    val date = update.date
-        ?: throw BadRequestException("A team KPI progress update requires 'date'")
+    val date = write.date
+        ?: throw BadRequestException("A team KPI data point requires 'date'")
     val parsed = try {
         if (date.length != 10) throw DateTimeParseException("wrong length", date, 0)
         LocalDate.parse(date)
     } catch (_: DateTimeParseException) {
-        throw BadRequestException("Progress date must be an ISO date (YYYY-MM-DD)")
+        throw BadRequestException("Data point date must be an ISO date (YYYY-MM-DD)")
     }
-    if (parsed > today) throw BadRequestException("Progress date must not be in the future")
+    if (parsed > today) throw BadRequestException("Data point date must not be in the future")
 }
 
 /**
- * Validates the close action's summary: required non-blank, bounded like the description. The
+ * Validates the archive action's summary: required non-blank, bounded like the description. The
  * single home of the rule — the service trusts the route to have run it (see transitionTo).
  */
 internal fun validateTeamKpiSummary(summary: String?) {
-    if (summary.isNullOrBlank()) throw BadRequestException("Closing a team KPI requires a non-blank summary")
+    if (summary.isNullOrBlank()) throw BadRequestException("Archiving a team KPI requires a non-blank summary")
     if (summary.length > MAX_TEAM_KPI_TEXT_LENGTH) {
         throw BadRequestException("Team KPI summary must be at most $MAX_TEAM_KPI_TEXT_LENGTH characters")
     }

@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.29.0",
+    date: "2026-08-01",
+    en: `The Team-KPI screen was rebuilt around **editable data points**: one screen with four tabs — *General* (title, description, type, target), the new **KPI data** (every collected date + value, newest first, where the manager of an active KPI adds, corrects, and removes points directly — each change applies immediately), *Graph*, and *History*. Lists always open a KPI in this view (the separate progress editor is gone), the current value simply follows the latest-dated point, and closing a KPI is now called **archiving** — the status reads *Archived*. The graph also got two fixes: hovering a point no longer conjures a phantom second value, and the dashed target line stays visible even when all recorded values are far from it.`,
+    pl: `Ekran KPI zespołu został przebudowany wokół **edytowalnych punktów danych**: jeden ekran z czterema zakładkami — *Ogólne* (tytuł, opis, typ, wartość docelowa), nowa zakładka **Dane KPI** (wszystkie zebrane pary data + wartość, od najnowszych, gdzie menedżer aktywnego KPI dodaje, poprawia i usuwa punkty bezpośrednio — każda zmiana zapisuje się od razu), *Wykres* i *Historia*. Listy zawsze otwierają KPI w tym widoku (osobny edytor postępu zniknął), wartość bieżąca po prostu podąża za punktem o najnowszej dacie, a zamykanie KPI nazywa się teraz **archiwizacją** — status brzmi *Zarchiwizowane*. Wykres dostał też dwie poprawki: najechanie na punkt nie wyczarowuje już widmowej drugiej wartości, a przerywana linia celu pozostaje widoczna nawet wtedy, gdy wszystkie zapisane wartości są od niej daleko.`,
+  },
+  {
     version: "1.28.0",
     date: "2026-08-01",
     en: `Team-KPI refinements: recording a value now asks **when it was measured** — the new *Value date* field defaults to today and accepts any past date (never a future one), so history can be backfilled; the graph plots each value at its measurement date, the KPI's *Current* value always reflects the latest-dated recording (a backfill never overwrites it), and the view shows *Current* with its "as of" date. The **Graph** tab is also available while updating progress, so a manager sees the trend as they record.`,
