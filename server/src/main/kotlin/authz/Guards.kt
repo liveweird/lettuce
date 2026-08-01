@@ -8,6 +8,8 @@ import ch.nokillswit.feedbacks.isDelivered
 import ch.nokillswit.goals.GoalResponse
 import ch.nokillswit.goals.GoalStatus
 import ch.nokillswit.oneonones.OneOnOneResponse
+import ch.nokillswit.teamkpis.TeamKpiResponse
+import ch.nokillswit.teamkpis.TeamKpiStatus
 import ch.nokillswit.users.UserRole
 
 fun CallerPrincipal.isAdmin(): Boolean = UserRole.ADMIN in roles
@@ -266,5 +268,46 @@ suspend fun requireGoalReadAllowingManager(
 fun requireGoalWrite(caller: CallerPrincipal, goal: GoalResponse) {
     if (caller.userId != goal.managerId) {
         throw ForbiddenException("Only the goal's manager may modify this goal")
+    }
+}
+
+// ── Team KPIs ───────────────────────────────────────────────────────────────────────────────
+// Existence disclosure: like goals, KPI routes read BEFORE guarding (missing → 404,
+// existing-but-forbidden → 403), so an id probe can learn a KPI exists — never its content.
+// The manager in these guards is the team's CURRENT manager (resolved from teams.manager_id
+// into the response at read time — never stored on the KPI row), so a reassigned team's new
+// manager takes over.
+
+/**
+ * Read guard for the single GET / events: the team's current manager reads at every status; the
+ * HR auditor reads everything, DRAFTs included (audit-logged); otherwise a current team member,
+ * or any manager in the chain ABOVE the team's manager (their manager, transitively), may read
+ * only once the KPI has left DRAFT (ACTIVE/CLOSED) — a draft stays private to the manager,
+ * matching the member list scope (whose status != DRAFT filter is the same rule, not a separate
+ * authorization) and mirroring the goal chain rule.
+ */
+suspend fun requireTeamKpiReadAllowingChain(
+    caller: CallerPrincipal,
+    kpi: TeamKpiResponse,
+    isTeamMember: suspend () -> Boolean,
+    managesTeamManager: suspend () -> Boolean,
+) {
+    if (caller.userId == kpi.managerId) return // the current manager — cheap rule first
+    // HR auditor: reads everything — deliberately BEFORE the member/chain rules, so HR (unlike
+    // them) also sees DRAFT KPIs. Audit-logged; no DB hit for HR.
+    if (grantHrRead(caller, "teamKpi", kpi.id)) return
+    if (kpi.status != TeamKpiStatus.DRAFT && (isTeamMember() || managesTeamManager())) return
+    throw ForbiddenException("Caller may not read this team KPI")
+}
+
+/**
+ * The team's CURRENT manager is the only writer: only they may edit, transition, or delete the
+ * KPI — members have read rights only, and nobody else (ADMIN included, mirroring
+ * [requireGoalWrite]) has any; an admin who is themselves the manager qualifies via the userId
+ * check like anyone.
+ */
+fun requireTeamKpiWrite(caller: CallerPrincipal, kpi: TeamKpiResponse) {
+    if (caller.userId != kpi.managerId) {
+        throw ForbiddenException("Only the team's manager may modify this team KPI")
     }
 }

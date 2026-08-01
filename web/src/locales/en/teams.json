@@ -66,5 +66,7 @@
   "addOneOnOne": "New 1:1",
   "addOneOnOneWithAria": "New 1:1 with {{name}}",
   "goals": "Goals",
-  "goalsForAria": "Goals for {{name}}"
+  "goalsForAria": "Goals for {{name}}",
+  "kpis": "Team KPIs",
+  "kpisOfAria": "Team KPIs of {{name}}"
 }

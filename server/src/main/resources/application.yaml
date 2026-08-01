@@ -29,6 +29,7 @@ ktor:
       - ch.nokillswit.feedbacks.FeedbackRoutesKt.configureFeedbackRoutes
       - ch.nokillswit.oneonones.OneOnOneRoutesKt.configureOneOnOneRoutes
       - ch.nokillswit.goals.GoalRoutesKt.configureGoalRoutes
+      - ch.nokillswit.teamkpis.TeamKpiRoutesKt.configureTeamKpiRoutes
       - ch.nokillswit.templates.TemplateRoutesKt.configureTemplateRoutes
       - ch.nokillswit.notifications.NotificationRoutesKt.configureNotificationRoutes
       - ch.nokillswit.alerts.AlertRoutesKt.configureAlertRoutes

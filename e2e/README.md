@@ -66,9 +66,14 @@ commit** — this list is the suite's coverage map, and it has drifted twice.
 - `dashboard-my-teams.spec.ts` — the Dashboard **My teams** tab: a manager's teams (and only
   theirs), the per-team subordinates view with the same cards/stats/actions as My subordinates,
   a drill-down round-trip back to it, and a non-manager's empty state.
+- `team-kpis.spec.ts` — a manager walks a team KPI around the whole lifecycle from the My-teams
+  **Team KPIs** drill-down (draft via the activate-prompt's **No**, Save & activate, progress
+  update, the **Graph** tab, close-with-summary, reopen, DRAFT-only delete); creating with
+  **Yes** activates on the spot, **notifies the members** (the "Go to" link opens the document),
+  and shows read-only in their **My teams' KPIs**.
 - `org-chart.spec.ts` — the org-chart canvas: seed org nodes render; a person node opens the
   user-details view (and returns), a team node opens the roster.
-- `tour.spec.ts` — replays the guided tour as a manager and walks all 30 steps, pinning the
+- `tour.spec.ts` — replays the guided tour as a manager and walks all 33 steps, pinning the
   landmark order (whole left menu — Changelog included — before the header icons).
 - `alerts.spec.ts` — admin creates an alert; a regular user sees the **banner**, hides it to the
   strip and re-shows it (and has no alert management); deactivation and delete remove it.

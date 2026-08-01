@@ -39,6 +39,10 @@
     "goalDeactivated": "{{manager}} returned the goal \"{{title}}\" to draft.",
     "goalClosed": "{{manager}} closed the goal \"{{title}}\".",
     "goalReopened": "{{manager}} reopened the goal \"{{title}}\".",
+    "teamKpiActivated": "{{manager}} activated the KPI \"{{title}}\" for team {{team}}.",
+    "teamKpiDeactivated": "{{manager}} returned the KPI \"{{title}}\" of team {{team}} to draft.",
+    "teamKpiClosed": "{{manager}} closed the KPI \"{{title}}\" of team {{team}}.",
+    "teamKpiReopened": "{{manager}} reopened the KPI \"{{title}}\" of team {{team}}.",
     "passwordChanged": "Your password was changed.",
     "passwordChanged_admin": "An administrator changed your password.",
     "passwordChanged_reset": "Your password was reset via email."

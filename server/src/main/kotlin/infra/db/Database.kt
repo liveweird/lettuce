@@ -19,6 +19,10 @@ import ch.nokillswit.oneonones.OneOnOneEventService
 import ch.nokillswit.oneonones.OneOnOneEventServiceKey
 import ch.nokillswit.oneonones.OneOnOneService
 import ch.nokillswit.oneonones.OneOnOneServiceKey
+import ch.nokillswit.teamkpis.TeamKpiEventService
+import ch.nokillswit.teamkpis.TeamKpiEventServiceKey
+import ch.nokillswit.teamkpis.TeamKpiService
+import ch.nokillswit.teamkpis.TeamKpiServiceKey
 import ch.nokillswit.teams.TeamService
 import ch.nokillswit.teams.TeamServiceKey
 import ch.nokillswit.templates.TemplateService
@@ -43,6 +47,8 @@ suspend fun Application.configureDatabase() {
     attributes.put(OneOnOneEventServiceKey, OneOnOneEventService(database))
     attributes.put(GoalServiceKey, GoalService(database, attributes[FieldCipherKey]))
     attributes.put(GoalEventServiceKey, GoalEventService(database))
+    attributes.put(TeamKpiServiceKey, TeamKpiService(database, attributes[FieldCipherKey]))
+    attributes.put(TeamKpiEventServiceKey, TeamKpiEventService(database))
     attributes.put(TemplateServiceKey, TemplateService(database))
     attributes.put(NotificationServiceKey, NotificationService(database))
     attributes.put(AlertServiceKey, AlertService(database))

@@ -8,17 +8,22 @@ import { MAX_GOAL_TEXT_LENGTH } from "../utils/goalForm";
  * one), so this is a bodied ConfirmActionModal variant with a required Textarea. A plain
  * Textarea, not the MarkdownEditor — a short closing note inside a modal doesn't warrant the
  * heavyweight lazy editor; the view screen renders the summary as pre-wrap text accordingly.
+ * Team KPIs share the identical close semantics — they reuse this modal with
+ * `keyPrefix="teamKpi"`, whose locale area defines the same closeTitle/closeMessage/
+ * summaryLabel/summaryPlaceholder/summaryRequired/action.close keys.
  */
 export default function GoalCloseModal({
   opened,
   onClose,
   onConfirm,
   loading = false,
+  keyPrefix = "goal",
 }: {
   opened: boolean;
   onClose: () => void;
   onConfirm: (summary: string) => void;
   loading?: boolean;
+  keyPrefix?: "goal" | "teamKpi";
 }) {
   const { t } = useTranslation();
   const [summary, setSummary] = useState("");
@@ -26,7 +31,7 @@ export default function GoalCloseModal({
 
   function confirm() {
     if (!summary.trim()) {
-      setError(t("goal.summaryRequired"));
+      setError(t(`${keyPrefix}.summaryRequired`));
       return;
     }
     onConfirm(summary);
@@ -40,12 +45,12 @@ export default function GoalCloseModal({
   }
 
   return (
-    <Modal opened={opened} onClose={reset} title={t("goal.closeTitle")} centered>
+    <Modal opened={opened} onClose={reset} title={t(`${keyPrefix}.closeTitle`)} centered>
       <Stack gap="md">
-        <Text>{t("goal.closeMessage")}</Text>
+        <Text>{t(`${keyPrefix}.closeMessage`)}</Text>
         <Textarea
-          label={t("goal.summaryLabel")}
-          placeholder={t("goal.summaryPlaceholder")}
+          label={t(`${keyPrefix}.summaryLabel`)}
+          placeholder={t(`${keyPrefix}.summaryPlaceholder`)}
           value={summary}
           onChange={(event) => {
             setSummary(event.currentTarget.value);
@@ -63,7 +68,7 @@ export default function GoalCloseModal({
             {t("common.action.cancel")}
           </Button>
           <Button color="red" onClick={confirm} loading={loading}>
-            {t("goal.action.close")}
+            {t(`${keyPrefix}.action.close`)}
           </Button>
         </Group>
       </Stack>

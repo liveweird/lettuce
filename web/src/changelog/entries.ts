@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.27.0",
+    date: "2026-08-01",
+    en: `New feature: **Team KPIs** — measurable indicators a manager sets for a whole team (a number or a percentage, with a target and a tracked current value; same draft/active/closed lifecycle as goals, without a due date). The team's current manager defines and updates them; team members see every active or closed KPI of their teams under the new left-menu **Team KPIs** section and are notified about status changes. Each KPI's view offers a **Graph** tab plotting its value over time against the target, and the Dashboard's *My teams* tab gained a per-team **Team KPIs** button.`,
+    pl: `Nowa funkcja: **KPI zespołów** — mierzalne wskaźniki, które menedżer wyznacza całemu zespołowi (liczba lub procent, z wartością docelową i śledzoną wartością bieżącą; ten sam cykl życia szkic/aktywny/zamknięty co przy celach, ale bez terminu). Definiuje i aktualizuje je aktualny menedżer zespołu; członkowie zespołu widzą każde aktywne lub zamknięte KPI swoich zespołów w nowej sekcji **KPI zespołów** w menu bocznym i otrzymują powiadomienia o zmianach statusu. Widok każdego KPI ma zakładkę **Wykres** z wartością w czasie na tle celu, a zakładka *Moje zespoły* na Pulpicie zyskała przycisk **KPI zespołu** przy każdym zespole.`,
+  },
+  {
     version: "1.26.0",
     date: "2026-08-01",
     en: `The **Admin** role is now strictly a management role: admins create and manage users, teams, and templates (and alerts), but no longer have any special access to feedbacks, 1:1 meetings, goals, or other users' notifications — there they act as regular users. Auditing (the *Audit* section on a user's details page and its read-only views) now belongs exclusively to the **HR** role; a person who needs both capabilities simply holds both roles.`,

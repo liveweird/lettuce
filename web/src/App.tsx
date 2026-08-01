@@ -22,6 +22,7 @@ import {
   IconHierarchy,
   IconHistory,
   IconSpeakerphone,
+  IconChartLine,
   IconKey,
   IconLayoutDashboard,
   IconMessageCircle,
@@ -73,6 +74,11 @@ const MyGoals = lazy(() => import("./pages/MyGoals"));
 const CreateGoal = lazy(() => import("./pages/CreateGoal"));
 const EditGoal = lazy(() => import("./pages/EditGoal"));
 const ViewGoal = lazy(() => import("./pages/ViewGoal"));
+const MyTeamKpis = lazy(() => import("./pages/MyTeamKpis"));
+const CreateTeamKpi = lazy(() => import("./pages/CreateTeamKpi"));
+const EditTeamKpi = lazy(() => import("./pages/EditTeamKpi"));
+const ViewTeamKpi = lazy(() => import("./pages/ViewTeamKpi"));
+const TeamKpis = lazy(() => import("./pages/TeamKpis"));
 const Login = lazy(() => import("./pages/Login"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const CreateUser = lazy(() => import("./pages/CreateUser"));
@@ -118,6 +124,7 @@ const NAV_ITEMS: ReadonlyArray<NavEntry> = [
   { to: "/feedback", label: "appShell.nav.feedback", icon: IconMessageCircle, tourId: "nav-feedback" },
   { to: "/one-on-ones", label: "appShell.nav.oneOnOnes", icon: IconCalendarEvent, tourId: "nav-one-on-ones" },
   { to: "/goals", label: "appShell.nav.goals", icon: IconTargetArrow, tourId: "nav-my-goals" },
+  { to: "/team-kpis", label: "appShell.nav.teamKpis", icon: IconChartLine, tourId: "nav-team-kpis" },
   {
     label: "appShell.nav.config",
     icon: IconSettings,
@@ -432,6 +439,11 @@ export default function App() {
             <Route path="goals/new" element={<CreateGoal />} />
             <Route path="goals/:id/edit" element={<EditGoal />} />
             <Route path="goals/:id/view" element={<ViewGoal />} />
+            <Route path="team-kpis" element={<MyTeamKpis />} />
+            <Route path="team-kpis/new" element={<CreateTeamKpi />} />
+            <Route path="team-kpis/:id/edit" element={<EditTeamKpi />} />
+            <Route path="team-kpis/:id/view" element={<ViewTeamKpi />} />
+            <Route path="teams/:teamId/kpis" element={<TeamKpis />} />
             <Route path="templates" element={<Templates />} />
             <Route path="templates/new" element={<CreateTemplate />} />
             <Route path="templates/:id/edit" element={<EditTemplate />} />

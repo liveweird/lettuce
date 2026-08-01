@@ -1157,6 +1157,281 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/team-kpis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List team KPIs for the caller
+         * @description Lists team KPIs scoped by `view` — always relative to the caller, including ADMIN
+         *     callers. A KPI belongs to a **team**; its manager is always the team's **current**
+         *     manager (`teams.manager_id`, resolved at read time — never stored on the KPI), so a
+         *     reassigned team's new manager takes over its KPIs.
+         *
+         *     - `view=own` (the default): KPIs of the non-deleted teams the caller is currently a
+         *       **member** of — excluding DRAFTs (a draft stays private to the manager until
+         *       activated, matching the single-GET rule, so every listed row is openable).
+         *     - `view=managed`: KPIs of the teams whose **current manager** the caller is, at every
+         *       status — soft-deleted teams included (their `teamDeleted` flag is set), so a manager
+         *       keeps the history of a disbanded team.
+         *
+         *     There is deliberately no HR auditor list view (`view=user` on the goal/feedback/1:1
+         *     lists is per-user; a team KPI is per-team) — the HR auditor instead has audit-logged
+         *     access to every single GET. The `teamId` filter powers the per-team drill-down.
+         *
+         *     Rows carry the team and manager names, title, type, status, and the value fields —
+         *     never the description or summary.
+         *
+         *     Supports offset pagination, sorting and filtering.
+         *
+         *     - Sortable fields: `id`, `teamName`, `managerName`, `title`, `type`, `status`,
+         *       `targetValue`, `currentValue`, `createdAt`, `lastModified`. Default sort is
+         *       `createdAt` **descending** (newest KPIs first). `id` ascending is always appended as
+         *       a deterministic tiebreaker.
+         *     - Filters (all optional, all whitelisted):
+         *       - `teamName` — case-insensitive substring match against the team's name.
+         *       - `teamId` — exact team-id match (the per-team drill-down).
+         *       - `title` — case-insensitive substring match against the KPI title.
+         *       - `type` / `status` — exact enum-name match.
+         *       - `createdAt[gte]` / `lastModified[gte]` — inclusive epoch-millis lower bounds.
+         *
+         *     Malformed query parameters (unknown view, unknown sort field, out-of-range page/pageSize)
+         *     respond with `400` and a `ProblemDetail` body.
+         */
+        get: operations["listTeamKpis"];
+        put?: never;
+        /**
+         * Set a new KPI for a managed team
+         * @description Creates a team KPI, always in **DRAFT** status. The author is always the team's
+         *     **current manager**: the caller must be `teams.manager_id` of the (non-deleted)
+         *     `teamId` at creation time — there is no ADMIN create-on-behalf.
+         *
+         *     Unlike goals there is no BINARY type: `targetValue` is **always required** (finite;
+         *     0–100 for PERCENTAGE) and the current value starts at `0.0`, becoming editable (via
+         *     `PUT /team-kpis/{id}/progress`) once the KPI is ACTIVE. There is no due date.
+         *
+         *     Nobody is notified — a draft is private to the manager until activated. The creation
+         *     is recorded in the KPI's audit history.
+         */
+        post: operations["createTeamKpi"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/team-kpis/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Fetch a team KPI
+         * @description Returns the full team-KPI document — team, its current manager, definition, value
+         *     fields, status, and (once closed at least once) the summary. Readable by the team's
+         *     **current manager** and the **HR auditor** (audit-logged) at every status; a current
+         *     **team member**, or any **manager in the chain above the team's manager** (their
+         *     manager, that manager's manager, and so on — over non-deleted teams), may read it only
+         *     once it has left DRAFT (ACTIVE/CLOSED) — a draft stays private to the manager.
+         *     Anything else — ADMIN included — is `403`.
+         */
+        get: operations["getTeamKpi"];
+        /**
+         * Edit a draft team KPI's definition
+         * @description Edits the KPI's definition — title, description, type, and target. **Current-manager-
+         *     only** (members have read rights only; nobody else — ADMIN included — gets write
+         *     access) and **DRAFT-only**: an ACTIVE or CLOSED KPI's definition is immutable (`409`)
+         *     — deactivate it first to edit. The team, status, current value, and summary are not
+         *     settable here (status moves through the action endpoints, the current value through
+         *     `PUT /team-kpis/{id}/progress`, the summary through the close action).
+         *
+         *     Changing the type re-initializes the current value to `0.0`, discarding any previously
+         *     recorded progress — the audit events explain the reset. Every changed aspect is
+         *     recorded in the audit history; a no-op PUT records nothing.
+         */
+        put: operations["updateTeamKpiDefinition"];
+        post?: never;
+        /**
+         * Delete a draft team KPI
+         * @description Soft-deletes a team KPI (the row is flagged, not physically removed, and disappears
+         *     from reads/lists; its audit history is retained). **Current-manager-only** and
+         *     **DRAFT-only** — ACTIVE and CLOSED KPIs are records and answer `400`; close (or
+         *     reopen) them through the transitions instead. Nobody is notified.
+         */
+        delete: operations["deleteTeamKpi"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/team-kpis/{id}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update an active team KPI's current value
+         * @description Updates the KPI's current value — the only edit an **ACTIVE** KPI accepts (any other
+         *     status is `409`). **Current-manager-only.** `currentValue` is always required (finite;
+         *     0–100 for PERCENTAGE). The change is recorded in the audit history (from/to values) —
+         *     the view screen's value-over-time graph derives from exactly these events; a no-op
+         *     update records nothing.
+         */
+        put: operations["updateTeamKpiProgress"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/team-kpis/{id}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Activate a draft team KPI
+         * @description Moves the KPI `DRAFT → ACTIVE` (any other current status is `409`).
+         *     **Current-manager-only.** Once active, the KPI becomes visible to the team's members
+         *     and the chain above its manager, and its current value becomes editable via
+         *     `PUT /team-kpis/{id}/progress`. Every current team member (except the acting manager)
+         *     is notified; the transition is recorded in the audit history.
+         */
+        post: operations["activateTeamKpi"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/team-kpis/{id}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Return an active team KPI to draft
+         * @description Moves the KPI `ACTIVE → DRAFT` (any other current status is `409`), making its
+         *     definition editable again — and hiding it from members and the chain until
+         *     re-activated. **Current-manager-only.** Recorded progress is kept (unless the type is
+         *     later changed in the draft, which re-initializes the current value). Every current
+         *     team member (except the acting manager) is notified — without a link, since a draft is
+         *     not readable by them; the transition is recorded in the audit history.
+         */
+        post: operations["deactivateTeamKpi"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/team-kpis/{id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close an active team KPI
+         * @description Moves the KPI `ACTIVE → CLOSED` (any other current status is `409`).
+         *     **Current-manager-only.** Closing always records the body's **summary** (required,
+         *     non-blank — the only moment the summary is settable). The current value is frozen
+         *     as-is — update it via `PUT /team-kpis/{id}/progress` *before* closing. Every current
+         *     team member (except the acting manager) is notified; the transition is recorded in the
+         *     audit history.
+         */
+        post: operations["closeTeamKpi"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/team-kpis/{id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reopen a closed team KPI
+         * @description Moves the KPI `CLOSED → ACTIVE` (any other current status is `409`).
+         *     **Current-manager-only.** The stored summary is kept as a record of the previous
+         *     closure and will be overwritten at the next close. Every current team member (except
+         *     the acting manager) is notified; the transition is recorded in the audit history.
+         */
+        post: operations["reopenTeamKpi"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/team-kpis/{id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List a team KPI's audit history
+         * @description Returns the immutable audit trail for a team KPI — one entry per creation, changed
+         *     definition aspect, progress update, status transition, and deletion — oldest first.
+         *     Each entry is structural: an event `type` plus a `params` map (enum names and numeric
+         *     values — never title/description/summary text), with the acting user resolved to
+         *     `userName`; no rendered string is stored (clients localize the description). The
+         *     `PROGRESS_UPDATED` entries' `from`/`to` values are the data behind the view screen's
+         *     value-over-time graph. Authorization matches the single-GET above: whoever may read
+         *     the KPI may read its history. Events are server-generated; there is no
+         *     create/update/delete endpoint.
+         */
+        get: operations["listTeamKpiEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/templates": {
         parameters: {
             query?: never;
@@ -2312,6 +2587,162 @@ export interface components {
         GoalEventList: {
             items: components["schemas"]["GoalEventResponse"][];
         };
+        TeamKpiCreateRequest: {
+            /**
+             * Format: int64
+             * @description Must be a non-deleted team whose current manager the caller is.
+             */
+            teamId: number;
+            /** @description Plaintext (unlike description/summary) — lists sort and filter on it. */
+            title: string;
+            /** @default  */
+            description: string;
+            /**
+             * @description How the KPI is measured. There is no BINARY flavor.
+             * @enum {string}
+             */
+            type: "NUMBER" | "PERCENTAGE";
+            /**
+             * Format: double
+             * @description Always required — finite; 0–100 for PERCENTAGE.
+             */
+            targetValue: number;
+        };
+        TeamKpiDefinitionUpdate: {
+            title: string;
+            /** @default  */
+            description: string;
+            /**
+             * @description Changing the type re-initializes the current value to 0.0, discarding any recorded progress.
+             * @enum {string}
+             */
+            type: "NUMBER" | "PERCENTAGE";
+            /**
+             * Format: double
+             * @description Always required — finite; 0–100 for PERCENTAGE.
+             */
+            targetValue: number;
+        };
+        TeamKpiProgressUpdate: {
+            /**
+             * Format: double
+             * @description The new current value — always required (finite; 0–100 for PERCENTAGE).
+             */
+            currentValue: number;
+        };
+        TeamKpiCloseRequest: {
+            /** @description The closing summary — required and non-blank; recorded on the KPI. */
+            summary: string;
+        };
+        TeamKpiResponse: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            teamId: number;
+            teamName: string;
+            /** @description True when the team has been soft-deleted — the KPI stays readable history for the team's last manager. */
+            teamDeleted: boolean;
+            /**
+             * Format: int64
+             * @description The team's CURRENT manager (`teams.manager_id`), resolved at read time — never stored on the KPI, so a reassigned team's new manager takes over.
+             */
+            managerId: number;
+            managerName: string;
+            /**
+             * Format: int64
+             * @description Epoch milliseconds; server-managed, immutable.
+             */
+            createdAt: number;
+            title: string;
+            description: string;
+            /** @enum {string} */
+            type: "NUMBER" | "PERCENTAGE";
+            /** Format: double */
+            targetValue: number;
+            /**
+             * Format: double
+             * @description Starts at 0.0, editable only while ACTIVE.
+             */
+            currentValue: number;
+            /** @enum {string} */
+            status: "DRAFT" | "ACTIVE" | "CLOSED";
+            /** @description Non-null once the KPI has been closed at least once — kept on reopen, overwritten at the next close. */
+            summary: string | null;
+            /**
+             * Format: int64
+             * @description Epoch milliseconds; server-managed, bumped on every mutation.
+             */
+            lastModified: number;
+        };
+        TeamKpiListItem: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            teamId: number;
+            teamName: string;
+            teamDeleted: boolean;
+            /** Format: int64 */
+            managerId: number;
+            managerName: string;
+            managerDeleted: boolean;
+            title: string;
+            /** @enum {string} */
+            type: "NUMBER" | "PERCENTAGE";
+            /** Format: double */
+            targetValue: number;
+            /** Format: double */
+            currentValue: number;
+            /** @enum {string} */
+            status: "DRAFT" | "ACTIVE" | "CLOSED";
+            /** Format: int64 */
+            createdAt: number;
+            /** Format: int64 */
+            lastModified: number;
+        };
+        TeamKpiPage: {
+            items: components["schemas"]["TeamKpiListItem"][];
+            page: number;
+            pageSize: number;
+            /**
+             * Format: int64
+             * @description Row count after filters, before pagination.
+             */
+            total: number;
+        };
+        TeamKpiEventResponse: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            kpiId: number;
+            /** Format: int64 */
+            userId: number;
+            /** @description Display name of the user who performed the change. Server-resolved, read-only. */
+            userName: string;
+            /**
+             * Format: int64
+             * @description Epoch milliseconds when the event was recorded. Server-managed.
+             */
+            timestamp: number;
+            /**
+             * @description Structured event kind; the client renders it in the viewer's language.
+             * @enum {string}
+             */
+            type: "CREATED" | "TITLE_CHANGED" | "DESCRIPTION_CHANGED" | "TYPE_CHANGED" | "TARGET_CHANGED" | "PROGRESS_UPDATED" | "STATUS_CHANGED" | "DELETED";
+            /**
+             * @description Interpolation params for the localized rendering — enum names (`from`/`to`
+             *     statuses and types, the CREATED event's `type`) and numeric values (target/progress
+             *     `from`/`to`). The `PROGRESS_UPDATED` values feed the view screen's value-over-time
+             *     graph. Never title/description/summary text (description and summary are encrypted
+             *     at rest; this trail is plaintext by design). Empty object when the event kind needs
+             *     none.
+             */
+            params: {
+                [key: string]: string;
+            };
+        };
+        TeamKpiEventList: {
+            items: components["schemas"]["TeamKpiEventResponse"][];
+        };
         NotificationResponse: {
             /** Format: int64 */
             id: number;
@@ -2326,7 +2757,7 @@ export interface components {
              * @description Notification kind; the client renders it in the viewer's language.
              * @enum {string}
              */
-            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_CLOSED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "PASSWORD_CHANGED";
+            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_CLOSED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_CLOSED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PASSWORD_CHANGED";
             /**
              * @description Interpolation values for the localized message — party names (proper nouns), e.g.
              *     `{provider,subject,requester}`; plus `self` — the SPA's i18next context carrier:
@@ -2336,7 +2767,9 @@ export interface components {
              *     = the user changed it themselves). ONE_ON_ONE_CREATED_TO_SUBORDINATE carries
              *     `{manager,date}` and ONE_ON_ONE_CREATED_TO_MANAGER `{subordinate,date}` (the
              *     counterpart's name and the ISO meeting date). The GOAL_* kinds carry
-             *     `{manager,title}` — the manager's name and the goal's plaintext title.
+             *     `{manager,title}` — the manager's name and the goal's plaintext title. The
+             *     TEAM_KPI_* kinds carry `{manager,title,team}` — the manager's name, the KPI's
+             *     plaintext title, and the team's name.
              */
             params: {
                 [key: string]: string;
@@ -2493,6 +2926,33 @@ export interface components {
         };
         /** @description The action is not allowed from the goal's current status (the machine is DRAFT ↔ ACTIVE ↔ CLOSED, never skipping ACTIVE) */
         GoalInvalidTransition: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetail"];
+            };
+        };
+        /** @description Caller is neither the team's current manager, nor the HR auditor, nor a current team member, nor a manager in the chain above the team's manager — or the KPI is still a DRAFT, which only the manager (and HR) may see */
+        TeamKpiNotReadable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetail"];
+            };
+        };
+        /** @description Caller is not the team's current manager (members have read rights only) */
+        TeamKpiNotManager: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetail"];
+            };
+        };
+        /** @description The action is not allowed from the KPI's current status (the machine is DRAFT ↔ ACTIVE ↔ CLOSED, never skipping ACTIVE) */
+        TeamKpiInvalidTransition: {
             headers: {
                 [name: string]: unknown;
             };
@@ -4403,6 +4863,398 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["GoalNotReadable"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listTeamKpis: {
+        parameters: {
+            query?: {
+                /** @description 1-based page index. Defaults to 1. */
+                page?: components["parameters"]["Page"];
+                /** @description Rows per page. Defaults to 20, maximum 100. */
+                pageSize?: components["parameters"]["PageSize"];
+                /**
+                 * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
+                 *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
+                 *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
+                 *     always appended as a deterministic tiebreaker.
+                 */
+                sort?: components["parameters"]["Sort"];
+                /** @description Which slice of team KPIs to list — always caller-relative. */
+                view?: "own" | "managed";
+                /** @description Case-insensitive substring match against the team's name. */
+                teamName?: string;
+                /** @description Exact team-id match (the per-team drill-down). */
+                teamId?: number;
+                /** @description Case-insensitive substring match against the KPI title. */
+                title?: string;
+                /** @description Exact KPI-type match. */
+                type?: "NUMBER" | "PERCENTAGE";
+                /** @description Exact status match. */
+                status?: "DRAFT" | "ACTIVE" | "CLOSED";
+                /** @description Lower bound (inclusive) on the creation moment, epoch milliseconds. */
+                "createdAt[gte]"?: number;
+                /** @description Lower bound (inclusive) on the last-modified moment, epoch milliseconds. */
+                "lastModified[gte]"?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of team KPIs */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamKpiPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    createTeamKpi: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamKpiCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Created — the full team-KPI document */
+            201: {
+                headers: {
+                    /** @description URL of the new team-KPI resource */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamKpiResponse"];
+                };
+            };
+            /** @description Validation error (blank or oversized title/description, a target value that is missing, not finite, or out of range for PERCENTAGE) or referenced team does not exist */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description The caller is not the team's current manager */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getTeamKpi: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamKpiResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["TeamKpiNotReadable"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    updateTeamKpiDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamKpiDefinitionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation error (blank or oversized title/description, a target value that is missing, not finite, or out of range for PERCENTAGE) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["TeamKpiNotManager"];
+            404: components["responses"]["NotFound"];
+            /** @description The KPI is not in DRAFT status — its definition is immutable */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    deleteTeamKpi: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The KPI is not in DRAFT status — only a draft team KPI may be deleted */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["TeamKpiNotManager"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    updateTeamKpiProgress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamKpiProgressUpdate"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The current value is missing, not finite, or out of range (PERCENTAGE is 0–100) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["TeamKpiNotManager"];
+            404: components["responses"]["NotFound"];
+            /** @description The KPI is not ACTIVE — the current value is only editable while it is */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    activateTeamKpi: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Activated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["TeamKpiNotManager"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["TeamKpiInvalidTransition"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    deactivateTeamKpi: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Returned to draft */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["TeamKpiNotManager"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["TeamKpiInvalidTransition"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    closeTeamKpi: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamKpiCloseRequest"];
+            };
+        };
+        responses: {
+            /** @description Closed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The summary is missing, blank, or oversized */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["TeamKpiNotManager"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["TeamKpiInvalidTransition"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    reopenTeamKpi: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reopened */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["TeamKpiNotManager"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["TeamKpiInvalidTransition"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listTeamKpiEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The team KPI's events, oldest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamKpiEventList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["TeamKpiNotReadable"];
             404: components["responses"]["NotFound"];
             500: components["responses"]["InternalServerError"];
         };

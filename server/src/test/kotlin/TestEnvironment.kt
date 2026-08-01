@@ -206,6 +206,16 @@ object TestServices {
     val goals: ch.nokillswit.goals.GoalService by lazy {
         ch.nokillswit.goals.GoalService(sharedTestDatabase, cipher)
     }
+    val teamKpis: ch.nokillswit.teamkpis.TeamKpiService by lazy {
+        ch.nokillswit.teamkpis.TeamKpiService(sharedTestDatabase, cipher)
+    }
+}
+
+// Reads the team_kpi_events audit table directly (e.g. to assert events outlive a soft delete).
+object TestTeamKpiEvents {
+    val service: ch.nokillswit.teamkpis.TeamKpiEventService by lazy {
+        ch.nokillswit.teamkpis.TeamKpiEventService(sharedTestDatabase)
+    }
 }
 
 // Soft-deletes a 1:1 meeting directly, bypassing the latest-only-delete guard (v1.14). A soft-deleted
