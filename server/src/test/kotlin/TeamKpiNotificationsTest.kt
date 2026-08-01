@@ -2,7 +2,9 @@ package ch.nokillswit
 
 import ch.nokillswit.notifications.NotificationType
 import ch.nokillswit.teamkpis.TeamKpiStatus
+import ch.nokillswit.teamkpis.TeamKpiType
 import ch.nokillswit.teamkpis.teamKpiTransitionNotifications
+import ch.nokillswit.teamkpis.teamKpiValueNotifications
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -67,5 +69,68 @@ class TeamKpiNotificationsTest {
     fun `an invalid edge and an empty membership both produce nothing`() {
         assertTrue(notify(TeamKpiStatus.DRAFT, TeamKpiStatus.ARCHIVED).isEmpty())
         assertTrue(notify(TeamKpiStatus.DRAFT, TeamKpiStatus.ACTIVE, memberIds = emptySet()).isEmpty())
+    }
+
+    // ---- data-point notifications ----
+
+    private fun notifyValue(
+        type: NotificationType = NotificationType.TEAM_KPI_VALUE_RECORDED_TO_MEMBER,
+        memberIds: Set<UInt> = setOf(10u, 11u),
+        actingManagerId: UInt = 2u,
+        valueParams: Map<String, String> = mapOf("date" to "2026-07-27", "value" to "72.0"),
+    ) = teamKpiValueNotifications(
+        kpiId = 5u,
+        type = type,
+        memberIds = memberIds,
+        actingManagerId = actingManagerId,
+        managerName = "Mona Manager",
+        title = "Deploy frequency",
+        teamName = "Team AAA",
+        kpiType = TeamKpiType.PERCENTAGE,
+        valueParams = valueParams,
+    )
+
+    @Test
+    fun `a data-point mutation notifies each member with the display and value params`() {
+        val notes = notifyValue()
+        assertEquals(setOf(10u, 11u), notes.map { it.recipientId }.toSet())
+        notes.forEach { note ->
+            assertEquals(NotificationType.TEAM_KPI_VALUE_RECORDED_TO_MEMBER, note.type)
+            assertEquals(
+                mapOf(
+                    "manager" to "Mona Manager",
+                    "title" to "Deploy frequency",
+                    "team" to "Team AAA",
+                    "kpiType" to "PERCENTAGE",
+                    "date" to "2026-07-27",
+                    "value" to "72.0",
+                ),
+                note.params,
+            )
+            // Data points only mutate while ACTIVE, which members may read — always linked.
+            assertEquals("/team-kpis/5/view", note.link)
+        }
+    }
+
+    @Test
+    fun `a correction carries the four-sided value params`() {
+        val params = mapOf(
+            "fromDate" to "2026-07-27", "fromValue" to "72.0",
+            "toDate" to "2026-07-28", "toValue" to "75.0",
+        )
+        val notes = notifyValue(
+            type = NotificationType.TEAM_KPI_VALUE_CORRECTED_TO_MEMBER,
+            valueParams = params,
+        )
+        notes.forEach { note ->
+            assertEquals(NotificationType.TEAM_KPI_VALUE_CORRECTED_TO_MEMBER, note.type)
+            params.forEach { (k, v) -> assertEquals(v, note.params[k]) }
+        }
+    }
+
+    @Test
+    fun `the acting manager is excluded from data-point notifications too`() {
+        val notes = notifyValue(memberIds = setOf(2u, 10u))
+        assertEquals(listOf(10u), notes.map { it.recipientId })
     }
 }

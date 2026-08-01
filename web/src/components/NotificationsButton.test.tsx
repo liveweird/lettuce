@@ -151,6 +151,61 @@ describe("NotificationsButton", () => {
     expect(screen.getByText('Mona Manager reopened the goal "Raise coverage".')).toBeInTheDocument();
   });
 
+  test("renders the team-KPI data-point kinds with type-formatted values and localized dates", async () => {
+    const base = {
+      recipientId: 7,
+      timestamp: Date.now(),
+      wasSeen: false,
+      link: "/team-kpis/5/view",
+    };
+    const rows: Item[] = [
+      {
+        ...base,
+        id: 31,
+        type: "TEAM_KPI_VALUE_RECORDED_TO_MEMBER",
+        params: {
+          manager: "Mona Manager", title: "Uptime", team: "Team AAA",
+          kpiType: "PERCENTAGE", date: "2026-07-27", value: "72.0",
+        },
+      },
+      {
+        ...base,
+        id: 32,
+        type: "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER",
+        params: {
+          manager: "Mona Manager", title: "Uptime", team: "Team AAA", kpiType: "PERCENTAGE",
+          fromDate: "2026-07-27", fromValue: "72.0", toDate: "2026-07-28", toValue: "75.0",
+        },
+      },
+      {
+        ...base,
+        id: 33,
+        type: "TEAM_KPI_VALUE_REMOVED_TO_MEMBER",
+        params: {
+          manager: "Mona Manager", title: "Uptime", team: "Team AAA",
+          kpiType: "NUMBER", date: "2026-07-28", value: "75.0",
+        },
+      },
+    ];
+    setupMocks(mockFetch, rows, 3);
+    renderWithProviders(<Harness />);
+    await userEvent.setup().click(await screen.findByRole("button", { name: /notifications/i }));
+
+    // PERCENTAGE values render with the % suffix, ISO dates per the viewer's locale.
+    expect(
+      await screen.findByText('Mona Manager recorded 72% for Jul 27, 2026 on the KPI "Uptime" of team Team AAA.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Mona Manager corrected a data point of the KPI "Uptime" of team Team AAA: 72% (Jul 27, 2026) → 75% (Jul 28, 2026).',
+      ),
+    ).toBeInTheDocument();
+    // A NUMBER KPI's value stays a plain number.
+    expect(
+      screen.getByText('Mona Manager removed the value 75 (Jul 28, 2026) from the KPI "Uptime" of team Team AAA.'),
+    ).toBeInTheDocument();
+  });
+
   test("shows the unread count on the bell button", async () => {
     setupMocks(mockFetch, [UNSEEN, SEEN], 3);
     renderWithProviders(<NotificationsButton />);

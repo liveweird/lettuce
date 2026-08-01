@@ -44,3 +44,38 @@ internal fun teamKpiTransitionNotifications(
         )
     }
 }
+
+/**
+ * Pure mapping from a data-point mutation (add / correct / remove — [type] must be one of the
+ * TEAM_KPI_VALUE_* kinds) to the notifications it should produce: every current team member
+ * except the acting manager, always linking to the KPI (data points only mutate while ACTIVE,
+ * which members may read). [valueParams] carries the mutation's dates/values as raw strings
+ * (ISO dates + the events' Double format — plaintext by design, like the audit trail):
+ * `{date, value}` for recorded/removed, `{fromDate, fromValue, toDate, toValue}` for corrected.
+ * [kpiType]'s name rides along so the SPA can format the values per type (the "%" suffix).
+ * A no-op correction notifies nobody — the route skips the builder entirely (like the event).
+ */
+internal fun teamKpiValueNotifications(
+    kpiId: UInt,
+    type: NotificationType,
+    memberIds: Set<UInt>,
+    actingManagerId: UInt,
+    managerName: String,
+    title: String,
+    teamName: String,
+    kpiType: TeamKpiType,
+    valueParams: Map<String, String>,
+): List<Notification> =
+    (memberIds - actingManagerId).map { memberId ->
+        Notification(
+            recipientId = memberId,
+            type = type,
+            params = mapOf(
+                "manager" to managerName,
+                "title" to title,
+                "team" to teamName,
+                "kpiType" to kpiType.name,
+            ) + valueParams,
+            link = "/team-kpis/$kpiId/view",
+        )
+    }

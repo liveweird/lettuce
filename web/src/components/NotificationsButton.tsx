@@ -46,7 +46,8 @@ import {
   markNotificationUnseen,
   type NotificationItem,
 } from "../api/client";
-import { formatTimestamp } from "../utils/datetime";
+import { formatIsoDate, formatTimestamp } from "../utils/datetime";
+import { formatGoalValue } from "../utils/goalValues";
 import { toRelativePath } from "../utils/url";
 
 // The i18n key per notification type. The message is rendered in the viewer's language from
@@ -73,13 +74,34 @@ const EVENT_KEY: Record<NotificationItem["type"], string> = {
   TEAM_KPI_DEACTIVATED_TO_MEMBER: "teamKpiDeactivated",
   TEAM_KPI_ARCHIVED_TO_MEMBER: "teamKpiArchived",
   TEAM_KPI_REOPENED_TO_MEMBER: "teamKpiReopened",
+  TEAM_KPI_VALUE_RECORDED_TO_MEMBER: "teamKpiValueRecorded",
+  TEAM_KPI_VALUE_CORRECTED_TO_MEMBER: "teamKpiValueCorrected",
+  TEAM_KPI_VALUE_REMOVED_TO_MEMBER: "teamKpiValueRemoved",
   PASSWORD_CHANGED: "passwordChanged",
 };
 
-function describeNotification(n: NotificationItem, t: TFunction): string {
+// The team-KPI data-point kinds carry raw ISO dates + Double values (plus the KPI's type) — the
+// only params that need client-side formatting before interpolation.
+const KPI_VALUE_KEYS = new Set(["teamKpiValueRecorded", "teamKpiValueCorrected", "teamKpiValueRemoved"]);
+
+function describeNotification(n: NotificationItem, t: TFunction, locale: string): string {
   const key = EVENT_KEY[n.type];
   if (!key) return n.type; // forward-compat: an unknown kind → show the raw type
-  const params = n.params ?? {};
+  const params: Record<string, string | undefined> = { ...(n.params ?? {}) };
+  if (KPI_VALUE_KEYS.has(key)) {
+    // Format the values per the KPI's type (the "%" suffix for PERCENTAGE) and the dates per
+    // the viewer's locale; anything unparseable passes through raw.
+    const kpiType = params.kpiType === "PERCENTAGE" ? "PERCENTAGE" : "NUMBER";
+    for (const k of ["value", "fromValue", "toValue"]) {
+      const parsed = Number(params[k]);
+      if (params[k] != null && Number.isFinite(parsed)) {
+        params[k] = formatGoalValue(kpiType, parsed, locale);
+      }
+    }
+    for (const k of ["date", "fromDate", "toDate"]) {
+      if (params[k] != null) params[k] = formatIsoDate(params[k]!, locale);
+    }
+  }
   // `self` drives the "about yourself" wording variant via i18next context.
   return t(`notifications.event.${key}`, { ...params, context: params.self });
 }
@@ -108,6 +130,9 @@ const TYPE_META: Record<NotificationItem["type"], { icon: typeof IconBell; color
   TEAM_KPI_DEACTIVATED_TO_MEMBER: { icon: IconChartLine, color: "orange" },
   TEAM_KPI_ARCHIVED_TO_MEMBER: { icon: IconChartLine, color: "blue" },
   TEAM_KPI_REOPENED_TO_MEMBER: { icon: IconChartLine, color: "cyan" },
+  TEAM_KPI_VALUE_RECORDED_TO_MEMBER: { icon: IconChartLine, color: "teal" },
+  TEAM_KPI_VALUE_CORRECTED_TO_MEMBER: { icon: IconChartLine, color: "indigo" },
+  TEAM_KPI_VALUE_REMOVED_TO_MEMBER: { icon: IconChartLine, color: "gray" },
   PASSWORD_CHANGED: { icon: IconKey, color: "orange" },
 };
 
@@ -120,7 +145,7 @@ const UNREAD_REFETCH_MS = 30_000;
 const PAGE_SIZE = 50;
 
 export default function NotificationsButton() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [opened, { open, close }] = useDisclosure(false);
   const [page, setPage] = useState(1);
   const navigate = useNavigate();
@@ -268,7 +293,7 @@ export default function NotificationsButton() {
                           </Indicator>
                           <Stack gap={2} style={{ minWidth: 0, flex: 1 }}>
                             <Text size="sm" fw={n.wasSeen ? 400 : 600} c={n.wasSeen ? "dimmed" : undefined}>
-                              {describeNotification(n, t)}
+                              {describeNotification(n, t, i18n.language)}
                             </Text>
                             <Text size="xs" c="dimmed">
                               {formatTimestamp(n.timestamp)}

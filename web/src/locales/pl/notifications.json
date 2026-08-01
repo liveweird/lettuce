@@ -45,6 +45,9 @@
     "teamKpiDeactivated": "{{manager}} przywrócił/przywróciła KPI „{{title}}” zespołu {{team}} do szkicu.",
     "teamKpiArchived": "{{manager}} zarchiwizował/zarchiwizowała KPI „{{title}}” zespołu {{team}}.",
     "teamKpiReopened": "{{manager}} ponownie otworzył/a KPI „{{title}}” zespołu {{team}}.",
+    "teamKpiValueRecorded": "{{manager}} zapisał/zapisała wartość {{value}} z dnia {{date}} w KPI „{{title}}” zespołu {{team}}.",
+    "teamKpiValueCorrected": "{{manager}} poprawił/poprawiła punkt danych KPI „{{title}}” zespołu {{team}}: {{fromValue}} ({{fromDate}}) \u2192 {{toValue}} ({{toDate}}).",
+    "teamKpiValueRemoved": "{{manager}} usunął/usunęła wartość {{value}} ({{date}}) z KPI „{{title}}” zespołu {{team}}.",
     "passwordChanged": "Twoje hasło zostało zmienione.",
     "passwordChanged_admin": "Administrator zmienił Twoje hasło.",
     "passwordChanged_reset": "Twoje hasło zostało zresetowane przez e-mail."

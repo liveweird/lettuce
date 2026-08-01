@@ -502,6 +502,14 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
         value = this[TeamKpiValues.value],
     )
 
+    /**
+     * The team's current member ids — the transition path resolves them inside its own
+     * transaction (via the private overload below); the values routes call this public wrapper
+     * right after their mutation to fan out the data-point notifications (no authorization
+     * hangs on the tiny window, and a notification to a just-removed member is harmless).
+     */
+    suspend fun memberIds(teamId: UInt): Set<UInt> = suspendTransaction(database) { memberIdsOf(teamId) }
+
     private suspend fun memberIdsOf(teamId: UInt): Set<UInt> =
         TeamService.TeamMembers
             .select(TeamService.TeamMembers.userId)

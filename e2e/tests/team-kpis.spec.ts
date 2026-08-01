@@ -169,15 +169,25 @@ test("activating at creation notifies the members, who see the KPI read-only in 
   const id = await createKpi(page, title, true); // "Yes" activates on the spot
   await expect(kpiRow(page, title).getByText("Active", { exact: true })).toBeVisible();
 
-  // A member: bell notification naming the KPI and the team, whose link opens the document.
+  // The manager records a data point — members are notified about that too (v1.30.0).
+  await kpiRow(page, title).getByRole("link", { name: `View team KPI ${title}` }).click();
+  await page.getByRole("tab", { name: "KPI data" }).click();
+  await addValue(page, id, "2026-07-27", "42");
+
+  // A member: bell notifications naming the KPI and the team; the activation's link opens the
+  // document.
   await logout(page);
   await login(page, AAA_ONE);
   const dialog = await openBell(page);
+  await expect(
+    notificationCard(dialog, `Manager AAA recorded 42 for Jul 27, 2026 on the KPI "${title}" of team AAA`),
+  ).toBeVisible();
   const note = notificationCard(dialog, `Manager AAA activated the KPI "${title}" for team AAA`);
   await expect(note).toBeVisible();
   await note.getByRole("button", { name: "Go to" }).click();
   await expect(page).toHaveURL(new RegExp(`/team-kpis/${id}/view`));
-  await expect(page.getByText(title)).toBeVisible();
+  // exact: the notification wordings also contain the title as a substring.
+  await expect(page.getByText(title, { exact: true })).toBeVisible();
   // Read-only from the member's side: no lifecycle actions, no Edit, no data-point editing.
   await expect(page.getByRole("button", { name: "Archive" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Edit", exact: true })).toHaveCount(0);
