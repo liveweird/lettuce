@@ -43,7 +43,7 @@
     "goalReopened": "{{manager}} ponownie otworzył/a cel „{{title}}”.",
     "teamKpiActivated": "{{manager}} aktywował/a KPI „{{title}}” dla zespołu {{team}}.",
     "teamKpiDeactivated": "{{manager}} przywrócił/przywróciła KPI „{{title}}” zespołu {{team}} do szkicu.",
-    "teamKpiClosed": "{{manager}} zamknął/zamknęła KPI „{{title}}” zespołu {{team}}.",
+    "teamKpiArchived": "{{manager}} zarchiwizował/zarchiwizowała KPI „{{title}}” zespołu {{team}}.",
     "teamKpiReopened": "{{manager}} ponownie otworzył/a KPI „{{title}}” zespołu {{team}}.",
     "passwordChanged": "Twoje hasło zostało zmienione.",
     "passwordChanged_admin": "Administrator zmienił Twoje hasło.",

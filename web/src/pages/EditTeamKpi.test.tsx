@@ -4,18 +4,10 @@ import { fireEvent, renderWithProviders, screen, waitFor } from "../test/render"
 import { Route, Routes, useLocation } from "react-router-dom";
 import EditTeamKpi from "./EditTeamKpi";
 import { jsonResponse } from "../test/http";
-import { todayIsoDate } from "../utils/datetime";
 
 vi.mock("../components/MarkdownEditor", async () =>
   (await import("../test/mockMarkdownEditor")).mockMarkdownEditorModule(),
 );
-
-// happy-dom can't measure recharts — stub the chart (the ViewTeamKpi.test precedent).
-vi.mock("@mantine/charts", () => ({
-  LineChart: ({ data }: { data: unknown[] }) => (
-    <div data-testid="line-chart" data-points={data.length} />
-  ),
-}));
 
 const TOKEN_KEY = "lettuce.auth.token";
 const USER_ID_KEY = "lettuce.auth.userId";
@@ -110,23 +102,43 @@ describe("EditTeamKpi", () => {
     });
   });
 
-  test("Save & activate PUTs then posts the activate action", async () => {
-    mockApi(mockFetch);
+  test("Save & activate PUTs, posts the activate action, and lands on backTo — not the view redirect", async () => {
+    // Stateful mock: once activated, the refetched document is ACTIVE — the invalidation-driven
+    // refetch must not let the non-DRAFT redirect win over saveDefinition's navigate(backTo).
+    let activated = false;
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u === "/api/v1/team-kpis/5" && !init?.method)
+        return Promise.resolve(
+          jsonResponse(200, activated ? { ...DRAFT_KPI, status: "ACTIVE" } : DRAFT_KPI),
+        );
+      if (u === "/api/v1/team-kpis/5/events") return Promise.resolve(jsonResponse(200, { items: [] }));
+      if (u.endsWith("/activate")) {
+        activated = true;
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      if (init?.method === "PUT") return Promise.resolve(new Response(null, { status: 204 }));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
     const user = userEvent.setup();
     renderEdit();
-    await screen.findByRole("heading", { name: "Edit team KPI" });
+    await screen.findByLabelText(/title/i);
 
     await user.click(screen.getByRole("button", { name: "Save & activate" }));
     await waitFor(() =>
       expect(mockFetch.mock.calls.some(([u]) => String(u).endsWith("/activate"))).toBe(true),
     );
+    await waitFor(() =>
+      expect(screen.getByTestId("probe")).toHaveTextContent("/team-kpis?tab=managed"),
+    );
+    expect(screen.queryByTestId("view-screen")).not.toBeInTheDocument();
   });
 
   test("the DRAFT editor's Delete confirms and removes the draft", async () => {
     mockApi(mockFetch);
     const user = userEvent.setup();
     renderEdit();
-    await screen.findByRole("heading", { name: "Edit team KPI" });
+    await screen.findByLabelText(/title/i);
 
     await user.click(screen.getByRole("button", { name: "Delete" }));
     expect(await screen.findByText(/history is retained/)).toBeInTheDocument();
@@ -141,67 +153,19 @@ describe("EditTeamKpi", () => {
     );
   });
 
-  test("an ACTIVE KPI renders the progress form; Save PUTs the value with its date (default today)", async () => {
-    mockApi(mockFetch, { ...DRAFT_KPI, status: "ACTIVE", currentValue: 12 });
-    const user = userEvent.setup();
-    renderEdit();
-
-    expect(await screen.findByRole("heading", { name: "Update progress" })).toBeInTheDocument();
-    const current = await screen.findByLabelText(/current/i);
-    fireEvent.change(current, { target: { value: "20" } });
-    await user.click(screen.getByRole("button", { name: "Save" }));
-
-    await waitFor(() => {
-      const put = mockFetch.mock.calls.find(([u]) => String(u).endsWith("/progress"));
-      expect(put).toBeDefined();
-      expect(JSON.parse((put![1] as RequestInit).body as string)).toEqual({
-        currentValue: 20,
-        date: todayIsoDate(),
-      });
-    });
-  });
-
-  test("a future value date blocks the save; a backdated one is sent as picked", async () => {
-    mockApi(mockFetch, { ...DRAFT_KPI, status: "ACTIVE", currentValue: 12 });
-    const user = userEvent.setup();
-    renderEdit();
-    await screen.findByRole("heading", { name: "Update progress" });
-
-    // Future first — validation blocks, so the form stays mounted for the second half.
-    const date = await screen.findByLabelText(/value date/i);
-    fireEvent.change(date, { target: { value: "2999-01-01" } });
-    await user.click(screen.getByRole("button", { name: "Save" }));
-    expect(await screen.findByText("The value date cannot be in the future")).toBeInTheDocument();
-    expect(mockFetch.mock.calls.some(([u]) => String(u).endsWith("/progress"))).toBe(false);
-
-    fireEvent.change(date, { target: { value: "2026-01-15" } });
-    await user.click(screen.getByRole("button", { name: "Save" }));
-    await waitFor(() => {
-      const put = mockFetch.mock.calls.find(([u]) => String(u).endsWith("/progress"));
-      expect(put).toBeDefined();
-      expect(JSON.parse((put![1] as RequestInit).body as string)).toMatchObject({ date: "2026-01-15" });
-    });
-  });
-
-  test("the ACTIVE editor has a Graph tab rendering the value-over-time chart", async () => {
-    mockApi(mockFetch, { ...DRAFT_KPI, status: "ACTIVE", currentValue: 12 });
-    const user = userEvent.setup();
-    renderEdit();
-    await screen.findByRole("heading", { name: "Update progress" });
-
-    await user.click(await screen.findByRole("tab", { name: "Graph" }));
-    // Only the synthesized origin point exists (the mocked events list is empty), so the chart
-    // shows its empty state — the tab itself is what this pins.
-    expect(await screen.findByText(/No progress has been recorded yet/)).toBeInTheDocument();
-  });
-
-  test("a non-manager and a CLOSED KPI both redirect to the view screen", async () => {
+  test("a non-manager, an ACTIVE, and an ARCHIVED KPI all redirect to the view screen", async () => {
+    // The route edits DRAFT definitions only (v1.29.0) — data points live on the view screen.
     mockApi(mockFetch, { ...DRAFT_KPI, managerId: 99 });
     renderEdit();
     expect(await screen.findByTestId("view-screen")).toBeInTheDocument();
 
     vi.clearAllMocks();
-    mockApi(mockFetch, { ...DRAFT_KPI, status: "CLOSED" });
+    mockApi(mockFetch, { ...DRAFT_KPI, status: "ACTIVE" });
+    renderEdit();
+    expect(await screen.findByTestId("view-screen")).toBeInTheDocument();
+
+    vi.clearAllMocks();
+    mockApi(mockFetch, { ...DRAFT_KPI, status: "ARCHIVED" });
     renderEdit();
     expect(await screen.findByTestId("view-screen")).toBeInTheDocument();
   });

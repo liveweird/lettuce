@@ -135,9 +135,9 @@ describe("MyTeamKpis page", () => {
       expect(kpiUrls(mockFetch).find((u) => u.includes("view=managed"))).toBeDefined();
     });
 
-    // The manager of a DRAFT row gets Edit, returning to this tab.
-    const edit = screen.getByRole("link", { name: "Edit team KPI Cut lead time" });
-    expect(edit.getAttribute("href")).toContain(
+    // Every row action is View (v1.29.0), returning to this tab.
+    const view = screen.getByRole("link", { name: "View team KPI Cut lead time" });
+    expect(view.getAttribute("href")).toContain(
       `back=${encodeURIComponent("/team-kpis?tab=managed")}`,
     );
 

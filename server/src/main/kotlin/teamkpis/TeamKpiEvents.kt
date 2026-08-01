@@ -20,7 +20,9 @@ enum class TeamKpiEventType {
     DESCRIPTION_CHANGED,
     TYPE_CHANGED,
     TARGET_CHANGED,
-    PROGRESS_UPDATED,
+    VALUE_RECORDED,
+    VALUE_CORRECTED,
+    VALUE_REMOVED,
     STATUS_CHANGED,
     DELETED,
 }
@@ -68,29 +70,42 @@ internal fun teamKpiDefinitionUpdateEvents(
     return events
 }
 
-/**
- * Structured event recorded on an ACTIVE progress update, with the recorded value and its
- * user-supplied date — the KPI view's Graph tab derives its value-over-time series from exactly
- * these events (params `{to, date}`; pre-v1.28 events carried `{from, to}` with no date and the
- * SPA still renders them). There is no `from`: with backdating, the row's currentValue may not
- * change at all, so a from→to wording would mislead. Returns null only for an exact no-op — the
- * same value on the same date as the row's latest-dated record; the same value on a NEW date is
- * a real data point and mints an event.
- */
-internal fun teamKpiProgressUpdateEvent(
-    before: TeamKpiResponse,
-    after: TeamKpiProgressUpdate,
-): TeamKpiEventDescriptor? = when {
-    after.currentValue != null && after.date != null &&
-        !(after.currentValue == before.currentValue && after.date == before.currentValueDate) ->
-        TeamKpiEventDescriptor(
-            TeamKpiEventType.PROGRESS_UPDATED,
-            mapOf("to" to valueParam(after.currentValue), "date" to after.date),
-        )
-    else -> null
-}
+/** Structured event recorded when a data point is added to an ACTIVE KPI. */
+internal fun teamKpiValueRecordedEvent(date: String, value: Double): TeamKpiEventDescriptor =
+    TeamKpiEventDescriptor(
+        TeamKpiEventType.VALUE_RECORDED,
+        mapOf("date" to date, "value" to valueParam(value)),
+    )
 
-/** Structured event recorded on every status transition (activate/deactivate/close/reopen). */
+/**
+ * Structured event recorded when a data point is corrected. Always carries all four params —
+ * even when only one dimension changed — so the SPA can render the full before → after picture.
+ * The route mints this only when the correction actually changed something (an exact no-op mints
+ * nothing).
+ */
+internal fun teamKpiValueCorrectedEvent(
+    old: TeamKpiValueResponse,
+    newDate: String,
+    newValue: Double,
+): TeamKpiEventDescriptor =
+    TeamKpiEventDescriptor(
+        TeamKpiEventType.VALUE_CORRECTED,
+        mapOf(
+            "fromDate" to old.date,
+            "fromValue" to valueParam(old.value),
+            "toDate" to newDate,
+            "toValue" to valueParam(newValue),
+        ),
+    )
+
+/** Structured event recorded when a data point is removed from an ACTIVE KPI. */
+internal fun teamKpiValueRemovedEvent(old: TeamKpiValueResponse): TeamKpiEventDescriptor =
+    TeamKpiEventDescriptor(
+        TeamKpiEventType.VALUE_REMOVED,
+        mapOf("date" to old.date, "value" to valueParam(old.value)),
+    )
+
+/** Structured event recorded on every status transition (activate/deactivate/archive/reopen). */
 internal fun teamKpiTransitionEvent(from: TeamKpiStatus, to: TeamKpiStatus): TeamKpiEventDescriptor =
     TeamKpiEventDescriptor(
         TeamKpiEventType.STATUS_CHANGED,

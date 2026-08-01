@@ -1,10 +1,10 @@
 package ch.nokillswit
 
-import ch.nokillswit.teamkpis.TeamKpiProgressUpdate
 import ch.nokillswit.teamkpis.TeamKpiType
+import ch.nokillswit.teamkpis.TeamKpiValueWrite
 import ch.nokillswit.teamkpis.validateTeamKpiDefinition
-import ch.nokillswit.teamkpis.validateTeamKpiProgress
 import ch.nokillswit.teamkpis.validateTeamKpiSummary
+import ch.nokillswit.teamkpis.validateTeamKpiValue
 import io.ktor.server.plugins.BadRequestException
 import java.time.LocalDate
 import kotlin.test.Test
@@ -74,54 +74,54 @@ class TeamKpiValidationTest {
         definition(type = TeamKpiType.NUMBER, targetValue = 1e9)
     }
 
-    // ---- progress ----
+    // ---- data points ----
 
     private val today = LocalDate.of(2026, 8, 1)
 
-    private fun progress(
+    private fun dataPoint(
         type: TeamKpiType = TeamKpiType.NUMBER,
-        currentValue: Double? = 42.0,
+        value: Double? = 42.0,
         date: String? = "2026-08-01",
-    ) = validateTeamKpiProgress(type, TeamKpiProgressUpdate(currentValue = currentValue, date = date), today)
+    ) = validateTeamKpiValue(type, TeamKpiValueWrite(date = date, value = value), today)
 
     @Test
-    fun `a progress update requires a finite currentValue`() {
-        progress()
-        assertFailsWith<BadRequestException> { progress(currentValue = null) }
-        assertFailsWith<BadRequestException> { progress(currentValue = Double.NaN) }
+    fun `a data point requires a finite value`() {
+        dataPoint()
+        assertFailsWith<BadRequestException> { dataPoint(value = null) }
+        assertFailsWith<BadRequestException> { dataPoint(value = Double.NaN) }
     }
 
     @Test
-    fun `a PERCENTAGE progress value accepts the bounds and rejects beyond them`() {
-        progress(type = TeamKpiType.PERCENTAGE, currentValue = 0.0)
-        progress(type = TeamKpiType.PERCENTAGE, currentValue = 100.0)
-        assertFailsWith<BadRequestException> { progress(type = TeamKpiType.PERCENTAGE, currentValue = -0.1) }
-        assertFailsWith<BadRequestException> { progress(type = TeamKpiType.PERCENTAGE, currentValue = 100.1) }
+    fun `a PERCENTAGE data-point value accepts the bounds and rejects beyond them`() {
+        dataPoint(type = TeamKpiType.PERCENTAGE, value = 0.0)
+        dataPoint(type = TeamKpiType.PERCENTAGE, value = 100.0)
+        assertFailsWith<BadRequestException> { dataPoint(type = TeamKpiType.PERCENTAGE, value = -0.1) }
+        assertFailsWith<BadRequestException> { dataPoint(type = TeamKpiType.PERCENTAGE, value = 100.1) }
     }
 
     @Test
-    fun `a progress update requires a date`() {
-        assertFailsWith<BadRequestException> { progress(date = null) }
+    fun `a data point requires a date`() {
+        assertFailsWith<BadRequestException> { dataPoint(date = null) }
     }
 
     @Test
-    fun `a progress date must be a strict zero-padded ISO date`() {
-        assertFailsWith<BadRequestException> { progress(date = "2026-8-1") }
-        assertFailsWith<BadRequestException> { progress(date = "01-08-2026") }
-        assertFailsWith<BadRequestException> { progress(date = "yesterday") }
+    fun `a data-point date must be a strict zero-padded ISO date`() {
+        assertFailsWith<BadRequestException> { dataPoint(date = "2026-8-1") }
+        assertFailsWith<BadRequestException> { dataPoint(date = "01-08-2026") }
+        assertFailsWith<BadRequestException> { dataPoint(date = "yesterday") }
     }
 
     @Test
-    fun `a progress date accepts today and the past, never the future`() {
-        progress(date = "2026-08-01")
-        progress(date = "2020-01-15")
-        assertFailsWith<BadRequestException> { progress(date = "2026-08-02") }
+    fun `a data-point date accepts today and the past, never the future`() {
+        dataPoint(date = "2026-08-01")
+        dataPoint(date = "2020-01-15")
+        assertFailsWith<BadRequestException> { dataPoint(date = "2026-08-02") }
     }
 
     // ---- summary ----
 
     @Test
-    fun `the close summary must be present, non-blank, and bounded`() {
+    fun `the archive summary must be present, non-blank, and bounded`() {
         validateTeamKpiSummary("done")
         validateTeamKpiSummary("s".repeat(4000))
         assertFailsWith<BadRequestException> { validateTeamKpiSummary(null) }

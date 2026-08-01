@@ -1210,8 +1210,9 @@ export interface paths {
          *     `teamId` at creation time — there is no ADMIN create-on-behalf.
          *
          *     Unlike goals there is no BINARY type: `targetValue` is **always required** (finite;
-         *     0–100 for PERCENTAGE) and the current value starts at `0.0`, becoming editable (via
-         *     `PUT /team-kpis/{id}/progress`) once the KPI is ACTIVE. There is no due date.
+         *     0–100 for PERCENTAGE). The KPI starts with no data points (`currentValue` `0.0`,
+         *     `currentValueDate` null); data points become recordable (via the
+         *     `/team-kpis/{id}/values` sub-resource) once the KPI is ACTIVE. There is no due date.
          *
          *     Nobody is notified — a draft is private to the manager until activated. The creation
          *     is recorded in the KPI's audit history.
@@ -1235,11 +1236,11 @@ export interface paths {
         /**
          * Fetch a team KPI
          * @description Returns the full team-KPI document — team, its current manager, definition, value
-         *     fields, status, and (once closed at least once) the summary. Readable by the team's
+         *     fields, status, and (once archived at least once) the summary. Readable by the team's
          *     **current manager** and the **HR auditor** (audit-logged) at every status; a current
          *     **team member**, or any **manager in the chain above the team's manager** (their
          *     manager, that manager's manager, and so on — over non-deleted teams), may read it only
-         *     once it has left DRAFT (ACTIVE/CLOSED) — a draft stays private to the manager.
+         *     once it has left DRAFT (ACTIVE/ARCHIVED) — a draft stays private to the manager.
          *     Anything else — ADMIN included — is `403`.
          */
         get: operations["getTeamKpi"];
@@ -1247,14 +1248,15 @@ export interface paths {
          * Edit a draft team KPI's definition
          * @description Edits the KPI's definition — title, description, type, and target. **Current-manager-
          *     only** (members have read rights only; nobody else — ADMIN included — gets write
-         *     access) and **DRAFT-only**: an ACTIVE or CLOSED KPI's definition is immutable (`409`)
-         *     — deactivate it first to edit. The team, status, current value, and summary are not
-         *     settable here (status moves through the action endpoints, the current value through
-         *     `PUT /team-kpis/{id}/progress`, the summary through the close action).
+         *     access) and **DRAFT-only**: an ACTIVE or ARCHIVED KPI's definition is immutable (`409`)
+         *     — deactivate it first to edit. The team, status, data points, and summary are not
+         *     settable here (status moves through the action endpoints, the data points through the
+         *     `/team-kpis/{id}/values` sub-resource, the summary through the archive action).
          *
-         *     Changing the type re-initializes the current value to `0.0`, discarding any previously
-         *     recorded progress — the audit events explain the reset. Every changed aspect is
-         *     recorded in the audit history; a no-op PUT records nothing.
+         *     Changing the type **wipes all collected data points** — a NUMBER series is meaningless
+         *     against a PERCENTAGE target and vice versa — resetting `currentValue`/`currentValueDate`
+         *     to `0.0`/null; the audit events explain the reset. Every changed aspect is recorded in
+         *     the audit history; a no-op PUT records nothing.
          */
         put: operations["updateTeamKpiDefinition"];
         post?: never;
@@ -1262,7 +1264,7 @@ export interface paths {
          * Delete a draft team KPI
          * @description Soft-deletes a team KPI (the row is flagged, not physically removed, and disappears
          *     from reads/lists; its audit history is retained). **Current-manager-only** and
-         *     **DRAFT-only** — ACTIVE and CLOSED KPIs are records and answer `400`; close (or
+         *     **DRAFT-only** — ACTIVE and ARCHIVED KPIs are records and answer `400`; archive (or
          *     reopen) them through the transitions instead. Nobody is notified.
          */
         delete: operations["deleteTeamKpi"];
@@ -1271,7 +1273,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/team-kpis/{id}/progress": {
+    "/api/v1/team-kpis/{id}/values": {
         parameters: {
             query?: never;
             header?: never;
@@ -1280,23 +1282,68 @@ export interface paths {
             };
             cookie?: never;
         };
+        /**
+         * List a team KPI's data points
+         * @description Returns the KPI's collected data points — one `{id, date, value}` entry per
+         *     measurement, at most one per date, sorted by date **newest first**. Unpaged (the set is
+         *     a hand-entered measurement series, intrinsically small). The view screen's KPI-data tab
+         *     and its value-over-time graph both feed on this list. Authorization matches the
+         *     single-GET: whoever may read the KPI may read its data points.
+         */
+        get: operations["listTeamKpiValues"];
+        put?: never;
+        /**
+         * Record a data point for an active team KPI
+         * @description Adds a data point — data points are only mutable while the KPI is **ACTIVE** (any other
+         *     status is `409`). **Current-manager-only.** `value` is always required (finite; 0–100
+         *     for PERCENTAGE), and `date` — the ISO `YYYY-MM-DD` date the value was measured — is
+         *     required and must not be in the future (today is allowed). At most **one value per
+         *     date**: a date that already has a data point is `409` — correct the existing point
+         *     instead. The KPI's denormalized `currentValue`/`currentValueDate` are recomputed from
+         *     the max-dated point in the same transaction, and the addition mints a `VALUE_RECORDED`
+         *     audit event (params `{date, value}`).
+         */
+        post: operations["addTeamKpiValue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/team-kpis/{id}/values/{valueId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+                /** @description Id of the data point (must belong to the addressed KPI, else 404). */
+                valueId: number;
+            };
+            cookie?: never;
+        };
         get?: never;
         /**
-         * Record an active team KPI's dated value
-         * @description Records a dated value for the KPI — the only edit an **ACTIVE** KPI accepts (any other
-         *     status is `409`). **Current-manager-only.** `currentValue` is always required (finite;
-         *     0–100 for PERCENTAGE), and `date` — the ISO `YYYY-MM-DD` date the value was measured —
-         *     is required and must not be in the future (today is allowed). **Latest-dated wins**: the
-         *     KPI's `currentValue`/`currentValueDate` are overwritten only when `date` is on or after
-         *     the stored `currentValueDate`; a backdated update older than that lands only in the audit
-         *     history (and hence the graph). Every recording mints a `PROGRESS_UPDATED` audit event
-         *     (params `{to, date}`) — the view screen's value-over-time graph derives from exactly
-         *     these events; an exact no-op (same value, same date as the latest-dated record) records
-         *     nothing.
+         * Correct a data point of an active team KPI
+         * @description Corrects a data point's date and/or value — only while the KPI is **ACTIVE** (any
+         *     other status is `409`). **Current-manager-only.** The same value/date rules as adding
+         *     apply; moving the point onto a date that already has another data point is `409`. The
+         *     denormalized `currentValue`/`currentValueDate` are recomputed in the same transaction.
+         *     A real change mints a `VALUE_CORRECTED` audit event (params
+         *     `{fromDate, fromValue, toDate, toValue}` — always all four); an exact no-op records
+         *     nothing and still answers `204`.
          */
-        put: operations["updateTeamKpiProgress"];
+        put: operations["updateTeamKpiValue"];
         post?: never;
-        delete?: never;
+        /**
+         * Remove a data point of an active team KPI
+         * @description Removes a data point (hard delete — the `VALUE_REMOVED` audit event, params
+         *     `{date, value}`, keeps the record) — only while the KPI is **ACTIVE** (any other
+         *     status is `409`). **Current-manager-only.** The denormalized
+         *     `currentValue`/`currentValueDate` are recomputed in the same transaction: removing the
+         *     latest-dated point rolls the current value back to the next-latest (or `0.0`/null when
+         *     none remain).
+         */
+        delete: operations["deleteTeamKpiValue"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1317,9 +1364,9 @@ export interface paths {
          * Activate a draft team KPI
          * @description Moves the KPI `DRAFT → ACTIVE` (any other current status is `409`).
          *     **Current-manager-only.** Once active, the KPI becomes visible to the team's members
-         *     and the chain above its manager, and its current value becomes editable via
-         *     `PUT /team-kpis/{id}/progress`. Every current team member (except the acting manager)
-         *     is notified; the transition is recorded in the audit history.
+         *     and the chain above its manager, and its data points become editable via the
+         *     `/team-kpis/{id}/values` sub-resource. Every current team member (except the acting
+         *     manager) is notified; the transition is recorded in the audit history.
          */
         post: operations["activateTeamKpi"];
         delete?: never;
@@ -1343,10 +1390,10 @@ export interface paths {
          * Return an active team KPI to draft
          * @description Moves the KPI `ACTIVE → DRAFT` (any other current status is `409`), making its
          *     definition editable again — and hiding it from members and the chain until
-         *     re-activated. **Current-manager-only.** Recorded progress is kept (unless the type is
-         *     later changed in the draft, which re-initializes the current value). Every current
-         *     team member (except the acting manager) is notified — without a link, since a draft is
-         *     not readable by them; the transition is recorded in the audit history.
+         *     re-activated. **Current-manager-only.** Collected data points are kept (unless the
+         *     type is later changed in the draft, which wipes them). Every current team member
+         *     (except the acting manager) is notified — without a link, since a draft is not
+         *     readable by them; the transition is recorded in the audit history.
          */
         post: operations["deactivateTeamKpi"];
         delete?: never;
@@ -1355,7 +1402,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/team-kpis/{id}/close": {
+    "/api/v1/team-kpis/{id}/archive": {
         parameters: {
             query?: never;
             header?: never;
@@ -1367,15 +1414,15 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Close an active team KPI
-         * @description Moves the KPI `ACTIVE → CLOSED` (any other current status is `409`).
-         *     **Current-manager-only.** Closing always records the body's **summary** (required,
-         *     non-blank — the only moment the summary is settable). The current value is frozen
-         *     as-is — update it via `PUT /team-kpis/{id}/progress` *before* closing. Every current
-         *     team member (except the acting manager) is notified; the transition is recorded in the
-         *     audit history.
+         * Archive an active team KPI
+         * @description Moves the KPI `ACTIVE → ARCHIVED` (any other current status is `409`).
+         *     **Current-manager-only.** Archiving always records the body's **summary** (required,
+         *     non-blank — the only moment the summary is settable). The data points are frozen
+         *     as-is — correct them via the `/team-kpis/{id}/values` sub-resource *before* archiving.
+         *     Every current team member (except the acting manager) is notified; the transition is
+         *     recorded in the audit history.
          */
-        post: operations["closeTeamKpi"];
+        post: operations["archiveTeamKpi"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1394,11 +1441,12 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Reopen a closed team KPI
-         * @description Moves the KPI `CLOSED → ACTIVE` (any other current status is `409`).
+         * Reopen an archived team KPI
+         * @description Moves the KPI `ARCHIVED → ACTIVE` (any other current status is `409`).
          *     **Current-manager-only.** The stored summary is kept as a record of the previous
-         *     closure and will be overwritten at the next close. Every current team member (except
-         *     the acting manager) is notified; the transition is recorded in the audit history.
+         *     archiving and will be overwritten at the next archive. Every current team member
+         *     (except the acting manager) is notified; the transition is recorded in the audit
+         *     history.
          */
         post: operations["reopenTeamKpi"];
         delete?: never;
@@ -1419,15 +1467,13 @@ export interface paths {
         /**
          * List a team KPI's audit history
          * @description Returns the immutable audit trail for a team KPI — one entry per creation, changed
-         *     definition aspect, progress update, status transition, and deletion — oldest first.
-         *     Each entry is structural: an event `type` plus a `params` map (enum names, numeric
-         *     values, and ISO dates — never title/description/summary text), with the acting user
-         *     resolved to `userName`; no rendered string is stored (clients localize the description).
-         *     The `PROGRESS_UPDATED` entries' `to`/`date` params are the data behind the view screen's
-         *     value-over-time graph (pre-v1.28 entries carry `from`/`to` with no date; clients fall
-         *     back to the event timestamp for those). Authorization matches the single-GET above: whoever may read
-         *     the KPI may read its history. Events are server-generated; there is no
-         *     create/update/delete endpoint.
+         *     definition aspect, data-point mutation (`VALUE_RECORDED` / `VALUE_CORRECTED` /
+         *     `VALUE_REMOVED`), status transition, and deletion — oldest first. Each entry is
+         *     structural: an event `type` plus a `params` map (enum names, numeric values, and ISO
+         *     dates — never title/description/summary text), with the acting user resolved to
+         *     `userName`; no rendered string is stored (clients localize the description).
+         *     Authorization matches the single-GET above: whoever may read the KPI may read its
+         *     history. Events are server-generated; there is no create/update/delete endpoint.
          */
         get: operations["listTeamKpiEvents"];
         put?: never;
@@ -2619,7 +2665,7 @@ export interface components {
             /** @default  */
             description: string;
             /**
-             * @description Changing the type re-initializes the current value to 0.0, discarding any recorded progress.
+             * @description Changing the type wipes all collected data points (a NUMBER series is meaningless against a PERCENTAGE target and vice versa).
              * @enum {string}
              */
             type: "NUMBER" | "PERCENTAGE";
@@ -2629,20 +2675,35 @@ export interface components {
              */
             targetValue: number;
         };
-        TeamKpiProgressUpdate: {
-            /**
-             * Format: double
-             * @description The recorded value — always required (finite; 0–100 for PERCENTAGE).
-             */
-            currentValue: number;
+        TeamKpiValueWrite: {
             /**
              * Format: date
-             * @description The ISO YYYY-MM-DD date the value was measured — required, strict zero-padded, and never in the future (today is allowed).
+             * @description The ISO YYYY-MM-DD date the value was measured — required, strict zero-padded, and never in the future (today is allowed). At most one value per date per KPI.
              */
             date: string;
+            /**
+             * Format: double
+             * @description The measured value — always required (finite; 0–100 for PERCENTAGE).
+             */
+            value: number;
         };
-        TeamKpiCloseRequest: {
-            /** @description The closing summary — required and non-blank; recorded on the KPI. */
+        TeamKpiValueResponse: {
+            /** Format: int64 */
+            id: number;
+            /**
+             * Format: date
+             * @description ISO YYYY-MM-DD measurement date — unique within the KPI.
+             */
+            date: string;
+            /** Format: double */
+            value: number;
+        };
+        TeamKpiValueList: {
+            /** @description The KPI's data points, sorted by date newest first. */
+            items: components["schemas"]["TeamKpiValueResponse"][];
+        };
+        TeamKpiArchiveRequest: {
+            /** @description The archiving summary — required and non-blank; recorded on the KPI. */
             summary: string;
         };
         TeamKpiResponse: {
@@ -2672,17 +2733,17 @@ export interface components {
             targetValue: number;
             /**
              * Format: double
-             * @description Starts at 0.0, editable only while ACTIVE.
+             * @description Denormalized from the data points: the max-dated point's value, recomputed on every values mutation — 0.0 when there are none.
              */
             currentValue: number;
             /**
              * Format: date
-             * @description ISO YYYY-MM-DD date of the latest-dated recorded value — null until progress is first recorded, cleared by a type-change reset. A backdated progress update older than this never overwrites currentValue ("latest-dated wins").
+             * @description ISO YYYY-MM-DD date of the max-dated data point — null when the KPI has no data points (never recorded, or wiped by a type-change reset).
              */
             currentValueDate: string | null;
             /** @enum {string} */
-            status: "DRAFT" | "ACTIVE" | "CLOSED";
-            /** @description Non-null once the KPI has been closed at least once — kept on reopen, overwritten at the next close. */
+            status: "DRAFT" | "ACTIVE" | "ARCHIVED";
+            /** @description Non-null once the KPI has been archived at least once — kept on reopen, overwritten at the next archive. */
             summary: string | null;
             /**
              * Format: int64
@@ -2709,7 +2770,7 @@ export interface components {
             /** Format: double */
             currentValue: number;
             /** @enum {string} */
-            status: "DRAFT" | "ACTIVE" | "CLOSED";
+            status: "DRAFT" | "ACTIVE" | "ARCHIVED";
             /** Format: int64 */
             createdAt: number;
             /** Format: int64 */
@@ -2743,16 +2804,15 @@ export interface components {
              * @description Structured event kind; the client renders it in the viewer's language.
              * @enum {string}
              */
-            type: "CREATED" | "TITLE_CHANGED" | "DESCRIPTION_CHANGED" | "TYPE_CHANGED" | "TARGET_CHANGED" | "PROGRESS_UPDATED" | "STATUS_CHANGED" | "DELETED";
+            type: "CREATED" | "TITLE_CHANGED" | "DESCRIPTION_CHANGED" | "TYPE_CHANGED" | "TARGET_CHANGED" | "VALUE_RECORDED" | "VALUE_CORRECTED" | "VALUE_REMOVED" | "STATUS_CHANGED" | "DELETED";
             /**
              * @description Interpolation params for the localized rendering — enum names (`from`/`to`
              *     statuses and types, the CREATED event's `type`), numeric values (target `from`/`to`),
-             *     and ISO dates. A `PROGRESS_UPDATED` event carries `{to, date}` — the recorded value
-             *     and its user-supplied measurement date — feeding the view screen's value-over-time
-             *     graph; pre-v1.28 entries carry `{from, to}` with no date (clients fall back to the
-             *     event timestamp). Never title/description/summary text (description and summary are
-             *     encrypted at rest; this trail is plaintext by design). Empty object when the event
-             *     kind needs none.
+             *     and ISO dates. The data-point events carry `{date, value}` (`VALUE_RECORDED` /
+             *     `VALUE_REMOVED`) or `{fromDate, fromValue, toDate, toValue}` (`VALUE_CORRECTED` —
+             *     always all four, even when only one dimension changed). Never
+             *     title/description/summary text (description and summary are encrypted at rest; this
+             *     trail is plaintext by design). Empty object when the event kind needs none.
              */
             params: {
                 [key: string]: string;
@@ -2775,7 +2835,7 @@ export interface components {
              * @description Notification kind; the client renders it in the viewer's language.
              * @enum {string}
              */
-            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_CLOSED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_CLOSED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PASSWORD_CHANGED";
+            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_CLOSED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PASSWORD_CHANGED";
             /**
              * @description Interpolation values for the localized message — party names (proper nouns), e.g.
              *     `{provider,subject,requester}`; plus `self` — the SPA's i18next context carrier:
@@ -2969,8 +3029,17 @@ export interface components {
                 "application/problem+json": components["schemas"]["ProblemDetail"];
             };
         };
-        /** @description The action is not allowed from the KPI's current status (the machine is DRAFT ↔ ACTIVE ↔ CLOSED, never skipping ACTIVE) */
+        /** @description The action is not allowed from the KPI's current status (the machine is DRAFT ↔ ACTIVE ↔ ARCHIVED, never skipping ACTIVE) */
         TeamKpiInvalidTransition: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetail"];
+            };
+        };
+        /** @description The KPI is not ACTIVE (data points are only mutable while it is), or the target date already has a data point (at most one value per date — correct the existing point instead) */
+        TeamKpiValueConflict: {
             headers: {
                 [name: string]: unknown;
             };
@@ -4910,7 +4979,7 @@ export interface operations {
                 /** @description Exact KPI-type match. */
                 type?: "NUMBER" | "PERCENTAGE";
                 /** @description Exact status match. */
-                status?: "DRAFT" | "ACTIVE" | "CLOSED";
+                status?: "DRAFT" | "ACTIVE" | "ARCHIVED";
                 /** @description Lower bound (inclusive) on the creation moment, epoch milliseconds. */
                 "createdAt[gte]"?: number;
                 /** @description Lower bound (inclusive) on the last-modified moment, epoch milliseconds. */
@@ -5088,7 +5157,34 @@ export interface operations {
             500: components["responses"]["InternalServerError"];
         };
     };
-    updateTeamKpiProgress: {
+    listTeamKpiValues: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The KPI's data points, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamKpiValueList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["TeamKpiNotReadable"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    addTeamKpiValue: {
         parameters: {
             query?: never;
             header?: never;
@@ -5099,18 +5195,22 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TeamKpiProgressUpdate"];
+                "application/json": components["schemas"]["TeamKpiValueWrite"];
             };
         };
         responses: {
-            /** @description Updated */
-            204: {
+            /** @description Created — the new data point */
+            201: {
                 headers: {
+                    /** @description URL of the new data-point resource */
+                    Location?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["TeamKpiValueResponse"];
+                };
             };
-            /** @description The current value is missing, not finite, or out of range (PERCENTAGE is 0–100); or the date is missing, not a strict ISO YYYY-MM-DD, or in the future */
+            /** @description The value is missing, not finite, or out of range (PERCENTAGE is 0–100); or the date is missing, not a strict ISO YYYY-MM-DD, or in the future */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -5122,8 +5222,36 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["TeamKpiNotManager"];
             404: components["responses"]["NotFound"];
-            /** @description The KPI is not ACTIVE — the current value is only editable while it is */
-            409: {
+            409: components["responses"]["TeamKpiValueConflict"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    updateTeamKpiValue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+                /** @description Id of the data point (must belong to the addressed KPI, else 404). */
+                valueId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamKpiValueWrite"];
+            };
+        };
+        responses: {
+            /** @description Corrected */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The value is missing, not finite, or out of range (PERCENTAGE is 0–100); or the date is missing, not a strict ISO YYYY-MM-DD, or in the future */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5131,6 +5259,38 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["TeamKpiNotManager"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["TeamKpiValueConflict"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    deleteTeamKpiValue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+                /** @description Id of the data point (must belong to the addressed KPI, else 404). */
+                valueId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["TeamKpiNotManager"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["TeamKpiValueConflict"];
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -5186,7 +5346,7 @@ export interface operations {
             500: components["responses"]["InternalServerError"];
         };
     };
-    closeTeamKpi: {
+    archiveTeamKpi: {
         parameters: {
             query?: never;
             header?: never;
@@ -5197,11 +5357,11 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TeamKpiCloseRequest"];
+                "application/json": components["schemas"]["TeamKpiArchiveRequest"];
             };
         };
         responses: {
-            /** @description Closed */
+            /** @description Archived */
             204: {
                 headers: {
                     [name: string]: unknown;

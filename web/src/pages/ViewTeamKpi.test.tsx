@@ -6,14 +6,32 @@ import ViewTeamKpi from "./ViewTeamKpi";
 import { jsonResponse } from "../test/http";
 
 // happy-dom can't measure the recharts canvas — stub the chart primitives and assert the
-// props our chart component passes (the OrgChart @xyflow/react mock precedent).
+// props our chart component passes (the OrgChart @xyflow/react mock precedent). The LineChart
+// stub additionally renders the custom tooltip content once, so the ghost-row filter and the
+// date-formatted label are assertable.
 vi.mock("@mantine/charts", () => ({
   /* eslint-disable @typescript-eslint/no-explicit-any */
-  LineChart: ({ data, referenceLines }: any) => (
+  LineChart: ({ data, referenceLines, tooltipProps }: any) => (
     <div
       data-testid="line-chart"
       data-points={data.length}
       data-reference-y={referenceLines?.[0]?.y}
+      data-reference-overflow={referenceLines?.[0]?.ifOverflow}
+    >
+      {tooltipProps?.content?.({
+        label: Date.parse("2026-07-10"),
+        payload: [
+          { dataKey: "ts", name: "ts", value: Date.parse("2026-07-10") },
+          { dataKey: "value", name: "value", value: 12 },
+        ],
+      })}
+    </div>
+  ),
+  ChartTooltip: ({ label, payload }: any) => (
+    <div
+      data-testid="chart-tooltip"
+      data-label={String(label)}
+      data-row-keys={payload.map((p: any) => p.dataKey).join(",")}
     />
   ),
   /* eslint-enable @typescript-eslint/no-explicit-any */
@@ -37,38 +55,24 @@ const KPI = {
   type: "NUMBER",
   targetValue: 52,
   currentValue: 12,
-  currentValueDate: null,
+  currentValueDate: "2026-07-10",
   status: "ACTIVE",
   summary: null,
   lastModified: new Date(2026, 6, 1).getTime(),
 };
 
-const EVENTS = [
-  {
-    id: 1,
-    kpiId: 5,
-    userId: 7,
-    userName: "Me",
-    timestamp: KPI.createdAt,
-    type: "CREATED",
-    params: { type: "NUMBER" },
-  },
-  {
-    id: 2,
-    kpiId: 5,
-    userId: 7,
-    userName: "Me",
-    timestamp: KPI.createdAt + 1000,
-    type: "PROGRESS_UPDATED",
-    params: { from: "0.0", to: "12.0" },
-  },
+const VALUES = [
+  { id: 2, date: "2026-07-10", value: 12 },
+  { id: 1, date: "2026-07-01", value: 5 },
 ];
 
-function mockApi(mockFetch: FetchMock, kpi: unknown = KPI, events: unknown[] = EVENTS) {
+function mockApi(mockFetch: FetchMock, kpi: unknown = KPI, values: unknown[] = VALUES) {
   mockFetch.mockImplementation((url: string, init?: RequestInit) => {
     const u = String(url);
     if (u === "/api/v1/team-kpis/5" && !init?.method) return Promise.resolve(jsonResponse(200, kpi));
-    if (u === "/api/v1/team-kpis/5/events") return Promise.resolve(jsonResponse(200, { items: events }));
+    if (u === "/api/v1/team-kpis/5/values" && !init?.method)
+      return Promise.resolve(jsonResponse(200, { items: values }));
+    if (u === "/api/v1/team-kpis/5/events") return Promise.resolve(jsonResponse(200, { items: [] }));
     if (init?.method === "POST") return Promise.resolve(new Response(null, { status: 204 }));
     return Promise.resolve(jsonResponse(404, {}));
   });
@@ -99,7 +103,7 @@ describe("ViewTeamKpi", () => {
     localStorage.clear();
   });
 
-  test("renders the document with team, manager-as-You, values, and the manager's ACTIVE actions", async () => {
+  test("General shows title, description, type, and target — no Current — plus the ACTIVE actions", async () => {
     mockApi(mockFetch);
     renderView();
 
@@ -107,92 +111,129 @@ describe("ViewTeamKpi", () => {
     expect(screen.getByText("Team AAA")).toBeInTheDocument();
     expect(screen.getByText("You")).toBeInTheDocument();
     expect(screen.getByText("One production release per week")).toBeInTheDocument();
-    // ACTIVE offers Return-to-draft + Close (and Edit).
+    expect(screen.getByText("Number")).toBeInTheDocument();
+    expect(screen.getByText("52")).toBeInTheDocument();
+    // The current value moved to the KPI data tab — General no longer shows it.
+    expect(screen.queryByText("Current")).not.toBeInTheDocument();
+    // The four tabs.
+    expect(screen.getByRole("tab", { name: "General" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "KPI data" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Graph" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "History" })).toBeInTheDocument();
+    // ACTIVE offers Return-to-draft + Archive; the Edit link is DRAFT-only now.
     expect(screen.getByRole("button", { name: "Return to draft" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Close KPI" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Edit" })).toBeInTheDocument();
-  });
-
-  test("the Graph tab lazy-loads the chart with the derived series and the target line", async () => {
-    mockApi(mockFetch);
-    const user = userEvent.setup();
-    renderView();
-    await screen.findByText("Deploy weekly");
-
-    await user.click(screen.getByRole("tab", { name: "Graph" }));
-    const chart = await screen.findByTestId("line-chart");
-    // Origin point + one PROGRESS_UPDATED; the reference line sits at the target.
-    expect(chart).toHaveAttribute("data-points", "2");
-    expect(chart).toHaveAttribute("data-reference-y", "52");
-  });
-
-  test("a single value backdated before creation still renders the chart, not the empty note", async () => {
-    const preCreation = [
-      {
-        id: 2,
-        kpiId: 5,
-        userId: 7,
-        userName: "Me",
-        timestamp: KPI.createdAt + 1000,
-        type: "PROGRESS_UPDATED",
-        params: { to: "30.0", date: "2026-01-15" }, // before createdAt (May 2026) → origin suppressed
-      },
-    ];
-    mockApi(mockFetch, KPI, preCreation);
-    const user = userEvent.setup();
-    renderView();
-    await screen.findByText("Deploy weekly");
-
-    await user.click(screen.getByRole("tab", { name: "Graph" }));
-    const chart = await screen.findByTestId("line-chart");
-    expect(chart).toHaveAttribute("data-points", "1");
-    expect(screen.queryByText(/No progress has been recorded yet/)).not.toBeInTheDocument();
-  });
-
-  test("the Current value carries an as-of note once a dated value is recorded", async () => {
-    mockApi(mockFetch, { ...KPI, currentValueDate: "2026-07-20" });
-    renderView();
-
-    expect(await screen.findByText("Deploy weekly")).toBeInTheDocument();
-    expect(screen.getByText(/\(as of .*2026.*\)/)).toBeInTheDocument();
-  });
-
-  test("a non-manager viewer gets no action buttons", async () => {
-    mockApi(mockFetch, { ...KPI, managerId: 99, managerName: "Mona" });
-    renderView();
-
-    expect(await screen.findByText("Deploy weekly")).toBeInTheDocument();
-    expect(screen.getByText("Mona")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Close KPI" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Archive" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
   });
 
-  test("closing collects the mandatory summary and posts the close action", async () => {
+  test("a DRAFT offers the Edit link and Activate for the manager", async () => {
+    mockApi(mockFetch, { ...KPI, status: "DRAFT" }, []);
+    renderView();
+
+    expect(await screen.findByText("Deploy weekly")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Edit" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Activate" })).toBeInTheDocument();
+  });
+
+  test("the KPI data tab lists the points newest first with the manager's edit controls", async () => {
     mockApi(mockFetch);
     const user = userEvent.setup();
     renderView();
     await screen.findByText("Deploy weekly");
 
-    await user.click(screen.getByRole("button", { name: "Close KPI" }));
+    await user.click(screen.getByRole("tab", { name: "KPI data" }));
+    expect(await screen.findByRole("button", { name: "Add value" })).toBeInTheDocument();
+    const rows = screen.getAllByRole("row").slice(1); // skip the header row
+    expect(within(rows[0]).getByText("12")).toBeInTheDocument();
+    expect(within(rows[1]).getByText("5")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Edit the value of/ })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: /Remove the value of/ })).toHaveLength(2);
+  });
+
+  test("a member sees the KPI data read-only — no add or per-row controls", async () => {
+    mockApi(mockFetch, { ...KPI, managerId: 99, managerName: "Mona" });
+    const user = userEvent.setup();
+    renderView();
+    await screen.findByText("Deploy weekly");
+
+    await user.click(screen.getByRole("tab", { name: "KPI data" }));
+    expect(await screen.findByText("12")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add value" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Edit the value of/ })).not.toBeInTheDocument();
+    // A member also gets no lifecycle buttons and no Edit link.
+    expect(screen.queryByRole("button", { name: "Archive" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
+  });
+
+  test("the manager on a DRAFT sees the data read-only with the inactive hint", async () => {
+    mockApi(mockFetch, { ...KPI, status: "DRAFT" });
+    const user = userEvent.setup();
+    renderView();
+    await screen.findByText("Deploy weekly");
+
+    await user.click(screen.getByRole("tab", { name: "KPI data" }));
+    expect(
+      await screen.findByText("Data points can be changed while the KPI is active."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add value" })).not.toBeInTheDocument();
+  });
+
+  test("the Graph tab plots the data points with the always-visible target line and a clean tooltip", async () => {
+    mockApi(mockFetch);
+    const user = userEvent.setup();
+    renderView();
+    await screen.findByText("Deploy weekly");
+
+    await user.click(screen.getByRole("tab", { name: "Graph" }));
+    const chart = await screen.findByTestId("line-chart");
+    expect(chart).toHaveAttribute("data-points", "2");
+    expect(chart).toHaveAttribute("data-reference-y", "52");
+    // The target line extends the y-domain instead of being silently discarded.
+    expect(chart).toHaveAttribute("data-reference-overflow", "extendDomain");
+    // The custom tooltip filters the recharts numeric-x ghost row ("ts") and formats the
+    // numeric label as a date.
+    const tooltip = screen.getByTestId("chart-tooltip");
+    expect(tooltip).toHaveAttribute("data-row-keys", "value");
+    expect(tooltip.getAttribute("data-label")).toMatch(/2026/);
+  });
+
+  test("the Graph tab shows the empty note when the KPI has no data points", async () => {
+    mockApi(mockFetch, KPI, []);
+    const user = userEvent.setup();
+    renderView();
+    await screen.findByText("Deploy weekly");
+
+    await user.click(screen.getByRole("tab", { name: "Graph" }));
+    expect(await screen.findByText(/No data points yet/)).toBeInTheDocument();
+  });
+
+  test("archiving collects the mandatory summary and posts the archive action", async () => {
+    mockApi(mockFetch);
+    const user = userEvent.setup();
+    renderView();
+    await screen.findByText("Deploy weekly");
+
+    await user.click(screen.getByRole("button", { name: "Archive" }));
     const dialog = await screen.findByRole("dialog");
     // Blank summary refused client-side.
-    await user.click(within(dialog).getByRole("button", { name: "Close KPI" }));
-    expect(await screen.findByText("A summary is required to close a KPI")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Archive" }));
+    expect(await screen.findByText("A summary is required to archive a KPI")).toBeInTheDocument();
 
     await user.type(within(dialog).getByLabelText(/Summary/), "Great year");
-    await user.click(within(dialog).getByRole("button", { name: "Close KPI" }));
+    await user.click(within(dialog).getByRole("button", { name: "Archive" }));
     await waitFor(() => {
-      const close = mockFetch.mock.calls.find(([u]) => String(u).endsWith("/close"));
-      expect(close).toBeDefined();
-      expect(JSON.parse((close![1] as RequestInit).body as string)).toEqual({ summary: "Great year" });
+      const archive = mockFetch.mock.calls.find(([u]) => String(u).endsWith("/archive"));
+      expect(archive).toBeDefined();
+      expect(JSON.parse((archive![1] as RequestInit).body as string)).toEqual({ summary: "Great year" });
     });
   });
 
-  test("the CLOSED status offers Reopen and shows the summary", async () => {
-    mockApi(mockFetch, { ...KPI, status: "CLOSED", summary: "Wrapped up" });
+  test("the ARCHIVED status offers Reopen and shows the summary", async () => {
+    mockApi(mockFetch, { ...KPI, status: "ARCHIVED", summary: "Wrapped up" });
     renderView();
 
     expect(await screen.findByText("Wrapped up")).toBeInTheDocument();
+    expect(screen.getByText("Archived")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reopen" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
   });

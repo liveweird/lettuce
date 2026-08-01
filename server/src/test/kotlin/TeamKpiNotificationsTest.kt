@@ -32,8 +32,8 @@ class TeamKpiNotificationsTest {
         val cases = mapOf(
             (TeamKpiStatus.DRAFT to TeamKpiStatus.ACTIVE) to NotificationType.TEAM_KPI_ACTIVATED_TO_MEMBER,
             (TeamKpiStatus.ACTIVE to TeamKpiStatus.DRAFT) to NotificationType.TEAM_KPI_DEACTIVATED_TO_MEMBER,
-            (TeamKpiStatus.ACTIVE to TeamKpiStatus.CLOSED) to NotificationType.TEAM_KPI_CLOSED_TO_MEMBER,
-            (TeamKpiStatus.CLOSED to TeamKpiStatus.ACTIVE) to NotificationType.TEAM_KPI_REOPENED_TO_MEMBER,
+            (TeamKpiStatus.ACTIVE to TeamKpiStatus.ARCHIVED) to NotificationType.TEAM_KPI_ARCHIVED_TO_MEMBER,
+            (TeamKpiStatus.ARCHIVED to TeamKpiStatus.ACTIVE) to NotificationType.TEAM_KPI_REOPENED_TO_MEMBER,
         )
         cases.forEach { (edge, expectedType) ->
             val notes = notify(edge.first, edge.second)
@@ -59,13 +59,13 @@ class TeamKpiNotificationsTest {
         notify(TeamKpiStatus.ACTIVE, TeamKpiStatus.DRAFT).forEach { assertNull(it.link) }
         // Every other edge lands readable and links to the view.
         notify(TeamKpiStatus.DRAFT, TeamKpiStatus.ACTIVE).forEach { assertEquals("/team-kpis/5/view", it.link) }
-        notify(TeamKpiStatus.ACTIVE, TeamKpiStatus.CLOSED).forEach { assertEquals("/team-kpis/5/view", it.link) }
-        notify(TeamKpiStatus.CLOSED, TeamKpiStatus.ACTIVE).forEach { assertEquals("/team-kpis/5/view", it.link) }
+        notify(TeamKpiStatus.ACTIVE, TeamKpiStatus.ARCHIVED).forEach { assertEquals("/team-kpis/5/view", it.link) }
+        notify(TeamKpiStatus.ARCHIVED, TeamKpiStatus.ACTIVE).forEach { assertEquals("/team-kpis/5/view", it.link) }
     }
 
     @Test
     fun `an invalid edge and an empty membership both produce nothing`() {
-        assertTrue(notify(TeamKpiStatus.DRAFT, TeamKpiStatus.CLOSED).isEmpty())
+        assertTrue(notify(TeamKpiStatus.DRAFT, TeamKpiStatus.ARCHIVED).isEmpty())
         assertTrue(notify(TeamKpiStatus.DRAFT, TeamKpiStatus.ACTIVE, memberIds = emptySet()).isEmpty())
     }
 }

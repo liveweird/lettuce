@@ -2,16 +2,18 @@ package ch.nokillswit
 
 import ch.nokillswit.notifications.NotificationPageResponse
 import ch.nokillswit.notifications.NotificationType
-import ch.nokillswit.teamkpis.TeamKpiCloseRequest
+import ch.nokillswit.teamkpis.TeamKpiArchiveRequest
 import ch.nokillswit.teamkpis.TeamKpiCreateRequest
 import ch.nokillswit.teamkpis.TeamKpiDefinitionUpdate
 import ch.nokillswit.teamkpis.TeamKpiEventListResponse
 import ch.nokillswit.teamkpis.TeamKpiEventType
 import ch.nokillswit.teamkpis.TeamKpiPageResponse
-import ch.nokillswit.teamkpis.TeamKpiProgressUpdate
 import ch.nokillswit.teamkpis.TeamKpiResponse
 import ch.nokillswit.teamkpis.TeamKpiStatus
 import ch.nokillswit.teamkpis.TeamKpiType
+import ch.nokillswit.teamkpis.TeamKpiValueListResponse
+import ch.nokillswit.teamkpis.TeamKpiValueResponse
+import ch.nokillswit.teamkpis.TeamKpiValueWrite
 import ch.nokillswit.teams.Team
 import ch.nokillswit.users.UserRole
 import io.ktor.client.HttpClient
@@ -91,6 +93,18 @@ class TeamKpiRoutesTest {
         assertEquals(HttpStatusCode.Created, response.status)
         return response.body<TeamKpiResponse>()
     }
+
+    private suspend fun HttpClient.addValue(kpiId: UInt, date: String, value: Double): TeamKpiValueResponse {
+        val response = post("/api/v1/team-kpis/$kpiId/values") {
+            contentType(ContentType.Application.Json)
+            setBody(TeamKpiValueWrite(date = date, value = value))
+        }
+        assertEquals(HttpStatusCode.Created, response.status)
+        return response.body<TeamKpiValueResponse>()
+    }
+
+    private suspend fun HttpClient.listValues(kpiId: UInt): List<TeamKpiValueResponse> =
+        get("/api/v1/team-kpis/$kpiId/values").body<TeamKpiValueListResponse>().items
 
     // ---- creation ----
 
@@ -240,35 +254,29 @@ class TeamKpiRoutesTest {
     // ---- lifecycle ----
 
     @Test
-    fun `full lifecycle - activate, progress, close with summary, reopen, deactivate`() = testApplication {
+    fun `full lifecycle - activate, record a value, archive with summary, reopen, deactivate`() = testApplication {
         usePostgresTestcontainer()
         val team = seedTeam()
         val manager = authedClient(team.managerEmail, "pw")
         val created = manager.createKpi(team.teamId)
 
         assertEquals(HttpStatusCode.NoContent, manager.post("/api/v1/team-kpis/${created.id}/activate").status)
+        manager.addValue(created.id, "2026-07-01", 6.5)
         assertEquals(
             HttpStatusCode.NoContent,
-            manager.put("/api/v1/team-kpis/${created.id}/progress") {
+            manager.post("/api/v1/team-kpis/${created.id}/archive") {
                 contentType(ContentType.Application.Json)
-                setBody(TeamKpiProgressUpdate(currentValue = 6.5, date = "2026-07-01"))
+                setBody(TeamKpiArchiveRequest(summary = "Solid year"))
             }.status,
         )
-        assertEquals(
-            HttpStatusCode.NoContent,
-            manager.post("/api/v1/team-kpis/${created.id}/close") {
-                contentType(ContentType.Application.Json)
-                setBody(TeamKpiCloseRequest(summary = "Solid year"))
-            }.status,
-        )
-        val closed = manager.get("/api/v1/team-kpis/${created.id}").body<TeamKpiResponse>()
-        assertEquals(TeamKpiStatus.CLOSED, closed.status)
-        assertEquals(6.5, closed.currentValue)
-        assertEquals("2026-07-01", closed.currentValueDate)
-        assertEquals("Solid year", closed.summary)
+        val archived = manager.get("/api/v1/team-kpis/${created.id}").body<TeamKpiResponse>()
+        assertEquals(TeamKpiStatus.ARCHIVED, archived.status)
+        assertEquals(6.5, archived.currentValue)
+        assertEquals("2026-07-01", archived.currentValueDate)
+        assertEquals("Solid year", archived.summary)
 
         assertEquals(HttpStatusCode.NoContent, manager.post("/api/v1/team-kpis/${created.id}/reopen").status)
-        // The summary survives the reopen as a record of the previous closure.
+        // The summary survives the reopen as a record of the previous archiving.
         assertEquals("Solid year", manager.get("/api/v1/team-kpis/${created.id}").body<TeamKpiResponse>().summary)
         assertEquals(HttpStatusCode.NoContent, manager.post("/api/v1/team-kpis/${created.id}/deactivate").status)
         assertEquals(
@@ -278,7 +286,7 @@ class TeamKpiRoutesTest {
     }
 
     @Test
-    fun `illegal edges are 409 and close requires a non-blank summary`() = testApplication {
+    fun `illegal edges are 409 and archive requires a non-blank summary`() = testApplication {
         usePostgresTestcontainer()
         val team = seedTeam()
         val manager = authedClient(team.managerEmail, "pw")
@@ -289,20 +297,20 @@ class TeamKpiRoutesTest {
         assertEquals(HttpStatusCode.Conflict, manager.post("/api/v1/team-kpis/${created.id}/reopen").status)
         assertEquals(
             HttpStatusCode.Conflict,
-            manager.post("/api/v1/team-kpis/${created.id}/close") {
+            manager.post("/api/v1/team-kpis/${created.id}/archive") {
                 contentType(ContentType.Application.Json)
-                setBody(TeamKpiCloseRequest(summary = "nope"))
+                setBody(TeamKpiArchiveRequest(summary = "nope"))
             }.status,
         )
 
         manager.post("/api/v1/team-kpis/${created.id}/activate")
-        // A second activate is 409; a blank summary on close is 400.
+        // A second activate is 409; a blank summary on archive is 400.
         assertEquals(HttpStatusCode.Conflict, manager.post("/api/v1/team-kpis/${created.id}/activate").status)
         assertEquals(
             HttpStatusCode.BadRequest,
-            manager.post("/api/v1/team-kpis/${created.id}/close") {
+            manager.post("/api/v1/team-kpis/${created.id}/archive") {
                 contentType(ContentType.Application.Json)
-                setBody(TeamKpiCloseRequest(summary = "   "))
+                setBody(TeamKpiArchiveRequest(summary = "   "))
             }.status,
         )
     }
@@ -318,9 +326,9 @@ class TeamKpiRoutesTest {
         manager.post("/api/v1/team-kpis/${created.id}/activate")
         assertEquals(
             HttpStatusCode.Forbidden,
-            member.put("/api/v1/team-kpis/${created.id}/progress") {
+            member.post("/api/v1/team-kpis/${created.id}/values") {
                 contentType(ContentType.Application.Json)
-                setBody(TeamKpiProgressUpdate(currentValue = 1.0, date = "2026-07-01"))
+                setBody(TeamKpiValueWrite(date = "2026-07-01", value = 1.0))
             }.status,
         )
     }
@@ -333,9 +341,9 @@ class TeamKpiRoutesTest {
         val created = manager.createKpi(team.teamId, title = "Notify the team")
 
         manager.post("/api/v1/team-kpis/${created.id}/activate")
-        manager.post("/api/v1/team-kpis/${created.id}/close") {
+        manager.post("/api/v1/team-kpis/${created.id}/archive") {
             contentType(ContentType.Application.Json)
-            setBody(TeamKpiCloseRequest(summary = "done"))
+            setBody(TeamKpiArchiveRequest(summary = "done"))
         }
         manager.post("/api/v1/team-kpis/${created.id}/reopen")
         manager.post("/api/v1/team-kpis/${created.id}/deactivate")
@@ -347,7 +355,7 @@ class TeamKpiRoutesTest {
             assertEquals(
                 setOf(
                     NotificationType.TEAM_KPI_ACTIVATED_TO_MEMBER,
-                    NotificationType.TEAM_KPI_CLOSED_TO_MEMBER,
+                    NotificationType.TEAM_KPI_ARCHIVED_TO_MEMBER,
                     NotificationType.TEAM_KPI_REOPENED_TO_MEMBER,
                     NotificationType.TEAM_KPI_DEACTIVATED_TO_MEMBER,
                 ),
@@ -371,7 +379,7 @@ class TeamKpiRoutesTest {
     // ---- per-status edit rules ----
 
     @Test
-    fun `the definition PUT is DRAFT-only and mints per-aspect events, a type change resets progress`() = testApplication {
+    fun `the definition PUT is DRAFT-only and mints per-aspect events, a type change wipes the data points`() = testApplication {
         usePostgresTestcontainer()
         val team = seedTeam()
         val manager = authedClient(team.managerEmail, "pw")
@@ -417,11 +425,8 @@ class TeamKpiRoutesTest {
             }.status,
         )
 
-        // A type change back in DRAFT resets the recorded progress, its date included.
-        manager.put("/api/v1/team-kpis/${created.id}/progress") {
-            contentType(ContentType.Application.Json)
-            setBody(TeamKpiProgressUpdate(currentValue = 40.0, date = "2026-07-15"))
-        }
+        // A type change back in DRAFT wipes the collected data points, Current included.
+        manager.addValue(created.id, "2026-07-15", 40.0)
         manager.post("/api/v1/team-kpis/${created.id}/deactivate")
         manager.put("/api/v1/team-kpis/${created.id}") {
             contentType(ContentType.Application.Json)
@@ -430,98 +435,235 @@ class TeamKpiRoutesTest {
         val reset = manager.get("/api/v1/team-kpis/${created.id}").body<TeamKpiResponse>()
         assertEquals(0.0, reset.currentValue)
         assertEquals(null, reset.currentValueDate)
+        assertTrue(manager.listValues(created.id).isEmpty())
+
+        // A same-type edit back keeps them (deactivate → edit title only → points survive).
+        manager.post("/api/v1/team-kpis/${created.id}/activate")
+        manager.addValue(created.id, "2026-07-16", 4.0)
+        manager.post("/api/v1/team-kpis/${created.id}/deactivate")
+        manager.put("/api/v1/team-kpis/${created.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(edit.copy(title = "Same type, new words", type = TeamKpiType.NUMBER, targetValue = 10.0))
+        }
+        assertEquals(listOf("2026-07-16"), manager.listValues(created.id).map { it.date })
     }
 
+    // ---- data points ----
+
     @Test
-    fun `the progress PUT is ACTIVE-only and records the dated event series`() = testApplication {
+    fun `adding values is ACTIVE-only, validates the payload, and recomputes Current from the max date`() = testApplication {
         usePostgresTestcontainer()
         val team = seedTeam()
         val manager = authedClient(team.managerEmail, "pw")
         val created = manager.createKpi(team.teamId)
 
-        // DRAFT: no progress edits.
+        // DRAFT: no data-point edits.
         assertEquals(
             HttpStatusCode.Conflict,
-            manager.put("/api/v1/team-kpis/${created.id}/progress") {
+            manager.post("/api/v1/team-kpis/${created.id}/values") {
                 contentType(ContentType.Application.Json)
-                setBody(TeamKpiProgressUpdate(currentValue = 1.0, date = "2026-07-01"))
+                setBody(TeamKpiValueWrite(date = "2026-07-01", value = 1.0))
             }.status,
         )
 
         manager.post("/api/v1/team-kpis/${created.id}/activate")
-        for ((value, date) in listOf(2.0 to "2026-07-01", 5.0 to "2026-07-10")) {
-            manager.put("/api/v1/team-kpis/${created.id}/progress") {
-                contentType(ContentType.Application.Json)
-                setBody(TeamKpiProgressUpdate(currentValue = value, date = date))
-            }
-        }
+        val first = manager.addValue(created.id, "2026-07-10", 5.0)
+        assertEquals("2026-07-10", first.date)
+        assertEquals(5.0, first.value)
+        // A backdated addition lands in the list but Current stays at the max-dated point.
+        manager.addValue(created.id, "2026-07-01", 2.0)
+        val read = manager.get("/api/v1/team-kpis/${created.id}").body<TeamKpiResponse>()
+        assertEquals(5.0, read.currentValue)
+        assertEquals("2026-07-10", read.currentValueDate)
+
+        // The list is sorted by date, newest first.
+        assertEquals(listOf("2026-07-10", "2026-07-01"), manager.listValues(created.id).map { it.date })
+
         // A missing value is 400, as are a missing, malformed, or future date.
         for (body in listOf(
-            TeamKpiProgressUpdate(date = "2026-07-11"),
-            TeamKpiProgressUpdate(currentValue = 6.0),
-            TeamKpiProgressUpdate(currentValue = 6.0, date = "2026-7-11"),
-            TeamKpiProgressUpdate(currentValue = 6.0, date = "2999-01-01"),
+            TeamKpiValueWrite(date = "2026-07-11"),
+            TeamKpiValueWrite(value = 6.0),
+            TeamKpiValueWrite(date = "2026-7-11", value = 6.0),
+            TeamKpiValueWrite(date = "2999-01-01", value = 6.0),
         )) {
             assertEquals(
                 HttpStatusCode.BadRequest,
-                manager.put("/api/v1/team-kpis/${created.id}/progress") {
+                manager.post("/api/v1/team-kpis/${created.id}/values") {
                     contentType(ContentType.Application.Json)
                     setBody(body)
                 }.status,
             )
         }
-
-        // The event trail carries the whole dated value series — the Graph tab's data source.
-        val events = manager.get("/api/v1/team-kpis/${created.id}/events").body<TeamKpiEventListResponse>()
-        val progress = events.items.filter { it.type == TeamKpiEventType.PROGRESS_UPDATED }
+        // A date that already has a value is 409 (one value per date).
         assertEquals(
-            listOf("2.0" to "2026-07-01", "5.0" to "2026-07-10"),
-            progress.map { it.params["to"] to it.params["date"] },
+            HttpStatusCode.Conflict,
+            manager.post("/api/v1/team-kpis/${created.id}/values") {
+                contentType(ContentType.Application.Json)
+                setBody(TeamKpiValueWrite(date = "2026-07-10", value = 6.0))
+            }.status,
         )
-        val read = manager.get("/api/v1/team-kpis/${created.id}").body<TeamKpiResponse>()
-        assertEquals(5.0, read.currentValue)
-        assertEquals("2026-07-10", read.currentValueDate)
+
+        // Every addition (and nothing else) is on the audit trail.
+        val events = manager.get("/api/v1/team-kpis/${created.id}/events").body<TeamKpiEventListResponse>()
+        val recorded = events.items.filter { it.type == TeamKpiEventType.VALUE_RECORDED }
+        assertEquals(
+            listOf("2026-07-10" to "5.0", "2026-07-01" to "2.0"),
+            recorded.map { it.params["date"] to it.params["value"] },
+        )
     }
 
     @Test
-    fun `latest-dated wins - a backdated value lands in the events but never overwrites Current`() = testApplication {
+    fun `correcting a value re-dates or re-values it, recomputes Current, and audits the change`() = testApplication {
         usePostgresTestcontainer()
         val team = seedTeam()
         val manager = authedClient(team.managerEmail, "pw")
         val created = manager.createKpi(team.teamId)
         manager.post("/api/v1/team-kpis/${created.id}/activate")
+        val early = manager.addValue(created.id, "2026-07-01", 2.0)
+        val late = manager.addValue(created.id, "2026-07-10", 5.0)
 
-        manager.put("/api/v1/team-kpis/${created.id}/progress") {
-            contentType(ContentType.Application.Json)
-            setBody(TeamKpiProgressUpdate(currentValue = 50.0, date = "2026-07-20"))
-        }
-        // Backfill an OLDER measurement: recorded as an event, Current untouched.
+        // Correct the latest point's value — Current follows.
         assertEquals(
             HttpStatusCode.NoContent,
-            manager.put("/api/v1/team-kpis/${created.id}/progress") {
+            manager.put("/api/v1/team-kpis/${created.id}/values/${late.id}") {
                 contentType(ContentType.Application.Json)
-                setBody(TeamKpiProgressUpdate(currentValue = 30.0, date = "2026-07-05"))
+                setBody(TeamKpiValueWrite(date = "2026-07-10", value = 7.0))
             }.status,
         )
-        val afterBackfill = manager.get("/api/v1/team-kpis/${created.id}").body<TeamKpiResponse>()
-        assertEquals(50.0, afterBackfill.currentValue)
-        assertEquals("2026-07-20", afterBackfill.currentValueDate)
+        assertEquals(7.0, manager.get("/api/v1/team-kpis/${created.id}").body<TeamKpiResponse>().currentValue)
 
-        // A same-date re-recording DOES overwrite (>= keeps the newest submission for the day).
-        manager.put("/api/v1/team-kpis/${created.id}/progress") {
+        // Re-date the early point past the late one — Current jumps to it.
+        manager.put("/api/v1/team-kpis/${created.id}/values/${early.id}") {
             contentType(ContentType.Application.Json)
-            setBody(TeamKpiProgressUpdate(currentValue = 55.0, date = "2026-07-20"))
+            setBody(TeamKpiValueWrite(date = "2026-07-20", value = 2.0))
         }
-        val afterSameDay = manager.get("/api/v1/team-kpis/${created.id}").body<TeamKpiResponse>()
-        assertEquals(55.0, afterSameDay.currentValue)
+        val read = manager.get("/api/v1/team-kpis/${created.id}").body<TeamKpiResponse>()
+        assertEquals(2.0, read.currentValue)
+        assertEquals("2026-07-20", read.currentValueDate)
 
-        // All three recordings are on the trail.
-        val events = manager.get("/api/v1/team-kpis/${created.id}/events").body<TeamKpiEventListResponse>()
-        val progress = events.items.filter { it.type == TeamKpiEventType.PROGRESS_UPDATED }
+        // An exact no-op is 204 but mints no event; moving onto an occupied date is 409.
         assertEquals(
-            listOf("50.0" to "2026-07-20", "30.0" to "2026-07-05", "55.0" to "2026-07-20"),
-            progress.map { it.params["to"] to it.params["date"] },
+            HttpStatusCode.NoContent,
+            manager.put("/api/v1/team-kpis/${created.id}/values/${early.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(TeamKpiValueWrite(date = "2026-07-20", value = 2.0))
+            }.status,
         )
+        assertEquals(
+            HttpStatusCode.Conflict,
+            manager.put("/api/v1/team-kpis/${created.id}/values/${early.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(TeamKpiValueWrite(date = "2026-07-10", value = 2.0))
+            }.status,
+        )
+
+        val events = manager.get("/api/v1/team-kpis/${created.id}/events").body<TeamKpiEventListResponse>()
+        val corrected = events.items.filter { it.type == TeamKpiEventType.VALUE_CORRECTED }
+        assertEquals(
+            listOf(
+                mapOf("fromDate" to "2026-07-10", "fromValue" to "5.0", "toDate" to "2026-07-10", "toValue" to "7.0"),
+                mapOf("fromDate" to "2026-07-01", "fromValue" to "2.0", "toDate" to "2026-07-20", "toValue" to "2.0"),
+            ),
+            corrected.map { it.params },
+        )
+    }
+
+    @Test
+    fun `removing a value rolls Current back, removing the last resets it to zero`() = testApplication {
+        usePostgresTestcontainer()
+        val team = seedTeam()
+        val manager = authedClient(team.managerEmail, "pw")
+        val created = manager.createKpi(team.teamId)
+        manager.post("/api/v1/team-kpis/${created.id}/activate")
+        val early = manager.addValue(created.id, "2026-07-01", 2.0)
+        val late = manager.addValue(created.id, "2026-07-10", 5.0)
+
+        // Removing the latest-dated point rolls Current back to the next-latest.
+        assertEquals(
+            HttpStatusCode.NoContent,
+            manager.delete("/api/v1/team-kpis/${created.id}/values/${late.id}").status,
+        )
+        val rolled = manager.get("/api/v1/team-kpis/${created.id}").body<TeamKpiResponse>()
+        assertEquals(2.0, rolled.currentValue)
+        assertEquals("2026-07-01", rolled.currentValueDate)
+
+        // Removing the last point resets Current to 0.0/null; the removals are audited.
+        manager.delete("/api/v1/team-kpis/${created.id}/values/${early.id}")
+        val emptied = manager.get("/api/v1/team-kpis/${created.id}").body<TeamKpiResponse>()
+        assertEquals(0.0, emptied.currentValue)
+        assertNull(emptied.currentValueDate)
+        assertTrue(manager.listValues(created.id).isEmpty())
+
+        val events = manager.get("/api/v1/team-kpis/${created.id}/events").body<TeamKpiEventListResponse>()
+        val removed = events.items.filter { it.type == TeamKpiEventType.VALUE_REMOVED }
+        assertEquals(
+            listOf("2026-07-10" to "5.0", "2026-07-01" to "2.0"),
+            removed.map { it.params["date"] to it.params["value"] },
+        )
+        // An already-removed (or foreign) valueId is 404.
+        assertEquals(
+            HttpStatusCode.NotFound,
+            manager.delete("/api/v1/team-kpis/${created.id}/values/${late.id}").status,
+        )
+    }
+
+    @Test
+    fun `values are read by whoever reads the KPI and written by nobody else`() = testApplication {
+        usePostgresTestcontainer()
+        val team = seedTeam()
+        val (grandEmail, _) = seedGrandManager(team)
+        val unrelatedEmail = uniqueEmail("kpi-unrelated")
+        TestUsers.seed(unrelatedEmail, "pw", roles = emptySet())
+        val manager = authedClient(team.managerEmail, "pw")
+        val created = manager.createKpi(team.teamId)
+        manager.post("/api/v1/team-kpis/${created.id}/activate")
+        val point = manager.addValue(created.id, "2026-07-01", 3.0)
+
+        // Member and chain read; outsiders don't.
+        val member = authedClient(team.memberEmail, "pw")
+        val grand = authedClient(grandEmail, "pw")
+        val unrelated = authedClient(unrelatedEmail, "pw")
+        assertEquals(listOf(3.0), member.listValues(created.id).map { it.value })
+        assertEquals(HttpStatusCode.OK, grand.get("/api/v1/team-kpis/${created.id}/values").status)
+        assertEquals(HttpStatusCode.Forbidden, unrelated.get("/api/v1/team-kpis/${created.id}/values").status)
+
+        // Mutations are current-manager-only, even for readers.
+        assertEquals(
+            HttpStatusCode.Forbidden,
+            member.put("/api/v1/team-kpis/${created.id}/values/${point.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(TeamKpiValueWrite(date = "2026-07-01", value = 9.0))
+            }.status,
+        )
+        assertEquals(
+            HttpStatusCode.Forbidden,
+            member.delete("/api/v1/team-kpis/${created.id}/values/${point.id}").status,
+        )
+
+        // A valueId belonging to another KPI is 404, not a cross-KPI edit.
+        val other = manager.createKpi(team.teamId, title = "Other KPI")
+        manager.post("/api/v1/team-kpis/${other.id}/activate")
+        assertEquals(
+            HttpStatusCode.NotFound,
+            manager.put("/api/v1/team-kpis/${other.id}/values/${point.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(TeamKpiValueWrite(date = "2026-07-02", value = 1.0))
+            }.status,
+        )
+
+        // Once archived the points are frozen (409), but still readable.
+        manager.post("/api/v1/team-kpis/${created.id}/archive") {
+            contentType(ContentType.Application.Json)
+            setBody(TeamKpiArchiveRequest(summary = "frozen"))
+        }
+        assertEquals(
+            HttpStatusCode.Conflict,
+            manager.post("/api/v1/team-kpis/${created.id}/values") {
+                contentType(ContentType.Application.Json)
+                setBody(TeamKpiValueWrite(date = "2026-07-02", value = 4.0))
+            }.status,
+        )
+        assertEquals(1, member.listValues(created.id).size)
     }
 
     // ---- deletion ----
@@ -634,13 +776,7 @@ class TeamKpiRoutesTest {
         assertEquals("Nina New", fetched.managerName)
 
         // The new manager holds the write rights...
-        assertEquals(
-            HttpStatusCode.NoContent,
-            newManager.put("/api/v1/team-kpis/${created.id}/progress") {
-                contentType(ContentType.Application.Json)
-                setBody(TeamKpiProgressUpdate(currentValue = 3.0, date = "2026-07-01"))
-            }.status,
-        )
+        newManager.addValue(created.id, "2026-07-01", 3.0)
         assertEquals(
             setOf(created.id),
             newManager.get("/api/v1/team-kpis?view=managed&title=Handover")

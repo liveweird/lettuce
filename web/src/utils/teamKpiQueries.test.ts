@@ -13,12 +13,12 @@ function trackInvalidations(qc: QueryClient): string[] {
 }
 
 describe("invalidateTeamKpi", () => {
-  test("covers lists, document, history (the Graph tab's data), and the bell", async () => {
+  test("covers lists, document, values (the KPI-data + Graph tabs), history, and the bell", async () => {
     const qc = new QueryClient();
     const keys = trackInvalidations(qc);
     await invalidateTeamKpi(qc, 5);
     expect(keys).toEqual(
-      expect.arrayContaining(["teamKpis", "teamKpi", "teamKpiEvents", "notifications"]),
+      expect.arrayContaining(["teamKpis", "teamKpi", "teamKpiValues", "teamKpiEvents", "notifications"]),
     );
   });
 
@@ -28,6 +28,7 @@ describe("invalidateTeamKpi", () => {
     await invalidateTeamKpi(qc);
     expect(keys).toEqual(expect.arrayContaining(["teamKpis", "notifications"]));
     expect(keys).not.toContain("teamKpi");
+    expect(keys).not.toContain("teamKpiValues");
     expect(keys).not.toContain("teamKpiEvents");
   });
 });

@@ -38,6 +38,12 @@ data class TeamKpiListResult(
     val total: Long,
 )
 
+/** Result of [TeamKpiService.correctValue]: the pre-edit row (for the audit event) + whether anything changed. */
+data class TeamKpiValueCorrection(
+    val old: TeamKpiValueResponse,
+    val changed: Boolean,
+)
+
 private val managerUsers = UserService.Users.alias("manager_users")
 
 private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
@@ -76,6 +82,15 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
         val markedAsDeleted = bool("marked_as_deleted").default(false)
     }
 
+    // The collected data points (V30) — a hard-delete detail table (the 1:1 notes precedent).
+    // UNIQUE (team_kpi_id, value_date) in the DB enforces one value per date; a duplicate raises
+    // 23505, mapped centrally to 409 (race-free, no pre-check needed).
+    object TeamKpiValues : UIntIdTable("team_kpi_values") {
+        val kpiId = reference("team_kpi_id", TeamKpis)
+        val valueDate = varchar("value_date", 10)
+        val value = double("value")
+    }
+
     private fun active(): Op<Boolean> = TeamKpis.markedAsDeleted eq false
 
     /**
@@ -111,15 +126,16 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
 
     /**
      * Edits a DRAFT KPI's definition (title, description, type, target — never its team, status,
-     * current value, or summary). A type change re-initializes the current value to 0.0,
-     * discarding any recorded progress (the audit events explain the reset). Returns the
-     * affected-row count (0 → missing/deleted, mapped to 404 by the route); throws
+     * data points, or summary). A type change WIPES the collected data points — a NUMBER series
+     * is meaningless against a PERCENTAGE target and vice versa — which resets the denormalized
+     * current value to 0.0/null via [recomputeCurrent] (the audit events explain the reset).
+     * Returns the affected-row count (0 → missing/deleted, mapped to 404 by the route); throws
      * [ConflictException] (→ 409) when the KPI is not in DRAFT.
      */
     suspend fun updateDefinition(id: UInt, update: TeamKpiDefinitionUpdate): Int = suspendTransaction(database) {
         val current = TeamKpis.selectAll()
             .where { (TeamKpis.id eq id) and active() }
-            .map { Triple(it[TeamKpis.status], it[TeamKpis.type], it[TeamKpis.currentValue]) }
+            .map { Pair(it[TeamKpis.status], it[TeamKpis.type]) }
             .singleOrNull()
             ?: return@suspendTransaction 0
         if (current.first != TeamKpiStatus.DRAFT) {
@@ -127,54 +143,136 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
         }
         validateTeamKpiDefinition(update.title, update.description, update.type, update.targetValue)
         val typeChanged = current.second != update.type
-        TeamKpis.update({ (TeamKpis.id eq id) and (TeamKpis.markedAsDeleted eq false) }) {
+        // Local capture: inside deleteWhere the table receiver's `id` column would shadow the
+        // function parameter (and silently compile as column-eq-column).
+        val kpiRowId = id
+        if (typeChanged) TeamKpiValues.deleteWhere { kpiId eq kpiRowId }
+        val count = TeamKpis.update({ (TeamKpis.id eq id) and (TeamKpis.markedAsDeleted eq false) }) {
             it[title] = update.title
             it[description] = cipher.encrypt(update.description)
             it[type] = update.type
             it[targetValue] = update.targetValue!!
-            it[currentValue] = if (typeChanged) 0.0 else current.third
-            // A type change resets the recorded progress, its date included.
-            if (typeChanged) it[currentValueDate] = null
             it[lastModified] = System.currentTimeMillis()
         }
+        if (typeChanged) recomputeCurrent(id)
+        count
+    }
+
+    /** The KPI's collected data points, newest first (`value_date DESC` — one row per date). */
+    suspend fun listValues(kpiId: UInt): List<TeamKpiValueResponse> = suspendTransaction(database) {
+        TeamKpiValues.selectAll()
+            .where { TeamKpiValues.kpiId eq kpiId }
+            .orderBy(TeamKpiValues.valueDate to SortOrder.DESC)
+            .map { it.toValueResponse() }
+            .toList()
     }
 
     /**
-     * Records an ACTIVE KPI's dated value. Latest-dated wins: the row's currentValue (+ its date)
-     * is overwritten only when [TeamKpiProgressUpdate.date] is on or after the stored
-     * current_value_date (ISO string compare; a null stored date always loses) — a backdated
-     * update older than that lands only in the audit events (and hence the graph), while
-     * lastModified still moves. Returns the affected-row count (0 → missing/deleted → 404);
-     * throws [ConflictException] (→ 409) when the KPI is not ACTIVE.
+     * Adds a data point to an ACTIVE KPI and recomputes the denormalized current value. Returns
+     * the new row's id, or null when the KPI is missing/deleted (→ 404); throws
+     * [ConflictException] (→ 409) when the KPI is not ACTIVE, and the DB's unique
+     * (kpi, date) constraint raises 23505 → 409 on a duplicate date.
      */
-    suspend fun updateProgress(id: UInt, update: TeamKpiProgressUpdate): Int = suspendTransaction(database) {
-        val current = TeamKpis.selectAll()
-            .where { (TeamKpis.id eq id) and active() }
-            .map { Triple(it[TeamKpis.status], it[TeamKpis.type], it[TeamKpis.currentValueDate]) }
-            .singleOrNull()
-            ?: return@suspendTransaction 0
-        if (current.first != TeamKpiStatus.ACTIVE) {
-            throw ConflictException("Only an ACTIVE team KPI's current value may be updated")
-        }
-        validateTeamKpiProgress(current.second, update)
-        val latestDated = current.third == null || update.date!! >= current.third!!
-        TeamKpis.update({ (TeamKpis.id eq id) and (TeamKpis.markedAsDeleted eq false) }) {
-            if (latestDated) {
-                it[currentValue] = update.currentValue!!
-                it[currentValueDate] = update.date
+    suspend fun addValue(kpiId: UInt, write: TeamKpiValueWrite): UInt? = suspendTransaction(database) {
+        val type = requireActiveKpi(kpiId) ?: return@suspendTransaction null
+        validateTeamKpiValue(type, write)
+        val targetKpiId = kpiId // the insert lambda's table receiver shadows the parameter
+        val newId = TeamKpiValues.insert {
+            it[this.kpiId] = targetKpiId
+            it[valueDate] = write.date!!
+            it[value] = write.value!!
+        }[TeamKpiValues.id].value
+        recomputeCurrent(kpiId)
+        newId
+    }
+
+    /**
+     * Corrects a data point (date and/or value) of an ACTIVE KPI and recomputes the denormalized
+     * current value. Returns the PRE-edit row (for the audit event) plus a changed flag — an
+     * exact no-op skips the write entirely (no event, no lastModified bump, still 204). Null when
+     * the KPI or the value row is missing, or the row belongs to another KPI (→ 404); not-ACTIVE
+     * → [ConflictException]; moving onto an occupied date → 23505 → 409.
+     */
+    suspend fun correctValue(kpiId: UInt, valueId: UInt, write: TeamKpiValueWrite): TeamKpiValueCorrection? =
+        suspendTransaction(database) {
+            val type = requireActiveKpi(kpiId) ?: return@suspendTransaction null
+            val old = TeamKpiValues.selectAll()
+                .where { (TeamKpiValues.id eq valueId) and (TeamKpiValues.kpiId eq kpiId) }
+                .map { it.toValueResponse() }
+                .singleOrNull()
+                ?: return@suspendTransaction null
+            validateTeamKpiValue(type, write)
+            if (write.date == old.date && write.value == old.value) {
+                return@suspendTransaction TeamKpiValueCorrection(old, changed = false)
             }
+            TeamKpiValues.update({ TeamKpiValues.id eq valueId }) {
+                it[valueDate] = write.date!!
+                it[value] = write.value!!
+            }
+            recomputeCurrent(kpiId)
+            TeamKpiValueCorrection(old, changed = true)
+        }
+
+    /**
+     * Removes a data point of an ACTIVE KPI and recomputes the denormalized current value —
+     * removing the latest-dated point rolls Current back to the next-latest (0.0/null when none
+     * remain). Returns the removed row (for the audit event); null → 404, not-ACTIVE → 409.
+     */
+    suspend fun removeValue(kpiId: UInt, valueId: UInt): TeamKpiValueResponse? = suspendTransaction(database) {
+        requireActiveKpi(kpiId) ?: return@suspendTransaction null
+        val old = TeamKpiValues.selectAll()
+            .where { (TeamKpiValues.id eq valueId) and (TeamKpiValues.kpiId eq kpiId) }
+            .map { it.toValueResponse() }
+            .singleOrNull()
+            ?: return@suspendTransaction null
+        TeamKpiValues.deleteWhere { TeamKpiValues.id eq valueId }
+        recomputeCurrent(kpiId)
+        old
+    }
+
+    /**
+     * Values-mutation gate: the KPI's type when it exists (non-deleted) AND is ACTIVE; null when
+     * missing (→ 404); [ConflictException] otherwise. Runs inside the caller's transaction.
+     */
+    private suspend fun requireActiveKpi(kpiId: UInt): TeamKpiType? {
+        val current = TeamKpis.selectAll()
+            .where { (TeamKpis.id eq kpiId) and active() }
+            .map { Pair(it[TeamKpis.status], it[TeamKpis.type]) }
+            .singleOrNull()
+            ?: return null
+        if (current.first != TeamKpiStatus.ACTIVE) {
+            throw ConflictException("Data points can only be changed while the team KPI is ACTIVE")
+        }
+        return current.second
+    }
+
+    /**
+     * Recomputes the denormalized current value from the data points — the max-dated row wins,
+     * 0.0/null when none — and bumps lastModified. Runs inside the caller's transaction so the
+     * mutation and the recompute are atomic.
+     */
+    private suspend fun recomputeCurrent(kpiId: UInt) {
+        val latest = TeamKpiValues.selectAll()
+            .where { TeamKpiValues.kpiId eq kpiId }
+            .orderBy(TeamKpiValues.valueDate to SortOrder.DESC)
+            .limit(1)
+            .map { Pair(it[TeamKpiValues.value], it[TeamKpiValues.valueDate]) }
+            .singleOrNull()
+        TeamKpis.update({ TeamKpis.id eq kpiId }) {
+            it[currentValue] = latest?.first ?: 0.0
+            it[currentValueDate] = latest?.second
             it[lastModified] = System.currentTimeMillis()
         }
     }
 
     /**
      * Moves a KPI [from] one status to [target] via the status state machine (DRAFT <-> ACTIVE
-     * <-> CLOSED, never skipping ACTIVE) and returns the notifications the transition should
+     * <-> ARCHIVED, never skipping ACTIVE) and returns the notifications the transition should
      * produce (the caller persists them) — one per current team member, resolved inside this
      * transaction, minus the acting manager. Each action endpoint names its whole edge — [from]
      * as well as [target] — because activate and reopen share the ACTIVE target and would
-     * otherwise be interchangeable. Closing records [summary] (required — the route validates it
-     * non-blank); reopening keeps the stored summary, to be overwritten at the next close.
+     * otherwise be interchangeable. Archiving records [summary] (required — the route validates
+     * it non-blank); reopening keeps the stored summary, to be overwritten at the next archive.
      * Returns null when the row is missing (→ 404); throws [ConflictException] (→ 409) when the
      * KPI is not at [from] or the edge is not in the machine.
      */
@@ -191,15 +289,15 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
                 .map { it.toResponse() }
                 .singleOrNull()
                 ?: return@suspendTransaction null
-            // Each endpoint names a whole edge of the DRAFT <-> ACTIVE <-> CLOSED machine, so the
-            // from-status check alone gates it; the summary was validated by the route
+            // Each endpoint names a whole edge of the DRAFT <-> ACTIVE <-> ARCHIVED machine, so
+            // the from-status check alone gates it; the summary was validated by the route
             // (validateTeamKpiSummary) before the transaction.
             if (current.status != from) {
                 throw ConflictException("Invalid status transition: ${current.status} -> $target")
             }
             TeamKpis.update({ (TeamKpis.id eq id) and (TeamKpis.markedAsDeleted eq false) }) {
                 it[status] = target
-                if (target == TeamKpiStatus.CLOSED) it[this.summary] = cipher.encrypt(summary!!)
+                if (target == TeamKpiStatus.ARCHIVED) it[this.summary] = cipher.encrypt(summary!!)
                 it[lastModified] = System.currentTimeMillis()
             }
             teamKpiTransitionNotifications(
@@ -396,6 +494,12 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
         status = this[TeamKpis.status],
         summary = this[TeamKpis.summary]?.let(cipher::decrypt),
         lastModified = this[TeamKpis.lastModified],
+    )
+
+    private fun ResultRow.toValueResponse(): TeamKpiValueResponse = TeamKpiValueResponse(
+        id = this[TeamKpiValues.id].value,
+        date = this[TeamKpiValues.valueDate],
+        value = this[TeamKpiValues.value],
     )
 
     private suspend fun memberIdsOf(teamId: UInt): Set<UInt> =

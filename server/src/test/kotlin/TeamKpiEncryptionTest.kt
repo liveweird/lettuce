@@ -2,7 +2,7 @@ package ch.nokillswit
 
 import ch.nokillswit.infra.crypto.DEV_DATA_ENCRYPTION_KEY
 import ch.nokillswit.infra.crypto.FieldCipher
-import ch.nokillswit.teamkpis.TeamKpiCloseRequest
+import ch.nokillswit.teamkpis.TeamKpiArchiveRequest
 import ch.nokillswit.teamkpis.TeamKpiCreateRequest
 import ch.nokillswit.teamkpis.TeamKpiEventService
 import ch.nokillswit.teamkpis.TeamKpiResponse
@@ -86,9 +86,9 @@ class TeamKpiEncryptionTest {
         manager.post("/api/v1/team-kpis/${created.id}/activate")
         assertEquals(
             HttpStatusCode.NoContent,
-            manager.post("/api/v1/team-kpis/${created.id}/close") {
+            manager.post("/api/v1/team-kpis/${created.id}/archive") {
                 contentType(ContentType.Application.Json)
-                setBody(TeamKpiCloseRequest(summary = secretSummary))
+                setBody(TeamKpiArchiveRequest(summary = secretSummary))
             }.status,
         )
 
@@ -134,7 +134,7 @@ class TeamKpiEncryptionTest {
                 it[TeamKpiService.TeamKpis.type] = TeamKpiType.NUMBER
                 it[TeamKpiService.TeamKpis.targetValue] = 5.0
                 it[TeamKpiService.TeamKpis.currentValue] = 0.0
-                it[TeamKpiService.TeamKpis.status] = TeamKpiStatus.CLOSED
+                it[TeamKpiService.TeamKpis.status] = TeamKpiStatus.ARCHIVED
                 it[TeamKpiService.TeamKpis.summary] = "legacy plain summary"
                 it[TeamKpiService.TeamKpis.lastModified] = now
             }[TeamKpiService.TeamKpis.id].value
@@ -170,7 +170,7 @@ class TeamKpiEncryptionTest {
             ),
         )
         TestServices.teamKpis.transition(id, TeamKpiStatus.DRAFT, TeamKpiStatus.ACTIVE)
-        TestServices.teamKpis.transition(id, TeamKpiStatus.ACTIVE, TeamKpiStatus.CLOSED, summary = "rotate this summary")
+        TestServices.teamKpis.transition(id, TeamKpiStatus.ACTIVE, TeamKpiStatus.ARCHIVED, summary = "rotate this summary")
 
         // Boot-time state during rotation: current = new key, previous = old key.
         val rotatingService = TeamKpiService(

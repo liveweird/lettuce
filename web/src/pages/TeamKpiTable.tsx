@@ -1,19 +1,14 @@
 import { Link as RouterLink } from "react-router-dom";
 import { Alert, Button, Select, Stack, Table, Text } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
-import { IconChartLine, IconEye, IconPencil } from "@tabler/icons-react";
+import { IconChartLine, IconEye } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  getUserId,
-  listTeamKpis,
-  type TeamKpiListView,
-  type TeamKpiStatus,
-} from "../api/client";
+import { listTeamKpis, type TeamKpiListView, type TeamKpiStatus } from "../api/client";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
 import FilterPanel from "../components/FilterPanel";
-import GoalStatusBadge from "../components/GoalStatusBadge";
+import TeamKpiStatusBadge from "../components/TeamKpiStatusBadge";
 import PaginationBar from "../components/PaginationBar";
 import SortHeader from "../components/SortHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
@@ -27,21 +22,21 @@ import {
   type CreatedWindow,
 } from "../utils/datetime";
 import { formatGoalValue } from "../utils/goalValues";
-import { teamKpiEditLink, teamKpiViewLink } from "../utils/teamKpiLinks";
+import { teamKpiViewLink } from "../utils/teamKpiLinks";
 
 const BASE_SORT_FIELDS = ["title", "createdAt", "status", "targetValue", "currentValue"] as const;
 type SortField = (typeof BASE_SORT_FIELDS)[number] | "teamName";
 
 const CREATED_WINDOWS = ["all", "month", "sixMonths"] as const;
-const STATUS_VALUES = ["DRAFT", "ACTIVE", "CLOSED"] as const;
+const STATUS_VALUES = ["DRAFT", "ACTIVE", "ARCHIVED"] as const;
 
 /**
  * The team-KPI list — filters (title substring, team substring, creation window, status),
  * sortable columns, paging; the GoalTable shape. Reusable across the caller-relative views:
  * MyTeamKpis embeds `own` and `managed` unpinned (a Team column shows, since rows span teams),
  * the /teams/:id/kpis drill-down pins one team via `teamId` (the Team column hides — the page
- * names the team already). The row action is not per-view: the team's current manager edits
- * DRAFT/ACTIVE rows and everyone else views (the server enforces the same rule).
+ * names the team already). The row action is always View (v1.29.0) — the view screen is THE KPI
+ * screen; the manager's affordances (data points, lifecycle, the DRAFT editor link) live there.
  */
 export default function TeamKpiTable({
   view,
@@ -58,7 +53,6 @@ export default function TeamKpiTable({
   backTo?: string;
 }) {
   const { t, i18n } = useTranslation();
-  const currentUserId = getUserId();
   const teamColumnVisible = teamId == null;
   const sortFields: readonly SortField[] = teamColumnVisible
     ? [...BASE_SORT_FIELDS, "teamName"]
@@ -150,7 +144,7 @@ export default function TeamKpiTable({
           label={t("common.field.status")}
           data={[
             { value: "", label: t("common.state.any") },
-            ...STATUS_VALUES.map((s) => ({ value: s, label: t(`goal.status.${s}`) })),
+            ...STATUS_VALUES.map((s) => ({ value: s, label: t(`teamKpi.status.${s}`) })),
           ]}
           value={statusFilter ?? ""}
           onChange={(v) => setStatusFilter((v as TeamKpiStatus) || null)}
@@ -232,10 +226,6 @@ export default function TeamKpiTable({
             <TableLoadingRow colSpan={columnCount} />
           ) : data && data.items.length > 0 ? (
             data.items.map((k) => {
-              const canEdit =
-                currentUserId != null &&
-                k.managerId === currentUserId &&
-                (k.status === "DRAFT" || k.status === "ACTIVE");
               const backParam = backTo || undefined;
               return (
                 <Table.Tr key={k.id}>
@@ -255,7 +245,7 @@ export default function TeamKpiTable({
                     {formatDate(k.createdAt, i18n.language)}
                   </Table.Td>
                   <Table.Td style={{ whiteSpace: "nowrap" }}>
-                    <GoalStatusBadge status={k.status} />
+                    <TeamKpiStatusBadge status={k.status} />
                   </Table.Td>
                   <Table.Td style={{ whiteSpace: "nowrap" }}>
                     {formatGoalValue(k.type, k.targetValue, i18n.language)}
@@ -264,31 +254,17 @@ export default function TeamKpiTable({
                     {formatGoalValue(k.type, k.currentValue, i18n.language)}
                   </Table.Td>
                   <Table.Td>
-                    {canEdit ? (
-                      <Button
-                        component={RouterLink}
-                        to={teamKpiEditLink(k.id, backParam)}
-                        color="blue"
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconPencil size={14} />}
-                        aria-label={t("teamKpi.editAria", { title: k.title })}
-                      >
-                        {t("common.action.edit")}
-                      </Button>
-                    ) : (
-                      <Button
-                        component={RouterLink}
-                        to={teamKpiViewLink(k.id, backParam)}
-                        color="blue"
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconEye size={14} />}
-                        aria-label={t("teamKpi.viewAria", { title: k.title })}
-                      >
-                        {t("common.action.view")}
-                      </Button>
-                    )}
+                    <Button
+                      component={RouterLink}
+                      to={teamKpiViewLink(k.id, backParam)}
+                      color="blue"
+                      variant="subtle"
+                      size="xs"
+                      leftSection={<IconEye size={14} />}
+                      aria-label={t("teamKpi.viewAria", { title: k.title })}
+                    >
+                      {t("common.action.view")}
+                    </Button>
                   </Table.Td>
                 </Table.Tr>
               );

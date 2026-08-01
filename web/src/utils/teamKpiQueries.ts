@@ -10,6 +10,9 @@ import type { QueryClient } from "@tanstack/react-query";
 export async function invalidateTeamKpi(queryClient: QueryClient, id?: number): Promise<void> {
   await queryClient.invalidateQueries({ queryKey: ["teamKpis"] });
   if (id != null) await queryClient.invalidateQueries({ queryKey: ["teamKpi", id] });
+  // The values list feeds both the KPI-data tab (which awaits it — the tab re-renders from it
+  // right after a mutation) and the Graph tab.
+  if (id != null) await queryClient.invalidateQueries({ queryKey: ["teamKpiValues", id] });
   if (id != null) queryClient.invalidateQueries({ queryKey: ["teamKpiEvents", id] });
   queryClient.invalidateQueries({ queryKey: ["notifications"] });
 }

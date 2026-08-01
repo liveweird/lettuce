@@ -28,8 +28,8 @@ internal fun teamKpiTransitionNotifications(
     val type = when (from to to) {
         TeamKpiStatus.DRAFT to TeamKpiStatus.ACTIVE -> NotificationType.TEAM_KPI_ACTIVATED_TO_MEMBER
         TeamKpiStatus.ACTIVE to TeamKpiStatus.DRAFT -> NotificationType.TEAM_KPI_DEACTIVATED_TO_MEMBER
-        TeamKpiStatus.ACTIVE to TeamKpiStatus.CLOSED -> NotificationType.TEAM_KPI_CLOSED_TO_MEMBER
-        TeamKpiStatus.CLOSED to TeamKpiStatus.ACTIVE -> NotificationType.TEAM_KPI_REOPENED_TO_MEMBER
+        TeamKpiStatus.ACTIVE to TeamKpiStatus.ARCHIVED -> NotificationType.TEAM_KPI_ARCHIVED_TO_MEMBER
+        TeamKpiStatus.ARCHIVED to TeamKpiStatus.ACTIVE -> NotificationType.TEAM_KPI_REOPENED_TO_MEMBER
         else -> return emptyList() // not a valid edge — the service rejects it before we get here
     }
     // Deactivation lands the KPI back in DRAFT, which members may not read — that notification

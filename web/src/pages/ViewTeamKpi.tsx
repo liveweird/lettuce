@@ -21,7 +21,7 @@ import { useTranslation } from "react-i18next";
 import {
   activateTeamKpi,
   ApiError,
-  closeTeamKpi,
+  archiveTeamKpi,
   deactivateTeamKpi,
   getTeamKpi,
   getUserId,
@@ -29,12 +29,13 @@ import {
   type TeamKpiStatus,
 } from "../api/client";
 import GoalCloseModal from "../components/GoalCloseModal";
-import GoalStatusBadge from "../components/GoalStatusBadge";
 import MarkdownView from "../components/MarkdownView";
 import ProseBox from "../components/ProseBox";
 import ReadOnlyField from "../components/ReadOnlyField";
 import TeamKpiHistory from "../components/TeamKpiHistory";
-import { formatDate, formatIsoDate } from "../utils/datetime";
+import TeamKpiStatusBadge from "../components/TeamKpiStatusBadge";
+import TeamKpiValuesEditor from "../components/TeamKpiValuesEditor";
+import { formatDate } from "../utils/datetime";
 import { formatGoalValue } from "../utils/goalValues";
 import { teamKpiEditLink } from "../utils/teamKpiLinks";
 import { invalidateTeamKpi } from "../utils/teamKpiQueries";
@@ -44,18 +45,24 @@ import { invalidateTeamKpi } from "../utils/teamKpiQueries";
 // means they load only when the Graph tab is actually opened.
 const TeamKpiChart = lazy(() => import("../components/TeamKpiChart"));
 
-// The manager's lifecycle actions per status (the ViewGoal ACTIONS shape). Close is
-// special-cased: it opens the summary modal instead of firing directly.
+// The manager's lifecycle actions per status (the ViewGoal ACTIONS shape). Archive is
+// special-cased: it opens the summary modal instead of firing directly. (The label key stays
+// `action.close` because GoalCloseModal derives its confirm label from `${keyPrefix}.action.close`
+// — the wording is "Archive".)
 const ACTIONS: Record<TeamKpiStatus, { labelKey: string; run?: (id: number) => Promise<void>; close?: true; primary: boolean }[]> = {
   DRAFT: [{ labelKey: "teamKpi.action.activate", run: activateTeamKpi, primary: true }],
   ACTIVE: [
     { labelKey: "teamKpi.action.deactivate", run: deactivateTeamKpi, primary: false },
     { labelKey: "teamKpi.action.close", close: true, primary: true },
   ],
-  CLOSED: [{ labelKey: "teamKpi.action.reopen", run: reopenTeamKpi, primary: true }],
+  ARCHIVED: [{ labelKey: "teamKpi.action.reopen", run: reopenTeamKpi, primary: true }],
 };
 
-/** The team-KPI document: read-only for everyone, plus the current manager's lifecycle actions. */
+/**
+ * THE team-KPI screen (v1.29.0): tabs General / KPI data / Graph / History, the manager's
+ * lifecycle actions at the bottom, and — for a DRAFT — the link to the definition editor. Data
+ * points are managed inline on the KPI data tab; there is no separate progress editor.
+ */
 export default function ViewTeamKpi() {
   const { t, i18n } = useTranslation();
   const params = useParams<{ id: string }>();
@@ -123,7 +130,7 @@ export default function ViewTeamKpi() {
         <Stack>
           <Group justify="space-between" align="flex-start">
             <Title order={2}>{t("teamKpi.viewTitle")}</Title>
-            {data && <GoalStatusBadge status={data.status} />}
+            {data && <TeamKpiStatusBadge status={data.status} />}
           </Group>
           {isLoading ? (
             <Center py="xl">
@@ -147,22 +154,20 @@ export default function ViewTeamKpi() {
                     {currentUserId === data.managerId ? t("common.state.you") : data.managerName}
                   </Text>
                 </ReadOnlyField>
-                <ReadOnlyField label={t("teamKpi.type.label")}>
-                  <Text size="sm">{t(`teamKpi.type.${data.type}`)}</Text>
-                </ReadOnlyField>
                 <ReadOnlyField label={t("teamKpi.createdAt")}>
                   <Text size="sm">{formatDate(data.createdAt, i18n.language)}</Text>
                 </ReadOnlyField>
               </Group>
 
-              <Tabs defaultValue="content" keepMounted={false}>
+              <Tabs defaultValue="general" keepMounted={false}>
                 <Tabs.List>
-                  <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
+                  <Tabs.Tab value="general">{t("teamKpi.general")}</Tabs.Tab>
+                  <Tabs.Tab value="data">{t("teamKpi.data")}</Tabs.Tab>
                   <Tabs.Tab value="graph">{t("teamKpi.graph")}</Tabs.Tab>
                   <Tabs.Tab value="history">{t("teamKpi.history")}</Tabs.Tab>
                 </Tabs.List>
 
-                <Tabs.Panel value="content" pt="md">
+                <Tabs.Panel value="general" pt="md">
                   <Stack gap="lg">
                     <Input.Wrapper label={t("teamKpi.title")}>
                       <Text fw={500}>{data.title}</Text>
@@ -173,25 +178,15 @@ export default function ViewTeamKpi() {
                       </ProseBox>
                     </Input.Wrapper>
                     <Group gap="xl">
+                      <ReadOnlyField label={t("teamKpi.type.label")}>
+                        <Text size="sm">{t(`teamKpi.type.${data.type}`)}</Text>
+                      </ReadOnlyField>
                       <ReadOnlyField label={t("teamKpi.target")}>
                         <Text size="sm">{formatGoalValue(data.type, data.targetValue, i18n.language)}</Text>
                       </ReadOnlyField>
-                      <ReadOnlyField label={t("teamKpi.current")}>
-                        <Text size="sm">
-                          {formatGoalValue(data.type, data.currentValue, i18n.language)}
-                          {data.currentValueDate && (
-                            <Text span size="sm" c="dimmed">
-                              {" "}
-                              {t("teamKpi.asOf", {
-                                date: formatIsoDate(data.currentValueDate, i18n.language),
-                              })}
-                            </Text>
-                          )}
-                        </Text>
-                      </ReadOnlyField>
                     </Group>
                     {data.summary != null && data.summary !== "" && (
-                      // The summary is captured as plain text in the close modal, so it renders
+                      // The summary is captured as plain text in the archive modal, so it renders
                       // pre-wrap (not markdown).
                       <Input.Wrapper label={t("teamKpi.summary")}>
                         <ProseBox>
@@ -202,6 +197,10 @@ export default function ViewTeamKpi() {
                       </Input.Wrapper>
                     )}
                   </Stack>
+                </Tabs.Panel>
+
+                <Tabs.Panel value="data" pt="md">
+                  <TeamKpiValuesEditor kpi={data} />
                 </Tabs.Panel>
 
                 <Tabs.Panel value="graph" pt="md">
@@ -227,7 +226,7 @@ export default function ViewTeamKpi() {
             <Button component={RouterLink} to={backTo} variant="default" disabled={submitting != null}>
               {t("common.action.close")}
             </Button>
-            {isManager && data && (data.status === "DRAFT" || data.status === "ACTIVE") && (
+            {isManager && data && data.status === "DRAFT" && (
               <Button
                 component={RouterLink}
                 to={editLink}
@@ -267,7 +266,7 @@ export default function ViewTeamKpi() {
         loading={submitting != null}
         keyPrefix="teamKpi"
         onConfirm={(summary) =>
-          void runAction("teamKpi.action.close", (kpiId) => closeTeamKpi(kpiId, { summary }))
+          void runAction("teamKpi.action.close", (kpiId) => archiveTeamKpi(kpiId, { summary }))
         }
       />
     </Container>
