@@ -117,7 +117,7 @@ export interface paths {
          *     - Filters (all optional, all whitelisted):
          *       - `name` — case-insensitive substring match against `name`.
          *       - `email` — case-insensitive substring match against `email`.
-         *       - `role` — has-role match: only users holding this additional role (`ADMIN`).
+         *       - `role` — has-role match: only users holding this additional role (`ADMIN`/`HR`).
          *       - `teamId` — restrict to users who are members of the given team.
          *
          *     Malformed query parameters (unknown sort field, unknown role, out-of-range page/pageSize)
