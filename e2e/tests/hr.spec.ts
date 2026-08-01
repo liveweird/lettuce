@@ -7,6 +7,7 @@ import {
   provideFeedback,
   gotoUserRow,
   ADMIN,
+  AAA_ONE,
   MANAGER_AAA,
   PASSWORD,
 } from "./helpers";
@@ -57,6 +58,13 @@ test("an HR auditor browses another pair's private draft read-only", async ({ pa
     ),
     page.getByRole("button", { name: "Save" }).click(),
   ]);
+
+  // Since v1.26.0 ADMIN is a management-only role: on a user's details page the admin gets
+  // no Audit section (the email is the page-loaded barrier before asserting the absence).
+  await gotoUserRow(page, "AAA One");
+  await page.getByRole("link", { name: "User details for AAA One" }).click();
+  await expect(page.getByText(AAA_ONE)).toBeVisible();
+  await expect(page.getByText("Audit", { exact: true })).toHaveCount(0);
   await logout(page);
 
   // 2. A manager writes a private DRAFT about a report — invisible to everyone but the

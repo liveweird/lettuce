@@ -8,8 +8,9 @@ import kotlinx.serialization.Serializable
  * stored or transmitted); values here only ever ADD privileges on top of that baseline.
  * A future role is just a new value — no migration needed (user_roles has no CHECK).
  *
- * [ADMIN] — full management rights (bypasses every per-resource check except feedback/1:1/goal
- * writes). [HR] — read-only auditor: read access equal to ADMIN's (drafts included), zero
+ * [ADMIN] — the management role: write access to users, teams, templates, and alerts (plus the
+ * reads those screens need); NO special rights over feedbacks, 1:1s, goals, or notifications.
+ * [HR] — read-only auditor: reads every user, feedback, 1:1, and goal (drafts included), zero
  * write or management privileges; HR-privileged reads are audit-logged (`hr.read`/`hr.list`).
  */
 @Serializable

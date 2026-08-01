@@ -194,31 +194,31 @@ class HrRoleTest {
     }
 
     @Test
-    fun `view=user is admitted for ADMIN, rejected for regular users, and validates userId`() = testApplication {
+    fun `view=user is HR-only - ADMIN and regular users are rejected - and validates userId`() = testApplication {
         usePostgresTestcontainer()
-        val (pair, _, _) = seedPairAndHr()
+        val (pair, hrEmail, _) = seedPairAndHr()
         val adminEmail = uniqueEmail("hr-admin")
         TestUsers.seed(adminEmail, "pw", roles = setOf(UserRole.ADMIN))
         val admin = authedClient(adminEmail, "pw")
+        val hr = authedClient(hrEmail, "pw")
         val regular = authedClient(pair.subordinateEmail, "pw")
 
-        assertEquals(HttpStatusCode.OK, admin.get("/api/v1/feedbacks?view=user&userId=${pair.managerId}").status)
-
         for (path in listOf("/api/v1/feedbacks", "/api/v1/one-on-ones", "/api/v1/goals")) {
-            // Regular users are shut out of the auditor view.
+            // The auditor view belongs to HR alone — ADMIN is a management role now.
+            assertEquals(HttpStatusCode.Forbidden, admin.get("$path?view=user&userId=${pair.managerId}").status)
             assertEquals(HttpStatusCode.Forbidden, regular.get("$path?view=user&userId=${pair.managerId}").status)
             // Shape validation mirrors counterpartId: required on view=user, rejected elsewhere.
-            assertEquals(HttpStatusCode.BadRequest, admin.get("$path?view=user").status)
-            assertEquals(HttpStatusCode.BadRequest, admin.get("$path?userId=${pair.managerId}").status)
+            assertEquals(HttpStatusCode.BadRequest, hr.get("$path?view=user").status)
+            assertEquals(HttpStatusCode.BadRequest, hr.get("$path?userId=${pair.managerId}").status)
         }
         // Params foreign to the auditor view stay rejected.
         assertEquals(
             HttpStatusCode.BadRequest,
-            admin.get("/api/v1/goals?view=user&userId=${pair.managerId}&includeIndirect=true").status,
+            hr.get("/api/v1/goals?view=user&userId=${pair.managerId}&includeIndirect=true").status,
         )
         assertEquals(
             HttpStatusCode.BadRequest,
-            admin.get("/api/v1/one-on-ones?view=user&userId=${pair.managerId}&counterpartId=${pair.subordinateId}").status,
+            hr.get("/api/v1/one-on-ones?view=user&userId=${pair.managerId}&counterpartId=${pair.subordinateId}").status,
         )
     }
 
@@ -241,7 +241,7 @@ class HrRoleTest {
     // ── The audit trail ────────────────────────────────────────────────────────
 
     @Test
-    fun `hr reads and lists are audit-logged - party reads and admin usage are not`() = testApplication {
+    fun `hr reads and lists are audit-logged - party reads mint nothing and admin gets 403`() = testApplication {
         usePostgresTestcontainer()
         val (pair, hrEmail, hrId) = seedPairAndHr()
         val adminEmail = uniqueEmail("hr-admin")
@@ -267,11 +267,19 @@ class HrRoleTest {
             assertEquals("goal", list.keyValuePairs.first { it.key == "resource" }.value)
             assertEquals(pair.subordinateId.toLong(), list.keyValuePairs.first { it.key == "targetUserId" }.value)
 
-            // A party reading their own record and an ADMIN using the auditor view mint nothing.
+            // A party reading their own record mints nothing, and an ADMIN is simply denied
+            // the auditor view (no hr.* event — the 403 lands in authz.denied instead).
             val before = appender.events.size
             manager.get("/api/v1/goals/${goal.id}")
-            admin.get("/api/v1/goals?view=user&userId=${pair.subordinateId}")
+            assertEquals(
+                HttpStatusCode.Forbidden,
+                admin.get("/api/v1/goals?view=user&userId=${pair.subordinateId}").status,
+            )
             assertEquals(0, appender.events.drop(before).count { it.message.startsWith("hr.") })
+
+            // Every HR auditor-list call is logged — a second call mints a second event.
+            hr.get("/api/v1/goals?view=user&userId=${pair.subordinateId}")
+            assertEquals(2, appender.events.count { it.message == "hr.list" })
         } finally {
             appender.detach()
         }

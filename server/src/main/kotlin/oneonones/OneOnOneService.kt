@@ -416,7 +416,7 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
             OneOnOneListView.OWN -> Meetings.subordinateId eq callerUserId
             OneOnOneListView.MANAGED -> Meetings.managerId eq callerUserId
             OneOnOneListView.USER -> {
-                // Auditor view (HR/ADMIN, gated route-side via requireAuditListAccess): every
+                // Auditor view (HR-only, gated route-side via requireAuditListAccess): every
                 // meeting the target is a party to, either role direction. The route guarantees
                 // a non-null userId.
                 val target = requireNotNull(targetUserId) { "view=user requires userId" }

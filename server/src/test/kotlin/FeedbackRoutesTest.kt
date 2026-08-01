@@ -7,6 +7,7 @@ import ch.nokillswit.feedbacks.FeedbackPageResponse
 import ch.nokillswit.feedbacks.FeedbackResponse
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
+import ch.nokillswit.feedbacks.toResponse
 import ch.nokillswit.notifications.NotificationPageResponse
 import ch.nokillswit.notifications.NotificationResponse
 import ch.nokillswit.notifications.NotificationType
@@ -754,29 +755,21 @@ class FeedbackRoutesTest {
         }
     }
 
-    // Seeds list/view test data via a lazily-created ADMIN client. An admin may create feedback on
-    // behalf of any provider/requester; the create-time party check (no impersonation) is enforced
-    // for non-admins and covered in AuthorizationTest. Who seeds doesn't affect the rows under test.
-    private var seederClient: HttpClient? = null
-
-    private suspend fun ApplicationTestBuilder.feedbackSeeder(): HttpClient =
-        seederClient ?: run {
-            val email = uniqueEmail("seeder")
-            TestUsers.seed(email = email, password = "pw") // ADMIN by default
-            authedClient(email, "pw").also { seederClient = it }
-        }
-
-    private suspend fun ApplicationTestBuilder.createFeedback(
+    // Seeds arbitrary-party rows through the SERVICE layer (the TestServices house pattern —
+    // "direct service access for contracts the routes cannot exercise"): no API caller may
+    // create feedback on behalf of others. TestServices.feedbacks shares the dev-default
+    // cipher, so route-level reads decrypt these rows. Who seeds doesn't affect the rows
+    // under test.
+    private suspend fun createFeedback(
         subjectId: UInt,
         providerId: UInt,
         visibility: FeedbackVisibility,
         status: FeedbackStatus = FeedbackStatus.SENT,
         requesterId: UInt? = null,
         content: String = "",
-    ): FeedbackResponse = feedbackSeeder().post("/api/v1/feedbacks") {
-        contentType(ContentType.Application.Json)
-        setBody(
-            FeedbackCreateRequest(
+    ): FeedbackResponse {
+        val result = TestServices.feedbacks.create(
+            Feedback(
                 requesterId = requesterId,
                 subjectId = subjectId,
                 providerId = providerId,
@@ -785,7 +778,9 @@ class FeedbackRoutesTest {
                 content = content,
             )
         )
-    }.body<FeedbackResponse>()
+        val created = TestServices.feedbacks.read(result.id)!!
+        return created.toResponse(result.id, TestServices.feedbacks.partyNames(created), includeContent = true)
+    }
 
     @Test
     fun `PUT a non-existent feedback returns 404`() = testApplication {

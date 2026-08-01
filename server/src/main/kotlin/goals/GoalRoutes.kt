@@ -132,8 +132,8 @@ fun Application.configureGoalRoutes() {
                 if (includeIndirect != null && view != GoalListView.MANAGED && view != GoalListView.TEAM) {
                     throw BadRequestException("includeIndirect is only supported for view=managed and view=team")
                 }
-                // The auditor view (HR/ADMIN): view-shape validation like counterpartId on the
-                // 1:1 list, then the role gate (which audit-logs HR usage).
+                // The auditor view (HR-only): view-shape validation like counterpartId on the
+                // 1:1 list, then the role gate (every use is audit-logged).
                 val userId = params.optionalUInt("userId")
                 if (view == GoalListView.USER && userId == null) {
                     throw BadRequestException("userId is required for view=user")

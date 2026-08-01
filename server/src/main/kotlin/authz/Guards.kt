@@ -14,12 +14,9 @@ fun CallerPrincipal.isAdmin(): Boolean = UserRole.ADMIN in roles
 
 fun CallerPrincipal.isHr(): Boolean = UserRole.HR in roles
 
-/** Read-everything privilege: ADMIN, or the HR auditor role (whose reads are audit-logged). */
-fun CallerPrincipal.hasFullReadAccess(): Boolean = isAdmin() || isHr()
-
 /**
  * Grants a read via the HR auditor role and records it (`hr.read`). Call AFTER the ordinary
- * rules (party/ADMIN/…) have missed, so the event only fires when the HR privilege is the
+ * rules (party/self/…) have missed, so the event only fires when the HR privilege is the
  * granting reason — one deliberate exception: an HR caller who is also in the record's
  * management chain is logged here without the chain walk (still an auditor-capable read,
  * and it saves the DB hit).
@@ -57,21 +54,20 @@ fun requireUserRead(caller: CallerPrincipal, targetUserId: UInt) {
 }
 
 /**
- * Gate for the auditor list view (`view=user` on the feedback/1:1/goal lists): HR or ADMIN.
- * HR usage is recorded (`hr.list`); ADMIN reads stay unlogged like everywhere else.
+ * Gate for the auditor list view (`view=user` on the feedback/1:1/goal lists): HR only —
+ * ADMIN is a management role with no special feedback/1:1/goal access. Every use is
+ * recorded (`hr.list`).
  */
 fun requireAuditListAccess(caller: CallerPrincipal, resource: String, targetUserId: UInt) {
-    if (!caller.hasFullReadAccess()) {
-        throw ForbiddenException("HR or Admin role required for view=user")
+    if (!caller.isHr()) {
+        throw ForbiddenException("HR role required for view=user")
     }
-    if (!caller.isAdmin()) {
-        audit(
-            "hr.list",
-            "resource" to resource,
-            "targetUserId" to targetUserId.toLong(),
-            "byUserId" to caller.userId.toLong(),
-        )
-    }
+    audit(
+        "hr.list",
+        "resource" to resource,
+        "targetUserId" to targetUserId.toLong(),
+        "byUserId" to caller.userId.toLong(),
+    )
 }
 
 fun requireTeamManagerOrAdmin(caller: CallerPrincipal, managerId: UInt) {
@@ -87,7 +83,8 @@ fun requireCanReassignManager(caller: CallerPrincipal, current: UInt, requested:
 }
 
 fun requireNotificationRecipient(caller: CallerPrincipal, recipientId: UInt) {
-    if (caller.isAdmin()) return
+    // Recipient-only for everyone — notifications are personal alerts; not even ADMIN
+    // (a management role) or HR (whose audit read covers the primary records) may touch them.
     if (caller.userId != recipientId) throw ForbiddenException("Caller may only access their own notifications")
 }
 
@@ -100,10 +97,6 @@ fun canReadFeedback(
     caller: CallerPrincipal,
     feedback: Feedback,
 ): Boolean {
-    // what ADMIN sees
-    // Admins see everything, regardless of the status and visibility
-    if (caller.isAdmin()) return true
-
     // what PROVIDER sees
     // Provider can always see the full feedback, regardless of the status and visibility
     if (caller.userId == feedback.providerId) return true
@@ -170,16 +163,16 @@ suspend fun requireFeedbackReadAllowingManager(
  * as before.
  */
 fun canReadFeedbackContent(caller: CallerPrincipal, feedback: Feedback): Boolean {
-    if (caller.hasFullReadAccess()) return true // ADMIN, and the HR auditor (never blanked)
+    if (caller.isHr()) return true // the HR auditor is never blanked
     if (caller.userId == feedback.providerId) return true
     val unfinished =
         feedback.status == FeedbackStatus.DRAFT || feedback.status == FeedbackStatus.REQUESTED
     return !(unfinished && caller.userId == feedback.requesterId)
 }
 
-// ADMIN is intentionally NOT granted write access here: admins may read every feedback
-// (see canReadFeedback) but may not edit, delete, or transition existing ones — only the
-// provider can. An admin who happens to be the provider still qualifies via the userId check.
+// Provider-only: nobody else — including ADMIN (a management role with no feedback access
+// beyond a standard user's) — may edit, delete, or transition a feedback. An admin who
+// happens to be the provider qualifies via the userId check like anyone.
 private fun canWriteFeedback(caller: CallerPrincipal, feedback: Feedback): Boolean =
     caller.userId == feedback.providerId
 
@@ -194,19 +187,19 @@ fun requireFeedbackWrite(caller: CallerPrincipal, feedback: Feedback) {
 // existing-but-forbidden → 403), so an id probe can learn a meeting exists — never its content
 // or parties (ids are sequential; existence is no secret).
 
-/** The cheap (no-DB) read rules: the two parties and ADMIN. The subordinate's wider management
+/** The cheap (no-DB) read rules: the two parties. The subordinate's wider management
  *  chain is handled by [requireOneOnOneReadAllowingManager] to keep the DB hit lazy. */
 fun canReadOneOnOne(caller: CallerPrincipal, meeting: OneOnOneResponse): Boolean {
-    if (caller.isAdmin()) return true
     if (caller.userId == meeting.managerId) return true
     return caller.userId == meeting.subordinateId
 }
 
 /**
- * Read guard for the single GET / events / action-item history: the parties and ADMIN pass the
- * cheap rules; otherwise any manager in the subordinate's transitive management chain (their
- * manager's manager, and so on) may read — matching the team list scope, whose direct-only
- * default is a narrower slice of this same right, not a separate authorization.
+ * Read guard for the single GET / events / action-item history: the parties pass the
+ * cheap rules; the HR auditor reads everything (audit-logged); otherwise any manager in the
+ * subordinate's transitive management chain (their manager's manager, and so on) may read —
+ * matching the team list scope, whose direct-only default is a narrower slice of this same
+ * right, not a separate authorization.
  */
 suspend fun requireOneOnOneReadAllowingManager(
     caller: CallerPrincipal,
@@ -221,9 +214,9 @@ suspend fun requireOneOnOneReadAllowingManager(
 }
 
 /**
- * The manager is always the author: only they may edit or delete the meeting. ADMIN is
- * intentionally NOT granted write access (mirroring [canWriteFeedback]); an admin who is
- * themselves the manager still qualifies via the userId check.
+ * The manager is always the author: only they may edit or delete the meeting — nobody else,
+ * ADMIN included (mirroring [canWriteFeedback]); an admin who is themselves the manager
+ * qualifies via the userId check like anyone.
  */
 fun requireOneOnOneWrite(caller: CallerPrincipal, meeting: OneOnOneResponse) {
     if (caller.userId != meeting.managerId) {
@@ -236,20 +229,20 @@ fun requireOneOnOneWrite(caller: CallerPrincipal, meeting: OneOnOneResponse) {
 // 404, existing-but-forbidden → 403), so an id probe can learn a goal exists — never its
 // content or parties (ids are sequential; existence is no secret).
 
-/** The cheap (no-DB) read rules: the two parties and ADMIN, at every status. The subordinate's
+/** The cheap (no-DB) read rules: the two parties, at every status. The subordinate's
  *  wider management chain is handled by [requireGoalReadAllowingManager] to keep the DB hit lazy. */
 fun canReadGoal(caller: CallerPrincipal, goal: GoalResponse): Boolean {
-    if (caller.isAdmin()) return true
     if (caller.userId == goal.managerId) return true
     return caller.userId == goal.subordinateId
 }
 
 /**
- * Read guard for the single GET / events: the parties and ADMIN pass the cheap rules; otherwise
- * any manager in the subordinate's transitive management chain (their manager's manager, and so
- * on) may read only once the goal has left DRAFT (ACTIVE/CLOSED) — a manager's draft stays
- * private to the pair, matching the team list scope (whose status != DRAFT filter is the same
- * rule, not a separate authorization) and mirroring the delivered-only feedback chain rule.
+ * Read guard for the single GET / events: the parties pass the cheap rules; the HR auditor
+ * reads everything, DRAFTs included (audit-logged); otherwise any manager in the subordinate's
+ * transitive management chain (their manager's manager, and so on) may read only once the goal
+ * has left DRAFT (ACTIVE/CLOSED) — a manager's draft stays private to the pair, matching the
+ * team list scope (whose status != DRAFT filter is the same rule, not a separate
+ * authorization) and mirroring the delivered-only feedback chain rule.
  */
 suspend fun requireGoalReadAllowingManager(
     caller: CallerPrincipal,
@@ -266,9 +259,9 @@ suspend fun requireGoalReadAllowingManager(
 
 /**
  * The manager is always the author: only they may edit, transition, or delete the goal — the
- * subordinate has read rights only. ADMIN is intentionally NOT granted write access (mirroring
- * [canWriteFeedback]); an admin who is themselves the manager still qualifies via the userId
- * check.
+ * subordinate has read rights only, and nobody else (ADMIN included, mirroring
+ * [canWriteFeedback]) has any; an admin who is themselves the manager qualifies via the
+ * userId check like anyone.
  */
 fun requireGoalWrite(caller: CallerPrincipal, goal: GoalResponse) {
     if (caller.userId != goal.managerId) {

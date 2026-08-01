@@ -353,7 +353,7 @@ export default function UserDetails() {
       )}
 
       {canAudit() && !selfView && person != null && (
-        // The HR/ADMIN auditor entry point: read-only drill-downs into EVERYTHING this person
+        // The HR auditor entry point: read-only drill-downs into EVERYTHING this person
         // is a party to (both directions, every status), regardless of the viewer's own
         // relationship to them. Server-side this is view=user; HR usage is audit-logged.
         <Paper withBorder p="md" radius="md">

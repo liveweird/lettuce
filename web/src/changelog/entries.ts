@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.26.0",
+    date: "2026-08-01",
+    en: `The **Admin** role is now strictly a management role: admins create and manage users, teams, and templates (and alerts), but no longer have any special access to feedbacks, 1:1 meetings, goals, or other users' notifications — there they act as regular users. Auditing (the *Audit* section on a user's details page and its read-only views) now belongs exclusively to the **HR** role; a person who needs both capabilities simply holds both roles.`,
+    pl: `Rola **Administrator** jest teraz ściśle rolą zarządczą: administratorzy tworzą i zarządzają użytkownikami, zespołami i szablonami (oraz alertami), ale nie mają już żadnego specjalnego dostępu do feedbacków, spotkań 1:1, celów ani powiadomień innych użytkowników — tam działają jak zwykli użytkownicy. Audyt (sekcja *Audyt* na stronie szczegółów użytkownika i jej widoki tylko do odczytu) należy teraz wyłącznie do roli **HR**; osoba potrzebująca obu możliwości po prostu posiada obie role.`,
+  },
+  {
     version: "1.25.0",
     date: "2026-07-31",
     en: `A new **HR** role turns its holder into a read-only auditor: they can browse everything any user is a party to — feedbacks (drafts included), 1:1 meetings, and goals — without gaining any write access; other users' data stays exactly as editable as before, which for HR means not at all. Auditors reach it from a user's details page via the new *Audit* section, and every such access is recorded in the security audit trail. Admins get the same browsing surface.`,

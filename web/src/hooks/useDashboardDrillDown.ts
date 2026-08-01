@@ -42,7 +42,7 @@ export function useDashboardDrillDown(basePath: string): {
   originKey: DashboardOriginKey;
   origin: { labelKey: string; to: string };
   callerManages: boolean;
-  /** `?mode=audit` requested by an HR/ADMIN caller: the page renders the auditor view. */
+  /** `?mode=audit` requested by an HR caller: the page renders the auditor view. */
   auditMode: boolean;
   backTo: string;
 } {

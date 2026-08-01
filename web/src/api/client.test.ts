@@ -70,7 +70,7 @@ describe("session accessors", () => {
     expect(isAdmin()).toBe(false);
   });
 
-  test("HR is a known role; isHr and canAudit reflect it without granting isAdmin", () => {
+  test("HR is a known role; canAudit is HR-only — ADMIN does not audit", () => {
     localStorage.setItem(ROLE_KEY, JSON.stringify(["HR"]));
     expect(getRoles()).toEqual(["HR"]);
     expect(isHr()).toBe(true);
@@ -78,7 +78,8 @@ describe("session accessors", () => {
     expect(isAdmin()).toBe(false);
     localStorage.setItem(ROLE_KEY, JSON.stringify(["ADMIN"]));
     expect(isHr()).toBe(false);
-    expect(canAudit()).toBe(true);
+    expect(canAudit()).toBe(false);
+    expect(isAdmin()).toBe(true);
   });
 
   test("getUserId parses a finite number or returns null", () => {

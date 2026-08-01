@@ -55,9 +55,9 @@ export function isHr(): boolean {
   return getRoles().includes("HR");
 }
 
-/** Mirror of the server's hasFullReadAccess: may use the auditor read surface (view=user). */
+/** May use the auditor read surface (view=user + the Audit section) — HR-only since v1.26.0. */
 export function canAudit(): boolean {
-  return isAdmin() || isHr();
+  return isHr();
 }
 
 function clearSession(): void {
@@ -417,7 +417,7 @@ type FeedbackListQuery = {
   lastModifiedGte?: number;
   /** Only valid with view=team: widen the subject scope from direct reports to the whole management chain. */
   includeIndirect?: boolean;
-  /** Required with view=user (the HR/ADMIN auditor view): whose records to list. */
+  /** Required with view=user (the HR auditor view): whose records to list. */
   userId?: number;
 };
 
@@ -541,7 +541,7 @@ type OneOnOneListQuery = {
   includeIndirect?: boolean;
   /** Required with view=with: the other party's user id (either role direction). */
   counterpartId?: number;
-  /** Required with view=user (the HR/ADMIN auditor view): whose records to list. */
+  /** Required with view=user (the HR auditor view): whose records to list. */
   userId?: number;
 };
 
@@ -643,7 +643,7 @@ type GoalListQuery = {
   createdAtGte?: number;
   /** Only valid with view=team: widen the manager scope from direct reports to the whole management chain. */
   includeIndirect?: boolean;
-  /** Required with view=user (the HR/ADMIN auditor view): whose records to list. */
+  /** Required with view=user (the HR auditor view): whose records to list. */
   userId?: number;
 };
 
