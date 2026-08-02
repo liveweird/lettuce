@@ -47,8 +47,17 @@ test("a performance review travels period → draft → calibration → publishe
   await page.getByRole("button", { name: "Config" }).click();
   await page.getByRole("link", { name: "Review periods" }).click();
   await expect(page.getByRole("heading", { name: "Review periods" })).toBeVisible();
+  // Wait for the timeline data before reading the start input (the dictionaries lesson: the
+  // form renders before the query resolves; reading too early sees the pre-lock empty value
+  // and computes a non-adjacent end, leaving Add disabled forever). Loaded = either the empty
+  // state or at least one period row's Delete affordance.
+  await expect(
+    page
+      .getByText("No review periods yet — add the first one below.")
+      .or(page.getByRole("button", { name: /^Delete the period/ }))
+      .first(),
+  ).toBeVisible();
   const startInput = page.getByLabel("First month");
-  await expect(startInput).toBeVisible();
   let start = await startInput.inputValue();
   if (start === "") {
     start = "2000-01";
