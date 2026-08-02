@@ -81,6 +81,15 @@ test("an HR auditor browses another pair's private draft read-only", async ({ pa
   await expect(page.getByText("Audit", { exact: true })).toBeVisible();
 
   // 4. The feedbacks audit list shows the foreign DRAFT with its (unredacted) preview…
+  // Open it pre-sorted newest-first (persisted view settings) — the persistent dev volume
+  // accumulates E2E feedback rows for this seed pair across runs, so under the default name
+  // sort the fresh probe eventually falls off page 1 (the gotoUserRow lesson, table edition).
+  await page.evaluate(() => {
+    localStorage.setItem(
+      "lettuce.viewSettings.managerFeedbacks.audit.paging",
+      JSON.stringify({ sortField: "lastModified", sortDir: "desc", pageSize: 20 }),
+    );
+  });
   await page.getByRole("link", { name: "Audit feedbacks of AAA One" }).click();
   await expect(page.getByRole("heading", { name: "All feedbacks of AAA One" })).toBeVisible();
   const row = page.getByRole("row").filter({ hasText: probe });
