@@ -8,6 +8,7 @@
     "oneOnOnes": "Spotkania 1:1",
     "goals": "Cele",
     "teamKpis": "KPI zespołów",
+    "myPerformance": "Moje oceny",
     "config": "Konfiguracja",
     "users": "Użytkownicy",
     "teams": "Zespoły",
@@ -20,6 +21,7 @@
     "selfReflection": "Autorefleksja",
     "changePassword": "Zmień hasło",
     "alerts": "Alerty",
-    "changelog": "Historia zmian"
+    "changelog": "Historia zmian",
+    "reviewPeriods": "Okresy ocen"
   }
 }

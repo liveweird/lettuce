@@ -140,7 +140,8 @@
     "hint": "Audytorski dostęp tylko do odczytu do wszystkiego, czego stroną jest {{name}} — feedbacków, spotkań 1:1 i celów. Ten dostęp jest rejestrowany.",
     "feedbacksAria": "Audytuj feedbacki: {{name}}",
     "oneOnOnesAria": "Audytuj spotkania 1:1: {{name}}",
-    "goalsAria": "Audytuj cele: {{name}}"
+    "goalsAria": "Audytuj cele: {{name}}",
+    "performanceReviewsAria": "Audytuj oceny okresowe: {{name}}"
   },
   "profile": {
     "missingBadge": "Nie ustawiono",
@@ -150,5 +151,6 @@
     "path": "Ścieżka",
     "specialization": "Specjalizacja",
     "seniority": "Poziom"
-  }
+  },
+  "performanceReviews": "Oceny okresowe"
 }

@@ -126,6 +126,42 @@ describe("Dashboard", () => {
     });
   });
 
+  test("the reviews tab exists only for managers, carries its tour anchor, and deep-links", async () => {
+    // The manager gate is the managed-teams count (useIsManager).
+    mockFetch.mockImplementation((url: string) => {
+      const u = String(url);
+      if (u.includes("/api/v1/teams?") && u.includes("managerId=7")) {
+        return Promise.resolve(
+          jsonResponse(200, { items: [{ id: 1, name: "AAA", managerId: 7 }], page: 1, pageSize: 1, total: 1 }),
+        );
+      }
+      if (u.includes("/api/v1/review-periods")) {
+        return Promise.resolve(jsonResponse(200, { items: [] }));
+      }
+      return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }));
+    });
+    renderWithProviders(<Dashboard />, { route: "/?tab=reviews" });
+
+    const tab = await screen.findByRole("tab", { name: "Performance reviews" });
+    expect(tab).toHaveAttribute("data-tour", "dashboard-reviews");
+    // The deep link opened the panel — with no periods it points at the admin screen.
+    expect(
+      await screen.findByText(
+        "There are no review periods yet — an administrator creates them under Config → Review periods.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  test("a non-manager's ?tab=reviews falls back to the managers tab, with no reviews tab shown", async () => {
+    mockFetch.mockImplementation(() =>
+      Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 })),
+    );
+    renderWithProviders(<Dashboard />, { route: "/?tab=reviews" });
+
+    expect(await screen.findByText("No managers")).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Performance reviews" })).toBeNull();
+  });
+
   test("falls back to the managers tab for an unknown ?tab= value", async () => {
     mockFetch.mockImplementation(() =>
       Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 })),

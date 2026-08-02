@@ -47,7 +47,7 @@ import {
   markNotificationUnseen,
   type NotificationItem,
 } from "../api/client";
-import { formatIsoDate, formatTimestamp } from "../utils/datetime";
+import { formatIsoDate, formatIsoMonth, formatTimestamp } from "../utils/datetime";
 import { formatGoalValue } from "../utils/goalValues";
 import { toRelativePath } from "../utils/url";
 
@@ -87,6 +87,9 @@ const EVENT_KEY: Record<NotificationItem["type"], string> = {
 // only params that need client-side formatting before interpolation.
 const KPI_VALUE_KEYS = new Set(["teamKpiValueRecorded", "teamKpiValueCorrected", "teamKpiValueRemoved"]);
 
+// The performance-review kinds carry the period's raw ISO YYYY-MM bounds — format per locale.
+const REVIEW_PERIOD_KEYS = new Set(["performanceReviewPublished", "performanceReviewUnpublished"]);
+
 function describeNotification(n: NotificationItem, t: TFunction, locale: string): string {
   const key = EVENT_KEY[n.type];
   if (!key) return n.type; // forward-compat: an unknown kind → show the raw type
@@ -103,6 +106,11 @@ function describeNotification(n: NotificationItem, t: TFunction, locale: string)
     }
     for (const k of ["date", "fromDate", "toDate"]) {
       if (params[k] != null) params[k] = formatIsoDate(params[k]!, locale);
+    }
+  }
+  if (REVIEW_PERIOD_KEYS.has(key)) {
+    for (const k of ["startMonth", "endMonth"]) {
+      if (params[k] != null) params[k] = formatIsoMonth(params[k]!, locale);
     }
   }
   // `self` drives the "about yourself" wording variant via i18next context.

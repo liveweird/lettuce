@@ -247,6 +247,10 @@ describe("UserDetails page", () => {
       "href",
       "/users/5/goals?name=Bob&from=details&mode=audit",
     );
+    expect(screen.getByRole("link", { name: "Audit performance reviews of Bob" })).toHaveAttribute(
+      "href",
+      "/users/5/performance-reviews?name=Bob&from=details&mode=audit",
+    );
   });
 
   test("regular viewers, ADMIN-only viewers, and self-views get no Audit section", async () => {

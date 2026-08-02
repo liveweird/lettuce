@@ -4,7 +4,8 @@
     "managers": "My managers",
     "peers": "My peers",
     "subordinates": "My subordinates",
-    "myTeams": "My teams"
+    "myTeams": "My teams",
+    "reviews": "Performance reviews"
   },
   "empty": {
     "teammates": "No teammates",

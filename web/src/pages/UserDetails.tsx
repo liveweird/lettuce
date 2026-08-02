@@ -4,6 +4,7 @@ import { Alert, Anchor, Button, Group, Paper, SimpleGrid, Skeleton, Stack, Text,
 import { useQuery } from "@tanstack/react-query";
 import {
   IconCalendarEvent,
+  IconClipboardText,
   IconMessagePlus,
   IconMessageQuestion,
   IconMessages,
@@ -31,6 +32,7 @@ import {
 } from "../utils/feedbackLinks";
 import { userGoalsLink } from "../utils/goalLinks";
 import { oneOnOneCreateLink, userOneOnOnesLink } from "../utils/oneOnOneLinks";
+import { userPerformanceReviewsLink } from "../utils/performanceReviewLinks";
 import { groupTeamRows, type PersonCard as PersonCardData } from "../utils/teamRows";
 import { userDetailsLink } from "../utils/userLinks";
 
@@ -280,6 +282,16 @@ export default function UserDetails() {
         >
           {t("teams.goals")}
         </Button>
+        <Button
+          component={RouterLink}
+          to={userPerformanceReviewsLink(person.userId, person.name, "subordinates")}
+          variant="subtle"
+          size="xs"
+          leftSection={<IconClipboardText size={14} />}
+          aria-label={t("teams.performanceReviewsForAria", { name: person.name })}
+        >
+          {t("teams.performanceReviews")}
+        </Button>
       </>
     ) : (
       // The /?tab=peers card's actions (teams.* labels), for found peers and unrelated users
@@ -414,6 +426,16 @@ export default function UserDetails() {
                 aria-label={t("users.audit.goalsAria", { name: person.name })}
               >
                 {t("users.goals")}
+              </Button>
+              <Button
+                component={RouterLink}
+                to={userPerformanceReviewsLink(person.userId, person.name, "details", undefined, true)}
+                variant="subtle"
+                size="xs"
+                leftSection={<IconClipboardText size={14} />}
+                aria-label={t("users.audit.performanceReviewsAria", { name: person.name })}
+              >
+                {t("users.performanceReviews")}
               </Button>
             </Group>
           </Stack>

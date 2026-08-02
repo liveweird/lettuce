@@ -19,6 +19,8 @@ import {
   IconBook2,
   IconBriefcase,
   IconCalendarEvent,
+  IconCalendarStats,
+  IconClipboardText,
   IconFileText,
   IconHelp,
   IconHierarchy,
@@ -83,6 +85,12 @@ const CreateTeamKpi = lazy(() => import("./pages/CreateTeamKpi"));
 const EditTeamKpi = lazy(() => import("./pages/EditTeamKpi"));
 const ViewTeamKpi = lazy(() => import("./pages/ViewTeamKpi"));
 const TeamKpis = lazy(() => import("./pages/TeamKpis"));
+const MyPerformance = lazy(() => import("./pages/MyPerformance"));
+const UserPerformanceReviews = lazy(() => import("./pages/UserPerformanceReviews"));
+const CreatePerformanceReview = lazy(() => import("./pages/CreatePerformanceReview"));
+const EditPerformanceReview = lazy(() => import("./pages/EditPerformanceReview"));
+const ViewPerformanceReview = lazy(() => import("./pages/ViewPerformanceReview"));
+const ReviewPeriods = lazy(() => import("./pages/ReviewPeriods"));
 const Login = lazy(() => import("./pages/Login"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const CreateUser = lazy(() => import("./pages/CreateUser"));
@@ -130,6 +138,12 @@ const NAV_ITEMS: ReadonlyArray<NavEntry> = [
   { to: "/one-on-ones", label: "appShell.nav.oneOnOnes", icon: IconCalendarEvent, tourId: "nav-one-on-ones" },
   { to: "/goals", label: "appShell.nav.goals", icon: IconTargetArrow, tourId: "nav-my-goals" },
   { to: "/team-kpis", label: "appShell.nav.teamKpis", icon: IconChartLine, tourId: "nav-team-kpis" },
+  {
+    to: "/my-performance",
+    label: "appShell.nav.myPerformance",
+    icon: IconClipboardText,
+    tourId: "nav-my-performance",
+  },
   {
     label: "appShell.nav.config",
     icon: IconSettings,
@@ -278,13 +292,15 @@ function Shell() {
           { to: `/users/${userId}/change-password`, label: "appShell.nav.changePassword", icon: IconKey, tourId: "nav-change-password" },
         ]
       : [];
-  // Alert management is ADMIN-only end to end, so non-admins don't get the menu entry.
+  // Review-period and alert management are ADMIN-only end to end, so non-admins don't get
+  // the menu entries.
   const staticItems: NavEntry[] = NAV_ITEMS.map((e) =>
     isGroup(e) && e.label === "appShell.nav.config" && isAdmin()
       ? {
           ...e,
           children: [
             ...e.children,
+            { to: "/review-periods", label: "appShell.nav.reviewPeriods", icon: IconCalendarStats },
             { to: "/alerts", label: "appShell.nav.alerts", icon: IconSpeakerphone },
           ],
         }
@@ -458,6 +474,12 @@ export default function App() {
             <Route path="team-kpis/new" element={<CreateTeamKpi />} />
             <Route path="team-kpis/:id/edit" element={<EditTeamKpi />} />
             <Route path="team-kpis/:id/view" element={<ViewTeamKpi />} />
+            <Route path="my-performance" element={<MyPerformance />} />
+            <Route path="users/:userId/performance-reviews" element={<UserPerformanceReviews />} />
+            <Route path="performance-reviews/new" element={<CreatePerformanceReview />} />
+            <Route path="performance-reviews/:id/edit" element={<EditPerformanceReview />} />
+            <Route path="performance-reviews/:id/view" element={<ViewPerformanceReview />} />
+            <Route path="review-periods" element={<ReviewPeriods />} />
             <Route path="teams/:teamId/kpis" element={<TeamKpis />} />
             <Route path="templates" element={<Templates />} />
             <Route path="templates/new" element={<CreateTemplate />} />

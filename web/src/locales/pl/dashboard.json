@@ -4,7 +4,8 @@
     "managers": "Moi menedżerowie",
     "peers": "Moi współpracownicy",
     "subordinates": "Moi podwładni",
-    "myTeams": "Moje zespoły"
+    "myTeams": "Moje zespoły",
+    "reviews": "Oceny okresowe"
   },
   "empty": {
     "teammates": "Brak współpracowników",

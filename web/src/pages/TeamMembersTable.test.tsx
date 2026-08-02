@@ -230,6 +230,32 @@ describe("TeamMembersTable", () => {
     expect(screen.queryByRole("link", { name: /goals for/i })).toBeNull();
   });
 
+  test("managed view (direct mode) adds a Performance-reviews link per row; peers and the all scope never do", async () => {
+    setupMocks(mockFetch);
+    renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
+
+    const link = await screen.findByRole("link", { name: "Performance reviews of Bob Brown" });
+    expect(link).toHaveAttribute(
+      "href",
+      "/users/11/performance-reviews?name=Bob%20Brown&from=subordinates",
+    );
+    expect(screen.getAllByRole("link", { name: /performance reviews of/i })).toHaveLength(2);
+
+    // The all-reports scope hides it — creation (the drill-down's New review) needs a direct report.
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+    fireEvent.click(screen.getByLabelText("Reports", { selector: "input" }));
+    fireEvent.click(await screen.findByRole("option", { name: "All reports (including indirect)" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("link", { name: /performance reviews of/i })).toBeNull();
+    });
+
+    cleanup();
+    setupMocks(mockFetch);
+    renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
+    await screen.findByText("Bob Brown");
+    expect(screen.queryByRole("link", { name: /performance reviews of/i })).toBeNull();
+  });
+
   test("peer cards carry the career column with set values and Not set badges", async () => {
     setupMocks(
       mockFetch,

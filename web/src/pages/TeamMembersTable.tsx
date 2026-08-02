@@ -15,6 +15,7 @@ import {
   IconArrowDown,
   IconArrowUp,
   IconCalendarEvent,
+  IconClipboardText,
   IconMessagePlus,
   IconMessageQuestion,
   IconMessages,
@@ -37,6 +38,7 @@ import { isOneOf, isString, isStringOrNull, useStoredState } from "../hooks/useS
 import { feedbackAskLink, feedbackProvideLink, feedbackRequestLink, userFeedbacksLink } from "../utils/feedbackLinks";
 import { userGoalsLink } from "../utils/goalLinks";
 import { oneOnOneCreateLink, userOneOnOnesLink } from "../utils/oneOnOneLinks";
+import { userPerformanceReviewsLink } from "../utils/performanceReviewLinks";
 import { groupTeamRows } from "../utils/teamRows";
 
 const SORT_FIELDS = ["name", "email", "teamName"] as const;
@@ -338,6 +340,20 @@ export default function TeamMembersTable({
                       aria-label={t("teams.goalsForAria", { name: m.name })}
                     >
                       {t("teams.goals")}
+                    </Button>
+                  )}
+                  {view === "managed" && scopeIsDirect && (
+                    // Same direct-only gate: the drill-down's New-review action needs a
+                    // direct report, like goal creation.
+                    <Button
+                      component={RouterLink}
+                      to={userPerformanceReviewsLink(m.userId, m.name, managedFrom, drillTeamId)}
+                      variant="subtle"
+                      size="xs"
+                      leftSection={<IconClipboardText size={14} />}
+                      aria-label={t("teams.performanceReviewsForAria", { name: m.name })}
+                    >
+                      {t("teams.performanceReviews")}
                     </Button>
                   )}
                 </>

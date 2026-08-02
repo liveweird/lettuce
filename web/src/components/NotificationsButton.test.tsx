@@ -206,6 +206,40 @@ describe("NotificationsButton", () => {
     ).toBeInTheDocument();
   });
 
+  test("renders the performance-review kinds with locale-formatted period months", async () => {
+    const base = { recipientId: 7, timestamp: Date.now(), wasSeen: false };
+    const rows: Item[] = [
+      {
+        ...base,
+        id: 41,
+        type: "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE",
+        link: "/performance-reviews/5/view",
+        params: { manager: "Mona Manager", startMonth: "2026-01", endMonth: "2026-06" },
+      },
+      {
+        ...base,
+        id: 42,
+        type: "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE",
+        link: null,
+        params: { manager: "Mona Manager", startMonth: "2026-01", endMonth: "2026-06" },
+      },
+    ];
+    setupMocks(mockFetch, rows, 2);
+    renderWithProviders(<Harness />);
+    await userEvent.setup().click(await screen.findByRole("button", { name: /notifications/i }));
+
+    expect(
+      await screen.findByText(
+        "Mona Manager published your performance review for the period January 2026 – June 2026.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Mona Manager retracted your performance review for the period January 2026 – June 2026.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   test("shows the unread count on the bell button", async () => {
     setupMocks(mockFetch, [UNSEEN, SEEN], 3);
     renderWithProviders(<NotificationsButton />);
