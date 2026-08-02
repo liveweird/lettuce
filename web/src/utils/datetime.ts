@@ -38,6 +38,34 @@ export function formatIsoDate(iso: string, locale: string): string {
   return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(d);
 }
 
+// ISO "YYYY-MM" -> a localized month ("January 2026" / "styczeń 2026"). The -01T00:00:00
+// suffix pins parsing to local time (the formatIsoDate rationale). Malformed input renders
+// as-is rather than "Invalid Date".
+export function formatIsoMonth(month: string, locale: string): string {
+  const d = new Date(`${month}-01T00:00:00`);
+  if (Number.isNaN(d.getTime())) return month;
+  return new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(d);
+}
+
+// A review period's inclusive month range ("January 2026 – June 2026"); a single-month period
+// renders as just that month.
+export function formatMonthRange(start: string, end: string, locale: string): string {
+  if (start === end) return formatIsoMonth(start, locale);
+  return `${formatIsoMonth(start, locale)} – ${formatIsoMonth(end, locale)}`;
+}
+
+// The ISO "YYYY-MM" month right after the given one — the required start of the next review
+// period (the timeline is append-only and gapless). Malformed input passes through.
+export function nextIsoMonth(month: string): string {
+  const match = month.match(/^(\d{4})-(\d{2})$/);
+  if (!match) return month;
+  const year = Number(match[1]);
+  const m = Number(match[2]);
+  const nextYear = m === 12 ? year + 1 : year;
+  const nextMonth = m === 12 ? 1 : m + 1;
+  return `${nextYear}-${String(nextMonth).padStart(2, "0")}`;
+}
+
 // Today's date as the ISO "YYYY-MM-DD" an <input type="date"> uses (local time).
 export function todayIsoDate(): string {
   const d = new Date();

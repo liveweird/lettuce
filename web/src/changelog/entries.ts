@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.33.0",
+    date: "2026-08-02",
+    en: `**Performance reviews** arrive. Administrators define the global **review periods** (month ranges, appended without gaps, under Config → Review periods). A manager writes one review per team member and period — four categories (attitude, delivery, skills, overall), each a **1–6 rating** plus a written summary — and walks it through *draft → calibration → published*; during calibration, managers up the chain can read it. Once published, the team member sees it under the new **My performance** menu and gets a notification. Managers get two new vantage points: a **Performance reviews** button on each subordinate's card, and a Dashboard tab showing **every subordinate's review for a chosen period** — including who has none yet — filterable by team, career path, specialization, and seniority. HR auditors can inspect any person's reviews from the user-details page.`,
+    pl: `Nadchodzą **oceny okresowe**. Administratorzy definiują globalne **okresy ocen** (zakresy miesięcy, dodawane bez luk, w Konfiguracja → Okresy ocen). Menedżer pisze jedną ocenę na członka zespołu i okres — cztery kategorie (postawa, realizacja, umiejętności, ocena ogólna), każda z **oceną 1–6** i pisemnym podsumowaniem — i prowadzi ją przez *szkic → kalibrację → publikację*; podczas kalibracji ocenę widzą menedżerowie wyżej w strukturze. Po publikacji członek zespołu widzi ją w nowym menu **Moje oceny** i dostaje powiadomienie. Menedżerowie zyskują dwa nowe widoki: przycisk **Oceny okresowe** na karcie każdego podwładnego oraz zakładkę Pulpitu pokazującą **oceny wszystkich podwładnych za wybrany okres** — także tych, którzy jeszcze oceny nie mają — z filtrami zespołu, ścieżki kariery, specjalizacji i poziomu. Audytorzy HR przeglądają oceny dowolnej osoby ze strony szczegółów użytkownika.`,
+  },
+  {
     version: "1.32.2",
     date: "2026-08-02",
     en: `Person-card polish: the career column now sits reliably beside the stats on every card — previously it silently dropped below whenever the stats ran wide, so some grids appeared single-column. The redundant "Career profile" caption is gone, and the card labels are compact (Path, Specialization, Seniority); the edit forms keep the full wordings.`,

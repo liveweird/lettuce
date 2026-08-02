@@ -138,7 +138,8 @@
     "hint": "Read-only auditor access to everything {{name}} is a party to — feedbacks, 1:1 meetings, and goals. This access is recorded.",
     "feedbacksAria": "Audit feedbacks of {{name}}",
     "oneOnOnesAria": "Audit 1:1 meetings of {{name}}",
-    "goalsAria": "Audit goals of {{name}}"
+    "goalsAria": "Audit goals of {{name}}",
+    "performanceReviewsAria": "Audit performance reviews of {{name}}"
   },
   "profile": {
     "missingBadge": "Not set",
@@ -148,5 +149,6 @@
     "path": "Path",
     "specialization": "Specialization",
     "seniority": "Seniority"
-  }
+  },
+  "performanceReviews": "Performance reviews"
 }

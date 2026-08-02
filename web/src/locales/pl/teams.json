@@ -68,5 +68,7 @@
   "goals": "Cele",
   "goalsForAria": "Cele dla {{name}}",
   "kpis": "KPI zespołu",
-  "kpisOfAria": "KPI zespołu {{name}}"
+  "kpisOfAria": "KPI zespołu {{name}}",
+  "performanceReviews": "Oceny okresowe",
+  "performanceReviewsForAria": "Oceny okresowe: {{name}}"
 }

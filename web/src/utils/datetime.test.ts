@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { formatRelativeTime, formatTimestamp, lastModifiedCutoff } from "./datetime";
+import {
+  formatIsoMonth,
+  formatMonthRange,
+  formatRelativeTime,
+  formatTimestamp,
+  lastModifiedCutoff,
+  nextIsoMonth,
+} from "./datetime";
 
 describe("formatTimestamp", () => {
   test("formats local time as YYYY-MM-DD HH:mm with zero-padding", () => {
@@ -65,5 +72,24 @@ describe("lastModifiedCutoff", () => {
     expect(lastModifiedCutoff("week")).toBe(NOW - 7 * DAY);
     spy.mockReturnValue(NOW + DAY);
     expect(lastModifiedCutoff("week")).toBe(NOW + DAY - 7 * DAY);
+  });
+});
+
+describe("month formatting (review periods)", () => {
+  test("formatIsoMonth localizes a YYYY-MM month and passes malformed input through", () => {
+    expect(formatIsoMonth("2026-01", "en")).toBe("January 2026");
+    expect(formatIsoMonth("2026-12", "pl")).toBe("grudzień 2026");
+    expect(formatIsoMonth("garbage", "en")).toBe("garbage");
+  });
+
+  test("formatMonthRange renders the inclusive range and collapses a single-month period", () => {
+    expect(formatMonthRange("2026-01", "2026-06", "en")).toBe("January 2026 – June 2026");
+    expect(formatMonthRange("2026-03", "2026-03", "en")).toBe("March 2026");
+  });
+
+  test("nextIsoMonth steps one month and rolls over a year boundary", () => {
+    expect(nextIsoMonth("2026-06")).toBe("2026-07");
+    expect(nextIsoMonth("2026-12")).toBe("2027-01");
+    expect(nextIsoMonth("bogus")).toBe("bogus");
   });
 });

@@ -12,6 +12,7 @@ import enFeedback from "./locales/en/feedback.json";
 import enOneOnOne from "./locales/en/oneOnOne.json";
 import enGoals from "./locales/en/goals.json";
 import enTeamKpis from "./locales/en/teamKpis.json";
+import enPerformanceReviews from "./locales/en/performanceReviews.json";
 import enUsers from "./locales/en/users.json";
 import enTeams from "./locales/en/teams.json";
 import enTemplates from "./locales/en/templates.json";
@@ -30,6 +31,7 @@ import plFeedback from "./locales/pl/feedback.json";
 import plOneOnOne from "./locales/pl/oneOnOne.json";
 import plGoals from "./locales/pl/goals.json";
 import plTeamKpis from "./locales/pl/teamKpis.json";
+import plPerformanceReviews from "./locales/pl/performanceReviews.json";
 import plUsers from "./locales/pl/users.json";
 import plTeams from "./locales/pl/teams.json";
 import plTemplates from "./locales/pl/templates.json";
@@ -53,6 +55,8 @@ const en = {
   oneOnOne: enOneOnOne,
   goal: enGoals,
   teamKpi: enTeamKpis,
+  // Mounted as the singular area `performanceReview` (the teamKpis.json -> teamKpi precedent).
+  performanceReview: enPerformanceReviews,
   users: enUsers,
   teams: enTeams,
   templates: enTemplates,
@@ -74,6 +78,7 @@ const pl = {
   oneOnOne: plOneOnOne,
   goal: plGoals,
   teamKpi: plTeamKpis,
+  performanceReview: plPerformanceReviews,
   users: plUsers,
   teams: plTeams,
   templates: plTemplates,

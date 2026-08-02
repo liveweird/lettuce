@@ -8,6 +8,7 @@
     "oneOnOnes": "1:1 meetings",
     "goals": "Goals",
     "teamKpis": "Team KPIs",
+    "myPerformance": "My performance",
     "config": "Config",
     "users": "Users",
     "teams": "Teams",
@@ -20,6 +21,7 @@
     "selfReflection": "Self-reflection",
     "changePassword": "Change password",
     "alerts": "Alerts",
-    "changelog": "Changelog"
+    "changelog": "Changelog",
+    "reviewPeriods": "Review periods"
   }
 }

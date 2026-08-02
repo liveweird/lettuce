@@ -1,0 +1,170 @@
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { MantineProvider } from "@mantine/core";
+import { MemoryRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import ReviewsDashboard from "./ReviewsDashboard";
+import { jsonResponse } from "../test/http";
+
+const TOKEN_KEY = "lettuce.auth.token";
+const USER_ID_KEY = "lettuce.auth.userId";
+
+type FetchMock = ReturnType<typeof vi.fn>;
+
+const PERIODS = [
+  { id: 4, startMonth: "2025-07", endMonth: "2025-12" },
+  { id: 5, startMonth: "2026-01", endMonth: "2026-06" },
+];
+
+const MEMBERS = [
+  {
+    userId: 8, name: "Ann Alpha", email: "a@x", teamId: 1, teamName: "AAA",
+    careerPath: { id: 11, value: "Software Engineer" },
+    careerSpecialization: null,
+    seniorityLevel: { id: 31, value: "Senior" },
+  },
+  { userId: 9, name: "Zoe Zeta", email: "z@x", teamId: 2, teamName: "BBB" },
+];
+
+const REVIEW = {
+  id: 21,
+  managerId: 7, managerName: "Mona", managerDeleted: false,
+  subordinateId: 8, subordinateName: "Ann Alpha", subordinateDeleted: false,
+  periodId: 5, periodStartMonth: "2026-01", periodEndMonth: "2026-06",
+  status: "CALIBRATION",
+  attitudeRating: 4, deliveryRating: 3, skillsRating: 5, overallRating: 4,
+  createdAt: 1, lastModified: 1,
+};
+
+function renderTab() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <MantineProvider env="test">
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <ReviewsDashboard />
+        </MemoryRouter>
+      </QueryClientProvider>
+    </MantineProvider>,
+  );
+}
+
+describe("ReviewsDashboard tab", () => {
+  let mockFetch: FetchMock;
+
+  function setupMocks({ periods = PERIODS, reviews = [REVIEW] }: { periods?: unknown[]; reviews?: unknown[] } = {}) {
+    mockFetch.mockImplementation((url: string) => {
+      const u = String(url);
+      if (u.includes("/api/v1/review-periods")) {
+        return Promise.resolve(jsonResponse(200, { items: periods }));
+      }
+      if (u.includes("/api/v1/teams/members")) {
+        return Promise.resolve(
+          jsonResponse(200, { items: MEMBERS, page: 1, pageSize: 100, total: MEMBERS.length }),
+        );
+      }
+      if (u.includes("/api/v1/performance-reviews")) {
+        return Promise.resolve(
+          jsonResponse(200, { items: reviews, page: 1, pageSize: 100, total: (reviews as unknown[]).length }),
+        );
+      }
+      if (u.includes("/api/v1/dictionaries/")) {
+        return Promise.resolve(jsonResponse(200, { items: [{ id: 11, value: "Software Engineer" }] }));
+      }
+      return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }));
+    });
+  }
+
+  beforeEach(() => {
+    mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
+    localStorage.setItem(TOKEN_KEY, "fake-token");
+    localStorage.setItem(USER_ID_KEY, "7"); // the manager viewing their org
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  test("every subordinate gets a row: review status + ratings, or the no-review state with New review", async () => {
+    setupMocks();
+    renderTab();
+
+    // The period picker defaults to the latest period and scopes the reviews query.
+    await waitFor(() =>
+      expect(screen.getByLabelText("Period", { selector: "input" })).toHaveValue(
+        "January 2026 – June 2026",
+      ),
+    );
+    expect(await screen.findByText("Ann Alpha")).toBeInTheDocument();
+    // Scope to the table — the closed filter Selects keep their option lists in the DOM.
+    const table = screen.getByRole("table");
+    expect(within(table).getByText("Calibration")).toBeInTheDocument();
+    expect(within(table).getByText("Software Engineer")).toBeInTheDocument();
+    expect(within(table).getByText("Senior")).toBeInTheDocument();
+    // Ann's ratings render as numbers; her CALIBRATION row opens the view screen (the
+    // lifecycle actions live there — Edit is the DRAFT rows' action).
+    expect(screen.getByText("5")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "View the performance review of Ann Alpha" }),
+    ).toBeInTheDocument();
+    // Zoe has no review yet — badge + the New-review action (direct scope).
+    expect(screen.getByText("Zoe Zeta")).toBeInTheDocument();
+    expect(screen.getByText("No review yet")).toBeInTheDocument();
+    const newReview = screen.getByRole("link", { name: "New performance review for Zoe Zeta" });
+    expect(newReview.getAttribute("href")).toContain("/performance-reviews/new?subordinateId=9");
+    const reviewsCall = mockFetch.mock.calls
+      .map((c) => String(c[0]))
+      .find((u) => u.includes("/api/v1/performance-reviews?"));
+    expect(reviewsCall).toContain("periodId=5");
+    expect(reviewsCall).toContain("includeIndirect=true");
+  });
+
+  test("the indirect scope widens the member fetch and hides the New-review action", async () => {
+    setupMocks();
+    renderTab();
+
+    await screen.findByText("Zoe Zeta");
+    fireEvent.click(screen.getByLabelText("Reports", { selector: "input" }));
+    fireEvent.click(await screen.findByRole("option", { name: "All reports (including indirect)" }));
+
+    await screen.findByText("Zoe Zeta");
+    expect(screen.queryByRole("link", { name: /New performance review/ })).toBeNull();
+    const memberCalls = mockFetch.mock.calls.map((c) => String(c[0]));
+    expect(memberCalls.some((u) => u.includes("/api/v1/teams/members") && u.includes("includeIndirect=true"))).toBe(
+      true,
+    );
+  });
+
+  test("the team and career filters narrow the rows client-side", async () => {
+    setupMocks();
+    renderTab();
+
+    await screen.findByText("Zoe Zeta");
+    fireEvent.click(screen.getByLabelText("Team", { selector: "input" }));
+    fireEvent.click(await screen.findByRole("option", { name: "AAA" }));
+    expect(await screen.findByText("Ann Alpha")).toBeInTheDocument();
+    expect(within(screen.getByRole("table")).queryByText("Zoe Zeta")).toBeNull();
+
+    // Back to all teams, then filter by career path — only Ann carries entry 11.
+    fireEvent.click(screen.getByLabelText("Team", { selector: "input" }));
+    fireEvent.click(await screen.findByRole("option", { name: "All" }));
+    await screen.findByText("Zoe Zeta");
+    fireEvent.click(screen.getByLabelText("Career path", { selector: "input" }));
+    const options = await screen.findAllByRole("option", { name: "Software Engineer" });
+    fireEvent.click(options[0]);
+    expect(await screen.findByText("Ann Alpha")).toBeInTheDocument();
+    expect(within(screen.getByRole("table")).queryByText("Zoe Zeta")).toBeNull();
+  });
+
+  test("an empty timeline shows the pointer at the periods admin", async () => {
+    setupMocks({ periods: [] });
+    renderTab();
+    expect(
+      await screen.findByText(
+        "There are no review periods yet — an administrator creates them under Config → Review periods.",
+      ),
+    ).toBeInTheDocument();
+  });
+});
