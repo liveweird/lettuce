@@ -3,29 +3,25 @@ import { Alert, Badge, Button, Group, Select, Stack, Table, Text } from "@mantin
 import { IconClipboardText, IconEye, IconPencil, IconPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  getUserId,
-  listAllPerformanceReviews,
-  listAllTeamMembers,
-  listReviewPeriods,
-} from "../api/client";
+import { getUserId, listAllPerformanceReviews, listAllTeamMembers } from "../api/client";
 import EmptyState from "../components/EmptyState";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import PersonaChip from "../components/PersonaChip";
 import PerformanceReviewStatusBadge from "../components/PerformanceReviewStatusBadge";
-import RatingBadge from "../components/RatingBadge";
+import { RatingCells } from "../components/RatingBadge";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import SortHeader from "../components/SortHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
 import { useDictionaryOptions } from "../hooks/useDictionaryOptions";
 import { usePagedSort } from "../hooks/usePagedSort";
+import { useReviewPeriodOptions } from "../hooks/useReviewPeriodOptions";
 import { isOneOf, isString, useStoredState } from "../hooks/useStoredState";
-import { formatMonthRange } from "../utils/datetime";
 import { reviewCreateLink, reviewEditLink, reviewViewLink } from "../utils/performanceReviewLinks";
 import { REVIEW_CATEGORIES } from "../utils/reviewRatings";
 import {
   buildReviewsDashboardRows,
+  EMPTY_REVIEWS_DASHBOARD_FILTERS,
   filterReviewsDashboardRows,
   REVIEWS_DASHBOARD_SORT_FIELDS,
   sortReviewsDashboardRows,
@@ -55,7 +51,7 @@ const RATING_COLUMNS = REVIEW_CATEGORIES.map((category) => ({
  * the dataset, like a tab.
  */
 export default function ReviewsDashboard() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const currentUserId = getUserId();
 
   const [reportsScope, setReportsScope] = useStoredState<(typeof REPORTS_SCOPES)[number]>(
@@ -63,29 +59,34 @@ export default function ReviewsDashboard() {
   );
   const includeIndirect = reportsScope === "all";
   const [storedPeriod, setStoredPeriod] = useStoredState(`${SETTINGS_KEY}.period`, "", isString);
-  const [teamFilter, setTeamFilter] = useStoredState(`${SETTINGS_KEY}.filter.team`, "", isString);
-  const [pathFilter, setPathFilter] = useStoredState(`${SETTINGS_KEY}.filter.careerPath`, "", isString);
+  const [teamFilter, setTeamFilter] = useStoredState(
+    `${SETTINGS_KEY}.filter.team`, EMPTY_REVIEWS_DASHBOARD_FILTERS.teamName, isString,
+  );
+  const [pathFilter, setPathFilter] = useStoredState(
+    `${SETTINGS_KEY}.filter.careerPath`, EMPTY_REVIEWS_DASHBOARD_FILTERS.careerPathId, isString,
+  );
   const [specFilter, setSpecFilter] = useStoredState(
-    `${SETTINGS_KEY}.filter.careerSpecialization`, "", isString,
+    `${SETTINGS_KEY}.filter.careerSpecialization`,
+    EMPTY_REVIEWS_DASHBOARD_FILTERS.careerSpecializationId,
+    isString,
   );
   const [seniorityFilter, setSeniorityFilter] = useStoredState(
-    `${SETTINGS_KEY}.filter.seniorityLevel`, "", isString,
+    `${SETTINGS_KEY}.filter.seniorityLevel`,
+    EMPTY_REVIEWS_DASHBOARD_FILTERS.seniorityLevelId,
+    isString,
   );
 
   const { options: pathOptions } = useDictionaryOptions("career-paths");
   const { options: specOptions } = useDictionaryOptions("career-specializations");
   const { options: seniorityOptions } = useDictionaryOptions("seniority-levels");
 
-  const { data: periods, isLoading: periodsLoading, isError: periodsError } = useQuery({
-    queryKey: ["reviewPeriods"],
-    queryFn: listReviewPeriods,
-    staleTime: 5 * 60 * 1000,
-  });
-  // Newest first for the picker; a stale stored id (deleted period) falls back to the latest.
-  const periodOptions = [...(periods ?? [])].reverse().map((p) => ({
-    value: String(p.id),
-    label: formatMonthRange(p.startMonth, p.endMonth, i18n.language),
-  }));
+  const {
+    periods,
+    options: periodOptions,
+    isLoading: periodsLoading,
+    isError: periodsError,
+  } = useReviewPeriodOptions();
+  // The picker is newest-first; a stale stored id (deleted period) falls back to the latest.
   const periodId =
     storedPeriod && periodOptions.some((o) => o.value === storedPeriod)
       ? storedPeriod
@@ -326,17 +327,7 @@ export default function ReviewsDashboard() {
                       </Badge>
                     )}
                   </Table.Td>
-                  {ratings.map((rating, index) => (
-                    <Table.Td key={REVIEW_CATEGORIES[index]} style={{ whiteSpace: "nowrap" }}>
-                      {rating != null ? (
-                        <RatingBadge rating={rating} />
-                      ) : (
-                        <Text size="sm" c="dimmed">
-                          —
-                        </Text>
-                      )}
-                    </Table.Td>
-                  ))}
+                  <RatingCells ratings={ratings} />
                   <Table.Td style={{ whiteSpace: "nowrap" }}>
                     {review ? (
                       <Button

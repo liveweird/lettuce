@@ -14,14 +14,9 @@ import {
 } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  ApiError,
-  createPerformanceReview,
-  listReviewPeriods,
-  listTeamMembers,
-} from "../api/client";
+import { ApiError, createPerformanceReview, listTeamMembers } from "../api/client";
 import PersonaField from "../components/PersonaField";
-import { formatMonthRange } from "../utils/datetime";
+import { useReviewPeriodOptions } from "../hooks/useReviewPeriodOptions";
 import { reviewEditLink, reviewViewLink } from "../utils/performanceReviewLinks";
 import { reviewSaveErrorMessage } from "../utils/reviewRatings";
 import { groupTeamRows } from "../utils/teamRows";
@@ -45,7 +40,7 @@ function conflictReviewId(err: unknown): number | null {
  * occupied slot is a 409 with a link to the existing review.
  */
 export default function CreatePerformanceReview() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
@@ -80,20 +75,8 @@ export default function CreatePerformanceReview() {
     [reports],
   );
 
-  const { data: periods } = useQuery({
-    queryKey: ["reviewPeriods"],
-    queryFn: listReviewPeriods,
-    staleTime: 5 * 60 * 1000,
-  });
   // Newest first; the latest period is the sensible default for a new review.
-  const periodOptions = useMemo(
-    () =>
-      [...(periods ?? [])].reverse().map((p) => ({
-        value: String(p.id),
-        label: formatMonthRange(p.startMonth, p.endMonth, i18n.language),
-      })),
-    [periods, i18n.language],
-  );
+  const { periods, options: periodOptions } = useReviewPeriodOptions();
   const effectivePeriod = periodId ?? periodOptions[0]?.value ?? null;
 
   async function save() {

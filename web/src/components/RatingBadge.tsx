@@ -1,5 +1,5 @@
-import { Badge, type MantineSize } from "@mantine/core";
-import { ratingColor } from "../utils/reviewRatings";
+import { Badge, Table, Text, type MantineSize } from "@mantine/core";
+import { ratingColor, REVIEW_CATEGORIES } from "../utils/reviewRatings";
 
 /**
  * A rating value (1–6) as a colored pill on the consistent orange→green scale — the one look
@@ -17,5 +17,27 @@ export default function RatingBadge({
     <Badge variant="light" color={ratingColor(rating)} size={size} style={{ minWidth: "max-content" }}>
       {rating}
     </Badge>
+  );
+}
+
+/**
+ * The four rating table cells in category order — a badge per set rating, a dimmed dash for
+ * an unset one. Shared by the review tables and the dashboard so the cells stay identical.
+ */
+export function RatingCells({ ratings }: { ratings: (number | null)[] }) {
+  return (
+    <>
+      {ratings.map((rating, index) => (
+        <Table.Td key={REVIEW_CATEGORIES[index]} style={{ whiteSpace: "nowrap" }}>
+          {rating != null ? (
+            <RatingBadge rating={rating} />
+          ) : (
+            <Text size="sm" c="dimmed">
+              —
+            </Text>
+          )}
+        </Table.Td>
+      ))}
+    </>
   );
 }
