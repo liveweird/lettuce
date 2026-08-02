@@ -4,6 +4,7 @@ import {
   buildReviewsDashboardRows,
   EMPTY_REVIEWS_DASHBOARD_FILTERS,
   filterReviewsDashboardRows,
+  sortReviewsDashboardRows,
   teamNameOptions,
 } from "./reviewsDashboard";
 import type { TeamRow } from "./teamRows";
@@ -78,6 +79,71 @@ describe("reviewsDashboard", () => {
         seniorityLevelId: "31",
       }).map((r) => r.person.name),
     ).toEqual(["Zoe"]);
+  });
+
+  test("sorts strings per locale with unset values last", () => {
+    const rows = buildReviewsDashboardRows(
+      [
+        member(1, "Ann", "BBB", { seniorityLevel: { id: 31, value: "Senior" } }),
+        member(2, "Zoe", "AAA"),
+      ],
+      [],
+    );
+    expect(sortReviewsDashboardRows(rows, "team", "asc").map((r) => r.person.name)).toEqual([
+      "Zoe",
+      "Ann",
+    ]);
+    expect(sortReviewsDashboardRows(rows, "name", "desc").map((r) => r.person.name)).toEqual([
+      "Zoe",
+      "Ann",
+    ]);
+    // Zoe has no seniority — she sinks below Ann in BOTH directions.
+    expect(
+      sortReviewsDashboardRows(rows, "seniorityLevel", "asc").map((r) => r.person.name),
+    ).toEqual(["Ann", "Zoe"]);
+    expect(
+      sortReviewsDashboardRows(rows, "seniorityLevel", "desc").map((r) => r.person.name),
+    ).toEqual(["Ann", "Zoe"]);
+  });
+
+  test("sorts ratings numerically with no-review rows last regardless of direction", () => {
+    const rows = buildReviewsDashboardRows(
+      [member(1, "Ann", "AAA"), member(2, "Ben", "AAA"), member(3, "Zoe", "AAA")],
+      [review(1, { overallRating: 2 }), review(2, { overallRating: 5 })],
+    );
+    expect(sortReviewsDashboardRows(rows, "overall", "asc").map((r) => r.person.name)).toEqual([
+      "Ann",
+      "Ben",
+      "Zoe",
+    ]);
+    expect(sortReviewsDashboardRows(rows, "overall", "desc").map((r) => r.person.name)).toEqual([
+      "Ben",
+      "Ann",
+      "Zoe",
+    ]);
+  });
+
+  test("sorts status by lifecycle rank, no review lowest", () => {
+    const rows = buildReviewsDashboardRows(
+      [member(1, "Ann", "A"), member(2, "Ben", "A"), member(3, "Cyd", "A"), member(4, "Zoe", "A")],
+      [
+        review(1, { status: "PUBLISHED" }),
+        review(2, { status: "DRAFT" }),
+        review(3, { status: "CALIBRATION" }),
+      ],
+    );
+    expect(sortReviewsDashboardRows(rows, "status", "asc").map((r) => r.person.name)).toEqual([
+      "Zoe", // no review
+      "Ben", // draft
+      "Cyd", // calibration
+      "Ann", // published
+    ]);
+    expect(sortReviewsDashboardRows(rows, "status", "desc").map((r) => r.person.name)).toEqual([
+      "Ann",
+      "Cyd",
+      "Ben",
+      "Zoe",
+    ]);
   });
 
   test("teamNameOptions collects the distinct sorted team names", () => {
