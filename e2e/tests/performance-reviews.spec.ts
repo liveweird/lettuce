@@ -21,6 +21,8 @@ import type { Page } from "@playwright/test";
 
 const CATEGORIES = ["Attitude", "Delivery", "Skills", "Overall"] as const;
 const RATING = "4 — Sometimes exceeds expectations";
+// On the view screen the rating renders as a colored badge + the wording beside it (v1.33.1).
+const RATING_WORDING = "Sometimes exceeds expectations";
 
 function addMonths(month: string, months: number): string {
   const [y, m] = month.split("-").map(Number);
@@ -110,7 +112,7 @@ test("a performance review travels period → draft → calibration → publishe
 
   // 4. The CALIBRATION row opens the view screen, which owns Publish.
   await annRow.getByRole("link", { name: "View the performance review of AAA One" }).click();
-  await expect(page.getByText(RATING).first()).toBeVisible();
+  await expect(page.getByText(RATING_WORDING).first()).toBeVisible();
   await Promise.all([
     page.waitForResponse(
       (r) => r.url().includes(`/api/v1/performance-reviews/${reviewId}/publish`) && r.ok(),
@@ -130,7 +132,7 @@ test("a performance review travels period → draft → calibration → publishe
   const myRow = page.getByRole("row").filter({ hasText: periodLabel });
   await expect(myRow.getByText("Published")).toBeVisible();
   await myRow.getByRole("link", { name: /^View the performance review/ }).click();
-  await expect(page.getByText(RATING).first()).toBeVisible();
+  await expect(page.getByText(RATING_WORDING).first()).toBeVisible();
   await expect(page.getByText("E2E attitude summary for this period.")).toBeVisible();
   // Read-only: no lifecycle or edit affordances for the subordinate.
   await expect(page.getByRole("button", { name: "Unpublish" })).toHaveCount(0);

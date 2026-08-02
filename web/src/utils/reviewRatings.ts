@@ -14,6 +14,23 @@ export const RATING_VALUES = [1, 2, 3, 4, 5, 6] as const;
 export const REVIEW_CATEGORIES = ["attitude", "delivery", "skills", "overall"] as const;
 export type ReviewCategory = (typeof REVIEW_CATEGORIES)[number];
 
+// The consistent rating color scale: a monotonic orange→green gradient (the lower the more
+// orange, the higher the more green), with the extremes deepened so 1 and 6 read as the poles.
+const RATING_COLORS: Record<number, string> = {
+  1: "orange.8",
+  2: "orange.5",
+  3: "yellow.6",
+  4: "lime.6",
+  5: "green.5",
+  6: "green.8",
+};
+
+/** The Mantine color for a rating — used everywhere a rating value is shown (RatingBadge, the
+ * editor's option swatches). Out-of-range values fall back to gray (forward-compat). */
+export function ratingColor(rating: number): string {
+  return RATING_COLORS[rating] ?? "gray";
+}
+
 /** The localized scale wording for a rating ("Sometimes exceeds expectations"). */
 export function ratingLabel(t: TFunction, rating: number): string {
   return t(`performanceReview.rating.${rating}`);

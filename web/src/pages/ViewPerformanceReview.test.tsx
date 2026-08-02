@@ -87,8 +87,11 @@ describe("ViewPerformanceReview page", () => {
     expect(screen.getByText("You")).toBeInTheDocument(); // the subordinate is the viewer
     expect(screen.getByText("January 2026 – June 2026")).toBeInTheDocument();
     expect(screen.getByText("Published")).toBeInTheDocument();
-    expect(screen.getByText("4 — Sometimes exceeds expectations")).toBeInTheDocument();
-    expect(screen.getByText("5 — Exceeds expectations")).toBeInTheDocument();
+    // Ratings render as the colored badge number + the wording beside it (v1.33.1).
+    expect(screen.getByText("Sometimes exceeds expectations")).toBeInTheDocument();
+    expect(screen.getByText("Exceeds expectations")).toBeInTheDocument();
+    expect(screen.getByText("4")).toBeInTheDocument();
+    expect(screen.getByText("5")).toBeInTheDocument();
     expect(screen.getByText("Positive influence on the team.")).toBeInTheDocument();
     // The unfilled category dims instead of breaking.
     expect(screen.getByText("Not rated yet")).toBeInTheDocument();
