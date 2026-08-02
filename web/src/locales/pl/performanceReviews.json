@@ -106,14 +106,16 @@
     "loadError": "Nie udało się wczytać okresów ocen",
     "startMonth": "Pierwszy miesiąc",
     "endMonth": "Ostatni miesiąc",
-    "startLocked": "Stały: miesiąc po końcu ostatniego okresu.",
+    "startLocked": "Stały — oś czasu nie dopuszcza luk ani nakładania: nowy okres zaczyna się zaraz po końcu ostatniego.",
     "addPeriod": "Dodaj okres",
     "adjacencyConflict": "Okres musi zaczynać się zaraz po końcu ostatniego — odśwież i spróbuj ponownie.",
     "invalidMonths": "Oba miesiące są wymagane, a pierwszy nie może być po ostatnim.",
     "deleteConflict": "Usunąć można tylko ostatni okres bez żadnych ocen.",
     "deleteAria": "Usuń okres {{range}}",
     "deleteTitle": "Usunąć ten okres?",
-    "deleteMessage": "Ostatni okres zostanie usunięty z osi czasu."
+    "deleteMessage": "Ostatni okres zostanie usunięty z osi czasu.",
+    "year": "Rok",
+    "preview": "Zostanie dodany: {{range}}"
   },
   "dashboard": {
     "team": "Zespół",

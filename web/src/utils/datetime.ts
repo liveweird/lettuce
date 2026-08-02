@@ -54,16 +54,36 @@ export function formatMonthRange(start: string, end: string, locale: string): st
   return `${formatIsoMonth(start, locale)} – ${formatIsoMonth(end, locale)}`;
 }
 
-// The ISO "YYYY-MM" month right after the given one — the required start of the next review
-// period (the timeline is append-only and gapless). Malformed input passes through.
-export function nextIsoMonth(month: string): string {
+// ISO "YYYY-MM" plus [months] — period-end defaults and the adjacency rule both step months.
+// Malformed input passes through.
+export function addIsoMonths(month: string, months: number): string {
   const match = month.match(/^(\d{4})-(\d{2})$/);
   if (!match) return month;
-  const year = Number(match[1]);
-  const m = Number(match[2]);
-  const nextYear = m === 12 ? year + 1 : year;
-  const nextMonth = m === 12 ? 1 : m + 1;
-  return `${nextYear}-${String(nextMonth).padStart(2, "0")}`;
+  const total = Number(match[1]) * 12 + (Number(match[2]) - 1) + months;
+  return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, "0")}`;
+}
+
+// The ISO "YYYY-MM" month right after the given one — the required start of the next review
+// period (the timeline is append-only and gapless).
+export function nextIsoMonth(month: string): string {
+  return addIsoMonths(month, 1);
+}
+
+// The 12 months as Select options: values "01".."12", labels localized full month names.
+export function monthOptions(locale: string): { value: string; label: string }[] {
+  const format = new Intl.DateTimeFormat(locale, { month: "long" });
+  return Array.from({ length: 12 }, (_, i) => ({
+    value: String(i + 1).padStart(2, "0"),
+    label: format.format(new Date(2000, i, 1)),
+  }));
+}
+
+// Consecutive years as Select options (inclusive bounds).
+export function yearOptions(from: number, to: number): { value: string; label: string }[] {
+  return Array.from({ length: to - from + 1 }, (_, i) => ({
+    value: String(from + i),
+    label: String(from + i),
+  }));
 }
 
 // Today's date as the ISO "YYYY-MM-DD" an <input type="date"> uses (local time).

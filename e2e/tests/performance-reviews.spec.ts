@@ -24,57 +24,31 @@ const RATING = "4 — Sometimes exceeds expectations";
 // On the view screen the rating renders as a colored badge + the wording beside it (v1.33.1).
 const RATING_WORDING = "Sometimes exceeds expectations";
 
-function addMonths(month: string, months: number): string {
-  const [y, m] = month.split("-").map(Number);
-  const total = y * 12 + (m - 1) + months;
-  return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, "0")}`;
-}
-
-function monthLabel(month: string): string {
-  const [y, m] = month.split("-").map(Number);
-  return new Intl.DateTimeFormat("en", { month: "long", year: "numeric" }).format(
-    new Date(y, m - 1, 1),
-  );
-}
-
 async function pickRating(page: Page, label: string) {
   await page.getByRole("combobox", { name: label }).click();
   await page.getByRole("option", { name: RATING }).click();
 }
 
 test("a performance review travels period → draft → calibration → published → subordinate", async ({ page }) => {
-  // 1. The admin appends a fresh period (Config → Review periods). The start input is locked
-  //    to the adjacent month once any period exists; on a virgin timeline it is free.
+  // 1. The admin appends a fresh period (Config → Review periods). The pickers default to a
+  //    valid period (fixed/current start + 6 months) and the append form only renders once
+  //    the timeline data is loaded, so the preview line names the EXACT range Add will create
+  //    — read the label from it instead of computing months (v1.33.2, dropdown entry).
   await login(page, ADMIN);
   await page.getByRole("button", { name: "Config" }).click();
   await page.getByRole("link", { name: "Review periods" }).click();
   await expect(page.getByRole("heading", { name: "Review periods" })).toBeVisible();
-  // Wait for the timeline data before reading the start input (the dictionaries lesson: the
-  // form renders before the query resolves; reading too early sees the pre-lock empty value
-  // and computes a non-adjacent end, leaving Add disabled forever). Loaded = either the empty
-  // state or at least one period row's Delete affordance.
-  await expect(
-    page
-      .getByText("No review periods yet — add the first one below.")
-      .or(page.getByRole("button", { name: /^Delete the period/ }))
-      .first(),
-  ).toBeVisible();
-  const startInput = page.getByLabel("First month");
-  let start = await startInput.inputValue();
-  if (start === "") {
-    start = "2000-01";
-    await startInput.fill(start);
-  }
-  const end = addMonths(start, 5);
-  const periodLabel = `${monthLabel(start)} – ${monthLabel(end)}`;
-  await page.getByLabel("Last month").fill(end);
+  const preview = page.getByText(/^Will add: /);
+  await expect(preview).toBeVisible();
+  const periodLabel = (await preview.innerText()).replace(/^Will add: /, "");
   await Promise.all([
     page.waitForResponse(
       (r) => r.url().includes("/api/v1/review-periods") && r.request().method() === "POST" && r.ok(),
     ),
     page.getByRole("button", { name: "Add period" }).click(),
   ]);
-  await expect(page.getByText(periodLabel)).toBeVisible();
+  // The new period lands in the timeline list.
+  await expect(page.getByText(periodLabel, { exact: true })).toBeVisible();
   await logout(page);
 
   // 2. The manager's Dashboard tab shows AAA One with no review yet; New review lands in the
