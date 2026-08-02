@@ -23,6 +23,7 @@ import {
   IconChartLine,
   IconCheck,
   IconChecks,
+  IconClipboardText,
   IconExternalLink,
   IconEyeOff,
   IconKey,
@@ -77,6 +78,8 @@ const EVENT_KEY: Record<NotificationItem["type"], string> = {
   TEAM_KPI_VALUE_RECORDED_TO_MEMBER: "teamKpiValueRecorded",
   TEAM_KPI_VALUE_CORRECTED_TO_MEMBER: "teamKpiValueCorrected",
   TEAM_KPI_VALUE_REMOVED_TO_MEMBER: "teamKpiValueRemoved",
+  PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE: "performanceReviewPublished",
+  PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE: "performanceReviewUnpublished",
   PASSWORD_CHANGED: "passwordChanged",
 };
 
@@ -133,6 +136,8 @@ const TYPE_META: Record<NotificationItem["type"], { icon: typeof IconBell; color
   TEAM_KPI_VALUE_RECORDED_TO_MEMBER: { icon: IconChartLine, color: "teal" },
   TEAM_KPI_VALUE_CORRECTED_TO_MEMBER: { icon: IconChartLine, color: "indigo" },
   TEAM_KPI_VALUE_REMOVED_TO_MEMBER: { icon: IconChartLine, color: "gray" },
+  PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE: { icon: IconClipboardText, color: "green" },
+  PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE: { icon: IconClipboardText, color: "orange" },
   PASSWORD_CHANGED: { icon: IconKey, color: "orange" },
 };
 

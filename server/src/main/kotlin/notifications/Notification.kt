@@ -6,7 +6,8 @@ import kotlinx.serialization.Serializable
 /**
  * The kind of notification, driving both the recipient's wording and its params. Values are
  * produced by feedbacks/FeedbackNotifications.kt, oneonones/OneOnOneNotifications.kt,
- * goals/GoalNotifications.kt, teamkpis/TeamKpiNotifications.kt, and the password-change paths (users/UserRoutes.kt,
+ * goals/GoalNotifications.kt, teamkpis/TeamKpiNotifications.kt,
+ * reviews/PerformanceReviewNotifications.kt, and the password-change paths (users/UserRoutes.kt,
  * auth/AuthRoutes.kt); the SPA renders each one in the viewer's language from
  * `notifications.event.*` keys.
  */
@@ -36,6 +37,8 @@ enum class NotificationType {
     TEAM_KPI_VALUE_RECORDED_TO_MEMBER,
     TEAM_KPI_VALUE_CORRECTED_TO_MEMBER,
     TEAM_KPI_VALUE_REMOVED_TO_MEMBER,
+    PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE,
+    PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE,
     PASSWORD_CHANGED,
 }
 

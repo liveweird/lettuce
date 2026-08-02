@@ -212,6 +212,35 @@ object TestServices {
     val teamKpis: ch.nokillswit.teamkpis.TeamKpiService by lazy {
         ch.nokillswit.teamkpis.TeamKpiService(sharedTestDatabase, cipher)
     }
+    val reviewPeriods: ch.nokillswit.reviews.ReviewPeriodService by lazy {
+        ch.nokillswit.reviews.ReviewPeriodService(sharedTestDatabase)
+    }
+    val performanceReviews: ch.nokillswit.reviews.PerformanceReviewService by lazy {
+        ch.nokillswit.reviews.PerformanceReviewService(sharedTestDatabase, cipher)
+    }
+}
+
+// The review-period timeline is GLOBAL, append-only, and gapless — shared mutable state in the
+// shared container, like the dictionaries. Tests must never hand-pick absolute months: always
+// append after the current latest via this helper, and treat the returned period as theirs.
+object TestReviewPeriods {
+    /** Appends the next adjacent period ([months] long) and returns it. The first ever period
+     *  starts at a fixed epoch far in the past, so the timeline never depends on wall time. */
+    suspend fun append(months: Int = 6): ch.nokillswit.reviews.ReviewPeriod {
+        val latest = TestServices.reviewPeriods.list().lastOrNull()
+        val start = if (latest == null) {
+            java.time.YearMonth.of(2000, 1)
+        } else {
+            java.time.YearMonth.parse(latest.endMonth).plusMonths(1)
+        }
+        val id = TestServices.reviewPeriods.create(
+            ch.nokillswit.reviews.ReviewPeriodCreateRequest(
+                startMonth = start.toString(),
+                endMonth = start.plusMonths((months - 1).toLong()).toString(),
+            ),
+        )
+        return checkNotNull(TestServices.reviewPeriods.read(id))
+    }
 }
 
 // Reads dictionary_entries rows raw, soft-deleted included (the API read filters active), to
@@ -325,6 +354,13 @@ object TestGoalMaintenance {
 object TestGoalEvents {
     val service: ch.nokillswit.goals.GoalEventService by lazy {
         ch.nokillswit.goals.GoalEventService(sharedTestDatabase)
+    }
+}
+
+// Reads the performance_review_events audit table directly (events outlive a soft delete).
+object TestPerformanceReviewEvents {
+    val service: ch.nokillswit.reviews.PerformanceReviewEventService by lazy {
+        ch.nokillswit.reviews.PerformanceReviewEventService(sharedTestDatabase)
     }
 }
 
