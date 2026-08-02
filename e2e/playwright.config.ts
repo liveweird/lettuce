@@ -14,7 +14,10 @@ export default defineConfig({
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : [["list"], ["html", { open: "never" }]],
   // Generous per-test budget: the login helper may wait out the server's per-IP login
   // rate limit (10/min) between retries — see helpers.ts.
-  timeout: 120_000,
+  // 180s: the login helper's per-IP rate-limit retry ladder (up to 9 × 10s sleeps) can eat
+  // ~90s on its own when fast preceding specs drain the 10/min bucket — 120s left real test
+  // work no headroom and produced stuck-at-signin timeouts (3× on 2026-08-02).
+  timeout: 180_000,
   expect: { timeout: 10_000 },
   globalSetup: "./global-setup.ts",
   globalTeardown: "./global-teardown.ts",
