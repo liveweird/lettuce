@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.32.2",
+    date: "2026-08-02",
+    en: `Person-card polish: the career column now sits reliably beside the stats on every card — previously it silently dropped below whenever the stats ran wide, so some grids appeared single-column. The redundant "Career profile" caption is gone, and the card labels are compact (Path, Specialization, Seniority); the edit forms keep the full wordings.`,
+    pl: `Szlif kart osób: kolumna kariery stoi teraz niezawodnie obok statystyk na każdej karcie — wcześniej po cichu spadała niżej, gdy statystyki były szerokie, przez co niektóre listy wyglądały na jednokolumnowe. Zbędny nagłówek „Profil kariery" zniknął, a etykiety na kartach są zwięzłe (Ścieżka, Specjalizacja, Poziom); formularze edycji zachowują pełne nazwy.`,
+  },
+  {
     version: "1.32.1",
     date: "2026-08-02",
     en: `The career profile moved into the person cards themselves: on the user-details page and on all three Dashboard grids (My managers, My peers, My subordinates), each card now shows the career path, specialization, and seniority level in a second column next to the existing stats — with the orange "Not set" marker where a value is still missing. The separate panel on the details page is gone.`,

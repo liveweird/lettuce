@@ -244,7 +244,7 @@ describe("TeamMembersTable", () => {
     );
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No team members" />);
 
-    expect(await screen.findByText("Career profile")).toBeInTheDocument();
+    expect(await screen.findByText("Path")).toBeInTheDocument();
     expect(screen.getByText("System Analyst")).toBeInTheDocument();
     expect(screen.getByText("Java")).toBeInTheDocument();
     expect(screen.getAllByText("Not set")).toHaveLength(1);
@@ -258,7 +258,7 @@ describe("TeamMembersTable", () => {
       membersPage([{ ...SEED_MEMBERS[1], careerPath: { id: 11, value: "QA Engineer" } }]),
     );
     renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
-    await screen.findByText("Career profile");
+    await screen.findByText("Path");
 
     fireEvent.click(screen.getByRole("button", { name: /filters/i }));
     // happy-dom does not open Mantine comboboxes via userEvent's pointer simulation
@@ -269,7 +269,7 @@ describe("TeamMembersTable", () => {
     await waitFor(() => {
       expect(screen.queryByText("Last 1:1")).toBeNull();
     });
-    expect(screen.getByText("Career profile")).toBeInTheDocument();
+    expect(screen.getByText("Path")).toBeInTheDocument();
     expect(screen.getByText("QA Engineer")).toBeInTheDocument();
   });
 

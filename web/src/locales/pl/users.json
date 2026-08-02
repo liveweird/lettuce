@@ -143,10 +143,12 @@
     "goalsAria": "Audytuj cele: {{name}}"
   },
   "profile": {
-    "title": "Profil kariery",
     "missingBadge": "Nie ustawiono",
     "missingHint": "Brak wartości — zdecydowanie warto ją uzupełnić",
     "pickPlaceholder": "Wybierz wartość",
-    "noMatch": "Brak pasujących pozycji"
+    "noMatch": "Brak pasujących pozycji",
+    "path": "Ścieżka",
+    "specialization": "Specjalizacja",
+    "seniority": "Poziom"
   }
 }
