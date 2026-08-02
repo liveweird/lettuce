@@ -1,9 +1,13 @@
 package ch.nokillswit.users
 
+import ch.nokillswit.dictionaries.Dictionary
+import ch.nokillswit.dictionaries.DictionaryEntry
+import ch.nokillswit.dictionaries.DictionaryService
 import ch.nokillswit.infra.db.containsPattern
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.teams.TeamService
+import io.ktor.server.plugins.BadRequestException
 import io.ktor.util.AttributeKey
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
@@ -45,6 +49,12 @@ class UserService(val database: R2dbcDatabase) {
         val passwordHash = varchar("password_hash", length = 255)
         val markedAsDeleted = bool("marked_as_deleted").default(false)
         val passwordChangedAt = long("password_changed_at").default(0)
+
+        // Career profile refs into dictionary_entries (V33). Plain nullable id columns —
+        // the FK lives in the migration; Exposed defs are query-only.
+        val careerPathId = uinteger("career_path_id").nullable()
+        val careerSpecializationId = uinteger("career_specialization_id").nullable()
+        val seniorityLevelId = uinteger("seniority_level_id").nullable()
     }
 
     object UserRoles : Table("user_roles") {
@@ -58,6 +68,9 @@ class UserService(val database: R2dbcDatabase) {
             it[name] = user.name
             it[email] = user.email
             it[passwordHash] = user.passwordHash
+            it[careerPathId] = user.careerPathId
+            it[careerSpecializationId] = user.careerSpecializationId
+            it[seniorityLevelId] = user.seniorityLevelId
         }
         val id = newRecord[Users.id].value
         insertRoles(id, user.roles)
@@ -94,6 +107,9 @@ class UserService(val database: R2dbcDatabase) {
             it[name] = user.name
             it[email] = user.email
             it[passwordHash] = user.passwordHash
+            it[careerPathId] = user.careerPathId
+            it[careerSpecializationId] = user.careerSpecializationId
+            it[seniorityLevelId] = user.seniorityLevelId
         }
         if (affected > 0) {
             // Wholesale replace — the set is tiny and this is idempotent and diff-free.
@@ -148,19 +164,44 @@ class UserService(val database: R2dbcDatabase) {
                 .where { predicate }
                 .applyPaging(paging, SORTABLE_COLUMNS)
                 .map { row ->
-                    UserResponse(
+                    ListRow(
                         id = row[Users.id].value,
                         name = row[Users.name],
                         email = row[Users.email],
-                        roles = emptyList(),
+                        careerPathId = row[Users.careerPathId],
+                        careerSpecializationId = row[Users.careerSpecializationId],
+                        seniorityLevelId = row[Users.seniorityLevelId],
                     )
                 }
                 .toList()
-            // One grouped query for the whole page — no per-row lookups.
+            // One grouped query per aspect for the whole page — no per-row lookups.
             val rolesByUser = rolesByUserIds(rows.map { it.id })
-            val items = rows.map { it.copy(roles = rolesByUser[it.id].orEmpty().sortedBy { r -> r.name }) }
+            val entries = entriesByIds(
+                rows.flatMap { listOfNotNull(it.careerPathId, it.careerSpecializationId, it.seniorityLevelId) }.toSet(),
+            )
+            val items = rows.map { row ->
+                UserResponse(
+                    id = row.id,
+                    name = row.name,
+                    email = row.email,
+                    roles = rolesByUser[row.id].orEmpty().sortedBy { r -> r.name },
+                    careerPath = row.careerPathId?.let { entries[it] },
+                    careerSpecialization = row.careerSpecializationId?.let { entries[it] },
+                    seniorityLevel = row.seniorityLevelId?.let { entries[it] },
+                )
+            }
             UserListResult(items = items, total = total)
         }
+
+    /** Intermediate page row — materialized before the grouped roles/entries queries run. */
+    private data class ListRow(
+        val id: UInt,
+        val name: String,
+        val email: String,
+        val careerPathId: UInt?,
+        val careerSpecializationId: UInt?,
+        val seniorityLevelId: UInt?,
+    )
 
     private fun active(): Op<Boolean> = Users.markedAsDeleted eq false
 
@@ -216,5 +257,54 @@ class UserService(val database: R2dbcDatabase) {
         passwordHash = this[Users.passwordHash],
         roles = roles,
         passwordChangedAt = this[Users.passwordChangedAt],
+        careerPathId = this[Users.careerPathId],
+        careerSpecializationId = this[Users.careerSpecializationId],
+        seniorityLevelId = this[Users.seniorityLevelId],
     )
+
+    /**
+     * Resolve career-profile refs to their entries (route-side, own transaction — kept out of
+     * [read] to avoid a nested statement on the row flow and to keep /refresh cheap).
+     * Soft-deleted entries are INCLUDED on purpose: a referenced entry keeps resolving to its
+     * retained (possibly renamed) value.
+     */
+    suspend fun resolveEntryRefs(vararg ids: UInt?): Map<UInt, DictionaryEntry> =
+        suspendTransaction(database) { entriesByIds(ids.filterNotNull().toSet()) }
+
+    /**
+     * 400 unless every (dictionary, id) pair is an ACTIVE entry of exactly that dictionary.
+     * Callers pass only NEWLY-assigned ids — resubmitting a user's current (possibly
+     * soft-deleted) id is not a change and is never validated.
+     */
+    suspend fun requireActiveEntries(refs: List<Pair<Dictionary, UInt>>) {
+        if (refs.isEmpty()) return
+        suspendTransaction(database) {
+            val rows = DictionaryService.Entries.selectAll()
+                .where { DictionaryService.Entries.id inList refs.map { it.second }.toSet() }
+                .toList()
+                .associateBy { it[DictionaryService.Entries.id].value }
+            refs.forEach { (dict, entryId) ->
+                val row = rows[entryId]
+                if (row == null ||
+                    row[DictionaryService.Entries.dictionary] != dict.name ||
+                    row[DictionaryService.Entries.markedAsDeleted]
+                ) {
+                    throw BadRequestException("$entryId is not an active ${dict.name} dictionary entry")
+                }
+            }
+        }
+    }
+
+    /** Must run inside a transaction. Soft-deleted included — see [resolveEntryRefs]. */
+    private suspend fun entriesByIds(ids: Set<UInt>): Map<UInt, DictionaryEntry> =
+        if (ids.isEmpty()) emptyMap()
+        else DictionaryService.Entries.selectAll()
+            .where { DictionaryService.Entries.id inList ids }
+            .toList()
+            .associate {
+                it[DictionaryService.Entries.id].value to DictionaryEntry(
+                    id = it[DictionaryService.Entries.id].value,
+                    value = it[DictionaryService.Entries.value],
+                )
+            }
 }

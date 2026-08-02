@@ -3251,10 +3251,27 @@ components:
           default: false
           description: Create only — email the new user their credentials (the bilingual
             welcome message). Rejected with 503 on a deployment without outbound email.
+        careerPathId:
+          type: integer
+          format: int64
+          nullable: true
+          description: |
+            Id of an ACTIVE CAREER_PATH dictionary entry. Omitted or null = leave unset.
+            An unknown, wrong-dictionary, or soft-deleted id is rejected with 400.
+        careerSpecializationId:
+          type: integer
+          format: int64
+          nullable: true
+          description: Id of an ACTIVE CAREER_SPECIALIZATION dictionary entry — see careerPathId.
+        seniorityLevelId:
+          type: integer
+          format: int64
+          nullable: true
+          description: Id of an ACTIVE SENIORITY_LEVEL dictionary entry — see careerPathId.
 
     UserCreateResponse:
       type: object
-      required: [id, name, email, roles]
+      required: [id, name, email, roles, careerPath, careerSpecialization, seniorityLevel]
       properties:
         id: { type: integer, format: int64 }
         name: { type: string }
@@ -3267,6 +3284,15 @@ components:
           nullable: true
           description: Present only when sendEmail was requested — false means the delivery
             failed (the account exists regardless; the password is still shown once).
+        careerPath:
+          nullable: true
+          allOf: [ { $ref: '#/components/schemas/DictionaryEntry' } ]
+        careerSpecialization:
+          nullable: true
+          allOf: [ { $ref: '#/components/schemas/DictionaryEntry' } ]
+        seniorityLevel:
+          nullable: true
+          allOf: [ { $ref: '#/components/schemas/DictionaryEntry' } ]
 
     UserUpdateRequest:
       type: object
@@ -3280,6 +3306,26 @@ components:
           description: |
             Part of the full representation (PUT). Changing the set requires ADMIN; a non-ADMIN
             caller must send the set the user already has, otherwise the request is rejected with 403.
+        careerPathId:
+          type: integer
+          format: int64
+          nullable: true
+          description: |
+            Id of an ACTIVE CAREER_PATH dictionary entry. Omitted or null = leave unchanged —
+            there is deliberately no way to clear a set value. Assigning or changing requires
+            ADMIN (403 otherwise); an unknown, wrong-dictionary, or soft-deleted NEW id is 400.
+            Resubmitting the user's current id is never a change (allowed for any caller, even
+            when that entry has been soft-deleted since).
+        careerSpecializationId:
+          type: integer
+          format: int64
+          nullable: true
+          description: Id of an ACTIVE CAREER_SPECIALIZATION dictionary entry — semantics as careerPathId.
+        seniorityLevelId:
+          type: integer
+          format: int64
+          nullable: true
+          description: Id of an ACTIVE SENIORITY_LEVEL dictionary entry — semantics as careerPathId.
 
     PasswordUpdateRequest:
       type: object
@@ -3298,7 +3344,7 @@ components:
 
     UserResponse:
       type: object
-      required: [id, name, email, roles]
+      required: [id, name, email, roles, careerPath, careerSpecialization, seniorityLevel]
       properties:
         id: { type: integer, format: int64, minimum: 0 }
         name: { type: string }
@@ -3307,6 +3353,21 @@ components:
           type: array
           items: { type: string, enum: [ADMIN, HR] }
           description: Additional roles — empty for a regular user.
+        careerPath:
+          nullable: true
+          allOf: [ { $ref: '#/components/schemas/DictionaryEntry' } ]
+          description: |
+            The user's career path, resolved from the CAREER_PATH dictionary at read time
+            (renames propagate; a soft-deleted referenced entry keeps resolving to its
+            retained value). Null until set; once set it can never be cleared.
+        careerSpecialization:
+          nullable: true
+          allOf: [ { $ref: '#/components/schemas/DictionaryEntry' } ]
+          description: Resolved from the CAREER_SPECIALIZATION dictionary — see careerPath.
+        seniorityLevel:
+          nullable: true
+          allOf: [ { $ref: '#/components/schemas/DictionaryEntry' } ]
+          description: Resolved from the SENIORITY_LEVEL dictionary — see careerPath.
 
     UserPage:
       type: object

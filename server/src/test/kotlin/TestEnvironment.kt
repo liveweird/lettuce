@@ -219,6 +219,10 @@ object TestServices {
 object TestDictionaries {
     data class RawEntry(val id: UInt, val value: String, val markedAsDeleted: Boolean)
 
+    val service: ch.nokillswit.dictionaries.DictionaryService by lazy {
+        ch.nokillswit.dictionaries.DictionaryService(sharedTestDatabase)
+    }
+
     suspend fun rawRows(dict: ch.nokillswit.dictionaries.Dictionary): List<RawEntry> =
         suspendTransaction(sharedTestDatabase) {
             val t = ch.nokillswit.dictionaries.DictionaryService.Entries
@@ -227,6 +231,49 @@ object TestDictionaries {
                 .map { RawEntry(it[t.id].value, it[t.value], it[t.markedAsDeleted]) }
                 .toList()
         }
+
+    /**
+     * Appends [values] to [dict] via whole-document replace, preserving the existing active
+     * entries (dictionaries are shared global state — use unique values per test), and returns
+     * the minted ids in [values] order. If a previous test left the dictionary at the 200-entry
+     * cap (DictionaryTest's limit case does), enough head entries are dropped to make room —
+     * every dictionary test starts by writing its own document, so that is safe by convention.
+     */
+    suspend fun append(dict: ch.nokillswit.dictionaries.Dictionary, vararg values: String): List<UInt> {
+        val kept = service.read(dict).take(ch.nokillswit.dictionaries.MAX_DICTIONARY_ENTRIES - values.size)
+        service.replace(
+            dict,
+            ch.nokillswit.dictionaries.DictionaryUpdateRequest(
+                kept.map { ch.nokillswit.dictionaries.DictionaryEntryInput(it.id, it.value) } +
+                    values.map { ch.nokillswit.dictionaries.DictionaryEntryInput(value = it) },
+            ),
+        )
+        val byValue = service.read(dict).associate { it.value to it.id }
+        return values.map { byValue.getValue(it) }
+    }
+
+    /** Renames entry [id] in place (identity kept), leaving everything else untouched. */
+    suspend fun rename(dict: ch.nokillswit.dictionaries.Dictionary, id: UInt, newValue: String) {
+        service.replace(
+            dict,
+            ch.nokillswit.dictionaries.DictionaryUpdateRequest(
+                service.read(dict).map {
+                    ch.nokillswit.dictionaries.DictionaryEntryInput(it.id, if (it.id == id) newValue else it.value)
+                },
+            ),
+        )
+    }
+
+    /** Soft-deletes entry [id] by omitting it from a whole-document save. */
+    suspend fun remove(dict: ch.nokillswit.dictionaries.Dictionary, id: UInt) {
+        service.replace(
+            dict,
+            ch.nokillswit.dictionaries.DictionaryUpdateRequest(
+                service.read(dict).filterNot { it.id == id }
+                    .map { ch.nokillswit.dictionaries.DictionaryEntryInput(it.id, it.value) },
+            ),
+        )
+    }
 }
 
 // Reads the team_kpi_events audit table directly (e.g. to assert events outlive a soft delete).

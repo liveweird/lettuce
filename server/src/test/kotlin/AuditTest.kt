@@ -303,6 +303,69 @@ class AuditTest {
     }
 
     @Test
+    fun `career profile changes carry id deltas in user updated and user created`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw")
+        val targetEmail = uniqueEmail("career-target")
+        val targetId = TestUsers.seed(email = targetEmail, password = "pw", roles = emptySet())
+        val marker = java.util.UUID.randomUUID().toString().take(8)
+        val ids = TestDictionaries.append(
+            ch.nokillswit.dictionaries.Dictionary.CAREER_PATH,
+            "Audit A $marker",
+            "Audit B $marker",
+        )
+        val appender = LogCapture("ch.nokillswit.audit")
+        try {
+            val client = authedClient(adminEmail, "pw")
+
+            // First assignment: To present, From absent (the field was unset).
+            client.put("/api/v1/users/$targetId") {
+                contentType(ContentType.Application.Json)
+                setBody(UserUpdateRequest(name = "Test", email = targetEmail, roles = emptyList(), careerPathId = ids[0]))
+            }
+            val assigned = appender.events.find { it.message == "user.updated" }
+            assertNotNull(assigned, "expected a user.updated audit event")
+            assertEquals(ids[0].toLong(), assigned.keyValuePairs.first { it.key == "careerPathTo" }.value)
+            assertTrue(assigned.keyValuePairs.none { it.key == "careerPathFrom" })
+            assertTrue(assigned.keyValuePairs.none { it.key == "nameFrom" })
+
+            // Resubmitting the same id is not a change → nothing new.
+            client.put("/api/v1/users/$targetId") {
+                contentType(ContentType.Application.Json)
+                setBody(UserUpdateRequest(name = "Test", email = targetEmail, roles = emptyList(), careerPathId = ids[0]))
+            }
+            assertEquals(1, appender.events.count { it.message == "user.updated" })
+
+            // Changing to another entry → From and To both present.
+            client.put("/api/v1/users/$targetId") {
+                contentType(ContentType.Application.Json)
+                setBody(UserUpdateRequest(name = "Test", email = targetEmail, roles = emptyList(), careerPathId = ids[1]))
+            }
+            val changed = appender.events.last { it.message == "user.updated" }
+            assertEquals(ids[0].toLong(), changed.keyValuePairs.first { it.key == "careerPathFrom" }.value)
+            assertEquals(ids[1].toLong(), changed.keyValuePairs.first { it.key == "careerPathTo" }.value)
+
+            // Create with a career field → user.created carries the id.
+            client.post("/api/v1/users") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    ch.nokillswit.users.UserRequest(
+                        name = "Career Created", email = uniqueEmail("career-created"), password = "pw-123456789",
+                        careerPathId = ids[0],
+                    ),
+                )
+            }
+            val created = appender.events.find { it.message == "user.created" }
+            assertNotNull(created, "expected a user.created audit event")
+            assertEquals(ids[0].toLong(), created.keyValuePairs.first { it.key == "careerPathId" }.value)
+            assertTrue(created.keyValuePairs.none { it.key == "seniorityLevelId" })
+        } finally {
+            appender.detach()
+        }
+    }
+
+    @Test
     fun `no-op member mutations and phantom template updates emit no audit events`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")

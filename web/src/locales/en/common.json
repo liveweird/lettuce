@@ -35,7 +35,10 @@
     "status": "Status",
     "lastModified": "Last modified",
     "content": "Content",
-    "preview": "Preview"
+    "preview": "Preview",
+    "careerPath": "Career path",
+    "careerSpecialization": "Career specialization",
+    "seniorityLevel": "Seniority level"
   },
   "table": {
     "position": "#",

@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.32.0",
+    date: "2026-08-02",
+    en: `Every user now carries a **career profile**: a career path, a career specialization, and a seniority level, picked from the global dictionaries. The values appear on the user-details page for everyone; administrators set them when creating a user or later on the edit form. They start empty — an orange hint flags what's still missing — but once set, a value can only be replaced, never removed. Renaming a dictionary entry updates every profile that uses it, immediately.`,
+    pl: `Każda osoba ma teraz **profil kariery**: ścieżkę kariery, specjalizację i poziom zaszeregowania, wybierane z globalnych słowników. Wartości widać na stronie szczegółów użytkownika dla każdego; administratorzy ustawiają je przy tworzeniu konta lub później w formularzu edycji. Na starcie są puste — pomarańczowa wskazówka pokazuje, czego jeszcze brakuje — ale raz ustawioną wartość można tylko zastąpić, nigdy usunąć. Zmiana nazwy wpisu w słowniku natychmiast aktualizuje każdy profil, który z niego korzysta.`,
+  },
+  {
     version: "1.31.1",
     date: "2026-08-02",
     en: `The global dictionaries no longer start empty: **Career paths** (Software Engineer, System Analyst, QA Engineer, QA Specialist), **Career specializations** (N/A, Java, Python, PHP, Front-End), and **Seniority levels** (Associate through Principal) come pre-filled with sensible defaults. Values an administrator already entered are left untouched.`,

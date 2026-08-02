@@ -2,10 +2,13 @@ package ch.nokillswit
 
 import ch.nokillswit.auth.LoginRequest
 import ch.nokillswit.auth.LoginResponse
+import ch.nokillswit.dictionaries.Dictionary
+import ch.nokillswit.dictionaries.DictionaryEntry
 import ch.nokillswit.plugins.ProblemDetail
 import ch.nokillswit.teams.Team
 import ch.nokillswit.teams.TeamResponse
 import ch.nokillswit.users.PasswordUpdateRequest
+import ch.nokillswit.users.UserCreateResponse
 import ch.nokillswit.users.UserPageResponse
 import ch.nokillswit.users.UserRequest
 import ch.nokillswit.users.UserUpdateRequest
@@ -746,5 +749,210 @@ class UserRoutesTest {
         val updated = service.update(id, created.copy(roles = emptySet()))
         assertEquals(1, updated)
         assertEquals(emptySet(), service.read(id)?.roles)
+    }
+
+    // --- Career profile fields (v1.32.0) ---
+
+    private suspend fun io.ktor.client.HttpClient.createPlainUser(prefix: String): UserResponse =
+        post("/api/v1/users") {
+            contentType(ContentType.Application.Json)
+            setBody(UserRequest(name = "Career $prefix", email = uniqueEmail(prefix), password = "pw-123456789"))
+        }.body<UserResponse>()
+
+    @Test
+    fun `PUT sets career profile fields, GET resolves them, and null means leave unchanged`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("career-admin")
+        TestUsers.seed(email = adminEmail, password = "pw-123456789")
+        val client = authedClient(adminEmail, "pw-123456789")
+        val created = client.createPlainUser("career-set")
+        assertEquals(null, created.careerPath)
+        assertEquals(null, created.careerSpecialization)
+        assertEquals(null, created.seniorityLevel)
+
+        val marker = UUID.randomUUID().toString().take(8)
+        val (pathId) = TestDictionaries.append(Dictionary.CAREER_PATH, "Path $marker")
+        val (specId) = TestDictionaries.append(Dictionary.CAREER_SPECIALIZATION, "Spec $marker")
+        val (levelId) = TestDictionaries.append(Dictionary.SENIORITY_LEVEL, "Level $marker")
+
+        val put = client.put("/api/v1/users/${created.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                UserUpdateRequest(
+                    name = created.name, email = created.email, roles = emptyList(),
+                    careerPathId = pathId, careerSpecializationId = specId, seniorityLevelId = levelId,
+                ),
+            )
+        }
+        assertEquals(HttpStatusCode.NoContent, put.status)
+
+        val read = client.get("/api/v1/users/${created.id}").body<UserResponse>()
+        assertEquals(DictionaryEntry(pathId, "Path $marker"), read.careerPath)
+        assertEquals(DictionaryEntry(specId, "Spec $marker"), read.careerSpecialization)
+        assertEquals(DictionaryEntry(levelId, "Level $marker"), read.seniorityLevel)
+
+        // A follow-up PUT omitting the ids leaves them untouched — clearing is inexpressible.
+        val nullPut = client.put("/api/v1/users/${created.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(UserUpdateRequest(name = created.name, email = created.email, roles = emptyList()))
+        }
+        assertEquals(HttpStatusCode.NoContent, nullPut.status)
+        val reread = client.get("/api/v1/users/${created.id}").body<UserResponse>()
+        assertEquals(read.careerPath, reread.careerPath)
+        assertEquals(read.careerSpecialization, reread.careerSpecialization)
+        assertEquals(read.seniorityLevel, reread.seniorityLevel)
+    }
+
+    @Test
+    fun `dictionary renames propagate to user reads and lists`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("career-rename-admin")
+        TestUsers.seed(email = adminEmail, password = "pw-123456789")
+        val client = authedClient(adminEmail, "pw-123456789")
+        val created = client.createPlainUser("career-rename")
+
+        val marker = UUID.randomUUID().toString().take(8)
+        val (pathId) = TestDictionaries.append(Dictionary.CAREER_PATH, "AAA $marker")
+        client.put("/api/v1/users/${created.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                UserUpdateRequest(
+                    name = created.name, email = created.email, roles = emptyList(),
+                    careerPathId = pathId,
+                ),
+            )
+        }.let { assertEquals(HttpStatusCode.NoContent, it.status) }
+
+        TestDictionaries.rename(Dictionary.CAREER_PATH, pathId, "AAA1 $marker")
+
+        val read = client.get("/api/v1/users/${created.id}").body<UserResponse>()
+        assertEquals(DictionaryEntry(pathId, "AAA1 $marker"), read.careerPath)
+
+        val page = client.get("/api/v1/users?email=${created.email}").body<UserPageResponse>()
+        assertEquals(1, page.items.size)
+        assertEquals(DictionaryEntry(pathId, "AAA1 $marker"), page.items.single().careerPath)
+    }
+
+    @Test
+    fun `a soft-deleted referenced entry keeps resolving and resubmitting its id is not a change`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("career-softdel-admin")
+        TestUsers.seed(email = adminEmail, password = "pw-123456789")
+        val client = authedClient(adminEmail, "pw-123456789")
+        val created = client.createPlainUser("career-softdel")
+
+        val marker = UUID.randomUUID().toString().take(8)
+        val (pathId) = TestDictionaries.append(Dictionary.CAREER_PATH, "Gone $marker")
+        client.put("/api/v1/users/${created.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                UserUpdateRequest(
+                    name = created.name, email = created.email, roles = emptyList(),
+                    careerPathId = pathId,
+                ),
+            )
+        }.let { assertEquals(HttpStatusCode.NoContent, it.status) }
+
+        TestDictionaries.remove(Dictionary.CAREER_PATH, pathId)
+
+        // The retained value still resolves…
+        val read = client.get("/api/v1/users/${created.id}").body<UserResponse>()
+        assertEquals(DictionaryEntry(pathId, "Gone $marker"), read.careerPath)
+
+        // …and resubmitting the (now soft-deleted) current id passes — it is not a change.
+        val resubmit = client.put("/api/v1/users/${created.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                UserUpdateRequest(
+                    name = "Renamed", email = created.email, roles = emptyList(),
+                    careerPathId = pathId,
+                ),
+            )
+        }
+        assertEquals(HttpStatusCode.NoContent, resubmit.status)
+        assertEquals(DictionaryEntry(pathId, "Gone $marker"), client.get("/api/v1/users/${created.id}").body<UserResponse>().careerPath)
+    }
+
+    @Test
+    fun `assigning an unknown, wrong-dictionary, or soft-deleted entry id is 400`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("career-400-admin")
+        TestUsers.seed(email = adminEmail, password = "pw-123456789")
+        val client = authedClient(adminEmail, "pw-123456789")
+        val created = client.createPlainUser("career-400")
+
+        val marker = UUID.randomUUID().toString().take(8)
+        val (specId) = TestDictionaries.append(Dictionary.CAREER_SPECIALIZATION, "WrongDict $marker")
+        val (deadId) = TestDictionaries.append(Dictionary.CAREER_PATH, "Dead $marker")
+        TestDictionaries.remove(Dictionary.CAREER_PATH, deadId)
+
+        suspend fun putCareerPath(id: UInt): HttpStatusCode = client.put("/api/v1/users/${created.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                UserUpdateRequest(
+                    name = created.name, email = created.email, roles = emptyList(),
+                    careerPathId = id,
+                ),
+            )
+        }.status
+
+        assertEquals(HttpStatusCode.BadRequest, putCareerPath(999_999_999u))
+        assertEquals(HttpStatusCode.BadRequest, putCareerPath(specId))
+        assertEquals(HttpStatusCode.BadRequest, putCareerPath(deadId))
+        // Nothing stuck: the user still has no career path.
+        assertEquals(null, client.get("/api/v1/users/${created.id}").body<UserResponse>().careerPath)
+    }
+
+    @Test
+    fun `POST users with career fields returns them resolved on both response shapes`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("career-create-admin")
+        TestUsers.seed(email = adminEmail, password = "pw-123456789")
+        val client = authedClient(adminEmail, "pw-123456789")
+
+        val marker = UUID.randomUUID().toString().take(8)
+        val (pathId) = TestDictionaries.append(Dictionary.CAREER_PATH, "CreatePath $marker")
+        val (levelId) = TestDictionaries.append(Dictionary.SENIORITY_LEVEL, "CreateLevel $marker")
+
+        val plain = client.post("/api/v1/users") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                UserRequest(
+                    name = "Career Plain", email = uniqueEmail("career-plain"), password = "pw-123456789",
+                    careerPathId = pathId, seniorityLevelId = levelId,
+                ),
+            )
+        }
+        assertEquals(HttpStatusCode.Created, plain.status)
+        val plainBody = plain.body<UserResponse>()
+        assertEquals(DictionaryEntry(pathId, "CreatePath $marker"), plainBody.careerPath)
+        assertEquals(null, plainBody.careerSpecialization)
+        assertEquals(DictionaryEntry(levelId, "CreateLevel $marker"), plainBody.seniorityLevel)
+
+        // The sendEmail shape (log transport in tests) resolves them too.
+        val mailed = client.post("/api/v1/users") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                UserRequest(
+                    name = "Career Mailed", email = uniqueEmail("career-mailed"), password = "pw-123456789",
+                    sendEmail = true, careerPathId = pathId,
+                ),
+            )
+        }
+        assertEquals(HttpStatusCode.Created, mailed.status)
+        val mailedBody = mailed.body<UserCreateResponse>()
+        assertEquals(true, mailedBody.emailSent)
+        assertEquals(DictionaryEntry(pathId, "CreatePath $marker"), mailedBody.careerPath)
+
+        val invalid = client.post("/api/v1/users") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                UserRequest(
+                    name = "Career Invalid", email = uniqueEmail("career-invalid"), password = "pw-123456789",
+                    careerPathId = levelId, // a SENIORITY_LEVEL id in the CAREER_PATH slot
+                ),
+            )
+        }
+        assertEquals(HttpStatusCode.BadRequest, invalid.status)
     }
 }

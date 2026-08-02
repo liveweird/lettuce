@@ -95,6 +95,18 @@ fun requireCanAssignRoles(caller: CallerPrincipal, current: Set<UserRole>, reque
     if (!caller.isAdmin()) throw ForbiddenException("Only admins may change a user's roles")
 }
 
+/**
+ * The [requireCanAssignRoles] sibling for the dictionary-backed career profile fields:
+ * newly assigning or changing any of them is ADMIN-only. Each pair is (requested, current);
+ * a null request (= leave unchanged) or resubmitting the current id is not a change.
+ */
+fun requireCanAssignProfileFields(caller: CallerPrincipal, vararg fields: Pair<UInt?, UInt?>) {
+    val changed = fields.any { (requested, current) -> requested != null && requested != current }
+    if (changed && !caller.isAdmin()) {
+        throw ForbiddenException("Only admins may change a user's career profile fields")
+    }
+}
+
 fun canReadFeedback(
     caller: CallerPrincipal,
     feedback: Feedback,

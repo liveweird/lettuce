@@ -41,7 +41,7 @@ commit** — this list is the suite's coverage map, and it has drifted twice.
   third party** with a **requester message**; the message rides read-only through triage and the
   draft editor; the requester is notified on pick-up and send.
 - `notifications.spec.ts` — bell mechanics: unread badge, mark seen / unseen, mark all as seen.
-- `user-edit.spec.ts` — admin creates (generated-password reveal) and renames a user
+- `user-edit.spec.ts` — admin creates (generated-password reveal) and renames a user; career profile: set a career path, dictionary rename propagates, retired entry keeps resolving
   (`PUT /users/{id}`).
 - `users-admin.spec.ts` — role change; admin password reset vs. self-change (current password
   required, wrong one rejected); delete (deleted account can no longer sign in).
