@@ -1,5 +1,6 @@
 package ch.nokillswit.teams
 
+import ch.nokillswit.dictionaries.DictionaryEntry
 import ch.nokillswit.infra.paging.PageResponse
 import kotlinx.serialization.Serializable
 
@@ -71,6 +72,11 @@ data class TeamMemberListItem(
      * view=member, which carries no goal stat.
      */
     val activeGoalCount: Int? = null,
+    // The row user's career profile (v1.32.1), resolved from the dictionaries at read time —
+    // populated for EVERY view (unlike the directional stats above); null = the field is unset.
+    val careerPath: DictionaryEntry? = null,
+    val careerSpecialization: DictionaryEntry? = null,
+    val seniorityLevel: DictionaryEntry? = null,
 )
 
 typealias TeamMemberPageResponse = PageResponse<TeamMemberListItem>

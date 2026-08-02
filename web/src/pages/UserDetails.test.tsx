@@ -47,6 +47,9 @@ type MemberRow = {
   lastFeedbackGivenAt?: number | null;
   lastFeedbackReceivedAt?: number | null;
   activeGoalCount?: number | null;
+  careerPath?: { id: number; value: string } | null;
+  careerSpecialization?: { id: number; value: string } | null;
+  seniorityLevel?: { id: number; value: string } | null;
 };
 
 const BOB_ROW: MemberRow = {
@@ -326,17 +329,12 @@ describe("UserDetails page", () => {
     expect(await screen.findByText("Failed to load user")).toBeInTheDocument();
   });
 
-  test("the career profile resolves via the users list even on a relationship card", async () => {
-    // Bob is a manager (primary path — team-member rows carry no profile), so the page
-    // makes the extra users-list walk to fetch it.
+  test("the career profile renders inside the relationship card, off the member rows", async () => {
+    // Since v1.32.1 the /teams/members rows carry the profile — no users-list walk needed.
     mockApi(mockFetch, {
-      managers: [BOB_ROW],
-      users: [
+      managers: [
         {
-          id: 5,
-          name: "Bob",
-          email: "bob@example.com",
-          roles: [],
+          ...BOB_ROW,
           careerPath: { id: 11, value: "Software Engineer" },
           careerSpecialization: null,
           seniorityLevel: { id: 31, value: "Senior" },
@@ -348,8 +346,11 @@ describe("UserDetails page", () => {
     expect(await screen.findByText("Career profile")).toBeInTheDocument();
     expect(screen.getByText("Software Engineer")).toBeInTheDocument();
     expect(screen.getByText("Senior")).toBeInTheDocument();
-    // Exactly the unset field wears the orange badge.
+    // Exactly the unset field wears the orange badge; the stats column renders beside it.
     expect(screen.getAllByText("Not set")).toHaveLength(1);
+    expect(screen.getByText("Last 1:1")).toBeInTheDocument();
+    // The old users-list walk is gone on the relationship path.
+    expect(mockFetch.mock.calls.some(([u]) => String(u).startsWith("/api/v1/users?"))).toBe(false);
   });
 
   test("an entirely unset career profile shows three missing badges", async () => {

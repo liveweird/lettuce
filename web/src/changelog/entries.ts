@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.32.1",
+    date: "2026-08-02",
+    en: `The career profile moved into the person cards themselves: on the user-details page and on all three Dashboard grids (My managers, My peers, My subordinates), each card now shows the career path, specialization, and seniority level in a second column next to the existing stats — with the orange "Not set" marker where a value is still missing. The separate panel on the details page is gone.`,
+    pl: `Profil kariery przeniósł się do samych kart osób: na stronie szczegółów użytkownika i na wszystkich trzech listach Pulpitu (Moi menedżerowie, Moi współpracownicy, Moi podwładni) każda karta pokazuje teraz ścieżkę kariery, specjalizację i poziom zaszeregowania w drugiej kolumnie obok dotychczasowych statystyk — z pomarańczowym znacznikiem „Nie ustawiono" tam, gdzie wartości wciąż brakuje. Osobny panel na stronie szczegółów zniknął.`,
+  },
+  {
     version: "1.32.0",
     date: "2026-08-02",
     en: `Every user now carries a **career profile**: a career path, a career specialization, and a seniority level, picked from the global dictionaries. The values appear on the user-details page for everyone; administrators set them when creating a user or later on the edit form. They start empty — an orange hint flags what's still missing — but once set, a value can only be replaced, never removed. Renaming a dictionary entry updates every profile that uses it, immediately.`,

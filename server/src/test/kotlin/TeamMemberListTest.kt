@@ -1,5 +1,7 @@
 package ch.nokillswit
 
+import ch.nokillswit.dictionaries.Dictionary
+import ch.nokillswit.dictionaries.DictionaryEntry
 import ch.nokillswit.plugins.ProblemDetail
 import ch.nokillswit.teams.Team
 import ch.nokillswit.teams.TeamMemberPageResponse
@@ -27,6 +29,56 @@ class TeamMemberListTest {
             contentType(ContentType.Application.Json)
             setBody(Team(name = name, managerId = managerId, memberIds = memberIds))
         }.body<TeamResponse>()
+
+    @Test
+    fun `every view's rows carry the resolved career profile and renames propagate`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw")
+        val callerEmail = uniqueEmail("caller")
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", roles = emptySet())
+        val managerId = TestUsers.seed(email = uniqueEmail("mgr"), password = "pw", name = "Career Mgr")
+        val peerId = TestUsers.seed(email = uniqueEmail("peer"), password = "pw", name = "Career Peer")
+        val reportId = TestUsers.seed(email = uniqueEmail("rep"), password = "pw", name = "Career Report")
+
+        val marker = java.util.UUID.randomUUID().toString().take(8)
+        val (pathId) = TestDictionaries.append(Dictionary.CAREER_PATH, "Members $marker")
+        val (levelId) = TestDictionaries.append(Dictionary.SENIORITY_LEVEL, "MembersLvl $marker")
+
+        // Manager gets a career path, the peer a seniority level; the report stays unset.
+        suspend fun assign(userId: UInt, mutate: (ch.nokillswit.users.User) -> ch.nokillswit.users.User) {
+            TestServices.users.update(userId, mutate(TestServices.users.read(userId)!!))
+        }
+        assign(managerId) { it.copy(careerPathId = pathId) }
+        assign(peerId) { it.copy(seniorityLevelId = levelId) }
+
+        val admin = authedClient(adminEmail, "pw")
+        admin.createTeam("career-shared-$marker", managerId, listOf(callerId, peerId))
+        admin.createTeam("career-managed-$marker", callerId, listOf(reportId))
+
+        val client = authedClient(callerEmail, "pw")
+
+        val managers = client.get("/api/v1/teams/members?view=managers").body<TeamMemberPageResponse>()
+        val mgrRow = managers.items.single { it.userId == managerId }
+        assertEquals(DictionaryEntry(pathId, "Members $marker"), mgrRow.careerPath)
+        assertEquals(null, mgrRow.careerSpecialization)
+
+        val member = client.get("/api/v1/teams/members?view=member").body<TeamMemberPageResponse>()
+        val peerRow = member.items.single { it.userId == peerId }
+        assertEquals(DictionaryEntry(levelId, "MembersLvl $marker"), peerRow.seniorityLevel)
+        assertEquals(null, peerRow.careerPath)
+
+        val managed = client.get("/api/v1/teams/members?view=managed").body<TeamMemberPageResponse>()
+        val repRow = managed.items.single { it.userId == reportId }
+        assertEquals(null, repRow.careerPath)
+        assertEquals(null, repRow.careerSpecialization)
+        assertEquals(null, repRow.seniorityLevel)
+
+        // A dictionary rename shows up on the next list read — the rows resolve by id.
+        TestDictionaries.rename(Dictionary.CAREER_PATH, pathId, "Members2 $marker")
+        val renamed = client.get("/api/v1/teams/members?view=managers").body<TeamMemberPageResponse>()
+        assertEquals("Members2 $marker", renamed.items.single { it.userId == managerId }.careerPath?.value)
+    }
 
     @Test
     fun `view=member returns co-members only, excluding caller and manager`() = testApplication {

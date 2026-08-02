@@ -311,6 +311,10 @@ export interface paths {
          *     `null` for `view=member`; the given/received pair is always `null` for
          *     `view=managers` and `view=managed`.
          *
+         *     Every view's items additionally carry the row user's resolved career profile
+         *     (`careerPath` / `careerSpecialization` / `seniorityLevel`) — see
+         *     `TeamMemberListItem`.
+         *
          *     Each item is one (user, team) pair — a user who shares several teams with the
          *     caller appears once per team. Soft-deleted users and soft-deleted teams are
          *     excluded.
@@ -2109,6 +2113,17 @@ export interface components {
              *     goals never count.
              */
             activeGoalCount?: number | null;
+            /**
+             * @description The row user's career path, resolved from the CAREER_PATH dictionary at read
+             *     time (renames propagate; a soft-deleted referenced entry keeps resolving to
+             *     its retained value). Unlike the directional stats, populated for EVERY view;
+             *     null when the field is unset.
+             */
+            careerPath?: components["schemas"]["DictionaryEntry"] | null;
+            /** @description Resolved from the CAREER_SPECIALIZATION dictionary — see careerPath. */
+            careerSpecialization?: components["schemas"]["DictionaryEntry"] | null;
+            /** @description Resolved from the SENIORITY_LEVEL dictionary — see careerPath. */
+            seniorityLevel?: components["schemas"]["DictionaryEntry"] | null;
         };
         TeamMemberPage: {
             items: components["schemas"]["TeamMemberListItem"][];

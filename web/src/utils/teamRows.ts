@@ -2,6 +2,8 @@
 // to two of the caller's teams arrives twice. The person-card views collapse those rows to
 // one card per user, aggregating the team names for the badges.
 
+type CareerEntry = { id: number; value: string };
+
 export type TeamRow = {
   userId: number;
   name: string;
@@ -15,6 +17,10 @@ export type TeamRow = {
   lastFeedbackGivenAt?: number | null;
   lastFeedbackReceivedAt?: number | null;
   activeGoalCount?: number | null;
+  // The career profile (v1.32.1), populated on every view's rows; null = unset.
+  careerPath?: CareerEntry | null;
+  careerSpecialization?: CareerEntry | null;
+  seniorityLevel?: CareerEntry | null;
 };
 
 export type PersonCard = {
@@ -28,6 +34,9 @@ export type PersonCard = {
   lastFeedbackGivenAt: number | null;
   lastFeedbackReceivedAt: number | null;
   activeGoalCount: number | null;
+  careerPath: CareerEntry | null;
+  careerSpecialization: CareerEntry | null;
+  seniorityLevel: CareerEntry | null;
 };
 
 export function groupTeamRows(rows: TeamRow[]): PersonCard[] {
@@ -50,6 +59,9 @@ export function groupTeamRows(rows: TeamRow[]): PersonCard[] {
         lastFeedbackGivenAt: r.lastFeedbackGivenAt ?? null,
         lastFeedbackReceivedAt: r.lastFeedbackReceivedAt ?? null,
         activeGoalCount: r.activeGoalCount ?? null,
+        careerPath: r.careerPath ?? null,
+        careerSpecialization: r.careerSpecialization ?? null,
+        seniorityLevel: r.seniorityLevel ?? null,
       });
     }
   }

@@ -22,6 +22,9 @@ type TeamMemberItem = {
   lastFeedbackGivenAt?: number | null;
   lastFeedbackReceivedAt?: number | null;
   activeGoalCount?: number | null;
+  careerPath?: { id: number; value: string } | null;
+  careerSpecialization?: { id: number; value: string } | null;
+  seniorityLevel?: { id: number; value: string } | null;
 };
 
 
@@ -225,6 +228,49 @@ describe("TeamMembersTable", () => {
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
     await screen.findByText("Bob Brown");
     expect(screen.queryByRole("link", { name: /goals for/i })).toBeNull();
+  });
+
+  test("peer cards carry the career column with set values and Not set badges", async () => {
+    setupMocks(
+      mockFetch,
+      membersPage([
+        {
+          ...SEED_MEMBERS[1],
+          careerPath: { id: 11, value: "System Analyst" },
+          careerSpecialization: { id: 21, value: "Java" },
+          seniorityLevel: null,
+        },
+      ]),
+    );
+    renderWithProviders(<TeamMembersTable view="member" emptyMessage="No team members" />);
+
+    expect(await screen.findByText("Career profile")).toBeInTheDocument();
+    expect(screen.getByText("System Analyst")).toBeInTheDocument();
+    expect(screen.getByText("Java")).toBeInTheDocument();
+    expect(screen.getAllByText("Not set")).toHaveLength(1);
+    // The peer stats column still renders beside it.
+    expect(screen.getByText("Feedback from me")).toBeInTheDocument();
+  });
+
+  test("the all-reports scope keeps the career column even though the stats disappear", async () => {
+    setupMocks(
+      mockFetch,
+      membersPage([{ ...SEED_MEMBERS[1], careerPath: { id: 11, value: "QA Engineer" } }]),
+    );
+    renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
+    await screen.findByText("Career profile");
+
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+    // happy-dom does not open Mantine comboboxes via userEvent's pointer simulation
+    fireEvent.click(screen.getByLabelText("Reports", { selector: "input" }));
+    fireEvent.click(await screen.findByRole("option", { name: "All reports (including indirect)" }));
+
+    // Directional stats gone (indirect rows are unmarked), career column stays.
+    await waitFor(() => {
+      expect(screen.queryByText("Last 1:1")).toBeNull();
+    });
+    expect(screen.getByText("Career profile")).toBeInTheDocument();
+    expect(screen.getByText("QA Engineer")).toBeInTheDocument();
   });
 
   test("switching the reports scope to all hides the Goals buttons like the 1:1 ones", async () => {

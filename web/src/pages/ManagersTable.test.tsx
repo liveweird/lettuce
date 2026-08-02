@@ -247,6 +247,37 @@ describe("ManagersTable", () => {
     expect(screen.getAllByText("Last feedback")).toHaveLength(1);
   });
 
+  test("manager cards carry the career column: set values plus Not set badges", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        items: [
+          {
+            userId: 1,
+            name: "Manager One",
+            email: "m1@example.com",
+            teamId: 5,
+            teamName: "alpha",
+            careerPath: { id: 11, value: "Career-Path-Value" },
+            careerSpecialization: null,
+            seniorityLevel: { id: 31, value: "Seniority-Value" },
+          },
+        ],
+        page: 1,
+        pageSize: 100,
+        total: 1,
+      }),
+    );
+    renderWithProviders(<ManagersTable />);
+
+    expect(await screen.findByText("Career profile")).toBeInTheDocument();
+    expect(screen.getByText("Career path")).toBeInTheDocument();
+    expect(screen.getByText("Career-Path-Value")).toBeInTheDocument();
+    expect(screen.getByText("Seniority-Value")).toBeInTheDocument();
+    expect(screen.getAllByText("Not set")).toHaveLength(1);
+    // The stats column still renders beside the career column.
+    expect(screen.getByText("Last 1:1")).toBeInTheDocument();
+  });
+
   test("shows an empty state when there are no managers", async () => {
     mockFetch.mockResolvedValue(
       jsonResponse(200, { items: [], page: 1, pageSize: 100, total: 0 }),

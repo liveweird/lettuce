@@ -38,46 +38,106 @@ function TimeStat({ at }: { at: number | null }) {
   );
 }
 
+// One career value: the entry's plain text, or the orange "Not set" badge — orange = warning
+// (the missing state is legitimate but should be acted on), consistent with the edit form.
+function CareerValue({ entry }: { entry: { id: number; value: string } | null }) {
+  const { t } = useTranslation();
+  return entry ? (
+    <Text size="xs" truncate>
+      {entry.value}
+    </Text>
+  ) : (
+    <Badge size="sm" variant="light" color="orange" style={{ minWidth: "max-content" }}>
+      {t("users.profile.missingBadge")}
+    </Badge>
+  );
+}
+
+// The career-profile column (v1.32.1): a dimmed caption + the three dictionary-backed
+// values. Rendered as the second column of every card-stats block.
+function CareerRows({ person }: { person: PersonCardData }) {
+  const { t } = useTranslation();
+  return (
+    <Stack gap={4}>
+      <Text size="xs" c="dimmed" fw={500}>
+        {t("users.profile.title")}
+      </Text>
+      <StatRow label={t("common.field.careerPath")}>
+        <CareerValue entry={person.careerPath} />
+      </StatRow>
+      <StatRow label={t("common.field.careerSpecialization")}>
+        <CareerValue entry={person.careerSpecialization} />
+      </StatRow>
+      <StatRow label={t("common.field.seniorityLevel")}>
+        <CareerValue entry={person.seniorityLevel} />
+      </StatRow>
+    </Stack>
+  );
+}
+
+// The two-column stats layout: relationship stats left, career profile right; wraps to
+// stacked columns when the card is narrow.
+function StatsColumns({ left, person }: { left: React.ReactNode; person: PersonCardData }) {
+  return (
+    <Group align="flex-start" gap="lg" wrap="wrap">
+      {left}
+      <CareerRows person={person} />
+    </Group>
+  );
+}
+
+// The career column alone — for cards that carry no relationship stats (the details page's
+// self/unrelated card, the subordinates grid at reports-scope "all", where the directional
+// stats aren't computed but the career profile is).
+export function CareerCardStats({ person }: { person: PersonCardData }) {
+  return <CareerRows person={person} />;
+}
+
 // The dashboard-card stats block shared by the "My managers" and "My subordinates" grids.
 // The labels are deliberately direction-neutral — each card is about the pictured person,
 // so "Last 1:1" / "Last feedback" read correctly whichever party ran/provided it.
 export default function PersonCardStats({ person }: { person: PersonCardData }) {
   const { t, i18n } = useTranslation();
   return (
-    <Stack gap={4}>
-      <StatRow label={t("users.lastOneOnOne")}>
-        {person.lastOneOnOneDate != null ? (
-          <>
-            <Text size="xs" title={formatIsoDate(person.lastOneOnOneDate, i18n.language)}>
-              {formatRelativeTime(new Date(`${person.lastOneOnOneDate}T00:00:00`).getTime(), i18n.language)}
-            </Text>
+    <StatsColumns
+      person={person}
+      left={
+        <Stack gap={4}>
+          <StatRow label={t("users.lastOneOnOne")}>
+            {person.lastOneOnOneDate != null ? (
+              <>
+                <Text size="xs" title={formatIsoDate(person.lastOneOnOneDate, i18n.language)}>
+                  {formatRelativeTime(new Date(`${person.lastOneOnOneDate}T00:00:00`).getTime(), i18n.language)}
+                </Text>
+                <Badge
+                  size="sm"
+                  variant="light"
+                  color={(person.lastOneOnOneOpenItems ?? 0) > 0 ? "yellow" : "green"}
+                  style={{ minWidth: "max-content" }}
+                >
+                  {t("users.openItemsBadge", { count: person.lastOneOnOneOpenItems ?? 0 })}
+                </Badge>
+              </>
+            ) : (
+              <NeverText />
+            )}
+          </StatRow>
+          <StatRow label={t("users.lastFeedback")}>
+            <TimeStat at={person.lastFeedbackAt} />
+          </StatRow>
+          <StatRow label={t("users.activeGoals")}>
             <Badge
               size="sm"
               variant="light"
-              color={(person.lastOneOnOneOpenItems ?? 0) > 0 ? "yellow" : "green"}
+              color={(person.activeGoalCount ?? 0) > 0 ? "green" : "gray"}
               style={{ minWidth: "max-content" }}
             >
-              {t("users.openItemsBadge", { count: person.lastOneOnOneOpenItems ?? 0 })}
+              {person.activeGoalCount ?? 0}
             </Badge>
-          </>
-        ) : (
-          <NeverText />
-        )}
-      </StatRow>
-      <StatRow label={t("users.lastFeedback")}>
-        <TimeStat at={person.lastFeedbackAt} />
-      </StatRow>
-      <StatRow label={t("users.activeGoals")}>
-        <Badge
-          size="sm"
-          variant="light"
-          color={(person.activeGoalCount ?? 0) > 0 ? "green" : "gray"}
-          style={{ minWidth: "max-content" }}
-        >
-          {person.activeGoalCount ?? 0}
-        </Badge>
-      </StatRow>
-    </Stack>
+          </StatRow>
+        </Stack>
+      }
+    />
   );
 }
 
@@ -86,13 +146,18 @@ export default function PersonCardStats({ person }: { person: PersonCardData }) 
 export function PeerCardStats({ person }: { person: PersonCardData }) {
   const { t } = useTranslation();
   return (
-    <Stack gap={4}>
-      <StatRow label={t("users.feedbackFromMe")}>
-        <TimeStat at={person.lastFeedbackGivenAt} />
-      </StatRow>
-      <StatRow label={t("users.feedbackFromThem")}>
-        <TimeStat at={person.lastFeedbackReceivedAt} />
-      </StatRow>
-    </Stack>
+    <StatsColumns
+      person={person}
+      left={
+        <Stack gap={4}>
+          <StatRow label={t("users.feedbackFromMe")}>
+            <TimeStat at={person.lastFeedbackGivenAt} />
+          </StatRow>
+          <StatRow label={t("users.feedbackFromThem")}>
+            <TimeStat at={person.lastFeedbackReceivedAt} />
+          </StatRow>
+        </Stack>
+      }
+    />
   );
 }
