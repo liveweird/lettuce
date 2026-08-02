@@ -67,25 +67,28 @@ describe("ReviewPeriods page", () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  test("lists the timeline, locks the next start to the adjacent month, and appends", async () => {
+  test("locks the next start as text, defaults a 6-month period, previews it, and appends", async () => {
     setupMocks();
     renderPage();
 
     expect(await screen.findByText("July 2025 – December 2025")).toBeInTheDocument();
     expect(screen.getByText("January 2026 – June 2026")).toBeInTheDocument();
-    // The start input is locked to the month after the latest end.
-    const start = screen.getByLabelText("First month");
-    expect(start).toHaveValue("2026-07");
-    expect(start).toBeDisabled();
-    expect(screen.getByText("Fixed: the month after the latest period ends.")).toBeInTheDocument();
+    // The fixed start is plain text (no input to mistype) with the timeline rule spelled out.
+    expect(screen.getByText("July 2026")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Fixed — the timeline allows no gaps or overlaps: a new period starts right after the latest one ends.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("First month")).toBeNull();
+    // The end pickers default to a 6-month period, previewed verbatim before Add.
+    expect(screen.getByLabelText("Last month", { selector: "input" })).toHaveValue("December");
+    expect(screen.getByLabelText("Year", { selector: "input" })).toHaveValue("2026");
+    expect(screen.getByText("Will add: July 2026 – December 2026")).toBeInTheDocument();
     // Only the LATEST row offers Delete.
     expect(screen.getAllByRole("button", { name: /^Delete the period/ })).toHaveLength(1);
 
-    const add = screen.getByRole("button", { name: "Add period" });
-    expect(add).toBeDisabled();
-    fireEvent.change(screen.getByLabelText("Last month"), { target: { value: "2026-12" } });
-    await userEvent.click(add);
-
+    await userEvent.click(screen.getByRole("button", { name: "Add period" }));
     await waitFor(() => {
       const post = mockFetch.mock.calls.find((c) => c[1]?.method === "POST");
       expect(post).toBeDefined();
@@ -96,19 +99,55 @@ describe("ReviewPeriods page", () => {
     });
   });
 
-  test("an empty timeline frees the start month and shows the empty state", async () => {
+  test("an end before the start is unpickable: same-year end months before the start are not offered", async () => {
+    setupMocks();
+    renderPage();
+
+    // Start is fixed to 2026-07; with the end year at 2026, months before July are absent.
+    await screen.findByText("July 2026");
+    fireEvent.click(screen.getByLabelText("Last month", { selector: "input" }));
+    expect(await screen.findByRole("option", { name: "July" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "December" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "June" })).toBeNull();
+    expect(screen.queryByRole("option", { name: "January" })).toBeNull();
+  });
+
+  test("an empty timeline offers start pickers too and re-clamps an invalidated end", async () => {
     setupMocks([]);
     renderPage();
 
     expect(
       await screen.findByText("No review periods yet — add the first one below."),
     ).toBeInTheDocument();
-    const start = screen.getByLabelText("First month");
-    expect(start).toBeEnabled();
-    fireEvent.change(start, { target: { value: "2026-01" } });
-    fireEvent.change(screen.getByLabelText("Last month"), { target: { value: "2025-12" } });
-    // End before start keeps the append disabled.
-    expect(screen.getByRole("button", { name: "Add period" })).toBeDisabled();
+    // Two picker pairs: (start month, start year) + (end month, end year).
+    expect(screen.getByLabelText("First month", { selector: "input" })).toBeInTheDocument();
+    const years = screen.getAllByLabelText("Year", { selector: "input" });
+    expect(years).toHaveLength(2);
+
+    // Pick December of some year: the default end follows into the NEXT year (May), and
+    // pulling the end year back to the start year leaves only December pickable.
+    fireEvent.click(screen.getByLabelText("First month", { selector: "input" }));
+    fireEvent.click(await screen.findByRole("option", { name: "December" }));
+    const startYear = (years[0] as HTMLInputElement).value;
+    expect(screen.getByLabelText("Last month", { selector: "input" })).toHaveValue("May");
+    expect(years[1]).toHaveValue(String(Number(startYear) + 1));
+
+    fireEvent.click(years[1]);
+    fireEvent.click(await screen.findByRole("option", { name: startYear }));
+    fireEvent.click(screen.getByLabelText("Last month", { selector: "input" }));
+    const options = screen.getAllByRole("option");
+    expect(options.map((o) => o.textContent)).toEqual(["December"]);
+
+    // Committing posts the composed ISO months.
+    await userEvent.click(screen.getByRole("button", { name: "Add period" }));
+    await waitFor(() => {
+      const post = mockFetch.mock.calls.find((c) => c[1]?.method === "POST");
+      expect(post).toBeDefined();
+      expect(JSON.parse(String(post![1]!.body))).toEqual({
+        startMonth: `${startYear}-12`,
+        endMonth: `${startYear}-12`,
+      });
+    });
   });
 
   test("deleting the latest period confirms first; a 409 maps to the referenced message", async () => {

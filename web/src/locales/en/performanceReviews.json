@@ -106,14 +106,16 @@
     "loadError": "Failed to load review periods",
     "startMonth": "First month",
     "endMonth": "Last month",
-    "startLocked": "Fixed: the month after the latest period ends.",
+    "startLocked": "Fixed — the timeline allows no gaps or overlaps: a new period starts right after the latest one ends.",
     "addPeriod": "Add period",
     "adjacencyConflict": "The period must start right after the latest one ends — reload and try again.",
     "invalidMonths": "Both months are required, and the first month cannot be after the last.",
     "deleteConflict": "Only the latest period without any reviews can be deleted.",
     "deleteAria": "Delete the period {{range}}",
     "deleteTitle": "Delete this period?",
-    "deleteMessage": "The latest period will be removed from the timeline."
+    "deleteMessage": "The latest period will be removed from the timeline.",
+    "year": "Year",
+    "preview": "Will add: {{range}}"
   },
   "dashboard": {
     "team": "Team",

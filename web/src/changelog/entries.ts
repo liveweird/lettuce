@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.33.2",
+    date: "2026-08-02",
+    en: `Adding a review period no longer requires knowing any date format: the fixed start month is shown as plain text (with the no-gaps rule spelled out), the period's end is picked from month and year dropdowns that simply don't offer anything before the start, a 6-month period comes pre-selected, and a live preview shows exactly what "Add period" will create — including when defining the very first period.`,
+    pl: `Dodawanie okresu ocen nie wymaga już znajomości żadnego formatu dat: stały miesiąc początkowy jest zwykłym tekstem (z wyjaśnioną zasadą braku luk), koniec okresu wybiera się z list rozwijanych miesiąca i roku, które po prostu nie oferują niczego przed początkiem, sześciomiesięczny okres jest wstępnie wybrany, a podgląd na żywo pokazuje dokładnie, co utworzy „Dodaj okres" — także przy definiowaniu pierwszego okresu.`,
+  },
+  {
     version: "1.33.1",
     date: "2026-08-02",
     en: `Performance-review ratings now carry a consistent color scale everywhere they appear — the lower the rating the more orange, the higher the more green. Tables and the Dashboard show colored rating pills, the review screen pairs the colored number with its wording, and the editor's rating picker previews each step's color.`,
