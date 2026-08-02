@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.31.0",
+    date: "2026-08-02",
+    en: `Three global dictionaries arrive under the new **Dictionaries** menu: **Career paths**, **Career specializations**, and **Seniority levels**. Everyone can browse the ordered values; administrators curate each list in place — add, rename, reorder, and remove entries, then save the whole dictionary in one go. Values are unique within a dictionary, and removed entries are retired rather than erased.`,
+    pl: `Pod nowym menu **Słowniki** pojawiają się trzy globalne słowniki: **Ścieżki kariery**, **Specjalizacje** i **Poziomy zaszeregowania**. Każdy może przeglądać uporządkowane wartości; administratorzy pielęgnują każdą listę na miejscu — dodają, zmieniają, przestawiają i usuwają wpisy, a potem zapisują cały słownik za jednym razem. Wartości są unikalne w obrębie słownika, a usunięte wpisy są wycofywane, nie kasowane.`,
+  },
+  {
     version: "1.30.2",
     date: "2026-08-02",
     en: `The org chart no longer loses people: users who belong to no team (and manage none) now appear in a **Not in any team** section below the chart, as ordinary clickable nodes — previously they were missing from the picture entirely.`,

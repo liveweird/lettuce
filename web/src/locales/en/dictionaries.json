@@ -1,0 +1,27 @@
+{
+  "title": {
+    "careerPaths": "Career paths",
+    "careerSpecializations": "Career specializations",
+    "seniorityLevels": "Seniority levels"
+  },
+  "empty": "This dictionary has no entries yet.",
+  "addEntry": "Add entry",
+  "entryAria": "Entry {{position}}",
+  "moveUp": "Move entry {{position}} up",
+  "moveDown": "Move entry {{position}} down",
+  "removeEntry": "Remove entry {{position}}",
+  "valueRequired": "Value is required",
+  "valueTooLong": "Value must be at most 100 characters",
+  "valueDuplicate": "This value already exists in the dictionary",
+  "discardTitle": "Discard changes?",
+  "discardMessage": "Your unsaved dictionary changes will be lost.",
+  "loadFailed": "Failed to load the dictionary",
+  "unknownError": "Unknown error",
+  "error": {
+    "permission": "Only an administrator may edit dictionaries.",
+    "conflict": "A value clashes with an existing entry — values must be unique within the dictionary.",
+    "validation": "The entries are invalid — check for blank or duplicate values.",
+    "saveFailedStatus": "Saving failed (status {{status}}).",
+    "saveFailed": "Saving failed. Check your connection and try again."
+  }
+}

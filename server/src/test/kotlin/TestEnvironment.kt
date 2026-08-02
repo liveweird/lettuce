@@ -26,8 +26,11 @@ import io.ktor.server.config.ApplicationConfig
 import io.ktor.server.config.MapApplicationConfig
 import io.ktor.server.config.mergeWith
 import io.ktor.server.testing.ApplicationTestBuilder
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.toList
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
+import org.jetbrains.exposed.v1.r2dbc.selectAll
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 import org.jetbrains.exposed.v1.r2dbc.update
 
@@ -209,6 +212,21 @@ object TestServices {
     val teamKpis: ch.nokillswit.teamkpis.TeamKpiService by lazy {
         ch.nokillswit.teamkpis.TeamKpiService(sharedTestDatabase, cipher)
     }
+}
+
+// Reads dictionary_entries rows raw, soft-deleted included (the API read filters active), to
+// assert that omitted entries are flagged rather than physically removed.
+object TestDictionaries {
+    data class RawEntry(val id: UInt, val value: String, val markedAsDeleted: Boolean)
+
+    suspend fun rawRows(dict: ch.nokillswit.dictionaries.Dictionary): List<RawEntry> =
+        suspendTransaction(sharedTestDatabase) {
+            val t = ch.nokillswit.dictionaries.DictionaryService.Entries
+            t.selectAll()
+                .where { t.dictionary eq dict.name }
+                .map { RawEntry(it[t.id].value, it[t.value], it[t.markedAsDeleted]) }
+                .toList()
+        }
 }
 
 // Reads the team_kpi_events audit table directly (e.g. to assert events outlive a soft delete).

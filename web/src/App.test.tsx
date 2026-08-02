@@ -95,6 +95,30 @@ describe("App shell", () => {
       expect(usersLink).not.toHaveAttribute("aria-current");
     });
 
+    test("the Dictionaries group lists all three dictionaries for everyone", async () => {
+      // Read access is universal, so the group renders without any role in localStorage.
+      const user = userEvent.setup();
+      renderApp("/");
+      await user.click(await screen.findByText("Dictionaries"));
+      expect(await screen.findByRole("link", { name: /^career paths$/i })).toHaveAttribute(
+        "href",
+        "/dictionaries/career-paths",
+      );
+      expect(screen.getByRole("link", { name: /^career specializations$/i })).toHaveAttribute(
+        "href",
+        "/dictionaries/career-specializations",
+      );
+      expect(screen.getByRole("link", { name: /^seniority levels$/i })).toHaveAttribute(
+        "href",
+        "/dictionaries/seniority-levels",
+      );
+    });
+
+    test("auto-expands the Dictionaries group when on one of its routes", async () => {
+      renderApp("/dictionaries/seniority-levels");
+      expect(await screen.findByRole("link", { name: /^career paths$/i })).toBeInTheDocument();
+    });
+
     test("the Config group toggle is a keyboard-focusable button", async () => {
       const user = userEvent.setup();
       renderApp("/");

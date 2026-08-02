@@ -4,6 +4,9 @@ import ch.nokillswit.alerts.Alert
 import ch.nokillswit.alerts.AlertResponse
 import ch.nokillswit.auth.LoginRequest
 import ch.nokillswit.auth.LoginResponse
+import ch.nokillswit.dictionaries.DictionaryEntryInput
+import ch.nokillswit.dictionaries.DictionaryEntryList
+import ch.nokillswit.dictionaries.DictionaryUpdateRequest
 import ch.nokillswit.teams.Team
 import ch.nokillswit.teams.TeamResponse
 import ch.nokillswit.templates.Template
@@ -182,6 +185,61 @@ class AuditTest {
                 alertId.toLong(),
                 appender.events.first { it.message == "alert.created" }.keyValuePairs.first { it.key == "alertId" }.value,
             )
+        } finally {
+            appender.detach()
+        }
+    }
+
+    @Test
+    fun `dictionary updates emit audit events with change counts only on success`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        val adminId = TestUsers.seed(email = adminEmail, password = "pw")
+        val userEmail = uniqueEmail("user")
+        TestUsers.seed(email = userEmail, password = "pw", roles = emptySet())
+        val appender = LogCapture("ch.nokillswit.audit")
+        try {
+            val adminClient = authedClient(adminEmail, "pw")
+            val userClient = authedClient(userEmail, "pw")
+
+            // Baseline document, then one save doing an add + a rename + a removal at once.
+            val (a, b) = "audit-a-${UUID.randomUUID()}" to "audit-b-${UUID.randomUUID()}"
+            adminClient.put("/api/v1/dictionaries/career-paths") {
+                contentType(ContentType.Application.Json)
+                setBody(DictionaryUpdateRequest(items = listOf(DictionaryEntryInput(value = a), DictionaryEntryInput(value = b))))
+            }
+            val entries = adminClient.get("/api/v1/dictionaries/career-paths").body<DictionaryEntryList>().items
+            val aId = entries.first { it.value == a }.id
+            adminClient.put("/api/v1/dictionaries/career-paths") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    DictionaryUpdateRequest(
+                        items = listOf(
+                            DictionaryEntryInput(id = aId, value = "$a-renamed"),
+                            DictionaryEntryInput(value = "audit-c-${UUID.randomUUID()}"),
+                        ),
+                    ),
+                )
+            }
+
+            val hit = appender.events.last { it.message == "dictionary.updated" }
+            assertEquals(adminId.toLong(), hit.keyValuePairs.first { it.key == "byUserId" }.value)
+            assertEquals("CAREER_PATH", hit.keyValuePairs.first { it.key == "dictionary" }.value)
+            assertEquals(1, hit.keyValuePairs.first { it.key == "added" }.value)
+            assertEquals(1, hit.keyValuePairs.first { it.key == "renamed" }.value)
+            assertEquals(1, hit.keyValuePairs.first { it.key == "removed" }.value)
+            val successCount = appender.events.count { it.message == "dictionary.updated" }
+
+            // A rejected save (403 non-admin, 400 blank value) mints no phantom event.
+            userClient.put("/api/v1/dictionaries/career-paths") {
+                contentType(ContentType.Application.Json)
+                setBody(DictionaryUpdateRequest(items = listOf(DictionaryEntryInput(value = "x"))))
+            }
+            adminClient.put("/api/v1/dictionaries/career-paths") {
+                contentType(ContentType.Application.Json)
+                setBody(DictionaryUpdateRequest(items = listOf(DictionaryEntryInput(value = "   "))))
+            }
+            assertEquals(successCount, appender.events.count { it.message == "dictionary.updated" })
         } finally {
             appender.detach()
         }

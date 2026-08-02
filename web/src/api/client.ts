@@ -1,4 +1,4 @@
-import type { paths } from "./schema";
+import type { components, paths } from "./schema";
 import { flagSignedOut, notifyAuthChange } from "../auth";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
@@ -953,6 +953,28 @@ export async function updateTemplate(id: number, body: UpdateTemplateBody): Prom
 
 export async function deleteTemplate(id: number): Promise<void> {
   const res = await authedFetch(`/api/v1/templates/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
+export type DictionarySlug = "career-paths" | "career-specializations" | "seniority-levels";
+export type DictionaryEntry = components["schemas"]["DictionaryEntry"];
+export type DictionaryUpdateBody = components["schemas"]["DictionaryUpdateRequest"];
+type DictionaryEntryListResponse =
+  paths["/api/v1/dictionaries/{dictionary}"]["get"]["responses"]["200"]["content"]["application/json"];
+
+/** The dictionary's active entries in the admin-curated order (unpaged — at most 200). */
+export async function getDictionary(slug: DictionarySlug): Promise<DictionaryEntry[]> {
+  const res = await authedFetch(`/api/v1/dictionaries/${slug}`);
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return ((await res.json()) as DictionaryEntryListResponse).items;
+}
+
+/** Whole-document replace (ADMIN): payload order becomes the stored order. */
+export async function updateDictionary(slug: DictionarySlug, body: DictionaryUpdateBody): Promise<void> {
+  const res = await authedFetch(`/api/v1/dictionaries/${slug}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 

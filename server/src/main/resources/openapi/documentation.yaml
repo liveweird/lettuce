@@ -49,6 +49,7 @@ tags:
   - name: goals
   - name: team-kpis
   - name: templates
+  - name: dictionaries
   - name: notifications
   - name: alerts
 
@@ -2594,6 +2595,80 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalServerError' }
 
+  /api/v1/dictionaries/{dictionary}:
+    parameters:
+      - name: dictionary
+        in: path
+        required: true
+        schema:
+          type: string
+          enum: [career-paths, career-specializations, seniority-levels]
+        description: The dictionary's URL slug. Unknown slugs answer 404.
+    get:
+      tags: [dictionaries]
+      operationId: getDictionary
+      summary: List a dictionary's entries
+      description: |
+        Any authenticated user may read. Unpaged — dictionaries are intrinsically small
+        (at most 200 entries). Entries come in the admin-curated order (position ascending,
+        `id` as deterministic tiebreaker); soft-deleted entries are never returned.
+      responses:
+        '200':
+          description: The dictionary's active entries, in order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DictionaryEntryList'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    put:
+      tags: [dictionaries]
+      operationId: replaceDictionary
+      summary: Replace a dictionary's entries
+      description: |
+        Whole-document replace, ADMIN only (the guard runs before slug resolution, so a
+        non-admin gets a uniform 403 whether or not the slug exists). Reconciliation: an
+        item carrying an `id` renames that existing active entry in place (the id is stable
+        across renames); an item without an `id` is inserted; active entries missing from
+        the payload are soft-deleted — never physically removed. A soft-deleted entry's id
+        can never be resubmitted; re-adding the same value creates a new entry. Positions
+        are rewritten from payload order. An empty `items` array is allowed and soft-deletes
+        every entry.
+
+        Values are trimmed before storage and comparison. Blank or oversized values,
+        duplicate values within the payload (case-sensitive), duplicated or unknown /
+        soft-deleted entry ids, and more than 200 items are 400. A clash with another
+        active entry's value — e.g. swapping two values in one save, which trips the
+        per-statement unique index — is 409; work around a swap with a two-save rename
+        through a temporary value.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DictionaryUpdateRequest'
+      responses:
+        '204': { description: Replaced }
+        '400':
+          description: Validation error (blank/oversized/duplicate value, bad entry id, too many items)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is not ADMIN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: A value clashes with another active entry (e.g. a one-save value swap)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
   /api/v1/alerts:
     get:
       tags: [alerts]
@@ -3594,6 +3669,44 @@ components:
           format: int64
           minimum: 0
           description: Row count after filters, before pagination.
+
+    DictionaryEntry:
+      type: object
+      required: [id, value]
+      properties:
+        id: { type: integer, format: int64, minimum: 0 }
+        value: { type: string }
+
+    DictionaryEntryList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DictionaryEntry'
+
+    DictionaryEntryInput:
+      type: object
+      required: [value]
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+          description: Present = update that active entry in place; absent = insert a new entry.
+        value: { type: string, maxLength: 100 }
+
+    DictionaryUpdateRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/DictionaryEntryInput'
 
     AlertRequest:
       type: object

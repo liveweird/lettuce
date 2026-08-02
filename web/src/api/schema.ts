@@ -1553,6 +1553,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dictionaries/{dictionary}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The dictionary's URL slug. Unknown slugs answer 404. */
+                dictionary: "career-paths" | "career-specializations" | "seniority-levels";
+            };
+            cookie?: never;
+        };
+        /**
+         * List a dictionary's entries
+         * @description Any authenticated user may read. Unpaged — dictionaries are intrinsically small
+         *     (at most 200 entries). Entries come in the admin-curated order (position ascending,
+         *     `id` as deterministic tiebreaker); soft-deleted entries are never returned.
+         */
+        get: operations["getDictionary"];
+        /**
+         * Replace a dictionary's entries
+         * @description Whole-document replace, ADMIN only (the guard runs before slug resolution, so a
+         *     non-admin gets a uniform 403 whether or not the slug exists). Reconciliation: an
+         *     item carrying an `id` renames that existing active entry in place (the id is stable
+         *     across renames); an item without an `id` is inserted; active entries missing from
+         *     the payload are soft-deleted — never physically removed. A soft-deleted entry's id
+         *     can never be resubmitted; re-adding the same value creates a new entry. Positions
+         *     are rewritten from payload order. An empty `items` array is allowed and soft-deletes
+         *     every entry.
+         *
+         *     Values are trimmed before storage and comparison. Blank or oversized values,
+         *     duplicate values within the payload (case-sensitive), duplicated or unknown /
+         *     soft-deleted entry ids, and more than 200 items are 400. A clash with another
+         *     active entry's value — e.g. swapping two values in one save, which trips the
+         *     per-statement unique index — is 409; work around a swap with a two-save rename
+         *     through a temporary value.
+         */
+        put: operations["replaceDictionary"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/alerts": {
         parameters: {
             query?: never;
@@ -2173,6 +2216,25 @@ export interface components {
              * @description Row count after filters, before pagination.
              */
             total: number;
+        };
+        DictionaryEntry: {
+            /** Format: int64 */
+            id: number;
+            value: string;
+        };
+        DictionaryEntryList: {
+            items: components["schemas"]["DictionaryEntry"][];
+        };
+        DictionaryEntryInput: {
+            /**
+             * Format: int64
+             * @description Present = update that active entry in place; absent = insert a new entry.
+             */
+            id?: number | null;
+            value: string;
+        };
+        DictionaryUpdateRequest: {
+            items: components["schemas"]["DictionaryEntryInput"][];
         };
         AlertRequest: {
             title: string;
@@ -5642,6 +5704,87 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getDictionary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The dictionary's URL slug. Unknown slugs answer 404. */
+                dictionary: "career-paths" | "career-specializations" | "seniority-levels";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The dictionary's active entries, in order */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictionaryEntryList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    replaceDictionary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The dictionary's URL slug. Unknown slugs answer 404. */
+                dictionary: "career-paths" | "career-specializations" | "seniority-levels";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DictionaryUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Replaced */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation error (blank/oversized/duplicate value, bad entry id, too many items) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description A value clashes with another active entry (e.g. a one-save value swap) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             500: components["responses"]["InternalServerError"];
         };
     };

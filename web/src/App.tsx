@@ -16,11 +16,14 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
+  IconBook2,
+  IconBriefcase,
   IconCalendarEvent,
   IconFileText,
   IconHelp,
   IconHierarchy,
   IconHistory,
+  IconRoute,
   IconSpeakerphone,
   IconChartLine,
   IconKey,
@@ -28,6 +31,7 @@ import {
   IconMessageCircle,
   IconMoon,
   IconSettings,
+  IconStairs,
   IconSun,
   IconTargetArrow,
   IconUserScan,
@@ -100,6 +104,7 @@ const CreateTemplate = lazy(() => import("./pages/CreateTemplate"));
 const EditTemplate = lazy(() => import("./pages/EditTemplate"));
 const ViewTemplate = lazy(() => import("./pages/ViewTemplate"));
 const Alerts = lazy(() => import("./pages/Alerts"));
+const Dictionary = lazy(() => import("./pages/Dictionary"));
 const Changelog = lazy(() => import("./pages/Changelog"));
 const CreateAlert = lazy(() => import("./pages/CreateAlert"));
 const EditAlert = lazy(() => import("./pages/EditAlert"));
@@ -134,6 +139,16 @@ const NAV_ITEMS: ReadonlyArray<NavEntry> = [
       { to: "/teams", label: "appShell.nav.teams", icon: IconUsersGroup },
       { to: "/org", label: "appShell.nav.orgChart", icon: IconHierarchy },
       { to: "/templates", label: "appShell.nav.templates", icon: IconFileText },
+    ],
+  },
+  // Visible to everyone: the pages are readable by all, only editing is ADMIN-gated.
+  {
+    label: "appShell.nav.dictionaries",
+    icon: IconBook2,
+    children: [
+      { to: "/dictionaries/career-paths", label: "appShell.nav.careerPaths", icon: IconRoute },
+      { to: "/dictionaries/career-specializations", label: "appShell.nav.careerSpecializations", icon: IconBriefcase },
+      { to: "/dictionaries/seniority-levels", label: "appShell.nav.seniorityLevels", icon: IconStairs },
     ],
   },
 ];
@@ -448,6 +463,7 @@ export default function App() {
             <Route path="templates/new" element={<CreateTemplate />} />
             <Route path="templates/:id/edit" element={<EditTemplate />} />
             <Route path="templates/:id/view" element={<ViewTemplate />} />
+            <Route path="dictionaries/:slug" element={<Dictionary />} />
             <Route path="alerts" element={<Alerts />} />
             <Route path="alerts/new" element={<CreateAlert />} />
             <Route path="alerts/:id/edit" element={<EditAlert />} />

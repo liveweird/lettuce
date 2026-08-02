@@ -52,6 +52,9 @@ commit** — this list is the suite's coverage map, and it has drifted twice.
 - `teams.spec.ts` — team create / rename / member add + remove / **manager reassignment**
   (admin-only) / delete.
 - `templates.spec.ts` — template CRUD + **Insert** into the feedback editor.
+- `dictionaries.spec.ts` — the global dictionaries: an admin **adds**, **reorders**, and
+  **renames** entries in the whole-list editor (one Save per round), a regular user sees the
+  read-only numbered view, and the throwaway entries are removed at the end.
 - `manager-oversight.spec.ts` — the **My team** feedback tab and the per-user two-way
   feedbacks screen.
 - `lists.spec.ts` — shared list plumbing on the Users page: filters (+ clear), sort toggle,

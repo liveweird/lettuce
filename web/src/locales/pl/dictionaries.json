@@ -1,0 +1,27 @@
+{
+  "title": {
+    "careerPaths": "Ścieżki kariery",
+    "careerSpecializations": "Specjalizacje",
+    "seniorityLevels": "Poziomy zaszeregowania"
+  },
+  "empty": "Ten słownik nie ma jeszcze wpisów.",
+  "addEntry": "Dodaj wpis",
+  "entryAria": "Wpis {{position}}",
+  "moveUp": "Przesuń wpis {{position}} w górę",
+  "moveDown": "Przesuń wpis {{position}} w dół",
+  "removeEntry": "Usuń wpis {{position}}",
+  "valueRequired": "Wartość jest wymagana",
+  "valueTooLong": "Wartość może mieć najwyżej 100 znaków",
+  "valueDuplicate": "Ta wartość już istnieje w słowniku",
+  "discardTitle": "Odrzucić zmiany?",
+  "discardMessage": "Niezapisane zmiany w słowniku zostaną utracone.",
+  "loadFailed": "Nie udało się wczytać słownika",
+  "unknownError": "Nieznany błąd",
+  "error": {
+    "permission": "Tylko administrator może edytować słowniki.",
+    "conflict": "Wartość koliduje z istniejącym wpisem — wartości w słowniku muszą być unikalne.",
+    "validation": "Wpisy są nieprawidłowe — sprawdź puste lub powtórzone wartości.",
+    "saveFailedStatus": "Zapis nie powiódł się (status {{status}}).",
+    "saveFailed": "Zapis nie powiódł się. Sprawdź połączenie i spróbuj ponownie."
+  }
+}
