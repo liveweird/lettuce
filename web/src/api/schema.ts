@@ -1905,6 +1905,22 @@ export interface components {
              * @default false
              */
             sendEmail: boolean;
+            /**
+             * Format: int64
+             * @description Id of an ACTIVE CAREER_PATH dictionary entry. Omitted or null = leave unset.
+             *     An unknown, wrong-dictionary, or soft-deleted id is rejected with 400.
+             */
+            careerPathId?: number | null;
+            /**
+             * Format: int64
+             * @description Id of an ACTIVE CAREER_SPECIALIZATION dictionary entry — see careerPathId.
+             */
+            careerSpecializationId?: number | null;
+            /**
+             * Format: int64
+             * @description Id of an ACTIVE SENIORITY_LEVEL dictionary entry — see careerPathId.
+             */
+            seniorityLevelId?: number | null;
         };
         UserCreateResponse: {
             /** Format: int64 */
@@ -1914,6 +1930,9 @@ export interface components {
             roles: ("ADMIN" | "HR")[];
             /** @description Present only when sendEmail was requested — false means the delivery failed (the account exists regardless; the password is still shown once). */
             emailSent?: boolean | null;
+            careerPath: components["schemas"]["DictionaryEntry"] | null;
+            careerSpecialization: components["schemas"]["DictionaryEntry"] | null;
+            seniorityLevel: components["schemas"]["DictionaryEntry"] | null;
         };
         UserUpdateRequest: {
             name: string;
@@ -1924,6 +1943,25 @@ export interface components {
              *     caller must send the set the user already has, otherwise the request is rejected with 403.
              */
             roles: ("ADMIN" | "HR")[];
+            /**
+             * Format: int64
+             * @description Id of an ACTIVE CAREER_PATH dictionary entry. Omitted or null = leave unchanged —
+             *     there is deliberately no way to clear a set value. Assigning or changing requires
+             *     ADMIN (403 otherwise); an unknown, wrong-dictionary, or soft-deleted NEW id is 400.
+             *     Resubmitting the user's current id is never a change (allowed for any caller, even
+             *     when that entry has been soft-deleted since).
+             */
+            careerPathId?: number | null;
+            /**
+             * Format: int64
+             * @description Id of an ACTIVE CAREER_SPECIALIZATION dictionary entry — semantics as careerPathId.
+             */
+            careerSpecializationId?: number | null;
+            /**
+             * Format: int64
+             * @description Id of an ACTIVE SENIORITY_LEVEL dictionary entry — semantics as careerPathId.
+             */
+            seniorityLevelId?: number | null;
         };
         PasswordUpdateRequest: {
             /** @description At most 71 bytes in UTF-8 (bcrypt limit) — longer is rejected with 400. */
@@ -1942,6 +1980,16 @@ export interface components {
             email: string;
             /** @description Additional roles — empty for a regular user. */
             roles: ("ADMIN" | "HR")[];
+            /**
+             * @description The user's career path, resolved from the CAREER_PATH dictionary at read time
+             *     (renames propagate; a soft-deleted referenced entry keeps resolving to its
+             *     retained value). Null until set; once set it can never be cleared.
+             */
+            careerPath: components["schemas"]["DictionaryEntry"] | null;
+            /** @description Resolved from the CAREER_SPECIALIZATION dictionary — see careerPath. */
+            careerSpecialization: components["schemas"]["DictionaryEntry"] | null;
+            /** @description Resolved from the SENIORITY_LEVEL dictionary — see careerPath. */
+            seniorityLevel: components["schemas"]["DictionaryEntry"] | null;
         };
         UserPage: {
             items: components["schemas"]["UserResponse"][];

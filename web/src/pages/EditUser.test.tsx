@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -33,8 +33,17 @@ function renderEditUser(id: number | string = 7) {
   );
 }
 
+type Entry = { id: number; value: string };
 
-const EXISTING_USER = { id: 7, name: "Alice", email: "alice@example.com", roles: [] as const };
+const EXISTING_USER = {
+  id: 7,
+  name: "Alice",
+  email: "alice@example.com",
+  roles: [] as string[],
+  careerPath: null as Entry | null,
+  careerSpecialization: null as Entry | null,
+  seniorityLevel: null as Entry | null,
+};
 
 describe("EditUser page", () => {
   let mockFetch: ReturnType<typeof vi.fn>;
@@ -51,9 +60,50 @@ describe("EditUser page", () => {
     localStorage.clear();
   });
 
+  // URL-routed mock: the page fetches the user AND the three dictionaries concurrently,
+  // so sequential mockResolvedValueOnce chains would race.
+  function mockApi({
+    user = EXISTING_USER,
+    userStatus = 200,
+    putStatus = 204,
+    dictionaries = {},
+  }: {
+    user?: typeof EXISTING_USER;
+    userStatus?: number;
+    putStatus?: number;
+    dictionaries?: Record<string, Entry[]>;
+  } = {}) {
+    mockFetch.mockImplementation((input: string, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+      if (method === "GET" && url.startsWith("/api/v1/dictionaries/")) {
+        const slug = url.split("/").pop()!;
+        return Promise.resolve(jsonResponse(200, { items: dictionaries[slug] ?? [] }));
+      }
+      if (method === "PUT") {
+        return Promise.resolve(
+          putStatus === 204
+            ? new Response(null, { status: 204 })
+            : jsonResponse(putStatus, { error: "err", message: "err" }),
+        );
+      }
+      if (method === "GET") {
+        return Promise.resolve(
+          userStatus === 200 ? jsonResponse(200, user) : jsonResponse(userStatus, { error: "not_found", message: "missing" }),
+        );
+      }
+      return Promise.resolve(jsonResponse(500, {}));
+    });
+  }
+
+  function putBody(): Record<string, unknown> {
+    const putCall = mockFetch.mock.calls.find(([, init]) => (init as RequestInit)?.method === "PUT");
+    expect(putCall).toBeDefined();
+    return JSON.parse((putCall![1] as { body: string }).body);
+  }
+
   test("pre-fills form from GET and PUTs edits then redirects to /users", async () => {
-    mockFetch.mockResolvedValueOnce(jsonResponse(200, EXISTING_USER));
-    mockFetch.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    mockApi();
 
     const user = userEvent.setup();
     renderEditUser(7);
@@ -70,10 +120,10 @@ describe("EditUser page", () => {
 
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/users"));
 
-    const putCall = mockFetch.mock.calls.find(([, init]) => init?.method === "PUT");
-    expect(putCall).toBeDefined();
+    const putCall = mockFetch.mock.calls.find(([, init]) => (init as RequestInit)?.method === "PUT");
     expect(putCall![0]).toBe("/api/v1/users/7");
-    expect(JSON.parse(putCall![1].body)).toEqual({
+    // Unset career fields are OMITTED (leave-unchanged) — the body carries no extra keys.
+    expect(putBody()).toEqual({
       name: "Alicia",
       email: "alice@example.com",
       roles: [],
@@ -88,10 +138,7 @@ describe("EditUser page", () => {
   });
 
   test("409 on PUT surfaces an email-field error and keeps the form", async () => {
-    mockFetch.mockResolvedValueOnce(jsonResponse(200, EXISTING_USER));
-    mockFetch.mockResolvedValueOnce(
-      jsonResponse(409, { error: "conflict", message: "Email taken" }),
-    );
+    mockApi({ putStatus: 409 });
 
     const user = userEvent.setup();
     renderEditUser(7);
@@ -107,9 +154,7 @@ describe("EditUser page", () => {
   });
 
   test("404 on GET shows a 'User not found' alert", async () => {
-    mockFetch.mockResolvedValueOnce(
-      jsonResponse(404, { error: "not_found", message: "missing" }),
-    );
+    mockApi({ userStatus: 404 });
 
     renderEditUser(999);
 
@@ -123,8 +168,7 @@ describe("EditUser page", () => {
     // because its open-on-click behavior is unreliable under happy-dom. The
     // positive admin-roles-change path is covered by the backend
     // `PUT users id lets admin change another user's role` test.
-    mockFetch.mockResolvedValueOnce(jsonResponse(200, { ...EXISTING_USER, roles: ["ADMIN"] }));
-    mockFetch.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    mockApi({ user: { ...EXISTING_USER, roles: ["ADMIN"] } });
 
     const user = userEvent.setup();
     renderEditUser(7);
@@ -135,8 +179,7 @@ describe("EditUser page", () => {
     await user.click(screen.getByRole("button", { name: /^save$/i }));
 
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/users"));
-    const putCall = mockFetch.mock.calls.find(([, init]) => init?.method === "PUT");
-    expect(JSON.parse(putCall![1].body).roles).toEqual(["ADMIN"]);
+    expect(putBody().roles).toEqual(["ADMIN"]);
   });
 
   test("non-numeric id in URL redirects to /users without fetching", () => {
@@ -146,12 +189,13 @@ describe("EditUser page", () => {
   });
 
   test("client-side validation blocks an empty submission", async () => {
-    mockFetch.mockResolvedValueOnce(jsonResponse(200, EXISTING_USER));
+    mockApi();
 
     const user = userEvent.setup();
     renderEditUser(7);
 
     const nameInput = (await screen.findByLabelText("Name")) as HTMLInputElement;
+    await waitFor(() => expect(nameInput.value).toBe("Alice"));
     const emailInput = screen.getByLabelText("Email") as HTMLInputElement;
     await user.clear(nameInput);
     await user.clear(emailInput);
@@ -159,7 +203,74 @@ describe("EditUser page", () => {
 
     expect(await screen.findByText(/name must be 1–50 characters/i)).toBeInTheDocument();
     expect(screen.getByText(/email is required/i)).toBeInTheDocument();
-    const putCall = mockFetch.mock.calls.find(([, init]) => init?.method === "PUT");
+    const putCall = mockFetch.mock.calls.find(([, init]) => (init as RequestInit)?.method === "PUT");
     expect(putCall).toBeUndefined();
+  });
+
+  test("career pickers prefill from the user and picked values are PUT as numeric ids", async () => {
+    mockApi({
+      user: { ...EXISTING_USER, careerPath: { id: 11, value: "Software Engineer" } },
+      dictionaries: {
+        "career-paths": [
+          { id: 11, value: "Software Engineer" },
+          { id: 12, value: "System Analyst" },
+        ],
+        "seniority-levels": [
+          { id: 31, value: "Junior" },
+          { id: 32, value: "Senior" },
+        ],
+      },
+    });
+
+    const user = userEvent.setup();
+    renderEditUser(7);
+
+    const careerPathInput = (await screen.findByLabelText("Career path", {
+      selector: "input",
+    })) as HTMLInputElement;
+    await waitFor(() => expect(careerPathInput.value).toBe("Software Engineer"));
+
+    const seniorityInput = screen.getByLabelText("Seniority level", { selector: "input" });
+    await waitFor(() => expect(seniorityInput).not.toBeDisabled());
+    fireEvent.click(seniorityInput); // open the searchable combobox
+    await user.click(await screen.findByText("Senior"));
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/users"));
+    const body = putBody();
+    expect(body.careerPathId).toBe(11); // resubmitting the current value is fine
+    expect(body.seniorityLevelId).toBe(32);
+    expect(body).not.toHaveProperty("careerSpecializationId"); // still unset → omitted
+  });
+
+  test("a soft-deleted current entry still displays in its picker", async () => {
+    mockApi({
+      user: { ...EXISTING_USER, careerPath: { id: 99, value: "Retired Path" } },
+      dictionaries: {
+        "career-paths": [{ id: 11, value: "Software Engineer" }], // 99 no longer active
+      },
+    });
+
+    renderEditUser(7);
+
+    const careerPathInput = (await screen.findByLabelText("Career path", {
+      selector: "input",
+    })) as HTMLInputElement;
+    await waitFor(() => expect(careerPathInput.value).toBe("Retired Path"));
+  });
+
+  test("unset career fields show the orange missing hint", async () => {
+    mockApi({
+      user: { ...EXISTING_USER, careerPath: { id: 11, value: "Software Engineer" } },
+      dictionaries: { "career-paths": [{ id: 11, value: "Software Engineer" }] },
+    });
+
+    renderEditUser(7);
+
+    await screen.findByDisplayValue("Alice");
+    // Two of the three fields are unset — exactly two hints.
+    await waitFor(() =>
+      expect(screen.getAllByText("Missing — providing it is strongly advised")).toHaveLength(2),
+    );
   });
 });

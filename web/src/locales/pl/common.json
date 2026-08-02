@@ -35,7 +35,10 @@
     "status": "Status",
     "lastModified": "Ostatnia zmiana",
     "content": "Treść",
-    "preview": "Podgląd"
+    "preview": "Podgląd",
+    "careerPath": "Ścieżka kariery",
+    "careerSpecialization": "Specjalizacja",
+    "seniorityLevel": "Poziom zaszeregowania"
   },
   "table": {
     "position": "Lp.",

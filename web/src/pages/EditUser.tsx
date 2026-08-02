@@ -28,6 +28,7 @@ import {
   updateUser,
   type UserRole,
 } from "../api/client";
+import CareerProfileSelect from "../components/CareerProfileSelect";
 import RolesMultiSelect from "../components/RolesMultiSelect";
 import { saveErrorMessage } from "../utils/saveError";
 
@@ -35,6 +36,11 @@ type FormValues = {
   name: string;
   email: string;
   roles: UserRole[];
+  // Dictionary-entry ids as strings ("" = unset). Sent only when set — omitting encodes
+  // "leave unchanged", so clearing a value is inexpressible client-side too.
+  careerPathId: string;
+  careerSpecializationId: string;
+  seniorityLevelId: string;
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -49,7 +55,14 @@ export default function EditUser() {
   const [submitting, setSubmitting] = useState(false);
 
   const form = useForm<FormValues>({
-    initialValues: { name: "", email: "", roles: [] },
+    initialValues: {
+      name: "",
+      email: "",
+      roles: [],
+      careerPathId: "",
+      careerSpecializationId: "",
+      seniorityLevelId: "",
+    },
     validate: {
       name: hasLength({ min: 1, max: 50 }, t("users.validation.nameLength")),
       email: (value) => {
@@ -72,7 +85,14 @@ export default function EditUser() {
 
   useEffect(() => {
     if (data) {
-      form.initialize({ name: data.name, email: data.email, roles: [...data.roles] });
+      form.initialize({
+        name: data.name,
+        email: data.email,
+        roles: [...data.roles],
+        careerPathId: data.careerPath ? String(data.careerPath.id) : "",
+        careerSpecializationId: data.careerSpecialization ? String(data.careerSpecialization.id) : "",
+        seniorityLevelId: data.seniorityLevel ? String(data.seniorityLevel.id) : "",
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
@@ -84,7 +104,16 @@ export default function EditUser() {
     setError(null);
     setSubmitting(true);
     try {
-      await updateUser(id, values);
+      await updateUser(id, {
+        name: values.name,
+        email: values.email,
+        roles: values.roles,
+        ...(values.careerPathId ? { careerPathId: Number(values.careerPathId) } : {}),
+        ...(values.careerSpecializationId
+          ? { careerSpecializationId: Number(values.careerSpecializationId) }
+          : {}),
+        ...(values.seniorityLevelId ? { seniorityLevelId: Number(values.seniorityLevelId) } : {}),
+      });
       await queryClient.invalidateQueries({ queryKey: ["users"] });
       await queryClient.invalidateQueries({ queryKey: ["user", id] });
       navigate("/users", { replace: true });
@@ -182,6 +211,24 @@ export default function EditUser() {
                   {...form.getInputProps("email")}
                 />
                 <RolesMultiSelect {...form.getInputProps("roles")} />
+                <CareerProfileSelect
+                  slug="career-paths"
+                  label={t("common.field.careerPath")}
+                  current={data?.careerPath}
+                  {...form.getInputProps("careerPathId")}
+                />
+                <CareerProfileSelect
+                  slug="career-specializations"
+                  label={t("common.field.careerSpecialization")}
+                  current={data?.careerSpecialization}
+                  {...form.getInputProps("careerSpecializationId")}
+                />
+                <CareerProfileSelect
+                  slug="seniority-levels"
+                  label={t("common.field.seniorityLevel")}
+                  current={data?.seniorityLevel}
+                  {...form.getInputProps("seniorityLevelId")}
+                />
                 {error && (
                   <Alert color="red" variant="light">
                     {error}

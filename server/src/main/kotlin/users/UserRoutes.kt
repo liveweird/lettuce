@@ -13,9 +13,11 @@ import ch.nokillswit.plugins.isUniqueViolation
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAdmin
+import ch.nokillswit.authz.requireCanAssignProfileFields
 import ch.nokillswit.authz.requireCanAssignRoles
 import ch.nokillswit.authz.requireSelfOrAdmin
 import ch.nokillswit.authz.requireUserRead
+import ch.nokillswit.dictionaries.Dictionary
 import ch.nokillswit.notifications.Notification
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.notifications.NotificationType
@@ -57,6 +59,10 @@ internal fun validatePassword(password: String) {
 }
 
 // Field validation (incl. the shared email rule) lives in users/Validation.kt.
+
+/** A (dictionary, id) ref to validate — only when [requested] actually changes [current]. */
+private fun changedRef(dict: Dictionary, requested: UInt?, current: UInt?): Pair<Dictionary, UInt>? =
+    requested?.takeIf { it != current }?.let { dict to it }
 
 /** Audit format for a roles set: comma-joined sorted names, "" = no additional roles. */
 private fun Set<UserRole>.joinedNames(): String = map { it.name }.sorted().joinToString(",")
@@ -110,6 +116,14 @@ fun Application.configureUserRoutes() {
                 val req = call.receive<UserRequest>()
                 validateNameAndEmail(req.name, req.email)
                 validatePassword(req.password)
+                // Every requested career ref is a fresh assignment here — all must be active.
+                userService.requireActiveEntries(
+                    listOfNotNull(
+                        changedRef(Dictionary.CAREER_PATH, req.careerPathId, null),
+                        changedRef(Dictionary.CAREER_SPECIALIZATION, req.careerSpecializationId, null),
+                        changedRef(Dictionary.SENIORITY_LEVEL, req.seniorityLevelId, null),
+                    ),
+                )
                 if (req.sendEmail && mailer == null) {
                     call.respondMailUnavailable("creating with the email option")
                     return@post
@@ -119,15 +133,21 @@ fun Application.configureUserRoutes() {
                     email = req.email,
                     passwordHash = hashPassword(req.password),
                     roles = req.roles?.toSet() ?: emptySet(),
+                    careerPathId = req.careerPathId,
+                    careerSpecializationId = req.careerSpecializationId,
+                    seniorityLevelId = req.seniorityLevelId,
                 )
                 val id = userService.create(user)
-                audit(
-                    "user.created",
+                val createdFields = mutableListOf<Pair<String, Any?>>(
                     "byUserId" to caller.userId.toLong(),
                     "newUserId" to id.toLong(),
                     "email" to user.email,
                     "roles" to user.roles.joinedNames(),
                 )
+                user.careerPathId?.let { createdFields += "careerPathId" to it.toLong() }
+                user.careerSpecializationId?.let { createdFields += "careerSpecializationId" to it.toLong() }
+                user.seniorityLevelId?.let { createdFields += "seniorityLevelId" to it.toLong() }
+                audit("user.created", *createdFields.toTypedArray())
                 // Same welcome email as the mass import; a delivery failure keeps the account
                 // (the modal still reveals the password) and is reported via emailSent=false.
                 val emailSent: Boolean? = if (req.sendEmail) {
@@ -144,12 +164,29 @@ fun Application.configureUserRoutes() {
                     }
                 } else null
                 call.response.header(HttpHeaders.Location, call.application.href(Users.Id(id = id)))
+                val resolved = userService.resolveEntryRefs(
+                    user.careerPathId,
+                    user.careerSpecializationId,
+                    user.seniorityLevelId,
+                )
                 // Plain creates keep the pre-sendEmail wire shape (no emailSent key — Ktor's
                 // default Json encodes even null fields, which strict decoders reject).
                 if (emailSent != null) {
-                    call.respond(HttpStatusCode.Created, UserCreateResponse(id, user.name, user.email, user.roles.sortedBy { it.name }, emailSent))
+                    call.respond(
+                        HttpStatusCode.Created,
+                        UserCreateResponse(
+                            id,
+                            user.name,
+                            user.email,
+                            user.roles.sortedBy { it.name },
+                            emailSent,
+                            careerPath = user.careerPathId?.let { resolved[it] },
+                            careerSpecialization = user.careerSpecializationId?.let { resolved[it] },
+                            seniorityLevel = user.seniorityLevelId?.let { resolved[it] },
+                        ),
+                    )
                 } else {
-                    call.respond(HttpStatusCode.Created, user.toResponse(id))
+                    call.respond(HttpStatusCode.Created, user.toResponse(id, resolved))
                 }
             }
             post<Users.Import> {
@@ -234,7 +271,12 @@ fun Application.configureUserRoutes() {
                 requireUserRead(call.caller(), route.id)
                 val user = userService.read(route.id)
                 if (user != null) {
-                    call.respond(HttpStatusCode.OK, user.toResponse(route.id))
+                    val resolved = userService.resolveEntryRefs(
+                        user.careerPathId,
+                        user.careerSpecializationId,
+                        user.seniorityLevelId,
+                    )
+                    call.respond(HttpStatusCode.OK, user.toResponse(route.id, resolved))
                 } else {
                     call.respondProblem(HttpStatusCode.NotFound, "User not found")
                 }
@@ -248,22 +290,45 @@ fun Application.configureUserRoutes() {
                     call.respondProblem(HttpStatusCode.NotFound, "User not found")
                     return@put
                 }
-                // Authz before validation: an unauthorized roles change is 403, not 400.
+                // Authz before validation: an unauthorized roles/profile change is 403, not 400.
                 requireCanAssignRoles(caller, existing.roles, req.roles.toSet())
+                requireCanAssignProfileFields(
+                    caller,
+                    req.careerPathId to existing.careerPathId,
+                    req.careerSpecializationId to existing.careerSpecializationId,
+                    req.seniorityLevelId to existing.seniorityLevelId,
+                )
                 validateNameAndEmail(req.name, req.email)
+                // Validate only the CHANGED refs — resubmitting the current id (even one whose
+                // entry is now soft-deleted) is not a change. null = leave unchanged: a set
+                // value can never be cleared, by construction.
+                userService.requireActiveEntries(
+                    listOfNotNull(
+                        changedRef(Dictionary.CAREER_PATH, req.careerPathId, existing.careerPathId),
+                        changedRef(Dictionary.CAREER_SPECIALIZATION, req.careerSpecializationId, existing.careerSpecializationId),
+                        changedRef(Dictionary.SENIORITY_LEVEL, req.seniorityLevelId, existing.seniorityLevelId),
+                    ),
+                )
                 val user = User(
                     name = req.name,
                     email = req.email,
                     passwordHash = existing.passwordHash,
                     roles = req.roles.toSet(),
+                    careerPathId = req.careerPathId ?: existing.careerPathId,
+                    careerSpecializationId = req.careerSpecializationId ?: existing.careerSpecializationId,
+                    seniorityLevelId = req.seniorityLevelId ?: existing.seniorityLevelId,
                 )
                 val updated = userService.update(route.id, user)
                 if (updated == 0) {
                     call.respondProblem(HttpStatusCode.NotFound, "User not found")
                 } else {
-                    // Name and email are identity/security-relevant (email is the login identifier);
-                    // audit with deltas only for the fields that actually changed.
-                    if (req.name != existing.name || req.email != existing.email) {
+                    // Name and email are identity/security-relevant (email is the login identifier),
+                    // career refs shape the org directory; audit with deltas only for the fields
+                    // that actually changed.
+                    val profileChanged = user.careerPathId != existing.careerPathId ||
+                        user.careerSpecializationId != existing.careerSpecializationId ||
+                        user.seniorityLevelId != existing.seniorityLevelId
+                    if (req.name != existing.name || req.email != existing.email || profileChanged) {
                         val auditFields = mutableListOf<Pair<String, Any?>>(
                             "byUserId" to caller.userId.toLong(),
                             "targetUserId" to route.id.toLong(),
@@ -276,6 +341,17 @@ fun Application.configureUserRoutes() {
                             auditFields += "emailFrom" to existing.email
                             auditFields += "emailTo" to req.email
                         }
+                        // Entry ids, not values (ids are stable under renames; never log content
+                        // that isn't). From is omitted when the field was previously unset.
+                        fun delta(field: String, from: UInt?, to: UInt?) {
+                            if (to != null && to != from) {
+                                from?.let { auditFields += "${field}From" to it.toLong() }
+                                auditFields += "${field}To" to to.toLong()
+                            }
+                        }
+                        delta("careerPath", existing.careerPathId, user.careerPathId)
+                        delta("careerSpecialization", existing.careerSpecializationId, user.careerSpecializationId)
+                        delta("seniorityLevel", existing.seniorityLevelId, user.seniorityLevelId)
                         audit("user.updated", *auditFields.toTypedArray())
                     }
                     if (req.roles.toSet() != existing.roles) {

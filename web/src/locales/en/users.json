@@ -139,5 +139,12 @@
     "feedbacksAria": "Audit feedbacks of {{name}}",
     "oneOnOnesAria": "Audit 1:1 meetings of {{name}}",
     "goalsAria": "Audit goals of {{name}}"
+  },
+  "profile": {
+    "title": "Career profile",
+    "missingBadge": "Not set",
+    "missingHint": "Missing — providing it is strongly advised",
+    "pickPlaceholder": "Pick a value",
+    "noMatch": "No matching entries"
   }
 }

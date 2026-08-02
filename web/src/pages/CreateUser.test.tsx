@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import CreateUser from "./CreateUser";
+import { jsonResponse } from "../test/http";
 
 const TOKEN_KEY = "lettuce.auth.token";
 const ROLE_KEY = "lettuce.auth.roles";
@@ -38,6 +39,49 @@ async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/^email$/i), "alice@example.com");
 }
 
+// URL-routed mock: the page fetches the three dictionaries on mount, so sequential
+// mockResolvedValueOnce chains would be consumed by the wrong request.
+function mockApi(
+  postStatus: number,
+  postBody?: unknown,
+  dictionaries: Record<string, { id: number; value: string }[]> = {},
+): ReturnType<typeof vi.fn> {
+  const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+  mockFetch.mockImplementation((input: string, init?: RequestInit) => {
+    const url = String(input);
+    const method = init?.method ?? "GET";
+    if (method === "GET" && url.startsWith("/api/v1/dictionaries/")) {
+      const slug = url.split("/").pop()!;
+      return Promise.resolve(jsonResponse(200, { items: dictionaries[slug] ?? [] }));
+    }
+    if (method === "POST") {
+      return Promise.resolve(
+        postBody === undefined
+          ? new Response("{}", { status: postStatus, headers: { "Content-Type": "application/json" } })
+          : jsonResponse(postStatus, postBody),
+      );
+    }
+    return Promise.resolve(jsonResponse(500, {}));
+  });
+  return mockFetch;
+}
+
+function postBodyOf(mockFetch: ReturnType<typeof vi.fn>): Record<string, unknown> {
+  const postCall = mockFetch.mock.calls.find(([, init]) => (init as RequestInit)?.method === "POST");
+  expect(postCall).toBeDefined();
+  return JSON.parse((postCall![1] as { body: string }).body);
+}
+
+const CREATED_USER = {
+  id: 42,
+  name: "Alice",
+  email: "alice@example.com",
+  roles: [] as string[],
+  careerPath: null,
+  careerSpecialization: null,
+  seniorityLevel: null,
+};
+
 describe("CreateUser page", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
@@ -52,13 +96,7 @@ describe("CreateUser page", () => {
   });
 
   test("posts a generated password and reveals it once in the confirmation modal", async () => {
-    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
-    mockFetch.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({ id: 42, name: "Alice", email: "alice@example.com", roles: [] }),
-        { status: 201, headers: { "Content-Type": "application/json" } },
-      ),
-    );
+    const mockFetch = mockApi(201, CREATED_USER);
 
     const user = userEvent.setup();
     renderCreateUser();
@@ -72,7 +110,8 @@ describe("CreateUser page", () => {
 
     // The confirmation modal shows the exact password that was POSTed.
     expect(await screen.findByText("User created")).toBeInTheDocument();
-    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    const body = postBodyOf(mockFetch);
+    // Unset career fields are OMITTED — no extra keys on the wire.
     expect(body).toEqual({
       name: "Alice",
       email: "alice@example.com",
@@ -80,26 +119,21 @@ describe("CreateUser page", () => {
       roles: [],
       sendEmail: false,
     });
+    const password = body.password as string;
     // Masked by default (shoulder-surfing protection); the eye toggle reveals it.
-    expect(screen.queryByText(body.password)).not.toBeInTheDocument();
-    expect(screen.getByText("*".repeat(body.password.length))).toBeInTheDocument();
+    expect(screen.queryByText(password)).not.toBeInTheDocument();
+    expect(screen.getByText("*".repeat(password.length))).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /show password/i }));
-    expect(screen.getByText(body.password)).toBeInTheDocument();
+    expect(screen.getByText(password)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /hide password/i }));
-    expect(screen.queryByText(body.password)).not.toBeInTheDocument();
+    expect(screen.queryByText(password)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /copy password/i })).toBeInTheDocument();
     // Still on the form route until the admin closes the confirmation.
     expect(screen.queryByTestId("probe")).not.toBeInTheDocument();
   });
 
   test("closing the confirmation navigates away and the password is gone for good", async () => {
-    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
-    mockFetch.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({ id: 42, name: "Alice", email: "alice@example.com", roles: [] }),
-        { status: 201, headers: { "Content-Type": "application/json" } },
-      ),
-    );
+    const mockFetch = mockApi(201, CREATED_USER);
 
     const user = userEvent.setup();
     renderCreateUser();
@@ -107,7 +141,7 @@ describe("CreateUser page", () => {
     await fillValidForm(user);
     await user.click(screen.getByRole("button", { name: /^create$/i }));
     await screen.findByText("User created");
-    const password = JSON.parse(mockFetch.mock.calls[0][1].body).password;
+    const password = postBodyOf(mockFetch).password as string;
 
     await user.click(screen.getByRole("button", { name: /^close$/i }));
 
@@ -117,13 +151,7 @@ describe("CreateUser page", () => {
   });
 
   test("copy button copies the generated password to the clipboard", async () => {
-    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
-    mockFetch.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({ id: 42, name: "Alice", email: "alice@example.com", roles: [] }),
-        { status: 201, headers: { "Content-Type": "application/json" } },
-      ),
-    );
+    const mockFetch = mockApi(201, CREATED_USER);
     // userEvent.setup() installs a working clipboard stub; read it back after copying.
     const user = userEvent.setup();
     renderCreateUser();
@@ -135,18 +163,12 @@ describe("CreateUser page", () => {
     await user.click(screen.getByRole("button", { name: /copy password/i }));
 
     expect(await screen.findByRole("button", { name: /^copied$/i })).toBeInTheDocument();
-    const password = JSON.parse(mockFetch.mock.calls[0][1].body).password;
+    const password = postBodyOf(mockFetch).password as string;
     await expect(window.navigator.clipboard.readText()).resolves.toBe(password);
   });
 
   test("onboarding-email link opens a pre-filled mailto draft", async () => {
-    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
-    mockFetch.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({ id: 42, name: "Alice", email: "alice@example.com", roles: [] }),
-        { status: 201, headers: { "Content-Type": "application/json" } },
-      ),
-    );
+    const mockFetch = mockApi(201, CREATED_USER);
 
     const user = userEvent.setup();
     renderCreateUser();
@@ -154,7 +176,7 @@ describe("CreateUser page", () => {
     await fillValidForm(user);
     await user.click(screen.getByRole("button", { name: /^create$/i }));
     await screen.findByText("User created");
-    const password = JSON.parse(mockFetch.mock.calls[0][1].body).password;
+    const password = postBodyOf(mockFetch).password as string;
 
     const link = screen.getByRole("link", { name: /compose onboarding email/i });
     const href = link.getAttribute("href")!;
@@ -172,15 +194,7 @@ describe("CreateUser page", () => {
   });
 
   test("the email checkbox posts sendEmail and the modal confirms delivery", async () => {
-    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
-    mockFetch.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          id: 42, name: "Alice", email: "alice@example.com", roles: [], emailSent: true,
-        }),
-        { status: 201, headers: { "Content-Type": "application/json" } },
-      ),
-    );
+    const mockFetch = mockApi(201, { ...CREATED_USER, emailSent: true });
 
     const user = userEvent.setup();
     renderCreateUser();
@@ -189,20 +203,12 @@ describe("CreateUser page", () => {
     await user.click(screen.getByRole("button", { name: /^create$/i }));
 
     await screen.findByText("User created");
-    expect(JSON.parse(mockFetch.mock.calls[0][1].body).sendEmail).toBe(true);
+    expect(postBodyOf(mockFetch).sendEmail).toBe(true);
     expect(screen.getByText(/credentials have been emailed to alice@example.com/i)).toBeInTheDocument();
   });
 
   test("a failed delivery shows the warning but keeps the account flow intact", async () => {
-    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
-    mockFetch.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          id: 42, name: "Alice", email: "alice@example.com", roles: [], emailSent: false,
-        }),
-        { status: 201, headers: { "Content-Type": "application/json" } },
-      ),
-    );
+    mockApi(201, { ...CREATED_USER, emailSent: false });
 
     const user = userEvent.setup();
     renderCreateUser();
@@ -216,8 +222,7 @@ describe("CreateUser page", () => {
   });
 
   test("503 with the email option shows the mail-unavailable message", async () => {
-    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
-    mockFetch.mockResolvedValueOnce(new Response("{}", { status: 503 }));
+    mockApi(503);
 
     const user = userEvent.setup();
     renderCreateUser();
@@ -230,13 +235,7 @@ describe("CreateUser page", () => {
   });
 
   test("409 surfaces an email-field error and keeps the user on the form", async () => {
-    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
-    mockFetch.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({ error: "conflict", message: "Resource already exists" }),
-        { status: 409, headers: { "Content-Type": "application/json" } },
-      ),
-    );
+    mockApi(409, { error: "conflict", message: "Resource already exists" });
 
     const user = userEvent.setup();
     renderCreateUser();
@@ -250,10 +249,7 @@ describe("CreateUser page", () => {
   });
 
   test("other API errors surface a banner", async () => {
-    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
-    mockFetch.mockResolvedValueOnce(
-      new Response("{}", { status: 500, headers: { "Content-Type": "application/json" } }),
-    );
+    mockApi(500);
 
     const user = userEvent.setup();
     renderCreateUser();
@@ -265,7 +261,7 @@ describe("CreateUser page", () => {
   });
 
   test("client-side validation blocks empty submission", async () => {
-    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+    const mockFetch = mockApi(201, CREATED_USER);
 
     const user = userEvent.setup();
     renderCreateUser();
@@ -274,7 +270,8 @@ describe("CreateUser page", () => {
 
     expect(await screen.findByText(/name must be 1–50 characters/i)).toBeInTheDocument();
     expect(screen.getByText(/email is required/i)).toBeInTheDocument();
-    expect(mockFetch).not.toHaveBeenCalled();
+    const postCall = mockFetch.mock.calls.find(([, init]) => (init as RequestInit)?.method === "POST");
+    expect(postCall).toBeUndefined();
   });
 
   test("non-admin is redirected to /users", async () => {
@@ -284,5 +281,33 @@ describe("CreateUser page", () => {
 
     expect(screen.getByTestId("probe")).toHaveTextContent("/users");
     expect(screen.queryByRole("heading", { name: /new user/i })).not.toBeInTheDocument();
+  });
+
+  test("career pickers are optional but post numeric ids when chosen", async () => {
+    const mockFetch = mockApi(201, CREATED_USER, {
+      "career-paths": [
+        { id: 11, value: "Software Engineer" },
+        { id: 12, value: "System Analyst" },
+      ],
+    });
+
+    const user = userEvent.setup();
+    renderCreateUser();
+
+    // All three start unset — three orange hints.
+    expect(screen.getAllByText("Missing — providing it is strongly advised")).toHaveLength(3);
+
+    await fillValidForm(user);
+    const careerPathInput = screen.getByLabelText("Career path", { selector: "input" });
+    await waitFor(() => expect(careerPathInput).not.toBeDisabled());
+    fireEvent.click(careerPathInput); // open the searchable combobox
+    await user.click(await screen.findByText("System Analyst"));
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+
+    await screen.findByText("User created");
+    const body = postBodyOf(mockFetch);
+    expect(body.careerPathId).toBe(12);
+    expect(body).not.toHaveProperty("careerSpecializationId");
+    expect(body).not.toHaveProperty("seniorityLevelId");
   });
 });

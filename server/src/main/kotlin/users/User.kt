@@ -1,5 +1,6 @@
 package ch.nokillswit.users
 
+import ch.nokillswit.dictionaries.DictionaryEntry
 import ch.nokillswit.infra.paging.PageResponse
 import kotlinx.serialization.Serializable
 
@@ -25,6 +26,12 @@ data class User(
     // Epoch millis of the last password change (0 = never). Server-internal; used to
     // invalidate refresh tokens minted before the change (see /api/v1/refresh).
     val passwordChangedAt: Long = 0,
+    // Career profile: ids into dictionary_entries (CAREER_PATH / CAREER_SPECIALIZATION /
+    // SENIORITY_LEVEL). Values are resolved at read time so dictionary renames propagate;
+    // a soft-deleted referenced entry keeps resolving to its retained value.
+    val careerPathId: UInt? = null,
+    val careerSpecializationId: UInt? = null,
+    val seniorityLevelId: UInt? = null,
 )
 
 @Serializable
@@ -36,6 +43,10 @@ data class UserRequest(
     // Create only (PUT ignores it): email the new user their credentials (users/WelcomeEmail.kt),
     // like the mass import's sendEmails option. 503 on a mail-less deployment.
     val sendEmail: Boolean = false,
+    // Optional career profile refs — each must be an ACTIVE entry of its dictionary (400 otherwise).
+    val careerPathId: UInt? = null,
+    val careerSpecializationId: UInt? = null,
+    val seniorityLevelId: UInt? = null,
 )
 
 @Serializable
@@ -47,6 +58,10 @@ data class UserCreateResponse(
     // Only present when the create requested an email: true = handed to SMTP, false = delivery
     // failed (the account exists either way — the modal still shows the password).
     val emailSent: Boolean? = null,
+    // No defaults: every construction site must resolve them, and the keys are always emitted.
+    val careerPath: DictionaryEntry?,
+    val careerSpecialization: DictionaryEntry?,
+    val seniorityLevel: DictionaryEntry?,
 )
 
 @Serializable
@@ -54,6 +69,12 @@ data class UserUpdateRequest(
     val name: String,
     val email: String,
     val roles: List<UserRole>,
+    // Career profile refs. null/omitted = leave unchanged — a set value can never be cleared
+    // (there is deliberately no way to express clearing). Assigning or changing any of them
+    // is ADMIN-only; a newly-assigned id must be an ACTIVE entry of the matching dictionary.
+    val careerPathId: UInt? = null,
+    val careerSpecializationId: UInt? = null,
+    val seniorityLevelId: UInt? = null,
 )
 
 @Serializable
@@ -113,8 +134,21 @@ data class UserResponse(
     val name: String,
     val email: String,
     val roles: List<UserRole>,
+    // Career profile, resolved from dictionary_entries at read time (renames propagate;
+    // soft-deleted entries keep resolving). No defaults — see UserCreateResponse.
+    val careerPath: DictionaryEntry?,
+    val careerSpecialization: DictionaryEntry?,
+    val seniorityLevel: DictionaryEntry?,
 )
 
 typealias UserPageResponse = PageResponse<UserResponse>
 
-fun User.toResponse(id: UInt) = UserResponse(id, name, email, roles.sortedBy { it.name })
+fun User.toResponse(id: UInt, entries: Map<UInt, DictionaryEntry>) = UserResponse(
+    id,
+    name,
+    email,
+    roles.sortedBy { it.name },
+    careerPath = careerPathId?.let { entries[it] },
+    careerSpecialization = careerSpecializationId?.let { entries[it] },
+    seniorityLevel = seniorityLevelId?.let { entries[it] },
+)

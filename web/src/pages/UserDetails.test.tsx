@@ -65,7 +65,15 @@ function mockApi(
     managers?: MemberRow[];
     managed?: MemberRow[];
     member?: MemberRow[];
-    users?: Array<{ id: number; name: string; email: string; roles: Array<"ADMIN"> }>;
+    users?: Array<{
+      id: number;
+      name: string;
+      email: string;
+      roles: Array<"ADMIN">;
+      careerPath?: { id: number; value: string } | null;
+      careerSpecialization?: { id: number; value: string } | null;
+      seniorityLevel?: { id: number; value: string } | null;
+    }>;
     teams?: Array<{ id: number; name: string }>;
   },
 ) {
@@ -316,6 +324,45 @@ describe("UserDetails page", () => {
     renderDetails();
 
     expect(await screen.findByText("Failed to load user")).toBeInTheDocument();
+  });
+
+  test("the career profile resolves via the users list even on a relationship card", async () => {
+    // Bob is a manager (primary path — team-member rows carry no profile), so the page
+    // makes the extra users-list walk to fetch it.
+    mockApi(mockFetch, {
+      managers: [BOB_ROW],
+      users: [
+        {
+          id: 5,
+          name: "Bob",
+          email: "bob@example.com",
+          roles: [],
+          careerPath: { id: 11, value: "Software Engineer" },
+          careerSpecialization: null,
+          seniorityLevel: { id: 31, value: "Senior" },
+        },
+      ],
+    });
+    renderDetails();
+
+    expect(await screen.findByText("Career profile")).toBeInTheDocument();
+    expect(screen.getByText("Software Engineer")).toBeInTheDocument();
+    expect(screen.getByText("Senior")).toBeInTheDocument();
+    // Exactly the unset field wears the orange badge.
+    expect(screen.getAllByText("Not set")).toHaveLength(1);
+  });
+
+  test("an entirely unset career profile shows three missing badges", async () => {
+    mockApi(mockFetch, {
+      users: [{ id: 5, name: "Bob", email: "bob@example.com", roles: [] }],
+    });
+    renderDetails();
+
+    expect(await screen.findByText("Career profile")).toBeInTheDocument();
+    expect(screen.getByText("Career path")).toBeInTheDocument();
+    expect(screen.getByText("Career specialization")).toBeInTheDocument();
+    expect(screen.getByText("Seniority level")).toBeInTheDocument();
+    expect(screen.getAllByText("Not set")).toHaveLength(3);
   });
 
   test("the heading uses the name param before the data lands, then the resolved name", async () => {
