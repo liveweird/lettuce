@@ -18,6 +18,7 @@ import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import PerformanceReviewStatusBadge from "../components/PerformanceReviewStatusBadge";
 import PersonCell from "../components/PersonCell";
+import RatingBadge from "../components/RatingBadge";
 import SortHeader from "../components/SortHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
 import { usePagedSort } from "../hooks/usePagedSort";
@@ -334,9 +335,7 @@ export default function PerformanceReviewTable({
                   {ratings.map((rating, index) => (
                     <Table.Td key={REVIEW_CATEGORIES[index]} style={{ whiteSpace: "nowrap" }}>
                       {rating != null ? (
-                        <Text size="sm" fw={500}>
-                          {rating}
-                        </Text>
+                        <RatingBadge rating={rating} />
                       ) : (
                         <Text size="sm" c="dimmed">
                           —

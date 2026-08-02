@@ -4,6 +4,7 @@ import {
   Alert,
   Button,
   Center,
+  ColorSwatch,
   Container,
   Group,
   Loader,
@@ -36,6 +37,7 @@ import { reviewViewLink } from "../utils/performanceReviewLinks";
 import { invalidatePerformanceReview } from "../utils/performanceReviewQueries";
 import {
   isReviewComplete,
+  ratingColor,
   ratingOptions,
   REVIEW_CATEGORIES,
   reviewFormValidation,
@@ -205,6 +207,16 @@ export default function EditPerformanceReview() {
                           label={t(`performanceReview.category.${category}`)}
                           placeholder={t("performanceReview.pickRating")}
                           data={ratingOptions(t)}
+                          // The consistent rating color scale, visible while picking.
+                          renderOption={({ option }) => (
+                            <Group gap="xs" wrap="nowrap">
+                              <ColorSwatch
+                                color={`var(--mantine-color-${ratingColor(Number(option.value)).replace(".", "-")})`}
+                                size={12}
+                              />
+                              <span>{option.label}</span>
+                            </Group>
+                          )}
                           // While DRAFT a rating may be cleared back to unset; from
                           // CALIBRATION onward values may change but never blank.
                           clearable={!isCalibration}

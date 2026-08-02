@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.33.1",
+    date: "2026-08-02",
+    en: `Performance-review ratings now carry a consistent color scale everywhere they appear — the lower the rating the more orange, the higher the more green. Tables and the Dashboard show colored rating pills, the review screen pairs the colored number with its wording, and the editor's rating picker previews each step's color.`,
+    pl: `Oceny w ocenach okresowych mają teraz spójną skalę kolorów wszędzie tam, gdzie się pojawiają — im niższa ocena, tym bardziej pomarańczowa, im wyższa, tym bardziej zielona. Tabele i Pulpit pokazują kolorowe plakietki ocen, ekran oceny łączy kolorowy numer z jego opisem, a wybieraki ocen w edytorze pokazują kolor każdego stopnia.`,
+  },
+  {
     version: "1.33.0",
     date: "2026-08-02",
     en: `**Performance reviews** arrive. Administrators define the global **review periods** (month ranges, appended without gaps, under Config → Review periods). A manager writes one review per team member and period — four categories (attitude, delivery, skills, overall), each a **1–6 rating** plus a written summary — and walks it through *draft → calibration → published*; during calibration, managers up the chain can read it. Once published, the team member sees it under the new **My performance** menu and gets a notification. Managers get two new vantage points: a **Performance reviews** button on each subordinate's card, and a Dashboard tab showing **every subordinate's review for a chosen period** — including who has none yet — filterable by team, career path, specialization, and seniority. HR auditors can inspect any person's reviews from the user-details page.`,

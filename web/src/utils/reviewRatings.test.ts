@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import type { TFunction } from "i18next";
 import {
   isReviewComplete,
+  ratingColor,
   ratingOptions,
   ratingText,
   reviewFormValidation,
@@ -21,6 +22,17 @@ const COMPLETE: ReviewFormValues = {
 };
 
 describe("reviewRatings", () => {
+  test("ratingColor walks the orange→green gradient and falls back to gray", () => {
+    expect(ratingColor(1)).toBe("orange.8");
+    expect(ratingColor(2)).toBe("orange.5");
+    expect(ratingColor(3)).toBe("yellow.6");
+    expect(ratingColor(4)).toBe("lime.6");
+    expect(ratingColor(5)).toBe("green.5");
+    expect(ratingColor(6)).toBe("green.8");
+    expect(ratingColor(0)).toBe("gray");
+    expect(ratingColor(7)).toBe("gray");
+  });
+
   test("ratingText keeps the number next to its wording and options cover 1..6", () => {
     expect(ratingText(t, 4)).toBe("4 — performanceReview.rating.4");
     const options = ratingOptions(t);

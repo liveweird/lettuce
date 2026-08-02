@@ -12,6 +12,7 @@ import {
 import EmptyState from "../components/EmptyState";
 import PersonaChip from "../components/PersonaChip";
 import PerformanceReviewStatusBadge from "../components/PerformanceReviewStatusBadge";
+import RatingBadge from "../components/RatingBadge";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import TableLoadingRow from "../components/TableLoadingRow";
 import { useDictionaryOptions } from "../hooks/useDictionaryOptions";
@@ -236,9 +237,7 @@ export default function ReviewsDashboard() {
                   {ratings.map((rating, index) => (
                     <Table.Td key={REVIEW_CATEGORIES[index]} style={{ whiteSpace: "nowrap" }}>
                       {rating != null ? (
-                        <Text size="sm" fw={500}>
-                          {rating}
-                        </Text>
+                        <RatingBadge rating={rating} />
                       ) : (
                         <Text size="sm" c="dimmed">
                           —

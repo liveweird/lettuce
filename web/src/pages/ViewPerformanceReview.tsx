@@ -30,12 +30,13 @@ import {
 import PerformanceReviewHistory from "../components/PerformanceReviewHistory";
 import PerformanceReviewStatusBadge from "../components/PerformanceReviewStatusBadge";
 import PersonaField from "../components/PersonaField";
+import RatingBadge from "../components/RatingBadge";
 import ProseBox from "../components/ProseBox";
 import ReadOnlyField from "../components/ReadOnlyField";
 import { formatDate, formatMonthRange } from "../utils/datetime";
 import { reviewEditLink } from "../utils/performanceReviewLinks";
 import { invalidatePerformanceReview } from "../utils/performanceReviewQueries";
-import { ratingText, REVIEW_CATEGORIES } from "../utils/reviewRatings";
+import { ratingLabel, REVIEW_CATEGORIES } from "../utils/reviewRatings";
 
 // The manager's lifecycle actions per status (the ViewGoal ACTIONS idiom). Every edge is
 // bodyless — no close-modal analogue; publish is the "deliver" primary, unpublish the
@@ -60,9 +61,12 @@ function CategoryBlock({ category, assessment }: { category: string; assessment:
     <Stack gap={4}>
       <Input.Wrapper label={t(`performanceReview.category.${category}`)}>
         {assessment.rating != null ? (
-          <Text size="sm" fw={500}>
-            {ratingText(t, assessment.rating)}
-          </Text>
+          <Group gap="xs" wrap="nowrap">
+            <RatingBadge rating={assessment.rating} />
+            <Text size="sm" fw={500}>
+              {ratingLabel(t, assessment.rating)}
+            </Text>
+          </Group>
         ) : (
           <Text size="sm" c="dimmed">
             {t("performanceReview.notRated")}
