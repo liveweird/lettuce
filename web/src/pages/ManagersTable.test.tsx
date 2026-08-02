@@ -269,7 +269,7 @@ describe("ManagersTable", () => {
     );
     renderWithProviders(<ManagersTable />);
 
-    expect(await screen.findByText("Career path")).toBeInTheDocument();
+    expect(await screen.findByText("Path")).toBeInTheDocument();
     expect(screen.getByText("Career-Path-Value")).toBeInTheDocument();
     expect(screen.getByText("Seniority-Value")).toBeInTheDocument();
     expect(screen.getAllByText("Not set")).toHaveLength(1);

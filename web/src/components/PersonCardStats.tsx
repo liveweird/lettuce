@@ -53,19 +53,20 @@ function CareerValue({ entry }: { entry: { id: number; value: string } | null })
   );
 }
 
-// The career-profile column (v1.32.1): the three dictionary-backed values (no caption —
-// the labels speak for themselves, v1.32.2). The second column of every card-stats block.
+// The career-profile column (v1.32.1): the three dictionary-backed values, no caption and
+// deliberately SHORT card-only labels (users.profile.* — v1.32.2); the Edit/Create pickers
+// keep the full common.field.* wordings.
 function CareerRows({ person }: { person: PersonCardData }) {
   const { t } = useTranslation();
   return (
     <Stack gap={4}>
-      <StatRow label={t("common.field.careerPath")}>
+      <StatRow label={t("users.profile.path")}>
         <CareerValue entry={person.careerPath} />
       </StatRow>
-      <StatRow label={t("common.field.careerSpecialization")}>
+      <StatRow label={t("users.profile.specialization")}>
         <CareerValue entry={person.careerSpecialization} />
       </StatRow>
-      <StatRow label={t("common.field.seniorityLevel")}>
+      <StatRow label={t("users.profile.seniority")}>
         <CareerValue entry={person.seniorityLevel} />
       </StatRow>
     </Stack>

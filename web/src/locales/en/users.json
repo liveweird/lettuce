@@ -144,6 +144,9 @@
     "missingBadge": "Not set",
     "missingHint": "Missing — providing it is strongly advised",
     "pickPlaceholder": "Pick a value",
-    "noMatch": "No matching entries"
+    "noMatch": "No matching entries",
+    "path": "Path",
+    "specialization": "Specialization",
+    "seniority": "Seniority"
   }
 }

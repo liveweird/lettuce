@@ -18,8 +18,8 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     version: "1.32.2",
     date: "2026-08-02",
-    en: `Person-card polish: the career column now sits reliably beside the stats on every card — previously it silently dropped below whenever the stats ran wide, so some grids appeared single-column. The redundant "Career profile" caption is gone; the three labeled rows speak for themselves.`,
-    pl: `Szlif kart osób: kolumna kariery stoi teraz niezawodnie obok statystyk na każdej karcie — wcześniej po cichu spadała niżej, gdy statystyki były szerokie, przez co niektóre listy wyglądały na jednokolumnowe. Zbędny nagłówek „Profil kariery" zniknął; trzy opisane wiersze mówią same za siebie.`,
+    en: `Person-card polish: the career column now sits reliably beside the stats on every card — previously it silently dropped below whenever the stats ran wide, so some grids appeared single-column. The redundant "Career profile" caption is gone, and the card labels are compact (Path, Specialization, Seniority); the edit forms keep the full wordings.`,
+    pl: `Szlif kart osób: kolumna kariery stoi teraz niezawodnie obok statystyk na każdej karcie — wcześniej po cichu spadała niżej, gdy statystyki były szerokie, przez co niektóre listy wyglądały na jednokolumnowe. Zbędny nagłówek „Profil kariery" zniknął, a etykiety na kartach są zwięzłe (Ścieżka, Specjalizacja, Poziom); formularze edycji zachowują pełne nazwy.`,
   },
   {
     version: "1.32.1",
