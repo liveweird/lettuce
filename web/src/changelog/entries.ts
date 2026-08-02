@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.31.1",
+    date: "2026-08-02",
+    en: `The global dictionaries no longer start empty: **Career paths** (Software Engineer, System Analyst, QA Engineer, QA Specialist), **Career specializations** (N/A, Java, Python, PHP, Front-End), and **Seniority levels** (Associate through Principal) come pre-filled with sensible defaults. Values an administrator already entered are left untouched.`,
+    pl: `Globalne słowniki nie zaczynają już od zera: **Ścieżki kariery** (Software Engineer, System Analyst, QA Engineer, QA Specialist), **Specjalizacje** (N/A, Java, Python, PHP, Front-End) i **Poziomy zaszeregowania** (od Associate po Principal) mają teraz sensowne wartości domyślne. Wartości wprowadzone wcześniej przez administratora pozostają nietknięte.`,
+  },
+  {
     version: "1.31.0",
     date: "2026-08-02",
     en: `Three global dictionaries arrive under the new **Dictionaries** menu: **Career paths**, **Career specializations**, and **Seniority levels**. Everyone can browse the ordered values; administrators curate each list in place — add, rename, reorder, and remove entries, then save the whole dictionary in one go. Values are unique within a dictionary, and removed entries are retired rather than erased.`,
