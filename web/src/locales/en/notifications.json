@@ -46,6 +46,8 @@
     "teamKpiValueRecorded": "{{manager}} recorded {{value}} for {{date}} on the KPI \"{{title}}\" of team {{team}}.",
     "teamKpiValueCorrected": "{{manager}} corrected a data point of the KPI \"{{title}}\" of team {{team}}: {{fromValue}} ({{fromDate}}) \u2192 {{toValue}} ({{toDate}}).",
     "teamKpiValueRemoved": "{{manager}} removed the value {{value}} ({{date}}) from the KPI \"{{title}}\" of team {{team}}.",
+    "performanceReviewPublished": "{{manager}} published your performance review for the period {{startMonth}} – {{endMonth}}.",
+    "performanceReviewUnpublished": "{{manager}} retracted your performance review for the period {{startMonth}} – {{endMonth}}.",
     "passwordChanged": "Your password was changed.",
     "passwordChanged_admin": "An administrator changed your password.",
     "passwordChanged_reset": "Your password was reset via email."

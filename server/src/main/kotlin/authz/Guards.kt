@@ -8,6 +8,8 @@ import ch.nokillswit.feedbacks.isDelivered
 import ch.nokillswit.goals.GoalResponse
 import ch.nokillswit.goals.GoalStatus
 import ch.nokillswit.oneonones.OneOnOneResponse
+import ch.nokillswit.reviews.PerformanceReviewResponse
+import ch.nokillswit.reviews.PerformanceReviewStatus
 import ch.nokillswit.teamkpis.TeamKpiResponse
 import ch.nokillswit.teamkpis.TeamKpiStatus
 import ch.nokillswit.users.UserRole
@@ -280,6 +282,57 @@ suspend fun requireGoalReadAllowingManager(
 fun requireGoalWrite(caller: CallerPrincipal, goal: GoalResponse) {
     if (caller.userId != goal.managerId) {
         throw ForbiddenException("Only the goal's manager may modify this goal")
+    }
+}
+
+// ── Performance reviews ─────────────────────────────────────────────────────────────────────
+// Existence disclosure: like goals, review routes read BEFORE guarding (missing → 404,
+// existing-but-forbidden → 403), so an id probe can learn a review exists — never its content.
+// The manager is the stored author (the goals model): the direct-report check is create-time
+// only, and the author keeps write access even if the subordinate later moves teams.
+
+/**
+ * The cheap (no-DB) read rules: the authoring manager at every status; the subordinate only
+ * once PUBLISHED — a review in DRAFT or CALIBRATION is invisible to them. The subordinate's
+ * wider management chain is handled by [requirePerformanceReviewReadAllowingManager] to keep
+ * the DB hit lazy.
+ */
+fun canReadPerformanceReview(caller: CallerPrincipal, review: PerformanceReviewResponse): Boolean {
+    if (caller.userId == review.managerId) return true
+    return caller.userId == review.subordinateId &&
+        review.status == PerformanceReviewStatus.PUBLISHED
+}
+
+/**
+ * Read guard for the single GET / events: the parties pass the cheap rules (the subordinate
+ * PUBLISHED-only); the HR auditor reads everything, DRAFTs included (audit-logged); otherwise
+ * any manager in the subordinate's transitive management chain may read only once the review
+ * has left DRAFT (CALIBRATION/PUBLISHED — calibration is exactly the phase upper managers join
+ * to compare ratings) — a draft stays private to its author, matching the team list scope
+ * (whose status != DRAFT filter is the same rule, not a separate authorization).
+ */
+suspend fun requirePerformanceReviewReadAllowingManager(
+    caller: CallerPrincipal,
+    review: PerformanceReviewResponse,
+    managesSubordinate: suspend () -> Boolean,
+) {
+    if (canReadPerformanceReview(caller, review)) return // cheap rules first
+    // HR auditor: reads everything — deliberately BEFORE the chain rule, so HR (unlike chain
+    // managers) also sees DRAFT reviews. Audit-logged; no DB hit for HR.
+    if (grantHrRead(caller, "performanceReview", review.id)) return
+    if (review.status != PerformanceReviewStatus.DRAFT && managesSubordinate()) return
+    throw ForbiddenException("Caller may not read this performance review")
+}
+
+/**
+ * The manager is always the author: only they may edit, transition, or delete the review — the
+ * subordinate has read rights only, and nobody else (ADMIN included, mirroring
+ * [requireGoalWrite]) has any; an admin who is themselves the manager qualifies via the userId
+ * check like anyone.
+ */
+fun requirePerformanceReviewWrite(caller: CallerPrincipal, review: PerformanceReviewResponse) {
+    if (caller.userId != review.managerId) {
+        throw ForbiddenException("Only the review's manager may modify this performance review")
     }
 }
 

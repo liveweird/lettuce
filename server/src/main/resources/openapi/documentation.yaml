@@ -48,6 +48,8 @@ tags:
   - name: one-on-ones
   - name: goals
   - name: team-kpis
+  - name: review-periods
+  - name: performance-reviews
   - name: templates
   - name: dictionaries
   - name: notifications
@@ -2454,6 +2456,497 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalServerError' }
 
+  /api/v1/review-periods:
+    get:
+      tags: [review-periods]
+      operationId: listReviewPeriods
+      summary: List the review-period timeline
+      description: |
+        Returns the whole global review-period timeline, oldest first — **unpaged** (the
+        registry is intrinsically small and every period picker needs all of it; deliberately
+        NOT a standard list endpoint, like `GET /dictionaries/{dictionary}`). Any authenticated
+        caller may read it — managers pick a period when creating a performance review. Month
+        bounds are inclusive ISO `YYYY-MM` strings.
+      responses:
+        '200':
+          description: All review periods, oldest first
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewPeriodList'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    post:
+      tags: [review-periods]
+      operationId: createReviewPeriod
+      summary: Append a review period to the timeline
+      description: |
+        **ADMIN-only.** The timeline is **append-only and gapless**: when any period exists,
+        the new one must start exactly the month after the latest period ends — anything else
+        (a gap or an overlap) is `409`; the first period is free. `startMonth` must not be
+        after `endMonth` (both inclusive ISO `YYYY-MM`, strictly zero-padded). Periods are
+        immutable once created (there is no PUT). Recorded in the security audit trail.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewPeriodCreateRequest'
+      responses:
+        '201':
+          description: Created — the new period
+          headers:
+            Location:
+              schema: { type: string }
+              description: URL of the new period resource
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewPeriod'
+        '400':
+          description: Malformed month (not a zero-padded ISO YYYY-MM) or startMonth after endMonth
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: >-
+            The new period does not start the month after the latest existing period ends (the
+            timeline permits no gaps and no overlaps)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/review-periods/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    delete:
+      tags: [review-periods]
+      operationId: deleteReviewPeriod
+      summary: Delete the latest review period
+      description: |
+        **ADMIN-only.** Hard-deletes a period (the deliberate exception to the soft-delete
+        convention — a soft-deleted period would poison the timeline's no-gap rule). Only the
+        **latest** period may be deleted, and only while **no performance review references
+        it** (soft-deleted reviews count — their rows keep the reference); either violation is
+        `409`. Recorded in the security audit trail.
+      responses:
+        '204': { description: Deleted }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: The period is not the latest, or performance reviews reference it
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/performance-reviews:
+    get:
+      tags: [performance-reviews]
+      operationId: listPerformanceReviews
+      summary: List performance reviews for the caller
+      description: |
+        Lists performance reviews scoped by `view`. Except `view=user` (the HR auditor view),
+        scoping is always relative to the caller, including ADMIN callers.
+
+        - `view=own` (the default): reviews where the caller is the **subordinate** — but only
+          **PUBLISHED** ones, mirroring the single-GET rule (a review in DRAFT or CALIBRATION
+          is invisible to its subject).
+        - `view=managed`: reviews where the caller is the **manager** (the author), at every
+          status. With `includeIndirect=true`, additionally reviews authored **by managers in
+          the caller's transitive management chain** — excluding their DRAFT reviews (a draft
+          stays private to its author until submitted to calibration, matching the single-GET's
+          chain rule; the caller's own DRAFTs are always listed).
+        - `view=team`: reviews authored **by the caller's subordinates as managers** — the
+          review's manager is one of the caller's **direct reports** (a member of a non-deleted
+          team the caller manages) or, with `includeIndirect=true`, anyone in the caller's
+          **transitive management chain**. DRAFT reviews are excluded — a draft stays private
+          to its author, matching the single-GET's chain rule. A caller who manages no team
+          gets an empty page. The narrower direct-only default is a list scope, not an
+          authorization boundary: the single-GET grants any manager in the subordinate's chain
+          read access to a non-DRAFT review.
+        - `view=user` (HR only, else `403`; requires `userId`): the auditor view — every
+          review the given user is a party to (manager or subordinate), at every status,
+          DRAFTs included. HR usage is recorded in the security audit trail. The ordinary
+          sort/filter/paging parameters apply on top.
+
+        Rows carry the party names, the period (id + month bounds), status, and the four
+        **numeric ratings** — never the summaries.
+
+        Supports offset pagination, sorting and filtering.
+
+        - Sortable fields: `id`, `managerName`, `subordinateName`, `periodStart` (the period's
+          start month — ISO `YYYY-MM`, so lexicographic order is chronological), `status`,
+          `createdAt`, `lastModified`. Default sort is `createdAt` **descending** (newest
+          reviews first). `id` ascending is always appended as a deterministic tiebreaker.
+        - Filters (all optional, all whitelisted):
+          - `managerName` / `subordinateName` — case-insensitive substring match against the
+            party's name.
+          - `managerId` / `subordinateId` — exact party-id match.
+          - `periodId` — exact period match (the per-period drill-down).
+          - `status` — exact enum-name match.
+          - `createdAt[gte]` / `lastModified[gte]` — inclusive epoch-millis lower bounds.
+
+        Malformed query parameters (unknown view, unknown sort field, out-of-range page/pageSize)
+        respond with `400` and a `ProblemDetail` body.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Sort'
+        - name: view
+          in: query
+          required: false
+          schema: { type: string, enum: [own, managed, team, user], default: own }
+          description: >-
+            Which slice of reviews to list — caller-relative, except the HR auditor
+            view `user`.
+        - name: userId
+          in: query
+          required: false
+          schema: { type: integer, format: int64, minimum: 0 }
+          description: |
+            Required with `view=user` (`400` when missing there, `400` with any other view):
+            the user whose records the auditor view lists.
+        - name: includeIndirect
+          in: query
+          required: false
+          schema: { type: boolean, default: false }
+          description: |
+            Only valid with `view=managed` and `view=team` (else `400`). For `view=managed`,
+            `true` widens the list from the caller's own reviews to also include reviews
+            authored by managers in their transitive management chain (their DRAFTs excluded).
+            For `view=team`, `true` widens which managers count from the caller's direct
+            reports to their whole transitive management chain.
+        - name: managerName
+          in: query
+          required: false
+          schema: { type: string }
+          description: Case-insensitive substring match against the manager's name.
+        - name: subordinateName
+          in: query
+          required: false
+          schema: { type: string }
+          description: Case-insensitive substring match against the subordinate's name.
+        - name: managerId
+          in: query
+          required: false
+          schema: { type: integer, format: int64, minimum: 0 }
+          description: Exact manager-id match.
+        - name: subordinateId
+          in: query
+          required: false
+          schema: { type: integer, format: int64, minimum: 0 }
+          description: Exact subordinate-id match.
+        - name: periodId
+          in: query
+          required: false
+          schema: { type: integer, format: int64, minimum: 0 }
+          description: Exact review-period match.
+        - name: status
+          in: query
+          required: false
+          schema: { type: string, enum: [DRAFT, CALIBRATION, PUBLISHED] }
+          description: Exact status match.
+        - name: createdAt[gte]
+          in: query
+          required: false
+          schema: { type: integer, format: int64, minimum: 0 }
+          description: Lower bound (inclusive) on the creation moment, epoch milliseconds.
+        - name: lastModified[gte]
+          in: query
+          required: false
+          schema: { type: integer, format: int64, minimum: 0 }
+          description: Lower bound (inclusive) on the last-modified moment, epoch milliseconds.
+      responses:
+        '200':
+          description: A page of performance reviews
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerformanceReviewPage'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: view=user requested without the HR role
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    post:
+      tags: [performance-reviews]
+      operationId: createPerformanceReview
+      summary: Create a performance review for a direct report
+      description: |
+        Creates a performance review, always in **DRAFT** status. The **manager is always the
+        author**: the caller becomes the review's manager (never taken from the body), and the
+        subordinate must be one of the caller's **direct reports** at creation time — there is
+        no ADMIN create-on-behalf. The stored manager stays the author even if the subordinate
+        later moves teams (the goals model).
+
+        The four category assessments (attitude, delivery, skills, overall) may be **partial**
+        — a DRAFT is the manager's scratch space; each set rating must be on the 1–6 scale and
+        each summary within bounds. Completeness (all four ratings + non-blank summaries) is
+        required only to enter calibration (`POST …/submit`).
+
+        A subordinate has at most **one active review per period**, at any status: a duplicate
+        is `409`, with the `ProblemDetail.instance` pointing at the existing review. A
+        (draft-)deleted review frees the slot.
+
+        Nobody is notified — a draft is private to its author until published. The creation is
+        recorded in the review's audit history.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PerformanceReviewCreateRequest'
+      responses:
+        '201':
+          description: Created — the full review document
+          headers:
+            Location:
+              schema: { type: string }
+              description: URL of the new review resource
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerformanceReviewResponse'
+        '400':
+          description: >-
+            Validation error (a rating outside 1–6, an oversized summary) or referenced user or
+            period does not exist
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: The subordinate is not a direct report of the caller
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '409':
+          description: >-
+            The subordinate already has a review for this period (the `instance` field points
+            at it)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/performance-reviews/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [performance-reviews]
+      operationId: getPerformanceReview
+      summary: Fetch a performance review
+      description: |
+        Returns the full review document — parties, period, status, and the four category
+        assessments (rating + summary each). Readable by the review's **manager** (the author)
+        at every status and by the **HR auditor** (audit-logged) at every status; by the
+        **subordinate** only once **PUBLISHED** (a review in DRAFT or CALIBRATION is invisible
+        to them — `403`); and by a **manager in the subordinate's transitive management chain**
+        (over non-deleted teams) once it has left DRAFT (CALIBRATION/PUBLISHED — calibration is
+        exactly the phase upper managers join to compare ratings). Anything else — ADMIN
+        included — is `403`.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerformanceReviewResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PerformanceReviewNotReadable' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    put:
+      tags: [performance-reviews]
+      operationId: updatePerformanceReview
+      summary: Edit a review's assessments
+      description: |
+        Replaces the review's eight assessment values (the four categories' ratings and
+        summaries). **Manager-only** (the subordinate has read rights only; nobody else — ADMIN
+        included — gets write access). Accepted while **DRAFT or CALIBRATION**; a PUBLISHED
+        review is read-only (`409`) — unpublish it first. In CALIBRATION the payload must stay
+        **complete**: a value may change but never blank out (`400`). The parties, period, and
+        status are not settable here (status moves through the action endpoints).
+
+        Every changed aspect is recorded in the audit history (rating changes with their
+        from/to numbers, summary changes as the bare fact — never the text); a no-op PUT
+        records nothing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PerformanceReviewUpdateRequest'
+      responses:
+        '204': { description: Updated }
+        '400':
+          description: >-
+            Validation error (a rating outside 1–6, an oversized summary, or — in CALIBRATION —
+            a missing rating or blank summary)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PerformanceReviewNotManager' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: The review is PUBLISHED — read-only until unpublished
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    delete:
+      tags: [performance-reviews]
+      operationId: deletePerformanceReview
+      summary: Delete a draft review
+      description: |
+        Soft-deletes a performance review (the row is flagged, not physically removed, and
+        disappears from reads/lists; its audit history is retained). **Manager-only** and
+        **DRAFT-only** — reviews past DRAFT are records and answer `400`; move them through the
+        transitions instead. Deleting frees the (subordinate, period) slot for a new review.
+        Nobody is notified.
+      responses:
+        '204': { description: Deleted }
+        '400':
+          description: The review is not in DRAFT status — only a draft review may be deleted
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PerformanceReviewNotManager' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/performance-reviews/{id}/submit:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [performance-reviews]
+      operationId: submitPerformanceReview
+      summary: Submit a draft review to calibration
+      description: |
+        Moves the review `DRAFT → CALIBRATION` (any other current status is `409`).
+        **Manager-only.** The review must be **complete** — all four ratings set and all four
+        summaries non-blank (`400`) — an incomplete draft cannot enter calibration. Once in
+        calibration, the review becomes visible to the subordinate's wider management chain
+        (not to the subordinate). Nobody is notified — the calibration phase is invisible to
+        the subordinate; the transition is recorded in the audit history.
+      responses:
+        '204': { description: Submitted to calibration }
+        '400':
+          description: The review is incomplete — a rating is missing or a summary is blank
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PerformanceReviewNotManager' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/PerformanceReviewInvalidTransition' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/performance-reviews/{id}/revert:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [performance-reviews]
+      operationId: revertPerformanceReview
+      summary: Return a calibration review to draft
+      description: |
+        Moves the review `CALIBRATION → DRAFT` (any other current status is `409`), making it
+        private to its author again (the wider management chain loses read access) and lifting
+        the completeness requirement on edits. **Manager-only.** Recorded assessments are kept.
+        Nobody is notified — neither state is visible to the subordinate; the transition is
+        recorded in the audit history.
+      responses:
+        '204': { description: Returned to draft }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PerformanceReviewNotManager' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/PerformanceReviewInvalidTransition' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/performance-reviews/{id}/publish:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [performance-reviews]
+      operationId: publishPerformanceReview
+      summary: Publish a calibrated review
+      description: |
+        Moves the review `CALIBRATION → PUBLISHED` (any other current status is `409`).
+        **Manager-only.** A published review is **read-only** and becomes visible to the
+        subordinate. The subordinate is notified with a view link; the transition is recorded
+        in the audit history.
+      responses:
+        '204': { description: Published }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PerformanceReviewNotManager' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/PerformanceReviewInvalidTransition' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/performance-reviews/{id}/unpublish:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [performance-reviews]
+      operationId: unpublishPerformanceReview
+      summary: Retract a published review to calibration
+      description: |
+        Moves the review `PUBLISHED → CALIBRATION` (any other current status is `409`).
+        **Manager-only.** The review becomes editable again and disappears from the
+        subordinate's reads and list. The subordinate is notified **without a link** (the
+        review is no longer readable to them); the transition is recorded in the audit history.
+      responses:
+        '204': { description: Retracted to calibration }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PerformanceReviewNotManager' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/PerformanceReviewInvalidTransition' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/performance-reviews/{id}/events:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [performance-reviews]
+      operationId: listPerformanceReviewEvents
+      summary: List a performance review's audit history
+      description: |
+        Returns the immutable audit trail for a performance review — one entry per creation,
+        changed assessment aspect (rating changes with from/to numbers, summary changes as the
+        bare fact), status transition, and deletion — oldest first. Each entry is structural:
+        an event `type` plus a `params` map (category/status enum names and numeric ratings —
+        never summary text), with the acting user resolved to `userName`; no rendered string is
+        stored (clients localize the description). Authorization matches the single-GET above:
+        whoever may read the review may read its history. Events are server-generated; there is
+        no create/update/delete endpoint.
+      responses:
+        '200':
+          description: The review's events, oldest first
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerformanceReviewEventList'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PerformanceReviewNotReadable' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
   /api/v1/templates:
     get:
       tags: [templates]
@@ -3134,6 +3627,26 @@ components:
         The KPI is not ACTIVE (data points are only mutable while it is), or the target date
         already has a data point (at most one value per date — correct the existing point
         instead)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+    PerformanceReviewNotReadable:
+      description: >-
+        Caller is neither the review's manager, nor the HR auditor, nor — once the review has
+        left DRAFT — its subordinate (PUBLISHED only) or a manager in the subordinate's
+        management chain (CALIBRATION/PUBLISHED); a DRAFT is private to its author (and HR)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+    PerformanceReviewNotManager:
+      description: Caller is not the review's manager (the subordinate has read rights only)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+    PerformanceReviewInvalidTransition:
+      description: >-
+        The action is not allowed from the review's current status (the machine is
+        DRAFT ↔ CALIBRATION ↔ PUBLISHED, never skipping CALIBRATION)
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/ProblemDetail' }
@@ -4622,6 +5135,241 @@ components:
           type: array
           items: { $ref: '#/components/schemas/TeamKpiEventResponse' }
 
+    ReviewPeriod:
+      type: object
+      required: [id, startMonth, endMonth]
+      properties:
+        id: { type: integer, format: int64, minimum: 0 }
+        startMonth:
+          type: string
+          description: First month of the period, inclusive ISO YYYY-MM (zero-padded).
+        endMonth:
+          type: string
+          description: Last month of the period, inclusive ISO YYYY-MM (zero-padded).
+
+    ReviewPeriodList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ReviewPeriod' }
+          description: The whole timeline, oldest first.
+
+    ReviewPeriodCreateRequest:
+      type: object
+      required: [startMonth, endMonth]
+      properties:
+        startMonth:
+          type: string
+          description: |
+            First month, inclusive ISO YYYY-MM (strictly zero-padded). When any period exists,
+            must be exactly the month after the latest period's endMonth (else 409).
+        endMonth:
+          type: string
+          description: Last month, inclusive ISO YYYY-MM; not before startMonth.
+
+    CategoryAssessment:
+      type: object
+      description: |
+        One category's assessment. The rating travels as its NUMBER on the fixed 1–6 scale
+        (1 = doesn't meet expectations, 2 = partially meets, 3 = meets, 4 = sometimes exceeds,
+        5 = exceeds, 6 = exceptional) — calculations run on the number; clients render the
+        localized scale wording. Both fields may be null/absent while the review is a DRAFT.
+      properties:
+        rating:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 6
+        summary:
+          type: string
+          nullable: true
+          description: Free-text summary for the category (at most 4000 characters).
+
+    PerformanceReviewCreateRequest:
+      type: object
+      required: [subordinateId, periodId]
+      properties:
+        subordinateId:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Must be a direct report of the caller at creation time.
+        periodId:
+          type: integer
+          format: int64
+          minimum: 0
+          description: The review period assessed; the subordinate may have one review per period.
+        attitude: { $ref: '#/components/schemas/CategoryAssessment' }
+        delivery: { $ref: '#/components/schemas/CategoryAssessment' }
+        skills: { $ref: '#/components/schemas/CategoryAssessment' }
+        overall: { $ref: '#/components/schemas/CategoryAssessment' }
+
+    PerformanceReviewUpdateRequest:
+      type: object
+      description: |
+        Full replace of the eight assessment values. An omitted category (or field) counts as
+        unset — legal while DRAFT; in CALIBRATION the payload must be complete (400 otherwise).
+      properties:
+        attitude: { $ref: '#/components/schemas/CategoryAssessment' }
+        delivery: { $ref: '#/components/schemas/CategoryAssessment' }
+        skills: { $ref: '#/components/schemas/CategoryAssessment' }
+        overall: { $ref: '#/components/schemas/CategoryAssessment' }
+
+    PerformanceReviewResponse:
+      type: object
+      required:
+        - id
+        - managerId
+        - subordinateId
+        - periodId
+        - periodStartMonth
+        - periodEndMonth
+        - status
+        - attitude
+        - delivery
+        - skills
+        - overall
+        - createdAt
+        - lastModified
+        - managerName
+        - subordinateName
+      properties:
+        id: { type: integer, format: int64, minimum: 0 }
+        managerId: { type: integer, format: int64, minimum: 0 }
+        subordinateId: { type: integer, format: int64, minimum: 0 }
+        periodId: { type: integer, format: int64, minimum: 0 }
+        periodStartMonth:
+          type: string
+          description: The period's first month, inclusive ISO YYYY-MM. Server-resolved, read-only.
+        periodEndMonth:
+          type: string
+          description: The period's last month, inclusive ISO YYYY-MM. Server-resolved, read-only.
+        status:
+          type: string
+          enum: [DRAFT, CALIBRATION, PUBLISHED]
+        attitude: { $ref: '#/components/schemas/CategoryAssessment' }
+        delivery: { $ref: '#/components/schemas/CategoryAssessment' }
+        skills: { $ref: '#/components/schemas/CategoryAssessment' }
+        overall: { $ref: '#/components/schemas/CategoryAssessment' }
+        createdAt:
+          type: integer
+          format: int64
+          description: Epoch milliseconds; immutable creation moment. Server-managed.
+        lastModified:
+          type: integer
+          format: int64
+          description: Epoch milliseconds; bumped on every mutation. Server-managed.
+        managerName:
+          type: string
+          description: Display name of the review's manager (the author). Server-resolved, read-only.
+        subordinateName:
+          type: string
+          description: Display name of the reviewed subordinate. Server-resolved, read-only.
+
+    PerformanceReviewListItem:
+      type: object
+      required:
+        - id
+        - managerId
+        - managerName
+        - managerDeleted
+        - subordinateId
+        - subordinateName
+        - subordinateDeleted
+        - periodId
+        - periodStartMonth
+        - periodEndMonth
+        - status
+        - attitudeRating
+        - deliveryRating
+        - skillsRating
+        - overallRating
+        - createdAt
+        - lastModified
+      properties:
+        id: { type: integer, format: int64, minimum: 0 }
+        managerId: { type: integer, format: int64, minimum: 0 }
+        managerName: { type: string }
+        managerDeleted:
+          type: boolean
+          description: True when the manager's account has been soft-deleted.
+        subordinateId: { type: integer, format: int64, minimum: 0 }
+        subordinateName: { type: string }
+        subordinateDeleted:
+          type: boolean
+          description: True when the subordinate's account has been soft-deleted.
+        periodId: { type: integer, format: int64, minimum: 0 }
+        periodStartMonth: { type: string }
+        periodEndMonth: { type: string }
+        status:
+          type: string
+          enum: [DRAFT, CALIBRATION, PUBLISHED]
+        attitudeRating: { type: integer, nullable: true, minimum: 1, maximum: 6 }
+        deliveryRating: { type: integer, nullable: true, minimum: 1, maximum: 6 }
+        skillsRating: { type: integer, nullable: true, minimum: 1, maximum: 6 }
+        overallRating: { type: integer, nullable: true, minimum: 1, maximum: 6 }
+        createdAt: { type: integer, format: int64 }
+        lastModified: { type: integer, format: int64 }
+
+    PerformanceReviewPage:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PerformanceReviewListItem'
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1, maximum: 100 }
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Row count after filters, before pagination.
+
+    PerformanceReviewEventResponse:
+      type: object
+      required: [id, reviewId, userId, userName, timestamp, type, params]
+      properties:
+        id: { type: integer, format: int64, minimum: 0 }
+        reviewId: { type: integer, format: int64, minimum: 0 }
+        userId: { type: integer, format: int64, minimum: 0 }
+        userName:
+          type: string
+          description: Display name of the user who performed the change. Server-resolved, read-only.
+        timestamp:
+          type: integer
+          format: int64
+          description: Epoch milliseconds when the event was recorded. Server-managed.
+        type:
+          type: string
+          enum:
+            - CREATED
+            - RATING_CHANGED
+            - SUMMARY_CHANGED
+            - STATUS_CHANGED
+            - DELETED
+          description: Structured event kind; the client renders it in the viewer's language.
+        params:
+          type: object
+          additionalProperties: { type: string }
+          description: |
+            Interpolation params for the localized rendering — the category enum name
+            (`RATING_CHANGED`/`SUMMARY_CHANGED`), numeric ratings (`from`/`to`, `""` = unset),
+            and status enum names (`STATUS_CHANGED`). Never summary text (the summaries are
+            encrypted at rest; this trail is plaintext by design). Empty object when the event
+            kind needs none.
+
+    PerformanceReviewEventList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/PerformanceReviewEventResponse' }
+
     NotificationResponse:
       type: object
       required: [id, recipientId, timestamp, type, params, wasSeen]
@@ -4659,6 +5407,8 @@ components:
             - TEAM_KPI_VALUE_CORRECTED_TO_MEMBER
             - TEAM_KPI_VALUE_REMOVED_TO_MEMBER
             - TEAM_KPI_REOPENED_TO_MEMBER
+            - PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE
+            - PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE
             - PASSWORD_CHANGED
           description: Notification kind; the client renders it in the viewer's language.
         params:
@@ -4675,7 +5425,9 @@ components:
             counterpart's name and the ISO meeting date). The GOAL_* kinds carry
             `{manager,title}` — the manager's name and the goal's plaintext title. The
             TEAM_KPI_* kinds carry `{manager,title,team}` — the manager's name, the KPI's
-            plaintext title, and the team's name.
+            plaintext title, and the team's name. The PERFORMANCE_REVIEW_* kinds carry
+            `{manager,startMonth,endMonth}` — the manager's name and the period's raw ISO
+            month bounds (the client formats the period).
         link:
           type: string
           nullable: true

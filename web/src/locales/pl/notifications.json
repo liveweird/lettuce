@@ -48,6 +48,8 @@
     "teamKpiValueRecorded": "{{manager}} zapisał/zapisała wartość {{value}} z dnia {{date}} w KPI „{{title}}” zespołu {{team}}.",
     "teamKpiValueCorrected": "{{manager}} poprawił/poprawiła punkt danych KPI „{{title}}” zespołu {{team}}: {{fromValue}} ({{fromDate}}) \u2192 {{toValue}} ({{toDate}}).",
     "teamKpiValueRemoved": "{{manager}} usunął/usunęła wartość {{value}} ({{date}}) z KPI „{{title}}” zespołu {{team}}.",
+    "performanceReviewPublished": "{{manager}} opublikował/a Twoją ocenę okresową za okres {{startMonth}} – {{endMonth}}.",
+    "performanceReviewUnpublished": "{{manager}} wycofał/a Twoją ocenę okresową za okres {{startMonth}} – {{endMonth}}.",
     "passwordChanged": "Twoje hasło zostało zmienione.",
     "passwordChanged_admin": "Administrator zmienił Twoje hasło.",
     "passwordChanged_reset": "Twoje hasło zostało zresetowane przez e-mail."
