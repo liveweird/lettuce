@@ -233,16 +233,18 @@ object TestDictionaries {
         }
 
     /**
-     * Appends [values] to [dict] via whole-document replace, PRESERVING the existing active
+     * Appends [values] to [dict] via whole-document replace, preserving the existing active
      * entries (dictionaries are shared global state — use unique values per test), and returns
-     * the minted ids in [values] order.
+     * the minted ids in [values] order. If a previous test left the dictionary at the 200-entry
+     * cap (DictionaryTest's limit case does), enough head entries are dropped to make room —
+     * every dictionary test starts by writing its own document, so that is safe by convention.
      */
     suspend fun append(dict: ch.nokillswit.dictionaries.Dictionary, vararg values: String): List<UInt> {
-        val current = service.read(dict)
+        val kept = service.read(dict).take(ch.nokillswit.dictionaries.MAX_DICTIONARY_ENTRIES - values.size)
         service.replace(
             dict,
             ch.nokillswit.dictionaries.DictionaryUpdateRequest(
-                current.map { ch.nokillswit.dictionaries.DictionaryEntryInput(it.id, it.value) } +
+                kept.map { ch.nokillswit.dictionaries.DictionaryEntryInput(it.id, it.value) } +
                     values.map { ch.nokillswit.dictionaries.DictionaryEntryInput(value = it) },
             ),
         )
