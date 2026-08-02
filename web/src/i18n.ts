@@ -15,6 +15,7 @@ import enTeamKpis from "./locales/en/teamKpis.json";
 import enUsers from "./locales/en/users.json";
 import enTeams from "./locales/en/teams.json";
 import enTemplates from "./locales/en/templates.json";
+import enDictionaries from "./locales/en/dictionaries.json";
 import enNotifications from "./locales/en/notifications.json";
 import enAlerts from "./locales/en/alerts.json";
 import enChangelog from "./locales/en/changelog.json";
@@ -32,6 +33,7 @@ import plTeamKpis from "./locales/pl/teamKpis.json";
 import plUsers from "./locales/pl/users.json";
 import plTeams from "./locales/pl/teams.json";
 import plTemplates from "./locales/pl/templates.json";
+import plDictionaries from "./locales/pl/dictionaries.json";
 import plNotifications from "./locales/pl/notifications.json";
 import plAlerts from "./locales/pl/alerts.json";
 import plChangelog from "./locales/pl/changelog.json";
@@ -54,6 +56,8 @@ const en = {
   users: enUsers,
   teams: enTeams,
   templates: enTemplates,
+  // Mounted as the singular area `dictionary` (the goals.json -> goal filename precedent).
+  dictionary: enDictionaries,
   notifications: enNotifications,
   alerts: enAlerts,
   changelog: enChangelog,
@@ -73,6 +77,7 @@ const pl = {
   users: plUsers,
   teams: plTeams,
   templates: plTemplates,
+  dictionary: plDictionaries,
   notifications: plNotifications,
   alerts: plAlerts,
   changelog: plChangelog,

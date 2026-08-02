@@ -4,6 +4,8 @@ import ch.nokillswit.alerts.AlertService
 import ch.nokillswit.alerts.AlertServiceKey
 import ch.nokillswit.auth.TokenBlocklistService
 import ch.nokillswit.auth.TokenBlocklistServiceKey
+import ch.nokillswit.dictionaries.DictionaryService
+import ch.nokillswit.dictionaries.DictionaryServiceKey
 import ch.nokillswit.feedbacks.FeedbackEventService
 import ch.nokillswit.feedbacks.FeedbackEventServiceKey
 import ch.nokillswit.feedbacks.FeedbackService
@@ -50,6 +52,7 @@ suspend fun Application.configureDatabase() {
     attributes.put(TeamKpiServiceKey, TeamKpiService(database, attributes[FieldCipherKey]))
     attributes.put(TeamKpiEventServiceKey, TeamKpiEventService(database))
     attributes.put(TemplateServiceKey, TemplateService(database))
+    attributes.put(DictionaryServiceKey, DictionaryService(database))
     attributes.put(NotificationServiceKey, NotificationService(database))
     attributes.put(AlertServiceKey, AlertService(database))
     attributes.put(TokenBlocklistServiceKey, TokenBlocklistService(database))
