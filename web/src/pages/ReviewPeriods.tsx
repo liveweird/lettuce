@@ -16,17 +16,12 @@ import {
   Title,
 } from "@mantine/core";
 import { IconCalendarStats, IconPlus } from "@tabler/icons-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  ApiError,
-  createReviewPeriod,
-  deleteReviewPeriod,
-  isAdmin,
-  listReviewPeriods,
-} from "../api/client";
+import { ApiError, createReviewPeriod, deleteReviewPeriod, isAdmin } from "../api/client";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import EmptyState from "../components/EmptyState";
+import { useReviewPeriodOptions } from "../hooks/useReviewPeriodOptions";
 import {
   addIsoMonths,
   formatIsoMonth,
@@ -70,11 +65,7 @@ export default function ReviewPeriods() {
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
 
   const admin = isAdmin();
-  const { data: periods, isLoading, isError } = useQuery({
-    queryKey: ["reviewPeriods"],
-    queryFn: listReviewPeriods,
-    enabled: admin,
-  });
+  const { periods, isLoading, isError } = useReviewPeriodOptions(admin);
   if (!admin) return <Navigate to="/" replace />;
 
   const latest = periods && periods.length > 0 ? periods[periods.length - 1] : null;

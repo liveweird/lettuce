@@ -7,7 +7,6 @@ import { useTranslation } from "react-i18next";
 import {
   getUserId,
   listPerformanceReviews,
-  listReviewPeriods,
   type PerformanceReviewListItem,
   type PerformanceReviewListView,
   type PerformanceReviewStatus,
@@ -18,10 +17,11 @@ import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import PerformanceReviewStatusBadge from "../components/PerformanceReviewStatusBadge";
 import PersonCell from "../components/PersonCell";
-import RatingBadge from "../components/RatingBadge";
+import { RatingCells } from "../components/RatingBadge";
 import SortHeader from "../components/SortHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
 import { usePagedSort } from "../hooks/usePagedSort";
+import { useReviewPeriodOptions } from "../hooks/useReviewPeriodOptions";
 import { isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
 import { formatDate, formatMonthRange, formatTimestamp } from "../utils/datetime";
 import { reviewEditLink, reviewViewLink } from "../utils/performanceReviewLinks";
@@ -161,17 +161,7 @@ export default function PerformanceReviewTable({
     );
 
   // The period filter's options — the whole (small, unpaged) timeline, newest first.
-  const { data: periods } = useQuery({
-    queryKey: ["reviewPeriods"],
-    queryFn: listReviewPeriods,
-    staleTime: 5 * 60 * 1000,
-  });
-  const periodOptions = [...(periods ?? [])]
-    .reverse()
-    .map((p) => ({
-      value: String(p.id),
-      label: formatMonthRange(p.startMonth, p.endMonth, i18n.language),
-    }));
+  const { options: periodOptions } = useReviewPeriodOptions();
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: [
@@ -332,17 +322,7 @@ export default function PerformanceReviewTable({
                   <Table.Td style={{ whiteSpace: "nowrap" }}>
                     <PerformanceReviewStatusBadge status={r.status} />
                   </Table.Td>
-                  {ratings.map((rating, index) => (
-                    <Table.Td key={REVIEW_CATEGORIES[index]} style={{ whiteSpace: "nowrap" }}>
-                      {rating != null ? (
-                        <RatingBadge rating={rating} />
-                      ) : (
-                        <Text size="sm" c="dimmed">
-                          —
-                        </Text>
-                      )}
-                    </Table.Td>
-                  ))}
+                  <RatingCells ratings={ratings} />
                   <Table.Td style={{ whiteSpace: "nowrap" }} title={formatTimestamp(r.createdAt)}>
                     {formatDate(r.createdAt, i18n.language)}
                   </Table.Td>
