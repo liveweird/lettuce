@@ -28,7 +28,7 @@ import { listAllTeams, listTeamMembers, type TeamMemberListView } from "../api/c
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
 import PersonCard from "../components/PersonCard";
-import PersonCardStats, { PeerCardStats } from "../components/PersonCardStats";
+import PersonCardStats, { CareerCardStats, PeerCardStats } from "../components/PersonCardStats";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
@@ -242,13 +242,16 @@ export default function TeamMembersTable({
               // 1:1 + feedback stats, but only while every card is a direct report (same
               // rationale as the 1:1 drill-down gate below): rows carry no direct/indirect
               // marker, and indirect reports can't have 1:1s with the caller, so "never"
-              // would just be noise.
+              // would just be noise. The career column shows regardless — it's populated
+              // on every view's rows.
               stats={
                 view === "member" ? (
                   <PeerCardStats person={m} />
                 ) : view === "managed" && scopeIsDirect ? (
                   <PersonCardStats person={m} />
-                ) : undefined
+                ) : (
+                  <CareerCardStats person={m} />
+                )
               }
               actions={
                 <>

@@ -16,6 +16,7 @@ import ch.nokillswit.infra.paging.optionalString
 import ch.nokillswit.infra.paging.optionalUInt
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.plugins.respondProblem
+import ch.nokillswit.users.UserServiceKey
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
@@ -78,11 +79,12 @@ private fun List<TeamMemberListItem>.withDirectionalStats(
 fun Application.configureTeamRoutes() {
     val teamService = attributes[TeamServiceKey]
     // For the members-list dashboard stats (feedback stats on all three views, 1:1 stats on
-    // managers/managed) — composed here at the route so TeamService never touches other
-    // features' tables.
+    // managers/managed) and the career-profile triple (every view) — composed here at the
+    // route so TeamService never touches other features' tables.
     val oneOnOneService = attributes[OneOnOneServiceKey]
     val feedbackService = attributes[FeedbackServiceKey]
     val goalService = attributes[GoalServiceKey]
+    val userService = attributes[UserServiceKey]
 
     routing {
         authenticate {
@@ -133,7 +135,7 @@ fun Application.configureTeamRoutes() {
                 // per (user, team), so a user with several shared teams repeats the same stats.
                 val items = if (result.items.isEmpty()) result.items else {
                     val ids = result.items.map { it.userId }.toSet()
-                    when (view) {
+                    val withStats = when (view) {
                         TeamMemberListView.MEMBER -> {
                             val given = feedbackService.lastProvidedTo(caller.userId, ids)
                             val received = feedbackService.lastProvidedAt(ids, caller.userId)
@@ -153,6 +155,17 @@ fun Application.configureTeamRoutes() {
                             oneOnOneService.latestMeetingStatsBySubordinate(caller.userId, ids),
                             feedbackService.lastProvidedTo(caller.userId, ids),
                             goalService.activeGoalCountsBySubordinate(caller.userId, ids),
+                        )
+                    }
+                    // Career profile (v1.32.1): view-independent — the person cards show it on
+                    // every grid, so every view's rows carry the resolved triple.
+                    val profiles = userService.careerProfilesByUserIds(ids)
+                    withStats.map {
+                        val profile = profiles[it.userId]
+                        it.copy(
+                            careerPath = profile?.careerPath,
+                            careerSpecialization = profile?.careerSpecialization,
+                            seniorityLevel = profile?.seniorityLevel,
                         )
                     }
                 }

@@ -44,6 +44,21 @@ describe("groupTeamRows", () => {
     expect(card.activeGoalCount).toBeNull();
   });
 
+  test("normalizes absent career fields to null and carries set ones from the first row", () => {
+    const [bare] = groupTeamRows([row()]);
+    expect(bare.careerPath).toBeNull();
+    expect(bare.careerSpecialization).toBeNull();
+    expect(bare.seniorityLevel).toBeNull();
+
+    const [card] = groupTeamRows([
+      row({ careerPath: { id: 11, value: "Software Engineer" }, seniorityLevel: { id: 31, value: "Senior" } }),
+      row({ teamName: "Second" }),
+    ]);
+    expect(card.careerPath).toEqual({ id: 11, value: "Software Engineer" });
+    expect(card.careerSpecialization).toBeNull();
+    expect(card.seniorityLevel).toEqual({ id: 31, value: "Senior" });
+  });
+
   test("carries stats through from the first row of a user (rows repeat identical stats)", () => {
     const stats = {
       lastOneOnOneDate: "2026-07-01",

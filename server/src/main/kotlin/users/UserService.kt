@@ -20,6 +20,13 @@ import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 
 val UserServiceKey = AttributeKey<UserService>("UserService")
 
+/** One user's resolved career profile — the /teams/members list enrichment payload. */
+data class CareerProfile(
+    val careerPath: DictionaryEntry?,
+    val careerSpecialization: DictionaryEntry?,
+    val seniorityLevel: DictionaryEntry?,
+)
+
 data class UserListFilter(
     val name: String? = null,
     val email: String? = null,
@@ -270,6 +277,46 @@ class UserService(val database: R2dbcDatabase) {
      */
     suspend fun resolveEntryRefs(vararg ids: UInt?): Map<UInt, DictionaryEntry> =
         suspendTransaction(database) { entriesByIds(ids.filterNotNull().toSet()) }
+
+    /**
+     * Batch career-profile resolution for a page of user ids (route-side list enrichment —
+     * the /teams/members rows). Two queries total: the users' ref columns, then one
+     * [entriesByIds] over every referenced entry. Soft-deleted entries resolve as everywhere.
+     */
+    suspend fun careerProfilesByUserIds(ids: Set<UInt>): Map<UInt, CareerProfile> {
+        if (ids.isEmpty()) return emptyMap()
+        return suspendTransaction(database) {
+            val refs = Users
+                .select(Users.id, Users.careerPathId, Users.careerSpecializationId, Users.seniorityLevelId)
+                .where { Users.id inList ids }
+                .map {
+                    CareerRefs(
+                        userId = it[Users.id].value,
+                        careerPathId = it[Users.careerPathId],
+                        careerSpecializationId = it[Users.careerSpecializationId],
+                        seniorityLevelId = it[Users.seniorityLevelId],
+                    )
+                }
+                .toList()
+            val entries = entriesByIds(
+                refs.flatMap { listOfNotNull(it.careerPathId, it.careerSpecializationId, it.seniorityLevelId) }.toSet(),
+            )
+            refs.associate { r ->
+                r.userId to CareerProfile(
+                    careerPath = r.careerPathId?.let { entries[it] },
+                    careerSpecialization = r.careerSpecializationId?.let { entries[it] },
+                    seniorityLevel = r.seniorityLevelId?.let { entries[it] },
+                )
+            }
+        }
+    }
+
+    private data class CareerRefs(
+        val userId: UInt,
+        val careerPathId: UInt?,
+        val careerSpecializationId: UInt?,
+        val seniorityLevelId: UInt?,
+    )
 
     /**
      * 400 unless every (dictionary, id) pair is an ACTIVE entry of exactly that dictionary.

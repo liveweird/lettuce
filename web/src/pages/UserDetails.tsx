@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-router-dom";
-import { Alert, Anchor, Badge, Button, Group, Paper, SimpleGrid, Skeleton, Stack, Text, Title } from "@mantine/core";
+import { Alert, Anchor, Button, Group, Paper, SimpleGrid, Skeleton, Stack, Text, Title } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import {
   IconCalendarEvent,
@@ -18,12 +18,11 @@ import {
   listAllTeamMembers,
   listTeams,
   listUsers,
-  type DictionaryEntry,
   type UserPage,
 } from "../api/client";
 import EmptyState from "../components/EmptyState";
 import PersonCard from "../components/PersonCard";
-import PersonCardStats, { PeerCardStats } from "../components/PersonCardStats";
+import PersonCardStats, { CareerCardStats, PeerCardStats } from "../components/PersonCardStats";
 import {
   feedbackAskLink,
   feedbackProvideLink,
@@ -40,18 +39,10 @@ const PAGE_SIZE = 100;
 
 type Relationship = "manager" | "subordinate" | "peer";
 
-type CareerProfile = {
-  careerPath: DictionaryEntry | null;
-  careerSpecialization: DictionaryEntry | null;
-  seniorityLevel: DictionaryEntry | null;
-};
-
 type UserDetailsData = {
   person: PersonCardData;
   /** null = no team relationship to the viewer (an unrelated user, or the viewer themselves). */
   relationship: Relationship | null;
-  /** Career profile off the open users list; null only if the row vanished mid-fetch. */
-  profile: CareerProfile | null;
 } | null;
 
 // Relationship precedence: their-manager beats my-subordinate beats peer — the first
@@ -63,8 +54,8 @@ const VIEW_TO_RELATIONSHIP = [
   ["member", "peer"],
 ] as const;
 
-// Pages through the open users list until the user's row turns up (the fallback path's
-// walk, factored out — the primary path also needs the row for the career profile).
+// Pages through the open users list until the user's row turns up (the no-relationship
+// fallback — the /teams/members views never contain unrelated users or the caller).
 async function findUser(userId: number): Promise<UserPage["items"][number] | null> {
   let page = 1;
   for (;;) {
@@ -76,31 +67,15 @@ async function findUser(userId: number): Promise<UserPage["items"][number] | nul
   }
 }
 
-function toProfile(row: UserPage["items"][number]): CareerProfile {
-  return {
-    careerPath: row.careerPath,
-    careerSpecialization: row.careerSpecialization,
-    seniorityLevel: row.seniorityLevel,
-  };
-}
-
 async function fetchUserDetails(userId: number): Promise<UserDetailsData> {
   for (const [view, relationship] of VIEW_TO_RELATIONSHIP) {
+    // Rows carry the dashboard stats AND the career profile (v1.32.1) — one fetch per view.
     const rows = (await listAllTeamMembers(view)).filter((r) => r.userId === userId);
-    if (rows.length > 0) {
-      // Team-member rows carry no career profile — one extra users-list walk fetches it
-      // (a few 100-row pages at most at this org size).
-      const row = await findUser(userId);
-      return {
-        person: groupTeamRows(rows)[0],
-        relationship,
-        profile: row ? toProfile(row) : null,
-      };
-    }
+    if (rows.length > 0) return { person: groupTeamRows(rows)[0], relationship };
   }
-  // No relationship: the /teams/members views never contain unrelated users (or the caller),
-  // so resolve the basics from the open users list and the id-keyed teams filter instead.
-  // No stats — the server only computes them for related pairs.
+  // No relationship: resolve the basics from the open users list and the id-keyed teams
+  // filter instead. No stats — the server only computes them for related pairs — but the
+  // career profile rides the users-list row.
   const found = await findUser(userId);
   if (found == null) return null;
   const teams = await listTeams({ page: 1, pageSize: PAGE_SIZE, memberId: userId, sort: "name" });
@@ -116,30 +91,12 @@ async function fetchUserDetails(userId: number): Promise<UserDetailsData> {
       lastFeedbackGivenAt: null,
       lastFeedbackReceivedAt: null,
       activeGoalCount: null,
+      careerPath: found.careerPath,
+      careerSpecialization: found.careerSpecialization,
+      seniorityLevel: found.seniorityLevel,
     },
     relationship: null,
-    profile: toProfile(found),
   };
-}
-
-// One labeled career-profile row: the value as plain text, or the orange "not set" badge
-// (orange = warning; the missing state is legitimate but should be acted on).
-function ProfileRow({ label, entry }: { label: string; entry?: DictionaryEntry | null }) {
-  const { t } = useTranslation();
-  return (
-    <Group gap="xs" justify="space-between" wrap="nowrap">
-      <Text size="sm" c="dimmed">
-        {label}
-      </Text>
-      {entry ? (
-        <Text size="sm">{entry.value}</Text>
-      ) : (
-        <Badge variant="light" color="orange" style={{ minWidth: "max-content" }}>
-          {t("users.profile.missingBadge")}
-        </Badge>
-      )}
-    </Group>
-  );
 }
 
 // The relationship-aware read-only view of one user: the same person card the Dashboard
@@ -400,7 +357,10 @@ export default function UserDetails() {
                 <PersonCardStats person={person} />
               ) : relationship === "peer" ? (
                 <PeerCardStats person={person} />
-              ) : undefined
+              ) : (
+                // Self / unrelated: no relationship stats, but the career column always shows.
+                <CareerCardStats person={person} />
+              )
             }
             actions={actions}
           />
@@ -410,24 +370,6 @@ export default function UserDetails() {
           icon={<IconUsersGroup size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
           label={t("users.userNotFound")}
         />
-      )}
-
-      {person != null && (
-        // The career profile (v1.32.0) — dictionary-backed, visible to every viewer; a
-        // missing value is flagged so an admin knows to fill it in via the user's edit form.
-        <Paper withBorder p="md" radius="md" maw={480}>
-          <Stack gap="xs">
-            <Text size="sm" fw={500}>
-              {t("users.profile.title")}
-            </Text>
-            <ProfileRow label={t("common.field.careerPath")} entry={data?.profile?.careerPath} />
-            <ProfileRow
-              label={t("common.field.careerSpecialization")}
-              entry={data?.profile?.careerSpecialization}
-            />
-            <ProfileRow label={t("common.field.seniorityLevel")} entry={data?.profile?.seniorityLevel} />
-          </Stack>
-        </Paper>
       )}
 
       {canAudit() && !selfView && person != null && (
