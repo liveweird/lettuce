@@ -66,8 +66,11 @@ test("a career path set on a user follows the dictionary entry through a rename"
   const value2 = `${value1}-renamed`;
   await login(page, ADMIN);
 
-  // Append a throwaway entry to the career-paths dictionary.
+  // Append a throwaway entry to the career-paths dictionary. Wait for the editor to render
+  // (the Add-entry button appears with the loaded rows) BEFORE counting — counting during the
+  // load yields 0 and the fill below would overwrite the first pre-existing entry instead.
   await page.goto("/dictionaries/career-paths");
+  await expect(page.getByRole("button", { name: "Add entry", exact: true })).toBeVisible();
   const base = await page.getByRole("textbox").count();
   await page.getByRole("button", { name: "Add entry", exact: true }).click();
   await page.getByLabel(`Entry ${base + 1}`, { exact: true }).fill(value1);
@@ -112,6 +115,7 @@ test("a career path set on a user follows the dictionary entry through a rename"
 
   // …and renaming the dictionary entry propagates immediately (id-keyed storage).
   await page.goto("/dictionaries/career-paths");
+  await expect(page.getByRole("button", { name: "Add entry", exact: true })).toBeVisible();
   const lastEntry = page.getByRole("textbox").last();
   await expect(lastEntry).toHaveValue(value1); // our appended entry is still the tail
   await lastEntry.fill(value2);
@@ -121,6 +125,7 @@ test("a career path set on a user follows the dictionary entry through a rename"
 
   // Retire the throwaway entry; the user's profile keeps resolving the retained value.
   await page.goto("/dictionaries/career-paths");
+  await expect(page.getByRole("button", { name: "Add entry", exact: true })).toBeVisible();
   const count = await page.getByRole("textbox").count();
   await page.getByRole("button", { name: `Remove entry ${count}`, exact: true }).click();
   await saveDictionary(page, "career-paths");
