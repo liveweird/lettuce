@@ -179,14 +179,9 @@ export default function ReviewPeriods() {
                 return (
                   <Paper key={p.id} withBorder p="sm" radius="md">
                     <Group justify="space-between" wrap="nowrap">
-                      <Stack gap={0}>
-                        <Text size="sm" fw={500}>
-                          {formatMonthRange(p.startMonth, p.endMonth, i18n.language)}
-                        </Text>
-                        <Text size="xs" c="dimmed">
-                          {p.startMonth} – {p.endMonth}
-                        </Text>
-                      </Stack>
+                      <Text size="sm" fw={500}>
+                        {formatMonthRange(p.startMonth, p.endMonth, i18n.language)}
+                      </Text>
                       {isLatest && (
                         <Button
                           color="red"
@@ -194,7 +189,7 @@ export default function ReviewPeriods() {
                           size="xs"
                           onClick={() => setDeleteTarget(p.id)}
                           aria-label={t("performanceReview.periods.deleteAria", {
-                            range: `${p.startMonth} – ${p.endMonth}`,
+                            range: formatMonthRange(p.startMonth, p.endMonth, i18n.language),
                           })}
                         >
                           {t("common.action.delete")}

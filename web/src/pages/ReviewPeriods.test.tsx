@@ -73,6 +73,8 @@ describe("ReviewPeriods page", () => {
 
     expect(await screen.findByText("July 2025 – December 2025")).toBeInTheDocument();
     expect(screen.getByText("January 2026 – June 2026")).toBeInTheDocument();
+    // The formatted range only — no duplicate raw-ISO line (v1.33.3).
+    expect(screen.queryByText("2025-07 – 2025-12")).toBeNull();
     // The fixed start is plain text (no input to mistype) with the timeline rule spelled out.
     expect(screen.getByText("July 2026")).toBeInTheDocument();
     expect(
