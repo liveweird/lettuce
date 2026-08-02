@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.33.4",
+    date: "2026-08-02",
+    en: `The Dashboard's Performance reviews tab now behaves like every other list: the scope and career filters live in the collapsible, auto-saved Filters panel (the period picker stays always visible — it defines what you're looking at), every column is sortable (ratings sort numerically with missing reviews last; status by lifecycle stage), and long teams paginate.`,
+    pl: `Zakładka Oceny okresowe na Pulpicie zachowuje się teraz jak każda inna lista: filtry zakresu i kariery mieszkają w zwijanym, samozapisującym się panelu Filtrów (wybór okresu pozostaje zawsze widoczny — on określa, na co patrzysz), każda kolumna jest sortowalna (oceny sortują się liczbowo z brakującymi ocenami na końcu; status według etapu cyklu życia), a długie zespoły są stronicowane.`,
+  },
+  {
     version: "1.33.3",
     date: "2026-08-02",
     en: `Review periods list each range once: the redundant raw "2026-01 – 2026-06" line under the formatted period is gone.`,

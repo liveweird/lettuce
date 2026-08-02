@@ -126,6 +126,7 @@ describe("ReviewsDashboard tab", () => {
     renderTab();
 
     await screen.findByText("Zoe Zeta");
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
     fireEvent.click(screen.getByLabelText("Reports", { selector: "input" }));
     fireEvent.click(await screen.findByRole("option", { name: "All reports (including indirect)" }));
 
@@ -142,6 +143,7 @@ describe("ReviewsDashboard tab", () => {
     renderTab();
 
     await screen.findByText("Zoe Zeta");
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
     fireEvent.click(screen.getByLabelText("Team", { selector: "input" }));
     fireEvent.click(await screen.findByRole("option", { name: "AAA" }));
     expect(await screen.findByText("Ann Alpha")).toBeInTheDocument();
@@ -156,6 +158,62 @@ describe("ReviewsDashboard tab", () => {
     fireEvent.click(options[0]);
     expect(await screen.findByText("Ann Alpha")).toBeInTheDocument();
     expect(within(screen.getByRole("table")).queryByText("Zoe Zeta")).toBeNull();
+  });
+
+  test("sortable headers: Overall orders numerically with no-review rows last both ways", async () => {
+    setupMocks();
+    renderTab();
+
+    await screen.findByText("Zoe Zeta");
+    // Default sort is name asc: Ann, Zoe.
+    const names = () =>
+      within(screen.getByRole("table"))
+        .getAllByRole("row")
+        .slice(1)
+        .map((r) => r.textContent ?? "");
+    expect(names()[0]).toContain("Ann Alpha");
+
+    // Overall asc: Ann (4) before Zoe (no review, sinks last)…
+    fireEvent.click(screen.getByRole("button", { name: "Overall" }));
+    expect(names()[0]).toContain("Ann Alpha");
+    expect(names()[1]).toContain("Zoe Zeta");
+    // …and desc keeps the no-review row last.
+    fireEvent.click(screen.getByRole("button", { name: "Overall" }));
+    expect(names()[0]).toContain("Ann Alpha");
+    expect(names()[1]).toContain("Zoe Zeta");
+  });
+
+  test("pages the joined rows client-side", async () => {
+    const crowd = Array.from({ length: 25 }, (_, i) => ({
+      userId: 100 + i,
+      name: `Crowd ${String(i).padStart(2, "0")}`,
+      email: `c${i}@x`,
+      teamId: 1,
+      teamName: "AAA",
+    }));
+    mockFetch.mockImplementation((url: string) => {
+      const u = String(url);
+      if (u.includes("/api/v1/review-periods")) {
+        return Promise.resolve(jsonResponse(200, { items: PERIODS }));
+      }
+      if (u.includes("/api/v1/teams/members")) {
+        return Promise.resolve(
+          jsonResponse(200, { items: crowd, page: 1, pageSize: 100, total: crowd.length }),
+        );
+      }
+      if (u.includes("/api/v1/performance-reviews")) {
+        return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 100, total: 0 }));
+      }
+      return Promise.resolve(jsonResponse(200, { items: [] }));
+    });
+    renderTab();
+
+    // Page 1 carries the first 20 of 25; the bar offers a second page.
+    expect(await screen.findByText("Crowd 00")).toBeInTheDocument();
+    expect(screen.queryByText("Crowd 24")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "2" }));
+    expect(await screen.findByText("Crowd 24")).toBeInTheDocument();
+    expect(screen.queryByText("Crowd 00")).toBeNull();
   });
 
   test("an empty timeline shows the pointer at the periods admin", async () => {

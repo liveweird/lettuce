@@ -67,3 +67,80 @@ export function filterReviewsDashboardRows(
 export function teamNameOptions(rows: ReviewsDashboardRow[]): string[] {
   return [...new Set(rows.flatMap((r) => r.person.teamNames))].sort((a, b) => a.localeCompare(b));
 }
+
+export const REVIEWS_DASHBOARD_SORT_FIELDS = [
+  "name",
+  "team",
+  "careerPath",
+  "careerSpecialization",
+  "seniorityLevel",
+  "status",
+  "attitude",
+  "delivery",
+  "skills",
+  "overall",
+] as const;
+export type ReviewsDashboardSortField = (typeof REVIEWS_DASHBOARD_SORT_FIELDS)[number];
+
+// Status sorts by lifecycle progress, not alphabetically; a missing review ranks below DRAFT.
+const STATUS_RANK: Record<string, number> = { DRAFT: 1, CALIBRATION: 2, PUBLISHED: 3 };
+
+const RATING_FIELDS: Partial<
+  Record<ReviewsDashboardSortField, (r: ReviewsDashboardRow) => number | null>
+> = {
+  attitude: (r) => r.review?.attitudeRating ?? null,
+  delivery: (r) => r.review?.deliveryRating ?? null,
+  skills: (r) => r.review?.skillsRating ?? null,
+  overall: (r) => r.review?.overallRating ?? null,
+};
+
+/**
+ * Client-side sort over the joined rows (the data is composed client-side, so sorting is too).
+ * Strings compare per locale with unset values last; ratings compare numerically with
+ * unset/no-review rows LAST regardless of direction (a missing rating is "no data", not "the
+ * lowest"); status by lifecycle rank. Input order (name-sorted by the builder) breaks ties.
+ */
+export function sortReviewsDashboardRows(
+  rows: ReviewsDashboardRow[],
+  field: ReviewsDashboardSortField,
+  dir: "asc" | "desc",
+): ReviewsDashboardRow[] {
+  const sign = dir === "desc" ? -1 : 1;
+  const stringKey = (r: ReviewsDashboardRow): string | null => {
+    switch (field) {
+      case "name":
+        return r.person.name;
+      case "team":
+        return r.person.teamNames[0] ?? null;
+      case "careerPath":
+        return r.person.careerPath?.value ?? null;
+      case "careerSpecialization":
+        return r.person.careerSpecialization?.value ?? null;
+      case "seniorityLevel":
+        return r.person.seniorityLevel?.value ?? null;
+      default:
+        return null;
+    }
+  };
+  const numericKey =
+    field === "status"
+      ? (r: ReviewsDashboardRow) => (r.review ? STATUS_RANK[r.review.status] ?? 0 : 0)
+      : RATING_FIELDS[field];
+  return [...rows].sort((a, b) => {
+    if (numericKey) {
+      const av = numericKey(a);
+      const bv = numericKey(b);
+      // Unset/no-review rows sink to the bottom in BOTH directions.
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      return sign * (av - bv);
+    }
+    const av = stringKey(a);
+    const bv = stringKey(b);
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    return sign * av.localeCompare(bv);
+  });
+}

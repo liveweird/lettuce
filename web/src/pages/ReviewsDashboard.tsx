@@ -10,12 +10,16 @@ import {
   listReviewPeriods,
 } from "../api/client";
 import EmptyState from "../components/EmptyState";
+import FilterPanel from "../components/FilterPanel";
+import PaginationBar from "../components/PaginationBar";
 import PersonaChip from "../components/PersonaChip";
 import PerformanceReviewStatusBadge from "../components/PerformanceReviewStatusBadge";
 import RatingBadge from "../components/RatingBadge";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
+import SortHeader from "../components/SortHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
 import { useDictionaryOptions } from "../hooks/useDictionaryOptions";
+import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOf, isString, useStoredState } from "../hooks/useStoredState";
 import { formatMonthRange } from "../utils/datetime";
 import { reviewCreateLink, reviewEditLink, reviewViewLink } from "../utils/performanceReviewLinks";
@@ -23,13 +27,22 @@ import { REVIEW_CATEGORIES } from "../utils/reviewRatings";
 import {
   buildReviewsDashboardRows,
   filterReviewsDashboardRows,
+  REVIEWS_DASHBOARD_SORT_FIELDS,
+  sortReviewsDashboardRows,
   teamNameOptions,
   type ReviewsDashboardFilters,
+  type ReviewsDashboardSortField,
 } from "../utils/reviewsDashboard";
 
 const SETTINGS_KEY = "dashboardReviews";
 const REPORTS_SCOPES = ["direct", "all"] as const;
 const BACK_TO = "/?tab=reviews";
+
+// The rating columns in table order, paired with their sort fields.
+const RATING_COLUMNS = REVIEW_CATEGORIES.map((category) => ({
+  category,
+  field: category as ReviewsDashboardSortField,
+}));
 
 /**
  * The manager's per-period completion view: every subordinate in scope gets a row — with their
@@ -37,7 +50,9 @@ const BACK_TO = "/?tab=reviews";
  * hidden server-side), or a clear "no review yet" state with a New-review action while the
  * scope is direct reports (creation needs a direct report — the card-grid gate). Composed
  * client-side from the members list (which carries teams + the career triple) joined with the
- * period's reviews — the org-bounded dashboard-grid precedent, so filters are client-side too.
+ * period's reviews — so the standard list plumbing (FilterPanel, sortable headers, paging) runs
+ * client-side over the joined rows. The Period Select stays OUTSIDE the filter panel: it scopes
+ * the dataset, like a tab.
  */
 export default function ReviewsDashboard() {
   const { t, i18n } = useTranslation();
@@ -76,6 +91,13 @@ export default function ReviewsDashboard() {
       ? storedPeriod
       : (periodOptions[0]?.value ?? null);
 
+  const { page, setPage, pageSize, setPageSize, sortField, sortDir, toggleSort } =
+    usePagedSort<ReviewsDashboardSortField>(
+      "name",
+      [periodId, reportsScope, teamFilter, pathFilter, specFilter, seniorityFilter],
+      { key: SETTINGS_KEY, sortFields: REVIEWS_DASHBOARD_SORT_FIELDS },
+    );
+
   const { data: members, isLoading: membersLoading, isError: membersError } = useQuery({
     queryKey: ["teamMembers", "reviewsDashboard", includeIndirect],
     queryFn: () => listAllTeamMembers("managed", includeIndirect || undefined),
@@ -97,13 +119,25 @@ export default function ReviewsDashboard() {
     careerSpecializationId: specFilter,
     seniorityLevelId: seniorityFilter,
   };
+  const activeFilterCount =
+    (teamFilter ? 1 : 0) +
+    (pathFilter ? 1 : 0) +
+    (specFilter ? 1 : 0) +
+    (seniorityFilter ? 1 : 0) +
+    (includeIndirect ? 1 : 0);
   const allRows = buildReviewsDashboardRows(members ?? [], reviews ?? []);
-  const rows = filterReviewsDashboardRows(allRows, filters);
+  const filteredRows = sortReviewsDashboardRows(
+    filterReviewsDashboardRows(allRows, filters),
+    sortField,
+    sortDir,
+  );
+  const total = filteredRows.length;
+  const rows = filteredRows.slice((page - 1) * pageSize, page * pageSize);
   const teamOptions = teamNameOptions(allRows);
 
   const isLoading = periodsLoading || membersLoading || (periodId != null && reviewsLoading);
   const isError = periodsError || membersError || reviewsError;
-  const columnCount = 5 + REVIEW_CATEGORIES.length + 1;
+  const columnCount = REVIEWS_DASHBOARD_SORT_FIELDS.length + 1;
 
   if (periods != null && periods.length === 0) {
     return (
@@ -116,15 +150,17 @@ export default function ReviewsDashboard() {
 
   return (
     <Stack gap="md">
-      <Group align="flex-end" gap="md" wrap="wrap">
-        <Select
-          label={t("performanceReview.period")}
-          data={periodOptions}
-          value={periodId}
-          onChange={(v) => setStoredPeriod(v ?? "")}
-          allowDeselect={false}
-          w={240}
-        />
+      {/* The period is the dataset scope, not a filter — always visible above the panel. */}
+      <Select
+        label={t("performanceReview.period")}
+        data={periodOptions}
+        value={periodId}
+        onChange={(v) => setStoredPeriod(v ?? "")}
+        allowDeselect={false}
+        w={240}
+      />
+
+      <FilterPanel activeFilterCount={activeFilterCount} storageKey={SETTINGS_KEY}>
         <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />
         <Select
           label={t("performanceReview.dashboard.team")}
@@ -158,7 +194,7 @@ export default function ReviewsDashboard() {
           allowDeselect={false}
           w={200}
         />
-      </Group>
+      </FilterPanel>
 
       {isError && (
         <Alert color="red" variant="light" title={t("performanceReview.loadListError")}>
@@ -169,14 +205,69 @@ export default function ReviewsDashboard() {
       <Table highlightOnHover withTableBorder verticalSpacing="sm">
         <Table.Thead>
           <Table.Tr>
-            <Table.Th>{t("performanceReview.subordinate")}</Table.Th>
-            <Table.Th>{t("performanceReview.dashboard.team")}</Table.Th>
-            <Table.Th>{t("users.profile.path")}</Table.Th>
-            <Table.Th>{t("users.profile.specialization")}</Table.Th>
-            <Table.Th>{t("users.profile.seniority")}</Table.Th>
-            {REVIEW_CATEGORIES.map((c) => (
-              <Table.Th key={c} style={{ whiteSpace: "nowrap" }}>
-                {t(`performanceReview.categoryShort.${c}`)}
+            <Table.Th>
+              <SortHeader
+                field="name"
+                label={t("performanceReview.subordinate")}
+                activeField={sortField}
+                activeDir={sortDir}
+                onToggle={toggleSort}
+              />
+            </Table.Th>
+            <Table.Th>
+              <SortHeader
+                field="team"
+                label={t("performanceReview.dashboard.team")}
+                activeField={sortField}
+                activeDir={sortDir}
+                onToggle={toggleSort}
+              />
+            </Table.Th>
+            <Table.Th>
+              <SortHeader
+                field="careerPath"
+                label={t("users.profile.path")}
+                activeField={sortField}
+                activeDir={sortDir}
+                onToggle={toggleSort}
+              />
+            </Table.Th>
+            <Table.Th>
+              <SortHeader
+                field="careerSpecialization"
+                label={t("users.profile.specialization")}
+                activeField={sortField}
+                activeDir={sortDir}
+                onToggle={toggleSort}
+              />
+            </Table.Th>
+            <Table.Th>
+              <SortHeader
+                field="seniorityLevel"
+                label={t("users.profile.seniority")}
+                activeField={sortField}
+                activeDir={sortDir}
+                onToggle={toggleSort}
+              />
+            </Table.Th>
+            <Table.Th>
+              <SortHeader
+                field="status"
+                label={t("common.field.status")}
+                activeField={sortField}
+                activeDir={sortDir}
+                onToggle={toggleSort}
+              />
+            </Table.Th>
+            {RATING_COLUMNS.map(({ category, field }) => (
+              <Table.Th key={category} style={{ whiteSpace: "nowrap" }}>
+                <SortHeader
+                  field={field}
+                  label={t(`performanceReview.categoryShort.${category}`)}
+                  activeField={sortField}
+                  activeDir={sortDir}
+                  onToggle={toggleSort}
+                />
               </Table.Th>
             ))}
             <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
@@ -200,15 +291,7 @@ export default function ReviewsDashboard() {
               return (
                 <Table.Tr key={person.userId}>
                   <Table.Td>
-                    <Group gap={6} wrap="nowrap">
-                      <PersonaChip name={person.name} />
-                      {review && <PerformanceReviewStatusBadge status={review.status} />}
-                      {!review && (
-                        <Badge variant="light" color="gray" style={{ minWidth: "max-content" }}>
-                          {t("performanceReview.dashboard.noReviewYet")}
-                        </Badge>
-                      )}
-                    </Group>
+                    <PersonaChip name={person.name} />
                   </Table.Td>
                   <Table.Td>
                     <Group gap={4}>
@@ -233,6 +316,15 @@ export default function ReviewsDashboard() {
                     <Text size="sm" c={person.seniorityLevel ? undefined : "dimmed"}>
                       {person.seniorityLevel?.value ?? "—"}
                     </Text>
+                  </Table.Td>
+                  <Table.Td style={{ whiteSpace: "nowrap" }}>
+                    {review ? (
+                      <PerformanceReviewStatusBadge status={review.status} />
+                    ) : (
+                      <Badge variant="light" color="gray" style={{ minWidth: "max-content" }}>
+                        {t("performanceReview.dashboard.noReviewYet")}
+                      </Badge>
+                    )}
                   </Table.Td>
                   {ratings.map((rating, index) => (
                     <Table.Td key={REVIEW_CATEGORIES[index]} style={{ whiteSpace: "nowrap" }}>
@@ -294,6 +386,15 @@ export default function ReviewsDashboard() {
           ) : null}
         </Table.Tbody>
       </Table>
+
+      <PaginationBar
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        rowsPerPageLabelKey="performanceReview.rowsPerPage"
+      />
     </Stack>
   );
 }
