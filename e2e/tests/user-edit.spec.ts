@@ -89,9 +89,10 @@ test("a career path set on a user follows the dictionary entry through a rename"
   const id: number = (await created.json()).id;
   await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).last().click();
 
-  // Fresh user: the details page flags all three career fields as missing.
+  // Fresh user: the details page flags all three career fields as missing (the card's
+  // career column has no caption since v1.32.2 — the row labels are the anchor).
   await page.goto(`/users/${id}/details`);
-  await expect(page.getByText("Career profile")).toBeVisible();
+  await expect(page.getByText("Career path", { exact: true })).toBeVisible();
   await expect(page.getByText("Not set")).toHaveCount(3);
 
   // The edit form shows the missing hints too; pick the new entry as the career path.

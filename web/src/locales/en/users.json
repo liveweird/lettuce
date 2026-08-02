@@ -141,7 +141,6 @@
     "goalsAria": "Audit goals of {{name}}"
   },
   "profile": {
-    "title": "Career profile",
     "missingBadge": "Not set",
     "missingHint": "Missing — providing it is strongly advised",
     "pickPlaceholder": "Pick a value",

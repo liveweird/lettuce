@@ -269,13 +269,14 @@ describe("ManagersTable", () => {
     );
     renderWithProviders(<ManagersTable />);
 
-    expect(await screen.findByText("Career profile")).toBeInTheDocument();
-    expect(screen.getByText("Career path")).toBeInTheDocument();
+    expect(await screen.findByText("Career path")).toBeInTheDocument();
     expect(screen.getByText("Career-Path-Value")).toBeInTheDocument();
     expect(screen.getByText("Seniority-Value")).toBeInTheDocument();
     expect(screen.getAllByText("Not set")).toHaveLength(1);
     // The stats column still renders beside the career column.
     expect(screen.getByText("Last 1:1")).toBeInTheDocument();
+    // The column carries no caption (v1.32.2) — the row labels speak for themselves.
+    expect(screen.queryByText("Career profile")).toBeNull();
   });
 
   test("shows an empty state when there are no managers", async () => {

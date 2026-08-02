@@ -1,4 +1,4 @@
-import { Badge, Group, Stack, Text } from "@mantine/core";
+import { Badge, Group, SimpleGrid, Stack, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { formatIsoDate, formatRelativeTime, formatTimestamp } from "../utils/datetime";
 import type { PersonCard as PersonCardData } from "../utils/teamRows";
@@ -53,15 +53,12 @@ function CareerValue({ entry }: { entry: { id: number; value: string } | null })
   );
 }
 
-// The career-profile column (v1.32.1): a dimmed caption + the three dictionary-backed
-// values. Rendered as the second column of every card-stats block.
+// The career-profile column (v1.32.1): the three dictionary-backed values (no caption —
+// the labels speak for themselves, v1.32.2). The second column of every card-stats block.
 function CareerRows({ person }: { person: PersonCardData }) {
   const { t } = useTranslation();
   return (
     <Stack gap={4}>
-      <Text size="xs" c="dimmed" fw={500}>
-        {t("users.profile.title")}
-      </Text>
       <StatRow label={t("common.field.careerPath")}>
         <CareerValue entry={person.careerPath} />
       </StatRow>
@@ -75,14 +72,16 @@ function CareerRows({ person }: { person: PersonCardData }) {
   );
 }
 
-// The two-column stats layout: relationship stats left, career profile right; wraps to
-// stacked columns when the card is narrow.
+// The two-column stats layout: relationship stats left, career profile right. A SimpleGrid,
+// not a wrapping Group — the split must be deterministic (v1.32.2): with wrap, cards whose
+// left column ran wide (peer labels, open-items badges) silently stacked to one column while
+// their neighbors kept two.
 function StatsColumns({ left, person }: { left: React.ReactNode; person: PersonCardData }) {
   return (
-    <Group align="flex-start" gap="lg" wrap="wrap">
+    <SimpleGrid cols={2} spacing="md" verticalSpacing={4}>
       {left}
       <CareerRows person={person} />
-    </Group>
+    </SimpleGrid>
   );
 }
 

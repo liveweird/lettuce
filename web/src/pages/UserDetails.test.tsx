@@ -343,7 +343,7 @@ describe("UserDetails page", () => {
     });
     renderDetails();
 
-    expect(await screen.findByText("Career profile")).toBeInTheDocument();
+    expect(await screen.findByText("Career path")).toBeInTheDocument();
     expect(screen.getByText("Software Engineer")).toBeInTheDocument();
     expect(screen.getByText("Senior")).toBeInTheDocument();
     // Exactly the unset field wears the orange badge; the stats column renders beside it.
@@ -359,8 +359,7 @@ describe("UserDetails page", () => {
     });
     renderDetails();
 
-    expect(await screen.findByText("Career profile")).toBeInTheDocument();
-    expect(screen.getByText("Career path")).toBeInTheDocument();
+    expect(await screen.findByText("Career path")).toBeInTheDocument();
     expect(screen.getByText("Career specialization")).toBeInTheDocument();
     expect(screen.getByText("Seniority level")).toBeInTheDocument();
     expect(screen.getAllByText("Not set")).toHaveLength(3);
