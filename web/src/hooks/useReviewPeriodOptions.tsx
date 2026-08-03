@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { useMemo } from "react";
 import { Badge, Group } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";

@@ -22,6 +22,10 @@ type TeamMemberItem = {
   lastFeedbackGivenAt?: number | null;
   lastFeedbackReceivedAt?: number | null;
   activeGoalCount?: number | null;
+  lastReviewId?: number | null;
+  lastReviewPeriodStartMonth?: string | null;
+  lastReviewPeriodEndMonth?: string | null;
+  lastReviewStatus?: "DRAFT" | "CALIBRATION" | "PUBLISHED" | null;
   careerPath?: { id: number; value: string } | null;
   careerSpecialization?: { id: number; value: string } | null;
   seniorityLevel?: { id: number; value: string } | null;

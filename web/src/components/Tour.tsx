@@ -1,4 +1,4 @@
-import { lazy, Suspense, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useContext, useEffect, useState, type ReactNode } from "react";
 // Types only — erased at build time. The runtime react-joyride import lives solely in
 // TourJoyride.tsx, which is lazy-loaded below so the library stays out of the entry chunk.
 import type { TooltipRenderProps } from "react-joyride";
@@ -111,11 +111,9 @@ export function TourProvider({
   }
 
   // The auto-start sets run=true in the initializer, bypassing startTour — notify the shell
-  // once on mount too (mount-only by design; `run` is the initializer's value here).
-  const onStartRef = useRef(onStart);
-  onStartRef.current = onStart;
+  // once on mount too. Mount-only by design: `run` and `onStart` are the mount-time values.
   useEffect(() => {
-    if (run) onStartRef.current?.();
+    if (run) onStart?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
