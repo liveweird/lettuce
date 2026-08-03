@@ -16,6 +16,8 @@ import ch.nokillswit.infra.paging.optionalString
 import ch.nokillswit.infra.paging.optionalUInt
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.plugins.respondProblem
+import ch.nokillswit.reviews.LatestReviewStats
+import ch.nokillswit.reviews.PerformanceReviewServiceKey
 import ch.nokillswit.users.UserServiceKey
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -76,6 +78,19 @@ private fun List<TeamMemberListItem>.withDirectionalStats(
     )
 }
 
+// The managed-only extra (v1.34.0): the caller's latest authored performance review per member.
+private fun List<TeamMemberListItem>.withLastReviews(
+    reviews: Map<UInt, LatestReviewStats>,
+): List<TeamMemberListItem> = map { item ->
+    val review = reviews[item.userId] ?: return@map item
+    item.copy(
+        lastReviewId = review.reviewId,
+        lastReviewPeriodStartMonth = review.periodStartMonth,
+        lastReviewPeriodEndMonth = review.periodEndMonth,
+        lastReviewStatus = review.status,
+    )
+}
+
 fun Application.configureTeamRoutes() {
     val teamService = attributes[TeamServiceKey]
     // For the members-list dashboard stats (feedback stats on all three views, 1:1 stats on
@@ -85,6 +100,7 @@ fun Application.configureTeamRoutes() {
     val feedbackService = attributes[FeedbackServiceKey]
     val goalService = attributes[GoalServiceKey]
     val userService = attributes[UserServiceKey]
+    val performanceReviewService = attributes[PerformanceReviewServiceKey]
 
     routing {
         authenticate {
@@ -129,7 +145,8 @@ fun Application.configureTeamRoutes() {
                 // Every view carries per-person dashboard stats, direction switched per view:
                 // managers — the row user ran the 1:1 / provided the caller feedback
                 // (received-scoped); managed — the caller did, toward the row user
-                // (provider-side, regardless of includeIndirect); member — both feedback
+                // (provider-side, regardless of includeIndirect), plus the caller's latest
+                // authored performance review; member — both feedback
                 // directions at once (given provider-side, received received-scoped), with no
                 // 1:1 stat (peers don't run 1:1s with each other). Page-scoped; rows are one
                 // per (user, team), so a user with several shared teams repeats the same stats.
@@ -155,6 +172,8 @@ fun Application.configureTeamRoutes() {
                             oneOnOneService.latestMeetingStatsBySubordinate(caller.userId, ids),
                             feedbackService.lastProvidedTo(caller.userId, ids),
                             goalService.activeGoalCountsBySubordinate(caller.userId, ids),
+                        ).withLastReviews(
+                            performanceReviewService.latestReviewsBySubordinate(caller.userId, ids),
                         )
                     }
                     // Career profile (v1.32.1): view-independent — the person cards show it on

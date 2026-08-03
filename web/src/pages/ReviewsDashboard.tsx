@@ -15,7 +15,7 @@ import SortHeader from "../components/SortHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
 import { useDictionaryOptions } from "../hooks/useDictionaryOptions";
 import { usePagedSort } from "../hooks/usePagedSort";
-import { useReviewPeriodOptions } from "../hooks/useReviewPeriodOptions";
+import { renderPeriodOption, useReviewPeriodOptions } from "../hooks/useReviewPeriodOptions";
 import { isOneOf, isString, useStoredState } from "../hooks/useStoredState";
 import { reviewCreateLink, reviewEditLink, reviewViewLink } from "../utils/performanceReviewLinks";
 import { REVIEW_CATEGORIES } from "../utils/reviewRatings";
@@ -158,6 +158,7 @@ export default function ReviewsDashboard() {
         value={periodId}
         onChange={(v) => setStoredPeriod(v ?? "")}
         allowDeselect={false}
+        renderOption={renderPeriodOption}
         w={240}
       />
 

@@ -4032,6 +4032,35 @@ components:
             `managers`: goals this manager set for the caller; `managed`: goals the
             caller set for this member. `0` when the pair has none; DRAFT and CLOSED
             goals never count.
+        lastReviewId:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+          description: |
+            Populated only for `view=managed`; always `null` otherwise. Id of the
+            caller's latest authored (non-deleted) performance review about this
+            member — latest by review period (newest `startMonth` wins), at ANY
+            status: the caller wrote it, so DRAFTs count, matching the card's other
+            author-side stats. `null` when the caller never reviewed this member.
+        lastReviewPeriodStartMonth:
+          type: string
+          nullable: true
+          description: |
+            ISO `YYYY-MM` start month of that review's period. `null` exactly when
+            `lastReviewId` is `null`.
+        lastReviewPeriodEndMonth:
+          type: string
+          nullable: true
+          description: |
+            ISO `YYYY-MM` end month (inclusive) of that review's period. `null`
+            exactly when `lastReviewId` is `null`.
+        lastReviewStatus:
+          type: string
+          enum: [DRAFT, CALIBRATION, PUBLISHED]
+          nullable: true
+          description: |
+            That review's status. `null` exactly when `lastReviewId` is `null`.
         careerPath:
           nullable: true
           allOf: [ { $ref: '#/components/schemas/DictionaryEntry' } ]

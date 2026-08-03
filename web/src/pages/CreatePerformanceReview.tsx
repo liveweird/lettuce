@@ -16,7 +16,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ApiError, createPerformanceReview, listTeamMembers } from "../api/client";
 import PersonaField from "../components/PersonaField";
-import { useReviewPeriodOptions } from "../hooks/useReviewPeriodOptions";
+import { renderPeriodOption, useReviewPeriodOptions } from "../hooks/useReviewPeriodOptions";
 import { reviewEditLink, reviewViewLink } from "../utils/performanceReviewLinks";
 import { reviewSaveErrorMessage } from "../utils/reviewRatings";
 import { groupTeamRows } from "../utils/teamRows";
@@ -137,6 +137,7 @@ export default function CreatePerformanceReview() {
               value={effectivePeriod}
               onChange={setPeriodId}
               allowDeselect={false}
+              renderOption={renderPeriodOption}
               w={260}
             />
           </Group>

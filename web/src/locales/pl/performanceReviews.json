@@ -115,7 +115,8 @@
     "deleteTitle": "Usunąć ten okres?",
     "deleteMessage": "Ostatni okres zostanie usunięty z osi czasu.",
     "year": "Rok",
-    "preview": "Zostanie dodany: {{range}}"
+    "preview": "Zostanie dodany: {{range}}",
+    "currentBadge": "Bieżący"
   },
   "dashboard": {
     "team": "Zespół",

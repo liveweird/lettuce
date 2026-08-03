@@ -44,7 +44,9 @@ import { groupTeamRows } from "../utils/teamRows";
 const SORT_FIELDS = ["name", "email", "teamName"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
 
-const GRID_COLS = { base: 1, sm: 2, lg: 3 };
+// Capped at 2 per row (v1.34.0, was 3 at lg): the cards carry two stat columns and up to
+// seven action buttons — three columns left no room for a long stat line.
+const GRID_COLS = { base: 1, sm: 2 };
 
 // The dashboard "My peers" / "My subordinates" views: a person-card grid (same card language
 // as ManagersTable), keeping the table era's filters, sorting, and pagination. With `teamId`
@@ -250,7 +252,7 @@ export default function TeamMembersTable({
                 view === "member" ? (
                   <PeerCardStats person={m} />
                 ) : view === "managed" && scopeIsDirect ? (
-                  <PersonCardStats person={m} />
+                  <PersonCardStats person={m} showLastReview />
                 ) : (
                   <CareerCardStats person={m} />
                 )

@@ -1,13 +1,16 @@
 import { Badge, Group, SimpleGrid, Stack, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
-import { formatIsoDate, formatRelativeTime, formatTimestamp } from "../utils/datetime";
+import { formatIsoDate, formatMonthRange, formatRelativeTime, formatTimestamp } from "../utils/datetime";
 import type { PersonCard as PersonCardData } from "../utils/teamRows";
+import PerformanceReviewStatusBadge from "./PerformanceReviewStatusBadge";
 
 // A stat line: dimmed label + value (relative phrase with the exact date in the title),
-// or a dimmed "never" when there is nothing yet.
+// or a dimmed "never" when there is nothing yet. Wrapping is allowed on purpose (v1.34.0):
+// a long value (1:1 date + open-items badge, a review period + status badge) folds to the
+// next line inside its column instead of blowing past the card edge.
 function StatRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <Group gap="xs" wrap="nowrap">
+    <Group gap="xs" wrap="wrap">
       <Text size="xs" c="dimmed">
         {label}
       </Text>
@@ -96,7 +99,15 @@ export function CareerCardStats({ person }: { person: PersonCardData }) {
 // The dashboard-card stats block shared by the "My managers" and "My subordinates" grids.
 // The labels are deliberately direction-neutral — each card is about the pictured person,
 // so "Last 1:1" / "Last feedback" read correctly whichever party ran/provided it.
-export default function PersonCardStats({ person }: { person: PersonCardData }) {
+// `showLastReview` gates the review row to the grids whose rows actually carry the stat
+// (view=managed only) — without it a managers-grid card would show a false "never".
+export default function PersonCardStats({
+  person,
+  showLastReview = false,
+}: {
+  person: PersonCardData;
+  showLastReview?: boolean;
+}) {
   const { t, i18n } = useTranslation();
   return (
     <StatsColumns
@@ -135,6 +146,27 @@ export default function PersonCardStats({ person }: { person: PersonCardData }) 
               {person.activeGoalCount ?? 0}
             </Badge>
           </StatRow>
+          {showLastReview && (
+            <StatRow label={t("users.lastReview")}>
+              {person.lastReviewId != null &&
+              person.lastReviewStatus != null &&
+              person.lastReviewPeriodStartMonth != null &&
+              person.lastReviewPeriodEndMonth != null ? (
+                <>
+                  <Text size="xs">
+                    {formatMonthRange(
+                      person.lastReviewPeriodStartMonth,
+                      person.lastReviewPeriodEndMonth,
+                      i18n.language,
+                    )}
+                  </Text>
+                  <PerformanceReviewStatusBadge status={person.lastReviewStatus} size="sm" />
+                </>
+              ) : (
+                <NeverText />
+              )}
+            </StatRow>
+          )}
         </Stack>
       }
     />

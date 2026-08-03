@@ -101,6 +101,24 @@ describe("ReviewPeriods page", () => {
     });
   });
 
+  test("the period containing today carries the Current badge, others do not", async () => {
+    // Fake only Date so waitFor keeps real timers (the TeamMembersTable idiom): today lands
+    // inside the 2026-01..06 period and outside 2025-07..12.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-02-10T12:00:00"));
+    try {
+      setupMocks();
+      renderPage();
+
+      const currentRow = (await screen.findByText("January 2026 – June 2026")).closest("div");
+      expect(within(currentRow as HTMLElement).getByText("Current")).toBeInTheDocument();
+      const otherRow = screen.getByText("July 2025 – December 2025").closest("div");
+      expect(within(otherRow as HTMLElement).queryByText("Current")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   test("an end before the start is unpickable: same-year end months before the start are not offered", async () => {
     setupMocks();
     renderPage();

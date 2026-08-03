@@ -121,6 +121,46 @@ describe("ReviewsDashboard tab", () => {
     expect(reviewsCall).toContain("includeIndirect=true");
   });
 
+  test("a stored period choice is restored over the latest-period default", async () => {
+    // The Select persists like the filters (v1.33.4); pin the restore path so it never
+    // regresses to always-latest. useStoredState stores JSON under the viewSettings prefix.
+    localStorage.setItem("lettuce.viewSettings.dashboardReviews.period", JSON.stringify("4"));
+    setupMocks();
+    renderTab();
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Period", { selector: "input" })).toHaveValue(
+        "July 2025 – December 2025",
+      ),
+    );
+    const reviewsCall = mockFetch.mock.calls
+      .map((c) => String(c[0]))
+      .find((u) => u.includes("/api/v1/performance-reviews?"));
+    expect(reviewsCall).toContain("periodId=4");
+  });
+
+  test("the period containing today carries the Current marker in the picker", async () => {
+    // Fake only Date (the TeamMembersTable idiom) so waitFor keeps real timers; today falls
+    // inside period 5 and outside period 4.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-03-15T12:00:00"));
+    try {
+      setupMocks();
+      renderTab();
+
+      const picker = await screen.findByLabelText("Period", { selector: "input" });
+      fireEvent.click(picker);
+      const current = await screen.findByRole("option", { name: /January 2026 – June 2026/ });
+      expect(within(current).getByText("Current")).toBeInTheDocument();
+      const other = screen.getByRole("option", { name: /July 2025 – December 2025/ });
+      expect(within(other).queryByText("Current")).toBeNull();
+      // The marker never leaks into the closed input's value (it mirrors the label only).
+      expect(picker).toHaveValue("January 2026 – June 2026");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   test("the indirect scope widens the member fetch and hides the New-review action", async () => {
     setupMocks();
     renderTab();

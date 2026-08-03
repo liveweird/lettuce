@@ -93,6 +93,22 @@ export function todayIsoDate(): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
+// The current month as ISO "YYYY-MM" (local time) — the review-period granularity.
+export function currentIsoMonth(): string {
+  return todayIsoDate().slice(0, 7);
+}
+
+// True when the inclusive [startMonth, endMonth] period contains [now] — zero-padded ISO
+// YYYY-MM strings compare lexicographically == chronologically, so plain <= works. Drives the
+// "current period" highlight on every period picker/list.
+export function isCurrentPeriod(
+  startMonth: string,
+  endMonth: string,
+  now: string = currentIsoMonth(),
+): boolean {
+  return startMonth <= now && now <= endMonth;
+}
+
 // Epoch millis -> value for an <input type="datetime-local"> ("YYYY-MM-DDTHH:mm", local time).
 // Null/undefined -> "" (the input's "unset" value).
 export function epochToDatetimeLocal(ms: number | null | undefined): string {

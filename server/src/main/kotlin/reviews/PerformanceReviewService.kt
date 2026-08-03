@@ -40,6 +40,14 @@ data class PerformanceReviewListResult(
     val total: Long,
 )
 
+/** A manager's latest authored review for one subordinate — see [PerformanceReviewService.latestReviewsBySubordinate]. */
+data class LatestReviewStats(
+    val reviewId: UInt,
+    val periodStartMonth: String,
+    val periodEndMonth: String,
+    val status: PerformanceReviewStatus,
+)
+
 private val managerUsers = UserService.Users.alias("manager_users")
 private val subordinateUsers = UserService.Users.alias("subordinate_users")
 
@@ -301,6 +309,49 @@ class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: 
             .toList()
         PerformanceReviewListResult(items = rows, total = total)
     }
+
+    /**
+     * For each subordinate in [subordinateIds], the latest (by period, newest first) non-deleted
+     * review [managerId] authored about them — at ANY status: the caller wrote it, so DRAFTs
+     * count, matching the card's other author-side stats (last feedback, active goals) and the
+     * card's `view=managed` drill-down. Subordinates with no such review are absent from the
+     * map. Only the id/period/status travel — nothing is decrypted.
+     */
+    suspend fun latestReviewsBySubordinate(
+        managerId: UInt,
+        subordinateIds: Set<UInt>,
+    ): Map<UInt, LatestReviewStats> =
+        if (subordinateIds.isEmpty()) emptyMap()
+        else suspendTransaction(database) {
+            // One indexed limit-1 lookup per key (the 1:1 stats idiom in OneOnOneService): the
+            // set is one page of dashboard cards — a handful — so no multi-group SQL.
+            val periods = ReviewPeriodService.ReviewPeriods
+            val stats = mutableMapOf<UInt, LatestReviewStats>()
+            subordinateIds.forEach { subordinateId ->
+                Reviews
+                    .join(periods, JoinType.INNER, onColumn = Reviews.periodId, otherColumn = periods.id)
+                    .select(Reviews.id, periods.startMonth, periods.endMonth, Reviews.status)
+                    .where {
+                        (Reviews.managerId eq managerId) and
+                            (Reviews.subordinateId eq subordinateId) and active()
+                    }
+                    // ISO YYYY-MM sorts lexicographically == chronologically; id breaks the
+                    // (impossible-by-uniqueness, but cheap) tie.
+                    .orderBy(periods.startMonth to SortOrder.DESC, Reviews.id to SortOrder.DESC)
+                    .limit(1)
+                    .map {
+                        LatestReviewStats(
+                            reviewId = it[Reviews.id].value,
+                            periodStartMonth = it[periods.startMonth],
+                            periodEndMonth = it[periods.endMonth],
+                            status = it[Reviews.status],
+                        )
+                    }
+                    .singleOrNull()
+                    ?.let { stats[subordinateId] = it }
+            }
+            stats
+        }
 
     /** True iff [subordinateId] is currently a member of a non-deleted team [managerId] manages. */
     suspend fun isDirectReport(managerId: UInt, subordinateId: UInt): Boolean =

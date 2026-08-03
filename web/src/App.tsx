@@ -59,6 +59,7 @@ import NotificationsButton from "./components/NotificationsButton";
 import LanguageSwitcher from "./components/LanguageSwitcher";
 import VersionStamp from "./components/VersionStamp";
 import { useChangelogUnseen } from "./hooks/useChangelogSeen";
+import { isBoolean, useStoredState } from "./hooks/useStoredState";
 import { TourProvider } from "./components/Tour";
 import { useTour } from "./components/tourSupport";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -281,6 +282,9 @@ function NavGroupLink({
 function Shell() {
   const { t } = useTranslation();
   const [opened, { toggle, close }] = useDisclosure();
+  // Desktop navbar visibility — device-level, persisted like the other view settings. The
+  // mobile overlay keeps its own separate `opened` disclosure above.
+  const [navCollapsed, setNavCollapsed] = useStoredState("appShell.navCollapsed", false, isBoolean);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const userId = getUserId();
@@ -330,10 +334,11 @@ function Shell() {
   const alertsBarHeight = (visibleAlerts ?? []).length > 0 ? ALERTS_BAR_HEIGHT : 0;
 
   return (
-    <TourProvider>
+    // The tour targets navbar items — expanding on start keeps every step's anchor visible.
+    <TourProvider onStart={() => setNavCollapsed(false)}>
     <AppShell
       header={{ height: 56 + alertsBarHeight }}
-      navbar={{ width: 240, breakpoint: "sm", collapsed: { mobile: !opened } }}
+      navbar={{ width: 240, breakpoint: "sm", collapsed: { mobile: !opened, desktop: navCollapsed } }}
       padding="md"
     >
       <AppShell.Header>
@@ -344,6 +349,13 @@ function Shell() {
         <Group h={56} px="md" justify="space-between">
           <Group gap="sm">
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
+            <Burger
+              opened={!navCollapsed}
+              onClick={() => setNavCollapsed(!navCollapsed)}
+              visibleFrom="sm"
+              size="sm"
+              aria-label={t("appShell.toggleNav")}
+            />
             <BrandLogo />
             <Text fw={600} size="lg">
               {t("appShell.brand")}

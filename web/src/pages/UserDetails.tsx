@@ -93,6 +93,10 @@ async function fetchUserDetails(userId: number): Promise<UserDetailsData> {
       lastFeedbackGivenAt: null,
       lastFeedbackReceivedAt: null,
       activeGoalCount: null,
+      lastReviewId: null,
+      lastReviewPeriodStartMonth: null,
+      lastReviewPeriodEndMonth: null,
+      lastReviewStatus: null,
       careerPath: found.careerPath,
       careerSpecialization: found.careerSpecialization,
       seniorityLevel: found.seniorityLevel,
@@ -366,7 +370,9 @@ export default function UserDetails() {
             teamNames={person.teamNames}
             stats={
               relationship === "manager" || relationship === "subordinate" ? (
-                <PersonCardStats person={person} />
+                // Only view=managed rows carry the last-review stat, so the review row shows
+                // for a direct report and not for a manager (whose row never has the data).
+                <PersonCardStats person={person} showLastReview={relationship === "subordinate"} />
               ) : relationship === "peer" ? (
                 <PeerCardStats person={person} />
               ) : (
