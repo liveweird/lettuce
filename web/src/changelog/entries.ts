@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.34.2",
+    date: "2026-08-04",
+    en: `A performance review can no longer be created for a review period that hasn't started yet. Future periods appear greyed-out in the period picker, the newest already-started period is preselected, and the server enforces the same rule. The currently-running period remains reviewable.`,
+    pl: `Oceny okresowej nie można już utworzyć dla okresu, który jeszcze się nie rozpoczął. Przyszłe okresy są wyszarzone w wyborze okresu, domyślnie wybierany jest najnowszy już rozpoczęty okres, a serwer egzekwuje tę samą zasadę. Trwający obecnie okres pozostaje dostępny do oceny.`,
+  },
+  {
     version: "1.34.1",
     date: "2026-08-04",
     en: `Review periods opened up: Config → Review periods is now visible to everyone, read-only — like Templates. Anyone can check the timeline (with the *Current* marker); adding and deleting periods stays with administrators.`,

@@ -1617,6 +1617,9 @@ export interface paths {
          *     each summary within bounds. Completeness (all four ratings + non-blank summaries) is
          *     required only to enter calibration (`POST …/submit`).
          *
+         *     The chosen period must have **started**: a review for a period whose start month is
+         *     after the current month is rejected (`400`) — the currently-running period is fine.
+         *
          *     A subordinate has at most **one active review per period**, at any status: a duplicate
          *     is `409`, with the `ProblemDetail.instance` pointing at the existing review. A
          *     (draft-)deleted review frees the slot.
@@ -6305,7 +6308,7 @@ export interface operations {
                     "application/json": components["schemas"]["PerformanceReviewResponse"];
                 };
             };
-            /** @description Validation error (a rating outside 1–6, an oversized summary) or referenced user or period does not exist */
+            /** @description Validation error (a rating outside 1–6, an oversized summary, or a period that has not started yet) or referenced user or period does not exist */
             400: {
                 headers: {
                     [name: string]: unknown;

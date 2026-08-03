@@ -16,6 +16,7 @@
   "pickRating": "Pick a rating",
   "noReports": "No direct reports",
   "noPeriods": "There are no review periods yet — an administrator has to create one first.",
+  "noStartedPeriods": "All review periods are still in the future — a review can be created once its period starts.",
   "openExisting": "Open the existing review",
   "saveDraft": "Save draft",
   "saveAndSubmit": "Save & submit",

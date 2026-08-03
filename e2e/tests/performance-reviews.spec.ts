@@ -3,21 +3,27 @@ import {
   expect,
   login,
   logout,
+  createUserViaUi,
   notificationCard,
   openBell,
-  AAA_ONE,
+  openFilters,
+  pickSelectOption,
+  uniqueText,
   ADMIN,
   MANAGER_AAA,
 } from "./helpers";
 import type { Page } from "@playwright/test";
 
-// The performance-review journey end to end: the admin appends a review period (the timeline is
-// global and append-only — each run creates its OWN fresh period, so re-runs stack safely and
-// every run's (subordinate, period) slot is new), the manager fills and publishes a review for
-// AAA One from the Dashboard's Performance-reviews tab, the subordinate sees it (bell + the My
-// performance list, read-only), and an unpublish takes it back to calibration. The published
-// record deliberately persists in the dev volume (like sent feedback) — a CALIBRATION leftover
-// blocks nothing, since the next run uses a new period.
+// The performance-review journey end to end: the admin appends a review period (timeline
+// coverage — the fresh period is FUTURE now that the dev timeline extends past today, and a
+// review may only be created for a STARTED period since v1.34.2), creates a throwaway
+// subordinate + team under Manager AAA (a fresh subordinate per run keeps the
+// (subordinate, CURRENT period) slot new — the old fresh-period trick can't be used for
+// creation anymore), the manager fills and publishes a review for the CURRENT period from the
+// Dashboard's Performance-reviews tab, the subordinate sees it (bell + the My performance
+// list, read-only), and an unpublish takes it back to calibration. The published record
+// deliberately persists in the dev volume — a CALIBRATION leftover blocks nothing, since the
+// next run reviews a fresh subordinate.
 
 const CATEGORIES = ["Attitude", "Delivery", "Skills", "Overall"] as const;
 const RATING = "4 — Sometimes exceeds expectations";
@@ -49,17 +55,66 @@ test("a performance review travels period → draft → calibration → publishe
   ]);
   // The new period lands in the timeline list.
   await expect(page.getByText(periodLabel, { exact: true })).toBeVisible();
+
+  // The CURRENT period (the row carrying the "Current" badge — v1.34.0) is the only one a
+  // review can be created for; read its range off the innermost group that holds BOTH the
+  // badge and the range text (the badge's own root div holds no <p> and must not match).
+  const currentRowGroup = page
+    .locator("div")
+    .filter({ has: page.getByText("Current", { exact: true }) })
+    .filter({ has: page.locator("p") })
+    .last();
+  const currentPeriodLabel = (await currentRowGroup.locator("p").first().innerText()).trim();
+
+  // 1b. A throwaway subordinate + team under Manager AAA: a fresh person per run keeps the
+  //     (subordinate, current period) review slot unoccupied however often the suite reruns.
+  const reviewee = await createUserViaUi(page, "E2E Reviewee");
+  const teamName = uniqueText("E2E Review Team");
+  await page.goto("/teams/new");
+  await page.getByRole("textbox", { name: "Name" }).fill(teamName);
+  await pickSelectOption(page, "Manager", "Manager AAA");
+  const [teamCreated] = await Promise.all([
+    page.waitForResponse(
+      (r) => r.url().endsWith("/api/v1/teams") && r.request().method() === "POST" && r.ok(),
+    ),
+    page.getByRole("button", { name: "Create" }).click(),
+  ]);
+  const teamId: number = (await teamCreated.json()).id;
+  await page.goto(`/teams/${teamId}/members`);
+  await pickSelectOption(page, "Add a user", reviewee.name);
+  await Promise.all([
+    page.waitForResponse(
+      (r) => r.url().includes(`/teams/${teamId}/members/`) && r.request().method() === "PUT" && r.ok(),
+    ),
+    page.getByRole("button", { name: "Add", exact: true }).click(),
+  ]);
   await logout(page);
 
-  // 2. The manager's Dashboard tab shows AAA One with no review yet; New review lands in the
-  //    create screen with the subordinate locked and OUR (latest) period preselected.
+  // 2. The manager's Dashboard tab: scope to the current period (the default is the latest =
+  //    the future one) and the throwaway team (accumulated E2E rows would push the reviewee
+  //    off page 1 on the name sort), then New review lands in the create screen with the
+  //    subordinate locked and the CURRENT period preselected — the newest STARTED period is
+  //    the default now, never the future one.
   await login(page, MANAGER_AAA);
   await page.goto("/?tab=reviews");
-  const annRow = page.getByRole("row").filter({ hasText: "AAA One" });
+  // The Period and Team Selects are non-searchable (readonly inputs) — click + pick, not
+  // pickSelectOption (whose fill() would fail on a readonly combobox).
+  await page.getByRole("combobox", { name: "Period" }).click();
+  await page.getByRole("option", { name: currentPeriodLabel }).click();
+  await openFilters(page);
+  await page.getByRole("combobox", { name: "Team" }).click();
+  await page.getByRole("option", { name: teamName }).click();
+  const annRow = page.getByRole("row").filter({ hasText: reviewee.name });
   await expect(annRow.getByText("No review yet")).toBeVisible();
-  await annRow.getByRole("link", { name: "New performance review for AAA One" }).click();
+  await annRow.getByRole("link", { name: `New performance review for ${reviewee.name}` }).click();
   await expect(page.getByRole("heading", { name: "New review" })).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "Period" })).toHaveValue(periodLabel);
+  await expect(page.getByRole("combobox", { name: "Period" })).toHaveValue(currentPeriodLabel);
+  // The fresh (future) period is offered but disabled — the server would 400 it.
+  await page.getByRole("combobox", { name: "Period" }).click();
+  await expect(page.getByRole("option", { name: periodLabel })).toHaveAttribute(
+    "data-combobox-disabled",
+  );
+  await page.keyboard.press("Escape");
   const [createResponse] = await Promise.all([
     page.waitForResponse(
       (r) =>
@@ -85,7 +140,7 @@ test("a performance review travels period → draft → calibration → publishe
   await expect(annRow.getByText("Calibration")).toBeVisible();
 
   // 4. The CALIBRATION row opens the view screen, which owns Publish.
-  await annRow.getByRole("link", { name: "View the performance review of AAA One" }).click();
+  await annRow.getByRole("link", { name: `View the performance review of ${reviewee.name}` }).click();
   await expect(page.getByText(RATING_WORDING).first()).toBeVisible();
   await Promise.all([
     page.waitForResponse(
@@ -97,13 +152,13 @@ test("a performance review travels period → draft → calibration → publishe
   await logout(page);
 
   // 5. The subordinate: bell notification + the review in My performance, read-only.
-  await login(page, AAA_ONE);
+  await login(page, reviewee.email, reviewee.password);
   const bell = await openBell(page);
   await expect(bell.getByText("Notifications")).toBeVisible();
   await expect(notificationCard(bell, "published your performance review")).toBeVisible();
   await page.keyboard.press("Escape");
   await page.getByRole("link", { name: "My performance" }).click();
-  const myRow = page.getByRole("row").filter({ hasText: periodLabel });
+  const myRow = page.getByRole("row").filter({ hasText: currentPeriodLabel });
   await expect(myRow.getByText("Published")).toBeVisible();
   await myRow.getByRole("link", { name: /^View the performance review/ }).click();
   await expect(page.getByText(RATING_WORDING).first()).toBeVisible();

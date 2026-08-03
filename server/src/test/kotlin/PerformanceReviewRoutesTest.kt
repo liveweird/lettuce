@@ -26,6 +26,7 @@ import io.ktor.server.testing.testApplication
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -85,6 +86,39 @@ class PerformanceReviewRoutesTest {
     }
 
     // ---- creation ----
+
+    @Test
+    fun `create rejects a period that has not started - current month injected, no timeline pollution`() =
+        testApplication {
+            usePostgresTestcontainer()
+            // Service-level with an injected currentMonth (the goals `today` idiom): a genuinely
+            // future period would need appending the SHARED gapless timeline past real "now",
+            // poisoning every later test's creates — so the clock moves instead of the timeline.
+            val period = TestReviewPeriods.append()
+            val request = { subordinateId: UInt ->
+                PerformanceReviewCreateRequest(subordinateId = subordinateId, periodId = period.id)
+            }
+
+            // Both months in the future (now precedes the start) → rejected.
+            val pairA = seedPair()
+            val beforeStart = java.time.YearMonth.parse(period.startMonth).minusMonths(1).toString()
+            assertFailsWith<io.ktor.server.plugins.BadRequestException> {
+                TestServices.performanceReviews.create(pairA.managerId, request(pairA.subordinateId), beforeStart)
+            }
+            // The rejection left nothing behind — the slot is still free.
+            val id = TestServices.performanceReviews.create(
+                pairA.managerId, request(pairA.subordinateId), period.startMonth,
+            )
+            assertTrue(id > 0u) // boundary: the period's first month has begun
+
+            // Started but not ended (end month still in the future) → allowed.
+            val pairB = seedPair()
+            val midPeriod = java.time.YearMonth.parse(period.startMonth).plusMonths(1).toString()
+            val id2 = TestServices.performanceReviews.create(
+                pairB.managerId, request(pairB.subordinateId), midPeriod,
+            )
+            assertTrue(id2 > 0u)
+        }
 
     @Test
     fun `create and read round-trip - always DRAFT, manager from the JWT, partial assessments kept`() =
