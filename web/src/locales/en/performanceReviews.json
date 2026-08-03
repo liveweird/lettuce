@@ -102,7 +102,9 @@
   "periods": {
     "title": "Review periods",
     "hint": "The global timeline performance reviews attach to. Periods are appended without gaps — the next period starts right after the latest one ends — and are immutable; only the latest, unused period can be deleted.",
+    "hintReadOnly": "The global timeline performance reviews attach to. Periods are appended by an administrator without gaps and are immutable.",
     "empty": "No review periods yet — add the first one below.",
+    "emptyReadOnly": "No review periods yet — an administrator adds them here.",
     "loadError": "Failed to load review periods",
     "startMonth": "First month",
     "endMonth": "Last month",

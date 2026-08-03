@@ -154,6 +154,9 @@ const NAV_ITEMS: ReadonlyArray<NavEntry> = [
       { to: "/teams", label: "appShell.nav.teams", icon: IconUsersGroup },
       { to: "/org", label: "appShell.nav.orgChart", icon: IconHierarchy },
       { to: "/templates", label: "appShell.nav.templates", icon: IconFileText },
+      // Readable by everyone since v1.34.1 (the Templates precedent) — the page itself
+      // renders read-only for non-admins; append/delete stay ADMIN-gated.
+      { to: "/review-periods", label: "appShell.nav.reviewPeriods", icon: IconCalendarStats },
     ],
   },
   // Visible to everyone: the pages are readable by all, only editing is ADMIN-gated.
@@ -296,15 +299,14 @@ function Shell() {
           { to: `/users/${userId}/change-password`, label: "appShell.nav.changePassword", icon: IconKey, tourId: "nav-change-password" },
         ]
       : [];
-  // Review-period and alert management are ADMIN-only end to end, so non-admins don't get
-  // the menu entries.
+  // Alert management is ADMIN-only end to end (reads included), so non-admins don't get
+  // the menu entry.
   const staticItems: NavEntry[] = NAV_ITEMS.map((e) =>
     isGroup(e) && e.label === "appShell.nav.config" && isAdmin()
       ? {
           ...e,
           children: [
             ...e.children,
-            { to: "/review-periods", label: "appShell.nav.reviewPeriods", icon: IconCalendarStats },
             { to: "/alerts", label: "appShell.nav.alerts", icon: IconSpeakerphone },
           ],
         }
