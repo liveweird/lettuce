@@ -147,7 +147,6 @@ const VIEW_CONFIG: Record<
           (f.requesterName ? `&requesterName=${encodeURIComponent(f.requesterName)}` : "") +
           backParam
         }
-        color="blue"
         variant="subtle"
         size="xs"
         leftSection={<IconEye size={14} />}
@@ -165,7 +164,6 @@ const VIEW_CONFIG: Record<
         <Button
           component={RouterLink}
           to={`/feedback/${f.id}/edit?subjectName=${encodeURIComponent(f.subjectName)}${backParam}`}
-          color="blue"
           variant="subtle"
           size="xs"
           leftSection={<IconPencil size={14} />}
@@ -181,7 +179,6 @@ const VIEW_CONFIG: Record<
             (f.requesterName ? `&requesterName=${encodeURIComponent(f.requesterName)}` : "") +
             backParam
           }
-          color="blue"
           variant="subtle"
           size="xs"
           leftSection={<IconEye size={14} />}
@@ -204,7 +201,6 @@ const VIEW_CONFIG: Record<
           (f.requesterName ? `&requesterName=${encodeURIComponent(f.requesterName)}` : "") +
           backParam
         }
-        color="blue"
         variant="subtle"
         size="xs"
         leftSection={<IconEye size={14} />}
@@ -222,7 +218,6 @@ const VIEW_CONFIG: Record<
         <Button
           component={RouterLink}
           to={`/feedback/${f.id}/edit?subjectName=${encodeURIComponent(f.subjectName)}&from=team${backParam}`}
-          color="blue"
           variant="subtle"
           size="xs"
           leftSection={<IconPencil size={14} />}
@@ -238,7 +233,6 @@ const VIEW_CONFIG: Record<
             (f.requesterName ? `&requesterName=${encodeURIComponent(f.requesterName)}` : "") +
             backParam
           }
-          color="blue"
           variant="subtle"
           size="xs"
           leftSection={<IconEye size={14} />}

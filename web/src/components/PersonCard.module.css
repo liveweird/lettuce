@@ -1,0 +1,15 @@
+/* Gentle lift on hover — the only motion the cards need. Respects reduced-motion. */
+.card {
+  background-color: var(--mantine-color-body);
+  transition: box-shadow 150ms ease;
+}
+
+.card:hover {
+  box-shadow: var(--mantine-shadow-md);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    transition: none;
+  }
+}

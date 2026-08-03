@@ -387,7 +387,6 @@ export default function GoalTable({
                       <Button
                         component={RouterLink}
                         to={goalEditLink(g.id, view, backParam)}
-                        color="blue"
                         variant="subtle"
                         size="xs"
                         leftSection={<IconPencil size={14} />}
@@ -399,7 +398,6 @@ export default function GoalTable({
                       <Button
                         component={RouterLink}
                         to={goalViewLink(g.id, view, backParam)}
-                        color="blue"
                         variant="subtle"
                         size="xs"
                         leftSection={<IconEye size={14} />}

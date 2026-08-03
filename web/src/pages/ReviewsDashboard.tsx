@@ -338,7 +338,6 @@ export default function ReviewsDashboard() {
                             ? reviewEditLink(review.id, undefined, BACK_TO)
                             : reviewViewLink(review.id, undefined, BACK_TO)
                         }
-                        color="blue"
                         variant="subtle"
                         size="xs"
                         leftSection={canEdit ? <IconPencil size={14} /> : <IconEye size={14} />}

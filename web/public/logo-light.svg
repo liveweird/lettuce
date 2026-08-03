@@ -1,40 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
-  <title id="title">Pixel lettuce logo with cyan edge</title>
-  <desc id="desc">A retro pixel-art lettuce logo with a transparent background, optimized for light surfaces.</desc>
-  <g shape-rendering="crispEdges">
-    <path fill="#67e9f2" d="M192 48h128v16h48v16h48v32h32v48h16v64h16v64h-16v64h-32v48h-48v32h-64v32H192v-16h-64v-32H96v-48H64v-64H48v-96h16v-64h32v-48h48V80h48z"/>
-    <path fill="#073f28" d="M192 64h128v16h48v16h48v32h32v48h16v128h-16v48h-32v48h-48v32h-48v16H192v-16h-64v-32H96v-48H64v-64H48v-80h16v-64h32v-48h48V80h48z"/>
-
-    <path fill="#16983a" d="M176 96h160v16h48v32h32v48h16v80h-16v64h-32v48h-48v32H176v-16h-48v-32H96v-48H80v-80H64v-48h16v-48h32v-32h64z"/>
-    <path fill="#5fd62e" d="M208 96h96v16h48v32h32v64h-16v48h-48v-16h-48v-32h-32v32h-48v16h-48v-48h-16v-64h32v-32h48z"/>
-    <path fill="#8df04a" d="M224 112h80v16h32v16h16v48h-16v16h-64v-32h-48v32h-64v-32h-16v-32h32v-16h48z"/>
-    <path fill="#0d6e31" d="M96 208h80v32h48v48h-48v32h-64v-16H80v-64h16z"/>
-    <path fill="#0d6e31" d="M336 208h80v32h16v64h-32v16h-64v-32h-48v-48h48z"/>
-    <path fill="#32b83b" d="M112 224h64v32h48v32h-48v16h-48v-16H96v-48h16z"/>
-    <path fill="#32b83b" d="M336 224h64v16h16v48h-32v16h-48v-16h-48v-32h48z"/>
-
-    <path fill="#efffd2" d="M224 176h64v16h32v48h16v48h-16v32h-32v32h-64v-32h-32v-32h-16v-64h16v-32h32z"/>
-    <path fill="#94ef45" d="M240 192h32v16h32v48h16v32h-32v32h-32v16h-16v-32h-32v-32h-16v-32h16v-32h32z"/>
-    <path fill="#4cc83c" d="M224 208h32v112h-16v-16h-16v-16h-16v-64h16z"/>
-    <path fill="#c8ff73" d="M272 208h32v48h16v32h-32v16h-16z"/>
-
-    <path fill="#dfff91" d="M128 320h32v32h32v16h64v32h-80v-16h-48v-32h-16v-16h16z"/>
-    <path fill="#5fd62e" d="M80 288h32v32h48v32h32v16h48v32h-64v-16h-48v-32H96v-32H80z"/>
-    <path fill="#dfff91" d="M352 320h32v16h16v16h-16v32h-48v16h-80v-32h64v-16h32z"/>
-    <path fill="#5fd62e" d="M400 288h32v32h-16v32h-32v32h-48v16h-64v-32h48v-16h32v-32h48z"/>
-
-    <path fill="#04341f" d="M176 128h32v16h-48v48h-16v48h-32v-64h16v-32h48z"/>
-    <path fill="#04341f" d="M304 128h32v16h48v32h16v64h-32v-48h-16v-48h-48z"/>
-    <path fill="#04341f" d="M192 384h128v16h48v16h-48v16H192v-16h-48v-16h48z"/>
-
-    <rect x="336" y="144" width="16" height="16" fill="#54f4f5"/>
-    <rect x="352" y="272" width="16" height="16" fill="#54f4f5"/>
-    <rect x="384" y="320" width="16" height="16" fill="#54f4f5"/>
-    <rect x="144" y="176" width="16" height="16" fill="#54f4f5"/>
-    <rect x="400" y="304" width="16" height="16" fill="#54f4f5"/>
-    <rect x="176" y="112" width="32" height="16" fill="#b7ff56"/>
-    <rect x="320" y="112" width="32" height="16" fill="#b7ff56"/>
-    <rect x="112" y="256" width="32" height="16" fill="#b7ff56"/>
-    <rect x="368" y="256" width="32" height="16" fill="#b7ff56"/>
-  </g>
+  <title id="title">Lettuce logo</title>
+  <desc id="desc">A deep-green rounded square holding a minimal white leaf, optimized for light surfaces.</desc>
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="#15803d"/>
+  <path fill="#ffffff" d="M150 362 C150 240 240 150 362 150 C362 272 272 362 150 362 Z"/>
+  <path fill="none" stroke="#15803d" stroke-width="18" stroke-linecap="round" d="M170 342 C226 286 286 226 342 170"/>
 </svg>

@@ -6,7 +6,7 @@ import type { GoalStatus } from "../api/client";
 // kept separate because the two features' status vocabularies are unrelated).
 const STATUS_COLORS: Record<GoalStatus, string> = {
   DRAFT: "gray",
-  ACTIVE: "green",
+  ACTIVE: "teal",
   CLOSED: "dark",
 };
 

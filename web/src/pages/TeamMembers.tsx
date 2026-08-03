@@ -247,7 +247,6 @@ export default function TeamMembers() {
                       <Button
                         component={RouterLink}
                         to={userDetailsLink(m.id, m.name, "members", id)}
-                        color="blue"
                         variant="subtle"
                         size="xs"
                         leftSection={<IconId size={14} />}

@@ -123,7 +123,7 @@ export default function PersonCardStats({
                 <Badge
                   size="sm"
                   variant="light"
-                  color={(person.lastOneOnOneOpenItems ?? 0) > 0 ? "yellow" : "green"}
+                  color={(person.lastOneOnOneOpenItems ?? 0) > 0 ? "yellow" : "teal"}
                   style={{ minWidth: "max-content" }}
                 >
                   {t("users.openItemsBadge", { count: person.lastOneOnOneOpenItems ?? 0 })}
@@ -140,7 +140,7 @@ export default function PersonCardStats({
             <Badge
               size="sm"
               variant="light"
-              color={(person.activeGoalCount ?? 0) > 0 ? "green" : "gray"}
+              color={(person.activeGoalCount ?? 0) > 0 ? "teal" : "gray"}
               style={{ minWidth: "max-content" }}
             >
               {person.activeGoalCount ?? 0}

@@ -7,7 +7,7 @@ import type { FeedbackStatus, FeedbackVisibility } from "../api/client";
 const STATUS_COLOR: Record<FeedbackStatus, string> = {
   REQUESTED: "blue",
   DRAFT: "gray",
-  SENT: "green",
+  SENT: "teal",
   WITHDRAWN: "orange",
   REJECTED: "red",
 };
@@ -15,7 +15,7 @@ const STATUS_COLOR: Record<FeedbackStatus, string> = {
 export function StatusBadge({ status }: { status: FeedbackStatus }) {
   const { t } = useTranslation();
   return (
-    <Badge color={STATUS_COLOR[status]} variant="filled" style={{ minWidth: "max-content" }} aria-label={t("common.field.status")}>
+    <Badge color={STATUS_COLOR[status]} variant="light" style={{ minWidth: "max-content" }} aria-label={t("common.field.status")}>
       {t(`common.status.${status}`)}
     </Badge>
   );

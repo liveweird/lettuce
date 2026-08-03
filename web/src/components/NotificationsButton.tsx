@@ -233,7 +233,8 @@ export default function NotificationsButton() {
         disabled={unreadCount === 0}
       >
         <ActionIcon
-          variant="default"
+          variant="subtle"
+          color="gray"
           size="lg"
           onClick={openModal}
           aria-label={`${t("notifications.title")} (${t("notifications.unread", { count: unreadCount })})`}
@@ -299,7 +300,7 @@ export default function NotificationsButton() {
                         <Group align="flex-start" wrap="nowrap" gap="sm">
                           {/* The blue dot is decorative — seen-state is conveyed by the bold
                               text and the offered action. */}
-                          <Indicator color="blue" size={9} offset={3} disabled={n.wasSeen}>
+                          <Indicator size={9} offset={3} disabled={n.wasSeen}>
                             <ThemeIcon variant="light" color={meta.color} radius="xl" size="lg">
                               <TypeIcon size={16} />
                             </ThemeIcon>

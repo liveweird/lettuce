@@ -111,7 +111,6 @@ const VIEW_CONFIG: Record<
         <Button
           component={RouterLink}
           to={`/one-on-ones/${m.id}/edit?from=managed${backParam}`}
-          color="blue"
           variant="subtle"
           size="xs"
           leftSection={<IconPencil size={14} />}
@@ -146,7 +145,6 @@ const VIEW_CONFIG: Record<
         <Button
           component={RouterLink}
           to={`/one-on-ones/${m.id}/edit?from=with${backParam}`}
-          color="blue"
           variant="subtle"
           size="xs"
           leftSection={<IconPencil size={14} />}
@@ -177,7 +175,6 @@ function ViewButton({
     <Button
       component={RouterLink}
       to={`/one-on-ones/${m.id}/view?${from ? `from=${from}` : "from=own"}${backParam}`}
-      color="blue"
       variant="subtle"
       size="xs"
       leftSection={<IconEye size={14} />}

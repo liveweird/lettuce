@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import { Badge, Button, Group } from "@mantine/core";
+import { Badge, Button, Group, Paper } from "@mantine/core";
 import { IconChevronDown, IconFilter } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { isBoolean, useStoredState } from "../hooks/useStoredState";
@@ -51,9 +51,11 @@ export default function FilterPanel({
         </Button>
       </Group>
       {open && (
-        <Group align="flex-end" gap="sm">
-          {children}
-        </Group>
+        <Paper withBorder radius="md" p="sm" bg="var(--mantine-color-default-hover)">
+          <Group align="flex-end" gap="sm">
+            {children}
+          </Group>
+        </Paper>
       )}
     </div>
   );

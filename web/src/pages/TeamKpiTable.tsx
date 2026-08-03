@@ -266,7 +266,6 @@ export default function TeamKpiTable({
                       <Button
                         component={RouterLink}
                         to={teamKpiEditLink(k.id, backParam)}
-                        color="blue"
                         variant="subtle"
                         size="xs"
                         leftSection={<IconPencil size={14} />}
@@ -278,7 +277,6 @@ export default function TeamKpiTable({
                       <Button
                         component={RouterLink}
                         to={teamKpiViewLink(k.id, backParam)}
-                        color="blue"
                         variant="subtle"
                         size="xs"
                         leftSection={<IconEye size={14} />}

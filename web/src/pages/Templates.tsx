@@ -125,7 +125,6 @@ export default function Templates() {
                         <Button
                           component={RouterLink}
                           to={`/templates/${tpl.id}/edit`}
-                          color="blue"
                           variant="subtle"
                           size="xs"
                           leftSection={<IconPencil size={14} />}
@@ -150,7 +149,6 @@ export default function Templates() {
                       <Button
                         component={RouterLink}
                         to={`/templates/${tpl.id}/view`}
-                        color="blue"
                         variant="subtle"
                         size="xs"
                         leftSection={<IconEye size={14} />}

@@ -3,6 +3,7 @@ import {
   ActionIcon,
   AppShell,
   Avatar,
+  Box,
   Burger,
   Button,
   Center,
@@ -30,6 +31,9 @@ import {
   IconChartLine,
   IconKey,
   IconLayoutDashboard,
+  IconLayoutSidebarLeftCollapse,
+  IconLayoutSidebarLeftExpand,
+  IconLogout,
   IconMessageCircle,
   IconMoon,
   IconSettings,
@@ -202,7 +206,8 @@ function ColorSchemeToggle() {
   const next = computed === "dark" ? "light" : "dark";
   return (
     <ActionIcon
-      variant="default"
+      variant="subtle"
+      color="gray"
       size="lg"
       aria-label={t("appShell.toggleColorScheme")}
       onClick={() => setColorScheme(next)}
@@ -217,7 +222,8 @@ function ReplayTourButton() {
   const { startTour } = useTour();
   return (
     <ActionIcon
-      variant="default"
+      variant="subtle"
+      color="gray"
       size="lg"
       aria-label={t("tour.replay")}
       data-tour="replay"
@@ -351,13 +357,24 @@ function Shell() {
         <Group h={56} px="md" justify="space-between">
           <Group gap="sm">
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-            <Burger
-              opened={!navCollapsed}
-              onClick={() => setNavCollapsed(!navCollapsed)}
+            {/* A sidebar glyph, not a Burger: the Burger's open state renders a permanent "X"
+                in the header corner, which reads as "close the app". data-expanded backs the
+                shell test's state assertion. */}
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              size="lg"
               visibleFrom="sm"
-              size="sm"
+              onClick={() => setNavCollapsed(!navCollapsed)}
               aria-label={t("appShell.toggleNav")}
-            />
+              data-expanded={!navCollapsed || undefined}
+            >
+              {navCollapsed ? (
+                <IconLayoutSidebarLeftExpand size={18} />
+              ) : (
+                <IconLayoutSidebarLeftCollapse size={18} />
+              )}
+            </ActionIcon>
             <BrandLogo />
             <Text fw={600} size="lg">
               {t("appShell.brand")}
@@ -375,7 +392,14 @@ function Shell() {
               <NotificationsButton />
             </span>
             <ReplayTourButton />
-            <Button variant="default" size="sm" onClick={handleLogout} data-tour="logout">
+            <Button
+              variant="subtle"
+              color="gray"
+              size="sm"
+              leftSection={<IconLogout size={16} />}
+              onClick={handleLogout}
+              data-tour="logout"
+            >
               {t("common.action.logout")}
             </Button>
           </Group>
@@ -411,15 +435,16 @@ function Shell() {
           );
         })}
         {/* The title carries the accessible "what's new" name only while the dot is shown. */}
-        <Indicator
-          color="red"
-          size={8}
-          disabled={!changelogUnseen}
-          title={changelogUnseen ? t("changelog.whatsNew") : undefined}
-          mt="auto"
-        >
-          <VersionStamp to="/changelog" ta="center" pt="xs" />
-        </Indicator>
+        <Box mt="auto" pt="xs" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
+          <Indicator
+            color="red"
+            size={8}
+            disabled={!changelogUnseen}
+            title={changelogUnseen ? t("changelog.whatsNew") : undefined}
+          >
+            <VersionStamp to="/changelog" ta="center" pt={4} />
+          </Indicator>
+        </Box>
       </AppShell.Navbar>
 
       <AppShell.Main id="main-content" tabIndex={-1}>
