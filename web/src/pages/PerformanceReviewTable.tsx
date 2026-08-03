@@ -332,7 +332,6 @@ export default function PerformanceReviewTable({
                       <Button
                         component={RouterLink}
                         to={reviewEditLink(r.id, view, backParam)}
-                        color="blue"
                         variant="subtle"
                         size="xs"
                         leftSection={<IconPencil size={14} />}
@@ -344,7 +343,6 @@ export default function PerformanceReviewTable({
                       <Button
                         component={RouterLink}
                         to={reviewViewLink(r.id, view, backParam)}
-                        color="blue"
                         variant="subtle"
                         size="xs"
                         leftSection={<IconEye size={14} />}

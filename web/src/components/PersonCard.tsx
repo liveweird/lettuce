@@ -1,5 +1,6 @@
 import { type ReactNode } from "react";
 import { Avatar, Badge, Divider, Group, Paper, Stack, Text } from "@mantine/core";
+import classes from "./PersonCard.module.css";
 
 // One person card in the dashboard grids (managers / peers / subordinates) and the
 // user-details view: initials avatar, name, dimmed email, team badges, an optional
@@ -20,7 +21,7 @@ export default function PersonCard({
   actions?: ReactNode;
 }) {
   return (
-    <Paper component="li" withBorder radius="md" p="md">
+    <Paper component="li" withBorder radius="md" p="md" shadow="xs" className={classes.card}>
       <Stack gap="sm" h="100%">
         <Group wrap="nowrap" gap="sm" align="flex-start">
           <Avatar name={name} color="initials" radius="xl" size="md" />

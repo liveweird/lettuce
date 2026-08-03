@@ -7,7 +7,7 @@ import type { PerformanceReviewStatus } from "../api/client";
 const STATUS_COLORS: Record<PerformanceReviewStatus, string> = {
   DRAFT: "gray",
   CALIBRATION: "orange",
-  PUBLISHED: "green",
+  PUBLISHED: "teal",
 };
 
 export default function PerformanceReviewStatusBadge({

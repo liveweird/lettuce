@@ -30,7 +30,6 @@ export default function FeedbackActionsMenu({
     <Menu position="bottom-end" withinPortal>
       <Menu.Target>
         <Button
-          color="blue"
           variant="subtle"
           size="xs"
           leftSection={<IconMessageCircle size={14} />}

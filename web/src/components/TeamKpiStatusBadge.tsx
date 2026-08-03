@@ -6,7 +6,7 @@ import type { TeamKpiStatus } from "../api/client";
 // v1.29.0 when the KPI vocabulary diverged: the terminal state is ARCHIVED, not CLOSED).
 const STATUS_COLORS: Record<TeamKpiStatus, string> = {
   DRAFT: "gray",
-  ACTIVE: "green",
+  ACTIVE: "teal",
   ARCHIVED: "dark",
 };
 

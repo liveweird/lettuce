@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.35.0",
+    date: "2026-08-04",
+    en: `A visual refresh across the whole app — the clean, professional look of modern business software. A new logo; a calmer, deeper brand green reserved for buttons, links, and navigation; teal for "delivered/active/published" states so status colors stop imitating the brand; white header and sidebar over a softly tinted canvas; data tables framed as cards with quiet, compact headers and row highlighting; a redesigned sign-in screen; filters on their own surface; softer shadows and tuned typography throughout. Dark mode got the same treatment.`,
+    pl: `Wizualne odświeżenie całej aplikacji — czysty, profesjonalny wygląd nowoczesnego oprogramowania biznesowego. Nowe logo; spokojniejsza, głębsza zieleń marki zarezerwowana dla przycisków, linków i nawigacji; morski (teal) dla stanów „wysłany/aktywny/opublikowany", by kolory statusów nie udawały marki; biały nagłówek i panel boczny na delikatnie przyciemnionym tle; tabele danych w ramkach jak karty, z cichymi, zwartymi nagłówkami i podświetlaniem wierszy; przeprojektowany ekran logowania; filtry na własnej powierzchni; miększe cienie i dopracowana typografia w całej aplikacji. Tryb ciemny dostał to samo traktowanie.`,
+  },
+  {
     version: "1.34.2",
     date: "2026-08-04",
     en: `A performance review can no longer be created for a review period that hasn't started yet. Future periods appear greyed-out in the period picker, the newest already-started period is preselected, and the server enforces the same rule. The currently-running period remains reviewable.`,

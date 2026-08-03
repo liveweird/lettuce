@@ -163,7 +163,6 @@ export default function Teams() {
                         <Button
                           component={RouterLink}
                           to={userDetailsLink(team.managerId, team.managerName, "teams")}
-                          color="blue"
                           variant="subtle"
                           size="xs"
                           leftSection={<IconId size={14} />}
@@ -180,7 +179,6 @@ export default function Teams() {
                     <Button
                       component={RouterLink}
                       to={`/teams/${team.id}/edit`}
-                      color="blue"
                       variant="subtle"
                       size="xs"
                       leftSection={<IconPencil size={14} />}
@@ -194,7 +192,6 @@ export default function Teams() {
                   <Button
                     component={RouterLink}
                     to={`/teams/${team.id}/members`}
-                    color="blue"
                     variant="subtle"
                     size="xs"
                     leftSection={<IconUsers size={14} />}

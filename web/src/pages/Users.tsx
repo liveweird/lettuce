@@ -222,7 +222,6 @@ export default function Users() {
                     <Button
                       component={RouterLink}
                       to={userDetailsLink(u.id, u.name, "users")}
-                      color="blue"
                       variant="subtle"
                       size="xs"
                       leftSection={<IconId size={14} />}
@@ -238,7 +237,6 @@ export default function Users() {
                   <Button
                     component={RouterLink}
                     to={`/users/${u.id}/teams?name=${encodeURIComponent(u.name)}`}
-                    color="blue"
                     variant="subtle"
                     size="xs"
                     leftSection={<IconUsersGroup size={14} />}
@@ -262,7 +260,6 @@ export default function Users() {
                     <Button
                       component={RouterLink}
                       to={`/users/${u.id}/edit`}
-                      color="blue"
                       variant="subtle"
                       size="xs"
                       leftSection={<IconPencil size={14} />}
@@ -277,7 +274,6 @@ export default function Users() {
                     <Button
                       component={RouterLink}
                       to={`/users/${u.id}/change-password`}
-                      color="blue"
                       variant="subtle"
                       size="xs"
                       leftSection={<IconKey size={14} />}

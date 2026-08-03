@@ -185,7 +185,6 @@ export default function Alerts() {
                     <Button
                       component={RouterLink}
                       to={`/alerts/${alert.id}/edit`}
-                      color="blue"
                       variant="subtle"
                       size="xs"
                       leftSection={<IconPencil size={14} />}

@@ -104,7 +104,6 @@ export default function MyTeamsTable() {
                   <Button
                     component={RouterLink}
                     to={`/teams/${team.id}/subordinates`}
-                    color="blue"
                     variant="subtle"
                     size="xs"
                     leftSection={<IconUsers size={14} />}
@@ -115,7 +114,6 @@ export default function MyTeamsTable() {
                   <Button
                     component={RouterLink}
                     to={teamKpisLink(team.id)}
-                    color="blue"
                     variant="subtle"
                     size="xs"
                     leftSection={<IconChartLine size={14} />}
