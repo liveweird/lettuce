@@ -4,6 +4,33 @@
  */
 
 export interface paths {
+    "/api/v1/dashboard/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's at-a-glance dashboard numbers
+         * @description Aggregated counts for the Dashboard's hero tiles, **strictly caller-scoped** — every
+         *     number is the total of an existing caller-scoped list scope, so nothing is disclosed
+         *     that the corresponding list would not return. `directReports` doubles as the manager
+         *     gate (0 hides the manager tiles client-side) and as the reviews tile's denominator.
+         *     The current-period fields are null while the review-period timeline does not cover
+         *     the current month. `feedbackReceived30d` counts delivered (SENT) feedbacks in the
+         *     caller's received scope by their last-modification time (an approximation of the
+         *     delivery moment, deliberately cheap).
+         */
+        get: operations["getDashboardSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/login": {
         parameters: {
             query?: never;
@@ -3509,6 +3536,35 @@ export interface components {
              */
             total: number;
         };
+        DashboardSummary: {
+            /**
+             * Format: int64
+             * @description Active feedback requests (REQUESTED) waiting for the caller as provider.
+             */
+            pendingFeedbackRequests: number;
+            /**
+             * Format: int64
+             * @description The caller's own ACTIVE goals.
+             */
+            activeGoals: number;
+            /**
+             * Format: int64
+             * @description Delivered (SENT) feedbacks in the caller's received scope modified within the last 30 days.
+             */
+            feedbackReceived30d: number;
+            /** @description Distinct current direct reports of the caller (members of non-deleted teams they manage). 0 for non-managers — the client hides the manager tiles on it. */
+            directReports: number;
+            /**
+             * Format: int64
+             * @description Id of the review period containing the current month; null while the timeline does not cover today (the reviews tile hides).
+             */
+            currentPeriodId?: number | null;
+            /**
+             * Format: int64
+             * @description Performance reviews the caller authored for the current period (any status); null exactly when currentPeriodId is null.
+             */
+            currentPeriodReviewsDone?: number | null;
+        };
         /** @description RFC 7807 problem detail. Served as `application/problem+json`. */
         ProblemDetail: {
             /**
@@ -3738,6 +3794,28 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getDashboardSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The caller's summary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardSummary"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
     login: {
         parameters: {
             query?: never;

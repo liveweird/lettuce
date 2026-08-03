@@ -36,6 +36,15 @@ class ReviewPeriodService(val database: R2dbcDatabase) {
             .toList()
     }
 
+    /**
+     * The period containing [currentMonth] (server-local by default; injectable for tests —
+     * the goals `today` idiom), or null when the timeline doesn't cover it. Inclusive ISO
+     * YYYY-MM bounds compare lexicographically == chronologically.
+     */
+    suspend fun currentPeriod(
+        currentMonth: String = java.time.YearMonth.now().toString(),
+    ): ReviewPeriod? = list().firstOrNull { it.startMonth <= currentMonth && currentMonth <= it.endMonth }
+
     suspend fun read(id: UInt): ReviewPeriod? = suspendTransaction(database) {
         ReviewPeriods.selectAll()
             .where { ReviewPeriods.id eq id }
