@@ -75,9 +75,17 @@ export default function CreatePerformanceReview() {
     [reports],
   );
 
-  // Newest first; the latest period is the sensible default for a new review.
-  const { periods, options: periodOptions } = useReviewPeriodOptions();
-  const effectivePeriod = periodId ?? periodOptions[0]?.value ?? null;
+  // Newest first. A not-yet-started period is not assessable (the server 400s it), so its
+  // option renders disabled and the default is the newest STARTED period — usually the
+  // currently-running one. With every period still in the future there is no valid choice:
+  // effectivePeriod stays null, which keeps Create disabled (the alert below explains).
+  const { periods, options: rawPeriodOptions } = useReviewPeriodOptions();
+  const periodOptions = useMemo(
+    () => rawPeriodOptions.map((o) => ({ ...o, disabled: o.future === true })),
+    [rawPeriodOptions],
+  );
+  const effectivePeriod = periodId ?? periodOptions.find((o) => !o.disabled)?.value ?? null;
+  const allPeriodsFuture = periodOptions.length > 0 && periodOptions.every((o) => o.disabled);
 
   async function save() {
     if (!subordinate || !effectivePeriod) return;
@@ -145,6 +153,11 @@ export default function CreatePerformanceReview() {
           {periods != null && periods.length === 0 && (
             <Alert color="orange" variant="light">
               {t("performanceReview.noPeriods")}
+            </Alert>
+          )}
+          {allPeriodsFuture && (
+            <Alert color="orange" variant="light">
+              {t("performanceReview.noStartedPeriods")}
             </Alert>
           )}
           {error && (

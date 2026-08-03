@@ -41,12 +41,12 @@ function renderPage(path = "/performance-reviews/new") {
 describe("CreatePerformanceReview page", () => {
   let mockFetch: FetchMock;
 
-  function setupMocks(createResponse: () => Promise<Response>) {
+  function setupMocks(createResponse: () => Promise<Response>, periods: unknown[] = PERIODS) {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const u = String(url);
       const method = init?.method ?? "GET";
       if (u.includes("/api/v1/review-periods")) {
-        return Promise.resolve(jsonResponse(200, { items: PERIODS }));
+        return Promise.resolve(jsonResponse(200, { items: periods }));
       }
       if (u.includes("/api/v1/performance-reviews") && method === "POST") {
         return createResponse();
@@ -129,6 +129,52 @@ describe("CreatePerformanceReview page", () => {
       "href",
       expect.stringContaining("/performance-reviews/33/view"),
     );
+  });
+
+  test("a not-yet-started period is disabled and the default skips to the newest started one", async () => {
+    // Fake only Date (the TeamMembersTable idiom): "today" sits inside period 5, so period 6
+    // hasn't started and must be unpickable (the server would 400 it).
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-03-15T12:00:00"));
+    try {
+      setupMocks(
+        () => Promise.resolve(jsonResponse(201, { id: 44 })),
+        [...PERIODS, { id: 6, startMonth: "2026-07", endMonth: "2026-12" }],
+      );
+      renderPage("/performance-reviews/new?subordinateId=8&subordinateName=Sub+Ordinate");
+
+      // The newest option (July–December) is future — the default falls to period 5.
+      await waitFor(() =>
+        expect(screen.getByLabelText("Period", { selector: "input" })).toHaveValue(
+          "January 2026 – June 2026",
+        ),
+      );
+      fireEvent.click(screen.getByLabelText("Period", { selector: "input" }));
+      const futureOption = await screen.findByRole("option", { name: /July 2026 – December 2026/ });
+      expect(futureOption).toHaveAttribute("data-combobox-disabled");
+      expect(screen.queryByText(/still in the future/)).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("with every period still in the future there is no valid choice: alert + Create disabled", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2025-01-10T12:00:00")); // before both fixture periods start
+    try {
+      setupMocks(() => Promise.resolve(jsonResponse(201, { id: 45 })));
+      renderPage("/performance-reviews/new?subordinateId=8&subordinateName=Sub+Ordinate");
+
+      expect(
+        await screen.findByText(
+          "All review periods are still in the future — a review can be created once its period starts.",
+        ),
+      ).toBeInTheDocument();
+      expect(screen.getByLabelText("Period", { selector: "input" })).toHaveValue("");
+      expect(screen.getByRole("button", { name: "Create" })).toBeDisabled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   test("without a prefill the direct-report picker gates the Create button", async () => {

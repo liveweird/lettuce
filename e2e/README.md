@@ -81,13 +81,17 @@ commit** — this list is the suite's coverage map, and it has drifted twice.
   Administrator) appear under the "Not in any team" section; a person node opens the
   user-details view (and returns), a team node opens the roster.
 - `performance-reviews.spec.ts` — the performance-review journey: the admin **appends a review
-  period** (Config → Review periods, the adjacent start pre-locked; each run mints its own
-  period so re-runs stack safely), the manager creates a review for AAA One from the Dashboard's
-  **Performance reviews** tab ("No review yet" → New review → the editor), fills all four
-  categories, **Save & submit**, then **publishes** from the view screen (a CALIBRATION row's
-  action is View — the lifecycle lives there); the subordinate is **notified** and reads it in
-  **My performance** with zero write affordances; an **Unpublish** takes it back to calibration.
-  The calibration leftover persists in the dev volume by design (a fresh period each run).
+  period** (Config → Review periods, the adjacent start pre-locked — the fresh period is
+  **future**, so since v1.34.2 no review can target it; the spec reads the **current** period
+  off the timeline's Current badge instead) and mints a **throwaway subordinate + team** under
+  Manager AAA (a fresh person per run keeps the (subordinate, current period) slot new); the
+  manager scopes the Dashboard's **Performance reviews** tab to the current period + throwaway
+  team ("No review yet" → New review → the editor, which defaults to the newest **started**
+  period and greys the future one out), fills all four categories, **Save & submit**, then
+  **publishes** from the view screen (a CALIBRATION row's action is View — the lifecycle lives
+  there); the subordinate is **notified** and reads it in **My performance** with zero write
+  affordances; an **Unpublish** takes it back to calibration. The calibration leftover persists
+  in the dev volume by design (a fresh subordinate each run).
 - `tour.spec.ts` — replays the guided tour as a manager and walks all 35 steps, pinning the
   landmark order (whole left menu — Changelog included — before the header icons).
 - `alerts.spec.ts` — admin creates an alert; a regular user sees the **banner**, hides it to the

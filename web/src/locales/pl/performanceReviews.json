@@ -16,6 +16,7 @@
   "pickRating": "Wybierz ocenę",
   "noReports": "Brak bezpośrednich podwładnych",
   "noPeriods": "Nie ma jeszcze okresów ocen — najpierw musi je utworzyć administrator.",
+  "noStartedPeriods": "Wszystkie okresy ocen są jeszcze w przyszłości — ocenę można utworzyć, gdy jej okres się rozpocznie.",
   "openExisting": "Otwórz istniejącą ocenę",
   "saveDraft": "Zapisz szkic",
   "saveAndSubmit": "Zapisz i prześlij",

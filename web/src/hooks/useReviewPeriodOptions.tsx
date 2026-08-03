@@ -4,13 +4,17 @@ import { Badge, Group } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { listReviewPeriods, type ReviewPeriod } from "../api/client";
-import { formatMonthRange, isCurrentPeriod } from "../utils/datetime";
+import { currentIsoMonth, formatMonthRange, isCurrentPeriod } from "../utils/datetime";
 
 export type ReviewPeriodOption = {
   value: string;
   label: string;
   /** True for the period containing today — drives the "Current" marker in pickers. */
   current?: boolean;
+  /** True while the period hasn't started (start month after the current month). Data only —
+   *  the create screen disables such options (the server rejects them), while the viewing
+   *  pickers (dashboard, table filter) deliberately keep them selectable. */
+  future?: boolean;
 };
 
 // The shared option renderer for period Selects: the plain label plus a compact "Current"
@@ -61,6 +65,7 @@ export function useReviewPeriodOptions(enabled = true): {
         value: String(p.id),
         label: formatMonthRange(p.startMonth, p.endMonth, i18n.language),
         current: isCurrentPeriod(p.startMonth, p.endMonth),
+        future: p.startMonth > currentIsoMonth(),
       })),
     [periods, i18n.language],
   );

@@ -1,6 +1,7 @@
 package ch.nokillswit.reviews
 
 import ch.nokillswit.authz.ConflictException
+import io.ktor.server.plugins.BadRequestException
 import ch.nokillswit.infra.crypto.FieldCipher
 import ch.nokillswit.infra.db.containsPattern
 import ch.nokillswit.infra.paging.PageRequest
@@ -90,14 +91,34 @@ class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: 
     /**
      * Inserts a new review, always in DRAFT status, possibly with partial assessments. The route
      * has already verified the manager→subordinate relationship; the assessment field rules are
-     * validated here, and the one-review-per-(subordinate, period) invariant is pre-checked in
-     * the same transaction — a hit throws [ConflictException] whose instance points at the
-     * existing review (the partial unique index backstops a racing create via 23505 → 409).
-     * Returns the new id.
+     * validated here, the chosen period must have **started** ([currentMonth] defaults to the
+     * server-local month and is injectable for tests, the goals `today` idiom — a fully-future
+     * period is not assessable yet, 400), and the one-review-per-(subordinate, period) invariant
+     * is pre-checked in the same transaction — a hit throws [ConflictException] whose instance
+     * points at the existing review (the partial unique index backstops a racing create via
+     * 23505 → 409). Returns the new id.
      */
-    suspend fun create(managerId: UInt, request: PerformanceReviewCreateRequest): UInt =
+    suspend fun create(
+        managerId: UInt,
+        request: PerformanceReviewCreateRequest,
+        currentMonth: String = java.time.YearMonth.now().toString(),
+    ): UInt =
         suspendTransaction(database) {
             validateAssessments(assessmentsOf(request))
+            // ISO YYYY-MM in a VARCHAR: lexicographic > is a chronological compare. An unknown
+            // periodId is caught by the route's requireValidReferences (FK) — the singleOrNull
+            // here only guards the race between that check and this transaction.
+            val periodStart = ReviewPeriodService.ReviewPeriods
+                .select(ReviewPeriodService.ReviewPeriods.startMonth)
+                .where { ReviewPeriodService.ReviewPeriods.id eq request.periodId }
+                .map { it[ReviewPeriodService.ReviewPeriods.startMonth] }
+                .singleOrNull()
+                ?: throw BadRequestException("Referenced period does not exist")
+            if (periodStart > currentMonth) {
+                throw BadRequestException(
+                    "A review cannot be created for a period that has not started yet",
+                )
+            }
             val existingId = Reviews.select(Reviews.id)
                 .where {
                     (Reviews.subordinateId eq request.subordinateId) and
