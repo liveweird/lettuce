@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link as RouterLink, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Alert,
+  Badge,
   Button,
   Center,
   ColorSwatch,
@@ -32,7 +33,7 @@ import PerformanceReviewHistory from "../components/PerformanceReviewHistory";
 import PerformanceReviewStatusBadge from "../components/PerformanceReviewStatusBadge";
 import PersonaField from "../components/PersonaField";
 import ReadOnlyField from "../components/ReadOnlyField";
-import { formatMonthRange } from "../utils/datetime";
+import { formatMonthRange, isCurrentPeriod } from "../utils/datetime";
 import { reviewViewLink } from "../utils/performanceReviewLinks";
 import { invalidatePerformanceReview } from "../utils/performanceReviewQueries";
 import {
@@ -183,9 +184,16 @@ export default function EditPerformanceReview() {
                   name={data.subordinateName}
                 />
                 <ReadOnlyField label={t("performanceReview.period")}>
-                  <Text size="sm">
-                    {formatMonthRange(data.periodStartMonth, data.periodEndMonth, i18n.language)}
-                  </Text>
+                  <Group gap="xs" wrap="nowrap">
+                    <Text size="sm">
+                      {formatMonthRange(data.periodStartMonth, data.periodEndMonth, i18n.language)}
+                    </Text>
+                    {isCurrentPeriod(data.periodStartMonth, data.periodEndMonth) && (
+                      <Badge size="xs" variant="light" color="lettuce">
+                        {t("performanceReview.periods.currentBadge")}
+                      </Badge>
+                    )}
+                  </Group>
                 </ReadOnlyField>
               </Group>
 

@@ -17,6 +17,11 @@ export type TeamRow = {
   lastFeedbackGivenAt?: number | null;
   lastFeedbackReceivedAt?: number | null;
   activeGoalCount?: number | null;
+  // The caller's latest authored performance review (v1.34.0), view=managed rows only.
+  lastReviewId?: number | null;
+  lastReviewPeriodStartMonth?: string | null;
+  lastReviewPeriodEndMonth?: string | null;
+  lastReviewStatus?: "DRAFT" | "CALIBRATION" | "PUBLISHED" | null;
   // The career profile (v1.32.1), populated on every view's rows; null = unset.
   careerPath?: CareerEntry | null;
   careerSpecialization?: CareerEntry | null;
@@ -34,6 +39,10 @@ export type PersonCard = {
   lastFeedbackGivenAt: number | null;
   lastFeedbackReceivedAt: number | null;
   activeGoalCount: number | null;
+  lastReviewId: number | null;
+  lastReviewPeriodStartMonth: string | null;
+  lastReviewPeriodEndMonth: string | null;
+  lastReviewStatus: "DRAFT" | "CALIBRATION" | "PUBLISHED" | null;
   careerPath: CareerEntry | null;
   careerSpecialization: CareerEntry | null;
   seniorityLevel: CareerEntry | null;
@@ -59,6 +68,10 @@ export function groupTeamRows(rows: TeamRow[]): PersonCard[] {
         lastFeedbackGivenAt: r.lastFeedbackGivenAt ?? null,
         lastFeedbackReceivedAt: r.lastFeedbackReceivedAt ?? null,
         activeGoalCount: r.activeGoalCount ?? null,
+        lastReviewId: r.lastReviewId ?? null,
+        lastReviewPeriodStartMonth: r.lastReviewPeriodStartMonth ?? null,
+        lastReviewPeriodEndMonth: r.lastReviewPeriodEndMonth ?? null,
+        lastReviewStatus: r.lastReviewStatus ?? null,
         careerPath: r.careerPath ?? null,
         careerSpecialization: r.careerSpecialization ?? null,
         seniorityLevel: r.seniorityLevel ?? null,

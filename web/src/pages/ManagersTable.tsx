@@ -28,7 +28,9 @@ export default function ManagersTable() {
     queryFn: () => listTeamMembers({ view: "managers", page: 1, pageSize: 100 }),
   });
 
-  const gridCols = { base: 1, sm: 2, lg: 3 };
+  // Capped at 2 per row (v1.34.0) — kept in step with TeamMembersTable's GRID_COLS so the
+  // dashboard grids stay coherent.
+  const gridCols = { base: 1, sm: 2 };
 
   if (isLoading && !data) {
     return (

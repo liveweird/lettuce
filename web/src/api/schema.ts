@@ -2436,6 +2436,30 @@ export interface components {
              */
             activeGoalCount?: number | null;
             /**
+             * Format: int64
+             * @description Populated only for `view=managed`; always `null` otherwise. Id of the
+             *     caller's latest authored (non-deleted) performance review about this
+             *     member — latest by review period (newest `startMonth` wins), at ANY
+             *     status: the caller wrote it, so DRAFTs count, matching the card's other
+             *     author-side stats. `null` when the caller never reviewed this member.
+             */
+            lastReviewId?: number | null;
+            /**
+             * @description ISO `YYYY-MM` start month of that review's period. `null` exactly when
+             *     `lastReviewId` is `null`.
+             */
+            lastReviewPeriodStartMonth?: string | null;
+            /**
+             * @description ISO `YYYY-MM` end month (inclusive) of that review's period. `null`
+             *     exactly when `lastReviewId` is `null`.
+             */
+            lastReviewPeriodEndMonth?: string | null;
+            /**
+             * @description That review's status. `null` exactly when `lastReviewId` is `null`.
+             * @enum {string|null}
+             */
+            lastReviewStatus?: "DRAFT" | "CALIBRATION" | "PUBLISHED" | null;
+            /**
              * @description The row user's career path, resolved from the CAREER_PATH dictionary at read
              *     time (renames propagate; a soft-deleted referenced entry keeps resolving to
              *     its retained value). Unlike the directional stats, populated for EVERY view;

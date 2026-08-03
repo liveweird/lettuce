@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.34.0",
+    date: "2026-08-03",
+    en: `A round of app-wide polish. The left navigation can now be **hidden and brought back** with the toggle next to the logo — the choice sticks per device, and replaying the tour brings the menu back so every step has its anchor. The review period containing **today** carries a green *Current* marker everywhere periods appear: the period pickers, the Config timeline, and the review screens. Subordinate cards gained a **Last review** line (the period you assessed plus its status), and the dashboard person cards got roomier — two wider cards per row instead of three cramped ones, with long stat lines wrapping cleanly instead of breaking the card.`,
+    pl: `Runda szlifów w całej aplikacji. Lewą nawigację można teraz **ukryć i przywrócić** przełącznikiem obok logo — wybór zapamiętuje się na urządzeniu, a ponowne odtworzenie samouczka przywraca menu, by każdy krok miał swój punkt zaczepienia. Okres ocen obejmujący **dzisiaj** nosi zielony znacznik *Bieżący* wszędzie tam, gdzie pojawiają się okresy: w wyborach okresu, na osi czasu w Konfiguracji i na ekranach ocen. Karty podwładnych zyskały wiersz **Ostatnia ocena** (okres, który oceniłeś/aś, plus jej status), a karty osób na Pulpicie mają więcej miejsca — dwie szersze karty w wierszu zamiast trzech ściśniętych, z długimi wierszami statystyk zawijającymi się czysto zamiast rozjeżdżać kartę.`,
+  },
+  {
     version: "1.33.4",
     date: "2026-08-02",
     en: `The Dashboard's Performance reviews tab now behaves like every other list: the scope and career filters live in the collapsible, auto-saved Filters panel (the period picker stays always visible — it defines what you're looking at), every column is sortable (ratings sort numerically with missing reviews last; status by lifecycle stage), and long teams paginate.`,

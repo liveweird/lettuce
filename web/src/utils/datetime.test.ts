@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import {
+  currentIsoMonth,
   formatIsoMonth,
   formatMonthRange,
   formatRelativeTime,
   formatTimestamp,
+  isCurrentPeriod,
   lastModifiedCutoff,
   nextIsoMonth,
 } from "./datetime";
@@ -91,5 +93,25 @@ describe("month formatting (review periods)", () => {
     expect(nextIsoMonth("2026-06")).toBe("2026-07");
     expect(nextIsoMonth("2026-12")).toBe("2027-01");
     expect(nextIsoMonth("bogus")).toBe("bogus");
+  });
+
+  test("currentIsoMonth is today's YYYY-MM in local time", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-08-03T12:00:00"));
+    try {
+      expect(currentIsoMonth()).toBe("2026-08");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("isCurrentPeriod is inclusive on both month bounds", () => {
+    expect(isCurrentPeriod("2026-01", "2026-06", "2026-01")).toBe(true);
+    expect(isCurrentPeriod("2026-01", "2026-06", "2026-03")).toBe(true);
+    expect(isCurrentPeriod("2026-01", "2026-06", "2026-06")).toBe(true);
+    expect(isCurrentPeriod("2026-01", "2026-06", "2025-12")).toBe(false);
+    expect(isCurrentPeriod("2026-01", "2026-06", "2026-07")).toBe(false);
+    // Single-month period.
+    expect(isCurrentPeriod("2026-03", "2026-03", "2026-03")).toBe(true);
   });
 });

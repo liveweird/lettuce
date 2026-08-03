@@ -21,7 +21,7 @@ import { RatingCells } from "../components/RatingBadge";
 import SortHeader from "../components/SortHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
 import { usePagedSort } from "../hooks/usePagedSort";
-import { useReviewPeriodOptions } from "../hooks/useReviewPeriodOptions";
+import { renderPeriodOption, useReviewPeriodOptions } from "../hooks/useReviewPeriodOptions";
 import { isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
 import { formatDate, formatMonthRange, formatTimestamp } from "../utils/datetime";
 import { reviewEditLink, reviewViewLink } from "../utils/performanceReviewLinks";
@@ -217,6 +217,7 @@ export default function PerformanceReviewTable({
           value={periodFilter}
           onChange={(v) => setPeriodFilter(v ?? "")}
           allowDeselect={false}
+          renderOption={renderPeriodOption}
           w={240}
         />
         <Select

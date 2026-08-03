@@ -1,4 +1,4 @@
-import { lazy, Suspense, useContext, useState, type ReactNode } from "react";
+import { lazy, Suspense, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 // Types only — erased at build time. The runtime react-joyride import lives solely in
 // TourJoyride.tsx, which is lazy-loaded below so the library stays out of the entry chunk.
 import type { TooltipRenderProps } from "react-joyride";
@@ -73,7 +73,15 @@ export function TourTooltip({
   );
 }
 
-export function TourProvider({ children }: { children: ReactNode }) {
+export function TourProvider({
+  children,
+  onStart,
+}: {
+  children: ReactNode;
+  /** Fired whenever the tour (re)starts — the shell un-collapses the navbar so every
+   *  nav-targeting step has a visible anchor. Also fired once for the auto-start. */
+  onStart?: () => void;
+}) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const userId = getUserId();
@@ -97,9 +105,19 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const [tourKey, setTourKey] = useState(0);
 
   function startTour() {
+    onStart?.();
     setTourKey((k) => k + 1);
     setRun(true);
   }
+
+  // The auto-start sets run=true in the initializer, bypassing startTour — notify the shell
+  // once on mount too (mount-only by design; `run` is the initializer's value here).
+  const onStartRef = useRef(onStart);
+  onStartRef.current = onStart;
+  useEffect(() => {
+    if (run) onStartRef.current?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleFinished() {
     setRun(false);

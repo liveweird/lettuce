@@ -125,6 +125,7 @@
   "credentialsEmailFailed": "Utworzyliśmy konto, ale e-mail nie dotarł — skopiuj hasło albo użyj szkicu wiadomości.",
   "emailOptionUnavailable": "Ta instalacja nie może wysyłać e-maili. Odznacz opcję e-maila i spróbuj ponownie.",
   "lastOneOnOne": "Ostatnie 1:1",
+  "lastReview": "Ostatnia ocena",
   "lastFeedback": "Ostatni feedback",
   "feedbackFromMe": "Feedback ode mnie",
   "feedbackFromThem": "Feedback od tej osoby",

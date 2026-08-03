@@ -2,6 +2,7 @@ package ch.nokillswit.teams
 
 import ch.nokillswit.dictionaries.DictionaryEntry
 import ch.nokillswit.infra.paging.PageResponse
+import ch.nokillswit.reviews.PerformanceReviewStatus
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -72,6 +73,17 @@ data class TeamMemberListItem(
      * view=member, which carries no goal stat.
      */
     val activeGoalCount: Int? = null,
+    // The caller's latest authored performance review about this member (v1.34.0) — populated
+    // only for view=managed (author-side, any status: the caller wrote it, so DRAFTs count);
+    // null on the other views and when the caller never reviewed this member.
+    /** Id of that review (the card's view/edit link target). */
+    val lastReviewId: UInt? = null,
+    /** ISO `YYYY-MM` start of that review's period; null exactly when [lastReviewId] is null. */
+    val lastReviewPeriodStartMonth: String? = null,
+    /** ISO `YYYY-MM` end of that review's period; null exactly when [lastReviewId] is null. */
+    val lastReviewPeriodEndMonth: String? = null,
+    /** That review's status; null exactly when [lastReviewId] is null. */
+    val lastReviewStatus: PerformanceReviewStatus? = null,
     // The row user's career profile (v1.32.1), resolved from the dictionaries at read time —
     // populated for EVERY view (unlike the directional stats above); null = the field is unset.
     val careerPath: DictionaryEntry? = null,

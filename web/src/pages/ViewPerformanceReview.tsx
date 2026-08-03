@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link as RouterLink, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Alert,
+  Badge,
   Button,
   Center,
   Container,
@@ -33,7 +34,7 @@ import PersonaField from "../components/PersonaField";
 import RatingBadge from "../components/RatingBadge";
 import ProseBox from "../components/ProseBox";
 import ReadOnlyField from "../components/ReadOnlyField";
-import { formatDate, formatMonthRange } from "../utils/datetime";
+import { formatDate, formatMonthRange, isCurrentPeriod } from "../utils/datetime";
 import { reviewEditLink } from "../utils/performanceReviewLinks";
 import { invalidatePerformanceReview } from "../utils/performanceReviewQueries";
 import { ratingLabel, REVIEW_CATEGORIES } from "../utils/reviewRatings";
@@ -171,9 +172,16 @@ export default function ViewPerformanceReview() {
                   you={currentUserId === data.subordinateId}
                 />
                 <ReadOnlyField label={t("performanceReview.period")}>
-                  <Text size="sm">
-                    {formatMonthRange(data.periodStartMonth, data.periodEndMonth, i18n.language)}
-                  </Text>
+                  <Group gap="xs" wrap="nowrap">
+                    <Text size="sm">
+                      {formatMonthRange(data.periodStartMonth, data.periodEndMonth, i18n.language)}
+                    </Text>
+                    {isCurrentPeriod(data.periodStartMonth, data.periodEndMonth) && (
+                      <Badge size="xs" variant="light" color="lettuce">
+                        {t("performanceReview.periods.currentBadge")}
+                      </Badge>
+                    )}
+                  </Group>
                 </ReadOnlyField>
                 <ReadOnlyField label={t("performanceReview.createdAt")}>
                   <Text size="sm">{formatDate(data.createdAt, i18n.language)}</Text>

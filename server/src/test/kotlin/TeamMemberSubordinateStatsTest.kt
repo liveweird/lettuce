@@ -32,6 +32,10 @@ import ch.nokillswit.goals.GoalCloseRequest
 import ch.nokillswit.goals.GoalCreateRequest
 import ch.nokillswit.goals.GoalResponse
 import ch.nokillswit.goals.GoalType
+import ch.nokillswit.reviews.CategoryAssessment
+import ch.nokillswit.reviews.PerformanceReviewCreateRequest
+import ch.nokillswit.reviews.PerformanceReviewResponse
+import ch.nokillswit.reviews.PerformanceReviewStatus
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.r2dbc.deleteWhere
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
@@ -92,6 +96,84 @@ class TeamMemberSubordinateStatsTest {
         }
         assertEquals(HttpStatusCode.Created, response.status, "goal create failed")
         return response.body<GoalResponse>()
+    }
+
+    private suspend fun HttpClient.createReview(subordinateId: UInt, periodId: UInt): PerformanceReviewResponse {
+        val response = post("/api/v1/performance-reviews") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                PerformanceReviewCreateRequest(
+                    subordinateId = subordinateId, periodId = periodId,
+                    attitude = CategoryAssessment(3, "attitude ok"),
+                    delivery = CategoryAssessment(4, "delivery ok"),
+                    skills = CategoryAssessment(5, "skills ok"),
+                    overall = CategoryAssessment(4, "overall ok"),
+                ),
+            )
+        }
+        assertEquals(HttpStatusCode.Created, response.status, "review create failed")
+        return response.body<PerformanceReviewResponse>()
+    }
+
+    @Test
+    fun `lastReview is the caller's latest authored review by period and stays off other views`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw")
+        val callerEmail = uniqueEmail("caller")
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", name = "Caller", roles = emptySet())
+        val subEmail = uniqueEmail("sub")
+        val subId = TestUsers.seed(email = subEmail, password = "pw", name = "Sub", roles = emptySet())
+        val admin = authedClient(adminEmail, "pw")
+        admin.createTeam("substats-rev-a-${UUID.randomUUID()}", callerId, listOf(subId))
+        // The reverse team (the subordinate manages the caller) pins the direction below.
+        admin.createTeam("substats-rev-b-${UUID.randomUUID()}", subId, listOf(callerId))
+        val periodA = TestReviewPeriods.append()
+        val periodB = TestReviewPeriods.append()
+
+        val caller = authedClient(callerEmail, "pw")
+        val sub = authedClient(subEmail, "pw")
+
+        // No review yet → all four fields null.
+        var item = caller.subordinateItem(subId)
+        assertNull(item.lastReviewId)
+        assertNull(item.lastReviewPeriodStartMonth)
+        assertNull(item.lastReviewPeriodEndMonth)
+        assertNull(item.lastReviewStatus)
+
+        // A DRAFT counts (the caller authored it), carrying its period bounds.
+        val reviewB = caller.createReview(subId, periodB.id)
+        item = caller.subordinateItem(subId)
+        assertEquals(reviewB.id, item.lastReviewId)
+        assertEquals(periodB.startMonth, item.lastReviewPeriodStartMonth)
+        assertEquals(periodB.endMonth, item.lastReviewPeriodEndMonth)
+        assertEquals(PerformanceReviewStatus.DRAFT, item.lastReviewStatus)
+
+        // Latest by PERIOD, not by creation: a review minted later for the older period loses.
+        val reviewA = caller.createReview(subId, periodA.id)
+        assertEquals(reviewB.id, caller.subordinateItem(subId).lastReviewId)
+
+        // Status transitions show up live.
+        assertEquals(HttpStatusCode.NoContent, caller.post("/api/v1/performance-reviews/${reviewB.id}/submit").status)
+        assertEquals(PerformanceReviewStatus.CALIBRATION, caller.subordinateItem(subId).lastReviewStatus)
+
+        // A review the subordinate authored about the caller (reverse team) must not count here.
+        sub.createReview(callerId, periodB.id)
+        assertEquals(reviewB.id, caller.subordinateItem(subId).lastReviewId)
+
+        // ...and the managers/member views never carry the stat, even when a review exists in
+        // that direction (the sub → caller review above).
+        val callerAsManager = sub.get("/api/v1/teams/members?view=managers&pageSize=100")
+            .body<TeamMemberPageResponse>().items.first { it.userId == callerId }
+        assertNull(callerAsManager.lastReviewId)
+        assertNull(callerAsManager.lastReviewStatus)
+
+        // Deleting the latest-period review falls back to the older period's one.
+        assertEquals(HttpStatusCode.NoContent, caller.post("/api/v1/performance-reviews/${reviewB.id}/revert").status)
+        assertEquals(HttpStatusCode.NoContent, caller.delete("/api/v1/performance-reviews/${reviewB.id}").status)
+        item = caller.subordinateItem(subId)
+        assertEquals(reviewA.id, item.lastReviewId)
+        assertEquals(periodA.startMonth, item.lastReviewPeriodStartMonth)
     }
 
     @Test

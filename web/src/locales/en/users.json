@@ -125,6 +125,7 @@
   "credentialsEmailFailed": "The account was created, but the email could not be delivered — copy the password or use the email draft.",
   "emailOptionUnavailable": "This deployment cannot send email. Uncheck the email option and try again.",
   "lastOneOnOne": "Last 1:1",
+  "lastReview": "Last review",
   "lastFeedback": "Last feedback",
   "feedbackFromMe": "Feedback from me",
   "feedbackFromThem": "Feedback from them",

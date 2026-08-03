@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Navigate } from "react-router-dom";
 import {
   Alert,
+  Badge,
   Box,
   Button,
   Center,
@@ -26,6 +27,7 @@ import {
   addIsoMonths,
   formatIsoMonth,
   formatMonthRange,
+  isCurrentPeriod,
   monthOptions,
   nextIsoMonth,
   yearOptions,
@@ -170,9 +172,16 @@ export default function ReviewPeriods() {
                 return (
                   <Paper key={p.id} withBorder p="sm" radius="md">
                     <Group justify="space-between" wrap="nowrap">
-                      <Text size="sm" fw={500}>
-                        {formatMonthRange(p.startMonth, p.endMonth, i18n.language)}
-                      </Text>
+                      <Group gap="xs" wrap="nowrap">
+                        <Text size="sm" fw={500}>
+                          {formatMonthRange(p.startMonth, p.endMonth, i18n.language)}
+                        </Text>
+                        {isCurrentPeriod(p.startMonth, p.endMonth) && (
+                          <Badge size="xs" variant="light" color="lettuce">
+                            {t("performanceReview.periods.currentBadge")}
+                          </Badge>
+                        )}
+                      </Group>
                       {isLatest && (
                         <Button
                           color="red"

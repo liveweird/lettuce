@@ -169,6 +169,37 @@ describe("App shell", () => {
       expect(screen.queryByTitle("What's new")).not.toBeInTheDocument();
     });
 
+    test("the desktop navbar toggle collapses, persists, and restores across remounts", async () => {
+      const NAV_KEY = "lettuce.viewSettings.appShell.navCollapsed";
+      // The open/cross state lives on the Burger's inner div, not the button element.
+      const burgerState = (button: HTMLElement) =>
+        button.querySelector(".mantine-Burger-burger")?.getAttribute("data-opened");
+      try {
+        const user = userEvent.setup();
+        const first = renderApp("/");
+        const toggle = await screen.findByRole("button", { name: "Show or hide the navigation" });
+        // Expanded by default (the Burger renders its open/cross state).
+        expect(burgerState(toggle)).toBe("true");
+
+        await user.click(toggle);
+        expect(burgerState(toggle)).toBeNull();
+        expect(JSON.parse(localStorage.getItem(NAV_KEY) ?? "null")).toBe(true);
+
+        // A fresh mount (reload) restores the collapsed choice.
+        first.unmount();
+        renderApp("/");
+        const restored = await screen.findByRole("button", { name: "Show or hide the navigation" });
+        expect(burgerState(restored)).toBeNull();
+
+        await user.click(restored);
+        expect(burgerState(restored)).toBe("true");
+        expect(JSON.parse(localStorage.getItem(NAV_KEY) ?? "null")).toBe(false);
+      } finally {
+        // The suite's afterEach only clears the auth keys — don't leak the collapse.
+        localStorage.removeItem(NAV_KEY);
+      }
+    });
+
     test("shows the logout button", async () => {
       renderApp("/");
       expect(

@@ -534,6 +534,10 @@ describe("TeamMembersTable", () => {
             lastOneOnOneOpenItems: 2,
             lastFeedbackAt: new Date("2026-07-10T12:00:00").getTime(),
             activeGoalCount: 3,
+            lastReviewId: 7,
+            lastReviewPeriodStartMonth: "2026-01",
+            lastReviewPeriodEndMonth: "2026-06",
+            lastReviewStatus: "CALIBRATION",
           },
         ]),
       );
@@ -549,6 +553,10 @@ describe("TeamMembersTable", () => {
       expect(screen.getByText("2 days ago")).toHaveAttribute("title", "2026-07-10 12:00");
       expect(screen.getByText("Active goals")).toBeInTheDocument();
       expect(screen.getByText("3")).toBeInTheDocument();
+      // The last authored review (v1.34.0): period range + status badge.
+      expect(screen.getByText("Last review")).toBeInTheDocument();
+      expect(screen.getByText("January 2026 – June 2026")).toBeInTheDocument();
+      expect(screen.getByText("Calibration")).toBeInTheDocument();
       expect(screen.queryByText("never")).toBeNull();
     } finally {
       vi.useRealTimers();
@@ -568,7 +576,8 @@ describe("TeamMembersTable", () => {
     );
     renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
 
-    expect(await screen.findAllByText("never")).toHaveLength(2);
+    // 1:1, feedback, and last review (v1.34.0) all read "never" without data.
+    expect(await screen.findAllByText("never")).toHaveLength(3);
     expect(screen.queryByText(/open item/)).toBeNull();
     // The goal count is a number, never "never" — absent renders as an explicit 0.
     expect(screen.getByText("Active goals")).toBeInTheDocument();
@@ -588,7 +597,8 @@ describe("TeamMembersTable", () => {
     renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
 
     expect(await screen.findByText("0 open items")).toBeInTheDocument();
-    expect(screen.getAllByText("never")).toHaveLength(1); // only the feedback stat is empty
+    // The feedback and last-review stats are empty; the 1:1 row is not.
+    expect(screen.getAllByText("never")).toHaveLength(2);
   });
 
   test("a two-team subordinate's single card renders the stats once", async () => {

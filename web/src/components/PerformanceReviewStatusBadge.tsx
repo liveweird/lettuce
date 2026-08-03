@@ -12,12 +12,14 @@ const STATUS_COLORS: Record<PerformanceReviewStatus, string> = {
 
 export default function PerformanceReviewStatusBadge({
   status,
+  size,
 }: {
   status: PerformanceReviewStatus;
+  size?: string;
 }) {
   const { t } = useTranslation();
   return (
-    <Badge variant="light" color={STATUS_COLORS[status]} style={{ minWidth: "max-content" }}>
+    <Badge variant="light" color={STATUS_COLORS[status]} size={size} style={{ minWidth: "max-content" }}>
       {t(`performanceReview.status.${status}`)}
     </Badge>
   );

@@ -115,7 +115,8 @@
     "deleteTitle": "Delete this period?",
     "deleteMessage": "The latest period will be removed from the timeline.",
     "year": "Year",
-    "preview": "Will add: {{range}}"
+    "preview": "Will add: {{range}}",
+    "currentBadge": "Current"
   },
   "dashboard": {
     "team": "Team",
