@@ -146,7 +146,7 @@ export default function CreateUser() {
     : undefined;
 
   return (
-    <Container size="xs" px={0}>
+    <Container size="sm" px={0}>
       <Paper withBorder shadow="sm" p="xl" radius="md">
         <form onSubmit={form.onSubmit(onSubmit)} noValidate>
           <Stack>

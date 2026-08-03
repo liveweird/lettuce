@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.35.1",
+    date: "2026-08-04",
+    en: `Consistent page widths: forms and detail screens now come in exactly two sizes — compact for simple settings forms, comfortable for everything with content — so the layout no longer jumps between narrow and wide as you move through a flow. Editing a feedback or creating a 1:1 now gets the same roomy width as the rest of its flow.`,
+    pl: `Spójne szerokości stron: formularze i ekrany szczegółów mają teraz dokładnie dwa rozmiary — zwarty dla prostych formularzy ustawień, wygodny dla wszystkiego z treścią — więc układ nie skacze już między wąskim a szerokim w trakcie przechodzenia przez proces. Edycja feedbacku czy tworzenie 1:1 dostają teraz tę samą przestronną szerokość co reszta ich procesu.`,
+  },
+  {
     version: "1.35.0",
     date: "2026-08-04",
     en: `A visual refresh across the whole app — the clean, professional look of modern business software. A new logo; a calmer, deeper brand green reserved for buttons, links, and navigation; teal for "delivered/active/published" states so status colors stop imitating the brand; white header and sidebar over a softly tinted canvas; data tables framed as cards with quiet, compact headers and row highlighting; a redesigned sign-in screen; filters on their own surface; softer shadows and tuned typography throughout. Dark mode got the same treatment.`,

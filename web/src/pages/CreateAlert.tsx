@@ -54,7 +54,7 @@ export default function CreateAlert() {
   }
 
   return (
-    <Container size="lg" px={0}>
+    <Container size="md" px={0}>
       <Paper withBorder shadow="sm" p="xl" radius="md">
         <form onSubmit={form.onSubmit(onSubmit)} noValidate>
           <Stack>
