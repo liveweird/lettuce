@@ -100,7 +100,7 @@ export default function EditTeam() {
   const notFound = isError && fetchError instanceof ApiError && fetchError.status === 404;
 
   return (
-    <Container size="xs" px={0}>
+    <Container size="sm" px={0}>
       <Paper withBorder shadow="sm" p="xl" radius="md">
         <Stack>
           <Title order={2}>{t("teams.editTeam")}</Title>

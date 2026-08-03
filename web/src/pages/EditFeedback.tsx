@@ -154,7 +154,7 @@ export default function EditFeedback() {
 
   if (isLoading || isError) {
     return (
-      <Container size="xs" px={0}>
+      <Container size="md" px={0}>
         <Paper withBorder shadow="sm" p="xl" radius="md">
           <Stack>
             <Title order={2}>{t("feedback.editTitle")}</Title>
@@ -201,7 +201,7 @@ export default function EditFeedback() {
     const decide = (status: FeedbackStatus) =>
       handleSave(status, { visibility: data!.visibility, content: data!.content ?? "" });
     return (
-      <Container size="xs" px={0}>
+      <Container size="md" px={0}>
         <Paper withBorder shadow="sm" p="xl" radius="md">
           <Stack>
             <Title order={2}>{t("feedback.requestTitle")}</Title>

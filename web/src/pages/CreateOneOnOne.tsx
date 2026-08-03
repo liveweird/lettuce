@@ -102,7 +102,7 @@ export default function CreateOneOnOne() {
   }
 
   return (
-    <Container size="sm" px={0}>
+    <Container size="md" px={0}>
       <Paper withBorder shadow="sm" p="xl" radius="md">
         <Stack>
           <Title order={2}>{t("oneOnOne.createTitle")}</Title>

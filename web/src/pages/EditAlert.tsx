@@ -97,7 +97,7 @@ export default function EditAlert() {
   const notFound = isError && fetchError instanceof ApiError && fetchError.status === 404;
 
   return (
-    <Container size="lg" px={0}>
+    <Container size="md" px={0}>
       <Paper withBorder shadow="sm" p="xl" radius="md">
         <Stack>
           <Title order={2}>{t("alerts.edit")}</Title>
