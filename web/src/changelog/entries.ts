@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.34.1",
+    date: "2026-08-04",
+    en: `Review periods opened up: Config → Review periods is now visible to everyone, read-only — like Templates. Anyone can check the timeline (with the *Current* marker); adding and deleting periods stays with administrators.`,
+    pl: `Okresy ocen otwarte dla wszystkich: Konfiguracja → Okresy ocen jest teraz widoczna dla każdego, tylko do odczytu — jak Szablony. Każdy może sprawdzić oś czasu (ze znacznikiem *Bieżący*); dodawanie i usuwanie okresów pozostaje w rękach administratorów.`,
+  },
+  {
     version: "1.34.0",
     date: "2026-08-03",
     en: `A round of app-wide polish. The left navigation can now be **hidden and brought back** with the toggle next to the logo — the choice sticks per device, and replaying the tour brings the menu back so every step has its anchor. The review period containing **today** carries a green *Current* marker everywhere periods appear: the period pickers, the Config timeline, and the review screens. Subordinate cards gained a **Last review** line (the period you assessed plus its status), and the dashboard person cards got roomier — two wider cards per row instead of three cramped ones, with long stat lines wrapping cleanly instead of breaking the card.`,

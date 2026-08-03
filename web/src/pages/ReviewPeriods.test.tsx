@@ -59,12 +59,34 @@ describe("ReviewPeriods page", () => {
     localStorage.clear();
   });
 
-  test("non-admins are navigated away without firing the query", async () => {
+  test("non-admins get the read-only timeline: no append form, no delete, read-only hint", async () => {
     localStorage.setItem(ROLES_KEY, JSON.stringify([]));
     setupMocks();
     renderPage();
-    expect(await screen.findByText("HOME")).toBeInTheDocument();
-    expect(mockFetch).not.toHaveBeenCalled();
+
+    // The timeline renders for everyone (the Templates precedent)…
+    expect(await screen.findByText("July 2025 – December 2025")).toBeInTheDocument();
+    expect(screen.getByText("January 2026 – June 2026")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "The global timeline performance reviews attach to. Periods are appended by an administrator without gaps and are immutable.",
+      ),
+    ).toBeInTheDocument();
+    // …but every mutating affordance is gone.
+    expect(screen.queryByRole("button", { name: "Add period" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Delete the period/ })).toBeNull();
+    expect(screen.queryByLabelText("Last month")).toBeNull();
+  });
+
+  test("a non-admin's empty timeline points at the administrator instead of the form", async () => {
+    localStorage.setItem(ROLES_KEY, JSON.stringify([]));
+    setupMocks([]);
+    renderPage();
+
+    expect(
+      await screen.findByText("No review periods yet — an administrator adds them here."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add period" })).toBeNull();
   });
 
   test("locks the next start as text, defaults a 6-month period, previews it, and appends", async () => {

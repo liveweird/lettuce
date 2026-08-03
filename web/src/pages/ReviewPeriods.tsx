@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Navigate } from "react-router-dom";
 import {
   Alert,
   Badge,
@@ -44,8 +43,9 @@ const currentMonthChoice = (): MonthChoice => {
 const toIso = (c: MonthChoice) => `${c.year}-${c.month}`;
 
 /**
- * The global review-period timeline — ADMIN-only, including reads of this management page
- * (period pickers elsewhere consume the same registry read). The timeline is append-only and
+ * The global review-period timeline — readable by every authenticated user (v1.34.1, the
+ * Templates precedent: the registry GET is open, so the page renders read-only for
+ * non-admins), while appending and deleting stay ADMIN-only. The timeline is append-only and
  * gapless: once any period exists, the next one's start is fixed to the month after the latest
  * end (shown as plain text with the rule spelled out — not an input); the period's end is
  * picked from month + year dropdowns whose options exclude anything before the start, so a
@@ -67,8 +67,7 @@ export default function ReviewPeriods() {
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
 
   const admin = isAdmin();
-  const { periods, isLoading, isError } = useReviewPeriodOptions(admin);
-  if (!admin) return <Navigate to="/" replace />;
+  const { periods, isLoading, isError } = useReviewPeriodOptions();
 
   const latest = periods && periods.length > 0 ? periods[periods.length - 1] : null;
   // Append-only: with a latest period the next start is not a choice.
@@ -145,7 +144,7 @@ export default function ReviewPeriods() {
         <Stack gap="md">
           <Title order={2}>{t("performanceReview.periods.title")}</Title>
           <Text size="sm" c="dimmed">
-            {t("performanceReview.periods.hint")}
+            {t(admin ? "performanceReview.periods.hint" : "performanceReview.periods.hintReadOnly")}
           </Text>
 
           {isError && (
@@ -162,7 +161,9 @@ export default function ReviewPeriods() {
           {periods && periods.length === 0 && (
             <EmptyState
               icon={<IconCalendarStats size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
-              label={t("performanceReview.periods.empty")}
+              label={t(
+                admin ? "performanceReview.periods.empty" : "performanceReview.periods.emptyReadOnly",
+              )}
             />
           )}
           {periods && periods.length > 0 && (
@@ -182,7 +183,7 @@ export default function ReviewPeriods() {
                           </Badge>
                         )}
                       </Group>
-                      {isLatest && (
+                      {admin && isLatest && (
                         <Button
                           color="red"
                           variant="light"
@@ -208,10 +209,10 @@ export default function ReviewPeriods() {
             </Alert>
           )}
 
-          {/* The append form (an in-form adder, hence "Add …" wording). The timeline never
-              renders an invalid choice: the fixed start is plain text, and the end pickers
-              only offer months at or after it. */}
-          {periods && (
+          {/* The append form (an in-form adder, hence "Add …" wording) — ADMIN-only; the
+              timeline never renders an invalid choice: the fixed start is plain text, and
+              the end pickers only offer months at or after it. */}
+          {admin && periods && (
             <Stack gap="xs">
               <Group align="flex-start" gap="md" wrap="wrap">
                 {requiredStart != null ? (

@@ -75,6 +75,28 @@ describe("App shell", () => {
       expect(screen.getByRole("link", { name: /^templates$/i })).toBeInTheDocument();
     });
 
+    test("Review periods is a Config leaf for everyone; Alerts stays admin-only", async () => {
+      // No roles in localStorage = a regular user (the Dictionaries-group precedent).
+      const user = userEvent.setup();
+      renderApp("/");
+      await user.click(await screen.findByText("Config"));
+      expect(screen.getByRole("link", { name: /^review periods$/i })).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /^alerts$/i })).toBeNull();
+    });
+
+    test("an admin's Config group additionally lists Alerts", async () => {
+      localStorage.setItem("lettuce.auth.roles", JSON.stringify(["ADMIN"]));
+      try {
+        const user = userEvent.setup();
+        renderApp("/");
+        await user.click(await screen.findByText("Config"));
+        expect(screen.getByRole("link", { name: /^review periods$/i })).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: /^alerts$/i })).toBeInTheDocument();
+      } finally {
+        localStorage.removeItem("lettuce.auth.roles");
+      }
+    });
+
     test("shows a Change password link pointing at the current user's route", async () => {
       localStorage.setItem(USER_ID_KEY, "7");
       renderApp("/");

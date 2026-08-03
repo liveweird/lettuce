@@ -102,7 +102,9 @@
   "periods": {
     "title": "Okresy ocen",
     "hint": "Globalna oś czasu, do której przypinane są oceny okresowe. Okresy dodaje się bez luk — kolejny zaczyna się zaraz po końcu ostatniego — i są niezmienne; usunąć można tylko ostatni, nieużywany okres.",
+    "hintReadOnly": "Globalna oś czasu, do której przypinane są oceny okresowe. Okresy dodaje administrator — bez luk — i są niezmienne.",
     "empty": "Nie ma jeszcze okresów ocen — dodaj pierwszy poniżej.",
+    "emptyReadOnly": "Nie ma jeszcze okresów ocen — dodaje je tutaj administrator.",
     "loadError": "Nie udało się wczytać okresów ocen",
     "startMonth": "Pierwszy miesiąc",
     "endMonth": "Ostatni miesiąc",
