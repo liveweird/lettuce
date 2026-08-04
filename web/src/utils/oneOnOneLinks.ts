@@ -1,3 +1,5 @@
+import { drillDownOptsSearch, type DrillDownOpts } from "./feedbackLinks";
+
 // Builder for the 1:1 create-flow URL, so the query-string shape (and encodeURIComponent) lives in
 // one place instead of being hand-assembled at every call site. `subordinateName` and `back` are
 // each appended only when given, matching the per-person drill-down link that omits the name.
@@ -20,12 +22,13 @@ export function oneOnOneCreateLink(
 export function userOneOnOnesLink(
   userId: number,
   name: string,
-  from: "managers" | "subordinates" | "team" | "details",
+  from: string,
   teamId?: number,
   audit?: boolean,
+  opts?: DrillDownOpts,
 ): string {
   let url = `/users/${userId}/one-on-ones?name=${encodeURIComponent(name)}&from=${from}`;
   if (teamId != null) url += `&teamId=${teamId}`;
   if (audit) url += `&mode=audit`;
-  return url;
+  return url + drillDownOptsSearch(opts);
 }

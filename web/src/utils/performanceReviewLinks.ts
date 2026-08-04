@@ -1,3 +1,5 @@
+import { drillDownOptsSearch, type DrillDownOpts } from "./feedbackLinks";
+
 // Builders for every /performance-reviews/* and /users/:id/performance-reviews URL (the
 // goalLinks idiom) — never hand-assemble these paths in pages.
 
@@ -34,12 +36,13 @@ export function reviewEditLink(id: number, from?: string, back?: string): string
 export function userPerformanceReviewsLink(
   userId: number,
   name: string,
-  from: "managers" | "subordinates" | "team" | "details",
+  from: string,
   teamId?: number,
   audit?: boolean,
+  opts?: DrillDownOpts,
 ): string {
   let url = `/users/${userId}/performance-reviews?name=${encodeURIComponent(name)}&from=${from}`;
   if (teamId != null) url += `&teamId=${teamId}`;
   if (audit) url += `&mode=audit`;
-  return url;
+  return url + drillDownOptsSearch(opts);
 }

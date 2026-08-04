@@ -1,9 +1,7 @@
 import { useTranslation } from "react-i18next";
-import { Link as RouterLink } from "react-router-dom";
 import {
   ActionIcon,
   Alert,
-  Button,
   Group,
   Select,
   SimpleGrid,
@@ -11,34 +9,19 @@ import {
   Stack,
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
-import {
-  IconArrowDown,
-  IconArrowUp,
-  IconCalendarEvent,
-  IconClipboardText,
-  IconMessagePlus,
-  IconMessageQuestion,
-  IconMessages,
-  IconPlus,
-  IconTargetArrow,
-  IconUserPlus,
-  IconUsersGroup,
-} from "@tabler/icons-react";
+import { IconArrowDown, IconArrowUp, IconUsersGroup } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { listAllTeams, listTeamMembers, type TeamMemberListView } from "../api/client";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
 import PersonCard from "../components/PersonCard";
+import PersonCardActions from "../components/PersonCardActions";
 import PersonCardStats, { CareerCardStats, PeerCardStats } from "../components/PersonCardStats";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOf, isString, isStringOrNull, useStoredState } from "../hooks/useStoredState";
-import { feedbackAskLink, feedbackProvideLink, feedbackRequestLink, userFeedbacksLink } from "../utils/feedbackLinks";
-import { userGoalsLink } from "../utils/goalLinks";
-import { oneOnOneCreateLink, userOneOnOnesLink } from "../utils/oneOnOneLinks";
-import { userPerformanceReviewsLink } from "../utils/performanceReviewLinks";
 import { groupTeamRows } from "../utils/teamRows";
 
 const SORT_FIELDS = ["name", "email", "teamName"] as const;
@@ -151,7 +134,6 @@ export default function TeamMembersTable({
   // The per-person drill-downs' origin: the pinned view threads `team` + teamId through so
   // their "Back to …" returns to /teams/:id/subordinates.
   const drillFrom = pinned ? "team" : view === "managed" ? "subordinates" : "peers";
-  const managedFrom: "team" | "subordinates" = pinned ? "team" : "subordinates";
   const drillTeamId = pinned ? teamId : undefined;
 
   // One card per person; a member of two of the caller's teams gets aggregated team badges.
@@ -258,107 +240,27 @@ export default function TeamMembersTable({
                 )
               }
               actions={
-                <>
-                  <Button
-                    component={RouterLink}
-                    to={feedbackProvideLink(m.userId, m.name, backTo)}
-                    variant="light"
-                    size="xs"
-                    leftSection={<IconMessagePlus size={14} />}
-                    aria-label={t("teams.provideFeedbackToAria", { name: m.name })}
-                  >
-                    {t("teams.provideFeedback")}
-                  </Button>
-                  <Button
-                    component={RouterLink}
-                    to={feedbackAskLink(m.userId, m.name, backTo)}
-                    variant="light"
-                    size="xs"
-                    leftSection={<IconMessageQuestion size={14} />}
-                    aria-label={t("teams.askForFeedbackAria", { name: m.name })}
-                  >
-                    {t("teams.askForFeedback")}
-                  </Button>
-                  {view === "managed" && (
-                    <Button
-                      component={RouterLink}
-                      to={feedbackRequestLink(m.userId, m.name, backTo)}
-                      variant="light"
-                      size="xs"
-                      leftSection={<IconUserPlus size={14} />}
-                      aria-label={t("teams.requestFeedbackAboutAria", { name: m.name })}
-                    >
-                      {t("teams.requestFeedbackFor")}
-                    </Button>
-                  )}
-                  {view === "managed" && scopeIsDirect && (
-                    // An ACTION like the feedback buttons above (light variant), not navigation.
-                    // Creating a 1:1 needs a direct report, hence the same gate as the
-                    // drill-down below.
-                    <Button
-                      component={RouterLink}
-                      to={oneOnOneCreateLink(m.userId, m.name, backTo)}
-                      variant="light"
-                      size="xs"
-                      leftSection={<IconPlus size={14} />}
-                      aria-label={t("teams.addOneOnOneWithAria", { name: m.name })}
-                    >
-                      {t("teams.addOneOnOne")}
-                    </Button>
-                  )}
-                  <Button
-                    component={RouterLink}
-                    to={userFeedbacksLink(m.userId, m.name, drillFrom, drillTeamId)}
-                    variant="subtle"
-                    size="xs"
-                    leftSection={<IconMessages size={14} />}
-                    aria-label={t("teams.feedbacksWithAria", { name: m.name })}
-                  >
-                    {t("teams.feedbacks")}
-                  </Button>
-                  {view === "managed" && scopeIsDirect && (
-                    // Only DIRECT reports qualify for the 1:1 drill-down, and rows carry no
-                    // direct/indirect marker — so the button exists only while the scope
-                    // guarantees every card is a direct report.
-                    <Button
-                      component={RouterLink}
-                      to={userOneOnOnesLink(m.userId, m.name, managedFrom, drillTeamId)}
-                      variant="subtle"
-                      size="xs"
-                      leftSection={<IconCalendarEvent size={14} />}
-                      aria-label={t("teams.oneOnOnesWithAria", { name: m.name })}
-                    >
-                      {t("teams.oneOnOnes")}
-                    </Button>
-                  )}
-                  {view === "managed" && scopeIsDirect && (
-                    // Same direct-only gate: goals are set for direct reports, like 1:1s.
-                    <Button
-                      component={RouterLink}
-                      to={userGoalsLink(m.userId, m.name, managedFrom, drillTeamId)}
-                      variant="subtle"
-                      size="xs"
-                      leftSection={<IconTargetArrow size={14} />}
-                      aria-label={t("teams.goalsForAria", { name: m.name })}
-                    >
-                      {t("teams.goals")}
-                    </Button>
-                  )}
-                  {view === "managed" && scopeIsDirect && (
-                    // Same direct-only gate: the drill-down's New-review action needs a
-                    // direct report, like goal creation.
-                    <Button
-                      component={RouterLink}
-                      to={userPerformanceReviewsLink(m.userId, m.name, managedFrom, drillTeamId)}
-                      variant="subtle"
-                      size="xs"
-                      leftSection={<IconClipboardText size={14} />}
-                      aria-label={t("teams.performanceReviewsForAria", { name: m.name })}
-                    >
-                      {t("teams.performanceReviews")}
-                    </Button>
-                  )}
-                </>
+                // The direct-only gates: creating a 1:1/goal/review needs a direct report,
+                // and rows carry no direct/indirect marker — so those buttons exist only
+                // while the scope guarantees every card is a direct report.
+                <PersonCardActions
+                  userId={m.userId}
+                  name={m.name}
+                  labels="teams"
+                  back={backTo}
+                  drillFrom={drillFrom}
+                  drillTeamId={drillTeamId}
+                  show={{
+                    provide: true,
+                    ask: true,
+                    request: view === "managed",
+                    newOneOnOne: view === "managed" && scopeIsDirect,
+                    feedbacks: true,
+                    oneOnOnes: view === "managed" && scopeIsDirect,
+                    goals: view === "managed" && scopeIsDirect,
+                    reviews: view === "managed" && scopeIsDirect,
+                  }}
+                />
               }
             />
           ))}
