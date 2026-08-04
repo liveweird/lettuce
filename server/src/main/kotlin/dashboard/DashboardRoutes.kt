@@ -34,7 +34,8 @@ class DashboardSummaryResource
  * every count reuses an existing caller-scoped list scope, so there is no authorization
  * question this endpoint could get wrong. `directReports` doubles as the manager gate
  * (0 = the manager tiles stay hidden) and as the reviews tile's denominator; the
- * current-period fields are null while the review-period timeline doesn't cover today.
+ * current-period fields are null while the review-period timeline doesn't cover the current
+ * month (currentPeriod is month-granular).
  */
 @Serializable
 data class DashboardSummary(
