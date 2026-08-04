@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -86,6 +86,33 @@ describe("DashboardHero", () => {
 
     expect(await screen.findByText("Direct reports")).toBeInTheDocument();
     expect(screen.queryByText("Reviews · current period")).toBeNull();
+  });
+
+  test("the received tile shows the vs-previous-window trend when the field is present", async () => {
+    setupMocks({ ...MANAGER_SUMMARY, feedbackReceivedPrev30d: 2 });
+    renderHero();
+
+    // 5 now vs 2 before → "+3", its own text node next to the caption.
+    expect(await screen.findByText("+3")).toBeInTheDocument();
+    expect(screen.getByText("vs previous 30 days")).toBeInTheDocument();
+    // The bare value still renders separately (locator stability).
+    expect(screen.getByText("5")).toBeInTheDocument();
+  });
+
+  test("a negative delta renders signed; a missing field renders no trend (older server)", async () => {
+    setupMocks({ ...MANAGER_SUMMARY, feedbackReceivedPrev30d: 9 });
+    renderHero();
+    expect(await screen.findByText("-4")).toBeInTheDocument();
+
+    // Without the field (MANAGER_SUMMARY carries none) the tile shows no trend line at all.
+    // within(container): the render-result queries bind to document.body, where the first
+    // hero (with its trend) is still mounted.
+    setupMocks(MANAGER_SUMMARY);
+    const second = renderHero();
+    await vi.waitFor(() =>
+      expect(second.container.querySelectorAll("a").length).toBeGreaterThan(0),
+    );
+    expect(within(second.container as HTMLElement).queryByText("vs previous 30 days")).toBeNull();
   });
 
   test("renders nothing on error or malformed data — the hero never breaks the dashboard", async () => {

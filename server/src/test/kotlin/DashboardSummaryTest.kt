@@ -16,6 +16,8 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
+import org.jetbrains.exposed.v1.r2dbc.insert
+import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -106,11 +108,57 @@ class DashboardSummaryTest {
         assertEquals(0, managerSummary.activeGoals) // the goal is the SUBORDINATE's, not theirs
         assertEquals(2, managerSummary.directReports)
 
+        // The manager's pending request becomes a DRAFT and is sent — the STATUS_CHANGED{to=SENT}
+        // event shape (the peer's direct "save & send" above covered CREATED{status=SENT}).
+        val requestedId = requested.body<ch.nokillswit.feedbacks.FeedbackResponse>().id
+        assertEquals(HttpStatusCode.NoContent, manager.post("/api/v1/feedbacks/$requestedId/pick-up").status)
+        assertEquals(HttpStatusCode.NoContent, manager.post("/api/v1/feedbacks/$requestedId/send").status)
+
         val subSummary = sub.get("/api/v1/dashboard/summary").body<DashboardSummary>()
         assertEquals(0, subSummary.pendingFeedbackRequests)
         assertEquals(1, subSummary.activeGoals)
-        assertEquals(1, subSummary.feedbackReceived30d)
+        // Both delivery paths count: the peer's created-as-SENT and the manager's draft→send.
+        assertEquals(2, subSummary.feedbackReceived30d)
+        // Everything just happened — nothing falls in the previous 30-day window.
+        assertEquals(0, subSummary.feedbackReceivedPrev30d)
         assertEquals(0, subSummary.directReports) // non-manager — the manager tiles hide
+    }
+
+    @Test
+    fun `receivedSentCount windows on the SENT moment, with lastModified fallback`() = testApplication {
+        usePostgresTestcontainer()
+        val subjectId = TestUsers.seed(uniqueEmail("dash-count-subject"), "pw", name = "Count Subject", roles = emptySet())
+        val providerId = TestUsers.seed(uniqueEmail("dash-count-provider"), "pw", name = "Count Provider", roles = emptySet())
+
+        // Service-level create mints NO audit event → the count falls back to lastModified (now).
+        val feedbackId = TestServices.feedbacks.create(
+            ch.nokillswit.feedbacks.Feedback(
+                subjectId = subjectId, providerId = providerId,
+                visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                status = FeedbackStatus.SENT, content = "count me",
+            ),
+        ).id
+        val now = System.currentTimeMillis()
+        val day = 24L * 60 * 60 * 1000
+        val service = TestServices.feedbacks
+        assertEquals(1, service.receivedSentCount(subjectId, now - day, now + day))
+        assertEquals(0, service.receivedSentCount(subjectId, now - 60 * day, now - 30 * day))
+
+        // A back-dated SENT event (45 days ago) moves the feedback into the PREVIOUS window —
+        // the audit-trail moment wins over lastModified. Raw insert: the event service
+        // deliberately stamps its own timestamps, and there is no clock seam on the route.
+        val events = ch.nokillswit.feedbacks.FeedbackEventService.FeedbackEvents
+        suspendTransaction(service.database) {
+            events.insert {
+                it[events.feedbackId] = feedbackId
+                it[events.userId] = providerId
+                it[events.timestamp] = now - 45 * day
+                it[events.eventType] = ch.nokillswit.feedbacks.FeedbackEventType.STATUS_CHANGED.name
+                it[events.params] = """{"from":"DRAFT","to":"SENT"}"""
+            }
+        }
+        assertEquals(0, service.receivedSentCount(subjectId, now - day, now + day))
+        assertEquals(1, service.receivedSentCount(subjectId, now - 60 * day, now - 30 * day))
     }
 
     @Test

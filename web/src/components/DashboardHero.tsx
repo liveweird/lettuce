@@ -1,8 +1,11 @@
 import { Group, Paper, SimpleGrid, Skeleton, Text, ThemeIcon } from "@mantine/core";
 import {
+  IconArrowDownRight,
+  IconArrowUpRight,
   IconClipboardText,
   IconInbox,
   IconMessage2,
+  IconMinus,
   IconTargetArrow,
   IconUsersGroup,
 } from "@tabler/icons-react";
@@ -21,11 +24,14 @@ function StatTile({
   value,
   to,
   icon,
+  sub,
 }: {
   label: string;
   value: string;
   to: string;
   icon: React.ReactNode;
+  /** Optional trend sub-line under the value (its own text node — tests key on bare values). */
+  sub?: React.ReactNode;
 }) {
   return (
     <Paper
@@ -48,9 +54,28 @@ function StatTile({
           <Text fz={26} fw={600} lh={1.2}>
             {value}
           </Text>
+          {sub}
         </div>
       </Group>
     </Paper>
+  );
+}
+
+// The vs-previous-window trend line: neutral dimmed styling on purpose — receiving less
+// feedback is a fact, not an error state.
+function TrendLine({ delta, caption }: { delta: number; caption: string }) {
+  const Arrow = delta > 0 ? IconArrowUpRight : delta < 0 ? IconArrowDownRight : IconMinus;
+  const signed = delta > 0 ? `+${delta}` : String(delta);
+  return (
+    <Group gap={4} wrap="nowrap" mt={2}>
+      <Arrow size={14} color="var(--mantine-color-dimmed)" aria-hidden />
+      <Text size="xs" c="dimmed" span>
+        {signed}
+      </Text>
+      <Text size="xs" c="dimmed" span lineClamp={1}>
+        {caption}
+      </Text>
+    </Group>
   );
 }
 
@@ -72,7 +97,9 @@ export default function DashboardHero() {
     return (
       <SimpleGrid cols={GRID_COLS} spacing="md">
         {[0, 1, 2].map((i) => (
-          <Skeleton key={i} height={72} radius="md" />
+          // Matches the tile height including the received tile's trend sub-line (the grid
+          // row stretches every tile to the tallest), so load doesn't shift the layout.
+          <Skeleton key={i} height={92} radius="md" />
         ))}
       </SimpleGrid>
     );
@@ -100,6 +127,16 @@ export default function DashboardHero() {
         value={String(data.feedbackReceived30d)}
         to="/feedback?tab=received"
         icon={<IconInbox size={20} />}
+        sub={
+          // Per-field narrowing, NOT part of the shape probe above: an older server without
+          // the field simply renders no trend line.
+          typeof data.feedbackReceivedPrev30d === "number" ? (
+            <TrendLine
+              delta={data.feedbackReceived30d - data.feedbackReceivedPrev30d}
+              caption={t("dashboard.hero.vsPrev30d")}
+            />
+          ) : undefined
+        }
       />
       {isManager && (
         <StatTile

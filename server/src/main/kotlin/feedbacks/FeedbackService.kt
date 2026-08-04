@@ -396,35 +396,69 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
                 .toList()
             if (candidates.isEmpty()) return@suspendTransaction emptyMap()
 
-            // The SENT moment lives in the audit trail: STATUS_CHANGED{to=SENT} or a feedback
-            // CREATED directly as SENT. Params are opaque JSON text decoded Kotlin-side (the
-            // repo has no SQL JSON operators); the per-feedback event volume is tiny.
-            val events = FeedbackEventService.FeedbackEvents
-            val sentAt = mutableMapOf<UInt, Long>()
-            events.select(events.feedbackId, events.timestamp, events.eventType, events.params)
-                .where {
-                    (events.feedbackId inList candidates.map { it.first }) and
-                        (
-                            events.eventType inList listOf(
-                                FeedbackEventType.STATUS_CHANGED.name,
-                                FeedbackEventType.CREATED.name,
-                            )
-                        )
-                }
-                .toList()
-                .forEach { row ->
-                    val params = decodeParams(row[events.params])
-                    val isSent = when (row[events.eventType]) {
-                        FeedbackEventType.STATUS_CHANGED.name -> params["to"] == FeedbackStatus.SENT.name
-                        else -> params["status"] == FeedbackStatus.SENT.name
-                    }
-                    if (isSent) sentAt.merge(row[events.feedbackId].value, row[events.timestamp], ::maxOf)
-                }
+            val sentAt = sentMoments(candidates.map { it.first })
 
             candidates
                 .groupBy({ it.second }) { sentAt[it.first] ?: it.third } // pre-V15 fallback: lastModified
                 .mapValues { (_, times) -> times.max() }
         }
+
+    /**
+     * How many delivered (currently SENT, non-deleted) feedbacks in [callerUserId]'s received
+     * scope have their SENT moment in `[fromMs, toMs)`. The moment resolves like [lastSentAtBy]
+     * (audit-trail event, pre-V15 fallback to lastModified). Backs the Dashboard hero's
+     * received-30d tile and its previous-window delta — candidates-first, so the event query
+     * stays on the indexed feedback_id.
+     */
+    suspend fun receivedSentCount(callerUserId: UInt, fromMs: Long, toMs: Long): Long =
+        suspendTransaction(database) {
+            val candidates = Feedbacks
+                .select(Feedbacks.id, Feedbacks.lastModified)
+                .where {
+                    receivedScope(callerUserId) and (Feedbacks.status eq FeedbackStatus.SENT) and active()
+                }
+                .map { it[Feedbacks.id].value to it[Feedbacks.lastModified] }
+                .toList()
+                .toMap()
+            if (candidates.isEmpty()) return@suspendTransaction 0L
+
+            val sentAt = sentMoments(candidates.keys)
+            candidates.entries.count { (id, lastModified) ->
+                (sentAt[id] ?: lastModified) in fromMs until toMs
+            }.toLong()
+        }
+
+    /**
+     * Per feedback id, its SENT moment from the audit trail: STATUS_CHANGED{to=SENT} or a
+     * feedback CREATED directly as SENT. Params are opaque JSON text decoded Kotlin-side (the
+     * repo has no SQL JSON operators); the per-feedback event volume is tiny. Ids with no SENT
+     * event (pre-V15 rows) are absent — callers fall back to lastModified. Must run inside the
+     * caller's transaction.
+     */
+    private suspend fun sentMoments(feedbackIds: Collection<UInt>): Map<UInt, Long> {
+        val events = FeedbackEventService.FeedbackEvents
+        val sentAt = mutableMapOf<UInt, Long>()
+        events.select(events.feedbackId, events.timestamp, events.eventType, events.params)
+            .where {
+                (events.feedbackId inList feedbackIds.toList()) and
+                    (
+                        events.eventType inList listOf(
+                            FeedbackEventType.STATUS_CHANGED.name,
+                            FeedbackEventType.CREATED.name,
+                        )
+                    )
+            }
+            .toList()
+            .forEach { row ->
+                val params = decodeParams(row[events.params])
+                val isSent = when (row[events.eventType]) {
+                    FeedbackEventType.STATUS_CHANGED.name -> params["to"] == FeedbackStatus.SENT.name
+                    else -> params["status"] == FeedbackStatus.SENT.name
+                }
+                if (isSent) sentAt.merge(row[events.feedbackId].value, row[events.timestamp], ::maxOf)
+            }
+        return sentAt
+    }
 
     suspend fun list(
         view: FeedbackListView,

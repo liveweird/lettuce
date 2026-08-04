@@ -69,8 +69,10 @@ paths:
         gate (0 hides the manager tiles client-side) and as the reviews tile's denominator.
         The current-period fields are null while the review-period timeline does not cover
         the current month. `feedbackReceived30d` counts delivered (SENT) feedbacks in the
-        caller's received scope by their last-modification time (an approximation of the
-        delivery moment, deliberately cheap).
+        caller's received scope by their actual SENT moment (the audit-trail event; rows
+        predating the events table fall back to last-modification time), and
+        `feedbackReceivedPrev30d` is the same count for the preceding 30-day window
+        (days 60–30 ago) — the client renders their difference as the tile's trend.
       responses:
         '200':
           description: The caller's summary
@@ -5528,8 +5530,17 @@ components:
           format: int64
           minimum: 0
           description: >-
-            Delivered (SENT) feedbacks in the caller's received scope modified within the
-            last 30 days.
+            Delivered (SENT) feedbacks in the caller's received scope whose SENT moment falls
+            within the last 30 days (audit-trail event time; pre-events rows fall back to
+            last-modification time).
+        feedbackReceivedPrev30d:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+          description: >-
+            The same received count for the preceding 30-day window (days 60–30 ago) — the
+            base of the tile's trend indicator. Optional for older-server tolerance.
         directReports:
           type: integer
           minimum: 0

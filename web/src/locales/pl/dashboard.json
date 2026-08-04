@@ -5,7 +5,8 @@
     "activeGoals": "Twoje aktywne cele",
     "received30d": "Otrzymany feedback \u00b7 30 dni",
     "directReports": "Bezpo\u015bredni podw\u0142adni",
-    "reviewsDone": "Oceny \u00b7 bie\u017c\u0105cy okres"
+    "reviewsDone": "Oceny \u00b7 bie\u017c\u0105cy okres",
+    "vsPrev30d": "vs poprzednie 30 dni"
   },
   "tabs": {
     "managers": "Moi menedżerowie",
