@@ -1,6 +1,7 @@
 import { Stack, Tabs, Title } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
+import DashboardHero from "../components/DashboardHero";
 import { useIsManager } from "../hooks/useIsManager";
 import ManagersTable from "./ManagersTable";
 import MyTeamsTable from "./MyTeamsTable";
@@ -38,6 +39,7 @@ export default function Dashboard() {
   return (
     <Stack gap="md">
       <Title order={2}>{t("dashboard.title")}</Title>
+      <DashboardHero />
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
           <Tabs.Tab value="managers" data-tour="dashboard-managers">

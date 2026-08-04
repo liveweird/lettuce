@@ -1,5 +1,12 @@
 {
   "title": "Dashboard",
+  "hero": {
+    "pendingRequests": "Feedback requests for you",
+    "activeGoals": "Your active goals",
+    "received30d": "Feedback received \u00b7 30 days",
+    "directReports": "Direct reports",
+    "reviewsDone": "Reviews \u00b7 current period"
+  },
   "tabs": {
     "managers": "My managers",
     "peers": "My peers",

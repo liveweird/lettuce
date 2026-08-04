@@ -54,8 +54,33 @@ tags:
   - name: dictionaries
   - name: notifications
   - name: alerts
+  - name: dashboard
 
 paths:
+  /api/v1/dashboard/summary:
+    get:
+      tags: [dashboard]
+      operationId: getDashboardSummary
+      summary: The caller's at-a-glance dashboard numbers
+      description: |
+        Aggregated counts for the Dashboard's hero tiles, **strictly caller-scoped** — every
+        number is the total of an existing caller-scoped list scope, so nothing is disclosed
+        that the corresponding list would not return. `directReports` doubles as the manager
+        gate (0 hides the manager tiles client-side) and as the reviews tile's denominator.
+        The current-period fields are null while the review-period timeline does not cover
+        the current month. `feedbackReceived30d` counts delivered (SENT) feedbacks in the
+        caller's received scope by their last-modification time (an approximation of the
+        delivery moment, deliberately cheap).
+      responses:
+        '200':
+          description: The caller's summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardSummary'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
   /api/v1/login:
     post:
       tags: [auth]
@@ -5483,6 +5508,50 @@ components:
           format: int64
           minimum: 0
           description: Row count after filters, before pagination.
+
+    DashboardSummary:
+      type: object
+      required: [pendingFeedbackRequests, activeGoals, feedbackReceived30d, directReports]
+      properties:
+        pendingFeedbackRequests:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Active feedback requests (REQUESTED) waiting for the caller as provider.
+        activeGoals:
+          type: integer
+          format: int64
+          minimum: 0
+          description: The caller's own ACTIVE goals.
+        feedbackReceived30d:
+          type: integer
+          format: int64
+          minimum: 0
+          description: >-
+            Delivered (SENT) feedbacks in the caller's received scope modified within the
+            last 30 days.
+        directReports:
+          type: integer
+          minimum: 0
+          description: >-
+            Distinct current direct reports of the caller (members of non-deleted teams they
+            manage). 0 for non-managers — the client hides the manager tiles on it.
+        currentPeriodId:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+          description: >-
+            Id of the review period containing the current month; null while the timeline
+            does not cover today (the reviews tile hides).
+        currentPeriodReviewsDone:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+          description: >-
+            Performance reviews the caller authored for the current period (any status);
+            null exactly when currentPeriodId is null.
 
     ProblemDetail:
       type: object

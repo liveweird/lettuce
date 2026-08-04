@@ -895,6 +895,18 @@ export type TeamKpiEventList =
   paths["/api/v1/team-kpis/{id}/events"]["get"]["responses"]["200"]["content"]["application/json"];
 export type TeamKpiEvent = TeamKpiEventList["items"][number];
 
+// ── Dashboard ────────────────────────────────────────────────────────────────────────────────
+
+export type DashboardSummary =
+  paths["/api/v1/dashboard/summary"]["get"]["responses"]["200"]["content"]["application/json"];
+
+/** The caller's at-a-glance numbers for the Dashboard hero tiles — strictly caller-scoped. */
+export async function getDashboardSummary(): Promise<DashboardSummary> {
+  const res = await authedFetch("/api/v1/dashboard/summary");
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return (await res.json()) as DashboardSummary;
+}
+
 // ── Review periods & performance reviews ─────────────────────────────────────────────────────
 
 export type ReviewPeriod =

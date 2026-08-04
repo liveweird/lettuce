@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.36.0",
+    date: "2026-08-04",
+    en: `The Dashboard opens with an at-a-glance row of your numbers: feedback requests waiting for your reply, your active goals, and feedback received over the last 30 days — managers additionally see their direct-report count and how many performance reviews they've written for the current period (e.g. 3/7). Every tile is a shortcut to the screen behind the number.`,
+    pl: `Pulpit otwiera się teraz rzędem Twoich liczb: prośby o feedback czekające na Twoją odpowiedź, Twoje aktywne cele i feedback otrzymany w ostatnich 30 dniach — menedżerowie widzą dodatkowo liczbę bezpośrednich podwładnych oraz ile ocen okresowych napisali za bieżący okres (np. 3/7). Każdy kafelek jest skrótem do ekranu, z którego pochodzi liczba.`,
+  },
+  {
     version: "1.35.1",
     date: "2026-08-04",
     en: `Consistent page widths: forms and detail screens now come in exactly two sizes — compact for simple settings forms, comfortable for everything with content — so the layout no longer jumps between narrow and wide as you move through a flow. Editing a feedback or creating a 1:1 now gets the same roomy width as the rest of its flow.`,

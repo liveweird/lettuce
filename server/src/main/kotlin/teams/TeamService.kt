@@ -68,6 +68,11 @@ class TeamService(val database: R2dbcDatabase) {
         override val primaryKey = PrimaryKey(teamId, userId)
     }
 
+    /** How many distinct people currently report directly to [managerId] (non-deleted teams). */
+    suspend fun directReportCount(managerId: UInt): Int = suspendTransaction(database) {
+        directSubordinateIds(managerId).size
+    }
+
     suspend fun create(team: Team): UInt = suspendTransaction(database) {
         validateMembership(team)
         val newRecord = Teams.insert {
