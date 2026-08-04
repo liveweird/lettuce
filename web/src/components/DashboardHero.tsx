@@ -62,17 +62,20 @@ function StatTile({
 }
 
 // The vs-previous-window trend line: neutral dimmed styling on purpose — receiving less
-// feedback is a fact, not an error state.
+// feedback is a fact, not an error state. The caption wraps rather than truncating — narrow
+// tiles (5-col grid) don't fit "+N vs previous 30 days" on one line.
 function TrendLine({ delta, caption }: { delta: number; caption: string }) {
   const Arrow = delta > 0 ? IconArrowUpRight : delta < 0 ? IconArrowDownRight : IconMinus;
   const signed = delta > 0 ? `+${delta}` : String(delta);
   return (
-    <Group gap={4} wrap="nowrap" mt={2}>
-      <Arrow size={14} color="var(--mantine-color-dimmed)" aria-hidden />
+    <Group gap={4} mt={2}>
+      <Group gap={4} wrap="nowrap">
+        <Arrow size={14} color="var(--mantine-color-dimmed)" aria-hidden />
+        <Text size="xs" c="dimmed" span>
+          {signed}
+        </Text>
+      </Group>
       <Text size="xs" c="dimmed" span>
-        {signed}
-      </Text>
-      <Text size="xs" c="dimmed" span lineClamp={1}>
         {caption}
       </Text>
     </Group>
