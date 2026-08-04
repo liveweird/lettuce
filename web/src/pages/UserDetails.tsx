@@ -18,7 +18,9 @@ import PersonCardStats, { CareerCardStats, PeerCardStats } from "../components/P
 import { groupTeamRows, type PersonCard as PersonCardData } from "../utils/teamRows";
 import { userDetailsLink } from "../utils/userLinks";
 
-const GRID_COLS = { base: 1, sm: 2, lg: 3 };
+// Matches the dashboard card grids' v1.34.0 cap (2 per row) so the single details card
+// renders at the same width as its dashboard counterparts.
+const GRID_COLS = { base: 1, sm: 2 };
 const PAGE_SIZE = 100;
 
 type Relationship = "manager" | "subordinate" | "peer";

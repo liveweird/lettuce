@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.40.1",
+    date: "2026-08-04",
+    en: `The card on a user's details page now renders at the same width as the Dashboard's person cards — no more cramped, narrow layout on wide screens.`,
+    pl: `Karta na stronie szczegółów użytkownika ma teraz tę samą szerokość co karty osób na Pulpicie — koniec ze ściśniętym, wąskim układem na szerokich ekranach.`,
+  },
+  {
     version: "1.40.0",
     date: "2026-08-04",
     en: `The Performance reviews dashboard gained a Distribution view: a toggle next to the period picker switches the table to bar charts showing how ratings spread across your selected group — one tab per category (attitude, delivery, skills, overall), bars colored by the rating scale, with a note on how many people are rated. The period and all filters apply exactly as they do to the table, so a manager can quickly check whether the ratings in any slice of the team are balanced.`,
