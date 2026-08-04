@@ -8,7 +8,7 @@ import ch.nokillswit.feedbacks.FeedbackEventType
 import ch.nokillswit.feedbacks.FeedbackResponse
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
-import ch.nokillswit.goals.GoalCloseRequest
+import ch.nokillswit.goals.GoalArchiveRequest
 import ch.nokillswit.goals.GoalCreateRequest
 import ch.nokillswit.goals.GoalResponse
 import ch.nokillswit.goals.GoalType
@@ -126,9 +126,9 @@ class TeamMemberManagerStatsTest {
         assertEquals(2, caller.managerItem(managerId).activeGoalCount)
 
         // Closing takes a goal back out of the count.
-        val closed = manager.post("/api/v1/goals/${first.id}/close") {
+        val closed = manager.post("/api/v1/goals/${first.id}/archive") {
             contentType(ContentType.Application.Json)
-            setBody(GoalCloseRequest(summary = "done"))
+            setBody(GoalArchiveRequest(summary = "done"))
         }
         assertEquals(HttpStatusCode.NoContent, closed.status)
         assertEquals(1, caller.managerItem(managerId).activeGoalCount)

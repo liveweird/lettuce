@@ -7,7 +7,7 @@ import type { GoalStatus } from "../api/client";
 const STATUS_COLORS: Record<GoalStatus, string> = {
   DRAFT: "gray",
   ACTIVE: "teal",
-  CLOSED: "dark",
+  ARCHIVED: "dark",
 };
 
 export default function GoalStatusBadge({ status }: { status: GoalStatus }) {

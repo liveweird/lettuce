@@ -37,7 +37,7 @@
   "status": {
     "DRAFT": "Draft",
     "ACTIVE": "Active",
-    "CLOSED": "Closed"
+    "ARCHIVED": "Archived"
   },
   "type": {
     "label": "Type",
@@ -62,17 +62,17 @@
   "action": {
     "activate": "Activate",
     "deactivate": "Return to draft",
-    "close": "Close goal",
+    "close": "Archive goal",
     "reopen": "Reopen",
     "saveDraft": "Save draft",
     "saveAndActivate": "Save & activate",
-    "saveAndClose": "Save & close"
+    "saveAndArchive": "Save & archive"
   },
-  "closeTitle": "Close this goal?",
-  "closeMessage": "Closing records the goal as finished, with a summary of how it went. You can reopen it later if needed.",
+  "closeTitle": "Archive this goal?",
+  "closeMessage": "Archiving records the goal as finished, with a summary of how it went. You can reopen it later if needed.",
   "summaryLabel": "Summary",
   "summaryPlaceholder": "How did the goal go?",
-  "summaryRequired": "A summary is required to close a goal",
+  "summaryRequired": "A summary is required to archive a goal",
   "discardTitle": "Discard changes?",
   "discardMessage": "Discard changes? The goal will stay as it was.",
   "activatePromptTitle": "Activate the goal?",
@@ -128,7 +128,7 @@
     "progressSaved": "Progress saved",
     "activated": "Goal activated",
     "deactivated": "Goal returned to draft",
-    "closed": "Goal closed",
+    "archived": "Goal archived",
     "reopened": "Goal reopened",
     "deleted": "Goal deleted"
   }

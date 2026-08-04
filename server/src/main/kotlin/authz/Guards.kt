@@ -256,7 +256,7 @@ fun canReadGoal(caller: CallerPrincipal, goal: GoalResponse): Boolean {
  * Read guard for the single GET / events: the parties pass the cheap rules; the HR auditor
  * reads everything, DRAFTs included (audit-logged); otherwise any manager in the subordinate's
  * transitive management chain (their manager's manager, and so on) may read only once the goal
- * has left DRAFT (ACTIVE/CLOSED) — a manager's draft stays private to the pair, matching the
+ * has left DRAFT (ACTIVE/ARCHIVED) — a manager's draft stays private to the pair, matching the
  * team list scope (whose status != DRAFT filter is the same rule, not a separate
  * authorization) and mirroring the delivered-only feedback chain rule.
  */

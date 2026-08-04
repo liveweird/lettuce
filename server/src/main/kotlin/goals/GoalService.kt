@@ -175,11 +175,11 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
 
     /**
      * Moves a goal [from] one status to [target] via the status state machine (DRAFT <-> ACTIVE
-     * <-> CLOSED, never skipping ACTIVE) and returns the notifications the transition should
+     * <-> ARCHIVED, never skipping ACTIVE) and returns the notifications the transition should
      * produce (the caller persists them). Each action endpoint names its whole edge — [from] as
      * well as [target] — because activate and reopen share the ACTIVE target and would otherwise
      * be interchangeable. Closing records [summary] (required — the route validates it
-     * non-blank); reopening keeps the stored summary, to be overwritten at the next close.
+     * non-blank); reopening keeps the stored summary, to be overwritten at the next archiving.
      * Returns null when the row is missing (→ 404); throws [ConflictException] (→ 409) when the
      * goal is not at [from] or the edge is not in the machine.
      */
@@ -190,7 +190,7 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
                 .map { it.toGoalRow() }
                 .singleOrNull()
                 ?: return@suspendTransaction null
-            // Each endpoint names a whole edge of the DRAFT <-> ACTIVE <-> CLOSED machine, so the
+            // Each endpoint names a whole edge of the DRAFT <-> ACTIVE <-> ARCHIVED machine, so the
             // from-status check alone gates it; the summary was validated by the route
             // (validateGoalSummary) before the transaction.
             if (current.status != from) {
@@ -198,7 +198,7 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
             }
             Goals.update({ (Goals.id eq id) and (Goals.markedAsDeleted eq false) }) {
                 it[status] = target
-                if (target == GoalStatus.CLOSED) it[this.summary] = cipher.encrypt(summary!!)
+                if (target == GoalStatus.ARCHIVED) it[this.summary] = cipher.encrypt(summary!!)
                 it[lastModified] = System.currentTimeMillis()
             }
             goalTransitionNotifications(
@@ -317,7 +317,7 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
     /**
      * Per manager in [managerIds], how many ACTIVE goals they currently have set for
      * [subordinateId] — the "My managers" dashboard-card stat. Managers with none are absent
-     * from the map. Only ACTIVE is counted (drafts are pair-private anyway; CLOSED are records),
+     * from the map. Only ACTIVE is counted (drafts are pair-private anyway; ARCHIVED are records),
      * and an ACTIVE goal is always visible to both parties, so no visibility filtering applies.
      */
     suspend fun activeGoalCountsByManager(

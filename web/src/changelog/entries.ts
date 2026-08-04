@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.41.0",
+    date: "2026-08-04",
+    en: `Goals are now "archived" instead of "closed" — the same wording Team KPIs already use, so finishing a goal no longer sounds like closing a window. The status badge, the Archive action (with its summary), "Save & archive", and notifications all use the new wording; existing closed goals and their history were converted automatically.`,
+    pl: `Cele są teraz „archiwizowane" zamiast „zamykane" — tak samo jak KPI zespołów, więc zakończenie celu nie brzmi już jak zamykanie okna. Znaczek statusu, akcja Archiwizuj (z podsumowaniem), „Zapisz i zarchiwizuj" oraz powiadomienia używają nowego nazewnictwa; istniejące zamknięte cele i ich historia zostały przekonwertowane automatycznie.`,
+  },
+  {
     version: "1.40.1",
     date: "2026-08-04",
     en: `The card on a user's details page now renders at the same width as the Dashboard's person cards — no more cramped, narrow layout on wide screens.`,

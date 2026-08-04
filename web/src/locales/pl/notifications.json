@@ -39,7 +39,7 @@
     "oneOnOneCreatedToManager": "Udokumentowałeś/aś spotkanie 1:1 z {{subordinate}} ({{date}}).",
     "goalActivated": "{{manager}} aktywował/a dla Ciebie cel „{{title}}”.",
     "goalDeactivated": "{{manager}} cofnął/cofnęła cel „{{title}}” do szkicu.",
-    "goalClosed": "{{manager}} zamknął/zamknęła cel „{{title}}”.",
+    "goalArchived": "{{manager}} zarchiwizował/zarchiwizowała cel „{{title}}”.",
     "goalReopened": "{{manager}} ponownie otworzył/a cel „{{title}}”.",
     "teamKpiActivated": "{{manager}} aktywował/a KPI „{{title}}” dla zespołu {{team}}.",
     "teamKpiDeactivated": "{{manager}} przywrócił/przywróciła KPI „{{title}}” zespołu {{team}} do szkicu.",

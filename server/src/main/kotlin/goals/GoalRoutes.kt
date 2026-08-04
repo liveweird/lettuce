@@ -49,12 +49,12 @@ class Goals {
         class Progress(val parent: Id)
 
         // Lifecycle-transition actions (POST). The state machine gates which are valid from the
-        // current status (invalid → 409); close is the only bodied one (its required summary).
+        // current status (invalid → 409); archive is the only bodied one (its required summary).
         @Serializable @Resource("activate") class Activate(val parent: Id)
 
         @Serializable @Resource("deactivate") class Deactivate(val parent: Id)
 
-        @Serializable @Resource("close") class Close(val parent: Id)
+        @Serializable @Resource("archive") class Archive(val parent: Id)
 
         @Serializable @Resource("reopen") class Reopen(val parent: Id)
     }
@@ -92,13 +92,13 @@ fun Application.configureGoalRoutes() {
             return
         }
         requireGoalWrite(caller, existing)
-        // Activation only (not reopen — CLOSED->ACTIVE must stay open for overdue goals, whose
+        // Activation only (not reopen — ARCHIVED->ACTIVE must stay open for overdue goals, whose
         // due date is DRAFT-only editable): a stale draft must pick a fresh due date first.
         if (from == GoalStatus.DRAFT && target == GoalStatus.ACTIVE) validateGoalDueDate(existing.dueDate)
-        // The close body is received (and validated) only after the write guard, so a
+        // The archive body is received (and validated) only after the write guard, so a
         // non-manager's malformed or blank summary is still 403 on a foreign goal, not 400.
         val summary = receiveSummary?.invoke()
-        if (target == GoalStatus.CLOSED) validateGoalSummary(summary)
+        if (target == GoalStatus.ARCHIVED) validateGoalSummary(summary)
         val toNotify = goalService.transition(goalId, from, target, summary)
         if (toNotify == null) {
             call.respondProblem(HttpStatusCode.NotFound, "Goal not found")
@@ -248,13 +248,13 @@ fun Application.configureGoalRoutes() {
             post<Goals.Id.Deactivate> { route ->
                 transitionTo(call, route.parent.id, from = GoalStatus.ACTIVE, target = GoalStatus.DRAFT)
             }
-            post<Goals.Id.Close> { route ->
-                transitionTo(call, route.parent.id, from = GoalStatus.ACTIVE, target = GoalStatus.CLOSED) {
-                    call.receive<GoalCloseRequest>().summary
+            post<Goals.Id.Archive> { route ->
+                transitionTo(call, route.parent.id, from = GoalStatus.ACTIVE, target = GoalStatus.ARCHIVED) {
+                    call.receive<GoalArchiveRequest>().summary
                 }
             }
             post<Goals.Id.Reopen> { route ->
-                transitionTo(call, route.parent.id, from = GoalStatus.CLOSED, target = GoalStatus.ACTIVE)
+                transitionTo(call, route.parent.id, from = GoalStatus.ARCHIVED, target = GoalStatus.ACTIVE)
             }
             get<Goals.Id.Events> { route ->
                 val caller = call.caller()
@@ -278,7 +278,7 @@ fun Application.configureGoalRoutes() {
                     return@delete
                 }
                 requireGoalWrite(caller, existing)
-                // Delete is a draft-only action; ACTIVE/CLOSED goals are closed (or reopened)
+                // Delete is a draft-only action; ACTIVE/ARCHIVED goals are closed (or reopened)
                 // through the transitions instead, keeping the record.
                 if (existing.status != GoalStatus.DRAFT) {
                     throw BadRequestException("Only a draft goal may be deleted")

@@ -125,7 +125,7 @@ describe("NotificationsButton", () => {
       [
         ["GOAL_ACTIVATED_TO_SUBORDINATE", 21],
         ["GOAL_DEACTIVATED_TO_SUBORDINATE", 22],
-        ["GOAL_CLOSED_TO_SUBORDINATE", 23],
+        ["GOAL_ARCHIVED_TO_SUBORDINATE", 23],
         ["GOAL_REOPENED_TO_SUBORDINATE", 24],
       ] as const
     ).map(([type, id]) => ({
@@ -147,7 +147,7 @@ describe("NotificationsButton", () => {
     expect(
       screen.getByText('Mona Manager returned the goal "Raise coverage" to draft.'),
     ).toBeInTheDocument();
-    expect(screen.getByText('Mona Manager closed the goal "Raise coverage".')).toBeInTheDocument();
+    expect(screen.getByText('Mona Manager archived the goal "Raise coverage".')).toBeInTheDocument();
     expect(screen.getByText('Mona Manager reopened the goal "Raise coverage".')).toBeInTheDocument();
   });
 

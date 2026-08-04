@@ -37,7 +37,7 @@
   "status": {
     "DRAFT": "Szkic",
     "ACTIVE": "Aktywny",
-    "CLOSED": "Zamknięty"
+    "ARCHIVED": "Zarchiwizowany"
   },
   "type": {
     "label": "Typ",
@@ -62,17 +62,17 @@
   "action": {
     "activate": "Aktywuj",
     "deactivate": "Wróć do szkicu",
-    "close": "Zamknij cel",
+    "close": "Zarchiwizuj cel",
     "reopen": "Otwórz ponownie",
     "saveDraft": "Zapisz wersję roboczą",
     "saveAndActivate": "Zapisz i aktywuj",
-    "saveAndClose": "Zapisz i zamknij"
+    "saveAndArchive": "Zapisz i zarchiwizuj"
   },
-  "closeTitle": "Zamknąć ten cel?",
-  "closeMessage": "Zamknięcie oznacza cel jako ukończony i zapisuje podsumowanie. W razie potrzeby możesz go później otworzyć ponownie.",
+  "closeTitle": "Zarchiwizować ten cel?",
+  "closeMessage": "Archiwizacja oznacza cel jako ukończony i zapisuje podsumowanie. W razie potrzeby możesz go później otworzyć ponownie.",
   "summaryLabel": "Podsumowanie",
   "summaryPlaceholder": "Jak poszła realizacja celu?",
-  "summaryRequired": "Do zamknięcia celu wymagane jest podsumowanie",
+  "summaryRequired": "Do zarchiwizowania celu wymagane jest podsumowanie",
   "discardTitle": "Odrzucić zmiany?",
   "discardMessage": "Odrzucić zmiany? Cel pozostanie w niezmienionej postaci.",
   "activatePromptTitle": "Aktywować cel?",
@@ -128,7 +128,7 @@
     "progressSaved": "Postęp zapisany",
     "activated": "Cel aktywowany",
     "deactivated": "Cel wrócił do wersji roboczej",
-    "closed": "Cel zamknięty",
+    "archived": "Cel zarchiwizowany",
     "reopened": "Cel ponownie otwarty",
     "deleted": "Cel usunięty"
   }

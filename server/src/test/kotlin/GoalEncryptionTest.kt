@@ -1,6 +1,6 @@
 package ch.nokillswit
 
-import ch.nokillswit.goals.GoalCloseRequest
+import ch.nokillswit.goals.GoalArchiveRequest
 import ch.nokillswit.goals.GoalCreateRequest
 import ch.nokillswit.goals.GoalResponse
 import ch.nokillswit.goals.GoalService
@@ -83,9 +83,9 @@ class GoalEncryptionTest {
         manager.post("/api/v1/goals/${created.id}/activate")
         assertEquals(
             HttpStatusCode.NoContent,
-            manager.post("/api/v1/goals/${created.id}/close") {
+            manager.post("/api/v1/goals/${created.id}/archive") {
                 contentType(ContentType.Application.Json)
-                setBody(GoalCloseRequest(summary = secretSummary))
+                setBody(GoalArchiveRequest(summary = secretSummary))
             }.status,
         )
 
@@ -133,7 +133,7 @@ class GoalEncryptionTest {
                 it[GoalService.Goals.type] = GoalType.NUMBER
                 it[GoalService.Goals.targetValue] = 5.0
                 it[GoalService.Goals.currentValue] = 0.0
-                it[GoalService.Goals.status] = GoalStatus.CLOSED
+                it[GoalService.Goals.status] = GoalStatus.ARCHIVED
                 it[GoalService.Goals.summary] = "legacy plain summary"
                 it[GoalService.Goals.lastModified] = now
             }[GoalService.Goals.id].value
@@ -172,7 +172,7 @@ class GoalEncryptionTest {
             ),
         )
         TestServices.goals.transition(id, GoalStatus.DRAFT, GoalStatus.ACTIVE)
-        TestServices.goals.transition(id, GoalStatus.ACTIVE, GoalStatus.CLOSED, summary = "rotate this summary")
+        TestServices.goals.transition(id, GoalStatus.ACTIVE, GoalStatus.ARCHIVED, summary = "rotate this summary")
 
         // Boot-time state during rotation: current = new key, previous = old key.
         val rotatingService = GoalService(

@@ -20,7 +20,7 @@ import { useTranslation } from "react-i18next";
 import {
   activateGoal,
   ApiError,
-  closeGoal,
+  archiveGoal,
   deactivateGoal,
   getGoal,
   getUserId,
@@ -40,7 +40,7 @@ import { invalidateGoal } from "../utils/goalQueries";
 import { showSuccessToast } from "../utils/toast";
 import { GoalValues, isGoalOverdue, OverdueBadge } from "../utils/goalValues";
 
-// The manager's lifecycle actions per status. The view screen is their single home — CLOSED
+// The manager's lifecycle actions per status. The view screen is their single home — ARCHIVED
 // goals have no edit form, so Reopen could live nowhere else, and keeping all four here means
 // one 409-handling path (mirrors ViewFeedback's NEXT_ACTION, pluralized because ACTIVE has two
 // exits). Close is special-cased: it opens the summary modal instead of firing directly.
@@ -48,9 +48,9 @@ const ACTIONS: Record<GoalStatus, { labelKey: string; successKey: string; run?: 
   DRAFT: [{ labelKey: "goal.action.activate", successKey: "goal.toast.activated", run: activateGoal, primary: true }],
   ACTIVE: [
     { labelKey: "goal.action.deactivate", successKey: "goal.toast.deactivated", run: deactivateGoal, primary: false },
-    { labelKey: "goal.action.close", successKey: "goal.toast.closed", close: true, primary: true },
+    { labelKey: "goal.action.close", successKey: "goal.toast.archived", close: true, primary: true },
   ],
-  CLOSED: [{ labelKey: "goal.action.reopen", successKey: "goal.toast.reopened", run: reopenGoal, primary: true }],
+  ARCHIVED: [{ labelKey: "goal.action.reopen", successKey: "goal.toast.reopened", run: reopenGoal, primary: true }],
 };
 
 /** The goal document: read-only for everyone, plus the manager's lifecycle actions. */
@@ -251,7 +251,7 @@ export default function ViewGoal() {
         onClose={() => setCloseOpened(false)}
         loading={submitting != null}
         onConfirm={(summary) =>
-          void runAction("goal.action.close", (goalId) => closeGoal(goalId, { summary }), "goal.toast.closed")
+          void runAction("goal.action.close", (goalId) => archiveGoal(goalId, { summary }), "goal.toast.archived")
         }
       />
     </Container>

@@ -24,8 +24,8 @@ internal fun goalTransitionNotifications(
     val type = when (from to to) {
         GoalStatus.DRAFT to GoalStatus.ACTIVE -> NotificationType.GOAL_ACTIVATED_TO_SUBORDINATE
         GoalStatus.ACTIVE to GoalStatus.DRAFT -> NotificationType.GOAL_DEACTIVATED_TO_SUBORDINATE
-        GoalStatus.ACTIVE to GoalStatus.CLOSED -> NotificationType.GOAL_CLOSED_TO_SUBORDINATE
-        GoalStatus.CLOSED to GoalStatus.ACTIVE -> NotificationType.GOAL_REOPENED_TO_SUBORDINATE
+        GoalStatus.ACTIVE to GoalStatus.ARCHIVED -> NotificationType.GOAL_ARCHIVED_TO_SUBORDINATE
+        GoalStatus.ARCHIVED to GoalStatus.ACTIVE -> NotificationType.GOAL_REOPENED_TO_SUBORDINATE
         else -> return emptyList() // not a valid edge — the service rejects it before we get here
     }
     return listOf(

@@ -100,7 +100,7 @@ describe("ViewGoal page", () => {
     expect(screen.queryByText("Summary")).toBeNull();
   });
 
-  test("an ACTIVE goal past its due date shows the overdue badge; a CLOSED one does not", async () => {
+  test("an ACTIVE goal past its due date shows the overdue badge; an ARCHIVED one does not", async () => {
     setupMocks({ ...GOAL, dueDate: "2020-01-01" });
     renderScreen();
 
@@ -108,20 +108,20 @@ describe("ViewGoal page", () => {
     expect(screen.getByText("Overdue")).toBeInTheDocument();
 
     cleanup();
-    setupMocks({ ...GOAL, dueDate: "2020-01-01", status: "CLOSED", summary: "done" });
+    setupMocks({ ...GOAL, dueDate: "2020-01-01", status: "ARCHIVED", summary: "done" });
     renderScreen();
     expect(await screen.findByText("Jan 1, 2020")).toBeInTheDocument();
     expect(screen.queryByText("Overdue")).toBeNull();
   });
 
-  test("a closed goal shows its summary pre-wrapped and the achieved pill for BINARY", async () => {
+  test("an archived goal shows its summary pre-wrapped and the achieved pill for BINARY", async () => {
     setupMocks({
       ...GOAL,
       type: "BINARY",
       targetValue: null,
       currentValue: null,
       achieved: true,
-      status: "CLOSED",
+      status: "ARCHIVED",
       summary: "Done well.\nSecond line.",
     });
     renderScreen();
@@ -137,7 +137,7 @@ describe("ViewGoal page", () => {
 
     await screen.findByText("Raise coverage");
     expect(screen.queryByRole("button", { name: /^activate$/i })).toBeNull();
-    expect(screen.queryByRole("button", { name: /close goal/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /archive goal/i })).toBeNull();
     expect(screen.queryByRole("link", { name: /^edit$/i })).toBeNull();
     // Close (the back link) is always there.
     expect(screen.getByRole("link", { name: /^close$/i })).toHaveAttribute("href", "/users/7/goals");
@@ -155,7 +155,7 @@ describe("ViewGoal page", () => {
     );
   });
 
-  test("the manager on ACTIVE sees Return to draft + Close goal; an action fires and navigates back", async () => {
+  test("the manager on ACTIVE sees Return to draft + Archive goal; an action fires and navigates back", async () => {
     localStorage.setItem(USER_ID_KEY, "7");
     setupMocks();
     const toast = vi.spyOn(notifications, "show").mockReturnValue("id");
@@ -199,33 +199,33 @@ describe("ViewGoal page", () => {
     await user.click(await screen.findByRole("button", { name: /return to draft/i }));
 
     const deactivate = screen.getByRole("button", { name: /return to draft/i });
-    const close = screen.getByRole("button", { name: /close goal/i });
+    const close = screen.getByRole("button", { name: /archive goal/i });
     await waitFor(() => expect(deactivate).toHaveAttribute("data-loading", "true"));
     expect(close).not.toHaveAttribute("data-loading");
     expect(close).toBeDisabled(); // still blocked from double-firing, just not spinning
   });
 
-  test("closing requires a summary in the modal and posts it", async () => {
+  test("archiving requires a summary in the modal and posts it", async () => {
     localStorage.setItem(USER_ID_KEY, "7");
     setupMocks();
     const user = userEvent.setup();
     renderScreen();
 
-    await user.click(await screen.findByRole("button", { name: /close goal/i }));
+    await user.click(await screen.findByRole("button", { name: /archive goal/i }));
     const dialog = await screen.findByRole("dialog");
 
     // Blank summary is blocked client-side.
-    await user.click(within(dialog).getByRole("button", { name: /close goal/i }));
-    expect(await within(dialog).findByText("A summary is required to close a goal")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: /archive goal/i }));
+    expect(await within(dialog).findByText("A summary is required to archive a goal")).toBeInTheDocument();
     expect(
-      mockFetch.mock.calls.some(([u]) => String(u).includes("/close")),
+      mockFetch.mock.calls.some(([u]) => String(u).includes("/archive")),
     ).toBe(false);
 
     await user.type(within(dialog).getByLabelText(/summary/i), "Target reached early");
-    await user.click(within(dialog).getByRole("button", { name: /close goal/i }));
+    await user.click(within(dialog).getByRole("button", { name: /archive goal/i }));
 
     await waitFor(() => {
-      const call = mockFetch.mock.calls.find(([u]) => String(u) === "/api/v1/goals/5/close");
+      const call = mockFetch.mock.calls.find(([u]) => String(u) === "/api/v1/goals/5/archive");
       expect(call).toBeDefined();
       expect(JSON.parse((call![1] as RequestInit).body as string)).toEqual({
         summary: "Target reached early",
@@ -236,14 +236,14 @@ describe("ViewGoal page", () => {
 
   test("a 409 on an action renders the invalid-transition message and stays", async () => {
     localStorage.setItem(USER_ID_KEY, "7");
-    setupMocks({ ...GOAL, status: "CLOSED", summary: "old" });
+    setupMocks({ ...GOAL, status: "ARCHIVED", summary: "old" });
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const u = String(url);
       if ((init?.method ?? "GET") === "POST") {
         return Promise.resolve(jsonResponse(409, { title: "conflict" }));
       }
       if (u.includes("/events")) return Promise.resolve(jsonResponse(200, { items: [] }));
-      return Promise.resolve(jsonResponse(200, { ...GOAL, status: "CLOSED", summary: "old" }));
+      return Promise.resolve(jsonResponse(200, { ...GOAL, status: "ARCHIVED", summary: "old" }));
     });
     const user = userEvent.setup();
     renderScreen();

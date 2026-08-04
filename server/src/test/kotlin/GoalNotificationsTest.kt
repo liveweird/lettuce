@@ -30,12 +30,12 @@ class GoalNotificationsTest {
             build(GoalStatus.ACTIVE, GoalStatus.DRAFT).single().type,
         )
         assertEquals(
-            NotificationType.GOAL_CLOSED_TO_SUBORDINATE,
-            build(GoalStatus.ACTIVE, GoalStatus.CLOSED).single().type,
+            NotificationType.GOAL_ARCHIVED_TO_SUBORDINATE,
+            build(GoalStatus.ACTIVE, GoalStatus.ARCHIVED).single().type,
         )
         assertEquals(
             NotificationType.GOAL_REOPENED_TO_SUBORDINATE,
-            build(GoalStatus.CLOSED, GoalStatus.ACTIVE).single().type,
+            build(GoalStatus.ARCHIVED, GoalStatus.ACTIVE).single().type,
         )
     }
 
@@ -49,8 +49,8 @@ class GoalNotificationsTest {
 
     @Test
     fun `an invalid edge produces no notifications`() {
-        assertTrue(build(GoalStatus.DRAFT, GoalStatus.CLOSED).isEmpty())
-        assertTrue(build(GoalStatus.CLOSED, GoalStatus.DRAFT).isEmpty())
+        assertTrue(build(GoalStatus.DRAFT, GoalStatus.ARCHIVED).isEmpty())
+        assertTrue(build(GoalStatus.ARCHIVED, GoalStatus.DRAFT).isEmpty())
         assertTrue(build(GoalStatus.DRAFT, GoalStatus.DRAFT).isEmpty())
     }
 }
