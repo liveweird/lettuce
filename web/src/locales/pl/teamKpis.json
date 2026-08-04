@@ -119,5 +119,17 @@
     "valueRemoved": "Usunięto wartość {{value}} z dnia {{date}}.",
     "statusChanged": "Zmieniono status z {{from}} na {{to}}.",
     "deleted": "Usunięto KPI zespołu."
+  },
+  "toast": {
+    "created": "KPI zespołu utworzone",
+    "saved": "Zmiany zapisane",
+    "activated": "KPI aktywowane",
+    "deactivated": "KPI wróciło do wersji roboczej",
+    "archived": "KPI zarchiwizowane",
+    "reopened": "KPI ponownie otwarte",
+    "deleted": "KPI usunięte",
+    "valueAdded": "Punkt danych dodany",
+    "valueSaved": "Punkt danych zaktualizowany",
+    "valueRemoved": "Punkt danych usunięty"
   }
 }

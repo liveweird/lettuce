@@ -151,5 +151,10 @@
     "specialization": "Specialization",
     "seniority": "Seniority"
   },
-  "performanceReviews": "Performance reviews"
+  "performanceReviews": "Performance reviews",
+  "toast": {
+    "updated": "User updated",
+    "deleted": "User deleted",
+    "passwordChanged": "Password changed"
+  }
 }

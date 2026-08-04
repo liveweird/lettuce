@@ -28,6 +28,7 @@ import ConfirmDeleteModal from "./ConfirmDeleteModal";
 import { formatIsoDate, todayIsoDate } from "../utils/datetime";
 import { formatGoalValue } from "../utils/goalValues";
 import { invalidateTeamKpi } from "../utils/teamKpiQueries";
+import { showSuccessToast } from "../utils/toast";
 
 // One row is being edited at a time; its draft inputs live here.
 type RowDraft = { id: number; date: string; value: number | string };
@@ -63,6 +64,7 @@ export default function TeamKpiValuesEditor({ kpi }: { kpi: TeamKpiResponse }) {
   const deleteConfirm = useDeleteConfirm<TeamKpiValue>({
     mutationFn: (row) => deleteTeamKpiValue(kpi.id, row.id),
     onSuccess: () => invalidateTeamKpi(queryClient, kpi.id),
+    successMessage: t("teamKpi.toast.valueRemoved"),
   });
 
   // Shared field validation, mirroring the server's rules (finite, 0–100 for PERCENTAGE;
@@ -100,6 +102,7 @@ export default function TeamKpiValuesEditor({ kpi }: { kpi: TeamKpiResponse }) {
       setAddDate(todayIsoDate());
       setAddValue("");
       await invalidateTeamKpi(queryClient, kpi.id);
+      showSuccessToast(t("teamKpi.toast.valueAdded"));
     } catch (err) {
       setAddError(requestErrorMessage(err));
     } finally {
@@ -120,6 +123,7 @@ export default function TeamKpiValuesEditor({ kpi }: { kpi: TeamKpiResponse }) {
       await updateTeamKpiValue(kpi.id, draft.id, { date: draft.date, value: Number(draft.value) });
       setDraft(null);
       await invalidateTeamKpi(queryClient, kpi.id);
+      showSuccessToast(t("teamKpi.toast.valueSaved"));
     } catch (err) {
       setDraftError(requestErrorMessage(err));
     } finally {

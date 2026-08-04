@@ -97,5 +97,10 @@
     "ownerChanged": "Owner of action item {{position}} changed from {{from}} to {{to}}."
   },
   "oneOnOnesAudit": "All 1:1 meetings of {{who}}",
-  "oneOnOnesAuditHint": "Every 1:1 meeting {{who}} took part in, in either role. Read-only."
+  "oneOnOnesAuditHint": "Every 1:1 meeting {{who}} took part in, in either role. Read-only.",
+  "toast": {
+    "created": "1:1 meeting created",
+    "saved": "Changes saved",
+    "deleted": "1:1 meeting deleted"
+  }
 }

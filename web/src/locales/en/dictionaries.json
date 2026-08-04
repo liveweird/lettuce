@@ -23,5 +23,8 @@
     "validation": "The entries are invalid — check for blank or duplicate values.",
     "saveFailedStatus": "Saving failed (status {{status}}).",
     "saveFailed": "Saving failed. Check your connection and try again."
+  },
+  "toast": {
+    "saved": "Dictionary saved"
   }
 }

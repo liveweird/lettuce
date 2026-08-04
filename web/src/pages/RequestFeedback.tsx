@@ -31,6 +31,7 @@ import PersonaChip from "../components/PersonaChip";
 import PersonaField from "../components/PersonaField";
 import { REQUESTER_VISIBILITIES } from "../utils/feedbackVisibility";
 import { saveErrorMessage } from "../utils/saveError";
+import { showSuccessToast } from "../utils/toast";
 
 // The provider picker realistically chooses from a bounded set; fetch up to the 100-row
 // max (the list endpoint's cap). Fine at this app's scale.
@@ -140,6 +141,7 @@ export default function RequestFeedback() {
       await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
       // Requesting feedback mints a requester confirmation — refresh the bell badge immediately.
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      showSuccessToast(t("feedback.toast.requested"));
       navigate(backTo, { replace: true });
     } catch (err) {
       setError(

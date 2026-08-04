@@ -6,6 +6,7 @@ import { useDisclosure } from "@mantine/hooks";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { createAlert, isAdmin } from "../api/client";
+import { showSuccessToast } from "../utils/toast";
 import AlertFormFields from "../components/AlertFormFields";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import {
@@ -38,6 +39,7 @@ export default function CreateAlert() {
       await createAlert(toAlertBody(values));
       await queryClient.invalidateQueries({ queryKey: ["alerts"] });
       await queryClient.invalidateQueries({ queryKey: ["visibleAlerts"] });
+      showSuccessToast(t("alerts.toast.created"));
       navigate("/alerts", { replace: true });
     } catch (err) {
       setError(

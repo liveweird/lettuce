@@ -24,6 +24,7 @@ import { useDisclosure } from "@mantine/hooks";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, getTemplate, isAdmin, updateTemplate } from "../api/client";
+import { showSuccessToast } from "../utils/toast";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import { saveErrorMessage } from "../utils/saveError";
 
@@ -78,6 +79,7 @@ export default function EditTemplate() {
       await updateTemplate(id, { name: values.name, content: values.content });
       await queryClient.invalidateQueries({ queryKey: ["templates"] });
       await queryClient.invalidateQueries({ queryKey: ["template", id] });
+      showSuccessToast(t("templates.toast.updated"));
       navigate("/templates", { replace: true });
     } catch (err) {
       // A duplicate name is a field-level problem, not a page-level one.

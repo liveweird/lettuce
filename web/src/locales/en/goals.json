@@ -121,5 +121,15 @@
     "deleted": "Goal deleted."
   },
   "goalsAudit": "All goals of {{who}}",
-  "goalsAuditHint": "Every goal {{who}} is a party to — as manager or team member — at every status. Read-only."
+  "goalsAuditHint": "Every goal {{who}} is a party to — as manager or team member — at every status. Read-only.",
+  "toast": {
+    "created": "Goal created",
+    "saved": "Changes saved",
+    "progressSaved": "Progress saved",
+    "activated": "Goal activated",
+    "deactivated": "Goal returned to draft",
+    "closed": "Goal closed",
+    "reopened": "Goal reopened",
+    "deleted": "Goal deleted"
+  }
 }

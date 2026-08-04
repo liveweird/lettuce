@@ -12,6 +12,7 @@ import DuplicateFeedbackAlert from "../components/DuplicateFeedbackAlert";
 import FeedbackForm from "../components/FeedbackForm";
 import { useFeedbackDuplicate } from "../hooks/useFeedbackDuplicate";
 import { saveErrorMessage } from "../utils/saveError";
+import { showSuccessToast } from "../utils/toast";
 
 export default function CreateFeedback() {
   const { t } = useTranslation();
@@ -52,6 +53,7 @@ export default function CreateFeedback() {
       await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
       // A create may mint notifications (e.g. SENT → subject/requester) — refresh the bell badge.
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      showSuccessToast(t(status === "SENT" ? "feedback.toast.sent" : "feedback.toast.draftSaved"));
       navigate(backTo, { replace: true });
     } catch (err) {
       setError(

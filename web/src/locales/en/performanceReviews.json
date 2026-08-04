@@ -126,5 +126,16 @@
     "noReviewYet": "No review yet",
     "noPeriods": "There are no review periods yet — an administrator creates them under Config → Review periods.",
     "empty": "No team members match the filters."
+  },
+  "toast": {
+    "created": "Review created",
+    "saved": "Changes saved",
+    "submitted": "Review submitted for calibration",
+    "reverted": "Review returned to draft",
+    "published": "Review published",
+    "unpublished": "Review unpublished",
+    "deleted": "Review deleted",
+    "periodAdded": "Review period added",
+    "periodDeleted": "Review period deleted"
   }
 }

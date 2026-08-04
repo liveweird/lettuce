@@ -49,5 +49,10 @@
     "hiddenCount_few": "{{count}} ukryte alerty",
     "hiddenCount_many": "{{count}} ukrytych alertów",
     "hiddenCount_other": "{{count}} ukrytego alertu"
+  },
+  "toast": {
+    "created": "Alert utworzony",
+    "updated": "Alert zaktualizowany",
+    "deleted": "Alert usunięty"
   }
 }

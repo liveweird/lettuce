@@ -36,6 +36,7 @@ import ReadOnlyField from "../components/ReadOnlyField";
 import { formatMonthRange, isCurrentPeriod } from "../utils/datetime";
 import { reviewViewLink } from "../utils/performanceReviewLinks";
 import { invalidatePerformanceReview } from "../utils/performanceReviewQueries";
+import { showSuccessToast } from "../utils/toast";
 import {
   isReviewComplete,
   ratingColor,
@@ -106,8 +107,9 @@ export default function EditPerformanceReview() {
   // A PUBLISHED review is read-only — its only action (Unpublish) lives on the view screen.
   if (data && data.status === "PUBLISHED") return <Navigate to={viewLink} replace />;
 
-  async function afterSave() {
+  async function afterSave(successKey: string) {
     await invalidatePerformanceReview(queryClient, id);
+    showSuccessToast(t(successKey));
     navigate(backTo, { replace: true });
   }
 
@@ -124,7 +126,7 @@ export default function EditPerformanceReview() {
     try {
       await updatePerformanceReview(id, toReviewBody(values));
       if (andSubmit) await submitPerformanceReview(id);
-      await afterSave();
+      await afterSave(andSubmit ? "performanceReview.toast.submitted" : "performanceReview.toast.saved");
     } catch (err) {
       setError(reviewSaveErrorMessage(err, t));
       setSubmitting(null);
@@ -138,6 +140,7 @@ export default function EditPerformanceReview() {
       await deletePerformanceReview(id);
       queryClient.removeQueries({ queryKey: ["performanceReview", id] });
       await invalidatePerformanceReview(queryClient);
+      showSuccessToast(t("performanceReview.toast.deleted"));
       navigate(backTo, { replace: true });
     } catch (err) {
       closeDelete();

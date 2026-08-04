@@ -37,6 +37,7 @@ import ReadOnlyField from "../components/ReadOnlyField";
 import { formatDate, formatMonthRange, isCurrentPeriod } from "../utils/datetime";
 import { reviewEditLink } from "../utils/performanceReviewLinks";
 import { invalidatePerformanceReview } from "../utils/performanceReviewQueries";
+import { showSuccessToast } from "../utils/toast";
 import { ratingLabel, REVIEW_CATEGORIES } from "../utils/reviewRatings";
 
 // The manager's lifecycle actions per status (the ViewGoal ACTIONS idiom). Every edge is
@@ -44,15 +45,17 @@ import { ratingLabel, REVIEW_CATEGORIES } from "../utils/reviewRatings";
 // deliberate retraction.
 const ACTIONS: Record<
   PerformanceReviewStatus,
-  { labelKey: string; run: (id: number) => Promise<void>; primary: boolean }[]
+  { labelKey: string; successKey: string; run: (id: number) => Promise<void>; primary: boolean }[]
 > = {
-  DRAFT: [{ labelKey: "performanceReview.action.submit", run: submitPerformanceReview, primary: true }],
+  DRAFT: [
+    { labelKey: "performanceReview.action.submit", successKey: "performanceReview.toast.submitted", run: submitPerformanceReview, primary: true },
+  ],
   CALIBRATION: [
-    { labelKey: "performanceReview.action.revert", run: revertPerformanceReview, primary: false },
-    { labelKey: "performanceReview.action.publish", run: publishPerformanceReview, primary: true },
+    { labelKey: "performanceReview.action.revert", successKey: "performanceReview.toast.reverted", run: revertPerformanceReview, primary: false },
+    { labelKey: "performanceReview.action.publish", successKey: "performanceReview.toast.published", run: publishPerformanceReview, primary: true },
   ],
   PUBLISHED: [
-    { labelKey: "performanceReview.action.unpublish", run: unpublishPerformanceReview, primary: false },
+    { labelKey: "performanceReview.action.unpublish", successKey: "performanceReview.toast.unpublished", run: unpublishPerformanceReview, primary: false },
   ],
 };
 
@@ -114,12 +117,13 @@ export default function ViewPerformanceReview() {
     enabled: idIsValid,
   });
 
-  async function runAction(labelKey: string, run: (id: number) => Promise<void>) {
+  async function runAction(labelKey: string, run: (id: number) => Promise<void>, successKey: string) {
     setSubmitting(labelKey);
     setError(null);
     try {
       await run(id);
       await invalidatePerformanceReview(queryClient, id);
+      showSuccessToast(t(successKey));
       navigate(backTo, { replace: true });
     } catch (err) {
       if (err instanceof ApiError && err.status === 400) {
@@ -235,7 +239,7 @@ export default function ViewPerformanceReview() {
                   color={action.primary ? undefined : "orange"}
                   loading={submitting === action.labelKey}
                   disabled={submitting != null && submitting !== action.labelKey}
-                  onClick={() => void runAction(action.labelKey, action.run)}
+                  onClick={() => void runAction(action.labelKey, action.run, action.successKey)}
                 >
                   {t(action.labelKey)}
                 </Button>

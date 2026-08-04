@@ -143,5 +143,14 @@
     "visibilityChanged": "Zmieniono widoczność na {{to}}."
   },
   "feedbacksAudit": "Wszystkie feedbacki: {{who}}",
-  "feedbacksAuditHint": "Każdy feedback, którego stroną jest {{who}} — jako podmiot, wystawiający/a lub proszący/a — w każdym statusie. Tylko do odczytu."
+  "feedbacksAuditHint": "Każdy feedback, którego stroną jest {{who}} — jako podmiot, wystawiający/a lub proszący/a — w każdym statusie. Tylko do odczytu.",
+  "toast": {
+    "draftSaved": "Wersja robocza zapisana",
+    "sent": "Feedback wysłany",
+    "requested": "Prośba o feedback wysłana",
+    "accepted": "Prośba przyjęta",
+    "rejected": "Prośba odrzucona",
+    "withdrawn": "Feedback wycofany",
+    "deleted": "Wersja robocza usunięta"
+  }
 }

@@ -32,6 +32,7 @@ import {
   yearOptions,
 } from "../utils/datetime";
 import { saveErrorMessage } from "../utils/saveError";
+import { showSuccessToast } from "../utils/toast";
 
 type MonthChoice = { month: string; year: string };
 
@@ -96,6 +97,7 @@ export default function ReviewPeriods() {
     try {
       await createReviewPeriod({ startMonth: startIso, endMonth: endIso });
       await queryClient.invalidateQueries({ queryKey: ["reviewPeriods"] });
+      showSuccessToast(t("performanceReview.toast.periodAdded"));
       setEndChoice(null); // back to the default length for the next append
     } catch (err) {
       setError(
@@ -120,6 +122,7 @@ export default function ReviewPeriods() {
     try {
       await deleteReviewPeriod(deleteTarget);
       await queryClient.invalidateQueries({ queryKey: ["reviewPeriods"] });
+      showSuccessToast(t("performanceReview.toast.periodDeleted"));
       setDeleteTarget(null);
     } catch (err) {
       setDeleteTarget(null);

@@ -4,6 +4,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { notifications } from "@mantine/notifications";
 import Teams from "./Teams";
 import { jsonResponse } from "../test/http";
 
@@ -417,6 +418,7 @@ describe("Teams page", () => {
   });
 
   test("confirming triggers DELETE and refetches the list", async () => {
+    const toast = vi.spyOn(notifications, "show").mockReturnValue("id");
     let teamGetCount = 0;
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
@@ -450,6 +452,11 @@ describe("Teams page", () => {
     );
     expect(deleteCall).toBeDefined();
     expect(teamGetCount).toBeGreaterThanOrEqual(2);
+    // The shared delete hook shows the page's fixed success message as a toast.
+    expect(toast).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "Team deleted", color: "teal" }),
+    );
+    toast.mockRestore();
   });
 
   test("server error surfaces an alert and keeps the modal open", async () => {

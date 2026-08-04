@@ -31,5 +31,10 @@
   "editFailedStatus": "Edit failed ({{status}})",
   "editFailedNetwork": "Edit failed. Check your connection and try again.",
   "discardTitle": "Discard changes?",
-  "discardMessage": "Any unsaved changes to this template will be lost."
+  "discardMessage": "Any unsaved changes to this template will be lost.",
+  "toast": {
+    "created": "Template created",
+    "updated": "Template updated",
+    "deleted": "Template deleted"
+  }
 }

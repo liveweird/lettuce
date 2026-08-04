@@ -70,5 +70,12 @@
   "kpis": "Team KPIs",
   "kpisOfAria": "Team KPIs of {{name}}",
   "performanceReviews": "Performance reviews",
-  "performanceReviewsForAria": "Performance reviews of {{name}}"
+  "performanceReviewsForAria": "Performance reviews of {{name}}",
+  "toast": {
+    "created": "Team created",
+    "updated": "Team updated",
+    "deleted": "Team deleted",
+    "memberAdded": "Member added",
+    "memberRemoved": "Member removed"
+  }
 }

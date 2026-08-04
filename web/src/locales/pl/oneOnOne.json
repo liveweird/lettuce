@@ -99,5 +99,10 @@
     "ownerChanged": "Zmieniono właściciela zadania {{position}} z {{from}} na {{to}}."
   },
   "oneOnOnesAudit": "Wszystkie spotkania 1:1: {{who}}",
-  "oneOnOnesAuditHint": "Każde spotkanie 1:1, w którym {{who}} brał/a udział, w dowolnej roli. Tylko do odczytu."
+  "oneOnOnesAuditHint": "Każde spotkanie 1:1, w którym {{who}} brał/a udział, w dowolnej roli. Tylko do odczytu.",
+  "toast": {
+    "created": "Spotkanie 1:1 utworzone",
+    "saved": "Zmiany zapisane",
+    "deleted": "Spotkanie 1:1 usunięte"
+  }
 }
