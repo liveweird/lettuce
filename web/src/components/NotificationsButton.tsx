@@ -34,8 +34,8 @@ import {
   IconTrash,
   IconX,
 } from "@tabler/icons-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { useNavigate } from "react-router-dom";
@@ -182,16 +182,18 @@ export default function NotificationsButton() {
     queryFn: () => listNotifications({ page, pageSize: PAGE_SIZE, sort: "-timestamp" }),
     enabled: opened,
     refetchInterval: UNREAD_REFETCH_MS, // only polls while the modal is open (enabled)
+    placeholderData: keepPreviousData, // no empty flash while stepping between pages
   });
   const total = listQuery.data?.total ?? 0;
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
-  // Deleting the last row of the last page leaves an empty page — step back instead.
-  useEffect(() => {
-    if (listQuery.data && listQuery.data.items.length === 0 && page > 1) {
-      setPage(page - 1);
-    }
-  }, [listQuery.data, page]);
+  // Deleting the last row of the last page (or the 30s poll observing someone else's
+  // deletion) leaves an empty page — step back. Adjusted during render, the React-documented
+  // replacement for the set-state-in-effect shape: React restarts the render immediately
+  // instead of committing a wasted empty frame.
+  if (listQuery.data && listQuery.data.items.length === 0 && page > 1) {
+    setPage(page - 1);
+  }
 
   const markSeen = useMutation({
     mutationFn: (id: number) => markNotificationSeen(id),
