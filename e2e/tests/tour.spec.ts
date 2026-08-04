@@ -24,7 +24,7 @@ const LANDMARKS = [
   "Notifications",
   "Switch the interface language",
   "Toggle light and dark",
-  "Sign out",
+  "Your account menu",
   "Replay this tour",
 ];
 

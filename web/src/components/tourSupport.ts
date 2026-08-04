@@ -94,7 +94,7 @@ export const TOUR_STEPS: TourStepDef[] = [
   { target: '[data-tour="notifications"]', contentKey: "tour.steps.notifications", placement: "bottom" },
   { target: '[data-tour="language"]', contentKey: "tour.steps.language", placement: "bottom" },
   { target: '[data-tour="theme"]', contentKey: "tour.steps.theme", placement: "bottom" },
-  { target: '[data-tour="logout"]', contentKey: "tour.steps.logout", placement: "bottom" },
+  { target: '[data-tour="user-menu"]', contentKey: "tour.steps.logout", placement: "bottom" },
   // The closing step returns home, so the tour doesn't park the user on the changelog page.
   { target: '[data-tour="replay"]', contentKey: "tour.steps.replay", placement: "bottom", navTo: "/" },
 ];

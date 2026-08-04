@@ -38,18 +38,18 @@ export async function login(page: Page, email: string, password = PASSWORD): Pro
   // Target by textbox role: getByLabel("Password") also matches the visibility-toggle button.
   await page.getByRole("textbox", { name: "Email" }).fill(email);
   await page.getByRole("textbox", { name: "Password" }).fill(password);
-  const loggedIn = page.getByRole("button", { name: "Logout" });
+  const loggedIn = page.getByRole("button", { name: "User menu" });
   const limited = page.getByText(RATE_LIMIT_ALERT);
   for (let attempt = 0; attempt < RATE_LIMIT_RETRIES; attempt++) {
     await page.getByRole("button", { name: "Sign in" }).click();
-    // Authenticated: the app shell (with Logout) is up.
+    // Authenticated: the app shell (with the header user menu) is up.
     await expect(loggedIn.or(limited).first()).toBeVisible({ timeout: 15_000 });
     if (await loggedIn.isVisible()) {
       // The app may restore a "previously-intended page" after sign-in (React Router's
       // location.state.from survives a same-URL goto("/login") because browsers keep
       // history.state across reloads). Land deterministically on the dashboard instead.
       await page.goto("/");
-      await expect(page.getByRole("button", { name: "Logout" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "User menu" })).toBeVisible();
       return;
     }
     await page.waitForTimeout(RATE_LIMIT_WAIT_MS);
@@ -78,7 +78,9 @@ export async function expectLoginRejected(page: Page, email: string, password: s
 
 export async function logout(page: Page): Promise<void> {
   await collapseAlertsBanner(page);
-  await page.getByRole("button", { name: "Logout" }).click();
+  // Logout lives inside the header user menu (avatar dropdown, v1.37.0).
+  await page.getByRole("button", { name: "User menu" }).click();
+  await page.getByRole("menuitem", { name: "Logout" }).click();
   await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
 }
 

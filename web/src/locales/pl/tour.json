@@ -44,7 +44,7 @@
     "selfReflection": "Autorefleksja — napisz feedback o sobie. Po wysłaniu przeczytają go Twoi menedżerowie.",
     "account": "Twoje konto — tutaj zmienisz hasło.",
     "changelog": "Historia zmian — co nowego w każdym wydaniu. Czerwona kropka przy numerze wersji poniżej oznacza zmiany, których jeszcze nie widziałeś/aś.",
-    "logout": "Wyloguj się, gdy skończysz.",
+    "logout": "Menu Twojego konta: zmień hasło lub wyloguj się, gdy skończysz.",
     "replay": "To wszystko! Przewodnik możesz odtworzyć w każdej chwili stąd."
   }
 }

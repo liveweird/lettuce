@@ -220,11 +220,16 @@ describe("App shell", () => {
       }
     });
 
-    test("shows the logout button", async () => {
+    test("the user menu holds Change password and Logout", async () => {
+      localStorage.setItem(USER_ID_KEY, "7");
+      const user = userEvent.setup();
       renderApp("/");
-      expect(
-        await screen.findByRole("button", { name: /logout/i }),
-      ).toBeInTheDocument();
+      // The trigger renders even before (or without) the profile query resolving,
+      // so signing out never depends on GET /users/{id} succeeding.
+      await user.click(await screen.findByRole("button", { name: "User menu" }));
+      const changePassword = await screen.findByRole("menuitem", { name: /change password/i });
+      expect(changePassword).toHaveAttribute("href", "/users/7/change-password");
+      expect(screen.getByRole("menuitem", { name: /logout/i })).toBeInTheDocument();
     });
 
     test("shows the signed-in user's name in the header", async () => {

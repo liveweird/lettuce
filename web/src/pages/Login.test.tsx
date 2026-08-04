@@ -122,7 +122,9 @@ describe("Login page", () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { route: "/" });
 
-    await user.click(await screen.findByRole("button", { name: /logout/i }));
+    // Logout now lives inside the header user menu.
+    await user.click(await screen.findByRole("button", { name: "User menu" }));
+    await user.click(await screen.findByRole("menuitem", { name: /logout/i }));
 
     expect(
       await screen.findByText(/you've been signed out/i),

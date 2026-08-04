@@ -1,4 +1,4 @@
-import { test, expect, login, uniqueText, ADMIN } from "./helpers";
+import { test, expect, login, logout, uniqueText, ADMIN } from "./helpers";
 import type { Page } from "@playwright/test";
 
 // The three global dictionaries share one page (`/dictionaries/:slug`): admins edit the whole
@@ -62,8 +62,7 @@ test("admin curates a dictionary; a regular user sees the read-only list", async
   // A regular user sees the same values read-only: no inputs, no editor buttons. Sign out
   // through the UI first — the login helper drives the real /login form, which an
   // authenticated session gets redirected away from.
-  await page.getByRole("button", { name: "Logout" }).click();
-  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+  await logout(page);
   await login(page, "aaa-one@lettuce.local");
   await page.goto(`/dictionaries/${SLUG}`);
   await expect(page.getByText(valueB, { exact: true })).toBeVisible();
@@ -73,8 +72,7 @@ test("admin curates a dictionary; a regular user sees the read-only list", async
 
   // Cleanup: the admin removes the two throwaway entries (positions shift after the first
   // removal, so the same label is clicked twice), leaving the volume as found.
-  await page.getByRole("button", { name: "Logout" }).click();
-  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+  await logout(page);
   await login(page, ADMIN);
   await page.goto(`/dictionaries/${SLUG}`);
   await expect(page.getByLabel(`Entry ${base + 1}`, { exact: true })).toHaveValue(valueB);

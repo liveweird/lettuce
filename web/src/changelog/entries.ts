@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.37.0",
+    date: "2026-08-04",
+    en: `Your name and avatar in the header are now a menu: click them to see your email, jump to changing your password, or sign out. The standalone Logout button is gone — signing out lives in the menu, where every modern app keeps it.`,
+    pl: `Twoje imię i awatar w nagłówku są teraz menu: kliknij je, aby zobaczyć swój e-mail, przejść do zmiany hasła lub się wylogować. Osobny przycisk wylogowania zniknął — wylogowanie mieszka w menu, tam gdzie trzyma je każda nowoczesna aplikacja.`,
+  },
+  {
     version: "1.36.0",
     date: "2026-08-04",
     en: `The Dashboard opens with an at-a-glance row of your numbers: feedback requests waiting for your reply, your active goals, and feedback received over the last 30 days — managers additionally see their direct-report count and how many performance reviews they've written for the current period (e.g. 3/7). Every tile is a shortcut to the screen behind the number.`,
