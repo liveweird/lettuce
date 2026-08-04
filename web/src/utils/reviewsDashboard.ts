@@ -3,6 +3,7 @@
 // and the filter predicates are unit-testable without rendering.
 
 import type { PerformanceReviewListItem } from "../api/client";
+import { RATING_VALUES, type ReviewCategory } from "./reviewRatings";
 import type { PersonCard, TeamRow } from "./teamRows";
 import { groupTeamRows } from "./teamRows";
 
@@ -143,4 +144,32 @@ export function sortReviewsDashboardRows(
     if (bv == null) return -1;
     return sign * av.localeCompare(bv);
   });
+}
+
+/** One zero-filled bucket per rating value (1–6), for the distribution chart. */
+export type RatingBucket = { rating: number; count: number };
+
+/**
+ * The distribution of one category's ratings across the (filtered) rows — the balance view's
+ * data. Unrated people (no review, or that category unset) are excluded from the buckets and
+ * reported via `rated`/`total` instead (the chart shows them as a caption, not a bar).
+ */
+export function ratingDistribution(
+  rows: ReviewsDashboardRow[],
+  category: ReviewCategory,
+): { counts: RatingBucket[]; rated: number; total: number } {
+  const accessor = RATING_FIELDS[category]!;
+  const byRating = new Map<number, number>(RATING_VALUES.map((r) => [r, 0]));
+  let rated = 0;
+  for (const row of rows) {
+    const rating = accessor(row);
+    if (rating == null || !byRating.has(rating)) continue;
+    byRating.set(rating, byRating.get(rating)! + 1);
+    rated += 1;
+  }
+  return {
+    counts: RATING_VALUES.map((rating) => ({ rating, count: byRating.get(rating)! })),
+    rated,
+    total: rows.length,
+  };
 }

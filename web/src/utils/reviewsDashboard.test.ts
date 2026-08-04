@@ -4,6 +4,7 @@ import {
   buildReviewsDashboardRows,
   EMPTY_REVIEWS_DASHBOARD_FILTERS,
   filterReviewsDashboardRows,
+  ratingDistribution,
   sortReviewsDashboardRows,
   teamNameOptions,
 } from "./reviewsDashboard";
@@ -152,5 +153,38 @@ describe("reviewsDashboard", () => {
       [],
     );
     expect(teamNameOptions(rows)).toEqual(["AAA", "BBB"]);
+  });
+
+  test("ratingDistribution zero-fills all six buckets and counts per category", () => {
+    const rows = buildReviewsDashboardRows(
+      [member(1, "Ann", "AAA"), member(2, "Bob", "AAA"), member(3, "Cee", "AAA")],
+      [
+        review(1, { attitudeRating: 4, overallRating: 6 }),
+        review(2, { attitudeRating: 4, overallRating: null }),
+      ],
+    );
+    const attitude = ratingDistribution(rows, "attitude");
+    expect(attitude.counts).toEqual([
+      { rating: 1, count: 0 },
+      { rating: 2, count: 0 },
+      { rating: 3, count: 0 },
+      { rating: 4, count: 2 },
+      { rating: 5, count: 0 },
+      { rating: 6, count: 0 },
+    ]);
+    expect(attitude.rated).toBe(2);
+    expect(attitude.total).toBe(3); // Cee has no review — counted in total only
+
+    const overall = ratingDistribution(rows, "overall");
+    expect(overall.counts.find((b) => b.rating === 6)?.count).toBe(1);
+    expect(overall.rated).toBe(1); // Bob's overall is unset — excluded per category
+  });
+
+  test("ratingDistribution with no rated rows reports rated 0 and all-zero buckets", () => {
+    const rows = buildReviewsDashboardRows([member(1, "Ann", "AAA")], []);
+    const dist = ratingDistribution(rows, "skills");
+    expect(dist.rated).toBe(0);
+    expect(dist.total).toBe(1);
+    expect(dist.counts.every((b) => b.count === 0)).toBe(true);
   });
 });

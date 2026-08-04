@@ -125,7 +125,14 @@
     "team": "Zespół",
     "noReviewYet": "Brak oceny",
     "noPeriods": "Nie ma jeszcze okresów ocen — administrator tworzy je w Konfiguracja → Okresy ocen.",
-    "empty": "Żaden członek zespołu nie pasuje do filtrów."
+    "empty": "Żaden członek zespołu nie pasuje do filtrów.",
+    "chart": {
+      "viewTable": "Tabela",
+      "viewChart": "Rozkład",
+      "people": "Osoby",
+      "ratedCount": "Ocenione osoby: {{rated}} z {{total}}",
+      "empty": "W tym wyborze nie ma jeszcze ocen."
+    }
   },
   "toast": {
     "created": "Ocena utworzona",

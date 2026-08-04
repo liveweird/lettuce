@@ -125,7 +125,14 @@
     "team": "Team",
     "noReviewYet": "No review yet",
     "noPeriods": "There are no review periods yet — an administrator creates them under Config → Review periods.",
-    "empty": "No team members match the filters."
+    "empty": "No team members match the filters.",
+    "chart": {
+      "viewTable": "Table",
+      "viewChart": "Distribution",
+      "people": "People",
+      "ratedCount": "{{rated}} of {{total}} people rated",
+      "empty": "No ratings in this selection yet."
+    }
   },
   "toast": {
     "created": "Review created",

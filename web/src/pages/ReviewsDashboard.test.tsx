@@ -6,6 +6,24 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ReviewsDashboard from "./ReviewsDashboard";
 import { jsonResponse } from "../test/http";
 
+// happy-dom can't measure the recharts canvas — stub the chart primitives and assert the
+// props our component passes (the ViewTeamKpi mock precedent). BarChart exposes the buckets
+// and per-bar colors via data-* attrs and renders the custom tooltip once for inspection.
+vi.mock("@mantine/charts", () => ({
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  BarChart: ({ data, tooltipProps }: any) => (
+    <div
+      data-testid="bar-chart"
+      data-buckets={data.map((d: any) => `${d.rating}:${d.count}`).join(",")}
+      data-colors={data.map((d: any) => d.color).join(",")}
+    >
+      {tooltipProps?.content?.({ label: "4", payload: [] })}
+    </div>
+  ),
+  ChartTooltip: ({ label }: any) => <div data-testid="chart-tooltip">{String(label)}</div>,
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+}));
+
 const TOKEN_KEY = "lettuce.auth.token";
 const USER_ID_KEY = "lettuce.auth.userId";
 
@@ -264,5 +282,47 @@ describe("ReviewsDashboard tab", () => {
         "There are no review periods yet — an administrator creates them under Config → Review periods.",
       ),
     ).toBeInTheDocument();
+  });
+
+  test("the Distribution toggle swaps the table for the rating charts and persists", async () => {
+    setupMocks();
+    renderTab();
+    expect(await screen.findByText("Ann Alpha")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("radio", { name: /distribution/i }));
+
+    // The chart view replaces the table + pagination; the Attitude tab is active by default —
+    // Ann's attitudeRating 4 lands in the 4-bucket, Zoe (no review) stays out of the bars.
+    const chart = await screen.findByTestId("bar-chart");
+    expect(chart).toHaveAttribute("data-buckets", "1:0,2:0,3:0,4:1,5:0,6:0");
+    // Per-bar rating colors ride the data rows (the RatingBadge orange→green scale).
+    expect(chart.getAttribute("data-colors")).toContain("orange.8");
+    expect(chart.getAttribute("data-colors")).toContain("green.8");
+    expect(screen.getByText("1 of 2 people rated")).toBeInTheDocument();
+    // The custom tooltip labels bars with the scale wording.
+    expect(screen.getByTestId("chart-tooltip")).toHaveTextContent("4 — Sometimes exceeds expectations");
+    expect(screen.queryByText("No review yet")).toBeNull();
+    expect(JSON.parse(localStorage.getItem("lettuce.viewSettings.dashboardReviews.view") ?? "null")).toBe("chart");
+
+    // Category tabs switch the dataset: Skills carries Ann's 5.
+    fireEvent.click(screen.getByRole("tab", { name: "Skills" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("bar-chart")).toHaveAttribute("data-buckets", "1:0,2:0,3:0,4:0,5:1,6:0"),
+    );
+
+    // Back to the table.
+    fireEvent.click(screen.getByRole("radio", { name: /table/i }));
+    expect(await screen.findByText("No review yet")).toBeInTheDocument();
+    localStorage.removeItem("lettuce.viewSettings.dashboardReviews.view");
+    localStorage.removeItem("lettuce.viewSettings.dashboardReviews.chartCategory");
+  });
+
+  test("the chart view without any rated person shows the empty message", async () => {
+    setupMocks({ reviews: [] });
+    localStorage.setItem("lettuce.viewSettings.dashboardReviews.view", JSON.stringify("chart"));
+    renderTab();
+    expect(await screen.findByText("No ratings in this selection yet.")).toBeInTheDocument();
+    expect(screen.queryByTestId("bar-chart")).toBeNull();
+    localStorage.removeItem("lettuce.viewSettings.dashboardReviews.view");
   });
 });

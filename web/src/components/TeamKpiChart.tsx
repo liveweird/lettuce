@@ -1,6 +1,7 @@
-// The charts stylesheet rides this lazy chunk (this is the only @mantine/charts consumer), so
-// it stays out of the main bundle. Without it the tooltip renders unstyled — the color-swatch
-// <svg> falls back to the 300x150 default and the card explodes into scattered fragments.
+// The charts stylesheet rides every lazy @mantine/charts chunk (this one and
+// ReviewRatingDistribution), so it stays out of the main bundle. Without it the tooltip
+// renders unstyled — the color-swatch <svg> falls back to the 300x150 default and the card
+// explodes into scattered fragments.
 import "@mantine/charts/styles.css";
 import { Stack, Text } from "@mantine/core";
 import { ChartTooltip, LineChart } from "@mantine/charts";
@@ -14,8 +15,9 @@ import { buildTeamKpiSeries } from "../utils/teamKpiChart";
 /**
  * The Graph tab: the KPI's collected data points over time (see buildTeamKpiSeries), with the
  * target as a dashed reference line. One series, one axis, the brand hue — the title names the
- * single series, so no legend. This is the only file importing `@mantine/charts`; ViewTeamKpi
- * lazy-loads it so recharts stays out of the main bundle (the org-chart precedent).
+ * single series, so no legend. `@mantine/charts` is imported only from the lazy chart chunks
+ * (this file and ReviewRatingDistribution); ViewTeamKpi lazy-loads it so recharts stays out of
+ * the main bundle (the org-chart precedent).
  */
 export default function TeamKpiChart({ kpi }: { kpi: TeamKpiResponse }) {
   const { t, i18n } = useTranslation();

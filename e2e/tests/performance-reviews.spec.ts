@@ -167,6 +167,17 @@ test("a performance review travels period → draft → calibration → publishe
     page.getByRole("button", { name: "Publish" }).click(),
   ]);
   await expect(annRow.getByText("Published")).toBeVisible();
+
+  // 4b. The Distribution view (v1.40.0): the same period+filter selection as the table,
+  // rendered as per-category rating-balance charts; the throwaway reviewee is 1 of 1 rated.
+  await page.getByRole("radio", { name: "Distribution" }).click();
+  await expect(page.getByRole("tab", { name: "Attitude" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Overall" })).toBeVisible();
+  await expect(page.getByText("1 of 1 people rated")).toBeVisible();
+  await page.getByRole("tab", { name: "Skills" }).click();
+  await expect(page.getByText("1 of 1 people rated")).toBeVisible();
+  await page.getByRole("radio", { name: "Table" }).click();
+  await expect(annRow.getByText("Published")).toBeVisible();
   await logout(page);
 
   // 5. The subordinate: bell notification + the review in My performance, read-only.

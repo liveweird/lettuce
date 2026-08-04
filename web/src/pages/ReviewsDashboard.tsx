@@ -1,6 +1,18 @@
+import { lazy, Suspense } from "react";
 import { Link as RouterLink } from "react-router-dom";
-import { Alert, Badge, Button, Group, Select, Stack, Table, Text } from "@mantine/core";
-import { IconClipboardText, IconEye, IconPencil, IconPlus } from "@tabler/icons-react";
+import {
+  Alert,
+  Badge,
+  Button,
+  Group,
+  SegmentedControl,
+  Select,
+  Skeleton,
+  Stack,
+  Table,
+  Text,
+} from "@mantine/core";
+import { IconChartBar, IconClipboardText, IconEye, IconPencil, IconPlus, IconTable } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { getUserId, listAllPerformanceReviews, listAllTeamMembers } from "../api/client";
@@ -32,7 +44,12 @@ import {
 
 const SETTINGS_KEY = "dashboardReviews";
 const REPORTS_SCOPES = ["direct", "all"] as const;
+const VIEW_MODES = ["table", "chart"] as const;
 const BACK_TO = "/?tab=reviews";
+
+// The rating-distribution charts are the second lazy @mantine/charts chunk (the TeamKpiChart
+// precedent) — recharts never touches the main bundle.
+const ReviewRatingDistribution = lazy(() => import("../components/ReviewRatingDistribution"));
 
 // The rating columns in table order, paired with their sort fields.
 const RATING_COLUMNS = REVIEW_CATEGORIES.map((category) => ({
@@ -56,6 +73,9 @@ export default function ReviewsDashboard() {
 
   const [reportsScope, setReportsScope] = useStoredState<(typeof REPORTS_SCOPES)[number]>(
     `${SETTINGS_KEY}.filter.reportsScope`, "direct", isOneOf(REPORTS_SCOPES),
+  );
+  const [view, setView] = useStoredState<(typeof VIEW_MODES)[number]>(
+    `${SETTINGS_KEY}.view`, "table", isOneOf(VIEW_MODES),
   );
   const includeIndirect = reportsScope === "all";
   const [storedPeriod, setStoredPeriod] = useStoredState(`${SETTINGS_KEY}.period`, "", isString);
@@ -151,16 +171,46 @@ export default function ReviewsDashboard() {
 
   return (
     <Stack gap="md">
-      {/* The period is the dataset scope, not a filter — always visible above the panel. */}
-      <Select
-        label={t("performanceReview.period")}
-        data={periodOptions}
-        value={periodId}
-        onChange={(v) => setStoredPeriod(v ?? "")}
-        allowDeselect={false}
-        renderOption={renderPeriodOption}
-        w={240}
-      />
+      {/* The period is the dataset scope, not a filter — always visible above the panel.
+          The view toggle sits beside it: Table (the completion list) or Distribution (the
+          rating-balance charts), both driven by the same period + filters. */}
+      <Group justify="space-between" align="flex-end">
+        <Select
+          label={t("performanceReview.period")}
+          data={periodOptions}
+          value={periodId}
+          onChange={(v) => setStoredPeriod(v ?? "")}
+          allowDeselect={false}
+          renderOption={renderPeriodOption}
+          w={240}
+        />
+        <SegmentedControl
+          value={view}
+          onChange={(v) => {
+            if (isOneOf(VIEW_MODES)(v)) setView(v);
+          }}
+          data={[
+            {
+              value: "table",
+              label: (
+                <Group gap={6} wrap="nowrap">
+                  <IconTable size={16} />
+                  <span>{t("performanceReview.dashboard.chart.viewTable")}</span>
+                </Group>
+              ),
+            },
+            {
+              value: "chart",
+              label: (
+                <Group gap={6} wrap="nowrap">
+                  <IconChartBar size={16} />
+                  <span>{t("performanceReview.dashboard.chart.viewChart")}</span>
+                </Group>
+              ),
+            },
+          ]}
+        />
+      </Group>
 
       <FilterPanel activeFilterCount={activeFilterCount} storageKey={SETTINGS_KEY}>
         <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />
@@ -204,6 +254,14 @@ export default function ReviewsDashboard() {
         </Alert>
       )}
 
+      {view === "chart" ? (
+        // The Distribution view replaces the table + pagination; the period and every filter
+        // above keep applying — filteredRows is the filtered-but-unpaginated selection.
+        <Suspense fallback={<Skeleton height={300} radius="md" />}>
+          <ReviewRatingDistribution rows={filteredRows} />
+        </Suspense>
+      ) : (
+      <>
       <Table highlightOnHover withTableBorder verticalSpacing="sm">
         <Table.Thead>
           <Table.Tr>
@@ -386,6 +444,8 @@ export default function ReviewsDashboard() {
         onPageSizeChange={setPageSize}
         rowsPerPageLabelKey="performanceReview.rowsPerPage"
       />
+      </>
+      )}
     </Stack>
   );
 }
