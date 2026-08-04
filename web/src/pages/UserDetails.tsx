@@ -1,18 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-router-dom";
-import { Alert, Anchor, Button, Group, Paper, SimpleGrid, Skeleton, Stack, Text, Title } from "@mantine/core";
+import { Alert, Anchor, Group, Paper, SimpleGrid, Skeleton, Stack, Text, Title } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
-import {
-  IconCalendarEvent,
-  IconClipboardText,
-  IconMessagePlus,
-  IconMessageQuestion,
-  IconMessages,
-  IconPlus,
-  IconTargetArrow,
-  IconUserPlus,
-  IconUsersGroup,
-} from "@tabler/icons-react";
+import { IconUsersGroup } from "@tabler/icons-react";
 import {
   canAudit,
   getUserId,
@@ -23,16 +13,8 @@ import {
 } from "../api/client";
 import EmptyState from "../components/EmptyState";
 import PersonCard from "../components/PersonCard";
+import PersonCardActions from "../components/PersonCardActions";
 import PersonCardStats, { CareerCardStats, PeerCardStats } from "../components/PersonCardStats";
-import {
-  feedbackAskLink,
-  feedbackProvideLink,
-  feedbackRequestLink,
-  userFeedbacksLink,
-} from "../utils/feedbackLinks";
-import { userGoalsLink } from "../utils/goalLinks";
-import { oneOnOneCreateLink, userOneOnOnesLink } from "../utils/oneOnOneLinks";
-import { userPerformanceReviewsLink } from "../utils/performanceReviewLinks";
 import { groupTeamRows, type PersonCard as PersonCardData } from "../utils/teamRows";
 import { userDetailsLink } from "../utils/userLinks";
 
@@ -156,187 +138,56 @@ export default function UserDetails() {
   );
 
   // Undefined (not an empty fragment) when the viewer gets no actions — PersonCard then
-  // omits the divider + actions row entirely (the self-view case).
+  // omits the divider + actions row entirely (the self-view case). Every drill-down carries
+  // `from=details` + `back=backHere` (v1.39.0): the round-trip returns HERE with this page's
+  // own origin intact, whatever screen the details page itself was reached from.
   const actions =
     person == null || selfView ? undefined : relationship === "manager" ? (
       // The /?tab=managers card's actions (users.* labels), returning here instead of the tab.
-      <>
-        <Button
-          component={RouterLink}
-          to={feedbackProvideLink(person.userId, person.name, backHere)}
-          variant="light"
-          size="xs"
-          leftSection={<IconMessagePlus size={14} />}
-          aria-label={t("users.provideFeedbackTo", { name: person.name })}
-        >
-          {t("users.provideFeedback")}
-        </Button>
-        <Button
-          component={RouterLink}
-          to={feedbackAskLink(person.userId, person.name, backHere)}
-          variant="light"
-          size="xs"
-          leftSection={<IconMessageQuestion size={14} />}
-          aria-label={t("users.askForFeedbackFrom", { name: person.name })}
-        >
-          {t("users.askForFeedback")}
-        </Button>
-        <Button
-          component={RouterLink}
-          to={userFeedbacksLink(person.userId, person.name, "managers")}
-          variant="subtle"
-          size="xs"
-          leftSection={<IconMessages size={14} />}
-          aria-label={t("users.feedbacksWith", { name: person.name })}
-        >
-          {t("users.feedbacks")}
-        </Button>
-        <Button
-          component={RouterLink}
-          to={userOneOnOnesLink(person.userId, person.name, "managers")}
-          variant="subtle"
-          size="xs"
-          leftSection={<IconCalendarEvent size={14} />}
-          aria-label={t("users.oneOnOnesWith", { name: person.name })}
-        >
-          {t("users.oneOnOnes")}
-        </Button>
-        <Button
-          component={RouterLink}
-          to={userGoalsLink(person.userId, person.name, "managers")}
-          variant="subtle"
-          size="xs"
-          leftSection={<IconTargetArrow size={14} />}
-          aria-label={t("users.goalsWith", { name: person.name })}
-        >
-          {t("users.goals")}
-        </Button>
-      </>
+      <PersonCardActions
+        userId={person.userId}
+        name={person.name}
+        labels="users"
+        back={backHere}
+        drillFrom="details"
+        drillBack={backHere}
+        show={{ provide: true, ask: true, feedbacks: true, oneOnOnes: true, goals: true }}
+      />
     ) : relationship === "subordinate" ? (
       // The /?tab=subordinates card's actions (teams.* labels) — a found row means a direct
-      // report, so the direct-only affordances (New 1:1, 1:1s, Goals) all apply.
-      <>
-        <Button
-          component={RouterLink}
-          to={feedbackProvideLink(person.userId, person.name, backHere)}
-          variant="light"
-          size="xs"
-          leftSection={<IconMessagePlus size={14} />}
-          aria-label={t("teams.provideFeedbackToAria", { name: person.name })}
-        >
-          {t("teams.provideFeedback")}
-        </Button>
-        <Button
-          component={RouterLink}
-          to={feedbackAskLink(person.userId, person.name, backHere)}
-          variant="light"
-          size="xs"
-          leftSection={<IconMessageQuestion size={14} />}
-          aria-label={t("teams.askForFeedbackAria", { name: person.name })}
-        >
-          {t("teams.askForFeedback")}
-        </Button>
-        <Button
-          component={RouterLink}
-          to={feedbackRequestLink(person.userId, person.name, backHere)}
-          variant="light"
-          size="xs"
-          leftSection={<IconUserPlus size={14} />}
-          aria-label={t("teams.requestFeedbackAboutAria", { name: person.name })}
-        >
-          {t("teams.requestFeedbackFor")}
-        </Button>
-        <Button
-          component={RouterLink}
-          to={oneOnOneCreateLink(person.userId, person.name, backHere)}
-          variant="light"
-          size="xs"
-          leftSection={<IconPlus size={14} />}
-          aria-label={t("teams.addOneOnOneWithAria", { name: person.name })}
-        >
-          {t("teams.addOneOnOne")}
-        </Button>
-        <Button
-          component={RouterLink}
-          to={userFeedbacksLink(person.userId, person.name, "subordinates")}
-          variant="subtle"
-          size="xs"
-          leftSection={<IconMessages size={14} />}
-          aria-label={t("teams.feedbacksWithAria", { name: person.name })}
-        >
-          {t("teams.feedbacks")}
-        </Button>
-        <Button
-          component={RouterLink}
-          to={userOneOnOnesLink(person.userId, person.name, "subordinates")}
-          variant="subtle"
-          size="xs"
-          leftSection={<IconCalendarEvent size={14} />}
-          aria-label={t("teams.oneOnOnesWithAria", { name: person.name })}
-        >
-          {t("teams.oneOnOnes")}
-        </Button>
-        <Button
-          component={RouterLink}
-          to={userGoalsLink(person.userId, person.name, "subordinates")}
-          variant="subtle"
-          size="xs"
-          leftSection={<IconTargetArrow size={14} />}
-          aria-label={t("teams.goalsForAria", { name: person.name })}
-        >
-          {t("teams.goals")}
-        </Button>
-        <Button
-          component={RouterLink}
-          to={userPerformanceReviewsLink(person.userId, person.name, "subordinates")}
-          variant="subtle"
-          size="xs"
-          leftSection={<IconClipboardText size={14} />}
-          aria-label={t("teams.performanceReviewsForAria", { name: person.name })}
-        >
-          {t("teams.performanceReviews")}
-        </Button>
-      </>
+      // report, so the direct-only affordances all apply; `manages` keeps them on the
+      // drill-downs (the details origin alone can't prove the relationship).
+      <PersonCardActions
+        userId={person.userId}
+        name={person.name}
+        labels="teams"
+        back={backHere}
+        drillFrom="details"
+        drillBack={backHere}
+        manages
+        show={{
+          provide: true,
+          ask: true,
+          request: true,
+          newOneOnOne: true,
+          feedbacks: true,
+          oneOnOnes: true,
+          goals: true,
+          reviews: true,
+        }}
+      />
     ) : (
-      // The /?tab=peers card's actions (teams.* labels), for found peers and unrelated users
-      // alike; the feedbacks drill-down keeps the peer origin only when a peer row backs it.
-      <>
-        <Button
-          component={RouterLink}
-          to={feedbackProvideLink(person.userId, person.name, backHere)}
-          variant="light"
-          size="xs"
-          leftSection={<IconMessagePlus size={14} />}
-          aria-label={t("teams.provideFeedbackToAria", { name: person.name })}
-        >
-          {t("teams.provideFeedback")}
-        </Button>
-        <Button
-          component={RouterLink}
-          to={feedbackAskLink(person.userId, person.name, backHere)}
-          variant="light"
-          size="xs"
-          leftSection={<IconMessageQuestion size={14} />}
-          aria-label={t("teams.askForFeedbackAria", { name: person.name })}
-        >
-          {t("teams.askForFeedback")}
-        </Button>
-        <Button
-          component={RouterLink}
-          to={userFeedbacksLink(
-            person.userId,
-            person.name,
-            relationship === "peer" ? "peers" : originKey,
-            relationship === "peer" ? undefined : teamId,
-          )}
-          variant="subtle"
-          size="xs"
-          leftSection={<IconMessages size={14} />}
-          aria-label={t("teams.feedbacksWithAria", { name: person.name })}
-        >
-          {t("teams.feedbacks")}
-        </Button>
-      </>
+      // The /?tab=peers card's actions (teams.* labels), for found peers and unrelated
+      // users alike.
+      <PersonCardActions
+        userId={person.userId}
+        name={person.name}
+        labels="teams"
+        back={backHere}
+        drillFrom="details"
+        drillBack={backHere}
+        show={{ provide: true, ask: true, feedbacks: true }}
+      />
     );
 
   return (
@@ -403,46 +254,15 @@ export default function UserDetails() {
               {t("users.audit.hint", { name: person.name })}
             </Text>
             <Group gap="xs">
-              <Button
-                component={RouterLink}
-                to={userFeedbacksLink(person.userId, person.name, "details", undefined, undefined, true)}
-                variant="subtle"
-                size="xs"
-                leftSection={<IconMessages size={14} />}
-                aria-label={t("users.audit.feedbacksAria", { name: person.name })}
-              >
-                {t("users.feedbacks")}
-              </Button>
-              <Button
-                component={RouterLink}
-                to={userOneOnOnesLink(person.userId, person.name, "details", undefined, true)}
-                variant="subtle"
-                size="xs"
-                leftSection={<IconCalendarEvent size={14} />}
-                aria-label={t("users.audit.oneOnOnesAria", { name: person.name })}
-              >
-                {t("users.oneOnOnes")}
-              </Button>
-              <Button
-                component={RouterLink}
-                to={userGoalsLink(person.userId, person.name, "details", undefined, true)}
-                variant="subtle"
-                size="xs"
-                leftSection={<IconTargetArrow size={14} />}
-                aria-label={t("users.audit.goalsAria", { name: person.name })}
-              >
-                {t("users.goals")}
-              </Button>
-              <Button
-                component={RouterLink}
-                to={userPerformanceReviewsLink(person.userId, person.name, "details", undefined, true)}
-                variant="subtle"
-                size="xs"
-                leftSection={<IconClipboardText size={14} />}
-                aria-label={t("users.audit.performanceReviewsAria", { name: person.name })}
-              >
-                {t("users.performanceReviews")}
-              </Button>
+              <PersonCardActions
+                userId={person.userId}
+                name={person.name}
+                labels="users"
+                drillFrom="details"
+                drillBack={backHere}
+                audit
+                show={{ feedbacks: true, oneOnOnes: true, goals: true, reviews: true }}
+              />
             </Group>
           </Stack>
         </Paper>

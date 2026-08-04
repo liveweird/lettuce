@@ -181,6 +181,30 @@ describe("UserGoals page", () => {
     );
   });
 
+  test("from=details with back= and manages=1: returns to the given URL and keeps New goal", async () => {
+    // The details-page round-trip (v1.39.0): `back` overrides the destination (the details
+    // page with ITS origin intact), the label stays the details origin's, and `manages=1`
+    // preserves the manager-only affordances the origin alone can't prove.
+    const detailsUrl = "/users/10/details?name=Bob&from=members&teamId=3";
+    renderScreen(
+      `/users/10/goals?name=Bob&from=details&back=${encodeURIComponent(detailsUrl)}&manages=1`,
+    );
+
+    expect(await screen.findByRole("link", { name: /back to user details/i })).toHaveAttribute(
+      "href",
+      detailsUrl,
+    );
+    // manages=1 → the managed direction with the New-goal affordance; the round-trip back
+    // URL it hands to the create screen preserves back + manages.
+    const back = encodeURIComponent(
+      `/users/10/goals?name=Bob&from=details&back=${encodeURIComponent(detailsUrl)}&manages=1`,
+    );
+    expect(await screen.findByRole("link", { name: "New goal" })).toHaveAttribute(
+      "href",
+      `/goals/new?subordinateId=10&subordinateName=Bob&back=${back}`,
+    );
+  });
+
   test("an invalid id under the subordinates origin returns to its tab", () => {
     renderScreen("/users/abc/goals?from=subordinates");
     expect(screen.getByTestId("probe")).toHaveTextContent("/?tab=subordinates");

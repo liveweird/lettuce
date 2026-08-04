@@ -51,6 +51,13 @@ export function useDashboardDrillDown(basePath: string): {
   const name = searchParams.get("name");
   const fromParam = searchParams.get("from");
   const teamId = parsePositiveInt(searchParams.get("teamId"));
+  // Explicit return override (the details-page round-trip: `from` alone would lose the
+  // details page's own origin). In-app paths only — anything else is ignored.
+  const backParam = searchParams.get("back");
+  const backOverride = backParam?.startsWith("/") ? backParam : null;
+  // The caller-manages assertion for origins that can't prove it (`from=details`): set by
+  // the details page's direct-report flavor so the manager-only affordances survive.
+  const managesParam = searchParams.get("manages") === "1";
   // Non-auditors silently fall back to the normal mode (the EditGoal self-heal spirit).
   const auditMode = searchParams.get("mode") === "audit" && canAudit();
 
@@ -65,17 +72,21 @@ export function useDashboardDrillDown(basePath: string): {
         : isStaticOriginKey(fromParam)
           ? fromParam
           : "managers";
-  const origin =
+  const resolved =
     originKey === "team"
       ? { labelKey: "feedback.origin.team", to: `/teams/${teamId}/subordinates` }
       : originKey === "details"
         ? { labelKey: "feedback.origin.details", to: userDetailsLink(userId, name) }
         : DASHBOARD_ORIGINS[originKey];
+  // The back override wins for the destination; the origin key keeps naming the label.
+  const origin = backOverride ? { labelKey: resolved.labelKey, to: backOverride } : resolved;
 
   const query = new URLSearchParams();
   if (name) query.set("name", name);
   if (originKey !== "managers" || fromParam === "managers") query.set("from", originKey);
   if (originKey === "team") query.set("teamId", String(teamId));
+  if (backOverride) query.set("back", backOverride);
+  if (managesParam) query.set("manages", "1");
   if (auditMode) query.set("mode", "audit");
   const queryString = query.toString();
 
@@ -85,7 +96,8 @@ export function useDashboardDrillDown(basePath: string): {
     name,
     originKey,
     origin,
-    callerManages: !auditMode && originKey !== "managers" && originKey !== "details",
+    callerManages:
+      !auditMode && (managesParam || (originKey !== "managers" && originKey !== "details")),
     auditMode,
     backTo: `/users/${userId}/${basePath}${queryString ? `?${queryString}` : ""}`,
   };
