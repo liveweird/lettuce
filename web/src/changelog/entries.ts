@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.40.0",
+    date: "2026-08-04",
+    en: `The Performance reviews dashboard gained a Distribution view: a toggle next to the period picker switches the table to bar charts showing how ratings spread across your selected group — one tab per category (attitude, delivery, skills, overall), bars colored by the rating scale, with a note on how many people are rated. The period and all filters apply exactly as they do to the table, so a manager can quickly check whether the ratings in any slice of the team are balanced.`,
+    pl: `Pulpit ocen okresowych zyskał widok Rozkład: przełącznik obok wyboru okresu zamienia tabelę na wykresy słupkowe pokazujące, jak oceny rozkładają się w wybranej grupie — po jednej zakładce na kategorię (postawa, dostarczanie, umiejętności, ogółem), słupki w kolorach skali ocen, z informacją ile osób jest ocenionych. Okres i wszystkie filtry działają dokładnie tak jak dla tabeli, więc menedżer może szybko sprawdzić, czy oceny w dowolnym wycinku zespołu są zbalansowane.`,
+  },
+  {
     version: "1.39.0",
     date: "2026-08-04",
     en: `The Dashboard's "Feedback received" tile now counts by the moment feedback was actually delivered (not when it was last edited) and shows a small trend — how the last 30 days compare with the 30 before. Also fixed: opening Feedbacks, 1:1s, Goals, or Reviews from a person's details page now returns you to that details page instead of a Dashboard tab.`,
