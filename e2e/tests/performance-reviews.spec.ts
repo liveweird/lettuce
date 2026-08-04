@@ -66,6 +66,24 @@ test("a performance review travels period → draft → calibration → publishe
     .last();
   const currentPeriodLabel = (await currentRowGroup.locator("p").first().innerText()).trim();
 
+  // On a fresh volume the period just appended IS the very first one and defaults to starting
+  // this month — i.e. it's the CURRENT period, and no future period exists yet for the
+  // disabled-option assertion below. Append one more (adjacent, so guaranteed future) in that
+  // case; on any grown timeline the first append is already future and this branch is skipped.
+  let futurePeriodLabel = periodLabel;
+  if (futurePeriodLabel === currentPeriodLabel) {
+    const nextPreview = page.getByText(/^Will add: /);
+    await expect(nextPreview).toBeVisible();
+    futurePeriodLabel = (await nextPreview.innerText()).replace(/^Will add: /, "");
+    await Promise.all([
+      page.waitForResponse(
+        (r) => r.url().includes("/api/v1/review-periods") && r.request().method() === "POST" && r.ok(),
+      ),
+      page.getByRole("button", { name: "Add period" }).click(),
+    ]);
+    await expect(page.getByText(futurePeriodLabel, { exact: true })).toBeVisible();
+  }
+
   // 1b. A throwaway subordinate + team under Manager AAA: a fresh person per run keeps the
   //     (subordinate, current period) review slot unoccupied however often the suite reruns.
   const reviewee = await createUserViaUi(page, "E2E Reviewee");
@@ -111,7 +129,7 @@ test("a performance review travels period → draft → calibration → publishe
   await expect(page.getByRole("combobox", { name: "Period" })).toHaveValue(currentPeriodLabel);
   // The fresh (future) period is offered but disabled — the server would 400 it.
   await page.getByRole("combobox", { name: "Period" }).click();
-  await expect(page.getByRole("option", { name: periodLabel })).toHaveAttribute(
+  await expect(page.getByRole("option", { name: futurePeriodLabel })).toHaveAttribute(
     "data-combobox-disabled",
   );
   await page.keyboard.press("Escape");
