@@ -21,6 +21,7 @@ import PersonaField from "../components/PersonaField";
 import { useFeedbackDuplicate } from "../hooks/useFeedbackDuplicate";
 import { REQUESTER_VISIBILITIES } from "../utils/feedbackVisibility";
 import { saveErrorMessage } from "../utils/saveError";
+import { showSuccessToast } from "../utils/toast";
 
 // The asker is the requester, so "Ask for feedback" offers the requester-inclusive
 // visibilities — the ones under which the requester (themselves) can read the result.
@@ -73,6 +74,7 @@ export default function AskFeedback() {
       await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
       // Asking for feedback mints a requester confirmation — refresh the bell badge immediately.
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      showSuccessToast(t("feedback.toast.requested"));
       navigate(backTo, { replace: true });
     } catch (err) {
       setError(

@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.38.0",
+    date: "2026-08-04",
+    en: `Every successful action now confirms itself with a small green toast at the top of the screen — saving a draft, sending feedback, activating a goal, recording a KPI value, publishing a review, changing a password, and every other save or delete. Errors keep appearing right next to the form, as before.`,
+    pl: `Każda udana akcja potwierdza się teraz małym zielonym powiadomieniem u góry ekranu — zapisanie wersji roboczej, wysłanie feedbacku, aktywacja celu, zapisanie wartości KPI, publikacja oceny, zmiana hasła i każdy inny zapis lub usunięcie. Błędy nadal pojawiają się bezpośrednio przy formularzu, tak jak dotychczas.`,
+  },
+  {
     version: "1.37.0",
     date: "2026-08-04",
     en: `Your name and avatar in the header are now a menu: click them to see your email, jump to changing your password, or sign out. The standalone Logout button is gone — signing out lives in the menu, where every modern app keeps it.`,

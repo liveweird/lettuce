@@ -18,6 +18,7 @@ import { ApiError, createPerformanceReview, listTeamMembers } from "../api/clien
 import PersonaField from "../components/PersonaField";
 import { renderPeriodOption, useReviewPeriodOptions } from "../hooks/useReviewPeriodOptions";
 import { reviewEditLink, reviewViewLink } from "../utils/performanceReviewLinks";
+import { showSuccessToast } from "../utils/toast";
 import { reviewSaveErrorMessage } from "../utils/reviewRatings";
 import { groupTeamRows } from "../utils/teamRows";
 
@@ -98,6 +99,7 @@ export default function CreatePerformanceReview() {
         periodId: Number(effectivePeriod),
       });
       await queryClient.invalidateQueries({ queryKey: ["performanceReviews"] });
+      showSuccessToast(t("performanceReview.toast.created"));
       // Straight into the editor — the DRAFT is empty and waiting for its assessments.
       navigate(reviewEditLink(created.id, undefined, backTo), { replace: true });
     } catch (err) {

@@ -119,5 +119,17 @@
     "valueRemoved": "Removed the value {{value}} of {{date}}.",
     "statusChanged": "Status changed from {{from}} to {{to}}.",
     "deleted": "Team KPI deleted."
+  },
+  "toast": {
+    "created": "Team KPI created",
+    "saved": "Changes saved",
+    "activated": "KPI activated",
+    "deactivated": "KPI returned to draft",
+    "archived": "KPI archived",
+    "reopened": "KPI reopened",
+    "deleted": "KPI deleted",
+    "valueAdded": "Data point added",
+    "valueSaved": "Data point updated",
+    "valueRemoved": "Data point removed"
   }
 }

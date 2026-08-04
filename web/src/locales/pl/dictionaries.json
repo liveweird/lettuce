@@ -23,5 +23,8 @@
     "validation": "Wpisy są nieprawidłowe — sprawdź puste lub powtórzone wartości.",
     "saveFailedStatus": "Zapis nie powiódł się (status {{status}}).",
     "saveFailed": "Zapis nie powiódł się. Sprawdź połączenie i spróbuj ponownie."
+  },
+  "toast": {
+    "saved": "Słownik zapisany"
   }
 }

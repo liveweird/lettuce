@@ -32,6 +32,7 @@ import {
   USER_ROLES,
   type UserRole,
 } from "../api/client";
+import { showSuccessToast } from "../utils/toast";
 import FeedbackActionsMenu from "../components/FeedbackActionsMenu";
 import { feedbackAskLink, feedbackProvideLink, userFeedbacksLink } from "../utils/feedbackLinks";
 import { userDetailsLink } from "../utils/userLinks";
@@ -100,6 +101,8 @@ export default function Users() {
 
   const deleteConfirm = useDeleteConfirm<UserRow>({
     mutationFn: (row) => deleteUser(row.id),
+    // No hook-level successMessage: a self-delete signs the caller out mid-flow, so the
+    // toast fires only on the ordinary branch below.
     onSuccess: async (row) => {
       if (row.id === getUserId()) {
         await logout();
@@ -110,6 +113,7 @@ export default function Users() {
         return;
       }
       await queryClient.invalidateQueries({ queryKey: ["users"] });
+      showSuccessToast(t("users.toast.deleted"));
     },
   });
 

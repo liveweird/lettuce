@@ -37,19 +37,20 @@ import ReadOnlyField from "../components/ReadOnlyField";
 import { formatDate, formatIsoDate } from "../utils/datetime";
 import { goalEditLink } from "../utils/goalLinks";
 import { invalidateGoal } from "../utils/goalQueries";
+import { showSuccessToast } from "../utils/toast";
 import { GoalValues, isGoalOverdue, OverdueBadge } from "../utils/goalValues";
 
 // The manager's lifecycle actions per status. The view screen is their single home — CLOSED
 // goals have no edit form, so Reopen could live nowhere else, and keeping all four here means
 // one 409-handling path (mirrors ViewFeedback's NEXT_ACTION, pluralized because ACTIVE has two
 // exits). Close is special-cased: it opens the summary modal instead of firing directly.
-const ACTIONS: Record<GoalStatus, { labelKey: string; run?: (id: number) => Promise<void>; close?: true; primary: boolean }[]> = {
-  DRAFT: [{ labelKey: "goal.action.activate", run: activateGoal, primary: true }],
+const ACTIONS: Record<GoalStatus, { labelKey: string; successKey: string; run?: (id: number) => Promise<void>; close?: true; primary: boolean }[]> = {
+  DRAFT: [{ labelKey: "goal.action.activate", successKey: "goal.toast.activated", run: activateGoal, primary: true }],
   ACTIVE: [
-    { labelKey: "goal.action.deactivate", run: deactivateGoal, primary: false },
-    { labelKey: "goal.action.close", close: true, primary: true },
+    { labelKey: "goal.action.deactivate", successKey: "goal.toast.deactivated", run: deactivateGoal, primary: false },
+    { labelKey: "goal.action.close", successKey: "goal.toast.closed", close: true, primary: true },
   ],
-  CLOSED: [{ labelKey: "goal.action.reopen", run: reopenGoal, primary: true }],
+  CLOSED: [{ labelKey: "goal.action.reopen", successKey: "goal.toast.reopened", run: reopenGoal, primary: true }],
 };
 
 /** The goal document: read-only for everyone, plus the manager's lifecycle actions. */
@@ -93,12 +94,13 @@ export default function ViewGoal() {
         ? t("goal.error.viewPermission")
         : t("goal.error.loadFailed");
 
-  async function runAction(actionKey: string, run: (id: number) => Promise<void>) {
+  async function runAction(actionKey: string, run: (id: number) => Promise<void>, successKey: string) {
     setSubmitting(actionKey);
     setActionError(null);
     try {
       await run(id);
       await invalidateGoal(queryClient, id);
+      showSuccessToast(t(successKey));
       navigate(backTo, { replace: true });
     } catch (err) {
       setActionError(
@@ -233,7 +235,7 @@ export default function ViewGoal() {
                     if (action.close) {
                       setCloseOpened(true);
                     } else if (action.run) {
-                      void runAction(action.labelKey, action.run);
+                      void runAction(action.labelKey, action.run, action.successKey);
                     }
                   }}
                 >
@@ -249,7 +251,7 @@ export default function ViewGoal() {
         onClose={() => setCloseOpened(false)}
         loading={submitting != null}
         onConfirm={(summary) =>
-          void runAction("goal.action.close", (goalId) => closeGoal(goalId, { summary }))
+          void runAction("goal.action.close", (goalId) => closeGoal(goalId, { summary }), "goal.toast.closed")
         }
       />
     </Container>

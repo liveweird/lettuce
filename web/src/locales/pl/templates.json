@@ -31,5 +31,10 @@
   "editFailedStatus": "Edycja nie powiodła się ({{status}})",
   "editFailedNetwork": "Edycja nie powiodła się. Sprawdź połączenie i spróbuj ponownie.",
   "discardTitle": "Odrzucić zmiany?",
-  "discardMessage": "Niezapisane zmiany w tym szablonie zostaną utracone."
+  "discardMessage": "Niezapisane zmiany w tym szablonie zostaną utracone.",
+  "toast": {
+    "created": "Szablon utworzony",
+    "updated": "Szablon zaktualizowany",
+    "deleted": "Szablon usunięty"
+  }
 }

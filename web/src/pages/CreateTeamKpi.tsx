@@ -15,6 +15,7 @@ import {
   type TeamKpiDefinitionFormValues,
 } from "../utils/teamKpiForm";
 import { invalidateTeamKpi } from "../utils/teamKpiQueries";
+import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
 
 // Default cancel target when no `back` param is present: the managed tab, the main entry point.
@@ -78,6 +79,7 @@ export default function CreateTeamKpi() {
         ...toKpiDefinitionBody(values),
       });
       await invalidateTeamKpi(queryClient);
+      showSuccessToast(t("teamKpi.toast.created"));
       // The KPI exists as a DRAFT — ask whether to activate it right away; either answer
       // then returns to the originating screen.
       setSubmitting(false);
@@ -106,6 +108,7 @@ export default function CreateTeamKpi() {
     try {
       await activateTeamKpi(createdId);
       await invalidateTeamKpi(queryClient, createdId);
+      showSuccessToast(t("teamKpi.toast.activated"));
       navigate(backTo, { replace: true });
     } catch (err) {
       // The KPI stays a DRAFT — close the prompt and surface the error on the form

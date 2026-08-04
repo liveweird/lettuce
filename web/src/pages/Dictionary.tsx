@@ -25,6 +25,7 @@ import {
   type DictionaryEntry,
   type DictionarySlug,
 } from "../api/client";
+import { showSuccessToast } from "../utils/toast";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import EmptyState from "../components/EmptyState";
 import { RowControls } from "../components/ParagraphListEditor";
@@ -150,6 +151,7 @@ function DictionaryEditor({
       form.setInitialValues(freshValues);
       form.setValues(freshValues);
       form.resetDirty();
+      showSuccessToast(t("dictionary.toast.saved"));
     } catch (err) {
       setError(dictionarySaveErrorMessage(err, t));
     } finally {

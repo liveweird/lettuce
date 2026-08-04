@@ -30,6 +30,7 @@ import {
   listUsers,
   removeTeamMember,
 } from "../api/client";
+import { showSuccessToast } from "../utils/toast";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import EmptyState from "../components/EmptyState";
 import TableLoadingRow from "../components/TableLoadingRow";
@@ -104,6 +105,7 @@ export default function TeamMembers() {
       setSelectedUser(null);
       setAddError(null);
       await queryClient.invalidateQueries({ queryKey: ["teamMembersList", id] });
+      showSuccessToast(t("teams.toast.memberAdded"));
     },
     onError: (err) => {
       setAddError(
@@ -123,6 +125,7 @@ export default function TeamMembers() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["teamMembersList", id] });
     },
+    successMessage: t("teams.toast.memberRemoved"),
   });
 
   if (!idIsValid) return <Navigate to="/teams" replace />;

@@ -47,5 +47,10 @@
     "counter": "{{current}} / {{total}}",
     "hiddenCount_one": "{{count}} alert hidden",
     "hiddenCount_other": "{{count}} alerts hidden"
+  },
+  "toast": {
+    "created": "Alert created",
+    "updated": "Alert updated",
+    "deleted": "Alert deleted"
   }
 }

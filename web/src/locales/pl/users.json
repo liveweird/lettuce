@@ -153,5 +153,10 @@
     "specialization": "Specjalizacja",
     "seniority": "Poziom"
   },
-  "performanceReviews": "Oceny okresowe"
+  "performanceReviews": "Oceny okresowe",
+  "toast": {
+    "updated": "Użytkownik zaktualizowany",
+    "deleted": "Użytkownik usunięty",
+    "passwordChanged": "Hasło zmienione"
+  }
 }

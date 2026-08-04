@@ -38,6 +38,7 @@ import {
 } from "../utils/teamKpiForm";
 import { teamKpiViewLink } from "../utils/teamKpiLinks";
 import { invalidateTeamKpi } from "../utils/teamKpiQueries";
+import { showSuccessToast } from "../utils/toast";
 
 /**
  * The manager's DRAFT definition editor (reached from the view screen's Edit link). Everything
@@ -102,6 +103,7 @@ export default function EditTeamKpi() {
       await updateTeamKpiDefinition(id, toKpiDefinitionBody(values));
       if (activate) await activateTeamKpi(id);
       await invalidateTeamKpi(queryClient, id);
+      showSuccessToast(t(activate ? "teamKpi.toast.activated" : "teamKpi.toast.saved"));
       navigate(backTo, { replace: true });
     } catch (err) {
       setError(teamKpiSaveErrorMessage(err, t));
@@ -116,6 +118,7 @@ export default function EditTeamKpi() {
       await deleteTeamKpi(id);
       await invalidateTeamKpi(queryClient);
       queryClient.removeQueries({ queryKey: ["teamKpi", id] });
+      showSuccessToast(t("teamKpi.toast.deleted"));
       navigate(backTo, { replace: true });
     } catch (err) {
       setError(teamKpiSaveErrorMessage(err, t));

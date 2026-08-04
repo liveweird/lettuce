@@ -4,6 +4,7 @@ import { cleanup, render, screen, waitFor, within } from "@testing-library/react
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { notifications } from "@mantine/notifications";
 import ViewGoal from "./ViewGoal";
 import { jsonResponse } from "../test/http";
 
@@ -157,6 +158,7 @@ describe("ViewGoal page", () => {
   test("the manager on ACTIVE sees Return to draft + Close goal; an action fires and navigates back", async () => {
     localStorage.setItem(USER_ID_KEY, "7");
     setupMocks();
+    const toast = vi.spyOn(notifications, "show").mockReturnValue("id");
     const user = userEvent.setup();
     renderScreen();
 
@@ -172,6 +174,11 @@ describe("ViewGoal page", () => {
       ).toBe(true);
     });
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/users/7/goals"));
+    // The success toast fires with the action-specific message (fixed vocabulary, no data).
+    expect(toast).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "Goal returned to draft", color: "teal" }),
+    );
+    toast.mockRestore();
   });
 
   test("a running action spins only its own button, not its ACTIVE sibling", async () => {

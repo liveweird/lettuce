@@ -38,6 +38,7 @@ import FeedbackLifecycle from "../components/FeedbackLifecycle";
 import MarkdownView from "../components/MarkdownView";
 import RequesterMessage from "../components/RequesterMessage";
 import ConfirmActionModal from "../components/ConfirmActionModal";
+import { showSuccessToast } from "../utils/toast";
 
 const RECEIVED = "/feedback?tab=received";
 
@@ -45,11 +46,11 @@ const RECEIVED = "/feedback?tab=received";
 // backend state machine in FeedbackService.isAllowedTransition). WITHDRAWN is terminal
 // and intentionally absent → the provider sees only Close. `labelKey` resolves via i18n.
 const NEXT_ACTION: Partial<
-  Record<FeedbackStatus, { labelKey: string; run: (id: number) => Promise<void>; confirm?: boolean }>
+  Record<FeedbackStatus, { labelKey: string; successKey: string; run: (id: number) => Promise<void>; confirm?: boolean }>
 > = {
-  REQUESTED: { labelKey: "feedback.action.draft", run: pickUpFeedback },
-  DRAFT: { labelKey: "feedback.action.send", run: sendFeedback },
-  SENT: { labelKey: "feedback.action.withdraw", run: withdrawFeedback, confirm: true },
+  REQUESTED: { labelKey: "feedback.action.draft", successKey: "feedback.toast.accepted", run: pickUpFeedback },
+  DRAFT: { labelKey: "feedback.action.send", successKey: "feedback.toast.sent", run: sendFeedback },
+  SENT: { labelKey: "feedback.action.withdraw", successKey: "feedback.toast.withdrawn", run: withdrawFeedback, confirm: true },
 };
 
 export default function ViewFeedback() {
@@ -103,7 +104,7 @@ export default function ViewFeedback() {
     isRequester &&
     (data!.status === "REQUESTED" || data!.status === "REJECTED" || data!.status === "DRAFT");
 
-  async function handleAction(run: (id: number) => Promise<void>) {
+  async function handleAction(run: (id: number) => Promise<void>, successKey: string) {
     if (!data) return;
     setActionError(null);
     setSubmitting(true);
@@ -113,6 +114,7 @@ export default function ViewFeedback() {
       await queryClient.invalidateQueries({ queryKey: ["feedback", id] });
       // A transition mints notifications — refresh the bell badge.
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      showSuccessToast(t(successKey));
       navigate(backTo, { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
@@ -263,7 +265,9 @@ export default function ViewFeedback() {
                 </Button>
                 {action && (
                   <Button
-                    onClick={() => (action.confirm ? openConfirm() : handleAction(action.run))}
+                    onClick={() =>
+                      action.confirm ? openConfirm() : handleAction(action.run, action.successKey)
+                    }
                     loading={submitting}
                   >
                     {t(action.labelKey)}
@@ -288,7 +292,7 @@ export default function ViewFeedback() {
         confirmLabel={t("feedback.action.withdraw")}
         loading={submitting}
         onConfirm={async () => {
-          await handleAction(withdrawFeedback);
+          await handleAction(withdrawFeedback, "feedback.toast.withdrawn");
           closeConfirm();
         }}
       />

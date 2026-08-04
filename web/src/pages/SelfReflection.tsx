@@ -12,6 +12,7 @@ import DuplicateFeedbackAlert from "../components/DuplicateFeedbackAlert";
 import FeedbackForm from "../components/FeedbackForm";
 import { useFeedbackDuplicate } from "../hooks/useFeedbackDuplicate";
 import { saveErrorMessage } from "../utils/saveError";
+import { showSuccessToast } from "../utils/toast";
 
 // Where the new row shows up right after saving — and where Cancel returns to.
 const BACK_TO = "/feedback?tab=provided";
@@ -50,6 +51,7 @@ export default function SelfReflection() {
         content: values.content,
       });
       await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
+      showSuccessToast(t(status === "SENT" ? "feedback.toast.sent" : "feedback.toast.draftSaved"));
       navigate(BACK_TO, { replace: true });
     } catch (err) {
       // No forbidden key: a 403 (like any other unmatched status) keeps reporting via the

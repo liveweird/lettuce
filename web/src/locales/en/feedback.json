@@ -143,5 +143,14 @@
     "visibilityChanged": "Visibility changed to {{to}}."
   },
   "feedbacksAudit": "All feedbacks of {{who}}",
-  "feedbacksAuditHint": "Every feedback {{who}} is a party to — as subject, provider, or requester — at every status. Read-only."
+  "feedbacksAuditHint": "Every feedback {{who}} is a party to — as subject, provider, or requester — at every status. Read-only.",
+  "toast": {
+    "draftSaved": "Draft saved",
+    "sent": "Feedback sent",
+    "requested": "Feedback requested",
+    "accepted": "Request accepted",
+    "rejected": "Request declined",
+    "withdrawn": "Feedback withdrawn",
+    "deleted": "Draft deleted"
+  }
 }

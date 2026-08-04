@@ -19,6 +19,7 @@ import PersonaField from "../components/PersonaField";
 import { todayIsoDate } from "../utils/datetime";
 import { oneOnOneSaveErrorMessage } from "../utils/oneOnOneForm";
 import { invalidateOneOnOne } from "../utils/oneOnOneQueries";
+import { showSuccessToast } from "../utils/toast";
 
 const BACK_TO = "/one-on-ones?tab=managed";
 
@@ -87,6 +88,7 @@ export default function CreateOneOnOne() {
       });
       // Creation notifies the subordinate and moves the cards' "Last 1:1" stat.
       await invalidateOneOnOne(queryClient);
+      showSuccessToast(t("oneOnOne.toast.created"));
       // Carry the origin (if any) into the edit screen so its Close returns to the card/drill-down
       // this create was launched from, not the generic managed list.
       const editUrl = backParam

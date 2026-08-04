@@ -47,6 +47,7 @@ import {
 } from "../utils/goalForm";
 import { goalViewLink } from "../utils/goalLinks";
 import { invalidateGoal } from "../utils/goalQueries";
+import { showSuccessToast } from "../utils/toast";
 
 /**
  * The manager's status-dependent editor on one route (the EditFeedback precedent): a DRAFT
@@ -126,8 +127,9 @@ export default function EditGoal() {
     return <Navigate to={viewLink} replace />;
   }
 
-  async function afterSave() {
+  async function afterSave(successKey: string) {
     await invalidateGoal(queryClient, id);
+    showSuccessToast(t(successKey));
     navigate(backTo, { replace: true });
   }
 
@@ -137,7 +139,7 @@ export default function EditGoal() {
     try {
       await updateGoalDefinition(id, toDefinitionBody(values));
       if (activate) await activateGoal(id);
-      await afterSave();
+      await afterSave(activate ? "goal.toast.activated" : "goal.toast.saved");
     } catch (err) {
       setError(goalSaveErrorMessage(err, t));
       setSubmitting(null);
@@ -165,13 +167,14 @@ export default function EditGoal() {
         // "Accept reloads in place" precedent), which is exactly why one deactivates.
         await deactivateGoal(id);
         await invalidateGoal(queryClient, id);
+        showSuccessToast(t("goal.toast.deactivated"));
         setSubmitting(null);
         return;
       }
       if (then === "close") {
         await closeGoal(id, { summary: summary ?? "" });
       }
-      await afterSave();
+      await afterSave(then === "close" ? "goal.toast.closed" : "goal.toast.progressSaved");
     } catch (err) {
       setError(goalSaveErrorMessage(err, t));
       setSubmitting(null);
@@ -186,6 +189,7 @@ export default function EditGoal() {
       await deleteGoal(id);
       await invalidateGoal(queryClient);
       queryClient.removeQueries({ queryKey: ["goal", id] });
+      showSuccessToast(t("goal.toast.deleted"));
       navigate(backTo, { replace: true });
     } catch (err) {
       setError(goalSaveErrorMessage(err, t));

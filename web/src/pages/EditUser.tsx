@@ -28,6 +28,7 @@ import {
   updateUser,
   type UserRole,
 } from "../api/client";
+import { showSuccessToast } from "../utils/toast";
 import CareerProfileSelect from "../components/CareerProfileSelect";
 import RolesMultiSelect from "../components/RolesMultiSelect";
 import { saveErrorMessage } from "../utils/saveError";
@@ -116,6 +117,7 @@ export default function EditUser() {
       });
       await queryClient.invalidateQueries({ queryKey: ["users"] });
       await queryClient.invalidateQueries({ queryKey: ["user", id] });
+      showSuccessToast(t("users.toast.updated"));
       navigate("/users", { replace: true });
     } catch (err) {
       // A duplicate email is a field-level problem, not a page-level one.

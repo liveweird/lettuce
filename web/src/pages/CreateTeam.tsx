@@ -17,6 +17,7 @@ import {
 import { hasLength, useForm } from "@mantine/form";
 import { useQueryClient } from "@tanstack/react-query";
 import { createTeam, isAdmin } from "../api/client";
+import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
 
 type FormValues = {
@@ -53,6 +54,7 @@ export default function CreateTeam() {
         memberIds: [],
       });
       await queryClient.invalidateQueries({ queryKey: ["teams"] });
+      showSuccessToast(t("teams.toast.created"));
       navigate("/teams", { replace: true });
     } catch (err) {
       setError(

@@ -38,6 +38,7 @@ import {
   type OneOnOneFormValues,
 } from "../utils/oneOnOneForm";
 import { invalidateOneOnOne } from "../utils/oneOnOneQueries";
+import { showSuccessToast } from "../utils/toast";
 
 export default function EditOneOnOne() {
   const { t } = useTranslation();
@@ -110,6 +111,7 @@ export default function EditOneOnOne() {
     try {
       await updateOneOnOne(id, toUpdateBody(values));
       await invalidateOneOnOne(queryClient, id);
+      showSuccessToast(t("oneOnOne.toast.saved"));
       navigate(backTo, { replace: true });
     } catch (err) {
       setError(oneOnOneSaveErrorMessage(err, t));
@@ -124,6 +126,7 @@ export default function EditOneOnOne() {
       await deleteOneOnOne(id);
       await invalidateOneOnOne(queryClient);
       queryClient.removeQueries({ queryKey: ["oneOnOne", id] });
+      showSuccessToast(t("oneOnOne.toast.deleted"));
       navigate(backTo, { replace: true });
     } catch (err) {
       setError(oneOnOneSaveErrorMessage(err, t));

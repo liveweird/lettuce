@@ -39,6 +39,7 @@ import PersonaField from "../components/PersonaField";
 import RequesterMessage from "../components/RequesterMessage";
 import { clampVisibility, visibilityValuesFor } from "../utils/feedbackVisibility";
 import { saveErrorMessage } from "../utils/saveError";
+import { showSuccessToast } from "../utils/toast";
 
 const PROVIDED = "/feedback?tab=provided";
 
@@ -106,6 +107,17 @@ export default function EditFeedback() {
       await queryClient.invalidateQueries({ queryKey: ["feedback", id] });
       // A status transition (e.g. send/reject) mints notifications — refresh the bell badge.
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      showSuccessToast(
+        t(
+          accepted
+            ? "feedback.toast.accepted"
+            : status === "REJECTED"
+              ? "feedback.toast.rejected"
+              : status === "SENT"
+                ? "feedback.toast.sent"
+                : "feedback.toast.draftSaved",
+        ),
+      );
       if (!accepted) navigate(backTo, { replace: true });
     } catch (err) {
       setError(
@@ -133,6 +145,7 @@ export default function EditFeedback() {
       await queryClient.invalidateQueries({ queryKey: ["feedback", id] });
       // Deleting a draft notifies its requester — refresh the bell badge.
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      showSuccessToast(t("feedback.toast.deleted"));
       navigate(backTo, { replace: true });
     } catch (err) {
       closeDelete();

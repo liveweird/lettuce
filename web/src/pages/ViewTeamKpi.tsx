@@ -39,6 +39,7 @@ import { formatDate } from "../utils/datetime";
 import { formatGoalValue } from "../utils/goalValues";
 import { teamKpiEditLink } from "../utils/teamKpiLinks";
 import { invalidateTeamKpi } from "../utils/teamKpiQueries";
+import { showSuccessToast } from "../utils/toast";
 
 // The chart is the only consumer of @mantine/charts/recharts — lazy-loaded (the org-chart
 // precedent) so the libraries never touch the main bundle; keepMounted={false} on the Tabs
@@ -49,13 +50,13 @@ const TeamKpiChart = lazy(() => import("../components/TeamKpiChart"));
 // special-cased: it opens the summary modal instead of firing directly. (The label key stays
 // `action.close` because GoalCloseModal derives its confirm label from `${keyPrefix}.action.close`
 // — the wording is "Archive".)
-const ACTIONS: Record<TeamKpiStatus, { labelKey: string; run?: (id: number) => Promise<void>; close?: true; primary: boolean }[]> = {
-  DRAFT: [{ labelKey: "teamKpi.action.activate", run: activateTeamKpi, primary: true }],
+const ACTIONS: Record<TeamKpiStatus, { labelKey: string; successKey: string; run?: (id: number) => Promise<void>; close?: true; primary: boolean }[]> = {
+  DRAFT: [{ labelKey: "teamKpi.action.activate", successKey: "teamKpi.toast.activated", run: activateTeamKpi, primary: true }],
   ACTIVE: [
-    { labelKey: "teamKpi.action.deactivate", run: deactivateTeamKpi, primary: false },
-    { labelKey: "teamKpi.action.close", close: true, primary: true },
+    { labelKey: "teamKpi.action.deactivate", successKey: "teamKpi.toast.deactivated", run: deactivateTeamKpi, primary: false },
+    { labelKey: "teamKpi.action.close", successKey: "teamKpi.toast.archived", close: true, primary: true },
   ],
-  ARCHIVED: [{ labelKey: "teamKpi.action.reopen", run: reopenTeamKpi, primary: true }],
+  ARCHIVED: [{ labelKey: "teamKpi.action.reopen", successKey: "teamKpi.toast.reopened", run: reopenTeamKpi, primary: true }],
 };
 
 /**
@@ -102,12 +103,13 @@ export default function ViewTeamKpi() {
         ? t("teamKpi.error.viewPermission")
         : t("teamKpi.error.loadFailed");
 
-  async function runAction(actionKey: string, run: (id: number) => Promise<void>) {
+  async function runAction(actionKey: string, run: (id: number) => Promise<void>, successKey: string) {
     setSubmitting(actionKey);
     setActionError(null);
     try {
       await run(id);
       await invalidateTeamKpi(queryClient, id);
+      showSuccessToast(t(successKey));
       navigate(backTo, { replace: true });
     } catch (err) {
       setActionError(
@@ -249,7 +251,7 @@ export default function ViewTeamKpi() {
                     if (action.close) {
                       setCloseOpened(true);
                     } else if (action.run) {
-                      void runAction(action.labelKey, action.run);
+                      void runAction(action.labelKey, action.run, action.successKey);
                     }
                   }}
                 >
@@ -266,7 +268,7 @@ export default function ViewTeamKpi() {
         loading={submitting != null}
         keyPrefix="teamKpi"
         onConfirm={(summary) =>
-          void runAction("teamKpi.action.close", (kpiId) => archiveTeamKpi(kpiId, { summary }))
+          void runAction("teamKpi.action.close", (kpiId) => archiveTeamKpi(kpiId, { summary }), "teamKpi.toast.archived")
         }
       />
     </Container>

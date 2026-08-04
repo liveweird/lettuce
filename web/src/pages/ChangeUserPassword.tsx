@@ -22,6 +22,7 @@ import {
 import { hasLength, matchesField, useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, changeUserPassword, getUser, getUserId, isAdmin } from "../api/client";
+import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
 
 type FormValues = {
@@ -74,6 +75,7 @@ export default function ChangeUserPassword() {
       await changeUserPassword(id, isSelf ? { password, currentPassword } : { password });
       await queryClient.invalidateQueries({ queryKey: ["users"] });
       await queryClient.invalidateQueries({ queryKey: ["user", id] });
+      showSuccessToast(t("users.toast.passwordChanged"));
       navigate(returnTo, { replace: true });
     } catch (err) {
       setError(

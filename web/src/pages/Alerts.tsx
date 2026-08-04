@@ -84,6 +84,7 @@ export default function Alerts() {
       queryClient.invalidateQueries({ queryKey: ["alerts"] });
       queryClient.invalidateQueries({ queryKey: ["visibleAlerts"] });
     },
+    successMessage: t("alerts.toast.deleted"),
   });
 
   if (!isAdmin()) return <Navigate to="/" replace />;

@@ -24,6 +24,7 @@ import {
 import { hasLength, useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, getTeam, isAdmin, updateTeam } from "../api/client";
+import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
 
 type FormValues = {
@@ -81,6 +82,7 @@ export default function EditTeam() {
       });
       await queryClient.invalidateQueries({ queryKey: ["teams"] });
       await queryClient.invalidateQueries({ queryKey: ["team", id] });
+      showSuccessToast(t("teams.toast.updated"));
       navigate("/teams", { replace: true });
     } catch (err) {
       setError(

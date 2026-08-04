@@ -70,5 +70,12 @@
   "kpis": "KPI zespołu",
   "kpisOfAria": "KPI zespołu {{name}}",
   "performanceReviews": "Oceny okresowe",
-  "performanceReviewsForAria": "Oceny okresowe: {{name}}"
+  "performanceReviewsForAria": "Oceny okresowe: {{name}}",
+  "toast": {
+    "created": "Zespół utworzony",
+    "updated": "Zespół zaktualizowany",
+    "deleted": "Zespół usunięty",
+    "memberAdded": "Członek dodany",
+    "memberRemoved": "Członek usunięty"
+  }
 }

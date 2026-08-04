@@ -81,6 +81,7 @@ export default function Teams() {
   const deleteConfirm = useDeleteConfirm<TeamRow>({
     mutationFn: (row) => deleteTeam(row.id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["teams"] }),
+    successMessage: t("teams.toast.deleted"),
   });
 
   const total = data?.total ?? 0;

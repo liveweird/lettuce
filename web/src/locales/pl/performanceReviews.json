@@ -126,5 +126,16 @@
     "noReviewYet": "Brak oceny",
     "noPeriods": "Nie ma jeszcze okresów ocen — administrator tworzy je w Konfiguracja → Okresy ocen.",
     "empty": "Żaden członek zespołu nie pasuje do filtrów."
+  },
+  "toast": {
+    "created": "Ocena utworzona",
+    "saved": "Zmiany zapisane",
+    "submitted": "Ocena przekazana do kalibracji",
+    "reverted": "Ocena wróciła do wersji roboczej",
+    "published": "Ocena opublikowana",
+    "unpublished": "Publikacja oceny cofnięta",
+    "deleted": "Ocena usunięta",
+    "periodAdded": "Okres ocen dodany",
+    "periodDeleted": "Okres ocen usunięty"
   }
 }

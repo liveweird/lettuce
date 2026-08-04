@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useDisclosure } from "@mantine/hooks";
 import { useMutation, type UseMutationResult } from "@tanstack/react-query";
+import { showSuccessToast } from "../utils/toast";
 
 export type DeleteConfirm<T> = {
   target: T | null;
@@ -16,13 +17,17 @@ export type DeleteConfirm<T> = {
 // the modal closes and the target clears before `onSuccess(row)` runs (cache
 // invalidation and any page-specific follow-up stay at the call site). Cancelling is
 // blocked while the mutation is pending; the mutation error is reset on open/cancel.
-// Pair with <ConfirmDeleteModal>.
+// Pair with <ConfirmDeleteModal>. `successMessage` (fixed vocabulary, no user data)
+// shows a success toast after the modal closes; leave it unset when the page owns the
+// feedback itself (e.g. Users' self-delete signs the caller out mid-flow).
 export function useDeleteConfirm<T>({
   mutationFn,
   onSuccess,
+  successMessage,
 }: {
   mutationFn: (row: T) => Promise<unknown>;
   onSuccess: (row: T) => Promise<unknown> | void;
+  successMessage?: string;
 }): DeleteConfirm<T> {
   const [target, setTarget] = useState<T | null>(null);
   const [opened, { open, close }] = useDisclosure(false);
@@ -32,6 +37,7 @@ export function useDeleteConfirm<T>({
     onSuccess: async (_result: unknown, row: T) => {
       close();
       setTarget(null);
+      if (successMessage) showSuccessToast(successMessage);
       await onSuccess(row);
     },
   });

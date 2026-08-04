@@ -15,6 +15,7 @@ import {
   type GoalDefinitionFormValues,
 } from "../utils/goalForm";
 import { invalidateGoal } from "../utils/goalQueries";
+import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
 import { groupTeamRows } from "../utils/teamRows";
 
@@ -84,6 +85,7 @@ export default function CreateGoal() {
         ...toDefinitionBody(values),
       });
       await invalidateGoal(queryClient);
+      showSuccessToast(t("goal.toast.created"));
       // The goal exists as a DRAFT — ask whether to activate it right away; either answer
       // then returns to the originating screen.
       setSubmitting(false);
@@ -112,6 +114,7 @@ export default function CreateGoal() {
     try {
       await activateGoal(createdId);
       await invalidateGoal(queryClient, createdId);
+      showSuccessToast(t("goal.toast.activated"));
       navigate(backTo, { replace: true });
     } catch (err) {
       // The goal stays a DRAFT — close the prompt and surface the error on the form

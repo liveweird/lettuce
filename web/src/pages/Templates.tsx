@@ -62,6 +62,7 @@ export default function Templates() {
   const deleteConfirm = useDeleteConfirm<TemplateRow>({
     mutationFn: (row) => deleteTemplate(row.id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["templates"] }),
+    successMessage: t("templates.toast.deleted"),
   });
 
   const total = data?.total ?? 0;
