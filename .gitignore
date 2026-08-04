@@ -60,3 +60,6 @@ server/docs/
 # Node (web/ and e2e/ have their own ignores; this backstops stray root-level caches —
 # e.g. vitest run from the repo root once left node_modules/.vite here, and it got committed)
 node_modules/
+
+# Local compose overrides (machine-specific env, e.g. the harmonized dev encryption key)
+docker-compose.override.yaml
