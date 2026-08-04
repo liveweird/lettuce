@@ -10,6 +10,7 @@ import {
   Group,
   Indicator,
   Loader,
+  Menu,
   NavLink,
   Text,
   useMantineColorScheme,
@@ -21,6 +22,7 @@ import {
   IconBriefcase,
   IconCalendarEvent,
   IconCalendarStats,
+  IconChevronDown,
   IconClipboardText,
   IconFileText,
   IconHelp,
@@ -179,7 +181,11 @@ const NAV_ITEMS: ReadonlyArray<NavEntry> = [
 // items), rather than inside NAV_ITEMS.
 const CHANGELOG_NAV: NavLeaf = { to: "/changelog", label: "appShell.nav.changelog", icon: IconHistory, tourId: "nav-changelog" };
 
-function HeaderUser() {
+/** The header account menu: avatar + name trigger opening email / change-password / logout.
+ *  Always rendered (even before — or without — the profile query resolving), so the Logout
+ *  affordance never depends on a successful GET /users/{id}. */
+function HeaderUserMenu({ onLogout }: { onLogout: () => void }) {
+  const { t } = useTranslation();
   const userId = getUserId();
   const { data } = useQuery({
     queryKey: ["currentUser", userId],
@@ -188,14 +194,41 @@ function HeaderUser() {
     staleTime: 5 * 60 * 1000,
     retry: false,
   });
-  if (!data) return null;
   return (
-    <Group gap="xs" wrap="nowrap">
-      <Avatar name={data.name} color="initials" size={22} radius="xl" />
-      <Text size="sm" fw={500} truncate maw={160}>
-        {data.name}
-      </Text>
-    </Group>
+    <Menu position="bottom-end" withinPortal>
+      <Menu.Target>
+        <Button
+          variant="subtle"
+          color="gray"
+          size="sm"
+          px="xs"
+          aria-label={t("appShell.userMenu")}
+          data-tour="user-menu"
+          leftSection={<Avatar name={data?.name} color="initials" size={22} radius="xl" />}
+          rightSection={<IconChevronDown size={14} />}
+        >
+          {data && (
+            <Text size="sm" fw={500} truncate maw={160} span>
+              {data.name}
+            </Text>
+          )}
+        </Button>
+      </Menu.Target>
+      <Menu.Dropdown>
+        {data && <Menu.Label>{data.email}</Menu.Label>}
+        <Menu.Item
+          component={RouterLink}
+          to={`/users/${userId}/change-password`}
+          leftSection={<IconKey size={14} />}
+        >
+          {t("appShell.nav.changePassword")}
+        </Menu.Item>
+        <Menu.Divider />
+        <Menu.Item leftSection={<IconLogout size={14} />} onClick={onLogout}>
+          {t("common.action.logout")}
+        </Menu.Item>
+      </Menu.Dropdown>
+    </Menu>
   );
 }
 
@@ -381,7 +414,6 @@ function Shell() {
             </Text>
           </Group>
           <Group gap="sm">
-            <HeaderUser />
             <span data-tour="language" style={{ display: "inline-flex" }}>
               <LanguageSwitcher />
             </span>
@@ -392,16 +424,7 @@ function Shell() {
               <NotificationsButton />
             </span>
             <ReplayTourButton />
-            <Button
-              variant="subtle"
-              color="gray"
-              size="sm"
-              leftSection={<IconLogout size={16} />}
-              onClick={handleLogout}
-              data-tour="logout"
-            >
-              {t("common.action.logout")}
-            </Button>
+            <HeaderUserMenu onLogout={handleLogout} />
           </Group>
         </Group>
       </AppShell.Header>
