@@ -15,6 +15,9 @@ function PathProbe() {
   return <div data-testid="probe">{location.pathname}</div>;
 }
 
+// The default route's own URL, as every drill-down's encoded `back=` round-trip target.
+const BACK_HERE = encodeURIComponent("/users/5/details?name=Bob&from=users");
+
 function renderDetails(route = "/users/5/details?name=Bob&from=users") {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -124,14 +127,14 @@ describe("UserDetails page", () => {
     // The managers-tab stats block…
     expect(screen.getByText("Last 1:1")).toBeInTheDocument();
     expect(screen.getByText("Active goals")).toBeInTheDocument();
-    // …and its actions, with the drill-downs carrying the managers origin.
+    // …and its actions, with the drill-downs returning HERE (from=details + back=, v1.39.0).
     expect(screen.getByRole("link", { name: "Goals from Bob" })).toHaveAttribute(
       "href",
-      "/users/5/goals?name=Bob&from=managers",
+      `/users/5/goals?name=Bob&from=details&back=${BACK_HERE}`,
     );
     expect(screen.getByRole("link", { name: "1:1 meetings with Bob" })).toHaveAttribute(
       "href",
-      "/users/5/one-on-ones?name=Bob&from=managers",
+      `/users/5/one-on-ones?name=Bob&from=details&back=${BACK_HERE}`,
     );
     // Provide feedback returns here on Cancel via back=.
     expect(screen.getByRole("link", { name: "Provide feedback to Bob" })).toHaveAttribute(
@@ -153,9 +156,11 @@ describe("UserDetails page", () => {
     // The subordinate card carries the direct-report affordances.
     expect(screen.getByRole("link", { name: "New 1:1 with Bob" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Request feedback about Bob" })).toBeInTheDocument();
+    // The drill-down returns here and asserts the relationship (`manages=1`) so the
+    // manager-only affordances survive the details origin.
     expect(screen.getByRole("link", { name: "Goals for Bob" })).toHaveAttribute(
       "href",
-      "/users/5/goals?name=Bob&from=subordinates",
+      `/users/5/goals?name=Bob&from=details&back=${BACK_HERE}&manages=1`,
     );
   });
 
@@ -173,7 +178,7 @@ describe("UserDetails page", () => {
     expect(screen.queryByRole("link", { name: /goals/i })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Feedbacks with Bob" })).toHaveAttribute(
       "href",
-      "/users/5/feedbacks?name=Bob&from=peers",
+      `/users/5/feedbacks?name=Bob&from=details&back=${BACK_HERE}`,
     );
   });
 
@@ -202,10 +207,10 @@ describe("UserDetails page", () => {
     expect(screen.queryByText(/one of your/i)).not.toBeInTheDocument();
     expect(screen.queryByText("Feedback from me")).not.toBeInTheDocument();
     expect(screen.queryByText("Last 1:1")).not.toBeInTheDocument();
-    // Feedback actions still apply to any user; the drill-down returns to the users list.
+    // Feedback actions still apply to any user; the drill-down round-trips through here.
     expect(screen.getByRole("link", { name: "Feedbacks with Bob" })).toHaveAttribute(
       "href",
-      "/users/5/feedbacks?name=Bob&from=users",
+      `/users/5/feedbacks?name=Bob&from=details&back=${BACK_HERE}`,
     );
   });
 
@@ -237,19 +242,19 @@ describe("UserDetails page", () => {
     expect(await screen.findByText("Audit")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Audit feedbacks of Bob" })).toHaveAttribute(
       "href",
-      "/users/5/feedbacks?name=Bob&from=details&mode=audit",
+      `/users/5/feedbacks?name=Bob&from=details&mode=audit&back=${BACK_HERE}`,
     );
     expect(screen.getByRole("link", { name: "Audit 1:1 meetings of Bob" })).toHaveAttribute(
       "href",
-      "/users/5/one-on-ones?name=Bob&from=details&mode=audit",
+      `/users/5/one-on-ones?name=Bob&from=details&mode=audit&back=${BACK_HERE}`,
     );
     expect(screen.getByRole("link", { name: "Audit goals of Bob" })).toHaveAttribute(
       "href",
-      "/users/5/goals?name=Bob&from=details&mode=audit",
+      `/users/5/goals?name=Bob&from=details&mode=audit&back=${BACK_HERE}`,
     );
     expect(screen.getByRole("link", { name: "Audit performance reviews of Bob" })).toHaveAttribute(
       "href",
-      "/users/5/performance-reviews?name=Bob&from=details&mode=audit",
+      `/users/5/performance-reviews?name=Bob&from=details&mode=audit&back=${BACK_HERE}`,
     );
   });
 

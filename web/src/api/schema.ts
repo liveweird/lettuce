@@ -19,8 +19,10 @@ export interface paths {
          *     gate (0 hides the manager tiles client-side) and as the reviews tile's denominator.
          *     The current-period fields are null while the review-period timeline does not cover
          *     the current month. `feedbackReceived30d` counts delivered (SENT) feedbacks in the
-         *     caller's received scope by their last-modification time (an approximation of the
-         *     delivery moment, deliberately cheap).
+         *     caller's received scope by their actual SENT moment (the audit-trail event; rows
+         *     predating the events table fall back to last-modification time), and
+         *     `feedbackReceivedPrev30d` is the same count for the preceding 30-day window
+         *     (days 60–30 ago) — the client renders their difference as the tile's trend.
          */
         get: operations["getDashboardSummary"];
         put?: never;
@@ -3549,9 +3551,14 @@ export interface components {
             activeGoals: number;
             /**
              * Format: int64
-             * @description Delivered (SENT) feedbacks in the caller's received scope modified within the last 30 days.
+             * @description Delivered (SENT) feedbacks in the caller's received scope whose SENT moment falls within the last 30 days (audit-trail event time; pre-events rows fall back to last-modification time).
              */
             feedbackReceived30d: number;
+            /**
+             * Format: int64
+             * @description The same received count for the preceding 30-day window (days 60–30 ago) — the base of the tile's trend indicator. Optional for older-server tolerance.
+             */
+            feedbackReceivedPrev30d?: number | null;
             /** @description Distinct current direct reports of the caller (members of non-deleted teams they manage). 0 for non-managers — the client hides the manager tiles on it. */
             directReports: number;
             /**

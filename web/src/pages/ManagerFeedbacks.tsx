@@ -73,10 +73,15 @@ export default function ManagerFeedbacks() {
 
   const userId = Number(params.userId);
   const idIsValid = Number.isFinite(userId) && userId > 0;
-  const origin =
+  // Explicit return override (the details-page round-trip — the useDashboardDrillDown rule);
+  // the origin key still names the label. In-app paths only.
+  const backParam = searchParams.get("back");
+  const backOverride = backParam?.startsWith("/") ? backParam : null;
+  const resolved =
     fromParam === "details" && idIsValid
       ? { labelKey: ORIGIN.details.labelKey, to: userDetailsLink(userId, name) }
       : resolveOrigin(fromParam, teamId);
+  const origin = backOverride ? { labelKey: resolved.labelKey, to: backOverride } : resolved;
   // Non-auditors silently fall back to the pair tabs (the EditGoal self-heal spirit).
   const auditMode = searchParams.get("mode") === "audit" && canAudit();
 
@@ -102,6 +107,7 @@ export default function ManagerFeedbacks() {
     teamId ?? undefined,
     auditMode ? undefined : activeTab,
     auditMode,
+    { back: backOverride ?? undefined },
   );
 
   if (auditMode) {

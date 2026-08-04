@@ -42,10 +42,12 @@ data class DashboardSummary(
     val pendingFeedbackRequests: Long,
     /** The caller's own ACTIVE goals. */
     val activeGoals: Long,
-    /** Delivered (SENT) feedbacks in the caller's received scope touched in the last 30 days. */
+    /** Delivered (SENT) feedbacks in the caller's received scope, by SENT moment, last 30 days. */
     val feedbackReceived30d: Long,
     /** Current direct reports of the caller (members of non-deleted teams they manage). */
     val directReports: Int,
+    /** The previous 30-day window's received count (days 60–30 ago) — the tile's delta base. */
+    val feedbackReceivedPrev30d: Long? = null,
     /** The review period containing today, or null when the timeline doesn't cover it. */
     val currentPeriodId: UInt? = null,
     /** Reviews the caller authored for the current period; null with no current period. */
@@ -59,7 +61,9 @@ private const val THIRTY_DAYS_MS = 30L * 24 * 60 * 60 * 1000
 
 fun Application.configureDashboardRoutes() {
     // Composed route-side from the feature services (the /teams/members enrichment idiom) —
-    // no dashboard-specific SQL exists; every number is an existing list scope's total.
+    // no dashboard-specific SQL exists; every number is an existing list scope's total or a
+    // feature-service count (the received tiles use FeedbackService.receivedSentCount, which
+    // reuses the received-scope predicate + the lastSentAtBy SENT-moment rule).
     val feedbackService = attributes[FeedbackServiceKey]
     val goalService = attributes[GoalServiceKey]
     val reviewService = attributes[PerformanceReviewServiceKey]
@@ -76,15 +80,20 @@ fun Application.configureDashboardRoutes() {
                     FeedbackListFilter(status = FeedbackStatus.REQUESTED),
                     COUNT_ONLY,
                 ).total
-                val received30d = feedbackService.list(
-                    FeedbackListView.RECEIVED,
+                // By the actual SENT moment (audit-trail event; pre-V15 fallback lastModified),
+                // not lastModified — a later content edit must not re-count a feedback, and the
+                // previous-window delta needs the honest boundary.
+                val now = System.currentTimeMillis()
+                val received30d = feedbackService.receivedSentCount(
                     caller.userId,
-                    FeedbackListFilter(
-                        status = FeedbackStatus.SENT,
-                        lastModifiedGte = System.currentTimeMillis() - THIRTY_DAYS_MS,
-                    ),
-                    COUNT_ONLY,
-                ).total
+                    fromMs = now - THIRTY_DAYS_MS,
+                    toMs = now,
+                )
+                val receivedPrev30d = feedbackService.receivedSentCount(
+                    caller.userId,
+                    fromMs = now - 2 * THIRTY_DAYS_MS,
+                    toMs = now - THIRTY_DAYS_MS,
+                )
                 val activeGoals = goalService.list(
                     GoalListView.OWN,
                     caller.userId,
@@ -108,6 +117,7 @@ fun Application.configureDashboardRoutes() {
                         activeGoals = activeGoals,
                         feedbackReceived30d = received30d,
                         directReports = directReports,
+                        feedbackReceivedPrev30d = receivedPrev30d,
                         currentPeriodId = currentPeriod?.id,
                         currentPeriodReviewsDone = reviewsDone,
                     ),
