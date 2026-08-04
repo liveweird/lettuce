@@ -1,4 +1,4 @@
-import { expect, login, MANAGER_AAA, test } from "./helpers";
+import { collapseAlertsBanner, expect, login, MANAGER_AAA, test } from "./helpers";
 
 // The guided tour, actually walked: replay it as a manager (the widest audience — 35 steps)
 // and assert the landmark order the tour promises — every left-menu section (Changelog
@@ -30,6 +30,8 @@ const LANDMARKS = [
 
 test("the guided tour walks all 35 manager steps in the documented order", async ({ page }) => {
   await login(page, MANAGER_AAA);
+  // A pre-existing active alert's expanded banner overlays the header (and the replay button).
+  await collapseAlertsBanner(page);
   await page.locator('[data-tour="replay"]').click();
 
   const seen: string[] = [];

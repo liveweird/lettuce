@@ -1,4 +1,17 @@
 import { AAA_ONE, ADMIN, expect, login, logout, openFilters, PASSWORD, test, typeContent, uniqueText } from "./helpers";
+import type { Page } from "@playwright/test";
+
+// The dev volume may carry other active alerts (the banner pages one at a time) — step the
+// pager to the spec's own alert before asserting on its text.
+async function pageToAlert(page: Page, text: string): Promise<void> {
+  for (let i = 0; i < 8; i++) {
+    if (await page.getByText(text, { exact: true }).isVisible().catch(() => false)) break;
+    const next = page.getByRole("button", { name: "Next alert" });
+    if (!(await next.isVisible().catch(() => false))) break;
+    await next.click();
+  }
+  await expect(page.getByText(text, { exact: true })).toBeVisible();
+}
 
 // Alerts: admin-managed broadcast banners every user sees. The management pages are
 // admin-only; the banner renders in the header on every authenticated page. The spec
@@ -53,12 +66,13 @@ test("admin creates an alert; users see, hide, and re-show the banner; deactivat
   await login(page, AAA_ONE);
   await expect(page.getByText(/alerts? hidden/)).toBeVisible();
   await page.getByRole("button", { name: "Show alerts" }).click();
-  await expect(page.getByText(title, { exact: true })).toBeVisible();
+  await pageToAlert(page, title);
   await expect(page.getByText(content)).toBeVisible();
   await page.getByRole("button", { name: "Hide alerts" }).click();
   await expect(page.getByText(/alerts? hidden/)).toBeVisible();
   await expect(page.getByText(content)).toBeHidden();
   await page.getByRole("button", { name: "Show alerts" }).click();
+  await pageToAlert(page, title);
   await expect(page.getByText(content)).toBeVisible();
   // Alert management is invisible to non-admins.
   await expect(page.locator('a[href="/alerts"]')).toHaveCount(0);

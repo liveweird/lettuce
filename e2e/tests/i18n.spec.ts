@@ -1,4 +1,4 @@
-import { test, expect, login, ADMIN } from "./helpers";
+import { test, expect, login, collapseAlertsBanner, ADMIN } from "./helpers";
 
 // The PL/EN language switcher: switching translates the chrome, the choice persists across a
 // reload (localStorage lettuce.lang), and the spec ends back on EN as a courtesy (each test gets
@@ -6,6 +6,9 @@ import { test, expect, login, ADMIN } from "./helpers";
 test("language switch to Polish persists across reload", async ({ page }) => {
   await login(page, ADMIN);
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  // A pre-existing active alert expands its banner over the header — collapse before
+  // clicking header controls (the collapse persists in localStorage across the reload).
+  await collapseAlertsBanner(page);
 
   // Mantine SegmentedControl hides the radio inputs; click the visible option labels. Match the
   // radiogroup by its aria-label in EITHER language — it flips to "Język" once PL is active.
