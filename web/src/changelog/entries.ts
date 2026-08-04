@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.39.0",
+    date: "2026-08-04",
+    en: `The Dashboard's "Feedback received" tile now counts by the moment feedback was actually delivered (not when it was last edited) and shows a small trend — how the last 30 days compare with the 30 before. Also fixed: opening Feedbacks, 1:1s, Goals, or Reviews from a person's details page now returns you to that details page instead of a Dashboard tab.`,
+    pl: `Kafelek „Otrzymany feedback" na Pulpicie liczy teraz według momentu faktycznego dostarczenia feedbacku (a nie ostatniej edycji) i pokazuje mały trend — jak ostatnie 30 dni wypada wobec poprzednich 30. Poprawione też: otwarcie Feedbacków, spotkań 1:1, Celów lub Ocen ze strony szczegółów osoby wraca teraz na tę stronę szczegółów, a nie na zakładkę Pulpitu.`,
+  },
+  {
     version: "1.38.0",
     date: "2026-08-04",
     en: `Every successful action now confirms itself with a small green toast at the top of the screen — saving a draft, sending feedback, activating a goal, recording a KPI value, publishing a review, changing a password, and every other save or delete. Errors keep appearing right next to the form, as before.`,
