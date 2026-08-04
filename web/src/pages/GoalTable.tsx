@@ -37,7 +37,7 @@ const BASE_SORT_FIELDS = ["title", "createdAt", "dueDate", "status", "targetValu
 type SortField = (typeof BASE_SORT_FIELDS)[number] | "managerName" | "subordinateName";
 
 const CREATED_WINDOWS = ["all", "month", "sixMonths"] as const;
-const STATUS_VALUES = ["DRAFT", "ACTIVE", "CLOSED"] as const;
+const STATUS_VALUES = ["DRAFT", "ACTIVE", "ARCHIVED"] as const;
 const REPORTS_SCOPES = ["direct", "all"] as const;
 
 // The one filterable + sortable person column a goals view shows (the OneOnOneTable idiom):

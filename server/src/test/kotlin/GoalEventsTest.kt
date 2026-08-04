@@ -155,9 +155,9 @@ class GoalEventsTest {
 
     @Test
     fun `transition descriptor carries both statuses`() {
-        val event = goalTransitionEvent(GoalStatus.ACTIVE, GoalStatus.CLOSED)
+        val event = goalTransitionEvent(GoalStatus.ACTIVE, GoalStatus.ARCHIVED)
         assertEquals(GoalEventType.STATUS_CHANGED, event.type)
-        assertEquals(mapOf("from" to "ACTIVE", "to" to "CLOSED"), event.params)
+        assertEquals(mapOf("from" to "ACTIVE", "to" to "ARCHIVED"), event.params)
     }
 
     @Test

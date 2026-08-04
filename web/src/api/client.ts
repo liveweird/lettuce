@@ -689,8 +689,8 @@ export type GoalDefinitionUpdateBody =
   paths["/api/v1/goals/{id}"]["put"]["requestBody"]["content"]["application/json"];
 export type GoalProgressUpdateBody =
   paths["/api/v1/goals/{id}/progress"]["put"]["requestBody"]["content"]["application/json"];
-type GoalCloseBody =
-  paths["/api/v1/goals/{id}/close"]["post"]["requestBody"]["content"]["application/json"];
+type GoalArchiveBody =
+  paths["/api/v1/goals/{id}/archive"]["post"]["requestBody"]["content"]["application/json"];
 
 export async function getGoal(id: number): Promise<GoalResponse> {
   const res = await authedFetch(`/api/v1/goals/${id}`);
@@ -720,7 +720,7 @@ export async function deleteGoal(id: number): Promise<void> {
 }
 
 // Lifecycle transitions are POST action sub-resources; each names one edge of the
-// DRAFT <-> ACTIVE <-> CLOSED machine, so a goal not at the edge's source status returns 409.
+// DRAFT <-> ACTIVE <-> ARCHIVED machine, so a goal not at the edge's source status returns 409.
 async function goalTransition(id: number, action: string): Promise<void> {
   const res = await authedFetch(`/api/v1/goals/${id}/${action}`, { method: "POST" });
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
@@ -731,8 +731,8 @@ export const deactivateGoal = (id: number) => goalTransition(id, "deactivate");
 export const reopenGoal = (id: number) => goalTransition(id, "reopen");
 
 // Close is the one bodied transition — it always records the summary.
-export async function closeGoal(id: number, body: GoalCloseBody): Promise<void> {
-  const res = await authedFetch(`/api/v1/goals/${id}/close`, {
+export async function archiveGoal(id: number, body: GoalArchiveBody): Promise<void> {
+  const res = await authedFetch(`/api/v1/goals/${id}/archive`, {
     method: "POST",
     body: JSON.stringify(body),
   });

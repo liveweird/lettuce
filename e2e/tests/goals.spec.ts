@@ -2,7 +2,7 @@ import { expect, login, logout, MANAGER_AAA, AAA_THREE, notificationCard, openBe
 import type { Page } from "@playwright/test";
 
 // Goals: a manager defines a goal for a direct report and walks it around the
-// DRAFT <-> ACTIVE <-> CLOSED machine. Manager AAA ↔ AAA Three (the least-used seeded pair).
+// DRAFT <-> ACTIVE <-> ARCHIVED machine. Manager AAA ↔ AAA Three (the least-used seeded pair).
 // Goals are new rows, so seeded accounts are never mutated; every spec deletes what it creates
 // (delete is DRAFT-only, so cleanup deactivates first when needed).
 
@@ -74,7 +74,7 @@ async function deleteGoal(page: Page, id: number): Promise<void> {
   ]);
 }
 
-test("a manager walks a goal around the whole lifecycle: draft, activate, progress, close, reopen", async ({ page }) => {
+test("a manager walks a goal around the whole lifecycle: draft, activate, progress, archive, reopen", async ({ page }) => {
   const title = uniqueText("E2E-goal-cycle");
 
   await login(page, MANAGER_AAA);
@@ -96,16 +96,16 @@ test("a manager walks a goal around the whole lifecycle: draft, activate, progre
   await expect(page).toHaveURL(/\/users\/\d+\/goals/);
   await expect(goalRow(page, title).getByText("3", { exact: true })).toBeVisible();
 
-  // Close from the view screen — the summary is mandatory.
+  // Archive from the view screen — the summary is mandatory.
   await page.goto(`/goals/${id}/view`);
-  await page.getByRole("button", { name: "Close goal", exact: true }).click();
-  const closeDialog = page.getByRole("dialog");
-  await closeDialog.getByLabel("Summary").fill("Wrapped up in the e2e run");
+  await page.getByRole("button", { name: "Archive goal", exact: true }).click();
+  const archiveDialog = page.getByRole("dialog");
+  await archiveDialog.getByLabel("Summary").fill("Wrapped up in the e2e run");
   await Promise.all([
     page.waitForResponse(
-      (r) => r.url().endsWith(`/api/v1/goals/${id}/close`) && r.request().method() === "POST" && r.ok(),
+      (r) => r.url().endsWith(`/api/v1/goals/${id}/archive`) && r.request().method() === "POST" && r.ok(),
     ),
-    closeDialog.getByRole("button", { name: "Close goal", exact: true }).click(),
+    archiveDialog.getByRole("button", { name: "Archive goal", exact: true }).click(),
   ]);
 
   // Reopen — the record (summary included) survives the round-trip.

@@ -28,7 +28,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
 import java.util.UUID
-import ch.nokillswit.goals.GoalCloseRequest
+import ch.nokillswit.goals.GoalArchiveRequest
 import ch.nokillswit.goals.GoalCreateRequest
 import ch.nokillswit.goals.GoalResponse
 import ch.nokillswit.goals.GoalType
@@ -207,9 +207,9 @@ class TeamMemberSubordinateStatsTest {
         assertEquals(1, caller.subordinateItem(subId).activeGoalCount)
 
         // Closing takes the goal back out of the count.
-        val closed = caller.post("/api/v1/goals/${first.id}/close") {
+        val closed = caller.post("/api/v1/goals/${first.id}/archive") {
             contentType(ContentType.Application.Json)
-            setBody(GoalCloseRequest(summary = "done"))
+            setBody(GoalArchiveRequest(summary = "done"))
         }
         assertEquals(HttpStatusCode.NoContent, closed.status)
         assertEquals(0, caller.subordinateItem(subId).activeGoalCount)

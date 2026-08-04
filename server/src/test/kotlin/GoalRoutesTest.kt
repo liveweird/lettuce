@@ -1,6 +1,6 @@
 package ch.nokillswit
 
-import ch.nokillswit.goals.GoalCloseRequest
+import ch.nokillswit.goals.GoalArchiveRequest
 import ch.nokillswit.goals.GoalCreateRequest
 import ch.nokillswit.goals.GoalDefinitionUpdate
 import ch.nokillswit.goals.GoalEventListResponse
@@ -279,7 +279,7 @@ class GoalRoutesTest {
         assertEquals(HttpStatusCode.NotFound, client.put("/api/v1/goals/999999").status)
         assertEquals(HttpStatusCode.NotFound, client.put("/api/v1/goals/999999/progress").status)
         assertEquals(HttpStatusCode.NotFound, client.post("/api/v1/goals/999999/deactivate").status)
-        assertEquals(HttpStatusCode.NotFound, client.post("/api/v1/goals/999999/close").status)
+        assertEquals(HttpStatusCode.NotFound, client.post("/api/v1/goals/999999/archive").status)
         assertEquals(HttpStatusCode.NotFound, client.post("/api/v1/goals/999999/reopen").status)
     }
 
@@ -295,7 +295,7 @@ class GoalRoutesTest {
             HttpMethod.Put to "/api/v1/goals/1/progress",
             HttpMethod.Post to "/api/v1/goals/1/activate",
             HttpMethod.Post to "/api/v1/goals/1/deactivate",
-            HttpMethod.Post to "/api/v1/goals/1/close",
+            HttpMethod.Post to "/api/v1/goals/1/archive",
             HttpMethod.Post to "/api/v1/goals/1/reopen",
             HttpMethod.Get to "/api/v1/goals/1/events",
             HttpMethod.Delete to "/api/v1/goals/1",
@@ -324,13 +324,13 @@ class GoalRoutesTest {
 
         assertEquals(
             HttpStatusCode.NoContent,
-            manager.post("/api/v1/goals/${created.id}/close") {
+            manager.post("/api/v1/goals/${created.id}/archive") {
                 contentType(ContentType.Application.Json)
-                setBody(GoalCloseRequest(summary = "Delivered on time"))
+                setBody(GoalArchiveRequest(summary = "Delivered on time"))
             }.status,
         )
         val closed = manager.get("/api/v1/goals/${created.id}").body<GoalResponse>()
-        assertEquals(GoalStatus.CLOSED, closed.status)
+        assertEquals(GoalStatus.ARCHIVED, closed.status)
         assertEquals("Delivered on time", closed.summary)
 
         // Reopening keeps the summary as a record of the previous closure.
@@ -345,7 +345,7 @@ class GoalRoutesTest {
         // Every hop is in the audit trail.
         val events = manager.get("/api/v1/goals/${created.id}/events").body<GoalEventListResponse>()
         assertEquals(
-            listOf("DRAFT>ACTIVE", "ACTIVE>CLOSED", "CLOSED>ACTIVE", "ACTIVE>DRAFT"),
+            listOf("DRAFT>ACTIVE", "ACTIVE>ARCHIVED", "ARCHIVED>ACTIVE", "ACTIVE>DRAFT"),
             events.items.filter { it.type == GoalEventType.STATUS_CHANGED }
                 .map { "${it.params["from"]}>${it.params["to"]}" },
         )
@@ -358,9 +358,9 @@ class GoalRoutesTest {
         val manager = authedClient(pair.managerEmail, "pw")
         val created = manager.createGoal(pair.subordinateId)
 
-        suspend fun close() = manager.post("/api/v1/goals/${created.id}/close") {
+        suspend fun close() = manager.post("/api/v1/goals/${created.id}/archive") {
             contentType(ContentType.Application.Json)
-            setBody(GoalCloseRequest(summary = "s"))
+            setBody(GoalArchiveRequest(summary = "s"))
         }.status
 
         // From DRAFT: close and reopen are invalid, and deactivate is a no-edge.
@@ -374,7 +374,7 @@ class GoalRoutesTest {
         assertEquals(HttpStatusCode.Conflict, manager.post("/api/v1/goals/${created.id}/reopen").status)
 
         assertEquals(HttpStatusCode.NoContent, close())
-        // From CLOSED: only reopen is valid.
+        // From ARCHIVED: only reopen is valid.
         assertEquals(HttpStatusCode.Conflict, manager.post("/api/v1/goals/${created.id}/activate").status)
         assertEquals(HttpStatusCode.Conflict, manager.post("/api/v1/goals/${created.id}/deactivate").status)
         assertEquals(HttpStatusCode.Conflict, close())
@@ -388,9 +388,9 @@ class GoalRoutesTest {
         val created = manager.createGoal(pair.subordinateId)
         manager.post("/api/v1/goals/${created.id}/activate")
 
-        suspend fun close(summary: String) = manager.post("/api/v1/goals/${created.id}/close") {
+        suspend fun close(summary: String) = manager.post("/api/v1/goals/${created.id}/archive") {
             contentType(ContentType.Application.Json)
-            setBody(GoalCloseRequest(summary = summary))
+            setBody(GoalArchiveRequest(summary = summary))
         }.status
 
         assertEquals(HttpStatusCode.BadRequest, close(""))
@@ -429,11 +429,11 @@ class GoalRoutesTest {
         )
         assertEquals(
             HttpStatusCode.Forbidden,
-            subordinate.post("/api/v1/goals/${created.id}/close").status,
+            subordinate.post("/api/v1/goals/${created.id}/archive").status,
         )
-        manager.post("/api/v1/goals/${created.id}/close") {
+        manager.post("/api/v1/goals/${created.id}/archive") {
             contentType(ContentType.Application.Json)
-            setBody(GoalCloseRequest(summary = "closed for the reopen probe"))
+            setBody(GoalArchiveRequest(summary = "closed for the reopen probe"))
         }
         assertEquals(
             HttpStatusCode.Forbidden,
@@ -449,9 +449,9 @@ class GoalRoutesTest {
         val created = manager.createGoal(pair.subordinateId, title = "Notify me")
 
         manager.post("/api/v1/goals/${created.id}/activate")
-        manager.post("/api/v1/goals/${created.id}/close") {
+        manager.post("/api/v1/goals/${created.id}/archive") {
             contentType(ContentType.Application.Json)
-            setBody(GoalCloseRequest(summary = "done"))
+            setBody(GoalArchiveRequest(summary = "done"))
         }
         manager.post("/api/v1/goals/${created.id}/reopen")
         manager.post("/api/v1/goals/${created.id}/deactivate")
@@ -462,7 +462,7 @@ class GoalRoutesTest {
         assertEquals(
             setOf(
                 NotificationType.GOAL_ACTIVATED_TO_SUBORDINATE,
-                NotificationType.GOAL_CLOSED_TO_SUBORDINATE,
+                NotificationType.GOAL_ARCHIVED_TO_SUBORDINATE,
                 NotificationType.GOAL_REOPENED_TO_SUBORDINATE,
                 NotificationType.GOAL_DEACTIVATED_TO_SUBORDINATE,
             ),
@@ -517,7 +517,7 @@ class GoalRoutesTest {
         assertEquals(12.0, updated.targetValue)
         assertTrue(updated.lastModified >= created.lastModified)
 
-        // Once ACTIVE (and CLOSED) the definition is immutable.
+        // Once ACTIVE (and ARCHIVED) the definition is immutable.
         manager.post("/api/v1/goals/${created.id}/activate")
         assertEquals(
             HttpStatusCode.Conflict,
@@ -645,10 +645,10 @@ class GoalRoutesTest {
         val progressEvent = events.items.single { it.type == GoalEventType.PROGRESS_UPDATED }
         assertEquals(mapOf("from" to "0.0", "to" to "40.0"), progressEvent.params)
 
-        // Not editable once CLOSED either.
-        manager.post("/api/v1/goals/${created.id}/close") {
+        // Not editable once ARCHIVED either.
+        manager.post("/api/v1/goals/${created.id}/archive") {
             contentType(ContentType.Application.Json)
-            setBody(GoalCloseRequest(summary = "done"))
+            setBody(GoalArchiveRequest(summary = "done"))
         }
         assertEquals(HttpStatusCode.Conflict, manager.progress(GoalProgressUpdate(currentValue = 50.0)))
     }
@@ -1026,13 +1026,13 @@ class GoalRoutesTest {
         assertEquals(HttpStatusCode.BadRequest, manager.post("/api/v1/goals/${draft.id}/activate").status)
         assertEquals(GoalStatus.DRAFT, manager.get("/api/v1/goals/${draft.id}").body<GoalResponse>().status)
 
-        // A closed goal whose due date has passed can still be reopened (CLOSED -> ACTIVE is not
+        // A closed goal whose due date has passed can still be reopened (ARCHIVED -> ACTIVE is not
         // gated — the due date is only editable in DRAFT, so gating reopen would deadlock it).
         val closed = manager.createGoal(pair.subordinateId, title = "overdue closed")
         manager.post("/api/v1/goals/${closed.id}/activate")
-        manager.post("/api/v1/goals/${closed.id}/close") {
+        manager.post("/api/v1/goals/${closed.id}/archive") {
             contentType(ContentType.Application.Json)
-            setBody(GoalCloseRequest(summary = "wrapped before the deadline check existed"))
+            setBody(GoalArchiveRequest(summary = "wrapped before the deadline check existed"))
         }
         TestGoalMaintenance.setDueDate(closed.id, yesterday)
         assertEquals(HttpStatusCode.NoContent, manager.post("/api/v1/goals/${closed.id}/reopen").status)

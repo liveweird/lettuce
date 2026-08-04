@@ -98,7 +98,7 @@ internal fun goalProgressUpdateEvent(
     else -> null
 }
 
-/** Structured event recorded on every status transition (activate/deactivate/close/reopen). */
+/** Structured event recorded on every status transition (activate/deactivate/archive/reopen). */
 internal fun goalTransitionEvent(from: GoalStatus, to: GoalStatus): GoalEventDescriptor =
     GoalEventDescriptor(
         GoalEventType.STATUS_CHANGED,

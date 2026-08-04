@@ -51,7 +51,7 @@ const BINARY_GOAL = {
   targetValue: null,
   currentValue: null,
   achieved: false,
-  status: "CLOSED",
+  status: "ARCHIVED",
 };
 
 function page(items: unknown[]) {
@@ -91,7 +91,7 @@ describe("GoalTable", () => {
     // Status badges.
     expect(screen.getByText("Active")).toBeInTheDocument();
     expect(screen.getByText("Draft")).toBeInTheDocument();
-    expect(screen.getByText("Closed")).toBeInTheDocument();
+    expect(screen.getByText("Archived")).toBeInTheDocument();
     // Due dates (all far-future here, so no overdue badge).
     expect(screen.getAllByText("Jun 15, 2099").length).toBe(3);
     expect(screen.queryByText("Overdue")).toBeNull();

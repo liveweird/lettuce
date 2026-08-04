@@ -994,11 +994,11 @@ export interface paths {
         /**
          * Fetch a goal
          * @description Returns the full goal document — parties, definition, value fields, status, and (once
-         *     closed at least once) the summary. Readable by the goal's **manager**, its
+         *     archived at least once) the summary. Readable by the goal's **manager**, its
          *     **subordinate**, and the **HR auditor** (audit-logged) at every status; a **manager in
          *     the subordinate's transitive management chain** (their manager, that manager's manager,
          *     and so on — over non-deleted teams) may read it only once it has left DRAFT
-         *     (ACTIVE/CLOSED) — a draft stays private to the pair. Anything else — ADMIN included —
+         *     (ACTIVE/ARCHIVED) — a draft stays private to the pair. Anything else — ADMIN included —
          *     is `403`.
          */
         get: operations["getGoal"];
@@ -1008,10 +1008,10 @@ export interface paths {
          *     date is editable **only** here and at creation, i.e. only while DRAFT, and must not be
          *     earlier than the current date). **Manager-only**
          *     (the subordinate has read rights only; nobody else — ADMIN included — gets write
-         *     access) and **DRAFT-only**: an ACTIVE or CLOSED goal's definition is immutable (`409`) — deactivate
+         *     access) and **DRAFT-only**: an ACTIVE or ARCHIVED goal's definition is immutable (`409`) — deactivate
          *     it first to edit. The parties, status, current value, and summary are not settable here
          *     (status moves through the action endpoints, the current value through
-         *     `PUT /goals/{id}/progress`, the summary through the close action).
+         *     `PUT /goals/{id}/progress`, the summary through the archive action).
          *
          *     Changing the type re-initializes the value fields for the new type (BINARY: not
          *     achieved; NUMBER/PERCENTAGE: `0.0`), discarding any previously recorded progress — the
@@ -1024,7 +1024,7 @@ export interface paths {
          * Delete a draft goal
          * @description Soft-deletes a goal (the row is flagged, not physically removed, and disappears from
          *     reads/lists; its audit history is retained). **Manager-only** and **DRAFT-only** —
-         *     ACTIVE and CLOSED goals are records and answer `400`; close (or reopen) them through
+         *     ACTIVE and ARCHIVED goals are records and answer `400`; archive (or reopen) them through
          *     the transitions instead. Nobody is notified.
          */
         delete: operations["deleteGoal"];
@@ -1111,7 +1111,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/goals/{id}/close": {
+    "/api/v1/goals/{id}/archive": {
         parameters: {
             query?: never;
             header?: never;
@@ -1123,14 +1123,14 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Close an active goal
-         * @description Moves the goal `ACTIVE → CLOSED` (any other current status is `409`). **Manager-only.**
-         *     Closing always records the body's **summary** (required, non-blank — the only moment
+         * Archive an active goal
+         * @description Moves the goal `ACTIVE → ARCHIVED` (any other current status is `409`). **Manager-only.**
+         *     Archiving always records the body's **summary** (required, non-blank — the only moment
          *     the summary is settable). The current value is frozen as-is — update it via
-         *     `PUT /goals/{id}/progress` *before* closing. The subordinate is notified; the
+         *     `PUT /goals/{id}/progress` *before* archiving. The subordinate is notified; the
          *     transition is recorded in the audit history.
          */
-        post: operations["closeGoal"];
+        post: operations["archiveGoal"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1149,10 +1149,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Reopen a closed goal
-         * @description Moves the goal `CLOSED → ACTIVE` (any other current status is `409`). **Manager-only.**
-         *     The stored summary is kept as a record of the previous closure and will be overwritten
-         *     at the next close. The subordinate is notified; the transition is recorded in the audit
+         * Reopen an archived goal
+         * @description Moves the goal `ARCHIVED → ACTIVE` (any other current status is `409`). **Manager-only.**
+         *     The stored summary is kept as a record of the previous archiving and will be overwritten
+         *     at the next archiving. The subordinate is notified; the transition is recorded in the audit
          *     history.
          */
         post: operations["reopenGoal"];
@@ -2463,7 +2463,7 @@ export interface components {
              *     `view=member` (peers have no goal relationship). The number of ACTIVE
              *     (non-deleted) goals of the (row user, caller) pair in the view's direction —
              *     `managers`: goals this manager set for the caller; `managed`: goals the
-             *     caller set for this member. `0` when the pair has none; DRAFT and CLOSED
+             *     caller set for this member. `0` when the pair has none; DRAFT and ARCHIVED
              *     goals never count.
              */
             activeGoalCount?: number | null;
@@ -3024,8 +3024,8 @@ export interface components {
             /** @description The new done-flag — required for BINARY goals; must be absent otherwise. */
             achieved?: boolean | null;
         };
-        GoalCloseRequest: {
-            /** @description The closing summary — required and non-blank; recorded on the goal. */
+        GoalArchiveRequest: {
+            /** @description The archiving summary — required and non-blank; recorded on the goal. */
             summary: string;
         };
         GoalResponse: {
@@ -3064,8 +3064,8 @@ export interface components {
             /** @description Null unless BINARY; starts false, editable only while ACTIVE. */
             achieved: boolean | null;
             /** @enum {string} */
-            status: "DRAFT" | "ACTIVE" | "CLOSED";
-            /** @description Non-null once the goal has been closed at least once — kept on reopen, overwritten at the next close. */
+            status: "DRAFT" | "ACTIVE" | "ARCHIVED";
+            /** @description Non-null once the goal has been archived at least once — kept on reopen, overwritten at the next archiving. */
             summary: string | null;
             /**
              * Format: int64
@@ -3093,7 +3093,7 @@ export interface components {
             currentValue: number | null;
             achieved: boolean | null;
             /** @enum {string} */
-            status: "DRAFT" | "ACTIVE" | "CLOSED";
+            status: "DRAFT" | "ACTIVE" | "ARCHIVED";
             /** Format: int64 */
             createdAt: number;
             /** Format: date */
@@ -3504,7 +3504,7 @@ export interface components {
              * @description Notification kind; the client renders it in the viewer's language.
              * @enum {string}
              */
-            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_CLOSED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "PASSWORD_CHANGED";
+            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "PASSWORD_CHANGED";
             /**
              * @description Interpolation values for the localized message — party names (proper nouns), e.g.
              *     `{provider,subject,requester}`; plus `self` — the SPA's i18next context carrier:
@@ -3707,7 +3707,7 @@ export interface components {
                 "application/problem+json": components["schemas"]["ProblemDetail"];
             };
         };
-        /** @description The action is not allowed from the goal's current status (the machine is DRAFT ↔ ACTIVE ↔ CLOSED, never skipping ACTIVE) */
+        /** @description The action is not allowed from the goal's current status (the machine is DRAFT ↔ ACTIVE ↔ ARCHIVED, never skipping ACTIVE) */
         GoalInvalidTransition: {
             headers: {
                 [name: string]: unknown;
@@ -5324,7 +5324,7 @@ export interface operations {
                 /** @description Exact goal-type match. */
                 type?: "BINARY" | "NUMBER" | "PERCENTAGE";
                 /** @description Exact status match. */
-                status?: "DRAFT" | "ACTIVE" | "CLOSED";
+                status?: "DRAFT" | "ACTIVE" | "ARCHIVED";
                 /** @description Lower bound (inclusive) on the creation moment, epoch milliseconds. */
                 "createdAt[gte]"?: number;
                 /** @description Lower bound (inclusive) on the last-modified moment, epoch milliseconds. */
@@ -5617,7 +5617,7 @@ export interface operations {
             500: components["responses"]["InternalServerError"];
         };
     };
-    closeGoal: {
+    archiveGoal: {
         parameters: {
             query?: never;
             header?: never;
@@ -5628,11 +5628,11 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["GoalCloseRequest"];
+                "application/json": components["schemas"]["GoalArchiveRequest"];
             };
         };
         responses: {
-            /** @description Closed */
+            /** @description Archived */
             204: {
                 headers: {
                     [name: string]: unknown;

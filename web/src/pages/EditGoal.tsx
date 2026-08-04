@@ -20,7 +20,7 @@ import { useTranslation } from "react-i18next";
 import {
   activateGoal,
   ApiError,
-  closeGoal,
+  archiveGoal,
   deactivateGoal,
   deleteGoal,
   getGoal,
@@ -51,7 +51,7 @@ import { showSuccessToast } from "../utils/toast";
 
 /**
  * The manager's status-dependent editor on one route (the EditFeedback precedent): a DRAFT
- * renders the definition form, an ACTIVE the progress form; a CLOSED goal (nothing editable —
+ * renders the definition form, an ACTIVE the progress form; an ARCHIVED goal (nothing editable —
  * reopen it from the view screen) and any non-manager redirect to the read-only view. The
  * field blocks live in GoalDefinitionFields / GoalProgressFields (the FeedbackForm shape);
  * this route owns the branching, submission, and footers.
@@ -71,7 +71,7 @@ export default function EditGoal() {
   // Which submit is in flight — drives the pressed button's spinner while all buttons disable
   // (the FeedbackForm `submitting === "DRAFT"` idiom).
   const [submitting, setSubmitting] = useState<
-    "draft" | "activate" | "progress" | "deactivate" | "close" | null
+    "draft" | "activate" | "progress" | "deactivate" | "archive" | null
   >(null);
   const [deleting, setDeleting] = useState(false);
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
@@ -122,8 +122,8 @@ export default function EditGoal() {
   if (data && getUserId() !== data.managerId) {
     return <Navigate to={viewLink} replace />;
   }
-  // A CLOSED goal has nothing editable — its only action (Reopen) lives on the view screen.
-  if (data && data.status === "CLOSED") {
+  // An ARCHIVED goal has nothing editable — its only action (Reopen) lives on the view screen.
+  if (data && data.status === "ARCHIVED") {
     return <Navigate to={viewLink} replace />;
   }
 
@@ -148,7 +148,7 @@ export default function EditGoal() {
 
   async function saveProgress(
     values: GoalProgressFormValues,
-    then: "none" | "deactivate" | "close" = "none",
+    then: "none" | "deactivate" | "archive" = "none",
     summary?: string,
   ) {
     if (!data) return;
@@ -171,10 +171,10 @@ export default function EditGoal() {
         setSubmitting(null);
         return;
       }
-      if (then === "close") {
-        await closeGoal(id, { summary: summary ?? "" });
+      if (then === "archive") {
+        await archiveGoal(id, { summary: summary ?? "" });
       }
-      await afterSave(then === "close" ? "goal.toast.closed" : "goal.toast.progressSaved");
+      await afterSave(then === "archive" ? "goal.toast.archived" : "goal.toast.progressSaved");
     } catch (err) {
       setError(goalSaveErrorMessage(err, t));
       setSubmitting(null);
@@ -370,10 +370,10 @@ export default function EditGoal() {
                       type="button"
                       // Validate first, then collect the mandatory summary in the close dialog.
                       onClick={() => progressForm.onSubmit(() => setCloseOpen(true))()}
-                      loading={submitting === "close"}
+                      loading={submitting === "archive"}
                       disabled={submitting !== null}
                     >
-                      {t("goal.action.saveAndClose")}
+                      {t("goal.action.saveAndArchive")}
                     </Button>
                   </Group>
                 </Group>
@@ -405,8 +405,8 @@ export default function EditGoal() {
       <GoalCloseModal
         opened={closeOpen}
         onClose={() => setCloseOpen(false)}
-        loading={submitting === "close"}
-        onConfirm={(summary) => void saveProgress(progressForm.values, "close", summary)}
+        loading={submitting === "archive"}
+        onConfirm={(summary) => void saveProgress(progressForm.values, "archive", summary)}
       />
     </Container>
   );

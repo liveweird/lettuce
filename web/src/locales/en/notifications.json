@@ -37,7 +37,7 @@
     "oneOnOneCreatedToManager": "You documented a 1:1 meeting with {{subordinate}} ({{date}}).",
     "goalActivated": "{{manager}} activated the goal \"{{title}}\" for you.",
     "goalDeactivated": "{{manager}} returned the goal \"{{title}}\" to draft.",
-    "goalClosed": "{{manager}} closed the goal \"{{title}}\".",
+    "goalArchived": "{{manager}} archived the goal \"{{title}}\".",
     "goalReopened": "{{manager}} reopened the goal \"{{title}}\".",
     "teamKpiActivated": "{{manager}} activated the KPI \"{{title}}\" for team {{team}}.",
     "teamKpiDeactivated": "{{manager}} returned the KPI \"{{title}}\" of team {{team}} to draft.",

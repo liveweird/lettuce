@@ -95,7 +95,7 @@ describe("EditGoal page", () => {
   });
 
   test("a CLOSED goal is redirected to the read-only view (nothing editable)", async () => {
-    setupMocks({ ...DRAFT_GOAL, status: "CLOSED", summary: "done" });
+    setupMocks({ ...DRAFT_GOAL, status: "ARCHIVED", summary: "done" });
     renderScreen();
 
     await waitFor(() => {
@@ -357,7 +357,7 @@ describe("EditGoal page", () => {
     ).toBe(true);
   });
 
-  test("ACTIVE: Save & close collects the mandatory summary, then PUTs progress and POSTs close", async () => {
+  test("ACTIVE: Save & archive collects the mandatory summary, then PUTs progress and POSTs archive", async () => {
     setupMocks({ ...DRAFT_GOAL, status: "ACTIVE", currentValue: 45 });
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const u = String(url);
@@ -374,16 +374,16 @@ describe("EditGoal page", () => {
     const current = await screen.findByLabelText(/current/i);
     await user.clear(current);
     await user.type(current, "80");
-    await user.click(screen.getByRole("button", { name: /^save & close$/i }));
+    await user.click(screen.getByRole("button", { name: /^save & archive$/i }));
     const dialog = await screen.findByRole("dialog");
 
     // A blank summary is blocked inside the dialog — nothing has been sent yet.
-    await user.click(within(dialog).getByRole("button", { name: /close goal/i }));
-    expect(await within(dialog).findByText("A summary is required to close a goal")).toBeInTheDocument();
-    expect(mockFetch.mock.calls.some(([u]) => String(u).includes("/close"))).toBe(false);
+    await user.click(within(dialog).getByRole("button", { name: /archive goal/i }));
+    expect(await within(dialog).findByText("A summary is required to archive a goal")).toBeInTheDocument();
+    expect(mockFetch.mock.calls.some(([u]) => String(u).includes("/archive"))).toBe(false);
 
     await user.type(within(dialog).getByLabelText(/summary/i), "Wrapped up ahead of time");
-    await user.click(within(dialog).getByRole("button", { name: /close goal/i }));
+    await user.click(within(dialog).getByRole("button", { name: /archive goal/i }));
 
     await waitFor(() => {
       const put = mockFetch.mock.calls.find(
@@ -392,7 +392,7 @@ describe("EditGoal page", () => {
       );
       expect(put).toBeDefined();
       expect(JSON.parse((put![1] as RequestInit).body as string)).toEqual({ currentValue: 80 });
-      const close = mockFetch.mock.calls.find(([u]) => String(u) === "/api/v1/goals/5/close");
+      const close = mockFetch.mock.calls.find(([u]) => String(u) === "/api/v1/goals/5/archive");
       expect(close).toBeDefined();
       expect(JSON.parse((close![1] as RequestInit).body as string)).toEqual({
         summary: "Wrapped up ahead of time",
@@ -414,10 +414,10 @@ describe("EditGoal page", () => {
     renderScreen();
 
     await screen.findByLabelText(/current/i);
-    await user.click(screen.getByRole("button", { name: /^save & close$/i }));
+    await user.click(screen.getByRole("button", { name: /^save & archive$/i }));
     const dialog = await screen.findByRole("dialog");
     await user.type(within(dialog).getByLabelText(/summary/i), "s");
-    await user.click(within(dialog).getByRole("button", { name: /close goal/i }));
+    await user.click(within(dialog).getByRole("button", { name: /archive goal/i }));
 
     expect(
       await screen.findByText("The goal's status changed in the meantime — reload and try again."),

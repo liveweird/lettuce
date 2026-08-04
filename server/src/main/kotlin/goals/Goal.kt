@@ -10,7 +10,7 @@ import java.time.format.DateTimeParseException
 enum class GoalType { BINARY, NUMBER, PERCENTAGE }
 
 @Serializable
-enum class GoalStatus { DRAFT, ACTIVE, CLOSED }
+enum class GoalStatus { DRAFT, ACTIVE, ARCHIVED }
 
 const val MAX_GOAL_TITLE_LENGTH = 200
 const val MAX_GOAL_TEXT_LENGTH = 4000
@@ -35,7 +35,7 @@ data class GoalCreateRequest(
  * Body of `PUT /goals/{id}` — the editable representation of a DRAFT goal (title, description,
  * type, target). Parties, status, and the value/summary fields are NOT settable here: status
  * moves through the `POST /goals/{id}/{action}` endpoints, the current value through
- * `PUT /goals/{id}/progress`, and the summary through the close action.
+ * `PUT /goals/{id}/progress`, and the summary through the archive action.
  */
 @Serializable
 data class GoalDefinitionUpdate(
@@ -57,9 +57,9 @@ data class GoalProgressUpdate(
     val achieved: Boolean? = null,
 )
 
-/** Body of `POST /goals/{id}/close` — closing always records a non-blank summary. */
+/** Body of `POST /goals/{id}/archive` — archiving always records a non-blank summary. */
 @Serializable
-data class GoalCloseRequest(
+data class GoalArchiveRequest(
     val summary: String,
 )
 
@@ -79,7 +79,7 @@ data class GoalResponse(
     val achieved: Boolean?,
     val status: GoalStatus,
     // Non-null once the goal has been closed at least once (kept on reopen, overwritten at the
-    // next close).
+    // next archiving).
     val summary: String?,
     val lastModified: Long,
     // Resolved party display names.
@@ -193,7 +193,7 @@ internal fun validateGoalDueDate(dueDate: String, today: LocalDate = LocalDate.n
  * NUMBER/PERCENTAGE (0–100 for PERCENTAGE).
  */
 /**
- * Validates the close action's summary: required non-blank, bounded like the description. The
+ * Validates the archive action's summary: required non-blank, bounded like the description. The
  * single home of the rule — the service trusts the route to have run it (see transitionTo).
  */
 internal fun validateGoalSummary(summary: String?) {
