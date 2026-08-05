@@ -2889,6 +2889,21 @@ export interface components {
             careerSpecialization?: components["schemas"]["DictionaryEntry"] | null;
             /** @description Resolved from the SENIORITY_LEVEL dictionary — see careerPath. */
             seniorityLevel?: components["schemas"]["DictionaryEntry"] | null;
+            /**
+             * Format: date
+             * @description ISO start date of the row user's next ACCEPTED days-off request that hasn't ended
+             *     yet (an ongoing one counts; pending requests never show). Populated for
+             *     `view=managed` and `view=member` (teammates see accepted absences by calendar
+             *     parity); always null on `view=managers`, and null when nothing is planned.
+             */
+            nextVacationStart?: string | null;
+            /**
+             * Format: double
+             * @description The row user's remaining paid-days budget for the current calendar year
+             *     (carry-over and corrections included). Populated ONLY for `view=managed` —
+             *     budgets are manager/self-scoped, so peer and manager rows never carry it.
+             */
+            daysOffRemaining?: number | null;
         };
         TeamMemberPage: {
             items: components["schemas"]["TeamMemberListItem"][];

@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.44.0",
+    date: "2026-08-05",
+    en: `Person cards know about days off now. Your direct reports' cards (on the Dashboard and their details pages) show the start date of their next accepted vacation and how much of this year's paid budget they have left; teammate cards show the next vacation too (budgets stay private). Each report's card also gained a "Days off" button opening a dedicated per-person view — their requests (with accept/reject at hand), their yearly budget, and their corrections — without wading through the whole team tab.`,
+    pl: `Karty osób znają teraz dni wolne. Karty Twoich bezpośrednich podwładnych (na Pulpicie i na stronach szczegółów) pokazują datę początku najbliższego zaakceptowanego urlopu oraz ile zostało im z tegorocznego płatnego budżetu; karty osób z zespołu też pokazują najbliższy urlop (budżety pozostają prywatne). Karta każdego podwładnego zyskała też przycisk „Dni wolne" otwierający dedykowany widok tej osoby — jej wnioski (z akceptacją/odrzuceniem pod ręką), roczny budżet i korekty — bez przedzierania się przez całą zakładkę zespołu.`,
+  },
+  {
     version: "1.43.0",
     date: "2026-08-05",
     en: `Days off got three upgrades. The calendar now clearly marks weekends (gray) and public holidays (warm tint, name on hover) as two distinct kinds of off days. The public-holiday list comes pre-filled with the confirmed Polish statutory holidays for 2026 and 2027 — including movable feasts and the Christmas Eve day off. And managers can now add budget corrections: ± days (halves allowed) on a chosen year of a report's paid-days budget, with a mandatory reason — applied immediately, no approval step, editable and deletable, visible to the person (who also gets a notification), their management chain, and HR — never to teammates.`,

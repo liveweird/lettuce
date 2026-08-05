@@ -282,6 +282,32 @@ describe("TeamMembersTable", () => {
     expect(screen.getByText("Feedback from me")).toBeInTheDocument();
   });
 
+  test("peer cards show the next vacation but never a budget or Days off button", async () => {
+    setupMocks(
+      mockFetch,
+      membersPage([
+        { ...SEED_MEMBERS[0], nextVacationStart: "2026-09-14" },
+        { ...SEED_MEMBERS[1], nextVacationStart: null },
+      ]),
+    );
+    renderWithProviders(<TeamMembersTable view="member" emptyMessage="No team members" />);
+
+    expect(await screen.findAllByText("Next vacation")).toHaveLength(2);
+    expect(screen.getByText("Sep 14, 2026")).toBeInTheDocument();
+    expect(screen.getByText("none planned")).toBeInTheDocument();
+    expect(screen.queryByText("Days-off budget left")).toBeNull();
+    expect(screen.queryByRole("link", { name: /days off of/i })).toBeNull();
+  });
+
+  test("managed cards carry a Days off drill-down link", async () => {
+    setupMocks(mockFetch, membersPage([SEED_MEMBERS[1]]));
+    renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
+
+    const link = await screen.findByRole("link", { name: /days off of bob brown/i });
+    expect(link.getAttribute("href")).toContain("/users/11/days-off");
+    expect(link.getAttribute("href")).toContain("from=subordinates");
+  });
+
   test("the all-reports scope keeps the career column even though the stats disappear", async () => {
     setupMocks(
       mockFetch,
@@ -542,6 +568,8 @@ describe("TeamMembersTable", () => {
             lastReviewPeriodStartMonth: "2026-01",
             lastReviewPeriodEndMonth: "2026-06",
             lastReviewStatus: "CALIBRATION",
+            nextVacationStart: "2026-08-10",
+            daysOffRemaining: 17.5,
           },
         ]),
       );
@@ -561,6 +589,11 @@ describe("TeamMembersTable", () => {
       expect(screen.getByText("Last review")).toBeInTheDocument();
       expect(screen.getByText("January 2026 – June 2026")).toBeInTheDocument();
       expect(screen.getByText("Calibration")).toBeInTheDocument();
+      // The days-off pair (v1.44.0).
+      expect(screen.getByText("Next vacation")).toBeInTheDocument();
+      expect(screen.getByText("Aug 10, 2026")).toBeInTheDocument();
+      expect(screen.getByText("Days-off budget left")).toBeInTheDocument();
+      expect(screen.getByText("17.5")).toBeInTheDocument();
       expect(screen.queryByText("never")).toBeNull();
     } finally {
       vi.useRealTimers();
@@ -580,8 +613,10 @@ describe("TeamMembersTable", () => {
     );
     renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
 
-    // 1:1, feedback, and last review (v1.34.0) all read "never" without data.
-    expect(await screen.findAllByText("never")).toHaveLength(3);
+    // 1:1, feedback, last review (v1.34.0), and the budget (v1.44.0) all read "never"
+    // without data; the next vacation has its own wording.
+    expect(await screen.findAllByText("never")).toHaveLength(4);
+    expect(screen.getByText("none planned")).toBeInTheDocument();
     expect(screen.queryByText(/open item/)).toBeNull();
     // The goal count is a number, never "never" — absent renders as an explicit 0.
     expect(screen.getByText("Active goals")).toBeInTheDocument();
@@ -601,8 +636,8 @@ describe("TeamMembersTable", () => {
     renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
 
     expect(await screen.findByText("0 open items")).toBeInTheDocument();
-    // The feedback and last-review stats are empty; the 1:1 row is not.
-    expect(screen.getAllByText("never")).toHaveLength(2);
+    // The feedback, last-review, and budget stats are empty; the 1:1 row is not.
+    expect(screen.getAllByText("never")).toHaveLength(3);
   });
 
   test("a two-team subordinate's single card renders the stats once", async () => {

@@ -26,6 +26,10 @@ export type TeamRow = {
   careerPath?: CareerEntry | null;
   careerSpecialization?: CareerEntry | null;
   seniorityLevel?: CareerEntry | null;
+  // Days-off card stats (v1.44.0): next accepted vacation on managed + member rows;
+  // remaining budget on managed rows only.
+  nextVacationStart?: string | null;
+  daysOffRemaining?: number | null;
 };
 
 export type PersonCard = {
@@ -46,6 +50,8 @@ export type PersonCard = {
   careerPath: CareerEntry | null;
   careerSpecialization: CareerEntry | null;
   seniorityLevel: CareerEntry | null;
+  nextVacationStart: string | null;
+  daysOffRemaining: number | null;
 };
 
 export function groupTeamRows(rows: TeamRow[]): PersonCard[] {
@@ -75,6 +81,8 @@ export function groupTeamRows(rows: TeamRow[]): PersonCard[] {
         careerPath: r.careerPath ?? null,
         careerSpecialization: r.careerSpecialization ?? null,
         seniorityLevel: r.seniorityLevel ?? null,
+        nextVacationStart: r.nextVacationStart ?? null,
+        daysOffRemaining: r.daysOffRemaining ?? null,
       });
     }
   }

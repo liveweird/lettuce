@@ -1,6 +1,7 @@
 import { Badge, Group, SimpleGrid, Stack, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { formatIsoDate, formatMonthRange, formatRelativeTime, formatTimestamp } from "../utils/datetime";
+import { formatDays } from "../utils/daysOffCost";
 import type { PersonCard as PersonCardData } from "../utils/teamRows";
 import PerformanceReviewStatusBadge from "./PerformanceReviewStatusBadge";
 
@@ -104,9 +105,13 @@ export function CareerCardStats({ person }: { person: PersonCardData }) {
 export default function PersonCardStats({
   person,
   showLastReview = false,
+  showDaysOff = false,
 }: {
   person: PersonCardData;
   showLastReview?: boolean;
+  /** Gate for the days-off rows (v1.44.0) — set by the subordinates grid only, whose rows
+   *  (view=managed) actually carry the stats; a managers-grid card never does. */
+  showDaysOff?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   return (
@@ -167,14 +172,44 @@ export default function PersonCardStats({
               )}
             </StatRow>
           )}
+          {showDaysOff && (
+            <>
+              <NextVacationRow person={person} />
+              <StatRow label={t("users.daysOffBudgetLeft")}>
+                {person.daysOffRemaining != null ? (
+                  <Text size="xs">{formatDays(person.daysOffRemaining, i18n.language)}</Text>
+                ) : (
+                  <NeverText />
+                )}
+              </StatRow>
+            </>
+          )}
         </Stack>
       }
     />
   );
 }
 
+// The next accepted vacation (v1.44.0): its start date, or a dimmed "none planned". Shared by
+// the subordinate cards and the peer cards (teammates see accepted absences via the calendar).
+function NextVacationRow({ person }: { person: PersonCardData }) {
+  const { t, i18n } = useTranslation();
+  return (
+    <StatRow label={t("users.nextVacation")}>
+      {person.nextVacationStart != null ? (
+        <Text size="xs">{formatIsoDate(person.nextVacationStart, i18n.language)}</Text>
+      ) : (
+        <Text size="xs" c="dimmed">
+          {t("users.noVacationPlanned")}
+        </Text>
+      )}
+    </StatRow>
+  );
+}
+
 // The peers-grid variant: no 1:1 row (peers don't run 1:1s with each other) — instead the
-// two feedback directions between the caller and the pictured person.
+// two feedback directions between the caller and the pictured person, plus the next accepted
+// vacation (member rows carry it — calendar parity; budgets never appear here).
 export function PeerCardStats({ person }: { person: PersonCardData }) {
   const { t } = useTranslation();
   return (
@@ -188,6 +223,7 @@ export function PeerCardStats({ person }: { person: PersonCardData }) {
           <StatRow label={t("users.feedbackFromThem")}>
             <TimeStat at={person.lastFeedbackReceivedAt} />
           </StatRow>
+          <NextVacationRow person={person} />
         </Stack>
       }
     />

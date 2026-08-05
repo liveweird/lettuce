@@ -137,6 +137,22 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
     .click();
   await page.getByRole("dialog").getByRole("button", { name: "Reject", exact: true }).click();
   await expect(page.getByText("Request rejected")).toBeVisible();
+
+  // The subordinate card now shows the accepted vacation (v1.44.0) and links to the
+  // per-user days-off view, where the same request sits Accepted with the budget strip.
+  await page.goto("/?tab=subordinates");
+  const aaaTwoCard = page.locator("li", { hasText: "AAA Two" }).first();
+  await expect(aaaTwoCard.getByText("Next vacation")).toBeVisible();
+  const mondayFormatted = new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(
+    new Date(`${MONDAY_ISO}T00:00:00`),
+  );
+  await expect(aaaTwoCard.getByText(mondayFormatted)).toBeVisible();
+  await expect(aaaTwoCard.getByText("Days-off budget left")).toBeVisible();
+  await aaaTwoCard.getByRole("link", { name: "Days off of AAA Two" }).click();
+  await expect(page).toHaveURL(/\/users\/\d+\/days-off/);
+  await expect(page.getByRole("heading", { name: "Days off of AAA Two" })).toBeVisible();
+  await expect(page.getByText(/Paid days off of AAA Two in \d{4}/)).toBeVisible();
+  await expect(page.locator("tr", { hasText: "Accepted" }).first()).toBeVisible();
   await logout(page);
 
   // ── AAA Two: sees the outcomes, the calendar bar, then cancels the accepted request. ──

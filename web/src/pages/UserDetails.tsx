@@ -84,6 +84,8 @@ async function fetchUserDetails(userId: number): Promise<UserDetailsData> {
       careerPath: found.careerPath,
       careerSpecialization: found.careerSpecialization,
       seniorityLevel: found.seniorityLevel,
+      nextVacationStart: null,
+      daysOffRemaining: null,
     },
     relationship: null,
   };
@@ -176,6 +178,7 @@ export default function UserDetails() {
           oneOnOnes: true,
           goals: true,
           reviews: true,
+          daysOff: true,
         }}
       />
     ) : (
@@ -223,9 +226,14 @@ export default function UserDetails() {
             teamNames={person.teamNames}
             stats={
               relationship === "manager" || relationship === "subordinate" ? (
-                // Only view=managed rows carry the last-review stat, so the review row shows
-                // for a direct report and not for a manager (whose row never has the data).
-                <PersonCardStats person={person} showLastReview={relationship === "subordinate"} />
+                // Only view=managed rows carry the last-review and days-off stats, so those
+                // rows show for a direct report and not for a manager (whose row never has
+                // the data).
+                <PersonCardStats
+                  person={person}
+                  showLastReview={relationship === "subordinate"}
+                  showDaysOff={relationship === "subordinate"}
+                />
               ) : relationship === "peer" ? (
                 <PeerCardStats person={person} />
               ) : (

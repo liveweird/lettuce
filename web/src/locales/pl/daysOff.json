@@ -103,7 +103,9 @@
     "noAllowance": "Nie masz jeszcze skonfigurowanej puli płatnych dni — zapytaj administratora/administratorkę; do tego czasu płatne wnioski są zablokowane.",
     "loadError": "Nie udało się wczytać budżetu",
     "noReports": "Brak bezpośrednich podwładnych.",
-    "corrected": "Korekty"
+    "corrected": "Korekty",
+    "userTitle": "Płatne dni wolne — {{name}}, rok {{year}}",
+    "notAReport": "Ta osoba nie jest (już) Twoim bezpośrednim podwładnym — budżet jest niedostępny."
   },
   "holidays": {
     "title": "Święta",
@@ -152,5 +154,7 @@
     "toastAdded": "Korekta dodana",
     "toastUpdated": "Korekta zaktualizowana",
     "toastDeleted": "Korekta usunięta"
-  }
+  },
+  "managedTitle": "Dni wolne — {{who}}",
+  "managedHint": "Wnioski, które złożył/złożyła {{who}} — zaakceptuj lub odrzuć oczekujące — oraz roczny budżet i korekty."
 }
