@@ -240,6 +240,61 @@ describe("NotificationsButton", () => {
     ).toBeInTheDocument();
   });
 
+  test("renders the days-off kinds with localized dates and the translated type", async () => {
+    const base = { recipientId: 7, timestamp: Date.now(), wasSeen: false };
+    const rows: Item[] = [
+      {
+        ...base,
+        id: 51,
+        type: "DAYS_OFF_REQUESTED_TO_MANAGER",
+        link: "/days-off?tab=team",
+        params: {
+          requester: "Riley Report", type: "PAID", days: "1.5",
+          startDate: "2026-08-10", endDate: "2026-08-11",
+        },
+      },
+      {
+        ...base,
+        id: 52,
+        type: "DAYS_OFF_ACCEPTED_TO_OWNER",
+        link: "/days-off?tab=requests",
+        params: { manager: "Mona Manager", startDate: "2026-08-10", endDate: "2026-08-11" },
+      },
+      {
+        ...base,
+        id: 53,
+        type: "DAYS_OFF_REJECTED_TO_OWNER",
+        link: "/days-off?tab=requests",
+        params: { manager: "Mona Manager", startDate: "2026-08-10", endDate: "2026-08-11" },
+      },
+      {
+        ...base,
+        id: 54,
+        type: "DAYS_OFF_CANCELLED_TO_MANAGER",
+        link: "/days-off?tab=team",
+        params: { requester: "Riley Report", startDate: "2026-08-10", endDate: "2026-08-11" },
+      },
+    ];
+    setupMocks(mockFetch, rows, 4);
+    renderWithProviders(<Harness />);
+    await userEvent.setup().click(await screen.findByRole("button", { name: /notifications/i }));
+
+    expect(
+      await screen.findByText(
+        "Riley Report requested time off Aug 10, 2026 – Aug 11, 2026 (Paid, 1.5 day(s)).",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Mona Manager accepted your days-off request (Aug 10, 2026 – Aug 11, 2026)."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Mona Manager rejected your days-off request (Aug 10, 2026 – Aug 11, 2026)."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Riley Report cancelled their days-off request (Aug 10, 2026 – Aug 11, 2026)."),
+    ).toBeInTheDocument();
+  });
+
   test("shows the unread count on the bell button", async () => {
     setupMocks(mockFetch, [UNSEEN, SEEN], 3);
     renderWithProviders(<NotificationsButton />);

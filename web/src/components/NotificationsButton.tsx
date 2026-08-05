@@ -18,6 +18,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import {
   IconArrowBackUp,
+  IconBeach,
   IconBell,
   IconCalendarEvent,
   IconChartLine,
@@ -80,6 +81,10 @@ const EVENT_KEY: Record<NotificationItem["type"], string> = {
   TEAM_KPI_VALUE_REMOVED_TO_MEMBER: "teamKpiValueRemoved",
   PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE: "performanceReviewPublished",
   PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE: "performanceReviewUnpublished",
+  DAYS_OFF_REQUESTED_TO_MANAGER: "daysOffRequested",
+  DAYS_OFF_ACCEPTED_TO_OWNER: "daysOffAccepted",
+  DAYS_OFF_REJECTED_TO_OWNER: "daysOffRejected",
+  DAYS_OFF_CANCELLED_TO_MANAGER: "daysOffCancelled",
   PASSWORD_CHANGED: "passwordChanged",
 };
 
@@ -89,6 +94,10 @@ const KPI_VALUE_KEYS = new Set(["teamKpiValueRecorded", "teamKpiValueCorrected",
 
 // The performance-review kinds carry the period's raw ISO YYYY-MM bounds — format per locale.
 const REVIEW_PERIOD_KEYS = new Set(["performanceReviewPublished", "performanceReviewUnpublished"]);
+
+// The days-off kinds carry the period's raw ISO dates (and `type` as the enum name; the
+// creation kind also `days` as a plain "1.5"-style number that interpolates as-is).
+const DAYS_OFF_KEYS = new Set(["daysOffRequested", "daysOffAccepted", "daysOffRejected", "daysOffCancelled"]);
 
 function describeNotification(n: NotificationItem, t: TFunction, locale: string): string {
   const key = EVENT_KEY[n.type];
@@ -112,6 +121,12 @@ function describeNotification(n: NotificationItem, t: TFunction, locale: string)
     for (const k of ["startMonth", "endMonth"]) {
       if (params[k] != null) params[k] = formatIsoMonth(params[k]!, locale);
     }
+  }
+  if (DAYS_OFF_KEYS.has(key)) {
+    for (const k of ["startDate", "endDate"]) {
+      if (params[k] != null) params[k] = formatIsoDate(params[k]!, locale);
+    }
+    if (params.type != null) params.type = t(`daysOff.type.${params.type}`);
   }
   // `self` drives the "about yourself" wording variant via i18next context.
   return t(`notifications.event.${key}`, { ...params, context: params.self });
@@ -146,6 +161,10 @@ const TYPE_META: Record<NotificationItem["type"], { icon: typeof IconBell; color
   TEAM_KPI_VALUE_REMOVED_TO_MEMBER: { icon: IconChartLine, color: "gray" },
   PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE: { icon: IconClipboardText, color: "green" },
   PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE: { icon: IconClipboardText, color: "orange" },
+  DAYS_OFF_REQUESTED_TO_MANAGER: { icon: IconBeach, color: "yellow" },
+  DAYS_OFF_ACCEPTED_TO_OWNER: { icon: IconBeach, color: "green" },
+  DAYS_OFF_REJECTED_TO_OWNER: { icon: IconBeach, color: "red" },
+  DAYS_OFF_CANCELLED_TO_MANAGER: { icon: IconBeach, color: "gray" },
   PASSWORD_CHANGED: { icon: IconKey, color: "orange" },
 };
 

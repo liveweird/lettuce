@@ -140,7 +140,8 @@
     "feedbacksAria": "Audit feedbacks of {{name}}",
     "oneOnOnesAria": "Audit 1:1 meetings of {{name}}",
     "goalsAria": "Audit goals of {{name}}",
-    "performanceReviewsAria": "Audit performance reviews of {{name}}"
+    "performanceReviewsAria": "Audit performance reviews of {{name}}",
+    "daysOffAria": "Audit days off of {{name}}"
   },
   "profile": {
     "missingBadge": "Not set",
@@ -152,6 +153,9 @@
     "seniority": "Seniority"
   },
   "performanceReviews": "Performance reviews",
+  "daysOff": "Days off",
+  "paidDaysOffAllowance": "Paid days-off allowance (days per year)",
+  "paidDaysOffAllowanceHint": "Whole days; unused days carry over to the next year. Leave empty to keep the current value — a set allowance cannot be cleared.",
   "toast": {
     "updated": "User updated",
     "deleted": "User deleted",

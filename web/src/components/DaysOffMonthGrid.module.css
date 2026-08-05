@@ -1,0 +1,99 @@
+/* The leave-planner grid: one row per person, one narrow cell per day of the month. Hand-rolled
+   (no calendar dependency) and theme-aware via Mantine CSS vars. */
+
+.wrapper {
+  overflow-x: auto;
+}
+
+.grid {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+}
+
+.grid th,
+.grid td {
+  border-bottom: 1px solid var(--mantine-color-default-border);
+  padding: 0;
+}
+
+.nameCell {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--mantine-color-body);
+  padding: 6px 12px 6px 0;
+  text-align: left;
+  white-space: nowrap;
+  font-weight: 500;
+  font-size: var(--mantine-font-size-sm);
+}
+
+.dayHeader {
+  min-width: 26px;
+  text-align: center;
+  font-weight: 400;
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-dimmed);
+  padding: 2px 1px 6px;
+  line-height: 1.2;
+}
+
+.dayCell {
+  min-width: 26px;
+  height: 34px;
+  padding: 3px 1px;
+}
+
+/* Weekend/holiday columns are dimmed — the fill bars ride over them so periods stay visually
+   continuous. */
+.offDay {
+  background: var(--mantine-color-default-hover);
+}
+
+.fill {
+  height: 100%;
+  border-radius: 3px;
+}
+
+.paid {
+  background: var(--mantine-color-teal-6);
+}
+
+.unpaid {
+  background: var(--mantine-color-gray-5);
+}
+
+/* REQUESTED renders as tentative: the same hue, striped. */
+.tentativePaid {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--mantine-color-teal-6),
+    var(--mantine-color-teal-6) 4px,
+    var(--mantine-color-teal-2) 4px,
+    var(--mantine-color-teal-2) 8px
+  );
+}
+
+.tentativeUnpaid {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--mantine-color-gray-5),
+    var(--mantine-color-gray-5) 4px,
+    var(--mantine-color-gray-2) 4px,
+    var(--mantine-color-gray-2) 8px
+  );
+}
+
+/* A half day fills half the cell width. */
+.half {
+  width: 50%;
+}
+
+.legendSwatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  vertical-align: middle;
+}

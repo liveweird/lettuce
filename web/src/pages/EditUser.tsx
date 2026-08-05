@@ -14,6 +14,7 @@ import {
   Container,
   Group,
   Loader,
+  NumberInput,
   Paper,
   Stack,
   TextInput,
@@ -42,6 +43,9 @@ type FormValues = {
   careerPathId: string;
   careerSpecializationId: string;
   seniorityLevelId: string;
+  // Whole days ("" = unset). Sent only when set — same leave-unchanged encoding as the
+  // career refs, so clearing a set allowance is inexpressible client-side too.
+  paidDaysOffAllowance: number | "";
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -63,6 +67,7 @@ export default function EditUser() {
       careerPathId: "",
       careerSpecializationId: "",
       seniorityLevelId: "",
+      paidDaysOffAllowance: "",
     },
     validate: {
       name: hasLength({ min: 1, max: 50 }, t("users.validation.nameLength")),
@@ -93,6 +98,7 @@ export default function EditUser() {
         careerPathId: data.careerPath ? String(data.careerPath.id) : "",
         careerSpecializationId: data.careerSpecialization ? String(data.careerSpecialization.id) : "",
         seniorityLevelId: data.seniorityLevel ? String(data.seniorityLevel.id) : "",
+        paidDaysOffAllowance: data.paidDaysOffAllowance ?? "",
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -114,6 +120,9 @@ export default function EditUser() {
           ? { careerSpecializationId: Number(values.careerSpecializationId) }
           : {}),
         ...(values.seniorityLevelId ? { seniorityLevelId: Number(values.seniorityLevelId) } : {}),
+        ...(values.paidDaysOffAllowance !== ""
+          ? { paidDaysOffAllowance: values.paidDaysOffAllowance }
+          : {}),
       });
       await queryClient.invalidateQueries({ queryKey: ["users"] });
       await queryClient.invalidateQueries({ queryKey: ["user", id] });
@@ -230,6 +239,15 @@ export default function EditUser() {
                   label={t("common.field.seniorityLevel")}
                   current={data?.seniorityLevel}
                   {...form.getInputProps("seniorityLevelId")}
+                />
+                <NumberInput
+                  label={t("users.paidDaysOffAllowance")}
+                  description={t("users.paidDaysOffAllowanceHint")}
+                  min={0}
+                  max={365}
+                  allowDecimal={false}
+                  clampBehavior="strict"
+                  {...form.getInputProps("paidDaysOffAllowance")}
                 />
                 {error && (
                   <Alert color="red" variant="light">

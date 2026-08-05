@@ -1845,6 +1845,305 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/days-off": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List days-off requests for the caller
+         * @description Lists days-off requests scoped by `view`. Except `view=user` (the HR auditor view),
+         *     scoping is always relative to the caller, including ADMIN callers.
+         *
+         *     - `view=own` (the default): the caller's own requests, at every status.
+         *     - `view=managed`: requests of the caller's **direct reports** (members of non-deleted
+         *       teams the caller manages), at every status — the same scope as the accept/reject
+         *       right, so every listed row's actions are valid. Deliberately direct-only (no
+         *       `includeIndirect`): a chain manager higher up still reads singles via the read
+         *       guard — the list scope is not an authorization boundary. A caller who manages no
+         *       team gets an empty page.
+         *     - `view=user` (HR only, else `403`; requires `userId`): the auditor view — every
+         *       request of the given user, at every status. HR usage is recorded in the security
+         *       audit trail. The ordinary sort/filter/paging parameters apply on top.
+         *
+         *     Supports offset pagination, sorting and filtering.
+         *
+         *     - Sortable fields: `id`, `userName`, `startDate`, `endDate`, `type`, `status`, `days`,
+         *       `createdAt`. Default sort is `startDate` **descending** (most recent periods first).
+         *       `id` ascending is always appended as a deterministic tiebreaker.
+         *     - Filters (all optional, all whitelisted):
+         *       - `userName` — case-insensitive substring match against the owner's name.
+         *       - `userId` — exact owner-id match; a pin-filter on `view=managed` (the drill-down
+         *         precedent), required with `view=user`, rejected with `view=own` (`400` — own is
+         *         caller-implied).
+         *       - `type` / `status` — exact enum-name match.
+         *       - `startDate[gte]` / `startDate[lte]` — inclusive ISO-date bounds on the start date.
+         *
+         *     Malformed query parameters (unknown view, unknown sort field, out-of-range
+         *     page/pageSize) respond with `400` and a `ProblemDetail` body.
+         */
+        get: operations["listDaysOff"];
+        put?: never;
+        /**
+         * Request days off
+         * @description Creates a days-off request, always in **REQUESTED** status. The **owner is always the
+         *     caller** — there is no create-on-behalf, not even for ADMIN.
+         *
+         *     One request covers one **consecutive period** `[startDate, endDate]` (a single day is
+         *     allowed; both bounds inclusive, strict zero-padded ISO `YYYY-MM-DD`). The period must
+         *     not span calendar years (`400` — split a New-Year period into two requests).
+         *     `startHalf`/`endHalf` mark the period's first/last day as **half days**; a single-day
+         *     request expresses a half day via `startHalf` alone (`endHalf` there is `400`).
+         *
+         *     The working-day **cost** is computed server-side: Saturdays, Sundays, and public
+         *     holidays inside the period cost nothing; every other day costs 1 day (0.5 with the
+         *     matching half toggle). The cost is computed against the holiday registry **at creation
+         *     and frozen** — later registry edits never reprice existing requests. A period containing
+         *     no working days at all is `400`.
+         *
+         *     State rules (both `409`): the period must not **overlap** any of the owner's REQUESTED
+         *     or ACCEPTED requests — the `ProblemDetail.instance` of the conflict points at the
+         *     existing request; and a **PAID** request must fit the owner's paid-days budget — a
+         *     REQUESTED request already reserves budget, and unused budget carries over between
+         *     calendar years (see `GET /days-off/budgets`). UNPAID requests are unlimited.
+         *
+         *     Each of the owner's **current direct managers** is notified; a user with no manager
+         *     notifies nobody (and nobody can accept — a documented top-of-chain limitation).
+         */
+        post: operations["createDaysOff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/days-off/calendar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Month calendar of a team's days off
+         * @description The month calendar payload for the SPA's leave-planner grid: every user in the scope
+         *     (users without entries included — their rows still render), each carrying their
+         *     **REQUESTED and ACCEPTED** days clipped to the month (the whole period is expanded,
+         *     weekends included, so bars render continuously), plus the month's public holidays.
+         *     REJECTED and CANCELLED requests never appear.
+         *
+         *     Scopes (both caller-relative — any authenticated caller may use either; an empty
+         *     scope is an empty user list):
+         *     - `scope=member` (the default): everyone sharing a non-deleted team with the caller,
+         *       the caller included (a team-less caller sees just themselves).
+         *     - `scope=managed`: the caller's direct reports.
+         *
+         *     Unpaged by construction — bounded by (scope users × ≤31 days). Users sort by name.
+         */
+        get: operations["getDaysOffCalendar"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/days-off/budgets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Paid-days budgets for a calendar year
+         * @description One budget row per user for the given calendar year: the configured **allowance**
+         *     (null = not configured = zero budget), the **carriedOver** days from previous years,
+         *     the year's **reserved** (REQUESTED) and **used** (ACCEPTED) paid days, and the
+         *     **remaining** balance (`carriedOver + allowance − reserved − used`, may be negative
+         *     after a retroactive allowance cut).
+         *
+         *     Carry-over is automatic: unused budget in one calendar year transfers to the next.
+         *     The accumulation is anchored at the year of the user's earliest REQUESTED/ACCEPTED
+         *     PAID request (the allowance never phantom-accumulates over empty historical years),
+         *     and the CURRENT allowance value applies to every year — an admin's allowance change
+         *     recomputes history (documented behavior). REJECTED and CANCELLED requests never count.
+         *
+         *     Views (both caller-relative): `view=own` (the default) — the caller's single row;
+         *     `view=managed` — one row per **direct report** (the manager's budget overview; empty
+         *     for a caller who manages no team). Rows sort by name.
+         */
+        get: operations["listDaysOffBudgets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/days-off/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Fetch a days-off request
+         * @description Returns the full request document. Readable by the **owner** and the **HR auditor**
+         *     (audit-logged) at every status; by any **manager in the owner's transitive management
+         *     chain** at every status; and by a **teammate** (someone sharing a non-deleted team
+         *     with the owner) only while the request is **REQUESTED or ACCEPTED** — exactly what the
+         *     team calendar shows, so a REJECTED or CANCELLED request stays private to the owner,
+         *     their chain, and HR. Anyone else gets `403`. ADMIN gets nothing special.
+         */
+        get: operations["getDaysOff"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/days-off/{id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept a days-off request
+         * @description Accepts a **REQUESTED** request (any other status is `409`). Only a **current direct
+         *     manager** of the owner may accept — never the owner, never a chain manager higher up,
+         *     and ADMIN gets nothing special. Stamps the resolving manager on the record and
+         *     notifies the owner.
+         */
+        post: operations["acceptDaysOff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/days-off/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject a days-off request
+         * @description Rejects a **REQUESTED** request (any other status is `409`; REJECTED is terminal).
+         *     Only a **current direct manager** of the owner may reject — the same rule as accept.
+         *     Stamps the resolving manager on the record and notifies the owner.
+         */
+        post: operations["rejectDaysOff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/days-off/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a days-off request
+         * @description Cancels the caller's own request (CANCELLED is terminal; only the **owner** may
+         *     cancel). Valid from **REQUESTED** anytime, and from **ACCEPTED** only strictly before
+         *     the request's start date — once the period has started (or on its first day) an
+         *     accepted request is a record and can no longer be withdrawn (`409`). Frees the
+         *     reserved paid budget. Cancelling an accepted request notifies the manager who accepted
+         *     it; cancelling a pending one notifies all current direct managers.
+         */
+        post: operations["cancelDaysOff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public-holidays": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the public-holiday registry
+         * @description Returns the whole global public-holiday registry, oldest date first — **unpaged**
+         *     (the review-periods shape: the registry is intrinsically small, and the days-off
+         *     create form's cost preview needs all of it). Any authenticated caller may read it.
+         *     On these dates everyone is off and no paid budget is deducted; days-off request costs
+         *     are frozen at creation, so registry edits never reprice existing requests.
+         */
+        get: operations["listPublicHolidays"];
+        put?: never;
+        /**
+         * Add a public holiday
+         * @description **ADMIN-only.** Adds a holiday (strict zero-padded ISO `YYYY-MM-DD` date + a
+         *     non-blank name of at most 100 characters). At most one holiday per date — a duplicate
+         *     date is `409` (the DB's unique index; no pre-check by design). Recorded in the
+         *     security audit trail.
+         */
+        post: operations["createPublicHoliday"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public-holidays/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a public holiday
+         * @description **ADMIN-only.** Hard-deletes a holiday (the registry exception to the soft-delete
+         *     convention — nothing references a holiday by FK, and existing days-off request costs
+         *     stay frozen, so deletion never reprices history). Recorded in the security audit
+         *     trail.
+         */
+        delete: operations["deletePublicHoliday"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/templates": {
         parameters: {
             query?: never;
@@ -2279,6 +2578,11 @@ export interface components {
              * @description Id of an ACTIVE SENIORITY_LEVEL dictionary entry — see careerPathId.
              */
             seniorityLevelId?: number | null;
+            /**
+             * @description Annual paid days-off allowance in whole days. Omitted or null = leave unset
+             *     (= zero paid budget). The current value applies to every calendar year.
+             */
+            paidDaysOffAllowance?: number | null;
         };
         UserCreateResponse: {
             /** Format: int64 */
@@ -2291,6 +2595,8 @@ export interface components {
             careerPath: components["schemas"]["DictionaryEntry"] | null;
             careerSpecialization: components["schemas"]["DictionaryEntry"] | null;
             seniorityLevel: components["schemas"]["DictionaryEntry"] | null;
+            /** @description Annual paid days-off allowance in whole days; null = not configured. */
+            paidDaysOffAllowance: number | null;
         };
         UserUpdateRequest: {
             name: string;
@@ -2320,6 +2626,14 @@ export interface components {
              * @description Id of an ACTIVE SENIORITY_LEVEL dictionary entry — semantics as careerPathId.
              */
             seniorityLevelId?: number | null;
+            /**
+             * @description Annual paid days-off allowance in whole days. Omitted or null = leave unchanged —
+             *     there is deliberately no way to clear a set value. Assigning or changing requires
+             *     ADMIN (403 otherwise); resubmitting the current value is never a change. The
+             *     current value applies to every calendar year — changing it recomputes carry-over
+             *     retroactively.
+             */
+            paidDaysOffAllowance?: number | null;
         };
         PasswordUpdateRequest: {
             /** @description At most 71 bytes in UTF-8 (bcrypt limit) — longer is rejected with 400. */
@@ -2348,6 +2662,12 @@ export interface components {
             careerSpecialization: components["schemas"]["DictionaryEntry"] | null;
             /** @description Resolved from the SENIORITY_LEVEL dictionary — see careerPath. */
             seniorityLevel: components["schemas"]["DictionaryEntry"] | null;
+            /**
+             * @description Annual paid days-off allowance in whole days; null = not configured = zero paid
+             *     budget. ADMIN-only assignable; rides the user representation like the career
+             *     fields (managers consume the derived budget numbers via GET /days-off/budgets).
+             */
+            paidDaysOffAllowance: number | null;
         };
         UserPage: {
             items: components["schemas"]["UserResponse"][];
@@ -3490,6 +3810,195 @@ export interface components {
         PerformanceReviewEventList: {
             items: components["schemas"]["PerformanceReviewEventResponse"][];
         };
+        DaysOffCreateRequest: {
+            /**
+             * @description PAID draws on the owner's paid-days budget; UNPAID is unlimited.
+             * @enum {string}
+             */
+            type: "PAID" | "UNPAID";
+            /**
+             * Format: date
+             * @description First day of the period, strict zero-padded ISO YYYY-MM-DD.
+             */
+            startDate: string;
+            /**
+             * Format: date
+             * @description Last day (inclusive), not before startDate and in the same calendar year — a New-Year-spanning wish is two requests.
+             */
+            endDate: string;
+            /**
+             * @description The period's first day is a half day. A single-day request expresses its half day here.
+             * @default false
+             */
+            startHalf: boolean;
+            /**
+             * @description The period's last day is a half day; must stay false on a single-day request (400).
+             * @default false
+             */
+            endHalf: boolean;
+        };
+        DaysOffResponse: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            userId: number;
+            userName: string;
+            /** @enum {string} */
+            type: "PAID" | "UNPAID";
+            /**
+             * @description REQUESTED → ACCEPTED | REJECTED (a direct manager resolves), plus terminal CANCELLED (the owner withdraws). REQUESTED and ACCEPTED reserve paid budget; REJECTED and CANCELLED free it.
+             * @enum {string}
+             */
+            status: "REQUESTED" | "ACCEPTED" | "REJECTED" | "CANCELLED";
+            /** Format: date */
+            startDate: string;
+            /** Format: date */
+            endDate: string;
+            startHalf: boolean;
+            endHalf: boolean;
+            /**
+             * Format: double
+             * @description The frozen working-day cost in days (0.5 steps) — weekends and public holidays inside the period cost nothing; computed against the holiday registry at creation and never repriced.
+             */
+            days: number;
+            /**
+             * Format: int64
+             * @description Epoch milliseconds, immutable.
+             */
+            createdAt: number;
+            /**
+             * Format: int64
+             * @description The accepting/rejecting manager — null while REQUESTED.
+             */
+            resolvedById: number | null;
+            resolvedByName: string | null;
+            /**
+             * Format: int64
+             * @description Epoch milliseconds.
+             */
+            resolvedAt: number | null;
+            /**
+             * Format: int64
+             * @description Epoch milliseconds.
+             */
+            cancelledAt: number | null;
+            /** Format: int64 */
+            lastModified: number;
+        };
+        DaysOffListItem: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            userId: number;
+            userName: string;
+            userDeleted: boolean;
+            /** @enum {string} */
+            type: "PAID" | "UNPAID";
+            /** @enum {string} */
+            status: "REQUESTED" | "ACCEPTED" | "REJECTED" | "CANCELLED";
+            /** Format: date */
+            startDate: string;
+            /** Format: date */
+            endDate: string;
+            startHalf: boolean;
+            endHalf: boolean;
+            /** Format: double */
+            days: number;
+            /** Format: int64 */
+            createdAt: number;
+            /** Format: int64 */
+            lastModified: number;
+        };
+        DaysOffPage: {
+            items: components["schemas"]["DaysOffListItem"][];
+            page: number;
+            pageSize: number;
+            /**
+             * Format: int64
+             * @description Row count after filters, before pagination.
+             */
+            total: number;
+        };
+        DaysOffCalendarEntry: {
+            /** Format: int64 */
+            requestId: number;
+            /** Format: date */
+            date: string;
+            /** @enum {string} */
+            type: "PAID" | "UNPAID";
+            /**
+             * @description Only counting statuses appear on the calendar; REQUESTED renders as tentative.
+             * @enum {string}
+             */
+            status: "REQUESTED" | "ACCEPTED";
+            /** @description True on a half-day edge day of its period. */
+            half: boolean;
+        };
+        DaysOffCalendarUser: {
+            /** Format: int64 */
+            userId: number;
+            userName: string;
+            userDeleted: boolean;
+            /** @description The user's marked days inside the month, date-ascending; may be empty. */
+            entries: components["schemas"]["DaysOffCalendarEntry"][];
+        };
+        DaysOffCalendarResponse: {
+            month: string;
+            /** @description The month's public holidays, date-ascending. */
+            holidays: components["schemas"]["PublicHoliday"][];
+            /** @description Every user in the scope (entries or not), sorted by name. */
+            users: components["schemas"]["DaysOffCalendarUser"][];
+        };
+        DaysOffBudget: {
+            /** Format: int64 */
+            userId: number;
+            userName: string;
+            userDeleted: boolean;
+            year: number;
+            /** @description The admin-configured annual allowance in whole days; null = not configured = zero budget. */
+            allowance: number | null;
+            /**
+             * Format: double
+             * @description Days carried in from previous years (0 for a user with no earlier usage).
+             */
+            carriedOver: number;
+            /**
+             * Format: double
+             * @description The year's REQUESTED (pending) paid days — reserved, not yet confirmed.
+             */
+            reserved: number;
+            /**
+             * Format: double
+             * @description The year's ACCEPTED paid days.
+             */
+            used: number;
+            /**
+             * Format: double
+             * @description carriedOver + allowance − reserved − used; may be negative after a retroactive allowance cut.
+             */
+            remaining: number;
+        };
+        DaysOffBudgetList: {
+            items: components["schemas"]["DaysOffBudget"][];
+        };
+        PublicHoliday: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date */
+            date: string;
+            name: string;
+        };
+        PublicHolidayList: {
+            items: components["schemas"]["PublicHoliday"][];
+        };
+        PublicHolidayCreateRequest: {
+            /**
+             * Format: date
+             * @description Strict zero-padded ISO YYYY-MM-DD; at most one holiday per date (409).
+             */
+            date: string;
+            name: string;
+        };
         NotificationResponse: {
             /** Format: int64 */
             id: number;
@@ -3504,7 +4013,7 @@ export interface components {
              * @description Notification kind; the client renders it in the viewer's language.
              * @enum {string}
              */
-            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "PASSWORD_CHANGED";
+            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_REQUESTED_TO_MANAGER" | "DAYS_OFF_ACCEPTED_TO_OWNER" | "DAYS_OFF_REJECTED_TO_OWNER" | "DAYS_OFF_CANCELLED_TO_MANAGER" | "PASSWORD_CHANGED";
             /**
              * @description Interpolation values for the localized message — party names (proper nouns), e.g.
              *     `{provider,subject,requester}`; plus `self` — the SPA's i18next context carrier:
@@ -3518,7 +4027,10 @@ export interface components {
              *     TEAM_KPI_* kinds carry `{manager,title,team}` — the manager's name, the KPI's
              *     plaintext title, and the team's name. The PERFORMANCE_REVIEW_* kinds carry
              *     `{manager,startMonth,endMonth}` — the manager's name and the period's raw ISO
-             *     month bounds (the client formats the period).
+             *     month bounds (the client formats the period). The DAYS_OFF_* kinds carry the party
+             *     name (`requester` toward managers, `manager` toward the owner) plus raw ISO
+             *     `{startDate,endDate}`; DAYS_OFF_REQUESTED_TO_MANAGER additionally `{type,days}`
+             *     (the enum name and a "1.5"-style days string) — the client formats all of them.
              */
             params: {
                 [key: string]: string;
@@ -3772,6 +4284,33 @@ export interface components {
         };
         /** @description The action is not allowed from the review's current status (the machine is DRAFT ↔ CALIBRATION ↔ PUBLISHED, never skipping CALIBRATION) */
         PerformanceReviewInvalidTransition: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetail"];
+            };
+        };
+        /** @description Caller may not read this days-off request (not the owner, HR, a manager in the owner's chain, or — for a REQUESTED/ACCEPTED request — a teammate) */
+        DaysOffNotReadable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetail"];
+            };
+        };
+        /** @description Caller is not a current direct manager of the request's owner */
+        DaysOffNotDirectManager: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetail"];
+            };
+        };
+        /** @description The action is not allowed from the request's current status (accept/reject need REQUESTED; cancel needs REQUESTED, or ACCEPTED strictly before the start date) */
+        DaysOffInvalidTransition: {
             headers: {
                 [name: string]: unknown;
             };
@@ -6665,6 +7204,376 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["PerformanceReviewNotReadable"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listDaysOff: {
+        parameters: {
+            query?: {
+                /** @description 1-based page index. Defaults to 1. */
+                page?: components["parameters"]["Page"];
+                /** @description Rows per page. Defaults to 20, maximum 100. */
+                pageSize?: components["parameters"]["PageSize"];
+                /**
+                 * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
+                 *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
+                 *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
+                 *     always appended as a deterministic tiebreaker.
+                 */
+                sort?: components["parameters"]["Sort"];
+                /** @description Which slice of requests to list — caller-relative, except the HR auditor view `user`. */
+                view?: "own" | "managed" | "user";
+                /**
+                 * @description Exact owner-id match. Required with `view=user` (`400` when missing there); an
+                 *     ordinary pin-filter with `view=managed`; rejected with `view=own` (`400`).
+                 */
+                userId?: number;
+                /** @description Case-insensitive substring match against the owner's name. */
+                userName?: string;
+                /** @description Exact type match. */
+                type?: "PAID" | "UNPAID";
+                /** @description Exact status match. */
+                status?: "REQUESTED" | "ACCEPTED" | "REJECTED" | "CANCELLED";
+                /** @description Lower bound (inclusive) on the start date, ISO YYYY-MM-DD. */
+                "startDate[gte]"?: string;
+                /** @description Upper bound (inclusive) on the start date, ISO YYYY-MM-DD. */
+                "startDate[lte]"?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of days-off requests */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DaysOffPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description view=user requested without the HR role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    createDaysOff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DaysOffCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Created — the full request document */
+            201: {
+                headers: {
+                    /** @description URL of the new days-off request */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DaysOffResponse"];
+                };
+            };
+            /** @description Validation error (malformed or misordered dates, a year-spanning period, endHalf on a single-day request, or a period containing no working days) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description The period overlaps an existing REQUESTED/ACCEPTED request of the caller (the ProblemDetail `instance` points at it), or a PAID request exceeds the remaining paid-days budget of its year (or a later carry-over-funded year) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getDaysOffCalendar: {
+        parameters: {
+            query: {
+                /** @description The calendar month, strict zero-padded ISO `YYYY-MM` (`400` otherwise). */
+                month: string;
+                /** @description Whose days off to show — teammates (member) or direct reports (managed). */
+                scope?: "member" | "managed";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The month's calendar payload */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DaysOffCalendarResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listDaysOffBudgets: {
+        parameters: {
+            query?: {
+                /** @description Whose budgets — the caller's own or their direct reports'. */
+                view?: "own" | "managed";
+                /** @description The calendar year; defaults to the server's current year. */
+                year?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The budget rows */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DaysOffBudgetList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getDaysOff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The days-off request */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DaysOffResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["DaysOffNotReadable"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    acceptDaysOff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["DaysOffNotDirectManager"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["DaysOffInvalidTransition"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    rejectDaysOff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rejected */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["DaysOffNotDirectManager"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["DaysOffInvalidTransition"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    cancelDaysOff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cancelled */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description The caller is not the request's owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["DaysOffInvalidTransition"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listPublicHolidays: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All public holidays, oldest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicHolidayList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    createPublicHoliday: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicHolidayCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Created — the new holiday */
+            201: {
+                headers: {
+                    /** @description URL of the new holiday resource */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicHoliday"];
+                };
+            };
+            /** @description Malformed date (not a zero-padded ISO YYYY-MM-DD) or blank/oversized name */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description A holiday already exists on this date */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    deletePublicHoliday: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             500: components["responses"]["InternalServerError"];
         };

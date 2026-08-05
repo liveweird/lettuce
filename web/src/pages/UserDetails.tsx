@@ -263,7 +263,7 @@ export default function UserDetails() {
                 drillFrom="details"
                 drillBack={backHere}
                 audit
-                show={{ feedbacks: true, oneOnOnes: true, goals: true, reviews: true }}
+                show={{ feedbacks: true, oneOnOnes: true, goals: true, reviews: true, daysOff: true }}
               />
             </Group>
           </Stack>

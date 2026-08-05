@@ -32,6 +32,8 @@ ktor:
       - ch.nokillswit.teamkpis.TeamKpiRoutesKt.configureTeamKpiRoutes
       - ch.nokillswit.reviews.ReviewPeriodRoutesKt.configureReviewPeriodRoutes
       - ch.nokillswit.reviews.PerformanceReviewRoutesKt.configurePerformanceReviewRoutes
+      - ch.nokillswit.daysoff.PublicHolidayRoutesKt.configurePublicHolidayRoutes
+      - ch.nokillswit.daysoff.DaysOffRoutesKt.configureDaysOffRoutes
       - ch.nokillswit.dashboard.DashboardRoutesKt.configureDashboardRoutes
       - ch.nokillswit.templates.TemplateRoutesKt.configureTemplateRoutes
       - ch.nokillswit.dictionaries.DictionaryRoutesKt.configureDictionaryRoutes

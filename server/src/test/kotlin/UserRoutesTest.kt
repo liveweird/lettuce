@@ -955,4 +955,51 @@ class UserRoutesTest {
         }
         assertEquals(HttpStatusCode.BadRequest, invalid.status)
     }
+
+    // --- Paid days-off allowance (v1.42.0) ---
+
+    @Test
+    fun `the paid days-off allowance is ADMIN-assignable, ranged, and null means leave unchanged`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("allowance-admin")
+        TestUsers.seed(email = adminEmail, password = "pw-123456789")
+        val admin = authedClient(adminEmail, "pw-123456789")
+
+        // Create with an allowance (admin-only POST) round-trips it.
+        val created = admin.post("/api/v1/users") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                UserRequest(
+                    name = "Allowance Target", email = uniqueEmail("allowance-target"),
+                    password = "pw-123456789", paidDaysOffAllowance = 26,
+                ),
+            )
+        }.body<UserResponse>()
+        assertEquals(26, created.paidDaysOffAllowance)
+
+        suspend fun putAllowance(client: io.ktor.client.HttpClient, value: Int?) =
+            client.put("/api/v1/users/${created.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    UserUpdateRequest(
+                        name = created.name, email = created.email, roles = emptyList(),
+                        paidDaysOffAllowance = value,
+                    ),
+                )
+            }
+
+        // Range rule.
+        assertEquals(HttpStatusCode.BadRequest, putAllowance(admin, -1).status)
+        assertEquals(HttpStatusCode.BadRequest, putAllowance(admin, 366).status)
+        // Admin changes it; null/omitted leaves it; resubmitting the current value is not a change.
+        assertEquals(HttpStatusCode.NoContent, putAllowance(admin, 30).status)
+        assertEquals(HttpStatusCode.NoContent, putAllowance(admin, null).status)
+        assertEquals(30, admin.get("/api/v1/users/${created.id}").body<UserResponse>().paidDaysOffAllowance)
+
+        // The target themselves may resubmit the current value but never change it.
+        val self = authedClient(created.email, "pw-123456789")
+        assertEquals(HttpStatusCode.NoContent, putAllowance(self, 30).status)
+        assertEquals(HttpStatusCode.Forbidden, putAllowance(self, 31).status)
+        assertEquals(30, admin.get("/api/v1/users/${created.id}").body<UserResponse>().paidDaysOffAllowance)
+    }
 }

@@ -142,7 +142,8 @@
     "feedbacksAria": "Audytuj feedbacki: {{name}}",
     "oneOnOnesAria": "Audytuj spotkania 1:1: {{name}}",
     "goalsAria": "Audytuj cele: {{name}}",
-    "performanceReviewsAria": "Audytuj oceny okresowe: {{name}}"
+    "performanceReviewsAria": "Audytuj oceny okresowe: {{name}}",
+    "daysOffAria": "Audytuj dni wolne: {{name}}"
   },
   "profile": {
     "missingBadge": "Nie ustawiono",
@@ -154,6 +155,9 @@
     "seniority": "Poziom"
   },
   "performanceReviews": "Oceny okresowe",
+  "daysOff": "Dni wolne",
+  "paidDaysOffAllowance": "Pula płatnych dni wolnych (dni rocznie)",
+  "paidDaysOffAllowanceHint": "Pełne dni; niewykorzystane dni przechodzą na kolejny rok. Zostaw puste, aby zachować obecną wartość — ustawionej puli nie da się wyczyścić.",
   "toast": {
     "updated": "Użytkownik zaktualizowany",
     "deleted": "Użytkownik usunięty",

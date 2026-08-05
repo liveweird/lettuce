@@ -50,6 +50,8 @@ tags:
   - name: team-kpis
   - name: review-periods
   - name: performance-reviews
+  - name: days-off
+  - name: public-holidays
   - name: templates
   - name: dictionaries
   - name: notifications
@@ -2977,6 +2979,421 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalServerError' }
 
+  /api/v1/days-off:
+    get:
+      tags: [days-off]
+      operationId: listDaysOff
+      summary: List days-off requests for the caller
+      description: |
+        Lists days-off requests scoped by `view`. Except `view=user` (the HR auditor view),
+        scoping is always relative to the caller, including ADMIN callers.
+
+        - `view=own` (the default): the caller's own requests, at every status.
+        - `view=managed`: requests of the caller's **direct reports** (members of non-deleted
+          teams the caller manages), at every status — the same scope as the accept/reject
+          right, so every listed row's actions are valid. Deliberately direct-only (no
+          `includeIndirect`): a chain manager higher up still reads singles via the read
+          guard — the list scope is not an authorization boundary. A caller who manages no
+          team gets an empty page.
+        - `view=user` (HR only, else `403`; requires `userId`): the auditor view — every
+          request of the given user, at every status. HR usage is recorded in the security
+          audit trail. The ordinary sort/filter/paging parameters apply on top.
+
+        Supports offset pagination, sorting and filtering.
+
+        - Sortable fields: `id`, `userName`, `startDate`, `endDate`, `type`, `status`, `days`,
+          `createdAt`. Default sort is `startDate` **descending** (most recent periods first).
+          `id` ascending is always appended as a deterministic tiebreaker.
+        - Filters (all optional, all whitelisted):
+          - `userName` — case-insensitive substring match against the owner's name.
+          - `userId` — exact owner-id match; a pin-filter on `view=managed` (the drill-down
+            precedent), required with `view=user`, rejected with `view=own` (`400` — own is
+            caller-implied).
+          - `type` / `status` — exact enum-name match.
+          - `startDate[gte]` / `startDate[lte]` — inclusive ISO-date bounds on the start date.
+
+        Malformed query parameters (unknown view, unknown sort field, out-of-range
+        page/pageSize) respond with `400` and a `ProblemDetail` body.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Sort'
+        - name: view
+          in: query
+          required: false
+          schema: { type: string, enum: [own, managed, user], default: own }
+          description: >-
+            Which slice of requests to list — caller-relative, except the HR auditor
+            view `user`.
+        - name: userId
+          in: query
+          required: false
+          schema: { type: integer, format: int64, minimum: 0 }
+          description: |
+            Exact owner-id match. Required with `view=user` (`400` when missing there); an
+            ordinary pin-filter with `view=managed`; rejected with `view=own` (`400`).
+        - name: userName
+          in: query
+          required: false
+          schema: { type: string }
+          description: Case-insensitive substring match against the owner's name.
+        - name: type
+          in: query
+          required: false
+          schema: { type: string, enum: [PAID, UNPAID] }
+          description: Exact type match.
+        - name: status
+          in: query
+          required: false
+          schema: { type: string, enum: [REQUESTED, ACCEPTED, REJECTED, CANCELLED] }
+          description: Exact status match.
+        - name: startDate[gte]
+          in: query
+          required: false
+          schema: { type: string, format: date }
+          description: Lower bound (inclusive) on the start date, ISO YYYY-MM-DD.
+        - name: startDate[lte]
+          in: query
+          required: false
+          schema: { type: string, format: date }
+          description: Upper bound (inclusive) on the start date, ISO YYYY-MM-DD.
+      responses:
+        '200':
+          description: A page of days-off requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DaysOffPage'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: view=user requested without the HR role
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    post:
+      tags: [days-off]
+      operationId: createDaysOff
+      summary: Request days off
+      description: |
+        Creates a days-off request, always in **REQUESTED** status. The **owner is always the
+        caller** — there is no create-on-behalf, not even for ADMIN.
+
+        One request covers one **consecutive period** `[startDate, endDate]` (a single day is
+        allowed; both bounds inclusive, strict zero-padded ISO `YYYY-MM-DD`). The period must
+        not span calendar years (`400` — split a New-Year period into two requests).
+        `startHalf`/`endHalf` mark the period's first/last day as **half days**; a single-day
+        request expresses a half day via `startHalf` alone (`endHalf` there is `400`).
+
+        The working-day **cost** is computed server-side: Saturdays, Sundays, and public
+        holidays inside the period cost nothing; every other day costs 1 day (0.5 with the
+        matching half toggle). The cost is computed against the holiday registry **at creation
+        and frozen** — later registry edits never reprice existing requests. A period containing
+        no working days at all is `400`.
+
+        State rules (both `409`): the period must not **overlap** any of the owner's REQUESTED
+        or ACCEPTED requests — the `ProblemDetail.instance` of the conflict points at the
+        existing request; and a **PAID** request must fit the owner's paid-days budget — a
+        REQUESTED request already reserves budget, and unused budget carries over between
+        calendar years (see `GET /days-off/budgets`). UNPAID requests are unlimited.
+
+        Each of the owner's **current direct managers** is notified; a user with no manager
+        notifies nobody (and nobody can accept — a documented top-of-chain limitation).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DaysOffCreateRequest'
+      responses:
+        '201':
+          description: Created — the full request document
+          headers:
+            Location:
+              schema: { type: string }
+              description: URL of the new days-off request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DaysOffResponse'
+        '400':
+          description: >-
+            Validation error (malformed or misordered dates, a year-spanning period, endHalf
+            on a single-day request, or a period containing no working days)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409':
+          description: >-
+            The period overlaps an existing REQUESTED/ACCEPTED request of the caller (the
+            ProblemDetail `instance` points at it), or a PAID request exceeds the remaining
+            paid-days budget of its year (or a later carry-over-funded year)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/days-off/calendar:
+    get:
+      tags: [days-off]
+      operationId: getDaysOffCalendar
+      summary: Month calendar of a team's days off
+      description: |
+        The month calendar payload for the SPA's leave-planner grid: every user in the scope
+        (users without entries included — their rows still render), each carrying their
+        **REQUESTED and ACCEPTED** days clipped to the month (the whole period is expanded,
+        weekends included, so bars render continuously), plus the month's public holidays.
+        REJECTED and CANCELLED requests never appear.
+
+        Scopes (both caller-relative — any authenticated caller may use either; an empty
+        scope is an empty user list):
+        - `scope=member` (the default): everyone sharing a non-deleted team with the caller,
+          the caller included (a team-less caller sees just themselves).
+        - `scope=managed`: the caller's direct reports.
+
+        Unpaged by construction — bounded by (scope users × ≤31 days). Users sort by name.
+      parameters:
+        - name: month
+          in: query
+          required: true
+          schema: { type: string, pattern: '^\d{4}-\d{2}$' }
+          description: The calendar month, strict zero-padded ISO `YYYY-MM` (`400` otherwise).
+        - name: scope
+          in: query
+          required: false
+          schema: { type: string, enum: [member, managed], default: member }
+          description: Whose days off to show — teammates (member) or direct reports (managed).
+      responses:
+        '200':
+          description: The month's calendar payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DaysOffCalendarResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/days-off/budgets:
+    get:
+      tags: [days-off]
+      operationId: listDaysOffBudgets
+      summary: Paid-days budgets for a calendar year
+      description: |
+        One budget row per user for the given calendar year: the configured **allowance**
+        (null = not configured = zero budget), the **carriedOver** days from previous years,
+        the year's **reserved** (REQUESTED) and **used** (ACCEPTED) paid days, and the
+        **remaining** balance (`carriedOver + allowance − reserved − used`, may be negative
+        after a retroactive allowance cut).
+
+        Carry-over is automatic: unused budget in one calendar year transfers to the next.
+        The accumulation is anchored at the year of the user's earliest REQUESTED/ACCEPTED
+        PAID request (the allowance never phantom-accumulates over empty historical years),
+        and the CURRENT allowance value applies to every year — an admin's allowance change
+        recomputes history (documented behavior). REJECTED and CANCELLED requests never count.
+
+        Views (both caller-relative): `view=own` (the default) — the caller's single row;
+        `view=managed` — one row per **direct report** (the manager's budget overview; empty
+        for a caller who manages no team). Rows sort by name.
+      parameters:
+        - name: view
+          in: query
+          required: false
+          schema: { type: string, enum: [own, managed], default: own }
+          description: Whose budgets — the caller's own or their direct reports'.
+        - name: year
+          in: query
+          required: false
+          schema: { type: integer, minimum: 2000, maximum: 2100 }
+          description: The calendar year; defaults to the server's current year.
+      responses:
+        '200':
+          description: The budget rows
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DaysOffBudgetList'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/days-off/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [days-off]
+      operationId: getDaysOff
+      summary: Fetch a days-off request
+      description: |
+        Returns the full request document. Readable by the **owner** and the **HR auditor**
+        (audit-logged) at every status; by any **manager in the owner's transitive management
+        chain** at every status; and by a **teammate** (someone sharing a non-deleted team
+        with the owner) only while the request is **REQUESTED or ACCEPTED** — exactly what the
+        team calendar shows, so a REJECTED or CANCELLED request stays private to the owner,
+        their chain, and HR. Anyone else gets `403`. ADMIN gets nothing special.
+      responses:
+        '200':
+          description: The days-off request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DaysOffResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/DaysOffNotReadable' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/days-off/{id}/accept:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [days-off]
+      operationId: acceptDaysOff
+      summary: Accept a days-off request
+      description: |
+        Accepts a **REQUESTED** request (any other status is `409`). Only a **current direct
+        manager** of the owner may accept — never the owner, never a chain manager higher up,
+        and ADMIN gets nothing special. Stamps the resolving manager on the record and
+        notifies the owner.
+      responses:
+        '204': { description: Accepted }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/DaysOffNotDirectManager' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/DaysOffInvalidTransition' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/days-off/{id}/reject:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [days-off]
+      operationId: rejectDaysOff
+      summary: Reject a days-off request
+      description: |
+        Rejects a **REQUESTED** request (any other status is `409`; REJECTED is terminal).
+        Only a **current direct manager** of the owner may reject — the same rule as accept.
+        Stamps the resolving manager on the record and notifies the owner.
+      responses:
+        '204': { description: Rejected }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/DaysOffNotDirectManager' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/DaysOffInvalidTransition' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/days-off/{id}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [days-off]
+      operationId: cancelDaysOff
+      summary: Cancel a days-off request
+      description: |
+        Cancels the caller's own request (CANCELLED is terminal; only the **owner** may
+        cancel). Valid from **REQUESTED** anytime, and from **ACCEPTED** only strictly before
+        the request's start date — once the period has started (or on its first day) an
+        accepted request is a record and can no longer be withdrawn (`409`). Frees the
+        reserved paid budget. Cancelling an accepted request notifies the manager who accepted
+        it; cancelling a pending one notifies all current direct managers.
+      responses:
+        '204': { description: Cancelled }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: The caller is not the request's owner
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/DaysOffInvalidTransition' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/public-holidays:
+    get:
+      tags: [public-holidays]
+      operationId: listPublicHolidays
+      summary: List the public-holiday registry
+      description: |
+        Returns the whole global public-holiday registry, oldest date first — **unpaged**
+        (the review-periods shape: the registry is intrinsically small, and the days-off
+        create form's cost preview needs all of it). Any authenticated caller may read it.
+        On these dates everyone is off and no paid budget is deducted; days-off request costs
+        are frozen at creation, so registry edits never reprice existing requests.
+      responses:
+        '200':
+          description: All public holidays, oldest first
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicHolidayList'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    post:
+      tags: [public-holidays]
+      operationId: createPublicHoliday
+      summary: Add a public holiday
+      description: |
+        **ADMIN-only.** Adds a holiday (strict zero-padded ISO `YYYY-MM-DD` date + a
+        non-blank name of at most 100 characters). At most one holiday per date — a duplicate
+        date is `409` (the DB's unique index; no pre-check by design). Recorded in the
+        security audit trail.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicHolidayCreateRequest'
+      responses:
+        '201':
+          description: Created — the new holiday
+          headers:
+            Location:
+              schema: { type: string }
+              description: URL of the new holiday resource
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicHoliday'
+        '400':
+          description: Malformed date (not a zero-padded ISO YYYY-MM-DD) or blank/oversized name
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: A holiday already exists on this date
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/public-holidays/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    delete:
+      tags: [public-holidays]
+      operationId: deletePublicHoliday
+      summary: Delete a public holiday
+      description: |
+        **ADMIN-only.** Hard-deletes a holiday (the registry exception to the soft-delete
+        convention — nothing references a holiday by FK, and existing days-off request costs
+        stay frozen, so deletion never reprices history). Recorded in the security audit
+        trail.
+      responses:
+        '204': { description: Deleted }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
   /api/v1/templates:
     get:
       tags: [templates]
@@ -3680,6 +4097,25 @@ components:
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/ProblemDetail' }
+    DaysOffNotReadable:
+      description: >-
+        Caller may not read this days-off request (not the owner, HR, a manager in the
+        owner's chain, or — for a REQUESTED/ACCEPTED request — a teammate)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+    DaysOffNotDirectManager:
+      description: Caller is not a current direct manager of the request's owner
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+    DaysOffInvalidTransition:
+      description: >-
+        The action is not allowed from the request's current status (accept/reject need
+        REQUESTED; cancel needs REQUESTED, or ACCEPTED strictly before the start date)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
 
   schemas:
     LoginRequest:
@@ -3815,10 +4251,18 @@ components:
           format: int64
           nullable: true
           description: Id of an ACTIVE SENIORITY_LEVEL dictionary entry — see careerPathId.
+        paidDaysOffAllowance:
+          type: integer
+          minimum: 0
+          maximum: 365
+          nullable: true
+          description: |
+            Annual paid days-off allowance in whole days. Omitted or null = leave unset
+            (= zero paid budget). The current value applies to every calendar year.
 
     UserCreateResponse:
       type: object
-      required: [id, name, email, roles, careerPath, careerSpecialization, seniorityLevel]
+      required: [id, name, email, roles, careerPath, careerSpecialization, seniorityLevel, paidDaysOffAllowance]
       properties:
         id: { type: integer, format: int64 }
         name: { type: string }
@@ -3840,6 +4284,10 @@ components:
         seniorityLevel:
           nullable: true
           allOf: [ { $ref: '#/components/schemas/DictionaryEntry' } ]
+        paidDaysOffAllowance:
+          type: integer
+          nullable: true
+          description: Annual paid days-off allowance in whole days; null = not configured.
 
     UserUpdateRequest:
       type: object
@@ -3873,6 +4321,17 @@ components:
           format: int64
           nullable: true
           description: Id of an ACTIVE SENIORITY_LEVEL dictionary entry — semantics as careerPathId.
+        paidDaysOffAllowance:
+          type: integer
+          minimum: 0
+          maximum: 365
+          nullable: true
+          description: |
+            Annual paid days-off allowance in whole days. Omitted or null = leave unchanged —
+            there is deliberately no way to clear a set value. Assigning or changing requires
+            ADMIN (403 otherwise); resubmitting the current value is never a change. The
+            current value applies to every calendar year — changing it recomputes carry-over
+            retroactively.
 
     PasswordUpdateRequest:
       type: object
@@ -3891,7 +4350,7 @@ components:
 
     UserResponse:
       type: object
-      required: [id, name, email, roles, careerPath, careerSpecialization, seniorityLevel]
+      required: [id, name, email, roles, careerPath, careerSpecialization, seniorityLevel, paidDaysOffAllowance]
       properties:
         id: { type: integer, format: int64, minimum: 0 }
         name: { type: string }
@@ -3915,6 +4374,13 @@ components:
           nullable: true
           allOf: [ { $ref: '#/components/schemas/DictionaryEntry' } ]
           description: Resolved from the SENIORITY_LEVEL dictionary — see careerPath.
+        paidDaysOffAllowance:
+          type: integer
+          nullable: true
+          description: |
+            Annual paid days-off allowance in whole days; null = not configured = zero paid
+            budget. ADMIN-only assignable; rides the user representation like the career
+            fields (managers consume the derived budget numbers via GET /days-off/budgets).
 
     UserPage:
       type: object
@@ -5429,6 +5895,218 @@ components:
           type: array
           items: { $ref: '#/components/schemas/PerformanceReviewEventResponse' }
 
+    DaysOffCreateRequest:
+      type: object
+      required: [type, startDate, endDate]
+      properties:
+        type:
+          type: string
+          enum: [PAID, UNPAID]
+          description: PAID draws on the owner's paid-days budget; UNPAID is unlimited.
+        startDate:
+          type: string
+          format: date
+          description: First day of the period, strict zero-padded ISO YYYY-MM-DD.
+        endDate:
+          type: string
+          format: date
+          description: >-
+            Last day (inclusive), not before startDate and in the same calendar year — a
+            New-Year-spanning wish is two requests.
+        startHalf:
+          type: boolean
+          default: false
+          description: The period's first day is a half day. A single-day request expresses its half day here.
+        endHalf:
+          type: boolean
+          default: false
+          description: The period's last day is a half day; must stay false on a single-day request (400).
+
+    DaysOffResponse:
+      type: object
+      required:
+        [id, userId, userName, type, status, startDate, endDate, startHalf, endHalf, days,
+         createdAt, resolvedById, resolvedByName, resolvedAt, cancelledAt, lastModified]
+      properties:
+        id: { type: integer, format: int64, minimum: 0 }
+        userId: { type: integer, format: int64, minimum: 0 }
+        userName: { type: string }
+        type: { type: string, enum: [PAID, UNPAID] }
+        status:
+          type: string
+          enum: [REQUESTED, ACCEPTED, REJECTED, CANCELLED]
+          description: >-
+            REQUESTED → ACCEPTED | REJECTED (a direct manager resolves), plus terminal
+            CANCELLED (the owner withdraws). REQUESTED and ACCEPTED reserve paid budget;
+            REJECTED and CANCELLED free it.
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+        startHalf: { type: boolean }
+        endHalf: { type: boolean }
+        days:
+          type: number
+          format: double
+          description: >-
+            The frozen working-day cost in days (0.5 steps) — weekends and public holidays
+            inside the period cost nothing; computed against the holiday registry at creation
+            and never repriced.
+        createdAt: { type: integer, format: int64, description: "Epoch milliseconds, immutable." }
+        resolvedById:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+          description: The accepting/rejecting manager — null while REQUESTED.
+        resolvedByName: { type: string, nullable: true }
+        resolvedAt: { type: integer, format: int64, nullable: true, description: Epoch milliseconds. }
+        cancelledAt: { type: integer, format: int64, nullable: true, description: Epoch milliseconds. }
+        lastModified: { type: integer, format: int64 }
+
+    DaysOffListItem:
+      type: object
+      required:
+        [id, userId, userName, userDeleted, type, status, startDate, endDate, startHalf,
+         endHalf, days, createdAt, lastModified]
+      properties:
+        id: { type: integer, format: int64, minimum: 0 }
+        userId: { type: integer, format: int64, minimum: 0 }
+        userName: { type: string }
+        userDeleted: { type: boolean }
+        type: { type: string, enum: [PAID, UNPAID] }
+        status: { type: string, enum: [REQUESTED, ACCEPTED, REJECTED, CANCELLED] }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+        startHalf: { type: boolean }
+        endHalf: { type: boolean }
+        days: { type: number, format: double }
+        createdAt: { type: integer, format: int64 }
+        lastModified: { type: integer, format: int64 }
+
+    DaysOffPage:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DaysOffListItem'
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1, maximum: 100 }
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Row count after filters, before pagination.
+
+    DaysOffCalendarEntry:
+      type: object
+      required: [requestId, date, type, status, half]
+      properties:
+        requestId: { type: integer, format: int64, minimum: 0 }
+        date: { type: string, format: date }
+        type: { type: string, enum: [PAID, UNPAID] }
+        status:
+          type: string
+          enum: [REQUESTED, ACCEPTED]
+          description: Only counting statuses appear on the calendar; REQUESTED renders as tentative.
+        half: { type: boolean, description: True on a half-day edge day of its period. }
+
+    DaysOffCalendarUser:
+      type: object
+      required: [userId, userName, userDeleted, entries]
+      properties:
+        userId: { type: integer, format: int64, minimum: 0 }
+        userName: { type: string }
+        userDeleted: { type: boolean }
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/DaysOffCalendarEntry'
+          description: The user's marked days inside the month, date-ascending; may be empty.
+
+    DaysOffCalendarResponse:
+      type: object
+      required: [month, holidays, users]
+      properties:
+        month: { type: string, pattern: '^\d{4}-\d{2}$' }
+        holidays:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicHoliday'
+          description: The month's public holidays, date-ascending.
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/DaysOffCalendarUser'
+          description: Every user in the scope (entries or not), sorted by name.
+
+    DaysOffBudget:
+      type: object
+      required: [userId, userName, userDeleted, year, allowance, carriedOver, reserved, used, remaining]
+      properties:
+        userId: { type: integer, format: int64, minimum: 0 }
+        userName: { type: string }
+        userDeleted: { type: boolean }
+        year: { type: integer }
+        allowance:
+          type: integer
+          nullable: true
+          description: The admin-configured annual allowance in whole days; null = not configured = zero budget.
+        carriedOver:
+          type: number
+          format: double
+          description: Days carried in from previous years (0 for a user with no earlier usage).
+        reserved:
+          type: number
+          format: double
+          description: The year's REQUESTED (pending) paid days — reserved, not yet confirmed.
+        used:
+          type: number
+          format: double
+          description: The year's ACCEPTED paid days.
+        remaining:
+          type: number
+          format: double
+          description: >-
+            carriedOver + allowance − reserved − used; may be negative after a retroactive
+            allowance cut.
+
+    DaysOffBudgetList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DaysOffBudget'
+
+    PublicHoliday:
+      type: object
+      required: [id, date, name]
+      properties:
+        id: { type: integer, format: int64, minimum: 0 }
+        date: { type: string, format: date }
+        name: { type: string, maxLength: 100 }
+
+    PublicHolidayList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicHoliday'
+
+    PublicHolidayCreateRequest:
+      type: object
+      required: [date, name]
+      properties:
+        date:
+          type: string
+          format: date
+          description: Strict zero-padded ISO YYYY-MM-DD; at most one holiday per date (409).
+        name: { type: string, maxLength: 100 }
+
     NotificationResponse:
       type: object
       required: [id, recipientId, timestamp, type, params, wasSeen]
@@ -5468,6 +6146,10 @@ components:
             - TEAM_KPI_REOPENED_TO_MEMBER
             - PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE
             - PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE
+            - DAYS_OFF_REQUESTED_TO_MANAGER
+            - DAYS_OFF_ACCEPTED_TO_OWNER
+            - DAYS_OFF_REJECTED_TO_OWNER
+            - DAYS_OFF_CANCELLED_TO_MANAGER
             - PASSWORD_CHANGED
           description: Notification kind; the client renders it in the viewer's language.
         params:
@@ -5486,7 +6168,10 @@ components:
             TEAM_KPI_* kinds carry `{manager,title,team}` — the manager's name, the KPI's
             plaintext title, and the team's name. The PERFORMANCE_REVIEW_* kinds carry
             `{manager,startMonth,endMonth}` — the manager's name and the period's raw ISO
-            month bounds (the client formats the period).
+            month bounds (the client formats the period). The DAYS_OFF_* kinds carry the party
+            name (`requester` toward managers, `manager` toward the owner) plus raw ISO
+            `{startDate,endDate}`; DAYS_OFF_REQUESTED_TO_MANAGER additionally `{type,days}`
+            (the enum name and a "1.5"-style days string) — the client formats all of them.
         link:
           type: string
           nullable: true

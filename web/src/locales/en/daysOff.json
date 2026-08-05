@@ -1,0 +1,127 @@
+{
+  "sectionTitle": "Days off",
+  "newRequest": "New request",
+  "teamHint": "Your direct reports' days-off requests — accept or reject the pending ones — and their yearly budgets.",
+  "tab": {
+    "calendar": "Calendar",
+    "requests": "My requests",
+    "team": "My team"
+  },
+  "status": {
+    "REQUESTED": "Requested",
+    "ACCEPTED": "Accepted",
+    "REJECTED": "Rejected",
+    "CANCELLED": "Cancelled"
+  },
+  "type": {
+    "label": "Type",
+    "PAID": "Paid",
+    "UNPAID": "Unpaid"
+  },
+  "person": "Person",
+  "clearPersonFilter": "Clear the person filter",
+  "column": {
+    "startDate": "From",
+    "endDate": "To",
+    "days": "Days",
+    "createdAt": "Requested on"
+  },
+  "halfMarker": "½",
+  "noRequests": "No days-off requests here yet.",
+  "rowsPerPage": "Requests per page",
+  "loadListError": "Could not load the days-off requests",
+  "unknownError": "Something went wrong. Please try again.",
+  "action": {
+    "accept": "Accept",
+    "reject": "Reject",
+    "cancel": "Cancel request",
+    "cancelConfirm": "Cancel the request",
+    "submitRequest": "Submit request"
+  },
+  "acceptAria": "Accept the days-off request of {{name}} starting {{date}}",
+  "rejectAria": "Reject the days-off request of {{name}} starting {{date}}",
+  "cancelAria": "Cancel your days-off request starting {{date}}",
+  "rejectTitle": "Reject this request?",
+  "rejectMessage": "The requester will be notified. A rejected request is final — they can submit a new one for the same days.",
+  "cancelTitle": "Cancel this request?",
+  "cancelMessage": "Your managers will be notified and the reserved days return to your budget. Cancelling is final.",
+  "toast": {
+    "requested": "Days-off request submitted",
+    "accepted": "Request accepted",
+    "rejected": "Request rejected",
+    "cancelled": "Request cancelled"
+  },
+  "error": {
+    "invalidTransition": "This request has changed in the meantime — refresh and try again.",
+    "actionPermission": "You are not allowed to do that.",
+    "gone": "This request no longer exists.",
+    "actionFailedStatus": "The action failed (HTTP {{status}}).",
+    "actionFailed": "The action failed. Please try again.",
+    "overlap": "The period overlaps one of your pending or accepted requests.",
+    "overBudget": "The request does not fit your remaining paid-days budget.",
+    "invalid": "The request is invalid — check the dates.",
+    "saveFailedStatus": "Saving failed (HTTP {{status}}).",
+    "saveFailed": "Saving failed. Please try again."
+  },
+  "createTitle": "New days-off request",
+  "createHint": "One request covers one consecutive period within a single calendar year. Weekends and public holidays don't count against your budget; the first and last day can be half days.",
+  "startHalfLabel": "First day is a half day",
+  "endHalfLabel": "Last day is a half day",
+  "costPreview": "This request costs {{days}} working day(s).",
+  "remainingPreview": "Remaining paid-days budget for {{year}}: {{days}}.",
+  "validation": {
+    "order": "The start date must not be after the end date.",
+    "sameYear": "A request must not span calendar years — split it into two requests.",
+    "zeroCost": "The period contains no working days — only weekends or public holidays."
+  },
+  "calendar": {
+    "gridAria": "Team days-off calendar",
+    "personColumn": "Person",
+    "cellTitle": "{{name}} — {{date}}: {{type}}, {{status}} ({{amount}} day)",
+    "legendPaid": "Paid day off",
+    "legendUnpaid": "Unpaid day off",
+    "legendRequested": "Requested (pending)",
+    "legendOffDay": "Weekend / public holiday",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "scope": "Whose calendar",
+    "scope_member": "My teams",
+    "scope_managed": "My direct reports",
+    "loadError": "Could not load the calendar",
+    "empty": "Nobody to show — you are not a member of any team."
+  },
+  "budget": {
+    "title": "Your paid days off in {{year}}",
+    "teamTitle": "Paid-days budgets",
+    "year": "Year",
+    "allowance": "Allowance",
+    "carriedOver": "Carried over",
+    "reserved": "Pending",
+    "used": "Used",
+    "remaining": "Remaining",
+    "noAllowance": "No paid-days allowance is configured for you yet — ask an administrator; paid requests are blocked until then.",
+    "loadError": "Could not load the budget",
+    "noReports": "No direct reports."
+  },
+  "holidays": {
+    "title": "Public holidays",
+    "hint": "On these dates everyone is off and nothing is deducted from paid-days budgets. Costs of already-submitted requests never change.",
+    "hintReadOnly": "On these dates everyone is off and nothing is deducted from paid-days budgets. The list is maintained by administrators.",
+    "empty": "No public holidays yet — add the first one below.",
+    "emptyReadOnly": "No public holidays have been configured yet.",
+    "loadError": "Could not load the public holidays",
+    "date": "Date",
+    "name": "Name",
+    "addHoliday": "Add holiday",
+    "duplicateDate": "A holiday already exists on this date.",
+    "invalid": "The holiday is invalid — check the date and the name.",
+    "deleteAria": "Delete the holiday {{name}}",
+    "deleteTitle": "Delete this holiday?",
+    "deleteMessage": "The date becomes a regular working day for future requests; already-submitted requests keep their recorded cost.",
+    "toastAdded": "Public holiday added",
+    "toastDeleted": "Public holiday deleted"
+  },
+  "auditTitle": "Days off of {{who}}",
+  "auditHint": "The HR audit view: every days-off request of {{who}}, at every status. Access is recorded in the audit trail.",
+  "userFallback": "user #{{id}}"
+}
