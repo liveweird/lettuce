@@ -162,6 +162,12 @@ describe("UserDetails page", () => {
       "href",
       `/users/5/goals?name=Bob&from=details&back=${BACK_HERE}&manages=1`,
     );
+    // The subordinate flavor carries all four labeled sections (v1.46.0); "Days off"
+    // matches the caption AND the drill-down button's text.
+    expect(screen.getByText("Profile")).toBeInTheDocument();
+    expect(screen.getByText("Collaboration")).toBeInTheDocument();
+    expect(screen.getByText("Performance")).toBeInTheDocument();
+    expect(screen.getAllByText("Days off")).toHaveLength(2);
   });
 
   test("a user found in the member view renders the peer-flavored card", async () => {
@@ -231,6 +237,11 @@ describe("UserDetails page", () => {
     expect(await screen.findByText("bob@example.com")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /provide feedback/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /feedbacks with/i })).not.toBeInTheDocument();
+    // With no stats and no buttons, only the Profile section renders (v1.46.0).
+    expect(screen.getByText("Profile")).toBeInTheDocument();
+    expect(screen.queryByText("Collaboration")).not.toBeInTheDocument();
+    expect(screen.queryByText("Performance")).not.toBeInTheDocument();
+    expect(screen.queryByText("Days off")).not.toBeInTheDocument();
   });
 
   test("an auditor viewer gets the Audit drill-downs on any card", async () => {

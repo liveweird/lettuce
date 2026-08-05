@@ -273,10 +273,17 @@ describe("ManagersTable", () => {
     expect(screen.getByText("Career-Path-Value")).toBeInTheDocument();
     expect(screen.getByText("Seniority-Value")).toBeInTheDocument();
     expect(screen.getAllByText("Not set")).toHaveLength(1);
-    // The stats column still renders beside the career column.
+    // The relationship stats still render, in their own section.
     expect(screen.getByText("Last 1:1")).toBeInTheDocument();
-    // The column carries no caption (v1.32.2) — the row labels speak for themselves.
+    // The career rows carry no "Career profile" caption (v1.32.2) — the section divider
+    // says "Profile" and the row labels speak for themselves.
     expect(screen.queryByText("Career profile")).toBeNull();
+    // The labeled sections (v1.46.0): a managers card carries Profile + Collaboration only
+    // (its rows never have the review/days-off stats, and it gets neither button).
+    expect(screen.getByText("Profile")).toBeInTheDocument();
+    expect(screen.getByText("Collaboration")).toBeInTheDocument();
+    expect(screen.queryByText("Performance")).toBeNull();
+    expect(screen.queryByText("Days off")).toBeNull();
   });
 
   test("shows an empty state when there are no managers", async () => {

@@ -1,14 +1,22 @@
-import { Badge, Group, SimpleGrid, Stack, Text } from "@mantine/core";
+import { Badge, Divider, Group, Stack, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { formatIsoDate, formatMonthRange, formatRelativeTime, formatTimestamp } from "../utils/datetime";
 import { formatDays } from "../utils/daysOffCost";
 import type { PersonCard as PersonCardData } from "../utils/teamRows";
 import PerformanceReviewStatusBadge from "./PerformanceReviewStatusBadge";
+import PersonCardActions, { type PersonCardActionsProps } from "./PersonCardActions";
+import {
+  DAYS_OFF_ACTIONS,
+  OPERATIONAL_ACTIONS,
+  PERFORMANCE_ACTIONS,
+  hasVisibleActions,
+  type ButtonKey,
+} from "./personCardSupport";
 
 // A stat line: dimmed label + value (relative phrase with the exact date in the title),
 // or a dimmed "never" when there is nothing yet. Wrapping is allowed on purpose (v1.34.0):
 // a long value (1:1 date + open-items badge, a review period + status badge) folds to the
-// next line inside its column instead of blowing past the card edge.
+// next line instead of blowing past the card edge.
 function StatRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <Group gap="xs" wrap="wrap">
@@ -57,9 +65,9 @@ function CareerValue({ entry }: { entry: { id: number; value: string } | null })
   );
 }
 
-// The career-profile column (v1.32.1): the three dictionary-backed values, no caption and
-// deliberately SHORT card-only labels (users.profile.* — v1.32.2); the Edit/Create pickers
-// keep the full common.field.* wordings.
+// The career-profile rows (v1.32.1): the three dictionary-backed values, with deliberately
+// SHORT card-only labels (users.profile.* — v1.32.2); the Edit/Create pickers keep the full
+// common.field.* wordings.
 function CareerRows({ person }: { person: PersonCardData }) {
   const { t } = useTranslation();
   return (
@@ -77,80 +85,146 @@ function CareerRows({ person }: { person: PersonCardData }) {
   );
 }
 
-// The two-column stats layout: relationship stats left, career profile right. A SimpleGrid,
-// not a wrapping Group — the split must be deterministic (v1.32.2): with wrap, cards whose
-// left column ran wide (peer labels, open-items badges) silently stacked to one column while
-// their neighbors kept two.
-function StatsColumns({ left, person }: { left: React.ReactNode; person: PersonCardData }) {
+// The next accepted vacation (v1.44.0): its start date, or a dimmed "none planned". Shared by
+// the subordinate cards and the peer cards (teammates see accepted absences via the calendar).
+function NextVacationRow({ person }: { person: PersonCardData }) {
+  const { t, i18n } = useTranslation();
   return (
-    <SimpleGrid cols={2} spacing="md" verticalSpacing={4}>
-      {left}
-      <CareerRows person={person} />
-    </SimpleGrid>
+    <StatRow label={t("users.nextVacation")}>
+      {person.nextVacationStart != null ? (
+        <Text size="xs">{formatIsoDate(person.nextVacationStart, i18n.language)}</Text>
+      ) : (
+        <Text size="xs" c="dimmed">
+          {t("users.noVacationPlanned")}
+        </Text>
+      )}
+    </StatRow>
   );
 }
 
-// The career column alone — for cards that carry no relationship stats (the details page's
-// self/unrelated card, the subordinates grid at reports-scope "all", where the directional
-// stats aren't computed but the career profile is).
-export function CareerCardStats({ person }: { person: PersonCardData }) {
-  return <CareerRows person={person} />;
+// One labeled card section (v1.46.0): a thin divider whose small dimmed caption names the
+// group, then the group's stat rows and/or action buttons.
+function Section({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <Stack gap={4}>
+      <Divider label={label} labelPosition="left" />
+      {children}
+    </Stack>
+  );
 }
 
-// The dashboard-card stats block shared by the "My managers" and "My subordinates" grids.
-// The labels are deliberately direction-neutral — each card is about the pictured person,
-// so "Last 1:1" / "Last feedback" read correctly whichever party ran/provided it.
-// `showLastReview` gates the review row to the grids whose rows actually carry the stat
-// (view=managed only) — without it a managers-grid card would show a false "never".
-export default function PersonCardStats({
+// Which relationship stats the Collaboration section shows: `manager`/`subordinate` are the
+// directional 1:1 + feedback + active-goals rows (labels deliberately direction-neutral —
+// each card is about the pictured person, so "Last 1:1" / "Last feedback" read correctly
+// whichever party ran/provided it), `peer` the two feedback directions, `none` no rows
+// (the details page's self/unrelated card, the subordinates grid at reports-scope "all",
+// where the directional stats aren't computed).
+export type PersonCardStatsVariant = "manager" | "subordinate" | "peer" | "none";
+
+// The card body (v1.46.0): the information regrouped into labeled sections, each pairing
+// its read-only stats with its related buttons — Profile (career), Collaboration (1:1 +
+// feedback + goals, with the create/drill-down buttons), Performance (last review + the
+// reviews drill-down), Days off (next vacation + budget + the days-off drill-down). This
+// replaced the two-column stats/career split and the flat footer button row. A section
+// renders only when it has content for this flavor; stat gates stay data-driven:
+// `showLastReview`/`showDaysOff` are set only where the rows actually carry the stats
+// (view=managed — the subordinate flavors), never where "never" would just be noise.
+export default function PersonCardBody({
   person,
+  stats,
   showLastReview = false,
   showDaysOff = false,
+  actions,
 }: {
   person: PersonCardData;
+  stats: PersonCardStatsVariant;
   showLastReview?: boolean;
-  /** Gate for the days-off rows (v1.44.0) — set by the subordinates grid only, whose rows
-   *  (view=managed) actually carry the stats; a managers-grid card never does. */
+  /** Gate for the budget row (v1.44.0) — subordinate flavors only; peers get vacation-only. */
   showDaysOff?: boolean;
+  /** The card's buttons, rendered inside their sections; undefined = none (the self card). */
+  actions?: PersonCardActionsProps;
 }) {
   const { t, i18n } = useTranslation();
+
+  const actionsRow = (subset: readonly ButtonKey[]) =>
+    actions != null && hasVisibleActions(actions, subset) ? (
+      <Group gap="xs" wrap="wrap" mt={4}>
+        <PersonCardActions {...actions} only={subset} />
+      </Group>
+    ) : null;
+
+  const directional = stats === "manager" || stats === "subordinate";
+  const showCollaboration =
+    directional || stats === "peer" || (actions != null && hasVisibleActions(actions, OPERATIONAL_ACTIONS));
+  const showPerformance =
+    showLastReview || (actions != null && hasVisibleActions(actions, PERFORMANCE_ACTIONS));
+  const showVacation = stats === "peer" || showDaysOff;
+  const showDaysOffSection =
+    showVacation || (actions != null && hasVisibleActions(actions, DAYS_OFF_ACTIONS));
+
   return (
-    <StatsColumns
-      person={person}
-      left={
-        <Stack gap={4}>
-          <StatRow label={t("users.lastOneOnOne")}>
-            {person.lastOneOnOneDate != null ? (
-              <>
-                <Text size="xs" title={formatIsoDate(person.lastOneOnOneDate, i18n.language)}>
-                  {formatRelativeTime(new Date(`${person.lastOneOnOneDate}T00:00:00`).getTime(), i18n.language)}
-                </Text>
+    <Stack gap="sm">
+      <Section label={t("users.section.profile")}>
+        <CareerRows person={person} />
+      </Section>
+
+      {showCollaboration && (
+        <Section label={t("users.section.collaboration")}>
+          {directional && (
+            <>
+              <StatRow label={t("users.lastOneOnOne")}>
+                {person.lastOneOnOneDate != null ? (
+                  <>
+                    <Text size="xs" title={formatIsoDate(person.lastOneOnOneDate, i18n.language)}>
+                      {formatRelativeTime(
+                        new Date(`${person.lastOneOnOneDate}T00:00:00`).getTime(),
+                        i18n.language,
+                      )}
+                    </Text>
+                    <Badge
+                      size="sm"
+                      variant="light"
+                      color={(person.lastOneOnOneOpenItems ?? 0) > 0 ? "yellow" : "teal"}
+                      style={{ minWidth: "max-content" }}
+                    >
+                      {t("users.openItemsBadge", { count: person.lastOneOnOneOpenItems ?? 0 })}
+                    </Badge>
+                  </>
+                ) : (
+                  <NeverText />
+                )}
+              </StatRow>
+              <StatRow label={t("users.lastFeedback")}>
+                <TimeStat at={person.lastFeedbackAt} />
+              </StatRow>
+              <StatRow label={t("users.activeGoals")}>
                 <Badge
                   size="sm"
                   variant="light"
-                  color={(person.lastOneOnOneOpenItems ?? 0) > 0 ? "yellow" : "teal"}
+                  color={(person.activeGoalCount ?? 0) > 0 ? "teal" : "gray"}
                   style={{ minWidth: "max-content" }}
                 >
-                  {t("users.openItemsBadge", { count: person.lastOneOnOneOpenItems ?? 0 })}
+                  {person.activeGoalCount ?? 0}
                 </Badge>
-              </>
-            ) : (
-              <NeverText />
-            )}
-          </StatRow>
-          <StatRow label={t("users.lastFeedback")}>
-            <TimeStat at={person.lastFeedbackAt} />
-          </StatRow>
-          <StatRow label={t("users.activeGoals")}>
-            <Badge
-              size="sm"
-              variant="light"
-              color={(person.activeGoalCount ?? 0) > 0 ? "teal" : "gray"}
-              style={{ minWidth: "max-content" }}
-            >
-              {person.activeGoalCount ?? 0}
-            </Badge>
-          </StatRow>
+              </StatRow>
+            </>
+          )}
+          {stats === "peer" && (
+            <>
+              <StatRow label={t("users.feedbackFromMe")}>
+                <TimeStat at={person.lastFeedbackGivenAt} />
+              </StatRow>
+              <StatRow label={t("users.feedbackFromThem")}>
+                <TimeStat at={person.lastFeedbackReceivedAt} />
+              </StatRow>
+            </>
+          )}
+          {actionsRow(OPERATIONAL_ACTIONS)}
+        </Section>
+      )}
+
+      {showPerformance && (
+        <Section label={t("users.section.performance")}>
           {showLastReview && (
             <StatRow label={t("users.lastReview")}>
               {person.lastReviewId != null &&
@@ -172,60 +246,25 @@ export default function PersonCardStats({
               )}
             </StatRow>
           )}
-          {showDaysOff && (
-            <>
-              <NextVacationRow person={person} />
-              <StatRow label={t("users.daysOffBudgetLeft")}>
-                {person.daysOffRemaining != null ? (
-                  <Text size="xs">{formatDays(person.daysOffRemaining, i18n.language)}</Text>
-                ) : (
-                  <NeverText />
-                )}
-              </StatRow>
-            </>
-          )}
-        </Stack>
-      }
-    />
-  );
-}
-
-// The next accepted vacation (v1.44.0): its start date, or a dimmed "none planned". Shared by
-// the subordinate cards and the peer cards (teammates see accepted absences via the calendar).
-function NextVacationRow({ person }: { person: PersonCardData }) {
-  const { t, i18n } = useTranslation();
-  return (
-    <StatRow label={t("users.nextVacation")}>
-      {person.nextVacationStart != null ? (
-        <Text size="xs">{formatIsoDate(person.nextVacationStart, i18n.language)}</Text>
-      ) : (
-        <Text size="xs" c="dimmed">
-          {t("users.noVacationPlanned")}
-        </Text>
+          {actionsRow(PERFORMANCE_ACTIONS)}
+        </Section>
       )}
-    </StatRow>
-  );
-}
 
-// The peers-grid variant: no 1:1 row (peers don't run 1:1s with each other) — instead the
-// two feedback directions between the caller and the pictured person, plus the next accepted
-// vacation (member rows carry it — calendar parity; budgets never appear here).
-export function PeerCardStats({ person }: { person: PersonCardData }) {
-  const { t } = useTranslation();
-  return (
-    <StatsColumns
-      person={person}
-      left={
-        <Stack gap={4}>
-          <StatRow label={t("users.feedbackFromMe")}>
-            <TimeStat at={person.lastFeedbackGivenAt} />
-          </StatRow>
-          <StatRow label={t("users.feedbackFromThem")}>
-            <TimeStat at={person.lastFeedbackReceivedAt} />
-          </StatRow>
-          <NextVacationRow person={person} />
-        </Stack>
-      }
-    />
+      {showDaysOffSection && (
+        <Section label={t("users.section.daysOff")}>
+          {showVacation && <NextVacationRow person={person} />}
+          {showDaysOff && (
+            <StatRow label={t("users.daysOffBudgetLeft")}>
+              {person.daysOffRemaining != null ? (
+                <Text size="xs">{formatDays(person.daysOffRemaining, i18n.language)}</Text>
+              ) : (
+                <NeverText />
+              )}
+            </StatRow>
+          )}
+          {actionsRow(DAYS_OFF_ACTIONS)}
+        </Section>
+      )}
+    </Stack>
   );
 }

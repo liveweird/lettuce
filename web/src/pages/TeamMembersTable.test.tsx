@@ -299,6 +299,10 @@ describe("TeamMembersTable", () => {
     expect(screen.getByText("none planned")).toBeInTheDocument();
     expect(screen.queryByText("Days-off budget left")).toBeNull();
     expect(screen.queryByRole("link", { name: /days off of/i })).toBeNull();
+    // The Days off section caption (v1.46.0) shows on each peer card (vacation-only);
+    // the Performance section never does — peer rows carry no review stat or button.
+    expect(screen.getAllByText("Days off")).toHaveLength(2);
+    expect(screen.queryByText("Performance")).toBeNull();
   });
 
   test("managed cards carry a Days off drill-down link", async () => {
@@ -323,12 +327,18 @@ describe("TeamMembersTable", () => {
     fireEvent.click(screen.getByLabelText("Reports", { selector: "input" }));
     fireEvent.click(await screen.findByRole("option", { name: "All reports (including indirect)" }));
 
-    // Directional stats gone (indirect rows are unmarked), career column stays.
+    // Directional stats gone (indirect rows are unmarked), career rows stay.
     await waitFor(() => {
       expect(screen.queryByText("Last 1:1")).toBeNull();
     });
     expect(screen.getByText("Path")).toBeInTheDocument();
     expect(screen.getByText("QA Engineer")).toBeInTheDocument();
+    // Sections (v1.46.0): Profile + the buttons-only Collaboration remain; the
+    // direct-only Performance/Days off sections drop with their stats and buttons.
+    expect(screen.getByText("Profile")).toBeInTheDocument();
+    expect(screen.getByText("Collaboration")).toBeInTheDocument();
+    expect(screen.queryByText("Performance")).toBeNull();
+    expect(screen.queryByText("Days off")).toBeNull();
   });
 
   test("switching the reports scope to all hides the Goals buttons like the 1:1 ones", async () => {
@@ -596,6 +606,12 @@ describe("TeamMembersTable", () => {
       expect(screen.getByText("Aug 10, 2026")).toBeInTheDocument();
       expect(screen.getByText("Days-off budget left")).toBeInTheDocument();
       expect(screen.getByText("17.5")).toBeInTheDocument();
+      // All four labeled sections (v1.46.0); "Days off" matches the caption AND the
+      // drill-down button's text on a subordinate card.
+      expect(screen.getByText("Profile")).toBeInTheDocument();
+      expect(screen.getByText("Collaboration")).toBeInTheDocument();
+      expect(screen.getByText("Performance")).toBeInTheDocument();
+      expect(screen.getAllByText("Days off")).toHaveLength(2);
       expect(screen.queryByText("never")).toBeNull();
     } finally {
       vi.useRealTimers();

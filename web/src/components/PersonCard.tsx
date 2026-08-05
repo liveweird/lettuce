@@ -1,24 +1,22 @@
 import { type ReactNode } from "react";
-import { Avatar, Badge, Divider, Group, Paper, Stack, Text } from "@mantine/core";
+import { Avatar, Badge, Group, Paper, Stack, Text } from "@mantine/core";
 import classes from "./PersonCard.module.css";
 
 // One person card in the dashboard grids (managers / peers / subordinates) and the
-// user-details view: initials avatar, name, dimmed email, team badges, an optional
-// caller-supplied stats block, and an optional actions row under a divider (omitted
-// together with the divider when the viewer gets no actions — the self-view case).
+// user-details view: initials avatar, name, dimmed email, team badges, and an optional
+// caller-supplied body — the labeled-section stats+buttons block (PersonCardBody in
+// PersonCardStats.tsx), which owns everything below the header since v1.46.0.
 // Rendered as <li> — the grids are semantic <ul> lists.
 export default function PersonCard({
   name,
   email,
   teamNames,
-  stats,
-  actions,
+  body,
 }: {
   name: string;
   email: string;
   teamNames: string[];
-  stats?: ReactNode;
-  actions?: ReactNode;
+  body?: ReactNode;
 }) {
   return (
     <Paper component="li" withBorder radius="md" p="md" shadow="xs" className={classes.card}>
@@ -41,15 +39,7 @@ export default function PersonCard({
             </Group>
           </Stack>
         </Group>
-        {stats}
-        {actions != null && (
-          <>
-            <Divider mt="auto" />
-            <Group gap="xs" wrap="wrap">
-              {actions}
-            </Group>
-          </>
-        )}
+        {body}
       </Stack>
     </Paper>
   );

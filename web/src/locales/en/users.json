@@ -143,6 +143,12 @@
     "performanceReviewsAria": "Audit performance reviews of {{name}}",
     "daysOffAria": "Audit days off of {{name}}"
   },
+  "section": {
+    "profile": "Profile",
+    "collaboration": "Collaboration",
+    "performance": "Performance",
+    "daysOff": "Days off"
+  },
   "profile": {
     "missingBadge": "Not set",
     "missingHint": "Missing — providing it is strongly advised",

@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.46.0",
+    date: "2026-08-06",
+    en: `Person cards got tidied up. The information on each card (the Dashboard grids and user details) is now grouped into clearly labeled sections: Profile (career path, specialization, seniority), Collaboration (last 1:1, feedback, active goals — with the feedback, 1:1, and goal buttons right there), Performance (last review with its button), and Days off (next vacation and budget left with theirs). Every button now sits next to the information it relates to, instead of piling up at the bottom of the card.`,
+    pl: `Karty osób zostały uporządkowane. Informacje na każdej karcie (siatki Pulpitu i szczegóły osoby) są teraz pogrupowane w wyraźnie opisane sekcje: Profil (ścieżka kariery, specjalizacja, poziom), Współpraca (ostatnie 1:1, feedback, aktywne cele — z przyciskami feedbacku, 1:1 i celów tuż obok), Oceny okresowe (ostatnia ocena ze swoim przyciskiem) oraz Dni wolne (najbliższy urlop i pozostały budżet ze swoim). Każdy przycisk sąsiaduje teraz z informacją, której dotyczy, zamiast piętrzyć się na dole karty.`,
+  },
+  {
     version: "1.45.0",
     date: "2026-08-05",
     en: `Performance found its place in the menu. The left-side item is now called "Performance" and opens two tabs: "My performance" (your published reviews — the old page, unchanged) and, for managers, "Team's performance" — the per-period completion view that used to live as a Dashboard tab. Every big feature in the menu now follows the same shape: your own perspective first, the manager's beside it. Old bookmarks keep working and land on the right tab.`,
