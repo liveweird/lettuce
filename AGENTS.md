@@ -1,34 +1,134 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
+## Sources of Truth
 
-This repository contains a Kotlin/Gradle backend and React frontend. `server/src/main/kotlin/` holds Ktor features, infrastructure, and plugins; migrations and the OpenAPI contract live under `server/src/main/resources/`. Shared Kotlin code belongs in `core/src/`. The Vite/React application is in `web/src/`, organized into `pages/`, `components/`, `api/`, `hooks/`, and localized resources under `locales/`. Backend tests are in `server/src/test/kotlin/`, colocated frontend tests use `*.test.ts(x)`, and browser tests are in `e2e/tests/*.spec.ts`.
+This file is the Codex entry point. Before changing code, also read the relevant sections of
+`CLAUDE.md`; when working under `web/`, read `web/CLAUDE.md` as well. Those files contain the
+detailed, actively maintained domain, security, persistence, UI, and testing conventions shared
+by the project. For API work, `api-guidelines/API-GUIDELINES.md` is authoritative and its stable
+rule IDs should be cited in reviews. If documentation and executable configuration disagree, the
+configuration and code win; update the affected guidance in the same change.
+
+The playbooks in `.claude/skills/` are useful repository-local references even outside Claude:
+`api-review` covers the two-pass OpenAPI review, `run-stack` covers packaging/deployment, and
+`verify` covers browser verification and cleanup.
+
+## Project Structure & Architecture
+
+This is a Kotlin/Gradle backend plus a separate React frontend:
+
+- `core/` is Kotlin Multiplatform (currently JVM-targeted) and owns the shared OpenTelemetry SDK
+  bootstrap.
+- `server/` is the Kotlin/JVM Ktor application. Feature packages live directly under
+  `server/src/main/kotlin/` (`auth`, `users`, `teams`, `feedbacks`, `oneonones`, `goals`,
+  `teamkpis`, `reviews`, `templates`, `dictionaries`, `notifications`, `alerts`, and
+  `dashboard`); cross-cutting wiring is in `plugins/`, and infrastructure is in `infra/`.
+- `server/src/main/resources/application.yaml` declaratively registers application modules.
+  `main.kt` only starts `EngineMain`; do not wire features from it. Module order matters because
+  modules publish and consume Ktor application attributes.
+- PostgreSQL is the only database. Flyway migrations under
+  `server/src/main/resources/db/migration/` are the schema source of truth; Exposed over R2DBC is
+  used for runtime queries. Never introduce runtime DDL such as `SchemaUtils.create`.
+- `server/src/main/resources/openapi/documentation.yaml` is the hand-maintained API contract.
+- `web/` is a standalone Vite + React 19 + TypeScript SPA. Gradle does not build it. Source is
+  organized into `pages/`, `components/`, `api/`, `hooks/`, `utils/`, `changelog/`, and bilingual
+  resources under `locales/{en,pl}/`.
+- Backend tests are in `server/src/test/kotlin/`, colocated frontend tests use `*.test.ts(x)`, and
+  Playwright journeys are in `e2e/tests/*.spec.ts`.
+
+Routing is feature-local. Cross-cutting Ktor wiring functions are named `configureXxx` and must be
+registered in `application.yaml`. `plugins/Routing.kt` is only the final SPA/static-file catch-all.
 
 ## Build, Test, and Development Commands
 
-- `docker compose up --build`: build and run PostgreSQL, the API, and the SPA at `http://localhost:8080`.
-- `docker compose up postgres`: run the development database.
-- `./gradlew build`: compile and verify Gradle modules (JDK 21).
-- `./gradlew :server:run`: start Ktor on port 8080.
-- `./gradlew test`: run Kotlin tests; a Docker daemon is required for Testcontainers.
+- `docker compose up --build`: build and run PostgreSQL, Mailpit, the API, and the SPA at
+  `http://localhost:8080`; Mailpit is at `http://localhost:8025`.
+- `docker compose up postgres`: start only the development database.
+- `./gradlew build`: compile and verify the Gradle modules with the JDK 21 toolchain.
+- `./gradlew :server:run`: start Ktor/Netty on port 8080.
+- `./gradlew test` or `./gradlew :server:test`: run Kotlin tests; Docker is required for
+  Testcontainers.
+- `./gradlew :server:test --tests "<fully-qualified test name>"`: run one backend test.
 - `cd web && npm run dev`: start Vite on port 5173, proxying `/api` to Ktor.
 - `cd web && npm run build && npm run lint && npm test`: type-check, bundle, lint, and run Vitest.
-- `cd e2e && npm test`: run Playwright against the full stack.
+- `cd web && npm run test:coverage`: run frontend coverage gates.
+- `cd web && npm run gen:api`: regenerate `web/src/api/schema.ts` from the OpenAPI contract.
+- `cd e2e && npm test`: run Playwright against the full stack on port 8080.
 
-Package deployments with `./gradlew :server:installDist`; do not use `buildFatJar`, which breaks Flyway service discovery.
+For a clean frontend install, use `cd web && npm install --legacy-peer-deps`;
+`openapi-typescript` declares a TypeScript 5 peer while the project uses TypeScript 6. Keep the
+Gradle and npm toolchains disjoint.
 
-## Coding Style & Naming Conventions
+Package deployments with `./gradlew :server:installDist`. Never use `buildFatJar`: merging Flyway
+service descriptors breaks plugin discovery at runtime. JVM runtime flags are intentionally set in
+`server/build.gradle.kts`; consult `.claude/skills/run-stack/SKILL.md` before changing them.
 
-Use four-space indentation for Kotlin and two spaces for TypeScript/TSX. Follow existing Kotlin package boundaries and name Ktor wiring functions `configureXxx`. Use PascalCase for React components and Kotlin types, camelCase for functions and variables, and `V<number>__description.sql` for Flyway migrations. ESLint enforces frontend rules; TypeScript is configured with strict unused-code checks. Regenerate `web/src/api/schema.ts` with `npm run gen:api` after OpenAPI changes. API design (URLs, pagination, errors, status codes, naming) follows the authoritative rulebook in `api-guidelines/API-GUIDELINES.md` — lint spec changes with its Spectral ruleset.
+## API and Backend Conventions
 
-## Testing Guidelines
+Follow `api-guidelines/API-GUIDELINES.md` for resource naming, pagination, filtering, sorting,
+errors, statuses, auth, and conformance. List endpoints use the shared paging helpers and the
+`{items, page, pageSize, total}` envelope. Keep authorization checks before resource-dependent
+validation so callers cannot infer inaccessible state.
 
-Use Kotlin Test/Ktor Test Host, Vitest with Testing Library, and Playwright for cross-stack journeys. Name backend classes `*Test`, frontend tests `*.test.tsx`, and E2E specs `*.spec.ts`. Add focused regression coverage with behavioral changes. `check` enforces server coverage floors of 90% lines and 68% branches; `npm run test:coverage` enforces frontend thresholds.
+When an API changes, update all of the following in the same change:
 
-## Commit & Pull Request Guidelines
+1. Route/service behavior and focused tests.
+2. `server/src/main/resources/openapi/documentation.yaml`.
+3. The generated `web/src/api/schema.ts` via `npm run gen:api`.
+4. API guideline conformance, using the Spectral ruleset and review checklist described in
+   `.claude/skills/api-review/SKILL.md`.
 
-History follows Conventional Commit prefixes such as `feat:`, `fix:`, `fix(e2e):`, and `docs:`; keep subjects imperative and scoped. PRs should explain behavior and risk, list verification commands, link relevant issues, and include screenshots for visible UI changes. Keep API, migrations, generated schema, tests, and both English and Polish translations synchronized when applicable.
+Use `V<number>__description.sql` for migrations. Most business entities follow the established
+soft-delete convention (`marked_as_deleted`, active-row filtering on every read/count/mutation,
+and partial unique indexes where deleted values may be reused); follow the detailed pattern in
+`CLAUDE.md` rather than inventing a variant. Emit structured `audit(...)` events for
+security-relevant mutations and denials, and never log passwords or tokens.
 
-## Security & Configuration
+Use four-space indentation, preserve existing package boundaries, PascalCase for Kotlin types,
+and camelCase for functions and variables. Name backend test classes `*Test`.
 
-Never commit production JWT, encryption, or database secrets. Defaults and seeded `changeme` credentials are development-only. Add schema changes through Flyway migrations rather than runtime DDL.
+## Frontend Conventions
+
+Use two-space indentation, PascalCase for React components, and the existing shared
+components/hooks instead of cloning list, pagination, filtering, confirmation,
+query-invalidation, link-building, or error-mapping logic.
+The design system is owned by `web/src/theme.ts` and `web/src/theme.module.css`: brand green is the
+interactive accent, semantic success is teal, and table framing is theme-wide. Keep accessibility
+roles, labels, semantic tables, and `data-tour` anchors stable.
+
+All user-facing strings must use react-i18next. Keep English and Polish resources in parity;
+Polish uses inclusive slash forms and the declined loanword `feedback`, not `opinia`. Successful
+mutations use the shared fixed-vocabulary success toast, while errors remain inline. Follow
+`web/CLAUDE.md` for the exact list-page, form-container, navigation, and Markdown discard-confirm
+patterns.
+
+`web/src/changelog/entries.ts` is the sole source of the displayed app version. Adding a newest
+English/Polish changelog entry is the release bump; the Gradle snapshot version is unrelated.
+
+## Testing and Verification
+
+Use Kotlin Test/Ktor Test Host, Vitest with Testing Library, and Playwright for cross-stack
+journeys. Add focused regression coverage for behavioral changes. Backend tests boot PostgreSQL
+through Testcontainers, apply every Flyway migration, and include seeded data; use unique markers
+instead of asserting global counts.
+
+Every `/api/` interaction made through the shared backend test clients is checked against OpenAPI.
+Prefer `jsonClient()`/`authedClient()` so tests do not bypass conformance validation. `check`
+enforces Kover floors of 90% lines and 69% branches. Frontend coverage floors in
+`web/vite.config.ts` are 93% lines, 91% statements, 88% functions, and 84% branches. Any test-local
+Mantine provider must set `env="test"` so popovers and selects work under happy-dom.
+
+For nontrivial cross-stack behavior, verify through the SPA using the workflow in
+`.claude/skills/verify/SKILL.md`, and clean up any records created in the development database.
+
+## Commit, Documentation, and Security
+
+Use Conventional Commit subjects such as `feat:`, `fix:`, `fix(e2e):`, and `docs:`. PRs should
+explain behavior and risk, list verification commands, link issues, and include screenshots for UI
+changes. Keep migrations, API contract, generated schema, tests, changelog, and both translations
+synchronized when applicable.
+
+Never commit production JWT, encryption, SMTP, or database secrets. Committed `changeme` values
+and development keys are burned demo credentials; production mode deliberately refuses them.
+Field-encryption key changes require the documented rotation procedure, because losing the active
+and fallback keys makes encrypted content unrecoverable.
