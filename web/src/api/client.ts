@@ -1181,6 +1181,46 @@ export async function listDaysOffBudgets(
   return ((await res.json()) as { items: DaysOffBudget[] }).items;
 }
 
+export type DaysOffCorrection =
+  paths["/api/v1/days-off/corrections"]["get"]["responses"]["200"]["content"]["application/json"]["items"][number];
+export type DaysOffCorrectionWrite =
+  paths["/api/v1/days-off/corrections"]["post"]["requestBody"]["content"]["application/json"];
+export type DaysOffCorrectionOperation = DaysOffCorrection["operation"];
+
+/** A user's active budget corrections, newest first — unpaged (intrinsically few). */
+export async function listDaysOffCorrections(userId: number, year?: number): Promise<DaysOffCorrection[]> {
+  const params = new URLSearchParams({ userId: String(userId) });
+  if (year != null) params.set("year", String(year));
+  const res = await authedFetch(`/api/v1/days-off/corrections?${params.toString()}`);
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return ((await res.json()) as { items: DaysOffCorrection[] }).items;
+}
+
+// Current-direct-manager only; the subordinate is notified.
+export async function createDaysOffCorrection(body: DaysOffCorrectionWrite): Promise<DaysOffCorrection> {
+  const res = await authedFetch("/api/v1/days-off/corrections", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return (await res.json()) as DaysOffCorrection;
+}
+
+// The target user is immutable (the payload's userId is ignored server-side).
+export async function updateDaysOffCorrection(id: number, body: DaysOffCorrectionWrite): Promise<void> {
+  const res = await authedFetch(`/api/v1/days-off/corrections/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
+// Soft delete — the correction drops out of the list and the budget math.
+export async function deleteDaysOffCorrection(id: number): Promise<void> {
+  const res = await authedFetch(`/api/v1/days-off/corrections/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
 export type PublicHoliday =
   paths["/api/v1/public-holidays"]["get"]["responses"]["200"]["content"]["application/json"]["items"][number];
 export type PublicHolidayCreateBody =

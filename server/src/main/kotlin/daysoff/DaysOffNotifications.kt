@@ -53,6 +53,28 @@ internal fun daysOffResolvedNotification(
     link = "/days-off?tab=requests",
 )
 
+/** Budget correction (v1.43.0): the subordinate hears about a new ± adjustment to their
+ * paid-days budget (create only — edits and deletions stay silent, the budget numbers are
+ * live). The SPA words ADD/SUBTRACT via i18next context on `operation`. */
+internal fun daysOffCorrectionNotification(
+    ownerId: UInt,
+    managerName: String,
+    year: Int,
+    operation: DaysOffCorrectionOperation,
+    days: String,
+): Notification = Notification(
+    recipientId = ownerId,
+    type = NotificationType.DAYS_OFF_CORRECTED_TO_OWNER,
+    params = mapOf(
+        "manager" to managerName,
+        "year" to year.toString(),
+        "operation" to operation.name,
+        "days" to days,
+    ),
+    // The budget card (with its Corrections view) lives on the requests tab.
+    link = "/days-off?tab=requests",
+)
+
 /** Cancellation: cancelled-from-ACCEPTED tells the manager who accepted it ([recipientIds] =
  * the resolver); cancelled-from-REQUESTED tells all current direct managers (they were asked
  * to review it). */

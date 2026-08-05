@@ -103,6 +103,24 @@ class PublicHolidayTest {
     }
 
     @Test
+    fun `the V41 seed provides the Polish statutory holidays for 2026 and 2027`() = testApplication {
+        usePostgresTestcontainer()
+        val plainEmail = uniqueEmail("holiday-seed-reader")
+        TestUsers.seed(plainEmail, "pw", roles = emptySet())
+        val list = authedClient(plainEmail, "pw").get("/api/v1/public-holidays").body<PublicHolidayList>()
+        val byDate = list.items.associate { it.date to it.name }
+
+        // Spot checks across fixed and movable feasts (Easter derivatives differ per year).
+        assertEquals("Boże Ciało", byDate["2026-06-04"])
+        assertEquals("Poniedziałek Wielkanocny", byDate["2027-03-29"])
+        assertEquals("Wigilia Bożego Narodzenia", byDate["2026-12-24"])
+        assertEquals("Święto Pracy", byDate["2027-05-01"])
+        // 14 statutory days per year (>= tolerates test-added rows in those years).
+        assertTrue(list.items.count { it.date.startsWith("2026-") } >= 14)
+        assertTrue(list.items.count { it.date.startsWith("2027-") } >= 14)
+    }
+
+    @Test
     fun `holiday mutations land in the security audit trail`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("holiday-audit-admin")

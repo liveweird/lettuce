@@ -81,14 +81,15 @@
     "legendPaid": "Paid day off",
     "legendUnpaid": "Unpaid day off",
     "legendRequested": "Requested (pending)",
-    "legendOffDay": "Weekend / public holiday",
     "previousMonth": "Previous month",
     "nextMonth": "Next month",
     "scope": "Whose calendar",
     "scope_member": "My teams",
     "scope_managed": "My direct reports",
     "loadError": "Could not load the calendar",
-    "empty": "Nobody to show — you are not a member of any team."
+    "empty": "Nobody to show — you are not a member of any team.",
+    "legendWeekend": "Weekend",
+    "legendHoliday": "Public holiday"
   },
   "budget": {
     "title": "Your paid days off in {{year}}",
@@ -101,7 +102,8 @@
     "remaining": "Remaining",
     "noAllowance": "No paid-days allowance is configured for you yet — ask an administrator; paid requests are blocked until then.",
     "loadError": "Could not load the budget",
-    "noReports": "No direct reports."
+    "noReports": "No direct reports.",
+    "corrected": "Corrections"
   },
   "holidays": {
     "title": "Public holidays",
@@ -123,5 +125,32 @@
   },
   "auditTitle": "Days off of {{who}}",
   "auditHint": "The HR audit view: every days-off request of {{who}}, at every status. Access is recorded in the audit trail.",
-  "userFallback": "user #{{id}}"
+  "userFallback": "user #{{id}}",
+  "corrections": {
+    "title": "Corrections",
+    "modalTitle": "Budget corrections — {{name}}",
+    "ownModalTitle": "Your budget corrections",
+    "hint": "Manual ± adjustments to the paid-days budget of a chosen year — they apply immediately and carry over like any unused days. The comment explains why.",
+    "hintReadOnly": "Manual ± adjustments your managers made to your paid-days budget. They apply immediately and carry over like any unused days.",
+    "empty": "No corrections yet.",
+    "loadError": "Could not load the corrections",
+    "invalid": "The correction is invalid — check the amount and the comment.",
+    "byLine": "{{author}} · {{date}}",
+    "operation": "Operation",
+    "operation_ADD": "Add days",
+    "operation_SUBTRACT": "Subtract days",
+    "comment": "Comment",
+    "commentHint": "The reason of the correction — required.",
+    "addTitle": "Add correction",
+    "editTitle": "Edit correction",
+    "addAction": "Add correction",
+    "openAria": "Budget corrections of {{name}}",
+    "editAria": "Edit the correction for {{year}}",
+    "deleteAria": "Delete the correction for {{year}}",
+    "deleteTitle": "Delete this correction?",
+    "deleteMessage": "The days return to (or leave) the budget immediately. Deleting is final.",
+    "toastAdded": "Correction added",
+    "toastUpdated": "Correction updated",
+    "toastDeleted": "Correction deleted"
+  }
 }

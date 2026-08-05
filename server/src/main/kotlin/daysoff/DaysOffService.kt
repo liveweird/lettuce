@@ -59,11 +59,13 @@ private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
 )
 
 /**
- * Days-off requests (see V40). Nothing is encrypted — there is no free-text field (deliberately
- * no comment field). Dates and costs are immutable after create; only the status (and its
- * resolution/cancellation stamps) ever changes.
+ * Days-off requests (see V40) and their budget corrections (V42). Request rows carry no free
+ * text and stay plaintext; the correction COMMENT is encrypted at rest (the 1:1-notes pattern —
+ * the cipher wraps every write and unwraps every read; never filter/sort on it in SQL). Request
+ * dates and costs are immutable after create; only the status (and its resolution/cancellation
+ * stamps) ever changes.
  */
-class DaysOffService(val database: R2dbcDatabase) {
+class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokillswit.infra.crypto.FieldCipher) {
     object Requests : org.jetbrains.exposed.v1.core.dao.id.UIntIdTable("days_off_requests") {
         val userId = reference("user_id", UserService.Users)
         val type = enumerationByName("type", 10, DaysOffType::class)
@@ -81,7 +83,20 @@ class DaysOffService(val database: R2dbcDatabase) {
         val markedAsDeleted = bool("marked_as_deleted").default(false)
     }
 
+    object Corrections : org.jetbrains.exposed.v1.core.dao.id.UIntIdTable("days_off_corrections") {
+        val userId = reference("user_id", UserService.Users)
+        val authorId = reference("author_id", UserService.Users)
+        val year = integer("year")
+        val amountHalfDays = integer("amount_half_days")
+        val comment = text("comment")
+        val createdAt = long("created_at")
+        val lastModified = long("last_modified")
+        val markedAsDeleted = bool("marked_as_deleted").default(false)
+    }
+
     private fun active(): Op<Boolean> = Requests.markedAsDeleted eq false
+
+    private fun correctionActive(): Op<Boolean> = Corrections.markedAsDeleted eq false
 
     private fun counting(): Op<Boolean> = Requests.status inList COUNTING_STATUSES
 
@@ -123,11 +138,12 @@ class DaysOffService(val database: R2dbcDatabase) {
             }
             if (request.type == DaysOffType.PAID) {
                 val allowance = allowanceOf(userId)
+                val corrections = correctionsByYear(userId)
                 val usedByYear = countingPaidCostsByYear(userId).toMutableMap()
                 usedByYear[year] = (usedByYear[year] ?: 0) + cost
                 val lastYear = maxOf(usedByYear.keys.max(), year)
                 for (y in year..lastYear) {
-                    if (remainingHalfDays(allowance, y, usedByYear) < 0) {
+                    if (remainingHalfDays(allowance, y, usedByYear, corrections) < 0) {
                         throw ConflictException("Insufficient paid days-off budget for year $y")
                     }
                 }
@@ -418,6 +434,18 @@ class DaysOffService(val database: R2dbcDatabase) {
                     costH = row[Requests.costHalfDays],
                 )
             }
+        // One grouped fetch of the whole set's active corrections (no year cap — the anchor
+        // may sit before [year], and later ones never enter the filtered sums anyway).
+        val correctionsByUser: Map<UInt, Map<Int, Int>> = Corrections
+            .select(Corrections.userId, Corrections.year, Corrections.amountHalfDays)
+            .where { (Corrections.userId inList userIds) and correctionActive() }
+            .map { it }
+            .toList()
+            .groupBy { it[Corrections.userId].value }
+            .mapValues { (_, rows) ->
+                rows.groupBy({ it[Corrections.year] }) { it[Corrections.amountHalfDays] }
+                    .mapValues { (_, amounts) -> amounts.sum() }
+            }
         UserService.Users
             .select(
                 UserService.Users.id,
@@ -432,6 +460,7 @@ class DaysOffService(val database: R2dbcDatabase) {
                 val allowance = row[UserService.Users.paidDaysOffAllowance]
                 val countingRows = rowsByUser[userId] ?: emptyList()
                 val usedByYear = countingRows.groupBy { it.year }.mapValues { (_, r) -> r.sumOf { it.costH } }
+                val corrections = correctionsByUser[userId] ?: emptyMap()
                 val reservedH = countingRows.filter { it.year == year && it.status == DaysOffStatus.REQUESTED }
                     .sumOf { it.costH }
                 val usedH = countingRows.filter { it.year == year && it.status == DaysOffStatus.ACCEPTED }
@@ -442,13 +471,137 @@ class DaysOffService(val database: R2dbcDatabase) {
                     userDeleted = row[UserService.Users.markedAsDeleted],
                     year = year,
                     allowance = allowance,
-                    carriedOver = carriedOverHalfDays(allowance, year, usedByYear) / 2.0,
+                    carriedOver = carriedOverHalfDays(allowance, year, usedByYear, corrections) / 2.0,
+                    corrected = (corrections[year] ?: 0) / 2.0,
                     reserved = reservedH / 2.0,
                     used = usedH / 2.0,
-                    remaining = remainingHalfDays(allowance, year, usedByYear) / 2.0,
+                    remaining = remainingHalfDays(allowance, year, usedByYear, corrections) / 2.0,
                 )
             }
             .toList()
+    }
+
+    // ── Budget corrections (v1.43.0) ────────────────────────────────────────────────────────
+
+    /** The user's active corrections, newest year (then newest row) first, author joined. */
+    suspend fun listCorrections(userId: UInt, year: Int? = null): List<DaysOffCorrectionResponse> =
+        suspendTransaction(database) {
+            var predicate: Op<Boolean> = (Corrections.userId eq userId) and correctionActive()
+            year?.let { predicate = predicate and (Corrections.year eq it) }
+            Corrections
+                .join(
+                    ownerUsers,
+                    JoinType.INNER,
+                    onColumn = Corrections.authorId,
+                    otherColumn = ownerUsers[UserService.Users.id],
+                )
+                .selectAll()
+                .where { predicate }
+                .orderBy(Corrections.year to SortOrder.DESC, Corrections.id to SortOrder.DESC)
+                .map { it.toCorrection() }
+                .toList()
+        }
+
+    suspend fun readCorrection(id: UInt): DaysOffCorrectionResponse? = suspendTransaction(database) {
+        Corrections
+            .join(
+                ownerUsers,
+                JoinType.INNER,
+                onColumn = Corrections.authorId,
+                otherColumn = ownerUsers[UserService.Users.id],
+            )
+            .selectAll()
+            .where { (Corrections.id eq id) and correctionActive() }
+            .map { it.toCorrection() }
+            .singleOrNull()
+    }
+
+    /** Inserts a correction (shape pre-validated by the route; no budget gate — a SUBTRACT may
+     * push a year negative, the allowance-cut precedent) and returns the id plus the owner's
+     * notification. */
+    suspend fun createCorrection(authorId: UInt, write: DaysOffCorrectionWrite): Pair<UInt, Notification> =
+        suspendTransaction(database) {
+            val now = System.currentTimeMillis()
+            val id = Corrections.insert {
+                it[userId] = write.userId
+                it[this.authorId] = authorId
+                it[year] = write.year
+                it[amountHalfDays] = correctionHalfDays(write)
+                it[comment] = cipher.encrypt(write.comment)
+                it[createdAt] = now
+                it[lastModified] = now
+            }[Corrections.id].value
+            id to daysOffCorrectionNotification(
+                ownerId = write.userId,
+                managerName = userName(authorId),
+                year = write.year,
+                operation = write.operation,
+                days = formatHalfDaysParam((write.days * 2).toInt()),
+            )
+        }
+
+    /** Updates a correction's year/amount/comment (the target user is immutable — [write]'s
+     * userId is ignored here; the route guards against the ROW's user). 0 → missing → 404. */
+    suspend fun updateCorrection(id: UInt, write: DaysOffCorrectionWrite): Int = suspendTransaction(database) {
+        Corrections.update({ (Corrections.id eq id) and (Corrections.markedAsDeleted eq false) }) {
+            it[year] = write.year
+            it[amountHalfDays] = correctionHalfDays(write)
+            it[comment] = cipher.encrypt(write.comment)
+            it[lastModified] = System.currentTimeMillis()
+        }
+    }
+
+    suspend fun deleteCorrection(id: UInt): Int = suspendTransaction(database) {
+        Corrections.update({ (Corrections.id eq id) and (Corrections.markedAsDeleted eq false) }) {
+            it[markedAsDeleted] = true
+        }
+    }
+
+    /** Year → summed SIGNED half-day corrections of [userId]. Runs in the caller's transaction. */
+    private suspend fun correctionsByYear(userId: UInt): Map<Int, Int> =
+        Corrections
+            .select(Corrections.year, Corrections.amountHalfDays)
+            .where { (Corrections.userId eq userId) and correctionActive() }
+            .map { it[Corrections.year] to it[Corrections.amountHalfDays] }
+            .toList()
+            .groupBy({ it.first }) { it.second }
+            .mapValues { (_, amounts) -> amounts.sum() }
+
+    private fun ResultRow.toCorrection(): DaysOffCorrectionResponse {
+        val halfDays = this[Corrections.amountHalfDays]
+        return DaysOffCorrectionResponse(
+            id = this[Corrections.id].value,
+            userId = this[Corrections.userId].value,
+            authorId = this[Corrections.authorId].value,
+            authorName = this[ownerUsers[UserService.Users.name]],
+            authorDeleted = this[ownerUsers[UserService.Users.markedAsDeleted]],
+            year = this[Corrections.year],
+            operation = if (halfDays >= 0) DaysOffCorrectionOperation.ADD else DaysOffCorrectionOperation.SUBTRACT,
+            days = kotlin.math.abs(halfDays) / 2.0,
+            comment = cipher.decrypt(this[Corrections.comment]),
+            createdAt = this[Corrections.createdAt],
+            lastModified = this[Corrections.lastModified],
+        )
+    }
+
+    /**
+     * Startup backfill (see infra/db/Bootstrap.kt): encrypts correction comments still holding
+     * legacy plaintext — including soft-deleted rows. With [reencryptAll] (key rotation) every
+     * row is rewritten under the current key. Idempotent; returns the rewritten count.
+     */
+    suspend fun encryptLegacyRows(reencryptAll: Boolean = false): Int = suspendTransaction(database) {
+        val enveloped = "${ch.nokillswit.infra.crypto.FieldCipher.PREFIX}%"
+        val rows = Corrections
+            .select(Corrections.id, Corrections.comment)
+            .where { if (reencryptAll) Op.TRUE else Corrections.comment notLike enveloped }
+            .map { it[Corrections.id] to it[Corrections.comment] }
+            .toList()
+        rows.forEach { (id, comment) ->
+            Corrections.update({ Corrections.id eq id }) {
+                it[this.comment] = cipher.encrypt(cipher.decrypt(comment))
+            }
+        }
+        rows.size
     }
 
     /** True iff [callerId] is currently a direct manager of [ownerId] — the resolve right. */

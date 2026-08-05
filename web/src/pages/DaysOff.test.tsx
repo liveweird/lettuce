@@ -23,6 +23,7 @@ const BUDGET = {
   year: new Date().getFullYear(),
   allowance: 20,
   carriedOver: 2,
+  corrected: 0,
   reserved: 1.5,
   used: 3,
   remaining: 17.5,

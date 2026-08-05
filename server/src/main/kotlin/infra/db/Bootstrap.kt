@@ -1,6 +1,7 @@
 package ch.nokillswit.infra.db
 
 import ch.nokillswit.auth.hashPassword
+import ch.nokillswit.daysoff.DaysOffServiceKey
 import ch.nokillswit.feedbacks.FeedbackServiceKey
 import ch.nokillswit.goals.GoalServiceKey
 import ch.nokillswit.oneonones.OneOnOneServiceKey
@@ -91,5 +92,10 @@ suspend fun Application.configureBootstrap() {
     val reviewsEncrypted = attributes[PerformanceReviewServiceKey].encryptLegacyRows(reencryptAll = rotating)
     if (reviewsEncrypted > 0) {
         log.info("Bootstrap: ${if (rotating) "re-" else ""}encrypted $reviewsEncrypted performance review row(s) at rest")
+    }
+    // And for the days-off correction comment column, for the same rotation reason.
+    val correctionsEncrypted = attributes[DaysOffServiceKey].encryptLegacyRows(reencryptAll = rotating)
+    if (correctionsEncrypted > 0) {
+        log.info("Bootstrap: ${if (rotating) "re-" else ""}encrypted $correctionsEncrypted days-off correction row(s) at rest")
     }
 }

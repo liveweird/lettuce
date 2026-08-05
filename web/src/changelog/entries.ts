@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.43.0",
+    date: "2026-08-05",
+    en: `Days off got three upgrades. The calendar now clearly marks weekends (gray) and public holidays (warm tint, name on hover) as two distinct kinds of off days. The public-holiday list comes pre-filled with the confirmed Polish statutory holidays for 2026 and 2027 — including movable feasts and the Christmas Eve day off. And managers can now add budget corrections: ± days (halves allowed) on a chosen year of a report's paid-days budget, with a mandatory reason — applied immediately, no approval step, editable and deletable, visible to the person (who also gets a notification), their management chain, and HR — never to teammates.`,
+    pl: `Dni wolne dostały trzy ulepszenia. Kalendarz wyraźnie oznacza teraz weekendy (szare) i święta (ciepły odcień, nazwa po najechaniu) jako dwa różne rodzaje dni wolnych. Lista świąt jest wstępnie wypełniona potwierdzonymi polskimi dniami ustawowo wolnymi na lata 2026 i 2027 — łącznie ze świętami ruchomymi i wolną Wigilią. Menedżerowie mogą też dodawać korekty budżetu: ± dni (dozwolone połówki) w wybranym roku budżetu płatnych dni podwładnego, z obowiązkowym uzasadnieniem — działają natychmiast, bez akceptacji, można je edytować i usuwać, widzą je: dana osoba (dostaje też powiadomienie), jej łańcuch menedżerski i HR — nigdy koledzy z zespołu.`,
+  },
+  {
     version: "1.42.0",
     date: "2026-08-05",
     en: `Days off arrived. The new "Days off" section has a team calendar (everyone sees their teammates' days off; managers also their reports'), your own requests with a paid-days budget — an annual allowance set by an administrator, with unused days carrying over to the next year — and, for managers, a tab to accept or reject their reports' requests and review budgets. A request covers one consecutive period (half days allowed on its first and last day); weekends and the new admin-maintained public holidays never count against the budget.`,

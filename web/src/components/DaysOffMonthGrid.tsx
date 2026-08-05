@@ -17,6 +17,14 @@ function isWeekend(iso: string): boolean {
   return day === 0 || day === 6;
 }
 
+// The column shading (with a leading space for className concatenation): a public holiday's
+// warm tint wins over the weekend gray when both apply.
+function offDayClass(holiday: boolean, weekend: boolean): string {
+  if (holiday) return ` ${classes.holidayDay}`;
+  if (weekend) return ` ${classes.weekendDay}`;
+  return "";
+}
+
 function fillClass(entry: DaysOffCalendarEntry): string {
   const tentative = entry.status === "REQUESTED";
   const paid = entry.type === "PAID";
@@ -72,7 +80,7 @@ export default function DaysOffMonthGrid({ data }: { data: DaysOffCalendarRespon
                 <th
                   key={iso}
                   scope="col"
-                  className={`${classes.dayHeader}${holiday || isWeekend(iso) ? ` ${classes.offDay}` : ""}`}
+                  className={`${classes.dayHeader}${offDayClass(holiday != null, isWeekend(iso))}`}
                   title={holiday ?? undefined}
                 >
                   {Number(iso.slice(8))}
@@ -97,11 +105,10 @@ export default function DaysOffMonthGrid({ data }: { data: DaysOffCalendarRespon
                 </th>
                 {dates.map((iso) => {
                   const entry = byDate.get(iso);
-                  const off = holidayNames.has(iso) || isWeekend(iso);
                   return (
                     <td
                       key={iso}
-                      className={`${classes.dayCell}${off ? ` ${classes.offDay}` : ""}`}
+                      className={`${classes.dayCell}${offDayClass(holidayNames.has(iso), isWeekend(iso))}`}
                       title={
                         entry
                           ? t("daysOff.calendar.cellTitle", {
@@ -128,7 +135,8 @@ export default function DaysOffMonthGrid({ data }: { data: DaysOffCalendarRespon
         <LegendItem swatch={classes.paid} label={t("daysOff.calendar.legendPaid")} />
         <LegendItem swatch={classes.unpaid} label={t("daysOff.calendar.legendUnpaid")} />
         <LegendItem swatch={classes.tentativePaid} label={t("daysOff.calendar.legendRequested")} />
-        <LegendItem swatch={classes.offDay} label={t("daysOff.calendar.legendOffDay")} />
+        <LegendItem swatch={classes.weekendDay} label={t("daysOff.calendar.legendWeekend")} />
+        <LegendItem swatch={classes.holidayDay} label={t("daysOff.calendar.legendHoliday")} />
       </Group>
     </div>
   );

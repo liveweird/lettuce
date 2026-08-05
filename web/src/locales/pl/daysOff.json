@@ -81,14 +81,15 @@
     "legendPaid": "Płatny dzień wolny",
     "legendUnpaid": "Bezpłatny dzień wolny",
     "legendRequested": "Wnioskowany (oczekujący)",
-    "legendOffDay": "Weekend / święto",
     "previousMonth": "Poprzedni miesiąc",
     "nextMonth": "Następny miesiąc",
     "scope": "Czyj kalendarz",
     "scope_member": "Moje zespoły",
     "scope_managed": "Moi bezpośredni podwładni",
     "loadError": "Nie udało się wczytać kalendarza",
-    "empty": "Nie ma kogo pokazać — nie należysz do żadnego zespołu."
+    "empty": "Nie ma kogo pokazać — nie należysz do żadnego zespołu.",
+    "legendWeekend": "Weekend",
+    "legendHoliday": "Święto"
   },
   "budget": {
     "title": "Twoje płatne dni wolne w {{year}}",
@@ -101,7 +102,8 @@
     "remaining": "Pozostałe",
     "noAllowance": "Nie masz jeszcze skonfigurowanej puli płatnych dni — zapytaj administratora/administratorkę; do tego czasu płatne wnioski są zablokowane.",
     "loadError": "Nie udało się wczytać budżetu",
-    "noReports": "Brak bezpośrednich podwładnych."
+    "noReports": "Brak bezpośrednich podwładnych.",
+    "corrected": "Korekty"
   },
   "holidays": {
     "title": "Święta",
@@ -123,5 +125,32 @@
   },
   "auditTitle": "Dni wolne — {{who}}",
   "auditHint": "Widok audytu HR: wszystkie wnioski o dni wolne, które złożył/złożyła {{who}}, w każdym statusie. Dostęp jest odnotowywany w dzienniku audytu.",
-  "userFallback": "użytkownik #{{id}}"
+  "userFallback": "użytkownik #{{id}}",
+  "corrections": {
+    "title": "Korekty",
+    "modalTitle": "Korekty budżetu — {{name}}",
+    "ownModalTitle": "Korekty Twojego budżetu",
+    "hint": "Ręczne korekty ± budżetu płatnych dni wybranego roku — działają natychmiast i przechodzą na kolejne lata jak niewykorzystane dni. Komentarz wyjaśnia powód.",
+    "hintReadOnly": "Ręczne korekty ±, które Twoi menedżerowie wprowadzili do Twojego budżetu płatnych dni. Działają natychmiast i przechodzą na kolejne lata jak niewykorzystane dni.",
+    "empty": "Nie ma jeszcze żadnych korekt.",
+    "loadError": "Nie udało się wczytać korekt",
+    "invalid": "Korekta jest nieprawidłowa — sprawdź liczbę dni i komentarz.",
+    "byLine": "{{author}} · {{date}}",
+    "operation": "Operacja",
+    "operation_ADD": "Dodaj dni",
+    "operation_SUBTRACT": "Odejmij dni",
+    "comment": "Komentarz",
+    "commentHint": "Powód korekty — wymagany.",
+    "addTitle": "Dodaj korektę",
+    "editTitle": "Edytuj korektę",
+    "addAction": "Dodaj korektę",
+    "openAria": "Korekty budżetu: {{name}}",
+    "editAria": "Edytuj korektę za rok {{year}}",
+    "deleteAria": "Usuń korektę za rok {{year}}",
+    "deleteTitle": "Usunąć tę korektę?",
+    "deleteMessage": "Dni natychmiast wrócą do budżetu (lub z niego znikną). Usunięcie jest ostateczne.",
+    "toastAdded": "Korekta dodana",
+    "toastUpdated": "Korekta zaktualizowana",
+    "toastDeleted": "Korekta usunięta"
+  }
 }

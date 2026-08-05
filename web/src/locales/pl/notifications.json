@@ -54,6 +54,8 @@
     "daysOffAccepted": "{{manager}} zaakceptował/zaakceptowała Twój wniosek o dni wolne ({{startDate}} – {{endDate}}).",
     "daysOffRejected": "{{manager}} odrzucił/odrzuciła Twój wniosek o dni wolne ({{startDate}} – {{endDate}}).",
     "daysOffCancelled": "{{requester}} anulował/anulowała swój wniosek o dni wolne ({{startDate}} – {{endDate}}).",
+    "daysOffCorrected_ADD": "{{manager}} dodał/dodała {{days}} dni do Twojego budżetu płatnych dni na rok {{year}}.",
+    "daysOffCorrected_SUBTRACT": "{{manager}} odjął/odjęła {{days}} dni z Twojego budżetu płatnych dni na rok {{year}}.",
     "passwordChanged": "Twoje hasło zostało zmienione.",
     "passwordChanged_admin": "Administrator zmienił Twoje hasło.",
     "passwordChanged_reset": "Twoje hasło zostało zresetowane przez e-mail."

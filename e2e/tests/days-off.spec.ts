@@ -32,14 +32,29 @@ function addDays(d: Date, days: number): Date {
   return copy;
 }
 
+// The V41-seeded Polish statutory holidays (2026-2027) — the booked window must avoid them,
+// or the spec's cost expectations (its OWN holiday on the first Monday) would be off.
+const SEEDED_HOLIDAYS = new Set([
+  "2026-01-01", "2026-01-06", "2026-04-05", "2026-04-06", "2026-05-01", "2026-05-03",
+  "2026-05-24", "2026-06-04", "2026-08-15", "2026-11-01", "2026-11-11", "2026-12-24",
+  "2026-12-25", "2026-12-26",
+  "2027-01-01", "2027-01-06", "2027-03-28", "2027-03-29", "2027-05-01", "2027-05-03",
+  "2027-05-16", "2027-05-27", "2027-08-15", "2027-11-01", "2027-11-11", "2027-12-24",
+  "2027-12-25", "2027-12-26",
+]);
+
 /** A future Monday 4–43 weeks out (varies per run-minute); the whole two-week window the spec
- * books must stay inside one calendar year (the same-year rule). */
+ * books must stay inside one calendar year (the same-year rule) and clear of the seeded
+ * holidays (their zero cost would break the expected numbers). */
 function pickMonday(): Date {
   let monday = new Date();
   monday.setDate(monday.getDate() + ((8 - monday.getDay()) % 7 || 7)); // next Monday
   const weeks = 4 + (Math.floor(Date.now() / 60_000) % 40);
   monday = addDays(monday, weeks * 7);
-  while (monday.getFullYear() !== addDays(monday, 8).getFullYear()) {
+  const windowBlocked = (m: Date) =>
+    m.getFullYear() !== addDays(m, 8).getFullYear() ||
+    [0, 1, 7, 8].some((offset) => SEEDED_HOLIDAYS.has(isoDate(addDays(m, offset))));
+  while (windowBlocked(monday)) {
     monday = addDays(monday, 7);
   }
   return monday;
@@ -161,7 +176,51 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   await expect(page.getByText("Request cancelled")).toBeVisible();
   await logout(page);
 
-  // ── Cleanup: the manager hears about the cancellation; the admin removes the holiday. ──
+  // ── Manager: a +2 budget correction for AAA Two (v1.43.0). ──
+  await login(page, MANAGER_AAA);
+  await collapseAlertsBanner(page);
+  await page.goto("/days-off?tab=team");
+  await page.getByLabel("Budget corrections of AAA Two").click();
+  const correctionsModal = page.getByRole("dialog");
+  await expect(correctionsModal.getByText("Add correction").first()).toBeVisible();
+  await correctionsModal.getByLabel("Days").fill("2");
+  await correctionsModal.getByLabel("Comment").fill(`E2E correction ${MONDAY_ISO}`);
+  await correctionsModal.getByRole("button", { name: "Add correction" }).click();
+  await expect(page.getByText("Correction added")).toBeVisible();
+  await expect(correctionsModal.getByText(`E2E correction ${MONDAY_ISO}`)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await logout(page);
+
+  // ── AAA Two: sees the correction read-only + the bell notification. ──
+  await login(page, AAA_TWO);
+  await collapseAlertsBanner(page);
+  const corrBell = await openBell(page);
+  await expect(
+    notificationCard(corrBell, "added 2 day(s) to your paid days-off budget"),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.goto("/days-off?tab=requests");
+  await page.getByRole("button", { name: "Corrections" }).click();
+  const ownModal = page.getByRole("dialog");
+  await expect(ownModal.getByText(`E2E correction ${MONDAY_ISO}`)).toBeVisible();
+  // Read-only: no add form, no per-row actions.
+  await expect(ownModal.getByRole("button", { name: "Add correction" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await logout(page);
+
+  // ── Cleanup: the manager deletes the correction; the admin removes the holiday. ──
+  await login(page, MANAGER_AAA);
+  await collapseAlertsBanner(page);
+  await page.goto("/days-off?tab=team");
+  await page.getByLabel("Budget corrections of AAA Two").click();
+  const cleanupModal = page.getByRole("dialog");
+  await cleanupModal.getByRole("button", { name: /^Delete the correction/ }).first().click();
+  // The confirm modal stacks on top — its Delete is the last one.
+  await page.getByRole("button", { name: "Delete", exact: true }).last().click();
+  await expect(page.getByText("Correction deleted")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await logout(page);
+
   await login(page, ADMIN);
   await collapseAlertsBanner(page);
   await page.goto("/public-holidays");

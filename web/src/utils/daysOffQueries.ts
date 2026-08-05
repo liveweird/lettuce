@@ -11,3 +11,10 @@ export async function invalidateDaysOff(queryClient: QueryClient): Promise<void>
   queryClient.invalidateQueries({ queryKey: ["daysOffBudgets"] });
   queryClient.invalidateQueries({ queryKey: ["notifications"] });
 }
+
+/** A correction mutation refreshes the corrections list and every budget surface. */
+export async function invalidateDaysOffCorrections(queryClient: QueryClient, userId: number): Promise<void> {
+  await queryClient.invalidateQueries({ queryKey: ["daysOffCorrections", userId] });
+  queryClient.invalidateQueries({ queryKey: ["daysOffBudgets"] });
+  queryClient.invalidateQueries({ queryKey: ["notifications"] });
+}

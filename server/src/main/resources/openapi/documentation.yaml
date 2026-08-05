@@ -3219,6 +3219,124 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '500': { $ref: '#/components/responses/InternalServerError' }
 
+  /api/v1/days-off/corrections:
+    get:
+      tags: [days-off]
+      operationId: listDaysOffCorrections
+      summary: List a user's paid-days budget corrections
+      description: |
+        The active budget corrections of one user, newest year (then newest row) first —
+        **unpaged** (corrections are intrinsically few). Readable by the **subordinate
+        themselves**, the **HR auditor** (audit-logged), and any **manager in the
+        subordinate's transitive management chain** (which includes every current direct
+        manager). Teammates never qualify — they don't see each other's budgets at all —
+        and ADMIN gets nothing special.
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema: { type: integer, format: int64, minimum: 0 }
+          description: Whose corrections to list (`400` when missing).
+        - name: year
+          in: query
+          required: false
+          schema: { type: integer, minimum: 2000, maximum: 2100 }
+          description: Optional exact budget-year filter.
+      responses:
+        '200':
+          description: The corrections, newest first
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DaysOffCorrectionList'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is not the user, a manager in their chain, or HR
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    post:
+      tags: [days-off]
+      operationId: createDaysOffCorrection
+      summary: Add a paid-days budget correction
+      description: |
+        Adds a ± adjustment (whole or half days) to a subordinate's paid-days budget for a
+        chosen calendar year, with a mandatory reasoning comment. **No approval workflow** —
+        the correction takes effect immediately and enters the carry-over math attributed to
+        its year (an earlier year's correction flows forward automatically). Only a **current
+        direct manager** of the subordinate may create one; the author is recorded
+        (display-only — edit rights follow the current direct managers). A SUBTRACT may push
+        a year's balance negative (the deficit carries forward — the allowance-cut
+        precedent); only *request creation* is budget-gated. The subordinate is notified.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DaysOffCorrectionWrite'
+      responses:
+        '201':
+          description: Created — the correction with its resolved author
+          headers:
+            Location:
+              schema: { type: string }
+              description: URL of the new correction resource
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DaysOffCorrection'
+        '400':
+          description: Validation error (year out of range, days not a positive 0.5-step, blank or oversized comment)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/DaysOffNotDirectManager' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/days-off/corrections/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    put:
+      tags: [days-off]
+      operationId: updateDaysOffCorrection
+      summary: Edit a paid-days budget correction
+      description: |
+        Replaces a correction's year, amount, and comment. The **target user is immutable**
+        (the payload's `userId` is ignored). Only a **current direct manager** of the
+        correction's subordinate may edit — regardless of who authored it. Edits notify
+        nobody (the budget numbers are live).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DaysOffCorrectionWrite'
+      responses:
+        '204': { description: Updated }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/DaysOffNotDirectManager' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    delete:
+      tags: [days-off]
+      operationId: deleteDaysOffCorrection
+      summary: Delete a paid-days budget correction
+      description: |
+        Soft-deletes a correction (it drops out of the list and the budget math; the row is
+        retained). Only a **current direct manager** of the correction's subordinate may
+        delete. Notifies nobody.
+      responses:
+        '204': { description: Deleted }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/DaysOffNotDirectManager' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
   /api/v1/days-off/{id}:
     parameters:
       - $ref: '#/components/parameters/ResourceId'
@@ -6042,7 +6160,7 @@ components:
 
     DaysOffBudget:
       type: object
-      required: [userId, userName, userDeleted, year, allowance, carriedOver, reserved, used, remaining]
+      required: [userId, userName, userDeleted, year, allowance, carriedOver, corrected, reserved, used, remaining]
       properties:
         userId: { type: integer, format: int64, minimum: 0 }
         userName: { type: string }
@@ -6056,6 +6174,10 @@ components:
           type: number
           format: double
           description: Days carried in from previous years (0 for a user with no earlier usage).
+        corrected:
+          type: number
+          format: double
+          description: The year's net manager corrections in days (signed; 0 when none).
         reserved:
           type: number
           format: double
@@ -6079,6 +6201,59 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DaysOffBudget'
+
+    DaysOffCorrectionWrite:
+      type: object
+      required: [userId, year, operation, days, comment]
+      properties:
+        userId:
+          type: integer
+          format: int64
+          minimum: 0
+          description: The subordinate whose budget is corrected. Create-only — immutable on PUT (ignored there).
+        year: { type: integer, minimum: 2000, maximum: 2100 }
+        operation:
+          type: string
+          enum: [ADD, SUBTRACT]
+        days:
+          type: number
+          format: double
+          description: Positive amount in days, 0.5 steps, at most 365.
+        comment:
+          type: string
+          maxLength: 1000
+          description: The mandatory reasoning — non-blank; stored encrypted at rest.
+
+    DaysOffCorrection:
+      type: object
+      required:
+        [id, userId, authorId, authorName, authorDeleted, year, operation, days, comment,
+         createdAt, lastModified]
+      properties:
+        id: { type: integer, format: int64, minimum: 0 }
+        userId: { type: integer, format: int64, minimum: 0 }
+        authorId:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Who created the correction — display-only; edit rights follow the current direct managers.
+        authorName: { type: string }
+        authorDeleted: { type: boolean }
+        year: { type: integer }
+        operation: { type: string, enum: [ADD, SUBTRACT] }
+        days: { type: number, format: double }
+        comment: { type: string }
+        createdAt: { type: integer, format: int64 }
+        lastModified: { type: integer, format: int64 }
+
+    DaysOffCorrectionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DaysOffCorrection'
 
     PublicHoliday:
       type: object
@@ -6150,6 +6325,7 @@ components:
             - DAYS_OFF_ACCEPTED_TO_OWNER
             - DAYS_OFF_REJECTED_TO_OWNER
             - DAYS_OFF_CANCELLED_TO_MANAGER
+            - DAYS_OFF_CORRECTED_TO_OWNER
             - PASSWORD_CHANGED
           description: Notification kind; the client renders it in the viewer's language.
         params:
@@ -6172,6 +6348,8 @@ components:
             name (`requester` toward managers, `manager` toward the owner) plus raw ISO
             `{startDate,endDate}`; DAYS_OFF_REQUESTED_TO_MANAGER additionally `{type,days}`
             (the enum name and a "1.5"-style days string) — the client formats all of them.
+            DAYS_OFF_CORRECTED_TO_OWNER carries `{manager,year,operation,days}` — the client
+            words ADD/SUBTRACT from `operation`.
         link:
           type: string
           nullable: true

@@ -435,3 +435,20 @@ fun requireDaysOffOwner(caller: CallerPrincipal, request: DaysOffResponse) {
         throw ForbiddenException("Only the requester may cancel their days-off request")
     }
 }
+
+/**
+ * Reading a user's budget corrections (v1.43.0): the subordinate themselves, the HR auditor
+ * (audit-logged), and any manager in the subordinate's transitive chain (which includes every
+ * current direct manager). Teammates never qualify — they don't see each other's budgets at
+ * all, so calendar parity is untouched; ADMIN-as-such gets nothing.
+ */
+suspend fun requireDaysOffCorrectionsRead(
+    caller: CallerPrincipal,
+    targetUserId: UInt,
+    managesOwner: suspend () -> Boolean,
+) {
+    if (caller.userId == targetUserId) return // the subordinate — cheap rule first
+    if (grantHrRead(caller, "daysOffCorrections", targetUserId)) return
+    if (managesOwner()) return // DB hit only if needed
+    throw ForbiddenException("Caller may not read this user's budget corrections")
+}
