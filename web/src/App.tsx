@@ -50,6 +50,7 @@ import {
 } from "@tabler/icons-react";
 import {
   Link as RouterLink,
+  Navigate,
   Outlet,
   Route,
   Routes,
@@ -94,7 +95,7 @@ const CreateTeamKpi = lazy(() => import("./pages/CreateTeamKpi"));
 const EditTeamKpi = lazy(() => import("./pages/EditTeamKpi"));
 const ViewTeamKpi = lazy(() => import("./pages/ViewTeamKpi"));
 const TeamKpis = lazy(() => import("./pages/TeamKpis"));
-const MyPerformance = lazy(() => import("./pages/MyPerformance"));
+const Performance = lazy(() => import("./pages/Performance"));
 const UserPerformanceReviews = lazy(() => import("./pages/UserPerformanceReviews"));
 const CreatePerformanceReview = lazy(() => import("./pages/CreatePerformanceReview"));
 const EditPerformanceReview = lazy(() => import("./pages/EditPerformanceReview"));
@@ -152,10 +153,10 @@ const NAV_ITEMS: ReadonlyArray<NavEntry> = [
   { to: "/goals", label: "appShell.nav.goals", icon: IconTargetArrow, tourId: "nav-my-goals" },
   { to: "/team-kpis", label: "appShell.nav.teamKpis", icon: IconChartLine, tourId: "nav-team-kpis" },
   {
-    to: "/my-performance",
-    label: "appShell.nav.myPerformance",
+    to: "/performance",
+    label: "appShell.nav.performance",
     icon: IconClipboardText,
-    tourId: "nav-my-performance",
+    tourId: "nav-performance",
   },
   { to: "/days-off", label: "appShell.nav.daysOff", icon: IconBeach, tourId: "nav-days-off" },
   {
@@ -545,7 +546,9 @@ export default function App() {
             <Route path="team-kpis/new" element={<CreateTeamKpi />} />
             <Route path="team-kpis/:id/edit" element={<EditTeamKpi />} />
             <Route path="team-kpis/:id/view" element={<ViewTeamKpi />} />
-            <Route path="my-performance" element={<MyPerformance />} />
+            <Route path="performance" element={<Performance />} />
+            {/* The pre-v1.45 URL of the own view — bookmarks/notification landings keep working. */}
+            <Route path="my-performance" element={<Navigate to="/performance" replace />} />
             <Route path="users/:userId/performance-reviews" element={<UserPerformanceReviews />} />
             <Route path="performance-reviews/new" element={<CreatePerformanceReview />} />
             <Route path="performance-reviews/:id/edit" element={<EditPerformanceReview />} />

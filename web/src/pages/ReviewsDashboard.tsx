@@ -45,7 +45,7 @@ import {
 const SETTINGS_KEY = "dashboardReviews";
 const REPORTS_SCOPES = ["direct", "all"] as const;
 const VIEW_MODES = ["table", "chart"] as const;
-const BACK_TO = "/?tab=reviews";
+const BACK_TO = "/performance?tab=managed";
 
 // The rating-distribution charts are the second lazy @mantine/charts chunk (the TeamKpiChart
 // precedent) — recharts never touches the main bundle.

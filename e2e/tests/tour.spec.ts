@@ -7,7 +7,6 @@ import { collapseAlertsBanner, expect, login, MANAGER_AAA, test } from "./helper
 
 const LANDMARKS = [
   "Take a quick tour",
-  "Performance reviews — every subordinate's review",
   "Feedback",
   "1:1 meetings",
   "Goals — the goals you're involved in",
@@ -16,7 +15,8 @@ const LANDMARKS = [
   "Team KPIs — the measurable indicators",
   "My teams' KPIs — the active and archived KPIs",
   "KPIs I've set — the KPIs of the teams you manage",
-  "My performance — the performance reviews your manager published",
+  "Performance — the performance reviews your manager published",
+  "Team's performance — every subordinate's review",
   "Days off — the team calendar",
   "Config — users, teams",
   "Self-reflection",

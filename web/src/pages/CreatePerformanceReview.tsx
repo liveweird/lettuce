@@ -22,7 +22,7 @@ import { showSuccessToast } from "../utils/toast";
 import { reviewSaveErrorMessage } from "../utils/reviewRatings";
 import { groupTeamRows } from "../utils/teamRows";
 
-const BACK_TO = "/?tab=reviews";
+const BACK_TO = "/performance?tab=managed";
 const PICKER_PAGE_SIZE = 100;
 
 // The occupied-slot 409 carries the existing review's API path in ProblemDetail.instance —

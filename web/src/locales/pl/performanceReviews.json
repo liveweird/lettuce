@@ -1,5 +1,9 @@
 {
-  "myTitle": "Moje oceny",
+  "sectionTitle": "Oceny okresowe",
+  "tab": {
+    "own": "Moje oceny",
+    "managed": "Oceny zespołu"
+  },
   "myHint": "Oceny okresowe, które opublikował/a o Tobie Twój menedżer/ka, według okresów.",
   "manager": "Menedżer",
   "subordinate": "Członek zespołu",

@@ -1,5 +1,9 @@
 {
-  "myTitle": "My performance",
+  "sectionTitle": "Performance",
+  "tab": {
+    "own": "My performance",
+    "managed": "Team's performance"
+  },
   "myHint": "The performance reviews your manager published about you, by period.",
   "manager": "Manager",
   "subordinate": "Team member",

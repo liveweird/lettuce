@@ -123,15 +123,15 @@ describe("Tour", () => {
     const nonManager = buildSteps(t, false);
     const manager = buildSteps(t, true);
 
-    // Feedback "My team", the two manager-side 1:1 tabs, the manager-side Goals and Team-KPI
-    // tabs, and the Dashboard's reviews tab are manager-only.
+    // Feedback "My team", the two manager-side 1:1 tabs, and the manager-side Goals, Team-KPI,
+    // and Performance tabs are manager-only.
     const managerOnlyTargets = [
-      '[data-tour="dashboard-reviews"]',
       '[data-tour="feedback-team"]',
       '[data-tour="one-on-one-managed"]',
       '[data-tour="one-on-one-team"]',
       '[data-tour="goals-managed"]',
       '[data-tour="team-kpis-managed"]',
+      '[data-tour="performance-managed"]',
     ];
     for (const target of managerOnlyTargets) {
       expect(nonManager.some((s) => s.target === target), target).toBe(false);
@@ -143,8 +143,8 @@ describe("Tour", () => {
     expect(nonManager.some((s) => s.target === '[data-tour="one-on-one-own"]')).toBe(true);
     expect(nonManager.some((s) => s.target === '[data-tour="goals-own"]')).toBe(true);
     expect(nonManager.some((s) => s.target === '[data-tour="team-kpis-own"]')).toBe(true);
-    // My performance is for everyone — one's own published reviews.
-    expect(nonManager.some((s) => s.target === '[data-tour="nav-my-performance"]')).toBe(true);
+    // The Performance nav step is for everyone — one's own published reviews.
+    expect(nonManager.some((s) => s.target === '[data-tour="nav-performance"]')).toBe(true);
   });
 
   test("buildSteps numbers each step header as 'Step X of Y' against the filtered total", () => {
@@ -180,6 +180,8 @@ describe("Tour", () => {
       { target: '[data-tour="nav-my-goals"]', path: "/goals" },
       { target: '[data-tour="goals-own"]', path: "/goals?tab=own" },
       { target: '[data-tour="goals-managed"]', path: "/goals?tab=managed" },
+      { target: '[data-tour="nav-performance"]', path: "/performance?tab=own" },
+      { target: '[data-tour="performance-managed"]', path: "/performance?tab=managed" },
       { target: '[data-tour="nav-config"]', path: "/users" },
       { target: '[data-tour="config-users"]', path: "/users" },
       { target: '[data-tour="config-teams"]', path: "/teams" },
