@@ -116,6 +116,82 @@ class TeamMemberSubordinateStatsTest {
     }
 
     @Test
+    fun `days-off card stats populate per view — managed both, member vacation only, managers neither`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("dos-admin")
+        val mgrEmail = uniqueEmail("dos-mgr")
+        val subEmail = uniqueEmail("dos-sub")
+        val peerEmail = uniqueEmail("dos-peer")
+        TestUsers.seed(adminEmail, "pw")
+        val mgrId = TestUsers.seed(mgrEmail, "pw", name = "DOS Mgr", roles = emptySet())
+        val subId = TestUsers.seed(subEmail, "pw", name = "DOS Sub", roles = emptySet())
+        val peerId = TestUsers.seed(peerEmail, "pw", name = "DOS Peer", roles = emptySet())
+        val admin = authedClient(adminEmail, "pw")
+        admin.createTeam("dos-${UUID.randomUUID()}", mgrId, listOf(subId, peerId))
+        TestDaysOff.setAllowance(subId, 10)
+        val manager = authedClient(mgrEmail, "pw")
+        val sub = authedClient(subEmail, "pw")
+        val peer = authedClient(peerEmail, "pw")
+
+        suspend fun createRequest(client: HttpClient, start: String, end: String, type: String = "PAID"): UInt {
+            val response = client.post("/api/v1/days-off") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    ch.nokillswit.daysoff.DaysOffCreateRequest(
+                        ch.nokillswit.daysoff.DaysOffType.valueOf(type), start, end,
+                    ),
+                )
+            }
+            assertEquals(HttpStatusCode.Created, response.status, "days-off create failed")
+            return response.body<ch.nokillswit.daysoff.DaysOffResponse>().id
+        }
+
+        // A PENDING future request does not show as the next vacation…
+        val later = createRequest(sub, "2099-03-01", "2099-03-02")
+        assertNull(manager.subordinateItem(subId).nextVacationStart)
+        // …but an ACCEPTED one does; the earliest upcoming accepted start wins.
+        assertEquals(HttpStatusCode.NoContent, manager.post("/api/v1/days-off/$later/accept").status)
+        assertEquals("2099-03-01", manager.subordinateItem(subId).nextVacationStart)
+        val sooner = createRequest(sub, "2098-06-01", "2098-06-02")
+        assertEquals(HttpStatusCode.NoContent, manager.post("/api/v1/days-off/$sooner/accept").status)
+        assertEquals("2098-06-01", manager.subordinateItem(subId).nextVacationStart)
+        // A past accepted absence never counts (UNPAID keeps the budget math clean).
+        val past = createRequest(sub, "2001-03-05", "2001-03-09", type = "UNPAID")
+        assertEquals(HttpStatusCode.NoContent, manager.post("/api/v1/days-off/$past/accept").status)
+        assertEquals("2098-06-01", manager.subordinateItem(subId).nextVacationStart)
+
+        // The managed row carries the current-year remaining budget — corrections included
+        // (the 2098/2099 requests sit in later years and leave the current year untouched).
+        assertEquals(10.0, manager.subordinateItem(subId).daysOffRemaining)
+        val currentYear = java.time.LocalDate.now().year
+        manager.post("/api/v1/days-off/corrections") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                ch.nokillswit.daysoff.DaysOffCorrectionWrite(
+                    subId, currentYear, ch.nokillswit.daysoff.DaysOffCorrectionOperation.ADD, 2.5, "stat test",
+                ),
+            )
+        }.let { assertEquals(HttpStatusCode.Created, it.status) }
+        assertEquals(12.5, manager.subordinateItem(subId).daysOffRemaining)
+
+        // Peer view: the next accepted vacation shows (calendar parity), the budget never does.
+        val peerRow = peer.get("/api/v1/teams/members?view=member&pageSize=100")
+            .body<TeamMemberPageResponse>().items.first { it.userId == subId }
+        assertEquals("2098-06-01", peerRow.nextVacationStart)
+        assertNull(peerRow.daysOffRemaining)
+
+        // Managers view: neither stat — even an ACCEPTED vacation of the manager stays off the
+        // card (the peer manages the manager via a second team, so it CAN be accepted).
+        admin.createTeam("dos2-${UUID.randomUUID()}", peerId, listOf(mgrId))
+        val mgrVacation = createRequest(manager, "2097-04-08", "2097-04-09", type = "UNPAID")
+        assertEquals(HttpStatusCode.NoContent, peer.post("/api/v1/days-off/$mgrVacation/accept").status)
+        val managerRow = sub.get("/api/v1/teams/members?view=managers&pageSize=100")
+            .body<TeamMemberPageResponse>().items.first { it.userId == mgrId }
+        assertNull(managerRow.nextVacationStart)
+        assertNull(managerRow.daysOffRemaining)
+    }
+
+    @Test
     fun `lastReview is the caller's latest authored review by period and stays off other views`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
