@@ -39,7 +39,7 @@
     "configTeams": "Zespoły — zespoły i ich członkowie.",
     "configOrg": "Struktura organizacji — cała organizacja na jednym diagramie: menedżerowie, ich zespoły i członkowie, w tym członkowie kierujący własnymi zespołami.",
     "configTemplates": "Szablony — szablony feedbacku do wielokrotnego użytku.",
-    "notifications": "Powiadomienia: tutaj poinformujemy Cię, gdy dotyczy Cię feedback, spotkanie 1:1, cel lub KPI zespołu — od prośby o feedback po nową wartość KPI.",
+    "notifications": "Powiadomienia: tutaj poinformujemy Cię, gdy dotyczy Cię feedback, spotkanie 1:1, cel, KPI zespołu, ocena okresowa lub dni wolne — od prośby o feedback po zaakceptowany urlop.",
     "language": "W każdej chwili zmień język interfejsu (English / Polski).",
     "theme": "Przełączaj tryb jasny i ciemny.",
     "selfReflection": "Autorefleksja — napisz feedback o sobie. Po wysłaniu przeczytają go Twoi menedżerowie.",

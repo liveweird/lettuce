@@ -63,7 +63,7 @@ commit** — this list is the suite's coverage map, and it has drifted twice.
   direct report, views and deletes it; open action items **carry over** to the next meeting
   ("Carried over" badge) and the subordinate is **notified** and reads the meeting read-only.
 - `goals.spec.ts` — a manager walks a goal around the whole lifecycle (draft via the
-  activate-prompt's **No**, Save & activate, progress update, close-with-summary, reopen,
+  activate-prompt's **No**, Save & activate, progress update, archive-with-summary, reopen,
   DRAFT-only delete); creating with **Yes** activates on the spot, **notifies** the
   subordinate, and shows read-only in their **My goals**.
 - `dashboard-my-teams.spec.ts` — the Dashboard **My teams** tab: a manager's teams (and only
@@ -92,8 +92,16 @@ commit** — this list is the suite's coverage map, and it has drifted twice.
   **publishes** from the view screen (a CALIBRATION row's action is View — the lifecycle lives
   there); the subordinate is **notified** and reads it on the Performance page's **My
   performance** tab with zero write
-  affordances; an **Unpublish** takes it back to calibration. The calibration leftover persists
-  in the dev volume by design (a fresh subordinate each run).
+  affordances; an **Unpublish** takes it back to calibration. The manager leg also flips the
+  Team's-performance tab to the **Distribution** view (v1.40.0 toggle) and back. The
+  calibration leftover persists in the dev volume by design (a fresh subordinate each run).
+- `days-off.spec.ts` — the days-off journey: a user files a **PAID request** on a
+  run-varying future Monday (half-day edge, live cost preview), the direct manager
+  **accepts** it from the team tab (and the owner is **notified**), it lands on the shared
+  **calendar** and the per-user drill-down card stats; a manager records a **budget
+  correction** (v1.43.0) the subordinate sees read-only on their budget card; the owner
+  **cancels** the accepted request at the end so no counting rows persist on seed accounts
+  (seeded Polish holidays are blocklisted when picking the Monday).
 - `tour.spec.ts` — replays the guided tour as a manager and walks all 36 steps, pinning the
   landmark order (whole left menu — Changelog included — before the header icons).
 - `alerts.spec.ts` — admin creates an alert; a regular user sees the **banner**, hides it to the

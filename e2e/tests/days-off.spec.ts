@@ -9,9 +9,10 @@ import {
   MANAGER_AAA,
   notificationCard,
   openBell,
+  PASSWORD,
   test,
 } from "./helpers";
-import type { Page } from "@playwright/test";
+import type { APIRequestContext, Page } from "@playwright/test";
 
 // Days off end to end: the admin curates a public holiday and an allowance, AAA Two requests
 // two periods, Manager AAA accepts one and rejects the other, the accepted days show on the
@@ -19,7 +20,12 @@ import type { Page } from "@playwright/test";
 // never left with counting requests (REJECTED/CANCELLED rows are inert records).
 //
 // The request window is a run-specific future Monday (weeks vary per run), so residue from a
-// failed earlier run never collides via the overlap rule.
+// failed earlier run rarely collides via the overlap rule — but the sweep below is what
+// actually guarantees a clean slate: a mid-run failure skips the tail cleanup, stranding the
+// run's "E2E Holiday" (which silently changes a LATER run's cost preview when its window
+// happens to cover that date — the 2027-05-24 incident, checkup #16) and its still-counting
+// requests on AAA Two. Both are removed via the API before the UI legs (the global-setup
+// seed-pair idiom), so the suite self-heals on the next run no matter where a run died.
 
 function isoDate(d: Date): string {
   const p = (n: number) => String(n).padStart(2, "0");
@@ -69,6 +75,45 @@ const TUESDAY2_ISO = isoDate(addDays(MONDAY, 8));
 // How the calendar cell describes the accepted Tuesday (the raw ISO date rides the title).
 const TUESDAY_CELL_TITLE = `AAA Two — ${TUESDAY_ISO}: Paid, Accepted (1 day)`;
 
+// API login with the hr.spec retry ladder — the per-IP /login bucket answers 429 under
+// suite pressure and a one-shot login would flake the sweep.
+async function apiToken(request: APIRequestContext, email: string): Promise<string> {
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const res = await request.post("/api/v1/login", { data: { email, password: PASSWORD } });
+    if (res.ok()) return ((await res.json()) as { token: string }).token;
+    if (res.status() !== 429) break;
+    await new Promise((r) => setTimeout(r, 10_000));
+  }
+  throw new Error(`days-off sweep: could not log in as ${email}`);
+}
+
+async function sweepResidue(request: APIRequestContext) {
+  // Admin: drop every stranded spec-created holiday, wherever a failed run left it.
+  const adminAuth = { Authorization: `Bearer ${await apiToken(request, ADMIN)}` };
+  const holidays = (await (
+    await request.get("/api/v1/public-holidays", { headers: adminAuth })
+  ).json()) as { items: { id: number; name: string }[] };
+  for (const h of holidays.items) {
+    if (h.name.startsWith("E2E Holiday")) {
+      await request.delete(`/api/v1/public-holidays/${h.id}`, { headers: adminAuth });
+    }
+  }
+
+  // Owner: cancel AAA Two's stranded counting requests (REQUESTED always cancellable;
+  // ACCEPTED only strictly before its start date — the spec only ever books the future,
+  // so anything already started is left alone rather than 409ing the sweep).
+  const ownAuth = { Authorization: `Bearer ${await apiToken(request, AAA_TWO)}` };
+  const today = isoDate(new Date());
+  const requests = (await (
+    await request.get("/api/v1/days-off?view=own&pageSize=100", { headers: ownAuth })
+  ).json()) as { items: { id: number; status: string; startDate: string }[] };
+  for (const r of requests.items) {
+    if (r.status === "REQUESTED" || (r.status === "ACCEPTED" && r.startDate > today)) {
+      await request.post(`/api/v1/days-off/${r.id}/cancel`, { headers: ownAuth });
+    }
+  }
+}
+
 async function newRequest(page: Page, from: string, to: string, expectedCost: string) {
   await page.getByRole("link", { name: "New request" }).click();
   await expect(page).toHaveURL(/\/days-off\/new/);
@@ -84,8 +129,10 @@ async function newRequest(page: Page, from: string, to: string, expectedCost: st
   await expect(page).toHaveURL(/\/days-off\?tab=requests/);
 }
 
-test("days off end to end: holiday, allowance, request, resolve, calendar, cancel", async ({ page }) => {
+test("days off end to end: holiday, allowance, request, resolve, calendar, cancel", async ({ page, request }) => {
   test.setTimeout(180_000);
+
+  await sweepResidue(request);
 
   // ── Admin: a public holiday on the Monday + a generous allowance for AAA Two. ──
   await login(page, ADMIN);
