@@ -369,7 +369,7 @@ object TestPerformanceReviewEvents {
 // column straight from the users table. Direct service access for the rest rides TestServices.
 object TestDaysOff {
     val service: ch.nokillswit.daysoff.DaysOffService by lazy {
-        ch.nokillswit.daysoff.DaysOffService(sharedTestDatabase)
+        ch.nokillswit.daysoff.DaysOffService(sharedTestDatabase, TestServices.cipher)
     }
     val holidays: ch.nokillswit.daysoff.PublicHolidayService by lazy {
         ch.nokillswit.daysoff.PublicHolidayService(sharedTestDatabase)

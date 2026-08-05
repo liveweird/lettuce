@@ -65,7 +65,7 @@ suspend fun Application.configureDatabase() {
     attributes.put(PerformanceReviewServiceKey, PerformanceReviewService(database, attributes[FieldCipherKey]))
     attributes.put(PerformanceReviewEventServiceKey, PerformanceReviewEventService(database))
     attributes.put(PublicHolidayServiceKey, PublicHolidayService(database))
-    attributes.put(DaysOffServiceKey, DaysOffService(database))
+    attributes.put(DaysOffServiceKey, DaysOffService(database, attributes[FieldCipherKey]))
     attributes.put(TemplateServiceKey, TemplateService(database))
     attributes.put(DictionaryServiceKey, DictionaryService(database))
     attributes.put(NotificationServiceKey, NotificationService(database))

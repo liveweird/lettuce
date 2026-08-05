@@ -2,6 +2,7 @@ package ch.nokillswit.daysoff
 
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAuditListAccess
+import ch.nokillswit.authz.requireDaysOffCorrectionsRead
 import ch.nokillswit.authz.requireDaysOffOwner
 import ch.nokillswit.authz.requireDaysOffRead
 import ch.nokillswit.authz.requireDaysOffResolve
@@ -20,9 +21,11 @@ import io.ktor.server.application.*
 import io.ktor.server.auth.authenticate
 import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.request.receive
+import io.ktor.server.resources.delete
 import io.ktor.server.resources.get
 import io.ktor.server.resources.href
 import io.ktor.server.resources.post
+import io.ktor.server.resources.put
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.routing.routing
@@ -46,7 +49,7 @@ class DaysOff {
 }
 
 // Top-level resource classes (not nested under DaysOff): a nested sibling of the UInt-typed
-// {id} would make Ktor try (and fail) to parse "calendar"/"budgets" as an id.
+// {id} would make Ktor try (and fail) to parse "calendar"/"budgets"/"corrections" as an id.
 @Serializable
 @Resource("/api/v1/days-off/calendar")
 class DaysOffCalendar
@@ -54,6 +57,14 @@ class DaysOffCalendar
 @Serializable
 @Resource("/api/v1/days-off/budgets")
 class DaysOffBudgets
+
+@Serializable
+@Resource("/api/v1/days-off/corrections")
+class DaysOffCorrections {
+    @Serializable
+    @Resource("{id}")
+    class Id(val parent: DaysOffCorrections = DaysOffCorrections(), val id: UInt)
+}
 
 fun Application.configureDaysOffRoutes() {
     val daysOffService = attributes[DaysOffServiceKey]
@@ -174,6 +185,70 @@ fun Application.configureDaysOffRoutes() {
                     else -> throw BadRequestException("Unknown scope: $raw (allowed: member, managed)")
                 }
                 call.respond(HttpStatusCode.OK, daysOffService.calendar(scope, caller.userId, month))
+            }
+            // ── Budget corrections (v1.43.0) ────────────────────────────────────────────────
+            get<DaysOffCorrections> {
+                val caller = call.caller()
+                val params = call.request.queryParameters
+                val userId = params.optionalUInt("userId")
+                    ?: throw BadRequestException("userId is required")
+                val year = params.optionalString("year")?.let {
+                    it.toIntOrNull()?.takeIf { y -> y in 2000..2100 }
+                        ?: throw BadRequestException("year must be a four-digit year between 2000 and 2100")
+                }
+                requireDaysOffCorrectionsRead(caller, userId) {
+                    daysOffService.managesOwner(caller.userId, userId)
+                }
+                call.respond(HttpStatusCode.OK, DaysOffCorrectionList(daysOffService.listCorrections(userId, year)))
+            }
+            post<DaysOffCorrections> {
+                val caller = call.caller()
+                val write = call.receive<DaysOffCorrectionWrite>()
+                // Writes belong to the subordinate's CURRENT direct managers (the resolve
+                // right). Guard before validation — 403 wins over 400, the house convention.
+                requireDaysOffResolve(caller) { daysOffService.isDirectManagerOf(caller.userId, write.userId) }
+                validateDaysOffCorrection(write)
+                val (id, notification) = daysOffService.createCorrection(caller.userId, write)
+                call.response.header(
+                    HttpHeaders.Location,
+                    call.application.href(DaysOffCorrections.Id(id = id)),
+                )
+                notificationService.create(notification)
+                val created = daysOffService.readCorrection(id)
+                    ?: error("Days-off correction $id vanished between create and re-read")
+                call.respond(HttpStatusCode.Created, created)
+            }
+            put<DaysOffCorrections.Id> { route ->
+                val caller = call.caller()
+                val existing = daysOffService.readCorrection(route.id)
+                if (existing == null) {
+                    call.respondProblem(HttpStatusCode.NotFound, "Days-off correction not found")
+                    return@put
+                }
+                // The target user is immutable — the guard keys on the ROW's user, and the
+                // service ignores the payload's userId.
+                requireDaysOffResolve(caller) { daysOffService.isDirectManagerOf(caller.userId, existing.userId) }
+                val write = call.receive<DaysOffCorrectionWrite>()
+                validateDaysOffCorrection(write)
+                if (daysOffService.updateCorrection(route.id, write) == 0) {
+                    call.respondProblem(HttpStatusCode.NotFound, "Days-off correction not found")
+                    return@put
+                }
+                call.respond(HttpStatusCode.NoContent)
+            }
+            delete<DaysOffCorrections.Id> { route ->
+                val caller = call.caller()
+                val existing = daysOffService.readCorrection(route.id)
+                if (existing == null) {
+                    call.respondProblem(HttpStatusCode.NotFound, "Days-off correction not found")
+                    return@delete
+                }
+                requireDaysOffResolve(caller) { daysOffService.isDirectManagerOf(caller.userId, existing.userId) }
+                if (daysOffService.deleteCorrection(route.id) == 0) {
+                    call.respondProblem(HttpStatusCode.NotFound, "Days-off correction not found")
+                    return@delete
+                }
+                call.respond(HttpStatusCode.NoContent)
             }
             get<DaysOffBudgets> {
                 val caller = call.caller()

@@ -127,6 +127,8 @@ data class DaysOffBudget(
     // Null = not configured by an admin = zero paid budget.
     val allowance: Int?,
     val carriedOver: Double,
+    // The year's net manager corrections in days (signed; 0 when none) — v1.43.0.
+    val corrected: Double,
     // REQUESTED (pending) paid days in the year — reserved, not yet confirmed.
     val reserved: Double,
     // ACCEPTED paid days in the year.
@@ -214,33 +216,115 @@ internal fun daysOffCostHalfDays(
 /**
  * The remaining paid budget for [year] in half-day units — the closed form of the carry-over
  * recursion ("unused budget transfers to the next year"): with the anchor
- * `A = min(earliest year holding a counting PAID request, year)`, the budget accumulated over
- * `A..year` is `2·allowance·(year − A + 1)` minus everything used in those years. Anchoring at
- * the earliest actual usage means the allowance never phantom-accumulates over empty historical
- * years (a user with no history simply has this year's allowance). Deliberately unclamped: a
- * retroactive allowance cut can push a year negative and the deficit carries forward — creation
- * enforces `>= 0`, so a deficit only ever arises from admin edits (documented).
+ * `A = min(earliest year holding a counting PAID request or a correction, year)`, the budget
+ * accumulated over `A..year` is `2·allowance·(year − A + 1)` plus the signed corrections minus
+ * everything used in those years. Anchoring at the earliest actual activity means the allowance
+ * never phantom-accumulates over empty historical years (a user with no history simply has this
+ * year's allowance). Deliberately unclamped: a retroactive allowance cut or a SUBTRACT
+ * correction can push a year negative and the deficit carries forward — request creation
+ * enforces `>= 0`, so a deficit only ever arises from admin/manager edits (documented).
  *
  * [usedByYear] maps year → summed half-day cost of the user's counting (REQUESTED/ACCEPTED)
- * PAID requests in that year.
+ * PAID requests in that year; [correctionsByYear] maps year → the summed SIGNED half-day
+ * amount of the manager corrections attributed to it (v1.43.0).
  */
-internal fun remainingHalfDays(allowanceDays: Int?, year: Int, usedByYear: Map<Int, Int>): Int {
+internal fun remainingHalfDays(
+    allowanceDays: Int?,
+    year: Int,
+    usedByYear: Map<Int, Int>,
+    correctionsByYear: Map<Int, Int> = emptyMap(),
+): Int {
     val allowanceH = 2 * (allowanceDays ?: 0)
-    val anchor = minOf(usedByYear.keys.minOrNull() ?: year, year)
+    val earliest = (usedByYear.keys + correctionsByYear.keys).minOrNull() ?: year
+    val anchor = minOf(earliest, year)
     val usedH = usedByYear.filterKeys { it in anchor..year }.values.sum()
-    return allowanceH * (year - anchor + 1) - usedH
+    val correctedH = correctionsByYear.filterKeys { it in anchor..year }.values.sum()
+    return allowanceH * (year - anchor + 1) + correctedH - usedH
 }
 
 /**
  * The half-day units carried into [year] from previous years: [remainingHalfDays] of `year − 1`,
- * or 0 when no counting usage exists before [year] — the anchor rule again: with no history the
- * previous year contributes nothing, so a fresh user's budget is exactly the allowance.
+ * or 0 when no counting usage or correction exists before [year] — the anchor rule again: with
+ * no history the previous year contributes nothing, so a fresh user's budget is exactly the
+ * allowance.
  */
-internal fun carriedOverHalfDays(allowanceDays: Int?, year: Int, usedByYear: Map<Int, Int>): Int {
-    if (usedByYear.keys.none { it < year }) return 0
-    return remainingHalfDays(allowanceDays, year - 1, usedByYear)
+internal fun carriedOverHalfDays(
+    allowanceDays: Int?,
+    year: Int,
+    usedByYear: Map<Int, Int>,
+    correctionsByYear: Map<Int, Int> = emptyMap(),
+): Int {
+    if ((usedByYear.keys + correctionsByYear.keys).none { it < year }) return 0
+    return remainingHalfDays(allowanceDays, year - 1, usedByYear, correctionsByYear)
 }
 
 /** Formats half-day units as a days string for notification params: "3" for whole, "3.5" for halves. */
 internal fun formatHalfDaysParam(halfDays: Int): String =
     if (halfDays % 2 == 0) (halfDays / 2).toString() else (halfDays / 2.0).toString()
+
+// ── Budget corrections (v1.43.0) ────────────────────────────────────────────────────────────
+
+@Serializable
+enum class DaysOffCorrectionOperation { ADD, SUBTRACT }
+
+const val MAX_CORRECTION_COMMENT_LENGTH = 1000
+
+/**
+ * Body of `POST /days-off/corrections` and (minus [userId], which is create-only and immutable)
+ * `PUT /days-off/corrections/{id}`. The amount travels as a positive [days] value (0.5 steps)
+ * plus the [operation]; storage is one signed half-day integer.
+ */
+@Serializable
+data class DaysOffCorrectionWrite(
+    val userId: UInt,
+    val year: Int,
+    val operation: DaysOffCorrectionOperation,
+    val days: Double,
+    val comment: String,
+)
+
+@Serializable
+data class DaysOffCorrectionResponse(
+    val id: UInt,
+    val userId: UInt,
+    // Who created the correction — display-only; edit rights follow the CURRENT direct
+    // managers of the subordinate, not the author.
+    val authorId: UInt,
+    val authorName: String,
+    val authorDeleted: Boolean,
+    val year: Int,
+    val operation: DaysOffCorrectionOperation,
+    val days: Double,
+    val comment: String,
+    val createdAt: Long,
+    val lastModified: Long,
+)
+
+@Serializable
+data class DaysOffCorrectionList(
+    val items: List<DaysOffCorrectionResponse>,
+)
+
+/** The signed half-day storage amount of a correction write. */
+internal fun correctionHalfDays(write: DaysOffCorrectionWrite): Int {
+    val units = (write.days * 2).toInt()
+    return if (write.operation == DaysOffCorrectionOperation.ADD) units else -units
+}
+
+/**
+ * Validates a correction's shape (400s): a sensible year, a positive half-day-stepped amount
+ * of at most a year, and a non-blank bounded comment (the mandatory reasoning).
+ */
+internal fun validateDaysOffCorrection(write: DaysOffCorrectionWrite) {
+    if (write.year !in 2000..2100) {
+        throw BadRequestException("Correction year must be between 2000 and 2100")
+    }
+    val units = write.days * 2
+    if (!units.isFinite() || units <= 0 || units != Math.floor(units) || write.days > 365) {
+        throw BadRequestException("Correction days must be a positive multiple of 0.5, at most 365")
+    }
+    if (write.comment.isBlank()) throw BadRequestException("Correction comment must not be blank")
+    if (write.comment.length > MAX_CORRECTION_COMMENT_LENGTH) {
+        throw BadRequestException("Correction comment must be at most $MAX_CORRECTION_COMMENT_LENGTH characters")
+    }
+}

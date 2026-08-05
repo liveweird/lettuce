@@ -58,6 +58,24 @@ class DaysOffNotificationsTest {
     }
 
     @Test
+    fun `a budget correction notifies the owner with the operation context`() {
+        val note = ch.nokillswit.daysoff.daysOffCorrectionNotification(
+            ownerId = 3u,
+            managerName = "Morgan",
+            year = 2030,
+            operation = ch.nokillswit.daysoff.DaysOffCorrectionOperation.SUBTRACT,
+            days = "4.5",
+        )
+        assertEquals(3u, note.recipientId)
+        assertEquals(NotificationType.DAYS_OFF_CORRECTED_TO_OWNER, note.type)
+        assertEquals(
+            mapOf("manager" to "Morgan", "year" to "2030", "operation" to "SUBTRACT", "days" to "4.5"),
+            note.params,
+        )
+        assertEquals("/days-off?tab=requests", note.link)
+    }
+
+    @Test
     fun `cancellation notifies the given managers`() {
         val notifications = daysOffCancelledNotifications(setOf(7u), "Riley", "2030-03-04", "2030-03-05")
         assertEquals(1, notifications.size)

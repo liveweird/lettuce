@@ -66,4 +66,41 @@ class DaysOffBudgetTest {
         assertEquals(-8, carriedOverHalfDays(1, 2031, used))
         assertEquals(-6, remainingHalfDays(1, 2031, used))
     }
+
+    // ── Corrections (v1.43.0) ───────────────────────────────────────────────────────────────
+
+    @Test
+    fun `an ADD correction extends the year's budget and carries over`() {
+        val corrections = mapOf(2030 to 9) // +4.5 days
+        assertEquals(29, remainingHalfDays(10, 2030, emptyMap(), corrections))
+        assertEquals(29, carriedOverHalfDays(10, 2031, emptyMap(), corrections))
+        assertEquals(49, remainingHalfDays(10, 2031, emptyMap(), corrections))
+    }
+
+    @Test
+    fun `a SUBTRACT correction may drive the balance negative — unclamped like an allowance cut`() {
+        val corrections = mapOf(2030 to -30)
+        assertEquals(-10, remainingHalfDays(10, 2030, emptyMap(), corrections))
+        assertEquals(-10, carriedOverHalfDays(10, 2031, emptyMap(), corrections))
+    }
+
+    @Test
+    fun `a corrections-only history anchors the accumulation`() {
+        // The earliest activity is a 2029 correction — 2030 gets 2029's unused allowance too.
+        val corrections = mapOf(2029 to 2)
+        assertEquals(42, remainingHalfDays(10, 2030, emptyMap(), corrections))
+        assertEquals(22, carriedOverHalfDays(10, 2030, emptyMap(), corrections))
+        // Without the correction the same query would be a single fresh year.
+        assertEquals(20, remainingHalfDays(10, 2030, emptyMap()))
+    }
+
+    @Test
+    fun `corrections and usage compose across years`() {
+        val used = mapOf(2030 to 20, 2031 to 10)
+        val corrections = mapOf(2030 to -4, 2031 to 6)
+        // 2030: 20 - 20 - 4 = -4; 2031: 40 - 30 + 2 = 12.
+        assertEquals(-4, remainingHalfDays(10, 2030, used, corrections))
+        assertEquals(12, remainingHalfDays(10, 2031, used, corrections))
+        assertEquals(-4, carriedOverHalfDays(10, 2031, used, corrections))
+    }
 }
