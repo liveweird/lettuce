@@ -11,6 +11,7 @@
     "goals": "Cele",
     "teamKpis": "KPI zespołów",
     "myPerformance": "Moje oceny",
+    "daysOff": "Dni wolne",
     "config": "Konfiguracja",
     "users": "Użytkownicy",
     "teams": "Zespoły",
@@ -24,6 +25,7 @@
     "changePassword": "Zmień hasło",
     "alerts": "Alerty",
     "changelog": "Historia zmian",
-    "reviewPeriods": "Okresy ocen"
+    "reviewPeriods": "Okresy ocen",
+    "publicHolidays": "Święta"
   }
 }

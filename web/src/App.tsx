@@ -21,6 +21,8 @@ import {
   IconBook2,
   IconBriefcase,
   IconCalendarEvent,
+  IconBeach,
+  IconCalendarOff,
   IconCalendarStats,
   IconChevronDown,
   IconClipboardText,
@@ -98,6 +100,10 @@ const CreatePerformanceReview = lazy(() => import("./pages/CreatePerformanceRevi
 const EditPerformanceReview = lazy(() => import("./pages/EditPerformanceReview"));
 const ViewPerformanceReview = lazy(() => import("./pages/ViewPerformanceReview"));
 const ReviewPeriods = lazy(() => import("./pages/ReviewPeriods"));
+const DaysOff = lazy(() => import("./pages/DaysOff"));
+const CreateDaysOff = lazy(() => import("./pages/CreateDaysOff"));
+const UserDaysOff = lazy(() => import("./pages/UserDaysOff"));
+const PublicHolidays = lazy(() => import("./pages/PublicHolidays"));
 const Login = lazy(() => import("./pages/Login"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const CreateUser = lazy(() => import("./pages/CreateUser"));
@@ -151,6 +157,7 @@ const NAV_ITEMS: ReadonlyArray<NavEntry> = [
     icon: IconClipboardText,
     tourId: "nav-my-performance",
   },
+  { to: "/days-off", label: "appShell.nav.daysOff", icon: IconBeach, tourId: "nav-days-off" },
   {
     label: "appShell.nav.config",
     icon: IconSettings,
@@ -163,6 +170,8 @@ const NAV_ITEMS: ReadonlyArray<NavEntry> = [
       // Readable by everyone since v1.34.1 (the Templates precedent) — the page itself
       // renders read-only for non-admins; append/delete stay ADMIN-gated.
       { to: "/review-periods", label: "appShell.nav.reviewPeriods", icon: IconCalendarStats },
+      // Same posture: the registry read is open, adding/deleting is ADMIN-only.
+      { to: "/public-holidays", label: "appShell.nav.publicHolidays", icon: IconCalendarOff },
     ],
   },
   // Visible to everyone: the pages are readable by all, only editing is ADMIN-gated.
@@ -542,6 +551,10 @@ export default function App() {
             <Route path="performance-reviews/:id/edit" element={<EditPerformanceReview />} />
             <Route path="performance-reviews/:id/view" element={<ViewPerformanceReview />} />
             <Route path="review-periods" element={<ReviewPeriods />} />
+            <Route path="days-off" element={<DaysOff />} />
+            <Route path="days-off/new" element={<CreateDaysOff />} />
+            <Route path="users/:userId/days-off" element={<UserDaysOff />} />
+            <Route path="public-holidays" element={<PublicHolidays />} />
             <Route path="teams/:teamId/kpis" element={<TeamKpis />} />
             <Route path="templates" element={<Templates />} />
             <Route path="templates/new" element={<CreateTemplate />} />

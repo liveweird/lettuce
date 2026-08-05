@@ -33,6 +33,7 @@
     "teamKpisOwn": "My teams' KPIs — the active and archived KPIs of the teams you belong to.",
     "teamKpisManaged": "KPIs I've set — the KPIs of the teams you manage, drafts included; new KPIs start here.",
     "myPerformance": "My performance — the performance reviews your manager published about you.",
+    "daysOff": "Days off — the team calendar, your requests and paid-days budget; managers also resolve their reports' requests here.",
     "config": "Config — users, teams and feedback templates.",
     "configUsers": "Users — the people directory (admins manage accounts).",
     "configTeams": "Teams — teams and their membership.",

@@ -11,6 +11,7 @@
     "goals": "Goals",
     "teamKpis": "Team KPIs",
     "myPerformance": "My performance",
+    "daysOff": "Days off",
     "config": "Config",
     "users": "Users",
     "teams": "Teams",
@@ -24,6 +25,7 @@
     "changePassword": "Change password",
     "alerts": "Alerts",
     "changelog": "Changelog",
-    "reviewPeriods": "Review periods"
+    "reviewPeriods": "Review periods",
+    "publicHolidays": "Public holidays"
   }
 }

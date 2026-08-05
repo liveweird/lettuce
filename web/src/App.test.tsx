@@ -84,6 +84,20 @@ describe("App shell", () => {
       expect(screen.queryByRole("link", { name: /^alerts$/i })).toBeNull();
     });
 
+    test("Days off is a top-level nav leaf and Public holidays a Config leaf for everyone", async () => {
+      const user = userEvent.setup();
+      renderApp("/");
+      expect(await screen.findByRole("link", { name: /^days off$/i })).toHaveAttribute(
+        "href",
+        "/days-off",
+      );
+      await user.click(await screen.findByText("Config"));
+      expect(screen.getByRole("link", { name: /^public holidays$/i })).toHaveAttribute(
+        "href",
+        "/public-holidays",
+      );
+    });
+
     test("an admin's Config group additionally lists Alerts", async () => {
       localStorage.setItem("lettuce.auth.roles", JSON.stringify(["ADMIN"]));
       try {

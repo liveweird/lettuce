@@ -2,6 +2,7 @@ import { Button } from "@mantine/core";
 import { Link as RouterLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
+  IconBeach,
   IconCalendarEvent,
   IconClipboardText,
   IconMessagePlus,
@@ -17,6 +18,7 @@ import {
   feedbackRequestLink,
   userFeedbacksLink,
 } from "../utils/feedbackLinks";
+import { userDaysOffLink } from "../utils/daysOffLinks";
 import { userGoalsLink } from "../utils/goalLinks";
 import { oneOnOneCreateLink, userOneOnOnesLink } from "../utils/oneOnOneLinks";
 import { userPerformanceReviewsLink } from "../utils/performanceReviewLinks";
@@ -38,7 +40,8 @@ type ButtonKey =
   | "feedbacks"
   | "oneOnOnes"
   | "goals"
-  | "reviews";
+  | "reviews"
+  | "daysOff";
 
 type LabelPair = { aria: string; text: string };
 
@@ -65,6 +68,8 @@ const LABELS: Record<"users" | "teams" | "audit", Partial<Record<ButtonKey, Labe
     oneOnOnes: { aria: "users.audit.oneOnOnesAria", text: "users.oneOnOnes" },
     goals: { aria: "users.audit.goalsAria", text: "users.goals" },
     reviews: { aria: "users.audit.performanceReviewsAria", text: "users.performanceReviews" },
+    // v1.42.0: days off are per-user, so the auditor drill-down fits (unlike team KPIs).
+    daysOff: { aria: "users.audit.daysOffAria", text: "users.daysOff" },
   },
 };
 
@@ -77,6 +82,7 @@ const ICONS: Record<ButtonKey, React.ReactNode> = {
   oneOnOnes: <IconCalendarEvent size={14} />,
   goals: <IconTargetArrow size={14} />,
   reviews: <IconClipboardText size={14} />,
+  daysOff: <IconBeach size={14} />,
 };
 
 // The create flows (Provide/Ask/Request/New 1:1) are ACTIONS — light variant; the
@@ -127,6 +133,7 @@ export default function PersonCardActions({
     oneOnOnes: userOneOnOnesLink(userId, name, drillFrom ?? "managers", drillTeamId, audit, drillOpts),
     goals: userGoalsLink(userId, name, drillFrom ?? "managers", drillTeamId, audit, drillOpts),
     reviews: userPerformanceReviewsLink(userId, name, drillFrom ?? "managers", drillTeamId, audit, drillOpts),
+    daysOff: userDaysOffLink(userId, name, drillFrom ?? "details", audit, drillOpts),
   };
 
   const labelSource = audit ? LABELS.audit : LABELS[labels];

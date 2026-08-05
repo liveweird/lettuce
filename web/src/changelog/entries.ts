@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.42.0",
+    date: "2026-08-05",
+    en: `Days off arrived. The new "Days off" section has a team calendar (everyone sees their teammates' days off; managers also their reports'), your own requests with a paid-days budget — an annual allowance set by an administrator, with unused days carrying over to the next year — and, for managers, a tab to accept or reject their reports' requests and review budgets. A request covers one consecutive period (half days allowed on its first and last day); weekends and the new admin-maintained public holidays never count against the budget.`,
+    pl: `Doszły dni wolne. Nowa sekcja „Dni wolne" zawiera kalendarz zespołu (każdy widzi dni wolne osób ze swoich zespołów, menedżerowie także podwładnych), Twoje wnioski z budżetem płatnych dni — roczną pulą ustawianą przez administratora, z przenoszeniem niewykorzystanych dni na kolejny rok — a dla menedżerów zakładkę do akceptowania lub odrzucania wniosków podwładnych i przeglądu budżetów. Wniosek obejmuje jeden ciągły okres (pierwszy i ostatni dzień mogą być połówkami); weekendy oraz nowe, prowadzone przez administratorów święta nigdy nie pomniejszają budżetu.`,
+  },
+  {
     version: "1.41.0",
     date: "2026-08-04",
     en: `Goals are now "archived" instead of "closed" — the same wording Team KPIs already use, so finishing a goal no longer sounds like closing a window. The status badge, the Archive action (with its summary), "Save & archive", and notifications all use the new wording; existing closed goals and their history were converted automatically.`,

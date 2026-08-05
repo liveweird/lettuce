@@ -1,0 +1,127 @@
+{
+  "sectionTitle": "Dni wolne",
+  "newRequest": "Nowy wniosek",
+  "teamHint": "Wnioski o dni wolne Twoich bezpośrednich podwładnych — zaakceptuj lub odrzuć oczekujące — oraz ich roczne budżety.",
+  "tab": {
+    "calendar": "Kalendarz",
+    "requests": "Moje wnioski",
+    "team": "Mój zespół"
+  },
+  "status": {
+    "REQUESTED": "Oczekujący",
+    "ACCEPTED": "Zaakceptowany",
+    "REJECTED": "Odrzucony",
+    "CANCELLED": "Anulowany"
+  },
+  "type": {
+    "label": "Rodzaj",
+    "PAID": "Płatne",
+    "UNPAID": "Bezpłatne"
+  },
+  "person": "Osoba",
+  "clearPersonFilter": "Wyczyść filtr osoby",
+  "column": {
+    "startDate": "Od",
+    "endDate": "Do",
+    "days": "Dni",
+    "createdAt": "Złożony"
+  },
+  "halfMarker": "½",
+  "noRequests": "Nie ma tu jeszcze żadnych wniosków o dni wolne.",
+  "rowsPerPage": "Wniosków na stronę",
+  "loadListError": "Nie udało się wczytać wniosków o dni wolne",
+  "unknownError": "Coś poszło nie tak. Spróbuj ponownie.",
+  "action": {
+    "accept": "Zaakceptuj",
+    "reject": "Odrzuć",
+    "cancel": "Anuluj wniosek",
+    "cancelConfirm": "Anuluj wniosek",
+    "submitRequest": "Złóż wniosek"
+  },
+  "acceptAria": "Zaakceptuj wniosek o dni wolne — {{name}}, od {{date}}",
+  "rejectAria": "Odrzuć wniosek o dni wolne — {{name}}, od {{date}}",
+  "cancelAria": "Anuluj swój wniosek o dni wolne od {{date}}",
+  "rejectTitle": "Odrzucić ten wniosek?",
+  "rejectMessage": "Osoba składająca wniosek otrzyma powiadomienie. Odrzucenie jest ostateczne — może złożyć nowy wniosek na te same dni.",
+  "cancelTitle": "Anulować ten wniosek?",
+  "cancelMessage": "Twoi menedżerowie otrzymają powiadomienie, a zarezerwowane dni wrócą do Twojego budżetu. Anulowanie jest ostateczne.",
+  "toast": {
+    "requested": "Wniosek o dni wolne złożony",
+    "accepted": "Wniosek zaakceptowany",
+    "rejected": "Wniosek odrzucony",
+    "cancelled": "Wniosek anulowany"
+  },
+  "error": {
+    "invalidTransition": "Ten wniosek zmienił się w międzyczasie — odśwież i spróbuj ponownie.",
+    "actionPermission": "Nie masz uprawnień do tej operacji.",
+    "gone": "Ten wniosek już nie istnieje.",
+    "actionFailedStatus": "Operacja nie powiodła się (HTTP {{status}}).",
+    "actionFailed": "Operacja nie powiodła się. Spróbuj ponownie.",
+    "overlap": "Okres nakłada się na jeden z Twoich oczekujących lub zaakceptowanych wniosków.",
+    "overBudget": "Wniosek nie mieści się w Twoim pozostałym budżecie płatnych dni.",
+    "invalid": "Wniosek jest nieprawidłowy — sprawdź daty.",
+    "saveFailedStatus": "Zapis nie powiódł się (HTTP {{status}}).",
+    "saveFailed": "Zapis nie powiódł się. Spróbuj ponownie."
+  },
+  "createTitle": "Nowy wniosek o dni wolne",
+  "createHint": "Jeden wniosek obejmuje jeden ciągły okres w obrębie jednego roku kalendarzowego. Weekendy i święta nie liczą się do budżetu; pierwszy i ostatni dzień mogą być połówkami.",
+  "startHalfLabel": "Pierwszy dzień to pół dnia",
+  "endHalfLabel": "Ostatni dzień to pół dnia",
+  "costPreview": "Ten wniosek kosztuje {{days}} dni roboczych.",
+  "remainingPreview": "Pozostały budżet płatnych dni na {{year}}: {{days}}.",
+  "validation": {
+    "order": "Data początkowa nie może być późniejsza niż końcowa.",
+    "sameYear": "Wniosek nie może obejmować dwóch lat kalendarzowych — podziel go na dwa wnioski.",
+    "zeroCost": "Okres nie zawiera dni roboczych — same weekendy lub święta."
+  },
+  "calendar": {
+    "gridAria": "Kalendarz dni wolnych zespołu",
+    "personColumn": "Osoba",
+    "cellTitle": "{{name}} — {{date}}: {{type}}, {{status}} ({{amount}} dnia)",
+    "legendPaid": "Płatny dzień wolny",
+    "legendUnpaid": "Bezpłatny dzień wolny",
+    "legendRequested": "Wnioskowany (oczekujący)",
+    "legendOffDay": "Weekend / święto",
+    "previousMonth": "Poprzedni miesiąc",
+    "nextMonth": "Następny miesiąc",
+    "scope": "Czyj kalendarz",
+    "scope_member": "Moje zespoły",
+    "scope_managed": "Moi bezpośredni podwładni",
+    "loadError": "Nie udało się wczytać kalendarza",
+    "empty": "Nie ma kogo pokazać — nie należysz do żadnego zespołu."
+  },
+  "budget": {
+    "title": "Twoje płatne dni wolne w {{year}}",
+    "teamTitle": "Budżety płatnych dni",
+    "year": "Rok",
+    "allowance": "Pula roczna",
+    "carriedOver": "Przeniesione",
+    "reserved": "Oczekujące",
+    "used": "Wykorzystane",
+    "remaining": "Pozostałe",
+    "noAllowance": "Nie masz jeszcze skonfigurowanej puli płatnych dni — zapytaj administratora/administratorkę; do tego czasu płatne wnioski są zablokowane.",
+    "loadError": "Nie udało się wczytać budżetu",
+    "noReports": "Brak bezpośrednich podwładnych."
+  },
+  "holidays": {
+    "title": "Święta",
+    "hint": "W te dni wszyscy mają wolne i nic nie jest odejmowane z budżetów płatnych dni. Koszty już złożonych wniosków nigdy się nie zmieniają.",
+    "hintReadOnly": "W te dni wszyscy mają wolne i nic nie jest odejmowane z budżetów płatnych dni. Listę prowadzą administratorzy.",
+    "empty": "Nie ma jeszcze żadnych świąt — dodaj pierwsze poniżej.",
+    "emptyReadOnly": "Nie skonfigurowano jeszcze żadnych świąt.",
+    "loadError": "Nie udało się wczytać listy świąt",
+    "date": "Data",
+    "name": "Nazwa",
+    "addHoliday": "Dodaj święto",
+    "duplicateDate": "W tym dniu już istnieje święto.",
+    "invalid": "Święto jest nieprawidłowe — sprawdź datę i nazwę.",
+    "deleteAria": "Usuń święto {{name}}",
+    "deleteTitle": "Usunąć to święto?",
+    "deleteMessage": "Data stanie się zwykłym dniem roboczym dla przyszłych wniosków; już złożone wnioski zachowują zapisany koszt.",
+    "toastAdded": "Święto dodane",
+    "toastDeleted": "Święto usunięte"
+  },
+  "auditTitle": "Dni wolne — {{who}}",
+  "auditHint": "Widok audytu HR: wszystkie wnioski o dni wolne, które złożył/złożyła {{who}}, w każdym statusie. Dostęp jest odnotowywany w dzienniku audytu.",
+  "userFallback": "użytkownik #{{id}}"
+}

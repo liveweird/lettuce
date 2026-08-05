@@ -142,7 +142,8 @@
     "feedbacksAria": "Audytuj feedbacki: {{name}}",
     "oneOnOnesAria": "Audytuj spotkania 1:1: {{name}}",
     "goalsAria": "Audytuj cele: {{name}}",
-    "performanceReviewsAria": "Audytuj oceny okresowe: {{name}}"
+    "performanceReviewsAria": "Audytuj oceny okresowe: {{name}}",
+    "daysOffAria": "Audytuj dni wolne: {{name}}"
   },
   "profile": {
     "missingBadge": "Nie ustawiono",
@@ -154,6 +155,7 @@
     "seniority": "Poziom"
   },
   "performanceReviews": "Oceny okresowe",
+  "daysOff": "Dni wolne",
   "toast": {
     "updated": "Użytkownik zaktualizowany",
     "deleted": "Użytkownik usunięty",
