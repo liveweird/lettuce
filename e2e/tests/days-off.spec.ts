@@ -57,8 +57,8 @@ const TUESDAY_CELL_TITLE = `AAA Two — ${TUESDAY_ISO}: Paid, Accepted (1 day)`;
 async function newRequest(page: Page, from: string, to: string, expectedCost: string) {
   await page.getByRole("link", { name: "New request" }).click();
   await expect(page).toHaveURL(/\/days-off\/new/);
-  await page.getByLabel("From").fill(from);
-  await page.getByLabel("To").fill(to);
+  await page.getByLabel("From", { exact: true }).fill(from);
+  await page.getByLabel("To", { exact: true }).fill(to);
   await expect(page.getByText(`This request costs ${expectedCost} working day(s).`)).toBeVisible();
   await Promise.all([
     page.waitForResponse(
@@ -76,8 +76,8 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   await login(page, ADMIN);
   await collapseAlertsBanner(page);
   await page.goto("/public-holidays");
-  await page.getByLabel("Date").fill(MONDAY_ISO);
-  await page.getByLabel("Name").fill(`E2E Holiday ${MONDAY_ISO}`);
+  await page.getByLabel("Date", { exact: true }).fill(MONDAY_ISO);
+  await page.getByLabel("Name", { exact: true }).fill(`E2E Holiday ${MONDAY_ISO}`);
   await page.getByRole("button", { name: "Add holiday" }).click();
   // A residual holiday from a failed run answers 409 — either way the date is now covered.
   await expect(

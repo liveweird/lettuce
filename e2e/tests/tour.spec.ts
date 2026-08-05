@@ -1,6 +1,6 @@
 import { collapseAlertsBanner, expect, login, MANAGER_AAA, test } from "./helpers";
 
-// The guided tour, actually walked: replay it as a manager (the widest audience — 35 steps)
+// The guided tour, actually walked: replay it as a manager (the widest audience — 36 steps)
 // and assert the landmark order the tour promises — every left-menu section (Changelog
 // included) before the header icons. Anchors/steps that vanish or reorder fail this walk.
 // The suite's tour-seen stub only suppresses the AUTO-start; the replay button always works.
@@ -17,6 +17,7 @@ const LANDMARKS = [
   "My teams' KPIs — the active and archived KPIs",
   "KPIs I've set — the KPIs of the teams you manage",
   "My performance — the performance reviews your manager published",
+  "Days off — the team calendar",
   "Config — users, teams",
   "Self-reflection",
   "Your account",
@@ -28,7 +29,7 @@ const LANDMARKS = [
   "Replay this tour",
 ];
 
-test("the guided tour walks all 35 manager steps in the documented order", async ({ page }) => {
+test("the guided tour walks all 36 manager steps in the documented order", async ({ page }) => {
   await login(page, MANAGER_AAA);
   // A pre-existing active alert's expanded banner overlays the header (and the replay button).
   await collapseAlertsBanner(page);
@@ -49,7 +50,7 @@ test("the guided tour walks all 35 manager steps in the documented order", async
     await tooltip.getByRole("button", { name: "Next", exact: true }).click();
   }
 
-  expect(seen).toHaveLength(35);
+  expect(seen).toHaveLength(36);
   // Each landmark appears, strictly after the previous one.
   let cursor = -1;
   for (const landmark of LANDMARKS) {
