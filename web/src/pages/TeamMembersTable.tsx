@@ -15,8 +15,7 @@ import { listAllTeams, listTeamMembers, type TeamMemberListView } from "../api/c
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
 import PersonCard from "../components/PersonCard";
-import PersonCardActions from "../components/PersonCardActions";
-import PersonCardStats, { CareerCardStats, PeerCardStats } from "../components/PersonCardStats";
+import PersonCardBody from "../components/PersonCardStats";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
@@ -226,40 +225,42 @@ export default function TeamMembersTable({
               teamNames={m.teamNames}
               // Peer cards show the two feedback directions; subordinate cards show the
               // 1:1 + feedback stats, but only while every card is a direct report (same
-              // rationale as the 1:1 drill-down gate below): rows carry no direct/indirect
+              // rationale as the 1:1 button gate below): rows carry no direct/indirect
               // marker, and indirect reports can't have 1:1s with the caller, so "never"
-              // would just be noise. The career column shows regardless — it's populated
-              // on every view's rows.
-              stats={
-                view === "member" ? (
-                  <PeerCardStats person={m} />
-                ) : view === "managed" && scopeIsDirect ? (
-                  <PersonCardStats person={m} showLastReview showDaysOff />
-                ) : (
-                  <CareerCardStats person={m} />
-                )
-              }
-              actions={
-                // The direct-only gates: creating a 1:1/goal/review needs a direct report,
-                // and rows carry no direct/indirect marker — so those buttons exist only
-                // while the scope guarantees every card is a direct report.
-                <PersonCardActions
-                  userId={m.userId}
-                  name={m.name}
-                  labels="teams"
-                  back={backTo}
-                  drillFrom={drillFrom}
-                  drillTeamId={drillTeamId}
-                  show={{
-                    provide: true,
-                    ask: true,
-                    request: view === "managed",
-                    newOneOnOne: view === "managed" && scopeIsDirect,
-                    feedbacks: true,
-                    oneOnOnes: view === "managed" && scopeIsDirect,
-                    goals: view === "managed" && scopeIsDirect,
-                    reviews: view === "managed" && scopeIsDirect,
-                    daysOff: view === "managed" && scopeIsDirect,
+              // would just be noise. The Profile section shows regardless — the career
+              // triple is populated on every view's rows. Button gates: creating a
+              // 1:1/goal/review needs a direct report, so those buttons exist only while
+              // the scope guarantees every card is a direct report.
+              body={
+                <PersonCardBody
+                  person={m}
+                  stats={
+                    view === "member"
+                      ? "peer"
+                      : view === "managed" && scopeIsDirect
+                        ? "subordinate"
+                        : "none"
+                  }
+                  showLastReview={view === "managed" && scopeIsDirect}
+                  showDaysOff={view === "managed" && scopeIsDirect}
+                  actions={{
+                    userId: m.userId,
+                    name: m.name,
+                    labels: "teams",
+                    back: backTo,
+                    drillFrom,
+                    drillTeamId,
+                    show: {
+                      provide: true,
+                      ask: true,
+                      request: view === "managed",
+                      newOneOnOne: view === "managed" && scopeIsDirect,
+                      feedbacks: true,
+                      oneOnOnes: view === "managed" && scopeIsDirect,
+                      goals: view === "managed" && scopeIsDirect,
+                      reviews: view === "managed" && scopeIsDirect,
+                      daysOff: view === "managed" && scopeIsDirect,
+                    },
                   }}
                 />
               }

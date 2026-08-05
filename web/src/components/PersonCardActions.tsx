@@ -22,6 +22,7 @@ import { userDaysOffLink } from "../utils/daysOffLinks";
 import { userGoalsLink } from "../utils/goalLinks";
 import { oneOnOneCreateLink, userOneOnOnesLink } from "../utils/oneOnOneLinks";
 import { userPerformanceReviewsLink } from "../utils/performanceReviewLinks";
+import { PERSON_CARD_ACTION_LABELS, type ButtonKey } from "./personCardSupport";
 
 // The per-person action/drill-down buttons shared by the dashboard card grids, the
 // user-details card, and the details page's HR-audit block (the checkup-#10 ×4 dedup).
@@ -32,48 +33,9 @@ import { userPerformanceReviewsLink } from "../utils/performanceReviewLinks";
 // Rendered output per call site is identical to the pre-extraction JSX — keep it that
 // way: unit and e2e locators key on the aria-labels and texts.
 
-type ButtonKey =
-  | "provide"
-  | "ask"
-  | "request"
-  | "newOneOnOne"
-  | "feedbacks"
-  | "oneOnOnes"
-  | "goals"
-  | "reviews"
-  | "daysOff";
-
-type LabelPair = { aria: string; text: string };
-
-const LABELS: Record<"users" | "teams" | "audit", Partial<Record<ButtonKey, LabelPair>>> = {
-  users: {
-    provide: { aria: "users.provideFeedbackTo", text: "users.provideFeedback" },
-    ask: { aria: "users.askForFeedbackFrom", text: "users.askForFeedback" },
-    feedbacks: { aria: "users.feedbacksWith", text: "users.feedbacks" },
-    oneOnOnes: { aria: "users.oneOnOnesWith", text: "users.oneOnOnes" },
-    goals: { aria: "users.goalsWith", text: "users.goals" },
-  },
-  teams: {
-    provide: { aria: "teams.provideFeedbackToAria", text: "teams.provideFeedback" },
-    ask: { aria: "teams.askForFeedbackAria", text: "teams.askForFeedback" },
-    request: { aria: "teams.requestFeedbackAboutAria", text: "teams.requestFeedbackFor" },
-    newOneOnOne: { aria: "teams.addOneOnOneWithAria", text: "teams.addOneOnOne" },
-    feedbacks: { aria: "teams.feedbacksWithAria", text: "teams.feedbacks" },
-    oneOnOnes: { aria: "teams.oneOnOnesWithAria", text: "teams.oneOnOnes" },
-    goals: { aria: "teams.goalsForAria", text: "teams.goals" },
-    reviews: { aria: "teams.performanceReviewsForAria", text: "teams.performanceReviews" },
-    // v1.44.0: the manager-side per-report days-off drill-down.
-    daysOff: { aria: "teams.daysOffForAria", text: "teams.daysOff" },
-  },
-  audit: {
-    feedbacks: { aria: "users.audit.feedbacksAria", text: "users.feedbacks" },
-    oneOnOnes: { aria: "users.audit.oneOnOnesAria", text: "users.oneOnOnes" },
-    goals: { aria: "users.audit.goalsAria", text: "users.goals" },
-    reviews: { aria: "users.audit.performanceReviewsAria", text: "users.performanceReviews" },
-    // v1.42.0: days off are per-user, so the auditor drill-down fits (unlike team KPIs).
-    daysOff: { aria: "users.audit.daysOffAria", text: "users.daysOff" },
-  },
-};
+// The label table, section subsets, and visibility predicate live in personCardSupport.ts
+// (non-component exports — the Fast Refresh split).
+const LABELS = PERSON_CARD_ACTION_LABELS;
 
 const ICONS: Record<ButtonKey, React.ReactNode> = {
   provide: <IconMessagePlus size={14} />,
@@ -109,6 +71,8 @@ export type PersonCardActionsProps = {
   manages?: boolean;
   /** The HR-audit flavor: `mode=audit` drill-downs with `users.audit.*` aria-labels. */
   audit?: boolean;
+  /** Restrict to a subset of buttons (the card body's per-section rendering); order unchanged. */
+  only?: readonly ButtonKey[];
 };
 
 export default function PersonCardActions({
@@ -122,6 +86,7 @@ export default function PersonCardActions({
   drillBack,
   manages,
   audit,
+  only,
 }: PersonCardActionsProps) {
   const { t } = useTranslation();
   const drillOpts = { back: drillBack, manages };
@@ -143,7 +108,7 @@ export default function PersonCardActions({
   return (
     <>
       {(Object.keys(ICONS) as ButtonKey[])
-        .filter((key) => show[key])
+        .filter((key) => show[key] && (only == null || only.includes(key)))
         .map((key) => {
           const label = labelSource[key];
           if (!label) return null;

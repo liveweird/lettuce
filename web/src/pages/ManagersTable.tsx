@@ -5,8 +5,7 @@ import { IconUsersGroup } from "@tabler/icons-react";
 import { listAllTeamMembers } from "../api/client";
 import EmptyState from "../components/EmptyState";
 import PersonCard from "../components/PersonCard";
-import PersonCardActions from "../components/PersonCardActions";
-import PersonCardStats from "../components/PersonCardStats";
+import PersonCardBody from "../components/PersonCardStats";
 import { groupTeamRows } from "../utils/teamRows";
 
 // The dashboard "My managers" view: a person-card grid (not a table) — typically 1–3 people,
@@ -52,16 +51,19 @@ export default function ManagersTable() {
               name={m.name}
               email={m.email}
               teamNames={m.teamNames}
-              stats={<PersonCardStats person={m} />}
-              actions={
-                <PersonCardActions
-                  userId={m.userId}
-                  name={m.name}
-                  labels="users"
-                  back="/?tab=managers"
-                  // No drillFrom on purpose: the feedbacks drill-down historically omits
-                  // `from` here (its resolver defaults to managers); 1:1s/goals default in.
-                  show={{ provide: true, ask: true, feedbacks: true, oneOnOnes: true, goals: true }}
+              body={
+                <PersonCardBody
+                  person={m}
+                  stats="manager"
+                  actions={{
+                    userId: m.userId,
+                    name: m.name,
+                    labels: "users",
+                    back: "/?tab=managers",
+                    // No drillFrom on purpose: the feedbacks drill-down historically omits
+                    // `from` here (its resolver defaults to managers); 1:1s/goals default in.
+                    show: { provide: true, ask: true, feedbacks: true, oneOnOnes: true, goals: true },
+                  }}
                 />
               }
             />

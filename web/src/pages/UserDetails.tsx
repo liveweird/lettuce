@@ -13,8 +13,8 @@ import {
 } from "../api/client";
 import EmptyState from "../components/EmptyState";
 import PersonCard from "../components/PersonCard";
-import PersonCardActions from "../components/PersonCardActions";
-import PersonCardStats, { CareerCardStats, PeerCardStats } from "../components/PersonCardStats";
+import PersonCardActions, { type PersonCardActionsProps } from "../components/PersonCardActions";
+import PersonCardBody from "../components/PersonCardStats";
 import { groupTeamRows, type PersonCard as PersonCardData } from "../utils/teamRows";
 import { userDetailsLink } from "../utils/userLinks";
 
@@ -141,59 +141,61 @@ export default function UserDetails() {
     originKey === "members" ? teamId : undefined,
   );
 
-  // Undefined (not an empty fragment) when the viewer gets no actions — PersonCard then
-  // omits the divider + actions row entirely (the self-view case). Every drill-down carries
-  // `from=details` + `back=backHere` (v1.39.0): the round-trip returns HERE with this page's
-  // own origin intact, whatever screen the details page itself was reached from.
-  const actions =
-    person == null || selfView ? undefined : relationship === "manager" ? (
-      // The /?tab=managers card's actions (users.* labels), returning here instead of the tab.
-      <PersonCardActions
-        userId={person.userId}
-        name={person.name}
-        labels="users"
-        back={backHere}
-        drillFrom="details"
-        drillBack={backHere}
-        show={{ provide: true, ask: true, feedbacks: true, oneOnOnes: true, goals: true }}
-      />
-    ) : relationship === "subordinate" ? (
-      // The /?tab=subordinates card's actions (teams.* labels) — a found row means a direct
-      // report, so the direct-only affordances all apply; `manages` keeps them on the
-      // drill-downs (the details origin alone can't prove the relationship).
-      <PersonCardActions
-        userId={person.userId}
-        name={person.name}
-        labels="teams"
-        back={backHere}
-        drillFrom="details"
-        drillBack={backHere}
-        manages
-        show={{
-          provide: true,
-          ask: true,
-          request: true,
-          newOneOnOne: true,
-          feedbacks: true,
-          oneOnOnes: true,
-          goals: true,
-          reviews: true,
-          daysOff: true,
-        }}
-      />
-    ) : (
-      // The /?tab=peers card's actions (teams.* labels), for found peers and unrelated
-      // users alike.
-      <PersonCardActions
-        userId={person.userId}
-        name={person.name}
-        labels="teams"
-        back={backHere}
-        drillFrom="details"
-        drillBack={backHere}
-        show={{ provide: true, ask: true, feedbacks: true }}
-      />
-    );
+  // Undefined when the viewer gets no actions — PersonCardBody then renders no buttons at
+  // all (the self-view case). Every drill-down carries `from=details` + `back=backHere`
+  // (v1.39.0): the round-trip returns HERE with this page's own origin intact, whatever
+  // screen the details page itself was reached from.
+  const actions: PersonCardActionsProps | undefined =
+    person == null || selfView
+      ? undefined
+      : relationship === "manager"
+        ? {
+            // The /?tab=managers card's actions (users.* labels), returning here instead
+            // of the tab.
+            userId: person.userId,
+            name: person.name,
+            labels: "users",
+            back: backHere,
+            drillFrom: "details",
+            drillBack: backHere,
+            show: { provide: true, ask: true, feedbacks: true, oneOnOnes: true, goals: true },
+          }
+        : relationship === "subordinate"
+          ? {
+              // The /?tab=subordinates card's actions (teams.* labels) — a found row means
+              // a direct report, so the direct-only affordances all apply; `manages` keeps
+              // them on the drill-downs (the details origin alone can't prove the
+              // relationship).
+              userId: person.userId,
+              name: person.name,
+              labels: "teams",
+              back: backHere,
+              drillFrom: "details",
+              drillBack: backHere,
+              manages: true,
+              show: {
+                provide: true,
+                ask: true,
+                request: true,
+                newOneOnOne: true,
+                feedbacks: true,
+                oneOnOnes: true,
+                goals: true,
+                reviews: true,
+                daysOff: true,
+              },
+            }
+          : {
+              // The /?tab=peers card's actions (teams.* labels), for found peers and
+              // unrelated users alike.
+              userId: person.userId,
+              name: person.name,
+              labels: "teams",
+              back: backHere,
+              drillFrom: "details",
+              drillBack: backHere,
+              show: { provide: true, ask: true, feedbacks: true },
+            };
 
   return (
     <Stack gap="md">
@@ -224,24 +226,19 @@ export default function UserDetails() {
             name={person.name}
             email={person.email}
             teamNames={person.teamNames}
-            stats={
-              relationship === "manager" || relationship === "subordinate" ? (
-                // Only view=managed rows carry the last-review and days-off stats, so those
-                // rows show for a direct report and not for a manager (whose row never has
-                // the data).
-                <PersonCardStats
-                  person={person}
-                  showLastReview={relationship === "subordinate"}
-                  showDaysOff={relationship === "subordinate"}
-                />
-              ) : relationship === "peer" ? (
-                <PeerCardStats person={person} />
-              ) : (
-                // Self / unrelated: no relationship stats, but the career column always shows.
-                <CareerCardStats person={person} />
-              )
+            body={
+              // Only view=managed rows carry the last-review and days-off stats, so those
+              // sections show for a direct report and not for a manager (whose row never
+              // has the data). Self/unrelated get no relationship stats, but the Profile
+              // section always shows.
+              <PersonCardBody
+                person={person}
+                stats={relationship ?? "none"}
+                showLastReview={relationship === "subordinate"}
+                showDaysOff={relationship === "subordinate"}
+                actions={actions}
+              />
             }
-            actions={actions}
           />
         </SimpleGrid>
       ) : (

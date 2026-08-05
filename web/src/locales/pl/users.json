@@ -145,6 +145,12 @@
     "performanceReviewsAria": "Audytuj oceny okresowe: {{name}}",
     "daysOffAria": "Audytuj dni wolne: {{name}}"
   },
+  "section": {
+    "profile": "Profil",
+    "collaboration": "Współpraca",
+    "performance": "Oceny okresowe",
+    "daysOff": "Dni wolne"
+  },
   "profile": {
     "missingBadge": "Nie ustawiono",
     "missingHint": "Brak wartości — zdecydowanie warto ją uzupełnić",
