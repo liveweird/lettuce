@@ -62,6 +62,8 @@ const LABELS: Record<"users" | "teams" | "audit", Partial<Record<ButtonKey, Labe
     oneOnOnes: { aria: "teams.oneOnOnesWithAria", text: "teams.oneOnOnes" },
     goals: { aria: "teams.goalsForAria", text: "teams.goals" },
     reviews: { aria: "teams.performanceReviewsForAria", text: "teams.performanceReviews" },
+    // v1.44.0: the manager-side per-report days-off drill-down.
+    daysOff: { aria: "teams.daysOffForAria", text: "teams.daysOff" },
   },
   audit: {
     feedbacks: { aria: "users.audit.feedbacksAria", text: "users.feedbacks" },
@@ -133,7 +135,7 @@ export default function PersonCardActions({
     oneOnOnes: userOneOnOnesLink(userId, name, drillFrom ?? "managers", drillTeamId, audit, drillOpts),
     goals: userGoalsLink(userId, name, drillFrom ?? "managers", drillTeamId, audit, drillOpts),
     reviews: userPerformanceReviewsLink(userId, name, drillFrom ?? "managers", drillTeamId, audit, drillOpts),
-    daysOff: userDaysOffLink(userId, name, drillFrom ?? "details", audit, drillOpts),
+    daysOff: userDaysOffLink(userId, name, drillFrom ?? "details", drillTeamId, audit, drillOpts),
   };
 
   const labelSource = audit ? LABELS.audit : LABELS[labels];

@@ -604,6 +604,39 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
         rows.size
     }
 
+    // ── Card-stat batch helpers (v1.44.0 — the activeGoalCountsBy* shape, page-scoped) ─────
+
+    /**
+     * Per user, the start date of their next ACCEPTED vacation that hasn't ended yet — an
+     * ongoing one counts (its start still answers "when"); pending requests deliberately
+     * don't (they may be rejected). Users with none are absent from the map. Backs the
+     * /teams/members card enrichment (managed + member views — teammate-visible by calendar
+     * parity, ACCEPTED is on the calendar).
+     */
+    suspend fun nextAcceptedVacationsByUserIds(
+        userIds: Set<UInt>,
+        todayIso: String = LocalDate.now().toString(),
+    ): Map<UInt, String> =
+        if (userIds.isEmpty()) emptyMap()
+        else suspendTransaction(database) {
+            Requests
+                .select(Requests.userId, Requests.startDate)
+                .where {
+                    (Requests.userId inList userIds) and active() and
+                        (Requests.status eq DaysOffStatus.ACCEPTED) and
+                        (Requests.endDate greaterEq todayIso)
+                }
+                .map { it[Requests.userId].value to it[Requests.startDate] }
+                .toList()
+                .groupBy({ it.first }) { it.second }
+                .mapValues { (_, starts) -> starts.min() }
+        }
+
+    /** Per user, the current remaining paid-days budget for [year] — the budgets math, keyed.
+     * Backs the managed-card stat only (budgets stay manager/self-scoped). */
+    suspend fun remainingByUserIds(userIds: Set<UInt>, year: Int): Map<UInt, Double> =
+        budgets(userIds, year).associate { it.userId to it.remaining }
+
     /** True iff [callerId] is currently a direct manager of [ownerId] — the resolve right. */
     suspend fun isDirectManagerOf(callerId: UInt, ownerId: UInt): Boolean =
         suspendTransaction(database) { callerId in directManagerIds(ownerId) }

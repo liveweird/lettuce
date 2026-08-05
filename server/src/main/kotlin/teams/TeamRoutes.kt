@@ -5,6 +5,7 @@ import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireCanReassignManager
 import ch.nokillswit.authz.requireSelfOrAdmin
 import ch.nokillswit.authz.requireTeamManagerOrAdmin
+import ch.nokillswit.daysoff.DaysOffServiceKey
 import ch.nokillswit.feedbacks.FeedbackServiceKey
 import ch.nokillswit.goals.GoalServiceKey
 import ch.nokillswit.infra.db.requireValidReferences
@@ -101,6 +102,7 @@ fun Application.configureTeamRoutes() {
     val goalService = attributes[GoalServiceKey]
     val userService = attributes[UserServiceKey]
     val performanceReviewService = attributes[PerformanceReviewServiceKey]
+    val daysOffService = attributes[DaysOffServiceKey]
 
     routing {
         authenticate {
@@ -153,28 +155,47 @@ fun Application.configureTeamRoutes() {
                 val items = if (result.items.isEmpty()) result.items else {
                     val ids = result.items.map { it.userId }.toSet()
                     val withStats = when (view) {
+                        // Peers also see each other's next accepted vacation (calendar parity —
+                        // ACCEPTED rows are on the shared team calendar) but never budgets.
                         TeamMemberListView.MEMBER -> {
                             val given = feedbackService.lastProvidedTo(caller.userId, ids)
                             val received = feedbackService.lastProvidedAt(ids, caller.userId)
+                            val vacations = daysOffService.nextAcceptedVacationsByUserIds(ids)
                             result.items.map {
                                 it.copy(
                                     lastFeedbackGivenAt = given[it.userId],
                                     lastFeedbackReceivedAt = received[it.userId],
+                                    nextVacationStart = vacations[it.userId],
                                 )
                             }
                         }
+                        // No days-off stats here: budgets are manager/self-scoped, and a
+                        // manager's requests aren't generally visible to their reports — the
+                        // card omits rather than half-answers.
                         TeamMemberListView.MANAGERS -> result.items.withDirectionalStats(
                             oneOnOneService.latestMeetingStats(ids, caller.userId),
                             feedbackService.lastProvidedAt(ids, caller.userId),
                             goalService.activeGoalCountsByManager(ids, caller.userId),
                         )
-                        TeamMemberListView.MANAGED -> result.items.withDirectionalStats(
-                            oneOnOneService.latestMeetingStatsBySubordinate(caller.userId, ids),
-                            feedbackService.lastProvidedTo(caller.userId, ids),
-                            goalService.activeGoalCountsBySubordinate(caller.userId, ids),
-                        ).withLastReviews(
-                            performanceReviewService.latestReviewsBySubordinate(caller.userId, ids),
-                        )
+                        TeamMemberListView.MANAGED -> {
+                            val vacations = daysOffService.nextAcceptedVacationsByUserIds(ids)
+                            val remaining = daysOffService.remainingByUserIds(
+                                ids,
+                                java.time.LocalDate.now().year,
+                            )
+                            result.items.withDirectionalStats(
+                                oneOnOneService.latestMeetingStatsBySubordinate(caller.userId, ids),
+                                feedbackService.lastProvidedTo(caller.userId, ids),
+                                goalService.activeGoalCountsBySubordinate(caller.userId, ids),
+                            ).withLastReviews(
+                                performanceReviewService.latestReviewsBySubordinate(caller.userId, ids),
+                            ).map {
+                                it.copy(
+                                    nextVacationStart = vacations[it.userId],
+                                    daysOffRemaining = remaining[it.userId],
+                                )
+                            }
+                        }
                     }
                     // Career profile (v1.32.1): view-independent — the person cards show it on
                     // every grid, so every view's rows carry the resolved triple.

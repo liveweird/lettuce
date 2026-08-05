@@ -89,6 +89,20 @@ data class TeamMemberListItem(
     val careerPath: DictionaryEntry? = null,
     val careerSpecialization: DictionaryEntry? = null,
     val seniorityLevel: DictionaryEntry? = null,
+    // Days-off card stats (v1.44.0).
+    /**
+     * ISO start date of the row user's next ACCEPTED vacation that hasn't ended yet (ongoing
+     * counts; pending never shows). Populated for view=managed and view=member — teammates see
+     * accepted absences by calendar parity; null on view=managers (a manager's requests aren't
+     * generally visible to their reports) and when nothing is planned.
+     */
+    val nextVacationStart: String? = null,
+    /**
+     * The row user's remaining paid-days budget for the current calendar year (carry-over and
+     * corrections included). Populated ONLY for view=managed — budgets are manager/self-scoped,
+     * so peer and manager rows never carry it.
+     */
+    val daysOffRemaining: Double? = null,
 )
 
 typealias TeamMemberPageResponse = PageResponse<TeamMemberListItem>

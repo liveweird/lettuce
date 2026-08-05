@@ -234,7 +234,7 @@ export default function TeamMembersTable({
                 view === "member" ? (
                   <PeerCardStats person={m} />
                 ) : view === "managed" && scopeIsDirect ? (
-                  <PersonCardStats person={m} showLastReview />
+                  <PersonCardStats person={m} showLastReview showDaysOff />
                 ) : (
                   <CareerCardStats person={m} />
                 )
@@ -259,6 +259,7 @@ export default function TeamMembersTable({
                     oneOnOnes: view === "managed" && scopeIsDirect,
                     goals: view === "managed" && scopeIsDirect,
                     reviews: view === "managed" && scopeIsDirect,
+                    daysOff: view === "managed" && scopeIsDirect,
                   }}
                 />
               }

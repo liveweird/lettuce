@@ -103,7 +103,9 @@
     "noAllowance": "No paid-days allowance is configured for you yet — ask an administrator; paid requests are blocked until then.",
     "loadError": "Could not load the budget",
     "noReports": "No direct reports.",
-    "corrected": "Corrections"
+    "corrected": "Corrections",
+    "userTitle": "Paid days off of {{name}} in {{year}}",
+    "notAReport": "This person is not one of your direct reports (anymore) — the budget is not available."
   },
   "holidays": {
     "title": "Public holidays",
@@ -152,5 +154,7 @@
     "toastAdded": "Correction added",
     "toastUpdated": "Correction updated",
     "toastDeleted": "Correction deleted"
-  }
+  },
+  "managedTitle": "Days off of {{who}}",
+  "managedHint": "The requests of {{who}} — accept or reject the pending ones — plus their yearly budget and corrections."
 }
