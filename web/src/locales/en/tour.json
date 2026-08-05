@@ -39,7 +39,7 @@
     "configTeams": "Teams — teams and their membership.",
     "configOrg": "Org chart — the whole organization on one canvas: managers, their teams, and the members below, including members who manage teams of their own.",
     "configTemplates": "Templates — reusable feedback templates.",
-    "notifications": "Notifications: you'll be alerted here when feedback, 1:1 meetings, goals, or team KPIs concern you — from a feedback request to a new KPI value.",
+    "notifications": "Notifications: you'll be alerted here when feedback, 1:1 meetings, goals, team KPIs, performance reviews, or days off concern you — from a feedback request to an accepted leave.",
     "language": "Switch the interface language (English / Polski) at any time.",
     "theme": "Toggle light and dark mode.",
     "selfReflection": "Self-reflection — write feedback about yourself. Once sent, your managers can read it.",
