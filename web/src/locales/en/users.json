@@ -154,6 +154,8 @@
   },
   "performanceReviews": "Performance reviews",
   "daysOff": "Days off",
+  "paidDaysOffAllowance": "Paid days-off allowance (days per year)",
+  "paidDaysOffAllowanceHint": "Whole days; unused days carry over to the next year. Leave empty to keep the current value — a set allowance cannot be cleared.",
   "toast": {
     "updated": "User updated",
     "deleted": "User deleted",

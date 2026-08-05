@@ -17,7 +17,7 @@ describe("PublicHolidays page", () => {
   let mockFetch: FetchMock;
 
   function setupMocks({ createStatus = 201 }: { createStatus?: number } = {}) {
-    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+    mockFetch.mockImplementation((_url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
       if (method === "POST") {
         return Promise.resolve(
