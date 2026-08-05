@@ -29,6 +29,8 @@ type TeamMemberItem = {
   careerPath?: { id: number; value: string } | null;
   careerSpecialization?: { id: number; value: string } | null;
   seniorityLevel?: { id: number; value: string } | null;
+  nextVacationStart?: string | null;
+  daysOffRemaining?: number | null;
 };
 
 
