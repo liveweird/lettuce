@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.45.0",
+    date: "2026-08-05",
+    en: `Performance found its place in the menu. The left-side item is now called "Performance" and opens two tabs: "My performance" (your published reviews — the old page, unchanged) and, for managers, "Team's performance" — the per-period completion view that used to live as a Dashboard tab. Every big feature in the menu now follows the same shape: your own perspective first, the manager's beside it. Old bookmarks keep working and land on the right tab.`,
+    pl: `Oceny okresowe znalazły swoje miejsce w menu. Pozycja po lewej nazywa się teraz „Oceny okresowe" i otwiera dwie zakładki: „Moje oceny" (Twoje opublikowane oceny — dawna strona, bez zmian) oraz, dla menedżerów, „Oceny zespołu" — widok kompletności ocen za wybrany okres, który dotąd był zakładką Pulpitu. Każda duża funkcja w menu ma teraz ten sam kształt: najpierw Twoja perspektywa, obok menedżerska. Stare zakładki w przeglądarce nadal działają i trafiają na właściwą zakładkę.`,
+  },
+  {
     version: "1.44.0",
     date: "2026-08-05",
     en: `Person cards know about days off now. Your direct reports' cards (on the Dashboard and their details pages) show the start date of their next accepted vacation and how much of this year's paid budget they have left; teammate cards show the next vacation too (budgets stay private). Each report's card also gained a "Days off" button opening a dedicated per-person view — their requests (with accept/reject at hand), their yearly budget, and their corrections — without wading through the whole team tab.`,

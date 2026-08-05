@@ -20,8 +20,9 @@ import type { Page } from "@playwright/test";
 // subordinate + team under Manager AAA (a fresh subordinate per run keeps the
 // (subordinate, CURRENT period) slot new — the old fresh-period trick can't be used for
 // creation anymore), the manager fills and publishes a review for the CURRENT period from the
-// Dashboard's Performance-reviews tab, the subordinate sees it (bell + the My performance
-// list, read-only), and an unpublish takes it back to calibration. The published record
+// Performance page's Team's-performance tab (v1.45.0 — formerly the Dashboard tab), the
+// subordinate sees it (bell + the My-performance tab, read-only), and an unpublish takes it
+// back to calibration. The published record
 // deliberately persists in the dev volume — a CALIBRATION leftover blocks nothing, since the
 // next run reviews a fresh subordinate.
 
@@ -108,13 +109,13 @@ test("a performance review travels period → draft → calibration → publishe
   ]);
   await logout(page);
 
-  // 2. The manager's Dashboard tab: scope to the current period (the default is the latest =
+  // 2. The manager's Team's-performance tab: scope to the current period (the default is the latest =
   //    the future one) and the throwaway team (accumulated E2E rows would push the reviewee
   //    off page 1 on the name sort), then New review lands in the create screen with the
   //    subordinate locked and the CURRENT period preselected — the newest STARTED period is
   //    the default now, never the future one.
   await login(page, MANAGER_AAA);
-  await page.goto("/?tab=reviews");
+  await page.goto("/performance?tab=managed");
   // The Period and Team Selects are non-searchable (readonly inputs) — click + pick, not
   // pickSelectOption (whose fill() would fail on a readonly combobox).
   await page.getByRole("combobox", { name: "Period" }).click();
@@ -154,7 +155,7 @@ test("a performance review travels period → draft → calibration → publishe
       .fill(`E2E ${category.toLowerCase()} summary for this period.`);
   }
   await page.getByRole("button", { name: "Save & submit" }).click();
-  await expect(page).toHaveURL(/\?tab=reviews/);
+  await expect(page).toHaveURL(/\/performance\?tab=managed/);
   await expect(annRow.getByText("Calibration")).toBeVisible();
 
   // 4. The CALIBRATION row opens the view screen, which owns Publish.
@@ -187,7 +188,9 @@ test("a performance review travels period → draft → calibration → publishe
   await expect(bell.getByText("Notifications")).toBeVisible();
   await expect(notificationCard(bell, "published your performance review")).toBeVisible();
   await page.keyboard.press("Escape");
-  await page.getByRole("link", { name: "My performance" }).click();
+  // The nav leaf opens the Performance page on its default My-performance tab (v1.45.0).
+  await page.getByRole("link", { name: "Performance", exact: true }).click();
+  await expect(page.getByRole("tab", { name: "My performance" })).toBeVisible();
   const myRow = page.getByRole("row").filter({ hasText: currentPeriodLabel });
   await expect(myRow.getByText("Published")).toBeVisible();
   await myRow.getByRole("link", { name: /^View the performance review/ }).click();
@@ -200,13 +203,13 @@ test("a performance review travels period → draft → calibration → publishe
 
   // 6. The manager retracts it — the review returns to calibration on the dashboard.
   await login(page, MANAGER_AAA);
-  await page.goto(`/performance-reviews/${reviewId}/view?back=%2F%3Ftab%3Dreviews`);
+  await page.goto(`/performance-reviews/${reviewId}/view?back=%2Fperformance%3Ftab%3Dmanaged`);
   await Promise.all([
     page.waitForResponse(
       (r) => r.url().includes(`/api/v1/performance-reviews/${reviewId}/unpublish`) && r.ok(),
     ),
     page.getByRole("button", { name: "Unpublish" }).click(),
   ]);
-  await expect(page).toHaveURL(/\?tab=reviews/);
+  await expect(page).toHaveURL(/\/performance\?tab=managed/);
   await expect(annRow.getByText("Calibration")).toBeVisible();
 });
