@@ -4,6 +4,10 @@ import ch.nokillswit.alerts.AlertService
 import ch.nokillswit.alerts.AlertServiceKey
 import ch.nokillswit.auth.TokenBlocklistService
 import ch.nokillswit.auth.TokenBlocklistServiceKey
+import ch.nokillswit.daysoff.DaysOffService
+import ch.nokillswit.daysoff.DaysOffServiceKey
+import ch.nokillswit.daysoff.PublicHolidayService
+import ch.nokillswit.daysoff.PublicHolidayServiceKey
 import ch.nokillswit.dictionaries.DictionaryService
 import ch.nokillswit.dictionaries.DictionaryServiceKey
 import ch.nokillswit.feedbacks.FeedbackEventService
@@ -60,6 +64,8 @@ suspend fun Application.configureDatabase() {
     attributes.put(ReviewPeriodServiceKey, ReviewPeriodService(database))
     attributes.put(PerformanceReviewServiceKey, PerformanceReviewService(database, attributes[FieldCipherKey]))
     attributes.put(PerformanceReviewEventServiceKey, PerformanceReviewEventService(database))
+    attributes.put(PublicHolidayServiceKey, PublicHolidayService(database))
+    attributes.put(DaysOffServiceKey, DaysOffService(database))
     attributes.put(TemplateServiceKey, TemplateService(database))
     attributes.put(DictionaryServiceKey, DictionaryService(database))
     attributes.put(NotificationServiceKey, NotificationService(database))

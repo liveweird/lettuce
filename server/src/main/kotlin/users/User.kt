@@ -32,6 +32,9 @@ data class User(
     val careerPathId: UInt? = null,
     val careerSpecializationId: UInt? = null,
     val seniorityLevelId: UInt? = null,
+    // Annual paid days-off allowance in whole days (V38). Null = not configured = zero paid
+    // budget. ADMIN-only assignable; the current value applies to every calendar year.
+    val paidDaysOffAllowance: Int? = null,
 )
 
 @Serializable
@@ -47,6 +50,8 @@ data class UserRequest(
     val careerPathId: UInt? = null,
     val careerSpecializationId: UInt? = null,
     val seniorityLevelId: UInt? = null,
+    // Optional paid days-off allowance in whole days (0–365) — ADMIN-only.
+    val paidDaysOffAllowance: Int? = null,
 )
 
 @Serializable
@@ -62,6 +67,7 @@ data class UserCreateResponse(
     val careerPath: DictionaryEntry?,
     val careerSpecialization: DictionaryEntry?,
     val seniorityLevel: DictionaryEntry?,
+    val paidDaysOffAllowance: Int?,
 )
 
 @Serializable
@@ -75,6 +81,9 @@ data class UserUpdateRequest(
     val careerPathId: UInt? = null,
     val careerSpecializationId: UInt? = null,
     val seniorityLevelId: UInt? = null,
+    // Paid days-off allowance (whole days, 0–365). Same null/omitted = leave unchanged and
+    // ADMIN-only-change semantics as the career refs; clearing is inexpressible.
+    val paidDaysOffAllowance: Int? = null,
 )
 
 @Serializable
@@ -139,6 +148,10 @@ data class UserResponse(
     val careerPath: DictionaryEntry?,
     val careerSpecialization: DictionaryEntry?,
     val seniorityLevel: DictionaryEntry?,
+    // Rides the response like the career fields (visible wherever a user row is readable —
+    // the same posture as seniority level); managers consume the derived numbers via
+    // GET /days-off/budgets.
+    val paidDaysOffAllowance: Int?,
 )
 
 typealias UserPageResponse = PageResponse<UserResponse>
@@ -151,4 +164,5 @@ fun User.toResponse(id: UInt, entries: Map<UInt, DictionaryEntry>) = UserRespons
     careerPath = careerPathId?.let { entries[it] },
     careerSpecialization = careerSpecializationId?.let { entries[it] },
     seniorityLevel = seniorityLevelId?.let { entries[it] },
+    paidDaysOffAllowance = paidDaysOffAllowance,
 )

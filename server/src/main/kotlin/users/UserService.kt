@@ -62,6 +62,9 @@ class UserService(val database: R2dbcDatabase) {
         val careerPathId = uinteger("career_path_id").nullable()
         val careerSpecializationId = uinteger("career_specialization_id").nullable()
         val seniorityLevelId = uinteger("seniority_level_id").nullable()
+
+        // Annual paid days-off allowance in whole days (V38); null = not configured.
+        val paidDaysOffAllowance = integer("paid_days_off_allowance").nullable()
     }
 
     object UserRoles : Table("user_roles") {
@@ -78,6 +81,7 @@ class UserService(val database: R2dbcDatabase) {
             it[careerPathId] = user.careerPathId
             it[careerSpecializationId] = user.careerSpecializationId
             it[seniorityLevelId] = user.seniorityLevelId
+            it[paidDaysOffAllowance] = user.paidDaysOffAllowance
         }
         val id = newRecord[Users.id].value
         insertRoles(id, user.roles)
@@ -117,6 +121,7 @@ class UserService(val database: R2dbcDatabase) {
             it[careerPathId] = user.careerPathId
             it[careerSpecializationId] = user.careerSpecializationId
             it[seniorityLevelId] = user.seniorityLevelId
+            it[paidDaysOffAllowance] = user.paidDaysOffAllowance
         }
         if (affected > 0) {
             // Wholesale replace — the set is tiny and this is idempotent and diff-free.
@@ -178,6 +183,7 @@ class UserService(val database: R2dbcDatabase) {
                         careerPathId = row[Users.careerPathId],
                         careerSpecializationId = row[Users.careerSpecializationId],
                         seniorityLevelId = row[Users.seniorityLevelId],
+                        paidDaysOffAllowance = row[Users.paidDaysOffAllowance],
                     )
                 }
                 .toList()
@@ -195,6 +201,7 @@ class UserService(val database: R2dbcDatabase) {
                     careerPath = row.careerPathId?.let { entries[it] },
                     careerSpecialization = row.careerSpecializationId?.let { entries[it] },
                     seniorityLevel = row.seniorityLevelId?.let { entries[it] },
+                    paidDaysOffAllowance = row.paidDaysOffAllowance,
                 )
             }
             UserListResult(items = items, total = total)
@@ -208,6 +215,7 @@ class UserService(val database: R2dbcDatabase) {
         val careerPathId: UInt?,
         val careerSpecializationId: UInt?,
         val seniorityLevelId: UInt?,
+        val paidDaysOffAllowance: Int?,
     )
 
     private fun active(): Op<Boolean> = Users.markedAsDeleted eq false
@@ -267,6 +275,7 @@ class UserService(val database: R2dbcDatabase) {
         careerPathId = this[Users.careerPathId],
         careerSpecializationId = this[Users.careerSpecializationId],
         seniorityLevelId = this[Users.seniorityLevelId],
+        paidDaysOffAllowance = this[Users.paidDaysOffAllowance],
     )
 
     /**

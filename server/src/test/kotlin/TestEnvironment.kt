@@ -364,6 +364,26 @@ object TestPerformanceReviewEvents {
     }
 }
 
+// Days-off test support: the allowance is ADMIN-assignable via the users PUT, but tests set it
+// directly (a full PUT would need the whole user representation); the days-off service reads the
+// column straight from the users table. Direct service access for the rest rides TestServices.
+object TestDaysOff {
+    val service: ch.nokillswit.daysoff.DaysOffService by lazy {
+        ch.nokillswit.daysoff.DaysOffService(sharedTestDatabase)
+    }
+    val holidays: ch.nokillswit.daysoff.PublicHolidayService by lazy {
+        ch.nokillswit.daysoff.PublicHolidayService(sharedTestDatabase)
+    }
+
+    suspend fun setAllowance(userId: UInt, days: Int?) {
+        suspendTransaction(sharedTestDatabase) {
+            UserService.Users.update({ UserService.Users.id eq userId }) {
+                it[UserService.Users.paidDaysOffAllowance] = days
+            }
+        }
+    }
+}
+
 // There is no create endpoint for notifications (they are minted as a side-effect of
 // other activities), so tests seed rows by calling the service directly.
 object TestNotifications {

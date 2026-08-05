@@ -1,6 +1,8 @@
 package ch.nokillswit.authz
 
 import ch.nokillswit.audit.audit
+import ch.nokillswit.daysoff.DaysOffResponse
+import ch.nokillswit.daysoff.DaysOffStatus
 import ch.nokillswit.feedbacks.Feedback
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
@@ -107,6 +109,16 @@ fun requireCanAssignProfileFields(caller: CallerPrincipal, vararg fields: Pair<U
     if (changed && !caller.isAdmin()) {
         throw ForbiddenException("Only admins may change a user's career profile fields")
     }
+}
+
+/**
+ * The [requireCanAssignProfileFields] sibling for the paid days-off allowance (an Int, not a
+ * dictionary ref): newly assigning or changing it is ADMIN-only. A null request (= leave
+ * unchanged) or resubmitting the current value is not a change; clearing is inexpressible.
+ */
+fun requireCanAssignPaidDaysOffAllowance(caller: CallerPrincipal, requested: Int?, current: Int?) {
+    if (requested == null || requested == current) return
+    if (!caller.isAdmin()) throw ForbiddenException("Only admins may change a user's paid days-off allowance")
 }
 
 fun canReadFeedback(
@@ -374,5 +386,52 @@ suspend fun requireTeamKpiReadAllowingChain(
 fun requireTeamKpiWrite(caller: CallerPrincipal, kpi: TeamKpiResponse) {
     if (caller.userId != kpi.managerId) {
         throw ForbiddenException("Only the team's manager may modify this team KPI")
+    }
+}
+
+// ── Days off ────────────────────────────────────────────────────────────────────────────────
+// Existence disclosure: like goals, days-off routes read BEFORE guarding (missing → 404,
+// existing-but-forbidden → 403), so an id probe can learn a request exists — never its dates
+// or owner (ids are sequential; existence is no secret).
+
+/**
+ * Read guard for the single GET: the owner reads everything; the HR auditor reads everything
+ * (audit-logged); any manager in the owner's transitive management chain reads at every status;
+ * a teammate (someone sharing a non-deleted team with the owner) reads only while the request
+ * is REQUESTED or ACCEPTED — exactly what the team calendar shows (calendar parity: the record
+ * carries no free text, only dates/type/status), so a REJECTED or CANCELLED request stays
+ * private to the owner, their chain, and HR.
+ */
+suspend fun requireDaysOffRead(
+    caller: CallerPrincipal,
+    request: DaysOffResponse,
+    managesOwner: suspend () -> Boolean,
+    sharesTeam: suspend () -> Boolean,
+) {
+    if (caller.userId == request.userId) return // the owner — cheap rule first
+    // HR auditor: reads everything, audit-logged. Before the chain walk — no DB hit for HR.
+    if (grantHrRead(caller, "daysOff", request.id)) return
+    if (managesOwner()) return // DB hit only if needed
+    val teammateVisible =
+        request.status == DaysOffStatus.REQUESTED || request.status == DaysOffStatus.ACCEPTED
+    if (teammateVisible && sharesTeam()) return
+    throw ForbiddenException("Caller may not read this days-off request")
+}
+
+/**
+ * Accept/reject: a CURRENT direct manager of the owner only — never the owner, never a chain
+ * manager higher up, and nobody else (ADMIN included, mirroring [requireGoalWrite]); an admin
+ * who is themselves a direct manager qualifies via the membership check like anyone.
+ */
+suspend fun requireDaysOffResolve(caller: CallerPrincipal, isDirectManager: suspend () -> Boolean) {
+    if (!isDirectManager()) {
+        throw ForbiddenException("Only a direct manager of the requester may resolve a days-off request")
+    }
+}
+
+/** Cancel: the owner only (the mirror of [requireDaysOffResolve] — managers reject, owners cancel). */
+fun requireDaysOffOwner(caller: CallerPrincipal, request: DaysOffResponse) {
+    if (caller.userId != request.userId) {
+        throw ForbiddenException("Only the requester may cancel their days-off request")
     }
 }
