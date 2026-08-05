@@ -1,14 +1,12 @@
 import { Stack, Tabs, Title } from "@mantine/core";
 import { useTranslation } from "react-i18next";
-import { useSearchParams } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import DashboardHero from "../components/DashboardHero";
-import { useIsManager } from "../hooks/useIsManager";
 import ManagersTable from "./ManagersTable";
 import MyTeamsTable from "./MyTeamsTable";
-import ReviewsDashboard from "./ReviewsDashboard";
 import TeamMembersTable from "./TeamMembersTable";
 
-const TABS = ["managers", "peers", "subordinates", "myTeams", "reviews"] as const;
+const TABS = ["managers", "peers", "subordinates", "myTeams"] as const;
 type DashboardTab = (typeof TABS)[number];
 
 function isDashboardTab(value: string | null): value is DashboardTab {
@@ -18,15 +16,8 @@ function isDashboardTab(value: string | null): value is DashboardTab {
 export default function Dashboard() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
-  // The reviews tab is the manager's per-period completion view — meaningless for
-  // non-managers (their own reviews live under "My performance"), so it renders (and its
-  // ?tab=reviews deep link resolves) only for a caller who manages a team (the MyGoals gate).
-  const isManager = useIsManager();
   const requestedTab = searchParams.get("tab");
-  const activeTab: DashboardTab =
-    isDashboardTab(requestedTab) && (requestedTab !== "reviews" || isManager)
-      ? requestedTab
-      : "managers";
+  const activeTab: DashboardTab = isDashboardTab(requestedTab) ? requestedTab : "managers";
 
   function selectTab(value: string | null) {
     if (!isDashboardTab(value)) return;
@@ -35,6 +26,10 @@ export default function Dashboard() {
       return params;
     });
   }
+
+  // The reviews tab moved to /performance?tab=managed (v1.45.0) — keep old bookmarks and
+  // notification landings working instead of silently falling back to the managers tab.
+  if (requestedTab === "reviews") return <Navigate to="/performance?tab=managed" replace />;
 
   return (
     <Stack gap="md">
@@ -54,11 +49,6 @@ export default function Dashboard() {
           <Tabs.Tab value="myTeams" data-tour="dashboard-myTeams">
             {t("dashboard.tabs.myTeams")}
           </Tabs.Tab>
-          {isManager && (
-            <Tabs.Tab value="reviews" data-tour="dashboard-reviews">
-              {t("dashboard.tabs.reviews")}
-            </Tabs.Tab>
-          )}
         </Tabs.List>
 
         <Tabs.Panel value="managers" pt="md">
@@ -73,11 +63,6 @@ export default function Dashboard() {
         <Tabs.Panel value="myTeams" pt="md">
           <MyTeamsTable />
         </Tabs.Panel>
-        {isManager && (
-          <Tabs.Panel value="reviews" pt="md">
-            <ReviewsDashboard />
-          </Tabs.Panel>
-        )}
       </Tabs>
     </Stack>
   );

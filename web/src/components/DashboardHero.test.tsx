@@ -68,7 +68,7 @@ describe("DashboardHero", () => {
     const requestsTile = screen.getByText("Feedback requests for you").closest("a");
     expect(requestsTile).toHaveAttribute("href", "/feedback?tab=provided");
     const reviewsTile = screen.getByText("Reviews · current period").closest("a");
-    expect(reviewsTile).toHaveAttribute("href", "/?tab=reviews");
+    expect(reviewsTile).toHaveAttribute("href", "/performance?tab=managed");
   });
 
   test("a non-manager sees only the three universal tiles", async () => {

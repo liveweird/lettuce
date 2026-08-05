@@ -50,8 +50,6 @@ export const TOUR_STEPS: TourStepDef[] = [
   { target: '[data-tour="dashboard-peers"]', contentKey: "tour.steps.dashboardPeers", placement: "bottom", navTo: "/?tab=peers" },
   { target: '[data-tour="dashboard-subordinates"]', contentKey: "tour.steps.dashboardSubordinates", placement: "bottom", navTo: "/?tab=subordinates" },
   { target: '[data-tour="dashboard-myTeams"]', contentKey: "tour.steps.dashboardMyTeams", placement: "bottom", navTo: "/?tab=myTeams" },
-  // The reviews tab header only mounts for managers (the goals-managed gate rationale).
-  { target: '[data-tour="dashboard-reviews"]', contentKey: "tour.steps.dashboardReviews", placement: "bottom", navTo: "/?tab=reviews", managerOnly: true },
   { target: '[data-tour="nav-feedback"]', contentKey: "tour.steps.feedback", placement: "right", navTo: "/feedback?tab=received" },
   // The Feedback section's three subsections. "My team" is manager-only (matches the page).
   { target: '[data-tour="feedback-received"]', contentKey: "tour.steps.feedbackReceived", placement: "bottom", navTo: "/feedback?tab=received" },
@@ -75,8 +73,10 @@ export const TOUR_STEPS: TourStepDef[] = [
   { target: '[data-tour="nav-team-kpis"]', contentKey: "tour.steps.teamKpis", placement: "right", navTo: "/team-kpis" },
   { target: '[data-tour="team-kpis-own"]', contentKey: "tour.steps.teamKpisOwn", placement: "bottom", navTo: "/team-kpis?tab=own" },
   { target: '[data-tour="team-kpis-managed"]', contentKey: "tour.steps.teamKpisManaged", placement: "bottom", navTo: "/team-kpis?tab=managed", managerOnly: true },
-  // My performance — every user has the page (their published reviews), so no audience gate.
-  { target: '[data-tour="nav-my-performance"]', contentKey: "tour.steps.myPerformance", placement: "right", navTo: "/my-performance" },
+  // Performance — the Goals shape (v1.45.0): everyone has the own view, managers a second tab
+  // with the per-period completion dashboard (formerly the Dashboard's reviews tab).
+  { target: '[data-tour="nav-performance"]', contentKey: "tour.steps.performance", placement: "right", navTo: "/performance?tab=own" },
+  { target: '[data-tour="performance-managed"]', contentKey: "tour.steps.performanceManaged", placement: "bottom", navTo: "/performance?tab=managed", managerOnly: true },
   // Days off — every user has the calendar + own requests (v1.42.0), so no audience gate.
   { target: '[data-tour="nav-days-off"]', contentKey: "tour.steps.daysOff", placement: "right", navTo: "/days-off" },
   // The Config section + its three subsections (separate routes). The nav step navigates into the

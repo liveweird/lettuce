@@ -34,7 +34,7 @@ const DRAFT = {
   createdAt: 1, lastModified: 1,
 };
 
-function renderScreen(path = "/performance-reviews/5/edit?back=%2F%3Ftab%3Dreviews") {
+function renderScreen(path = "/performance-reviews/5/edit?back=%2Fperformance%3Ftab%3Dmanaged") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <MantineProvider env="test">
@@ -95,7 +95,7 @@ describe("EditPerformanceReview page", () => {
     fireEvent.click(await screen.findByRole("option", { name: "6 — Exceptional" }));
     await userEvent.click(screen.getByRole("button", { name: "Save draft" }));
 
-    await waitFor(() => expect(screen.getByTestId("probe").textContent).toBe("/?tab=reviews"));
+    await waitFor(() => expect(screen.getByTestId("probe").textContent).toBe("/performance?tab=managed"));
     const put = mockFetch.mock.calls.find((c) => c[1]?.method === "PUT");
     const body = JSON.parse(String(put![1]!.body));
     expect(body.overall).toEqual({ rating: 6, summary: null });
@@ -119,7 +119,7 @@ describe("EditPerformanceReview page", () => {
     await userEvent.type(screen.getAllByLabelText("Summary")[3], "Rounded, reliable half-year.");
     await userEvent.click(screen.getByRole("button", { name: "Save & submit" }));
 
-    await waitFor(() => expect(screen.getByTestId("probe").textContent).toBe("/?tab=reviews"));
+    await waitFor(() => expect(screen.getByTestId("probe").textContent).toBe("/performance?tab=managed"));
     expect(mockFetch.mock.calls.some((c) => c[1]?.method === "PUT")).toBe(true);
     const post = mockFetch.mock.calls.find((c) => c[1]?.method === "POST");
     expect(String(post![0])).toContain("/api/v1/performance-reviews/5/submit");

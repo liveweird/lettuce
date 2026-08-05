@@ -102,10 +102,10 @@ export default function ViewPerformanceReview() {
   const idIsValid = Number.isFinite(id) && id > 0;
   const currentUserId = getUserId();
 
-  // Bare visits (notification links) return to My performance; drill-downs' explicit back wins.
+  // Bare visits (notification links) return to the Performance page; drill-downs' explicit back wins.
   const from = searchParams.get("from") ?? undefined;
   const backOverride = searchParams.get("back");
-  const backTo = backOverride ?? "/my-performance";
+  const backTo = backOverride ?? "/performance";
 
   const [error, setError] = useState<string | null>(null);
   // The in-flight action's labelKey, so only its button spins.

@@ -104,12 +104,12 @@ describe("ViewPerformanceReview page", () => {
   test("the manager's CALIBRATION view offers Return to draft + Publish; publishing navigates back", async () => {
     localStorage.setItem(USER_ID_KEY, "7"); // the manager views
     setupMocks();
-    renderScreen("/performance-reviews/5/view?back=%2F%3Ftab%3Dreviews");
+    renderScreen("/performance-reviews/5/view?back=%2Fperformance%3Ftab%3Dmanaged");
 
     expect(await screen.findByRole("button", { name: "Return to draft" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Edit" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Publish" }));
-    await waitFor(() => expect(screen.getByTestId("probe").textContent).toBe("/?tab=reviews"));
+    await waitFor(() => expect(screen.getByTestId("probe").textContent).toBe("/performance?tab=managed"));
     const post = mockFetch.mock.calls.find((c) => c[1]?.method === "POST");
     expect(String(post![0])).toContain("/api/v1/performance-reviews/5/publish");
   });

@@ -82,7 +82,7 @@ describe("CreatePerformanceReview page", () => {
       Promise.resolve(jsonResponse(201, { id: 42, managerId: 7, subordinateId: 8 })),
     );
     renderPage(
-      "/performance-reviews/new?subordinateId=8&subordinateName=Sub+Ordinate&back=%2F%3Ftab%3Dreviews",
+      "/performance-reviews/new?subordinateId=8&subordinateName=Sub+Ordinate&back=%2Fperformance%3Ftab%3Dmanaged",
     );
 
     // The picker is skipped — the person renders as a fixed field; the period defaults to
@@ -96,7 +96,7 @@ describe("CreatePerformanceReview page", () => {
     await userEvent.click(screen.getByRole("button", { name: "Create" }));
     await waitFor(() =>
       expect(screen.getByTestId("probe").textContent).toBe(
-        "/performance-reviews/42/edit?back=%2F%3Ftab%3Dreviews",
+        "/performance-reviews/42/edit?back=%2Fperformance%3Ftab%3Dmanaged",
       ),
     );
     const createCall = mockFetch.mock.calls.find((c) => c[1]?.method === "POST");

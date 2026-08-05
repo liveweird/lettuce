@@ -153,7 +153,7 @@ export default function DashboardHero() {
         <StatTile
           label={t("dashboard.hero.reviewsDone")}
           value={`${data.currentPeriodReviewsDone ?? 0}/${data.directReports}`}
-          to="/?tab=reviews"
+          to="/performance?tab=managed"
           icon={<IconClipboardText size={20} />}
         />
       )}

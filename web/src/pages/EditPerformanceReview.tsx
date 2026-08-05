@@ -74,7 +74,7 @@ export default function EditPerformanceReview() {
 
   const from = searchParams.get("from") ?? undefined;
   const backOverride = searchParams.get("back");
-  const backTo = backOverride ?? "/my-performance";
+  const backTo = backOverride ?? "/performance";
 
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<"save" | "submit" | "delete" | null>(null);

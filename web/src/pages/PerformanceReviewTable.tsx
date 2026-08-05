@@ -77,7 +77,7 @@ const VIEW_CONFIG: Record<
 /**
  * The performance-reviews list — filters (person substring, period, status), sortable columns,
  * paging; rating columns carry the bare numbers (calculations run on numbers — the wording
- * lives on the detail screens). Exercised by MyPerformance (`own`, unpinned) and the
+ * lives on the detail screens). Exercised by the Performance page's own tab (unpinned) and the
  * /users/:id/performance-reviews drill-downs. The person column hides when its party is
  * pinned — the embedding page already names that person in its title.
  */
