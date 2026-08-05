@@ -1,6 +1,7 @@
-import { Anchor, Stack, Text, Title } from "@mantine/core";
+import { Anchor, Paper, Stack, Text, Title } from "@mantine/core";
 import { Link as RouterLink, Navigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import DaysOffCorrections from "../components/DaysOffCorrections";
 import { useDashboardDrillDown } from "../hooks/useDashboardDrillDown";
 import DaysOffTable from "./DaysOffTable";
 
@@ -30,6 +31,20 @@ export default function UserDaysOff() {
       </Stack>
 
       <DaysOffTable view="user" userId={userId} settingsKey="userDaysOff.audit" />
+
+      {/* The HR auditor's read-only view of the person's budget corrections (v1.43.0). */}
+      <Paper withBorder p="md" radius="md">
+        <Stack gap="xs">
+          <Text size="sm" fw={600}>
+            {t("daysOff.corrections.title")}
+          </Text>
+          <DaysOffCorrections
+            userId={userId}
+            defaultYear={new Date().getFullYear()}
+            canManage={false}
+          />
+        </Stack>
+      </Paper>
     </Stack>
   );
 }

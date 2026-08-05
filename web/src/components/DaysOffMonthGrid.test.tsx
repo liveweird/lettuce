@@ -45,11 +45,12 @@ describe("DaysOffMonthGrid", () => {
       screen.getByTitle("Alice Example — 2026-01-12: Unpaid, Requested (1 day)"),
     ).toBeInTheDocument();
 
-    // The legend names all four fills.
+    // The legend names all five fills — weekends and holidays are distinct kinds (v1.43.0).
     expect(screen.getByText("Paid day off")).toBeInTheDocument();
     expect(screen.getByText("Unpaid day off")).toBeInTheDocument();
     expect(screen.getByText("Requested (pending)")).toBeInTheDocument();
-    expect(screen.getByText("Weekend / public holiday")).toBeInTheDocument();
+    expect(screen.getByText("Weekend")).toBeInTheDocument();
+    expect(screen.getByText("Public holiday")).toBeInTheDocument();
   });
 
   test("the current user's row reads You", () => {

@@ -1,10 +1,11 @@
-import { Alert, Group, Select, Stack, Table, Text } from "@mantine/core";
-import { IconBeach } from "@tabler/icons-react";
+import { Alert, Button, Group, Modal, Select, Stack, Table, Text } from "@mantine/core";
+import { IconAdjustments, IconBeach } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getUserId, listDaysOffBudgets } from "../api/client";
 import { formatDays } from "../utils/daysOffCost";
+import DaysOffCorrections from "./DaysOffCorrections";
 import EmptyState from "./EmptyState";
 import PersonCell from "./PersonCell";
 import TableLoadingRow from "./TableLoadingRow";
@@ -18,6 +19,8 @@ export default function DaysOffBudgetsTable() {
   const currentUserId = getUserId();
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
+  // Whose corrections modal is open (the manager's edit surface — v1.43.0).
+  const [correctionsFor, setCorrectionsFor] = useState<{ userId: number; name: string } | null>(null);
   const { data, isLoading, isError } = useQuery({
     queryKey: ["daysOffBudgets", "managed", year],
     queryFn: () => listDaysOffBudgets("managed", year),
@@ -52,9 +55,11 @@ export default function DaysOffBudgetsTable() {
             <Table.Th>{t("daysOff.calendar.personColumn")}</Table.Th>
             <Table.Th>{t("daysOff.budget.allowance")}</Table.Th>
             <Table.Th>{t("daysOff.budget.carriedOver")}</Table.Th>
+            <Table.Th>{t("daysOff.budget.corrected")}</Table.Th>
             <Table.Th>{t("daysOff.budget.reserved")}</Table.Th>
             <Table.Th>{t("daysOff.budget.used")}</Table.Th>
             <Table.Th>{t("daysOff.budget.remaining")}</Table.Th>
+            <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -73,6 +78,7 @@ export default function DaysOffBudgetsTable() {
                 </Table.Td>
                 <Table.Td>{b.allowance != null ? days(b.allowance) : "—"}</Table.Td>
                 <Table.Td>{days(b.carriedOver)}</Table.Td>
+                <Table.Td>{b.corrected === 0 ? "—" : `${b.corrected > 0 ? "+" : ""}${days(b.corrected)}`}</Table.Td>
                 <Table.Td>{days(b.reserved)}</Table.Td>
                 <Table.Td>{days(b.used)}</Table.Td>
                 <Table.Td>
@@ -80,11 +86,22 @@ export default function DaysOffBudgetsTable() {
                     {days(b.remaining)}
                   </Text>
                 </Table.Td>
+                <Table.Td>
+                  <Button
+                    variant="subtle"
+                    size="xs"
+                    leftSection={<IconAdjustments size={14} />}
+                    onClick={() => setCorrectionsFor({ userId: b.userId, name: b.userName })}
+                    aria-label={t("daysOff.corrections.openAria", { name: b.userName })}
+                  >
+                    {t("daysOff.corrections.title")}
+                  </Button>
+                </Table.Td>
               </Table.Tr>
             ))
           ) : !isError ? (
             <Table.Tr>
-              <Table.Td colSpan={6}>
+              <Table.Td colSpan={8}>
                 <EmptyState
                   icon={<IconBeach size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                   label={t("daysOff.budget.noReports")}
@@ -94,6 +111,17 @@ export default function DaysOffBudgetsTable() {
           ) : null}
         </Table.Tbody>
       </Table>
+
+      <Modal
+        opened={correctionsFor != null}
+        onClose={() => setCorrectionsFor(null)}
+        title={t("daysOff.corrections.modalTitle", { name: correctionsFor?.name ?? "" })}
+        size="lg"
+      >
+        {correctionsFor && (
+          <DaysOffCorrections userId={correctionsFor.userId} defaultYear={year} canManage />
+        )}
+      </Modal>
     </Stack>
   );
 }

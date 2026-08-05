@@ -45,10 +45,16 @@
   padding: 3px 1px;
 }
 
-/* Weekend/holiday columns are dimmed — the fill bars ride over them so periods stay visually
-   continuous. */
-.offDay {
-  background: var(--mantine-color-default-hover);
+/* Weekend and holiday columns are clearly shaded (v1.43.0 — the old shared dimming was too
+   subtle): weekends a visible gray, public holidays a distinct warm tint (which wins when a
+   holiday falls on a weekend). The fill bars ride over them so periods stay visually
+   continuous. The -light variant vars stay readable in both color schemes. */
+.weekendDay {
+  background: var(--mantine-color-gray-light);
+}
+
+.holidayDay {
+  background: var(--mantine-color-orange-light);
 }
 
 .fill {

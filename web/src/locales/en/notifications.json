@@ -52,6 +52,8 @@
     "daysOffAccepted": "{{manager}} accepted your days-off request ({{startDate}} – {{endDate}}).",
     "daysOffRejected": "{{manager}} rejected your days-off request ({{startDate}} – {{endDate}}).",
     "daysOffCancelled": "{{requester}} cancelled their days-off request ({{startDate}} – {{endDate}}).",
+    "daysOffCorrected_ADD": "{{manager}} added {{days}} day(s) to your paid days-off budget for {{year}}.",
+    "daysOffCorrected_SUBTRACT": "{{manager}} subtracted {{days}} day(s) from your paid days-off budget for {{year}}.",
     "passwordChanged": "Your password was changed.",
     "passwordChanged_admin": "An administrator changed your password.",
     "passwordChanged_reset": "Your password was reset via email."

@@ -85,6 +85,7 @@ const EVENT_KEY: Record<NotificationItem["type"], string> = {
   DAYS_OFF_ACCEPTED_TO_OWNER: "daysOffAccepted",
   DAYS_OFF_REJECTED_TO_OWNER: "daysOffRejected",
   DAYS_OFF_CANCELLED_TO_MANAGER: "daysOffCancelled",
+  DAYS_OFF_CORRECTED_TO_OWNER: "daysOffCorrected",
   PASSWORD_CHANGED: "passwordChanged",
 };
 
@@ -128,6 +129,10 @@ function describeNotification(n: NotificationItem, t: TFunction, locale: string)
     }
     if (params.type != null) params.type = t(`daysOff.type.${params.type}`);
   }
+  // The correction kind words ADD/SUBTRACT via i18next context.
+  if (key === "daysOffCorrected") {
+    return t(`notifications.event.${key}`, { ...params, context: params.operation });
+  }
   // `self` drives the "about yourself" wording variant via i18next context.
   return t(`notifications.event.${key}`, { ...params, context: params.self });
 }
@@ -165,6 +170,7 @@ const TYPE_META: Record<NotificationItem["type"], { icon: typeof IconBell; color
   DAYS_OFF_ACCEPTED_TO_OWNER: { icon: IconBeach, color: "green" },
   DAYS_OFF_REJECTED_TO_OWNER: { icon: IconBeach, color: "red" },
   DAYS_OFF_CANCELLED_TO_MANAGER: { icon: IconBeach, color: "gray" },
+  DAYS_OFF_CORRECTED_TO_OWNER: { icon: IconBeach, color: "teal" },
   PASSWORD_CHANGED: { icon: IconKey, color: "orange" },
 };
 

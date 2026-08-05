@@ -1985,6 +1985,73 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/days-off/corrections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a user's paid-days budget corrections
+         * @description The active budget corrections of one user, newest year (then newest row) first —
+         *     **unpaged** (corrections are intrinsically few). Readable by the **subordinate
+         *     themselves**, the **HR auditor** (audit-logged), and any **manager in the
+         *     subordinate's transitive management chain** (which includes every current direct
+         *     manager). Teammates never qualify — they don't see each other's budgets at all —
+         *     and ADMIN gets nothing special.
+         */
+        get: operations["listDaysOffCorrections"];
+        put?: never;
+        /**
+         * Add a paid-days budget correction
+         * @description Adds a ± adjustment (whole or half days) to a subordinate's paid-days budget for a
+         *     chosen calendar year, with a mandatory reasoning comment. **No approval workflow** —
+         *     the correction takes effect immediately and enters the carry-over math attributed to
+         *     its year (an earlier year's correction flows forward automatically). Only a **current
+         *     direct manager** of the subordinate may create one; the author is recorded
+         *     (display-only — edit rights follow the current direct managers). A SUBTRACT may push
+         *     a year's balance negative (the deficit carries forward — the allowance-cut
+         *     precedent); only *request creation* is budget-gated. The subordinate is notified.
+         */
+        post: operations["createDaysOffCorrection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/days-off/corrections/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit a paid-days budget correction
+         * @description Replaces a correction's year, amount, and comment. The **target user is immutable**
+         *     (the payload's `userId` is ignored). Only a **current direct manager** of the
+         *     correction's subordinate may edit — regardless of who authored it. Edits notify
+         *     nobody (the budget numbers are live).
+         */
+        put: operations["updateDaysOffCorrection"];
+        post?: never;
+        /**
+         * Delete a paid-days budget correction
+         * @description Soft-deletes a correction (it drops out of the list and the budget math; the row is
+         *     retained). Only a **current direct manager** of the correction's subordinate may
+         *     delete. Notifies nobody.
+         */
+        delete: operations["deleteDaysOffCorrection"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/days-off/{id}": {
         parameters: {
             query?: never;
@@ -3964,6 +4031,11 @@ export interface components {
             carriedOver: number;
             /**
              * Format: double
+             * @description The year's net manager corrections in days (signed; 0 when none).
+             */
+            corrected: number;
+            /**
+             * Format: double
              * @description The year's REQUESTED (pending) paid days — reserved, not yet confirmed.
              */
             reserved: number;
@@ -3980,6 +4052,49 @@ export interface components {
         };
         DaysOffBudgetList: {
             items: components["schemas"]["DaysOffBudget"][];
+        };
+        DaysOffCorrectionWrite: {
+            /**
+             * Format: int64
+             * @description The subordinate whose budget is corrected. Create-only — immutable on PUT (ignored there).
+             */
+            userId: number;
+            year: number;
+            /** @enum {string} */
+            operation: "ADD" | "SUBTRACT";
+            /**
+             * Format: double
+             * @description Positive amount in days, 0.5 steps, at most 365.
+             */
+            days: number;
+            /** @description The mandatory reasoning — non-blank; stored encrypted at rest. */
+            comment: string;
+        };
+        DaysOffCorrection: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            userId: number;
+            /**
+             * Format: int64
+             * @description Who created the correction — display-only; edit rights follow the current direct managers.
+             */
+            authorId: number;
+            authorName: string;
+            authorDeleted: boolean;
+            year: number;
+            /** @enum {string} */
+            operation: "ADD" | "SUBTRACT";
+            /** Format: double */
+            days: number;
+            comment: string;
+            /** Format: int64 */
+            createdAt: number;
+            /** Format: int64 */
+            lastModified: number;
+        };
+        DaysOffCorrectionList: {
+            items: components["schemas"]["DaysOffCorrection"][];
         };
         PublicHoliday: {
             /** Format: int64 */
@@ -4013,7 +4128,7 @@ export interface components {
              * @description Notification kind; the client renders it in the viewer's language.
              * @enum {string}
              */
-            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_REQUESTED_TO_MANAGER" | "DAYS_OFF_ACCEPTED_TO_OWNER" | "DAYS_OFF_REJECTED_TO_OWNER" | "DAYS_OFF_CANCELLED_TO_MANAGER" | "PASSWORD_CHANGED";
+            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_REQUESTED_TO_MANAGER" | "DAYS_OFF_ACCEPTED_TO_OWNER" | "DAYS_OFF_REJECTED_TO_OWNER" | "DAYS_OFF_CANCELLED_TO_MANAGER" | "DAYS_OFF_CORRECTED_TO_OWNER" | "PASSWORD_CHANGED";
             /**
              * @description Interpolation values for the localized message — party names (proper nouns), e.g.
              *     `{provider,subject,requester}`; plus `self` — the SPA's i18next context carrier:
@@ -4031,6 +4146,8 @@ export interface components {
              *     name (`requester` toward managers, `manager` toward the owner) plus raw ISO
              *     `{startDate,endDate}`; DAYS_OFF_REQUESTED_TO_MANAGER additionally `{type,days}`
              *     (the enum name and a "1.5"-style days string) — the client formats all of them.
+             *     DAYS_OFF_CORRECTED_TO_OWNER carries `{manager,year,operation,days}` — the client
+             *     words ADD/SUBTRACT from `operation`.
              */
             params: {
                 [key: string]: string;
@@ -7368,6 +7485,135 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listDaysOffCorrections: {
+        parameters: {
+            query: {
+                /** @description Whose corrections to list (`400` when missing). */
+                userId: number;
+                /** @description Optional exact budget-year filter. */
+                year?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The corrections, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DaysOffCorrectionList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not the user, a manager in their chain, or HR */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    createDaysOffCorrection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DaysOffCorrectionWrite"];
+            };
+        };
+        responses: {
+            /** @description Created — the correction with its resolved author */
+            201: {
+                headers: {
+                    /** @description URL of the new correction resource */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DaysOffCorrection"];
+                };
+            };
+            /** @description Validation error (year out of range, days not a positive 0.5-step, blank or oversized comment) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["DaysOffNotDirectManager"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    updateDaysOffCorrection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DaysOffCorrectionWrite"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["DaysOffNotDirectManager"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    deleteDaysOffCorrection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["DaysOffNotDirectManager"];
+            404: components["responses"]["NotFound"];
             500: components["responses"]["InternalServerError"];
         };
     };

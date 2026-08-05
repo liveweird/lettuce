@@ -274,8 +274,22 @@ describe("NotificationsButton", () => {
         link: "/days-off?tab=team",
         params: { requester: "Riley Report", startDate: "2026-08-10", endDate: "2026-08-11" },
       },
+      {
+        ...base,
+        id: 55,
+        type: "DAYS_OFF_CORRECTED_TO_OWNER",
+        link: "/days-off?tab=requests",
+        params: { manager: "Mona Manager", year: "2026", operation: "ADD", days: "4.5" },
+      },
+      {
+        ...base,
+        id: 56,
+        type: "DAYS_OFF_CORRECTED_TO_OWNER",
+        link: "/days-off?tab=requests",
+        params: { manager: "Mona Manager", year: "2027", operation: "SUBTRACT", days: "1" },
+      },
     ];
-    setupMocks(mockFetch, rows, 4);
+    setupMocks(mockFetch, rows, 6);
     renderWithProviders(<Harness />);
     await userEvent.setup().click(await screen.findByRole("button", { name: /notifications/i }));
 
@@ -292,6 +306,13 @@ describe("NotificationsButton", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText("Riley Report cancelled their days-off request (Aug 10, 2026 – Aug 11, 2026)."),
+    ).toBeInTheDocument();
+    // The correction kind words ADD/SUBTRACT via i18next context (v1.43.0).
+    expect(
+      screen.getByText("Mona Manager added 4.5 day(s) to your paid days-off budget for 2026."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Mona Manager subtracted 1 day(s) from your paid days-off budget for 2027."),
     ).toBeInTheDocument();
   });
 
