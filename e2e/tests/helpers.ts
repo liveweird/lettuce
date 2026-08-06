@@ -58,14 +58,21 @@ export async function login(page: Page, email: string, password = PASSWORD): Pro
 }
 
 /**
- * Assert that credentials are rejected as invalid (not merely rate-limited): on the 429 alert,
- * wait out the per-IP login bucket and resubmit until the server actually evaluates them.
+ * Assert that a login attempt is rejected (not merely rate-limited): on the 429 alert,
+ * wait out the per-IP login bucket and resubmit until the server actually evaluates it.
+ * By default expects the invalid-credentials message; pass [expected] for a different
+ * rejection (e.g. the deactivated-account 403 message).
  */
-export async function expectLoginRejected(page: Page, email: string, password: string): Promise<void> {
+export async function expectLoginRejected(
+  page: Page,
+  email: string,
+  password: string,
+  expected: RegExp = /invalid email or password/i,
+): Promise<void> {
   await page.goto("/login");
   await page.getByRole("textbox", { name: "Email" }).fill(email);
   await page.getByRole("textbox", { name: "Password" }).fill(password);
-  const invalid = page.getByText(/invalid email or password/i);
+  const invalid = page.getByText(expected);
   const limited = page.getByText(RATE_LIMIT_ALERT);
   for (let attempt = 0; attempt < RATE_LIMIT_RETRIES; attempt++) {
     await page.getByRole("button", { name: "Sign in" }).click();

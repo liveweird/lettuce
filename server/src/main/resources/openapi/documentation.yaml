@@ -96,6 +96,10 @@ paths:
         attempts for that account — even with the correct password — are rejected with `429`
         for a lockout window (default 15 min, `LOGIN_LOCKOUT_DURATION_SECONDS`). A successful
         login resets the counter.
+
+        A **deactivated** account with correct credentials is rejected with `403` — the check
+        runs only after the password verifies, so wrong credentials always get the uniform
+        `401` and the endpoint discloses nothing about accounts the caller cannot unlock.
       security: []
       requestBody:
         required: true
@@ -112,6 +116,11 @@ paths:
                 $ref: '#/components/schemas/LoginResponse'
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Credentials are correct but the account is deactivated
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/InternalServerError' }
 
@@ -127,8 +136,10 @@ paths:
         working, and all outstanding refresh tokens are invalidated), and the password is sent
         to the account's email address. Throttled per submitted email — one request per interval
         (default 60 s, `PASSWORD_RESET_MIN_INTERVAL_SECONDS`) — uniformly for existing and
-        unknown addresses, and rate-limited per client IP. Answers `503` on deployments without
-        outbound email (`MAIL_TRANSPORT=disabled`).
+        unknown addresses, and rate-limited per client IP. A deactivated account is treated
+        like an unknown address (no password is minted, no email sent; the `202` stays
+        uniform). Answers `503` on deployments without outbound email
+        (`MAIL_TRANSPORT=disabled`).
       security: []
       requestBody:
         required: true
@@ -159,8 +170,9 @@ paths:
         returns a brand-new access token and refresh token (each with a full TTL). The presented
         refresh token is left valid until its own expiry — it is not rotated out. Requires no
         `Authorization` header (the access token may already be expired). Returns `401` for a
-        missing/invalid/expired/revoked refresh token, if the user no longer exists, or if the
-        token was minted before the user's most recent password change.
+        missing/invalid/expired/revoked refresh token, if the user no longer exists or the
+        account is deactivated, or if the token was minted before the user's most recent
+        password change.
       security: []
       requestBody:
         required: true
@@ -215,6 +227,8 @@ paths:
           - `email` — case- and accent-insensitive substring match against `email`.
           - `role` — has-role match: only users holding this additional role (`ADMIN`/`HR`).
           - `teamId` — restrict to users who are members of the given team.
+          - `deactivated` — strict boolean: only deactivated (`true`) or only active (`false`)
+            accounts.
 
         Malformed query parameters (unknown sort field, unknown role, out-of-range page/pageSize)
         respond with `400` and a `ProblemDetail` body.
@@ -244,6 +258,12 @@ paths:
           required: false
           schema: { type: integer, format: int64, minimum: 0 }
           description: Filter to users who are members of the given team.
+        - name: deactivated
+          in: query
+          required: false
+          schema: { type: boolean }
+          description: >-
+            Strict boolean — only deactivated (true) or only active (false) accounts.
       responses:
         '200':
           description: A page of users
@@ -455,6 +475,68 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalServerError' }
 
+  /api/v1/users/{id}/deactivate:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [users]
+      operationId: deactivateUser
+      summary: Deactivate a user account (ADMIN only)
+      description: |
+        Reversibly disables the account (any current state other than active is `409`).
+        **ADMIN-only**, and never one's own account (`403`). A deactivated user cannot sign
+        in (`403` at login once the password verifies), existing sessions end at the next
+        refresh, self-service password reset is silently skipped, and the user cannot be
+        NEWLY assigned anywhere (team member/manager, goal/1:1/review subordinate, feedback
+        party — `400` at those create endpoints). Everything else is untouched: their
+        historical data stays visible under unchanged rights, they keep their email reserved,
+        and `POST /users/{id}/activate` restores access. Audited as `user.deactivated`.
+      responses:
+        '204': { description: Deactivated }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is not ADMIN, or tried to deactivate their own account
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: The account is already deactivated
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/users/{id}/activate:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [users]
+      operationId: activateUser
+      summary: Reactivate a deactivated user account (ADMIN only)
+      description: |
+        Reverses `POST /users/{id}/deactivate` (an account that is not deactivated is `409`).
+        **ADMIN-only.** The user can sign in again with their existing password; nothing else
+        changes — their data, roles, and email were never touched. Audited as
+        `user.reactivated`.
+      responses:
+        '204': { description: Reactivated }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is not ADMIN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: The account is not deactivated
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
   /api/v1/teams:
     get:
       tags: [teams]
@@ -511,7 +593,8 @@ paths:
       description: |
         Any authenticated user may create a team, but the `managerId` in
         the request body must equal the caller's own user id (ADMIN may
-        designate any user).
+        designate any user). Referencing a **deactivated** user as manager
+        or member is rejected with `400`.
       requestBody:
         required: true
         content:
@@ -681,7 +764,10 @@ paths:
       description: >-
         Requires the caller to be the team's current manager, or to be ADMIN. Reassigning the
         manager (changing `managerId` to a different user) is ADMIN-only — a current manager may
-        edit their team but not hand it off (403 otherwise).
+        edit their team but not hand it off (403 otherwise). NEWLY adding a **deactivated**
+        member or changing the manager to a deactivated user is rejected with `400`;
+        resubmitting an unchanged existing reference is not validated, so a team containing a
+        since-deactivated user stays editable.
       requestBody:
         required: true
         content:
@@ -730,7 +816,10 @@ paths:
       tags: [teams]
       operationId: addTeamMember
       summary: Add a member to the team (idempotent)
-      description: Requires the caller to be the team's current manager, or to be ADMIN.
+      description: >-
+        Requires the caller to be the team's current manager, or to be ADMIN. NEWLY adding a
+        **deactivated** user is rejected with `400`; re-adding an already-present member (even
+        a since-deactivated one) stays the idempotent no-op.
       responses:
         '204': { description: Member added (or already present) }
         '400':
@@ -926,6 +1015,8 @@ paths:
         — a null requester matches only null — is still in progress (active `DRAFT` or
         `REQUESTED`); the `ProblemDetail.instance` carries `/api/v1/feedbacks/{id}` of the
         existing record. Clients should pre-check via `GET /api/v1/feedbacks/duplicate-check`.
+        Creation involving a **deactivated** party (provider, requester, or subject) is
+        rejected with `400`.
       requestBody:
         required: true
         content:
@@ -1343,6 +1434,7 @@ paths:
         Creates a 1:1 meeting document. The **manager is always the author**: the caller becomes
         the meeting's manager (never taken from the body), and the subordinate must be one of the
         caller's **direct reports** at creation time — there is no ADMIN create-on-behalf.
+        A **deactivated** subordinate is rejected with `400`.
 
         **Chronological order**: `meetingDate` may not be strictly earlier than the pair's
         latest existing meeting (`409`) — 1:1s are documented continuously, in order. The same
@@ -1695,7 +1787,7 @@ paths:
         Creates a goal, always in **DRAFT** status. The **manager is always the author**: the
         caller becomes the goal's manager (never taken from the body), and the subordinate must
         be one of the caller's **direct reports** at creation time — there is no ADMIN
-        create-on-behalf.
+        create-on-behalf. A **deactivated** subordinate is rejected with `400`.
 
         The value fields are type-specific: `targetValue` is **required** for NUMBER and
         PERCENTAGE goals (0–100 for PERCENTAGE) and **must be absent** for BINARY goals. The
@@ -2717,7 +2809,7 @@ paths:
         author**: the caller becomes the review's manager (never taken from the body), and the
         subordinate must be one of the caller's **direct reports** at creation time — there is
         no ADMIN create-on-behalf. The stored manager stays the author even if the subordinate
-        later moves teams (the goals model).
+        later moves teams (the goals model). A **deactivated** subordinate is rejected with `400`.
 
         The four category assessments (attitude, delivery, skills, overall) may be **partial**
         — a DRAFT is the manager's scratch space; each set rating must be on the 1–6 scale and
@@ -4382,7 +4474,7 @@ components:
 
     UserCreateResponse:
       type: object
-      required: [id, name, email, roles, careerPath, careerSpecialization, seniorityLevel, paidDaysOffAllowance]
+      required: [id, name, email, roles, careerPath, careerSpecialization, seniorityLevel, paidDaysOffAllowance, deactivated]
       properties:
         id: { type: integer, format: int64 }
         name: { type: string }
@@ -4408,6 +4500,9 @@ components:
           type: integer
           nullable: true
           description: Annual paid days-off allowance in whole days; null = not configured.
+        deactivated:
+          type: boolean
+          description: Always false at creation — kept so both user-response shapes stay aligned.
 
     UserUpdateRequest:
       type: object
@@ -4470,7 +4565,7 @@ components:
 
     UserResponse:
       type: object
-      required: [id, name, email, roles, careerPath, careerSpecialization, seniorityLevel, paidDaysOffAllowance]
+      required: [id, name, email, roles, careerPath, careerSpecialization, seniorityLevel, paidDaysOffAllowance, deactivated]
       properties:
         id: { type: integer, format: int64, minimum: 0 }
         name: { type: string }
@@ -4501,6 +4596,14 @@ components:
             Annual paid days-off allowance in whole days; null = not configured = zero paid
             budget. ADMIN-only assignable; rides the user representation like the career
             fields (managers consume the derived budget numbers via GET /days-off/budgets).
+        deactivated:
+          type: boolean
+          description: |
+            True when an admin has reversibly deactivated the account: the user cannot sign in
+            and cannot be NEWLY assigned (team member/manager, goal/1:1/review subordinate,
+            feedback party), but all their existing data keeps rendering unchanged and their
+            email stays reserved. Flipped only via POST /users/{id}/deactivate|activate —
+            never via PUT.
 
     UserPage:
       type: object

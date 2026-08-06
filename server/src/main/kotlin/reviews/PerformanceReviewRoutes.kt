@@ -15,6 +15,7 @@ import ch.nokillswit.infra.paging.optionalUInt
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.notifications.NotificationServiceKey
+import ch.nokillswit.users.UserServiceKey
 import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -70,6 +71,7 @@ fun Application.configurePerformanceReviewRoutes() {
     val reviewService = attributes[PerformanceReviewServiceKey]
     val reviewEventService = attributes[PerformanceReviewEventServiceKey]
     val notificationService = attributes[NotificationServiceKey]
+    val userService = attributes[UserServiceKey]
 
     // Shared handler for the lifecycle-transition action endpoints: manager-only, 404 when
     // missing, 409 (via ConflictException in the service) when the review is not at the edge's
@@ -173,6 +175,8 @@ fun Application.configurePerformanceReviewRoutes() {
                 if (!reviewService.isDirectReport(caller.userId, request.subordinateId)) {
                     throw ForbiddenException("You may only review your direct reports")
                 }
+                // After the authz guard (403 wins over 400): no NEW reviews for deactivated users.
+                userService.requireNoDeactivatedUsers(listOf(request.subordinateId))
                 val id = requireValidReferences("Referenced user or period does not exist") {
                     reviewService.create(caller.userId, request)
                 }

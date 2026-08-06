@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import {
@@ -20,18 +21,23 @@ import {
   IconPlus,
   IconTrash,
   IconUpload,
+  IconUserCheck,
+  IconUserOff,
   IconUsersGroup,
 } from "@tabler/icons-react";
 import PersonaChip from "../components/PersonaChip";
 import {
+  deactivateUser,
   deleteUser,
   getUserId,
   isAdmin,
   listUsers,
   logout,
+  reactivateUser,
   USER_ROLES,
   type UserRole,
 } from "../api/client";
+import { saveErrorMessage } from "../utils/saveError";
 import { showSuccessToast } from "../utils/toast";
 import FeedbackActionsMenu from "../components/FeedbackActionsMenu";
 import { feedbackAskLink, feedbackProvideLink, userFeedbacksLink } from "../utils/feedbackLinks";
@@ -40,6 +46,7 @@ import { flagSignedOut, notifyAuthChange } from "../auth";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
 import TableLoadingRow from "../components/TableLoadingRow";
+import ConfirmActionModal from "../components/ConfirmActionModal";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
@@ -68,8 +75,17 @@ export default function Users() {
     null,
     isOneOfOrNull([...USER_ROLES]),
   );
+  // "true" = inactive only, "false" = active only, null = any (the Alerts isActive idiom).
+  const [statusFilter, setStatusFilter] = useStoredState<"true" | "false" | null>(
+    `${SETTINGS_KEY}.filter.deactivated`,
+    null,
+    isOneOfOrNull(["true", "false"]),
+  );
   const activeFilterCount =
-    (nameFilter.trim() ? 1 : 0) + (emailFilter.trim() ? 1 : 0) + (roleFilter ? 1 : 0);
+    (nameFilter.trim() ? 1 : 0) +
+    (emailFilter.trim() ? 1 : 0) +
+    (roleFilter ? 1 : 0) +
+    (statusFilter ? 1 : 0);
 
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -80,13 +96,13 @@ export default function Users() {
   const [debouncedEmail] = useDebouncedValue(emailFilter, 300);
 
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
-    usePagedSort<SortField>("name", [debouncedName, debouncedEmail, roleFilter], {
+    usePagedSort<SortField>("name", [debouncedName, debouncedEmail, roleFilter, statusFilter], {
       key: SETTINGS_KEY,
       sortFields: SORT_FIELDS,
     });
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["users", page, pageSize, sortParam, debouncedName, debouncedEmail, roleFilter],
+    queryKey: ["users", page, pageSize, sortParam, debouncedName, debouncedEmail, roleFilter, statusFilter],
     queryFn: () =>
       listUsers({
         page,
@@ -95,6 +111,7 @@ export default function Users() {
         name: debouncedName || undefined,
         email: debouncedEmail || undefined,
         role: roleFilter ?? undefined,
+        deactivated: statusFilter == null ? undefined : statusFilter === "true",
       }),
     placeholderData: keepPreviousData,
   });
@@ -117,8 +134,36 @@ export default function Users() {
     },
   });
 
+  // Deactivate asks for confirmation (it kicks the user out at the next refresh); reactivate
+  // is the harmless direction and fires straight away. Errors render inline (the house rule).
+  const [deactivateTarget, setDeactivateTarget] = useState<UserRow | null>(null);
+  const [transitionPending, setTransitionPending] = useState(false);
+  const [transitionError, setTransitionError] = useState<string | null>(null);
+
+  async function runAccountTransition(action: () => Promise<void>, successKey: string) {
+    setTransitionPending(true);
+    setTransitionError(null);
+    try {
+      await action();
+      await queryClient.invalidateQueries({ queryKey: ["users"] });
+      showSuccessToast(t(successKey));
+      setDeactivateTarget(null);
+    } catch (err) {
+      setTransitionError(
+        saveErrorMessage(err, t, {
+          forbidden: "users.transitionForbidden",
+          failedStatus: "users.transitionFailedStatus",
+          failed: "users.transitionFailed",
+        }),
+      );
+      setDeactivateTarget(null);
+    } finally {
+      setTransitionPending(false);
+    }
+  }
+
   const total = data?.total ?? 0;
-  const columnCount = 9;
+  const columnCount = 10;
 
   return (
     <Stack gap="md">
@@ -145,11 +190,28 @@ export default function Users() {
           onChange={(v) => setRoleFilter((v as UserRole | null) ?? null)}
           clearable
         />
+        <Select
+          label={t("users.statusFilterLabel")}
+          placeholder={t("common.state.any")}
+          data={[
+            { value: "false", label: t("users.statusActive") },
+            { value: "true", label: t("users.statusInactive") },
+          ]}
+          value={statusFilter}
+          onChange={(v) => setStatusFilter((v as "true" | "false" | null) ?? null)}
+          clearable
+        />
       </FilterPanel>
 
       {isError && (
         <Alert color="red" variant="light" title={t("users.loadUsersFailed")}>
           {error instanceof Error ? error.message : t("users.unknownError")}
+        </Alert>
+      )}
+
+      {transitionError && (
+        <Alert color="red" variant="light">
+          {transitionError}
         </Alert>
       )}
 
@@ -181,6 +243,7 @@ export default function Users() {
             <Table.Th aria-label={t("users.feedbackActions")} style={{ width: 1 }} />
             <Table.Th aria-label={t("common.action.edit")} style={{ width: 1 }} />
             <Table.Th aria-label={t("users.changePassword")} style={{ width: 1 }} />
+            <Table.Th aria-label={t("users.statusFilterLabel")} style={{ width: 1 }} />
             <Table.Th aria-label={t("common.action.delete")} style={{ width: 1 }} />
           </Table.Tr>
         </Table.Thead>
@@ -191,7 +254,17 @@ export default function Users() {
             data.items.map((u) => (
               <Table.Tr key={u.id}>
                 <Table.Td style={{ maxWidth: 240 }}>
-                  <PersonaChip name={u.name} />
+                  <Group gap={6} wrap="nowrap">
+                    <PersonaChip name={u.name} />
+                    {/* The ONLY place the account state surfaces — everywhere else a
+                        deactivated user renders exactly like an active one. Gray on purpose:
+                        neither the brand accent nor a semantic state color. */}
+                    {u.deactivated && (
+                      <Badge variant="light" color="gray" style={{ minWidth: "max-content" }}>
+                        {t("users.inactiveBadge")}
+                      </Badge>
+                    )}
+                  </Group>
                 </Table.Td>
                 <Table.Td style={{ maxWidth: 280 }}>
                   <Text size="sm" truncate>
@@ -288,6 +361,35 @@ export default function Users() {
                   )}
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  {admin &&
+                    u.id !== currentUserId &&
+                    (u.deactivated ? (
+                      <Button
+                        variant="subtle"
+                        size="xs"
+                        leftSection={<IconUserCheck size={14} />}
+                        onClick={() =>
+                          runAccountTransition(() => reactivateUser(u.id), "users.toast.reactivated")
+                        }
+                        loading={transitionPending}
+                        aria-label={t("users.reactivateAria", { name: u.name })}
+                      >
+                        {t("users.reactivate")}
+                      </Button>
+                    ) : (
+                      <Button
+                        color="red"
+                        variant="subtle"
+                        size="xs"
+                        leftSection={<IconUserOff size={14} />}
+                        onClick={() => setDeactivateTarget({ id: u.id, name: u.name, email: u.email })}
+                        aria-label={t("users.deactivateAria", { name: u.name })}
+                      >
+                        {t("users.deactivate")}
+                      </Button>
+                    ))}
+                </Table.Td>
+                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                   {admin && (
                     <Button
                       color="red"
@@ -346,6 +448,22 @@ export default function Users() {
           </Button>
         </Group>
       )}
+
+      <ConfirmActionModal
+        opened={deactivateTarget != null}
+        onClose={() => setDeactivateTarget(null)}
+        title={t("users.deactivateTitle")}
+        message={
+          deactivateTarget && t("users.deactivateConfirm", { name: deactivateTarget.name })
+        }
+        cancelLabel={t("common.action.cancel")}
+        confirmLabel={t("users.deactivate")}
+        onConfirm={() =>
+          deactivateTarget &&
+          runAccountTransition(() => deactivateUser(deactivateTarget.id), "users.toast.deactivated")
+        }
+        loading={transitionPending}
+      />
 
       <ConfirmDeleteModal
         confirm={deleteConfirm}

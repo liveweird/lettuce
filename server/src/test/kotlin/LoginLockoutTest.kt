@@ -79,4 +79,38 @@ class LoginLockoutTest {
         repeat(3) { assertEquals(HttpStatusCode.Unauthorized, attemptLogin(ghost, "whatever")) }
         assertEquals(HttpStatusCode.TooManyRequests, attemptLogin(ghost, "whatever"))
     }
+
+    @Test
+    fun `a correct-password attempt on a deactivated account does not move the lockout counter`() = testApplication {
+        configureLockoutApp()
+        startApplication()
+        val email = uniqueEmail("deact-counter")
+        val userId = TestUsers.seed(email = email, password = "pw-123456789")
+
+        // Two failures (threshold is 3), then the deactivated-403 path — deliberately neither
+        // recordFailure (correct credentials must not feed the lockout) nor recordSuccess.
+        // Don't "fix" this: counting the 403 as a failure would let an attacker with the right
+        // password lock the account's eventual reactivation window.
+        repeat(2) { assertEquals(HttpStatusCode.Unauthorized, attemptLogin(email, "wrong")) }
+        TestServices.users.setDeactivated(userId, true)
+        assertEquals(HttpStatusCode.Forbidden, attemptLogin(email, "pw-123456789"))
+
+        // If the 403 had counted as the 3rd failure, the account would now be locked (429);
+        // after reactivation the correct password must go straight through.
+        TestServices.users.setDeactivated(userId, false)
+        assertEquals(HttpStatusCode.OK, attemptLogin(email, "pw-123456789"))
+    }
+
+    @Test
+    fun `a locked deactivated account answers 429 before 403`() = testApplication {
+        configureLockoutApp()
+        startApplication()
+        val email = uniqueEmail("deact-locked")
+        val userId = TestUsers.seed(email = email, password = "pw-123456789")
+
+        repeat(3) { assertEquals(HttpStatusCode.Unauthorized, attemptLogin(email, "wrong")) }
+        TestServices.users.setDeactivated(userId, true)
+        // The lockout check runs first — a locked account reveals nothing new about its state.
+        assertEquals(HttpStatusCode.TooManyRequests, attemptLogin(email, "pw-123456789"))
+    }
 }

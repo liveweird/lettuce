@@ -125,6 +125,49 @@ test("admin resets a password; the user then changes their own (current password
   await login(page, user.email, selfPassword);
 });
 
+test("admin deactivates a user; the account cannot sign in until reactivated", async ({ page }) => {
+  await login(page, ADMIN);
+  const user = await createUserViaUi(page, "E2E-Deact");
+
+  // Deactivate via the row action (confirm modal), waiting for the POST to land.
+  await page.goto("/users");
+  await openFilters(page);
+  await page.getByLabel("Email", { exact: true }).fill(user.email);
+  await page.getByRole("button", { name: `Deactivate ${user.name}` }).click();
+  await Promise.all([
+    page.waitForResponse(
+      (r) => r.url().includes(`/api/v1/users/${user.id}/deactivate`) && r.request().method() === "POST" && r.ok(),
+    ),
+    page.getByRole("dialog").getByRole("button", { name: "Deactivate", exact: true }).click(),
+  ]);
+  // Fresh load (the delete test's refetch-race lesson): the row shows the Inactive badge.
+  // Scoped to #main-content — the Status filter Select keeps a hidden "Inactive" OPTION node
+  // in the DOM outside it even while closed (the documented Mantine strict-mode gotcha).
+  await page.goto("/users");
+  await openFilters(page);
+  await page.getByLabel("Email", { exact: true }).fill(user.email);
+  await expect(page.locator("#main-content").getByText("Inactive", { exact: true })).toBeVisible();
+  await logout(page);
+
+  // Correct credentials now get the DISTINCT deactivated message, not invalid-credentials.
+  await expectLoginRejected(page, user.email, user.password, /this account has been deactivated/i);
+
+  // Reactivate and prove the same credentials work again.
+  await login(page, ADMIN);
+  await page.goto("/users");
+  await openFilters(page);
+  await page.getByLabel("Email", { exact: true }).fill(user.email);
+  await Promise.all([
+    page.waitForResponse(
+      (r) => r.url().includes(`/api/v1/users/${user.id}/activate`) && r.request().method() === "POST" && r.ok(),
+    ),
+    page.getByRole("button", { name: `Reactivate ${user.name}` }).click(),
+  ]);
+  await logout(page);
+  await login(page, user.email, user.password);
+  await logout(page);
+});
+
 test("admin deletes a user; the deleted account can no longer sign in", async ({ page }) => {
   await login(page, ADMIN);
   const user = await createUserViaUi(page, "E2E-Delete");

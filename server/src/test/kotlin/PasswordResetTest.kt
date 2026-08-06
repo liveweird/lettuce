@@ -105,6 +105,35 @@ class PasswordResetTest {
     }
 
     @Test
+    fun `deactivated account answers 202 identically, sends nothing, and keeps the old password`() = testApplication {
+        usePostgresTestcontainer()
+        val email = uniqueEmail("reset-deactivated")
+        val userId = TestUsers.seed(email = email, password = "pw-123456789")
+        TestServices.users.setDeactivated(userId, true)
+        val hashBefore = TestServices.users.read(userId)!!.passwordHash
+        val mail = LogCapture("ch.nokillswit.mail")
+        val auditEvents = LogCapture("ch.nokillswit.audit")
+        try {
+            val response = jsonClient().post("/api/v1/password-reset") {
+                contentType(ContentType.Application.Json)
+                setBody(PasswordResetRequest(email))
+            }
+            // Uniform 202 — deactivation is as unobservable here as nonexistence.
+            assertEquals(HttpStatusCode.Accepted, response.status)
+            val audited = auditEvents.awaitEvent {
+                it.message == "password_reset.deactivated" && it.hasKeyValue("email", email)
+            }
+            assertNotNull(audited, "the deactivated branch should be audited")
+            assertNull(mail.events.firstOrNull { "To: $email" in it.formattedMessage })
+            // No password was minted — reactivation would restore the original credentials.
+            assertEquals(hashBefore, TestServices.users.read(userId)!!.passwordHash)
+        } finally {
+            mail.detach()
+            auditEvents.detach()
+        }
+    }
+
+    @Test
     fun `a second request within the interval is 429, uniformly for unknown emails too`() = testApplication {
         usePostgresTestcontainer()
         val client = jsonClient()

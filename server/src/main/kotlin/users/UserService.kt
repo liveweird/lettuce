@@ -33,6 +33,8 @@ data class UserListFilter(
     /** Has-role filter: only users holding this additional role. */
     val role: UserRole? = null,
     val teamId: UInt? = null,
+    /** Strict-boolean status filter: only deactivated (true) or only active (false) accounts. */
+    val deactivated: Boolean? = null,
 )
 
 data class UserListResult(
@@ -55,6 +57,9 @@ class UserService(val database: R2dbcDatabase) {
         val email = varchar("email", length = 254)
         val passwordHash = varchar("password_hash", length = 255)
         val markedAsDeleted = bool("marked_as_deleted").default(false)
+        // Reversible admin disable (V44) — orthogonal to the soft-delete: blocks login/refresh
+        // and NEW assignments, but the user stays fully readable and keeps their email reserved.
+        val deactivated = bool("deactivated").default(false)
         val passwordChangedAt = long("password_changed_at").default(0)
 
         // Career profile refs into dictionary_entries (V33). Plain nullable id columns —
@@ -168,6 +173,45 @@ class UserService(val database: R2dbcDatabase) {
         }
     }
 
+    /**
+     * Flip the reversible deactivation flag. Returns the affected-row count — 0 = missing or
+     * soft-deleted (the route 404s); the route pre-reads to turn a same-state repeat into 409.
+     */
+    suspend fun setDeactivated(id: UInt, deactivated: Boolean): Int = suspendTransaction(database) {
+        Users.update({ (Users.id eq id) and active() }) {
+            it[Users.deactivated] = deactivated
+        }
+    }
+
+    /**
+     * Which of [ids] are deactivated (active, non-soft-deleted) users — one SELECT, backing the
+     * creation-time assignment blocks. Soft-deleted or unknown ids fall through to the existing
+     * FK/reference validation.
+     */
+    suspend fun deactivatedIdsAmong(ids: Collection<UInt>): Set<UInt> {
+        if (ids.isEmpty()) return emptySet()
+        return suspendTransaction(database) {
+            Users.select(Users.id)
+                .where { (Users.id inList ids.toSet()) and (Users.deactivated eq true) and active() }
+                .map { it[Users.id].value }
+                .toSet()
+        }
+    }
+
+    /**
+     * 400 when any of [ids] is a deactivated user (the [requireActiveEntries] sibling). Callers
+     * pass only NEWLY-referenced user ids — resubmitting an existing reference (a team member
+     * already on the roster, an unchanged manager) is not a change and is never validated.
+     */
+    suspend fun requireNoDeactivatedUsers(ids: Collection<UInt>) {
+        val hit = deactivatedIdsAmong(ids)
+        if (hit.isNotEmpty()) {
+            throw BadRequestException(
+                "User ${hit.sorted().joinToString(", ")} is deactivated and cannot be newly assigned",
+            )
+        }
+    }
+
     suspend fun list(filter: UserListFilter, paging: PageRequest): UserListResult =
         suspendTransaction(database) {
             val predicate: Op<Boolean> = buildPredicate(filter) and active()
@@ -184,6 +228,7 @@ class UserService(val database: R2dbcDatabase) {
                         careerSpecializationId = row[Users.careerSpecializationId],
                         seniorityLevelId = row[Users.seniorityLevelId],
                         paidDaysOffAllowance = row[Users.paidDaysOffAllowance],
+                        deactivated = row[Users.deactivated],
                     )
                 }
                 .toList()
@@ -202,6 +247,7 @@ class UserService(val database: R2dbcDatabase) {
                     careerSpecialization = row.careerSpecializationId?.let { entries[it] },
                     seniorityLevel = row.seniorityLevelId?.let { entries[it] },
                     paidDaysOffAllowance = row.paidDaysOffAllowance,
+                    deactivated = row.deactivated,
                 )
             }
             UserListResult(items = items, total = total)
@@ -216,8 +262,11 @@ class UserService(val database: R2dbcDatabase) {
         val careerSpecializationId: UInt?,
         val seniorityLevelId: UInt?,
         val paidDaysOffAllowance: Int?,
+        val deactivated: Boolean,
     )
 
+    // Soft-delete ONLY — deactivated users must stay readable everywhere (their historical
+    // data renders with unchanged rights); never fold Users.deactivated into this predicate.
     private fun active(): Op<Boolean> = Users.markedAsDeleted eq false
 
     /** Must run inside a transaction. */
@@ -263,6 +312,9 @@ class UserService(val database: R2dbcDatabase) {
                 .where { TeamService.TeamMembers.teamId eq it }
             op = op and (Users.id inSubQuery memberUserIds)
         }
+        filter.deactivated?.let {
+            op = op and (Users.deactivated eq it)
+        }
         return op
     }
 
@@ -271,6 +323,7 @@ class UserService(val database: R2dbcDatabase) {
         email = this[Users.email],
         passwordHash = this[Users.passwordHash],
         roles = roles,
+        deactivated = this[Users.deactivated],
         passwordChangedAt = this[Users.passwordChangedAt],
         careerPathId = this[Users.careerPathId],
         careerSpecializationId = this[Users.careerSpecializationId],

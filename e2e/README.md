@@ -44,7 +44,9 @@ commit** — this list is the suite's coverage map, and it has drifted twice.
 - `user-edit.spec.ts` — admin creates (generated-password reveal) and renames a user; career profile: set a career path, dictionary rename propagates, retired entry keeps resolving
   (`PUT /users/{id}`).
 - `users-admin.spec.ts` — role change; admin password reset vs. self-change (current password
-  required, wrong one rejected); delete (deleted account can no longer sign in).
+  required, wrong one rejected); deactivate/reactivate (Inactive badge, the distinct
+  "account has been deactivated" sign-in rejection, reactivation restores access); delete
+  (deleted account can no longer sign in).
 - `users-import.spec.ts` — mass CSV import: a mixed file imports row-by-row (an imported
   password signs in); re-importing the same rows yields duplicates, not new accounts.
 - `password-reset.spec.ts` — the "Forgot password?" flow: neutral answer for unknown emails;

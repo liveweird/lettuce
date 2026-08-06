@@ -165,9 +165,24 @@
   "daysOffBudgetLeft": "Days-off budget left",
   "paidDaysOffAllowance": "Paid days-off allowance (days per year)",
   "paidDaysOffAllowanceHint": "Whole days; unused days carry over to the next year. Leave empty to keep the current value — a set allowance cannot be cleared.",
+  "statusFilterLabel": "Status",
+  "statusActive": "Active",
+  "statusInactive": "Inactive",
+  "inactiveBadge": "Inactive",
+  "deactivate": "Deactivate",
+  "reactivate": "Reactivate",
+  "deactivateAria": "Deactivate {{name}}",
+  "reactivateAria": "Reactivate {{name}}",
+  "deactivateTitle": "Deactivate user?",
+  "deactivateConfirm": "{{name}} will no longer be able to sign in. Their data stays visible, and you can reactivate the account at any time.",
+  "transitionForbidden": "You don't have permission to change this account's status",
+  "transitionFailedStatus": "Changing the account status failed with status {{status}}",
+  "transitionFailed": "Could not change the account status",
   "toast": {
     "updated": "User updated",
     "deleted": "User deleted",
-    "passwordChanged": "Password changed"
+    "passwordChanged": "Password changed",
+    "deactivated": "User deactivated",
+    "reactivated": "User reactivated"
   }
 }
