@@ -8,6 +8,7 @@ import ch.nokillswit.users.UserRole
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
+import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.request
@@ -466,6 +467,26 @@ class TeamRoutesTest {
         assertTrue(page.items.all { it.managerId == managerId })
         assertTrue(page.items.all { it.managerName == "Mona" })
         assertTrue(page.items.all { !it.managerDeleted })
+    }
+
+    @Test
+    fun `GET teams name filter is diacritics-insensitive`() = testApplication {
+        usePostgresTestcontainer()
+        val managerEmail = uniqueEmail("mgr")
+        val managerId = TestUsers.seed(email = managerEmail, password = "pw")
+
+        val client = authedClient(managerEmail, "pw")
+        val tag = UUID.randomUUID().toString().substring(0, 8)
+        client.post("/api/v1/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "Zespół-$tag", managerId = managerId, memberIds = emptyList()))
+        }
+
+        // Plain ASCII query matches the stored Polish name (cross-service proof that the
+        // shared containsNormalized helper is wired beyond the users list).
+        val page = client.get("/api/v1/teams") { parameter("name", "zespol-$tag") }.body<TeamPageResponse>()
+        assertEquals(1L, page.total)
+        assertEquals("Zespół-$tag", page.items.single().name)
     }
 
     @Test

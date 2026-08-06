@@ -2,13 +2,16 @@ import {
   AppShell,
   Badge,
   Modal,
+  MultiSelect,
   NavLink,
+  Select,
   Table,
   Tooltip,
   createTheme,
   type MantineColorsTuple,
 } from "@mantine/core";
 import classes from "./theme.module.css";
+import { foldedOptionsFilter } from "./utils/text";
 
 // "Lettuce" brand palette — a fresh leaf-green scale (light → dark, indices 0–9).
 const lettuce: MantineColorsTuple = [
@@ -79,6 +82,11 @@ export const theme = createTheme({
       },
     }),
     NavLink: NavLink.extend({ classNames: { root: classes.navLink } }),
+    // Every searchable Select/MultiSelect matches accent-insensitively ("zolw" finds "Żółw"),
+    // mirroring the server-side unaccent list filters. A per-site `filter` prop still wins —
+    // don't pass one unless it preserves the diacritics folding (see utils/text.ts).
+    Select: Select.extend({ defaultProps: { filter: foldedOptionsFilter } }),
+    MultiSelect: MultiSelect.extend({ defaultProps: { filter: foldedOptionsFilter } }),
     Badge: Badge.extend({ defaultProps: { radius: "sm" } }),
     Tooltip: Tooltip.extend({ defaultProps: { radius: "md" } }),
     Modal: Modal.extend({ defaultProps: { radius: "md" } }),

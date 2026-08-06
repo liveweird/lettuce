@@ -1,6 +1,6 @@
 package ch.nokillswit.templates
 
-import ch.nokillswit.infra.db.containsPattern
+import ch.nokillswit.infra.db.containsNormalized
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
 import io.ktor.server.plugins.BadRequestException
@@ -100,7 +100,7 @@ class TemplateService(val database: R2dbcDatabase) {
     private fun buildPredicate(filter: TemplateListFilter): Op<Boolean> {
         var op: Op<Boolean> = Op.TRUE
         filter.name?.takeIf { it.isNotBlank() }?.let {
-            op = op and (Templates.name.lowerCase() like containsPattern(it))
+            op = op and (Templates.name.containsNormalized(it))
         }
         return op
     }

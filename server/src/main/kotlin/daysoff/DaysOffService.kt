@@ -1,7 +1,7 @@
 package ch.nokillswit.daysoff
 
 import ch.nokillswit.authz.ConflictException
-import ch.nokillswit.infra.db.containsPattern
+import ch.nokillswit.infra.db.containsNormalized
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.notifications.Notification
@@ -752,7 +752,7 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
     private fun buildPredicate(filter: DaysOffListFilter): Op<Boolean> {
         var op: Op<Boolean> = Op.TRUE
         filter.userName?.takeIf { it.isNotBlank() }?.let {
-            op = op and (ownerUsers[UserService.Users.name].lowerCase() like containsPattern(it))
+            op = op and (ownerUsers[UserService.Users.name].containsNormalized(it))
         }
         filter.userId?.let { op = op and (Requests.userId eq it) }
         filter.type?.let { op = op and (Requests.type eq it) }

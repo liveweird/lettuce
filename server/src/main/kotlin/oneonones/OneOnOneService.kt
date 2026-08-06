@@ -2,7 +2,7 @@ package ch.nokillswit.oneonones
 
 import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.infra.crypto.FieldCipher
-import ch.nokillswit.infra.db.containsPattern
+import ch.nokillswit.infra.db.containsNormalized
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.notifications.Notification
@@ -779,10 +779,10 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
     private fun buildPredicate(filter: OneOnOneListFilter): Op<Boolean> {
         var op: Op<Boolean> = Op.TRUE
         filter.managerName?.takeIf { it.isNotBlank() }?.let {
-            op = op and (managerUsers[UserService.Users.name].lowerCase() like containsPattern(it))
+            op = op and (managerUsers[UserService.Users.name].containsNormalized(it))
         }
         filter.subordinateName?.takeIf { it.isNotBlank() }?.let {
-            op = op and (subordinateUsers[UserService.Users.name].lowerCase() like containsPattern(it))
+            op = op and (subordinateUsers[UserService.Users.name].containsNormalized(it))
         }
         filter.meetingDateGte?.let { op = op and (Meetings.meetingDate greaterEq it) }
         filter.meetingDateLte?.let { op = op and (Meetings.meetingDate lessEq it) }
