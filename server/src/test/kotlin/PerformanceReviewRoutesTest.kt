@@ -616,7 +616,9 @@ class PerformanceReviewRoutesTest {
             listOf(PerformanceReviewEventType.RATING_CHANGED, PerformanceReviewEventType.SUMMARY_CHANGED),
             minted.map { it.type },
         )
-        assertEquals(mapOf("category" to "ATTITUDE", "from" to "3", "to" to "1"), minted[0].params)
+        // Category only — rating VALUES never reach the plaintext params (encrypted at rest
+        // since v1.49.0), summary text never did.
+        assertEquals(mapOf("category" to "ATTITUDE"), minted[0].params)
         assertEquals(mapOf("category" to "DELIVERY"), minted[1].params)
     }
 

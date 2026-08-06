@@ -1893,11 +1893,13 @@ export interface paths {
         /**
          * List a performance review's audit history
          * @description Returns the immutable audit trail for a performance review — one entry per creation,
-         *     changed assessment aspect (rating changes with from/to numbers, summary changes as the
-         *     bare fact), status transition, and deletion — oldest first. Each entry is structural:
-         *     an event `type` plus a `params` map (category/status enum names and numeric ratings —
-         *     never summary text), with the acting user resolved to `userName`; no rendered string is
-         *     stored (clients localize the description). Authorization matches the single-GET above:
+         *     changed assessment aspect (both rating and summary changes as the bare category-tagged
+         *     fact), status transition, and deletion — oldest first. Each entry is structural: an
+         *     event `type` plus a `params` map (category/status enum names only — never summary text
+         *     and never rating values, since all eight assessment fields are encrypted at rest while
+         *     this trail is plaintext), with the acting user resolved to `userName`; no rendered
+         *     string is stored (clients localize the description). Authorization matches the
+         *     single-GET above:
          *     whoever may read the review may read its history. Events are server-generated; there is
          *     no create/update/delete endpoint.
          */
@@ -3955,10 +3957,10 @@ export interface components {
             type: "CREATED" | "RATING_CHANGED" | "SUMMARY_CHANGED" | "STATUS_CHANGED" | "DELETED";
             /**
              * @description Interpolation params for the localized rendering — the category enum name
-             *     (`RATING_CHANGED`/`SUMMARY_CHANGED`), numeric ratings (`from`/`to`, `""` = unset),
-             *     and status enum names (`STATUS_CHANGED`). Never summary text (the summaries are
-             *     encrypted at rest; this trail is plaintext by design). Empty object when the event
-             *     kind needs none.
+             *     (`RATING_CHANGED`/`SUMMARY_CHANGED`) and status enum names (`STATUS_CHANGED`).
+             *     Never summary text and never rating values (all eight assessment fields are
+             *     encrypted at rest; this trail is plaintext by design). Empty object when the
+             *     event kind needs none.
              */
             params: {
                 [key: string]: string;

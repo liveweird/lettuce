@@ -58,7 +58,7 @@ class PerformanceReviewEventsTest {
     }
 
     @Test
-    fun `one event per changed aspect, ratings numeric with empty string for unset`() {
+    fun `one event per changed aspect, params carry the category and nothing else`() {
         val before = response(
             attitude = CategoryAssessment(3, "old attitude text"),
             delivery = CategoryAssessment(null, null),
@@ -71,20 +71,15 @@ class PerformanceReviewEventsTest {
         assertEquals(
             listOf(
                 PerformanceReviewEventType.RATING_CHANGED, // attitude 3 -> 5
-                PerformanceReviewEventType.RATING_CHANGED, // delivery "" -> 2
+                PerformanceReviewEventType.RATING_CHANGED, // delivery unset -> 2
                 PerformanceReviewEventType.SUMMARY_CHANGED, // delivery summary appeared
             ),
             events.map { it.type },
         )
-        assertEquals(
-            mapOf("category" to "ATTITUDE", "from" to "3", "to" to "5"),
-            events[0].params,
-        )
-        assertEquals(
-            mapOf("category" to "DELIVERY", "from" to "", "to" to "2"),
-            events[1].params,
-        )
-        // The summary event names the category and NOTHING else — never the text.
+        // Bare facts only: rating VALUES never reach the plaintext params (the ratings are
+        // encrypted at rest since v1.49.0), summary TEXT never did.
+        assertEquals(mapOf("category" to "ATTITUDE"), events[0].params)
+        assertEquals(mapOf("category" to "DELIVERY"), events[1].params)
         assertEquals(mapOf("category" to "DELIVERY"), events[2].params)
         events.forEach { event ->
             event.params.values.forEach { assertTrue("text" !in it) }

@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.49.0",
+    date: "2026-08-07",
+    en: `Performance-review ratings are now encrypted in the database, just like the written summaries have always been — a database backup or a stolen disk reveals neither the numbers nor the texts of anyone's review. One visible consequence: a review's History tab now records that a rating changed, without showing the old and new values.`,
+    pl: `Oceny liczbowe w ocenach okresowych są teraz szyfrowane w bazie danych — tak samo, jak od zawsze pisemne podsumowania. Kopia zapasowa bazy ani skradziony dysk nie ujawnią ani liczb, ani tekstów niczyjej oceny. Jedna widoczna zmiana: zakładka Historia odnotowuje teraz, że ocena się zmieniła, bez pokazywania starej i nowej wartości.`,
+  },
+  {
     version: "1.48.0",
     date: "2026-08-06",
     en: `Administrators can now deactivate a user account — and bring it back. A deactivated person cannot sign in (they see a clear "account has been deactivated" message) and cannot be newly added to teams or given new goals, 1:1s, reviews, or feedback — but everything they did stays visible exactly as before, and reactivating restores access with the same password. Look for the Deactivate action and the new Status filter on the Users list; inactive accounts carry an "Inactive" badge there.`,

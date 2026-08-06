@@ -9,9 +9,10 @@ import kotlinx.serialization.Serializable
  *
  * Events are stored structurally ([PerformanceReviewEventType] +
  * [PerformanceReviewEventDescriptor.params]) so the SPA renders each one in the viewer's
- * language. Params carry category/status enum names and numeric rating values only — NEVER
- * summary text (the summaries are encrypted at rest; performance_review_events.params is
- * plaintext).
+ * language. Params carry category/status enum names ONLY — never summary text and, since
+ * v1.49.0, never rating values either (all eight assessment columns are encrypted at rest;
+ * performance_review_events.params is plaintext, so values there would defeat the
+ * encryption — V45 scrubbed the historical from/to rating params).
  */
 
 @Serializable
@@ -29,18 +30,16 @@ data class PerformanceReviewEventDescriptor(
     val params: Map<String, String> = emptyMap(),
 )
 
-// Ratings render as e.g. "3"; "" = no value (the unset side of a DRAFT-time change).
-private fun ratingParam(rating: Int?): String = rating?.toString() ?: ""
-
 /** Structured event recorded when a review is created (always as DRAFT). */
 internal fun reviewCreationEvent(): PerformanceReviewEventDescriptor =
     PerformanceReviewEventDescriptor(PerformanceReviewEventType.CREATED)
 
 /**
  * Structured events recorded on an assessment edit: one per changed aspect, in the canonical
- * category order, ratings before summaries per category. A summary change is recorded as the
- * bare fact ([PerformanceReviewEventType.SUMMARY_CHANGED] + the category) — never the text. A
- * no-op PUT returns an empty list (no empty events).
+ * category order, ratings before summaries per category. Both change kinds are recorded as the
+ * bare fact (event type + the category) — never the summary text and never the rating values
+ * (ratings are encrypted at rest since v1.49.0; the params column is plaintext). A no-op PUT
+ * returns an empty list (no empty events).
  */
 internal fun reviewUpdateEvents(
     before: PerformanceReviewResponse,
@@ -53,11 +52,7 @@ internal fun reviewUpdateEvents(
         if (beforeAssessment.rating != afterAssessment.rating) {
             events += PerformanceReviewEventDescriptor(
                 PerformanceReviewEventType.RATING_CHANGED,
-                mapOf(
-                    "category" to category.name,
-                    "from" to ratingParam(beforeAssessment.rating),
-                    "to" to ratingParam(afterAssessment.rating),
-                ),
+                mapOf("category" to category.name),
             )
         }
         // Normalize null vs "" — both mean "no summary", so flipping between them is a no-op.

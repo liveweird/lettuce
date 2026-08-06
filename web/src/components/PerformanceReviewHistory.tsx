@@ -4,22 +4,18 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { listPerformanceReviewEvents, type PerformanceReviewEvent } from "../api/client";
 import { formatTimestamp } from "../utils/datetime";
-import { ratingText } from "../utils/reviewRatings";
 
 // Renders one structured event in the viewer's language. The server stores no strings — just
-// the type + params (category/status enum names and numeric ratings; never summary text).
+// the type + params (category/status enum names only; never summary text, and since v1.49.0
+// never rating values — the ratings are encrypted at rest, history records the bare fact).
 function describeEvent(e: PerformanceReviewEvent, t: TFunction): string {
   const p = e.params ?? {};
   const category = p.category ? t(`performanceReview.category.${p.category.toLowerCase()}`) : "";
   switch (e.type) {
     case "CREATED":
       return t("performanceReview.event.created");
-    case "RATING_CHANGED": {
-      const to = p.to ? ratingText(t, Number(p.to)) : "";
-      if (!p.to) return t("performanceReview.event.ratingCleared", { category });
-      if (!p.from) return t("performanceReview.event.ratingSet", { category, to });
-      return t("performanceReview.event.ratingChanged", { category, from: p.from, to });
-    }
+    case "RATING_CHANGED":
+      return t("performanceReview.event.ratingChanged", { category });
     case "SUMMARY_CHANGED":
       return t("performanceReview.event.summaryChanged", { category });
     case "STATUS_CHANGED":
