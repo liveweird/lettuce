@@ -97,9 +97,7 @@
   },
   "event": {
     "created": "Utworzono ocenę",
-    "ratingSet": "Ustawiono ocenę w kategorii {{category}} na {{to}}",
-    "ratingCleared": "Usunięto ocenę w kategorii {{category}}",
-    "ratingChanged": "Zmieniono ocenę w kategorii {{category}} z {{from}} na {{to}}",
+    "ratingChanged": "Zmieniono ocenę w kategorii {{category}}",
     "summaryChanged": "Zaktualizowano podsumowanie w kategorii {{category}}",
     "statusChanged": "Zmieniono status z {{from}} na {{to}}",
     "deleted": "Usunięto ocenę"

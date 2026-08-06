@@ -97,9 +97,7 @@
   },
   "event": {
     "created": "Review created",
-    "ratingSet": "{{category}} rating set to {{to}}",
-    "ratingCleared": "{{category}} rating cleared",
-    "ratingChanged": "{{category}} rating changed from {{from}} to {{to}}",
+    "ratingChanged": "{{category}} rating changed",
     "summaryChanged": "{{category}} summary updated",
     "statusChanged": "Status changed from {{from}} to {{to}}",
     "deleted": "Review deleted"

@@ -63,10 +63,12 @@ private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
     "lastModified" to PerformanceReviewService.Reviews.lastModified,
 )
 
-// The four summary columns are encrypted at rest (see infra/crypto/FieldCipher.kt): the cipher
-// wraps every write and unwraps every read, so nothing above this service ever sees ciphertext.
-// No summary column is filtered/sorted/searched in SQL, so queries are unaffected; the numeric
-// ratings stay plaintext on purpose — list rows carry them and calculations run on them.
+// All eight assessment columns — the four summaries AND, since V45, the four numeric ratings —
+// are encrypted at rest (see infra/crypto/FieldCipher.kt): the cipher wraps every write and
+// unwraps every read, so nothing above this service ever sees ciphertext. Safe because no
+// assessment column is filtered/sorted/aggregated in SQL — the reviews dashboard sorts and
+// computes its 1–6 distribution entirely client-side over list rows. Never add a SQL-level
+// filter/sort/aggregate on any of these columns: it would silently operate on ciphertext.
 class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: FieldCipher) {
     object Reviews : UIntIdTable("performance_reviews") {
         val managerId = reference("manager_id", UserService.Users)
@@ -74,13 +76,15 @@ class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: 
         val periodId = reference("period_id", ReviewPeriodService.ReviewPeriods)
         val createdAt = long("created_at")
         val status = enumerationByName("status", 20, PerformanceReviewStatus::class)
-        val attitudeRating = short("attitude_rating").nullable()
+        // Ratings are TEXT envelopes since V45 (the 1–6 range lives in validateAssessments —
+        // a DB CHECK cannot see through the encryption).
+        val attitudeRating = text("attitude_rating").nullable()
         val attitudeSummary = text("attitude_summary").nullable()
-        val deliveryRating = short("delivery_rating").nullable()
+        val deliveryRating = text("delivery_rating").nullable()
         val deliverySummary = text("delivery_summary").nullable()
-        val skillsRating = short("skills_rating").nullable()
+        val skillsRating = text("skills_rating").nullable()
         val skillsSummary = text("skills_summary").nullable()
-        val overallRating = short("overall_rating").nullable()
+        val overallRating = text("overall_rating").nullable()
         val overallSummary = text("overall_summary").nullable()
         val lastModified = long("last_modified")
         val markedAsDeleted = bool("marked_as_deleted").default(false)
@@ -319,10 +323,10 @@ class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: 
                     periodStartMonth = row[ReviewPeriodService.ReviewPeriods.startMonth],
                     periodEndMonth = row[ReviewPeriodService.ReviewPeriods.endMonth],
                     status = row[Reviews.status],
-                    attitudeRating = row[Reviews.attitudeRating]?.toInt(),
-                    deliveryRating = row[Reviews.deliveryRating]?.toInt(),
-                    skillsRating = row[Reviews.skillsRating]?.toInt(),
-                    overallRating = row[Reviews.overallRating]?.toInt(),
+                    attitudeRating = row[Reviews.attitudeRating]?.let(cipher::decrypt)?.toInt(),
+                    deliveryRating = row[Reviews.deliveryRating]?.let(cipher::decrypt)?.toInt(),
+                    skillsRating = row[Reviews.skillsRating]?.let(cipher::decrypt)?.toInt(),
+                    overallRating = row[Reviews.overallRating]?.let(cipher::decrypt)?.toInt(),
                     createdAt = row[Reviews.createdAt],
                     lastModified = row[Reviews.lastModified],
                 )
@@ -387,27 +391,29 @@ class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: 
         suspendTransaction(database) { isInManagementChain(managerId, subordinateId) }
 
     /**
-     * Startup backfill (see infra/db/Bootstrap.kt): encrypts summary values still holding legacy
-     * plaintext — including soft-deleted rows. With [reencryptAll] (set during key rotation)
-     * every row is decrypted (current or previous key) and rewritten under the current key.
-     * Idempotent; returns the rewritten count.
+     * Startup backfill (see infra/db/Bootstrap.kt): encrypts assessment values (summaries AND,
+     * since V45, ratings) still holding legacy plaintext — including soft-deleted rows. With
+     * [reencryptAll] (set during key rotation) every row is decrypted (current or previous key)
+     * and rewritten under the current key. Idempotent; returns the rewritten count.
      */
     suspend fun encryptLegacyRows(reencryptAll: Boolean = false): Int = suspendTransaction(database) {
         val enveloped = "${FieldCipher.PREFIX}%"
-        val summaryColumns = listOf(
-            Reviews.attitudeSummary, Reviews.deliverySummary,
-            Reviews.skillsSummary, Reviews.overallSummary,
+        val encryptedColumns = listOf(
+            Reviews.attitudeRating, Reviews.attitudeSummary,
+            Reviews.deliveryRating, Reviews.deliverySummary,
+            Reviews.skillsRating, Reviews.skillsSummary,
+            Reviews.overallRating, Reviews.overallSummary,
         )
-        val legacyOnly = summaryColumns
+        val legacyOnly = encryptedColumns
             .map { column -> column.isNotNull() and (column notLike enveloped) }
             .reduce<Op<Boolean>, Op<Boolean>> { acc, op -> acc or op }
         val rows = Reviews
-            .select(listOf(Reviews.id) + summaryColumns)
+            .select(listOf(Reviews.id) + encryptedColumns)
             .where { if (reencryptAll) Op.TRUE else legacyOnly }
             .toList()
         rows.forEach { row ->
             Reviews.update({ Reviews.id eq row[Reviews.id] }) { statement ->
-                summaryColumns.forEach { column ->
+                encryptedColumns.forEach { column ->
                     statement[column] = row[column]?.let { s -> cipher.encrypt(cipher.decrypt(s)) }
                 }
             }
@@ -435,8 +441,9 @@ class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: 
             otherColumn = ReviewPeriodService.ReviewPeriods.id,
         )
 
-    // Writes the eight assessment fields into an insert/update statement. Summaries are stored
-    // NULL when null or empty (both mean "no summary") and encrypted otherwise.
+    // Writes the eight assessment fields into an insert/update statement, every value encrypted.
+    // Summaries are stored NULL when null or empty (both mean "no summary"); ratings encrypt
+    // their decimal string form ("5" → envelope).
     private fun writeAssessments(
         statement: org.jetbrains.exposed.v1.core.statements.UpdateBuilder<*>,
         assessments: Map<ReviewCategory, CategoryAssessment>,
@@ -449,7 +456,7 @@ class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: 
         )
         assessments.forEach { (category, assessment) ->
             val (ratingColumn, summaryColumn) = columns.getValue(category)
-            statement[ratingColumn] = assessment.rating?.toShort()
+            statement[ratingColumn] = assessment.rating?.toString()?.let(cipher::encrypt)
             statement[summaryColumn] = assessment.summary
                 ?.takeIf { it.isNotEmpty() }
                 ?.let(cipher::encrypt)
@@ -477,10 +484,10 @@ class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: 
     )
 
     private fun ResultRow.assessmentAt(
-        ratingColumn: Column<Short?>,
+        ratingColumn: Column<String?>,
         summaryColumn: Column<String?>,
     ) = CategoryAssessment(
-        rating = this[ratingColumn]?.toInt(),
+        rating = this[ratingColumn]?.let(cipher::decrypt)?.toInt(),
         summary = this[summaryColumn]?.let(cipher::decrypt),
     )
 

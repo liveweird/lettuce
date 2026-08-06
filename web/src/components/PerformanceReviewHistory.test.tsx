@@ -38,13 +38,15 @@ describe("PerformanceReviewHistory", () => {
     localStorage.clear();
   });
 
-  test("renders each structured event localized, ratings with their wording", async () => {
+  test("renders each structured event localized — rating changes as the bare fact", async () => {
     mockFetch.mockResolvedValue(
       jsonResponse(200, {
         items: [
           event(1, "CREATED", {}),
-          event(2, "RATING_CHANGED", { category: "ATTITUDE", from: "", to: "4" }),
-          event(3, "RATING_CHANGED", { category: "SKILLS", from: "3", to: "5" }),
+          // Since v1.49.0 the params carry only the category — ratings are encrypted at
+          // rest, so history records that a rating changed, never the values.
+          event(2, "RATING_CHANGED", { category: "ATTITUDE" }),
+          event(3, "RATING_CHANGED", { category: "SKILLS" }),
           event(4, "SUMMARY_CHANGED", { category: "DELIVERY" }),
           event(5, "STATUS_CHANGED", { from: "DRAFT", to: "CALIBRATION" }),
           event(6, "SOMETHING_NEW", {}),
@@ -54,12 +56,8 @@ describe("PerformanceReviewHistory", () => {
     renderWithProviders(<PerformanceReviewHistory reviewId={5} />);
 
     expect(await screen.findByText("Review created")).toBeInTheDocument();
-    expect(
-      screen.getByText("Attitude rating set to 4 — Sometimes exceeds expectations"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Skills rating changed from 3 to 5 — Exceeds expectations"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Attitude rating changed")).toBeInTheDocument();
+    expect(screen.getByText("Skills rating changed")).toBeInTheDocument();
     expect(screen.getByText("Delivery summary updated")).toBeInTheDocument();
     expect(screen.getByText("Status changed from Draft to Calibration")).toBeInTheDocument();
     // Forward-compat: an unknown kind shows its raw type instead of breaking.

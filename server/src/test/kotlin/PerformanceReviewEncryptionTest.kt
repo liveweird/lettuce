@@ -31,16 +31,16 @@ import org.jetbrains.exposed.v1.r2dbc.selectAll
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
 /**
- * Encryption-at-rest of performance-review content: what PostgreSQL stores in the four
- * `*_summary` columns is an `enc:v1:` AES-GCM envelope, while the API serves plaintext; the
- * numeric ratings stay plaintext by design (lists carry them, calculations run on them) and the
- * plaintext event params never carry the summary texts. Raw column state is asserted by
+ * Encryption-at-rest of performance-review content: what PostgreSQL stores in all EIGHT
+ * assessment columns — the four `*_summary` texts and, since V45, the four `*_rating` numbers —
+ * is an `enc:v1:` AES-GCM envelope, while the API serves plaintext; the plaintext event params
+ * carry neither the summary texts nor the rating values. Raw column state is asserted by
  * selecting the Exposed table directly, bypassing the service's decrypt layer.
  */
 class PerformanceReviewEncryptionTest {
 
     private data class RawReview(
-        val attitudeRating: Short?,
+        val attitudeRating: String?,
         val attitudeSummary: String?,
         val overallSummary: String?,
     )
@@ -61,7 +61,7 @@ class PerformanceReviewEncryptionTest {
         }
 
     @Test
-    fun `summaries are ciphertext in the DB but plaintext over the API, ratings plain numbers`() =
+    fun `assessments are ciphertext in the DB but plaintext over the API`() =
         testApplication {
             usePostgresTestcontainer()
             val managerEmail = uniqueEmail("review-enc-manager")
@@ -88,10 +88,10 @@ class PerformanceReviewEncryptionTest {
             assertEquals(HttpStatusCode.Created, response.status)
             val created = response.body<PerformanceReviewResponse>()
 
-            // What the DB (a database-level attacker) sees: an envelope for the summary, the
-            // rating as a plain number (deliberate), NULL for the unset summary.
+            // What the DB (a database-level attacker) sees: envelopes for BOTH the summary and
+            // the rating (V45), NULL for the unset summary.
             val raw = rawReview(created.id)
-            assertEquals(2, raw.attitudeRating?.toInt())
+            assertTrue(raw.attitudeRating!!.startsWith(FieldCipher.PREFIX))
             assertTrue(raw.attitudeSummary!!.startsWith(FieldCipher.PREFIX))
             assertFalse("Confidential" in raw.attitudeSummary)
             assertNull(raw.overallSummary)
@@ -99,6 +99,7 @@ class PerformanceReviewEncryptionTest {
             // What the API serves: the plaintext, decrypted transparently.
             val fetched = manager.get("/api/v1/performance-reviews/${created.id}")
                 .body<PerformanceReviewResponse>()
+            assertEquals(2, fetched.attitude.rating)
             assertEquals(secret, fetched.attitude.summary)
 
             // The event trail is plaintext by design — so it must never carry the secret texts.
@@ -130,7 +131,8 @@ class PerformanceReviewEncryptionTest {
                 it[t.periodId] = period.id
                 it[t.createdAt] = now
                 it[t.status] = PerformanceReviewStatus.DRAFT
-                it[t.attitudeRating] = 3.toShort()
+                // Post-V45 the column is TEXT — a legacy row holds the plain decimal string.
+                it[t.attitudeRating] = "3"
                 it[t.attitudeSummary] = "legacy plain attitude"
                 it[t.overallSummary] = "legacy plain overall"
                 it[t.lastModified] = now
@@ -139,10 +141,12 @@ class PerformanceReviewEncryptionTest {
 
         assertTrue(TestServices.performanceReviews.encryptLegacyRows() >= 1)
         val raw = rawReview(legacyId)
+        assertTrue(raw.attitudeRating!!.startsWith(FieldCipher.PREFIX))
         assertTrue(raw.attitudeSummary!!.startsWith(FieldCipher.PREFIX))
         assertTrue(raw.overallSummary!!.startsWith(FieldCipher.PREFIX))
         // The plaintext survives the wrap; the untouched columns stay NULL.
         val read = TestServices.performanceReviews.read(legacyId)!!
+        assertEquals(3, read.attitude.rating)
         assertEquals("legacy plain attitude", read.attitude.summary)
         assertEquals("legacy plain overall", read.overall.summary)
         assertNull(read.delivery.summary)
@@ -151,7 +155,7 @@ class PerformanceReviewEncryptionTest {
     }
 
     @Test
-    fun `rotation - encryptLegacyRows rewrites every summary under the current key`() = testApplication {
+    fun `rotation - encryptLegacyRows rewrites every assessment under the current key`() = testApplication {
         usePostgresTestcontainer()
         val managerId = TestUsers.seed(uniqueEmail("review-rot-manager"), "pw", roles = emptySet())
         val subordinateId = TestUsers.seed(uniqueEmail("review-rot-sub"), "pw", roles = emptySet())
@@ -177,8 +181,10 @@ class PerformanceReviewEncryptionTest {
         )
         assertTrue(rotatingService.encryptLegacyRows(reencryptAll = true) >= 1)
 
-        // After the backfill the new key ALONE decrypts the summaries — the old key can be retired.
+        // After the backfill the new key ALONE decrypts ratings and summaries — the old key
+        // can be retired.
         val raw = rawReview(id)
+        assertEquals("4", FieldCipher(newKey).decrypt(raw.attitudeRating!!))
         assertEquals("rotate this attitude", FieldCipher(newKey).decrypt(raw.attitudeSummary!!))
         assertEquals("rotate this overall", FieldCipher(newKey).decrypt(raw.overallSummary!!))
         // Idempotent second pass without rotation finds nothing legacy.
