@@ -144,8 +144,8 @@ export interface paths {
          *     - Sortable fields: `id`, `name`, `email`. Default sort is `id` ascending.
          *       `id` ascending is always appended as a deterministic tiebreaker.
          *     - Filters (all optional, all whitelisted):
-         *       - `name` — case-insensitive substring match against `name`.
-         *       - `email` — case-insensitive substring match against `email`.
+         *       - `name` — case- and accent-insensitive substring match against `name`.
+         *       - `email` — case- and accent-insensitive substring match against `email`.
          *       - `role` — has-role match: only users holding this additional role (`ADMIN`/`HR`).
          *       - `teamId` — restrict to users who are members of the given team.
          *
@@ -278,7 +278,7 @@ export interface paths {
          *     - Sortable fields: `id`, `name`. Default sort is `id` ascending; `id` ascending
          *       is always appended as a deterministic tiebreaker.
          *     - Filters (all optional):
-         *       - `name` — case-insensitive substring match against the team's name.
+         *       - `name` — case- and accent-insensitive substring match against the team's name.
          *       - `managerId` — exact match against the team's manager id.
          *       - `memberId` — restrict to teams the given user is a member of.
          *
@@ -354,8 +354,8 @@ export interface paths {
          *       Default sort is `id` ascending. `id` ascending and the team id ascending are
          *       always appended as deterministic tiebreakers.
          *     - Filters (all optional, all whitelisted):
-         *       - `name` — case-insensitive substring match against the member's name.
-         *       - `email` — case-insensitive substring match against the member's email.
+         *       - `name` — case- and accent-insensitive substring match against the member's name.
+         *       - `email` — case- and accent-insensitive substring match against the member's email.
          *       - `teamId` — exact match against the team's id.
          *
          *     Malformed query parameters (unknown view, unknown sort field, non-numeric
@@ -476,10 +476,10 @@ export interface paths {
          *       `status`, `lastModified`. Default sort is `id` ascending. `id` ascending is always
          *       appended as a deterministic tiebreaker.
          *     - Filters (all optional, all whitelisted):
-         *       - `requesterName` — case-insensitive substring match against the requester's name.
+         *       - `requesterName` — case- and accent-insensitive substring match against the requester's name.
          *         Rows without a requester never match when this filter is set.
-         *       - `subjectName` — case-insensitive substring match against the subject's name.
-         *       - `providerName` — case-insensitive substring match against the provider's name.
+         *       - `subjectName` — case- and accent-insensitive substring match against the subject's name.
+         *       - `providerName` — case- and accent-insensitive substring match against the provider's name.
          *       - `providerId` — exact match against the provider's user id. Combined with
          *         `view=received`, this scopes the list to feedbacks a specific person gave the caller.
          *       - `subjectId` — exact match against the subject's user id. Combined with
@@ -752,8 +752,8 @@ export interface paths {
          *       Default sort is `meetingDate` **descending** (newest meetings first). `id` ascending is
          *       always appended as a deterministic tiebreaker.
          *     - Filters (all optional, all whitelisted):
-         *       - `managerName` — case-insensitive substring match against the manager's name.
-         *       - `subordinateName` — case-insensitive substring match against the subordinate's name.
+         *       - `managerName` — case- and accent-insensitive substring match against the manager's name.
+         *       - `subordinateName` — case- and accent-insensitive substring match against the subordinate's name.
          *       - `meetingDate[gte]` / `meetingDate[lte]` — inclusive ISO-date (`YYYY-MM-DD`) bounds on
          *         the meeting date. Malformed dates → `400`.
          *
@@ -946,11 +946,11 @@ export interface paths {
          *       deterministic tiebreaker. The value columns are null for BINARY goals, so mixed-type
          *       lists sort those rows together at one end (database NULL ordering).
          *     - Filters (all optional, all whitelisted):
-         *       - `managerName` / `subordinateName` — case-insensitive substring match against the
+         *       - `managerName` / `subordinateName` — case- and accent-insensitive substring match against the
          *         party's name.
          *       - `managerId` / `subordinateId` — exact party-id match (e.g. the per-manager
          *         drill-down combines `view=own` with `managerId`).
-         *       - `title` — case-insensitive substring match against the goal title.
+         *       - `title` — case- and accent-insensitive substring match against the goal title.
          *       - `type` / `status` — exact enum-name match.
          *       - `createdAt[gte]` / `lastModified[gte]` — inclusive epoch-millis lower bounds.
          *
@@ -1225,9 +1225,9 @@ export interface paths {
          *       `createdAt` **descending** (newest KPIs first). `id` ascending is always appended as
          *       a deterministic tiebreaker.
          *     - Filters (all optional, all whitelisted):
-         *       - `teamName` — case-insensitive substring match against the team's name.
+         *       - `teamName` — case- and accent-insensitive substring match against the team's name.
          *       - `teamId` — exact team-id match (the per-team drill-down).
-         *       - `title` — case-insensitive substring match against the KPI title.
+         *       - `title` — case- and accent-insensitive substring match against the KPI title.
          *       - `type` / `status` — exact enum-name match.
          *       - `createdAt[gte]` / `lastModified[gte]` — inclusive epoch-millis lower bounds.
          *
@@ -1621,7 +1621,7 @@ export interface paths {
          *       `createdAt`, `lastModified`. Default sort is `createdAt` **descending** (newest
          *       reviews first). `id` ascending is always appended as a deterministic tiebreaker.
          *     - Filters (all optional, all whitelisted):
-         *       - `managerName` / `subordinateName` — case-insensitive substring match against the
+         *       - `managerName` / `subordinateName` — case- and accent-insensitive substring match against the
          *         party's name.
          *       - `managerId` / `subordinateId` — exact party-id match.
          *       - `periodId` — exact period match (the per-period drill-down).
@@ -1874,7 +1874,7 @@ export interface paths {
          *       `createdAt`. Default sort is `startDate` **descending** (most recent periods first).
          *       `id` ascending is always appended as a deterministic tiebreaker.
          *     - Filters (all optional, all whitelisted):
-         *       - `userName` — case-insensitive substring match against the owner's name.
+         *       - `userName` — case- and accent-insensitive substring match against the owner's name.
          *       - `userId` — exact owner-id match; a pin-filter on `view=managed` (the drill-down
          *         precedent), required with `view=user`, rejected with `view=own` (`400` — own is
          *         caller-implied).
@@ -2227,7 +2227,7 @@ export interface paths {
          *     - Sortable fields: `id`, `name`. Default sort is `id` ascending. `id` ascending is
          *       always appended as a deterministic tiebreaker.
          *     - Filter (optional, whitelisted):
-         *       - `name` — case-insensitive substring match against the template name.
+         *       - `name` — case- and accent-insensitive substring match against the template name.
          *     - `content` is returned as `contentPreview`, capped at 200 characters; it is neither
          *       sortable nor filterable.
          *
@@ -2337,7 +2337,7 @@ export interface paths {
          *     - Sortable fields: `id`, `title`, `startsAt`, `endsAt`. Default sort is `id` ascending.
          *       `id` ascending is always appended as a deterministic tiebreaker.
          *     - Filters (optional, whitelisted):
-         *       - `title` — case-insensitive substring match against the alert title.
+         *       - `title` — case- and accent-insensitive substring match against the alert title.
          *       - `isActive` — strict boolean equality (`true`/`false`).
          *
          *     Malformed query parameters (unknown sort field, out-of-range page/pageSize, non-boolean
@@ -4622,9 +4622,9 @@ export interface operations {
                  *     always appended as a deterministic tiebreaker.
                  */
                 sort?: components["parameters"]["Sort"];
-                /** @description Case-insensitive substring match against the user's name. */
+                /** @description Case- and accent-insensitive substring match against the user's name (e.g. `zolw` matches `Żółw`). */
                 name?: string;
-                /** @description Case-insensitive substring match against the user's email. */
+                /** @description Case- and accent-insensitive substring match against the user's email. */
                 email?: string;
                 /** @description Only users holding this additional role. */
                 role?: "ADMIN" | "HR";
@@ -4917,7 +4917,7 @@ export interface operations {
                  *     always appended as a deterministic tiebreaker.
                  */
                 sort?: components["parameters"]["Sort"];
-                /** @description Case-insensitive substring match against the team's name. */
+                /** @description Case- and accent-insensitive substring match against the team's name. */
                 name?: string;
                 /** @description Exact match against the team's manager id. */
                 managerId?: number;
@@ -5027,9 +5027,9 @@ export interface operations {
                  *     indirect) subordinates. Cycle-safe; the caller themselves never appears.
                  */
                 includeIndirect?: boolean;
-                /** @description Case-insensitive substring match against the member's name. */
+                /** @description Case- and accent-insensitive substring match against the member's name. */
                 name?: string;
-                /** @description Case-insensitive substring match against the member's email. */
+                /** @description Case- and accent-insensitive substring match against the member's email. */
                 email?: string;
                 /** @description Exact match against the team's id. */
                 teamId?: number;
@@ -5263,11 +5263,11 @@ export interface operations {
                  *     through this scope.
                  */
                 includeIndirect?: boolean;
-                /** @description Case-insensitive substring match against the requester's name. */
+                /** @description Case- and accent-insensitive substring match against the requester's name. */
                 requesterName?: string;
-                /** @description Case-insensitive substring match against the subject's name. */
+                /** @description Case- and accent-insensitive substring match against the subject's name. */
                 subjectName?: string;
-                /** @description Case-insensitive substring match against the provider's name. */
+                /** @description Case- and accent-insensitive substring match against the provider's name. */
                 providerName?: string;
                 /** @description Exact match against the provider's user id. */
                 providerId?: number;
@@ -5699,9 +5699,9 @@ export interface operations {
                  *     the user whose records the auditor view lists.
                  */
                 userId?: number;
-                /** @description Case-insensitive substring match against the manager's name. */
+                /** @description Case- and accent-insensitive substring match against the manager's name. */
                 managerName?: string;
-                /** @description Case-insensitive substring match against the subordinate's name. */
+                /** @description Case- and accent-insensitive substring match against the subordinate's name. */
                 subordinateName?: string;
                 /** @description Lower bound (inclusive) on the meeting date, ISO `YYYY-MM-DD`. */
                 "meetingDate[gte]"?: string;
@@ -5982,15 +5982,15 @@ export interface operations {
                  *     to their whole transitive management chain.
                  */
                 includeIndirect?: boolean;
-                /** @description Case-insensitive substring match against the manager's name. */
+                /** @description Case- and accent-insensitive substring match against the manager's name. */
                 managerName?: string;
-                /** @description Case-insensitive substring match against the subordinate's name. */
+                /** @description Case- and accent-insensitive substring match against the subordinate's name. */
                 subordinateName?: string;
                 /** @description Exact manager-id match. */
                 managerId?: number;
                 /** @description Exact subordinate-id match. */
                 subordinateId?: number;
-                /** @description Case-insensitive substring match against the goal title. */
+                /** @description Case- and accent-insensitive substring match against the goal title. */
                 title?: string;
                 /** @description Exact goal-type match. */
                 type?: "BINARY" | "NUMBER" | "PERCENTAGE";
@@ -6395,11 +6395,11 @@ export interface operations {
                 sort?: components["parameters"]["Sort"];
                 /** @description Which slice of team KPIs to list — always caller-relative. */
                 view?: "own" | "managed";
-                /** @description Case-insensitive substring match against the team's name. */
+                /** @description Case- and accent-insensitive substring match against the team's name. */
                 teamName?: string;
                 /** @description Exact team-id match (the per-team drill-down). */
                 teamId?: number;
-                /** @description Case-insensitive substring match against the KPI title. */
+                /** @description Case- and accent-insensitive substring match against the KPI title. */
                 title?: string;
                 /** @description Exact KPI-type match. */
                 type?: "NUMBER" | "PERCENTAGE";
@@ -6994,9 +6994,9 @@ export interface operations {
                  *     reports to their whole transitive management chain.
                  */
                 includeIndirect?: boolean;
-                /** @description Case-insensitive substring match against the manager's name. */
+                /** @description Case- and accent-insensitive substring match against the manager's name. */
                 managerName?: string;
-                /** @description Case-insensitive substring match against the subordinate's name. */
+                /** @description Case- and accent-insensitive substring match against the subordinate's name. */
                 subordinateName?: string;
                 /** @description Exact manager-id match. */
                 managerId?: number;
@@ -7361,7 +7361,7 @@ export interface operations {
                  *     ordinary pin-filter with `view=managed`; rejected with `view=own` (`400`).
                  */
                 userId?: number;
-                /** @description Case-insensitive substring match against the owner's name. */
+                /** @description Case- and accent-insensitive substring match against the owner's name. */
                 userName?: string;
                 /** @description Exact type match. */
                 type?: "PAID" | "UNPAID";
@@ -7853,7 +7853,7 @@ export interface operations {
                  *     always appended as a deterministic tiebreaker.
                  */
                 sort?: components["parameters"]["Sort"];
-                /** @description Case-insensitive substring match against the template name. */
+                /** @description Case- and accent-insensitive substring match against the template name. */
                 name?: string;
             };
             header?: never;
@@ -8139,7 +8139,7 @@ export interface operations {
                  *     always appended as a deterministic tiebreaker.
                  */
                 sort?: components["parameters"]["Sort"];
-                /** @description Case-insensitive substring match against the alert title. */
+                /** @description Case- and accent-insensitive substring match against the alert title. */
                 title?: string;
                 /** @description Strict boolean equality filter on the active flag. */
                 isActive?: boolean;

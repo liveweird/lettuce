@@ -6,6 +6,7 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import CreateTeam from "./CreateTeam";
 import { jsonResponse } from "../test/http";
+import { theme } from "../theme";
 
 const TOKEN_KEY = "lettuce.auth.token";
 const ROLE_KEY = "lettuce.auth.roles";
@@ -15,12 +16,14 @@ function PathProbe() {
   return <div data-testid="probe">{location.pathname}</div>;
 }
 
-function renderCreateTeam() {
+// withTheme: the diacritics-search test needs the app theme, whose Select defaultProps carry
+// the accent-folding options filter (theme.ts); the other tests keep the bare provider.
+function renderCreateTeam({ withTheme = false } = {}) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
-    <MantineProvider env="test">
+    <MantineProvider env="test" theme={withTheme ? theme : undefined}>
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={["/teams/new"]}>
           <Routes>
@@ -131,6 +134,37 @@ describe("CreateTeam page", () => {
     expect(
       mockFetch.mock.calls.find(([url, init]) => init?.method === "POST" && url === "/api/v1/teams"),
     ).toBeUndefined();
+  });
+
+  test("manager search is diacritics-insensitive under the app theme", async () => {
+    const pool = [
+      { id: 10, name: "Żółw Kowalski", email: "zolw@example.com", roles: [] as const },
+      { id: 11, name: "Zolw Plain", email: "plain@example.com", roles: [] as const },
+      { id: 12, name: "Bob Manager", email: "bob@example.com", roles: [] as const },
+    ];
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      if (method === "GET" && url.startsWith("/api/v1/users?")) {
+        return Promise.resolve(jsonResponse(200, { items: pool, page: 1, pageSize: 100, total: pool.length }));
+      }
+      return Promise.resolve(jsonResponse(500, {}));
+    });
+    const user = userEvent.setup();
+    renderCreateTeam({ withTheme: true });
+
+    const managerInput = screen.getByLabelText(/manager/i, { selector: "input" });
+    await waitFor(() => expect(managerInput).not.toBeDisabled());
+
+    // Plain ASCII finds the diacritic label (and the plain one), not Bob.
+    await user.type(managerInput, "zolw");
+    expect(await screen.findByText("Żółw Kowalski")).toBeInTheDocument();
+    expect(screen.getByText("Zolw Plain")).toBeInTheDocument();
+    expect(screen.queryByText("Bob Manager")).not.toBeInTheDocument();
+
+    // Diacritics find the plain label too.
+    await user.clear(managerInput);
+    await user.type(managerInput, "żółw");
+    expect(await screen.findByText("Zolw Plain")).toBeInTheDocument();
   });
 
   test("non-admin is redirected to /teams without fetching", () => {

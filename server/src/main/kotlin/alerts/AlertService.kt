@@ -1,6 +1,6 @@
 package ch.nokillswit.alerts
 
-import ch.nokillswit.infra.db.containsPattern
+import ch.nokillswit.infra.db.containsNormalized
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
 import io.ktor.util.AttributeKey
@@ -127,7 +127,7 @@ class AlertService(val database: R2dbcDatabase) {
     private fun buildPredicate(filter: AlertListFilter): Op<Boolean> {
         var op: Op<Boolean> = Op.TRUE
         filter.title?.takeIf { it.isNotBlank() }?.let {
-            op = op and (Alerts.title.lowerCase() like containsPattern(it))
+            op = op and (Alerts.title.containsNormalized(it))
         }
         filter.isActive?.let {
             op = op and (Alerts.isActive eq it)

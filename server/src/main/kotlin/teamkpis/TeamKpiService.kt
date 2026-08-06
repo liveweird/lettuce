@@ -2,7 +2,7 @@ package ch.nokillswit.teamkpis
 
 import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.infra.crypto.FieldCipher
-import ch.nokillswit.infra.db.containsPattern
+import ch.nokillswit.infra.db.containsNormalized
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.notifications.Notification
@@ -521,11 +521,11 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
     private fun buildPredicate(filter: TeamKpiListFilter): Op<Boolean> {
         var op: Op<Boolean> = Op.TRUE
         filter.teamName?.takeIf { it.isNotBlank() }?.let {
-            op = op and (TeamService.Teams.name.lowerCase() like containsPattern(it))
+            op = op and (TeamService.Teams.name.containsNormalized(it))
         }
         filter.teamId?.let { op = op and (TeamKpis.teamId eq it) }
         filter.title?.takeIf { it.isNotBlank() }?.let {
-            op = op and (TeamKpis.title.lowerCase() like containsPattern(it))
+            op = op and (TeamKpis.title.containsNormalized(it))
         }
         filter.type?.let { op = op and (TeamKpis.type eq it) }
         filter.status?.let { op = op and (TeamKpis.status eq it) }

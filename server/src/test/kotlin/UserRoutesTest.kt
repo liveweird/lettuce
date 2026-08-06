@@ -18,6 +18,7 @@ import io.ktor.client.call.body
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.post
+import io.ktor.client.request.parameter
 import io.ktor.client.request.patch
 import io.ktor.client.request.put
 import io.ktor.client.request.request
@@ -513,6 +514,42 @@ class UserRoutesTest {
         val page = response.body<UserPageResponse>()
         assertEquals(1L, page.total)
         assertEquals("Alicia-$tag", page.items.single().name)
+    }
+
+    @Test
+    fun `GET users name filter is diacritics-insensitive in both directions`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("caller")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789")
+        val client = authedClient(callerEmail, "pw-123456789")
+        val tag = UUID.randomUUID().toString().substring(0, 8)
+        client.post("/api/v1/users") {
+            contentType(ContentType.Application.Json)
+            setBody(UserRequest(name = "Żółwik-$tag", email = uniqueEmail("zolwik-$tag"), password = "pw-123456789"))
+        }
+        client.post("/api/v1/users") {
+            contentType(ContentType.Application.Json)
+            setBody(UserRequest(name = "Zolw-$tag", email = uniqueEmail("zolw-$tag"), password = "pw-123456789"))
+        }
+
+        // Plain ASCII query finds the stored diacritics ("zolwik" ⊄ "Zolw-…", so exactly one hit).
+        val ascii = client.get("/api/v1/users") { parameter("name", "zolwik-$tag") }.body<UserPageResponse>()
+        assertEquals(1L, ascii.total)
+        assertEquals("Żółwik-$tag", ascii.items.single().name)
+
+        // Diacritics query finds the stored plain ASCII ("żółw-" folds to "zolw-" ⊄ "Żółwik-…").
+        val diacritics = client.get("/api/v1/users") { parameter("name", "żółw-$tag") }.body<UserPageResponse>()
+        assertEquals(1L, diacritics.total)
+        assertEquals("Zolw-$tag", diacritics.items.single().name)
+
+        // UPPERCASE diacritics still match — unaccent runs before LOWER, so the C-locale
+        // database folds the case correctly on the ASCII base letters.
+        val upper = client.get("/api/v1/users") { parameter("name", "ŻÓŁWIK-$tag") }.body<UserPageResponse>()
+        assertEquals(1L, upper.total)
+        assertEquals("Żółwik-$tag", upper.items.single().name)
+
+        val none = client.get("/api/v1/users") { parameter("name", "zolwx-$tag") }.body<UserPageResponse>()
+        assertEquals(0L, none.total)
     }
 
     @Test

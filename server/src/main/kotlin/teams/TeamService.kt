@@ -1,6 +1,6 @@
 package ch.nokillswit.teams
 
-import ch.nokillswit.infra.db.containsPattern
+import ch.nokillswit.infra.db.containsNormalized
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.SortField
 import ch.nokillswit.infra.paging.applyPaging
@@ -269,7 +269,7 @@ class TeamService(val database: R2dbcDatabase) {
     private fun buildPredicate(filter: TeamListFilter): Op<Boolean> {
         var op: Op<Boolean> = Op.TRUE
         filter.name?.takeIf { it.isNotBlank() }?.let {
-            op = op and (Teams.name.lowerCase() like containsPattern(it))
+            op = op and (Teams.name.containsNormalized(it))
         }
         filter.managerId?.let {
             op = op and (Teams.managerId eq it)
@@ -286,10 +286,10 @@ class TeamService(val database: R2dbcDatabase) {
     private fun buildMemberPredicate(filter: TeamMemberListFilter): Op<Boolean> {
         var op: Op<Boolean> = Op.TRUE
         filter.name?.takeIf { it.isNotBlank() }?.let {
-            op = op and (UserService.Users.name.lowerCase() like containsPattern(it))
+            op = op and (UserService.Users.name.containsNormalized(it))
         }
         filter.email?.takeIf { it.isNotBlank() }?.let {
-            op = op and (UserService.Users.email.lowerCase() like containsPattern(it))
+            op = op and (UserService.Users.email.containsNormalized(it))
         }
         filter.teamId?.let {
             op = op and (Teams.id eq it)

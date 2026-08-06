@@ -3,7 +3,7 @@ package ch.nokillswit.users
 import ch.nokillswit.dictionaries.Dictionary
 import ch.nokillswit.dictionaries.DictionaryEntry
 import ch.nokillswit.dictionaries.DictionaryService
-import ch.nokillswit.infra.db.containsPattern
+import ch.nokillswit.infra.db.containsNormalized
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.teams.TeamService
@@ -248,10 +248,10 @@ class UserService(val database: R2dbcDatabase) {
     private fun buildPredicate(filter: UserListFilter): Op<Boolean> {
         var op: Op<Boolean> = Op.TRUE
         filter.name?.takeIf { it.isNotBlank() }?.let {
-            op = op and (Users.name.lowerCase() like containsPattern(it))
+            op = op and (Users.name.containsNormalized(it))
         }
         filter.email?.takeIf { it.isNotBlank() }?.let {
-            op = op and (Users.email.lowerCase() like containsPattern(it))
+            op = op and (Users.email.containsNormalized(it))
         }
         filter.role?.let {
             val holders = UserRoles.select(UserRoles.userId).where { UserRoles.role eq it.name }

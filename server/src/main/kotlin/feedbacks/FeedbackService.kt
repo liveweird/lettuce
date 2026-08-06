@@ -2,7 +2,7 @@ package ch.nokillswit.feedbacks
 
 import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.infra.crypto.FieldCipher
-import ch.nokillswit.infra.db.containsPattern
+import ch.nokillswit.infra.db.containsNormalized
 import ch.nokillswit.infra.db.decodeParams
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
@@ -583,13 +583,13 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
     private fun buildPredicate(filter: FeedbackListFilter): Op<Boolean> {
         var op: Op<Boolean> = Op.TRUE
         filter.requesterName?.takeIf { it.isNotBlank() }?.let {
-            op = op and (requesterUsers[UserService.Users.name].lowerCase() like containsPattern(it))
+            op = op and (requesterUsers[UserService.Users.name].containsNormalized(it))
         }
         filter.subjectName?.takeIf { it.isNotBlank() }?.let {
-            op = op and (subjectUsers[UserService.Users.name].lowerCase() like containsPattern(it))
+            op = op and (subjectUsers[UserService.Users.name].containsNormalized(it))
         }
         filter.providerName?.takeIf { it.isNotBlank() }?.let {
-            op = op and (providerUsers[UserService.Users.name].lowerCase() like containsPattern(it))
+            op = op and (providerUsers[UserService.Users.name].containsNormalized(it))
         }
         filter.providerId?.let { op = op and (Feedbacks.providerId eq it) }
         filter.subjectId?.let { op = op and (Feedbacks.subjectId eq it) }

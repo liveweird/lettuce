@@ -3,7 +3,7 @@ package ch.nokillswit.reviews
 import ch.nokillswit.authz.ConflictException
 import io.ktor.server.plugins.BadRequestException
 import ch.nokillswit.infra.crypto.FieldCipher
-import ch.nokillswit.infra.db.containsPattern
+import ch.nokillswit.infra.db.containsNormalized
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.notifications.Notification
@@ -512,10 +512,10 @@ class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: 
     private fun buildPredicate(filter: PerformanceReviewListFilter): Op<Boolean> {
         var op: Op<Boolean> = Op.TRUE
         filter.managerName?.takeIf { it.isNotBlank() }?.let {
-            op = op and (managerUsers[UserService.Users.name].lowerCase() like containsPattern(it))
+            op = op and (managerUsers[UserService.Users.name].containsNormalized(it))
         }
         filter.subordinateName?.takeIf { it.isNotBlank() }?.let {
-            op = op and (subordinateUsers[UserService.Users.name].lowerCase() like containsPattern(it))
+            op = op and (subordinateUsers[UserService.Users.name].containsNormalized(it))
         }
         filter.managerId?.let { op = op and (Reviews.managerId eq it) }
         filter.subordinateId?.let { op = op and (Reviews.subordinateId eq it) }

@@ -2,7 +2,7 @@ package ch.nokillswit.goals
 
 import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.infra.crypto.FieldCipher
-import ch.nokillswit.infra.db.containsPattern
+import ch.nokillswit.infra.db.containsNormalized
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.notifications.Notification
@@ -450,15 +450,15 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
     private fun buildPredicate(filter: GoalListFilter): Op<Boolean> {
         var op: Op<Boolean> = Op.TRUE
         filter.managerName?.takeIf { it.isNotBlank() }?.let {
-            op = op and (managerUsers[UserService.Users.name].lowerCase() like containsPattern(it))
+            op = op and (managerUsers[UserService.Users.name].containsNormalized(it))
         }
         filter.subordinateName?.takeIf { it.isNotBlank() }?.let {
-            op = op and (subordinateUsers[UserService.Users.name].lowerCase() like containsPattern(it))
+            op = op and (subordinateUsers[UserService.Users.name].containsNormalized(it))
         }
         filter.managerId?.let { op = op and (Goals.managerId eq it) }
         filter.subordinateId?.let { op = op and (Goals.subordinateId eq it) }
         filter.title?.takeIf { it.isNotBlank() }?.let {
-            op = op and (Goals.title.lowerCase() like containsPattern(it))
+            op = op and (Goals.title.containsNormalized(it))
         }
         filter.type?.let { op = op and (Goals.type eq it) }
         filter.status?.let { op = op and (Goals.status eq it) }

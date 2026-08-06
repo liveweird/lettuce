@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.47.0",
+    date: "2026-08-06",
+    en: `Search ignores Polish diacritics now. Every list filter (people, teams, goals, KPIs, reviews, feedback, days off, templates, alerts) and every searchable dropdown (picking a manager, a subordinate, a team, a template…) matches accent-insensitively in both directions: typing "zolw" finds "Żółw", and typing "Żółw" finds "Zolw". Capital letters with diacritics work too.`,
+    pl: `Wyszukiwanie ignoruje teraz polskie znaki. Każdy filtr list (osoby, zespoły, cele, KPI, oceny, feedbacki, dni wolne, szablony, ogłoszenia) i każda przeszukiwalna lista rozwijana (wybór menedżera, podwładnego, zespołu, szablonu…) dopasowuje bez rozróżniania znaków diakrytycznych w obie strony: wpisując „zolw" znajdziesz „Żółw", a wpisując „Żółw" znajdziesz „Zolw". Wielkie litery ze znakami też działają.`,
+  },
+  {
     version: "1.46.0",
     date: "2026-08-06",
     en: `Person cards got tidied up. The information on each card (the Dashboard grids and user details) is now grouped into clearly labeled sections: Profile (career path, specialization, seniority), Collaboration (last 1:1, feedback, active goals — with the feedback, 1:1, and goal buttons right there), Performance (last review with its button), and Days off (next vacation and budget left with theirs). Every button now sits next to the information it relates to, instead of piling up at the bottom of the card.`,
