@@ -46,9 +46,11 @@ export default function Login() {
         setError(
           err.status === 401
             ? t("auth.invalidCredentials")
-            : err.status === 429
-              ? t("auth.accountLocked")
-              : t("auth.loginFailedStatus", { status: err.status }),
+            : err.status === 403
+              ? t("auth.accountDeactivated")
+              : err.status === 429
+                ? t("auth.accountLocked")
+                : t("auth.loginFailedStatus", { status: err.status }),
         );
       } else {
         setError(t("auth.loginFailedGeneric"));

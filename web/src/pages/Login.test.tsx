@@ -73,6 +73,24 @@ describe("Login page", () => {
     expect(localStorage.getItem("lettuce.auth.token")).toBeNull();
   });
 
+  test("a 403 surfaces the deactivated-account message", async () => {
+    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+    mockFetch.mockResolvedValueOnce(
+      new Response("{}", { status: 403, headers: { "Content-Type": "application/json" } }),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<Login />, { route: "/login" });
+
+    await user.type(screen.getByLabelText(/email/i), "alice@example.com");
+    await user.type(screen.getByLabelText("Password"), "correct-but-disabled");
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    expect(await screen.findByText(/this account has been deactivated/i)).toBeInTheDocument();
+    expect(screen.queryByText(/invalid email or password/i)).toBeNull();
+    expect(localStorage.getItem("lettuce.auth.token")).toBeNull();
+  });
+
   test("surfaces a generic message for a non-401 server error", async () => {
     const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
     mockFetch.mockResolvedValueOnce(

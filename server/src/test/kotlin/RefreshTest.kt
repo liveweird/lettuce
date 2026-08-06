@@ -163,4 +163,20 @@ class RefreshTest {
 
         assertEquals(HttpStatusCode.Unauthorized, postRefresh(client, first.refreshToken).status)
     }
+
+    @Test
+    fun `refresh rejects a deactivated user's token, and reactivation restores it`() = testApplication {
+        usePostgresTestcontainer()
+        val email = uniqueEmail("refresh-deactivated")
+        val userId = TestUsers.seed(email = email, password = "pw")
+        val client = jsonClient()
+        val first = loginBody(client, email, "pw")
+
+        TestServices.users.setDeactivated(userId, true)
+        assertEquals(HttpStatusCode.Unauthorized, postRefresh(client, first.refreshToken).status)
+
+        // Reversibility: the same (still unexpired) refresh token works again after reactivation.
+        TestServices.users.setDeactivated(userId, false)
+        assertEquals(HttpStatusCode.OK, postRefresh(client, first.refreshToken).status)
+    }
 }

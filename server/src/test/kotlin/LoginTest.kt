@@ -2,6 +2,7 @@ package ch.nokillswit
 
 import ch.nokillswit.auth.LoginRequest
 import ch.nokillswit.auth.LoginResponse
+import ch.nokillswit.plugins.ProblemDetail
 import ch.nokillswit.users.UserResponse
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
@@ -205,5 +206,56 @@ class LoginTest {
         val response = jsonClient().get("/api/v1/users/1")
 
         assertEquals(HttpStatusCode.Unauthorized, response.status)
+    }
+
+    @Test
+    fun `deactivated account with correct password returns a distinct 403`() = testApplication {
+        usePostgresTestcontainer()
+        val email = uniqueEmail("deact")
+        val userId = TestUsers.seed(email = email, password = "right-pw")
+        TestServices.users.setDeactivated(userId, true)
+
+        val response = jsonClient().post("/api/v1/login") {
+            contentType(ContentType.Application.Json)
+            setBody(LoginRequest(email, "right-pw"))
+        }
+
+        // Distinct on purpose: only reachable AFTER the password verified, so it is no
+        // enumeration oracle — and the legitimate owner learns why they cannot get in.
+        assertEquals(HttpStatusCode.Forbidden, response.status)
+        assertEquals("Account is deactivated", response.body<ProblemDetail>().detail)
+    }
+
+    @Test
+    fun `deactivated account with wrong password returns the uniform 401`() = testApplication {
+        usePostgresTestcontainer()
+        val email = uniqueEmail("deact-wrong")
+        val userId = TestUsers.seed(email = email, password = "right-pw")
+        TestServices.users.setDeactivated(userId, true)
+
+        val response = jsonClient().post("/api/v1/login") {
+            contentType(ContentType.Application.Json)
+            setBody(LoginRequest(email, "wrong-pw"))
+        }
+
+        // Without the correct password, a deactivated account is indistinguishable from any
+        // other failed login — the 403 must never become an existence probe.
+        assertEquals(HttpStatusCode.Unauthorized, response.status)
+    }
+
+    @Test
+    fun `reactivation restores login with the existing password`() = testApplication {
+        usePostgresTestcontainer()
+        val email = uniqueEmail("react")
+        val userId = TestUsers.seed(email = email, password = "right-pw")
+        TestServices.users.setDeactivated(userId, true)
+        TestServices.users.setDeactivated(userId, false)
+
+        val response = jsonClient().post("/api/v1/login") {
+            contentType(ContentType.Application.Json)
+            setBody(LoginRequest(email, "right-pw"))
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
     }
 }

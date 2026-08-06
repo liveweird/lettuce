@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.48.0",
+    date: "2026-08-06",
+    en: `Administrators can now deactivate a user account — and bring it back. A deactivated person cannot sign in (they see a clear "account has been deactivated" message) and cannot be newly added to teams or given new goals, 1:1s, reviews, or feedback — but everything they did stays visible exactly as before, and reactivating restores access with the same password. Look for the Deactivate action and the new Status filter on the Users list; inactive accounts carry an "Inactive" badge there.`,
+    pl: `Administratorzy mogą teraz dezaktywować konto użytkownika — i je przywrócić. Osoba dezaktywowana nie może się zalogować (widzi wyraźny komunikat „konto zostało dezaktywowane") i nie można jej dodawać do zespołów ani przypisywać nowych celów, spotkań 1:1, ocen czy feedbacków — ale wszystko, co zrobiła, pozostaje widoczne dokładnie jak wcześniej, a ponowna aktywacja przywraca dostęp z tym samym hasłem. Szukaj akcji Dezaktywuj i nowego filtra Status na liście użytkowników; nieaktywne konta mają tam znaczek „Nieaktywny".`,
+  },
+  {
     version: "1.47.0",
     date: "2026-08-06",
     en: `Search ignores Polish diacritics now. Every list filter (people, teams, goals, KPIs, reviews, feedback, days off, templates, alerts) and every searchable dropdown (picking a manager, a subordinate, a team, a template…) matches accent-insensitively in both directions: typing "zolw" finds "Żółw", and typing "Żółw" finds "Zolw". Capital letters with diacritics work too.`,

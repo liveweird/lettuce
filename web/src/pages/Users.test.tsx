@@ -481,4 +481,96 @@ describe("Users page", () => {
       ).toEqual({ sortField: "email", sortDir: "asc", pageSize: 20 });
     });
   });
+
+  test("a deactivated user shows the Inactive badge and a Reactivate action instead of Deactivate", async () => {
+    const items = [
+      SEED_USERS[0],
+      { id: 2, name: "Bob", email: "bob@example.com", roles: [] as Array<"ADMIN">, deactivated: true },
+    ];
+    mockUsers(mockFetch, items);
+    renderUsers();
+
+    await screen.findByText("Bob");
+    expect(screen.getByText("Inactive")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reactivate Bob" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Deactivate Bob" })).not.toBeInTheDocument();
+    // Active Alice is the CURRENT user (id 1) — her own row never offers the action.
+    expect(screen.queryByRole("button", { name: "Deactivate Alice" })).not.toBeInTheDocument();
+  });
+
+  test("confirming Deactivate POSTs the transition and refetches", async () => {
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      if (method === "GET" && String(url).startsWith("/api/v1/users?")) {
+        return Promise.resolve(listResponse(SEED_USERS));
+      }
+      if (method === "POST" && url === "/api/v1/users/2/deactivate") {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      return Promise.resolve(jsonResponse(500, {}));
+    });
+    const user = userEvent.setup();
+    renderUsers();
+
+    await user.click(await screen.findByRole("button", { name: "Deactivate Bob" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/will no longer be able to sign in/i)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: /^deactivate$/i }));
+
+    await waitFor(() => {
+      const post = mockFetch.mock.calls.find(([, init]) => init?.method === "POST");
+      expect(post).toBeDefined();
+      expect(post![0]).toBe("/api/v1/users/2/deactivate");
+    });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  test("Reactivate POSTs the activate transition without a modal", async () => {
+    const items = [
+      SEED_USERS[0],
+      { id: 2, name: "Bob", email: "bob@example.com", roles: [] as Array<"ADMIN">, deactivated: true },
+    ];
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      if (method === "GET" && String(url).startsWith("/api/v1/users?")) {
+        return Promise.resolve(jsonResponse(200, { items, page: 1, pageSize: 20, total: 2 }));
+      }
+      if (method === "POST" && url === "/api/v1/users/2/activate") {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      return Promise.resolve(jsonResponse(500, {}));
+    });
+    const user = userEvent.setup();
+    renderUsers();
+
+    await user.click(await screen.findByRole("button", { name: "Reactivate Bob" }));
+
+    await waitFor(() => {
+      const post = mockFetch.mock.calls.find(([, init]) => init?.method === "POST");
+      expect(post).toBeDefined();
+      expect(post![0]).toBe("/api/v1/users/2/activate");
+    });
+  });
+
+  test("selecting the Status filter refetches with deactivated=", async () => {
+    mockUsers(mockFetch);
+    renderUsers();
+
+    await screen.findByText("Alice");
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+    fireEvent.click(screen.getByLabelText("Status", { selector: "input" }));
+    fireEvent.click(await screen.findByRole("option", { name: /^inactive$/i }));
+    await waitFor(() =>
+      expect(userUrls(mockFetch).some((u) => u.includes("deactivated=true"))).toBe(true),
+    );
+  });
+
+  test("non-admin sees no Deactivate action", async () => {
+    localStorage.setItem(ROLE_KEY, "[]");
+    mockListThen(mockFetch);
+    renderUsers();
+
+    await screen.findByText("Alice");
+    expect(screen.queryByRole("button", { name: /^deactivate /i })).not.toBeInTheDocument();
+  });
 });

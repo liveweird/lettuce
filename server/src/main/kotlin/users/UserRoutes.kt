@@ -10,6 +10,7 @@ import ch.nokillswit.infra.mail.mailAppUrl
 import ch.nokillswit.infra.mail.mailer
 import ch.nokillswit.infra.mail.respondMailUnavailable
 import ch.nokillswit.plugins.isUniqueViolation
+import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAdmin
@@ -24,6 +25,7 @@ import ch.nokillswit.notifications.Notification
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.notifications.NotificationType
 import ch.nokillswit.infra.paging.parsePaging
+import ch.nokillswit.infra.paging.optionalBoolean
 import ch.nokillswit.infra.paging.optionalEnum
 import ch.nokillswit.infra.paging.optionalString
 import ch.nokillswit.infra.paging.optionalUInt
@@ -90,6 +92,14 @@ class Users {
         @Serializable
         @Resource("password")
         class Password(val parent: Id)
+
+        @Serializable
+        @Resource("deactivate")
+        class Deactivate(val parent: Id)
+
+        @Serializable
+        @Resource("activate")
+        class Activate(val parent: Id)
     }
 }
 
@@ -116,6 +126,7 @@ fun Application.configureUserRoutes() {
                     email = params.optionalString("email"),
                     role = params.optionalEnum<UserRole>("role"),
                     teamId = params.optionalUInt("teamId"),
+                    deactivated = params.optionalBoolean("deactivated"),
                 )
                 val result = userService.list(filter, paging)
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
@@ -198,6 +209,7 @@ fun Application.configureUserRoutes() {
                             careerSpecialization = user.careerSpecializationId?.let { resolved[it] },
                             seniorityLevel = user.seniorityLevelId?.let { resolved[it] },
                             paidDaysOffAllowance = user.paidDaysOffAllowance,
+                            deactivated = false,
                         ),
                     )
                 } else {
@@ -439,6 +451,42 @@ fun Application.configureUserRoutes() {
                     call.respond(HttpStatusCode.NoContent)
                 }
             }
+            // Reversible deactivation — the goals-transition shape (POST action, same-state 409).
+            // Deliberately NOT a PUT field: the update route's whole-row write must never be able
+            // to flip account state, and a boolean can't carry "omitted = unchanged".
+            suspend fun setAccountDeactivated(call: ApplicationCall, targetId: UInt, deactivate: Boolean) {
+                val caller = call.caller()
+                requireAdmin(caller)
+                // Reversible ≠ harmless: an admin locking themselves out (possibly of the only
+                // admin account) is a support ticket — self-deactivation is blocked. The check
+                // runs before the read so it 403s uniformly (the deactivate direction only:
+                // self-reactivation is unreachable — a deactivated caller cannot hold a session).
+                if (deactivate && caller.userId == targetId) {
+                    throw ForbiddenException("You cannot deactivate your own account")
+                }
+                val existing = userService.read(targetId)
+                if (existing == null) {
+                    call.respondProblem(HttpStatusCode.NotFound, "User not found")
+                    return
+                }
+                if (existing.deactivated == deactivate) {
+                    throw ConflictException(
+                        if (deactivate) "The account is already deactivated" else "The account is not deactivated",
+                    )
+                }
+                if (userService.setDeactivated(targetId, deactivate) == 0) {
+                    call.respondProblem(HttpStatusCode.NotFound, "User not found")
+                    return
+                }
+                audit(
+                    if (deactivate) "user.deactivated" else "user.reactivated",
+                    "byUserId" to caller.userId.toLong(),
+                    "targetUserId" to targetId.toLong(),
+                )
+                call.respond(HttpStatusCode.NoContent)
+            }
+            post<Users.Id.Deactivate> { route -> setAccountDeactivated(call, route.parent.id, true) }
+            post<Users.Id.Activate> { route -> setAccountDeactivated(call, route.parent.id, false) }
             delete<Users.Id> { route ->
                 val caller = call.caller()
                 requireAdmin(caller)

@@ -23,6 +23,11 @@ data class User(
     val email: String,
     val passwordHash: String,
     val roles: Set<UserRole> = emptySet(),
+    // Reversible admin disable (V44) — orthogonal to the soft-delete. Blocks login (403 after
+    // the password verifies), refresh, password reset, and NEW assignments; historical data
+    // stays readable with unchanged rights. Never client-settable via PUT — flipped only by
+    // POST /users/{id}/deactivate|activate.
+    val deactivated: Boolean = false,
     // Epoch millis of the last password change (0 = never). Server-internal; used to
     // invalidate refresh tokens minted before the change (see /api/v1/refresh).
     val passwordChangedAt: Long = 0,
@@ -68,6 +73,8 @@ data class UserCreateResponse(
     val careerSpecialization: DictionaryEntry?,
     val seniorityLevel: DictionaryEntry?,
     val paidDaysOffAllowance: Int?,
+    // Always false at creation; kept in the shape so both user-response schemas stay aligned.
+    val deactivated: Boolean,
 )
 
 @Serializable
@@ -152,6 +159,9 @@ data class UserResponse(
     // the same posture as seniority level); managers consume the derived numbers via
     // GET /days-off/budgets.
     val paidDaysOffAllowance: Int?,
+    // Reversible admin disable — the ONLY place the state surfaces is the admin users list
+    // (Inactive badge + filter); no other feature DTO carries it by design.
+    val deactivated: Boolean,
 )
 
 typealias UserPageResponse = PageResponse<UserResponse>
@@ -165,4 +175,5 @@ fun User.toResponse(id: UInt, entries: Map<UInt, DictionaryEntry>) = UserRespons
     careerSpecialization = careerSpecializationId?.let { entries[it] },
     seniorityLevel = seniorityLevelId?.let { entries[it] },
     paidDaysOffAllowance = paidDaysOffAllowance,
+    deactivated = deactivated,
 )

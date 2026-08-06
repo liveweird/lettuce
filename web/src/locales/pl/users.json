@@ -167,9 +167,24 @@
   "daysOffBudgetLeft": "Pozostały budżet dni wolnych",
   "paidDaysOffAllowance": "Pula płatnych dni wolnych (dni rocznie)",
   "paidDaysOffAllowanceHint": "Pełne dni; niewykorzystane dni przechodzą na kolejny rok. Zostaw puste, aby zachować obecną wartość — ustawionej puli nie da się wyczyścić.",
+  "statusFilterLabel": "Status",
+  "statusActive": "Aktywny",
+  "statusInactive": "Nieaktywny",
+  "inactiveBadge": "Nieaktywny",
+  "deactivate": "Dezaktywuj",
+  "reactivate": "Aktywuj ponownie",
+  "deactivateAria": "Dezaktywuj {{name}}",
+  "reactivateAria": "Aktywuj ponownie {{name}}",
+  "deactivateTitle": "Dezaktywować użytkownika?",
+  "deactivateConfirm": "{{name}} nie będzie mógł/mogła się już zalogować. Dane pozostaną widoczne, a konto możesz w każdej chwili aktywować ponownie.",
+  "transitionForbidden": "Nie masz uprawnień do zmiany statusu tego konta",
+  "transitionFailedStatus": "Zmiana statusu konta nie powiodła się (status {{status}})",
+  "transitionFailed": "Nie udało się zmienić statusu konta",
   "toast": {
     "updated": "Użytkownik zaktualizowany",
     "deleted": "Użytkownik usunięty",
-    "passwordChanged": "Hasło zmienione"
+    "passwordChanged": "Hasło zmienione",
+    "deactivated": "Użytkownik dezaktywowany",
+    "reactivated": "Użytkownik aktywowany ponownie"
   }
 }

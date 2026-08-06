@@ -49,6 +49,10 @@ export interface paths {
          *     attempts for that account — even with the correct password — are rejected with `429`
          *     for a lockout window (default 15 min, `LOGIN_LOCKOUT_DURATION_SECONDS`). A successful
          *     login resets the counter.
+         *
+         *     A **deactivated** account with correct credentials is rejected with `403` — the check
+         *     runs only after the password verifies, so wrong credentials always get the uniform
+         *     `401` and the endpoint discloses nothing about accounts the caller cannot unlock.
          */
         post: operations["login"];
         delete?: never;
@@ -74,8 +78,10 @@ export interface paths {
          *     working, and all outstanding refresh tokens are invalidated), and the password is sent
          *     to the account's email address. Throttled per submitted email — one request per interval
          *     (default 60 s, `PASSWORD_RESET_MIN_INTERVAL_SECONDS`) — uniformly for existing and
-         *     unknown addresses, and rate-limited per client IP. Answers `503` on deployments without
-         *     outbound email (`MAIL_TRANSPORT=disabled`).
+         *     unknown addresses, and rate-limited per client IP. A deactivated account is treated
+         *     like an unknown address (no password is minted, no email sent; the `202` stays
+         *     uniform). Answers `503` on deployments without outbound email
+         *     (`MAIL_TRANSPORT=disabled`).
          */
         post: operations["requestPasswordReset"];
         delete?: never;
@@ -99,8 +105,9 @@ export interface paths {
          *     returns a brand-new access token and refresh token (each with a full TTL). The presented
          *     refresh token is left valid until its own expiry — it is not rotated out. Requires no
          *     `Authorization` header (the access token may already be expired). Returns `401` for a
-         *     missing/invalid/expired/revoked refresh token, if the user no longer exists, or if the
-         *     token was minted before the user's most recent password change.
+         *     missing/invalid/expired/revoked refresh token, if the user no longer exists or the
+         *     account is deactivated, or if the token was minted before the user's most recent
+         *     password change.
          */
         post: operations["refresh"];
         delete?: never;
@@ -148,6 +155,8 @@ export interface paths {
          *       - `email` — case- and accent-insensitive substring match against `email`.
          *       - `role` — has-role match: only users holding this additional role (`ADMIN`/`HR`).
          *       - `teamId` — restrict to users who are members of the given team.
+         *       - `deactivated` — strict boolean: only deactivated (`true`) or only active (`false`)
+         *         accounts.
          *
          *     Malformed query parameters (unknown sort field, unknown role, out-of-range page/pageSize)
          *     respond with `400` and a `ProblemDetail` body.
@@ -264,6 +273,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/{id}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Deactivate a user account (ADMIN only)
+         * @description Reversibly disables the account (any current state other than active is `409`).
+         *     **ADMIN-only**, and never one's own account (`403`). A deactivated user cannot sign
+         *     in (`403` at login once the password verifies), existing sessions end at the next
+         *     refresh, self-service password reset is silently skipped, and the user cannot be
+         *     NEWLY assigned anywhere (team member/manager, goal/1:1/review subordinate, feedback
+         *     party — `400` at those create endpoints). Everything else is untouched: their
+         *     historical data stays visible under unchanged rights, they keep their email reserved,
+         *     and `POST /users/{id}/activate` restores access. Audited as `user.deactivated`.
+         */
+        post: operations["deactivateUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{id}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reactivate a deactivated user account (ADMIN only)
+         * @description Reverses `POST /users/{id}/deactivate` (an account that is not deactivated is `409`).
+         *     **ADMIN-only.** The user can sign in again with their existing password; nothing else
+         *     changes — their data, roles, and email were never touched. Audited as
+         *     `user.reactivated`.
+         */
+        post: operations["activateUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/teams": {
         parameters: {
             query?: never;
@@ -294,7 +357,8 @@ export interface paths {
          * Create a team
          * @description Any authenticated user may create a team, but the `managerId` in
          *     the request body must equal the caller's own user id (ADMIN may
-         *     designate any user).
+         *     designate any user). Referencing a **deactivated** user as manager
+         *     or member is rejected with `400`.
          */
         post: operations["createTeam"];
         delete?: never;
@@ -388,7 +452,7 @@ export interface paths {
         get: operations["getTeam"];
         /**
          * Replace a team
-         * @description Requires the caller to be the team's current manager, or to be ADMIN. Reassigning the manager (changing `managerId` to a different user) is ADMIN-only — a current manager may edit their team but not hand it off (403 otherwise).
+         * @description Requires the caller to be the team's current manager, or to be ADMIN. Reassigning the manager (changing `managerId` to a different user) is ADMIN-only — a current manager may edit their team but not hand it off (403 otherwise). NEWLY adding a **deactivated** member or changing the manager to a deactivated user is rejected with `400`; resubmitting an unchanged existing reference is not validated, so a team containing a since-deactivated user stays editable.
          */
         put: operations["replaceTeam"];
         post?: never;
@@ -415,7 +479,7 @@ export interface paths {
         get?: never;
         /**
          * Add a member to the team (idempotent)
-         * @description Requires the caller to be the team's current manager, or to be ADMIN.
+         * @description Requires the caller to be the team's current manager, or to be ADMIN. NEWLY adding a **deactivated** user is rejected with `400`; re-adding an already-present member (even a since-deactivated one) stays the idempotent no-op.
          */
         put: operations["addTeamMember"];
         post?: never;
@@ -498,7 +562,7 @@ export interface paths {
         put?: never;
         /**
          * Create a feedback record
-         * @description Any authenticated user may create a feedback record they are a party to. The provider may equal the subject — a self-reflection (feedback about yourself) — either standalone or with a requester (someone requesting a self-reflection from the subject). Creation is rejected with `409` while a feedback with the same (subject, provider, requester) triple — a null requester matches only null — is still in progress (active `DRAFT` or `REQUESTED`); the `ProblemDetail.instance` carries `/api/v1/feedbacks/{id}` of the existing record. Clients should pre-check via `GET /api/v1/feedbacks/duplicate-check`.
+         * @description Any authenticated user may create a feedback record they are a party to. The provider may equal the subject — a self-reflection (feedback about yourself) — either standalone or with a requester (someone requesting a self-reflection from the subject). Creation is rejected with `409` while a feedback with the same (subject, provider, requester) triple — a null requester matches only null — is still in progress (active `DRAFT` or `REQUESTED`); the `ProblemDetail.instance` carries `/api/v1/feedbacks/{id}` of the existing record. Clients should pre-check via `GET /api/v1/feedbacks/duplicate-check`. Creation involving a **deactivated** party (provider, requester, or subject) is rejected with `400`.
          */
         post: operations["createFeedback"];
         delete?: never;
@@ -767,6 +831,7 @@ export interface paths {
          * @description Creates a 1:1 meeting document. The **manager is always the author**: the caller becomes
          *     the meeting's manager (never taken from the body), and the subordinate must be one of the
          *     caller's **direct reports** at creation time — there is no ADMIN create-on-behalf.
+         *     A **deactivated** subordinate is rejected with `400`.
          *
          *     **Chronological order**: `meetingDate` may not be strictly earlier than the pair's
          *     latest existing meeting (`409`) — 1:1s are documented continuously, in order. The same
@@ -964,7 +1029,7 @@ export interface paths {
          * @description Creates a goal, always in **DRAFT** status. The **manager is always the author**: the
          *     caller becomes the goal's manager (never taken from the body), and the subordinate must
          *     be one of the caller's **direct reports** at creation time — there is no ADMIN
-         *     create-on-behalf.
+         *     create-on-behalf. A **deactivated** subordinate is rejected with `400`.
          *
          *     The value fields are type-specific: `targetValue` is **required** for NUMBER and
          *     PERCENTAGE goals (0–100 for PERCENTAGE) and **must be absent** for BINARY goals. The
@@ -1639,7 +1704,7 @@ export interface paths {
          *     author**: the caller becomes the review's manager (never taken from the body), and the
          *     subordinate must be one of the caller's **direct reports** at creation time — there is
          *     no ADMIN create-on-behalf. The stored manager stays the author even if the subordinate
-         *     later moves teams (the goals model).
+         *     later moves teams (the goals model). A **deactivated** subordinate is rejected with `400`.
          *
          *     The four category assessments (attitude, delivery, skills, overall) may be **partial**
          *     — a DRAFT is the manager's scratch space; each set rating must be on the 1–6 scale and
@@ -2664,6 +2729,8 @@ export interface components {
             seniorityLevel: components["schemas"]["DictionaryEntry"] | null;
             /** @description Annual paid days-off allowance in whole days; null = not configured. */
             paidDaysOffAllowance: number | null;
+            /** @description Always false at creation — kept so both user-response shapes stay aligned. */
+            deactivated: boolean;
         };
         UserUpdateRequest: {
             name: string;
@@ -2735,6 +2802,14 @@ export interface components {
              *     fields (managers consume the derived budget numbers via GET /days-off/budgets).
              */
             paidDaysOffAllowance: number | null;
+            /**
+             * @description True when an admin has reversibly deactivated the account: the user cannot sign in
+             *     and cannot be NEWLY assigned (team member/manager, goal/1:1/review subordinate,
+             *     feedback party), but all their existing data keeps rendering unchanged and their
+             *     email stays reserved. Flipped only via POST /users/{id}/deactivate|activate —
+             *     never via PUT.
+             */
+            deactivated: boolean;
         };
         UserPage: {
             items: components["schemas"]["UserResponse"][];
@@ -4518,6 +4593,15 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            /** @description Credentials are correct but the account is deactivated */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
         };
@@ -4630,6 +4714,8 @@ export interface operations {
                 role?: "ADMIN" | "HR";
                 /** @description Filter to users who are members of the given team. */
                 teamId?: number;
+                /** @description Strict boolean — only deactivated (true) or only active (false) accounts. */
+                deactivated?: boolean;
             };
             header?: never;
             path?: never;
@@ -4900,6 +4986,90 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    deactivateUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deactivated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not ADMIN, or tried to deactivate their own account */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description The account is already deactivated */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    activateUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reactivated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description The account is not deactivated */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             500: components["responses"]["InternalServerError"];
         };
     };

@@ -13,6 +13,7 @@ import ch.nokillswit.infra.paging.optionalUInt
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.notifications.NotificationServiceKey
+import ch.nokillswit.users.UserServiceKey
 import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -123,6 +124,7 @@ fun Application.configureOneOnOneRoutes() {
     val oneOnOneService = attributes[OneOnOneServiceKey]
     val oneOnOneEventService = attributes[OneOnOneEventServiceKey]
     val notificationService = attributes[NotificationServiceKey]
+    val userService = attributes[UserServiceKey]
 
     routing {
         authenticate {
@@ -193,6 +195,8 @@ fun Application.configureOneOnOneRoutes() {
                 if (!oneOnOneService.isDirectReport(caller.userId, request.subordinateId)) {
                     throw ForbiddenException("You may only document 1:1 meetings with your direct reports")
                 }
+                // After the authz guard (403 wins over 400): no NEW 1:1s for deactivated users.
+                userService.requireNoDeactivatedUsers(listOf(request.subordinateId))
                 validateOneOnOnePayload(
                     request.meetingDate, request.points, request.decisions, request.actionItems,
                     forbidIds = true,

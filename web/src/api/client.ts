@@ -163,6 +163,7 @@ type UserListQuery = {
   email?: string;
   role?: UserRole;
   teamId?: number;
+  deactivated?: boolean;
 };
 
 type CurrentUser = paths["/api/v1/users/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
@@ -236,6 +237,15 @@ export async function deleteUser(id: number): Promise<void> {
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
+// Reversible account disable — the goalTransition shape (POST action endpoints, ADMIN-only).
+async function userAccountTransition(id: number, action: "deactivate" | "activate"): Promise<void> {
+  const res = await authedFetch(`/api/v1/users/${id}/${action}`, { method: "POST" });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
+export const deactivateUser = (id: number) => userAccountTransition(id, "deactivate");
+export const reactivateUser = (id: number) => userAccountTransition(id, "activate");
+
 export async function listUsers(q: UserListQuery): Promise<UserPage> {
   const params = new URLSearchParams();
   params.set("page", String(q.page));
@@ -245,6 +255,8 @@ export async function listUsers(q: UserListQuery): Promise<UserPage> {
   if (q.email) params.set("email", q.email);
   if (q.role) params.set("role", q.role);
   if (q.teamId != null) params.set("teamId", String(q.teamId));
+  // != null on purpose: false ("only active") is a meaningful filter value.
+  if (q.deactivated != null) params.set("deactivated", String(q.deactivated));
   const res = await authedFetch(`/api/v1/users?${params.toString()}`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json()) as UserPage;

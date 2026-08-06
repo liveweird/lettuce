@@ -15,6 +15,7 @@ import ch.nokillswit.infra.paging.optionalLong
 import ch.nokillswit.infra.paging.optionalUInt
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.notifications.NotificationServiceKey
+import ch.nokillswit.users.UserServiceKey
 import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -72,6 +73,7 @@ fun Application.configureFeedbackRoutes() {
     val feedbackService = attributes[FeedbackServiceKey]
     val feedbackEventService = attributes[FeedbackEventServiceKey]
     val notificationService = attributes[NotificationServiceKey]
+    val userService = attributes[UserServiceKey]
 
     // Shared handler for the lifecycle-transition action endpoints: provider-only, 404 when
     // missing, 409 (via ConflictException in the service) when the transition isn't allowed,
@@ -182,6 +184,12 @@ fun Application.configureFeedbackRoutes() {
                 if (caller.userId != feedback.providerId && caller.userId != feedback.requesterId) {
                     throw ForbiddenException("You may only create feedback you provide or request")
                 }
+                // After the authz guard (403 wins over 400): no NEW feedback involving a
+                // deactivated party. The caller is one of them and holds a session, so this
+                // can only trip on the OTHER parties — including them all is simplest.
+                userService.requireNoDeactivatedUsers(
+                    setOfNotNull(feedback.providerId, feedback.requesterId, feedback.subjectId),
+                )
                 val result = requireValidReferences("Referenced user does not exist") {
                     feedbackService.create(feedback)
                 }

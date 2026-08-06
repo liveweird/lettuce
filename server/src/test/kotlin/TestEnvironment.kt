@@ -171,6 +171,7 @@ object TestSeedState {
             }) {
                 it[UserService.Users.passwordHash] = SEED_PASSWORD_HASH
                 it[UserService.Users.markedAsDeleted] = false
+                it[UserService.Users.deactivated] = false
                 it[UserService.Users.passwordChangedAt] = 0
             }
         }

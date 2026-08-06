@@ -75,6 +75,30 @@ class AuditTest {
     }
 
     @Test
+    fun `deactivation transitions emit user deactivated and reactivated events`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("audit-deact-admin")
+        val adminId = TestUsers.seed(email = adminEmail, password = "pw-123456789")
+        val targetId = TestUsers.seed(email = uniqueEmail("audit-deact-target"), password = "pw", roles = emptySet())
+        val appender = LogCapture("ch.nokillswit.audit")
+        try {
+            val client = authedClient(adminEmail, "pw-123456789")
+            client.post("/api/v1/users/$targetId/deactivate")
+            client.post("/api/v1/users/$targetId/activate")
+
+            listOf("user.deactivated", "user.reactivated").forEach { eventName ->
+                val event = appender.events.find { it.message == eventName }
+                assertNotNull(event, "expected a $eventName audit event")
+                assertTrue(event.markerList.any { it.name == "AUDIT" })
+                assertEquals(adminId.toLong(), event.keyValuePairs.first { it.key == "byUserId" }.value)
+                assertEquals(targetId.toLong(), event.keyValuePairs.first { it.key == "targetUserId" }.value)
+            }
+        } finally {
+            appender.detach()
+        }
+    }
+
+    @Test
     fun `a forbidden request emits an authz denied event with the caller id`() = testApplication {
         usePostgresTestcontainer()
         val email = uniqueEmail("authz")

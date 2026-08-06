@@ -1,6 +1,7 @@
 package ch.nokillswit.auth
 
 import ch.nokillswit.audit.audit
+import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.TooManyRequestsException
 import ch.nokillswit.authz.UnauthorizedException
 import ch.nokillswit.infra.mail.mailAppUrl
@@ -145,8 +146,16 @@ fun Application.configureAuthRoutes() {
                     if (tripped) audit("login.lockout", "email" to req.email)
                     throw UnauthorizedException("Unknown email or wrong password")
                 }
-                loginThrottle.recordSuccess(req.email)
                 val (userId, user) = record
+                // Correct password, disabled account: a distinct 403 — only reachable AFTER the
+                // password verified, so it is no enumeration oracle. Deliberately neither
+                // recordFailure (correct credentials must not feed the lockout) nor recordSuccess
+                // (nothing to reset matters); a locked account still answers 429 first, above.
+                if (user.deactivated) {
+                    audit("login.failure", "email" to req.email, "reason" to "deactivated")
+                    throw ForbiddenException("Account is deactivated")
+                }
+                loginThrottle.recordSuccess(req.email)
                 audit("login.success", "email" to user.email, "userId" to userId.toLong())
                 call.respond(jwtConfig.authResponse(userId, user.email, user.roles))
             }
@@ -165,6 +174,7 @@ fun Application.configureAuthRoutes() {
                             "revoked" -> "Refresh token revoked"
                             "malformed" -> "Malformed refresh token"
                             "user_gone" -> "User no longer exists"
+                            "deactivated" -> "Account is deactivated"
                             else -> "Refresh token predates a password change"
                         }
                     )
@@ -188,6 +198,12 @@ fun Application.configureAuthRoutes() {
                 // current roles/email so changes take effect on the next refresh.
                 val user = userService.read(userId)
                     ?: reject("user_gone", rawUserId)
+                // read() deliberately keeps returning deactivated users (their data stays
+                // readable), so deactivation needs its own rejection here — still a 401, the
+                // SPA signs out on any refresh failure.
+                if (user.deactivated) {
+                    reject("deactivated", rawUserId)
+                }
                 // A password change invalidates all refresh tokens minted before it (tokens
                 // without an iat claim predate this scheme and count as minted at epoch 0).
                 // JWT iat has SECOND precision, so compare both sides truncated to seconds —
@@ -226,6 +242,12 @@ fun Application.configureAuthRoutes() {
                         val record = userService.findWithIdByEmail(email)
                         if (record == null) {
                             audit("password_reset.unknown_email", "email" to email)
+                            return@launch
+                        }
+                        // A deactivated account is treated like an unknown address: no new
+                        // password, no email. The uniform 202 already went out.
+                        if (record.second.deactivated) {
+                            audit("password_reset.deactivated", "email" to email)
                             return@launch
                         }
                         val (userId, user) = record

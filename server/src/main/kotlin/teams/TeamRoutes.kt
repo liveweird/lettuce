@@ -216,6 +216,8 @@ fun Application.configureTeamRoutes() {
                 val team = call.receive<Team>()
                 requireSelfOrAdmin(caller, team.managerId)
                 validateTeamName(team.name)
+                // Every reference is new at create — a deactivated member or manager is a 400.
+                userService.requireNoDeactivatedUsers(team.memberIds.toSet() + team.managerId)
                 val id = requireValidReferences("Referenced user does not exist") {
                     teamService.create(team)
                 }
@@ -249,6 +251,13 @@ fun Application.configureTeamRoutes() {
                 // Authz before validation: an unauthorized reassignment is 403, not 400.
                 requireCanReassignManager(caller, existing.managerId, team.managerId)
                 validateTeamName(team.name)
+                // Delta only: newly added members and a CHANGED manager. Resubmitting a member
+                // already on the roster (or the unchanged manager) is not a new assignment —
+                // a team containing a since-deactivated user must stay editable.
+                userService.requireNoDeactivatedUsers(
+                    (team.memberIds.toSet() - existing.memberIds.toSet()) +
+                        (if (team.managerId != existing.managerId) setOf(team.managerId) else emptySet()),
+                )
                 val updated = requireValidReferences("Referenced user does not exist") {
                     teamService.update(route.id, team)
                 }
@@ -301,6 +310,11 @@ fun Application.configureTeamRoutes() {
                     return@put
                 }
                 requireTeamManagerOrAdmin(caller, existing.managerId)
+                // Only an actually-new member is a new assignment — re-PUT of an existing
+                // (possibly deactivated) member stays the idempotent no-op it is today.
+                if (route.userId !in existing.memberIds) {
+                    userService.requireNoDeactivatedUsers(listOf(route.userId))
+                }
                 val changed = requireValidReferences("Referenced user does not exist") {
                     teamService.addMember(route.parent.id, route.userId)
                 }
