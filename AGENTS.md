@@ -3,9 +3,12 @@
 ## Sources of Truth
 
 This file is the Codex entry point. Before changing code, also read the relevant sections of
-`CLAUDE.md`; when working under `web/`, read `web/CLAUDE.md` as well. Those files contain the
-detailed, actively maintained domain, security, persistence, UI, and testing conventions shared
-by the project. For API work, `api-guidelines/API-GUIDELINES.md` is authoritative and its stable
+`CLAUDE.md`; when working under `web/`, read `web/CLAUDE.md` as well. `CLAUDE.md` imports the
+cross-cutting conventions from `.claude/docs/*.md` (persistence, list endpoints, security,
+authorization, observability, testing), and each feature's authoritative deep-dive lives in
+`.claude/docs/features/*.md` — read the matching feature doc before changing that feature.
+Together those files contain the detailed, actively maintained domain, security, persistence,
+UI, and testing conventions shared by the project. For API work, `api-guidelines/API-GUIDELINES.md` is authoritative and its stable
 rule IDs should be cited in reviews. If documentation and executable configuration disagree, the
 configuration and code win; update the affected guidance in the same change.
 
