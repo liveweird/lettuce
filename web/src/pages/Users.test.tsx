@@ -72,6 +72,12 @@ function userUrls(mockFetch: FetchMock): string[] {
     .filter((u) => u.startsWith("/api/v1/users?"));
 }
 
+// Opens a row's admin "Modify ▾" menu (v1.52.0) — the account actions are menu items now,
+// keeping their pre-grouping accessible names.
+async function openModifyMenu(user: ReturnType<typeof userEvent.setup>, name: string) {
+  await user.click(await screen.findByRole("button", { name: `Modify actions for ${name}` }));
+}
+
 describe("Users page", () => {
   let mockFetch: FetchMock;
 
@@ -88,39 +94,51 @@ describe("Users page", () => {
     localStorage.clear();
   });
 
-  test("admin sees a Delete button in each row", async () => {
+  test("admin sees a Modify menu in each row grouping the account actions", async () => {
     mockListThen(mockFetch);
+    const user = userEvent.setup();
     renderUsers();
 
     await screen.findByText("Alice");
-    expect(screen.getAllByRole("button", { name: /^delete /i })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: /modify actions for /i })).toHaveLength(2);
     // The heading carries the data-tour anchor the guided tour targets for the Config → Users step.
     expect(screen.getByRole("heading", { name: "Users" })).toHaveAttribute(
       "data-tour",
       "config-users",
     );
+
+    // The menu keeps the old buttons' accessible names — role changed to menuitem.
+    await openModifyMenu(user, "Bob");
+    expect(await screen.findByRole("menuitem", { name: "Edit Bob" })).toHaveAttribute(
+      "href",
+      "/users/2/edit",
+    );
+    expect(screen.getByRole("menuitem", { name: "Change password for Bob" })).toHaveAttribute(
+      "href",
+      "/users/2/change-password",
+    );
+    expect(screen.getByRole("menuitem", { name: "Deactivate Bob" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Delete Bob" })).toBeInTheDocument();
   });
 
-  test("admin sees an Edit link per row pointing at /users/:id/edit", async () => {
+  test("one's own row offers Edit/password/Delete but no Deactivate", async () => {
     mockListThen(mockFetch);
+    const user = userEvent.setup();
     renderUsers();
 
-    await screen.findByText("Alice");
-    const editLinks = screen.getAllByRole("link", { name: /^edit /i });
-    expect(editLinks).toHaveLength(2);
-    expect(editLinks[0]).toHaveAttribute("href", "/users/1/edit");
-    expect(editLinks[1]).toHaveAttribute("href", "/users/2/edit");
-  });
-
-  test("admin sees a Change password link per row pointing at /users/:id/change-password", async () => {
-    mockListThen(mockFetch);
-    renderUsers();
-
-    await screen.findByText("Alice");
-    const links = screen.getAllByRole("link", { name: /^change password for /i });
-    expect(links).toHaveLength(2);
-    expect(links[0]).toHaveAttribute("href", "/users/1/change-password");
-    expect(links[1]).toHaveAttribute("href", "/users/2/change-password");
+    // The current user is Alice (id 1) — self-deactivation is forbidden server-side.
+    await openModifyMenu(user, "Alice");
+    expect(await screen.findByRole("menuitem", { name: "Edit Alice" })).toHaveAttribute(
+      "href",
+      "/users/1/edit",
+    );
+    expect(screen.getByRole("menuitem", { name: "Change password for Alice" })).toHaveAttribute(
+      "href",
+      "/users/1/change-password",
+    );
+    expect(screen.getByRole("menuitem", { name: "Delete Alice" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /deactivate alice/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /reactivate alice/i })).not.toBeInTheDocument();
   });
 
   test("admin sees a Teams link per row pointing at /users/:id/teams", async () => {
@@ -152,8 +170,7 @@ describe("Users page", () => {
     renderUsers();
 
     await screen.findByText("Alice");
-    expect(screen.queryByRole("button", { name: /^delete /i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /^edit /i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /modify actions for /i })).not.toBeInTheDocument();
     // The actions column still renders because every user can provide/ask feedback —
     // but not on their own row (the current user is Alice, id 1).
     expect(screen.getByRole("button", { name: /feedback actions for bob/i })).toBeInTheDocument();
@@ -184,7 +201,8 @@ describe("Users page", () => {
     const user = userEvent.setup();
     renderUsers();
 
-    await user.click(await screen.findByRole("button", { name: /delete bob/i }));
+    await openModifyMenu(user, "Bob");
+    await user.click(await screen.findByRole("menuitem", { name: "Delete Bob" }));
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /cancel/i }));
@@ -203,7 +221,8 @@ describe("Users page", () => {
     const user = userEvent.setup();
     renderUsers();
 
-    await user.click(await screen.findByRole("button", { name: /delete bob/i }));
+    await openModifyMenu(user, "Bob");
+    await user.click(await screen.findByRole("menuitem", { name: "Delete Bob" }));
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
 
@@ -229,7 +248,8 @@ describe("Users page", () => {
     const user = userEvent.setup();
     renderUsers();
 
-    await user.click(await screen.findByRole("button", { name: /delete alice/i }));
+    await openModifyMenu(user, "Alice");
+    await user.click(await screen.findByRole("menuitem", { name: "Delete Alice" }));
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
 
@@ -407,7 +427,8 @@ describe("Users page", () => {
     const user = userEvent.setup();
     renderUsers();
 
-    await user.click(await screen.findByRole("button", { name: /delete bob/i }));
+    await openModifyMenu(user, "Bob");
+    await user.click(await screen.findByRole("menuitem", { name: "Delete Bob" }));
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
     expect(within(dialog).getByRole("button", { name: /cancel/i })).toBeDisabled();
@@ -421,7 +442,8 @@ describe("Users page", () => {
     const user = userEvent.setup();
     renderUsers();
 
-    await user.click(await screen.findByRole("button", { name: /delete bob/i }));
+    await openModifyMenu(user, "Bob");
+    await user.click(await screen.findByRole("menuitem", { name: "Delete Bob" }));
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
 
@@ -488,14 +510,14 @@ describe("Users page", () => {
       { id: 2, name: "Bob", email: "bob@example.com", roles: [] as Array<"ADMIN">, deactivated: true },
     ];
     mockUsers(mockFetch, items);
+    const user = userEvent.setup();
     renderUsers();
 
     await screen.findByText("Bob");
     expect(screen.getByText("Inactive")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Reactivate Bob" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Deactivate Bob" })).not.toBeInTheDocument();
-    // Active Alice is the CURRENT user (id 1) — her own row never offers the action.
-    expect(screen.queryByRole("button", { name: "Deactivate Alice" })).not.toBeInTheDocument();
+    await openModifyMenu(user, "Bob");
+    expect(await screen.findByRole("menuitem", { name: "Reactivate Bob" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Deactivate Bob" })).not.toBeInTheDocument();
   });
 
   test("confirming Deactivate POSTs the transition and refetches", async () => {
@@ -512,7 +534,8 @@ describe("Users page", () => {
     const user = userEvent.setup();
     renderUsers();
 
-    await user.click(await screen.findByRole("button", { name: "Deactivate Bob" }));
+    await openModifyMenu(user, "Bob");
+    await user.click(await screen.findByRole("menuitem", { name: "Deactivate Bob" }));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText(/will no longer be able to sign in/i)).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: /^deactivate$/i }));
@@ -543,7 +566,8 @@ describe("Users page", () => {
     const user = userEvent.setup();
     renderUsers();
 
-    await user.click(await screen.findByRole("button", { name: "Reactivate Bob" }));
+    await openModifyMenu(user, "Bob");
+    await user.click(await screen.findByRole("menuitem", { name: "Reactivate Bob" }));
 
     await waitFor(() => {
       const post = mockFetch.mock.calls.find(([, init]) => init?.method === "POST");
@@ -565,12 +589,13 @@ describe("Users page", () => {
     );
   });
 
-  test("non-admin sees no Deactivate action", async () => {
+  test("non-admin sees no Modify menu (and hence no Deactivate)", async () => {
     localStorage.setItem(ROLE_KEY, "[]");
     mockListThen(mockFetch);
     renderUsers();
 
     await screen.findByText("Alice");
-    expect(screen.queryByRole("button", { name: /^deactivate /i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /modify actions for /i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /^deactivate /i })).not.toBeInTheDocument();
   });
 });

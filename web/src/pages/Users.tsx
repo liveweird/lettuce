@@ -6,6 +6,7 @@ import {
   Badge,
   Button,
   Group,
+  Menu,
   Select,
   Stack,
   Table,
@@ -15,6 +16,7 @@ import {
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  IconChevronDown,
   IconId,
   IconKey,
   IconPencil,
@@ -22,6 +24,7 @@ import {
   IconTrash,
   IconUpload,
   IconUserCheck,
+  IconUserCog,
   IconUserOff,
   IconUsersGroup,
 } from "@tabler/icons-react";
@@ -163,7 +166,7 @@ export default function Users() {
   }
 
   const total = data?.total ?? 0;
-  const columnCount = 10;
+  const columnCount = 7;
 
   return (
     <Stack gap="md">
@@ -241,10 +244,7 @@ export default function Users() {
             <Table.Th aria-label={t("users.details")} style={{ width: 1 }} />
             <Table.Th aria-label={t("users.teams")} style={{ width: 1 }} />
             <Table.Th aria-label={t("users.feedbackActions")} style={{ width: 1 }} />
-            <Table.Th aria-label={t("common.action.edit")} style={{ width: 1 }} />
-            <Table.Th aria-label={t("users.changePassword")} style={{ width: 1 }} />
-            <Table.Th aria-label={t("users.statusFilterLabel")} style={{ width: 1 }} />
-            <Table.Th aria-label={t("common.action.delete")} style={{ width: 1 }} />
+            <Table.Th aria-label={t("users.modifyActions")} style={{ width: 1 }} />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -332,77 +332,80 @@ export default function Users() {
                     />
                   )}
                 </Table.Td>
+                {/* The admin account actions grouped behind one "Modify ▾" menu (v1.52.0, the
+                    FeedbackActionsMenu idiom) — item aria-labels are the pre-grouping button
+                    ones, only the role changed. Deactivate/Reactivate stays off one's own row. */}
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                   {admin && (
-                    <Button
-                      component={RouterLink}
-                      to={`/users/${u.id}/edit`}
-                      variant="subtle"
-                      size="xs"
-                      leftSection={<IconPencil size={14} />}
-                      aria-label={t("users.editAria", { name: u.name })}
-                    >
-                      {t("common.action.edit")}
-                    </Button>
-                  )}
-                </Table.Td>
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
-                  {admin && (
-                    <Button
-                      component={RouterLink}
-                      to={`/users/${u.id}/change-password`}
-                      variant="subtle"
-                      size="xs"
-                      leftSection={<IconKey size={14} />}
-                      aria-label={t("users.changePasswordFor", { name: u.name })}
-                    >
-                      {t("users.changePassword")}
-                    </Button>
-                  )}
-                </Table.Td>
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
-                  {admin &&
-                    u.id !== currentUserId &&
-                    (u.deactivated ? (
-                      <Button
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconUserCheck size={14} />}
-                        onClick={() =>
-                          runAccountTransition(() => reactivateUser(u.id), "users.toast.reactivated")
-                        }
-                        loading={transitionPending}
-                        aria-label={t("users.reactivateAria", { name: u.name })}
-                      >
-                        {t("users.reactivate")}
-                      </Button>
-                    ) : (
-                      <Button
-                        color="red"
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconUserOff size={14} />}
-                        onClick={() => setDeactivateTarget({ id: u.id, name: u.name, email: u.email })}
-                        aria-label={t("users.deactivateAria", { name: u.name })}
-                      >
-                        {t("users.deactivate")}
-                      </Button>
-                    ))}
-                </Table.Td>
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
-                  {admin && (
-                    <Button
-                      color="red"
-                      variant="subtle"
-                      size="xs"
-                      leftSection={<IconTrash size={14} />}
-                      onClick={() =>
-                        deleteConfirm.requestDelete({ id: u.id, name: u.name, email: u.email })
-                      }
-                      aria-label={t("users.deleteAria", { name: u.name })}
-                    >
-                      {t("common.action.delete")}
-                    </Button>
+                    <Menu position="bottom-end" withinPortal>
+                      <Menu.Target>
+                        <Button
+                          variant="subtle"
+                          size="xs"
+                          leftSection={<IconUserCog size={14} />}
+                          rightSection={<IconChevronDown size={14} />}
+                          aria-label={t("users.modifyActionsFor", { name: u.name })}
+                        >
+                          {t("users.modifyActions")}
+                        </Button>
+                      </Menu.Target>
+                      <Menu.Dropdown>
+                        <Menu.Item
+                          component={RouterLink}
+                          to={`/users/${u.id}/edit`}
+                          leftSection={<IconPencil size={14} />}
+                          aria-label={t("users.editAria", { name: u.name })}
+                        >
+                          {t("users.editDetails")}
+                        </Menu.Item>
+                        <Menu.Item
+                          component={RouterLink}
+                          to={`/users/${u.id}/change-password`}
+                          leftSection={<IconKey size={14} />}
+                          aria-label={t("users.changePasswordFor", { name: u.name })}
+                        >
+                          {t("users.changePassword")}
+                        </Menu.Item>
+                        <Menu.Divider />
+                        {u.id !== currentUserId &&
+                          (u.deactivated ? (
+                            <Menu.Item
+                              leftSection={<IconUserCheck size={14} />}
+                              onClick={() =>
+                                runAccountTransition(
+                                  () => reactivateUser(u.id),
+                                  "users.toast.reactivated",
+                                )
+                              }
+                              disabled={transitionPending}
+                              aria-label={t("users.reactivateAria", { name: u.name })}
+                            >
+                              {t("users.reactivate")}
+                            </Menu.Item>
+                          ) : (
+                            <Menu.Item
+                              color="red"
+                              leftSection={<IconUserOff size={14} />}
+                              onClick={() =>
+                                setDeactivateTarget({ id: u.id, name: u.name, email: u.email })
+                              }
+                              aria-label={t("users.deactivateAria", { name: u.name })}
+                            >
+                              {t("users.deactivate")}
+                            </Menu.Item>
+                          ))}
+                        <Menu.Item
+                          color="red"
+                          leftSection={<IconTrash size={14} />}
+                          onClick={() =>
+                            deleteConfirm.requestDelete({ id: u.id, name: u.name, email: u.email })
+                          }
+                          aria-label={t("users.deleteAria", { name: u.name })}
+                        >
+                          {t("common.action.delete")}
+                        </Menu.Item>
+                      </Menu.Dropdown>
+                    </Menu>
                   )}
                 </Table.Td>
               </Table.Tr>
