@@ -1,0 +1,38 @@
+/* The card body is ONE grid (v1.50.0): labels in the first track, values in the second, so
+   every value in the card starts at the same x — across sections, not just within one. The
+   label track is `max-content`, so it self-sizes to the widest label of the current language
+   (the Polish labels are noticeably longer than the English ones) instead of a hardcoded
+   width; section dividers and button rows span both tracks. */
+.body {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: var(--mantine-spacing-xs);
+  row-gap: 4px;
+  align-items: center;
+}
+
+/* Cap the label track so an extreme translation wraps instead of starving the value column. */
+.label {
+  max-width: 170px;
+}
+
+.value {
+  min-width: 0;
+}
+
+/* A section divider: full width, and the margin makes up the difference between the row gap
+   and the "sm" breathing room the sections had before — except above the first one, which
+   stays flush under the card header. */
+.divider {
+  grid-column: 1 / -1;
+  margin-top: calc(var(--mantine-spacing-sm) - 4px);
+}
+
+.body > .divider:first-child {
+  margin-top: 0;
+}
+
+/* A section's action-button row: full width, keeping its own top margin from the component. */
+.actions {
+  grid-column: 1 / -1;
+}

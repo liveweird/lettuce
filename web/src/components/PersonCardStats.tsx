@@ -1,4 +1,4 @@
-import { Badge, Divider, Group, Stack, Text } from "@mantine/core";
+import { Badge, Divider, Group, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { formatIsoDate, formatMonthRange, formatRelativeTime, formatTimestamp } from "../utils/datetime";
 import { formatDays } from "../utils/daysOffCost";
@@ -12,19 +12,23 @@ import {
   hasVisibleActions,
   type ButtonKey,
 } from "./personCardSupport";
+import classes from "./PersonCardStats.module.css";
 
-// A stat line: dimmed label + value (relative phrase with the exact date in the title),
-// or a dimmed "never" when there is nothing yet. Wrapping is allowed on purpose (v1.34.0):
-// a long value (1:1 date + open-items badge, a review period + status badge) folds to the
-// next line instead of blowing past the card edge.
+// A stat line: dimmed label + value (relative phrase with the exact date in the title), or a
+// dimmed "never" when there is nothing yet. The two are separate cells of the body grid
+// (v1.50.0), so every value in the card lines up in one column. Inside the value cell wrapping
+// is still allowed on purpose (v1.34.0): a long value (1:1 date + open-items badge, a review
+// period + status badge) folds to the next line instead of blowing past the card edge.
 function StatRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <Group gap="xs" wrap="wrap">
-      <Text size="xs" c="dimmed">
+    <>
+      <Text size="xs" c="dimmed" className={classes.label}>
         {label}
       </Text>
-      {children}
-    </Group>
+      <Group gap="xs" wrap="wrap" className={classes.value}>
+        {children}
+      </Group>
+    </>
   );
 }
 
@@ -71,7 +75,7 @@ function CareerValue({ entry }: { entry: { id: number; value: string } | null })
 function CareerRows({ person }: { person: PersonCardData }) {
   const { t } = useTranslation();
   return (
-    <Stack gap={4}>
+    <>
       <StatRow label={t("users.profile.path")}>
         <CareerValue entry={person.careerPath} />
       </StatRow>
@@ -81,7 +85,7 @@ function CareerRows({ person }: { person: PersonCardData }) {
       <StatRow label={t("users.profile.seniority")}>
         <CareerValue entry={person.seniorityLevel} />
       </StatRow>
-    </Stack>
+    </>
   );
 }
 
@@ -103,13 +107,15 @@ function NextVacationRow({ person }: { person: PersonCardData }) {
 }
 
 // One labeled card section (v1.46.0): a thin divider whose small dimmed caption names the
-// group, then the group's stat rows and/or action buttons.
+// group, then the group's stat rows and/or action buttons. It renders as a fragment, not a
+// wrapper (v1.50.0) — the rows must stay direct children of the body grid for their labels
+// and values to share one column split with every other section's.
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <Stack gap={4}>
-      <Divider label={label} labelPosition="left" />
+    <>
+      <Divider label={label} labelPosition="left" className={classes.divider} />
       {children}
-    </Stack>
+    </>
   );
 }
 
@@ -125,8 +131,11 @@ export type PersonCardStatsVariant = "manager" | "subordinate" | "peer" | "none"
 // its read-only stats with its related buttons — Profile (career), Collaboration (1:1 +
 // feedback + goals, with the create/drill-down buttons), Performance (last review + the
 // reviews drill-down), Days off (next vacation + budget + the days-off drill-down). This
-// replaced the two-column stats/career split and the flat footer button row. A section
-// renders only when it has content for this flavor; stat gates stay data-driven:
+// replaced the two-column stats/career split and the flat footer button row. Everything is
+// laid out by ONE label/value grid (v1.50.0, PersonCardStats.module.css) — sections are
+// fragments inside it, so all values line up in a single column card-wide, and the dividers
+// and button rows span both tracks. A section renders only when it has content for this
+// flavor; stat gates stay data-driven:
 // `showLastReview`/`showDaysOff` are set only where the rows actually carry the stats
 // (view=managed — the subordinate flavors), never where "never" would just be noise.
 export default function PersonCardBody({
@@ -148,7 +157,7 @@ export default function PersonCardBody({
 
   const actionsRow = (subset: readonly ButtonKey[]) =>
     actions != null && hasVisibleActions(actions, subset) ? (
-      <Group gap="xs" wrap="wrap" mt={4}>
+      <Group gap="xs" wrap="wrap" mt={4} className={classes.actions}>
         <PersonCardActions {...actions} only={subset} />
       </Group>
     ) : null;
@@ -163,7 +172,7 @@ export default function PersonCardBody({
     showVacation || (actions != null && hasVisibleActions(actions, DAYS_OFF_ACTIONS));
 
   return (
-    <Stack gap="sm">
+    <div className={classes.body}>
       <Section label={t("users.section.profile")}>
         <CareerRows person={person} />
       </Section>
@@ -265,6 +274,6 @@ export default function PersonCardBody({
           {actionsRow(DAYS_OFF_ACTIONS)}
         </Section>
       )}
-    </Stack>
+    </div>
   );
 }

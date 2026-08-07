@@ -112,6 +112,31 @@ async function sweepResidue(request: APIRequestContext) {
       await request.post(`/api/v1/days-off/${r.id}/cancel`, { headers: ownAuth });
     }
   }
+
+  // Manager: drop AAA Two's stranded spec-created budget corrections. A run that dies between
+  // adding the correction and the tail cleanup leaves one behind, and pickMonday's window
+  // REPEATS every 40 minutes (`Date.now()/60_000 % 40`) — so a later run can pick the very same
+  // Monday and add a second correction with an identical comment, which the modal then matches
+  // twice (strict-mode violation on `E2E correction <MONDAY_ISO>`). Reading/deleting a
+  // correction is the direct manager's right, so this leg runs as MANAGER_AAA; the owner's id
+  // comes from the admin users list (GET /users/{id} is self-or-admin only).
+  const mgrAuth = { Authorization: `Bearer ${await apiToken(request, MANAGER_AAA)}` };
+  const owners = (await (
+    await request.get(`/api/v1/users?email=${encodeURIComponent(AAA_TWO)}&pageSize=1`, {
+      headers: adminAuth,
+    })
+  ).json()) as { items: { id: number }[] };
+  const ownerId = owners.items[0]?.id;
+  if (ownerId != null) {
+    const corrections = (await (
+      await request.get(`/api/v1/days-off/corrections?userId=${ownerId}`, { headers: mgrAuth })
+    ).json()) as { items: { id: number; comment: string }[] };
+    for (const c of corrections.items) {
+      if (c.comment.startsWith("E2E correction")) {
+        await request.delete(`/api/v1/days-off/corrections/${c.id}`, { headers: mgrAuth });
+      }
+    }
+  }
 }
 
 async function newRequest(page: Page, from: string, to: string, expectedCost: string) {
