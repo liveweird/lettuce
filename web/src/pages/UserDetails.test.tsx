@@ -289,6 +289,49 @@ describe("UserDetails page", () => {
     );
   });
 
+  test("an auditor's audit block drops just a disabled feature's drill-down (v1.53.0)", async () => {
+    localStorage.setItem(ROLE_KEY, JSON.stringify(["HR"]));
+    localStorage.setItem("lettuce.auth.disabledFeatures", JSON.stringify(["FEEDBACKS"]));
+    try {
+      mockApi(mockFetch, { users: [{ id: 5, name: "Bob", email: "bob@example.com", roles: [] }] });
+      renderDetails();
+
+      // The block still renders with its remaining drill-downs…
+      expect(await screen.findByText("Audit")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Audit goals of Bob" })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Audit 1:1 meetings of Bob" })).toBeInTheDocument();
+      // …but the disabled feature's item is gone.
+      expect(screen.queryByRole("link", { name: "Audit feedbacks of Bob" })).toBeNull();
+    } finally {
+      localStorage.removeItem("lettuce.auth.disabledFeatures");
+    }
+  });
+
+  test("an auditor with every feature disabled gets no Audit block at all (v1.53.0)", async () => {
+    localStorage.setItem(ROLE_KEY, JSON.stringify(["HR"]));
+    localStorage.setItem(
+      "lettuce.auth.disabledFeatures",
+      JSON.stringify([
+        "FEEDBACKS",
+        "ONE_ON_ONES",
+        "GOALS",
+        "TEAM_KPIS",
+        "PERFORMANCE_REVIEWS",
+        "DAYS_OFF",
+      ]),
+    );
+    try {
+      mockApi(mockFetch, { users: [{ id: 5, name: "Bob", email: "bob@example.com", roles: [] }] });
+      renderDetails();
+
+      expect(await screen.findByText("bob@example.com")).toBeInTheDocument();
+      expect(screen.queryByText("Audit")).toBeNull();
+      expect(screen.queryByRole("link", { name: /^audit /i })).toBeNull();
+    } finally {
+      localStorage.removeItem("lettuce.auth.disabledFeatures");
+    }
+  });
+
   test("regular viewers, ADMIN-only viewers, and self-views get no Audit section", async () => {
     mockApi(mockFetch, { users: [{ id: 5, name: "Bob", email: "bob@example.com", roles: [] }] });
     renderDetails();

@@ -32,6 +32,7 @@ import {
   IconHistory,
   IconRoute,
   IconSpeakerphone,
+  IconToggleLeft,
   IconChartLine,
   IconKey,
   IconLayoutDashboard,
@@ -59,7 +60,8 @@ import {
 } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { getCurrentUser, getUserId, isAdmin, logout } from "./api/client";
+import { getCurrentUser, getUserId, hasFeature, isAdmin, logout } from "./api/client";
+import type { Feature } from "./api/client";
 import { RedirectIfAuthed, RequireAuth, flagSignedOut, notifyAuthChange } from "./auth";
 import AlertsBanner from "./components/AlertsBanner";
 import { ALERTS_BAR_HEIGHT, useVisibleAlerts } from "./hooks/useVisibleAlerts";
@@ -111,6 +113,8 @@ const CreateUser = lazy(() => import("./pages/CreateUser"));
 const ImportUsers = lazy(() => import("./pages/ImportUsers"));
 const EditUser = lazy(() => import("./pages/EditUser"));
 const ChangeUserPassword = lazy(() => import("./pages/ChangeUserPassword"));
+const UserFeatures = lazy(() => import("./pages/UserFeatures"));
+const FeatureFlags = lazy(() => import("./pages/FeatureFlags"));
 const UserTeams = lazy(() => import("./pages/UserTeams"));
 const UserDetails = lazy(() => import("./pages/UserDetails"));
 const CreateTeam = lazy(() => import("./pages/CreateTeam"));
@@ -139,7 +143,14 @@ function RouteFallback() {
   );
 }
 
-type NavLeaf = { to: string; label: string; icon: typeof IconLayoutDashboard; tourId?: string };
+type NavLeaf = {
+  to: string;
+  label: string;
+  icon: typeof IconLayoutDashboard;
+  tourId?: string;
+  // When set, the leaf renders only while the session user has the feature enabled (v1.53.0).
+  feature?: Feature;
+};
 type NavGroup = { label: string; icon: typeof IconLayoutDashboard; children: NavLeaf[]; tourId?: string };
 type NavEntry = NavLeaf | NavGroup;
 const isGroup = (e: NavEntry): e is NavGroup => "children" in e;
@@ -148,17 +159,18 @@ const isGroup = (e: NavEntry): e is NavGroup => "children" in e;
 // `data-tour` attribute the guided tour anchors to.
 const NAV_ITEMS: ReadonlyArray<NavEntry> = [
   { to: "/", label: "appShell.nav.dashboard", icon: IconLayoutDashboard, tourId: "nav-dashboard" },
-  { to: "/feedback", label: "appShell.nav.feedback", icon: IconMessageCircle, tourId: "nav-feedback" },
-  { to: "/one-on-ones", label: "appShell.nav.oneOnOnes", icon: IconCalendarEvent, tourId: "nav-one-on-ones" },
-  { to: "/goals", label: "appShell.nav.goals", icon: IconTargetArrow, tourId: "nav-my-goals" },
-  { to: "/team-kpis", label: "appShell.nav.teamKpis", icon: IconChartLine, tourId: "nav-team-kpis" },
+  { to: "/feedback", label: "appShell.nav.feedback", icon: IconMessageCircle, tourId: "nav-feedback", feature: "FEEDBACKS" },
+  { to: "/one-on-ones", label: "appShell.nav.oneOnOnes", icon: IconCalendarEvent, tourId: "nav-one-on-ones", feature: "ONE_ON_ONES" },
+  { to: "/goals", label: "appShell.nav.goals", icon: IconTargetArrow, tourId: "nav-my-goals", feature: "GOALS" },
+  { to: "/team-kpis", label: "appShell.nav.teamKpis", icon: IconChartLine, tourId: "nav-team-kpis", feature: "TEAM_KPIS" },
   {
     to: "/performance",
     label: "appShell.nav.performance",
     icon: IconClipboardText,
     tourId: "nav-performance",
+    feature: "PERFORMANCE_REVIEWS",
   },
-  { to: "/days-off", label: "appShell.nav.daysOff", icon: IconBeach, tourId: "nav-days-off" },
+  { to: "/days-off", label: "appShell.nav.daysOff", icon: IconBeach, tourId: "nav-days-off", feature: "DAYS_OFF" },
   {
     label: "appShell.nav.config",
     icon: IconSettings,
@@ -170,9 +182,9 @@ const NAV_ITEMS: ReadonlyArray<NavEntry> = [
       { to: "/templates", label: "appShell.nav.templates", icon: IconFileText },
       // Readable by everyone since v1.34.1 (the Templates precedent) — the page itself
       // renders read-only for non-admins; append/delete stay ADMIN-gated.
-      { to: "/review-periods", label: "appShell.nav.reviewPeriods", icon: IconCalendarStats },
+      { to: "/review-periods", label: "appShell.nav.reviewPeriods", icon: IconCalendarStats, feature: "PERFORMANCE_REVIEWS" },
       // Same posture: the registry read is open, adding/deleting is ADMIN-only.
-      { to: "/public-holidays", label: "appShell.nav.publicHolidays", icon: IconCalendarOff },
+      { to: "/public-holidays", label: "appShell.nav.publicHolidays", icon: IconCalendarOff, feature: "DAYS_OFF" },
     ],
   },
   // Visible to everyone: the pages are readable by all, only editing is ADMIN-gated.
@@ -344,7 +356,7 @@ function Shell() {
   const dynamicItems: NavLeaf[] =
     userId !== null
       ? [
-          { to: "/feedback/self", label: "appShell.nav.selfReflection", icon: IconUserScan, tourId: "nav-self-reflection" },
+          { to: "/feedback/self", label: "appShell.nav.selfReflection", icon: IconUserScan, tourId: "nav-self-reflection", feature: "FEEDBACKS" },
           { to: `/users/${userId}/change-password`, label: "appShell.nav.changePassword", icon: IconKey, tourId: "nav-change-password" },
         ]
       : [];
@@ -356,12 +368,17 @@ function Shell() {
           ...e,
           children: [
             ...e.children,
+            { to: "/feature-flags", label: "appShell.nav.featureFlags", icon: IconToggleLeft },
             { to: "/alerts", label: "appShell.nav.alerts", icon: IconSpeakerphone },
           ],
         }
       : e,
   );
-  const allEntries: NavEntry[] = [...staticItems, ...dynamicItems, CHANGELOG_NAV];
+  // Per-user feature flags (v1.53.0): drop leaves whose feature is disabled for the session
+  // user (and any group thereby emptied) BEFORE leafTos, so active-highlight stays coherent.
+  const allEntries: NavEntry[] = [...staticItems, ...dynamicItems, CHANGELOG_NAV]
+    .map((e) => (isGroup(e) ? { ...e, children: e.children.filter((c) => !c.feature || hasFeature(c.feature)) } : e))
+    .filter((e) => (isGroup(e) ? e.children.length > 0 : !e.feature || hasFeature(e.feature)));
   const changelogUnseen = useChangelogUnseen();
   const leafTos = allEntries.flatMap((e) =>
     isGroup(e) ? e.children.map((c) => c.to) : [e.to],
@@ -516,6 +533,8 @@ export default function App() {
             <Route path="users/import" element={<ImportUsers />} />
             <Route path="users/:id/edit" element={<EditUser />} />
             <Route path="users/:id/change-password" element={<ChangeUserPassword />} />
+            <Route path="users/:id/features" element={<UserFeatures />} />
+            <Route path="feature-flags" element={<FeatureFlags />} />
             <Route path="users/:id/teams" element={<UserTeams />} />
             <Route path="users/:userId/details" element={<UserDetails />} />
             <Route path="teams" element={<Teams />} />

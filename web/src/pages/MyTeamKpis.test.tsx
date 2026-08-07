@@ -1,8 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
+import { useLocation } from "react-router-dom";
 import { renderWithProviders, screen, waitFor } from "../test/render";
 import MyTeamKpis from "./MyTeamKpis";
 import { jsonResponse } from "../test/http";
+
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location">{location.pathname}</div>;
+}
 
 const TOKEN_KEY = "lettuce.auth.token";
 const USER_ID_KEY = "lettuce.auth.userId";
@@ -156,5 +162,25 @@ describe("MyTeamKpis page", () => {
     expect(await screen.findByText("Team AAA")).toBeInTheDocument();
     expect(kpiUrls(mockFetch).at(-1)).toContain("view=own");
     expect(screen.queryByRole("tab", { name: "KPIs I've set" })).not.toBeInTheDocument();
+  });
+
+  test("a disabled TEAM_KPIS feature redirects the page to / (v1.53.0)", async () => {
+    localStorage.setItem("lettuce.auth.disabledFeatures", JSON.stringify(["TEAM_KPIS"]));
+    try {
+      mockApi(mockFetch);
+      renderWithProviders(
+        <>
+          <MyTeamKpis />
+          <LocationProbe />
+        </>,
+        { route: "/team-kpis" },
+      );
+
+      await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent(/^\/$/));
+      expect(screen.queryByRole("heading", { name: "Team KPIs" })).toBeNull();
+      expect(screen.queryByRole("tab", { name: "My teams' KPIs" })).toBeNull();
+    } finally {
+      localStorage.removeItem("lettuce.auth.disabledFeatures");
+    }
   });
 });

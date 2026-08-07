@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link as RouterLink, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link as RouterLink, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Alert,
   Badge,
@@ -21,6 +21,7 @@ import {
   ApiError,
   getPerformanceReview,
   getUserId,
+  hasFeature,
   publishPerformanceReview,
   revertPerformanceReview,
   submitPerformanceReview,
@@ -116,6 +117,9 @@ export default function ViewPerformanceReview() {
     queryFn: () => getPerformanceReview(id),
     enabled: idIsValid,
   });
+
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("PERFORMANCE_REVIEWS")) return <Navigate to="/" replace />;
 
   async function runAction(labelKey: string, run: (id: number) => Promise<void>, successKey: string) {
     setSubmitting(labelKey);

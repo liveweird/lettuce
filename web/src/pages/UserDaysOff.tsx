@@ -4,7 +4,7 @@ import { IconAdjustments } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { Link as RouterLink, Navigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { listDaysOffBudgets } from "../api/client";
+import { hasFeature, listDaysOffBudgets } from "../api/client";
 import DaysOffCorrections from "../components/DaysOffCorrections";
 import { useDashboardDrillDown } from "../hooks/useDashboardDrillDown";
 import { formatDays } from "../utils/daysOffCost";
@@ -112,6 +112,8 @@ export default function UserDaysOff() {
   const { userId, idIsValid, name, origin, callerManages, auditMode } =
     useDashboardDrillDown("days-off");
 
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("DAYS_OFF")) return <Navigate to="/" replace />;
   if (!idIsValid || (!auditMode && !callerManages)) return <Navigate to="/days-off" replace />;
 
   const who = name ?? t("daysOff.userFallback", { id: userId });

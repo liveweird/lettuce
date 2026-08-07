@@ -1,10 +1,16 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { useLocation } from "react-router-dom";
 import { notifications } from "@mantine/notifications";
 import { renderWithProviders } from "../test/render";
 import { jsonResponse } from "../test/http";
 import PublicHolidays from "./PublicHolidays";
+
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location">{location.pathname}</div>;
+}
 
 type FetchMock = ReturnType<typeof vi.fn>;
 
@@ -104,5 +110,25 @@ describe("PublicHolidays page", () => {
         expect.objectContaining({ method: "DELETE" }),
       );
     });
+  });
+
+  test("a disabled DAYS_OFF feature redirects the page to / (v1.53.0)", async () => {
+    localStorage.setItem("lettuce.auth.disabledFeatures", JSON.stringify(["DAYS_OFF"]));
+    try {
+      setupMocks();
+      renderWithProviders(
+        <>
+          <PublicHolidays />
+          <LocationProbe />
+        </>,
+        { route: "/public-holidays" },
+      );
+
+      await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent(/^\/$/));
+      expect(screen.queryByText("Epiphany")).toBeNull();
+      expect(screen.queryByRole("button", { name: "Add holiday" })).toBeNull();
+    } finally {
+      localStorage.removeItem("lettuce.auth.disabledFeatures");
+    }
   });
 });

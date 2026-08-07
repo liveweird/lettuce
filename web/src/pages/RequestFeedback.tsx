@@ -22,6 +22,7 @@ import {
   checkFeedbackDuplicate,
   createFeedback,
   getUserId,
+  hasFeature,
   listUsers,
   type FeedbackVisibility,
 } from "../api/client";
@@ -105,6 +106,8 @@ export default function RequestFeedback() {
       .map((u) => ({ value: String(u.id), label: u.name }));
   }, [userPool, selected, requesterId]);
 
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("FEEDBACKS")) return <Navigate to="/" replace />;
   if (!subjectIdIsValid || requesterId == null) return <Navigate to={backTo} replace />;
 
   function add() {

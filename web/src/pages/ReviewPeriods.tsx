@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Navigate } from "react-router-dom";
 import {
   Alert,
   Badge,
@@ -18,7 +19,7 @@ import {
 import { IconCalendarStats, IconPlus } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { ApiError, createReviewPeriod, deleteReviewPeriod, isAdmin } from "../api/client";
+import { ApiError, createReviewPeriod, deleteReviewPeriod, hasFeature, isAdmin } from "../api/client";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import EmptyState from "../components/EmptyState";
 import { useReviewPeriodOptions } from "../hooks/useReviewPeriodOptions";
@@ -69,6 +70,9 @@ export default function ReviewPeriods() {
 
   const admin = isAdmin();
   const { periods, isLoading, isError } = useReviewPeriodOptions();
+
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("PERFORMANCE_REVIEWS")) return <Navigate to="/" replace />;
 
   const latest = periods && periods.length > 0 ? periods[periods.length - 1] : null;
   // Append-only: with a latest period the next start is not a choice.

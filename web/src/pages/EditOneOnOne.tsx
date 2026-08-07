@@ -23,6 +23,7 @@ import {
   deleteOneOnOne,
   getOneOnOne,
   getUserId,
+  hasFeature,
   updateOneOnOne,
 } from "../api/client";
 import ActionItemsEditor from "../components/ActionItemsEditor";
@@ -82,6 +83,8 @@ export default function EditOneOnOne() {
     form.initialize(toFormValues(data));
   }
 
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("ONE_ON_ONES")) return <Navigate to="/" replace />;
   if (!idIsValid) return <Navigate to={backTo} replace />;
   // Redirects to the read-only view keep the originating context (`from` tab / `back`
   // override), so its Close button returns where the user actually started.

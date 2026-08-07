@@ -20,6 +20,22 @@
   "modifyActions": "Modify",
   "modifyActionsFor": "Modify actions for {{name}}",
   "editDetails": "Edit details",
+  "features": "Features",
+  "featuresFor": "Features of {{name}}",
+  "featuresTitle": "User features",
+  "featuresHint": "Enable or disable features for {{name}} ({{email}}). A disabled feature disappears from their app entirely, and its API access is blocked.",
+  "noPermissionFeatures": "You don't have permission to change this user's features.",
+  "featuresFailedStatus": "Saving features failed ({{status}})",
+  "featuresFailedNetwork": "Saving features failed. Check your connection and try again.",
+  "featureFlags": {
+    "title": "Feature flags",
+    "featureLabel": "Feature",
+    "stateLabel": "State",
+    "stateEnabled": "Enabled",
+    "stateDisabled": "Disabled",
+    "enabledHeader": "Enabled",
+    "toggleAria": "Toggle {{feature}} for {{name}}"
+  },
   "listFeedbacks": "List feedbacks",
   "feedbacks": "Feedbacks",
   "feedbackGroup": "Feedbacks",
@@ -190,6 +206,7 @@
     "deleted": "User deleted",
     "passwordChanged": "Password changed",
     "deactivated": "User deactivated",
-    "reactivated": "User reactivated"
+    "reactivated": "User reactivated",
+    "featuresSaved": "Features saved"
   }
 }

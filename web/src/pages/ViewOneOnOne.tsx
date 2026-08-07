@@ -21,7 +21,7 @@ import {
 import { IconHistory } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { ApiError, getOneOnOne, getUserId } from "../api/client";
+import { ApiError, getOneOnOne, getUserId, hasFeature } from "../api/client";
 import ActionItemHistoryModal from "../components/ActionItemHistoryModal";
 import OneOnOneHistory from "../components/OneOnOneHistory";
 import PersonaField from "../components/PersonaField";
@@ -50,6 +50,8 @@ export default function ViewOneOnOne() {
     retry: false,
   });
 
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("ONE_ON_ONES")) return <Navigate to="/" replace />;
   if (!idIsValid) return <Navigate to={backTo} replace />;
 
   const currentUserId = getUserId();

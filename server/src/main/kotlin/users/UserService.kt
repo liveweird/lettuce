@@ -35,6 +35,13 @@ data class UserListFilter(
     val teamId: UInt? = null,
     /** Strict-boolean status filter: only deactivated (true) or only active (false) accounts. */
     val deactivated: Boolean? = null,
+    /**
+     * Feature-flag state filter — the pair travels together (the route 400s a lone half):
+     * [feature] names the flag, [featureEnabled] picks users who have it enabled (true,
+     * no disabled row) or disabled (false, a disabled row exists).
+     */
+    val feature: Feature? = null,
+    val featureEnabled: Boolean? = null,
 )
 
 data class UserListResult(
@@ -78,6 +85,13 @@ class UserService(val database: R2dbcDatabase) {
         override val primaryKey = PrimaryKey(userId, role)
     }
 
+    // Per-user feature flags (V46) — the DISABLED set; no row = enabled.
+    object UserDisabledFeatures : Table("user_disabled_features") {
+        val userId = reference("user_id", Users)
+        val feature = varchar("feature", length = 30)
+        override val primaryKey = PrimaryKey(userId, feature)
+    }
+
     suspend fun create(user: User): UInt = suspendTransaction(database) {
         val newRecord = Users.insert {
             it[name] = user.name
@@ -101,7 +115,7 @@ class UserService(val database: R2dbcDatabase) {
                 .where { (Users.id eq id) and active() }
                 .toList()
                 .singleOrNull()
-                ?.toUser(rolesOf(id))
+                ?.toUser(rolesOf(id), featuresOf(id))
         }
     }
 
@@ -113,7 +127,7 @@ class UserService(val database: R2dbcDatabase) {
                 .singleOrNull()
                 ?.let {
                     val id = it[Users.id].value
-                    id to it.toUser(rolesOf(id))
+                    id to it.toUser(rolesOf(id), featuresOf(id))
                 }
         }
     }
@@ -184,6 +198,27 @@ class UserService(val database: R2dbcDatabase) {
     }
 
     /**
+     * Wholesale-replace the user's disabled-feature set (V46). Returns 1, or 0 when the id is
+     * unknown or soft-deleted (the route 404s). Idempotent — a same-set re-PUT is a no-op
+     * replace, not a transition (no 409, unlike [setDeactivated]'s route).
+     */
+    suspend fun setDisabledFeatures(id: UInt, features: Set<Feature>): Int = suspendTransaction(database) {
+        val exists = Users.select(Users.id)
+            .where { (Users.id eq id) and active() }
+            .toList()
+            .isNotEmpty()
+        if (!exists) return@suspendTransaction 0
+        UserDisabledFeatures.deleteWhere { UserDisabledFeatures.userId eq id }
+        features.forEach { f ->
+            UserDisabledFeatures.insert {
+                it[userId] = id
+                it[feature] = f.name
+            }
+        }
+        1
+    }
+
+    /**
      * Which of [ids] are deactivated (active, non-soft-deleted) users — one SELECT, backing the
      * creation-time assignment blocks. Soft-deleted or unknown ids fall through to the existing
      * FK/reference validation.
@@ -234,6 +269,7 @@ class UserService(val database: R2dbcDatabase) {
                 .toList()
             // One grouped query per aspect for the whole page — no per-row lookups.
             val rolesByUser = rolesByUserIds(rows.map { it.id })
+            val featuresByUser = disabledFeaturesByUserIds(rows.map { it.id })
             val entries = entriesByIds(
                 rows.flatMap { listOfNotNull(it.careerPathId, it.careerSpecializationId, it.seniorityLevelId) }.toSet(),
             )
@@ -248,6 +284,7 @@ class UserService(val database: R2dbcDatabase) {
                     seniorityLevel = row.seniorityLevelId?.let { entries[it] },
                     paidDaysOffAllowance = row.paidDaysOffAllowance,
                     deactivated = row.deactivated,
+                    disabledFeatures = featuresByUser[row.id].orEmpty().sortedBy { f -> f.name },
                 )
             }
             UserListResult(items = items, total = total)
@@ -285,6 +322,21 @@ class UserService(val database: R2dbcDatabase) {
             .groupBy({ it[UserRoles.userId].value }, { UserRole.valueOf(it[UserRoles.role]) })
 
     /** Must run inside a transaction. */
+    private suspend fun featuresOf(id: UInt): Set<Feature> =
+        UserDisabledFeatures.selectAll()
+            .where { UserDisabledFeatures.userId eq id }
+            .map { Feature.valueOf(it[UserDisabledFeatures.feature]) }
+            .toSet()
+
+    /** Must run inside a transaction. */
+    private suspend fun disabledFeaturesByUserIds(ids: List<UInt>): Map<UInt, List<Feature>> =
+        if (ids.isEmpty()) emptyMap()
+        else UserDisabledFeatures.selectAll()
+            .where { UserDisabledFeatures.userId inList ids }
+            .toList()
+            .groupBy({ it[UserDisabledFeatures.userId].value }, { Feature.valueOf(it[UserDisabledFeatures.feature]) })
+
+    /** Must run inside a transaction. */
     private suspend fun insertRoles(id: UInt, roles: Set<UserRole>) {
         roles.forEach { r ->
             UserRoles.insert {
@@ -315,14 +367,26 @@ class UserService(val database: R2dbcDatabase) {
         filter.deactivated?.let {
             op = op and (Users.deactivated eq it)
         }
+        filter.feature?.let { f ->
+            // The route guarantees featureEnabled is non-null whenever feature is set.
+            val disabled = UserDisabledFeatures
+                .select(UserDisabledFeatures.userId)
+                .where { UserDisabledFeatures.feature eq f.name }
+            op = op and if (filter.featureEnabled == false) {
+                Users.id inSubQuery disabled
+            } else {
+                Users.id notInSubQuery disabled
+            }
+        }
         return op
     }
 
-    private fun ResultRow.toUser(roles: Set<UserRole>) = User(
+    private fun ResultRow.toUser(roles: Set<UserRole>, disabledFeatures: Set<Feature>) = User(
         name = this[Users.name],
         email = this[Users.email],
         passwordHash = this[Users.passwordHash],
         roles = roles,
+        disabledFeatures = disabledFeatures,
         deactivated = this[Users.deactivated],
         passwordChangedAt = this[Users.passwordChangedAt],
         careerPathId = this[Users.careerPathId],

@@ -12,7 +12,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { Link as RouterLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { getDashboardSummary } from "../api/client";
+import { getDashboardSummary, hasFeature } from "../api/client";
 import classes from "./DashboardHero.module.css";
 
 const GRID_COLS = { base: 2, sm: 3, lg: 5 };
@@ -110,37 +110,46 @@ export default function DashboardHero() {
   if (data == null || typeof data.pendingFeedbackRequests !== "number") return null;
 
   const isManager = data.directReports > 0;
-  const showReviews = isManager && data.currentPeriodId != null;
+  // Per-user feature flags (v1.53.0): a tile hides with its feature — the summary endpoint
+  // itself stays ungated, so the counts are present but deliberately unrendered.
+  const showReviews = isManager && data.currentPeriodId != null && hasFeature("PERFORMANCE_REVIEWS");
+  const showFeedback = hasFeature("FEEDBACKS");
   return (
     <SimpleGrid cols={GRID_COLS} spacing="md">
-      <StatTile
-        label={t("dashboard.hero.pendingRequests")}
-        value={String(data.pendingFeedbackRequests)}
-        to="/feedback?tab=provided"
-        icon={<IconMessage2 size={20} />}
-      />
-      <StatTile
-        label={t("dashboard.hero.activeGoals")}
-        value={String(data.activeGoals)}
-        to="/goals"
-        icon={<IconTargetArrow size={20} />}
-      />
-      <StatTile
-        label={t("dashboard.hero.received30d")}
-        value={String(data.feedbackReceived30d)}
-        to="/feedback?tab=received"
-        icon={<IconInbox size={20} />}
-        sub={
-          // Per-field narrowing, NOT part of the shape probe above: an older server without
-          // the field simply renders no trend line.
-          typeof data.feedbackReceivedPrev30d === "number" ? (
-            <TrendLine
-              delta={data.feedbackReceived30d - data.feedbackReceivedPrev30d}
-              caption={t("dashboard.hero.vsPrev30d")}
-            />
-          ) : undefined
-        }
-      />
+      {showFeedback && (
+        <StatTile
+          label={t("dashboard.hero.pendingRequests")}
+          value={String(data.pendingFeedbackRequests)}
+          to="/feedback?tab=provided"
+          icon={<IconMessage2 size={20} />}
+        />
+      )}
+      {hasFeature("GOALS") && (
+        <StatTile
+          label={t("dashboard.hero.activeGoals")}
+          value={String(data.activeGoals)}
+          to="/goals"
+          icon={<IconTargetArrow size={20} />}
+        />
+      )}
+      {showFeedback && (
+        <StatTile
+          label={t("dashboard.hero.received30d")}
+          value={String(data.feedbackReceived30d)}
+          to="/feedback?tab=received"
+          icon={<IconInbox size={20} />}
+          sub={
+            // Per-field narrowing, NOT part of the shape probe above: an older server without
+            // the field simply renders no trend line.
+            typeof data.feedbackReceivedPrev30d === "number" ? (
+              <TrendLine
+                delta={data.feedbackReceived30d - data.feedbackReceivedPrev30d}
+                caption={t("dashboard.hero.vsPrev30d")}
+              />
+            ) : undefined
+          }
+        />
+      )}
       {isManager && (
         <StatTile
           label={t("dashboard.hero.directReports")}

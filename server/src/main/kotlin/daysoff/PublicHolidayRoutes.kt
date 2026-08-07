@@ -3,7 +3,9 @@ package ch.nokillswit.daysoff
 import ch.nokillswit.audit.audit
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAdmin
+import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.plugins.respondProblem
+import ch.nokillswit.users.Feature
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
@@ -27,6 +29,11 @@ class PublicHolidaysResource {
     class Id(val parent: PublicHolidaysResource = PublicHolidaysResource(), val id: UInt)
 }
 
+// The gated caller (V46): the public-holiday registry counts as the DAYS_OFF feature —
+// uniform for admins, who can always re-enable their own flag.
+private fun ApplicationCall.publicHolidayCaller() =
+    caller().also { requireFeatureEnabled(it, Feature.DAYS_OFF) }
+
 fun Application.configurePublicHolidayRoutes() {
     val holidayService = attributes[PublicHolidayServiceKey]
 
@@ -36,11 +43,11 @@ fun Application.configurePublicHolidayRoutes() {
             // registry is intrinsically small and the create-request cost preview needs all of
             // it. Any authenticated caller may read it.
             get<PublicHolidaysResource> {
-                call.caller()
+                call.publicHolidayCaller()
                 call.respond(HttpStatusCode.OK, PublicHolidayList(holidayService.list()))
             }
             post<PublicHolidaysResource> {
-                val caller = call.caller()
+                val caller = call.publicHolidayCaller()
                 requireAdmin(caller)
                 val request = call.receive<PublicHolidayCreateRequest>()
                 validatePublicHoliday(request)
@@ -58,7 +65,7 @@ fun Application.configurePublicHolidayRoutes() {
                 call.respond(HttpStatusCode.Created, created)
             }
             delete<PublicHolidaysResource.Id> { route ->
-                val caller = call.caller()
+                val caller = call.publicHolidayCaller()
                 requireAdmin(caller)
                 // Hard delete (see PublicHolidayService) — existing request costs stay frozen.
                 if (holidayService.delete(route.id) == 0) {

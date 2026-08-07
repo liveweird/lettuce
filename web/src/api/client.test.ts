@@ -3,8 +3,10 @@ import {
   ApiError,
   authedFetch,
   canAudit,
+  getDisabledFeatures,
   getRoles,
   getToken,
+  hasFeature,
   isHr,
   getUserId,
   isAdmin,
@@ -12,6 +14,7 @@ import {
   login,
   logout,
   setToken,
+  updateUserFeatures,
 } from "./client";
 import { consumeSignedOut } from "../auth";
 import { jsonResponse } from "../test/http";
@@ -32,6 +35,7 @@ const TOKEN_KEY = "lettuce.auth.token";
 const REFRESH_TOKEN_KEY = "lettuce.auth.refreshToken";
 const ROLE_KEY = "lettuce.auth.roles";
 const USER_ID_KEY = "lettuce.auth.userId";
+const DISABLED_FEATURES_KEY = "lettuce.auth.disabledFeatures";
 
 type FetchMock = ReturnType<typeof vi.fn>;
 
@@ -89,6 +93,20 @@ describe("session accessors", () => {
     localStorage.setItem(USER_ID_KEY, "42");
     expect(getUserId()).toBe(42);
   });
+
+  test("getDisabledFeatures defaults to all-enabled and survives corrupt storage", () => {
+    // Missing key (a pre-v1.53.0 session) = full access.
+    expect(getDisabledFeatures()).toEqual([]);
+    expect(hasFeature("GOALS")).toBe(true);
+    localStorage.setItem(DISABLED_FEATURES_KEY, "not-json{");
+    expect(getDisabledFeatures()).toEqual([]);
+    localStorage.setItem(DISABLED_FEATURES_KEY, JSON.stringify({ nope: true }));
+    expect(getDisabledFeatures()).toEqual([]);
+    localStorage.setItem(DISABLED_FEATURES_KEY, JSON.stringify(["WIZARDRY", "GOALS"]));
+    expect(getDisabledFeatures()).toEqual(["GOALS"]);
+    expect(hasFeature("GOALS")).toBe(false);
+    expect(hasFeature("FEEDBACKS")).toBe(true);
+  });
 });
 
 describe("login", () => {
@@ -109,6 +127,17 @@ describe("login", () => {
     expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBe("refresh-123");
     expect(localStorage.getItem(ROLE_KEY)).toBe(JSON.stringify(["ADMIN"]));
     expect(localStorage.getItem(USER_ID_KEY)).toBe("7");
+    // A mid-deploy older server without the field still persists a valid (empty) set.
+    expect(localStorage.getItem(DISABLED_FEATURES_KEY)).toBe("[]");
+  });
+
+  test("stores the disabled-features set from the login payload", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, tokenPair({ disabledFeatures: ["GOALS", "DAYS_OFF"] })),
+    );
+    await login({ email: "a@b", password: "pw" });
+    expect(localStorage.getItem(DISABLED_FEATURES_KEY)).toBe(JSON.stringify(["GOALS", "DAYS_OFF"]));
+    expect(hasFeature("GOALS")).toBe(false);
   });
 
   test("throws ApiError carrying status and body on failure", async () => {
@@ -120,6 +149,36 @@ describe("login", () => {
       body: { type: "about:blank", title: "Unauthorized", status: 401, detail: "no" },
     });
     expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
+  });
+});
+
+describe("updateUserFeatures", () => {
+  test("PUTs the wholesale set; a self-edit updates the stored session flags", async () => {
+    localStorage.setItem(TOKEN_KEY, "jwt-123");
+    localStorage.setItem(USER_ID_KEY, "7");
+    mockFetch.mockResolvedValue(new Response(null, { status: 204 }));
+    await updateUserFeatures(7, ["GOALS"]);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/v1/users/7/features");
+    expect(init.method).toBe("PUT");
+    expect(JSON.parse(init.body as string)).toEqual({ disabledFeatures: ["GOALS"] });
+    expect(localStorage.getItem(DISABLED_FEATURES_KEY)).toBe(JSON.stringify(["GOALS"]));
+  });
+
+  test("editing ANOTHER user's flags leaves the admin's own session untouched", async () => {
+    localStorage.setItem(TOKEN_KEY, "jwt-123");
+    localStorage.setItem(USER_ID_KEY, "7");
+    mockFetch.mockResolvedValue(new Response(null, { status: 204 }));
+    await updateUserFeatures(8, ["GOALS"]);
+    expect(localStorage.getItem(DISABLED_FEATURES_KEY)).toBeNull();
+  });
+
+  test("a failed PUT never touches the stored flags", async () => {
+    localStorage.setItem(TOKEN_KEY, "jwt-123");
+    localStorage.setItem(USER_ID_KEY, "7");
+    mockFetch.mockResolvedValue(jsonResponse(403, { title: "Forbidden", status: 403 }));
+    await expect(updateUserFeatures(7, ["GOALS"])).rejects.toMatchObject({ status: 403 });
+    expect(localStorage.getItem(DISABLED_FEATURES_KEY)).toBeNull();
   });
 });
 

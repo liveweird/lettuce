@@ -3,6 +3,7 @@ package ch.nokillswit.reviews
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAuditListAccess
+import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.authz.requirePerformanceReviewReadAllowingManager
 import ch.nokillswit.authz.requirePerformanceReviewWrite
 import ch.nokillswit.infra.db.requireValidReferences
@@ -15,6 +16,7 @@ import ch.nokillswit.infra.paging.optionalUInt
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.notifications.NotificationServiceKey
+import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserServiceKey
 import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpHeaders
@@ -67,6 +69,11 @@ private fun PerformanceReviewEventDescriptor.toEvent(reviewId: UInt, userId: UIn
         params = params,
     )
 
+// The gated caller (V46): every review handler resolves its principal through this, so the
+// per-user PERFORMANCE_REVIEWS flag is enforced before any other guard or read.
+private fun ApplicationCall.reviewCaller() =
+    caller().also { requireFeatureEnabled(it, Feature.PERFORMANCE_REVIEWS) }
+
 fun Application.configurePerformanceReviewRoutes() {
     val reviewService = attributes[PerformanceReviewServiceKey]
     val reviewEventService = attributes[PerformanceReviewEventServiceKey]
@@ -85,7 +92,7 @@ fun Application.configurePerformanceReviewRoutes() {
         from: PerformanceReviewStatus,
         target: PerformanceReviewStatus,
     ) {
-        val caller = call.caller()
+        val caller = call.reviewCaller()
         val existing = reviewService.read(reviewId)
         if (existing == null) {
             call.respondProblem(HttpStatusCode.NotFound, "Performance review not found")
@@ -111,7 +118,7 @@ fun Application.configurePerformanceReviewRoutes() {
     routing {
         authenticate {
             get<PerformanceReviews> {
-                val caller = call.caller()
+                val caller = call.reviewCaller()
                 val params = call.request.queryParameters
                 val view = when (val raw = params.optionalString("view") ?: "own") {
                     "own" -> PerformanceReviewListView.OWN
@@ -167,7 +174,7 @@ fun Application.configurePerformanceReviewRoutes() {
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
             }
             post<PerformanceReviews> {
-                val caller = call.caller()
+                val caller = call.reviewCaller()
                 val request = call.receive<PerformanceReviewCreateRequest>()
                 // The manager is always the caller (no create-on-behalf, not even for ADMIN) and
                 // the subordinate must be a direct report right now. Checked before payload
@@ -191,7 +198,7 @@ fun Application.configurePerformanceReviewRoutes() {
                 call.respond(HttpStatusCode.Created, created)
             }
             get<PerformanceReviews.Id> { route ->
-                val caller = call.caller()
+                val caller = call.reviewCaller()
                 val review = reviewService.read(route.id)
                 if (review == null) {
                     call.respondProblem(HttpStatusCode.NotFound, "Performance review not found")
@@ -203,7 +210,7 @@ fun Application.configurePerformanceReviewRoutes() {
                 call.respond(HttpStatusCode.OK, review)
             }
             put<PerformanceReviews.Id> { route ->
-                val caller = call.caller()
+                val caller = call.reviewCaller()
                 val existing = reviewService.read(route.id)
                 if (existing == null) {
                     call.respondProblem(HttpStatusCode.NotFound, "Performance review not found")
@@ -249,7 +256,7 @@ fun Application.configurePerformanceReviewRoutes() {
                 )
             }
             get<PerformanceReviews.Id.Events> { route ->
-                val caller = call.caller()
+                val caller = call.reviewCaller()
                 val reviewId = route.parent.id
                 val review = reviewService.read(reviewId)
                 if (review == null) {
@@ -266,7 +273,7 @@ fun Application.configurePerformanceReviewRoutes() {
                 )
             }
             delete<PerformanceReviews.Id> { route ->
-                val caller = call.caller()
+                val caller = call.reviewCaller()
                 val existing = reviewService.read(route.id)
                 if (existing == null) {
                     call.respondProblem(HttpStatusCode.NotFound, "Performance review not found")

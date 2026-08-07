@@ -147,6 +147,77 @@ describe("Tour", () => {
     expect(nonManager.some((s) => s.target === '[data-tour="nav-performance"]')).toBe(true);
   });
 
+  test("buildSteps drops a disabled feature's steps and renumbers against the shrunk total", () => {
+    // A translator that honours interpolation, so we can read the computed current/total.
+    const t = (k: string, o?: Record<string, unknown>) => (o ? `${o.current}/${o.total}` : k);
+    const all = buildSteps(t, true);
+
+    localStorage.setItem("lettuce.auth.disabledFeatures", JSON.stringify(["GOALS"]));
+    try {
+      const filtered = buildSteps(t, true);
+
+      const goalTargets = [
+        '[data-tour="nav-my-goals"]',
+        '[data-tour="goals-own"]',
+        '[data-tour="goals-managed"]',
+      ];
+      for (const target of goalTargets) {
+        expect(all.some((s) => s.target === target), target).toBe(true);
+        expect(filtered.some((s) => s.target === target), target).toBe(false);
+      }
+      expect(filtered.length).toBe(all.length - goalTargets.length);
+      // The "Step X of Y" numbering shrinks with the filtered total.
+      const total = filtered.length;
+      expect(filtered[0].title).toBe(`1/${total}`);
+      expect(filtered[total - 1].title).toBe(`${total}/${total}`);
+    } finally {
+      localStorage.removeItem("lettuce.auth.disabledFeatures");
+    }
+  });
+
+  test("buildSteps with all six features disabled keeps only the non-feature steps", () => {
+    localStorage.setItem(
+      "lettuce.auth.disabledFeatures",
+      JSON.stringify([
+        "FEEDBACKS",
+        "ONE_ON_ONES",
+        "GOALS",
+        "TEAM_KPIS",
+        "PERFORMANCE_REVIEWS",
+        "DAYS_OFF",
+      ]),
+    );
+    try {
+      const steps = buildSteps((k) => k, true);
+
+      // Exactly the untagged steps survive, in order: welcome, the dashboard block, the
+      // Config block, account/changelog, the header chrome, and the closing replay step.
+      expect(steps.map((s) => s.target)).toEqual([
+        "body",
+        '[data-tour="nav-dashboard"]',
+        '[data-tour="dashboard-managers"]',
+        '[data-tour="dashboard-peers"]',
+        '[data-tour="dashboard-subordinates"]',
+        '[data-tour="dashboard-myTeams"]',
+        '[data-tour="nav-config"]',
+        '[data-tour="config-users"]',
+        '[data-tour="config-teams"]',
+        '[data-tour="config-org"]',
+        '[data-tour="config-templates"]',
+        '[data-tour="nav-change-password"]',
+        '[data-tour="nav-changelog"]',
+        '[data-tour="notifications"]',
+        '[data-tour="language"]',
+        '[data-tour="theme"]',
+        '[data-tour="user-menu"]',
+        '[data-tour="replay"]',
+      ]);
+      expect(steps.length).toBe(TOUR_STEPS.filter((s) => !s.feature).length);
+    } finally {
+      localStorage.removeItem("lettuce.auth.disabledFeatures");
+    }
+  });
+
   test("buildSteps numbers each step header as 'Step X of Y' against the filtered total", () => {
     // A translator that honours interpolation, so we can read the computed current/total.
     const t = (k: string, o?: Record<string, unknown>) => (o ? `${o.current}/${o.total}` : k);

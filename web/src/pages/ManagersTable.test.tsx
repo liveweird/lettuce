@@ -297,6 +297,35 @@ describe("ManagersTable", () => {
     expect(screen.queryByText("Days off")).toBeNull();
   });
 
+  test("disabled ONE_ON_ONES and GOALS drop their links; the Feedback menu stays (v1.53.0)", async () => {
+    localStorage.setItem("lettuce.auth.disabledFeatures", JSON.stringify(["ONE_ON_ONES", "GOALS"]));
+    try {
+      mockFetch.mockResolvedValue(
+        jsonResponse(200, {
+          items: [
+            { userId: 1, name: "Manager One", email: "m1@example.com", teamId: 5, teamName: "alpha" },
+          ],
+          page: 1,
+          pageSize: 100,
+          total: 1,
+        }),
+      );
+      renderWithProviders(<ManagersTable />);
+
+      // The Feedback dropdown trigger survives…
+      expect(
+        await screen.findByRole("button", { name: /feedback actions for manager one/i }),
+      ).toBeInTheDocument();
+      // …while the 1:1 and Goals affordances are gone in every shape.
+      expect(screen.queryByRole("link", { name: "1:1 meetings with Manager One" })).toBeNull();
+      expect(screen.queryByRole("menuitem", { name: /1:1 meeting/i })).toBeNull();
+      expect(screen.queryByRole("button", { name: /1:1 actions for/i })).toBeNull();
+      expect(screen.queryByRole("link", { name: "Goals from Manager One" })).toBeNull();
+    } finally {
+      localStorage.removeItem("lettuce.auth.disabledFeatures");
+    }
+  });
+
   test("shows an empty state when there are no managers", async () => {
     mockFetch.mockResolvedValue(
       jsonResponse(200, { items: [], page: 1, pageSize: 100, total: 0 }),

@@ -2,6 +2,7 @@ import { Anchor, Button, Group, Stack, Text, Title } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { Link as RouterLink, Navigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { hasFeature } from "../api/client";
 import { useDashboardDrillDown } from "../hooks/useDashboardDrillDown";
 import { oneOnOneCreateLink } from "../utils/oneOnOneLinks";
 import OneOnOneTable from "./OneOnOneTable";
@@ -14,6 +15,8 @@ export default function UserOneOnOnes() {
   const { userId, idIsValid, name, origin, callerManages, auditMode, backTo } =
     useDashboardDrillDown("one-on-ones");
 
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("ONE_ON_ONES")) return <Navigate to="/" replace />;
   if (!idIsValid) return <Navigate to={origin.to} replace />;
 
   const who = name ?? t("oneOnOne.userFallback", { id: userId });

@@ -13,6 +13,19 @@ const USER_ID_KEY = "lettuce.auth.userId";
 export const USER_ROLES = ["ADMIN", "HR"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
+const DISABLED_FEATURES_KEY = "lettuce.auth.disabledFeatures";
+
+/** The per-user-toggleable feature areas (v1.53.0), in the UI's display order. */
+export const FEATURES = [
+  "FEEDBACKS",
+  "ONE_ON_ONES",
+  "GOALS",
+  "TEAM_KPIS",
+  "PERFORMANCE_REVIEWS",
+  "DAYS_OFF",
+] as const;
+export type Feature = (typeof FEATURES)[number];
+
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }
@@ -47,6 +60,25 @@ export function getUserId(): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+/**
+ * The session user's admin-disabled features. Missing key or corrupt value = all enabled —
+ * pre-v1.53.0 sessions (and mid-deploy older servers) keep full access until their next
+ * login/refresh. Render-time reads like isAdmin() — a change reaches a logged-in victim via
+ * the ≤15-min token refresh, and route guards + server 403s cover the gap.
+ */
+export function getDisabledFeatures(): Feature[] {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(DISABLED_FEATURES_KEY) ?? "[]");
+    return Array.isArray(parsed) ? parsed.filter((f): f is Feature => FEATURES.includes(f)) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function hasFeature(feature: Feature): boolean {
+  return !getDisabledFeatures().includes(feature);
+}
+
 export function isAdmin(): boolean {
   return getRoles().includes("ADMIN");
 }
@@ -66,14 +98,17 @@ function clearSession(): void {
   localStorage.removeItem(ROLES_KEY);
   localStorage.removeItem(LEGACY_ROLE_KEY);
   localStorage.removeItem(USER_ID_KEY);
+  localStorage.removeItem(DISABLED_FEATURES_KEY);
 }
 
-// Persist the access + refresh pair (and the current roles/userId) returned by /login or /refresh.
+// Persist the access + refresh pair (and the current roles/userId/feature flags) returned by
+// /login or /refresh. `?? []` keeps a mid-deploy older server (no disabledFeatures yet) harmless.
 function persistSession(data: LoginOk): void {
   setToken(data.token);
   setRefreshToken(data.refreshToken);
   localStorage.setItem(ROLES_KEY, JSON.stringify(data.roles));
   localStorage.setItem(USER_ID_KEY, String(data.userId));
+  localStorage.setItem(DISABLED_FEATURES_KEY, JSON.stringify(data.disabledFeatures ?? []));
 }
 
 type LoginBody = paths["/api/v1/login"]["post"]["requestBody"]["content"]["application/json"];
@@ -164,6 +199,10 @@ type UserListQuery = {
   role?: UserRole;
   teamId?: number;
   deactivated?: boolean;
+  // Feature-flag state filter — the server requires the pair together (400 otherwise),
+  // so listUsers serializes them only when `feature` is set.
+  feature?: Feature;
+  featureEnabled?: boolean;
 };
 
 type CurrentUser = paths["/api/v1/users/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
@@ -246,6 +285,22 @@ async function userAccountTransition(id: number, action: "deactivate" | "activat
 export const deactivateUser = (id: number) => userAccountTransition(id, "deactivate");
 export const reactivateUser = (id: number) => userAccountTransition(id, "activate");
 
+/**
+ * Wholesale-replaces a user's disabled-feature set (ADMIN-only). On a successful self-edit the
+ * stored session flags update immediately — an admin trimming their own features sees the UI
+ * react without waiting for the next token refresh.
+ */
+export async function updateUserFeatures(id: number, disabledFeatures: Feature[]): Promise<void> {
+  const res = await authedFetch(`/api/v1/users/${id}/features`, {
+    method: "PUT",
+    body: JSON.stringify({ disabledFeatures }),
+  });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  if (id === getUserId()) {
+    localStorage.setItem(DISABLED_FEATURES_KEY, JSON.stringify(disabledFeatures));
+  }
+}
+
 export async function listUsers(q: UserListQuery): Promise<UserPage> {
   const params = new URLSearchParams();
   params.set("page", String(q.page));
@@ -257,6 +312,10 @@ export async function listUsers(q: UserListQuery): Promise<UserPage> {
   if (q.teamId != null) params.set("teamId", String(q.teamId));
   // != null on purpose: false ("only active") is a meaningful filter value.
   if (q.deactivated != null) params.set("deactivated", String(q.deactivated));
+  if (q.feature && q.featureEnabled != null) {
+    params.set("feature", q.feature);
+    params.set("featureEnabled", String(q.featureEnabled));
+  }
   const res = await authedFetch(`/api/v1/users?${params.toString()}`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json()) as UserPage;

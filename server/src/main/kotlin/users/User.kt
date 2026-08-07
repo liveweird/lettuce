@@ -17,12 +17,28 @@ import kotlinx.serialization.Serializable
 @Serializable
 enum class UserRole { ADMIN, HR }
 
+/**
+ * The per-user-toggleable feature areas (V46). Storage models the DISABLED set
+ * (user_disabled_features) — absent = enabled, so every user defaults to full access.
+ * Caller-only semantics: a disabled feature gates what the user themselves may see/execute
+ * (403 on the feature's routes), never what others may create involving them. Uniform for
+ * every role — HR audit reads and the ADMIN registries (review periods = PERFORMANCE_REVIEWS,
+ * public holidays = DAYS_OFF) are gated exactly like ordinary use.
+ * A future feature is just a new value — no migration needed (no CHECK on the column).
+ */
+@Serializable
+enum class Feature { FEEDBACKS, ONE_ON_ONES, GOALS, TEAM_KPIS, PERFORMANCE_REVIEWS, DAYS_OFF }
+
 @Serializable
 data class User(
     val name: String,
     val email: String,
     val passwordHash: String,
     val roles: Set<UserRole> = emptySet(),
+    // Per-user feature flags (V46) — the DISABLED set, empty = full access. Rides the domain
+    // object like roles so /login and /refresh mint the claim from the same read. Never
+    // client-settable via PUT — replaced only by PUT /users/{id}/features (ADMIN).
+    val disabledFeatures: Set<Feature> = emptySet(),
     // Reversible admin disable (V44) — orthogonal to the soft-delete. Blocks login (403 after
     // the password verifies), refresh, password reset, and NEW assignments; historical data
     // stays readable with unchanged rights. Never client-settable via PUT — flipped only by
@@ -75,6 +91,8 @@ data class UserCreateResponse(
     val paidDaysOffAllowance: Int?,
     // Always false at creation; kept in the shape so both user-response schemas stay aligned.
     val deactivated: Boolean,
+    // Always empty at creation (default all-enabled); aligned with UserResponse.
+    val disabledFeatures: List<Feature>,
 )
 
 @Serializable
@@ -91,6 +109,12 @@ data class UserUpdateRequest(
     // Paid days-off allowance (whole days, 0–365). Same null/omitted = leave unchanged and
     // ADMIN-only-change semantics as the career refs; clearing is inexpressible.
     val paidDaysOffAllowance: Int? = null,
+)
+
+/** Body of PUT /users/{id}/features — a wholesale replace of the user's disabled set. */
+@Serializable
+data class UserFeaturesUpdateRequest(
+    val disabledFeatures: List<Feature>,
 )
 
 @Serializable
@@ -162,6 +186,8 @@ data class UserResponse(
     // Reversible admin disable — the ONLY place the state surfaces is the admin users list
     // (Inactive badge + filter); no other feature DTO carries it by design.
     val deactivated: Boolean,
+    // Per-user feature flags (V46) — the admin-disabled set, empty = full access.
+    val disabledFeatures: List<Feature>,
 )
 
 typealias UserPageResponse = PageResponse<UserResponse>
@@ -176,4 +202,5 @@ fun User.toResponse(id: UInt, entries: Map<UInt, DictionaryEntry>) = UserRespons
     seniorityLevel = seniorityLevelId?.let { entries[it] },
     paidDaysOffAllowance = paidDaysOffAllowance,
     deactivated = deactivated,
+    disabledFeatures = disabledFeatures.sortedBy { it.name },
 )

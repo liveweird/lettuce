@@ -115,6 +115,24 @@ describe("DashboardHero", () => {
     expect(within(second.container as HTMLElement).queryByText("vs previous 30 days")).toBeNull();
   });
 
+  test("disabled features drop their tiles; the remaining tiles stay (v1.53.0)", async () => {
+    localStorage.setItem("lettuce.auth.disabledFeatures", JSON.stringify(["FEEDBACKS", "GOALS"]));
+    try {
+      setupMocks(MANAGER_SUMMARY);
+      renderHero();
+
+      // The directReports and reviews tiles survive…
+      expect(await screen.findByText("Direct reports")).toBeInTheDocument();
+      expect(screen.getByText("Reviews · current period")).toBeInTheDocument();
+      // …while both feedback tiles and the goals tile are gone.
+      expect(screen.queryByText("Feedback requests for you")).toBeNull();
+      expect(screen.queryByText("Feedback received · 30 days")).toBeNull();
+      expect(screen.queryByText("Your active goals")).toBeNull();
+    } finally {
+      localStorage.removeItem("lettuce.auth.disabledFeatures");
+    }
+  });
+
   test("renders nothing on error or malformed data — the hero never breaks the dashboard", async () => {
     setupMocks({ items: [] }); // a wrong-shaped 200 (e.g. a stale mock/proxy)
     const { container } = renderHero();

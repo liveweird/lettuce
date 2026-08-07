@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { Alert, Button, Container, Group, Paper, Select, Stack, Text, Title } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { activateGoal, createGoal, listTeamMembers } from "../api/client";
+import { activateGoal, createGoal, hasFeature, listTeamMembers } from "../api/client";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import GoalDefinitionFields from "../components/GoalDefinitionFields";
 import PersonaField from "../components/PersonaField";
@@ -74,6 +74,9 @@ export default function CreateGoal() {
       groupTeamRows(reports?.items ?? []).map((p) => ({ value: String(p.userId), label: p.name })),
     [reports],
   );
+
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("GOALS")) return <Navigate to="/" replace />;
 
   async function save(values: GoalDefinitionFormValues) {
     if (!subordinate) return;

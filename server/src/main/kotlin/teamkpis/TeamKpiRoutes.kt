@@ -2,6 +2,7 @@ package ch.nokillswit.teamkpis
 
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.caller
+import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.authz.requireTeamKpiReadAllowingChain
 import ch.nokillswit.authz.requireTeamKpiWrite
 import ch.nokillswit.infra.db.requireValidReferences
@@ -15,6 +16,7 @@ import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.notifications.NotificationType
 import ch.nokillswit.plugins.respondProblem
+import ch.nokillswit.users.Feature
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
@@ -72,6 +74,12 @@ private fun TeamKpiEventDescriptor.toEvent(kpiId: UInt, userId: UInt) = TeamKpiE
     params = params,
 )
 
+// The gated caller (V46): every team-KPI handler resolves its principal through this (via the
+// shared read/write preambles or directly), so the per-user TEAM_KPIS flag is enforced before
+// any other guard or read.
+private fun ApplicationCall.teamKpiCaller() =
+    caller().also { requireFeatureEnabled(it, Feature.TEAM_KPIS) }
+
 fun Application.configureTeamKpiRoutes() {
     val kpiService = attributes[TeamKpiServiceKey]
     val kpiEventService = attributes[TeamKpiEventServiceKey]
@@ -103,7 +111,7 @@ fun Application.configureTeamKpiRoutes() {
     // DRAFT). A null return means the 404 response was already sent; the guard itself throws
     // ForbiddenException. Shared by the document, values, and events GETs.
     suspend fun readGuardedKpi(call: ApplicationCall, kpiId: UInt): TeamKpiResponse? {
-        val caller = call.caller()
+        val caller = call.teamKpiCaller()
         val kpi = kpiService.read(kpiId)
         if (kpi == null) {
             call.respondProblem(HttpStatusCode.NotFound, "Team KPI not found")
@@ -122,12 +130,15 @@ fun Application.configureTeamKpiRoutes() {
     // 404 was already sent contract; guards run BEFORE any body is received, so an outsider's
     // malformed payload is still 403.
     suspend fun writeGuardedKpi(call: ApplicationCall, kpiId: UInt): TeamKpiResponse? {
+        // The gated caller resolves FIRST: a TEAM_KPIS-disabled caller gets a uniform 403
+        // before the read (the feature 403 must precede the 404).
+        val caller = call.teamKpiCaller()
         val kpi = kpiService.read(kpiId)
         if (kpi == null) {
             call.respondProblem(HttpStatusCode.NotFound, "Team KPI not found")
             return null
         }
-        requireTeamKpiWrite(call.caller(), kpi)
+        requireTeamKpiWrite(caller, kpi)
         return kpi
     }
 
@@ -162,7 +173,7 @@ fun Application.configureTeamKpiRoutes() {
     routing {
         authenticate {
             get<TeamKpis> {
-                val caller = call.caller()
+                val caller = call.teamKpiCaller()
                 val params = call.request.queryParameters
                 val view = when (val raw = params.optionalString("view") ?: "own") {
                     "own" -> TeamKpiListView.OWN
@@ -189,7 +200,7 @@ fun Application.configureTeamKpiRoutes() {
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
             }
             post<TeamKpis> {
-                val caller = call.caller()
+                val caller = call.teamKpiCaller()
                 val request = call.receive<TeamKpiCreateRequest>()
                 // The author is always the team's CURRENT manager (no create-on-behalf, not even
                 // for ADMIN). Checked before payload validation so an outsider's malformed

@@ -12,6 +12,7 @@ import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.notifications.NotificationType
 import ch.nokillswit.plugins.JwtConfig
 import ch.nokillswit.plugins.JwtConfigKey
+import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserRole
 import ch.nokillswit.users.validateEmail
 import ch.nokillswit.users.UserServiceKey
@@ -61,11 +62,18 @@ data class LoginResponse(
     val userId: UInt,
     /** Additional roles of the authenticated user — empty for a regular user. */
     val roles: List<UserRole>,
+    /** Per-user feature flags (V46) — the admin-disabled set; empty = full access. */
+    val disabledFeatures: List<Feature>,
 )
 
-private fun JwtConfig.authResponse(userId: UInt, email: String, roles: Set<UserRole>): LoginResponse {
-    val access = issueAccessToken(userId, email, roles)
-    val refresh = issueRefreshToken(userId, email, roles)
+private fun JwtConfig.authResponse(
+    userId: UInt,
+    email: String,
+    roles: Set<UserRole>,
+    disabledFeatures: Set<Feature>,
+): LoginResponse {
+    val access = issueAccessToken(userId, email, roles, disabledFeatures)
+    val refresh = issueRefreshToken(userId, email, roles, disabledFeatures)
     return LoginResponse(
         token = access.token,
         expiresAt = access.expiresAt,
@@ -73,6 +81,7 @@ private fun JwtConfig.authResponse(userId: UInt, email: String, roles: Set<UserR
         refreshExpiresAt = refresh.expiresAt,
         userId = userId,
         roles = roles.sortedBy { it.name },
+        disabledFeatures = disabledFeatures.sortedBy { it.name },
     )
 }
 
@@ -157,7 +166,7 @@ fun Application.configureAuthRoutes() {
                 }
                 loginThrottle.recordSuccess(req.email)
                 audit("login.success", "email" to user.email, "userId" to userId.toLong())
-                call.respond(jwtConfig.authResponse(userId, user.email, user.roles))
+                call.respond(jwtConfig.authResponse(userId, user.email, user.roles, user.disabledFeatures))
             }
         }
         rateLimit(RateLimitName(REFRESH_RATE_LIMIT)) {
@@ -195,7 +204,7 @@ fun Application.configureAuthRoutes() {
                 }
                 val userId = rawUserId?.toUInt() ?: reject("malformed")
                 // One read: confirm the user still exists and isn't soft-deleted, and pick up their
-                // current roles/email so changes take effect on the next refresh.
+                // current roles/email/feature flags so changes take effect on the next refresh.
                 val user = userService.read(userId)
                     ?: reject("user_gone", rawUserId)
                 // read() deliberately keeps returning deactivated users (their data stays
@@ -212,7 +221,7 @@ fun Application.configureAuthRoutes() {
                 if (issuedAtSec < user.passwordChangedAt / 1000) {
                     reject("predates_password_change", rawUserId)
                 }
-                call.respond(jwtConfig.authResponse(userId, user.email, user.roles))
+                call.respond(jwtConfig.authResponse(userId, user.email, user.roles, user.disabledFeatures))
             }
         }
         rateLimit(RateLimitName(PASSWORD_RESET_RATE_LIMIT)) {

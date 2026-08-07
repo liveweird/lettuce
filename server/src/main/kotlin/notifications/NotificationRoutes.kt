@@ -51,9 +51,15 @@ fun Application.configureNotificationRoutes() {
                     defaultSort = listOf(SortField("timestamp", descending = true)),
                 )
                 val wasSeenFilter = call.request.queryParameters.optionalBoolean("wasSeen")
+                // Feature-flag exclusion (V46): claim-sourced like route gating — same ≤15-min
+                // staleness, no extra read. Only the list is filtered; direct-id operations
+                // (GET/{id}, seen/unseen, seen-all, DELETE) deliberately are not.
                 val result = notificationService.list(
                     recipientId = caller.userId,
-                    filter = NotificationListFilter(wasSeen = wasSeenFilter),
+                    filter = NotificationListFilter(
+                        wasSeen = wasSeenFilter,
+                        disabledFeatures = caller.disabledFeatures,
+                    ),
                     paging = paging,
                 )
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))

@@ -1,8 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
+import { useLocation } from "react-router-dom";
 import { fireEvent, renderWithProviders, screen, waitFor } from "../test/render";
 import MyGoals from "./MyGoals";
 import { jsonResponse } from "../test/http";
+
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location">{location.pathname}</div>;
+}
 
 const TOKEN_KEY = "lettuce.auth.token";
 const USER_ID_KEY = "lettuce.auth.userId";
@@ -193,5 +199,25 @@ describe("MyGoals page", () => {
     expect(await screen.findByText("Alice")).toBeInTheDocument();
     expect(goalUrls(mockFetch).at(-1)).toContain("view=own");
     expect(screen.queryByRole("tab", { name: "Goals I've set" })).not.toBeInTheDocument();
+  });
+
+  test("a disabled GOALS feature redirects the page to / (v1.53.0)", async () => {
+    localStorage.setItem("lettuce.auth.disabledFeatures", JSON.stringify(["GOALS"]));
+    try {
+      mockApi(mockFetch);
+      renderWithProviders(
+        <>
+          <MyGoals />
+          <LocationProbe />
+        </>,
+        { route: "/goals" },
+      );
+
+      await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent(/^\/$/));
+      expect(screen.queryByRole("heading", { name: "Goals" })).toBeNull();
+      expect(screen.queryByRole("tab", { name: "My goals" })).toBeNull();
+    } finally {
+      localStorage.removeItem("lettuce.auth.disabledFeatures");
+    }
   });
 });

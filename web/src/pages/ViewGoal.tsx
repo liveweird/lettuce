@@ -24,6 +24,7 @@ import {
   deactivateGoal,
   getGoal,
   getUserId,
+  hasFeature,
   reopenGoal,
   type GoalStatus,
 } from "../api/client";
@@ -82,6 +83,8 @@ export default function ViewGoal() {
     retry: false,
   });
 
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("GOALS")) return <Navigate to="/" replace />;
   if (!idIsValid) return <Navigate to={backTo} replace />;
 
   const currentUserId = getUserId();

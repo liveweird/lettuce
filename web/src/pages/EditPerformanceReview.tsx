@@ -25,6 +25,7 @@ import {
   deletePerformanceReview,
   getPerformanceReview,
   getUserId,
+  hasFeature,
   submitPerformanceReview,
   updatePerformanceReview,
 } from "../api/client";
@@ -99,6 +100,8 @@ export default function EditPerformanceReview() {
     form.initialize(toReviewFormValues(data));
   }
 
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("PERFORMANCE_REVIEWS")) return <Navigate to="/" replace />;
   if (!idIsValid) return <Navigate to={backTo} replace />;
   // Redirects to the read-only view keep the originating context (`from` / `back` override).
   const viewLink = reviewViewLink(id, from, backOverride ?? undefined);

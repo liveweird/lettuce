@@ -3,7 +3,9 @@ package ch.nokillswit.reviews
 import ch.nokillswit.audit.audit
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAdmin
+import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.plugins.respondProblem
+import ch.nokillswit.users.Feature
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
@@ -27,6 +29,11 @@ class ReviewPeriodsResource {
     class Id(val parent: ReviewPeriodsResource = ReviewPeriodsResource(), val id: UInt)
 }
 
+// The gated caller (V46): the review-period registry counts as the PERFORMANCE_REVIEWS
+// feature — uniform for admins, who can always re-enable their own flag.
+private fun ApplicationCall.reviewPeriodCaller() =
+    caller().also { requireFeatureEnabled(it, Feature.PERFORMANCE_REVIEWS) }
+
 fun Application.configureReviewPeriodRoutes() {
     val periodService = attributes[ReviewPeriodServiceKey]
 
@@ -36,11 +43,11 @@ fun Application.configureReviewPeriodRoutes() {
             // is intrinsically small and every picker needs all of it. Any authenticated caller
             // may read it (managers pick a period when creating a review).
             get<ReviewPeriodsResource> {
-                call.caller()
+                call.reviewPeriodCaller()
                 call.respond(HttpStatusCode.OK, ReviewPeriodList(periodService.list()))
             }
             post<ReviewPeriodsResource> {
-                val caller = call.caller()
+                val caller = call.reviewPeriodCaller()
                 requireAdmin(caller)
                 val request = call.receive<ReviewPeriodCreateRequest>()
                 validateReviewPeriod(request)
@@ -60,7 +67,7 @@ fun Application.configureReviewPeriodRoutes() {
                 call.respond(HttpStatusCode.Created, created)
             }
             delete<ReviewPeriodsResource.Id> { route ->
-                val caller = call.caller()
+                val caller = call.reviewPeriodCaller()
                 requireAdmin(caller)
                 // Latest-only + unreferenced-only are checked in the service (409); a missing
                 // row is 404 (hard delete — see ReviewPeriodService).

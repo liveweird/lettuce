@@ -2,6 +2,7 @@ import { Link as RouterLink, Navigate } from "react-router-dom";
 import { Anchor, Button, Group, Stack, Text, Title } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
+import { hasFeature } from "../api/client";
 import { useDashboardDrillDown, type DashboardOriginKey } from "../hooks/useDashboardDrillDown";
 import { reviewCreateLink } from "../utils/performanceReviewLinks";
 import PerformanceReviewTable from "./PerformanceReviewTable";
@@ -19,6 +20,8 @@ export default function UserPerformanceReviews() {
   const { t } = useTranslation();
   const { userId, idIsValid, name, originKey, origin, callerManages, auditMode, backTo } =
     useDashboardDrillDown("performance-reviews");
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("PERFORMANCE_REVIEWS")) return <Navigate to="/" replace />;
   if (!idIsValid) return <Navigate to={origin.to} replace />;
   const who = name ?? t("performanceReview.userFallback", { id: userId });
   const wording = auditMode

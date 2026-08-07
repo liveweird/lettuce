@@ -50,7 +50,7 @@ ch.nokillswit
 ├── audit/              security audit trail: `audit(event, fields…)` → AUDIT-marked structured logs (see "Audit trail" in `.claude/docs/observability.md`)
 ├── authz/              RBAC guards + CallerPrincipal (see "Authorization model" in `.claude/docs/authorization.md`)
 ├── auth/               POST /api/v1/login, /api/v1/refresh, /api/v1/logout, /api/v1/password-reset + token minting + password hashing + LoginThrottle/PasswordResetThrottle
-├── users/              /api/v1/users/* CRUD + list + mass CSV import + UserService + Users table
+├── users/              /api/v1/users/* CRUD + list + mass CSV import + per-user feature flags (PUT {id}/features) + UserService + Users table
 ├── teams/              /api/v1/teams/* CRUD + list + member sub-resource + TeamService + Teams/TeamMembers tables
 ├── templates/          /api/v1/templates/* CRUD + list + TemplateService + Templates table (read: any authenticated; write: ADMIN)
 ├── dictionaries/       /api/v1/dictionaries/{dictionary} read + whole-document replace + DictionaryService + dictionary_entries table (read: any authenticated; write: ADMIN — see "Dictionaries" in `.claude/docs/features/dictionaries.md`)

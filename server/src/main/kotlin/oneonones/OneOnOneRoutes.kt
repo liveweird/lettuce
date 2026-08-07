@@ -3,6 +3,7 @@ package ch.nokillswit.oneonones
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAuditListAccess
+import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.authz.requireOneOnOneReadAllowingManager
 import ch.nokillswit.authz.requireOneOnOneWrite
 import ch.nokillswit.infra.db.requireValidReferences
@@ -13,6 +14,7 @@ import ch.nokillswit.infra.paging.optionalUInt
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.notifications.NotificationServiceKey
+import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserServiceKey
 import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpHeaders
@@ -120,6 +122,11 @@ private fun validateOneOnOnePayload(
     }
 }
 
+// The gated caller (V46): every 1:1 handler resolves its principal through this, so the
+// per-user ONE_ON_ONES flag is enforced before any other guard or read.
+private fun ApplicationCall.oneOnOneCaller() =
+    caller().also { requireFeatureEnabled(it, Feature.ONE_ON_ONES) }
+
 fun Application.configureOneOnOneRoutes() {
     val oneOnOneService = attributes[OneOnOneServiceKey]
     val oneOnOneEventService = attributes[OneOnOneEventServiceKey]
@@ -129,7 +136,7 @@ fun Application.configureOneOnOneRoutes() {
     routing {
         authenticate {
             get<OneOnOnes> {
-                val caller = call.caller()
+                val caller = call.oneOnOneCaller()
                 val params = call.request.queryParameters
                 val view = when (val raw = params.optionalString("view") ?: "own") {
                     "own" -> OneOnOneListView.OWN
@@ -186,7 +193,7 @@ fun Application.configureOneOnOneRoutes() {
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
             }
             post<OneOnOnes> {
-                val caller = call.caller()
+                val caller = call.oneOnOneCaller()
                 val request = call.receive<OneOnOneCreateRequest>()
                 // The manager is ALWAYS the author: the caller documents their own 1:1, so there
                 // is no ADMIN create-on-behalf. The subordinate must be a current direct report
@@ -218,7 +225,7 @@ fun Application.configureOneOnOneRoutes() {
                 call.respond(HttpStatusCode.Created, created)
             }
             get<OneOnOnes.Id> { route ->
-                val caller = call.caller()
+                val caller = call.oneOnOneCaller()
                 val meeting = oneOnOneService.read(route.id)
                 if (meeting == null) {
                     call.respondProblem(HttpStatusCode.NotFound, "1:1 meeting not found")
@@ -230,7 +237,7 @@ fun Application.configureOneOnOneRoutes() {
                 call.respond(HttpStatusCode.OK, meeting)
             }
             put<OneOnOnes.Id> { route ->
-                val caller = call.caller()
+                val caller = call.oneOnOneCaller()
                 val existing = oneOnOneService.read(route.id)
                 if (existing == null) {
                     call.respondProblem(HttpStatusCode.NotFound, "1:1 meeting not found")
@@ -256,7 +263,7 @@ fun Application.configureOneOnOneRoutes() {
                 call.respond(HttpStatusCode.NoContent)
             }
             delete<OneOnOnes.Id> { route ->
-                val caller = call.caller()
+                val caller = call.oneOnOneCaller()
                 val existing = oneOnOneService.read(route.id)
                 if (existing == null) {
                     call.respondProblem(HttpStatusCode.NotFound, "1:1 meeting not found")
@@ -275,7 +282,7 @@ fun Application.configureOneOnOneRoutes() {
                 call.respond(HttpStatusCode.NoContent)
             }
             get<OneOnOnes.Id.Events> { route ->
-                val caller = call.caller()
+                val caller = call.oneOnOneCaller()
                 val meetingId = route.parent.id
                 val meeting = oneOnOneService.read(meetingId)
                 if (meeting == null) {
@@ -292,7 +299,7 @@ fun Application.configureOneOnOneRoutes() {
                 )
             }
             get<OneOnOnes.ActionItems.Id.History> { route ->
-                val caller = call.caller()
+                val caller = call.oneOnOneCaller()
                 val result = oneOnOneService.actionItemHistory(route.parent.id)
                 if (result == null) {
                     call.respondProblem(HttpStatusCode.NotFound, "Action item not found")

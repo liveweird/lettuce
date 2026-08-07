@@ -121,6 +121,33 @@ describe("Users page", () => {
     expect(screen.getByRole("menuitem", { name: "Delete Bob" })).toBeInTheDocument();
   });
 
+  test("the Modify menu offers a Features item pointing at the per-user features screen (v1.53.0)", async () => {
+    mockListThen(mockFetch);
+    const user = userEvent.setup();
+    renderUsers();
+
+    await openModifyMenu(user, "Bob");
+    const item = await screen.findByRole("menuitem", { name: "Features of Bob" });
+    expect(item).toHaveAttribute("href", "/users/2/features");
+    expect(item).toHaveTextContent("Features");
+  });
+
+  test("a disabled FEEDBACKS feature hides the per-row Feedback menu; Modify stays (v1.53.0)", async () => {
+    localStorage.setItem("lettuce.auth.disabledFeatures", JSON.stringify(["FEEDBACKS"]));
+    try {
+      mockListThen(mockFetch);
+      renderUsers();
+
+      await screen.findByText("Alice");
+      // The admin Modify menus still render — proof the actions column is there…
+      expect(screen.getAllByRole("button", { name: /modify actions for /i })).toHaveLength(2);
+      // …but no row carries a Feedback dropdown.
+      expect(screen.queryByRole("button", { name: /feedback actions for /i })).toBeNull();
+    } finally {
+      localStorage.removeItem("lettuce.auth.disabledFeatures");
+    }
+  });
+
   test("one's own row offers Edit/password/Delete but no Deactivate", async () => {
     mockListThen(mockFetch);
     const user = userEvent.setup();

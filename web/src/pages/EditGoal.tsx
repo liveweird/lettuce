@@ -25,6 +25,7 @@ import {
   deleteGoal,
   getGoal,
   getUserId,
+  hasFeature,
   updateGoalDefinition,
   updateGoalProgress,
   type GoalType,
@@ -115,6 +116,8 @@ export default function EditGoal() {
     });
   }
 
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("GOALS")) return <Navigate to="/" replace />;
   if (!idIsValid) return <Navigate to={backTo} replace />;
   // Redirects to the read-only view keep the originating context (`from` / `back` override).
   const viewLink = goalViewLink(id, from, backOverride ?? undefined);

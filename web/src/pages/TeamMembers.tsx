@@ -26,6 +26,7 @@ import {
   ApiError,
   getTeam,
   getUserId,
+  hasFeature,
   isAdmin,
   listUsers,
   removeTeamMember,
@@ -258,7 +259,7 @@ export default function TeamMembers() {
                         {t("users.details")}
                       </Button>
                     )}
-                    {m.id !== currentUserId && (
+                    {m.id !== currentUserId && hasFeature("FEEDBACKS") && (
                       <FeedbackActionsMenu
                         provideTo={feedbackProvideLink(m.id, m.name)}
                         askTo={feedbackAskLink(m.id, m.name, `/teams/${id}/members`)}

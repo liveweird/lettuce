@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.53.0",
+    date: "2026-08-07",
+    en: `Administrators can now tailor the app per person with feature flags. Any of the six feature areas — Feedbacks (including self-reflection), 1:1 Meetings, Goals, Team KPIs, Performance Reviews, and Days Off — can be switched off for a specific user, which hides it from their menus, dashboard, cards, and notifications entirely (and blocks the underlying access too). Everything stays on by default. Two places to manage it: "Features" in a user's "Modify" menu on the Users list edits one person's switches, and the new "Feature flags" screen under Config starts from a feature and lets you toggle it per user. Turning a feature back on restores everything, including notifications that arrived in the meantime.`,
+    pl: `Administratorzy mogą teraz dopasować aplikację do każdej osoby za pomocą flag funkcji. Każdy z sześciu obszarów — Feedbacki (wraz z autorefleksją), Spotkania 1:1, Cele, KPI zespołów, Oceny okresowe i Dni wolne — można wyłączyć dla wybranego użytkownika, co całkowicie ukrywa go w jego menu, pulpicie, kartach i powiadomieniach (i blokuje też sam dostęp). Domyślnie wszystko pozostaje włączone. Zarządzasz tym w dwóch miejscach: pozycja „Funkcje" w menu „Modyfikuj" na liście użytkowników edytuje przełączniki jednej osoby, a nowy ekran „Flagi funkcji" w Konfiguracji wychodzi od funkcji i pozwala przełączać ją per użytkownik. Ponowne włączenie funkcji przywraca wszystko, łącznie z powiadomieniami, które przyszły w międzyczasie.`,
+  },
+  {
     version: "1.52.0",
     date: "2026-08-07",
     en: `The Users list is tidier for administrators. The four account actions on each row — Edit details, Change password, Deactivate (or Reactivate), and Delete — are now grouped behind one "Modify" button that opens a small menu, next to the existing "Feedback" one. The actions themselves work exactly as before.`,

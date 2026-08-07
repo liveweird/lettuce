@@ -25,6 +25,7 @@ import {
   deactivateTeamKpi,
   getTeamKpi,
   getUserId,
+  hasFeature,
   reopenTeamKpi,
   type TeamKpiStatus,
 } from "../api/client";
@@ -91,6 +92,8 @@ export default function ViewTeamKpi() {
     retry: false,
   });
 
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("TEAM_KPIS")) return <Navigate to="/" replace />;
   if (!idIsValid) return <Navigate to={backTo} replace />;
 
   const currentUserId = getUserId();

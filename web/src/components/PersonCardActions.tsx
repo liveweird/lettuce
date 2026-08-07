@@ -24,8 +24,10 @@ import { userDaysOffLink } from "../utils/daysOffLinks";
 import { userGoalsLink } from "../utils/goalLinks";
 import { oneOnOneCreateLink, userOneOnOnesLink } from "../utils/oneOnOneLinks";
 import { userPerformanceReviewsLink } from "../utils/performanceReviewLinks";
+import { hasFeature } from "../api/client";
 import {
   ACTION_GROUPS,
+  FEATURE_OF,
   PERSON_CARD_ACTION_LABELS,
   type ActionGroupId,
   type ButtonKey,
@@ -122,8 +124,14 @@ export default function PersonCardActions({
 
   const labelSource = audit ? LABELS.audit : LABELS[labels];
 
+  // The feature check gates on the VIEWER's flags (v1.53.0, caller-only semantics) — it must
+  // stay in lockstep with hasVisibleActions in personCardSupport.ts.
   const visible = (Object.keys(ICONS) as ButtonKey[]).filter(
-    (key) => show[key] && (only == null || only.includes(key)) && labelSource[key] != null,
+    (key) =>
+      show[key] &&
+      (only == null || only.includes(key)) &&
+      labelSource[key] != null &&
+      hasFeature(FEATURE_OF[key]),
   );
 
   const plainButton = (key: ButtonKey) => {

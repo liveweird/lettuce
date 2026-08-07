@@ -187,6 +187,27 @@ describe("TeamMembers page", () => {
     );
   });
 
+  test("a disabled FEEDBACKS feature hides the per-row Feedback menu (v1.53.0)", async () => {
+    localStorage.setItem("lettuce.auth.disabledFeatures", JSON.stringify(["FEEDBACKS"]));
+    try {
+      mockFetch.mockImplementation((url: string) => {
+        if (url === "/api/v1/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
+        if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
+        if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
+        return Promise.resolve(jsonResponse(404, {}));
+      });
+      renderTeamMembers(3);
+
+      // The roster still renders in full…
+      expect(await screen.findByText("Carol")).toBeInTheDocument();
+      expect(screen.getByText("dave@example.com")).toBeInTheDocument();
+      // …with no Feedback dropdown on any row.
+      expect(screen.queryByRole("button", { name: /feedback actions for /i })).toBeNull();
+    } finally {
+      localStorage.removeItem("lettuce.auth.disabledFeatures");
+    }
+  });
+
   test("add picker excludes current members and the manager, and PUTs the membership", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";

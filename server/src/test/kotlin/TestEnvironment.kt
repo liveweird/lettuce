@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
+import org.jetbrains.exposed.v1.r2dbc.deleteWhere
 import org.jetbrains.exposed.v1.r2dbc.selectAll
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 import org.jetbrains.exposed.v1.r2dbc.update
@@ -173,6 +174,14 @@ object TestSeedState {
                 it[UserService.Users.markedAsDeleted] = false
                 it[UserService.Users.deactivated] = false
                 it[UserService.Users.passwordChangedAt] = 0
+            }
+            // Also drop any feature flags a test left on the seed accounts (V46).
+            val seedIds = UserService.Users.selectAll()
+                .where { UserService.Users.email inList (DEMO_SEED_EMAILS + SEED_ADMIN_EMAIL) }
+                .map { it[UserService.Users.id].value }
+                .toList()
+            UserService.UserDisabledFeatures.deleteWhere {
+                UserService.UserDisabledFeatures.userId inList seedIds
             }
         }
     }

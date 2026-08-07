@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link as RouterLink, useNavigate, useSearchParams } from "react-router-dom";
+import { Link as RouterLink, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Alert,
   Anchor,
@@ -14,7 +14,7 @@ import {
 } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { ApiError, createPerformanceReview, listTeamMembers } from "../api/client";
+import { ApiError, createPerformanceReview, hasFeature, listTeamMembers } from "../api/client";
 import PersonaField from "../components/PersonaField";
 import { renderPeriodOption, useReviewPeriodOptions } from "../hooks/useReviewPeriodOptions";
 import { reviewEditLink, reviewViewLink } from "../utils/performanceReviewLinks";
@@ -87,6 +87,9 @@ export default function CreatePerformanceReview() {
   );
   const effectivePeriod = periodId ?? periodOptions.find((o) => !o.disabled)?.value ?? null;
   const allPeriodsFuture = periodOptions.length > 0 && periodOptions.every((o) => o.disabled);
+
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("PERFORMANCE_REVIEWS")) return <Navigate to="/" replace />;
 
   async function save() {
     if (!subordinate || !effectivePeriod) return;

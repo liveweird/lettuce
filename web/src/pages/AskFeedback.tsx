@@ -14,7 +14,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { createFeedback, getUserId, type FeedbackVisibility } from "../api/client";
+import { createFeedback, getUserId, hasFeature, type FeedbackVisibility } from "../api/client";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import DuplicateFeedbackAlert from "../components/DuplicateFeedbackAlert";
 import PersonaField from "../components/PersonaField";
@@ -55,6 +55,8 @@ export default function AskFeedback() {
       ? { subjectId: requesterId, providerId, requesterId }
       : null,
   );
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("FEEDBACKS")) return <Navigate to="/" replace />;
   if (!providerIdIsValid || requesterId == null) return <Navigate to={backTo} replace />;
 
   async function submit() {

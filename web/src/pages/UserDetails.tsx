@@ -14,6 +14,7 @@ import {
 import EmptyState from "../components/EmptyState";
 import PersonCard from "../components/PersonCard";
 import PersonCardActions, { type PersonCardActionsProps } from "../components/PersonCardActions";
+import { hasVisibleActions } from "../components/personCardSupport";
 import PersonCardBody from "../components/PersonCardStats";
 import { groupTeamRows, type PersonCard as PersonCardData } from "../utils/teamRows";
 import { userDetailsLink } from "../utils/userLinks";
@@ -197,6 +198,17 @@ export default function UserDetails() {
               show: { provide: true, ask: true, feedbacks: true },
             };
 
+  // Whether any audit drill-down survives the viewer's feature flags (v1.53.0) — with all
+  // five features disabled the HR-audit block renders nothing, so it should not exist.
+  const auditBlockHasActions = hasVisibleActions(
+    {
+      labels: "users",
+      audit: true,
+      show: { feedbacks: true, oneOnOnes: true, goals: true, reviews: true, daysOff: true },
+    },
+    ["feedbacks", "oneOnOnes", "goals", "reviews", "daysOff"],
+  );
+
   return (
     <Stack gap="md">
       <Stack gap={4}>
@@ -248,10 +260,12 @@ export default function UserDetails() {
         />
       )}
 
-      {canAudit() && !selfView && person != null && (
+      {canAudit() && !selfView && person != null && auditBlockHasActions && (
         // The HR auditor entry point: read-only drill-downs into EVERYTHING this person
         // is a party to (both directions, every status), regardless of the viewer's own
         // relationship to them. Server-side this is view=user; HR usage is audit-logged.
+        // Feature flags bind HR too (v1.53.0) — a disabled feature drops its drill-down,
+        // and with all five disabled the whole block goes.
         <Paper withBorder p="md" radius="md">
           <Stack gap="xs">
             <Text size="sm" fw={500}>
