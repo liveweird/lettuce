@@ -24,12 +24,17 @@ test("the Users list opens the details view in every relationship flavor", async
   await page.getByRole("link", { name: /Back to Users/ }).click();
   await expect(page).toHaveURL(/\/users$/);
 
-  // A direct report → the subordinates-tab card with its actions.
+  // A direct report → the subordinates-tab card with its actions (the create flows sit in
+  // the card's topic dropdowns since v1.51.0).
   await gotoUserRow(page, "AAA One");
   await page.getByRole("link", { name: "User details for AAA One" }).click();
   await expect(page.getByText("One of your subordinates")).toBeVisible();
-  await expect(page.getByRole("link", { name: "New 1:1 with AAA One" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Request feedback about AAA One" })).toBeVisible();
+  await page.getByRole("button", { name: "1:1 actions for AAA One" }).click();
+  await expect(page.getByRole("menuitem", { name: "New 1:1 with AAA One" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Feedback actions for AAA One" }).click();
+  await expect(page.getByRole("menuitem", { name: "Request feedback about AAA One" })).toBeVisible();
+  await page.keyboard.press("Escape");
 
   // An unrelated user (team BBB) still gets a card — no relationship hint, no stats.
   await gotoUserRow(page, "BBB One");
@@ -37,7 +42,8 @@ test("the Users list opens the details view in every relationship flavor", async
   await expect(page.getByText("bbb-one@lettuce.local")).toBeVisible();
   await expect(page.getByText(/One of your/)).toHaveCount(0);
   await expect(page.getByText("Last 1:1")).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Feedbacks with BBB One" })).toBeVisible();
+  await page.getByRole("button", { name: "Feedback actions for BBB One" }).click();
+  await expect(page.getByRole("menuitem", { name: "Feedbacks with BBB One" })).toBeVisible();
 });
 
 test("the teams list's manager chip opens the details view and round-trips back", async ({ page }) => {
