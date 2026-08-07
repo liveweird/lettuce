@@ -1,10 +1,12 @@
-import { Button } from "@mantine/core";
+import { Button, Menu } from "@mantine/core";
 import { Link as RouterLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   IconBeach,
   IconCalendarEvent,
+  IconChevronDown,
   IconClipboardText,
+  IconMessageCircle,
   IconMessagePlus,
   IconMessageQuestion,
   IconMessages,
@@ -22,7 +24,12 @@ import { userDaysOffLink } from "../utils/daysOffLinks";
 import { userGoalsLink } from "../utils/goalLinks";
 import { oneOnOneCreateLink, userOneOnOnesLink } from "../utils/oneOnOneLinks";
 import { userPerformanceReviewsLink } from "../utils/performanceReviewLinks";
-import { PERSON_CARD_ACTION_LABELS, type ButtonKey } from "./personCardSupport";
+import {
+  ACTION_GROUPS,
+  PERSON_CARD_ACTION_LABELS,
+  type ActionGroupId,
+  type ButtonKey,
+} from "./personCardSupport";
 
 // The per-person action/drill-down buttons shared by the dashboard card grids, the
 // user-details card, and the details page's HR-audit block (the checkup-#10 ×4 dedup).
@@ -30,8 +37,11 @@ import { PERSON_CARD_ACTION_LABELS, type ButtonKey } from "./personCardSupport";
 // labels them (the managers grid speaks `users.*`, the team grids `teams.*`, the audit
 // block `users.audit.*` arias), where the create flows return (`back`), and how the
 // drill-downs are addressed (`drillFrom`/`drillTeamId`/`drillBack`/`manages`/`audit`).
-// Rendered output per call site is identical to the pre-extraction JSX — keep it that
-// way: unit and e2e locators key on the aria-labels and texts.
+// Since v1.51.0 the feedback and 1:1 actions collapse behind topic dropdowns (the
+// FeedbackActionsMenu idiom) whenever a group has ≥2 visible members — see ACTION_GROUPS
+// in personCardSupport.ts. Grouping never touches the per-action aria-labels (only the
+// role changes, link → menuitem, when a dropdown forms) — keep them stable: unit and e2e
+// locators key on the aria-labels and texts.
 
 // The label table, section subsets, and visibility predicate live in personCardSupport.ts
 // (non-component exports — the Fast Refresh split).
@@ -52,6 +62,13 @@ const ICONS: Record<ButtonKey, React.ReactNode> = {
 // The create flows (Provide/Ask/Request/New 1:1) are ACTIONS — light variant; the
 // per-person drill-downs are navigation — subtle variant (the pre-extraction convention).
 const ACTION_KEYS: ReadonlySet<ButtonKey> = new Set(["provide", "ask", "request", "newOneOnOne"]);
+
+// The dropdown triggers are light: a ≥2 group always contains a create action (the only
+// navigation member of either group is its list drill-down).
+const GROUP_ICONS: Record<ActionGroupId, React.ReactNode> = {
+  feedback: <IconMessageCircle size={14} />,
+  oneOnOne: <IconCalendarEvent size={14} />,
+};
 
 export type PersonCardActionsProps = {
   userId: number;
@@ -105,27 +122,71 @@ export default function PersonCardActions({
 
   const labelSource = audit ? LABELS.audit : LABELS[labels];
 
+  const visible = (Object.keys(ICONS) as ButtonKey[]).filter(
+    (key) => show[key] && (only == null || only.includes(key)) && labelSource[key] != null,
+  );
+
+  const plainButton = (key: ButtonKey) => {
+    const label = labelSource[key]!;
+    return (
+      <Button
+        key={key}
+        component={RouterLink}
+        to={links[key]!}
+        variant={ACTION_KEYS.has(key) ? "light" : "subtle"}
+        size="xs"
+        leftSection={ICONS[key]}
+        aria-label={t(label.aria, { name })}
+      >
+        {t(label.text)}
+      </Button>
+    );
+  };
+
+  const groupedKeys = new Set<ButtonKey>(ACTION_GROUPS.flatMap((group) => group.keys));
+
   return (
     <>
-      {(Object.keys(ICONS) as ButtonKey[])
-        .filter((key) => show[key] && (only == null || only.includes(key)))
-        .map((key) => {
-          const label = labelSource[key];
-          if (!label) return null;
-          return (
-            <Button
-              key={key}
-              component={RouterLink}
-              to={links[key]!}
-              variant={ACTION_KEYS.has(key) ? "light" : "subtle"}
-              size="xs"
-              leftSection={ICONS[key]}
-              aria-label={t(label.aria, { name })}
-            >
-              {t(label.text)}
-            </Button>
-          );
-        })}
+      {ACTION_GROUPS.map((group) => {
+        const members = group.keys.filter((key) => visible.includes(key));
+        if (members.length === 0) return null;
+        // A dropdown only forms over ≥2 actions AND a flavor that labels the trigger (the
+        // audit flavor never does); anything less renders the plain button(s) as always.
+        const groupLabel = audit ? undefined : group.label[labels];
+        if (members.length < 2 || groupLabel == null) return members.map(plainButton);
+        return (
+          <Menu key={group.id} position="bottom-start" withinPortal>
+            <Menu.Target>
+              <Button
+                variant="light"
+                size="xs"
+                leftSection={GROUP_ICONS[group.id]}
+                rightSection={<IconChevronDown size={14} />}
+                aria-label={t(groupLabel.aria, { name })}
+              >
+                {t(groupLabel.text)}
+              </Button>
+            </Menu.Target>
+            <Menu.Dropdown>
+              {members.map((key) => {
+                const label = labelSource[key]!;
+                return (
+                  <Menu.Item
+                    key={key}
+                    component={RouterLink}
+                    to={links[key]!}
+                    leftSection={ICONS[key]}
+                    aria-label={t(label.aria, { name })}
+                  >
+                    {t(label.text)}
+                  </Menu.Item>
+                );
+              })}
+            </Menu.Dropdown>
+          </Menu>
+        );
+      })}
+      {visible.filter((key) => !groupedKeys.has(key)).map(plainButton)}
     </>
   );
 }

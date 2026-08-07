@@ -23,10 +23,12 @@ test("manager requests feedback about a subordinate; provider sees the message, 
   const body = uniqueText("E2E third-party");
   const message = uniqueText("E2E requester-message");
 
-  // Requester: Dashboard → My subordinates → "Request feedback for" AAA One, from AAA Three.
+  // Requester: Dashboard → My subordinates → the card's Feedback dropdown (v1.51.0) →
+  // "Request feedback for" AAA One, from AAA Three.
   await login(page, MANAGER_AAA);
   await page.goto("/?tab=subordinates");
-  await page.getByRole("link", { name: "Request feedback about AAA One" }).click();
+  await page.getByRole("button", { name: "Feedback actions for AAA One" }).click();
+  await page.getByRole("menuitem", { name: "Request feedback about AAA One" }).click();
   await expect(page).toHaveURL(/\/feedback\/request/);
   await pickSelectOption(page, "Add a provider", "AAA Three");
   await page.getByRole("button", { name: "Add", exact: true }).click();

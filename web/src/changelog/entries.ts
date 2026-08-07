@@ -16,6 +16,16 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.51.0",
+    date: "2026-08-07",
+    en: `Person cards take less space. The feedback actions (Provide, Ask, Request, and the feedback list) are now grouped behind one "Feedbacks" button, and the 1:1 actions (New 1:1 and the meeting list) behind one "1:1 meetings" button — click either to open a small menu. Where only a single action exists (say, just the 1:1 list on a manager's card), it stays a plain button as before. Goals, Performance reviews, and Days off keep their own buttons.
+
+Also fixed: the manager picker on team forms and the Teams filter now offers every user — previously it silently stopped at the first hundred names.`,
+    pl: `Karty osób zajmują mniej miejsca. Akcje feedbacku (Wystaw, Poproś, Zamów i lista feedbacków) są teraz zgrupowane pod jednym przyciskiem „Feedbacki", a akcje 1:1 (Nowe 1:1 i lista spotkań) pod przyciskiem „Spotkania 1:1" — kliknięcie otwiera małe menu. Tam, gdzie dostępna jest tylko jedna akcja (np. sama lista 1:1 na karcie menedżera), pozostaje ona zwykłym przyciskiem jak dotąd. Cele, oceny okresowe i dni wolne zachowują własne przyciski.
+
+Poprawione przy okazji: wybór menedżera w formularzach zespołów i filtrze Zespołów obejmuje teraz wszystkich użytkowników — wcześniej po cichu kończył się na pierwszej setce nazwisk.`,
+  },
+  {
     version: "1.50.0",
     date: "2026-08-07",
     en: `Person cards are easier to read. Each card's details (the Dashboard grids and user details) are now laid out in two columns — labels on the left, values on the right — with one shared split for the whole card, so every value lines up in a single column no matter which section it belongs to. Nothing was added or removed; the same information is simply easier to scan.`,

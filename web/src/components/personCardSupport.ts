@@ -22,8 +22,10 @@ export const PERSON_CARD_ACTION_LABELS: Record<
   users: {
     provide: { aria: "users.provideFeedbackTo", text: "users.provideFeedback" },
     ask: { aria: "users.askForFeedbackFrom", text: "users.askForFeedback" },
-    feedbacks: { aria: "users.feedbacksWith", text: "users.feedbacks" },
-    oneOnOnes: { aria: "users.oneOnOnesWith", text: "users.oneOnOnes" },
+    // The drill-down texts are "… list" (v1.51.0) — under this flavor they sit inside (or next
+    // to) the topic dropdowns; the audit table below keeps the plain nouns.
+    feedbacks: { aria: "users.feedbacksWith", text: "users.feedbackList" },
+    oneOnOnes: { aria: "users.oneOnOnesWith", text: "users.oneOnOneList" },
     goals: { aria: "users.goalsWith", text: "users.goals" },
   },
   teams: {
@@ -47,6 +49,40 @@ export const PERSON_CARD_ACTION_LABELS: Record<
     daysOff: { aria: "users.audit.daysOffAria", text: "users.daysOff" },
   },
 };
+
+// The topic dropdowns (v1.51.0): the feedback create/drill-down actions and the 1:1 pair are
+// grouped behind one trigger each (the FeedbackActionsMenu idiom), with per-flavor trigger
+// labels. A group only becomes a dropdown when ≥2 of its actions are visible — a lone member
+// renders as the plain button it always was, which is also why some flavors carry no trigger
+// label at all: the `users` flavor has no New-1:1 (its 1:1 group can never reach 2) and the
+// `audit` flavor is drill-downs only (every group is a singleton), so those keys would be dead.
+export type ActionGroupId = "feedback" | "oneOnOne";
+
+export type ActionGroup = {
+  id: ActionGroupId;
+  /** The group's members, in menu order (a subset of the fixed button order). */
+  keys: readonly ButtonKey[];
+  /** Trigger text+aria per flavor; a flavor without an entry never renders this dropdown. */
+  label: Partial<Record<"users" | "teams", LabelPair>>;
+};
+
+export const ACTION_GROUPS: readonly ActionGroup[] = [
+  {
+    id: "feedback",
+    keys: ["provide", "ask", "request", "feedbacks"],
+    label: {
+      users: { aria: "users.feedbackGroupAria", text: "users.feedbackGroup" },
+      teams: { aria: "teams.feedbackGroupAria", text: "teams.feedbackGroup" },
+    },
+  },
+  {
+    id: "oneOnOne",
+    keys: ["newOneOnOne", "oneOnOnes"],
+    label: {
+      teams: { aria: "teams.oneOnOneGroupAria", text: "teams.oneOnOneGroup" },
+    },
+  },
+];
 
 // The card sections' button subsets (v1.46.0): PersonCardBody renders the buttons inside
 // their labeled sections via the `only` prop. The fixed button order splits cleanly at the

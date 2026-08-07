@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -37,6 +38,12 @@ function renderDetails(route = "/users/5/details?name=Bob&from=users") {
 }
 
 type FetchMock = ReturnType<typeof vi.fn>;
+
+// v1.51.0: the feedback/1:1 card actions live behind topic dropdowns — open the trigger,
+// then assert on its role=menuitem entries (the Users.test.tsx idiom).
+async function openCardMenu(name: RegExp | string) {
+  await userEvent.setup().click(await screen.findByRole("button", { name }));
+}
 
 type MemberRow = {
   userId: number;
@@ -136,13 +143,19 @@ describe("UserDetails page", () => {
       "href",
       `/users/5/one-on-ones?name=Bob&from=details&back=${BACK_HERE}`,
     );
-    // Provide feedback returns here on Cancel via back=.
-    expect(screen.getByRole("link", { name: "Provide feedback to Bob" })).toHaveAttribute(
+    // Provide feedback (behind the Feedback dropdown, v1.51.0) returns here on Cancel via back=.
+    await openCardMenu(/feedback actions for bob/i);
+    expect(
+      await screen.findByRole("menuitem", { name: "Provide feedback to Bob" }),
+    ).toHaveAttribute(
       "href",
       `/feedback/new?subjectId=5&subjectName=Bob&back=${encodeURIComponent("/users/5/details?name=Bob&from=users")}`,
     );
-    // No subordinate-only affordances on a manager card.
+    // No subordinate-only affordances on a manager card — and with no New 1:1 the 1:1 group
+    // stays a single plain button (asserted a link above), never a dropdown.
     expect(screen.queryByRole("link", { name: /new 1:1/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /new 1:1/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /1:1 actions for/i })).not.toBeInTheDocument();
   });
 
   test("a user found in the managed view renders the subordinate-flavored card", async () => {
@@ -153,9 +166,13 @@ describe("UserDetails page", () => {
 
     expect(await screen.findByText("One of your subordinates")).toBeInTheDocument();
     expect(screen.getByText("Last 1:1")).toBeInTheDocument();
-    // The subordinate card carries the direct-report affordances.
-    expect(screen.getByRole("link", { name: "New 1:1 with Bob" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Request feedback about Bob" })).toBeInTheDocument();
+    // The subordinate card carries the direct-report affordances, behind their dropdowns.
+    await openCardMenu(/feedback actions for bob/i);
+    expect(
+      await screen.findByRole("menuitem", { name: "Request feedback about Bob" }),
+    ).toBeInTheDocument();
+    await openCardMenu(/1:1 actions for bob/i);
+    expect(await screen.findByRole("menuitem", { name: "New 1:1 with Bob" })).toBeInTheDocument();
     // The drill-down returns here and asserts the relationship (`manages=1`) so the
     // manager-only affordances survive the details origin.
     expect(screen.getByRole("link", { name: "Goals for Bob" })).toHaveAttribute(
@@ -182,7 +199,8 @@ describe("UserDetails page", () => {
     expect(screen.getByText("Feedback from them")).toBeInTheDocument();
     expect(screen.queryByText("Last 1:1")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /goals/i })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Feedbacks with Bob" })).toHaveAttribute(
+    await openCardMenu(/feedback actions for bob/i);
+    expect(await screen.findByRole("menuitem", { name: "Feedbacks with Bob" })).toHaveAttribute(
       "href",
       `/users/5/feedbacks?name=Bob&from=details&back=${BACK_HERE}`,
     );
@@ -214,7 +232,8 @@ describe("UserDetails page", () => {
     expect(screen.queryByText("Feedback from me")).not.toBeInTheDocument();
     expect(screen.queryByText("Last 1:1")).not.toBeInTheDocument();
     // Feedback actions still apply to any user; the drill-down round-trips through here.
-    expect(screen.getByRole("link", { name: "Feedbacks with Bob" })).toHaveAttribute(
+    await openCardMenu(/feedback actions for bob/i);
+    expect(await screen.findByRole("menuitem", { name: "Feedbacks with Bob" })).toHaveAttribute(
       "href",
       `/users/5/feedbacks?name=Bob&from=details&back=${BACK_HERE}`,
     );
@@ -237,6 +256,7 @@ describe("UserDetails page", () => {
     expect(await screen.findByText("bob@example.com")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /provide feedback/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /feedbacks with/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /feedback actions for/i })).not.toBeInTheDocument();
     // With no stats and no buttons, only the Profile section renders (v1.46.0).
     expect(screen.getByText("Profile")).toBeInTheDocument();
     expect(screen.queryByText("Collaboration")).not.toBeInTheDocument();

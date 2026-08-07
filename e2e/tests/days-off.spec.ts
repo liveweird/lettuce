@@ -200,6 +200,14 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   await expect(notificationCard(dialog, "AAA Two requested time off")).toBeVisible();
   await page.keyboard.press("Escape");
   await page.goto("/days-off?tab=team");
+  // Residue-proof (v1.51.0): rejected/cancelled leftovers from earlier runs carry far-future
+  // Mondays that outrank this run's rows in the From-sorted table — once they fill page 1,
+  // the fresh pending rows fall off it. Filter the team view to Requested (the sweep already
+  // cancelled any stranded pending rows, so only this run's two remain).
+  const teamFilters = page.getByRole("button", { name: "Filters" });
+  if ((await teamFilters.getAttribute("aria-expanded")) !== "true") await teamFilters.click();
+  await page.getByRole("combobox", { name: "Status" }).click();
+  await page.getByRole("option", { name: "Requested" }).click();
   await page
     .getByLabel(`Accept the days-off request of AAA Two starting ${MONDAY_ISO}`)
     .click();

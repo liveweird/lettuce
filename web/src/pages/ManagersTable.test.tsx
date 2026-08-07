@@ -1,7 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
 import { renderWithProviders, screen } from "../test/render";
 import ManagersTable from "./ManagersTable";
 import { jsonResponse } from "../test/http";
+
+// v1.51.0: the feedback card actions live behind a per-card dropdown — open the trigger,
+// then assert on its role=menuitem entries (the Users.test.tsx idiom).
+async function openFeedbackMenu(name: RegExp | string) {
+  await userEvent.setup().click(await screen.findByRole("button", { name }));
+}
 
 const TOKEN_KEY = "lettuce.auth.token";
 
@@ -43,7 +50,7 @@ describe("ManagersTable", () => {
     expect(url).toContain("/api/v1/teams/members?view=managers");
   });
 
-  test("renders a Provide feedback link per manager row", async () => {
+  test("renders a Provide feedback menu item per manager card", async () => {
     mockFetch.mockResolvedValue(
       jsonResponse(200, {
         items: [
@@ -56,14 +63,15 @@ describe("ManagersTable", () => {
     );
     renderWithProviders(<ManagersTable />);
 
-    const link = await screen.findByRole("link", { name: /provide feedback to manager one/i });
-    expect(link).toHaveAttribute(
+    await openFeedbackMenu(/feedback actions for manager one/i);
+    const item = await screen.findByRole("menuitem", { name: /provide feedback to manager one/i });
+    expect(item).toHaveAttribute(
       "href",
       `/feedback/new?subjectId=1&subjectName=Manager%20One&back=${encodeURIComponent("/?tab=managers")}`,
     );
   });
 
-  test("renders an Ask for feedback link per manager row", async () => {
+  test("renders an Ask for feedback menu item per manager card", async () => {
     mockFetch.mockResolvedValue(
       jsonResponse(200, {
         items: [
@@ -76,8 +84,9 @@ describe("ManagersTable", () => {
     );
     renderWithProviders(<ManagersTable />);
 
-    const link = await screen.findByRole("link", { name: /ask manager one for feedback/i });
-    expect(link).toHaveAttribute(
+    await openFeedbackMenu(/feedback actions for manager one/i);
+    const item = await screen.findByRole("menuitem", { name: /ask manager one for feedback/i });
+    expect(item).toHaveAttribute(
       "href",
       `/feedback/ask?providerId=1&providerName=Manager%20One&back=${encodeURIComponent("/?tab=managers")}`,
     );
@@ -138,7 +147,9 @@ describe("ManagersTable", () => {
     expect(await screen.findAllByText("Manager One")).toHaveLength(1);
     expect(screen.getByText("alpha")).toBeInTheDocument();
     expect(screen.getByText("beta")).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: /provide feedback to manager one/i })).toHaveLength(1);
+    expect(
+      screen.getAllByRole("button", { name: /feedback actions for manager one/i }),
+    ).toHaveLength(1);
   });
 
   test("renders the per-manager stats: relative 1:1 age, open-items badge, last feedback", async () => {

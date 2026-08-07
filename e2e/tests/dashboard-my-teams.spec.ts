@@ -18,10 +18,13 @@ test("a manager walks My teams into the team view and a drill-down round-trips b
   await expect(page).toHaveURL(/\/teams\/\d+\/subordinates/);
   await expect(page.getByRole("heading", { name: "AAA", exact: true })).toBeVisible();
 
-  // The same person cards as My subordinates: stats block + the direct-report actions.
+  // The same person cards as My subordinates: stats block + the direct-report actions
+  // (New 1:1 sits in the card's 1:1 dropdown since v1.51.0).
   await expect(page.getByText("AAA Three")).toBeVisible();
   await expect(page.getByText("Last 1:1").first()).toBeVisible();
-  await expect(page.getByRole("link", { name: "New 1:1 with AAA Three" })).toBeVisible();
+  await page.getByRole("button", { name: "1:1 actions for AAA Three" }).click();
+  await expect(page.getByRole("menuitem", { name: "New 1:1 with AAA Three" })).toBeVisible();
+  await page.keyboard.press("Escape");
 
   // Full back-link fidelity: the Goals drill-down carries the team origin and returns here.
   await page.getByRole("link", { name: "Goals for AAA Three" }).click();

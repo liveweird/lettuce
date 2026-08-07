@@ -69,6 +69,12 @@ function memberUrls(mockFetch: FetchMock): string[] {
     .filter((url) => url.startsWith("/api/v1/teams/members"));
 }
 
+// v1.51.0: the feedback and 1:1 card actions live behind per-card topic dropdowns — open
+// the trigger, then assert on its role=menuitem entries (the Users.test.tsx idiom).
+async function openCardMenu(name: RegExp | string) {
+  await userEvent.setup().click(await screen.findByRole("button", { name }));
+}
+
 describe("TeamMembersTable", () => {
   let mockFetch: FetchMock;
 
@@ -110,113 +116,116 @@ describe("TeamMembersTable", () => {
     expect(memberUrls(mockFetch)[0]).toContain("view=managed");
   });
 
-  test("renders a Provide feedback link per row pointing at /feedback/new", async () => {
+  test("renders a Provide feedback menu item per row pointing at /feedback/new", async () => {
     setupMocks(mockFetch);
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
 
-    const link = await screen.findByRole("link", { name: /provide feedback to bob brown/i });
-    expect(link).toHaveAttribute(
+    // One Feedback dropdown per person (Alice's two memberships collapse into one card).
+    expect(await screen.findAllByRole("button", { name: /feedback actions for/i })).toHaveLength(2);
+    await openCardMenu(/feedback actions for bob brown/i);
+    const item = await screen.findByRole("menuitem", { name: /provide feedback to bob brown/i });
+    expect(item).toHaveAttribute(
       "href",
       `/feedback/new?subjectId=11&subjectName=Bob%20Brown&back=${encodeURIComponent("/?tab=peers")}`,
     );
-    // One link per person (Alice's two memberships collapse into one card).
-    expect(screen.getAllByRole("link", { name: /provide feedback to/i })).toHaveLength(2);
   });
 
-  test("managed view adds a Request feedback link per row pointing at /feedback/request", async () => {
+  test("managed view adds a Request feedback menu item per row pointing at /feedback/request", async () => {
     setupMocks(mockFetch);
     renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
 
-    const link = await screen.findByRole("link", { name: /request feedback about bob brown/i });
-    expect(link).toHaveAttribute(
+    // One Feedback dropdown per person (Alice's two memberships collapse into one card).
+    expect(await screen.findAllByRole("button", { name: /feedback actions for/i })).toHaveLength(2);
+    await openCardMenu(/feedback actions for bob brown/i);
+    const item = await screen.findByRole("menuitem", { name: /request feedback about bob brown/i });
+    expect(item).toHaveAttribute(
       "href",
       `/feedback/request?subjectId=11&subjectName=Bob%20Brown&back=${encodeURIComponent("/?tab=subordinates")}`,
     );
-    // One per person (Alice's two memberships collapse into one card).
-    expect(screen.getAllByRole("link", { name: /request feedback about/i })).toHaveLength(2);
   });
 
-  test("managed view adds an Ask for feedback link per row pointing at /feedback/ask", async () => {
+  test("managed view adds an Ask for feedback menu item per row pointing at /feedback/ask", async () => {
     setupMocks(mockFetch);
     renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
 
-    const link = await screen.findByRole("link", { name: /ask bob brown for feedback/i });
-    expect(link).toHaveAttribute(
+    await openCardMenu(/feedback actions for bob brown/i);
+    const item = await screen.findByRole("menuitem", { name: /ask bob brown for feedback/i });
+    expect(item).toHaveAttribute(
       "href",
       `/feedback/ask?providerId=11&providerName=Bob%20Brown&back=${encodeURIComponent("/?tab=subordinates")}`,
     );
-    // One per person (Alice's two memberships collapse into one card).
-    expect(screen.getAllByRole("link", { name: /ask .* for feedback/i })).toHaveLength(2);
   });
 
-  test("member view adds an Ask for feedback link per row pointing at /feedback/ask", async () => {
+  test("member view adds an Ask for feedback menu item per row pointing at /feedback/ask", async () => {
     setupMocks(mockFetch);
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
 
-    const link = await screen.findByRole("link", { name: /ask bob brown for feedback/i });
-    expect(link).toHaveAttribute(
+    await openCardMenu(/feedback actions for bob brown/i);
+    const item = await screen.findByRole("menuitem", { name: /ask bob brown for feedback/i });
+    expect(item).toHaveAttribute(
       "href",
       `/feedback/ask?providerId=11&providerName=Bob%20Brown&back=${encodeURIComponent("/?tab=peers")}`,
     );
-    expect(screen.getAllByRole("link", { name: /ask .* for feedback/i })).toHaveLength(2);
   });
 
-  test("member view does not render Request feedback links", async () => {
+  test("member view does not render the Request feedback action", async () => {
     setupMocks(mockFetch);
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
 
-    await screen.findByText("Bob Brown");
-    expect(screen.queryByRole("link", { name: /request feedback about/i })).not.toBeInTheDocument();
+    await openCardMenu(/feedback actions for bob brown/i);
+    await screen.findByRole("menuitem", { name: /provide feedback to bob brown/i });
+    expect(screen.queryByRole("menuitem", { name: /request feedback about/i })).toBeNull();
+    expect(screen.queryByRole("link", { name: /request feedback about/i })).toBeNull();
   });
 
-  test("member view adds a Feedbacks link per row pointing at the per-user screen", async () => {
+  test("member view adds a Feedback list menu item per row pointing at the per-user screen", async () => {
     setupMocks(mockFetch);
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
 
-    const link = await screen.findByRole("link", { name: /feedbacks with bob brown/i });
-    expect(link).toHaveAttribute(
+    await openCardMenu(/feedback actions for bob brown/i);
+    const item = await screen.findByRole("menuitem", { name: /feedbacks with bob brown/i });
+    expect(item).toHaveAttribute(
       "href",
       "/users/11/feedbacks?name=Bob+Brown&from=peers",
     );
-    // One per person (Alice's two memberships collapse into one card).
-    expect(screen.getAllByRole("link", { name: /feedbacks with/i })).toHaveLength(2);
   });
 
-  test("managed view also renders a Feedbacks link per row, scoped from=subordinates", async () => {
+  test("managed view also renders a Feedback list menu item per row, scoped from=subordinates", async () => {
     setupMocks(mockFetch);
     renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
 
-    const link = await screen.findByRole("link", { name: /feedbacks with bob brown/i });
-    expect(link).toHaveAttribute(
+    await openCardMenu(/feedback actions for bob brown/i);
+    const item = await screen.findByRole("menuitem", { name: /feedbacks with bob brown/i });
+    expect(item).toHaveAttribute(
       "href",
       "/users/11/feedbacks?name=Bob+Brown&from=subordinates",
     );
-    // One per person (Alice's two memberships collapse into one card).
-    expect(screen.getAllByRole("link", { name: /feedbacks with/i })).toHaveLength(2);
   });
 
-  test("managed view (direct mode) adds a 1:1 meetings link per row; peers never get one", async () => {
+  test("managed view (direct mode) adds a 1:1 dropdown per row; peers never get one", async () => {
     setupMocks(mockFetch);
     renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
 
-    const link = await screen.findByRole("link", { name: "1:1 meetings with Bob Brown" });
-    expect(link).toHaveAttribute(
+    // One 1:1 dropdown per person (Alice's two memberships collapse into one card).
+    expect(await screen.findAllByRole("button", { name: /1:1 actions for/i })).toHaveLength(2);
+    await openCardMenu("1:1 actions for Bob Brown");
+    const item = await screen.findByRole("menuitem", { name: "1:1 meetings with Bob Brown" });
+    expect(item).toHaveAttribute(
       "href",
       "/users/11/one-on-ones?name=Bob%20Brown&from=subordinates",
     );
-    expect(screen.getAllByRole("link", { name: /1:1 meetings with/i })).toHaveLength(2);
 
     // Same gate: the create shortcut with the subordinate prefilled and the dashboard as back.
-    expect(screen.getByRole("link", { name: "New 1:1 with Bob Brown" })).toHaveAttribute(
+    expect(screen.getByRole("menuitem", { name: "New 1:1 with Bob Brown" })).toHaveAttribute(
       "href",
       `/one-on-ones/new?subordinateId=11&subordinateName=Bob%20Brown&back=${encodeURIComponent("/?tab=subordinates")}`,
     );
-    expect(screen.getAllByRole("link", { name: /new 1:1 with/i })).toHaveLength(2);
 
     cleanup();
     setupMocks(mockFetch);
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
     await screen.findByText("Bob Brown");
+    expect(screen.queryByRole("button", { name: /1:1 actions for/i })).toBeNull();
     expect(screen.queryByRole("link", { name: /1:1 meetings with/i })).toBeNull();
     expect(screen.queryByRole("link", { name: /new 1:1 with/i })).toBeNull();
   });
@@ -355,18 +364,19 @@ describe("TeamMembersTable", () => {
     });
   });
 
-  test("switching the reports scope to all hides the 1:1 buttons (indirect rows are unmarked)", async () => {
+  test("switching the reports scope to all hides the 1:1 dropdown (indirect rows are unmarked)", async () => {
     setupMocks(mockFetch);
     renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
 
-    await screen.findByRole("link", { name: "1:1 meetings with Bob Brown" });
+    await screen.findByRole("button", { name: "1:1 actions for Bob Brown" });
     fireEvent.click(screen.getByRole("button", { name: /filters/i }));
     // happy-dom does not open Mantine comboboxes via userEvent's pointer simulation
     fireEvent.click(screen.getByLabelText("Reports", { selector: "input" }));
     fireEvent.click(await screen.findByRole("option", { name: "All reports (including indirect)" }));
     await waitFor(() => {
-      expect(screen.queryByRole("link", { name: /1:1 meetings with/i })).toBeNull();
+      expect(screen.queryByRole("button", { name: /1:1 actions for/i })).toBeNull();
     });
+    expect(screen.queryByRole("link", { name: /1:1 meetings with/i })).toBeNull();
     expect(screen.queryByRole("link", { name: /new 1:1 with/i })).toBeNull();
   });
 
@@ -863,8 +873,9 @@ describe("TeamMembersTable pinned to a team", () => {
 
     // The stats block renders (direct scope is forced by the pin).
     expect(screen.getAllByText("Last 1:1").length).toBeGreaterThan(0);
-    expect(screen.getByRole("link", { name: /new 1:1 with bob brown/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /1:1 meetings with bob brown/i })).toBeInTheDocument();
+    await openCardMenu(/1:1 actions for bob brown/i);
+    expect(await screen.findByRole("menuitem", { name: /new 1:1 with bob brown/i })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /1:1 meetings with bob brown/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /goals for bob brown/i })).toBeInTheDocument();
   });
 
@@ -874,19 +885,22 @@ describe("TeamMembersTable pinned to a team", () => {
     await screen.findByText("Bob Brown");
 
     const back = encodeURIComponent("/teams/5/subordinates");
-    expect(screen.getByRole("link", { name: /provide feedback to bob brown/i })).toHaveAttribute(
-      "href",
-      `/feedback/new?subjectId=11&subjectName=Bob%20Brown&back=${back}`,
-    );
-    expect(screen.getByRole("link", { name: /new 1:1 with bob brown/i })).toHaveAttribute(
-      "href",
-      `/one-on-ones/new?subordinateId=11&subordinateName=Bob%20Brown&back=${back}`,
-    );
-    expect(screen.getByRole("link", { name: /feedbacks with bob brown/i })).toHaveAttribute(
+    await openCardMenu(/feedback actions for bob brown/i);
+    expect(
+      await screen.findByRole("menuitem", { name: /provide feedback to bob brown/i }),
+    ).toHaveAttribute("href", `/feedback/new?subjectId=11&subjectName=Bob%20Brown&back=${back}`);
+    expect(screen.getByRole("menuitem", { name: /feedbacks with bob brown/i })).toHaveAttribute(
       "href",
       "/users/11/feedbacks?name=Bob+Brown&from=team&teamId=5",
     );
-    expect(screen.getByRole("link", { name: /1:1 meetings with bob brown/i })).toHaveAttribute(
+    await openCardMenu(/1:1 actions for bob brown/i);
+    expect(
+      await screen.findByRole("menuitem", { name: /new 1:1 with bob brown/i }),
+    ).toHaveAttribute(
+      "href",
+      `/one-on-ones/new?subordinateId=11&subordinateName=Bob%20Brown&back=${back}`,
+    );
+    expect(screen.getByRole("menuitem", { name: /1:1 meetings with bob brown/i })).toHaveAttribute(
       "href",
       "/users/11/one-on-ones?name=Bob%20Brown&from=team&teamId=5",
     );
