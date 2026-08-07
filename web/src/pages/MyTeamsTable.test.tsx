@@ -71,6 +71,19 @@ describe("MyTeamsTable", () => {
     );
   });
 
+  test("a disabled TEAM_KPIS feature hides the per-team Team KPIs button; Members stays (v1.53.0)", async () => {
+    localStorage.setItem("lettuce.auth.disabledFeatures", JSON.stringify(["TEAM_KPIS"]));
+    try {
+      renderWithProviders(<MyTeamsTable />);
+
+      expect(await screen.findByRole("link", { name: "Members of Platform" })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Members of Support" })).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /team kpis of /i })).toBeNull();
+    } finally {
+      localStorage.removeItem("lettuce.auth.disabledFeatures");
+    }
+  });
+
   test("the name filter lands in the query string", async () => {
     const user = userEvent.setup();
     renderWithProviders(<MyTeamsTable />);

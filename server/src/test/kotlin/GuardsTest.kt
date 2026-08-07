@@ -10,6 +10,7 @@ import ch.nokillswit.authz.isAdmin
 import ch.nokillswit.authz.isHr
 import ch.nokillswit.authz.requireAuditListAccess
 import ch.nokillswit.authz.requireCanAssignRoles
+import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.authz.requireFeedbackReadAllowingManager
 import ch.nokillswit.authz.requireGoalReadAllowingManager
 import ch.nokillswit.authz.requireOneOnOneReadAllowingManager
@@ -22,6 +23,7 @@ import kotlinx.coroutines.runBlocking
 import ch.nokillswit.feedbacks.Feedback
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
+import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserRole
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
@@ -175,6 +177,24 @@ class GuardsTest {
             requireCanAssignRoles(subject, current = setOf(UserRole.ADMIN), requested = emptySet())
         }
         requireCanAssignRoles(admin, current = emptySet(), requested = setOf(UserRole.ADMIN))
+    }
+
+    // ── requireFeatureEnabled (per-user feature flags, V46) ────────────────────
+
+    @Test
+    fun `requireFeatureEnabled passes an empty or non-matching disabled set and blocks a match`() {
+        // The default (no claim / nothing disabled) always passes.
+        requireFeatureEnabled(stranger, Feature.GOALS)
+        val gated = CallerPrincipal(
+            userId = 12u,
+            email = "gated@test",
+            roles = setOf(UserRole.ADMIN),
+            disabledFeatures = setOf(Feature.GOALS, Feature.DAYS_OFF),
+        )
+        requireFeatureEnabled(gated, Feature.FEEDBACKS)
+        // Uniform: roles grant no bypass — this caller is an ADMIN.
+        assertFailsWith<ForbiddenException> { requireFeatureEnabled(gated, Feature.GOALS) }
+        assertFailsWith<ForbiddenException> { requireFeatureEnabled(gated, Feature.DAYS_OFF) }
     }
 
     // ── isAdmin / isHr ─────────────────────────────────────────────────────────

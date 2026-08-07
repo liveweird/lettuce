@@ -20,6 +20,22 @@
   "modifyActions": "Modyfikuj",
   "modifyActionsFor": "Akcje modyfikacji dla {{name}}",
   "editDetails": "Edytuj dane",
+  "features": "Funkcje",
+  "featuresFor": "Funkcje dla {{name}}",
+  "featuresTitle": "Funkcje użytkownika",
+  "featuresHint": "Włącz lub wyłącz funkcje dla {{name}} ({{email}}). Wyłączona funkcja całkowicie znika z aplikacji tego użytkownika, a dostęp do niej przez API jest zablokowany.",
+  "noPermissionFeatures": "Nie masz uprawnień do zmiany funkcji tego użytkownika.",
+  "featuresFailedStatus": "Zapis funkcji nie powiódł się ({{status}})",
+  "featuresFailedNetwork": "Zapis funkcji nie powiódł się. Sprawdź połączenie i spróbuj ponownie.",
+  "featureFlags": {
+    "title": "Flagi funkcji",
+    "featureLabel": "Funkcja",
+    "stateLabel": "Stan",
+    "stateEnabled": "Włączona",
+    "stateDisabled": "Wyłączona",
+    "enabledHeader": "Włączona",
+    "toggleAria": "Przełącz {{feature}} dla {{name}}"
+  },
   "listFeedbacks": "Pokaż feedbacki",
   "feedbacks": "Feedbacki",
   "feedbackGroup": "Feedbacki",
@@ -192,6 +208,7 @@
     "deleted": "Użytkownik usunięty",
     "passwordChanged": "Hasło zmienione",
     "deactivated": "Użytkownik dezaktywowany",
-    "reactivated": "Użytkownik aktywowany ponownie"
+    "reactivated": "Użytkownik aktywowany ponownie",
+    "featuresSaved": "Funkcje zapisane"
   }
 }

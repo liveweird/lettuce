@@ -5,6 +5,7 @@ import { createContext, useContext } from "react";
 // Types only — erased at build time. The runtime react-joyride import lives solely in
 // TourJoyride.tsx, which Tour.tsx lazy-loads so the library stays out of the entry chunk.
 import type { Step } from "react-joyride";
+import { hasFeature, type Feature } from "../api/client";
 
 const SEEN_PREFIX = "lettuce.tour.seen.";
 const seenKey = (userId: number) => `${SEEN_PREFIX}${userId}`;
@@ -26,6 +27,9 @@ type TourStepDef = {
   /** Shown only to callers who manage a team (e.g. the Feedback "My team" tab and the 1:1
    *  "I'm a manager" / "My subordinate's a manager" tabs are manager-only). */
   managerOnly?: boolean;
+  /** Shown only while the caller has this feature enabled (v1.53.0) — the step's anchor
+   *  (nav link / tab) is gone when the flag is off, so the step must go with it. */
+  feature?: Feature;
   /** When set, navigate to this URL before the step is shown (e.g. switch a tab / open a route).
    *  A literal `:userId` segment is replaced with the caller's id by buildSteps. */
   navTo?: string;
@@ -50,35 +54,35 @@ export const TOUR_STEPS: TourStepDef[] = [
   { target: '[data-tour="dashboard-peers"]', contentKey: "tour.steps.dashboardPeers", placement: "bottom", navTo: "/?tab=peers" },
   { target: '[data-tour="dashboard-subordinates"]', contentKey: "tour.steps.dashboardSubordinates", placement: "bottom", navTo: "/?tab=subordinates" },
   { target: '[data-tour="dashboard-myTeams"]', contentKey: "tour.steps.dashboardMyTeams", placement: "bottom", navTo: "/?tab=myTeams" },
-  { target: '[data-tour="nav-feedback"]', contentKey: "tour.steps.feedback", placement: "right", navTo: "/feedback?tab=received" },
+  { target: '[data-tour="nav-feedback"]', contentKey: "tour.steps.feedback", placement: "right", navTo: "/feedback?tab=received" , feature: "FEEDBACKS" },
   // The Feedback section's three subsections. "My team" is manager-only (matches the page).
-  { target: '[data-tour="feedback-received"]', contentKey: "tour.steps.feedbackReceived", placement: "bottom", navTo: "/feedback?tab=received" },
-  { target: '[data-tour="feedback-provided"]', contentKey: "tour.steps.feedbackProvided", placement: "bottom", navTo: "/feedback?tab=provided" },
-  { target: '[data-tour="feedback-team"]', contentKey: "tour.steps.feedbackTeam", placement: "bottom", navTo: "/feedback?tab=team", managerOnly: true },
+  { target: '[data-tour="feedback-received"]', contentKey: "tour.steps.feedbackReceived", placement: "bottom", navTo: "/feedback?tab=received" , feature: "FEEDBACKS" },
+  { target: '[data-tour="feedback-provided"]', contentKey: "tour.steps.feedbackProvided", placement: "bottom", navTo: "/feedback?tab=provided" , feature: "FEEDBACKS" },
+  { target: '[data-tour="feedback-team"]', contentKey: "tour.steps.feedbackTeam", placement: "bottom", navTo: "/feedback?tab=team", managerOnly: true , feature: "FEEDBACKS" },
   // The 1:1 meetings section + its tabs, toured in the page's visual order (managed | own | team);
   // "managed"/"team" are manager-only (matches the page). The nav step's ?tab=managed is safe for
   // non-managers: the page's activeTab logic falls back to "own", which is their next step anyway.
-  { target: '[data-tour="nav-one-on-ones"]', contentKey: "tour.steps.oneOnOnes", placement: "right", navTo: "/one-on-ones?tab=managed" },
-  { target: '[data-tour="one-on-one-managed"]', contentKey: "tour.steps.oneOnOneManaged", placement: "bottom", navTo: "/one-on-ones?tab=managed", managerOnly: true },
-  { target: '[data-tour="one-on-one-own"]', contentKey: "tour.steps.oneOnOneOwn", placement: "bottom", navTo: "/one-on-ones?tab=own" },
-  { target: '[data-tour="one-on-one-team"]', contentKey: "tour.steps.oneOnOneTeam", placement: "bottom", navTo: "/one-on-ones?tab=team", managerOnly: true },
+  { target: '[data-tour="nav-one-on-ones"]', contentKey: "tour.steps.oneOnOnes", placement: "right", navTo: "/one-on-ones?tab=managed" , feature: "ONE_ON_ONES" },
+  { target: '[data-tour="one-on-one-managed"]', contentKey: "tour.steps.oneOnOneManaged", placement: "bottom", navTo: "/one-on-ones?tab=managed", managerOnly: true , feature: "ONE_ON_ONES" },
+  { target: '[data-tour="one-on-one-own"]', contentKey: "tour.steps.oneOnOneOwn", placement: "bottom", navTo: "/one-on-ones?tab=own" , feature: "ONE_ON_ONES" },
+  { target: '[data-tour="one-on-one-team"]', contentKey: "tour.steps.oneOnOneTeam", placement: "bottom", navTo: "/one-on-ones?tab=team", managerOnly: true , feature: "ONE_ON_ONES" },
   // Goals — every user has the page (their own goals; managers get a second tab), so no audience
   // gate on the nav step; it navigates into /goals so the tab headers below are mounted.
-  { target: '[data-tour="nav-my-goals"]', contentKey: "tour.steps.myGoals", placement: "right", navTo: "/goals" },
-  { target: '[data-tour="goals-own"]', contentKey: "tour.steps.goalsOwn", placement: "bottom", navTo: "/goals?tab=own" },
+  { target: '[data-tour="nav-my-goals"]', contentKey: "tour.steps.myGoals", placement: "right", navTo: "/goals" , feature: "GOALS" },
+  { target: '[data-tour="goals-own"]', contentKey: "tour.steps.goalsOwn", placement: "bottom", navTo: "/goals?tab=own" , feature: "GOALS" },
   // The managed tab header only mounts for managers — the gate keeps waitForElement from
   // burning its timeout on a target that never appears.
-  { target: '[data-tour="goals-managed"]', contentKey: "tour.steps.goalsManaged", placement: "bottom", navTo: "/goals?tab=managed", managerOnly: true },
+  { target: '[data-tour="goals-managed"]', contentKey: "tour.steps.goalsManaged", placement: "bottom", navTo: "/goals?tab=managed", managerOnly: true , feature: "GOALS" },
   // Team KPIs — the same shape as Goals: everyone has the member view, managers a second tab.
-  { target: '[data-tour="nav-team-kpis"]', contentKey: "tour.steps.teamKpis", placement: "right", navTo: "/team-kpis" },
-  { target: '[data-tour="team-kpis-own"]', contentKey: "tour.steps.teamKpisOwn", placement: "bottom", navTo: "/team-kpis?tab=own" },
-  { target: '[data-tour="team-kpis-managed"]', contentKey: "tour.steps.teamKpisManaged", placement: "bottom", navTo: "/team-kpis?tab=managed", managerOnly: true },
+  { target: '[data-tour="nav-team-kpis"]', contentKey: "tour.steps.teamKpis", placement: "right", navTo: "/team-kpis" , feature: "TEAM_KPIS" },
+  { target: '[data-tour="team-kpis-own"]', contentKey: "tour.steps.teamKpisOwn", placement: "bottom", navTo: "/team-kpis?tab=own" , feature: "TEAM_KPIS" },
+  { target: '[data-tour="team-kpis-managed"]', contentKey: "tour.steps.teamKpisManaged", placement: "bottom", navTo: "/team-kpis?tab=managed", managerOnly: true , feature: "TEAM_KPIS" },
   // Performance — the Goals shape (v1.45.0): everyone has the own view, managers a second tab
   // with the per-period completion dashboard (formerly the Dashboard's reviews tab).
-  { target: '[data-tour="nav-performance"]', contentKey: "tour.steps.performance", placement: "right", navTo: "/performance?tab=own" },
-  { target: '[data-tour="performance-managed"]', contentKey: "tour.steps.performanceManaged", placement: "bottom", navTo: "/performance?tab=managed", managerOnly: true },
+  { target: '[data-tour="nav-performance"]', contentKey: "tour.steps.performance", placement: "right", navTo: "/performance?tab=own" , feature: "PERFORMANCE_REVIEWS" },
+  { target: '[data-tour="performance-managed"]', contentKey: "tour.steps.performanceManaged", placement: "bottom", navTo: "/performance?tab=managed", managerOnly: true , feature: "PERFORMANCE_REVIEWS" },
   // Days off — every user has the calendar + own requests (v1.42.0), so no audience gate.
-  { target: '[data-tour="nav-days-off"]', contentKey: "tour.steps.daysOff", placement: "right", navTo: "/days-off" },
+  { target: '[data-tour="nav-days-off"]', contentKey: "tour.steps.daysOff", placement: "right", navTo: "/days-off" , feature: "DAYS_OFF" },
   // The Config section + its three subsections (separate routes). The nav step navigates into the
   // section a step early so the lazy /users route is mounted before its subsection target is needed.
   { target: '[data-tour="nav-config"]', contentKey: "tour.steps.config", placement: "right", navTo: "/users" },
@@ -88,7 +92,7 @@ export const TOUR_STEPS: TourStepDef[] = [
   { target: '[data-tour="config-templates"]', contentKey: "tour.steps.configTemplates", placement: "bottom", navTo: "/templates" },
   // The remaining left-menu leaves — each anchors on the navbar leaf but also opens the actual
   // screen behind it. The whole left menu is toured before the header icons below.
-  { target: '[data-tour="nav-self-reflection"]', contentKey: "tour.steps.selfReflection", placement: "right", navTo: "/feedback/self" },
+  { target: '[data-tour="nav-self-reflection"]', contentKey: "tour.steps.selfReflection", placement: "right", navTo: "/feedback/self" , feature: "FEEDBACKS" },
   { target: '[data-tour="nav-change-password"]', contentKey: "tour.steps.account", placement: "right", navTo: "/users/:userId/change-password" },
   // Opening /changelog marks the "what's new" dot as seen — coherent: the user just saw it.
   { target: '[data-tour="nav-changelog"]', contentKey: "tour.steps.changelog", placement: "right", navTo: "/changelog" },
@@ -126,7 +130,9 @@ export function buildSteps(
 ): Step[] {
   // The total is the audience-filtered count, so headers read "Step X of Y" against the steps this
   // caller will actually see.
-  const defs = TOUR_STEPS.filter((s) => !s.managerOnly || manager);
+  const defs = TOUR_STEPS.filter(
+    (s) => (!s.managerOnly || manager) && (!s.feature || hasFeature(s.feature)),
+  );
   const total = defs.length;
   // A per-user navTo (`:userId`) is unresolvable without a caller id — degrade to not navigating
   // (defensive only; the tour never runs unauthenticated).

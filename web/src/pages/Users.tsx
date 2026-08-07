@@ -24,6 +24,7 @@ import {
   IconTrash,
   IconUpload,
   IconUserCheck,
+  IconToggleLeft,
   IconUserCog,
   IconUserOff,
   IconUsersGroup,
@@ -33,6 +34,7 @@ import {
   deactivateUser,
   deleteUser,
   getUserId,
+  hasFeature,
   isAdmin,
   listUsers,
   logout,
@@ -323,7 +325,7 @@ export default function Users() {
                   </Button>
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
-                  {u.id !== currentUserId && (
+                  {u.id !== currentUserId && hasFeature("FEEDBACKS") && (
                     <FeedbackActionsMenu
                       provideTo={feedbackProvideLink(u.id, u.name)}
                       askTo={feedbackAskLink(u.id, u.name, "/users")}
@@ -365,6 +367,14 @@ export default function Users() {
                           aria-label={t("users.changePasswordFor", { name: u.name })}
                         >
                           {t("users.changePassword")}
+                        </Menu.Item>
+                        <Menu.Item
+                          component={RouterLink}
+                          to={`/users/${u.id}/features`}
+                          leftSection={<IconToggleLeft size={14} />}
+                          aria-label={t("users.featuresFor", { name: u.name })}
+                        >
+                          {t("users.features")}
                         </Menu.Item>
                         <Menu.Divider />
                         {u.id !== currentUserId &&

@@ -270,6 +270,38 @@ class AuditTest {
     }
 
     @Test
+    fun `feature flag changes emit user features_changed with from-to sets, no-op re-PUTs stay silent`() =
+        testApplication {
+            usePostgresTestcontainer()
+            val adminEmail = uniqueEmail("admin")
+            val adminId = TestUsers.seed(email = adminEmail, password = "pw")
+            val targetId = TestUsers.seed(email = uniqueEmail("flag-target"), password = "pw", roles = emptySet())
+            val appender = LogCapture("ch.nokillswit.audit")
+            try {
+                val client = authedClient(adminEmail, "pw")
+                client.put("/api/v1/users/$targetId/features") {
+                    contentType(ContentType.Application.Json)
+                    setBody(ch.nokillswit.users.UserFeaturesUpdateRequest(listOf(ch.nokillswit.users.Feature.GOALS, ch.nokillswit.users.Feature.DAYS_OFF)))
+                }
+                val change = appender.events.find { it.message == "user.features_changed" }
+                assertNotNull(change, "expected a user.features_changed audit event")
+                assertEquals(adminId.toLong(), change.keyValuePairs.first { it.key == "byUserId" }.value)
+                assertEquals(targetId.toLong(), change.keyValuePairs.first { it.key == "targetUserId" }.value)
+                assertEquals("", change.keyValuePairs.first { it.key == "from" }.value)
+                assertEquals("DAYS_OFF,GOALS", change.keyValuePairs.first { it.key == "to" }.value)
+
+                // A same-set re-PUT is a no-op replace — no second event.
+                client.put("/api/v1/users/$targetId/features") {
+                    contentType(ContentType.Application.Json)
+                    setBody(ch.nokillswit.users.UserFeaturesUpdateRequest(listOf(ch.nokillswit.users.Feature.DAYS_OFF, ch.nokillswit.users.Feature.GOALS)))
+                }
+                assertEquals(1, appender.events.count { it.message == "user.features_changed" })
+            } finally {
+                appender.detach()
+            }
+        }
+
+    @Test
     fun `user updates emit user updated with deltas only for changed fields`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")

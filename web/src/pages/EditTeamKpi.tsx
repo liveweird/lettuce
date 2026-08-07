@@ -23,6 +23,7 @@ import {
   deleteTeamKpi,
   getTeamKpi,
   getUserId,
+  hasFeature,
   updateTeamKpiDefinition,
 } from "../api/client";
 import ConfirmActionModal from "../components/ConfirmActionModal";
@@ -86,6 +87,8 @@ export default function EditTeamKpi() {
     definitionForm.initialize(toKpiDefinitionFormValues(data));
   }
 
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("TEAM_KPIS")) return <Navigate to="/" replace />;
   if (!idIsValid) return <Navigate to={backTo} replace />;
   // Only the team's current manager edits, and only a DRAFT has an editable definition —
   // everyone and everything else lands on the view screen (which keeps the `back` override).

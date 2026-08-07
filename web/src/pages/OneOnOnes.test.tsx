@@ -1,8 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
+import { useLocation } from "react-router-dom";
 import { renderWithProviders, screen, waitFor } from "../test/render";
 import OneOnOnes from "./OneOnOnes";
 import { jsonResponse } from "../test/http";
+
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location">{location.pathname}</div>;
+}
 
 type FetchMock = ReturnType<typeof vi.fn>;
 
@@ -70,5 +76,25 @@ describe("OneOnOnes page", () => {
         mockFetch.mock.calls.some(([u]) => String(u).includes("/api/v1/one-on-ones?view=managed")),
       ).toBe(true),
     );
+  });
+
+  test("a disabled ONE_ON_ONES feature redirects the page to / (v1.53.0)", async () => {
+    localStorage.setItem("lettuce.auth.disabledFeatures", JSON.stringify(["ONE_ON_ONES"]));
+    try {
+      stubFetch(mockFetch, { isManager: true });
+      renderWithProviders(
+        <>
+          <OneOnOnes />
+          <LocationProbe />
+        </>,
+        { route: "/one-on-ones" },
+      );
+
+      await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent(/^\/$/));
+      expect(screen.queryByRole("tab", { name: "I'm a subordinate" })).toBeNull();
+      expect(screen.queryByRole("link", { name: "New 1:1" })).toBeNull();
+    } finally {
+      localStorage.removeItem("lettuce.auth.disabledFeatures");
+    }
   });
 });

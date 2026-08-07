@@ -2,6 +2,8 @@
 // only component exports and stays compatible with React Fast Refresh
 // (react-refresh/only-export-components) — the tourSupport.ts idiom.
 
+import { hasFeature, type Feature } from "../api/client";
+
 export type ButtonKey =
   | "provide"
   | "ask"
@@ -14,6 +16,21 @@ export type ButtonKey =
   | "daysOff";
 
 export type LabelPair = { aria: string; text: string };
+
+// The feature each button belongs to (v1.53.0): a button renders only while the VIEWER has
+// its feature enabled (caller-only semantics — the flags gate what the session user may do,
+// never what the card's person has). Team KPIs never surface as a person-card action.
+export const FEATURE_OF: Record<ButtonKey, Feature> = {
+  provide: "FEEDBACKS",
+  ask: "FEEDBACKS",
+  request: "FEEDBACKS",
+  feedbacks: "FEEDBACKS",
+  newOneOnOne: "ONE_ON_ONES",
+  oneOnOnes: "ONE_ON_ONES",
+  goals: "GOALS",
+  reviews: "PERFORMANCE_REVIEWS",
+  daysOff: "DAYS_OFF",
+};
 
 export const PERSON_CARD_ACTION_LABELS: Record<
   "users" | "teams" | "audit",
@@ -112,5 +129,5 @@ export function hasVisibleActions(
   subset: readonly ButtonKey[],
 ): boolean {
   const labelSource = props.audit ? PERSON_CARD_ACTION_LABELS.audit : PERSON_CARD_ACTION_LABELS[props.labels];
-  return subset.some((key) => props.show[key] && labelSource[key] != null);
+  return subset.some((key) => props.show[key] && labelSource[key] != null && hasFeature(FEATURE_OF[key]));
 }

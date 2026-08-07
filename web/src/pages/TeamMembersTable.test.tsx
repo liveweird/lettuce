@@ -800,6 +800,37 @@ describe("TeamMembersTable", () => {
     });
   });
 
+  test("a disabled FEEDBACKS feature drops the feedback menu and stat row; 1:1 and Goals stay (v1.53.0)", async () => {
+    localStorage.setItem("lettuce.auth.disabledFeatures", JSON.stringify(["FEEDBACKS"]));
+    try {
+      setupMocks(
+        mockFetch,
+        membersPage([
+          {
+            userId: 11, name: "Bob Brown", email: "bob@x.test", teamId: 4, teamName: "Support",
+            lastOneOnOneDate: "2026-07-01", lastOneOnOneOpenItems: 1, lastFeedbackAt: 1780000000000,
+          },
+        ]),
+      );
+      renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
+
+      // The 1:1 dropdown and Goals link survive…
+      expect(
+        await screen.findByRole("button", { name: "1:1 actions for Bob Brown" }),
+      ).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Goals for Bob Brown" })).toBeInTheDocument();
+      // …while every feedback affordance is gone: no trigger, no provide/ask items anywhere.
+      expect(screen.queryByRole("button", { name: /feedback actions for/i })).toBeNull();
+      expect(screen.queryByRole("menuitem", { name: /provide feedback/i })).toBeNull();
+      expect(screen.queryByRole("menuitem", { name: /ask .* for feedback/i })).toBeNull();
+      // The stat rows follow the same gate: "Last feedback" is gone, "Last 1:1" stays.
+      expect(screen.getByText("Last 1:1")).toBeInTheDocument();
+      expect(screen.queryByText("Last feedback")).toBeNull();
+    } finally {
+      localStorage.removeItem("lettuce.auth.disabledFeatures");
+    }
+  });
+
   test("cards keep the API's ordering (first appearance wins for deduped people)", async () => {
     setupMocks(mockFetch);
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);

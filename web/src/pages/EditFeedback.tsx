@@ -26,6 +26,7 @@ import {
   deleteFeedback,
   getFeedback,
   getUserId,
+  hasFeature,
   pickUpFeedback,
   rejectFeedback,
   sendFeedback,
@@ -76,6 +77,8 @@ export default function EditFeedback() {
     retry: false,
   });
 
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("FEEDBACKS")) return <Navigate to="/" replace />;
   if (!idIsValid) return <Navigate to={backTo} replace />;
 
   async function handleSave(

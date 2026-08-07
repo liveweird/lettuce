@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Navigate } from "react-router-dom";
 import {
   Alert,
   Button,
@@ -19,6 +20,7 @@ import {
   ApiError,
   createPublicHoliday,
   deletePublicHoliday,
+  hasFeature,
   isAdmin,
   listPublicHolidays,
 } from "../api/client";
@@ -51,6 +53,9 @@ export default function PublicHolidays() {
     queryKey: ["publicHolidays"],
     queryFn: listPublicHolidays,
   });
+
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("DAYS_OFF")) return <Navigate to="/" replace />;
 
   const nameValid = name.trim().length > 0 && name.trim().length <= MAX_NAME;
 

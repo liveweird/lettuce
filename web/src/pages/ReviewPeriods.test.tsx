@@ -211,4 +211,18 @@ describe("ReviewPeriods page", () => {
       await screen.findByText("Only the latest period without any reviews can be deleted."),
     ).toBeInTheDocument();
   });
+
+  test("a disabled PERFORMANCE_REVIEWS feature redirects the page to / (v1.53.0)", async () => {
+    localStorage.setItem("lettuce.auth.disabledFeatures", JSON.stringify(["PERFORMANCE_REVIEWS"]));
+    try {
+      setupMocks();
+      renderPage();
+
+      expect(await screen.findByText("HOME")).toBeInTheDocument();
+      expect(screen.queryByText("July 2025 – December 2025")).toBeNull();
+      expect(screen.queryByRole("button", { name: "Add period" })).toBeNull();
+    } finally {
+      localStorage.removeItem("lettuce.auth.disabledFeatures");
+    }
+  });
 });

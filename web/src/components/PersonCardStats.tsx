@@ -1,5 +1,6 @@
 import { Badge, Divider, Group, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
+import { hasFeature } from "../api/client";
 import { formatIsoDate, formatMonthRange, formatRelativeTime, formatTimestamp } from "../utils/datetime";
 import { formatDays } from "../utils/daysOffCost";
 import type { PersonCard as PersonCardData } from "../utils/teamRows";
@@ -162,12 +163,24 @@ export default function PersonCardBody({
       </Group>
     ) : null;
 
+  // Per-user feature flags (v1.53.0): stat rows gate on the VIEWER's flags (caller-only
+  // semantics), like the buttons — a disabled feature drops its rows, and a section without
+  // surviving rows or buttons drops entirely. Profile always renders, so a card never goes
+  // empty. hasVisibleActions is already feature-aware, so the action-side gates come free.
+  const canFeedback = hasFeature("FEEDBACKS");
+  const canOneOnOne = hasFeature("ONE_ON_ONES");
+  const canGoals = hasFeature("GOALS");
+  const canReviews = hasFeature("PERFORMANCE_REVIEWS");
+  const canDaysOff = hasFeature("DAYS_OFF");
+
   const directional = stats === "manager" || stats === "subordinate";
   const showCollaboration =
-    directional || stats === "peer" || (actions != null && hasVisibleActions(actions, OPERATIONAL_ACTIONS));
+    (directional && (canOneOnOne || canFeedback || canGoals)) ||
+    (stats === "peer" && canFeedback) ||
+    (actions != null && hasVisibleActions(actions, OPERATIONAL_ACTIONS));
   const showPerformance =
-    showLastReview || (actions != null && hasVisibleActions(actions, PERFORMANCE_ACTIONS));
-  const showVacation = stats === "peer" || showDaysOff;
+    (showLastReview && canReviews) || (actions != null && hasVisibleActions(actions, PERFORMANCE_ACTIONS));
+  const showVacation = (stats === "peer" || showDaysOff) && canDaysOff;
   const showDaysOffSection =
     showVacation || (actions != null && hasVisibleActions(actions, DAYS_OFF_ACTIONS));
 
@@ -179,46 +192,48 @@ export default function PersonCardBody({
 
       {showCollaboration && (
         <Section label={t("users.section.collaboration")}>
-          {directional && (
-            <>
-              <StatRow label={t("users.lastOneOnOne")}>
-                {person.lastOneOnOneDate != null ? (
-                  <>
-                    <Text size="xs" title={formatIsoDate(person.lastOneOnOneDate, i18n.language)}>
-                      {formatRelativeTime(
-                        new Date(`${person.lastOneOnOneDate}T00:00:00`).getTime(),
-                        i18n.language,
-                      )}
-                    </Text>
-                    <Badge
-                      size="sm"
-                      variant="light"
-                      color={(person.lastOneOnOneOpenItems ?? 0) > 0 ? "yellow" : "teal"}
-                      style={{ minWidth: "max-content" }}
-                    >
-                      {t("users.openItemsBadge", { count: person.lastOneOnOneOpenItems ?? 0 })}
-                    </Badge>
-                  </>
-                ) : (
-                  <NeverText />
-                )}
-              </StatRow>
-              <StatRow label={t("users.lastFeedback")}>
-                <TimeStat at={person.lastFeedbackAt} />
-              </StatRow>
-              <StatRow label={t("users.activeGoals")}>
-                <Badge
-                  size="sm"
-                  variant="light"
-                  color={(person.activeGoalCount ?? 0) > 0 ? "teal" : "gray"}
-                  style={{ minWidth: "max-content" }}
-                >
-                  {person.activeGoalCount ?? 0}
-                </Badge>
-              </StatRow>
-            </>
+          {directional && canOneOnOne && (
+            <StatRow label={t("users.lastOneOnOne")}>
+              {person.lastOneOnOneDate != null ? (
+                <>
+                  <Text size="xs" title={formatIsoDate(person.lastOneOnOneDate, i18n.language)}>
+                    {formatRelativeTime(
+                      new Date(`${person.lastOneOnOneDate}T00:00:00`).getTime(),
+                      i18n.language,
+                    )}
+                  </Text>
+                  <Badge
+                    size="sm"
+                    variant="light"
+                    color={(person.lastOneOnOneOpenItems ?? 0) > 0 ? "yellow" : "teal"}
+                    style={{ minWidth: "max-content" }}
+                  >
+                    {t("users.openItemsBadge", { count: person.lastOneOnOneOpenItems ?? 0 })}
+                  </Badge>
+                </>
+              ) : (
+                <NeverText />
+              )}
+            </StatRow>
           )}
-          {stats === "peer" && (
+          {directional && canFeedback && (
+            <StatRow label={t("users.lastFeedback")}>
+              <TimeStat at={person.lastFeedbackAt} />
+            </StatRow>
+          )}
+          {directional && canGoals && (
+            <StatRow label={t("users.activeGoals")}>
+              <Badge
+                size="sm"
+                variant="light"
+                color={(person.activeGoalCount ?? 0) > 0 ? "teal" : "gray"}
+                style={{ minWidth: "max-content" }}
+              >
+                {person.activeGoalCount ?? 0}
+              </Badge>
+            </StatRow>
+          )}
+          {stats === "peer" && canFeedback && (
             <>
               <StatRow label={t("users.feedbackFromMe")}>
                 <TimeStat at={person.lastFeedbackGivenAt} />

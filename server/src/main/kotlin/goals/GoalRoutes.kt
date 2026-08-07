@@ -3,6 +3,7 @@ package ch.nokillswit.goals
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAuditListAccess
+import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.authz.requireGoalReadAllowingManager
 import ch.nokillswit.authz.requireGoalWrite
 import ch.nokillswit.infra.db.requireValidReferences
@@ -15,6 +16,7 @@ import ch.nokillswit.infra.paging.optionalUInt
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.notifications.NotificationServiceKey
+import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserServiceKey
 import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpHeaders
@@ -69,6 +71,11 @@ private fun GoalEventDescriptor.toEvent(goalId: UInt, userId: UInt) = GoalEvent(
     params = params,
 )
 
+// The gated caller (V46): every goal handler resolves its principal through this, so the
+// per-user GOALS flag is enforced before any other guard or read.
+private fun ApplicationCall.goalCaller() =
+    caller().also { requireFeatureEnabled(it, Feature.GOALS) }
+
 fun Application.configureGoalRoutes() {
     val goalService = attributes[GoalServiceKey]
     val goalEventService = attributes[GoalEventServiceKey]
@@ -87,7 +94,7 @@ fun Application.configureGoalRoutes() {
         target: GoalStatus,
         receiveSummary: (suspend () -> String?)? = null,
     ) {
-        val caller = call.caller()
+        val caller = call.goalCaller()
         val existing = goalService.read(goalId)
         if (existing == null) {
             call.respondProblem(HttpStatusCode.NotFound, "Goal not found")
@@ -114,7 +121,7 @@ fun Application.configureGoalRoutes() {
     routing {
         authenticate {
             get<Goals> {
-                val caller = call.caller()
+                val caller = call.goalCaller()
                 val params = call.request.queryParameters
                 val view = when (val raw = params.optionalString("view") ?: "own") {
                     "own" -> GoalListView.OWN
@@ -168,7 +175,7 @@ fun Application.configureGoalRoutes() {
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
             }
             post<Goals> {
-                val caller = call.caller()
+                val caller = call.goalCaller()
                 val request = call.receive<GoalCreateRequest>()
                 // The manager is always the caller (no create-on-behalf, not even for ADMIN) and
                 // the subordinate must be a direct report right now. Checked before payload
@@ -192,7 +199,7 @@ fun Application.configureGoalRoutes() {
                 call.respond(HttpStatusCode.Created, created)
             }
             get<Goals.Id> { route ->
-                val caller = call.caller()
+                val caller = call.goalCaller()
                 val goal = goalService.read(route.id)
                 if (goal == null) {
                     call.respondProblem(HttpStatusCode.NotFound, "Goal not found")
@@ -204,7 +211,7 @@ fun Application.configureGoalRoutes() {
                 call.respond(HttpStatusCode.OK, goal)
             }
             put<Goals.Id> { route ->
-                val caller = call.caller()
+                val caller = call.goalCaller()
                 val existing = goalService.read(route.id)
                 if (existing == null) {
                     call.respondProblem(HttpStatusCode.NotFound, "Goal not found")
@@ -226,7 +233,7 @@ fun Application.configureGoalRoutes() {
                 call.respond(HttpStatusCode.NoContent)
             }
             put<Goals.Id.Progress> { route ->
-                val caller = call.caller()
+                val caller = call.goalCaller()
                 val goalId = route.parent.id
                 val existing = goalService.read(goalId)
                 if (existing == null) {
@@ -261,7 +268,7 @@ fun Application.configureGoalRoutes() {
                 transitionTo(call, route.parent.id, from = GoalStatus.ARCHIVED, target = GoalStatus.ACTIVE)
             }
             get<Goals.Id.Events> { route ->
-                val caller = call.caller()
+                val caller = call.goalCaller()
                 val goalId = route.parent.id
                 val goal = goalService.read(goalId)
                 if (goal == null) {
@@ -275,7 +282,7 @@ fun Application.configureGoalRoutes() {
                 call.respond(HttpStatusCode.OK, GoalEventListResponse(goalEventService.listForGoal(goalId)))
             }
             delete<Goals.Id> { route ->
-                val caller = call.caller()
+                val caller = call.goalCaller()
                 val existing = goalService.read(route.id)
                 if (existing == null) {
                     call.respondProblem(HttpStatusCode.NotFound, "Goal not found")

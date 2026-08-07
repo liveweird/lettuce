@@ -26,6 +26,9 @@ class PrincipalAuthTest {
         userId: Long? = 1L,
         roles: Array<String>? = arrayOf(),
         legacyRole: String? = null,
+        // Omitted by default, so EVERY test here doubles as the missing-claim case: a
+        // pre-feature-flags token must keep authenticating (the permissive V46 choice).
+        disabledFeatures: Array<String>? = null,
     ): String {
         var builder = JWT.create()
             .withAudience("lettuce-api")
@@ -36,6 +39,7 @@ class PrincipalAuthTest {
         if (userId != null) builder = builder.withClaim("userId", userId)
         if (roles != null) builder = builder.withArrayClaim("roles", roles)
         if (legacyRole != null) builder = builder.withClaim("role", legacyRole)
+        if (disabledFeatures != null) builder = builder.withArrayClaim("disabledFeatures", disabledFeatures)
         return builder.sign(Algorithm.HMAC256("secret"))
     }
 
@@ -77,6 +81,23 @@ class PrincipalAuthTest {
     fun `token with an unknown role in the set is rejected with 401`() = testApplication {
         usePostgresTestcontainer()
         assertRejected(mintToken(roles = arrayOf("WIZARD")))
+    }
+
+    @Test
+    fun `token minted before feature flags - no disabledFeatures claim - still authenticates`() = testApplication {
+        // The permissive mirror of the roles cases: outstanding tokens must survive the V46
+        // deploy, so a missing claim means "all features enabled", never a 401.
+        usePostgresTestcontainer()
+        val response = jsonClient().get("/api/v1/notifications") {
+            header(HttpHeaders.Authorization, "Bearer ${mintToken()}")
+        }
+        assertEquals(HttpStatusCode.OK, response.status)
+    }
+
+    @Test
+    fun `token with an unknown feature in the disabled set is rejected with 401`() = testApplication {
+        usePostgresTestcontainer()
+        assertRejected(mintToken(disabledFeatures = arrayOf("WIZARDRY")))
     }
 
     @Test

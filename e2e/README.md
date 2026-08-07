@@ -47,6 +47,10 @@ commit** — this list is the suite's coverage map, and it has drifted twice.
   required, wrong one rejected); deactivate/reactivate (Inactive badge, the distinct
   "account has been deactivated" sign-in rejection, reactivation restores access); delete
   (deleted account can no longer sign in).
+- `feature-flags.spec.ts` — per-user feature flags: admin disables Goals for a fresh user via
+  the per-user editor (Modify ▾ → Features), the user loses the feature end to end (nav link
+  gone, direct URL bounces home), then re-enables it from the per-feature `/feature-flags`
+  screen and the user gets it back.
 - `users-import.spec.ts` — mass CSV import: a mixed file imports row-by-row (an imported
   password signs in); re-importing the same rows yields duplicates, not new accounts.
 - `password-reset.spec.ts` — the "Forgot password?" flow: neutral answer for unknown emails;

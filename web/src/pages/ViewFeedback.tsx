@@ -27,6 +27,7 @@ import {
   ApiError,
   getFeedback,
   getUserId,
+  hasFeature,
   pickUpFeedback,
   sendFeedback,
   withdrawFeedback,
@@ -89,6 +90,8 @@ export default function ViewFeedback() {
     retry: false,
   });
 
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("FEEDBACKS")) return <Navigate to="/" replace />;
   if (!idIsValid) return <Navigate to={backTo} replace />;
 
   // The provider (not the as=provider display hint) is the only one who can change status.

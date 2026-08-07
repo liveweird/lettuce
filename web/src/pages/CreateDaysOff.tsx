@@ -13,11 +13,12 @@ import {
   Title,
 } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link as RouterLink, useNavigate, useSearchParams } from "react-router-dom";
+import { Link as RouterLink, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   ApiError,
   createDaysOff,
+  hasFeature,
   listDaysOffBudgets,
   listPublicHolidays,
   type DaysOffType,
@@ -79,6 +80,9 @@ export default function CreateDaysOff() {
   const zeroCost = costH === 0;
   const submittable =
     ordered && sameYear && costH != null && costH > 0 && !overBudget && !submitting;
+
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("DAYS_OFF")) return <Navigate to="/" replace />;
 
   async function submit() {
     setSubmitting(true);

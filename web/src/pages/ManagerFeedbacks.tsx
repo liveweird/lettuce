@@ -2,7 +2,7 @@ import { Anchor, Button, Group, Stack, Tabs, Text, Title } from "@mantine/core";
 import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { IconMessagePlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
-import { canAudit } from "../api/client";
+import { canAudit, hasFeature } from "../api/client";
 import FeedbackTable from "./FeedbackTable";
 import { feedbackProvideLink, userFeedbacksLink } from "../utils/feedbackLinks";
 import { userDetailsLink } from "../utils/userLinks";
@@ -85,6 +85,8 @@ export default function ManagerFeedbacks() {
   // Non-auditors silently fall back to the pair tabs (the EditGoal self-heal spirit).
   const auditMode = searchParams.get("mode") === "audit" && canAudit();
 
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("FEEDBACKS")) return <Navigate to="/" replace />;
   if (!idIsValid) return <Navigate to={origin.to} replace />;
 
   function selectTab(value: string | null) {

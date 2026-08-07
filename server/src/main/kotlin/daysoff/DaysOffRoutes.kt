@@ -2,6 +2,7 @@ package ch.nokillswit.daysoff
 
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAuditListAccess
+import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.authz.requireDaysOffCorrectionsRead
 import ch.nokillswit.authz.requireDaysOffOwner
 import ch.nokillswit.authz.requireDaysOffRead
@@ -14,6 +15,7 @@ import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.plugins.respondProblem
+import ch.nokillswit.users.Feature
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
@@ -66,6 +68,12 @@ class DaysOffCorrections {
     class Id(val parent: DaysOffCorrections = DaysOffCorrections(), val id: UInt)
 }
 
+// The gated caller (V46): every days-off handler (requests, calendar, budgets, corrections)
+// resolves its principal through this, so the per-user DAYS_OFF flag is enforced before any
+// other guard or read.
+private fun ApplicationCall.daysOffCaller() =
+    caller().also { requireFeatureEnabled(it, Feature.DAYS_OFF) }
+
 fun Application.configureDaysOffRoutes() {
     val daysOffService = attributes[DaysOffServiceKey]
     val notificationService = attributes[NotificationServiceKey]
@@ -74,7 +82,7 @@ fun Application.configureDaysOffRoutes() {
     // action-specific guard, the service transition (409 on an invalid from-status or the
     // accepted-cancel date gate), then the notifications it produced.
     suspend fun transitionTo(call: ApplicationCall, requestId: UInt, target: DaysOffStatus) {
-        val caller = call.caller()
+        val caller = call.daysOffCaller()
         val existing = daysOffService.read(requestId)
         if (existing == null) {
             call.respondProblem(HttpStatusCode.NotFound, "Days-off request not found")
@@ -98,7 +106,7 @@ fun Application.configureDaysOffRoutes() {
     routing {
         authenticate {
             get<DaysOff> {
-                val caller = call.caller()
+                val caller = call.daysOffCaller()
                 val params = call.request.queryParameters
                 val view = when (val raw = params.optionalString("view") ?: "own") {
                     "own" -> DaysOffListView.OWN
@@ -139,7 +147,7 @@ fun Application.configureDaysOffRoutes() {
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
             }
             post<DaysOff> {
-                val caller = call.caller()
+                val caller = call.daysOffCaller()
                 // The owner is always the caller — there is no create-on-behalf (not even for
                 // ADMIN): a days-off request is a personal ask.
                 val request = call.receive<DaysOffCreateRequest>()
@@ -154,7 +162,7 @@ fun Application.configureDaysOffRoutes() {
                 call.respond(HttpStatusCode.Created, created)
             }
             get<DaysOff.Id> { route ->
-                val caller = call.caller()
+                val caller = call.daysOffCaller()
                 val request = daysOffService.read(route.id)
                 if (request == null) {
                     call.respondProblem(HttpStatusCode.NotFound, "Days-off request not found")
@@ -172,7 +180,7 @@ fun Application.configureDaysOffRoutes() {
             post<DaysOff.Id.Reject> { route -> transitionTo(call, route.parent.id, DaysOffStatus.REJECTED) }
             post<DaysOff.Id.Cancel> { route -> transitionTo(call, route.parent.id, DaysOffStatus.CANCELLED) }
             get<DaysOffCalendar> {
-                val caller = call.caller()
+                val caller = call.daysOffCaller()
                 val params = call.request.queryParameters
                 val month = params.optionalString("month")
                     ?: throw BadRequestException("month is required (YYYY-MM)")
@@ -188,7 +196,7 @@ fun Application.configureDaysOffRoutes() {
             }
             // ── Budget corrections (v1.43.0) ────────────────────────────────────────────────
             get<DaysOffCorrections> {
-                val caller = call.caller()
+                val caller = call.daysOffCaller()
                 val params = call.request.queryParameters
                 val userId = params.optionalUInt("userId")
                     ?: throw BadRequestException("userId is required")
@@ -202,7 +210,7 @@ fun Application.configureDaysOffRoutes() {
                 call.respond(HttpStatusCode.OK, DaysOffCorrectionList(daysOffService.listCorrections(userId, year)))
             }
             post<DaysOffCorrections> {
-                val caller = call.caller()
+                val caller = call.daysOffCaller()
                 val write = call.receive<DaysOffCorrectionWrite>()
                 // Writes belong to the subordinate's CURRENT direct managers (the resolve
                 // right). Guard before validation — 403 wins over 400, the house convention.
@@ -219,7 +227,7 @@ fun Application.configureDaysOffRoutes() {
                 call.respond(HttpStatusCode.Created, created)
             }
             put<DaysOffCorrections.Id> { route ->
-                val caller = call.caller()
+                val caller = call.daysOffCaller()
                 val existing = daysOffService.readCorrection(route.id)
                 if (existing == null) {
                     call.respondProblem(HttpStatusCode.NotFound, "Days-off correction not found")
@@ -237,7 +245,7 @@ fun Application.configureDaysOffRoutes() {
                 call.respond(HttpStatusCode.NoContent)
             }
             delete<DaysOffCorrections.Id> { route ->
-                val caller = call.caller()
+                val caller = call.daysOffCaller()
                 val existing = daysOffService.readCorrection(route.id)
                 if (existing == null) {
                     call.respondProblem(HttpStatusCode.NotFound, "Days-off correction not found")
@@ -251,7 +259,7 @@ fun Application.configureDaysOffRoutes() {
                 call.respond(HttpStatusCode.NoContent)
             }
             get<DaysOffBudgets> {
-                val caller = call.caller()
+                val caller = call.daysOffCaller()
                 val params = call.request.queryParameters
                 val year = when (val raw = params.optionalString("year")) {
                     null -> LocalDate.now().year

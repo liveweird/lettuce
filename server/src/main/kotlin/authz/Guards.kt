@@ -14,6 +14,7 @@ import ch.nokillswit.reviews.PerformanceReviewResponse
 import ch.nokillswit.reviews.PerformanceReviewStatus
 import ch.nokillswit.teamkpis.TeamKpiResponse
 import ch.nokillswit.teamkpis.TeamKpiStatus
+import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserRole
 
 fun CallerPrincipal.isAdmin(): Boolean = UserRole.ADMIN in roles
@@ -40,6 +41,22 @@ private fun grantHrRead(caller: CallerPrincipal, resource: String, resourceId: U
 
 fun requireAdmin(caller: CallerPrincipal) {
     if (!caller.isAdmin()) throw ForbiddenException("Admin role required")
+}
+
+/**
+ * Per-user feature flag gate (V46): 403 when [feature] is in the caller's disabled set.
+ * Uniform — binds HR and ADMIN exactly like a regular user (an HR auditor with FEEDBACKS
+ * disabled cannot audit feedbacks; the review-periods/public-holidays registries count as
+ * PERFORMANCE_REVIEWS/DAYS_OFF). Each gated route file runs this as the caller's FIRST guard,
+ * before any read — so a disabled caller gets a uniform 403 even for a missing id, a
+ * deliberate deviation from the read-before-guard 404 idiom (no existence disclosure: the
+ * answer never varies for them). The set rides the JWT, so a change takes effect at the next
+ * refresh (≤15 min) or login — the documented password-change staleness window.
+ */
+fun requireFeatureEnabled(caller: CallerPrincipal, feature: Feature) {
+    if (feature in caller.disabledFeatures) {
+        throw ForbiddenException("The ${feature.name} feature is disabled for this account")
+    }
 }
 
 fun requireSelfOrAdmin(caller: CallerPrincipal, targetUserId: UInt) {

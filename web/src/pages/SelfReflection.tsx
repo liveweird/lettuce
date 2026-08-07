@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import {
   createFeedback,
   getUserId,
+  hasFeature,
   type FeedbackStatus,
   type FeedbackVisibility,
 } from "../api/client";
@@ -34,6 +35,8 @@ export default function SelfReflection() {
   const duplicate = useFeedbackDuplicate(
     userId != null ? { subjectId: userId, providerId: userId } : null,
   );
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("FEEDBACKS")) return <Navigate to="/" replace />;
   if (userId == null) return <Navigate to="/" replace />;
 
   async function submit(

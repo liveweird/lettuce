@@ -1,6 +1,7 @@
 import { Stack, Tabs, Text, Title } from "@mantine/core";
-import { useSearchParams } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { hasFeature } from "../api/client";
 import { useIsManager } from "../hooks/useIsManager";
 import PerformanceReviewTable from "./PerformanceReviewTable";
 import ReviewsDashboard from "./ReviewsDashboard";
@@ -23,6 +24,9 @@ export default function Performance() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const isManager = useIsManager();
+
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("PERFORMANCE_REVIEWS")) return <Navigate to="/" replace />;
 
   const requestedTab = searchParams.get("tab");
   const activeTab: PerformanceTab =

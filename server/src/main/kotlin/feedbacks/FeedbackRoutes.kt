@@ -3,6 +3,7 @@ package ch.nokillswit.feedbacks
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.canReadFeedbackContent
+import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.authz.requireAuditListAccess
 import ch.nokillswit.authz.requireFeedbackReadAllowingManager
 import ch.nokillswit.authz.requireFeedbackWrite
@@ -15,6 +16,7 @@ import ch.nokillswit.infra.paging.optionalLong
 import ch.nokillswit.infra.paging.optionalUInt
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.notifications.NotificationServiceKey
+import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserServiceKey
 import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpHeaders
@@ -69,6 +71,11 @@ private fun FeedbackEventDescriptor.toEvent(feedbackId: UInt, userId: UInt) = Fe
     params = params,
 )
 
+// The gated caller (V46): every feedback handler resolves its principal through this, so the
+// per-user FEEDBACKS flag is enforced before any other guard or read.
+private fun ApplicationCall.feedbackCaller() =
+    caller().also { requireFeatureEnabled(it, Feature.FEEDBACKS) }
+
 fun Application.configureFeedbackRoutes() {
     val feedbackService = attributes[FeedbackServiceKey]
     val feedbackEventService = attributes[FeedbackEventServiceKey]
@@ -79,7 +86,7 @@ fun Application.configureFeedbackRoutes() {
     // missing, 409 (via ConflictException in the service) when the transition isn't allowed,
     // otherwise it applies the change, delivers notifications, and records the audit event.
     suspend fun transitionTo(call: ApplicationCall, feedbackId: UInt, target: FeedbackStatus) {
-        val caller = call.caller()
+        val caller = call.feedbackCaller()
         val existing = feedbackService.read(feedbackId)
         if (existing == null) {
             call.respondProblem(HttpStatusCode.NotFound, "Feedback not found")
@@ -101,7 +108,7 @@ fun Application.configureFeedbackRoutes() {
     routing {
         authenticate {
             get<Feedbacks> {
-                val caller = call.caller()
+                val caller = call.feedbackCaller()
                 val params = call.request.queryParameters
                 val view = when (val raw = params.optionalString("view") ?: "received") {
                     "received" -> FeedbackListView.RECEIVED
@@ -155,7 +162,7 @@ fun Application.configureFeedbackRoutes() {
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
             }
             get<Feedbacks.DuplicateCheck> {
-                val caller = call.caller()
+                val caller = call.feedbackCaller()
                 val params = call.request.queryParameters
                 val subjectId = params.optionalUInt("subjectId")
                     ?: throw BadRequestException("subjectId is required")
@@ -175,7 +182,7 @@ fun Application.configureFeedbackRoutes() {
                 )
             }
             post<Feedbacks> {
-                val caller = call.caller()
+                val caller = call.feedbackCaller()
                 val feedback = call.receive<FeedbackCreateRequest>().toFeedback()
                 // A caller may only create feedback they are a party to — the provider (they author
                 // it) or the requester (they ask for it). Nobody creates on behalf of others
@@ -205,7 +212,7 @@ fun Application.configureFeedbackRoutes() {
                 call.respond(HttpStatusCode.Created, created.toResponse(id, names))
             }
             get<Feedbacks.Id> { route ->
-                val caller = call.caller()
+                val caller = call.feedbackCaller()
                 val feedback = feedbackService.read(route.id)
                 if (feedback == null) {
                     call.respondProblem(HttpStatusCode.NotFound, "Feedback not found")
@@ -225,7 +232,7 @@ fun Application.configureFeedbackRoutes() {
                 )
             }
             put<Feedbacks.Id> { route ->
-                val caller = call.caller()
+                val caller = call.feedbackCaller()
                 val existing = feedbackService.read(route.id)
                 if (existing == null) {
                     call.respondProblem(HttpStatusCode.NotFound, "Feedback not found")
@@ -254,7 +261,7 @@ fun Application.configureFeedbackRoutes() {
             post<Feedbacks.Id.Reject> { route -> transitionTo(call, route.parent.id, FeedbackStatus.REJECTED) }
             post<Feedbacks.Id.PickUp> { route -> transitionTo(call, route.parent.id, FeedbackStatus.DRAFT) }
             get<Feedbacks.Id.Events> { route ->
-                val caller = call.caller()
+                val caller = call.feedbackCaller()
                 val feedbackId = route.parent.id
                 val feedback = feedbackService.read(feedbackId)
                 if (feedback == null) {
@@ -271,7 +278,7 @@ fun Application.configureFeedbackRoutes() {
                 )
             }
             delete<Feedbacks.Id> { route ->
-                val caller = call.caller()
+                val caller = call.feedbackCaller()
                 val existing = feedbackService.read(route.id)
                 if (existing == null) {
                     call.respondProblem(HttpStatusCode.NotFound, "Feedback not found")

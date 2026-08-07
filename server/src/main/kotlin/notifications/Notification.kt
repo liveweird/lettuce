@@ -1,6 +1,7 @@
 package ch.nokillswit.notifications
 
 import ch.nokillswit.infra.paging.PageResponse
+import ch.nokillswit.users.Feature
 import kotlinx.serialization.Serializable
 
 /**
@@ -47,6 +48,55 @@ enum class NotificationType {
     DAYS_OFF_CORRECTED_TO_OWNER,
     PASSWORD_CHANGED,
 }
+
+/**
+ * The feature each notification type belongs to — null (PASSWORD_CHANGED) = feature-neutral,
+ * never filtered. Backs the per-user feature-flag exclusion in the recipient's list/total
+ * (V46): rows whose type maps to a disabled feature are hidden (and uncounted) while the flag
+ * is off, and reappear on re-enable — minting is never suppressed. The exhaustive `when`
+ * forces every future type to pick a side.
+ */
+val NotificationType.feature: Feature?
+    get() = when (this) {
+        NotificationType.FEEDBACK_REQUESTED_TO_PROVIDER,
+        NotificationType.FEEDBACK_REQUESTED_TO_REQUESTER,
+        NotificationType.FEEDBACK_SENT_TO_SUBJECT,
+        NotificationType.FEEDBACK_SENT_TO_PROVIDER,
+        NotificationType.FEEDBACK_SENT_TO_REQUESTER,
+        NotificationType.FEEDBACK_SENT_TO_MANAGER,
+        NotificationType.FEEDBACK_REJECTED_TO_REQUESTER,
+        NotificationType.FEEDBACK_PICKED_UP_TO_REQUESTER,
+        NotificationType.FEEDBACK_WITHDRAWN_TO_SUBJECT,
+        NotificationType.FEEDBACK_WITHDRAWN_TO_REQUESTER,
+        NotificationType.FEEDBACK_DELETED_TO_REQUESTER,
+        -> Feature.FEEDBACKS
+        NotificationType.ONE_ON_ONE_CREATED_TO_SUBORDINATE,
+        NotificationType.ONE_ON_ONE_CREATED_TO_MANAGER,
+        -> Feature.ONE_ON_ONES
+        NotificationType.GOAL_ACTIVATED_TO_SUBORDINATE,
+        NotificationType.GOAL_DEACTIVATED_TO_SUBORDINATE,
+        NotificationType.GOAL_ARCHIVED_TO_SUBORDINATE,
+        NotificationType.GOAL_REOPENED_TO_SUBORDINATE,
+        -> Feature.GOALS
+        NotificationType.TEAM_KPI_ACTIVATED_TO_MEMBER,
+        NotificationType.TEAM_KPI_DEACTIVATED_TO_MEMBER,
+        NotificationType.TEAM_KPI_ARCHIVED_TO_MEMBER,
+        NotificationType.TEAM_KPI_REOPENED_TO_MEMBER,
+        NotificationType.TEAM_KPI_VALUE_RECORDED_TO_MEMBER,
+        NotificationType.TEAM_KPI_VALUE_CORRECTED_TO_MEMBER,
+        NotificationType.TEAM_KPI_VALUE_REMOVED_TO_MEMBER,
+        -> Feature.TEAM_KPIS
+        NotificationType.PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE,
+        NotificationType.PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE,
+        -> Feature.PERFORMANCE_REVIEWS
+        NotificationType.DAYS_OFF_REQUESTED_TO_MANAGER,
+        NotificationType.DAYS_OFF_ACCEPTED_TO_OWNER,
+        NotificationType.DAYS_OFF_REJECTED_TO_OWNER,
+        NotificationType.DAYS_OFF_CANCELLED_TO_MANAGER,
+        NotificationType.DAYS_OFF_CORRECTED_TO_OWNER,
+        -> Feature.DAYS_OFF
+        NotificationType.PASSWORD_CHANGED -> null
+    }
 
 /**
  * Internal create input. There is no public create endpoint: notifications are generated as a

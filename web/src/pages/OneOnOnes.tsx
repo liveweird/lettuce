@@ -1,7 +1,8 @@
 import { Button, Group, Stack, Tabs, Title } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
-import { Link as RouterLink, useSearchParams } from "react-router-dom";
+import { Link as RouterLink, Navigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { hasFeature } from "../api/client";
 import { useIsManager } from "../hooks/useIsManager";
 import OneOnOneTable from "./OneOnOneTable";
 
@@ -17,6 +18,9 @@ export default function OneOnOnes() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const isManager = useIsManager();
+
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("ONE_ON_ONES")) return <Navigate to="/" replace />;
 
   const requestedTab = searchParams.get("tab");
   const activeTab: OneOnOneTab =

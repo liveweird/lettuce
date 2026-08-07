@@ -111,6 +111,46 @@ describe("App shell", () => {
       }
     });
 
+    test("a disabled GOALS feature drops the Goals nav leaf; other leaves stay", async () => {
+      localStorage.setItem("lettuce.auth.disabledFeatures", JSON.stringify(["GOALS"]));
+      try {
+        renderApp("/");
+        expect(await screen.findByRole("link", { name: /^feedback$/i })).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: /^days off$/i })).toBeInTheDocument();
+        expect(screen.queryByRole("link", { name: /^goals$/i })).toBeNull();
+      } finally {
+        localStorage.removeItem("lettuce.auth.disabledFeatures");
+      }
+    });
+
+    test("disabling FEEDBACKS, PERFORMANCE_REVIEWS, and DAYS_OFF hides their nav and Config leaves", async () => {
+      // The Self-reflection leaf is dynamic — it only renders with a known user id.
+      localStorage.setItem(USER_ID_KEY, "7");
+      localStorage.setItem(
+        "lettuce.auth.disabledFeatures",
+        JSON.stringify(["FEEDBACKS", "PERFORMANCE_REVIEWS", "DAYS_OFF"]),
+      );
+      try {
+        const user = userEvent.setup();
+        renderApp("/");
+        // The surviving top-level leaves anchor the assertion…
+        expect(await screen.findByRole("link", { name: /^dashboard$/i })).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: /^team kpis$/i })).toBeInTheDocument();
+        // …the disabled features' top-level + dynamic leaves are gone…
+        expect(screen.queryByRole("link", { name: /^feedback$/i })).toBeNull();
+        expect(screen.queryByRole("link", { name: /^self-reflection$/i })).toBeNull();
+        expect(screen.queryByRole("link", { name: /^performance$/i })).toBeNull();
+        expect(screen.queryByRole("link", { name: /^days off$/i })).toBeNull();
+        // …and so are their Config leaves (expand the group so its siblings prove it rendered).
+        await user.click(screen.getByText("Config"));
+        expect(await screen.findByRole("link", { name: /^users$/i })).toBeInTheDocument();
+        expect(screen.queryByRole("link", { name: /^review periods$/i })).toBeNull();
+        expect(screen.queryByRole("link", { name: /^public holidays$/i })).toBeNull();
+      } finally {
+        localStorage.removeItem("lettuce.auth.disabledFeatures");
+      }
+    });
+
     test("shows a Change password link pointing at the current user's route", async () => {
       localStorage.setItem(USER_ID_KEY, "7");
       renderApp("/");

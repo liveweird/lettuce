@@ -76,8 +76,8 @@ private fun validatePaidDaysOffAllowance(value: Int?) {
     }
 }
 
-/** Audit format for a roles set: comma-joined sorted names, "" = no additional roles. */
-private fun Set<UserRole>.joinedNames(): String = map { it.name }.sorted().joinToString(",")
+/** Audit format for a roles/features set: comma-joined sorted names, "" = empty set. */
+private fun <T : Enum<T>> Set<T>.joinedNames(): String = map { it.name }.sorted().joinToString(",")
 
 @Serializable
 @Resource("/api/v1/users")
@@ -100,6 +100,10 @@ class Users {
         @Serializable
         @Resource("activate")
         class Activate(val parent: Id)
+
+        @Serializable
+        @Resource("features")
+        class Features(val parent: Id)
     }
 }
 
@@ -121,12 +125,21 @@ fun Application.configureUserRoutes() {
                 call.caller()
                 val paging = call.parsePaging(sortable = setOf("id", "name", "email"))
                 val params = call.request.queryParameters
+                // Feature-flag state filter: the pair must come together — a feature without a
+                // direction (or vice versa) is ambiguous, so a lone half is a clean 400.
+                val feature = params.optionalEnum<Feature>("feature")
+                val featureEnabled = params.optionalBoolean("featureEnabled")
+                if ((feature == null) != (featureEnabled == null)) {
+                    throw BadRequestException("feature and featureEnabled must be provided together")
+                }
                 val filter = UserListFilter(
                     name = params.optionalString("name"),
                     email = params.optionalString("email"),
                     role = params.optionalEnum<UserRole>("role"),
                     teamId = params.optionalUInt("teamId"),
                     deactivated = params.optionalBoolean("deactivated"),
+                    feature = feature,
+                    featureEnabled = featureEnabled,
                 )
                 val result = userService.list(filter, paging)
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
@@ -210,6 +223,7 @@ fun Application.configureUserRoutes() {
                             seniorityLevel = user.seniorityLevelId?.let { resolved[it] },
                             paidDaysOffAllowance = user.paidDaysOffAllowance,
                             deactivated = false,
+                            disabledFeatures = emptyList(),
                         ),
                     )
                 } else {
@@ -487,6 +501,40 @@ fun Application.configureUserRoutes() {
             }
             post<Users.Id.Deactivate> { route -> setAccountDeactivated(call, route.parent.id, true) }
             post<Users.Id.Activate> { route -> setAccountDeactivated(call, route.parent.id, false) }
+            // Per-user feature flags (V46): a wholesale replace of the disabled set. Deliberately
+            // NOT a PUT /users/{id} field (the V44 rationale — the whole-row write must never flip
+            // capability state) and deliberately WITHOUT the deactivation route's self-block: an
+            // admin adjusting (or fixing) their own flags is a feature, and the users routes are
+            // never gated, so a fully self-disabled admin can always find their way back here.
+            put<Users.Id.Features> { route ->
+                val caller = call.caller()
+                requireAdmin(caller)
+                // Guard before receive: a non-admin's malformed body is 403, not 400. An unknown
+                // feature name fails enum decoding → BadRequestException → 400.
+                val req = call.receive<UserFeaturesUpdateRequest>()
+                val existing = userService.read(route.parent.id)
+                if (existing == null) {
+                    call.respondProblem(HttpStatusCode.NotFound, "User not found")
+                    return@put
+                }
+                val requested = req.disabledFeatures.toSet()
+                // A deactivated target is allowed on purpose: the flags are inert until
+                // reactivation (no session exists to carry them).
+                if (userService.setDisabledFeatures(route.parent.id, requested) == 0) {
+                    call.respondProblem(HttpStatusCode.NotFound, "User not found")
+                    return@put
+                }
+                if (requested != existing.disabledFeatures) {
+                    audit(
+                        "user.features_changed",
+                        "byUserId" to caller.userId.toLong(),
+                        "targetUserId" to route.parent.id.toLong(),
+                        "from" to existing.disabledFeatures.joinedNames(),
+                        "to" to requested.joinedNames(),
+                    )
+                }
+                call.respond(HttpStatusCode.NoContent)
+            }
             delete<Users.Id> { route ->
                 val caller = call.caller()
                 requireAdmin(caller)

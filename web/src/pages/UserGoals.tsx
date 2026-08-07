@@ -2,6 +2,7 @@ import { Anchor, Button, Group, Stack, Text, Title } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { Link as RouterLink, Navigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { hasFeature } from "../api/client";
 import { useDashboardDrillDown, type DashboardOriginKey } from "../hooks/useDashboardDrillDown";
 import { goalCreateLink } from "../utils/goalLinks";
 import GoalTable from "./GoalTable";
@@ -25,6 +26,8 @@ export default function UserGoals() {
   const { userId, idIsValid, name, originKey, origin, callerManages, auditMode, backTo } =
     useDashboardDrillDown("goals");
 
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("GOALS")) return <Navigate to="/" replace />;
   if (!idIsValid) return <Navigate to={origin.to} replace />;
 
   const who = name ?? t("goal.userFallback", { id: userId });

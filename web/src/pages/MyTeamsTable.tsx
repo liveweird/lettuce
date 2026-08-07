@@ -12,7 +12,7 @@ import SortHeader from "../components/SortHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isString, useStoredState } from "../hooks/useStoredState";
-import { getUserId, listTeams } from "../api/client";
+import { getUserId, hasFeature, listTeams } from "../api/client";
 import { teamKpisLink } from "../utils/teamKpiLinks";
 
 const SORT_FIELDS = ["name"] as const;
@@ -111,16 +111,18 @@ export default function MyTeamsTable() {
                   >
                     {t("teams.members")}
                   </Button>
-                  <Button
-                    component={RouterLink}
-                    to={teamKpisLink(team.id)}
-                    variant="subtle"
-                    size="xs"
-                    leftSection={<IconChartLine size={14} />}
-                    aria-label={t("teams.kpisOfAria", { name: team.name })}
-                  >
-                    {t("teams.kpis")}
-                  </Button>
+                  {hasFeature("TEAM_KPIS") && (
+                    <Button
+                      component={RouterLink}
+                      to={teamKpisLink(team.id)}
+                      variant="subtle"
+                      size="xs"
+                      leftSection={<IconChartLine size={14} />}
+                      aria-label={t("teams.kpisOfAria", { name: team.name })}
+                    >
+                      {t("teams.kpis")}
+                    </Button>
+                  )}
                 </Table.Td>
               </Table.Tr>
             ))

@@ -72,6 +72,14 @@
     "ADMIN": "Admin",
     "HR": "HR"
   },
+  "feature": {
+    "FEEDBACKS": "Feedbacks",
+    "ONE_ON_ONES": "1:1 Meetings",
+    "GOALS": "Goals",
+    "TEAM_KPIS": "Team KPIs",
+    "PERFORMANCE_REVIEWS": "Performance Reviews",
+    "DAYS_OFF": "Days Off"
+  },
   "sort": {
     "label": "Sort by",
     "toggleDirection": "Toggle sort direction"

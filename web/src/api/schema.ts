@@ -157,9 +157,12 @@ export interface paths {
          *       - `teamId` — restrict to users who are members of the given team.
          *       - `deactivated` — strict boolean: only deactivated (`true`) or only active (`false`)
          *         accounts.
+         *       - `feature` + `featureEnabled` — feature-flag state filter; the pair MUST be provided
+         *         together (a lone half is `400`). `featureEnabled=true` returns users with the named
+         *         feature enabled (no disabled row), `false` those with it disabled.
          *
-         *     Malformed query parameters (unknown sort field, unknown role, out-of-range page/pageSize)
-         *     respond with `400` and a `ProblemDetail` body.
+         *     Malformed query parameters (unknown sort field, unknown role, unknown feature,
+         *     out-of-range page/pageSize) respond with `400` and a `ProblemDetail` body.
          */
         get: operations["listUsers"];
         put?: never;
@@ -321,6 +324,38 @@ export interface paths {
          *     `user.reactivated`.
          */
         post: operations["activateUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{id}/features": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace a user's disabled-feature set (ADMIN only)
+         * @description Per-user feature flags: a **wholesale replace** of the target user's DISABLED set —
+         *     an empty array re-enables everything (the default state; idempotent, a same-set re-PUT
+         *     is `204` again). **ADMIN-only**; unlike deactivation, changing one's OWN flags is
+         *     allowed (the users routes themselves are never feature-gated, so an admin can always
+         *     find their way back). Caller-only semantics: a disabled feature blocks what the user
+         *     themselves may see and execute (`403` on that feature's endpoints, and its notification
+         *     types disappear from their list), never what others may create involving them. Uniform
+         *     for every role — HR audit reads and the ADMIN registries (review periods =
+         *     `PERFORMANCE_REVIEWS`, public holidays = `DAYS_OFF`) are gated exactly like ordinary
+         *     use. The set rides the JWT, so a change takes effect at the target's next token refresh
+         *     (≤15 min) or login. Audited as `user.features_changed` on an actual change.
+         */
+        put: operations["setUserDisabledFeatures"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2493,6 +2528,11 @@ export interface paths {
          *     Notifications are generated as a side-effect of other activities; there is no create
          *     endpoint.
          *
+         *     Notifications whose type belongs to one of the caller's admin-disabled features
+         *     (feature flags) are excluded from the rows AND from `total` while the flag is off —
+         *     they reappear (still unseen) when the feature is re-enabled. Minting is never
+         *     suppressed.
+         *
          *     Supports offset pagination, sorting and filtering.
          *
          *     - Sortable fields: `id`, `timestamp`. Default sort is `timestamp` descending (newest
@@ -2639,6 +2679,17 @@ export interface components {
             userId: number;
             /** @description Additional roles of the authenticated user — empty for a regular user. */
             roles: ("ADMIN" | "HR")[];
+            /** @description The authenticated user's admin-disabled features — empty for full access. */
+            disabledFeatures: components["schemas"]["Feature"][];
+        };
+        /**
+         * @description A per-user-toggleable feature area (feature flags). Storage models the DISABLED set — absent = enabled, so every user defaults to full access.
+         * @enum {string}
+         */
+        Feature: "DAYS_OFF" | "FEEDBACKS" | "GOALS" | "ONE_ON_ONES" | "PERFORMANCE_REVIEWS" | "TEAM_KPIS";
+        UserFeaturesUpdateRequest: {
+            /** @description The complete new DISABLED set (wholesale replace) — an empty array re-enables everything. An unknown feature name is rejected with 400. */
+            disabledFeatures: components["schemas"]["Feature"][];
         };
         RefreshRequest: {
             /** @description The refresh token previously issued by /login or /refresh. */
@@ -2733,6 +2784,8 @@ export interface components {
             paidDaysOffAllowance: number | null;
             /** @description Always false at creation — kept so both user-response shapes stay aligned. */
             deactivated: boolean;
+            /** @description Always empty at creation (default all-enabled) — aligned with UserResponse. */
+            disabledFeatures: components["schemas"]["Feature"][];
         };
         UserUpdateRequest: {
             name: string;
@@ -2812,6 +2865,13 @@ export interface components {
              *     never via PUT.
              */
             deactivated: boolean;
+            /**
+             * @description The user's admin-disabled features (empty = full access). Caller-only semantics:
+             *     each named feature's endpoints answer 403 for THIS user, and the SPA hides the
+             *     feature from them; others' interactions with the user are untouched. Replaced
+             *     only via PUT /users/{id}/features — never via the whole-user PUT.
+             */
+            disabledFeatures: components["schemas"]["Feature"][];
         };
         UserPage: {
             items: components["schemas"]["UserResponse"][];
@@ -4718,6 +4778,10 @@ export interface operations {
                 teamId?: number;
                 /** @description Strict boolean — only deactivated (true) or only active (false) accounts. */
                 deactivated?: boolean;
+                /** @description Feature-flag state filter — must be paired with `featureEnabled` (400 otherwise). */
+                feature?: components["schemas"]["Feature"];
+                /** @description Strict boolean — with `feature`, selects users who have that feature enabled (true) or disabled (false). Must be paired with `feature` (400 otherwise). */
+                featureEnabled?: boolean;
             };
             header?: never;
             path?: never;
@@ -5072,6 +5136,43 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    setUserDisabledFeatures: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserFeaturesUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Disabled-feature set replaced */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -6599,6 +6700,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -7053,6 +7155,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -7607,6 +7710,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             /** @description The period overlaps an existing REQUESTED/ACCEPTED request of the caller (the ProblemDetail `instance` points at it), or a PAID request exceeds the remaining paid-days budget of its year (or a later carry-over-funded year) */
             409: {
                 headers: {
@@ -7644,6 +7748,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -7672,6 +7777,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -7936,6 +8042,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             500: components["responses"]["InternalServerError"];
         };
     };

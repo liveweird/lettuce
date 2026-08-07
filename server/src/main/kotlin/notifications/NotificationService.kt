@@ -4,6 +4,7 @@ import ch.nokillswit.infra.db.decodeParams
 import ch.nokillswit.infra.db.encodeParams
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
+import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserService
 import io.ktor.util.AttributeKey
 import kotlinx.coroutines.flow.map
@@ -19,6 +20,12 @@ val NotificationServiceKey = AttributeKey<NotificationService>("NotificationServ
 
 data class NotificationListFilter(
     val wasSeen: Boolean? = null,
+    /**
+     * The caller's disabled features (V46): rows whose type belongs to one are excluded from
+     * the rows AND the total — the SPA's unread badge is the total of a pageSize-1 unseen
+     * query, so this one predicate keeps both honest. Empty = no exclusion.
+     */
+    val disabledFeatures: Set<Feature> = emptySet(),
 )
 
 data class NotificationListResult(
@@ -115,6 +122,12 @@ class NotificationService(val database: R2dbcDatabase) {
     private fun buildPredicate(recipientId: UInt, filter: NotificationListFilter): Op<Boolean> {
         var op: Op<Boolean> = (Notifications.recipientId eq recipientId) and active()
         filter.wasSeen?.let { op = op and (Notifications.wasSeen eq it) }
+        if (filter.disabledFeatures.isNotEmpty()) {
+            val hiddenTypes = NotificationType.entries
+                .filter { it.feature in filter.disabledFeatures }
+                .map { it.name }
+            op = op and (Notifications.notificationType notInList hiddenTypes)
+        }
         return op
     }
 

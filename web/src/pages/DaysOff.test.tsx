@@ -1,9 +1,15 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { screen, waitFor } from "@testing-library/react";
+import { useLocation } from "react-router-dom";
 import { renderWithProviders } from "../test/render";
 import { jsonResponse } from "../test/http";
 import DaysOff from "./DaysOff";
+
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location">{location.pathname}</div>;
+}
 
 type FetchMock = ReturnType<typeof vi.fn>;
 
@@ -120,5 +126,25 @@ describe("DaysOff page", () => {
         .map((u) => new URL(u, "http://x").searchParams.get("month"));
       expect(new Set(months).size).toBe(2); // the initial month and the stepped one
     });
+  });
+
+  test("a disabled DAYS_OFF feature redirects the page to / (v1.53.0)", async () => {
+    localStorage.setItem("lettuce.auth.disabledFeatures", JSON.stringify(["DAYS_OFF"]));
+    try {
+      setupMocks();
+      renderWithProviders(
+        <>
+          <DaysOff />
+          <LocationProbe />
+        </>,
+        { route: "/days-off" },
+      );
+
+      await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent(/^\/$/));
+      expect(screen.queryByRole("table", { name: "Team days-off calendar" })).toBeNull();
+      expect(screen.queryByRole("tab", { name: "My requests" })).toBeNull();
+    } finally {
+      localStorage.removeItem("lettuce.auth.disabledFeatures");
+    }
   });
 });

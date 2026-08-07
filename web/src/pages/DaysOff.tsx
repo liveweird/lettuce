@@ -14,9 +14,9 @@ import {
 } from "@mantine/core";
 import { IconChevronLeft, IconChevronRight, IconPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { Link as RouterLink, useSearchParams } from "react-router-dom";
+import { Link as RouterLink, Navigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { getDaysOffCalendar, type DaysOffCalendarScope } from "../api/client";
+import { getDaysOffCalendar, hasFeature, type DaysOffCalendarScope } from "../api/client";
 import DaysOffBudgetCard from "../components/DaysOffBudgetCard";
 import DaysOffBudgetsTable from "../components/DaysOffBudgetsTable";
 import DaysOffMonthGrid from "../components/DaysOffMonthGrid";
@@ -111,6 +111,9 @@ export default function DaysOff() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const isManager = useIsManager();
+
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("DAYS_OFF")) return <Navigate to="/" replace />;
 
   const requestedTab = searchParams.get("tab");
   const activeTab: DaysOffTab =

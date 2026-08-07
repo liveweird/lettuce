@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { Alert, Button, Container, Group, Paper, Select, Stack, Text, Title } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { activateTeamKpi, createTeamKpi, getUserId, listTeams } from "../api/client";
+import { activateTeamKpi, createTeamKpi, getUserId, hasFeature, listTeams } from "../api/client";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import ReadOnlyField from "../components/ReadOnlyField";
 import TeamKpiDefinitionFields from "../components/TeamKpiDefinitionFields";
@@ -68,6 +68,9 @@ export default function CreateTeamKpi() {
     () => (managedTeams?.items ?? []).map((row) => ({ value: String(row.id), label: row.name })),
     [managedTeams],
   );
+
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("TEAM_KPIS")) return <Navigate to="/" replace />;
 
   async function save(values: TeamKpiDefinitionFormValues) {
     if (!team) return;

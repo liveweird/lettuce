@@ -3,7 +3,7 @@ import { Link as RouterLink, Navigate, useParams } from "react-router-dom";
 import { Alert, Anchor, Button, Group, Stack, Text, Title } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { getTeam, getUserId } from "../api/client";
+import { getTeam, getUserId, hasFeature } from "../api/client";
 import { teamKpiCreateLink, teamKpisLink } from "../utils/teamKpiLinks";
 import TeamKpiTable from "./TeamKpiTable";
 
@@ -28,6 +28,8 @@ export default function TeamKpis() {
     retry: false,
   });
 
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("TEAM_KPIS")) return <Navigate to="/" replace />;
   if (!idIsValid) return <Navigate to={BACK_TO} replace />;
 
   const backTo = teamKpisLink(teamId);

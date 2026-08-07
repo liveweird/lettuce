@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link as RouterLink, useNavigate, useSearchParams } from "react-router-dom";
+import { Link as RouterLink, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Alert,
   Button,
@@ -14,7 +14,7 @@ import {
 } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { createOneOnOne, listTeamMembers } from "../api/client";
+import { createOneOnOne, hasFeature, listTeamMembers } from "../api/client";
 import PersonaField from "../components/PersonaField";
 import { todayIsoDate } from "../utils/datetime";
 import { oneOnOneSaveErrorMessage } from "../utils/oneOnOneForm";
@@ -73,6 +73,9 @@ export default function CreateOneOnOne() {
     }
     return [...seen.entries()].map(([id, name]) => ({ value: String(id), label: name }));
   }, [reports]);
+
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("ONE_ON_ONES")) return <Navigate to="/" replace />;
 
   async function submit() {
     if (!subordinate || !meetingDate) return;

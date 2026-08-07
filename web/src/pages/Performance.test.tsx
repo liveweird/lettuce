@@ -1,8 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
+import { useLocation } from "react-router-dom";
 import { renderWithProviders, screen, waitFor } from "../test/render";
 import Performance from "./Performance";
 import { jsonResponse } from "../test/http";
+
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location">{location.pathname}</div>;
+}
 
 const TOKEN_KEY = "lettuce.auth.token";
 const USER_ID_KEY = "lettuce.auth.userId";
@@ -96,5 +102,25 @@ describe("Performance page", () => {
     expect(await screen.findByText("No performance reviews")).toBeInTheDocument();
     expect(reviewUrls(mockFetch).at(-1)).toContain("view=own");
     expect(screen.queryByRole("tab", { name: "Team's performance" })).not.toBeInTheDocument();
+  });
+
+  test("a disabled PERFORMANCE_REVIEWS feature redirects the page to / (v1.53.0)", async () => {
+    localStorage.setItem("lettuce.auth.disabledFeatures", JSON.stringify(["PERFORMANCE_REVIEWS"]));
+    try {
+      mockApi(mockFetch);
+      renderWithProviders(
+        <>
+          <Performance />
+          <LocationProbe />
+        </>,
+        { route: "/performance" },
+      );
+
+      await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent(/^\/$/));
+      expect(screen.queryByRole("heading", { name: "Performance" })).toBeNull();
+      expect(screen.queryByRole("tab", { name: "My performance" })).toBeNull();
+    } finally {
+      localStorage.removeItem("lettuce.auth.disabledFeatures");
+    }
   });
 });

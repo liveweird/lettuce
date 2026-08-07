@@ -72,6 +72,14 @@
     "ADMIN": "Administrator",
     "HR": "HR"
   },
+  "feature": {
+    "FEEDBACKS": "Feedbacki",
+    "ONE_ON_ONES": "Spotkania 1:1",
+    "GOALS": "Cele",
+    "TEAM_KPIS": "KPI zespołów",
+    "PERFORMANCE_REVIEWS": "Oceny okresowe",
+    "DAYS_OFF": "Dni wolne"
+  },
   "sort": {
     "label": "Sortuj według",
     "toggleDirection": "Przełącz kierunek sortowania"

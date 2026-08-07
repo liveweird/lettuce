@@ -141,4 +141,18 @@ describe("Feedback page", () => {
 
     expect(screen.getByRole("tab", { name: "Received" })).toHaveAttribute("aria-selected", "true");
   });
+
+  test("a disabled FEEDBACKS feature redirects the page to / (v1.53.0)", async () => {
+    localStorage.setItem("lettuce.auth.disabledFeatures", JSON.stringify(["FEEDBACKS"]));
+    try {
+      mockApi(mockFetch, 0);
+      renderFeedback();
+
+      await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent(/^\/$/));
+      expect(screen.queryByRole("tab", { name: "Received" })).toBeNull();
+      expect(screen.queryByRole("tab", { name: "Provided" })).toBeNull();
+    } finally {
+      localStorage.removeItem("lettuce.auth.disabledFeatures");
+    }
+  });
 });
