@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.52.0",
+    date: "2026-08-07",
+    en: `The Users list is tidier for administrators. The four account actions on each row — Edit details, Change password, Deactivate (or Reactivate), and Delete — are now grouped behind one "Modify" button that opens a small menu, next to the existing "Feedback" one. The actions themselves work exactly as before.`,
+    pl: `Lista użytkowników jest bardziej przejrzysta dla administratorów. Cztery akcje konta w każdym wierszu — Edytuj dane, Zmień hasło, Dezaktywuj (lub Aktywuj ponownie) i Usuń — są teraz zgrupowane pod jednym przyciskiem „Modyfikuj", który otwiera małe menu, obok istniejącego przycisku „Feedback". Same akcje działają dokładnie jak wcześniej.`,
+  },
+  {
     version: "1.51.0",
     date: "2026-08-07",
     en: `Person cards take less space. The feedback actions (Provide, Ask, Request, and the feedback list) are now grouped behind one "Feedbacks" button, and the 1:1 actions (New 1:1 and the meeting list) behind one "1:1 meetings" button — click either to open a small menu. Where only a single action exists (say, just the 1:1 list on a manager's card), it stays a plain button as before. Goals, Performance reviews, and Days off keep their own buttons.

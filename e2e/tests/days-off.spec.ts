@@ -175,7 +175,8 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   await expect(page.getByText(`E2E Holiday ${MONDAY_ISO}`).first()).toBeVisible();
 
   await gotoUserRow(page, "AAA Two");
-  await page.getByLabel("Edit AAA Two").click();
+  await page.getByRole("button", { name: "Modify actions for AAA Two" }).click();
+  await page.getByRole("menuitem", { name: "Edit AAA Two" }).click();
   await expect(page).toHaveURL(/\/users\/\d+\/edit/);
   await page.getByLabel("Paid days-off allowance (days per year)").fill("300");
   await page.getByRole("button", { name: "Save", exact: true }).click();
@@ -232,6 +233,13 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   await expect(page).toHaveURL(/\/users\/\d+\/days-off/);
   await expect(page.getByRole("heading", { name: "Days off of AAA Two" })).toBeVisible();
   await expect(page.getByText(/Paid days off of AAA Two in \d{4}/)).toBeVisible();
+  // Residue-proof (v1.52.0): the drill-down table pages at 20 From-desc, and far-future
+  // rejected/cancelled residue from earlier runs fills page 1 — filter to Accepted before
+  // asserting (the page-1 rule for shared-DB tables).
+  const drillFilters = page.getByRole("button", { name: "Filters" });
+  if ((await drillFilters.getAttribute("aria-expanded")) !== "true") await drillFilters.click();
+  await page.getByRole("combobox", { name: "Status" }).click();
+  await page.getByRole("option", { name: "Accepted" }).click();
   await expect(page.locator("tr", { hasText: "Accepted" }).first()).toBeVisible();
   await logout(page);
 
@@ -248,8 +256,17 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   await page.keyboard.press("Escape");
 
   await page.goto("/days-off?tab=requests");
-  await expect(page.locator("tr", { hasText: "Accepted" }).first()).toBeVisible();
+  // Residue-proof (v1.52.0): same page-1 rule on the own-requests table. Check Rejected
+  // first, then leave the filter on Accepted so the cancel step below still finds its row
+  // (the stored filter survives the re-goto).
+  const ownFilters = page.getByRole("button", { name: "Filters" });
+  if ((await ownFilters.getAttribute("aria-expanded")) !== "true") await ownFilters.click();
+  await page.getByRole("combobox", { name: "Status" }).click();
+  await page.getByRole("option", { name: "Rejected" }).click();
   await expect(page.locator("tr", { hasText: "Rejected" }).first()).toBeVisible();
+  await page.getByRole("combobox", { name: "Status" }).click();
+  await page.getByRole("option", { name: "Accepted" }).click();
+  await expect(page.locator("tr", { hasText: "Accepted" }).first()).toBeVisible();
 
   // Page the calendar forward to the request's month and find the accepted Tuesday's bar.
   await page.getByRole("tab", { name: "Calendar" }).click();

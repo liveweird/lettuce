@@ -129,11 +129,12 @@ test("admin deactivates a user; the account cannot sign in until reactivated", a
   await login(page, ADMIN);
   const user = await createUserViaUi(page, "E2E-Deact");
 
-  // Deactivate via the row action (confirm modal), waiting for the POST to land.
+  // Deactivate via the row's Modify menu (v1.52.0; confirm modal), waiting for the POST to land.
   await page.goto("/users");
   await openFilters(page);
   await page.getByLabel("Email", { exact: true }).fill(user.email);
-  await page.getByRole("button", { name: `Deactivate ${user.name}` }).click();
+  await page.getByRole("button", { name: `Modify actions for ${user.name}` }).click();
+  await page.getByRole("menuitem", { name: `Deactivate ${user.name}` }).click();
   await Promise.all([
     page.waitForResponse(
       (r) => r.url().includes(`/api/v1/users/${user.id}/deactivate`) && r.request().method() === "POST" && r.ok(),
@@ -157,11 +158,12 @@ test("admin deactivates a user; the account cannot sign in until reactivated", a
   await page.goto("/users");
   await openFilters(page);
   await page.getByLabel("Email", { exact: true }).fill(user.email);
+  await page.getByRole("button", { name: `Modify actions for ${user.name}` }).click();
   await Promise.all([
     page.waitForResponse(
       (r) => r.url().includes(`/api/v1/users/${user.id}/activate`) && r.request().method() === "POST" && r.ok(),
     ),
-    page.getByRole("button", { name: `Reactivate ${user.name}` }).click(),
+    page.getByRole("menuitem", { name: `Reactivate ${user.name}` }).click(),
   ]);
   await logout(page);
   await login(page, user.email, user.password);
@@ -175,7 +177,8 @@ test("admin deletes a user; the deleted account can no longer sign in", async ({
   await page.goto("/users");
   await openFilters(page);
   await page.getByLabel("Email", { exact: true }).fill(user.email);
-  await page.getByRole("button", { name: `Delete ${user.name}` }).click();
+  await page.getByRole("button", { name: `Modify actions for ${user.name}` }).click();
+  await page.getByRole("menuitem", { name: `Delete ${user.name}` }).click();
   await Promise.all([
     page.waitForResponse(
       (r) => new RegExp(`/api/v1/users/${user.id}$`).test(r.url()) && r.request().method() === "DELETE" && r.ok(),
