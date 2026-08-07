@@ -45,7 +45,7 @@ export default function ResetPassword() {
       {sent ? (
         // Always the same neutral confirmation — whether or not the account exists is
         // deliberately unobservable (mirrors the server's uniform 202).
-        <Alert color="green" variant="light">
+        <Alert color="teal" variant="light">
           {t("auth.resetConfirmation")}
         </Alert>
       ) : (
