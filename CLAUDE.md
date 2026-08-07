@@ -60,7 +60,7 @@ ch.nokillswit
 ├── teamkpis/           /api/v1/team-kpis/* CRUD + list + events + values sub-resource + transition actions + TeamKpiService + TeamKpis/TeamKpiValues tables (see "Team KPIs" in `.claude/docs/features/team-kpis.md`)
 ├── reviews/            /api/v1/performance-reviews/* CRUD + list + events + transition actions + /api/v1/review-periods registry + PerformanceReviewService/ReviewPeriodService (see "Performance reviews" in `.claude/docs/features/performance-reviews.md`)
 ├── daysoff/            /api/v1/days-off/* requests + accept/reject/cancel actions + calendar + budgets + corrections sub-resource + /api/v1/public-holidays registry + DaysOffService/PublicHolidayService (see "Days off" in `.claude/docs/features/days-off.md`)
-├── notifications/      /api/v1/notifications/* list + read + seen/unseen + delete + NotificationService + Notifications table (recipient-scoped)
+├── notifications/      /api/v1/notifications/* list + read + seen/unseen + delete + NotificationService + Notifications table (recipient-scoped; list/total also exclude the recipient's disabled-feature types)
 ├── alerts/             /api/v1/alerts/* CRUD + list (ADMIN-only) + /api/v1/alerts/visible (any authenticated) + AlertService + Alerts table (see "Alerts" in `.claude/docs/features/alerts.md`)
 └── dashboard/          GET /api/v1/dashboard/summary — the Dashboard hero tiles' caller-scoped counts, composed route-side from the feature services (no dashboard-specific SQL; FeedbackService.receivedSentCount + ReviewPeriodService.currentPeriod + TeamService.directReportCount back it)
 ```
@@ -95,13 +95,13 @@ Each feature's authoritative deep-dive lives in `.claude/docs/features/`. **Befo
 - **Dictionaries & career profile** (`dictionaries/`, SPA `Dictionary*`, the users' career fields) → `.claude/docs/features/dictionaries.md` — the three global ordered lists, whole-document PUT semantics, and the dictionary-backed career-profile refs on users.
 - **Notifications** (`notifications/`, SPA `NotificationsButton`) → `.claude/docs/features/notifications.md` — **the complete table of every situation that mints a notification** (typed structured rows, localized client-side) + the recipient-scoped routes. Read it before ANY change that creates or renders notifications.
 - **Alerts** (`alerts/`, SPA `Alert*`) → `.claude/docs/features/alerts.md` — admin-managed broadcast banners, server-side visibility windowing, the banner/strip UI contract.
-- **Migration catalog** → `.claude/docs/features/migrations.md` — the per-migration V1–V45 history. Read it before adding a migration or reasoning about schema history.
+- **Migration catalog** → `.claude/docs/features/migrations.md` — the per-migration V1–V46 history. Read it before adding a migration or reasoning about schema history.
 
 Users, teams, templates, auth, and dashboard have no separate feature doc: their rules live in `.claude/docs/authorization.md` (per-resource rules incl. `GET /api/v1/dashboard/summary`) and `.claude/docs/security.md` (login/lockout/refresh/password reset, bootstrap seeds).
 
 ### Frontend (`web/`)
 
-Vite + React 19 + TypeScript SPA. Frontend conventions live in **`web/CLAUDE.md`** (loads when working under `web/`): dev server & proxy, build, shared list-page building blocks, i18n (EN/PL) rules, build version stamp, the theme-owned design-language rules (v1.35.0 — brand green is the interactive accent, semantic success is teal), the success-toast convention (v1.38.0 — `utils/toast.tsx`, errors stay inline), and the changelog/app-versioning convention (`web/src/changelog/entries.ts` is the single source of the user-facing version — adding an entry is the release bump). Two facts that matter everywhere:
+Vite + React 19 + TypeScript SPA. Frontend conventions live in **`web/CLAUDE.md`** (loads when working under `web/`): dev server & proxy, build, shared list-page building blocks, i18n (EN/PL) rules, build version stamp, the theme-owned design-language rules (v1.35.0 — brand green is the interactive accent, semantic success is teal), the success-toast convention (v1.38.0 — `utils/toast.tsx`, errors stay inline), the per-user feature-flag gating rules (v1.53.0 — `hasFeature()`, nav filter, page guards, `FEATURE_OF`, tour tags), and the changelog/app-versioning convention (`web/src/changelog/entries.ts` is the single source of the user-facing version — adding an entry is the release bump). Two facts that matter everywhere:
 
 - The Gradle and npm toolchains are disjoint — never invoke npm from Gradle or vice versa.
 - The OpenAPI spec at `server/src/main/resources/openapi/documentation.yaml` is the hand-maintained contract between backend and frontend — update it in the same change as any route change, then regenerate the SPA's types (`cd web && npm run gen:api`) and commit `web/src/api/schema.ts`.
