@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "1.50.0",
+    date: "2026-08-07",
+    en: `Person cards are easier to read. Each card's details (the Dashboard grids and user details) are now laid out in two columns — labels on the left, values on the right — with one shared split for the whole card, so every value lines up in a single column no matter which section it belongs to. Nothing was added or removed; the same information is simply easier to scan.`,
+    pl: `Karty osób czyta się teraz łatwiej. Dane na każdej karcie (siatki Pulpitu i szczegóły osoby) są ułożone w dwie kolumny — etykiety po lewej, wartości po prawej — ze wspólnym podziałem dla całej karty, więc każda wartość trafia do jednej kolumny niezależnie od sekcji, w której się znajduje. Nic nie doszło ani nie zniknęło; te same informacje po prostu łatwiej przejrzeć.`,
+  },
+  {
     version: "1.49.0",
     date: "2026-08-07",
     en: `Performance-review ratings are now encrypted in the database, just like the written summaries have always been — a database backup or a stolen disk reveals neither the numbers nor the texts of anyone's review. One visible consequence: a review's History tab now records that a rating changed, without showing the old and new values.`,
