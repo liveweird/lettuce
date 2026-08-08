@@ -68,6 +68,24 @@ class NotificationService(val database: R2dbcDatabase) {
         newRecord[Notifications.id].value
     }
 
+    /**
+     * Batch [create] for wide fan-outs (the pulse cycle events notify the whole eligible org):
+     * one transaction instead of N. Same server-managed timestamp/unseen semantics.
+     */
+    suspend fun createAll(notifications: List<Notification>): Unit = suspendTransaction(database) {
+        val now = System.currentTimeMillis()
+        notifications.forEach { notification ->
+            Notifications.insert {
+                it[recipientId] = notification.recipientId
+                it[timestamp] = now
+                it[notificationType] = notification.type.name
+                it[params] = encodeParams(notification.params)
+                it[link] = notification.link
+                it[wasSeen] = false
+            }
+        }
+    }
+
     suspend fun read(id: UInt): NotificationResponse? = suspendTransaction(database) {
         Notifications.selectAll()
             .where { (Notifications.id eq id) and active() }

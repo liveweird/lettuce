@@ -11,6 +11,9 @@ import ch.nokillswit.goals.GoalServiceKey
 import ch.nokillswit.goals.GoalStatus
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.SortField
+import ch.nokillswit.pulse.PulseCycleServiceKey
+import ch.nokillswit.pulse.PulseResponseServiceKey
+import ch.nokillswit.users.Feature
 import ch.nokillswit.reviews.PerformanceReviewListFilter
 import ch.nokillswit.reviews.PerformanceReviewListView
 import ch.nokillswit.reviews.PerformanceReviewServiceKey
@@ -53,6 +56,11 @@ data class DashboardSummary(
     val currentPeriodId: UInt? = null,
     /** Reviews the caller authored for the current period; null with no current period. */
     val currentPeriodReviewsDone: Long? = null,
+    /** The OPEN pulse cycle's planned close date — null unless the caller is a participant
+     *  (with PULSE_SURVEYS enabled). Backs the "Pulse survey open" tile. */
+    val pulseOpenCloseDate: String? = null,
+    /** Whether the caller already submitted in the open cycle; null with no open cycle. */
+    val pulseSubmitted: Boolean? = null,
 )
 
 // The counts only need totals — first row of page 1 is never read.
@@ -70,6 +78,8 @@ fun Application.configureDashboardRoutes() {
     val reviewService = attributes[PerformanceReviewServiceKey]
     val reviewPeriodService = attributes[ReviewPeriodServiceKey]
     val teamService = attributes[TeamServiceKey]
+    val pulseCycleService = attributes[PulseCycleServiceKey]
+    val pulseResponseService = attributes[PulseResponseServiceKey]
 
     routing {
         authenticate {
@@ -111,6 +121,14 @@ fun Application.configureDashboardRoutes() {
                         COUNT_ONLY,
                     ).total
                 }
+                // Pulse tile: only for participants of the open cycle (snapshot membership
+                // already encodes active + not deactivated + flag enabled at open; the flag
+                // check below covers a later disable, since this route is deliberately
+                // ungated as a whole).
+                val openPulse =
+                    if (Feature.PULSE_SURVEYS in caller.disabledFeatures) null
+                    else pulseCycleService.currentOpenCycle()
+                        ?.takeIf { pulseResponseService.isParticipant(it.id, caller.userId) }
                 call.respond(
                     HttpStatusCode.OK,
                     DashboardSummary(
@@ -121,6 +139,10 @@ fun Application.configureDashboardRoutes() {
                         feedbackReceivedPrev30d = receivedPrev30d,
                         currentPeriodId = currentPeriod?.id,
                         currentPeriodReviewsDone = reviewsDone,
+                        pulseOpenCloseDate = openPulse?.plannedCloseDate,
+                        pulseSubmitted = openPulse?.let {
+                            pulseResponseService.hasResponded(it.id, caller.userId)
+                        },
                     ),
                 )
             }

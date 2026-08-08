@@ -73,6 +73,63 @@ class TeamService(val database: R2dbcDatabase) {
         directSubordinateIds(managerId).size
     }
 
+    // ——— Team-tree scopes (v2.0.0, backing the pulse-survey views) ———
+    // Thin transaction wrappers over teams/TeamTree.kt's pure walks, plus the name lookups the
+    // routes need. The tree is derived per call, never cached.
+
+    /** Teams whose pulse results [userId] may view: member-of + managed + everything below. */
+    suspend fun visibleTeamTreeIds(userId: UInt): Set<UInt> = suspendTransaction(database) {
+        visibleResultTeamIds(userId)
+    }
+
+    /** Teams [userId] may monitor as a manager: managed + everything below (empty for non-managers). */
+    suspend fun managedTeamTreeIds(userId: UInt): Set<UInt> = suspendTransaction(database) {
+        monitoredTeamIds(userId)
+    }
+
+    /** The users a team-scoped pulse aggregate draws from (see TeamTree.teamScopeUserIds). */
+    suspend fun teamScopeMembers(teamId: UInt, subtree: Boolean): Set<UInt> = suspendTransaction(database) {
+        teamScopeUserIds(teamId, subtree)
+    }
+
+    /** (id, name) of the non-deleted teams among [ids], name-ascending. */
+    suspend fun teamRefs(ids: Set<UInt>): List<TeamRef> = suspendTransaction(database) {
+        if (ids.isEmpty()) return@suspendTransaction emptyList()
+        Teams.select(Teams.id, Teams.name)
+            .where { (Teams.id inList ids) and active() }
+            .map { TeamRef(id = it[Teams.id].value, name = it[Teams.name]) }
+            .toList()
+            .sortedBy { it.name }
+    }
+
+    /** Every non-deleted team, name-ascending (the HR org-wide scope). */
+    suspend fun allTeamRefs(): List<TeamRef> = suspendTransaction(database) {
+        Teams.select(Teams.id, Teams.name)
+            .where { active() }
+            .map { TeamRef(id = it[Teams.id].value, name = it[Teams.name]) }
+            .toList()
+            .sortedBy { it.name }
+    }
+
+    /** (userId, name) of [teamId]'s current members with non-deleted accounts, name-ascending. */
+    suspend fun membersWithNames(teamId: UInt): List<Pair<UInt, String>> = suspendTransaction(database) {
+        TeamMembers
+            .join(
+                UserService.Users,
+                JoinType.INNER,
+                onColumn = TeamMembers.userId,
+                otherColumn = UserService.Users.id,
+            )
+            .select(TeamMembers.userId, UserService.Users.name)
+            .where {
+                (TeamMembers.teamId eq teamId) and
+                    (UserService.Users.markedAsDeleted eq false)
+            }
+            .map { it[TeamMembers.userId].value to it[UserService.Users.name] }
+            .toList()
+            .sortedBy { it.second }
+    }
+
     suspend fun create(team: Team): UInt = suspendTransaction(database) {
         validateMembership(team)
         val newRecord = Teams.insert {
