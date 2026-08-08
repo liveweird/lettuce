@@ -37,6 +37,7 @@ async function waitForUp(url: string, timeoutMs: number): Promise<void> {
 const SEED_ACCOUNTS = [
   "admin@lettuce.local",
   "manager-aaa@lettuce.local",
+  "manager-ccc@lettuce.local",
   "aaa-one@lettuce.local",
   "aaa-two@lettuce.local",
   "aaa-three@lettuce.local",

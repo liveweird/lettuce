@@ -1,4 +1,4 @@
-import { expect, login, logout, MANAGER_AAA, AAA_THREE, notificationCard, openBell, test, uniqueText } from "./helpers";
+import { expect, login, logout, MANAGER_AAA, MANAGER_CCC, AAA_THREE, notificationCard, openBell, test, uniqueText } from "./helpers";
 import type { Page } from "@playwright/test";
 
 // Goals: a manager defines a goal for a direct report and walks it around the
@@ -131,7 +131,7 @@ test("the Goals-I've-set tab: Reports widens from own goals to goals set down th
   const id = await createGoal(page, title, true);
 
   await logout(page);
-  await login(page, "manager-ccc@lettuce.local");
+  await login(page, MANAGER_CCC);
   await page.goto("/goals?tab=managed");
   await expect(page.getByRole("tab", { name: "Goals I've set" })).toBeVisible();
   // Scope the walk to the unique title (a shared database may hold other goals), and let the

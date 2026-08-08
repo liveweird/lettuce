@@ -7,13 +7,15 @@ import {
   provideFeedback,
   gotoUserRow,
   ADMIN,
-  AAA_ONE,
+  AAA_THREE,
   MANAGER_AAA,
   PASSWORD,
 } from "./helpers";
 
-// The probe DRAFT minted below (manager-aaa → AAA One) would block any later spec's create on
-// the same pair via the no-duplicate invariant, so it is deleted via the API even on failure.
+// The probe DRAFT minted below (manager-aaa → AAA Three — this file's exclusively-owned pair
+// under parallel workers; AAA One belongs to the other feedback specs) would block any later
+// spec's create on the same pair via the no-duplicate invariant, so it is deleted via the API
+// even on failure.
 let probeFeedbackId: number | null = null;
 
 test.afterEach(async ({ request }) => {
@@ -61,9 +63,9 @@ test("an HR auditor browses another pair's private draft read-only", async ({ pa
 
   // Since v1.26.0 ADMIN is a management-only role: on a user's details page the admin gets
   // no Audit section (the email is the page-loaded barrier before asserting the absence).
-  await gotoUserRow(page, "AAA One");
-  await page.getByRole("link", { name: "User details for AAA One" }).click();
-  await expect(page.getByText(AAA_ONE)).toBeVisible();
+  await gotoUserRow(page, "AAA Three");
+  await page.getByRole("link", { name: "User details for AAA Three" }).click();
+  await expect(page.getByText(AAA_THREE)).toBeVisible();
   await expect(page.getByText("Audit", { exact: true })).toHaveCount(0);
   await logout(page);
 
@@ -71,13 +73,13 @@ test("an HR auditor browses another pair's private draft read-only", async ({ pa
   //    provider, ADMIN, and HR (the strongest audit-read proof).
   const probe = `E2E-HR audit probe ${Date.now()}`;
   await login(page, MANAGER_AAA);
-  probeFeedbackId = await provideFeedback(page, "AAA One", probe, "Save draft");
+  probeFeedbackId = await provideFeedback(page, "AAA Three", probe, "Save draft");
   await logout(page);
 
-  // 3. The auditor reaches AAA One's details; the Audit section is offered.
+  // 3. The auditor reaches AAA Three's details; the Audit section is offered.
   await login(page, auditor.email, auditor.password);
-  await gotoUserRow(page, "AAA One");
-  await page.getByRole("link", { name: "User details for AAA One" }).click();
+  await gotoUserRow(page, "AAA Three");
+  await page.getByRole("link", { name: "User details for AAA Three" }).click();
   await expect(page.getByText("Audit", { exact: true })).toBeVisible();
 
   // 4. The feedbacks audit list shows the foreign DRAFT with its (unredacted) preview…
@@ -90,8 +92,8 @@ test("an HR auditor browses another pair's private draft read-only", async ({ pa
       JSON.stringify({ sortField: "lastModified", sortDir: "desc", pageSize: 20 }),
     );
   });
-  await page.getByRole("link", { name: "Audit feedbacks of AAA One" }).click();
-  await expect(page.getByRole("heading", { name: "All feedbacks of AAA One" })).toBeVisible();
+  await page.getByRole("link", { name: "Audit feedbacks of AAA Three" }).click();
+  await expect(page.getByRole("heading", { name: "All feedbacks of AAA Three" })).toBeVisible();
   const row = page.getByRole("row").filter({ hasText: probe });
   await expect(row).toHaveCount(1);
   // …read-only: the row offers View, never Edit.
@@ -105,17 +107,17 @@ test("an HR auditor browses another pair's private draft read-only", async ({ pa
   await expect(page.getByRole("button", { name: /send|withdraw|delete/i })).toHaveCount(0);
   // The audit back-link round-trips to the audit list.
   await page.getByRole("link", { name: "Close" }).click();
-  await expect(page.getByRole("heading", { name: "All feedbacks of AAA One" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "All feedbacks of AAA Three" })).toBeVisible();
 
   // 6. The 1:1 and goals audit lists load under the same mode, reached via the audit list's
   //    "Back to User details" round-trip (content may be empty on a fresh volume — the heading
   //    is the assertion; cross-pair rows are pinned server-side in HrRoleTest).
   await page.getByRole("link", { name: /back to user details/i }).click();
-  await page.getByRole("link", { name: "Audit 1:1 meetings of AAA One" }).click();
-  await expect(page.getByRole("heading", { name: "All 1:1 meetings of AAA One" })).toBeVisible();
+  await page.getByRole("link", { name: "Audit 1:1 meetings of AAA Three" }).click();
+  await expect(page.getByRole("heading", { name: "All 1:1 meetings of AAA Three" })).toBeVisible();
   await page.getByRole("link", { name: /back to user details/i }).click();
-  await page.getByRole("link", { name: "Audit goals of AAA One" }).click();
-  await expect(page.getByRole("heading", { name: "All goals of AAA One" })).toBeVisible();
+  await page.getByRole("link", { name: "Audit goals of AAA Three" }).click();
+  await expect(page.getByRole("heading", { name: "All goals of AAA Three" })).toBeVisible();
 
   // 7. No admin surface: the Config group never offers Alerts to HR.
   await expect(page.locator('a[href="/alerts"]')).toHaveCount(0);

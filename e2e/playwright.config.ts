@@ -7,8 +7,13 @@ export const BASE_URL = process.env.E2E_BASE_URL ?? "http://localhost:8080";
 
 export default defineConfig({
   testDir: "./tests",
-  fullyParallel: false, // the specs share one seeded database; keep them serial and deterministic
-  workers: 1,
+  // The serial unit is the FILE (fullyParallel stays false — some files' tests are
+  // order-dependent, e.g. users-import). Files run in parallel because every spec file owns its
+  // server-side state exclusively: unique feedback triples, own bell recipients, unique-named
+  // artifacts — see "Parallel execution" in the README before adding a spec. E2E_WORKERS=1
+  // restores the old fully-serial behavior.
+  fullyParallel: false,
+  workers: Number(process.env.E2E_WORKERS ?? 4),
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : [["list"], ["html", { open: "never" }]],
@@ -30,5 +35,19 @@ export default defineConfig({
     screenshot: "only-on-failure",
     video: "off",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    // alerts.spec runs alone AFTER everything else: its active broadcast banner overlays the
+    // header for every logged-in user, so it cannot share the stack with concurrent workers.
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
+      testIgnore: /alerts\.spec\.ts/,
+    },
+    {
+      name: "alerts",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: /alerts\.spec\.ts/,
+      dependencies: ["chromium"],
+    },
+  ],
 });

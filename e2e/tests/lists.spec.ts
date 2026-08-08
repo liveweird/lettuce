@@ -5,7 +5,8 @@ import { test, expect, login, createUserViaUi, ADMIN , openFilters } from "./hel
 // Two throwaway users sharing a unique stamp give the filter a deterministic two-row result.
 test("users list filters, sorts, and changes page size", async ({ page }) => {
   // Short stamp: createUserViaUi appends its own unique suffix and names must stay ≤ 50 chars.
-  const stamp = `E2E-${Date.now()}`;
+  // The random tail keeps the stamp unique even against a parallel worker in the same ms.
+  const stamp = `E2E-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
   await login(page, ADMIN);
   const first = await createUserViaUi(page, `${stamp}-AAAA`);
   const last = await createUserViaUi(page, `${stamp}-ZZZZ`);
@@ -28,10 +29,13 @@ test("users list filters, sorts, and changes page size", async ({ page }) => {
   await page.getByRole("button", { name: "Clear email filter" }).click();
   await expect(page.locator("tbody tr")).toHaveCount(2);
 
-  // Clearing the name filter restores the unfiltered list (a seeded user reappears; with the
-  // name sort still descending, "Manager CCC" sorts onto page 1 ahead of the E2E-* throwaways).
+  // Flip the sort back to ascending, then clear the name filter: the unfiltered list reappears
+  // with seeded "AAA One" on page 1 — stable forever under name-asc, unlike the old descending
+  // "Manager CCC" assert, which the accumulating throwaway users (e.g. users-import's fixed
+  // "Re Import" rows) would eventually push off page 1.
+  await page.getByRole("button", { name: "Name", exact: true }).click();
   await page.getByRole("button", { name: "Clear name filter" }).click();
-  await expect(page.getByText("Manager CCC", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("AAA One", { exact: true }).first()).toBeVisible();
 
   // Page-size change re-queries with pageSize=40.
   await Promise.all([

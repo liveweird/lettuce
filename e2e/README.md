@@ -20,6 +20,34 @@ npm test                      # brings the stack up (docker compose), runs specs
   only runs `docker compose down -v` if setup started the stack.
 - Requires Docker. Override the target with `E2E_BASE_URL`.
 
+## Parallel execution
+
+The suite runs on **4 workers by default** (`E2E_WORKERS` overrides; `E2E_WORKERS=1` restores the
+old fully-serial behavior). The serial unit is the **spec file** (`fullyParallel: false` — some
+files' tests are order-dependent, e.g. `users-import`); different files run concurrently. That is
+only sound because **every spec file owns its server-side state exclusively** — the standing rule
+for any new or edited spec:
+
+- **Feedbacks**: each file owns its `(subject, provider, requester)` triples outright — the server
+  409s a create while an *open* (DRAFT/REQUESTED) duplicate exists, and identically-worded bell
+  cards collide. Current ownership: delivery = (AAA One ← AAA Two), provide = (AAA Two ← AAA One),
+  lifecycle-rest = (AAA Two ← Manager AAA), hr = (AAA Three ← Manager AAA), manager-oversight =
+  (AAA One ← Manager AAA, created directly as SENT — no open window), triage = the two
+  self-requested (AAA One/Two ← Manager AAA) triples, third-party = (AAA One ← AAA Three, req.
+  Manager AAA), self-reflection = (AAA Two ← AAA Two). Pick an unclaimed triple or a throwaway.
+- **Bells**: presence asserts on a seed account's bell must be text-filtered
+  (`notificationCard`); *count/badge/mark-all-as-seen* asserts belong only on a **throwaway**
+  recipient (`notifications.spec` is the template) — seed bells receive concurrent traffic.
+- **Global documents/registries have one writer file each**: dictionaries — `dictionaries.spec`
+  edits `seniority-levels`, `user-edit.spec` edits `career-paths`; review periods —
+  `performance-reviews.spec`; public holidays + AAA Two's days-off/allowance/corrections —
+  `days-off.spec`; templates — `templates.spec` (unique names).
+- **`alerts.spec` runs in its own project phase after everything else** (config `dependencies`):
+  an active alert overlays the header for every worker. Any spec minting globally-visible state
+  joins that phase.
+- Artifacts must be unique-named (`uniqueText`) and list asserts filter- or sort-anchored — never
+  bare page-1 assumptions.
+
 ## What's covered
 
 Real user journeys, prioritizing the feedback lifecycle (which validates the POST-action verb

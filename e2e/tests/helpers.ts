@@ -21,12 +21,13 @@ export { expect };
 
 export const ADMIN = "admin@lettuce.local";
 export const MANAGER_AAA = "manager-aaa@lettuce.local";
+export const MANAGER_CCC = "manager-ccc@lettuce.local";
 export const AAA_ONE = "aaa-one@lettuce.local";
 export const AAA_TWO = "aaa-two@lettuce.local";
 export const AAA_THREE = "aaa-three@lettuce.local";
 export const PASSWORD = "changeme";
 
-const SEEDED = new Set([ADMIN, MANAGER_AAA, AAA_ONE, AAA_TWO, AAA_THREE]);
+const SEEDED = new Set([ADMIN, MANAGER_AAA, MANAGER_CCC, AAA_ONE, AAA_TWO, AAA_THREE]);
 
 // POST /login is rate-limited per IP (auth/AuthRoutes.kt). Development stacks lift that bucket
 // (security.rateLimit.loginPerMinute) so the suite is not throttled, but the per-ACCOUNT lockout
