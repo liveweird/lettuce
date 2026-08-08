@@ -2,7 +2,7 @@ import { Alert, Button, Container, Group, Paper, Progress, Skeleton, Stack, Text
 import { useForm } from "@mantine/form";
 import { IconZzz } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ApiError,
@@ -30,7 +30,12 @@ import {
 } from "../utils/pulseSurveyForm";
 import { showSuccessToast } from "../utils/toast";
 
-// The fixed statements Q2-Q5 (localized); Q6 uses the cycle's server-provided rotating text.
+// One question per wizard step: 0 = Q1 eNPS, 1-4 = the fixed statements, 5 = the rotating
+// question, 6 = the optional comment (+ submit). The fixed Q2-Q5 labels are localized; Q6
+// uses the cycle's server-provided rotating text.
+const TOTAL_STEPS = 7;
+const COMMENT_STEP = TOTAL_STEPS - 1;
+const STEP_FIELD: Record<number, PulseScaleField> = { 1: "q2", 2: "q3", 3: "q4", 4: "q5", 5: "rotating" };
 const FIXED_LABEL_KEY: Record<Exclude<PulseScaleField, "rotating">, string> = {
   q2: "pulse.q2",
   q3: "pulse.q3",
@@ -38,11 +43,19 @@ const FIXED_LABEL_KEY: Record<Exclude<PulseScaleField, "rotating">, string> = {
   q5: "pulse.q5",
 };
 
+function stepAnswered(step: number, values: PulseFormValues): boolean {
+  if (step === COMMENT_STEP) return true;
+  if (step === 0) return values.enps !== null;
+  return values[STEP_FIELD[step]] !== null;
+}
+
 /**
- * The "Current survey" tab: one short scrolling form over the OPEN cycle. All six scored
- * questions are required; the comment is optional with a band-dependent prompt. Prevent-
- * duplicate + edit-while-open both fall out of the server's upsert: the form prefills from
- * the saved answers and re-submitting replaces them (until the admin closes the cycle).
+ * The "Current survey" tab as a WIZARD (v2.0.1): one question per step, Back/Next traversal,
+ * and auto-advance a beat after answering a scored question. All six scored questions stay
+ * required — Next gates per step, the form validation backstops the submit. Prevent-duplicate
+ * + edit-while-open both fall out of the server's upsert: the wizard prefills from the saved
+ * answers and re-submitting replaces them (until the admin closes the cycle); a successful
+ * save restarts at the first question for review.
  */
 export default function PulseSurvey() {
   const { t, i18n } = useTranslation();
@@ -50,6 +63,14 @@ export default function PulseSurvey() {
   const queryClient = useQueryClient();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [step, setStep] = useState(0);
+  const advanceTimer = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (advanceTimer.current != null) window.clearTimeout(advanceTimer.current);
+    },
+    [],
+  );
 
   const cycles = useQuery({ queryKey: ["pulseCycles"], queryFn: listPulseCycles });
   const openCycle = cycles.data?.find((c) => c.status === "OPEN");
@@ -105,6 +126,24 @@ export default function PulseSurvey() {
   const alreadySubmitted = saved.data != null;
   const closeDate = formatIsoDate(openCycle.plannedCloseDate, locale);
 
+  // Answering a scored question advances after a short beat (the selection stays visible for
+  // a moment); Back is the way to linger. Re-answering an already-given answer advances too.
+  function scheduleAdvance() {
+    if (advanceTimer.current != null) window.clearTimeout(advanceTimer.current);
+    advanceTimer.current = window.setTimeout(() => {
+      advanceTimer.current = null;
+      setStep((current) => Math.min(current + 1, COMMENT_STEP));
+    }, 250);
+  }
+
+  function goTo(next: number) {
+    if (advanceTimer.current != null) {
+      window.clearTimeout(advanceTimer.current);
+      advanceTimer.current = null;
+    }
+    setStep(Math.max(0, Math.min(next, COMMENT_STEP)));
+  }
+
   async function save(values: PulseFormValues) {
     setSubmitting(true);
     setError(null);
@@ -112,6 +151,8 @@ export default function PulseSurvey() {
       await submitMyPulseResponse(openCycle!.id, toPulseSubmitBody(values));
       showSuccessToast(t("pulse.toast.submitted"));
       await invalidatePulse(queryClient);
+      // Restart at the first question — the saved state prefills for review/editing.
+      goTo(0);
     } catch (err) {
       setError(pulseSaveErrorMessage(err, t));
     } finally {
@@ -119,77 +160,102 @@ export default function PulseSurvey() {
     }
   }
 
+  const scaleField = STEP_FIELD[step];
   return (
     <Container size="md" px={0}>
       <Paper withBorder shadow="sm" p="xl" radius="md">
-        <form onSubmit={form.onSubmit(save)} noValidate>
-          <Stack gap="lg">
+        <Stack gap="lg">
+          <Text size="sm" c="dimmed">
+            {t("pulse.surveyIntro")}
+          </Text>
+          {alreadySubmitted ? (
+            <Alert color="teal" variant="light">
+              {t("pulse.editableUntil", { date: closeDate })}
+            </Alert>
+          ) : (
             <Text size="sm" c="dimmed">
-              {t("pulse.surveyIntro")}
+              {t("pulse.closesOn", { date: closeDate })}
             </Text>
-            {alreadySubmitted ? (
-              <Alert color="teal" variant="light">
-                {t("pulse.editableUntil", { date: closeDate })}
-              </Alert>
-            ) : (
+          )}
+          <div>
+            <Group justify="space-between">
               <Text size="sm" c="dimmed">
-                {t("pulse.closesOn", { date: closeDate })}
+                {t("pulse.stepCounter", { current: step + 1, total: TOTAL_STEPS })}
               </Text>
-            )}
-            <div>
               <Text size="sm" c="dimmed">
                 {t("pulse.progress", { answered })}
               </Text>
-              <Progress value={(answered / 6) * 100} size="sm" mt={4} />
-            </div>
+            </Group>
+            <Progress value={(answered / 6) * 100} size="sm" mt={4} />
+          </div>
 
+          {step === 0 && (
             <PulseEnpsInput
               value={form.values.enps}
-              onChange={(value) => form.setFieldValue("enps", value)}
+              onChange={(value) => {
+                form.setFieldValue("enps", value);
+                scheduleAdvance();
+              }}
               error={form.errors.enps}
             />
-            {(Object.keys(FIXED_LABEL_KEY) as (keyof typeof FIXED_LABEL_KEY)[]).map((field) => (
-              <PulseScaleInput
-                key={field}
-                label={t(FIXED_LABEL_KEY[field])}
-                value={form.values[field]}
-                onChange={(value: PulseScaleAnswer) => form.setFieldValue(field, value)}
-                error={form.errors[field]}
-              />
-            ))}
-            {/* Q6: the rotating question, in the cycle's snapshotted wording (admin-authored
-                dictionary content — deliberately NOT localized). */}
+          )}
+          {scaleField != null && (
             <PulseScaleInput
-              label={openCycle.rotatingQuestion ?? ""}
-              value={form.values.rotating}
-              onChange={(value: PulseScaleAnswer) => form.setFieldValue("rotating", value)}
-              error={form.errors.rotating}
+              // Q6: the rotating question, in the cycle's snapshotted wording (admin-authored
+              // dictionary content — deliberately NOT localized).
+              label={
+                scaleField === "rotating"
+                  ? (openCycle.rotatingQuestion ?? "")
+                  : t(FIXED_LABEL_KEY[scaleField])
+              }
+              value={form.values[scaleField]}
+              onChange={(value: PulseScaleAnswer) => {
+                form.setFieldValue(scaleField, value);
+                scheduleAdvance();
+              }}
+              error={form.errors[scaleField]}
             />
+          )}
+          {step === COMMENT_STEP && (
+            <>
+              <Textarea
+                label={t(`pulse.commentPrompt.${commentPromptKey(form.values.enps)}`)}
+                description={t("pulse.commentOptional", { max: PULSE_MAX_COMMENT })}
+                autosize
+                minRows={3}
+                maxLength={PULSE_MAX_COMMENT}
+                {...form.getInputProps("comment")}
+              />
+              <Text size="xs" c="dimmed">
+                {t("pulse.anonymityNote")}
+              </Text>
+            </>
+          )}
 
-            <Textarea
-              label={t(`pulse.commentPrompt.${commentPromptKey(form.values.enps)}`)}
-              description={t("pulse.commentOptional", { max: PULSE_MAX_COMMENT })}
-              autosize
-              minRows={3}
-              maxLength={PULSE_MAX_COMMENT}
-              {...form.getInputProps("comment")}
-            />
-            <Text size="xs" c="dimmed">
-              {t("pulse.anonymityNote")}
-            </Text>
-
-            {error && (
-              <Alert color="red" variant="light">
-                {error}
-              </Alert>
-            )}
-            <Group justify="flex-end">
-              <Button type="submit" loading={submitting}>
+          {error && (
+            <Alert color="red" variant="light">
+              {error}
+            </Alert>
+          )}
+          <Group justify="space-between">
+            <Button variant="default" onClick={() => goTo(step - 1)} disabled={step === 0}>
+              {t("pulse.action.back")}
+            </Button>
+            {step < COMMENT_STEP ? (
+              <Button
+                variant="default"
+                onClick={() => goTo(step + 1)}
+                disabled={!stepAnswered(step, form.values)}
+              >
+                {t("pulse.action.next")}
+              </Button>
+            ) : (
+              <Button onClick={() => form.onSubmit(save)()} loading={submitting}>
                 {alreadySubmitted ? t("pulse.action.update") : t("pulse.action.submit")}
               </Button>
-            </Group>
-          </Stack>
-        </form>
+            )}
+          </Group>
+        </Stack>
       </Paper>
     </Container>
   );

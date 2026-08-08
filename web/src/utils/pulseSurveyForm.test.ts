@@ -3,7 +3,10 @@ import {
   answeredCount,
   commentPromptKey,
   emptyPulseFormValues,
+  enpsColor,
+  mantineColorVar,
   pulseFormValidation,
+  pulseScaleColor,
   toPulseFormValues,
   toPulseSubmitBody,
   PULSE_MAX_COMMENT,
@@ -50,6 +53,29 @@ describe("validation", () => {
     expect(validate.rotating("NA")).toBeNull();
     expect(validate.comment("x".repeat(PULSE_MAX_COMMENT))).toBeNull();
     expect(validate.comment("x".repeat(PULSE_MAX_COMMENT + 1))).toBe("pulse.validation.commentTooLong");
+  });
+});
+
+describe("favourability colors", () => {
+  test("the agreement scale runs orange to green with a neutral NA", () => {
+    expect(pulseScaleColor("1")).toBe("orange.8");
+    expect(pulseScaleColor("3")).toBe("yellow.6");
+    expect(pulseScaleColor("5")).toBe("green.8");
+    expect(pulseScaleColor("NA")).toBe("gray.5");
+  });
+
+  test("eNPS colors follow the bands: detractors orange, passives yellow-lime, promoters green", () => {
+    expect(enpsColor(0)).toBe("orange.9");
+    expect(enpsColor(6)).toBe("orange.4");
+    expect(enpsColor(7)).toBe("yellow.6");
+    expect(enpsColor(8)).toBe("lime.6");
+    expect(enpsColor(9)).toBe("green.5");
+    expect(enpsColor(10)).toBe("green.8");
+    expect(enpsColor(42)).toBe("gray.5");
+  });
+
+  test("tokens render as Mantine CSS variables", () => {
+    expect(mantineColorVar("green.8")).toBe("var(--mantine-color-green-8)");
   });
 });
 

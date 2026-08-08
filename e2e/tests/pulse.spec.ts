@@ -82,13 +82,15 @@ async function pickEnps(page: Page, score: number): Promise<void> {
     .click();
 }
 
-async function fillAgreementQuestions(page: Page): Promise<void> {
-  // Q2-Q5 + the rotating question: five radio groups; the rotating wording is whatever the
-  // pool picked, so address the groups positionally. Scope to #main-content — the header's
-  // Language switcher is a radiogroup too — and click the visible labels (the inputs hide).
-  for (const group of await page.locator("#main-content").getByRole("radiogroup").all()) {
-    await group.getByText("Agree", { exact: true }).click();
-  }
+/** Answers the wizard's currently visible agreement question with "Agree". Scoped to
+ *  #main-content — the header's Language switcher is a radiogroup too — clicking the visible
+ *  label (the radio inputs hide under Mantine's styling). */
+async function answerVisibleQuestion(page: Page): Promise<void> {
+  await page
+    .locator("#main-content")
+    .getByRole("radiogroup")
+    .getByText("Agree", { exact: true })
+    .click();
 }
 
 test("admin schedules a cycle (prefilled dates) and opens it", async ({ page, request }) => {
@@ -113,7 +115,7 @@ test("admin schedules a cycle (prefilled dates) and opens it", async ({ page, re
   await expect(page.getByText("Open", { exact: true })).toBeVisible();
 });
 
-test("a participant is notified, fills the survey, and edits it while open", async ({ page }) => {
+test("a participant is notified, walks the wizard, and edits it while open", async ({ page }) => {
   await login(page, AAA_ONE);
   // The opened notification is in the bell (text repeats across reruns — take the newest).
   const dialog = await openBell(page);
@@ -121,19 +123,32 @@ test("a participant is notified, fills the survey, and edits it while open", asy
   await page.keyboard.press("Escape");
 
   await page.goto("/pulse");
+  // The wizard (v2.0.1): one question per step, auto-advancing on answer.
+  await expect(page.getByText("Question 1 of 7")).toBeVisible();
   await expect(page.getByText("0 of 6 answered")).toBeVisible();
-  // Q1 first: the 0-10 chips; 9 = promoter.
   await pickEnps(page, 9);
-  // The detractor/passive/promoter comment prompt follows the answer.
-  await expect(page.getByText("What should we make sure to preserve?")).toBeVisible();
-  await fillAgreementQuestions(page);
+  // Q2-Q6 appear one at a time; anchor each iteration on the step counter (the auto-advance
+  // has a 250ms beat — clicking by counter keeps the loop deterministic).
+  for (let stepNo = 2; stepNo <= 6; stepNo++) {
+    await expect(page.getByText(`Question ${stepNo} of 7`)).toBeVisible();
+    await answerVisibleQuestion(page);
+  }
+  await expect(page.getByText("Question 7 of 7")).toBeVisible();
   await expect(page.getByText("6 of 6 answered")).toBeVisible();
+  // The promoter-band comment prompt (eNPS 9).
+  await expect(page.getByText("What should we make sure to preserve?")).toBeVisible();
   await page.getByRole("button", { name: "Submit survey" }).click();
   await expect(page.getByText("Survey submitted")).toBeVisible();
 
-  // Edit while open: the saved state prefills, the button flips, a re-submit replaces.
+  // A successful save restarts the wizard at Q1, prefilled; change the answer, walk the
+  // prefilled steps forward with Next, and save again.
   await expect(page.getByText(/Your answers are saved/)).toBeVisible();
+  await expect(page.getByText("Question 1 of 7")).toBeVisible();
   await pickEnps(page, 10);
+  for (let stepNo = 2; stepNo <= 6; stepNo++) {
+    await expect(page.getByText(`Question ${stepNo} of 7`)).toBeVisible();
+    await page.getByRole("button", { name: "Next" }).click();
+  }
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText("Survey submitted")).toBeVisible();
 });

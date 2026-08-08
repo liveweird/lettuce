@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.0.1",
+    date: "2026-08-08",
+    en: `The pulse survey is now a step-by-step wizard: one question per screen, with Back and Next to move around and an automatic step forward right after you answer. Progress shows both where you are ("Question 3 of 7") and how much is answered. Answers are also color-coded by favourability — from orange for the least favourable ("Strongly disagree", low eNPS scores) through yellow to green for the most favourable ("Strongly agree", high scores) — the same color language as the performance-review ratings.`,
+    pl: `Ankieta pulsu jest teraz krok po kroku: jedno pytanie na ekran, z przyciskami Wstecz i Dalej oraz automatycznym przejściem dalej zaraz po udzieleniu odpowiedzi. Pasek postępu pokazuje zarówno miejsce w ankiecie („Pytanie 3 z 7"), jak i liczbę udzielonych odpowiedzi. Odpowiedzi mają też kolory według przychylności — od pomarańczowego dla najmniej przychylnych („Zdecydowanie się nie zgadzam", niskie oceny eNPS) przez żółty po zielony dla najbardziej przychylnych („Zdecydowanie się zgadzam", wysokie oceny) — ten sam język kolorów co oceny okresowe.`,
+  },
+  {
     version: "2.0.0",
     date: "2026-08-08",
     en: `Pulse surveys arrive — a new major feature, and the reason for the 2.0 version. Every few weeks the administrator opens a short anonymous survey: the eNPS question ("How likely are you to recommend this company as a place to work?"), four fixed statements about everyday work, one rotating question drawn from an admin-editable bank, and an optional written comment. You'll find it under the new "Pulse" entry in the menu, get a notification when a cycle opens, and can edit your answers until the cycle closes.
