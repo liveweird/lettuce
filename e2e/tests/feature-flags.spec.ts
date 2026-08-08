@@ -1,4 +1,15 @@
-import { test, expect, ADMIN, login, logout, createUserViaUi, gotoUserRow, openFilters } from "./helpers";
+import {
+  test,
+  expect,
+  ADMIN,
+  login,
+  logout,
+  createUserViaUi,
+  gotoUserRow,
+  openFilters,
+  pickSelectOption,
+  uniqueText,
+} from "./helpers";
 
 // Per-user feature flags (v1.53.0): admin disables Goals for a fresh user via the per-user
 // editor (/users/:id/features, reached from the Modify ▾ menu), the victim loses the feature
@@ -64,4 +75,83 @@ test("admin toggles a user's Goals feature via both surfaces; the user's UI foll
   await page.goto("/goals");
   await expect(page).toHaveURL(/\/goals/);
   await expect(page.getByRole("heading", { name: "Goals" })).toBeVisible();
+});
+
+// v2.1.0: the team dimension on /feature-flags — filter the table to a fresh team and flip a
+// flag for everyone on it at once (the bulk buttons act on ALL rows matching the filters,
+// behind a count-stating confirm). Fresh users + a fresh team per run (exclusive state — safe
+// in the parallel phase; flag changes mint no notifications); the team is deleted at the end
+// so the Team filter dropdown doesn't accumulate run residue.
+test("bulk toggle by team: filter to a fresh team, disable Goals for all members, re-enable", async ({
+  page,
+}) => {
+  await login(page, ADMIN);
+  const userA = await createUserViaUi(page, "E2E FlagTeamA");
+  const userB = await createUserViaUi(page, "E2E FlagTeamB");
+
+  // A fresh team with both as members. The admin manages it — the members page's "Add a
+  // user" pool deliberately EXCLUDES the team's manager, so the manager must be a third
+  // party for both fresh users to be addable (and the team filter is membership-only anyway).
+  const teamName = uniqueText("E2E FlagTeam");
+  await page.goto("/teams/new");
+  await page.getByRole("textbox", { name: "Name" }).fill(teamName);
+  await pickSelectOption(page, "Manager", "Administrator");
+  const [created] = await Promise.all([
+    page.waitForResponse(
+      (r) => r.url().endsWith("/api/v1/teams") && r.request().method() === "POST" && r.ok(),
+    ),
+    page.getByRole("button", { name: "Create" }).click(),
+  ]);
+  const teamId: number = (await created.json()).id;
+  await page.goto(`/teams/${teamId}/members`);
+  for (const member of [userA, userB]) {
+    await pickSelectOption(page, "Add a user", member.name);
+    await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.url().includes(`/teams/${teamId}/members/`) && r.request().method() === "PUT" && r.ok(),
+      ),
+      page.getByRole("button", { name: "Add", exact: true }).click(),
+    ]);
+  }
+
+  // Filter the flags table to the team: exactly the two members, with their team badges.
+  await page.goto("/feature-flags");
+  await openFilters(page);
+  await page.getByRole("combobox", { name: "Feature" }).click();
+  await page.getByRole("option", { name: "Goals" }).click();
+  await pickSelectOption(page, "Team", teamName);
+
+  const switchA = page.getByRole("switch", { name: `Toggle Goals for ${userA.name}` });
+  const switchB = page.getByRole("switch", { name: `Toggle Goals for ${userB.name}` });
+  await expect(switchA).toBeChecked();
+  await expect(switchB).toBeChecked();
+  await expect(page.getByRole("table").getByText(teamName, { exact: true }).first()).toBeVisible();
+
+  // Bulk disable: the confirm states the affected count; both rows flip.
+  await page.getByRole("button", { name: "Disable for all matching" }).click();
+  await expect(page.getByText("This will disable Goals for 2 users.")).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Disable", exact: true }).click();
+  await expect(switchA).not.toBeChecked();
+  await expect(switchB).not.toBeChecked();
+
+  // Bulk enable brings both back.
+  await page.getByRole("button", { name: "Enable for all matching" }).click();
+  await expect(page.getByText("This will enable Goals for 2 users.")).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Enable", exact: true }).click();
+  await expect(switchA).toBeChecked();
+  await expect(switchB).toBeChecked();
+
+  // Tidy up: delete the fresh team (the fresh users stay, like the first test's).
+  await page.goto("/teams");
+  await openFilters(page);
+  await page.getByLabel("Name", { exact: true }).fill(teamName);
+  await page.getByRole("button", { name: `Delete ${teamName}` }).click();
+  await Promise.all([
+    page.waitForResponse(
+      (r) => r.url().endsWith(`/teams/${teamId}`) && r.request().method() === "DELETE" && r.ok(),
+    ),
+    page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click(),
+  ]);
+  await logout(page);
 });

@@ -2,6 +2,9 @@ package ch.nokillswit.users
 
 import ch.nokillswit.dictionaries.DictionaryEntry
 import ch.nokillswit.infra.paging.PageResponse
+import ch.nokillswit.teams.TeamRef
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 
 /**
@@ -188,6 +191,14 @@ data class UserResponse(
     val deactivated: Boolean,
     // Per-user feature flags (V46) — the admin-disabled set, empty = full access.
     val disabledFeatures: List<Feature>,
+    // Teams the user is a MEMBER of (non-deleted, name-ascending) — a LIST enrichment
+    // (v2.1.0, backs the /feature-flags team column): computed by UserService.list only.
+    // Membership only — managing a team without being on its roster does not put it here.
+    // EncodeDefault(NEVER) OMITS the key when not computed (single-user/create/update
+    // responses) instead of emitting `"teams": null` against the shared response schemas.
+    @OptIn(ExperimentalSerializationApi::class)
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val teams: List<TeamRef>? = null,
 )
 
 typealias UserPageResponse = PageResponse<UserResponse>

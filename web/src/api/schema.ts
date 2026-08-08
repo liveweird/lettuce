@@ -161,6 +161,10 @@ export interface paths {
          *         together (a lone half is `400`). `featureEnabled=true` returns users with the named
          *         feature enabled (no disabled row), `false` those with it disabled.
          *
+         *     Rows additionally carry `teams` — the non-deleted teams the user is a MEMBER of
+         *     (name-ascending; empty array = none) — a list-only enrichment (v2.1.0, backs the
+         *     /feature-flags team column); the single-user responses omit the key.
+         *
          *     Malformed query parameters (unknown sort field, unknown role, unknown feature,
          *     out-of-range page/pageSize) respond with `400` and a `ProblemDetail` body.
          */
@@ -3219,6 +3223,14 @@ export interface components {
              *     never via PUT.
              */
             deactivated: boolean;
+            /**
+             * @description Teams the user is a MEMBER of (non-deleted, name-ascending) — a list enrichment
+             *     (v2.1.0, backs the /feature-flags team column): present on `GET /api/v1/users`
+             *     rows (empty array = no teams), OMITTED (not computed) on the single-user
+             *     responses. Membership only — managing a team without being on its roster does
+             *     not list it.
+             */
+            teams?: components["schemas"]["TeamRef"][];
             /**
              * @description The user's admin-disabled features (empty = full access). Caller-only semantics:
              *     each named feature's endpoints answer 403 for THIS user, and the SPA hides the
