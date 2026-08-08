@@ -6,6 +6,7 @@ import ch.nokillswit.dictionaries.DictionaryService
 import ch.nokillswit.infra.db.containsNormalized
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
+import ch.nokillswit.teams.TeamRef
 import ch.nokillswit.teams.TeamService
 import io.ktor.server.plugins.BadRequestException
 import io.ktor.util.AttributeKey
@@ -270,6 +271,7 @@ class UserService(val database: R2dbcDatabase) {
             // One grouped query per aspect for the whole page — no per-row lookups.
             val rolesByUser = rolesByUserIds(rows.map { it.id })
             val featuresByUser = disabledFeaturesByUserIds(rows.map { it.id })
+            val teamsByUser = teamRefsByUserIds(rows.map { it.id })
             val entries = entriesByIds(
                 rows.flatMap { listOfNotNull(it.careerPathId, it.careerSpecializationId, it.seniorityLevelId) }.toSet(),
             )
@@ -285,6 +287,7 @@ class UserService(val database: R2dbcDatabase) {
                     paidDaysOffAllowance = row.paidDaysOffAllowance,
                     deactivated = row.deactivated,
                     disabledFeatures = featuresByUser[row.id].orEmpty().sortedBy { f -> f.name },
+                    teams = teamsByUser[row.id].orEmpty(),
                 )
             }
             UserListResult(items = items, total = total)
@@ -335,6 +338,32 @@ class UserService(val database: R2dbcDatabase) {
             .where { UserDisabledFeatures.userId inList ids }
             .toList()
             .groupBy({ it[UserDisabledFeatures.userId].value }, { Feature.valueOf(it[UserDisabledFeatures.feature]) })
+
+    /**
+     * (userId → member-of team refs) for a page of ids: non-deleted teams only, name-ascending
+     * per user. Membership only (roster semantics — managing a team does not list it here).
+     * Must run inside a transaction.
+     */
+    private suspend fun teamRefsByUserIds(ids: List<UInt>): Map<UInt, List<TeamRef>> =
+        if (ids.isEmpty()) emptyMap()
+        else TeamService.TeamMembers
+            .join(
+                TeamService.Teams,
+                JoinType.INNER,
+                onColumn = TeamService.TeamMembers.teamId,
+                otherColumn = TeamService.Teams.id,
+            )
+            .select(TeamService.TeamMembers.userId, TeamService.Teams.id, TeamService.Teams.name)
+            .where {
+                (TeamService.TeamMembers.userId inList ids) and
+                    (TeamService.Teams.markedAsDeleted eq false)
+            }
+            .toList()
+            .groupBy(
+                { it[TeamService.TeamMembers.userId].value },
+                { TeamRef(id = it[TeamService.Teams.id].value, name = it[TeamService.Teams.name]) },
+            )
+            .mapValues { (_, refs) -> refs.sortedBy { r -> r.name } }
 
     /** Must run inside a transaction. */
     private suspend fun insertRoles(id: UInt, roles: Set<UserRole>) {

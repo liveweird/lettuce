@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.1.0",
+    date: "2026-08-08",
+    en: `Feature flags can now be changed for a whole team at once. The Feature flags screen (Config) gains a Team filter and a Teams column showing each user's teams, and two new bulk actions — "Enable for all matching" and "Disable for all matching" — that flip the picked feature for every user matching the current filters, after a confirmation stating exactly how many people will be affected. Pick a team, click once, done.`,
+    pl: `Flagi funkcji można teraz zmieniać dla całego zespołu naraz. Ekran Flagi funkcji (Konfiguracja) zyskuje filtr Zespół i kolumnę Zespoły z zespołami każdego użytkownika oraz dwie nowe akcje zbiorcze — „Włącz dla wszystkich pasujących" i „Wyłącz dla wszystkich pasujących" — które przełączają wybraną funkcję dla każdego użytkownika pasującego do bieżących filtrów, po potwierdzeniu z dokładną liczbą osób objętych zmianą. Wybierasz zespół, klikasz raz, gotowe.`,
+  },
+  {
     version: "2.0.1",
     date: "2026-08-08",
     en: `The pulse survey is now a step-by-step wizard: one question per screen, with Back and Next to move around and an automatic step forward right after you answer. Progress shows both where you are ("Question 3 of 7") and how much is answered. Answers are also color-coded by favourability — from orange for the least favourable ("Strongly disagree", low eNPS scores) through yellow to green for the most favourable ("Strongly agree", high scores) — the same color language as the performance-review ratings.`,

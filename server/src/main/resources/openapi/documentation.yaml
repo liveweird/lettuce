@@ -234,6 +234,10 @@ paths:
             together (a lone half is `400`). `featureEnabled=true` returns users with the named
             feature enabled (no disabled row), `false` those with it disabled.
 
+        Rows additionally carry `teams` — the non-deleted teams the user is a MEMBER of
+        (name-ascending; empty array = none) — a list-only enrichment (v2.1.0, backs the
+        /feature-flags team column); the single-user responses omit the key.
+
         Malformed query parameters (unknown sort field, unknown role, unknown feature,
         out-of-range page/pageSize) respond with `400` and a `ProblemDetail` body.
       parameters:
@@ -5122,6 +5126,15 @@ components:
             feedback party), but all their existing data keeps rendering unchanged and their
             email stays reserved. Flipped only via POST /users/{id}/deactivate|activate —
             never via PUT.
+        teams:
+          type: array
+          items: { $ref: '#/components/schemas/TeamRef' }
+          description: |
+            Teams the user is a MEMBER of (non-deleted, name-ascending) — a list enrichment
+            (v2.1.0, backs the /feature-flags team column): present on `GET /api/v1/users`
+            rows (empty array = no teams), OMITTED (not computed) on the single-user
+            responses. Membership only — managing a team without being on its roster does
+            not list it.
         disabledFeatures:
           type: array
           items: { $ref: '#/components/schemas/Feature' }

@@ -618,6 +618,44 @@ class UserRoutesTest {
         // Exactly the two members — manager (not a member), outsider, and caller are excluded.
         assertEquals(2L, page.total)
         assertEquals(setOf(memberA, memberB), page.items.map { it.id }.toSet())
+        // Rows carry the member-of team refs (the v2.1.0 list enrichment).
+        page.items.forEach { row ->
+            assertEquals(listOf(team.id to "team-$tag"), row.teams?.map { it.id to it.name })
+        }
+    }
+
+    @Test
+    fun `users list rows carry member-of team refs, name-ascending, excluding deleted teams`() = testApplication {
+        usePostgresTestcontainer()
+        val tag = UUID.randomUUID().toString().substring(0, 8)
+        val callerEmail = uniqueEmail("admin-$tag")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789", roles = setOf(UserRole.ADMIN), name = "Admin-$tag")
+        val managerId = TestUsers.seed(email = uniqueEmail("mgr-$tag"), password = "pw-123456789", name = "Mgr-$tag")
+        val member = TestUsers.seed(email = uniqueEmail("m-$tag"), password = "pw-123456789", name = "Member-$tag")
+        val loner = TestUsers.seed(email = uniqueEmail("l-$tag"), password = "pw-123456789", name = "Loner-$tag")
+
+        val client = authedClient(callerEmail, "pw-123456789")
+        suspend fun createTeam(name: String): TeamResponse = client.post("/api/v1/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = name, managerId = managerId, memberIds = listOf(member)))
+        }.body<TeamResponse>()
+        // Created out of name order to pin the name-ascending sort; one gets deleted.
+        val teamB = createTeam("teamref-b-$tag")
+        val teamA = createTeam("teamref-a-$tag")
+        val teamGone = createTeam("teamref-gone-$tag")
+        client.delete("/api/v1/teams/${teamGone.id}")
+
+        val page = client.get("/api/v1/users?email=$tag").body<UserPageResponse>()
+        val memberRow = page.items.single { it.id == member }
+        assertEquals(
+            listOf(teamA.id to "teamref-a-$tag", teamB.id to "teamref-b-$tag"),
+            memberRow.teams?.map { it.id to it.name },
+        )
+        // No memberships = empty list (present, not null) — the SPA renders a dash.
+        assertEquals(emptyList(), page.items.single { it.id == loner }.teams)
+        // The single-user response deliberately does NOT compute the enrichment.
+        val single = client.get("/api/v1/users/$member").body<UserResponse>()
+        assertEquals(null, single.teams)
     }
 
     @Test

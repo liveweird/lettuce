@@ -1,24 +1,35 @@
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
-import { Alert, Group, Select, Stack, Switch, Table, Text, Title } from "@mantine/core";
+import { Alert, Badge, Button, Group, Select, Stack, Switch, Table, Text, Title } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconUsers } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import ClearableTextInput from "../components/ClearableTextInput";
+import ConfirmActionModal from "../components/ConfirmActionModal";
 import EmptyState from "../components/EmptyState";
 import TableLoadingRow from "../components/TableLoadingRow";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import SortHeader from "../components/SortHeader";
 import { usePagedSort } from "../hooks/usePagedSort";
-import { isOneOf, isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
-import { FEATURES, isAdmin, listUsers, updateUserFeatures, type Feature } from "../api/client";
+import { isNumberOrNull, isOneOf, isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
+import {
+  FEATURES,
+  isAdmin,
+  listAllTeams,
+  listUsers,
+  updateUserFeatures,
+  type Feature,
+  type UserPage,
+} from "../api/client";
 import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
 
 const SORT_FIELDS = ["id", "name", "email"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
+
+type UserRow = UserPage["items"][number];
 
 const SETTINGS_KEY = "featureFlags";
 
@@ -26,7 +37,10 @@ const SETTINGS_KEY = "featureFlags";
 // enabled/disabled switch, optionally filtered by state — the flag-first counterpart of the
 // per-user editor at /users/:id/features. The state filter "any" deliberately sends NEITHER
 // list param (the server requires feature+featureEnabled as a pair); the switch state always
-// comes from each row's own disabledFeatures.
+// comes from each row's own disabledFeatures. v2.1.0 adds the team dimension — a member-of
+// team filter + badge column (the users-list `teams` enrichment) and bulk enable/disable
+// acting on EVERY row matching the current filters (not just the visible page), behind a
+// count-stating confirm.
 export default function FeatureFlags() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -40,21 +54,48 @@ export default function FeatureFlags() {
     null,
     isOneOfOrNull(["enabled", "disabled"]),
   );
+  const [teamFilter, setTeamFilter] = useStoredState<number | null>(
+    `${SETTINGS_KEY}.filter.team`,
+    null,
+    isNumberOrNull,
+  );
   const [nameFilter, setNameFilter] = useStoredState(`${SETTINGS_KEY}.filter.name`, "", isString);
   const [emailFilter, setEmailFilter] = useStoredState(`${SETTINGS_KEY}.filter.email`, "", isString);
   const activeFilterCount =
-    (stateFilter ? 1 : 0) + (nameFilter.trim() ? 1 : 0) + (emailFilter.trim() ? 1 : 0);
+    (stateFilter ? 1 : 0) +
+    (teamFilter != null ? 1 : 0) +
+    (nameFilter.trim() ? 1 : 0) +
+    (emailFilter.trim() ? 1 : 0);
 
   const [debouncedName] = useDebouncedValue(nameFilter, 300);
   const [debouncedEmail] = useDebouncedValue(emailFilter, 300);
   const [error, setError] = useState<string | null>(null);
   // The row whose toggle PUT is in flight — its switch disables until the refetch lands.
   const [pendingId, setPendingId] = useState<number | null>(null);
+  // Bulk flow: `preparing` marks which button is fetching the full filtered set (true =
+  // enable, false = disable); `bulk` holds the affected rows awaiting the modal's confirm.
+  const [bulkPreparing, setBulkPreparing] = useState<boolean | null>(null);
+  const [bulk, setBulk] = useState<{ target: boolean; rows: UserRow[] } | null>(null);
+  const [bulkRunning, setBulkRunning] = useState(false);
 
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
-    usePagedSort<SortField>("name", [feature, stateFilter, debouncedName, debouncedEmail], {
+    usePagedSort<SortField>("name", [feature, stateFilter, teamFilter, debouncedName, debouncedEmail], {
       key: SETTINGS_KEY,
       sortFields: SORT_FIELDS,
+    });
+
+  const teams = useQuery({ queryKey: ["teams", "all"], queryFn: listAllTeams, enabled: isAdmin() });
+
+  const listQuery = (p: number, size: number) =>
+    listUsers({
+      page: p,
+      pageSize: size,
+      sort: sortParam,
+      name: debouncedName || undefined,
+      email: debouncedEmail || undefined,
+      teamId: teamFilter ?? undefined,
+      feature: stateFilter == null ? undefined : feature,
+      featureEnabled: stateFilter == null ? undefined : stateFilter === "enabled",
     });
 
   const { data, isLoading, isError, error: loadError } = useQuery({
@@ -66,19 +107,11 @@ export default function FeatureFlags() {
       sortParam,
       feature,
       stateFilter,
+      teamFilter,
       debouncedName,
       debouncedEmail,
     ],
-    queryFn: () =>
-      listUsers({
-        page,
-        pageSize,
-        sort: sortParam,
-        name: debouncedName || undefined,
-        email: debouncedEmail || undefined,
-        feature: stateFilter == null ? undefined : feature,
-        featureEnabled: stateFilter == null ? undefined : stateFilter === "enabled",
-      }),
+    queryFn: () => listQuery(page, pageSize),
     placeholderData: keepPreviousData,
     enabled: isAdmin(),
   });
@@ -111,8 +144,69 @@ export default function FeatureFlags() {
     }
   }
 
+  /** Every row matching the CURRENT filters — pages until the server total is reached. */
+  async function fetchAllMatching(): Promise<UserRow[]> {
+    const rows: UserRow[] = [];
+    let p = 1;
+    for (;;) {
+      const result = await listQuery(p, 100);
+      rows.push(...result.items);
+      if (rows.length >= result.total || result.items.length === 0) return rows;
+      p += 1;
+    }
+  }
+
+  async function prepareBulk(targetEnabled: boolean) {
+    setError(null);
+    setBulkPreparing(targetEnabled);
+    try {
+      const all = await fetchAllMatching();
+      // Affected = rows not already in the target state (enabling → currently disabled).
+      const affected = all.filter((u) => u.disabledFeatures.includes(feature) === targetEnabled);
+      if (affected.length === 0) {
+        showSuccessToast(t("users.featureFlags.bulkNoChange"));
+        return;
+      }
+      setBulk({ target: targetEnabled, rows: affected });
+    } catch (err) {
+      setError(
+        saveErrorMessage(err, t, {
+          failedStatus: "users.featuresFailedStatus",
+          failed: "users.featuresFailedNetwork",
+        }),
+      );
+    } finally {
+      setBulkPreparing(null);
+    }
+  }
+
+  async function runBulk() {
+    if (!bulk) return;
+    setBulkRunning(true);
+    let failed = 0;
+    for (const row of bulk.rows) {
+      const next = bulk.target
+        ? row.disabledFeatures.filter((f) => f !== feature)
+        : [...row.disabledFeatures, feature];
+      try {
+        await updateUserFeatures(row.id, next);
+      } catch {
+        failed += 1;
+      }
+    }
+    await queryClient.invalidateQueries({ queryKey: ["users"] });
+    setBulkRunning(false);
+    setBulk(null);
+    if (failed > 0) {
+      setError(t("users.featureFlags.bulkFailed", { count: failed, total: bulk.rows.length }));
+    } else {
+      showSuccessToast(t("users.toast.featuresSaved"));
+    }
+  }
+
   const total = data?.total ?? 0;
-  const columnCount = 3;
+  const columnCount = 4;
+  const featureLabel = t(`common.feature.${feature}`);
 
   return (
     <Stack gap="md">
@@ -139,6 +233,15 @@ export default function FeatureFlags() {
             { value: "disabled", label: t("users.featureFlags.stateDisabled") },
           ]}
         />
+        <Select
+          label={t("users.featureFlags.teamLabel")}
+          value={teamFilter == null ? null : String(teamFilter)}
+          onChange={(v) => setTeamFilter(v == null ? null : Number(v))}
+          clearable
+          searchable
+          placeholder={t("common.state.any")}
+          data={(teams.data ?? []).map((team) => ({ value: String(team.id), label: team.name }))}
+        />
         <ClearableTextInput
           label={t("common.field.name")}
           value={nameFilter}
@@ -164,6 +267,26 @@ export default function FeatureFlags() {
         </Alert>
       )}
 
+      <Group justify="flex-end" gap="sm">
+        <Button
+          variant="light"
+          loading={bulkPreparing === true}
+          disabled={bulkPreparing !== null || total === 0}
+          onClick={() => void prepareBulk(true)}
+        >
+          {t("users.featureFlags.bulkEnable")}
+        </Button>
+        <Button
+          variant="light"
+          color="red"
+          loading={bulkPreparing === false}
+          disabled={bulkPreparing !== null || total === 0}
+          onClick={() => void prepareBulk(false)}
+        >
+          {t("users.featureFlags.bulkDisable")}
+        </Button>
+      </Group>
+
       <Table highlightOnHover withTableBorder verticalSpacing="sm">
         <Table.Thead>
           <Table.Tr>
@@ -185,6 +308,7 @@ export default function FeatureFlags() {
                 onToggle={toggleSort}
               />
             </Table.Th>
+            <Table.Th>{t("users.featureFlags.teamsHeader")}</Table.Th>
             <Table.Th style={{ width: 1, whiteSpace: "nowrap" }}>
               {t("users.featureFlags.enabledHeader")}
             </Table.Th>
@@ -205,13 +329,28 @@ export default function FeatureFlags() {
                   <Text size="sm">{u.email}</Text>
                 </Table.Td>
                 <Table.Td>
+                  {u.teams && u.teams.length > 0 ? (
+                    <Group gap={4}>
+                      {u.teams.map((team) => (
+                        <Badge key={team.id} variant="light" size="sm">
+                          {team.name}
+                        </Badge>
+                      ))}
+                    </Group>
+                  ) : (
+                    <Text size="sm" c="dimmed">
+                      —
+                    </Text>
+                  )}
+                </Table.Td>
+                <Table.Td>
                   <Group justify="center">
                     <Switch
                       checked={!u.disabledFeatures.includes(feature)}
                       disabled={pendingId === u.id}
                       onChange={() => void toggle(u)}
                       aria-label={t("users.featureFlags.toggleAria", {
-                        feature: t(`common.feature.${feature}`),
+                        feature: featureLabel,
                         name: u.name,
                       })}
                     />
@@ -239,6 +378,23 @@ export default function FeatureFlags() {
         onPageChange={setPage}
         onPageSizeChange={setPageSize}
         rowsPerPageLabelKey="users.rowsPerPage"
+      />
+
+      <ConfirmActionModal
+        opened={bulk != null}
+        onClose={() => setBulk(null)}
+        title={t("users.featureFlags.bulkTitle")}
+        message={t(
+          bulk?.target ? "users.featureFlags.bulkConfirmEnable" : "users.featureFlags.bulkConfirmDisable",
+          { count: bulk?.rows.length ?? 0, feature: featureLabel },
+        )}
+        cancelLabel={t("common.action.cancel")}
+        confirmLabel={
+          bulk?.target ? t("users.featureFlags.enableAction") : t("users.featureFlags.disableAction")
+        }
+        onConfirm={() => void runBulk()}
+        loading={bulkRunning}
+        confirmColor={bulk?.target ? "lettuce" : "red"}
       />
     </Stack>
   );
