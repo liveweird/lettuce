@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { BASE_URL } from "./playwright.config";
+import type { LoginBody } from "./sessions";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "..");
@@ -41,8 +42,9 @@ const SEED_ACCOUNTS = [
   "aaa-three@lettuce.local",
 ];
 
-async function apiLogin(email: string): Promise<string | null> {
-  // Retry through the per-IP /login bucket (10/min) like helpers.login() does.
+async function apiLogin(email: string): Promise<LoginBody | null> {
+  // Retry through the per-IP /login bucket like helpers.login() does. Development stacks lift
+  // that bucket (security.rateLimit.loginPerMinute), so this normally succeeds first try.
   const deadline = Date.now() + 120_000;
   while (Date.now() < deadline) {
     const res = await fetch(`${BASE_URL}/api/v1/login`, {
@@ -50,7 +52,7 @@ async function apiLogin(email: string): Promise<string | null> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password: "changeme" }),
     });
-    if (res.ok) return ((await res.json()) as { token: string }).token;
+    if (res.ok) return (await res.json()) as LoginBody;
     if (res.status !== 429) {
       // e.g. a rotated seed password in an old volume — skip this account, don't fail the run.
       console.warn(`[e2e] Skipping open-feedback cleanup for ${email}: login answered ${res.status}`);
@@ -62,9 +64,9 @@ async function apiLogin(email: string): Promise<string | null> {
 }
 
 async function clearOpenProvidedFeedbacks(email: string): Promise<number> {
-  const token = await apiLogin(email);
-  if (token == null) return 0;
-  const headers = { Authorization: `Bearer ${token}` };
+  const session = await apiLogin(email);
+  if (session == null) return 0;
+  const headers = { Authorization: `Bearer ${session.token}` };
   let cleared = 0;
   const closers: [string, (id: number) => Promise<unknown>][] = [
     ["DRAFT", (id) => fetch(`${BASE_URL}/api/v1/feedbacks/${id}`, { method: "DELETE", headers })],
@@ -92,9 +94,9 @@ async function clearOpenProvidedFeedbacks(email: string): Promise<number> {
 // the feedback cleanup below: that cleanup lists feedbacks AS each seed account, which
 // itself 403s while FEEDBACKS is disabled.
 async function resetSeedFeatureFlags(): Promise<void> {
-  const token = await apiLogin("admin@lettuce.local");
-  if (token == null) return;
-  const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+  const admin = await apiLogin("admin@lettuce.local");
+  if (admin == null) return;
+  const headers = { Authorization: `Bearer ${admin.token}`, "Content-Type": "application/json" };
   let reset = 0;
   for (const email of SEED_ACCOUNTS) {
     const res = await fetch(

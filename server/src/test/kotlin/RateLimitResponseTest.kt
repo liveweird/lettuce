@@ -22,7 +22,10 @@ class RateLimitResponseTest {
 
     @Test
     fun `the per-IP rate limit answers 429 with a problem+json body`() = testApplication {
-        usePostgresTestcontainer()
+        // Pin the login bucket: it follows the mode by default, and tests run in development,
+        // where it is lifted so the e2e suite isn't throttled (auth/AuthRoutes.kt).
+        configureApp("security.rateLimit.loginPerMinute" to "10")
+        startApplication()
         val client = jsonClient()
 
         // Exhaust the login bucket (10/60s per client host). Every attempt uses a DISTINCT

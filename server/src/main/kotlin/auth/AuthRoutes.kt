@@ -115,11 +115,18 @@ fun Application.configureAuthRoutes() {
         .withIssuer(jwtConfig.issuer)
         .build()
 
+    // Blank follows the mode (see application.yaml): production keeps the 10/min login bucket,
+    // development lifts it so a single host driving many logins — the e2e suite — is not
+    // throttled. The per-account lockout above is the brute-force defence in both modes.
+    val loginLimit = environment.config.propertyOrNull("security.rateLimit.loginPerMinute")
+        ?.getString()?.takeIf { it.isNotBlank() }?.toInt()
+        ?: if (developmentMode) 1000 else 10
+
     // Throttle login to blunt password brute-forcing, and refresh to blunt token abuse: a token
     // bucket per client host.
     install(RateLimit) {
         register(RateLimitName(LOGIN_RATE_LIMIT)) {
-            rateLimiter(limit = 10, refillPeriod = 60.seconds)
+            rateLimiter(limit = loginLimit, refillPeriod = 60.seconds)
             requestKey { call -> call.request.origin.remoteHost }
         }
         register(RateLimitName(REFRESH_RATE_LIMIT)) {

@@ -130,6 +130,26 @@ use unique content — so they don't depend on a clean database or absolute coun
 accounts are never mutated. The onboarding tour is suppressed via an init script (see
 `tests/helpers.ts`).
 
+### Logging in
+
+`helpers.login()` has two paths. For a **seeded account with the seed password** it mints a session
+over the API and writes the five `lettuce.auth.*` localStorage keys the SPA itself persists
+(`sessions.ts`) — equivalent to having driven the form, minus the typing and a navigation, and the
+serial suite does ~90 logins. The session is minted **per call**, not cached: `logout()` revokes
+both tokens server-side, so a session reused across specs would be a revoked one (the app then
+shows "You've been signed out"). If an injected session doesn't authenticate, the helper falls back
+to a real login — slow, never wrong.
+
+Everything else takes `loginWithPassword()`, the real form driver: any throwaway user, and any call
+passing an explicit password. That keeps the specs whose subject *is* a credential honest —
+`users-import` (the imported one-time password), `password-reset` (the new password), `users-admin`
+(reset / self-changed / deactivated / deleted accounts), `performance-reviews` and `hr` (generated
+passwords), and `feature-flags` (the fresh login is what proves the flags took effect).
+`auth.spec.ts`'s "log in and log out" calls `loginWithPassword` explicitly — it exists to exercise
+the form. Development stacks also lift the per-IP login bucket
+(`security.rateLimit.loginPerMinute`, 1000/min in development vs 10/min in production), so the
+remaining real logins aren't throttled either.
+
 ## Deliberately not covered
 
 - **Login lockout (429)** — five failed logins would lock a seeded account for 15 minutes in the

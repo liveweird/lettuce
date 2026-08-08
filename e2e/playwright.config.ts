@@ -12,20 +12,23 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : [["list"], ["html", { open: "never" }]],
-  // Generous per-test budget: the login helper may wait out the server's per-IP login
-  // rate limit (10/min) between retries — see helpers.ts.
-  // 180s: the login helper's per-IP rate-limit retry ladder (up to 9 × 10s sleeps) can eat
-  // ~90s on its own when fast preceding specs drain the 10/min bucket — 120s left real test
-  // work no headroom and produced stuck-at-signin timeouts (3× on 2026-08-02).
-  timeout: 180_000,
+  // 60s: the old 180s existed only to feed the login helper's per-IP rate-limit retry ladder,
+  // which could eat ~90s on its own. Development stacks now lift that bucket and the seeded
+  // accounts replay a minted session instead of signing in (global-setup.ts / sessions.ts), so
+  // the slowest test is genuine UI work (teams, ~32s) — 60s leaves headroom while letting a
+  // broken run fail three times faster.
+  timeout: 60_000,
   expect: { timeout: 10_000 },
   globalSetup: "./global-setup.ts",
   globalTeardown: "./global-teardown.ts",
   use: {
     baseURL: BASE_URL,
-    trace: "on-first-retry",
+    // retain-on-failure, not on-first-retry: retries are 0 locally, so on-first-retry never
+    // fired and local failures produced no trace at all. A trace beats the video it replaces
+    // (DOM snapshots, network, console) and costs nothing on a passing run.
+    trace: "retain-on-failure",
     screenshot: "only-on-failure",
-    video: "retain-on-failure",
+    video: "off",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
 });

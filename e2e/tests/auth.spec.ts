@@ -1,7 +1,9 @@
-import { test, expect, expectLoginRejected, login, logout, ADMIN } from "./helpers";
+import { test, expect, expectLoginRejected, loginWithPassword, logout, ADMIN } from "./helpers";
 
 test("admin can log in and log out", async ({ page }) => {
-  await login(page, ADMIN);
+  // The one deliberate opt-out from the minted-session fast path: this spec exists to exercise
+  // the real login form, so it must submit credentials like a user does.
+  await loginWithPassword(page, ADMIN);
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
   await logout(page);

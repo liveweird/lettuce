@@ -50,6 +50,13 @@ security:
   lockout:
     threshold: "$LOGIN_LOCKOUT_THRESHOLD:5"
     durationSeconds: "$LOGIN_LOCKOUT_DURATION_SECONDS:900"
+  # Per-IP token bucket on POST /api/v1/login. The per-account lockout above is the
+  # actual brute-force defence and is unaffected by this. Blank FOLLOWS THE MODE:
+  # 10/min in production, 1000/min in development — the e2e suite drives ~90 logins
+  # from a single host and would otherwise spend minutes sleeping out the bucket.
+  # Set a number to pin it in either mode.
+  rateLimit:
+    loginPerMinute: "$LOGIN_RATE_LIMIT_PER_MINUTE:"
   # Self-service password reset (POST /api/v1/password-reset): one request per
   # submitted email per interval, uniformly whether or not the account exists.
   # In-memory, per-instance, like the lockout above.
