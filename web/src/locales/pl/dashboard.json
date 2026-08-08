@@ -1,12 +1,14 @@
 {
   "title": "Pulpit",
   "hero": {
-    "pendingRequests": "Pro\u015bby o feedback dla Ciebie",
+    "pendingRequests": "Prośby o feedback dla Ciebie",
     "activeGoals": "Twoje aktywne cele",
-    "received30d": "Otrzymany feedback \u00b7 30 dni",
-    "directReports": "Bezpo\u015bredni podw\u0142adni",
-    "reviewsDone": "Oceny \u00b7 bie\u017c\u0105cy okres",
-    "vsPrev30d": "vs poprzednie 30 dni"
+    "received30d": "Otrzymany feedback · 30 dni",
+    "directReports": "Bezpośredni podwładni",
+    "reviewsDone": "Oceny · bieżący okres",
+    "vsPrev30d": "vs poprzednie 30 dni",
+    "pulseOpen": "Ankieta pulsu otwarta do",
+    "pulseSubmitted": "Ankieta pulsu wysłana — edytuj do"
   },
   "tabs": {
     "managers": "Moi menedżerowie",

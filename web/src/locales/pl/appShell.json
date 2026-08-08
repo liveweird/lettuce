@@ -27,6 +27,9 @@
     "alerts": "Alerty",
     "changelog": "Historia zmian",
     "reviewPeriods": "Okresy ocen",
-    "publicHolidays": "Święta"
+    "publicHolidays": "Święta",
+    "pulse": "Puls",
+    "pulseCycles": "Cykle pulsu",
+    "pulseRotatingQuestions": "Pytania pulsu"
   }
 }

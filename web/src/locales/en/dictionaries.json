@@ -2,7 +2,8 @@
   "title": {
     "careerPaths": "Career paths",
     "careerSpecializations": "Career specializations",
-    "seniorityLevels": "Seniority levels"
+    "seniorityLevels": "Seniority levels",
+    "pulseRotatingQuestions": "Pulse rotating questions"
   },
   "empty": "This dictionary has no entries yet.",
   "addEntry": "Add entry",

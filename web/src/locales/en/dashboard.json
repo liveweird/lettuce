@@ -3,10 +3,12 @@
   "hero": {
     "pendingRequests": "Feedback requests for you",
     "activeGoals": "Your active goals",
-    "received30d": "Feedback received \u00b7 30 days",
+    "received30d": "Feedback received · 30 days",
     "directReports": "Direct reports",
-    "reviewsDone": "Reviews \u00b7 current period",
-    "vsPrev30d": "vs previous 30 days"
+    "reviewsDone": "Reviews · current period",
+    "vsPrev30d": "vs previous 30 days",
+    "pulseOpen": "Pulse survey open until",
+    "pulseSubmitted": "Pulse survey submitted — editable until"
   },
   "tabs": {
     "managers": "My managers",

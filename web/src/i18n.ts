@@ -14,6 +14,7 @@ import enGoals from "./locales/en/goals.json";
 import enTeamKpis from "./locales/en/teamKpis.json";
 import enPerformanceReviews from "./locales/en/performanceReviews.json";
 import enDaysOff from "./locales/en/daysOff.json";
+import enPulse from "./locales/en/pulse.json";
 import enUsers from "./locales/en/users.json";
 import enTeams from "./locales/en/teams.json";
 import enTemplates from "./locales/en/templates.json";
@@ -34,6 +35,7 @@ import plGoals from "./locales/pl/goals.json";
 import plTeamKpis from "./locales/pl/teamKpis.json";
 import plPerformanceReviews from "./locales/pl/performanceReviews.json";
 import plDaysOff from "./locales/pl/daysOff.json";
+import plPulse from "./locales/pl/pulse.json";
 import plUsers from "./locales/pl/users.json";
 import plTeams from "./locales/pl/teams.json";
 import plTemplates from "./locales/pl/templates.json";
@@ -60,6 +62,7 @@ const en = {
   // Mounted as the singular area `performanceReview` (the teamKpis.json -> teamKpi precedent).
   performanceReview: enPerformanceReviews,
   daysOff: enDaysOff,
+  pulse: enPulse,
   users: enUsers,
   teams: enTeams,
   templates: enTemplates,
@@ -83,6 +86,7 @@ const pl = {
   teamKpi: plTeamKpis,
   performanceReview: plPerformanceReviews,
   daysOff: plDaysOff,
+  pulse: plPulse,
   users: plUsers,
   teams: plTeams,
   templates: plTemplates,

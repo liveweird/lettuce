@@ -46,6 +46,7 @@
     "account": "Your account — change your password here.",
     "changelog": "Changelog — what's new in each release. A red dot on the version stamp below marks changes you haven't seen yet.",
     "logout": "Your account menu: change your password or sign out when you're done.",
-    "replay": "That's it! Replay this tour anytime from here."
+    "replay": "That's it! Replay this tour anytime from here.",
+    "pulse": "Fill the recurring pulse survey here and explore your team's anonymous eNPS results once a cycle closes."
   }
 }

@@ -58,7 +58,11 @@
     "daysOffCorrected_SUBTRACT": "{{manager}} odjął/odjęła {{days}} dni z Twojego budżetu płatnych dni na rok {{year}}.",
     "passwordChanged": "Twoje hasło zostało zmienione.",
     "passwordChanged_admin": "Administrator zmienił Twoje hasło.",
-    "passwordChanged_reset": "Twoje hasło zostało zresetowane przez e-mail."
+    "passwordChanged_reset": "Twoje hasło zostało zresetowane przez e-mail.",
+    "pulseCycleScheduled": "Ankieta pulsu zostanie otwarta {{openDate}}.",
+    "pulseCycleOpened": "Ankieta pulsu jest otwarta — odpowiedz do {{closeDate}}.",
+    "pulseResultsAvailable": "Wyniki ankiety pulsu są już dostępne.",
+    "pulseCycleCancelled": "Ankieta pulsu zaplanowana na {{openDate}} została anulowana."
   },
   "delete": "Usuń",
   "deleteAria": "Usuń powiadomienie {{id}}"

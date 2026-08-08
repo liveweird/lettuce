@@ -78,7 +78,8 @@
     "GOALS": "Goals",
     "TEAM_KPIS": "Team KPIs",
     "PERFORMANCE_REVIEWS": "Performance Reviews",
-    "DAYS_OFF": "Days Off"
+    "DAYS_OFF": "Days Off",
+    "PULSE_SURVEYS": "Pulse Surveys"
   },
   "sort": {
     "label": "Sort by",

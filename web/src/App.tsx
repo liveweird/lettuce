@@ -28,6 +28,7 @@ import {
   IconClipboardText,
   IconFileText,
   IconHelp,
+  IconHeartRateMonitor,
   IconHierarchy,
   IconHistory,
   IconRoute,
@@ -106,6 +107,8 @@ const ReviewPeriods = lazy(() => import("./pages/ReviewPeriods"));
 const DaysOff = lazy(() => import("./pages/DaysOff"));
 const CreateDaysOff = lazy(() => import("./pages/CreateDaysOff"));
 const UserDaysOff = lazy(() => import("./pages/UserDaysOff"));
+const Pulse = lazy(() => import("./pages/Pulse"));
+const PulseCycles = lazy(() => import("./pages/PulseCycles"));
 const PublicHolidays = lazy(() => import("./pages/PublicHolidays"));
 const Login = lazy(() => import("./pages/Login"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
@@ -171,6 +174,7 @@ const NAV_ITEMS: ReadonlyArray<NavEntry> = [
     feature: "PERFORMANCE_REVIEWS",
   },
   { to: "/days-off", label: "appShell.nav.daysOff", icon: IconBeach, tourId: "nav-days-off", feature: "DAYS_OFF" },
+  { to: "/pulse", label: "appShell.nav.pulse", icon: IconHeartRateMonitor, tourId: "nav-pulse", feature: "PULSE_SURVEYS" },
   {
     label: "appShell.nav.config",
     icon: IconSettings,
@@ -195,6 +199,14 @@ const NAV_ITEMS: ReadonlyArray<NavEntry> = [
       { to: "/dictionaries/career-paths", label: "appShell.nav.careerPaths", icon: IconRoute },
       { to: "/dictionaries/career-specializations", label: "appShell.nav.careerSpecializations", icon: IconBriefcase },
       { to: "/dictionaries/seniority-levels", label: "appShell.nav.seniorityLevels", icon: IconStairs },
+      // Feature-tagged in the NAV only — the dictionaries area itself stays ungated
+      // server-side (the career dictionaries posture).
+      {
+        to: "/dictionaries/pulse-rotating-questions",
+        label: "appShell.nav.pulseRotatingQuestions",
+        icon: IconHeartRateMonitor,
+        feature: "PULSE_SURVEYS",
+      },
     ],
   },
 ];
@@ -368,6 +380,12 @@ function Shell() {
           ...e,
           children: [
             ...e.children,
+            {
+              to: "/pulse-cycles",
+              label: "appShell.nav.pulseCycles",
+              icon: IconHeartRateMonitor,
+              feature: "PULSE_SURVEYS",
+            },
             { to: "/feature-flags", label: "appShell.nav.featureFlags", icon: IconToggleLeft },
             { to: "/alerts", label: "appShell.nav.alerts", icon: IconSpeakerphone },
           ],
@@ -573,6 +591,8 @@ export default function App() {
             <Route path="performance-reviews/:id/edit" element={<EditPerformanceReview />} />
             <Route path="performance-reviews/:id/view" element={<ViewPerformanceReview />} />
             <Route path="review-periods" element={<ReviewPeriods />} />
+            <Route path="pulse" element={<Pulse />} />
+            <Route path="pulse-cycles" element={<PulseCycles />} />
             <Route path="days-off" element={<DaysOff />} />
             <Route path="days-off/new" element={<CreateDaysOff />} />
             <Route path="users/:userId/days-off" element={<UserDaysOff />} />

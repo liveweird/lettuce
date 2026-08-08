@@ -46,6 +46,7 @@
     "account": "Twoje konto — tutaj zmienisz hasło.",
     "changelog": "Historia zmian — co nowego w każdym wydaniu. Czerwona kropka przy numerze wersji poniżej oznacza zmiany, których jeszcze nie widziałeś/aś.",
     "logout": "Menu Twojego konta: zmień hasło lub wyloguj się, gdy skończysz.",
-    "replay": "To wszystko! Przewodnik możesz odtworzyć w każdej chwili stąd."
+    "replay": "To wszystko! Przewodnik możesz odtworzyć w każdej chwili stąd.",
+    "pulse": "Tutaj wypełnisz cykliczną ankietę pulsu i sprawdzisz anonimowe wyniki eNPS swojego zespołu po zamknięciu cyklu."
   }
 }
