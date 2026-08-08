@@ -36,7 +36,9 @@
   "closesOn": "Ankieta jest otwarta do {{date}}.",
   "action": {
     "submit": "Wyślij ankietę",
-    "update": "Zapisz zmiany"
+    "update": "Zapisz zmiany",
+    "back": "Wstecz",
+    "next": "Dalej"
   },
   "validation": {
     "answerRequired": "Wybierz odpowiedź.",
@@ -138,5 +140,6 @@
     "closeAria": "Zamknij cykl {{id}}",
     "cancelAria": "Anuluj cykl {{id}}",
     "editDatesAria": "Edytuj daty cyklu {{id}}"
-  }
+  },
+  "stepCounter": "Pytanie {{current}} z {{total}}"
 }

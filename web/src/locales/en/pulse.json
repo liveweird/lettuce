@@ -36,7 +36,9 @@
   "closesOn": "The survey is open until {{date}}.",
   "action": {
     "submit": "Submit survey",
-    "update": "Save changes"
+    "update": "Save changes",
+    "back": "Back",
+    "next": "Next"
   },
   "validation": {
     "answerRequired": "Please pick an answer.",
@@ -138,5 +140,6 @@
     "closeAria": "Close cycle {{id}}",
     "cancelAria": "Cancel cycle {{id}}",
     "editDatesAria": "Edit dates of cycle {{id}}"
-  }
+  },
+  "stepCounter": "Question {{current}} of {{total}}"
 }

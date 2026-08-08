@@ -67,6 +67,49 @@ export function commentPromptKey(enps: number | null): "low" | "mid" | "high" | 
   return "high";
 }
 
+// The favourability color language (the reviewRatings.ts ramp, re-cut for these scales):
+// the less favourable, the more orange; the more favourable, the more green. Mantine shade
+// tokens — render as `var(--mantine-color-<token with . -> ->)` where a raw CSS color is needed.
+const SCALE_COLORS: Record<PulseScaleAnswer, string> = {
+  "1": "orange.8",
+  "2": "orange.5",
+  "3": "yellow.6",
+  "4": "lime.6",
+  "5": "green.8",
+  NA: "gray.5",
+};
+
+/** The agreement scale's favourability color; "Not applicable" stays neutral gray. */
+export function pulseScaleColor(answer: PulseScaleAnswer): string {
+  return SCALE_COLORS[answer] ?? "gray.5";
+}
+
+// Graded across the eNPS bands: detractors (0-6) shade out of orange, passives (7-8) sit in
+// the yellow/lime middle, promoters (9-10) go green.
+const ENPS_COLORS: Record<number, string> = {
+  0: "orange.9",
+  1: "orange.8",
+  2: "orange.8",
+  3: "orange.7",
+  4: "orange.6",
+  5: "orange.5",
+  6: "orange.4",
+  7: "yellow.6",
+  8: "lime.6",
+  9: "green.5",
+  10: "green.8",
+};
+
+/** The eNPS answer's band color; out-of-range values fall back to gray (forward-compat). */
+export function enpsColor(score: number): string {
+  return ENPS_COLORS[score] ?? "gray.5";
+}
+
+/** A Mantine shade token as a CSS variable ("green.8" -> "var(--mantine-color-green-8)"). */
+export function mantineColorVar(token: string): string {
+  return `var(--mantine-color-${token.replace(".", "-")})`;
+}
+
 export function pulseFormValidation(t: (key: string, opts?: Record<string, unknown>) => string) {
   const required = (value: number | PulseScaleAnswer | null) =>
     value === null ? t("pulse.validation.answerRequired") : null;
