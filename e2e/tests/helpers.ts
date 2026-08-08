@@ -1,4 +1,5 @@
 import { test as base, expect, type Locator, type Page } from "@playwright/test";
+import { AUTH_KEY_PREFIX, sessionEntries, type LoginBody } from "../sessions";
 
 // Suppress the first-run onboarding tour (react-joyride) — its overlay intercepts clicks. The app
 // starts it only when `hasSeenTour(userId)` is false (localStorage key `lettuce.tour.seen.<id>`);
@@ -25,16 +26,75 @@ export const AAA_TWO = "aaa-two@lettuce.local";
 export const AAA_THREE = "aaa-three@lettuce.local";
 export const PASSWORD = "changeme";
 
-// POST /login is rate-limited per IP (10 requests / 60 s, auth/AuthRoutes.kt) and the serial
-// suite fires logins faster than that in bursts. The SPA surfaces any 429 as the lockout alert,
-// so on that alert we wait for the bucket to refill and resubmit rather than failing the spec.
+const SEEDED = new Set([ADMIN, MANAGER_AAA, AAA_ONE, AAA_TWO, AAA_THREE]);
+
+// POST /login is rate-limited per IP (auth/AuthRoutes.kt). Development stacks lift that bucket
+// (security.rateLimit.loginPerMinute) so the suite is not throttled, but the per-ACCOUNT lockout
+// still exists and the SPA surfaces any 429 as the same alert — so on that alert we wait and
+// resubmit rather than failing the spec. It should now essentially never fire; the short ladder
+// is there to fail with a clear message inside the per-test timeout instead of hanging.
 const RATE_LIMIT_ALERT = "Too many failed login attempts";
-const RATE_LIMIT_RETRIES = 9;
-const RATE_LIMIT_WAIT_MS = 10_000;
+const RATE_LIMIT_RETRIES = 2;
+const RATE_LIMIT_WAIT_MS = 5_000;
+
+/**
+ * Log in as [email] for the seeded accounts by minting a session over the API and writing the
+ * SPA's own localStorage keys — equivalent to having driven the form, minus the typing and one
+ * navigation, and the suite does ~90 logins. The session is minted per call on purpose: logout()
+ * revokes both tokens server-side, so a session reused across specs would be a revoked one.
+ *
+ * Anything else — a throwaway user, or an explicit password — takes the real form path, which is
+ * exactly what those specs are asserting.
+ */
+export async function login(page: Page, email: string, password = PASSWORD): Promise<void> {
+  if (!(password === PASSWORD && SEEDED.has(email))) {
+    await loginWithPassword(page, email, password);
+    return;
+  }
+  const minted = await page.request.post("/api/v1/login", { data: { email, password } });
+  if (!minted.ok()) {
+    await loginWithPassword(page, email, password);
+    return;
+  }
+  const entries = sessionEntries((await minted.json()) as LoginBody);
+  // localStorage needs a document on the app's origin; at test start the page is about:blank.
+  if (!page.url().startsWith("http")) await page.goto("/login");
+  await page.evaluate((kv: [string, string][]) => {
+    for (const [key, value] of kv) localStorage.setItem(key, value);
+  }, entries);
+  await page.goto("/");
+  try {
+    await expect(page.getByRole("button", { name: "User menu" })).toBeVisible({ timeout: 15_000 });
+  } catch {
+    // Self-heal: if the injected session doesn't authenticate (a renamed storage key), fall back
+    // to the real form. Drift costs one slow login here, never a red spec.
+    await loginWithPassword(page, email, password);
+  }
+}
+
+/**
+ * Navigate to a usable sign-in form. Any leftover session has to go first: while one exists the
+ * app's RedirectIfAuthed bounces /login to the dashboard, so the form never renders and a fill()
+ * waits out the whole test timeout.
+ */
+async function gotoSignInForm(page: Page): Promise<void> {
+  if (page.url().startsWith("http")) {
+    await page.evaluate((prefix: string) => {
+      for (const key of Object.keys(localStorage)) {
+        if (key.startsWith(prefix)) localStorage.removeItem(key);
+      }
+    }, AUTH_KEY_PREFIX);
+  }
+  await page.goto("/login");
+}
 
 /** Log in through the real login form and wait for the dashboard to render. */
-export async function login(page: Page, email: string, password = PASSWORD): Promise<void> {
-  await page.goto("/login");
+export async function loginWithPassword(
+  page: Page,
+  email: string,
+  password = PASSWORD,
+): Promise<void> {
+  await gotoSignInForm(page);
   // Target by textbox role: getByLabel("Password") also matches the visibility-toggle button.
   await page.getByRole("textbox", { name: "Email" }).fill(email);
   await page.getByRole("textbox", { name: "Password" }).fill(password);
@@ -69,7 +129,7 @@ export async function expectLoginRejected(
   password: string,
   expected: RegExp = /invalid email or password/i,
 ): Promise<void> {
-  await page.goto("/login");
+  await gotoSignInForm(page);
   await page.getByRole("textbox", { name: "Email" }).fill(email);
   await page.getByRole("textbox", { name: "Password" }).fill(password);
   const invalid = page.getByText(expected);

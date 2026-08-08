@@ -118,7 +118,10 @@ class LoginTest {
 
     @Test
     fun `repeated login attempts are rate limited with 429`() = testApplication {
-        usePostgresTestcontainer()
+        // Pin the login bucket: it follows the mode by default, and tests run in development,
+        // where it is lifted so the e2e suite isn't throttled (auth/AuthRoutes.kt).
+        configureApp("security.rateLimit.loginPerMinute" to "10")
+        startApplication()
         val client = jsonClient()
         // The login route allows 10 attempts/min per host; the 11th is throttled before the handler.
         val statuses = (1..11).map {
