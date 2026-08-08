@@ -6,7 +6,7 @@ import {
   typeContent,
   gotoUserRow,
   uniqueText,
-  MANAGER_AAA,
+  AAA_ONE,
 } from "./helpers";
 
 // Exercises, through the real UI, the create + content PUT + POST /send + POST /withdraw path.
@@ -14,12 +14,14 @@ import {
 // row regardless of any other data in the shared database.
 test("provider drafts, sends, and withdraws a feedback", async ({ page }) => {
   const body = uniqueText("E2E provide");
-  await login(page, MANAGER_AAA);
+  // AAA One provides about AAA Two: the provider lifecycle is provider-generic, and under
+  // parallel workers this file must own its (subject, provider) pair exclusively (see README).
+  await login(page, AAA_ONE);
 
-  // Provide feedback about AAA One → create editor → type content → Save draft.
+  // Provide feedback about AAA Two → create editor → type content → Save draft.
   // (Filter by name first so the row is on page 1 even after runs accumulate E2E users.)
-  await gotoUserRow(page, "AAA One");
-  await clickProvideFeedback(page, "AAA One");
+  await gotoUserRow(page, "AAA Two");
+  await clickProvideFeedback(page, "AAA Two");
   await expect(page).toHaveURL(/\/feedback\/new/);
   await typeContent(page, body);
   const [created] = await Promise.all([

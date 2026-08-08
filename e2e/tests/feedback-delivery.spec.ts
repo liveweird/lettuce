@@ -8,8 +8,8 @@ import {
   notificationCard,
   sortNewestFirst,
   uniqueText,
-  MANAGER_AAA,
   AAA_ONE,
+  AAA_TWO,
 } from "./helpers";
 
 // The receiving side, end to end: a draft stays invisible to its subject; once sent, the subject
@@ -19,8 +19,10 @@ test("subject cannot see a draft, then receives and reads the sent feedback via 
 }) => {
   const body = uniqueText("E2E delivery");
 
-  // Provider drafts about AAA One.
-  await login(page, MANAGER_AAA);
+  // Provider drafts about AAA One. AAA Two provides (not the manager): this file must own its
+  // (subject, provider, requester) triple exclusively under parallel workers, and the manager's
+  // ∅-requester triples belong to manager-oversight/feedback-lifecycle-rest/hr (see README).
+  await login(page, AAA_TWO);
   const id = await provideFeedback(page, "AAA One", body, "Save draft");
   await logout(page);
 
@@ -36,7 +38,7 @@ test("subject cannot see a draft, then receives and reads the sent feedback via 
   await logout(page);
 
   // Provider sends it (content PUT + POST /send from the editor).
-  await login(page, MANAGER_AAA);
+  await login(page, AAA_TWO);
   await page.goto(`/feedback/${id}/edit`);
   await Promise.all([
     page.waitForResponse(
@@ -54,7 +56,7 @@ test("subject cannot see a draft, then receives and reads the sent feedback via 
 
   // …and the bell holds the delivery notification; its "Go to" opens the feedback.
   const dialog = await openBell(page);
-  const card = notificationCard(dialog, "Feedback from Manager AAA about AAA One has been sent.");
+  const card = notificationCard(dialog, "Feedback from AAA Two about AAA One has been sent.");
   await expect(card).toBeVisible();
   await card.getByRole("button", { name: "Go to" }).click();
   await expect(page).toHaveURL(new RegExp(`/feedback/${id}/view`));
@@ -68,7 +70,7 @@ test("subject cannot see a draft, then receives and reads the sent feedback via 
   const dialogAfter = await openBell(page);
   const cardAfter = notificationCard(
     dialogAfter,
-    "Feedback from Manager AAA about AAA One has been sent.",
+    "Feedback from AAA Two about AAA One has been sent.",
   );
   await expect(
     cardAfter.getByRole("button", { name: /Mark notification \d+ as unseen/ }),

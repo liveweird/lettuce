@@ -3,6 +3,7 @@ import {
   expect,
   login,
   clickProvideFeedback,
+  gotoUserRow,
   typeContent,
   sortNewestFirst,
   uniqueText,
@@ -18,7 +19,8 @@ test("manager sees a delivered team feedback in the team tab and the per-user sc
   await login(page, MANAGER_AAA);
 
   // Deliver a feedback about AAA One (create directly as SENT); capture both ids.
-  await page.goto("/users");
+  // (Filter by name first so the row is on page 1 even after runs accumulate E2E users.)
+  await gotoUserRow(page, "AAA One");
   await clickProvideFeedback(page, "AAA One");
   await typeContent(page, body);
   const [created] = await Promise.all([

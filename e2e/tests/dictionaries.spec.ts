@@ -7,7 +7,10 @@ import type { Page } from "@playwright/test";
 // (unique E2E-* values) after whatever the volume already holds, and removes them at the end —
 // pre-existing entries ride along in every save untouched.
 
-const SLUG = "career-paths";
+// seniority-levels, not career-paths: user-edit.spec exercises the career-paths document (its
+// whole-list editor pattern removes entries BY INDEX), and under parallel workers each dictionary
+// document needs exactly one writer file.
+const SLUG = "seniority-levels";
 
 async function saveDictionary(page: Page) {
   const save = page.getByRole("button", { name: "Save", exact: true });
@@ -30,13 +33,13 @@ async function saveDictionary(page: Page) {
 }
 
 test("admin curates a dictionary; a regular user sees the read-only list", async ({ page }) => {
-  const valueA = uniqueText("E2E-Path-A");
-  const valueB = uniqueText("E2E-Path-B");
+  const valueA = uniqueText("E2E-Level-A");
+  const valueB = uniqueText("E2E-Level-B");
   const renamed = `${valueA}-renamed`;
 
   await login(page, ADMIN);
   await page.goto(`/dictionaries/${SLUG}`);
-  await expect(page.getByRole("heading", { name: "Career paths" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Seniority levels" })).toBeVisible();
   const addEntry = page.getByRole("button", { name: "Add entry", exact: true });
   await expect(addEntry).toBeVisible();
 
