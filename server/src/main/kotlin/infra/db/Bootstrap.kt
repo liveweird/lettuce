@@ -5,6 +5,7 @@ import ch.nokillswit.daysoff.DaysOffServiceKey
 import ch.nokillswit.feedbacks.FeedbackServiceKey
 import ch.nokillswit.goals.GoalServiceKey
 import ch.nokillswit.oneonones.OneOnOneServiceKey
+import ch.nokillswit.pulse.PulseResponseServiceKey
 import ch.nokillswit.reviews.PerformanceReviewServiceKey
 import ch.nokillswit.teamkpis.TeamKpiServiceKey
 import ch.nokillswit.users.UserServiceKey
@@ -97,5 +98,10 @@ suspend fun Application.configureBootstrap() {
     val correctionsEncrypted = attributes[DaysOffServiceKey].encryptLegacyRows(reencryptAll = rotating)
     if (correctionsEncrypted > 0) {
         log.info("Bootstrap: ${if (rotating) "re-" else ""}encrypted $correctionsEncrypted days-off correction row(s) at rest")
+    }
+    // And for the seven pulse-response answer/comment columns, for the same rotation reason.
+    val pulseEncrypted = attributes[PulseResponseServiceKey].encryptLegacyRows(reencryptAll = rotating)
+    if (pulseEncrypted > 0) {
+        log.info("Bootstrap: ${if (rotating) "re-" else ""}encrypted $pulseEncrypted pulse response row(s) at rest")
     }
 }

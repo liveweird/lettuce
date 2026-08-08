@@ -43,6 +43,7 @@ const DICTIONARIES: Record<DictionarySlug, { titleKey: string }> = {
   "career-paths": { titleKey: "dictionary.title.careerPaths" },
   "career-specializations": { titleKey: "dictionary.title.careerSpecializations" },
   "seniority-levels": { titleKey: "dictionary.title.seniorityLevels" },
+  "pulse-rotating-questions": { titleKey: "dictionary.title.pulseRotatingQuestions" },
 };
 
 const isDictionarySlug = (s: string | undefined): s is DictionarySlug =>

@@ -56,7 +56,11 @@
     "daysOffCorrected_SUBTRACT": "{{manager}} subtracted {{days}} day(s) from your paid days-off budget for {{year}}.",
     "passwordChanged": "Your password was changed.",
     "passwordChanged_admin": "An administrator changed your password.",
-    "passwordChanged_reset": "Your password was reset via email."
+    "passwordChanged_reset": "Your password was reset via email.",
+    "pulseCycleScheduled": "A pulse survey is scheduled to open on {{openDate}}.",
+    "pulseCycleOpened": "The pulse survey is open — share your answers by {{closeDate}}.",
+    "pulseResultsAvailable": "Pulse survey results are available.",
+    "pulseCycleCancelled": "The pulse survey planned for {{openDate}} was cancelled."
   },
   "delete": "Delete",
   "deleteAria": "Delete notification {{id}}"

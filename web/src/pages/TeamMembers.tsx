@@ -28,6 +28,7 @@ import {
   getUserId,
   hasFeature,
   isAdmin,
+  listAllUsers,
   listUsers,
   removeTeamMember,
 } from "../api/client";
@@ -93,9 +94,12 @@ export default function TeamMembers() {
     enabled: idIsValid,
   });
 
+  // EVERY user, all pages (the v1.51.0 useManagerOptions lesson, second site): a single
+  // name-sorted page silently loses candidates once the org outgrows the server's max
+  // pageSize. Client-sorted by name below.
   const { data: userPool } = useQuery({
     queryKey: ["users", "picker"],
-    queryFn: () => listUsers({ page: 1, pageSize: PICKER_PAGE_SIZE, sort: "name" }),
+    queryFn: listAllUsers,
     staleTime: 5 * 60 * 1000,
     enabled: idIsValid && canManage,
   });
@@ -133,8 +137,9 @@ export default function TeamMembers() {
 
   const members = membersPage?.items ?? [];
   const memberIds = new Set(members.map((m) => m.id));
-  const addOptions = (userPool?.items ?? [])
+  const addOptions = (userPool ?? [])
     .filter((u) => !memberIds.has(u.id) && u.id !== team?.managerId)
+    .sort((a, b) => a.name.localeCompare(b.name))
     .map((u) => ({ value: String(u.id), label: u.name }));
 
   function add() {

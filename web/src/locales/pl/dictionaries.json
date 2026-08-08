@@ -2,7 +2,8 @@
   "title": {
     "careerPaths": "Ścieżki kariery",
     "careerSpecializations": "Specjalizacje",
-    "seniorityLevels": "Poziomy zaszeregowania"
+    "seniorityLevels": "Poziomy zaszeregowania",
+    "pulseRotatingQuestions": "Pytania rotacyjne pulsu"
   },
   "empty": "Ten słownik nie ma jeszcze wpisów.",
   "addEntry": "Dodaj wpis",

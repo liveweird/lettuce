@@ -118,6 +118,8 @@ class FeatureFlagsTest {
             "/api/v1/days-off",
             "/api/v1/days-off/calendar",
             "/api/v1/public-holidays",
+            "/api/v1/pulse-surveys/cycles",
+            "/api/v1/pulse-surveys/visible-teams",
         )
         gated.forEach { path ->
             assertEquals(HttpStatusCode.Forbidden, blocked.get(path).status, "expected 403 for $path")
@@ -312,6 +314,7 @@ class FeatureFlagsTest {
                 type.name.startsWith("TEAM_KPI_") -> Feature.TEAM_KPIS
                 type.name.startsWith("PERFORMANCE_REVIEW_") -> Feature.PERFORMANCE_REVIEWS
                 type.name.startsWith("DAYS_OFF_") -> Feature.DAYS_OFF
+                type.name.startsWith("PULSE_") -> Feature.PULSE_SURVEYS
                 else -> error("Unclassified notification type $type — extend the mapping test")
             }
             assertEquals(expected, type.feature, "mapping for $type")

@@ -8,9 +8,9 @@ import kotlinx.serialization.Serializable
  * The kind of notification, driving both the recipient's wording and its params. Values are
  * produced by feedbacks/FeedbackNotifications.kt, oneonones/OneOnOneNotifications.kt,
  * goals/GoalNotifications.kt, teamkpis/TeamKpiNotifications.kt,
- * reviews/PerformanceReviewNotifications.kt, daysoff/DaysOffNotifications.kt, and the
- * password-change paths (users/UserRoutes.kt, auth/AuthRoutes.kt); the SPA renders each one in
- * the viewer's language from
+ * reviews/PerformanceReviewNotifications.kt, daysoff/DaysOffNotifications.kt,
+ * pulse/PulseNotifications.kt, and the password-change paths (users/UserRoutes.kt,
+ * auth/AuthRoutes.kt); the SPA renders each one in the viewer's language from
  * `notifications.event.*` keys.
  */
 @Serializable
@@ -46,6 +46,10 @@ enum class NotificationType {
     DAYS_OFF_REJECTED_TO_OWNER,
     DAYS_OFF_CANCELLED_TO_MANAGER,
     DAYS_OFF_CORRECTED_TO_OWNER,
+    PULSE_CYCLE_SCHEDULED,
+    PULSE_CYCLE_OPENED,
+    PULSE_RESULTS_AVAILABLE,
+    PULSE_CYCLE_CANCELLED,
     PASSWORD_CHANGED,
 }
 
@@ -95,6 +99,11 @@ val NotificationType.feature: Feature?
         NotificationType.DAYS_OFF_CANCELLED_TO_MANAGER,
         NotificationType.DAYS_OFF_CORRECTED_TO_OWNER,
         -> Feature.DAYS_OFF
+        NotificationType.PULSE_CYCLE_SCHEDULED,
+        NotificationType.PULSE_CYCLE_OPENED,
+        NotificationType.PULSE_RESULTS_AVAILABLE,
+        NotificationType.PULSE_CYCLE_CANCELLED,
+        -> Feature.PULSE_SURVEYS
         NotificationType.PASSWORD_CHANGED -> null
     }
 

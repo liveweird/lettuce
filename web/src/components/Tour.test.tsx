@@ -185,6 +185,7 @@ describe("Tour", () => {
         "TEAM_KPIS",
         "PERFORMANCE_REVIEWS",
         "DAYS_OFF",
+        "PULSE_SURVEYS",
       ]),
     );
     try {

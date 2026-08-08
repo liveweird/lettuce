@@ -1,0 +1,84 @@
+# Pulse surveys (v2.0.0)
+
+Recurring anonymous eNPS surveys: admin-managed cycles, per-user encrypted responses, team-aggregated results with k-anonymity, manager participation monitoring, anonymized comments. Server package `pulse/` (+ `settings/AppSettingsService.kt`, `teams/TeamTree.kt`); SPA `/pulse` hub + `/pulse-cycles` admin screen; feature flag `PULSE_SURVEYS`; dictionary `pulse-rotating-questions`.
+
+## Cycle machine (`pulse_cycles`, V48)
+
+`SCHEDULED → OPEN → CLOSED`, terminal `CANCELLED` reachable from ANY of the three (cancelling a CLOSED cycle retracts its results; responses are always kept for audit). **Every transition is a manual ADMIN action** — `planned_open_date`/`planned_close_date` are advisory prefills; the app has zero background jobs and none may act on them. **At most one non-terminal (SCHEDULED/OPEN) cycle exists at a time**: service pre-check → 409, race-proof backstop via V48's partial unique index over a constant (`uq_pulse_cycles_non_terminal`). PUT date edits: SCHEDULED = both dates; OPEN = close date only ("extend" — a changed open date is 400); CLOSED/CANCELLED = 409. Soft-delete column per convention but **no DELETE endpoint** (cancel is the removal — the `days_off_requests` precedent).
+
+## Eligibility snapshot (`pulse_participants`, V49)
+
+Taken at OPEN: active (not soft-deleted) ∧ not deactivated ∧ PULSE_SURVEYS enabled → participant rows. Later churn never changes a cycle's history; a user enabled after open is NOT a participant (403 on my-response). Response rates and participation monitoring read the snapshot. The schedule-time notification audience is computed the same way but deliberately un-stored (may drift from the later snapshot — documented).
+
+## Survey content & responses (`pulse_responses`, V49)
+
+Q1 eNPS 0–10; Q2–Q5 fixed statements (client-side i18n, NOT stored); Q6 rotating question; Q7 optional comment ≤1000 chars. Answers stored as strings (`"0".."10"` / `"1".."5"` / `"NA"`), **all six scored columns + the comment encrypted** (FieldCipher envelopes — the V45 review-ratings precedent; `encryptLegacyRows()` hook in Bootstrap; never filter/sort these columns in SQL). One row per (cycle, user) — UNIQUE + FK into participants; **upsert while OPEN** (`submitted_at` set once, immutable). `GET/PUT …/my-response` is the ONLY endpoint ever serving individual answers — own answers only, and **only while OPEN** (after close: 409 — the anti-copy-paste rule). `PulseResponseService.answersForScope` returns the user-id-free `PulseAnswers` type, so no aggregate can leak an author by construction; comments come back author-free and **shuffled per request**.
+
+## Rotating question (Q6)
+
+Fourth dictionary `PULSE_ROTATING_QUESTION("pulse-rotating-questions")`, seeded by V50 with the six bank statements; admin-editable via the generic dictionary machinery (**deliberately ungated** server-side like all dictionaries — the nav leaf is feature-tagged as pure UI). Pick at SCHEDULE time (`PulseCycleService.pickRotatingQuestion`, injectable `Random`): candidates = ACTIVE entries with the LOWEST usage count over non-cancelled cycles, uniform random among ties — pool-without-replacement with an implicit reset when counts equalize; a cancelled cycle returns its question; a newly added entry (usage 0) is automatically next; an empty bank refuses to schedule (409). The entry's **text is snapshotted** onto the cycle (`rotating_question_text`) — renames never rewrite what a cycle asked. Rotating-question deltas compare only when the previous cycle used the SAME entry id.
+
+## Team scopes (`teams/TeamTree.kt`)
+
+The team hierarchy is derived, not stored: **team T2 is below T1 iff T2's manager ∈ members(T1)** (set-at-a-time BFS, cycle-safe, non-deleted teams, ManagementChain style; wrapped for routes by `TeamService.visibleTeamTreeIds` / `managedTeamTreeIds` / `teamScopeMembers`).
+
+- `visibleResultTeamIds(user)` = member-of + managed + everything below either — the RESULTS scope.
+- `monitoredTeamIds(user)` = managed + below — the MONITORING scope (participation + comments).
+- `teamScopeUserIds(team, mode)`: `direct` = current members; `subtree` = members + every transitive subordinate of a member. A manager is never a plain member of their own team — their response aggregates under the team they are a MEMBER of.
+- `GET /pulse-surveys/visible-teams` serves both lists to the SPA's pickers (HR: all teams).
+
+## Access matrix (who sees what)
+
+| View | Rule |
+|---|---|
+| Fill/edit own survey | participant + cycle OPEN (upsert) |
+| Team aggregates (`…/results`) | cycle CLOSED (409 otherwise — **uniform, HR included**; CANCELLED never serves results) + **the per-cycle fill gate**: caller responded in THIS cycle (no role exemption — ADMIN included) + team ∈ visible tree. **HR is exempt** from the fill gate (auditor precedent, `hr.read` audited, resource `pulseResults`) |
+| eNPS trend (`…/trend`) | team access as results; the fill gate applies **point-wise** for non-HR (`NOT_A_RESPONDENT` = no numbers at all) |
+| Anonymized comments (`…/comments`) | cycle CLOSED + team ∈ MONITORED tree (managers+ only — members never; **no own-fill requirement**); HR org-wide, audited `pulseComments` |
+| Per-person participation (`…/participation-status`) | cycle OPEN or CLOSED (live monitoring is the point); monitored tree; bare submitted yes/no, never content; HR org-wide, audited `pulseParticipation`; non-managers get an empty list |
+| ADMIN | cycle CRUD + settings + per-cycle **counts only** (`…/participation`: participants/responses/rate) — no aggregates, no comments, no per-user status (the v1.26.0 narrowed-ADMIN rule) |
+
+**k-anonymity (k=3)**: a scope under 3 responses withholds aggregates AND comments — `insufficientResponses: true` with null/empty payload (a 200 marker, not an error) — applied to the current scope, the previous-cycle scope (no deltas against a withheld baseline), and each trend point. Existence/ordering idiom: cycle reads are read-before-guard (404 visible); results order deliberately **404 → 409-state → 403-identity** so a non-closed cycle answers uniformly for every caller.
+
+## Aggregation (`PulseAggregation.kt`, pure)
+
+Bands: promoters 9–10, passives 7–8, detractors 0–6. `eNPS = round(promoterPct − detractorPct)` from UNROUNDED percentages (−100..+100); display percentages 1dp. Per driver: NA excluded everywhere; mean 1dp, favorable = 4–5, unfavorable = 1–2, `validCount` always shipped. `responseRate` = responses/participants in scope, 1dp. Change-vs-previous = the immediately preceding non-cancelled CLOSED cycle (max `closed_at`), same scope: eNPS delta (whole points), per-driver mean Δ + favorable Δpp (1dp, computed over the ROUNDED values). **No result is ever framed as statistically significant** (copy rule too — no i18n string may say "significant").
+
+## Settings (`app_settings`, V47)
+
+The app's FIRST runtime-editable config: generic K/V store (`settings/AppSettingsService.kt`, pulse-agnostic), pulse keys `pulse.cadenceWeeks` (default 4) / `pulse.openDays` (default 7), validated 1–52 / 1–90. **Advisory only** — they prefill the admin scheduling form (`open = latest non-cancelled cycle's open + cadence weeks`, `close = open + openDays`); the server never acts on them. `GET/PUT /pulse-surveys/settings` are ADMIN both ways (the alerts reads-included posture); PUT audited with deltas.
+
+## Notifications (all → `Feature.PULSE_SURVEYS`)
+
+| Type | When → recipients | Link |
+|---|---|---|
+| `PULSE_CYCLE_SCHEDULED` | schedule → all currently eligible | none (no survey yet) |
+| `PULSE_CYCLE_OPENED` | open → participants | `/pulse?tab=survey` |
+| `PULSE_RESULTS_AVAILABLE` | close → **respondents only** | `/pulse?tab=results&cycle={id}` |
+| `PULSE_CYCLE_CANCELLED` | cancel **from OPEN only** → participants | none |
+
+Pure builders in `PulseNotifications.kt`; actor excluded; params = raw ISO dates (+ cycleId); persisted via the batch `NotificationService.createAll`. Full app-wide table in `.claude/docs/features/notifications.md`.
+
+## Audit events
+
+`pulse_cycle.scheduled` (dates + rotatingQuestionEntryId) / `.updated` (date deltas when changed) / `.opened` (participantCount) / `.closed` (responseCount) / `.cancelled` (fromStatus); `pulse_settings.updated` (deltas); `hr.read` resources `pulseResults`/`pulseComments`/`pulseParticipation` (resourceId = cycleId + `teamId` field) and `pulseTrend` (resourceId = teamId). No `pulse_cycle_events` table (the admin-registry idiom); response submission deliberately un-audited (user content — the row's user_id + timestamps are the audit record).
+
+## API shape notes
+
+All under `/api/v1/pulse-surveys/*` (tag `pulse-surveys`, 17 operations); every handler resolves `pulseCaller()` FIRST (uniform 403 for a disabled caller). The cycle list is an **unpaged registry** (`{items}`, newest first — a cadence of weeks caps volume; deliberate deviation from the paged-list convention, like review-periods). `rotatingQuestion` on cycle reads is null for non-admins until OPEN/CLOSED (unopened questions stay unspoiled; CANCELLED reveals nothing to non-admins); the list's `participantCount`/`responseCount` are ADMIN-only enrichment. `DashboardSummary` gained `pulseOpenCloseDate`/`pulseSubmitted` (null unless the caller is a participant of an OPEN cycle) backing the SPA tile.
+
+## SPA map
+
+`pages/Pulse.tsx` (hub `/pulse`, `?tab=survey|results|participation` — participation for managers/HR), `PulseSurvey.tsx` (Chip.Group eNPS 0–10 — chips, not SegmentedControl, so the unanswered state shows NO selection; `PulseScaleInput` Radio.Groups with NA pushed apart; band-dependent comment prompt via `commentPromptKey`; progress "N of 6"), `PulseResults.tsx` (closed-cycle Select + `?cycle=` deep link; direct/subtree SegmentedControl persisted at `lettuce.viewSettings.pulse.results.mode`; one `PulseTeamResultCard` per visible team — the fill gate is probed once on the first team's query and rendered as a single informational empty state), `PulseParticipation.tsx`, `PulseCycles.tsx` (admin; derived — not effect-set — date prefills). `PulseTrendChart` is the third lazy `@mantine/charts` chunk. Utils: `pulseSurveyForm.ts`, `pulseResults.ts`, `pulseQueries.ts` (`invalidatePulse` — the single invalidation seam), `pulseLinks.ts`. Person cards/`FEATURE_OF` deliberately untouched — a per-person pulse surface would contradict the anonymity model.
+
+## Accepted limitations (documented, not bugs)
+
+- `subtree − direct` differencing can isolate a sub-scope under k — accepted for this app's trust model.
+- The previous-cycle delta indirectly reveals a prior aggregate to a current-cycle respondent (the delta is part of the current view).
+- Style-based comment attribution is possible at k=3 with visible participation — inherent to the k=3 floor.
+- The trend recomputes (and decrypts) every closed cycle per request — fine at this scale; cap later if needed.
+- Q1 says "this company" (no organization-name setting exists).
+
+## Test map
+
+Server: `PulseCycleRoutesTest` (machine, 409s, date rules, notifications, eligibility, dashboard tile, audit), `PulseResponseTest` (upsert, gates, validation), `PulseResultsTest` (access matrix, k, deltas, subtree, comments, participation-status, trend, visible-teams), `PulseAggregationTest` + `PulseNotificationsTest` (pure), `PulseRotatingQuestionTest`, `TeamTreeTest`, `PulseEncryptionTest`, `PulseSettingsTest`; FeatureFlagsTest gained the pulse paths + type-mapping branch. **Shared-state rules for tests**: the one-non-terminal invariant is global — sweep first (`TestPulse.sweepNonTerminal`) and leave the registry terminal; multi-cycle timelines anchor `closedAt` via `TestPulse.closedAtAfterAll()` (an earlier test's future-skewed closedAt would hijack the previous-cycle lookup); results fixtures use `TestPulse.closedCycleWith` (forced statuses — no whole-container snapshots). Web: per-page/component/util tests (`PulseSurvey.test` incl. the band-switching prompt; note Mantine Chip in single-select renders `role="radio"`). e2e: `pulse.spec.ts` exclusively owns the global cycle singleton.

@@ -16,6 +16,20 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.0.0",
+    date: "2026-08-08",
+    en: `Pulse surveys arrive — a new major feature, and the reason for the 2.0 version. Every few weeks the administrator opens a short anonymous survey: the eNPS question ("How likely are you to recommend this company as a place to work?"), four fixed statements about everyday work, one rotating question drawn from an admin-editable bank, and an optional written comment. You'll find it under the new "Pulse" entry in the menu, get a notification when a cycle opens, and can edit your answers until the cycle closes.
+
+Results are anonymous by design. Once a cycle closes, the Results tab shows each team's eNPS, the promoter/passive/detractor split, per-question scores with changes against the previous cycle, and an eNPS trend chart — always aggregated by team (your teams and those below them), never per person, and only when at least 3 people responded. You see a closed cycle's results if you took part in it. Managers additionally see who has submitted (never the answers) and read the written comments for their teams — anonymized and shuffled; HR sees the same across the whole organization.
+
+Administrators manage everything under Config → Pulse cycles: schedule a cycle (dates prefilled from the new cadence settings), open it, extend it, close it, or cancel it, with participation counts along the way. The rotating-question bank lives under Dictionaries → Pulse questions, and the new Pulse Surveys feature flag works like the other six.`,
+    pl: `Debiutują ankiety pulsu — nowa duża funkcja i powód wersji 2.0. Co kilka tygodni administrator otwiera krótką anonimową ankietę: pytanie eNPS („Jak bardzo prawdopodobne jest, że polecisz naszą firmę jako miejsce pracy?"), cztery stałe stwierdzenia o codziennej pracy, jedno pytanie rotacyjne z edytowalnej przez administratora puli oraz opcjonalny komentarz. Znajdziesz ją pod nową pozycją „Puls" w menu, dostaniesz powiadomienie o otwarciu cyklu i możesz edytować swoje odpowiedzi aż do jego zamknięcia.
+
+Wyniki są z założenia anonimowe. Po zamknięciu cyklu zakładka Wyniki pokazuje eNPS każdego zespołu, podział na promotorów/neutralnych/krytyków, wyniki poszczególnych pytań ze zmianami względem poprzedniego cyklu oraz wykres trendu eNPS — zawsze zagregowane per zespół (Twoje zespoły i te poniżej), nigdy per osoba, i tylko gdy odpowiedziały co najmniej 3 osoby. Wyniki zamkniętego cyklu widzisz, jeśli wziąłeś/wzięłaś w nim udział. Menedżerowie dodatkowo widzą, kto wypełnił ankietę (nigdy odpowiedzi), i czytają komentarze swoich zespołów — anonimowe i w losowej kolejności; HR widzi to samo w całej organizacji.
+
+Administratorzy zarządzają wszystkim w Konfiguracja → Cykle pulsu: planują cykl (daty podpowiadane z nowych ustawień częstotliwości), otwierają go, przedłużają, zamykają lub anulują, widząc po drodze liczby uczestników. Pula pytań rotacyjnych mieszka w Słownikach → Pytania pulsu, a nowa flaga funkcji Ankiety pulsu działa jak pozostałe sześć.`,
+  },
+  {
     version: "1.53.0",
     date: "2026-08-07",
     en: `Administrators can now tailor the app per person with feature flags. Any of the six feature areas — Feedbacks (including self-reflection), 1:1 Meetings, Goals, Team KPIs, Performance Reviews, and Days Off — can be switched off for a specific user, which hides it from their menus, dashboard, cards, and notifications entirely (and blocks the underlying access too). Everything stays on by default. Two places to manage it: "Features" in a user's "Modify" menu on the Users list edits one person's switches, and the new "Feature flags" screen under Config starts from a feature and lets you toggle it per user. Turning a feature back on restores everything, including notifications that arrived in the meantime.`,

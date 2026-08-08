@@ -42,9 +42,14 @@ for any new or edited spec:
   edits `seniority-levels`, `user-edit.spec` edits `career-paths`; review periods —
   `performance-reviews.spec`; public holidays + AAA Two's days-off/allowance/corrections —
   `days-off.spec`; templates — `templates.spec` (unique names).
-- **`alerts.spec` runs in its own project phase after everything else** (config `dependencies`):
-  an active alert overlays the header for every worker. Any spec minting globally-visible state
-  joins that phase.
+- **`alerts.spec` and `pulse.spec` each run in their own project phase after everything else**
+  (config `dependencies`, chained: chromium → alerts → pulse): an active alert overlays the
+  header for every worker, and a pulse cycle sprays notifications at EVERY user's bell while the
+  one-non-terminal-cycle registry is global. `pulse.spec` exclusively owns that registry — it
+  sweeps stranded SCHEDULED/OPEN cycles at the start (admin API cancel) and leaves the registry
+  terminal; every run accretes one CLOSED (+ one CANCELLED) cycle on the shared DB, so its
+  results asserts pin the current cycle, never cycle #1. Any new spec minting globally-visible
+  state joins a phase like these.
 - Artifacts must be unique-named (`uniqueText`) and list asserts filter- or sort-anchored — never
   bare page-1 assumptions.
 
@@ -136,7 +141,7 @@ commit** — this list is the suite's coverage map, and it has drifted three tim
   correction** (v1.43.0) the subordinate sees read-only on their budget card; the owner
   **cancels** the accepted request at the end so no counting rows persist on seed accounts
   (seeded Polish holidays are blocklisted when picking the Monday).
-- `tour.spec.ts` — replays the guided tour as a manager and walks all 36 steps, pinning the
+- `tour.spec.ts` — replays the guided tour as a manager and walks all 37 steps, pinning the
   landmark order (whole left menu — Changelog included — before the header icons).
 - `alerts.spec.ts` — admin creates an alert; a regular user sees the **banner**, hides it to the
   strip and re-shows it (and has no alert management); deactivation and delete remove it.
@@ -150,6 +155,13 @@ commit** — this list is the suite's coverage map, and it has drifted three tim
 - `self-reflection.spec.ts` — a user writes feedback about themselves (both parties "You",
   the no-requester visibility pair) and finds it delivered in their Provided tab.
 - `i18n.spec.ts` — PL/EN switch, persisted across reload.
+- `pulse.spec.ts` — the pulse-survey lifecycle (v2.0.0): admin schedules (prefilled dates) and
+  **opens** a cycle; a participant is notified, **fills** the 7-question survey and **edits** it
+  while open; the manager watches per-person **participation** live; two teammates respond over
+  the API (k≥3), the admin **closes**; the respondent reads the team's aggregated **results**
+  from the bell deep link while the non-responding manager still reads the anonymized
+  **comments** (the fill-gate/monitoring split); and a scheduled cycle is **cancelled** with the
+  audit-honest confirmation. Runs in its own serial phase — see "Parallel execution".
 
 Specs log in with the seeded accounts (`admin@lettuce.local`, `manager-aaa@…`, `aaa-one/two/three@…`,
 all password `changeme`), capture created ids from API responses so they act on their own rows, and

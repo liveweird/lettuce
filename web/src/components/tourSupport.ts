@@ -83,6 +83,7 @@ export const TOUR_STEPS: TourStepDef[] = [
   { target: '[data-tour="performance-managed"]', contentKey: "tour.steps.performanceManaged", placement: "bottom", navTo: "/performance?tab=managed", managerOnly: true , feature: "PERFORMANCE_REVIEWS" },
   // Days off — every user has the calendar + own requests (v1.42.0), so no audience gate.
   { target: '[data-tour="nav-days-off"]', contentKey: "tour.steps.daysOff", placement: "right", navTo: "/days-off" , feature: "DAYS_OFF" },
+  { target: '[data-tour="nav-pulse"]', contentKey: "tour.steps.pulse", placement: "right", navTo: "/pulse", feature: "PULSE_SURVEYS" },
   // The Config section + its three subsections (separate routes). The nav step navigates into the
   // section a step early so the lazy /users route is mounted before its subsection target is needed.
   { target: '[data-tour="nav-config"]', contentKey: "tour.steps.config", placement: "right", navTo: "/users" },

@@ -11,7 +11,12 @@ import kotlinx.serialization.Serializable
 enum class Dictionary(val slug: String) {
     CAREER_PATH("career-paths"),
     CAREER_SPECIALIZATION("career-specializations"),
-    SENIORITY_LEVEL("seniority-levels");
+    SENIORITY_LEVEL("seniority-levels"),
+
+    // The pulse rotating-question bank (Q6, v2.0.0): every entry must be a statement
+    // answerable on the five-point agreement scale. Cycles snapshot the chosen entry's
+    // text at schedule time, so edits here never rewrite what a past cycle asked.
+    PULSE_ROTATING_QUESTION("pulse-rotating-questions");
 
     companion object {
         fun fromSlug(slug: String): Dictionary? = entries.firstOrNull { it.slug == slug }

@@ -27,7 +27,7 @@ enum class UserRole { ADMIN, HR }
  * A future feature is just a new value — no migration needed (no CHECK on the column).
  */
 @Serializable
-enum class Feature { FEEDBACKS, ONE_ON_ONES, GOALS, TEAM_KPIS, PERFORMANCE_REVIEWS, DAYS_OFF }
+enum class Feature { FEEDBACKS, ONE_ON_ONES, GOALS, TEAM_KPIS, PERFORMANCE_REVIEWS, DAYS_OFF, PULSE_SURVEYS }
 
 @Serializable
 data class User(

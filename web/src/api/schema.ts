@@ -2379,13 +2379,367 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/pulse-surveys/cycles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List pulse cycles
+         * @description Any authenticated user with PULSE_SURVEYS enabled. Unpaged registry (newest first) —
+         *     a cadence of weeks caps the volume. `rotatingQuestion` is null for non-admins until
+         *     the cycle is OPEN or CLOSED (an unopened cycle's question stays unspoiled; a cancelled
+         *     one reveals nothing); the participation counts are ADMIN-only enrichment.
+         */
+        get: operations["listPulseCycles"];
+        put?: never;
+        /**
+         * Schedule a pulse cycle
+         * @description **ADMIN only.** Creates a cycle at SCHEDULED, picks + snapshots the rotating question
+         *     (least-used active `pulse-rotating-questions` entry, random among ties), and notifies
+         *     every currently eligible user (no survey link yet). The planned dates are advisory —
+         *     opening and closing stay manual. `409` when a SCHEDULED/OPEN cycle already exists
+         *     (at most one non-terminal cycle at a time) or the question bank has no active entries.
+         */
+        post: operations["schedulePulseCycle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pulse-surveys/cycles/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read one pulse cycle
+         * @description Any authenticated user with PULSE_SURVEYS enabled; the same rotating-question and counts visibility rules as the list.
+         */
+        get: operations["getPulseCycle"];
+        /**
+         * Edit a cycle's planned dates
+         * @description **ADMIN only.** SCHEDULED: both dates editable. OPEN: only the close date may change
+         *     ("extend") — the payload must carry the unchanged open date back, else `400`.
+         *     CLOSED/CANCELLED: `409`.
+         */
+        put: operations["updatePulseCycle"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pulse-surveys/cycles/{id}/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open a scheduled cycle
+         * @description **ADMIN only.** SCHEDULED → OPEN (any other status is `409`). Snapshots eligibility
+         *     (active, not deactivated, PULSE_SURVEYS enabled) into the participant set — later user
+         *     churn never changes this cycle — and notifies every participant with the survey link.
+         */
+        post: operations["openPulseCycle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pulse-surveys/cycles/{id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close an open cycle
+         * @description **ADMIN only.** OPEN → CLOSED (any other status is `409`). Submissions stop, results
+         *     become available under their access rules, and every RESPONDENT is notified.
+         */
+        post: operations["closePulseCycle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pulse-surveys/cycles/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a cycle
+         * @description **ADMIN only.** Any non-CANCELLED status → CANCELLED (`409` when already cancelled).
+         *     Cancelling a CLOSED cycle retracts its results; stored responses are kept for audit
+         *     in every case. Participants are notified only when cancelling an OPEN cycle.
+         */
+        post: operations["cancelPulseCycle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pulse-surveys/cycles/{id}/participation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read a cycle's participation counts
+         * @description **ADMIN only**, and counts only — enough to decide close/extend/cancel, never team
+         *     aggregates, comments, or per-user status (the narrowed-ADMIN rule). A SCHEDULED
+         *     cycle reads as zeros.
+         */
+        get: operations["getPulseCycleParticipation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pulse-surveys/cycles/{id}/participation-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read per-person participation status (managers)
+         * @description The manager monitoring view: for every team in the caller's monitored tree (teams
+         *     they manage + everything below; HR: the whole org, audit-logged), the cycle's
+         *     participants with a bare submitted yes/no — never any answer content. Works while
+         *     OPEN and after CLOSE (`409` for SCHEDULED/CANCELLED). Requires no own participation;
+         *     non-managers simply receive an empty team list.
+         */
+        get: operations["getPulseParticipationStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pulse-surveys/cycles/{id}/my-response": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read the caller's own saved answers
+         * @description The edit form's prefill — the ONLY endpoint that ever returns individual answers, and
+         *     only the caller's own, and only while the cycle is OPEN (`409` otherwise, closed
+         *     included: saved answers are never served again once a cycle closes). `403` when the
+         *     caller is not a participant; `404` before the first submission.
+         */
+        get: operations["getMyPulseResponse"];
+        /**
+         * Submit or edit the caller's survey
+         * @description Upsert while the cycle is OPEN (`409` otherwise): the first PUT submits, later PUTs
+         *     fully replace — editable until the admin closes the cycle. `403` when the caller is
+         *     not a participant of the cycle. All six scored answers are required; the comment is
+         *     optional (blank = absent, max 1000 characters).
+         */
+        put: operations["submitMyPulseResponse"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pulse-surveys/cycles/{id}/results": {
+        parameters: {
+            query: {
+                /** @description The team the pulse scope is built from. Unknown/deleted teams answer 404. */
+                teamId: components["parameters"]["PulseTeamId"];
+                /** @description Aggregation scope: `direct` = the team's current members only; `subtree` = members plus every transitive subordinate of a member (the full report tree below the team). */
+                mode?: components["parameters"]["PulseMode"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read one team's aggregated results for a closed cycle
+         * @description Anonymous team-scope aggregates: eNPS + segment percentages, per-driver-question
+         *     mean/favorable/unfavorable, response rate, and deltas vs the immediately preceding
+         *     non-cancelled closed cycle (rotating-question deltas only when the same question was
+         *     asked). `409` unless the cycle is CLOSED — uniform for every caller, HR included
+         *     (results never leak while OPEN and never exist for CANCELLED). Access: HR org-wide
+         *     (audit-logged), otherwise the caller must have RESPONDED in this cycle (the per-cycle
+         *     fill gate — no role exemption, ADMIN included) and the team must be in their visible
+         *     tree (member-of + managed + below). Fewer than 3 responses in the scope →
+         *     `insufficientResponses: true` with all aggregates null (k-anonymity), not an error.
+         */
+        get: operations["getPulseTeamResults"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pulse-surveys/cycles/{id}/comments": {
+        parameters: {
+            query: {
+                /** @description The team the pulse scope is built from. Unknown/deleted teams answer 404. */
+                teamId: components["parameters"]["PulseTeamId"];
+                /** @description Aggregation scope: `direct` = the team's current members only; `subtree` = members plus every transitive subordinate of a member (the full report tree below the team). */
+                mode?: components["parameters"]["PulseMode"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read a team scope's anonymized comments (managers)
+         * @description The written answers for the scope, author-free and shuffled per request. Managers
+         *     only (the team must be in the caller's MONITORED tree — managed + below; HR org-wide,
+         *     audit-logged); plain members never read comments; no own-participation requirement.
+         *     `409` unless CLOSED. Fewer than 3 responses in the scope → withheld
+         *     (`insufficientResponses: true`, empty items).
+         */
+        get: operations["getPulseComments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pulse-surveys/trend": {
+        parameters: {
+            query: {
+                /** @description The team the pulse scope is built from. Unknown/deleted teams answer 404. */
+                teamId: components["parameters"]["PulseTeamId"];
+                /** @description Aggregation scope: `direct` = the team's current members only; `subtree` = members plus every transitive subordinate of a member (the full report tree below the team). */
+                mode?: components["parameters"]["PulseMode"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a team's eNPS trend across closed cycles
+         * @description One point per non-cancelled CLOSED cycle, oldest first. Team access as for results
+         *     (HR org-wide, audited; otherwise the caller's visible tree). The per-cycle fill gate
+         *     applies POINT-WISE for non-HR callers: a cycle the caller sat out yields
+         *     `NOT_A_RESPONDENT` (no numbers at all); a scope under 3 responses yields
+         *     `NOT_ENOUGH_RESPONSES` (counts shown, eNPS withheld).
+         */
+        get: operations["getPulseTrend"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pulse-surveys/visible-teams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the teams the caller's pulse views may target
+         * @description Backs the SPA's team pickers (the team tree is derived server-side only):
+         *     `resultsTeams` = teams the caller is a member of + teams they manage + everything
+         *     below either; `monitoredTeams` = managed + below (empty for non-managers). HR gets
+         *     every team in both.
+         */
+        get: operations["getPulseVisibleTeams"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pulse-surveys/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the pulse settings
+         * @description **ADMIN only** (reads included — the values exist solely to prefill the admin scheduling form). Advisory only: the server never schedules, opens, or closes anything on its own.
+         */
+        get: operations["getPulseSettings"];
+        /**
+         * Update the pulse settings
+         * @description **ADMIN only.** cadenceWeeks 1-52, openDays 1-90; audited with deltas.
+         */
+        put: operations["updatePulseSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dictionaries/{dictionary}": {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 /** @description The dictionary's URL slug. Unknown slugs answer 404. */
-                dictionary: "career-paths" | "career-specializations" | "seniority-levels";
+                dictionary: "career-paths" | "career-specializations" | "seniority-levels" | "pulse-rotating-questions";
             };
             cookie?: never;
         };
@@ -2686,7 +3040,7 @@ export interface components {
          * @description A per-user-toggleable feature area (feature flags). Storage models the DISABLED set — absent = enabled, so every user defaults to full access.
          * @enum {string}
          */
-        Feature: "DAYS_OFF" | "FEEDBACKS" | "GOALS" | "ONE_ON_ONES" | "PERFORMANCE_REVIEWS" | "TEAM_KPIS";
+        Feature: "DAYS_OFF" | "FEEDBACKS" | "GOALS" | "ONE_ON_ONES" | "PERFORMANCE_REVIEWS" | "PULSE_SURVEYS" | "TEAM_KPIS";
         UserFeaturesUpdateRequest: {
             /** @description The complete new DISABLED set (wholesale replace) — an empty array re-enables everything. An unknown feature name is rejected with 400. */
             disabledFeatures: components["schemas"]["Feature"][];
@@ -4280,7 +4634,7 @@ export interface components {
              * @description Notification kind; the client renders it in the viewer's language.
              * @enum {string}
              */
-            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_REQUESTED_TO_MANAGER" | "DAYS_OFF_ACCEPTED_TO_OWNER" | "DAYS_OFF_REJECTED_TO_OWNER" | "DAYS_OFF_CANCELLED_TO_MANAGER" | "DAYS_OFF_CORRECTED_TO_OWNER" | "PASSWORD_CHANGED";
+            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_REQUESTED_TO_MANAGER" | "DAYS_OFF_ACCEPTED_TO_OWNER" | "DAYS_OFF_REJECTED_TO_OWNER" | "DAYS_OFF_CANCELLED_TO_MANAGER" | "DAYS_OFF_CORRECTED_TO_OWNER" | "PULSE_CYCLE_SCHEDULED" | "PULSE_CYCLE_OPENED" | "PULSE_RESULTS_AVAILABLE" | "PULSE_CYCLE_CANCELLED" | "PASSWORD_CHANGED";
             /**
              * @description Interpolation values for the localized message — party names (proper nouns), e.g.
              *     `{provider,subject,requester}`; plus `self` — the SPA's i18next context carrier:
@@ -4352,6 +4706,255 @@ export interface components {
              * @description Performance reviews the caller authored for the current period (any status); null exactly when currentPeriodId is null.
              */
             currentPeriodReviewsDone?: number | null;
+            /**
+             * Format: date
+             * @description The OPEN pulse cycle's planned close date — null unless the caller is a participant of an open cycle (with PULSE_SURVEYS enabled). Backs the pulse tile.
+             */
+            pulseOpenCloseDate?: string | null;
+            /** @description Whether the caller already submitted in the open cycle; null exactly when pulseOpenCloseDate is null. */
+            pulseSubmitted?: boolean | null;
+        };
+        /**
+         * @description The cycle machine: SCHEDULED -> OPEN -> CLOSED, with terminal CANCELLED reachable from any of the three. Every transition is a manual ADMIN action.
+         * @enum {string}
+         */
+        PulseCycleStatus: "SCHEDULED" | "OPEN" | "CLOSED" | "CANCELLED";
+        PulseCycle: {
+            /** Format: int64 */
+            id: number;
+            status: components["schemas"]["PulseCycleStatus"];
+            /**
+             * Format: date
+             * @description Advisory planned open date (ISO). The server never acts on it.
+             */
+            plannedOpenDate: string;
+            /**
+             * Format: date
+             * @description Advisory planned close date (ISO); admin-editable while OPEN ("extend").
+             */
+            plannedCloseDate: string;
+            /** @description The cycle's snapshotted Q6 text. Null for non-admins until the cycle is OPEN or CLOSED (and always null to them for CANCELLED). */
+            rotatingQuestion?: string | null;
+            /** Format: int64 */
+            createdAt: number;
+            /** Format: int64 */
+            openedAt?: number | null;
+            /** Format: int64 */
+            closedAt?: number | null;
+            /** Format: int64 */
+            cancelledAt?: number | null;
+            /** Format: int64 */
+            lastModified: number;
+            /** @description ADMIN-only enrichment (null for everyone else). */
+            participantCount?: number | null;
+            /** @description ADMIN-only enrichment (null for everyone else). */
+            responseCount?: number | null;
+        };
+        PulseCycleList: {
+            items: components["schemas"]["PulseCycle"][];
+        };
+        PulseCycleCreateRequest: {
+            /** Format: date */
+            plannedOpenDate: string;
+            /**
+             * Format: date
+             * @description Must be strictly after plannedOpenDate.
+             */
+            plannedCloseDate: string;
+        };
+        PulseCycleUpdateRequest: {
+            /**
+             * Format: date
+             * @description While OPEN this must equal the stored open date (only the close date may change).
+             */
+            plannedOpenDate: string;
+            /** Format: date */
+            plannedCloseDate: string;
+        };
+        /**
+         * @description The five-point agreement scale (1 = strongly disagree .. 5 = strongly agree) plus "NA" (not applicable — excluded from every driver calculation).
+         * @enum {string}
+         */
+        PulseScaleAnswer: "1" | "2" | "3" | "4" | "5" | "NA";
+        PulseResponseSubmitRequest: {
+            /** @description Q1, the eNPS answer (0 = not at all likely, 10 = extremely likely). */
+            enps: number;
+            q2: components["schemas"]["PulseScaleAnswer"];
+            q3: components["schemas"]["PulseScaleAnswer"];
+            q4: components["schemas"]["PulseScaleAnswer"];
+            q5: components["schemas"]["PulseScaleAnswer"];
+            rotating: components["schemas"]["PulseScaleAnswer"];
+            /** @description Optional written answer (blank = absent). Shown to managers anonymized. */
+            comment?: string | null;
+        };
+        PulseMyResponse: {
+            /** Format: int64 */
+            cycleId: number;
+            enps: number;
+            q2: components["schemas"]["PulseScaleAnswer"];
+            q3: components["schemas"]["PulseScaleAnswer"];
+            q4: components["schemas"]["PulseScaleAnswer"];
+            q5: components["schemas"]["PulseScaleAnswer"];
+            rotating: components["schemas"]["PulseScaleAnswer"];
+            comment?: string | null;
+            /**
+             * Format: int64
+             * @description Epoch millis of the FIRST submission (immutable across edits).
+             */
+            submittedAt: number;
+            /** Format: int64 */
+            lastModified: number;
+        };
+        PulseParticipationCounts: {
+            participantCount: number;
+            responseCount: number;
+            /**
+             * Format: double
+             * @description responses / participants as a 1dp percent (0.0 for an empty snapshot).
+             */
+            responseRate: number;
+        };
+        PulseParticipationMember: {
+            /** Format: int64 */
+            userId: number;
+            name: string;
+            responded: boolean;
+        };
+        PulseParticipationTeam: {
+            /** Format: int64 */
+            teamId: number;
+            teamName: string;
+            /** @description The team's current members who are cycle participants, name-ascending. */
+            members: components["schemas"]["PulseParticipationMember"][];
+        };
+        PulseParticipationStatusResponse: {
+            teams: components["schemas"]["PulseParticipationTeam"][];
+        };
+        /** @enum {string} */
+        PulseAggregationMode: "direct" | "subtree";
+        PulseEnpsAggregate: {
+            /** @description promoter% - detractor%, rounded to a whole point. */
+            score: number;
+            /**
+             * Format: double
+             * @description Share of 9-10 answers, 1dp.
+             */
+            promoterPct: number;
+            /**
+             * Format: double
+             * @description Share of 7-8 answers, 1dp.
+             */
+            passivePct: number;
+            /**
+             * Format: double
+             * @description Share of 0-6 answers, 1dp.
+             */
+            detractorPct: number;
+        };
+        /** @enum {string} */
+        PulseDriverQuestion: "Q2" | "Q3" | "Q4" | "Q5" | "ROTATING";
+        PulseDriverResult: {
+            question: components["schemas"]["PulseDriverQuestion"];
+            /** @description The cycle's snapshotted question text — set on the ROTATING row only. */
+            rotatingText?: string | null;
+            /**
+             * Format: double
+             * @description 1dp mean over valid (non-NA) answers; null when none exist.
+             */
+            mean?: number | null;
+            /**
+             * Format: double
+             * @description Share of 4-5 answers among valid ones, 1dp.
+             */
+            favorablePct?: number | null;
+            /**
+             * Format: double
+             * @description Share of 1-2 answers among valid ones, 1dp.
+             */
+            unfavorablePct?: number | null;
+            /** @description Non-NA answers — always displayed alongside the numbers. */
+            validCount: number;
+            /**
+             * Format: double
+             * @description Mean change vs the comparable previous cycle (1dp); null without one. Rotating rows compare only when the previous cycle asked the SAME question. Never framed as statistically significant.
+             */
+            meanDelta?: number | null;
+            /**
+             * Format: double
+             * @description Favorable-share change in percentage points (1dp); null without a comparable previous.
+             */
+            favorableDeltaPp?: number | null;
+        };
+        PulsePreviousComparison: {
+            /** Format: int64 */
+            cycleId: number;
+            /** @description Whole-point eNPS change vs that cycle over the same scope. */
+            enpsDelta: number;
+        };
+        PulseTeamResults: {
+            /** Format: int64 */
+            cycleId: number;
+            /** Format: int64 */
+            teamId: number;
+            teamName: string;
+            mode: components["schemas"]["PulseAggregationMode"];
+            participantCount: number;
+            responseCount: number;
+            /** Format: double */
+            responseRate: number;
+            /** @description True when the scope has fewer than 3 responses — every aggregate field below is null (k-anonymity), and the client shows a "not enough responses" state. */
+            insufficientResponses: boolean;
+            enps?: components["schemas"]["PulseEnpsAggregate"] | null;
+            /** @description One row per Q2-Q5 plus the rotating question. */
+            drivers?: components["schemas"]["PulseDriverResult"][] | null;
+            /** @description Set only when an immediately preceding non-cancelled closed cycle exists AND its same-scope response count also passes the k-floor. */
+            previous?: components["schemas"]["PulsePreviousComparison"] | null;
+        };
+        PulseCommentsResponse: {
+            /** @description Author-free, shuffled per request; empty when withheld. */
+            items: string[];
+            responseCount: number;
+            insufficientResponses: boolean;
+        };
+        /** @enum {string} */
+        PulseTrendAvailability: "OK" | "NOT_ENOUGH_RESPONSES" | "NOT_A_RESPONDENT";
+        PulseTrendPoint: {
+            /** Format: int64 */
+            cycleId: number;
+            /** Format: int64 */
+            closedAt: number;
+            availability: components["schemas"]["PulseTrendAvailability"];
+            /** @description Null unless availability is OK. */
+            enps?: number | null;
+            /** @description Null for NOT_A_RESPONDENT (a non-respondent learns nothing about that cycle). */
+            responseCount?: number | null;
+            /** Format: double */
+            responseRate?: number | null;
+        };
+        PulseTrendResponse: {
+            /** Format: int64 */
+            teamId: number;
+            teamName: string;
+            mode: components["schemas"]["PulseAggregationMode"];
+            /** @description Non-cancelled CLOSED cycles, oldest first. */
+            points: components["schemas"]["PulseTrendPoint"][];
+        };
+        TeamRef: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+        };
+        PulseVisibleTeams: {
+            /** @description Teams the caller may open results for (own + managed + below; HR all). */
+            resultsTeams: components["schemas"]["TeamRef"][];
+            /** @description Teams the caller may monitor (managed + below; HR all; empty for non-managers). */
+            monitoredTeams: components["schemas"]["TeamRef"][];
+        };
+        PulseSettings: {
+            /** @description Suggested weeks between cycle opens (admin-form prefill only). */
+            cadenceWeeks: number;
+            /** @description Suggested days a cycle stays open (admin-form prefill only). */
+            openDays: number;
         };
         /** @description RFC 7807 problem detail. Served as `application/problem+json`. */
         ProblemDetail: {
@@ -4427,6 +5030,33 @@ export interface components {
         };
         /** @description Unexpected server error */
         InternalServerError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetail"];
+            };
+        };
+        /** @description The action is not allowed from the cycle's current status (the machine is SCHEDULED -> OPEN -> CLOSED, CANCELLED from any of the three) */
+        PulseInvalidTransition: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetail"];
+            };
+        };
+        /** @description The cycle is not OPEN — submissions and own-answer reads exist only while a cycle is open (a closed cycle's answers are never served again) */
+        PulseNotOpen: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetail"];
+            };
+        };
+        /** @description The cycle is not CLOSED — results and comments exist only for closed cycles, uniformly for every caller (never while OPEN, never for CANCELLED) */
+        PulseNotClosed: {
             headers: {
                 [name: string]: unknown;
             };
@@ -4602,6 +5232,10 @@ export interface components {
          *     always appended as a deterministic tiebreaker.
          */
         Sort: string;
+        /** @description The team the pulse scope is built from. Unknown/deleted teams answer 404. */
+        PulseTeamId: number;
+        /** @description Aggregation scope: `direct` = the team's current members only; `subtree` = members plus every transitive subordinate of a member (the full report tree below the team). */
+        PulseMode: "direct" | "subtree";
     };
     requestBodies: never;
     headers: never;
@@ -8323,13 +8957,483 @@ export interface operations {
             500: components["responses"]["InternalServerError"];
         };
     };
+    listPulseCycles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All cycles, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseCycleList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    schedulePulseCycle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PulseCycleCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Scheduled; Location points at the new cycle */
+            201: {
+                headers: {
+                    /** @description URL of the created cycle */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseCycle"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getPulseCycle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The cycle */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseCycle"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    updatePulseCycle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PulseCycleUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Dates updated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    openPulseCycle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Opened */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["PulseInvalidTransition"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    closePulseCycle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Closed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["PulseInvalidTransition"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    cancelPulseCycle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cancelled */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["PulseInvalidTransition"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getPulseCycleParticipation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The counts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseParticipationCounts"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getPulseParticipationStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Participation per monitored team */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseParticipationStatusResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getMyPulseResponse: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The caller's saved answers */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseMyResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["PulseNotOpen"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    submitMyPulseResponse: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PulseResponseSubmitRequest"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["PulseNotOpen"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getPulseTeamResults: {
+        parameters: {
+            query: {
+                /** @description The team the pulse scope is built from. Unknown/deleted teams answer 404. */
+                teamId: components["parameters"]["PulseTeamId"];
+                /** @description Aggregation scope: `direct` = the team's current members only; `subtree` = members plus every transitive subordinate of a member (the full report tree below the team). */
+                mode?: components["parameters"]["PulseMode"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The team's results block (or the withheld marker) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseTeamResults"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["PulseNotClosed"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getPulseComments: {
+        parameters: {
+            query: {
+                /** @description The team the pulse scope is built from. Unknown/deleted teams answer 404. */
+                teamId: components["parameters"]["PulseTeamId"];
+                /** @description Aggregation scope: `direct` = the team's current members only; `subtree` = members plus every transitive subordinate of a member (the full report tree below the team). */
+                mode?: components["parameters"]["PulseMode"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The anonymized comments (or the withheld marker) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseCommentsResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["PulseNotClosed"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getPulseTrend: {
+        parameters: {
+            query: {
+                /** @description The team the pulse scope is built from. Unknown/deleted teams answer 404. */
+                teamId: components["parameters"]["PulseTeamId"];
+                /** @description Aggregation scope: `direct` = the team's current members only; `subtree` = members plus every transitive subordinate of a member (the full report tree below the team). */
+                mode?: components["parameters"]["PulseMode"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The trend series */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseTrendResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getPulseVisibleTeams: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The two team scopes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseVisibleTeams"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getPulseSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseSettings"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    updatePulseSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PulseSettings"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
     getDictionary: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 /** @description The dictionary's URL slug. Unknown slugs answer 404. */
-                dictionary: "career-paths" | "career-specializations" | "seniority-levels";
+                dictionary: "career-paths" | "career-specializations" | "seniority-levels" | "pulse-rotating-questions";
             };
             cookie?: never;
         };
@@ -8355,7 +9459,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description The dictionary's URL slug. Unknown slugs answer 404. */
-                dictionary: "career-paths" | "career-specializations" | "seniority-levels";
+                dictionary: "career-paths" | "career-specializations" | "seniority-levels" | "pulse-rotating-questions";
             };
             cookie?: never;
         };

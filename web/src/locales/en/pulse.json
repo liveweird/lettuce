@@ -1,0 +1,142 @@
+{
+  "sectionTitle": "Pulse surveys",
+  "tab": {
+    "survey": "Current survey",
+    "results": "Results",
+    "participation": "Participation"
+  },
+  "surveyIntro": "A short anonymous survey about how it feels to work here. Results are only ever shown aggregated by team.",
+  "q1": "How likely are you to recommend this company as a place to work?",
+  "q1Low": "Not at all likely",
+  "q1High": "Extremely likely",
+  "q2": "I understand what is expected of me in my role.",
+  "q3": "I receive the support I need from my manager.",
+  "q4": "I feel safe raising concerns or suggesting improvements.",
+  "q5": "My current workload is manageable over the long term.",
+  "scale": {
+    "1": "Strongly disagree",
+    "2": "Disagree",
+    "3": "Neither agree nor disagree",
+    "4": "Agree",
+    "5": "Strongly agree",
+    "na": "Not applicable"
+  },
+  "commentPrompt": {
+    "low": "What is the most important thing we should improve?",
+    "mid": "What would improve your experience by one point?",
+    "high": "What should we make sure to preserve?",
+    "default": "Anything else you'd like to share?"
+  },
+  "commentOptional": "Optional — up to {{max}} characters.",
+  "anonymityNote": "Please don't include names or personally identifying details — comments are shown anonymized.",
+  "progress": "{{answered}} of 6 answered",
+  "noOpenSurvey": "There is no pulse survey open right now.",
+  "notParticipant": "You are not a participant of the current pulse cycle.",
+  "editableUntil": "Your answers are saved. You can edit them until {{date}}.",
+  "closesOn": "The survey is open until {{date}}.",
+  "action": {
+    "submit": "Submit survey",
+    "update": "Save changes"
+  },
+  "validation": {
+    "answerRequired": "Please pick an answer.",
+    "commentTooLong": "The comment must be at most {{max}} characters.",
+    "openDateInvalid": "Pick a valid open date.",
+    "closeDateInvalid": "The close date must be after the open date."
+  },
+  "toast": {
+    "submitted": "Survey submitted",
+    "settingsSaved": "Settings saved",
+    "scheduled": "Cycle scheduled",
+    "opened": "Cycle opened",
+    "closed": "Cycle closed",
+    "cancelled": "Cycle cancelled",
+    "datesSaved": "Dates updated"
+  },
+  "error": {
+    "submitForbidden": "You may not submit this survey.",
+    "submitConflict": "The survey is no longer open.",
+    "invalid": "The request was rejected — check the form and try again.",
+    "conflict": "The action conflicts with the cycle's current state.",
+    "failedStatus": "The request failed with status {{status}}.",
+    "failed": "The request failed. Try again.",
+    "loadFailed": "Loading failed. Refresh to retry."
+  },
+  "status": {
+    "SCHEDULED": "Scheduled",
+    "OPEN": "Open",
+    "CLOSED": "Closed",
+    "CANCELLED": "Cancelled"
+  },
+  "results": {
+    "cycle": "Cycle",
+    "cycleOption": "Closed {{date}}",
+    "mode": {
+      "direct": "Team members only",
+      "subtree": "Including sub-teams"
+    },
+    "modeAria": "Aggregation scope",
+    "enps": "eNPS",
+    "promoters": "Promoters",
+    "passives": "Passives",
+    "detractors": "Detractors",
+    "responses": "{{completed}} of {{participants}} responded ({{rate}}%)",
+    "deltaVsPrevious": "vs previous cycle",
+    "question": "Question",
+    "mean": "Mean",
+    "favorable": "Favorable",
+    "unfavorable": "Unfavorable",
+    "validCount": "n",
+    "meanDelta": "Δ mean",
+    "notEnoughResponses": "Fewer than 3 responses — results are hidden to protect anonymity.",
+    "resultsGated": "Results are available for closed cycles you took part in.",
+    "noResultsYet": "No closed pulse cycles yet.",
+    "noTeams": "No teams to show results for.",
+    "trendTitle": "eNPS trend",
+    "trendPending": "The trend appears after two closed cycles.",
+    "commentsTitle": "Comments",
+    "commentsAnonymized": "Shown anonymized and in random order.",
+    "loadError": "Could not load the results."
+  },
+  "participation": {
+    "hint": "Who of your reports has submitted the survey — never their answers.",
+    "summary": "{{submitted}} of {{total}} submitted ({{rate}}%)",
+    "submitted": "Submitted",
+    "notSubmitted": "Not yet",
+    "person": "Person",
+    "noCycle": "No open or closed cycle to monitor.",
+    "noTeams": "You don't monitor any teams.",
+    "loadError": "Could not load the participation."
+  },
+  "admin": {
+    "title": "Pulse cycles",
+    "settingsTitle": "Settings",
+    "settingsHint": "Used to prefill the scheduling form — opening and closing stay manual.",
+    "cadenceWeeks": "Weeks between cycles",
+    "openDays": "Days a cycle stays open",
+    "saveSettings": "Save settings",
+    "scheduleTitle": "New cycle",
+    "scheduleHint": "Scheduling notifies everyone eligible; the survey link goes out when you open the cycle.",
+    "openDate": "Open date",
+    "closeDate": "Close date",
+    "schedule": "Schedule cycle",
+    "scheduleConflict": "A scheduled or open cycle already exists.",
+    "cycleListTitle": "Cycles",
+    "noCycles": "No cycles yet.",
+    "question": "Rotating question",
+    "participation": "Participation",
+    "openNow": "Open now",
+    "closeNow": "Close now",
+    "cancelCycle": "Cancel cycle",
+    "editDates": "Edit dates",
+    "extend": "Extend",
+    "confirmOpen": "Open the cycle now? Every eligible user will be notified and can start filling the survey.",
+    "confirmClose": "Close the cycle now? Submissions stop and results become available to respondents.",
+    "confirmCancel": "Cancel this cycle? Results will not be available. Submitted answers are kept for audit.",
+    "datesTitle": "Cycle dates",
+    "openAria": "Open cycle {{id}}",
+    "closeAria": "Close cycle {{id}}",
+    "cancelAria": "Cancel cycle {{id}}",
+    "editDatesAria": "Edit dates of cycle {{id}}"
+  }
+}

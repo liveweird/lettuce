@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.toList
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 import org.jetbrains.exposed.v1.r2dbc.deleteWhere
+import org.jetbrains.exposed.v1.r2dbc.insert
 import org.jetbrains.exposed.v1.r2dbc.selectAll
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 import org.jetbrains.exposed.v1.r2dbc.update
@@ -391,6 +392,92 @@ object TestDaysOff {
                 it[UserService.Users.paidDaysOffAllowance] = days
             }
         }
+    }
+}
+
+// Pulse test support. The one-non-terminal-cycle invariant (V48's partial unique index) is
+// GLOBAL shared state in the shared container — every test that schedules a cycle must start
+// with [sweepNonTerminal] and leave the registry terminal (close/cancel what it created), or
+// later tests' schedules 409. [forceStatus]/[addParticipants] bypass the real open/close
+// transitions (the TestGoalMaintenance direct-update idiom) so results fixtures can build
+// multi-cycle histories over a handful of test users WITHOUT snapshotting the container's
+// whole accumulated user population (and spraying notifications at it) on every open.
+object TestPulse {
+    val cycles: ch.nokillswit.pulse.PulseCycleService by lazy {
+        ch.nokillswit.pulse.PulseCycleService(sharedTestDatabase)
+    }
+    val responses: ch.nokillswit.pulse.PulseResponseService by lazy {
+        ch.nokillswit.pulse.PulseResponseService(sharedTestDatabase, TestServices.cipher)
+    }
+
+    suspend fun sweepNonTerminal() {
+        cycles.list()
+            .filter {
+                it.status == ch.nokillswit.pulse.PulseCycleStatus.SCHEDULED ||
+                    it.status == ch.nokillswit.pulse.PulseCycleStatus.OPEN
+            }
+            .forEach { cycles.cancel(it.id) }
+    }
+
+    /**
+     * A closedAt base strictly after EVERY existing cycle's — tests that build multi-cycle
+     * timelines (previous-cycle deltas, trends) must anchor here, or an earlier test's
+     * future-skewed closedAt can hijack the "immediately preceding closed cycle" lookup.
+     */
+    suspend fun closedAtAfterAll(): Long = maxOf(
+        System.currentTimeMillis(),
+        (cycles.list().mapNotNull { it.closedAt }.maxOrNull() ?: 0L) + 1,
+    )
+
+    suspend fun forceStatus(
+        id: UInt,
+        status: ch.nokillswit.pulse.PulseCycleStatus,
+        openedAt: Long? = null,
+        closedAt: Long? = null,
+    ) {
+        suspendTransaction(sharedTestDatabase) {
+            val t = ch.nokillswit.pulse.PulseCycleService.PulseCycles
+            t.update({ t.id eq id }) {
+                it[t.status] = status
+                if (openedAt != null) it[t.openedAt] = openedAt
+                if (closedAt != null) it[t.closedAt] = closedAt
+            }
+        }
+    }
+
+    suspend fun addParticipants(cycleId: UInt, userIds: Collection<UInt>) {
+        suspendTransaction(sharedTestDatabase) {
+            val t = ch.nokillswit.pulse.PulseResponseService.PulseParticipants
+            userIds.forEach { userId ->
+                t.insert {
+                    it[t.cycleId] = cycleId
+                    it[t.userId] = userId
+                }
+            }
+        }
+    }
+
+    /**
+     * Schedules a cycle and forces it straight to CLOSED with exactly [respondents]' answers
+     * (+[silentParticipants] who never answered) — one line of a results fixture's history.
+     * [closedAt] orders the timeline explicitly. Returns the cycle row.
+     */
+    suspend fun closedCycleWith(
+        respondents: Map<UInt, ch.nokillswit.pulse.PulseResponseSubmitRequest>,
+        silentParticipants: Collection<UInt> = emptyList(),
+        closedAt: Long = System.currentTimeMillis(),
+    ): ch.nokillswit.pulse.PulseCycleRow {
+        val id = cycles.schedule(
+            ch.nokillswit.pulse.PulseCycleCreateRequest(
+                plannedOpenDate = "2099-01-01",
+                plannedCloseDate = "2099-01-08",
+            ),
+        )
+        addParticipants(id, respondents.keys + silentParticipants)
+        forceStatus(id, ch.nokillswit.pulse.PulseCycleStatus.OPEN, openedAt = closedAt - 1)
+        respondents.forEach { (userId, answers) -> responses.upsert(id, userId, answers) }
+        forceStatus(id, ch.nokillswit.pulse.PulseCycleStatus.CLOSED, closedAt = closedAt)
+        return checkNotNull(cycles.read(id))
     }
 }
 

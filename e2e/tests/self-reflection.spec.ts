@@ -1,4 +1,4 @@
-import { AAA_TWO, expect, expectStatus, login, test, typeContent, uniqueText } from "./helpers";
+import { AAA_TWO, expect, expectStatus, login, sortNewestFirst, test, typeContent, uniqueText } from "./helpers";
 
 // Self-reflection: feedback where the caller is both provider and subject. Entered from the
 // dedicated left-menu screen; the saved row lands in the ordinary Provided feedback tab.
@@ -33,8 +33,11 @@ test("a user writes and sends a self-reflection where both parties are themselve
   ]);
   const id = (await created.json()).id as number;
 
-  // Save lands on the Provided tab and the new row is there.
+  // Save lands on the Provided tab and the new row is there. Sort newest-first before the
+  // row assert: the shared dev DB accumulates provided rows for AAA Two across runs, so under
+  // the default sort the fresh row eventually falls off page 1 (residue class #3).
   await expect(page).toHaveURL(/\/feedback\?tab=provided/);
+  await sortNewestFirst(page);
   await expect(page.locator(`a[href*="/feedback/${id}/"]`).first()).toBeVisible();
 
   // The document is delivered and readable by its author.

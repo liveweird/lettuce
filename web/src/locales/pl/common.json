@@ -78,7 +78,8 @@
     "GOALS": "Cele",
     "TEAM_KPIS": "KPI zespołów",
     "PERFORMANCE_REVIEWS": "Oceny okresowe",
-    "DAYS_OFF": "Dni wolne"
+    "DAYS_OFF": "Dni wolne",
+    "PULSE_SURVEYS": "Ankiety pulsu"
   },
   "sort": {
     "label": "Sortuj według",

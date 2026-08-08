@@ -22,6 +22,10 @@ data class TeamResponse(
 
 fun Team.toResponse(id: UInt) = TeamResponse(id, name, managerId, memberIds)
 
+/** A bare (id, name) team reference — the pulse team pickers' row (v2.0.0). */
+@Serializable
+data class TeamRef(val id: UInt, val name: String)
+
 @Serializable
 data class TeamListItem(
     val id: UInt,

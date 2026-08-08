@@ -25,6 +25,10 @@ import ch.nokillswit.oneonones.OneOnOneEventService
 import ch.nokillswit.oneonones.OneOnOneEventServiceKey
 import ch.nokillswit.oneonones.OneOnOneService
 import ch.nokillswit.oneonones.OneOnOneServiceKey
+import ch.nokillswit.pulse.PulseCycleService
+import ch.nokillswit.pulse.PulseCycleServiceKey
+import ch.nokillswit.pulse.PulseResponseService
+import ch.nokillswit.pulse.PulseResponseServiceKey
 import ch.nokillswit.reviews.PerformanceReviewEventService
 import ch.nokillswit.reviews.PerformanceReviewEventServiceKey
 import ch.nokillswit.reviews.PerformanceReviewService
@@ -39,6 +43,8 @@ import ch.nokillswit.teams.TeamService
 import ch.nokillswit.teams.TeamServiceKey
 import ch.nokillswit.templates.TemplateService
 import ch.nokillswit.templates.TemplateServiceKey
+import ch.nokillswit.settings.AppSettingsService
+import ch.nokillswit.settings.AppSettingsServiceKey
 import ch.nokillswit.users.UserService
 import ch.nokillswit.users.UserServiceKey
 import io.ktor.server.application.*
@@ -68,6 +74,9 @@ suspend fun Application.configureDatabase() {
     attributes.put(DaysOffServiceKey, DaysOffService(database, attributes[FieldCipherKey]))
     attributes.put(TemplateServiceKey, TemplateService(database))
     attributes.put(DictionaryServiceKey, DictionaryService(database))
+    attributes.put(AppSettingsServiceKey, AppSettingsService(database))
+    attributes.put(PulseCycleServiceKey, PulseCycleService(database))
+    attributes.put(PulseResponseServiceKey, PulseResponseService(database, attributes[FieldCipherKey]))
     attributes.put(NotificationServiceKey, NotificationService(database))
     attributes.put(AlertServiceKey, AlertService(database))
     attributes.put(TokenBlocklistServiceKey, TokenBlocklistService(database))

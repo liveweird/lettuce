@@ -27,6 +27,9 @@
     "alerts": "Alerts",
     "changelog": "Changelog",
     "reviewPeriods": "Review periods",
-    "publicHolidays": "Public holidays"
+    "publicHolidays": "Public holidays",
+    "pulse": "Pulse",
+    "pulseCycles": "Pulse cycles",
+    "pulseRotatingQuestions": "Pulse questions"
   }
 }

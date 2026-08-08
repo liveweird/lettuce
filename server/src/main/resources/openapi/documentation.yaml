@@ -52,6 +52,7 @@ tags:
   - name: performance-reviews
   - name: days-off
   - name: public-holidays
+  - name: pulse-surveys
   - name: templates
   - name: dictionaries
   - name: notifications
@@ -3812,6 +3813,395 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalServerError' }
 
+  /api/v1/pulse-surveys/cycles:
+    get:
+      tags: [pulse-surveys]
+      operationId: listPulseCycles
+      summary: List pulse cycles
+      description: |
+        Any authenticated user with PULSE_SURVEYS enabled. Unpaged registry (newest first) —
+        a cadence of weeks caps the volume. `rotatingQuestion` is null for non-admins until
+        the cycle is OPEN or CLOSED (an unopened cycle's question stays unspoiled; a cancelled
+        one reveals nothing); the participation counts are ADMIN-only enrichment.
+      responses:
+        '200':
+          description: All cycles, newest first
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseCycleList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    post:
+      tags: [pulse-surveys]
+      operationId: schedulePulseCycle
+      summary: Schedule a pulse cycle
+      description: |
+        **ADMIN only.** Creates a cycle at SCHEDULED, picks + snapshots the rotating question
+        (least-used active `pulse-rotating-questions` entry, random among ties), and notifies
+        every currently eligible user (no survey link yet). The planned dates are advisory —
+        opening and closing stay manual. `409` when a SCHEDULED/OPEN cycle already exists
+        (at most one non-terminal cycle at a time) or the question bank has no active entries.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PulseCycleCreateRequest' }
+      responses:
+        '201':
+          description: Scheduled; Location points at the new cycle
+          headers:
+            Location:
+              schema: { type: string }
+              description: URL of the created cycle
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseCycle' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/pulse-surveys/cycles/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [pulse-surveys]
+      operationId: getPulseCycle
+      summary: Read one pulse cycle
+      description: >-
+        Any authenticated user with PULSE_SURVEYS enabled; the same rotating-question and
+        counts visibility rules as the list.
+      responses:
+        '200':
+          description: The cycle
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseCycle' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    put:
+      tags: [pulse-surveys]
+      operationId: updatePulseCycle
+      summary: Edit a cycle's planned dates
+      description: |
+        **ADMIN only.** SCHEDULED: both dates editable. OPEN: only the close date may change
+        ("extend") — the payload must carry the unchanged open date back, else `400`.
+        CLOSED/CANCELLED: `409`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PulseCycleUpdateRequest' }
+      responses:
+        '204': { description: Dates updated }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/pulse-surveys/cycles/{id}/open:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [pulse-surveys]
+      operationId: openPulseCycle
+      summary: Open a scheduled cycle
+      description: |
+        **ADMIN only.** SCHEDULED → OPEN (any other status is `409`). Snapshots eligibility
+        (active, not deactivated, PULSE_SURVEYS enabled) into the participant set — later user
+        churn never changes this cycle — and notifies every participant with the survey link.
+      responses:
+        '204': { description: Opened }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/PulseInvalidTransition' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/pulse-surveys/cycles/{id}/close:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [pulse-surveys]
+      operationId: closePulseCycle
+      summary: Close an open cycle
+      description: |
+        **ADMIN only.** OPEN → CLOSED (any other status is `409`). Submissions stop, results
+        become available under their access rules, and every RESPONDENT is notified.
+      responses:
+        '204': { description: Closed }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/PulseInvalidTransition' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/pulse-surveys/cycles/{id}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [pulse-surveys]
+      operationId: cancelPulseCycle
+      summary: Cancel a cycle
+      description: |
+        **ADMIN only.** Any non-CANCELLED status → CANCELLED (`409` when already cancelled).
+        Cancelling a CLOSED cycle retracts its results; stored responses are kept for audit
+        in every case. Participants are notified only when cancelling an OPEN cycle.
+      responses:
+        '204': { description: Cancelled }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/PulseInvalidTransition' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/pulse-surveys/cycles/{id}/participation:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [pulse-surveys]
+      operationId: getPulseCycleParticipation
+      summary: Read a cycle's participation counts
+      description: |
+        **ADMIN only**, and counts only — enough to decide close/extend/cancel, never team
+        aggregates, comments, or per-user status (the narrowed-ADMIN rule). A SCHEDULED
+        cycle reads as zeros.
+      responses:
+        '200':
+          description: The counts
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseParticipationCounts' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/pulse-surveys/cycles/{id}/participation-status:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [pulse-surveys]
+      operationId: getPulseParticipationStatus
+      summary: Read per-person participation status (managers)
+      description: |
+        The manager monitoring view: for every team in the caller's monitored tree (teams
+        they manage + everything below; HR: the whole org, audit-logged), the cycle's
+        participants with a bare submitted yes/no — never any answer content. Works while
+        OPEN and after CLOSE (`409` for SCHEDULED/CANCELLED). Requires no own participation;
+        non-managers simply receive an empty team list.
+      responses:
+        '200':
+          description: Participation per monitored team
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseParticipationStatusResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/pulse-surveys/cycles/{id}/my-response:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [pulse-surveys]
+      operationId: getMyPulseResponse
+      summary: Read the caller's own saved answers
+      description: |
+        The edit form's prefill — the ONLY endpoint that ever returns individual answers, and
+        only the caller's own, and only while the cycle is OPEN (`409` otherwise, closed
+        included: saved answers are never served again once a cycle closes). `403` when the
+        caller is not a participant; `404` before the first submission.
+      responses:
+        '200':
+          description: The caller's saved answers
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseMyResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/PulseNotOpen' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    put:
+      tags: [pulse-surveys]
+      operationId: submitMyPulseResponse
+      summary: Submit or edit the caller's survey
+      description: |
+        Upsert while the cycle is OPEN (`409` otherwise): the first PUT submits, later PUTs
+        fully replace — editable until the admin closes the cycle. `403` when the caller is
+        not a participant of the cycle. All six scored answers are required; the comment is
+        optional (blank = absent, max 1000 characters).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PulseResponseSubmitRequest' }
+      responses:
+        '204': { description: Saved }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/PulseNotOpen' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/pulse-surveys/cycles/{id}/results:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+      - $ref: '#/components/parameters/PulseTeamId'
+      - $ref: '#/components/parameters/PulseMode'
+    get:
+      tags: [pulse-surveys]
+      operationId: getPulseTeamResults
+      summary: Read one team's aggregated results for a closed cycle
+      description: |
+        Anonymous team-scope aggregates: eNPS + segment percentages, per-driver-question
+        mean/favorable/unfavorable, response rate, and deltas vs the immediately preceding
+        non-cancelled closed cycle (rotating-question deltas only when the same question was
+        asked). `409` unless the cycle is CLOSED — uniform for every caller, HR included
+        (results never leak while OPEN and never exist for CANCELLED). Access: HR org-wide
+        (audit-logged), otherwise the caller must have RESPONDED in this cycle (the per-cycle
+        fill gate — no role exemption, ADMIN included) and the team must be in their visible
+        tree (member-of + managed + below). Fewer than 3 responses in the scope →
+        `insufficientResponses: true` with all aggregates null (k-anonymity), not an error.
+      responses:
+        '200':
+          description: The team's results block (or the withheld marker)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseTeamResults' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/PulseNotClosed' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/pulse-surveys/cycles/{id}/comments:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+      - $ref: '#/components/parameters/PulseTeamId'
+      - $ref: '#/components/parameters/PulseMode'
+    get:
+      tags: [pulse-surveys]
+      operationId: getPulseComments
+      summary: Read a team scope's anonymized comments (managers)
+      description: |
+        The written answers for the scope, author-free and shuffled per request. Managers
+        only (the team must be in the caller's MONITORED tree — managed + below; HR org-wide,
+        audit-logged); plain members never read comments; no own-participation requirement.
+        `409` unless CLOSED. Fewer than 3 responses in the scope → withheld
+        (`insufficientResponses: true`, empty items).
+      responses:
+        '200':
+          description: The anonymized comments (or the withheld marker)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseCommentsResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/PulseNotClosed' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/pulse-surveys/trend:
+    parameters:
+      - $ref: '#/components/parameters/PulseTeamId'
+      - $ref: '#/components/parameters/PulseMode'
+    get:
+      tags: [pulse-surveys]
+      operationId: getPulseTrend
+      summary: Read a team's eNPS trend across closed cycles
+      description: |
+        One point per non-cancelled CLOSED cycle, oldest first. Team access as for results
+        (HR org-wide, audited; otherwise the caller's visible tree). The per-cycle fill gate
+        applies POINT-WISE for non-HR callers: a cycle the caller sat out yields
+        `NOT_A_RESPONDENT` (no numbers at all); a scope under 3 responses yields
+        `NOT_ENOUGH_RESPONSES` (counts shown, eNPS withheld).
+      responses:
+        '200':
+          description: The trend series
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseTrendResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/pulse-surveys/visible-teams:
+    get:
+      tags: [pulse-surveys]
+      operationId: getPulseVisibleTeams
+      summary: List the teams the caller's pulse views may target
+      description: |
+        Backs the SPA's team pickers (the team tree is derived server-side only):
+        `resultsTeams` = teams the caller is a member of + teams they manage + everything
+        below either; `monitoredTeams` = managed + below (empty for non-managers). HR gets
+        every team in both.
+      responses:
+        '200':
+          description: The two team scopes
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseVisibleTeams' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/pulse-surveys/settings:
+    get:
+      tags: [pulse-surveys]
+      operationId: getPulseSettings
+      summary: Read the pulse settings
+      description: >-
+        **ADMIN only** (reads included — the values exist solely to prefill the admin
+        scheduling form). Advisory only: the server never schedules, opens, or closes
+        anything on its own.
+      responses:
+        '200':
+          description: The settings
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseSettings' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    put:
+      tags: [pulse-surveys]
+      operationId: updatePulseSettings
+      summary: Update the pulse settings
+      description: '**ADMIN only.** cadenceWeeks 1-52, openDays 1-90; audited with deltas.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PulseSettings' }
+      responses:
+        '204': { description: Saved }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
   /api/v1/dictionaries/{dictionary}:
     parameters:
       - name: dictionary
@@ -3819,7 +4209,7 @@ paths:
         required: true
         schema:
           type: string
-          enum: [career-paths, career-specializations, seniority-levels]
+          enum: [career-paths, career-specializations, seniority-levels, pulse-rotating-questions]
         description: The dictionary's URL slug. Unknown slugs answer 404.
     get:
       tags: [dictionaries]
@@ -4246,6 +4636,20 @@ components:
         comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
         sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
         always appended as a deterministic tiebreaker.
+    PulseTeamId:
+      name: teamId
+      in: query
+      required: true
+      schema: { type: integer, format: int32, minimum: 0 }
+      description: The team the pulse scope is built from. Unknown/deleted teams answer 404.
+    PulseMode:
+      name: mode
+      in: query
+      required: false
+      schema: { type: string, enum: [direct, subtree], default: direct }
+      description: >-
+        Aggregation scope: `direct` = the team's current members only; `subtree` = members
+        plus every transitive subordinate of a member (the full report tree below the team).
 
   responses:
     BadRequest:
@@ -4283,6 +4687,27 @@ components:
           schema: { $ref: '#/components/schemas/ProblemDetail' }
     InternalServerError:
       description: Unexpected server error
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+    PulseInvalidTransition:
+      description: >-
+        The action is not allowed from the cycle's current status (the machine is
+        SCHEDULED -> OPEN -> CLOSED, CANCELLED from any of the three)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+    PulseNotOpen:
+      description: >-
+        The cycle is not OPEN — submissions and own-answer reads exist only while a cycle
+        is open (a closed cycle's answers are never served again)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+    PulseNotClosed:
+      description: >-
+        The cycle is not CLOSED — results and comments exist only for closed cycles,
+        uniformly for every caller (never while OPEN, never for CANCELLED)
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/ProblemDetail' }
@@ -4440,7 +4865,7 @@ components:
 
     Feature:
       type: string
-      enum: [DAYS_OFF, FEEDBACKS, GOALS, ONE_ON_ONES, PERFORMANCE_REVIEWS, TEAM_KPIS]
+      enum: [DAYS_OFF, FEEDBACKS, GOALS, ONE_ON_ONES, PERFORMANCE_REVIEWS, PULSE_SURVEYS, TEAM_KPIS]
       description: >-
         A per-user-toggleable feature area (feature flags). Storage models the DISABLED
         set — absent = enabled, so every user defaults to full access.
@@ -6549,6 +6974,10 @@ components:
             - DAYS_OFF_REJECTED_TO_OWNER
             - DAYS_OFF_CANCELLED_TO_MANAGER
             - DAYS_OFF_CORRECTED_TO_OWNER
+            - PULSE_CYCLE_SCHEDULED
+            - PULSE_CYCLE_OPENED
+            - PULSE_RESULTS_AVAILABLE
+            - PULSE_CYCLE_CANCELLED
             - PASSWORD_CHANGED
           description: Notification kind; the client renders it in the viewer's language.
         params:
@@ -6649,6 +7078,355 @@ components:
           description: >-
             Performance reviews the caller authored for the current period (any status);
             null exactly when currentPeriodId is null.
+        pulseOpenCloseDate:
+          type: string
+          format: date
+          nullable: true
+          description: >-
+            The OPEN pulse cycle's planned close date — null unless the caller is a
+            participant of an open cycle (with PULSE_SURVEYS enabled). Backs the pulse tile.
+        pulseSubmitted:
+          type: boolean
+          nullable: true
+          description: >-
+            Whether the caller already submitted in the open cycle; null exactly when
+            pulseOpenCloseDate is null.
+
+    PulseCycleStatus:
+      type: string
+      enum: [SCHEDULED, OPEN, CLOSED, CANCELLED]
+      description: >-
+        The cycle machine: SCHEDULED -> OPEN -> CLOSED, with terminal CANCELLED reachable
+        from any of the three. Every transition is a manual ADMIN action.
+
+    PulseCycle:
+      type: object
+      required: [id, status, plannedOpenDate, plannedCloseDate, createdAt, lastModified]
+      properties:
+        id: { type: integer, format: int64, minimum: 0 }
+        status: { $ref: '#/components/schemas/PulseCycleStatus' }
+        plannedOpenDate:
+          type: string
+          format: date
+          description: Advisory planned open date (ISO). The server never acts on it.
+        plannedCloseDate:
+          type: string
+          format: date
+          description: Advisory planned close date (ISO); admin-editable while OPEN ("extend").
+        rotatingQuestion:
+          type: string
+          nullable: true
+          description: >-
+            The cycle's snapshotted Q6 text. Null for non-admins until the cycle is OPEN or
+            CLOSED (and always null to them for CANCELLED).
+        createdAt: { type: integer, format: int64 }
+        openedAt: { type: integer, format: int64, nullable: true }
+        closedAt: { type: integer, format: int64, nullable: true }
+        cancelledAt: { type: integer, format: int64, nullable: true }
+        lastModified: { type: integer, format: int64 }
+        participantCount:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: ADMIN-only enrichment (null for everyone else).
+        responseCount:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: ADMIN-only enrichment (null for everyone else).
+
+    PulseCycleList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/PulseCycle' }
+
+    PulseCycleCreateRequest:
+      type: object
+      required: [plannedOpenDate, plannedCloseDate]
+      properties:
+        plannedOpenDate: { type: string, format: date }
+        plannedCloseDate:
+          type: string
+          format: date
+          description: Must be strictly after plannedOpenDate.
+
+    PulseCycleUpdateRequest:
+      type: object
+      required: [plannedOpenDate, plannedCloseDate]
+      properties:
+        plannedOpenDate:
+          type: string
+          format: date
+          description: While OPEN this must equal the stored open date (only the close date may change).
+        plannedCloseDate: { type: string, format: date }
+
+    PulseScaleAnswer:
+      type: string
+      enum: ["1", "2", "3", "4", "5", "NA"]
+      description: >-
+        The five-point agreement scale (1 = strongly disagree .. 5 = strongly agree) plus
+        "NA" (not applicable — excluded from every driver calculation).
+
+    PulseResponseSubmitRequest:
+      type: object
+      required: [enps, q2, q3, q4, q5, rotating]
+      properties:
+        enps:
+          type: integer
+          minimum: 0
+          maximum: 10
+          description: Q1, the eNPS answer (0 = not at all likely, 10 = extremely likely).
+        q2: { $ref: '#/components/schemas/PulseScaleAnswer' }
+        q3: { $ref: '#/components/schemas/PulseScaleAnswer' }
+        q4: { $ref: '#/components/schemas/PulseScaleAnswer' }
+        q5: { $ref: '#/components/schemas/PulseScaleAnswer' }
+        rotating: { $ref: '#/components/schemas/PulseScaleAnswer' }
+        comment:
+          type: string
+          maxLength: 1000
+          nullable: true
+          description: Optional written answer (blank = absent). Shown to managers anonymized.
+
+    PulseMyResponse:
+      type: object
+      required: [cycleId, enps, q2, q3, q4, q5, rotating, submittedAt, lastModified]
+      properties:
+        cycleId: { type: integer, format: int64, minimum: 0 }
+        enps: { type: integer, minimum: 0, maximum: 10 }
+        q2: { $ref: '#/components/schemas/PulseScaleAnswer' }
+        q3: { $ref: '#/components/schemas/PulseScaleAnswer' }
+        q4: { $ref: '#/components/schemas/PulseScaleAnswer' }
+        q5: { $ref: '#/components/schemas/PulseScaleAnswer' }
+        rotating: { $ref: '#/components/schemas/PulseScaleAnswer' }
+        comment: { type: string, nullable: true }
+        submittedAt:
+          type: integer
+          format: int64
+          description: Epoch millis of the FIRST submission (immutable across edits).
+        lastModified: { type: integer, format: int64 }
+
+    PulseParticipationCounts:
+      type: object
+      required: [participantCount, responseCount, responseRate]
+      properties:
+        participantCount: { type: integer, minimum: 0 }
+        responseCount: { type: integer, minimum: 0 }
+        responseRate:
+          type: number
+          format: double
+          description: responses / participants as a 1dp percent (0.0 for an empty snapshot).
+
+    PulseParticipationMember:
+      type: object
+      required: [userId, name, responded]
+      properties:
+        userId: { type: integer, format: int64, minimum: 0 }
+        name: { type: string }
+        responded: { type: boolean }
+
+    PulseParticipationTeam:
+      type: object
+      required: [teamId, teamName, members]
+      properties:
+        teamId: { type: integer, format: int64, minimum: 0 }
+        teamName: { type: string }
+        members:
+          type: array
+          items: { $ref: '#/components/schemas/PulseParticipationMember' }
+          description: The team's current members who are cycle participants, name-ascending.
+
+    PulseParticipationStatusResponse:
+      type: object
+      required: [teams]
+      properties:
+        teams:
+          type: array
+          items: { $ref: '#/components/schemas/PulseParticipationTeam' }
+
+    PulseAggregationMode:
+      type: string
+      enum: [direct, subtree]
+
+    PulseEnpsAggregate:
+      type: object
+      required: [score, promoterPct, passivePct, detractorPct]
+      properties:
+        score:
+          type: integer
+          minimum: -100
+          maximum: 100
+          description: promoter% - detractor%, rounded to a whole point.
+        promoterPct: { type: number, format: double, description: 'Share of 9-10 answers, 1dp.' }
+        passivePct: { type: number, format: double, description: 'Share of 7-8 answers, 1dp.' }
+        detractorPct: { type: number, format: double, description: 'Share of 0-6 answers, 1dp.' }
+
+    PulseDriverQuestion:
+      type: string
+      enum: [Q2, Q3, Q4, Q5, ROTATING]
+
+    PulseDriverResult:
+      type: object
+      required: [question, validCount]
+      properties:
+        question: { $ref: '#/components/schemas/PulseDriverQuestion' }
+        rotatingText:
+          type: string
+          nullable: true
+          description: The cycle's snapshotted question text — set on the ROTATING row only.
+        mean:
+          type: number
+          format: double
+          nullable: true
+          description: 1dp mean over valid (non-NA) answers; null when none exist.
+        favorablePct:
+          type: number
+          format: double
+          nullable: true
+          description: Share of 4-5 answers among valid ones, 1dp.
+        unfavorablePct:
+          type: number
+          format: double
+          nullable: true
+          description: Share of 1-2 answers among valid ones, 1dp.
+        validCount:
+          type: integer
+          minimum: 0
+          description: Non-NA answers — always displayed alongside the numbers.
+        meanDelta:
+          type: number
+          format: double
+          nullable: true
+          description: >-
+            Mean change vs the comparable previous cycle (1dp); null without one. Rotating
+            rows compare only when the previous cycle asked the SAME question. Never framed
+            as statistically significant.
+        favorableDeltaPp:
+          type: number
+          format: double
+          nullable: true
+          description: Favorable-share change in percentage points (1dp); null without a comparable previous.
+
+    PulsePreviousComparison:
+      type: object
+      required: [cycleId, enpsDelta]
+      properties:
+        cycleId: { type: integer, format: int64, minimum: 0 }
+        enpsDelta:
+          type: integer
+          description: Whole-point eNPS change vs that cycle over the same scope.
+
+    PulseTeamResults:
+      type: object
+      required: [cycleId, teamId, teamName, mode, participantCount, responseCount, responseRate, insufficientResponses]
+      properties:
+        cycleId: { type: integer, format: int64, minimum: 0 }
+        teamId: { type: integer, format: int64, minimum: 0 }
+        teamName: { type: string }
+        mode: { $ref: '#/components/schemas/PulseAggregationMode' }
+        participantCount: { type: integer, minimum: 0 }
+        responseCount: { type: integer, minimum: 0 }
+        responseRate: { type: number, format: double }
+        insufficientResponses:
+          type: boolean
+          description: >-
+            True when the scope has fewer than 3 responses — every aggregate field below is
+            null (k-anonymity), and the client shows a "not enough responses" state.
+        enps:
+          nullable: true
+          allOf: [{ $ref: '#/components/schemas/PulseEnpsAggregate' }]
+        drivers:
+          type: array
+          nullable: true
+          items: { $ref: '#/components/schemas/PulseDriverResult' }
+          description: One row per Q2-Q5 plus the rotating question.
+        previous:
+          nullable: true
+          allOf: [{ $ref: '#/components/schemas/PulsePreviousComparison' }]
+          description: >-
+            Set only when an immediately preceding non-cancelled closed cycle exists AND its
+            same-scope response count also passes the k-floor.
+
+    PulseCommentsResponse:
+      type: object
+      required: [items, responseCount, insufficientResponses]
+      properties:
+        items:
+          type: array
+          items: { type: string }
+          description: Author-free, shuffled per request; empty when withheld.
+        responseCount: { type: integer, minimum: 0 }
+        insufficientResponses: { type: boolean }
+
+    PulseTrendAvailability:
+      type: string
+      enum: [OK, NOT_ENOUGH_RESPONSES, NOT_A_RESPONDENT]
+
+    PulseTrendPoint:
+      type: object
+      required: [cycleId, closedAt, availability]
+      properties:
+        cycleId: { type: integer, format: int64, minimum: 0 }
+        closedAt: { type: integer, format: int64 }
+        availability: { $ref: '#/components/schemas/PulseTrendAvailability' }
+        enps:
+          type: integer
+          nullable: true
+          description: Null unless availability is OK.
+        responseCount:
+          type: integer
+          nullable: true
+          description: Null for NOT_A_RESPONDENT (a non-respondent learns nothing about that cycle).
+        responseRate: { type: number, format: double, nullable: true }
+
+    PulseTrendResponse:
+      type: object
+      required: [teamId, teamName, mode, points]
+      properties:
+        teamId: { type: integer, format: int64, minimum: 0 }
+        teamName: { type: string }
+        mode: { $ref: '#/components/schemas/PulseAggregationMode' }
+        points:
+          type: array
+          items: { $ref: '#/components/schemas/PulseTrendPoint' }
+          description: Non-cancelled CLOSED cycles, oldest first.
+
+    TeamRef:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: integer, format: int64, minimum: 0 }
+        name: { type: string }
+
+    PulseVisibleTeams:
+      type: object
+      required: [resultsTeams, monitoredTeams]
+      properties:
+        resultsTeams:
+          type: array
+          items: { $ref: '#/components/schemas/TeamRef' }
+          description: Teams the caller may open results for (own + managed + below; HR all).
+        monitoredTeams:
+          type: array
+          items: { $ref: '#/components/schemas/TeamRef' }
+          description: Teams the caller may monitor (managed + below; HR all; empty for non-managers).
+
+    PulseSettings:
+      type: object
+      required: [cadenceWeeks, openDays]
+      properties:
+        cadenceWeeks:
+          type: integer
+          minimum: 1
+          maximum: 52
+          description: Suggested weeks between cycle opens (admin-form prefill only).
+        openDays:
+          type: integer
+          minimum: 1
+          maximum: 90
+          description: Suggested days a cycle stays open (admin-form prefill only).
 
     ProblemDetail:
       type: object

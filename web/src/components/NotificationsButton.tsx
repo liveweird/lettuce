@@ -26,6 +26,7 @@ import {
   IconChecks,
   IconClipboardText,
   IconExternalLink,
+  IconHeartRateMonitor,
   IconEyeOff,
   IconKey,
   IconMessageQuestion,
@@ -86,6 +87,10 @@ const EVENT_KEY: Record<NotificationItem["type"], string> = {
   DAYS_OFF_REJECTED_TO_OWNER: "daysOffRejected",
   DAYS_OFF_CANCELLED_TO_MANAGER: "daysOffCancelled",
   DAYS_OFF_CORRECTED_TO_OWNER: "daysOffCorrected",
+  PULSE_CYCLE_SCHEDULED: "pulseCycleScheduled",
+  PULSE_CYCLE_OPENED: "pulseCycleOpened",
+  PULSE_RESULTS_AVAILABLE: "pulseResultsAvailable",
+  PULSE_CYCLE_CANCELLED: "pulseCycleCancelled",
   PASSWORD_CHANGED: "passwordChanged",
 };
 
@@ -99,6 +104,14 @@ const REVIEW_PERIOD_KEYS = new Set(["performanceReviewPublished", "performanceRe
 // The days-off kinds carry the period's raw ISO dates (and `type` as the enum name; the
 // creation kind also `days` as a plain "1.5"-style number that interpolates as-is).
 const DAYS_OFF_KEYS = new Set(["daysOffRequested", "daysOffAccepted", "daysOffRejected", "daysOffCancelled"]);
+
+// The pulse kinds carry raw ISO cycle dates (openDate/closeDate) — format per locale.
+const PULSE_KEYS = new Set([
+  "pulseCycleScheduled",
+  "pulseCycleOpened",
+  "pulseResultsAvailable",
+  "pulseCycleCancelled",
+]);
 
 function describeNotification(n: NotificationItem, t: TFunction, locale: string): string {
   const key = EVENT_KEY[n.type];
@@ -128,6 +141,11 @@ function describeNotification(n: NotificationItem, t: TFunction, locale: string)
       if (params[k] != null) params[k] = formatIsoDate(params[k]!, locale);
     }
     if (params.type != null) params.type = t(`daysOff.type.${params.type}`);
+  }
+  if (PULSE_KEYS.has(key)) {
+    for (const k of ["openDate", "closeDate"]) {
+      if (params[k] != null) params[k] = formatIsoDate(params[k]!, locale);
+    }
   }
   // The correction kind words ADD/SUBTRACT via i18next context.
   if (key === "daysOffCorrected") {
@@ -171,6 +189,10 @@ const TYPE_META: Record<NotificationItem["type"], { icon: typeof IconBell; color
   DAYS_OFF_REJECTED_TO_OWNER: { icon: IconBeach, color: "red" },
   DAYS_OFF_CANCELLED_TO_MANAGER: { icon: IconBeach, color: "gray" },
   DAYS_OFF_CORRECTED_TO_OWNER: { icon: IconBeach, color: "teal" },
+  PULSE_CYCLE_SCHEDULED: { icon: IconHeartRateMonitor, color: "blue" },
+  PULSE_CYCLE_OPENED: { icon: IconHeartRateMonitor, color: "teal" },
+  PULSE_RESULTS_AVAILABLE: { icon: IconHeartRateMonitor, color: "grape" },
+  PULSE_CYCLE_CANCELLED: { icon: IconHeartRateMonitor, color: "gray" },
   PASSWORD_CHANGED: { icon: IconKey, color: "orange" },
 };
 

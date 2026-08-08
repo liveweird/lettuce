@@ -1,0 +1,142 @@
+{
+  "sectionTitle": "Ankiety pulsu",
+  "tab": {
+    "survey": "Bieżąca ankieta",
+    "results": "Wyniki",
+    "participation": "Udział"
+  },
+  "surveyIntro": "Krótka anonimowa ankieta o tym, jak pracuje się w naszej firmie. Wyniki pokazujemy wyłącznie zbiorczo, na poziomie zespołów.",
+  "q1": "Jak bardzo prawdopodobne jest, że polecisz naszą firmę jako miejsce pracy?",
+  "q1Low": "Zupełnie nieprawdopodobne",
+  "q1High": "Bardzo prawdopodobne",
+  "q2": "Wiem, czego oczekuje się ode mnie w mojej roli.",
+  "q3": "Otrzymuję od przełożonego/przełożonej wsparcie, którego potrzebuję.",
+  "q4": "Czuję się bezpiecznie, zgłaszając wątpliwości i proponując usprawnienia.",
+  "q5": "Moje obecne obciążenie pracą jest możliwe do utrzymania w dłuższej perspektywie.",
+  "scale": {
+    "1": "Zdecydowanie się nie zgadzam",
+    "2": "Nie zgadzam się",
+    "3": "Ani się zgadzam, ani nie zgadzam",
+    "4": "Zgadzam się",
+    "5": "Zdecydowanie się zgadzam",
+    "na": "Nie dotyczy"
+  },
+  "commentPrompt": {
+    "low": "Co najważniejszego powinniśmy poprawić?",
+    "mid": "Co poprawiłoby Twoje doświadczenie o jeden punkt?",
+    "high": "Co powinniśmy koniecznie zachować?",
+    "default": "Czy chcesz podzielić się czymś jeszcze?"
+  },
+  "commentOptional": "Opcjonalnie — maksymalnie {{max}} znaków.",
+  "anonymityNote": "Nie podawaj imion, nazwisk ani innych danych pozwalających na identyfikację — komentarze wyświetlamy anonimowo.",
+  "progress": "Odpowiedziałeś/aś na {{answered}} z 6 pytań",
+  "noOpenSurvey": "Obecnie nie ma otwartej ankiety pulsu.",
+  "notParticipant": "Nie bierzesz udziału w bieżącym cyklu ankiety.",
+  "editableUntil": "Twoje odpowiedzi zostały zapisane. Możesz je edytować do {{date}}.",
+  "closesOn": "Ankieta jest otwarta do {{date}}.",
+  "action": {
+    "submit": "Wyślij ankietę",
+    "update": "Zapisz zmiany"
+  },
+  "validation": {
+    "answerRequired": "Wybierz odpowiedź.",
+    "commentTooLong": "Komentarz może mieć najwyżej {{max}} znaków.",
+    "openDateInvalid": "Wybierz poprawną datę otwarcia.",
+    "closeDateInvalid": "Data zamknięcia musi być późniejsza niż data otwarcia."
+  },
+  "toast": {
+    "submitted": "Ankieta wysłana",
+    "settingsSaved": "Ustawienia zapisane",
+    "scheduled": "Cykl zaplanowany",
+    "opened": "Cykl otwarty",
+    "closed": "Cykl zamknięty",
+    "cancelled": "Cykl anulowany",
+    "datesSaved": "Daty zaktualizowane"
+  },
+  "error": {
+    "submitForbidden": "Nie możesz wysłać tej ankiety.",
+    "submitConflict": "Ankieta nie jest już otwarta.",
+    "invalid": "Żądanie zostało odrzucone — sprawdź formularz i spróbuj ponownie.",
+    "conflict": "Akcja koliduje z bieżącym stanem cyklu.",
+    "failedStatus": "Żądanie nie powiodło się (status {{status}}).",
+    "failed": "Żądanie nie powiodło się. Spróbuj ponownie.",
+    "loadFailed": "Nie udało się wczytać danych. Odśwież stronę."
+  },
+  "status": {
+    "SCHEDULED": "Zaplanowany",
+    "OPEN": "Otwarty",
+    "CLOSED": "Zamknięty",
+    "CANCELLED": "Anulowany"
+  },
+  "results": {
+    "cycle": "Cykl",
+    "cycleOption": "Zamknięty {{date}}",
+    "mode": {
+      "direct": "Tylko członkowie zespołu",
+      "subtree": "Razem z podzespołami"
+    },
+    "modeAria": "Zakres agregacji",
+    "enps": "eNPS",
+    "promoters": "Promotorzy",
+    "passives": "Neutralni",
+    "detractors": "Krytycy",
+    "responses": "Odpowiedziało {{completed}} z {{participants}} ({{rate}}%)",
+    "deltaVsPrevious": "względem poprzedniego cyklu",
+    "question": "Pytanie",
+    "mean": "Średnia",
+    "favorable": "Pozytywne",
+    "unfavorable": "Negatywne",
+    "validCount": "n",
+    "meanDelta": "Δ średniej",
+    "notEnoughResponses": "Mniej niż 3 odpowiedzi — wyniki są ukryte, aby chronić anonimowość.",
+    "resultsGated": "Wyniki są dostępne dla zamkniętych cykli, w których wziąłeś/wzięłaś udział.",
+    "noResultsYet": "Nie ma jeszcze zamkniętych cykli pulsu.",
+    "noTeams": "Brak zespołów, dla których można pokazać wyniki.",
+    "trendTitle": "Trend eNPS",
+    "trendPending": "Trend pojawi się po dwóch zamkniętych cyklach.",
+    "commentsTitle": "Komentarze",
+    "commentsAnonymized": "Wyświetlane anonimowo i w losowej kolejności.",
+    "loadError": "Nie udało się wczytać wyników."
+  },
+  "participation": {
+    "hint": "Kto z Twoich podwładnych wypełnił ankietę — nigdy ich odpowiedzi.",
+    "summary": "Wypełniło {{submitted}} z {{total}} ({{rate}}%)",
+    "submitted": "Wypełniono",
+    "notSubmitted": "Jeszcze nie",
+    "person": "Osoba",
+    "noCycle": "Brak otwartego lub zamkniętego cyklu do monitorowania.",
+    "noTeams": "Nie monitorujesz żadnych zespołów.",
+    "loadError": "Nie udało się wczytać danych o udziale."
+  },
+  "admin": {
+    "title": "Cykle pulsu",
+    "settingsTitle": "Ustawienia",
+    "settingsHint": "Służą do podpowiadania dat w formularzu planowania — otwieranie i zamykanie pozostaje ręczne.",
+    "cadenceWeeks": "Tygodni między cyklami",
+    "openDays": "Dni otwarcia cyklu",
+    "saveSettings": "Zapisz ustawienia",
+    "scheduleTitle": "Nowy cykl",
+    "scheduleHint": "Zaplanowanie powiadamia wszystkich uprawnionych; link do ankiety wychodzi w momencie otwarcia cyklu.",
+    "openDate": "Data otwarcia",
+    "closeDate": "Data zamknięcia",
+    "schedule": "Zaplanuj cykl",
+    "scheduleConflict": "Zaplanowany lub otwarty cykl już istnieje.",
+    "cycleListTitle": "Cykle",
+    "noCycles": "Nie ma jeszcze żadnych cykli.",
+    "question": "Pytanie rotacyjne",
+    "participation": "Udział",
+    "openNow": "Otwórz teraz",
+    "closeNow": "Zamknij teraz",
+    "cancelCycle": "Anuluj cykl",
+    "editDates": "Edytuj daty",
+    "extend": "Przedłuż",
+    "confirmOpen": "Otworzyć cykl teraz? Wszyscy uprawnieni otrzymają powiadomienie i będą mogli wypełnić ankietę.",
+    "confirmClose": "Zamknąć cykl teraz? Wysyłanie odpowiedzi zostanie zablokowane, a wyniki staną się dostępne dla osób, które wypełniły ankietę.",
+    "confirmCancel": "Anulować ten cykl? Wyniki nie będą dostępne. Wysłane odpowiedzi zostaną zachowane do celów audytu.",
+    "datesTitle": "Daty cyklu",
+    "openAria": "Otwórz cykl {{id}}",
+    "closeAria": "Zamknij cykl {{id}}",
+    "cancelAria": "Anuluj cykl {{id}}",
+    "editDatesAria": "Edytuj daty cyklu {{id}}"
+  }
+}

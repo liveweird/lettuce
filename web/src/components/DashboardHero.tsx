@@ -3,6 +3,7 @@ import {
   IconArrowDownRight,
   IconArrowUpRight,
   IconClipboardText,
+  IconHeartRateMonitor,
   IconInbox,
   IconMessage2,
   IconMinus,
@@ -13,6 +14,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link as RouterLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { getDashboardSummary, hasFeature } from "../api/client";
+import { formatIsoDate } from "../utils/datetime";
 import classes from "./DashboardHero.module.css";
 
 const GRID_COLS = { base: 2, sm: 3, lg: 5 };
@@ -89,7 +91,8 @@ function TrendLine({ delta, caption }: { delta: number; caption: string }) {
  * error or malformed data — the hero must never break the dashboard (the AlertsBanner rule).
  */
 export default function DashboardHero() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage ?? "en";
   const { data, isLoading } = useQuery({
     queryKey: ["dashboardSummary"],
     queryFn: getDashboardSummary,
@@ -164,6 +167,20 @@ export default function DashboardHero() {
           value={`${data.currentPeriodReviewsDone ?? 0}/${data.directReports}`}
           to="/performance?tab=managed"
           icon={<IconClipboardText size={20} />}
+        />
+      )}
+      {hasFeature("PULSE_SURVEYS") && typeof data.pulseOpenCloseDate === "string" && (
+        // Only participants of an OPEN cycle get the field (per-field narrowing — an older
+        // server simply renders no tile); the wording flips once they've submitted.
+        <StatTile
+          label={
+            data.pulseSubmitted === true
+              ? t("dashboard.hero.pulseSubmitted")
+              : t("dashboard.hero.pulseOpen")
+          }
+          value={formatIsoDate(data.pulseOpenCloseDate, locale)}
+          to="/pulse?tab=survey"
+          icon={<IconHeartRateMonitor size={20} />}
         />
       )}
     </SimpleGrid>
