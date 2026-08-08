@@ -63,23 +63,29 @@ export default function PulseTeamResultCard({
   teamName,
   mode,
   canMonitor,
+  commentsOnly = false,
 }: {
   cycleId: number;
   teamId: number;
   teamName: string;
   mode: PulseAggregationMode;
   canMonitor: boolean;
+  /** A fill-gated monitor (a manager who didn't respond): skip the aggregate/trend queries
+   *  and render only the comments section their monitoring right still covers. */
+  commentsOnly?: boolean;
 }) {
   const { t } = useTranslation();
   const { data, isLoading, isError } = useQuery({
     queryKey: ["pulseResults", cycleId, teamId, mode],
     queryFn: () => getPulseResults(cycleId, teamId, mode),
     retry: false,
+    enabled: !commentsOnly,
   });
   const trend = useQuery({
     queryKey: ["pulseTrend", teamId, mode],
     queryFn: () => getPulseTrend(teamId, mode),
     retry: false,
+    enabled: !commentsOnly,
   });
   const comments = useQuery({
     queryKey: ["pulseComments", cycleId, teamId, mode],
@@ -108,8 +114,8 @@ export default function PulseTeamResultCard({
           )}
         </Group>
 
-        {isLoading && <Skeleton height={120} radius="sm" />}
-        {isError && (
+        {!commentsOnly && isLoading && <Skeleton height={120} radius="sm" />}
+        {!commentsOnly && isError && (
           <Alert color="red" variant="light">
             {t("pulse.results.loadError")}
           </Alert>
@@ -175,15 +181,19 @@ export default function PulseTeamResultCard({
           </>
         )}
 
-        <Divider label={t("pulse.results.trendTitle")} labelPosition="left" />
-        {trendSeries.length >= 2 ? (
-          <Suspense fallback={<Skeleton height={200} radius="sm" />}>
-            <PulseTrendChart points={trendSeries} />
-          </Suspense>
-        ) : (
-          <Text size="sm" c="dimmed">
-            {t("pulse.results.trendPending")}
-          </Text>
+        {!commentsOnly && (
+          <>
+            <Divider label={t("pulse.results.trendTitle")} labelPosition="left" />
+            {trendSeries.length >= 2 ? (
+              <Suspense fallback={<Skeleton height={200} radius="sm" />}>
+                <PulseTrendChart points={trendSeries} />
+              </Suspense>
+            ) : (
+              <Text size="sm" c="dimmed">
+                {t("pulse.results.trendPending")}
+              </Text>
+            )}
+          </>
         )}
 
         {canMonitor && comments.data && !comments.data.insufficientResponses && comments.data.items.length > 0 && (

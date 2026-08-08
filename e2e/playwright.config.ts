@@ -36,18 +36,27 @@ export default defineConfig({
     video: "off",
   },
   projects: [
-    // alerts.spec runs alone AFTER everything else: its active broadcast banner overlays the
-    // header for every logged-in user, so it cannot share the stack with concurrent workers.
+    // alerts.spec and pulse.spec each run alone AFTER everything else: the alert banner
+    // overlays the header for every logged-in user, and a pulse cycle sprays notifications
+    // at every user's bell while the one-non-terminal-cycle registry is global — neither can
+    // share the stack with concurrent workers (and they conflict with each other, hence two
+    // chained phases rather than one).
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
-      testIgnore: /alerts\.spec\.ts/,
+      testIgnore: /(alerts|pulse)\.spec\.ts/,
     },
     {
       name: "alerts",
       use: { ...devices["Desktop Chrome"] },
       testMatch: /alerts\.spec\.ts/,
       dependencies: ["chromium"],
+    },
+    {
+      name: "pulse",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: /pulse\.spec\.ts/,
+      dependencies: ["alerts"],
     },
   ],
 });

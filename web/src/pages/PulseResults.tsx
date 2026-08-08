@@ -101,7 +101,25 @@ export default function PulseResults() {
       </Group>
 
       {gated ? (
-        <EmptyState icon={<IconChartBar size={32} />} label={t("pulse.results.resultsGated")} />
+        <>
+          <EmptyState icon={<IconChartBar size={32} />} label={t("pulse.results.resultsGated")} />
+          {/* A fill-gated MONITOR (a manager who didn't respond) keeps their comments right —
+              render comments-only cards for the monitored teams so the gate never hides them. */}
+          {selectedCycle != null &&
+            resultsTeams
+              .filter((team) => isHr() || monitoredIds.has(team.id))
+              .map((team) => (
+                <PulseTeamResultCard
+                  key={team.id}
+                  cycleId={selectedCycle}
+                  teamId={team.id}
+                  teamName={team.name}
+                  mode={mode}
+                  canMonitor
+                  commentsOnly
+                />
+              ))}
+        </>
       ) : (
         selectedCycle != null &&
         resultsTeams.map((team) => (
