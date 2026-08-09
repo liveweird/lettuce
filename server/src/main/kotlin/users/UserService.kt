@@ -108,6 +108,13 @@ class UserService(val database: R2dbcDatabase) {
         }
         val id = newRecord[Users.id].value
         insertRoles(id, user.roles)
+        // MFA is the one inverted-default flag (opt-in): every new user starts with the
+        // disabled row present, mirroring the V52 seed for pre-existing users. All creation
+        // paths (admin create, CSV import, test seeds) funnel through here.
+        UserDisabledFeatures.insert {
+            it[UserDisabledFeatures.userId] = id
+            it[UserDisabledFeatures.feature] = Feature.MFA.name
+        }
         id
     }
 

@@ -122,7 +122,7 @@ describe("login", () => {
       }),
     );
     const data = await login({ email: "a@b", password: "pw" });
-    expect(data.token).toBe("jwt-123");
+    expect("token" in data && data.token).toBe("jwt-123");
     expect(localStorage.getItem(TOKEN_KEY)).toBe("jwt-123");
     expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBe("refresh-123");
     expect(localStorage.getItem(ROLE_KEY)).toBe(JSON.stringify(["ADMIN"]));

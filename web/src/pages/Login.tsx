@@ -5,12 +5,15 @@ import {
   Alert,
   Anchor,
   Button,
+  Center,
   PasswordInput,
+  PinInput,
   Stack,
+  Text,
   TextInput,
 } from "@mantine/core";
 import { isEmail, isNotEmpty, useForm } from "@mantine/form";
-import { ApiError, login } from "../api/client";
+import { ApiError, isMfaChallenge, login, verifyMfa, type MfaChallenge } from "../api/client";
 import { consumeSignedOut, notifyAuthChange } from "../auth";
 import AuthCard from "../components/AuthCard";
 
@@ -23,6 +26,9 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [signedOut, setSignedOut] = useState<boolean>(() => consumeSignedOut());
+  // Email MFA (v2.4.0): non-null switches the card to the code-entry step.
+  const [challenge, setChallenge] = useState<MfaChallenge | null>(null);
+  const [code, setCode] = useState("");
 
   const form = useForm({
     initialValues: { email: "", password: "" },
@@ -32,15 +38,24 @@ export default function Login() {
     },
   });
 
+  function finishSignIn() {
+    notifyAuthChange();
+    const from = (location.state as LocationState)?.from?.pathname;
+    navigate(from ?? "/", { replace: true });
+  }
+
   async function onSubmit(values: { email: string; password: string }) {
     setError(null);
     setSignedOut(false);
     setSubmitting(true);
     try {
-      await login(values);
-      notifyAuthChange();
-      const from = (location.state as LocationState)?.from?.pathname;
-      navigate(from ?? "/", { replace: true });
+      const data = await login(values);
+      if (isMfaChallenge(data)) {
+        setChallenge(data);
+        setCode("");
+        return;
+      }
+      finishSignIn();
     } catch (err) {
       if (err instanceof ApiError) {
         setError(
@@ -50,6 +65,35 @@ export default function Login() {
               ? t("auth.accountDeactivated")
               : err.status === 429
                 ? t("auth.accountLocked")
+                : err.status === 503
+                  ? t("auth.mfaUnavailable")
+                  : t("auth.loginFailedStatus", { status: err.status }),
+        );
+      } else {
+        setError(t("auth.loginFailedGeneric"));
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function onVerify(event: React.FormEvent) {
+    event.preventDefault();
+    if (!challenge) return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      await verifyMfa(challenge.challengeId, code);
+      finishSignIn();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(
+          err.status === 401
+            ? t("auth.mfaInvalidCode")
+            : err.status === 403
+              ? t("auth.accountDeactivated")
+              : err.status === 429
+                ? t("auth.mfaTooManyAttempts")
                 : t("auth.loginFailedStatus", { status: err.status }),
         );
       } else {
@@ -58,6 +102,48 @@ export default function Login() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function backToSignIn() {
+    setChallenge(null);
+    setCode("");
+    setError(null);
+  }
+
+  if (challenge) {
+    return (
+      <AuthCard title={t("auth.mfaTitle")}>
+        <form onSubmit={onVerify} noValidate>
+          <Stack>
+            <Text size="sm" c="dimmed">
+              {t("auth.mfaExplainer", { email: form.values.email })}
+            </Text>
+            <Center>
+              <PinInput
+                length={6}
+                type="number"
+                oneTimeCode
+                autoFocus
+                aria-label={t("auth.mfaCodeLabel")}
+                value={code}
+                onChange={setCode}
+              />
+            </Center>
+            {error && (
+              <Alert color="red" variant="light">
+                {error}
+              </Alert>
+            )}
+            <Button type="submit" loading={submitting} disabled={code.length < 6} fullWidth>
+              {t("auth.mfaVerify")}
+            </Button>
+            <Anchor component="button" type="button" size="sm" ta="center" onClick={backToSignIn}>
+              {t("auth.backToSignIn")}
+            </Anchor>
+          </Stack>
+        </form>
+      </AuthCard>
+    );
   }
 
   return (

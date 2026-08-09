@@ -79,7 +79,8 @@
     "TEAM_KPIS": "Team KPIs",
     "PERFORMANCE_REVIEWS": "Performance Reviews",
     "DAYS_OFF": "Days Off",
-    "PULSE_SURVEYS": "Pulse Surveys"
+    "PULSE_SURVEYS": "Pulse Surveys",
+    "MFA": "MFA (email sign-in code)"
   },
   "sort": {
     "label": "Sort by",

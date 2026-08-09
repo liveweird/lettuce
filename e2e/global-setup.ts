@@ -43,6 +43,44 @@ const SEED_ACCOUNTS = [
   "aaa-three@lettuce.local",
 ];
 
+// A seed account left MFA-ENABLED (v2.4.0 drift — e.g. flipped in the feature-flags UI, or a
+// pre-fix run's reset) answers the login with a challenge instead of tokens. Self-heal by
+// pulling the emailed 6-digit code out of the Mailpit catcher and finishing the second step;
+// without Mailpit the account is skipped with a warning (and the specs will fail loudly).
+async function completeMfa(email: string, challengeId: string): Promise<LoginBody | null> {
+  const deadline = Date.now() + 20_000;
+  while (Date.now() < deadline) {
+    try {
+      const list = (await fetch("http://localhost:8025/api/v1/messages").then((r) => r.json())) as {
+        messages?: { ID: string; Subject?: string; To?: { Address: string }[] }[];
+      };
+      // Newest-first: the first match is the code this challenge just triggered.
+      const msg = list.messages?.find(
+        (m) => m.To?.some((t) => t.Address === email) && m.Subject?.includes("sign-in code"),
+      );
+      if (msg) {
+        const text: string = (
+          await fetch(`http://localhost:8025/api/v1/message/${msg.ID}`).then((r) => r.json())
+        ).Text;
+        const code = text.match(/^\d{6}$/m)?.[0];
+        if (code) {
+          const res = await fetch(`${BASE_URL}/api/v1/login/mfa`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ challengeId, code }),
+          });
+          if (res.ok) return (await res.json()) as LoginBody;
+        }
+      }
+    } catch {
+      // Mailpit unreachable — keep polling until the deadline, then give up.
+    }
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  console.warn(`[e2e] ${email} is MFA-enabled and no sign-in code could be fetched from Mailpit.`);
+  return null;
+}
+
 async function apiLogin(email: string): Promise<LoginBody | null> {
   // Retry through the per-IP /login bucket like helpers.login() does. Development stacks lift
   // that bucket (security.rateLimit.loginPerMinute), so this normally succeeds first try.
@@ -53,7 +91,11 @@ async function apiLogin(email: string): Promise<LoginBody | null> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password: "changeme" }),
     });
-    if (res.ok) return (await res.json()) as LoginBody;
+    if (res.ok) {
+      const body = (await res.json()) as LoginBody & { mfaRequired?: boolean; challengeId?: string };
+      if (body.mfaRequired && body.challengeId) return completeMfa(email, body.challengeId);
+      return body;
+    }
     if (res.status !== 429) {
       // e.g. a rotated seed password in an old volume — skip this account, don't fail the run.
       console.warn(`[e2e] Skipping open-feedback cleanup for ${email}: login answered ${res.status}`);
@@ -88,12 +130,17 @@ async function clearOpenProvidedFeedbacks(email: string): Promise<number> {
   return cleared;
 }
 
-// The specs log in as the seed accounts and assume every feature is enabled for them —
+// The specs log in as the seed accounts and assume every feature AREA is enabled for them —
 // a disabled flag (left by exploring the v1.53.0 feature-flags UI on the shared dev stack)
 // hides nav links/card rows/tour steps and 403s the APIs, failing most of the suite at
-// timeout speed. Reset the seed accounts to all-enabled up-front, as admin. Must run BEFORE
-// the feedback cleanup below: that cleanup lists feedbacks AS each seed account, which
-// itself 403s while FEEDBACKS is disabled.
+// timeout speed. Reset the seed accounts to the pristine state up-front, as admin. Since
+// v2.4.0 pristine is ["MFA"], NOT [] — MFA is the inverted-default opt-in flag, and an empty
+// set would ENABLE email MFA so every seed login answers a code challenge instead of tokens
+// (which fails the whole suite exactly the same way). Must run BEFORE the feedback cleanup
+// below: that cleanup lists feedbacks AS each seed account, which itself 403s while
+// FEEDBACKS is disabled.
+const PRISTINE_DISABLED_FEATURES = ["MFA"];
+
 async function resetSeedFeatureFlags(): Promise<void> {
   const admin = await apiLogin("admin@lettuce.local");
   if (admin == null) return;
@@ -109,15 +156,20 @@ async function resetSeedFeatureFlags(): Promise<void> {
       items: { id: number; email: string; disabledFeatures: string[] }[];
     };
     const user = page.items.find((u) => u.email === email);
-    if (user == null || user.disabledFeatures.length === 0) continue;
+    if (
+      user == null ||
+      [...user.disabledFeatures].sort().join() === PRISTINE_DISABLED_FEATURES.join()
+    ) {
+      continue;
+    }
     await fetch(`${BASE_URL}/api/v1/users/${user.id}/features`, {
       method: "PUT",
       headers,
-      body: JSON.stringify({ disabledFeatures: [] }),
+      body: JSON.stringify({ disabledFeatures: PRISTINE_DISABLED_FEATURES }),
     });
     reset += 1;
   }
-  if (reset > 0) console.log(`[e2e] Re-enabled all features on ${reset} seed account(s).`);
+  if (reset > 0) console.log(`[e2e] Reset feature flags to pristine on ${reset} seed account(s).`);
 }
 
 async function clearSeedLeftovers(): Promise<void> {

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { renderWithProviders, screen, waitFor } from "../test/render";
+import { renderWithProviders, screen, waitFor, within } from "../test/render";
 import App from "../App";
 import Login from "./Login";
 
@@ -156,6 +156,89 @@ describe("Login page", () => {
     expect(screen.queryByText(/you've been signed out/i)).not.toBeInTheDocument();
 
     localStorage.removeItem("lettuce.auth.token");
+  });
+
+  test("an MFA challenge switches to the code step and verifying stores the token", async () => {
+    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+    mockFetch
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ mfaRequired: true, challengeId: "ch-1", expiresAt: 0 }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            token: "abc.def.ghi",
+            expiresAt: 0,
+            refreshToken: "r.t",
+            refreshExpiresAt: 0,
+            userId: 1,
+            roles: [],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+
+    const user = userEvent.setup();
+    renderWithProviders(<Login />, { route: "/login" });
+
+    await user.type(screen.getByLabelText(/email/i), "alice@example.com");
+    await user.type(screen.getByLabelText("Password"), "hunter2");
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    // The challenge response carries no tokens — nothing is persisted yet.
+    expect(
+      await screen.findByText(/we've emailed a 6-digit code to alice@example.com/i),
+    ).toBeInTheDocument();
+    expect(localStorage.getItem("lettuce.auth.token")).toBeNull();
+
+    // The aria-label sits on the PinInput group; the six code boxes are its textboxes.
+    const inputs = within(screen.getByLabelText(/sign-in code/i)).getAllByRole("textbox");
+    expect(inputs).toHaveLength(6);
+    await user.type(inputs[0], "493072");
+    await user.click(screen.getByRole("button", { name: /verify/i }));
+
+    await waitFor(() =>
+      expect(localStorage.getItem("lettuce.auth.token")).toBe("abc.def.ghi"),
+    );
+    const [url, init] = mockFetch.mock.calls[1] as [string, RequestInit];
+    expect(url).toBe("/api/v1/login/mfa");
+    expect(JSON.parse(init.body as string)).toEqual({ challengeId: "ch-1", code: "493072" });
+  });
+
+  test("a wrong code shows the invalid-code error and back returns to the password step", async () => {
+    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+    mockFetch
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ mfaRequired: true, challengeId: "ch-1", expiresAt: 0 }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response("{}", { status: 401, headers: { "Content-Type": "application/json" } }),
+      );
+
+    const user = userEvent.setup();
+    renderWithProviders(<Login />, { route: "/login" });
+
+    await user.type(screen.getByLabelText(/email/i), "alice@example.com");
+    await user.type(screen.getByLabelText("Password"), "hunter2");
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    const inputs = within(await screen.findByLabelText(/sign-in code/i)).getAllByRole("textbox");
+    await user.type(inputs[0], "000000");
+    await user.click(screen.getByRole("button", { name: /verify/i }));
+
+    expect(await screen.findByText(/invalid or expired code/i)).toBeInTheDocument();
+    expect(localStorage.getItem("lettuce.auth.token")).toBeNull();
+
+    // Back to sign in resets to the password step (and clears the error).
+    await user.click(screen.getByRole("button", { name: /back to sign in/i }));
+    expect(screen.getByLabelText("Password")).toBeInTheDocument();
+    expect(screen.queryByText(/invalid or expired code/i)).toBeNull();
   });
 
   test("returns the user to the page they tried to reach before login", async () => {
