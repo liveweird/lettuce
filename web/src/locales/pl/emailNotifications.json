@@ -1,0 +1,13 @@
+{
+  "title": "Powiadomienia e-mail",
+  "hint": "Gdy ta opcja jest włączona, każde powiadomienie, które otrzymujesz w Lettuce, wysyłamy również na Twój adres e-mail — wraz z linkiem do elementu, którego dotyczy, jeśli taki istnieje.",
+  "switchLabel": "Wysyłaj mi e-mail przy każdym powiadomieniu",
+  "loadFailed": "Nie udało się wczytać ustawień",
+  "userNotFound": "Nie znaleziono użytkownika",
+  "noPermission": "Możesz zmieniać tylko własne powiadomienia e-mail",
+  "saveFailedStatus": "Zapis nie powiódł się (status {{status}})",
+  "saveFailedNetwork": "Zapis nie powiódł się — sprawdź połączenie i spróbuj ponownie",
+  "toast": {
+    "saved": "Ustawienia powiadomień e-mail zostały zapisane"
+  }
+}

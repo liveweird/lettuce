@@ -284,6 +284,8 @@ describe("App shell", () => {
       await user.click(await screen.findByRole("button", { name: "User menu" }));
       const changePassword = await screen.findByRole("menuitem", { name: /change password/i });
       expect(changePassword).toHaveAttribute("href", "/users/7/change-password");
+      const emailNotifications = screen.getByRole("menuitem", { name: /email notifications/i });
+      expect(emailNotifications).toHaveAttribute("href", "/users/7/email-notifications");
       expect(screen.getByRole("menuitem", { name: /logout/i })).toBeInTheDocument();
     });
 

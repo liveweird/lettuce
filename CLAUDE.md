@@ -50,7 +50,7 @@ ch.nokillswit
 ├── audit/              security audit trail: `audit(event, fields…)` → AUDIT-marked structured logs (see "Audit trail" in `.claude/docs/observability.md`)
 ├── authz/              RBAC guards + CallerPrincipal (see "Authorization model" in `.claude/docs/authorization.md`)
 ├── auth/               POST /api/v1/login, /api/v1/refresh, /api/v1/logout, /api/v1/password-reset + token minting + password hashing + LoginThrottle/PasswordResetThrottle
-├── users/              /api/v1/users/* CRUD + list + mass CSV import + per-user feature flags (PUT {id}/features) + UserService + Users table
+├── users/              /api/v1/users/* CRUD + list + mass CSV import + per-user feature flags (PUT {id}/features) + email-mirror opt-out (PUT {id}/email-notifications) + UserService + Users table
 ├── teams/              /api/v1/teams/* CRUD + list + member sub-resource + TeamService + Teams/TeamMembers tables
 ├── templates/          /api/v1/templates/* CRUD + list + TemplateService + Templates table (read: any authenticated; write: ADMIN)
 ├── dictionaries/       /api/v1/dictionaries/{dictionary} read + whole-document replace + DictionaryService + dictionary_entries table (read: any authenticated; write: ADMIN — see "Dictionaries" in `.claude/docs/features/dictionaries.md`)
@@ -62,7 +62,7 @@ ch.nokillswit
 ├── daysoff/            /api/v1/days-off/* requests + accept/reject/cancel actions + calendar + budgets + corrections sub-resource + /api/v1/public-holidays registry + DaysOffService/PublicHolidayService (see "Days off" in `.claude/docs/features/days-off.md`)
 ├── pulse/              /api/v1/pulse-surveys/* — pulse cycles + surveys + team results + settings + PulseCycleService/PulseResponseService (see "Pulse surveys" in `.claude/docs/features/pulse-surveys.md`)
 ├── settings/           AppSettingsService — the generic runtime-settings K/V store over `app_settings` (V47; pulse is its first consumer)
-├── notifications/      /api/v1/notifications/* list + read + seen/unseen + delete + NotificationService + Notifications table (recipient-scoped; list/total also exclude the recipient's disabled-feature types)
+├── notifications/      /api/v1/notifications/* list + read + seen/unseen + delete + NotificationService + Notifications table (recipient-scoped; list/total also exclude the recipient's disabled-feature types; every mint is also mirrored by email via NotificationEmailer — see "Email mirror" in `.claude/docs/features/notifications.md`)
 ├── alerts/             /api/v1/alerts/* CRUD + list (ADMIN-only) + /api/v1/alerts/visible (any authenticated) + AlertService + Alerts table (see "Alerts" in `.claude/docs/features/alerts.md`)
 └── dashboard/          GET /api/v1/dashboard/summary — the Dashboard hero tiles' caller-scoped counts, composed route-side from the feature services (no dashboard-specific SQL; FeedbackService.receivedSentCount + ReviewPeriodService.currentPeriod + TeamService.directReportCount back it)
 ```

@@ -1,0 +1,13 @@
+{
+  "title": "Email notifications",
+  "hint": "When enabled, every notification you receive in Lettuce is also sent to your email address, including a link to the item it concerns when there is one.",
+  "switchLabel": "Send me an email for every notification",
+  "loadFailed": "Failed to load the settings",
+  "userNotFound": "User not found",
+  "noPermission": "You may only change your own email notifications",
+  "saveFailedStatus": "Saving failed (status {{status}})",
+  "saveFailedNetwork": "Saving failed — check your connection and try again",
+  "toast": {
+    "saved": "Email notification settings saved"
+  }
+}

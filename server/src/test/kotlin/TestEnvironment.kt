@@ -499,4 +499,19 @@ object TestNotifications {
                 link = link,
             )
         )
+
+    /**
+     * A service wired with the email mirror (v2.3.0) for deterministic send tests: launch it
+     * on a runBlocking scope and the fire-and-forget sends are joined before runBlocking
+     * returns — no polling needed.
+     */
+    fun withEmailer(
+        scope: kotlinx.coroutines.CoroutineScope,
+        mailer: ch.nokillswit.infra.mail.Mailer?,
+        appUrl: String?,
+    ): ch.nokillswit.notifications.NotificationService =
+        ch.nokillswit.notifications.NotificationService(
+            sharedTestDatabase,
+            ch.nokillswit.notifications.NotificationEmailer(scope, mailer, appUrl, TestServices.users),
+        )
 }
