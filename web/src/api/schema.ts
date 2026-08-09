@@ -53,8 +53,40 @@ export interface paths {
          *     A **deactivated** account with correct credentials is rejected with `403` — the check
          *     runs only after the password verifies, so wrong credentials always get the uniform
          *     `401` and the endpoint discloses nothing about accounts the caller cannot unlock.
+         *
+         *     **Email MFA (opt-in via the `MFA` feature flag):** when the account has MFA enabled,
+         *     correct credentials answer `200` with an `MfaChallengeResponse` instead of tokens — a
+         *     6-digit code is emailed to the account, and the client exchanges it together with the
+         *     `challengeId` at `POST /api/v1/login/mfa` for the ordinary `LoginResponse`. On a
+         *     deployment without outbound email (`MAIL_TRANSPORT=disabled`) an MFA-enabled login
+         *     fails closed with `503`.
          */
         post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/login/mfa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Exchange an MFA challenge and emailed code for a JWT pair
+         * @description Second login step for MFA-enabled accounts. The `challengeId` comes from the login
+         *     response, the 6-digit `code` from the email. Challenges are single-use, expire after
+         *     a short TTL (default 5 min, `MFA_CODE_TTL_SECONDS`), and allow a few attempts
+         *     (default 5, `MFA_MAX_ATTEMPTS`); every failure mode — unknown challenge, expired,
+         *     wrong code, attempts exhausted — answers the uniform `401`. Rate-limited per client
+         *     IP. A user deactivated between the two steps gets the login `403`.
+         */
+        post: operations["verifyMfa"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3079,11 +3111,27 @@ export interface components {
             /** @description The authenticated user's admin-disabled features — empty for full access. */
             disabledFeatures: components["schemas"]["Feature"][];
         };
+        MfaChallengeResponse: {
+            /** @description Always true — the discriminator against LoginResponse in the login 200. */
+            mfaRequired: boolean;
+            /** @description Opaque single-use challenge id; send it back with the emailed code. */
+            challengeId: string;
+            /**
+             * Format: int64
+             * @description Challenge (and code) expiry as Unix epoch milliseconds.
+             */
+            expiresAt: number;
+        };
+        MfaVerifyRequest: {
+            challengeId: string;
+            /** @description The 6-digit code from the sign-in email. */
+            code: string;
+        };
         /**
-         * @description A per-user-toggleable feature area (feature flags). Storage models the DISABLED set — absent = enabled, so every user defaults to full access.
+         * @description A per-user-toggleable feature area (feature flags). Storage models the DISABLED set — absent = enabled, so every user defaults to full access. MFA is the one inverted-default value: every user starts with it DISABLED (opt-in email MFA at login; it gates the login flow, not any feature routes).
          * @enum {string}
          */
-        Feature: "DAYS_OFF" | "FEEDBACKS" | "GOALS" | "ONE_ON_ONES" | "PERFORMANCE_REVIEWS" | "PULSE_SURVEYS" | "TEAM_KPIS";
+        Feature: "DAYS_OFF" | "FEEDBACKS" | "GOALS" | "MFA" | "ONE_ON_ONES" | "PERFORMANCE_REVIEWS" | "PULSE_SURVEYS" | "TEAM_KPIS";
         UserFeaturesUpdateRequest: {
             /** @description The complete new DISABLED set (wholesale replace) — an empty array re-enables everything. An unknown feature name is rejected with 400. */
             disabledFeatures: components["schemas"]["Feature"][];
@@ -5343,6 +5391,52 @@ export interface operations {
             };
         };
         responses: {
+            /** @description Token issued, or (MFA-enabled accounts) a second-factor challenge */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"] | components["schemas"]["MfaChallengeResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Credentials are correct but the account is deactivated */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            /** @description MFA is enabled for the account but this deployment cannot send email */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    verifyMfa: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MfaVerifyRequest"];
+            };
+        };
+        responses: {
             /** @description Token issued */
             200: {
                 headers: {
@@ -5354,7 +5448,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            /** @description Credentials are correct but the account is deactivated */
+            /** @description The account was deactivated after the challenge was issued */
             403: {
                 headers: {
                     [name: string]: unknown;

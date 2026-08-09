@@ -176,13 +176,22 @@ object TestSeedState {
                 it[UserService.Users.deactivated] = false
                 it[UserService.Users.passwordChangedAt] = 0
             }
-            // Also drop any feature flags a test left on the seed accounts (V46).
+            // Also drop any feature flags a test left on the seed accounts (V46)…
             val seedIds = UserService.Users.selectAll()
                 .where { UserService.Users.email inList (DEMO_SEED_EMAILS + SEED_ADMIN_EMAIL) }
                 .map { it[UserService.Users.id].value }
                 .toList()
             UserService.UserDisabledFeatures.deleteWhere {
                 UserService.UserDisabledFeatures.userId inList seedIds
+            }
+            // …but the pristine V52 state INCLUDES the inverted-default MFA row on every seed
+            // account — without it, seed-account logins answer an MFA challenge and every
+            // later test decoding LoginResponse breaks.
+            seedIds.forEach { id ->
+                UserService.UserDisabledFeatures.insert {
+                    it[UserService.UserDisabledFeatures.userId] = id
+                    it[UserService.UserDisabledFeatures.feature] = ch.nokillswit.users.Feature.MFA.name
+                }
             }
         }
     }

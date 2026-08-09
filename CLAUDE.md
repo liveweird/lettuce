@@ -49,7 +49,7 @@ ch.nokillswit
 ├── infra/crypto/       field-level encryption: FieldCipher (AES-256-GCM) + configureCrypto (see "Encryption at rest" in `.claude/docs/security.md`)
 ├── audit/              security audit trail: `audit(event, fields…)` → AUDIT-marked structured logs (see "Audit trail" in `.claude/docs/observability.md`)
 ├── authz/              RBAC guards + CallerPrincipal (see "Authorization model" in `.claude/docs/authorization.md`)
-├── auth/               POST /api/v1/login, /api/v1/refresh, /api/v1/logout, /api/v1/password-reset + token minting + password hashing + LoginThrottle/PasswordResetThrottle
+├── auth/               POST /api/v1/login (+ /login/mfa — the v2.4.0 opt-in email second factor, MfaChallenges store), /api/v1/refresh, /api/v1/logout, /api/v1/password-reset + token minting + password hashing + LoginThrottle/PasswordResetThrottle
 ├── users/              /api/v1/users/* CRUD + list + mass CSV import + per-user feature flags (PUT {id}/features) + email-mirror opt-out (PUT {id}/email-notifications) + UserService + Users table
 ├── teams/              /api/v1/teams/* CRUD + list + member sub-resource + TeamService + Teams/TeamMembers tables
 ├── templates/          /api/v1/templates/* CRUD + list + TemplateService + Templates table (read: any authenticated; write: ADMIN)

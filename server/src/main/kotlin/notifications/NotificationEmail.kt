@@ -54,7 +54,9 @@ private fun subjectFor(type: NotificationType): String = when (type.feature) {
     Feature.PERFORMANCE_REVIEWS -> "Lettuce: performance review / ocena okresowa"
     Feature.DAYS_OFF -> "Lettuce: days off / dni wolne"
     Feature.PULSE_SURVEYS -> "Lettuce: pulse survey / ankieta pulsu"
-    null -> "Lettuce: security notice / powiadomienie o bezpieczeństwie"
+    // MFA mints no notifications (its emails are the sign-in codes themselves, sent directly
+    // from the login flow) — same fallback as the feature-neutral security types.
+    Feature.MFA, null -> "Lettuce: security notice / powiadomienie o bezpieczeństwie"
 }
 
 /** Missing-param fallback: render "?" rather than fail the whole email. */

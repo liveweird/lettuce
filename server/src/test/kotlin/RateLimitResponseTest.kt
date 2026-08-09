@@ -76,4 +76,27 @@ class RateLimitResponseTest {
         val problem = locked.body<ProblemDetail>()
         assertTrue(problem.detail!!.contains("Too many failed login attempts"))
     }
+
+    @Test
+    fun `the MFA verify bucket answers 429 with a problem+json body`() = testApplication {
+        usePostgresTestcontainer()
+        val client = jsonClient()
+
+        // The "mfa" bucket is hardcoded 10/60s per client host in every mode (unlike login,
+        // which follows the mode). Unknown challenges answer uniform 401s until the bucket runs dry.
+        repeat(10) {
+            val res = client.post("/api/v1/login/mfa") {
+                contentType(ContentType.Application.Json)
+                setBody(ch.nokillswit.auth.MfaVerifyRequest(challengeId = "no-such", code = "000000"))
+            }
+            assertEquals(HttpStatusCode.Unauthorized, res.status)
+        }
+        val limited = client.post("/api/v1/login/mfa") {
+            contentType(ContentType.Application.Json)
+            setBody(ch.nokillswit.auth.MfaVerifyRequest(challengeId = "no-such", code = "000000"))
+        }
+        assertEquals(HttpStatusCode.TooManyRequests, limited.status)
+        assertEquals("application/problem+json", limited.contentType()?.withoutParameters()?.toString())
+        assertEquals(429, limited.body<ProblemDetail>().status)
+    }
 }

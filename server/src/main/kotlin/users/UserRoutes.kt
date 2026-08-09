@@ -227,12 +227,16 @@ fun Application.configureUserRoutes() {
                             seniorityLevel = user.seniorityLevelId?.let { resolved[it] },
                             paidDaysOffAllowance = user.paidDaysOffAllowance,
                             deactivated = false,
-                            disabledFeatures = emptyList(),
+                            disabledFeatures = listOf(Feature.MFA),
                             emailNotificationsEnabled = true,
                         ),
                     )
                 } else {
-                    call.respond(HttpStatusCode.Created, user.toResponse(id, resolved))
+                    // create() stored the inverted-default MFA row — report the actual state.
+                    call.respond(
+                        HttpStatusCode.Created,
+                        user.copy(disabledFeatures = setOf(Feature.MFA)).toResponse(id, resolved),
+                    )
                 }
             }
             post<Users.Import> {

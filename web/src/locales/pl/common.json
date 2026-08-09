@@ -79,7 +79,8 @@
     "TEAM_KPIS": "KPI zespołów",
     "PERFORMANCE_REVIEWS": "Oceny okresowe",
     "DAYS_OFF": "Dni wolne",
-    "PULSE_SURVEYS": "Ankiety pulsu"
+    "PULSE_SURVEYS": "Ankiety pulsu",
+    "MFA": "MFA (kod logowania e-mailem)"
   },
   "sort": {
     "label": "Sortuj według",

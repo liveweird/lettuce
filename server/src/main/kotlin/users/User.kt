@@ -28,9 +28,17 @@ enum class UserRole { ADMIN, HR }
  * every role — HR audit reads and the ADMIN registries (review periods = PERFORMANCE_REVIEWS,
  * public holidays = DAYS_OFF) are gated exactly like ordinary use.
  * A future feature is just a new value — no migration needed (no CHECK on the column).
+ *
+ * [MFA] (v2.4.0) is the one deliberate deviation on both counts: it has an INVERTED DEFAULT —
+ * every user starts with the disabled row present (seeded by V52 for existing users, inserted by
+ * [ch.nokillswit.users.UserService.create] for new ones), so MFA is opt-in and "empty set = full
+ * access" no longer implies "no rows anywhere" — and LOGIN-TIME semantics: it never gates routes
+ * via requireFeatureEnabled; the login handler reads it straight off the DB record (never a JWT —
+ * there is none yet) and, when enabled, demands the emailed second factor (see
+ * "Email MFA" in `.claude/docs/security.md`).
  */
 @Serializable
-enum class Feature { FEEDBACKS, ONE_ON_ONES, GOALS, TEAM_KPIS, PERFORMANCE_REVIEWS, DAYS_OFF, PULSE_SURVEYS }
+enum class Feature { FEEDBACKS, ONE_ON_ONES, GOALS, TEAM_KPIS, PERFORMANCE_REVIEWS, DAYS_OFF, PULSE_SURVEYS, MFA }
 
 @Serializable
 data class User(
@@ -98,7 +106,8 @@ data class UserCreateResponse(
     val paidDaysOffAllowance: Int?,
     // Always false at creation; kept in the shape so both user-response schemas stay aligned.
     val deactivated: Boolean,
-    // Always empty at creation (default all-enabled); aligned with UserResponse.
+    // Always exactly [MFA] at creation (the inverted-default opt-in flag; every other
+    // feature defaults enabled); aligned with UserResponse.
     val disabledFeatures: List<Feature>,
     // Always true at creation (the V51 default); aligned with UserResponse.
     val emailNotificationsEnabled: Boolean,

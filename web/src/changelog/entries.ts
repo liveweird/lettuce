@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.4.0",
+    date: "2026-08-09",
+    en: `Optional two-step sign-in. Administrators can now require a second sign-in step for selected accounts: with the new MFA flag enabled, entering the correct password emails you a 6-digit code, and signing in finishes only once you type it in. Codes expire after a few minutes and each one works exactly once. MFA is off for everyone by default — an administrator enables it per person on the user's Features screen, or for a whole team at once on the Feature flags screen.`,
+    pl: `Opcjonalne logowanie dwuetapowe. Administratorzy mogą teraz wymagać drugiego kroku logowania dla wybranych kont: przy włączonej nowej fladze MFA po wpisaniu poprawnego hasła otrzymujesz e-mailem 6-cyfrowy kod, a logowanie kończy się dopiero po jego wpisaniu. Kody wygasają po kilku minutach i każdy działa dokładnie raz. MFA jest domyślnie wyłączone dla wszystkich — administrator włącza je pojedynczo na ekranie Funkcje użytkownika albo dla całego zespołu naraz na ekranie Flagi funkcji.`,
+  },
+  {
     version: "2.3.0",
     date: "2026-08-09",
     en: `Notifications now reach your inbox too. Every notification the app shows you — a feedback request, a published review, an accepted leave, a pulse survey opening — is also sent to your email address the moment it appears, in both English and Polish, with a link straight to the item when there is one. That way you learn about things that concern you even on days you don't open Lettuce. It's on for everyone by default; if you'd rather keep notifications in-app only, the new "Email notifications" entry in your account menu (top right) has a single switch to turn the emails off — and back on — whenever you like.`,

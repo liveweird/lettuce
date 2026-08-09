@@ -40,6 +40,7 @@ import kotlin.time.Duration.Companion.seconds
 private const val LOGIN_RATE_LIMIT = "login"
 private const val REFRESH_RATE_LIMIT = "refresh"
 private const val PASSWORD_RESET_RATE_LIMIT = "password-reset"
+private const val MFA_RATE_LIMIT = "mfa"
 
 @Serializable
 data class LoginRequest(val email: String, val password: String)
@@ -49,6 +50,26 @@ data class PasswordResetRequest(val email: String)
 
 @Serializable
 data class RefreshRequest(val refreshToken: String)
+
+/**
+ * The MFA branch of POST /api/v1/login (v2.4.0): credentials verified, second factor pending —
+ * no tokens yet. The client sends the emailed 6-digit code with [challengeId] to
+ * POST /api/v1/login/mfa to obtain the ordinary [LoginResponse].
+ */
+@Serializable
+data class MfaChallengeResponse(
+    // Literal discriminator against LoginResponse in the login 200 oneOf; @EncodeDefault
+    // keeps the defaulted value on the wire.
+    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+    @kotlinx.serialization.EncodeDefault
+    val mfaRequired: Boolean = true,
+    val challengeId: String,
+    /** Epoch millis when the challenge (and its code) expires. */
+    val expiresAt: Long,
+)
+
+@Serializable
+data class MfaVerifyRequest(val challengeId: String, val code: String)
 
 @Serializable
 data class LogoutRequest(val refreshToken: String? = null)
@@ -108,6 +129,15 @@ fun Application.configureAuthRoutes() {
     )
     val mailAppUrl = mailAppUrl()
 
+    // Email MFA (v2.4.0): pending challenges for MFA-enabled accounts mid-login. In-memory,
+    // per-instance, like the throttles above.
+    val mfaTtlSeconds = environment.config.property("security.mfa.codeTtlSeconds").getString().toLong()
+    val mfaChallenges = MfaChallenges(
+        ttlMillis = mfaTtlSeconds * 1000,
+        maxAttempts = environment.config.property("security.mfa.maxAttempts").getString().toInt(),
+    )
+    val mfaTtlMinutes = (mfaTtlSeconds + 59) / 60
+
     // Verifies signature/issuer/audience/expiry of a presented refresh token. Same secret as the
     // access-token verifier in configureSecurity; the `typ` claim is checked separately below.
     val refreshVerifier = JWT.require(Algorithm.HMAC256(jwtConfig.secret))
@@ -135,6 +165,10 @@ fun Application.configureAuthRoutes() {
         }
         register(RateLimitName(PASSWORD_RESET_RATE_LIMIT)) {
             rateLimiter(limit = 5, refillPeriod = 60.seconds)
+            requestKey { call -> call.request.origin.remoteHost }
+        }
+        register(RateLimitName(MFA_RATE_LIMIT)) {
+            rateLimiter(limit = 10, refillPeriod = 60.seconds)
             requestKey { call -> call.request.origin.remoteHost }
         }
     }
@@ -172,8 +206,76 @@ fun Application.configureAuthRoutes() {
                     throw ForbiddenException("Account is deactivated")
                 }
                 loginThrottle.recordSuccess(req.email)
+                // Email MFA (opt-in via the MFA feature flag, read straight off the DB record —
+                // no JWT exists yet): correct credentials answer with a challenge, not tokens.
+                if (Feature.MFA !in user.disabledFeatures) {
+                    if (mailer == null) {
+                        // Fail closed (the password-reset 503 precedent): silently skipping the
+                        // second factor would downgrade security on a config change. The
+                        // features PUT still works, so an admin can always flip the flag back.
+                        audit("login.mfa_unavailable", "email" to user.email, "userId" to userId.toLong())
+                        call.respondMailUnavailable("multi-factor login")
+                        return@post
+                    }
+                    val challenge = mfaChallenges.issue(userId)
+                    audit("login.mfa_challenge", "email" to user.email, "userId" to userId.toLong())
+                    // Challenge stored BEFORE responding (the user submits the code right away);
+                    // only the delivery is fire-and-forget, like the password-reset email.
+                    val app = call.application
+                    app.launch {
+                        try {
+                            mailer.send(
+                                to = user.email,
+                                subject = mfaEmailSubject(),
+                                body = mfaEmailBody(user.name, challenge.code, mfaTtlMinutes),
+                            )
+                        } catch (e: Exception) {
+                            audit("login.mfa_send_failed", "email" to user.email, "error" to e.message)
+                            app.log.error("MFA code email delivery failed for ${user.email}", e)
+                        }
+                    }
+                    call.respond(
+                        MfaChallengeResponse(
+                            challengeId = challenge.challengeId,
+                            expiresAt = challenge.expiresAt,
+                        ),
+                    )
+                    return@post
+                }
                 audit("login.success", "email" to user.email, "userId" to userId.toLong())
                 call.respond(jwtConfig.authResponse(userId, user.email, user.roles, user.disabledFeatures))
+            }
+        }
+        rateLimit(RateLimitName(MFA_RATE_LIMIT)) {
+            // Second login step for MFA-enabled accounts: exchange the challenge id + the
+            // emailed code for the ordinary token pair. Not behind `authenticate` — there is
+            // no token yet.
+            post("/api/v1/login/mfa") {
+                val req = call.receive<MfaVerifyRequest>()
+                when (val outcome = mfaChallenges.verify(req.challengeId, req.code)) {
+                    is MfaChallenges.Outcome.Failure -> {
+                        audit("login.mfa_failure", "reason" to outcome.reason)
+                        // Uniform for every failure mode — a guesser learns nothing about
+                        // whether the challenge exists, expired, or the code was wrong.
+                        throw UnauthorizedException("Invalid or expired sign-in code")
+                    }
+                    is MfaChallenges.Outcome.Success -> {
+                        val userId = outcome.userId
+                        // One read (the /refresh precedent): the user must still exist and be
+                        // active, and the pair is minted from their current roles/flags.
+                        val user = userService.read(userId)
+                        if (user == null) {
+                            audit("login.mfa_failure", "reason" to "user_gone", "userId" to userId.toLong())
+                            throw UnauthorizedException("Invalid or expired sign-in code")
+                        }
+                        if (user.deactivated) {
+                            audit("login.failure", "email" to user.email, "reason" to "deactivated")
+                            throw ForbiddenException("Account is deactivated")
+                        }
+                        audit("login.mfa_success", "email" to user.email, "userId" to userId.toLong())
+                        call.respond(jwtConfig.authResponse(userId, user.email, user.roles, user.disabledFeatures))
+                    }
+                }
             }
         }
         rateLimit(RateLimitName(REFRESH_RATE_LIMIT)) {

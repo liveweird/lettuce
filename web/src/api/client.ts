@@ -15,7 +15,12 @@ export type UserRole = (typeof USER_ROLES)[number];
 
 const DISABLED_FEATURES_KEY = "lettuce.auth.disabledFeatures";
 
-/** The per-user-toggleable feature areas (v1.53.0), in the UI's display order. */
+/**
+ * The per-user-toggleable feature areas (v1.53.0), in the UI's display order.
+ * MFA (v2.4.0) is the one inverted-default flag: every user starts with it DISABLED
+ * (opt-in email MFA at login); it gates the login flow server-side, never any SPA surface —
+ * no nav leaf, page guard, or card gating names it.
+ */
 export const FEATURES = [
   "FEEDBACKS",
   "ONE_ON_ONES",
@@ -24,6 +29,7 @@ export const FEATURES = [
   "PERFORMANCE_REVIEWS",
   "DAYS_OFF",
   "PULSE_SURVEYS",
+  "MFA",
 ] as const;
 export type Feature = (typeof FEATURES)[number];
 
@@ -103,8 +109,9 @@ function clearSession(): void {
 }
 
 // Persist the access + refresh pair (and the current roles/userId/feature flags) returned by
-// /login or /refresh. `?? []` keeps a mid-deploy older server (no disabledFeatures yet) harmless.
-function persistSession(data: LoginOk): void {
+// /login, /login/mfa, or /refresh. `?? []` keeps a mid-deploy older server (no disabledFeatures
+// yet) harmless.
+function persistSession(data: LoginSuccess): void {
   setToken(data.token);
   setRefreshToken(data.refreshToken);
   localStorage.setItem(ROLES_KEY, JSON.stringify(data.roles));
@@ -113,7 +120,14 @@ function persistSession(data: LoginOk): void {
 }
 
 type LoginBody = paths["/api/v1/login"]["post"]["requestBody"]["content"]["application/json"];
+// Tokens, or (MFA-enabled accounts) a second-factor challenge — discriminate via isMfaChallenge.
 type LoginOk = paths["/api/v1/login"]["post"]["responses"]["200"]["content"]["application/json"];
+type LoginSuccess = components["schemas"]["LoginResponse"];
+export type MfaChallenge = components["schemas"]["MfaChallengeResponse"];
+
+export function isMfaChallenge(data: LoginOk): data is MfaChallenge {
+  return "mfaRequired" in data;
+}
 
 export async function login(credentials: LoginBody): Promise<LoginOk> {
   const res = await fetch(`${API_BASE}/api/v1/login`, {
@@ -123,6 +137,28 @@ export async function login(credentials: LoginBody): Promise<LoginOk> {
   });
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   const data = (await res.json()) as LoginOk;
+  // An MFA challenge carries no tokens — the session starts only after verifyMfa.
+  if (!isMfaChallenge(data)) persistSession(data);
+  return data;
+}
+
+type MfaVerifyBody =
+  paths["/api/v1/login/mfa"]["post"]["requestBody"]["content"]["application/json"];
+
+/**
+ * Second login step for MFA-enabled accounts: exchanges the challenge id + emailed 6-digit
+ * code for the ordinary token pair (persisted like a login). Throws ApiError on 401
+ * (invalid/expired code), 403 (account deactivated meanwhile), or 429 (rate-limited).
+ */
+export async function verifyMfa(challengeId: string, code: string): Promise<LoginSuccess> {
+  const body: MfaVerifyBody = { challengeId, code };
+  const res = await fetch(`${API_BASE}/api/v1/login/mfa`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  const data = (await res.json()) as LoginSuccess;
   persistSession(data);
   return data;
 }
@@ -184,7 +220,7 @@ async function doRefresh(): Promise<string | null> {
     return null;
   }
   if (!res.ok) return null;
-  const data = (await res.json()) as LoginOk;
+  const data = (await res.json()) as LoginSuccess;
   persistSession(data);
   return data.token;
 }

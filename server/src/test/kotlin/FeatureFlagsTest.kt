@@ -155,7 +155,8 @@ class FeatureFlagsTest {
         val admin = authedClient(adminEmail, "pw-123456789")
         val email = uniqueEmail("goalless")
         val userId = TestUsers.seed(email = email, password = "pw-123456789", roles = emptySet())
-        assertEquals(HttpStatusCode.NoContent, admin.setFlags(userId, Feature.GOALS).status)
+        // MFA stays in the disabled set (its default) so the login below stays single-step.
+        assertEquals(HttpStatusCode.NoContent, admin.setFlags(userId, Feature.GOALS, Feature.MFA).status)
 
         val client = authedClient(email, "pw-123456789")
         assertEquals(HttpStatusCode.Forbidden, client.get("/api/v1/goals").status)
@@ -176,7 +177,7 @@ class FeatureFlagsTest {
 
         val hrEmail = uniqueEmail("hr")
         val hrId = TestUsers.seed(email = hrEmail, password = "pw-123456789", roles = setOf(ch.nokillswit.users.UserRole.HR))
-        assertEquals(HttpStatusCode.NoContent, admin.setFlags(hrId, Feature.FEEDBACKS).status)
+        assertEquals(HttpStatusCode.NoContent, admin.setFlags(hrId, Feature.FEEDBACKS, Feature.MFA).status)
         val hr = authedClient(hrEmail, "pw-123456789")
         val audit = hr.get("/api/v1/feedbacks") {
             parameter("view", "user")
@@ -184,14 +185,14 @@ class FeatureFlagsTest {
         }
         assertEquals(HttpStatusCode.Forbidden, audit.status)
 
-        assertEquals(HttpStatusCode.NoContent, admin.setFlags(adminId, Feature.PERFORMANCE_REVIEWS).status)
+        assertEquals(HttpStatusCode.NoContent, admin.setFlags(adminId, Feature.PERFORMANCE_REVIEWS, Feature.MFA).status)
         try {
             val gatedAdmin = authedClient(adminEmail, "pw-123456789")
             assertEquals(HttpStatusCode.Forbidden, gatedAdmin.get("/api/v1/review-periods").status)
             assertEquals(HttpStatusCode.Forbidden, gatedAdmin.post("/api/v1/review-periods").status)
         } finally {
             // The pre-change admin client still carries an ungated token — self-repair works.
-            assertEquals(HttpStatusCode.NoContent, admin.setFlags(adminId).status)
+            assertEquals(HttpStatusCode.NoContent, admin.setFlags(adminId, Feature.MFA).status)
         }
     }
 
@@ -209,11 +210,12 @@ class FeatureFlagsTest {
             contentType(ContentType.Application.Json)
             setBody(LoginRequest(email, "pw-123456789"))
         }.body<LoginResponse>()
-        assertEquals(emptyList(), firstLogin.disabledFeatures)
+        // A fresh user's only disabled flag is the inverted-default MFA (opt-in).
+        assertEquals(listOf(Feature.MFA), firstLogin.disabledFeatures)
 
         val preChange = authedClient(email, "pw-123456789")
         assertEquals(HttpStatusCode.OK, preChange.get("/api/v1/goals").status)
-        assertEquals(HttpStatusCode.NoContent, admin.setFlags(userId, Feature.GOALS).status)
+        assertEquals(HttpStatusCode.NoContent, admin.setFlags(userId, Feature.GOALS, Feature.MFA).status)
         // The documented staleness window: the outstanding access token still passes until the
         // next refresh or login picks up the flag.
         assertEquals(HttpStatusCode.OK, preChange.get("/api/v1/goals").status)
@@ -223,7 +225,7 @@ class FeatureFlagsTest {
             contentType(ContentType.Application.Json)
             setBody(RefreshRequest(firstLogin.refreshToken))
         }.body<LoginResponse>()
-        assertEquals(listOf(Feature.GOALS), refreshed.disabledFeatures)
+        assertEquals(listOf(Feature.GOALS, Feature.MFA), refreshed.disabledFeatures)
 
         val postChange = authedClient(email, "pw-123456789")
         assertEquals(HttpStatusCode.Forbidden, postChange.get("/api/v1/goals").status)
@@ -284,7 +286,7 @@ class FeatureFlagsTest {
         TestNotifications.seed(userId, label = "hidden-while-disabled")
         TestNotifications.service.create(Notification(recipientId = userId, type = NotificationType.PASSWORD_CHANGED))
 
-        assertEquals(HttpStatusCode.NoContent, admin.setFlags(userId, Feature.FEEDBACKS).status)
+        assertEquals(HttpStatusCode.NoContent, admin.setFlags(userId, Feature.FEEDBACKS, Feature.MFA).status)
         val muted = authedClient(email, "pw-123456789")
         val page = muted.get("/api/v1/notifications").body<NotificationPageResponse>()
         assertEquals(listOf(NotificationType.PASSWORD_CHANGED), page.items.map { it.type })
@@ -296,7 +298,7 @@ class FeatureFlagsTest {
         }.body<NotificationPageResponse>()
         assertEquals(1, badge.total)
 
-        assertEquals(HttpStatusCode.NoContent, admin.setFlags(userId).status)
+        assertEquals(HttpStatusCode.NoContent, admin.setFlags(userId, Feature.MFA).status)
         val restored = authedClient(email, "pw-123456789")
         val after = restored.get("/api/v1/notifications").body<NotificationPageResponse>()
         assertEquals(2, after.total)

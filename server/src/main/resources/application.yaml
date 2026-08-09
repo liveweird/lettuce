@@ -63,6 +63,13 @@ security:
   # In-memory, per-instance, like the lockout above.
   passwordReset:
     minIntervalSeconds: "$PASSWORD_RESET_MIN_INTERVAL_SECONDS:60"
+  # Email MFA (opt-in per user via the MFA feature flag): a login with correct credentials
+  # mints a challenge and emails a 6-digit code; the code must come back to
+  # POST /api/v1/login/mfa within the TTL and attempt cap. Challenges are in-memory,
+  # per-instance, like the lockout above (a restart just means signing in again).
+  mfa:
+    codeTtlSeconds: "$MFA_CODE_TTL_SECONDS:300"
+    maxAttempts: "$MFA_MAX_ATTEMPTS:5"
   csrf:
     # TEMPLATE PLACEHOLDER — CSRF protection is off by default because this API
     # authenticates via bearer JWT in the Authorization header, which browsers
