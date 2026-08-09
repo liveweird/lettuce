@@ -6,6 +6,8 @@
 
 **Users-list enrichment (v2.1.0):** `GET /api/v1/users` rows additionally carry `teams` — the non-deleted teams the user is a **member** of (`TeamRef` id+name pairs, name-ascending; empty array = none), one grouped join query per page inside the list's transaction. The single-user/create/update responses OMIT the key (`@EncodeDefault(NEVER)` — null would trip the shared response schemas). Backs the `/feature-flags` Teams column; the pre-existing `teamId` equality filter composes with it. Membership only — managing a team without being on its roster does not list it.
 
+**Kudos-view content enrichment (v2.2.0):** `GET /api/v1/feedbacks?view=kudos` rows additionally carry `content` — the full decrypted text next to the 200-char `contentPreview`; every other view OMITS the key (`@EncodeDefault(NEVER)` — the users-list `teams` idiom above). See "Feedback list views" in `.claude/docs/features/feedbacks.md`.
+
 **Project-state notes** (implementation status, not rules — update when they change): repeated-key `IN` is implemented by **no endpoint yet** (the shared parser `optionalString` in `infra/paging/QueryParams.kt` reads only the first value of a repeated key — implement per-endpoint when a UI needs it); `q` is implemented by **no endpoint yet** (current UIs use per-column filters; add the reusable `Q` parameter with the first endpoint that needs it); per-column substring filters exist today on users (`name`/`email`), teams (`name`; member `name`/`email`), templates (`name`), goals (`title`/`managerName`/`subordinateName`), team-kpis (`title`/`teamName`), feedbacks (the three party names), 1:1s and reviews (`managerName`/`subordinateName`), days-off (`userName`), and alerts (`title`) — all through the shared `containsNormalized`.
 
 **Implementation.**

@@ -303,6 +303,7 @@ describe("Tour", () => {
       { target: '[data-tour="feedback-received"]', path: "/feedback?tab=received" },
       { target: '[data-tour="feedback-provided"]', path: "/feedback?tab=provided" },
       { target: '[data-tour="feedback-team"]', path: "/feedback?tab=team" },
+      { target: '[data-tour="nav-kudos"]', path: "/kudos" },
       { target: '[data-tour="nav-one-on-ones"]', path: "/one-on-ones?tab=managed" },
       { target: '[data-tour="one-on-one-managed"]', path: "/one-on-ones?tab=managed" },
       { target: '[data-tour="one-on-one-own"]', path: "/one-on-ones?tab=own" },

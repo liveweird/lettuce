@@ -5,12 +5,13 @@ import { collapseAlertsBanner, expect, login, MANAGER_AAA, test } from "./helper
 // open, before the header icons. Anchors/steps that vanish or reorder fail this walk.
 // The suite's tour-seen stub only suppresses the AUTO-start; the replay button always works.
 //
-// 47, not the full 50: MANAGER_AAA is a manager but NOT an ADMIN, so the three admin-only
+// 48, not the full 51: MANAGER_AAA is a manager but NOT an ADMIN, so the three admin-only
 // Config leaves (Pulse cycles, Feature flags, Alerts) are correctly absent from their walk.
 
 const LANDMARKS = [
   "Take a quick tour",
   "Feedback",
+  "Kudos — the public wall of appreciation",
   "1:1 meetings",
   "Goals — the goals you're involved in",
   "My goals — the goals your managers set",
@@ -43,7 +44,7 @@ const LANDMARKS = [
   "Replay this tour",
 ];
 
-test("the guided tour walks all 47 manager steps in the documented order", async ({ page }) => {
+test("the guided tour walks all 48 manager steps in the documented order", async ({ page }) => {
   await login(page, MANAGER_AAA);
   // A pre-existing active alert's expanded banner overlays the header (and the replay button).
   await collapseAlertsBanner(page);
@@ -64,7 +65,7 @@ test("the guided tour walks all 47 manager steps in the documented order", async
     await tooltip.getByRole("button", { name: "Next", exact: true }).click();
   }
 
-  expect(seen).toHaveLength(47);
+  expect(seen).toHaveLength(48);
   // Each landmark appears, strictly after the previous one.
   let cursor = -1;
   for (const landmark of LANDMARKS) {

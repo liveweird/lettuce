@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.2.0",
+    date: "2026-08-09",
+    en: `Kudos — public feedback finally has a home. Until now a feedback marked Public was readable by anyone in theory, but nobody was told it existed. The new "Kudos" entry in the menu opens a wall of every public feedback across the organization, newest first: who gave it, who received it, and the content itself, trimmed to five lines — click a card to read the whole thing. No filters and no page buttons; just scroll, and older kudos keep loading. Part of the Feedbacks feature, so it follows the same feature flag.`,
+    pl: `Kudos — publiczny feedback ma wreszcie swoje miejsce. Dotąd feedback oznaczony jako publiczny teoretycznie mógł przeczytać każdy, ale nikt nie wiedział o jego istnieniu. Nowa pozycja „Kudos" w menu otwiera ścianę wszystkich publicznych feedbacków z całej organizacji, od najnowszych: kto go przekazał, kto otrzymał i sama treść, przycięta do pięciu linii — kliknij kartę, aby przeczytać całość. Bez filtrów i bez przycisków stron; po prostu przewijasz, a starsze kudosy się dogrywają. To część funkcji Feedbacki, więc podlega tej samej fladze funkcji.`,
+  },
+  {
     version: "2.1.1",
     date: "2026-08-09",
     en: `The guided tour now covers the whole app. It had fallen behind as new screens landed, so it gained thirteen steps: the "My performance" tab, all three Days off tabs, all three Pulse tabs, and the Config screens it never mentioned — Review periods, Public holidays, Pulse cycles, Feature flags and Alerts — plus a stop at the Dictionaries group. Every left-menu entry and every tab it opens is now explained, and each step still appears only for people who can actually see that screen.`,

@@ -572,6 +572,13 @@ export interface paths {
          *       every status and visibility, DRAFTs included; `contentPreview` is never redacted.
          *       HR usage is recorded in the security audit trail. The ordinary sort/filter/paging
          *       parameters apply on top.
+         *     - `view=kudos`: the org-wide Kudos wall — **every** feedback with `visibility=PUBLIC`
+         *       and `status=SENT`, regardless of who provided or received it. Available to any
+         *       authenticated caller: these are exactly the rows the single-GET read rules already
+         *       grant everyone. Rows in this view additionally carry the **full `content`**
+         *       (uncapped, alongside the usual `contentPreview`) so the wall can expand cards
+         *       inline. Intended ordering is `sort=-lastModified` (newest first); for a `SENT` row
+         *       `lastModified` is the moment it was sent, unless it was edited afterwards.
          *
          *     Supports offset pagination, sorting and filtering.
          *
@@ -592,7 +599,8 @@ export interface paths {
          *       - `lastModified[gte]` — lower bound (inclusive) on `lastModified`, epoch
          *         milliseconds. Returns rows changed at or after this instant.
          *     - `content` is returned as `contentPreview`, capped at 200 characters; it is neither
-         *       sortable nor filterable.
+         *       sortable nor filterable. `view=kudos` rows additionally carry the full `content`;
+         *       every other view omits that key.
          *
          *     Malformed query parameters (unknown view, unknown sort field, unknown enum value,
          *     out-of-range page/pageSize) respond with `400` and a `ProblemDetail` body.
@@ -3506,6 +3514,8 @@ export interface components {
             status: "REQUESTED" | "DRAFT" | "SENT" | "WITHDRAWN" | "REJECTED";
             /** @description First 200 characters of `content`. */
             contentPreview: string;
+            /** @description Full (uncapped) content. Present only on `view=kudos` rows — every other view omits the key entirely. */
+            content?: string | null;
             /**
              * Format: int64
              * @description Epoch milliseconds of the last change. Server-managed and read-only.
@@ -6167,8 +6177,8 @@ export interface operations {
                  *     always appended as a deterministic tiebreaker.
                  */
                 sort?: components["parameters"]["Sort"];
-                /** @description Which slice of feedbacks to list — caller-relative, except the HR auditor view `user`. */
-                view?: "received" | "provided" | "team" | "user";
+                /** @description Which slice of feedbacks to list — caller-relative, except the HR auditor view `user` and the org-wide `kudos` wall. */
+                view?: "received" | "provided" | "team" | "user" | "kudos";
                 /**
                  * @description Required with `view=user` (`400` when missing there, `400` with any other view):
                  *     the user whose records the auditor view lists.
