@@ -94,7 +94,9 @@ export default function Alerts() {
 
   return (
     <Stack gap="md">
-      <Title order={2}>{t("alerts.title")}</Title>
+      <Title order={2} data-tour="config-alerts">
+        {t("alerts.title")}
+      </Title>
 
       <FilterPanel activeFilterCount={activeFilterCount} storageKey={SETTINGS_KEY}>
         <ClearableTextInput

@@ -118,6 +118,11 @@ describe("FeatureFlags page", () => {
     const aliceSwitch = (await screen.findByRole("switch", {
       name: "Toggle Feedbacks for Alice",
     })) as HTMLInputElement;
+    // The heading carries the data-tour anchor for the (admin-only) Config → Feature flags step.
+    expect(screen.getByRole("heading", { name: "Feature flags" })).toHaveAttribute(
+      "data-tour",
+      "config-feature-flags",
+    );
     expect(aliceSwitch.checked).toBe(true);
     expect(
       (screen.getByRole("switch", { name: "Toggle Feedbacks for Bob" }) as HTMLInputElement).checked,

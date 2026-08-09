@@ -66,6 +66,11 @@ describe("ReviewPeriods page", () => {
 
     // The timeline renders for everyone (the Templates precedent)…
     expect(await screen.findByText("July 2025 – December 2025")).toBeInTheDocument();
+    // The heading carries the data-tour anchor for the Config → Review periods step.
+    expect(screen.getByRole("heading", { name: "Review periods" })).toHaveAttribute(
+      "data-tour",
+      "config-review-periods",
+    );
     expect(screen.getByText("January 2026 – June 2026")).toBeInTheDocument();
     expect(
       screen.getByText(

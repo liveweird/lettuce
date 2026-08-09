@@ -149,7 +149,9 @@ export default function ReviewPeriods() {
     <Container size="sm" px={0}>
       <Paper withBorder shadow="sm" p="xl" radius="md">
         <Stack gap="md">
-          <Title order={2}>{t("performanceReview.periods.title")}</Title>
+          <Title order={2} data-tour="config-review-periods">
+            {t("performanceReview.periods.title")}
+          </Title>
           <Text size="sm" c="dimmed">
             {t(admin ? "performanceReview.periods.hint" : "performanceReview.periods.hintReadOnly")}
           </Text>

@@ -77,6 +77,15 @@ describe("DaysOff page", () => {
     expect(screen.getByText("Mate Person")).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "My team" })).toBeNull();
     expect(screen.queryAllByLabelText("Whose calendar")).toHaveLength(0);
+    // The tabs carry the data-tour anchors the guided tour targets for its subsection steps.
+    expect(screen.getByRole("tab", { name: "Calendar" })).toHaveAttribute(
+      "data-tour",
+      "days-off-calendar",
+    );
+    expect(screen.getByRole("tab", { name: "My requests" })).toHaveAttribute(
+      "data-tour",
+      "days-off-requests",
+    );
     // The month pager is there.
     expect(screen.getByLabelText("Previous month")).toBeInTheDocument();
     expect(screen.getByLabelText("Next month")).toBeInTheDocument();
@@ -87,6 +96,7 @@ describe("DaysOff page", () => {
     renderWithProviders(<DaysOff />, { route: "/days-off" });
 
     expect(await screen.findByRole("tab", { name: "My team" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "My team" })).toHaveAttribute("data-tour", "days-off-team");
     // Mantine associates both the label and the input with the text — any match will do.
     await waitFor(() => expect(screen.getAllByLabelText("Whose calendar").length).toBeGreaterThan(0));
 

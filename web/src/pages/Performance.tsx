@@ -45,7 +45,9 @@ export default function Performance() {
       <Title order={2}>{t("performanceReview.sectionTitle")}</Title>
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
-          <Tabs.Tab value="own">{t("performanceReview.tab.own")}</Tabs.Tab>
+          <Tabs.Tab value="own" data-tour="performance-own">
+            {t("performanceReview.tab.own")}
+          </Tabs.Tab>
           {isManager && (
             <Tabs.Tab value="managed" data-tour="performance-managed">
               {t("performanceReview.tab.managed")}

@@ -88,6 +88,11 @@ describe("Alerts page", () => {
 
     expect(await screen.findByText("Maintenance")).toBeInTheDocument();
     expect(screen.getByText("Old news")).toBeInTheDocument();
+    // The heading carries the data-tour anchor for the (admin-only) Config → Alerts step.
+    expect(screen.getByRole("heading", { name: "Alerts" })).toHaveAttribute(
+      "data-tour",
+      "config-alerts",
+    );
     // Active flag renders as a Yes/No badge.
     expect(screen.getByText("Yes")).toBeInTheDocument();
     expect(screen.getByText("No")).toBeInTheDocument();

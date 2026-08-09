@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.1.1",
+    date: "2026-08-09",
+    en: `The guided tour now covers the whole app. It had fallen behind as new screens landed, so it gained thirteen steps: the "My performance" tab, all three Days off tabs, all three Pulse tabs, and the Config screens it never mentioned — Review periods, Public holidays, Pulse cycles, Feature flags and Alerts — plus a stop at the Dictionaries group. Every left-menu entry and every tab it opens is now explained, and each step still appears only for people who can actually see that screen.`,
+    pl: `Przewodnik obejmuje teraz całą aplikację. Nie nadążał za nowymi ekranami, więc zyskał trzynaście kroków: zakładkę „Moje oceny", wszystkie trzy zakładki Dni wolnych, wszystkie trzy zakładki Pulsu oraz ekrany Konfiguracji, o których dotąd milczał — Okresy ocen, Święta, Cykle pulsu, Flagi funkcji i Alerty — a także przystanek przy grupie Słowniki. Każda pozycja lewego menu i każda otwierana przez nią zakładka ma teraz swoje wyjaśnienie, a poszczególne kroki nadal pokazują się tylko tym, którzy dany ekran faktycznie widzą.`,
+  },
+  {
     version: "2.1.0",
     date: "2026-08-08",
     en: `Feature flags can now be changed for a whole team at once. The Feature flags screen (Config) gains a Team filter and a Teams column showing each user's teams, and two new bulk actions — "Enable for all matching" and "Disable for all matching" — that flip the picked feature for every user matching the current filters, after a confirmation stating exactly how many people will be affected. Pick a team, click once, done.`,
