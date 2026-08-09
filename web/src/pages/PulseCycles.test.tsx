@@ -100,6 +100,11 @@ describe("PulseCycles (admin)", () => {
     renderPage();
     expect(await screen.findByDisplayValue("4")).toBeInTheDocument();
     expect(screen.getByDisplayValue("7")).toBeInTheDocument();
+    // The heading carries the data-tour anchor for the (admin-only) Config → Pulse cycles step.
+    expect(screen.getByRole("heading", { name: "Pulse cycles" })).toHaveAttribute(
+      "data-tour",
+      "config-pulse-cycles",
+    );
     await user.click(screen.getByRole("button", { name: "Save settings" }));
     await waitFor(() => {
       const put = mockFetch.mock.calls.find(

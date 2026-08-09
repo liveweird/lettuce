@@ -60,6 +60,12 @@ describe("Pulse hub", () => {
     expect(await screen.findByRole("tab", { name: "Current survey" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Results" })).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Participation" })).toBeNull();
+    // The tabs carry the data-tour anchors the guided tour targets for its subsection steps.
+    expect(screen.getByRole("tab", { name: "Current survey" })).toHaveAttribute(
+      "data-tour",
+      "pulse-survey",
+    );
+    expect(screen.getByRole("tab", { name: "Results" })).toHaveAttribute("data-tour", "pulse-results");
   });
 
   test("a manager gets the participation tab and ?tab= picks it", async () => {
@@ -74,6 +80,10 @@ describe("Pulse hub", () => {
     setupMocks();
     renderHub();
     expect(await screen.findByRole("tab", { name: "Participation" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Participation" })).toHaveAttribute(
+      "data-tour",
+      "pulse-participation",
+    );
   });
 
   test("?tab=results selects the results tab", async () => {

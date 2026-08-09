@@ -134,9 +134,17 @@ export default function DaysOff() {
       <Title order={2}>{t("daysOff.sectionTitle")}</Title>
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
-          <Tabs.Tab value="calendar">{t("daysOff.tab.calendar")}</Tabs.Tab>
-          <Tabs.Tab value="requests">{t("daysOff.tab.requests")}</Tabs.Tab>
-          {isManager && <Tabs.Tab value="team">{t("daysOff.tab.team")}</Tabs.Tab>}
+          <Tabs.Tab value="calendar" data-tour="days-off-calendar">
+            {t("daysOff.tab.calendar")}
+          </Tabs.Tab>
+          <Tabs.Tab value="requests" data-tour="days-off-requests">
+            {t("daysOff.tab.requests")}
+          </Tabs.Tab>
+          {isManager && (
+            <Tabs.Tab value="team" data-tour="days-off-team">
+              {t("daysOff.tab.team")}
+            </Tabs.Tab>
+          )}
         </Tabs.List>
 
         <Tabs.Panel value="calendar" pt="md">

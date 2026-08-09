@@ -143,8 +143,10 @@ commit** — this list is the suite's coverage map, and it has drifted three tim
   correction** (v1.43.0) the subordinate sees read-only on their budget card; the owner
   **cancels** the accepted request at the end so no counting rows persist on seed accounts
   (seeded Polish holidays are blocklisted when picking the Monday).
-- `tour.spec.ts` — replays the guided tour as a manager and walks all 37 steps, pinning the
-  landmark order (whole left menu — Changelog included — before the header icons).
+- `tour.spec.ts` — replays the guided tour as a manager and walks all 47 steps, pinning the
+  landmark order (whole left menu — Changelog included — and every tab of the views it opens,
+  before the header icons). 47 not 50: the walker is a manager but not an ADMIN, so the three
+  admin-only Config leaves are correctly absent.
 - `alerts.spec.ts` — admin creates an alert; a regular user sees the **banner**, hides it to the
   strip and re-shows it (and has no alert management); deactivation and delete remove it.
 - `user-details.spec.ts` — the read-only user-details view: the "User details" buttons on the

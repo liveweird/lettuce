@@ -111,7 +111,9 @@ export default function PublicHolidays() {
     <Container size="sm" px={0}>
       <Paper withBorder shadow="sm" p="xl" radius="md">
         <Stack gap="md">
-          <Title order={2}>{t("daysOff.holidays.title")}</Title>
+          <Title order={2} data-tour="config-public-holidays">
+            {t("daysOff.holidays.title")}
+          </Title>
           <Text size="sm" c="dimmed">
             {t(admin ? "daysOff.holidays.hint" : "daysOff.holidays.hintReadOnly")}
           </Text>

@@ -195,6 +195,9 @@ const NAV_ITEMS: ReadonlyArray<NavEntry> = [
   {
     label: "appShell.nav.dictionaries",
     icon: IconBook2,
+    // One group-level tour step stands in for all four leaves (they are the same editor over
+    // different lists), unlike Config, whose leaves are genuinely distinct screens.
+    tourId: "nav-dictionaries",
     children: [
       { to: "/dictionaries/career-paths", label: "appShell.nav.careerPaths", icon: IconRoute },
       { to: "/dictionaries/career-specializations", label: "appShell.nav.careerSpecializations", icon: IconBriefcase },

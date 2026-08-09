@@ -210,7 +210,9 @@ export default function FeatureFlags() {
 
   return (
     <Stack gap="md">
-      <Title order={2}>{t("users.featureFlags.title")}</Title>
+      <Title order={2} data-tour="config-feature-flags">
+        {t("users.featureFlags.title")}
+      </Title>
 
       <FilterPanel activeFilterCount={activeFilterCount} storageKey={SETTINGS_KEY}>
         <Select

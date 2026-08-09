@@ -5,7 +5,7 @@ import { createContext, useContext } from "react";
 // Types only — erased at build time. The runtime react-joyride import lives solely in
 // TourJoyride.tsx, which Tour.tsx lazy-loads so the library stays out of the entry chunk.
 import type { Step } from "react-joyride";
-import { hasFeature, type Feature } from "../api/client";
+import { hasFeature, isAdmin, isHr, type Feature } from "../api/client";
 
 const SEEN_PREFIX = "lettuce.tour.seen.";
 const seenKey = (userId: number) => `${SEEN_PREFIX}${userId}`;
@@ -27,6 +27,12 @@ type TourStepDef = {
   /** Shown only to callers who manage a team (e.g. the Feedback "My team" tab and the 1:1
    *  "I'm a manager" / "My subordinate's a manager" tabs are manager-only). */
   managerOnly?: boolean;
+  /** Shown to managers OR the HR auditor — the Pulse "participation" tab's own gate
+   *  (`canMonitor` in pages/Pulse.tsx), which is wider than `managerOnly`. */
+  managerOrHr?: boolean;
+  /** Shown only to an ADMIN — the three Config leaves the navbar itself appends admin-only
+   *  (Pulse cycles, Feature flags, Alerts). */
+  adminOnly?: boolean;
   /** Shown only while the caller has this feature enabled (v1.53.0) — the step's anchor
    *  (nav link / tab) is gone when the flag is off, so the step must go with it. */
   feature?: Feature;
@@ -80,17 +86,39 @@ export const TOUR_STEPS: TourStepDef[] = [
   // Performance — the Goals shape (v1.45.0): everyone has the own view, managers a second tab
   // with the per-period completion dashboard (formerly the Dashboard's reviews tab).
   { target: '[data-tour="nav-performance"]', contentKey: "tour.steps.performance", placement: "right", navTo: "/performance?tab=own" , feature: "PERFORMANCE_REVIEWS" },
+  { target: '[data-tour="performance-own"]', contentKey: "tour.steps.performanceOwn", placement: "bottom", navTo: "/performance?tab=own" , feature: "PERFORMANCE_REVIEWS" },
   { target: '[data-tour="performance-managed"]', contentKey: "tour.steps.performanceManaged", placement: "bottom", navTo: "/performance?tab=managed", managerOnly: true , feature: "PERFORMANCE_REVIEWS" },
-  // Days off — every user has the calendar + own requests (v1.42.0), so no audience gate.
+  // Days off — every user has the calendar + own requests (v1.42.0), so only "team" is gated.
   { target: '[data-tour="nav-days-off"]', contentKey: "tour.steps.daysOff", placement: "right", navTo: "/days-off" , feature: "DAYS_OFF" },
+  { target: '[data-tour="days-off-calendar"]', contentKey: "tour.steps.daysOffCalendar", placement: "bottom", navTo: "/days-off?tab=calendar" , feature: "DAYS_OFF" },
+  { target: '[data-tour="days-off-requests"]', contentKey: "tour.steps.daysOffRequests", placement: "bottom", navTo: "/days-off?tab=requests" , feature: "DAYS_OFF" },
+  { target: '[data-tour="days-off-team"]', contentKey: "tour.steps.daysOffTeam", placement: "bottom", navTo: "/days-off?tab=team", managerOnly: true , feature: "DAYS_OFF" },
+  // Pulse — survey + results are everyone's; "participation" is the monitoring tab, which the page
+  // shows to managers OR the HR auditor (`canMonitor`), hence the wider managerOrHr gate.
   { target: '[data-tour="nav-pulse"]', contentKey: "tour.steps.pulse", placement: "right", navTo: "/pulse", feature: "PULSE_SURVEYS" },
-  // The Config section + its three subsections (separate routes). The nav step navigates into the
+  { target: '[data-tour="pulse-survey"]', contentKey: "tour.steps.pulseSurvey", placement: "bottom", navTo: "/pulse?tab=survey", feature: "PULSE_SURVEYS" },
+  { target: '[data-tour="pulse-results"]', contentKey: "tour.steps.pulseResults", placement: "bottom", navTo: "/pulse?tab=results", feature: "PULSE_SURVEYS" },
+  { target: '[data-tour="pulse-participation"]', contentKey: "tour.steps.pulseParticipation", placement: "bottom", navTo: "/pulse?tab=participation", managerOrHr: true, feature: "PULSE_SURVEYS" },
+  // The Config section + its subsections (separate routes). The nav step navigates into the
   // section a step early so the lazy /users route is mounted before its subsection target is needed.
+  // Each leaf step anchors on that screen's page title, not on the navbar leaf.
   { target: '[data-tour="nav-config"]', contentKey: "tour.steps.config", placement: "right", navTo: "/users" },
   { target: '[data-tour="config-users"]', contentKey: "tour.steps.configUsers", placement: "bottom", navTo: "/users" },
   { target: '[data-tour="config-teams"]', contentKey: "tour.steps.configTeams", placement: "bottom", navTo: "/teams" },
   { target: '[data-tour="config-org"]', contentKey: "tour.steps.configOrg", placement: "bottom", navTo: "/org" },
   { target: '[data-tour="config-templates"]', contentKey: "tour.steps.configTemplates", placement: "bottom", navTo: "/templates" },
+  // The two registries: readable by everyone, editable by ADMIN — so they follow the nav leaves'
+  // feature gate only (the pages themselves render read-only for non-admins).
+  { target: '[data-tour="config-review-periods"]', contentKey: "tour.steps.configReviewPeriods", placement: "bottom", navTo: "/review-periods" , feature: "PERFORMANCE_REVIEWS" },
+  { target: '[data-tour="config-public-holidays"]', contentKey: "tour.steps.configPublicHolidays", placement: "bottom", navTo: "/public-holidays" , feature: "DAYS_OFF" },
+  // The three admin-only Config leaves — the navbar appends them for ADMIN alone, so the steps
+  // carry the same gate or waitForElement would burn its timeout on a target that never mounts.
+  { target: '[data-tour="config-pulse-cycles"]', contentKey: "tour.steps.configPulseCycles", placement: "bottom", navTo: "/pulse-cycles", adminOnly: true, feature: "PULSE_SURVEYS" },
+  { target: '[data-tour="config-feature-flags"]', contentKey: "tour.steps.configFeatureFlags", placement: "bottom", navTo: "/feature-flags", adminOnly: true },
+  { target: '[data-tour="config-alerts"]', contentKey: "tour.steps.configAlerts", placement: "bottom", navTo: "/alerts", adminOnly: true },
+  // Dictionaries gets ONE group-level step (nav-anchored, the nav-config idiom) covering all four
+  // lists — they are the same editor over different vocabularies, so four leaf steps would repeat.
+  { target: '[data-tour="nav-dictionaries"]', contentKey: "tour.steps.dictionaries", placement: "right", navTo: "/dictionaries/career-paths" },
   // The remaining left-menu leaves — each anchors on the navbar leaf but also opens the actual
   // screen behind it. The whole left menu is toured before the header icons below.
   { target: '[data-tour="nav-self-reflection"]', contentKey: "tour.steps.selfReflection", placement: "right", navTo: "/feedback/self" , feature: "FEEDBACKS" },
@@ -131,8 +159,14 @@ export function buildSteps(
 ): Step[] {
   // The total is the audience-filtered count, so headers read "Step X of Y" against the steps this
   // caller will actually see.
+  // Roles come straight from the stored session (the `hasFeature` idiom — a render-time read, not
+  // reactive), so the caller-relative `manager` flag stays the only argument buildSteps needs.
   const defs = TOUR_STEPS.filter(
-    (s) => (!s.managerOnly || manager) && (!s.feature || hasFeature(s.feature)),
+    (s) =>
+      (!s.managerOnly || manager) &&
+      (!s.managerOrHr || manager || isHr()) &&
+      (!s.adminOnly || isAdmin()) &&
+      (!s.feature || hasFeature(s.feature)),
   );
   const total = defs.length;
   // A per-user navTo (`:userId`) is unresolvable without a caller id — degrade to not navigating

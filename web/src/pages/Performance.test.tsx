@@ -71,6 +71,11 @@ describe("Performance page", () => {
       expect(mockFetch.mock.calls.some(([u]) => String(u).startsWith("/api/v1/teams?"))).toBe(true),
     );
     expect(screen.queryByRole("tab", { name: "Team's performance" })).not.toBeInTheDocument();
+    // The own tab carries the tour anchor too — the tour steps through both tabs.
+    expect(screen.getByRole("tab", { name: "My performance" })).toHaveAttribute(
+      "data-tour",
+      "performance-own",
+    );
 
     expect(reviewUrls(mockFetch)[0]).toContain("view=own");
   });

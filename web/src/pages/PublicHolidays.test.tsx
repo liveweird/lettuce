@@ -56,6 +56,11 @@ describe("PublicHolidays page", () => {
 
     expect(await screen.findByText("Epiphany")).toBeInTheDocument();
     expect(screen.getByText("Labour Day")).toBeInTheDocument();
+    // The heading carries the data-tour anchor for the Config → Public holidays step.
+    expect(screen.getByRole("heading", { name: "Public holidays" })).toHaveAttribute(
+      "data-tour",
+      "config-public-holidays",
+    );
     expect(
       screen.getByText(
         "On these dates everyone is off and nothing is deducted from paid-days budgets. The list is maintained by administrators.",

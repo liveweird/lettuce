@@ -187,7 +187,9 @@ export default function PulseCycles() {
   return (
     <Container size="md" px={0}>
       <Stack gap="lg">
-        <Title order={2}>{t("pulse.admin.title")}</Title>
+        <Title order={2} data-tour="config-pulse-cycles">
+          {t("pulse.admin.title")}
+        </Title>
 
         <Paper withBorder shadow="sm" p="lg" radius="md">
           <form onSubmit={settingsForm.onSubmit(saveSettings)} noValidate>
