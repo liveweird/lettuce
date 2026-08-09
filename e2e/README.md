@@ -93,6 +93,10 @@ commit** — this list is the suite's coverage map, and it has drifted three tim
   password signs in); re-importing the same rows yields duplicates, not new accounts.
 - `password-reset.spec.ts` — the "Forgot password?" flow: neutral answer for unknown emails;
   a reset email delivers a working new password and kills the old one.
+- `mfa.spec.ts` — email MFA at login (v2.4.0): admin enables the inverted-default MFA flag for a
+  throwaway user; their next sign-in demands the 6-digit code fetched from Mailpit (wrong code
+  rejected inline first). Skips itself when Mailpit is unreachable; seed accounts stay MFA-off,
+  so no other spec's login path is touched.
 - `teams.spec.ts` — team create / rename / member add + remove / **manager reassignment**
   (admin-only) / delete.
 - `templates.spec.ts` — template CRUD + **Insert** into the feedback editor.
