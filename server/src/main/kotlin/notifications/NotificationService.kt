@@ -38,7 +38,11 @@ private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
     "timestamp" to NotificationService.Notifications.timestamp,
 )
 
-class NotificationService(val database: R2dbcDatabase) {
+class NotificationService(
+    val database: R2dbcDatabase,
+    // Mirrors every mint by email (v2.3.0) — null in service-level tests that don't care.
+    private val emailer: NotificationEmailer? = null,
+) {
     object Notifications : UIntIdTable("notifications") {
         val recipientId = reference("recipient_id", UserService.Users)
         val timestamp = long("created_at")
@@ -56,34 +60,43 @@ class NotificationService(val database: R2dbcDatabase) {
      * never taken from a caller. Invoked by the activities that trigger notifications
      * (no HTTP create endpoint exists).
      */
-    suspend fun create(notification: Notification): UInt = suspendTransaction(database) {
-        val newRecord = Notifications.insert {
-            it[recipientId] = notification.recipientId
-            it[timestamp] = System.currentTimeMillis()
-            it[notificationType] = notification.type.name
-            it[params] = encodeParams(notification.params)
-            it[link] = notification.link
-            it[wasSeen] = false
+    suspend fun create(notification: Notification): UInt {
+        val id = suspendTransaction(database) {
+            val newRecord = Notifications.insert {
+                it[recipientId] = notification.recipientId
+                it[timestamp] = System.currentTimeMillis()
+                it[notificationType] = notification.type.name
+                it[params] = encodeParams(notification.params)
+                it[link] = notification.link
+                it[wasSeen] = false
+            }
+            newRecord[Notifications.id].value
         }
-        newRecord[Notifications.id].value
+        // Email mirror AFTER the commit, fire-and-forget — see NotificationEmailer.
+        emailer?.dispatch(listOf(notification))
+        return id
     }
 
     /**
      * Batch [create] for wide fan-outs (the pulse cycle events notify the whole eligible org):
      * one transaction instead of N. Same server-managed timestamp/unseen semantics.
      */
-    suspend fun createAll(notifications: List<Notification>): Unit = suspendTransaction(database) {
-        val now = System.currentTimeMillis()
-        notifications.forEach { notification ->
-            Notifications.insert {
-                it[recipientId] = notification.recipientId
-                it[timestamp] = now
-                it[notificationType] = notification.type.name
-                it[params] = encodeParams(notification.params)
-                it[link] = notification.link
-                it[wasSeen] = false
+    suspend fun createAll(notifications: List<Notification>) {
+        suspendTransaction(database) {
+            val now = System.currentTimeMillis()
+            notifications.forEach { notification ->
+                Notifications.insert {
+                    it[recipientId] = notification.recipientId
+                    it[timestamp] = now
+                    it[notificationType] = notification.type.name
+                    it[params] = encodeParams(notification.params)
+                    it[link] = notification.link
+                    it[wasSeen] = false
+                }
             }
         }
+        // Email mirror AFTER the commit — one background loop for the whole batch.
+        emailer?.dispatch(notifications)
     }
 
     suspend fun read(id: UInt): NotificationResponse? = suspendTransaction(database) {

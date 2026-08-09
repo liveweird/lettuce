@@ -78,6 +78,9 @@ class UserService(val database: R2dbcDatabase) {
 
         // Annual paid days-off allowance in whole days (V38); null = not configured.
         val paidDaysOffAllowance = integer("paid_days_off_allowance").nullable()
+
+        // Email-notification opt-out (V51): true = in-app notifications are mirrored by email.
+        val emailNotificationsEnabled = bool("email_notifications_enabled").default(true)
     }
 
     object UserRoles : Table("user_roles") {
@@ -220,6 +223,17 @@ class UserService(val database: R2dbcDatabase) {
     }
 
     /**
+     * Flip the email-notification opt-out (V51). Returns 1, or 0 when the id is unknown or
+     * soft-deleted (the route 404s). Idempotent like [setDisabledFeatures] — a same-value
+     * re-PUT is a no-op write, not a transition.
+     */
+    suspend fun setEmailNotifications(id: UInt, enabled: Boolean): Int = suspendTransaction(database) {
+        Users.update({ (Users.id eq id) and active() }) {
+            it[emailNotificationsEnabled] = enabled
+        }
+    }
+
+    /**
      * Which of [ids] are deactivated (active, non-soft-deleted) users — one SELECT, backing the
      * creation-time assignment blocks. Soft-deleted or unknown ids fall through to the existing
      * FK/reference validation.
@@ -265,6 +279,7 @@ class UserService(val database: R2dbcDatabase) {
                         seniorityLevelId = row[Users.seniorityLevelId],
                         paidDaysOffAllowance = row[Users.paidDaysOffAllowance],
                         deactivated = row[Users.deactivated],
+                        emailNotificationsEnabled = row[Users.emailNotificationsEnabled],
                     )
                 }
                 .toList()
@@ -287,6 +302,7 @@ class UserService(val database: R2dbcDatabase) {
                     paidDaysOffAllowance = row.paidDaysOffAllowance,
                     deactivated = row.deactivated,
                     disabledFeatures = featuresByUser[row.id].orEmpty().sortedBy { f -> f.name },
+                    emailNotificationsEnabled = row.emailNotificationsEnabled,
                     teams = teamsByUser[row.id].orEmpty(),
                 )
             }
@@ -303,6 +319,7 @@ class UserService(val database: R2dbcDatabase) {
         val seniorityLevelId: UInt?,
         val paidDaysOffAllowance: Int?,
         val deactivated: Boolean,
+        val emailNotificationsEnabled: Boolean,
     )
 
     // Soft-delete ONLY — deactivated users must stay readable everywhere (their historical
@@ -422,6 +439,7 @@ class UserService(val database: R2dbcDatabase) {
         careerSpecializationId = this[Users.careerSpecializationId],
         seniorityLevelId = this[Users.seniorityLevelId],
         paidDaysOffAllowance = this[Users.paidDaysOffAllowance],
+        emailNotificationsEnabled = this[Users.emailNotificationsEnabled],
     )
 
     /**

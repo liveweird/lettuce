@@ -59,6 +59,10 @@ data class User(
     // Annual paid days-off allowance in whole days (V38). Null = not configured = zero paid
     // budget. ADMIN-only assignable; the current value applies to every calendar year.
     val paidDaysOffAllowance: Int? = null,
+    // Email-notification opt-out (V51): true (default) = every in-app notification is also
+    // mirrored to the user's inbox. Never client-settable via PUT — flipped only by
+    // PUT /users/{id}/email-notifications (target user or ADMIN).
+    val emailNotificationsEnabled: Boolean = true,
 )
 
 @Serializable
@@ -96,6 +100,8 @@ data class UserCreateResponse(
     val deactivated: Boolean,
     // Always empty at creation (default all-enabled); aligned with UserResponse.
     val disabledFeatures: List<Feature>,
+    // Always true at creation (the V51 default); aligned with UserResponse.
+    val emailNotificationsEnabled: Boolean,
 )
 
 @Serializable
@@ -118,6 +124,12 @@ data class UserUpdateRequest(
 @Serializable
 data class UserFeaturesUpdateRequest(
     val disabledFeatures: List<Feature>,
+)
+
+/** Body of PUT /users/{id}/email-notifications — the V51 email-mirror opt-out toggle. */
+@Serializable
+data class UserEmailNotificationsUpdateRequest(
+    val enabled: Boolean,
 )
 
 @Serializable
@@ -191,6 +203,10 @@ data class UserResponse(
     val deactivated: Boolean,
     // Per-user feature flags (V46) — the admin-disabled set, empty = full access.
     val disabledFeatures: List<Feature>,
+    // Email-notification opt-out (V51): true = in-app notifications are mirrored by email.
+    // Rides every user response (the deactivated posture) so the self-service toggle can
+    // load its current state via GET /users/{id}.
+    val emailNotificationsEnabled: Boolean,
     // Teams the user is a MEMBER of (non-deleted, name-ascending) — a LIST enrichment
     // (v2.1.0, backs the /feature-flags team column): computed by UserService.list only.
     // Membership only — managing a team without being on its roster does not put it here.
@@ -214,4 +230,5 @@ fun User.toResponse(id: UInt, entries: Map<UInt, DictionaryEntry>) = UserRespons
     paidDaysOffAllowance = paidDaysOffAllowance,
     deactivated = deactivated,
     disabledFeatures = disabledFeatures.sortedBy { it.name },
+    emailNotificationsEnabled = emailNotificationsEnabled,
 )

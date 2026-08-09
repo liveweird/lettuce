@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.3.0",
+    date: "2026-08-09",
+    en: `Notifications now reach your inbox too. Every notification the app shows you — a feedback request, a published review, an accepted leave, a pulse survey opening — is also sent to your email address the moment it appears, in both English and Polish, with a link straight to the item when there is one. That way you learn about things that concern you even on days you don't open Lettuce. It's on for everyone by default; if you'd rather keep notifications in-app only, the new "Email notifications" entry in your account menu (top right) has a single switch to turn the emails off — and back on — whenever you like.`,
+    pl: `Powiadomienia trafiają teraz także na Twoją skrzynkę. Każde powiadomienie, które aplikacja Ci pokazuje — prośba o feedback, opublikowana ocena, zaakceptowany urlop, otwarcie ankiety pulsu — wysyłamy również na Twój adres e-mail w chwili, gdy się pojawia, po angielsku i po polsku, z linkiem prowadzącym wprost do elementu, którego dotyczy. Dzięki temu dowiadujesz się o sprawach, które Cię dotyczą, nawet w dni, gdy nie otwierasz Lettuce. Opcja jest domyślnie włączona dla wszystkich; jeśli wolisz powiadomienia tylko w aplikacji, nowa pozycja „Powiadomienia e-mail" w menu konta (prawy górny róg) ma jeden przełącznik, którym w każdej chwili wyłączysz — i ponownie włączysz — wysyłkę.`,
+  },
+  {
     version: "2.2.0",
     date: "2026-08-09",
     en: `Kudos — public feedback finally has a home. Until now a feedback marked Public was readable by anyone in theory, but nobody was told it existed. The new "Kudos" entry in the menu opens a wall of every public feedback across the organization, newest first: who gave it, who received it, and the content itself, trimmed to five lines — click a card to read the whole thing. No filters and no page buttons; just scroll, and older kudos keep loading. Part of the Feedbacks feature, so it follows the same feature flag.`,

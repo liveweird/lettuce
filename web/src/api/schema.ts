@@ -366,6 +366,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/{id}/email-notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Toggle the user's email-notification mirror (self or ADMIN)
+         * @description The per-user email-mirror opt-out (v2.3.0): while `enabled` is `true` (the default for
+         *     every account), each in-app notification minted for the user is also sent to their
+         *     email address — bilingual EN+PL, including the notification's deep link when the
+         *     deployment's `mail.appUrl` is configured. `false` = in-app only. **Target user or
+         *     ADMIN** (self-service is the point — the sibling features PUT stays ADMIN-only);
+         *     idempotent (a same-value re-PUT is `204` again); a deactivated target is allowed (the
+         *     setting is inert until reactivation). The flag is read at send time, so a change takes
+         *     effect immediately — no token-refresh staleness. On a `mail.transport=disabled`
+         *     deployment the toggle still persists; no email is sent either way. Audited as
+         *     `user.email_notifications_changed` on an actual change.
+         */
+        put: operations["setUserEmailNotifications"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/teams": {
         parameters: {
             query?: never;
@@ -3057,6 +3088,10 @@ export interface components {
             /** @description The complete new DISABLED set (wholesale replace) — an empty array re-enables everything. An unknown feature name is rejected with 400. */
             disabledFeatures: components["schemas"]["Feature"][];
         };
+        UserEmailNotificationsUpdateRequest: {
+            /** @description True = mirror every in-app notification to the user's email address (the default); false = in-app only. */
+            enabled: boolean;
+        };
         RefreshRequest: {
             /** @description The refresh token previously issued by /login or /refresh. */
             refreshToken: string;
@@ -3152,6 +3187,8 @@ export interface components {
             deactivated: boolean;
             /** @description Always empty at creation (default all-enabled) — aligned with UserResponse. */
             disabledFeatures: components["schemas"]["Feature"][];
+            /** @description Always true at creation (the V51 default) — aligned with UserResponse. */
+            emailNotificationsEnabled: boolean;
         };
         UserUpdateRequest: {
             name: string;
@@ -3246,6 +3283,12 @@ export interface components {
              *     only via PUT /users/{id}/features — never via the whole-user PUT.
              */
             disabledFeatures: components["schemas"]["Feature"][];
+            /**
+             * @description The email-mirror opt-out (v2.3.0): true (the default) = every in-app notification
+             *     minted for the user is also emailed to them. Flipped only via
+             *     PUT /users/{id}/email-notifications — never via the whole-user PUT.
+             */
+            emailNotificationsEnabled: boolean;
         };
         UserPage: {
             items: components["schemas"]["UserResponse"][];
@@ -5820,6 +5863,43 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             /** @description Caller is not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    setUserEmailNotifications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserEmailNotificationsUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Email-notification setting stored */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is neither the target user nor ADMIN */
             403: {
                 headers: {
                     [name: string]: unknown;

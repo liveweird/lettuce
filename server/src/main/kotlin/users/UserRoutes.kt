@@ -104,6 +104,10 @@ class Users {
         @Serializable
         @Resource("features")
         class Features(val parent: Id)
+
+        @Serializable
+        @Resource("email-notifications")
+        class EmailNotifications(val parent: Id)
     }
 }
 
@@ -224,6 +228,7 @@ fun Application.configureUserRoutes() {
                             paidDaysOffAllowance = user.paidDaysOffAllowance,
                             deactivated = false,
                             disabledFeatures = emptyList(),
+                            emailNotificationsEnabled = true,
                         ),
                     )
                 } else {
@@ -531,6 +536,35 @@ fun Application.configureUserRoutes() {
                         "targetUserId" to route.parent.id.toLong(),
                         "from" to existing.disabledFeatures.joinedNames(),
                         "to" to requested.joinedNames(),
+                    )
+                }
+                call.respond(HttpStatusCode.NoContent)
+            }
+            // Email-notification opt-out (V51): the self-service sibling of the features PUT —
+            // requireSelfOrAdmin, not requireAdmin, because quieting one's own inbox is the whole
+            // point (an admin may assist). Deliberately NOT a PUT /users/{id} field (the V44
+            // rationale) and idempotent (same-value re-PUT is 204, not 409). A deactivated
+            // target is allowed — the setting is inert until reactivation (the features idiom).
+            put<Users.Id.EmailNotifications> { route ->
+                val caller = call.caller()
+                requireSelfOrAdmin(caller, route.parent.id)
+                val req = call.receive<UserEmailNotificationsUpdateRequest>()
+                val existing = userService.read(route.parent.id)
+                if (existing == null) {
+                    call.respondProblem(HttpStatusCode.NotFound, "User not found")
+                    return@put
+                }
+                if (userService.setEmailNotifications(route.parent.id, req.enabled) == 0) {
+                    call.respondProblem(HttpStatusCode.NotFound, "User not found")
+                    return@put
+                }
+                if (req.enabled != existing.emailNotificationsEnabled) {
+                    audit(
+                        "user.email_notifications_changed",
+                        "byUserId" to caller.userId.toLong(),
+                        "targetUserId" to route.parent.id.toLong(),
+                        "from" to existing.emailNotificationsEnabled,
+                        "to" to req.enabled,
                     )
                 }
                 call.respond(HttpStatusCode.NoContent)

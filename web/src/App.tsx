@@ -41,6 +41,7 @@ import {
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand,
   IconLogout,
+  IconMail,
   IconMessageCircle,
   IconMoon,
   IconSettings,
@@ -118,6 +119,7 @@ const CreateUser = lazy(() => import("./pages/CreateUser"));
 const ImportUsers = lazy(() => import("./pages/ImportUsers"));
 const EditUser = lazy(() => import("./pages/EditUser"));
 const ChangeUserPassword = lazy(() => import("./pages/ChangeUserPassword"));
+const EmailNotifications = lazy(() => import("./pages/EmailNotifications"));
 const UserFeatures = lazy(() => import("./pages/UserFeatures"));
 const FeatureFlags = lazy(() => import("./pages/FeatureFlags"));
 const UserTeams = lazy(() => import("./pages/UserTeams"));
@@ -262,6 +264,13 @@ function HeaderUserMenu({ onLogout }: { onLogout: () => void }) {
           leftSection={<IconKey size={14} />}
         >
           {t("appShell.nav.changePassword")}
+        </Menu.Item>
+        <Menu.Item
+          component={RouterLink}
+          to={`/users/${userId}/email-notifications`}
+          leftSection={<IconMail size={14} />}
+        >
+          {t("appShell.nav.emailNotifications")}
         </Menu.Item>
         <Menu.Divider />
         <Menu.Item leftSection={<IconLogout size={14} />} onClick={onLogout}>
@@ -557,6 +566,7 @@ export default function App() {
             <Route path="users/import" element={<ImportUsers />} />
             <Route path="users/:id/edit" element={<EditUser />} />
             <Route path="users/:id/change-password" element={<ChangeUserPassword />} />
+            <Route path="users/:id/email-notifications" element={<EmailNotifications />} />
             <Route path="users/:id/features" element={<UserFeatures />} />
             <Route path="feature-flags" element={<FeatureFlags />} />
             <Route path="users/:id/teams" element={<UserTeams />} />

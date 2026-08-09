@@ -302,6 +302,18 @@ export async function updateUserFeatures(id: number, disabledFeatures: Feature[]
   }
 }
 
+/**
+ * Toggles the email mirror of in-app notifications (v2.3.0) — target user or ADMIN.
+ * Takes effect at the next minted notification (read at send time, no token staleness).
+ */
+export async function setEmailNotifications(id: number, enabled: boolean): Promise<void> {
+  const res = await authedFetch(`/api/v1/users/${id}/email-notifications`, {
+    method: "PUT",
+    body: JSON.stringify({ enabled }),
+  });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
 export async function listUsers(q: UserListQuery): Promise<UserPage> {
   const params = new URLSearchParams();
   params.set("page", String(q.page));

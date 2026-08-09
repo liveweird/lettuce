@@ -21,6 +21,7 @@ import enTeams from "./locales/en/teams.json";
 import enTemplates from "./locales/en/templates.json";
 import enDictionaries from "./locales/en/dictionaries.json";
 import enNotifications from "./locales/en/notifications.json";
+import enEmailNotifications from "./locales/en/emailNotifications.json";
 import enAlerts from "./locales/en/alerts.json";
 import enChangelog from "./locales/en/changelog.json";
 import enTour from "./locales/en/tour.json";
@@ -43,6 +44,7 @@ import plTeams from "./locales/pl/teams.json";
 import plTemplates from "./locales/pl/templates.json";
 import plDictionaries from "./locales/pl/dictionaries.json";
 import plNotifications from "./locales/pl/notifications.json";
+import plEmailNotifications from "./locales/pl/emailNotifications.json";
 import plAlerts from "./locales/pl/alerts.json";
 import plChangelog from "./locales/pl/changelog.json";
 import plTour from "./locales/pl/tour.json";
@@ -72,6 +74,7 @@ const en = {
   // Mounted as the singular area `dictionary` (the goals.json -> goal filename precedent).
   dictionary: enDictionaries,
   notifications: enNotifications,
+  emailNotifications: enEmailNotifications,
   alerts: enAlerts,
   changelog: enChangelog,
   tour: enTour,
@@ -96,6 +99,7 @@ const pl = {
   templates: plTemplates,
   dictionary: plDictionaries,
   notifications: plNotifications,
+  emailNotifications: plEmailNotifications,
   alerts: plAlerts,
   changelog: plChangelog,
   tour: plTour,

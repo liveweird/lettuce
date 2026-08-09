@@ -19,6 +19,9 @@ import ch.nokillswit.goals.GoalEventServiceKey
 import ch.nokillswit.goals.GoalService
 import ch.nokillswit.goals.GoalServiceKey
 import ch.nokillswit.infra.crypto.FieldCipherKey
+import ch.nokillswit.infra.mail.mailAppUrl
+import ch.nokillswit.infra.mail.mailer
+import ch.nokillswit.notifications.NotificationEmailer
 import ch.nokillswit.notifications.NotificationService
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.oneonones.OneOnOneEventService
@@ -56,7 +59,8 @@ suspend fun Application.configureDatabase() {
         user = environment.config.property("postgres.user").getString(),
         password = environment.config.property("postgres.password").getString(),
     )
-    attributes.put(UserServiceKey, UserService(database))
+    val userService = UserService(database)
+    attributes.put(UserServiceKey, userService)
     attributes.put(TeamServiceKey, TeamService(database))
     // configureCrypto runs before this module (application.yaml order), so the cipher is present.
     attributes.put(FeedbackServiceKey, FeedbackService(database, attributes[FieldCipherKey]))
@@ -77,7 +81,16 @@ suspend fun Application.configureDatabase() {
     attributes.put(AppSettingsServiceKey, AppSettingsService(database))
     attributes.put(PulseCycleServiceKey, PulseCycleService(database))
     attributes.put(PulseResponseServiceKey, PulseResponseService(database, attributes[FieldCipherKey]))
-    attributes.put(NotificationServiceKey, NotificationService(database))
+    // The email mirror (v2.3.0): configureMail runs before this module, so the transport and
+    // appUrl are readable; the Application is the CoroutineScope its fire-and-forget sends
+    // ride on (the password-reset launch precedent).
+    val notificationEmailer = NotificationEmailer(
+        scope = this,
+        mailer = mailer(),
+        appUrl = mailAppUrl(),
+        userService = userService,
+    )
+    attributes.put(NotificationServiceKey, NotificationService(database, notificationEmailer))
     attributes.put(AlertServiceKey, AlertService(database))
     attributes.put(TokenBlocklistServiceKey, TokenBlocklistService(database))
 }
