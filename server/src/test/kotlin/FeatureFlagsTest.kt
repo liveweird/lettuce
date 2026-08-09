@@ -110,6 +110,7 @@ class FeatureFlagsTest {
         val blocked = authedClient(email, "pw-123456789")
         val gated = listOf(
             "/api/v1/feedbacks",
+            "/api/v1/feedbacks?view=kudos",
             "/api/v1/one-on-ones",
             "/api/v1/goals",
             "/api/v1/team-kpis",

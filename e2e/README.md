@@ -34,7 +34,8 @@ for any new or edited spec:
   lifecycle-rest = (AAA Two ← Manager AAA), hr = (AAA Three ← Manager AAA), manager-oversight =
   (AAA One ← Manager AAA, created directly as SENT — no open window), triage = the two
   self-requested (AAA One/Two ← Manager AAA) triples, third-party = (AAA One ← AAA Three, req.
-  Manager AAA), self-reflection = (AAA Two ← AAA Two). Pick an unclaimed triple or a throwaway.
+  Manager AAA), self-reflection = (AAA Two ← AAA Two), kudos = (AAA Three ← AAA Two, created
+  directly as SENT — no open window). Pick an unclaimed triple or a throwaway.
 - **Bells**: presence asserts on a seed account's bell must be text-filtered
   (`notificationCard`); *count/badge/mark-all-as-seen* asserts belong only on a **throwaway**
   recipient (`notifications.spec` is the template) — seed bells receive concurrent traffic.
@@ -73,6 +74,8 @@ commit** — this list is the suite's coverage map, and it has drifted three tim
 - `feedback-request-third-party.spec.ts` — a manager **requests feedback about a subordinate from a
   third party** with a **requester message**; the message rides read-only through triage and the
   draft editor; the requester is notified on pick-up and send.
+- `kudos.spec.ts` — the Kudos wall (v2.2.0): a provider sends a **PUBLIC** feedback, then a
+  caller who is **no party to it** finds it on `/kudos` and expands the card to the full content.
 - `notifications.spec.ts` — bell mechanics: unread badge, mark seen / unseen, mark all as seen.
 - `user-edit.spec.ts` — admin creates (generated-password reveal) and renames a user; career profile: set a career path, dictionary rename propagates, retired entry keeps resolving
   (`PUT /users/{id}`).
@@ -143,9 +146,9 @@ commit** — this list is the suite's coverage map, and it has drifted three tim
   correction** (v1.43.0) the subordinate sees read-only on their budget card; the owner
   **cancels** the accepted request at the end so no counting rows persist on seed accounts
   (seeded Polish holidays are blocklisted when picking the Monday).
-- `tour.spec.ts` — replays the guided tour as a manager and walks all 47 steps, pinning the
+- `tour.spec.ts` — replays the guided tour as a manager and walks all 48 steps, pinning the
   landmark order (whole left menu — Changelog included — and every tab of the views it opens,
-  before the header icons). 47 not 50: the walker is a manager but not an ADMIN, so the three
+  before the header icons). 48 not 51: the walker is a manager but not an ADMIN, so the three
   admin-only Config leaves are correctly absent.
 - `alerts.spec.ts` — admin creates an alert; a regular user sees the **banner**, hides it to the
   strip and re-shows it (and has no alert management); deactivation and delete remove it.

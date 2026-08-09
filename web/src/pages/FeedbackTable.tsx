@@ -125,11 +125,15 @@ type ActionContext = {
   t: (key: string, opts?: Record<string, unknown>) => string;
 };
 
+// The views this table renders — every list view except `kudos`, which has its own
+// timeline page (pages/Kudos.tsx) instead of a table.
+type TableView = Exclude<FeedbackListView, "kudos">;
+
 // Per-view differences: which person columns appear between Requester and Visibility,
 // the default sort, and how the row action (View/Edit link) is rendered. The visibility
 // filter offers ALL_VISIBILITIES in every view (utils/feedbackVisibility.ts).
 const VIEW_CONFIG: Record<
-  FeedbackListView,
+  TableView,
   {
     personColumns: PersonColumn[];
     defaultSortField: SortField;
@@ -252,7 +256,7 @@ export default function FeedbackTable({
   backTo,
   settingsKey,
 }: {
-  view: FeedbackListView;
+  view: TableView;
   // Optional exact-id scope to a single counterparty (used by the per-manager screen).
   providerId?: number;
   subjectId?: number;

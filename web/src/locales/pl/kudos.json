@@ -1,0 +1,9 @@
+{
+  "title": "Kudos",
+  "hint": "Publiczny feedback z całej organizacji — od najnowszych. Kliknij kartę, aby przeczytać pełną treść.",
+  "empty": "Nie ma jeszcze kudosów — publiczny feedback pojawi się tutaj po wysłaniu.",
+  "loadError": "Nie udało się wczytać kudosów",
+  "unknownError": "Nieznany błąd",
+  "expandAria": "Pokaż pełną treść",
+  "showLess": "Pokaż mniej"
+}

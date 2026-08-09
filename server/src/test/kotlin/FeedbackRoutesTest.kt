@@ -22,6 +22,7 @@ import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.request
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
@@ -1009,6 +1010,77 @@ class FeedbackRoutesTest {
 
         val page = client.get("/api/v1/feedbacks").body<FeedbackPageResponse>()
         assertEquals(200, page.items.single().contentPreview.length)
+    }
+
+    @Test
+    fun `kudos view lists PUBLIC+SENT rows org-wide with the full content`() = testApplication {
+        usePostgresTestcontainer()
+        // The caller is no party to anything below — the Kudos wall is org-wide by design.
+        val callerEmail = uniqueEmail("bystander")
+        TestUsers.seed(email = callerEmail, password = "pw", roles = emptySet())
+        val subjectId = TestUsers.seed(email = uniqueEmail("subject"), password = "pw")
+        val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw")
+        val client = authedClient(callerEmail, "pw")
+
+        val longContent = "kudos-" + "x".repeat(240)
+        val visible = createFeedback(subjectId, providerId, FeedbackVisibility.PUBLIC, content = longContent)
+        // Excluded: SENT but not PUBLIC, PUBLIC but not SENT, and a soft-deleted PUBLIC+SENT row.
+        // (The open DRAFT is created last so the no-duplicate invariant never trips.)
+        createFeedback(subjectId, providerId, FeedbackVisibility.PUBLIC, status = FeedbackStatus.WITHDRAWN)
+        createFeedback(subjectId, providerId, FeedbackVisibility.PROVIDER_SUBJECT)
+        val removed = createFeedback(subjectId, providerId, FeedbackVisibility.PUBLIC)
+        TestServices.feedbacks.delete(removed.id)
+        createFeedback(subjectId, providerId, FeedbackVisibility.PUBLIC, status = FeedbackStatus.DRAFT)
+
+        // providerId scopes the assertions to this test's rows — the wall itself is shared state.
+        val page = client.get("/api/v1/feedbacks?view=kudos&providerId=$providerId")
+            .body<FeedbackPageResponse>()
+        assertEquals(1, page.total)
+        val item = page.items.single()
+        assertEquals(visible.id, item.id)
+        // Kudos rows carry the full content next to the usual capped preview.
+        assertEquals(longContent, item.content)
+        assertEquals(200, item.contentPreview.length)
+    }
+
+    @Test
+    fun `only the kudos view carries the content key`() = testApplication {
+        usePostgresTestcontainer()
+        val subjectEmail = uniqueEmail("subject")
+        val subjectId = TestUsers.seed(email = subjectEmail, password = "pw", roles = emptySet())
+        val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw")
+        val subjectClient = authedClient(subjectEmail, "pw")
+
+        createFeedback(subjectId, providerId, FeedbackVisibility.PUBLIC, content = "praise")
+
+        // The same row through two views: kudos carries `content`, received omits the key
+        // entirely (EncodeDefault NEVER) — `contentPreview` is present on both.
+        val kudosBody = subjectClient
+            .get("/api/v1/feedbacks?view=kudos&providerId=$providerId").bodyAsText()
+        assertTrue(kudosBody.contains("\"content\":\"praise\""))
+        val receivedBody = subjectClient
+            .get("/api/v1/feedbacks?view=received&providerId=$providerId").bodyAsText()
+        assertTrue(receivedBody.contains("\"contentPreview\":\"praise\""))
+        assertFalse(receivedBody.contains("\"content\":"))
+    }
+
+    @Test
+    fun `kudos view returns newest first under sort=-lastModified`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("watcher")
+        TestUsers.seed(email = callerEmail, password = "pw", roles = emptySet())
+        val subjectId = TestUsers.seed(email = uniqueEmail("subject"), password = "pw")
+        val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw")
+        val client = authedClient(callerEmail, "pw")
+
+        val older = createFeedback(subjectId, providerId, FeedbackVisibility.PUBLIC, content = "older")
+        delay(5) // distinct lastModified millis, so the requested sort is deterministic
+        val newer = createFeedback(subjectId, providerId, FeedbackVisibility.PUBLIC, content = "newer")
+
+        val page = client
+            .get("/api/v1/feedbacks?view=kudos&providerId=$providerId&sort=-lastModified")
+            .body<FeedbackPageResponse>()
+        assertEquals(listOf(newer.id, older.id), page.items.map { it.id })
     }
 
     @Test

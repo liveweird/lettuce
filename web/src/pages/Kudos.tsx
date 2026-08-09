@@ -1,0 +1,157 @@
+import { useEffect, useState } from "react";
+import { Navigate } from "react-router-dom";
+import {
+  Alert,
+  Anchor,
+  Box,
+  Center,
+  Container,
+  Group,
+  Loader,
+  Paper,
+  Stack,
+  Text,
+  Timeline,
+  Title,
+  UnstyledButton,
+} from "@mantine/core";
+import { useIntersection } from "@mantine/hooks";
+import { IconConfetti } from "@tabler/icons-react";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
+import { getUserId, hasFeature, listFeedbacks, type FeedbackPage } from "../api/client";
+import EmptyState from "../components/EmptyState";
+import MarkdownView from "../components/MarkdownView";
+import PersonaChip from "../components/PersonaChip";
+import { formatRelativeTime, formatTimestamp } from "../utils/datetime";
+import { feedbackPartyName } from "../utils/userDisplay";
+
+const PAGE_SIZE = 20;
+
+type KudosItem = FeedbackPage["items"][number];
+
+function KudosCard({ item }: { item: KudosItem }) {
+  const { t, i18n } = useTranslation();
+  const [expanded, setExpanded] = useState(false);
+  const userId = getUserId();
+  const provider = feedbackPartyName(item.providerId, item.providerName, item.providerDeleted, userId, t);
+  const subject = feedbackPartyName(item.subjectId, item.subjectName, item.subjectDeleted, userId, t);
+  // Kudos rows carry the full content; the preview is the defensive fallback only.
+  const content = item.content ?? item.contentPreview;
+  // The FeedbackMeta convention: PersonaChip for a named party, plain text for "You".
+  const party = (display: string) =>
+    display === t("common.state.you") ? <Text size="sm">{display}</Text> : <PersonaChip name={display} />;
+
+  return (
+    <Stack gap={4}>
+      <Group gap={8} wrap="wrap">
+        {party(provider)}
+        <Text size="sm" c="dimmed">
+          →
+        </Text>
+        {party(subject)}
+      </Group>
+      <Text size="xs" c="dimmed" title={formatTimestamp(item.lastModified)}>
+        {formatRelativeTime(item.lastModified, i18n.language)}
+      </Text>
+      {expanded ? (
+        <>
+          <MarkdownView>{content}</MarkdownView>
+          <Anchor component="button" type="button" size="xs" aria-expanded onClick={() => setExpanded(false)}>
+            {t("kudos.showLess")}
+          </Anchor>
+        </>
+      ) : (
+        // The whole clamped block expands on click; rendered markdown (with its own links)
+        // never sits inside this button — expanding swaps to the MarkdownView above.
+        <UnstyledButton
+          aria-expanded={false}
+          aria-label={t("kudos.expandAria")}
+          onClick={() => setExpanded(true)}
+          style={{ display: "block", width: "100%", textAlign: "left" }}
+        >
+          <Text size="sm" lineClamp={5} style={{ wordBreak: "break-word" }}>
+            {content}
+          </Text>
+        </UnstyledButton>
+      )}
+    </Stack>
+  );
+}
+
+/**
+ * The org-wide Kudos wall (v2.2.0): every PUBLIC feedback in SENT status, newest first, as an
+ * infinite-scroll timeline — the discoverability surface for public feedback (nothing else
+ * ever lists it org-wide). No filters, no pagination bar: scrolling near the bottom loads the
+ * next (older) page via the sentinel below. Part of the FEEDBACKS feature area.
+ */
+export default function Kudos() {
+  const { t } = useTranslation();
+  const { data, isLoading, isError, error, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useInfiniteQuery({
+      queryKey: ["feedbacks", "kudos"],
+      queryFn: ({ pageParam }) =>
+        listFeedbacks({ view: "kudos", sort: "-lastModified", page: pageParam, pageSize: PAGE_SIZE }),
+      initialPageParam: 1,
+      getNextPageParam: (last) => (last.page * last.pageSize < last.total ? last.page + 1 : undefined),
+    });
+  // rootMargin pre-loads the next page shortly before the sentinel actually scrolls into view.
+  const { ref: sentinelRef, entry } = useIntersection({ rootMargin: "200px" });
+
+  useEffect(() => {
+    if (entry?.isIntersecting && hasNextPage && !isFetchingNextPage) void fetchNextPage();
+  }, [entry, hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("FEEDBACKS")) return <Navigate to="/" replace />;
+
+  const items = data?.pages.flatMap((p) => p.items) ?? [];
+
+  return (
+    <Container size="md" px={0}>
+      <Paper withBorder shadow="sm" p="xl" radius="md">
+        <Stack gap="md">
+          <Title order={2}>{t("kudos.title")}</Title>
+          <Text size="sm" c="dimmed">
+            {t("kudos.hint")}
+          </Text>
+
+          {isError && (
+            <Alert color="red" variant="light" title={t("kudos.loadError")}>
+              {error instanceof Error ? error.message : t("kudos.unknownError")}
+            </Alert>
+          )}
+          {isLoading && (
+            <Center py="xl">
+              <Loader />
+            </Center>
+          )}
+
+          {data && items.length === 0 && (
+            <EmptyState
+              icon={<IconConfetti size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
+              label={t("kudos.empty")}
+            />
+          )}
+          {items.length > 0 && (
+            <Timeline bulletSize={12} lineWidth={2}>
+              {items.map((item) => (
+                <Timeline.Item key={item.id}>
+                  <KudosCard item={item} />
+                </Timeline.Item>
+              ))}
+            </Timeline>
+          )}
+
+          {/* The scroll sentinel: entering the viewport fetches the next (older) page. */}
+          {hasNextPage && !isFetchingNextPage && <Box ref={sentinelRef} h={1} data-testid="kudos-sentinel" />}
+          {isFetchingNextPage && (
+            <Center py="md">
+              <Loader size="sm" />
+            </Center>
+          )}
+        </Stack>
+      </Paper>
+    </Container>
+  );
+}

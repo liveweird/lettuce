@@ -476,7 +476,7 @@ export type FeedbackVisibility =
   | "PUBLIC";
 export type FeedbackStatus = "REQUESTED" | "DRAFT" | "SENT" | "WITHDRAWN" | "REJECTED";
 
-export type FeedbackListView = "received" | "provided" | "team" | "user";
+export type FeedbackListView = "received" | "provided" | "team" | "user" | "kudos";
 
 type FeedbackListQuery = {
   view: FeedbackListView;

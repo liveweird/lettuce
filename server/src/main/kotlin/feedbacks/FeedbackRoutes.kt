@@ -115,7 +115,8 @@ fun Application.configureFeedbackRoutes() {
                     "provided" -> FeedbackListView.PROVIDED
                     "team" -> FeedbackListView.TEAM
                     "user" -> FeedbackListView.USER
-                    else -> throw BadRequestException("Unknown view: $raw (allowed: received, provided, team, user)")
+                    "kudos" -> FeedbackListView.KUDOS
+                    else -> throw BadRequestException("Unknown view: $raw (allowed: received, provided, team, user, kudos)")
                 }
                 val paging = call.parsePaging(
                     sortable = setOf("id", "requesterName", "subjectName", "providerName", "visibility", "status", "lastModified"),

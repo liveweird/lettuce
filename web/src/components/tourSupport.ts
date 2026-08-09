@@ -65,6 +65,8 @@ export const TOUR_STEPS: TourStepDef[] = [
   { target: '[data-tour="feedback-received"]', contentKey: "tour.steps.feedbackReceived", placement: "bottom", navTo: "/feedback?tab=received" , feature: "FEEDBACKS" },
   { target: '[data-tour="feedback-provided"]', contentKey: "tour.steps.feedbackProvided", placement: "bottom", navTo: "/feedback?tab=provided" , feature: "FEEDBACKS" },
   { target: '[data-tour="feedback-team"]', contentKey: "tour.steps.feedbackTeam", placement: "bottom", navTo: "/feedback?tab=team", managerOnly: true , feature: "FEEDBACKS" },
+  // Kudos — the org-wide wall of PUBLIC+SENT feedback (v2.2.0); part of the FEEDBACKS area.
+  { target: '[data-tour="nav-kudos"]', contentKey: "tour.steps.kudos", placement: "right", navTo: "/kudos" , feature: "FEEDBACKS" },
   // The 1:1 meetings section + its tabs, toured in the page's visual order (managed | own | team);
   // "managed"/"team" are manager-only (matches the page). The nav step's ?tab=managed is safe for
   // non-managers: the page's activeTab logic falls back to "own", which is their next step anyway.

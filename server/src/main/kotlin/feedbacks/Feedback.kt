@@ -1,6 +1,8 @@
 package ch.nokillswit.feedbacks
 
 import ch.nokillswit.infra.paging.PageResponse
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -116,6 +118,12 @@ data class FeedbackListItem(
     val visibility: FeedbackVisibility,
     val status: FeedbackStatus,
     val contentPreview: String,
+    // Full (uncapped) content — populated for view=kudos only, whose wall expands cards inline;
+    // every kudos row is PUBLIC+SENT, so this never widens what the caller may read.
+    // EncodeDefault(NEVER) OMITS the key on every other view (the users-list `teams` idiom).
+    @OptIn(ExperimentalSerializationApi::class)
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val content: String? = null,
     val lastModified: Long,
 )
 

@@ -26,6 +26,7 @@ import {
   IconCalendarStats,
   IconChevronDown,
   IconClipboardText,
+  IconConfetti,
   IconFileText,
   IconHelp,
   IconHeartRateMonitor,
@@ -76,6 +77,7 @@ import { TourProvider } from "./components/Tour";
 import { useTour } from "./components/tourSupport";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Feedback = lazy(() => import("./pages/Feedback"));
+const Kudos = lazy(() => import("./pages/Kudos"));
 const CreateFeedback = lazy(() => import("./pages/CreateFeedback"));
 const RequestFeedback = lazy(() => import("./pages/RequestFeedback"));
 const AskFeedback = lazy(() => import("./pages/AskFeedback"));
@@ -163,6 +165,7 @@ const isGroup = (e: NavEntry): e is NavGroup => "children" in e;
 const NAV_ITEMS: ReadonlyArray<NavEntry> = [
   { to: "/", label: "appShell.nav.dashboard", icon: IconLayoutDashboard, tourId: "nav-dashboard" },
   { to: "/feedback", label: "appShell.nav.feedback", icon: IconMessageCircle, tourId: "nav-feedback", feature: "FEEDBACKS" },
+  { to: "/kudos", label: "appShell.nav.kudos", icon: IconConfetti, tourId: "nav-kudos", feature: "FEEDBACKS" },
   { to: "/one-on-ones", label: "appShell.nav.oneOnOnes", icon: IconCalendarEvent, tourId: "nav-one-on-ones", feature: "ONE_ON_ONES" },
   { to: "/goals", label: "appShell.nav.goals", icon: IconTargetArrow, tourId: "nav-my-goals", feature: "GOALS" },
   { to: "/team-kpis", label: "appShell.nav.teamKpis", icon: IconChartLine, tourId: "nav-team-kpis", feature: "TEAM_KPIS" },
@@ -565,6 +568,7 @@ export default function App() {
             <Route path="teams/:teamId/subordinates" element={<TeamSubordinates />} />
             <Route path="org" element={<OrgChart />} />
             <Route path="feedback" element={<Feedback />} />
+            <Route path="kudos" element={<Kudos />} />
             <Route path="feedback/new" element={<CreateFeedback />} />
             <Route path="feedback/request" element={<RequestFeedback />} />
             <Route path="feedback/ask" element={<AskFeedback />} />

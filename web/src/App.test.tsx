@@ -138,6 +138,7 @@ describe("App shell", () => {
         expect(screen.getByRole("link", { name: /^team kpis$/i })).toBeInTheDocument();
         // …the disabled features' top-level + dynamic leaves are gone…
         expect(screen.queryByRole("link", { name: /^feedback$/i })).toBeNull();
+        expect(screen.queryByRole("link", { name: /^kudos$/i })).toBeNull();
         expect(screen.queryByRole("link", { name: /^self-reflection$/i })).toBeNull();
         expect(screen.queryByRole("link", { name: /^performance$/i })).toBeNull();
         expect(screen.queryByRole("link", { name: /^days off$/i })).toBeNull();

@@ -26,7 +26,7 @@ import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
 val FeedbackServiceKey = AttributeKey<FeedbackService>("FeedbackService")
 
-enum class FeedbackListView { RECEIVED, PROVIDED, TEAM, USER }
+enum class FeedbackListView { RECEIVED, PROVIDED, TEAM, USER, KUDOS }
 
 data class FeedbackListFilter(
     val requesterName: String? = null,
@@ -480,6 +480,12 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
                     (Feedbacks.providerId eq target) or
                     (Feedbacks.requesterId eq target)
             }
+            FeedbackListView.KUDOS -> {
+                // The org-wide Kudos wall: exactly the rows canReadFeedback's PUBLIC+SENT branch
+                // already grants every authenticated caller, so the scope needs no caller anchor.
+                (Feedbacks.visibility eq FeedbackVisibility.PUBLIC) and
+                    (Feedbacks.status eq FeedbackStatus.SENT)
+            }
             FeedbackListView.TEAM -> {
                 // Direct reports by default; with includeIndirect the whole transitive
                 // management chain (members of teams the caller manages, plus recursively
@@ -547,6 +553,7 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
                     row[Feedbacks.status] == FeedbackStatus.REQUESTED
                 val redactContent = view != FeedbackListView.USER &&
                     unfinished && row[Feedbacks.requesterId]?.value == callerUserId
+                val decrypted = if (redactContent) "" else cipher.decrypt(row[Feedbacks.content])
                 FeedbackListItem(
                     id = row[Feedbacks.id].value,
                     requesterId = row[Feedbacks.requesterId]?.value,
@@ -560,7 +567,10 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
                     providerDeleted = row[providerUsers[UserService.Users.markedAsDeleted]],
                     visibility = row[Feedbacks.visibility],
                     status = row[Feedbacks.status],
-                    contentPreview = if (redactContent) "" else cipher.decrypt(row[Feedbacks.content]).take(CONTENT_PREVIEW_LENGTH),
+                    contentPreview = decrypted.take(CONTENT_PREVIEW_LENGTH),
+                    // The Kudos wall renders full content inline (expand-on-click), and every
+                    // kudos row is PUBLIC+SENT — never redacted — so only that view carries it.
+                    content = if (view == FeedbackListView.KUDOS) decrypted else null,
                     lastModified = row[Feedbacks.lastModified],
                 )
             }
