@@ -510,4 +510,65 @@ class AuditTest {
             appender.detach()
         }
     }
+
+    @Test
+    fun `days-off correction create, update, and delete are audited (never the comment)`() = testApplication {
+        usePostgresTestcontainer()
+        val mgrEmail = uniqueEmail("corraudit-m")
+        val mgrId = TestUsers.seed(mgrEmail, "pw", roles = emptySet())
+        val subId = TestUsers.seed(uniqueEmail("corraudit-s"), "pw", roles = emptySet())
+        val teamId = TestServices.teams.create(Team(name = "corraudit-${UUID.randomUUID()}", managerId = mgrId))
+        TestServices.teams.addMember(teamId, subId)
+        val manager = authedClient(mgrEmail, "pw")
+        val appender = LogCapture("ch.nokillswit.audit")
+        try {
+            val created = manager.post("/api/v1/days-off/corrections") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    ch.nokillswit.daysoff.DaysOffCorrectionWrite(
+                        userId = subId,
+                        year = 2030,
+                        operation = ch.nokillswit.daysoff.DaysOffCorrectionOperation.ADD,
+                        days = 2.0,
+                        comment = "secret-audit-comment",
+                    ),
+                )
+            }.body<ch.nokillswit.daysoff.DaysOffCorrectionResponse>()
+            val createdEvent = appender.events.find { it.message == "days_off_correction.created" }
+            assertNotNull(createdEvent, "correction create should be audited")
+            assertEquals(mgrId.toLong(), createdEvent.keyValuePairs.first { it.key == "byUserId" }.value)
+            assertEquals(subId.toLong(), createdEvent.keyValuePairs.first { it.key == "targetUserId" }.value)
+            assertEquals(2.0, createdEvent.keyValuePairs.first { it.key == "days" }.value)
+            // The encrypted comment must never reach the audit log.
+            assertTrue(createdEvent.keyValuePairs.none { "secret" in it.value.toString() })
+
+            val updated = manager.put("/api/v1/days-off/corrections/${created.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    ch.nokillswit.daysoff.DaysOffCorrectionWrite(
+                        userId = subId,
+                        year = 2030,
+                        operation = ch.nokillswit.daysoff.DaysOffCorrectionOperation.SUBTRACT,
+                        days = 1.5,
+                        comment = "secret-audit-comment-2",
+                    ),
+                )
+            }
+            assertEquals(HttpStatusCode.NoContent, updated.status)
+            val updatedEvent = appender.events.find { it.message == "days_off_correction.updated" }
+            assertNotNull(updatedEvent, "correction update should be audited")
+            assertEquals("SUBTRACT", updatedEvent.keyValuePairs.first { it.key == "operationTo" }.value)
+            assertEquals(1.5, updatedEvent.keyValuePairs.first { it.key == "daysTo" }.value)
+
+            assertEquals(
+                HttpStatusCode.NoContent,
+                manager.delete("/api/v1/days-off/corrections/${created.id}").status,
+            )
+            val deletedEvent = appender.events.find { it.message == "days_off_correction.deleted" }
+            assertNotNull(deletedEvent, "correction delete should be audited")
+            assertEquals(created.id.toLong(), deletedEvent.keyValuePairs.first { it.key == "correctionId" }.value)
+        } finally {
+            appender.detach()
+        }
+    }
 }

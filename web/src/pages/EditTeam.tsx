@@ -124,8 +124,9 @@ export default function EditTeam() {
           ) : isError ? (
             <>
               <Alert color="red" variant="light">
-                {t("teams.loadTeamFailed")}
-                {fetchError instanceof ApiError ? ` (${fetchError.status})` : ""}.
+                {t("teams.loadTeamFailed", {
+                  suffix: fetchError instanceof ApiError ? ` (${fetchError.status})` : "",
+                })}
               </Alert>
               <Group justify="flex-end">
                 <Button component={RouterLink} to="/teams" variant="default">

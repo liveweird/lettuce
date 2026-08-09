@@ -121,7 +121,8 @@
     "deleteMessage": "The latest period will be removed from the timeline.",
     "year": "Year",
     "preview": "Will add: {{range}}",
-    "currentBadge": "Current"
+    "currentBadge": "Current",
+    "deleteFailed": "Deleting the period failed"
   },
   "dashboard": {
     "team": "Team",

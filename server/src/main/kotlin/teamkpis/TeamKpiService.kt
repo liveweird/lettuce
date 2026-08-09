@@ -1,6 +1,7 @@
 package ch.nokillswit.teamkpis
 
 import ch.nokillswit.authz.ConflictException
+import ch.nokillswit.infra.crypto.EncryptedAtRest
 import ch.nokillswit.infra.crypto.FieldCipher
 import ch.nokillswit.infra.db.containsNormalized
 import ch.nokillswit.infra.paging.PageRequest
@@ -66,7 +67,9 @@ private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
 //
 // There is no manager_id column: the KPI belongs to the TEAM, and the manager is resolved from
 // teams.manager_id at read time — so a reassigned team's new manager takes over its KPIs.
-class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCipher) {
+class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCipher) : EncryptedAtRest {
+    override val encryptedRowLabel = "team KPI"
+
     object TeamKpis : UIntIdTable("team_kpis") {
         val teamId = reference("team_id", TeamService.Teams)
         val createdAt = long("created_at")
@@ -443,7 +446,7 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
      * decrypted (current or previous key) and rewritten under the current key. Idempotent;
      * returns the rewritten count.
      */
-    suspend fun encryptLegacyRows(reencryptAll: Boolean = false): Int = suspendTransaction(database) {
+    override suspend fun encryptLegacyRows(reencryptAll: Boolean): Int = suspendTransaction(database) {
         val enveloped = "${FieldCipher.PREFIX}%"
         val legacyOnly = (TeamKpis.description notLike enveloped) or
             (TeamKpis.summary.isNotNull() and (TeamKpis.summary notLike enveloped))

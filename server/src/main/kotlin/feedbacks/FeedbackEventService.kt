@@ -1,57 +1,40 @@
 package ch.nokillswit.feedbacks
 
-import ch.nokillswit.infra.db.decodeParams
-import ch.nokillswit.infra.db.encodeParams
-import ch.nokillswit.users.UserService
+import ch.nokillswit.infra.db.EventLog
+import ch.nokillswit.infra.db.EventLogTable
 import io.ktor.util.AttributeKey
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.toList
-import org.jetbrains.exposed.v1.core.*
-import org.jetbrains.exposed.v1.core.dao.id.UIntIdTable
-import org.jetbrains.exposed.v1.r2dbc.*
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
-import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
 val FeedbackEventServiceKey = AttributeKey<FeedbackEventService>("FeedbackEventService")
 
+/**
+ * The feedback audit trail — a thin wrapper over the shared [EventLog] mechanics (the five
+ * `*_events` tables are V15 clones; see infra/db/EventLog.kt). Only the typed DTO mapping
+ * lives here.
+ */
 class FeedbackEventService(val database: R2dbcDatabase) {
-    object FeedbackEvents : UIntIdTable("feedback_events") {
-        val feedbackId = reference("feedback_id", FeedbackService.Feedbacks)
-        val userId = reference("user_id", UserService.Users)
-        val timestamp = long("created_at")
-        // Structured event so the SPA can localize it: the kind plus a JSON params map.
-        val eventType = varchar("event_type", 40)
-        val params = text("params")
+    object FeedbackEvents : EventLogTable("feedback_events", "feedback_id", FeedbackService.Feedbacks) {
+        // Feature-named alias for direct DSL use (the same Column instance).
+        val feedbackId get() = ownerId
     }
+
+    private val log = EventLog(database, FeedbackEvents)
 
     /** Inserts an audit event. The timestamp is set here, never taken from a caller. */
-    suspend fun create(event: FeedbackEvent): UInt = suspendTransaction(database) {
-        FeedbackEvents.insert {
-            it[feedbackId] = event.feedbackId
-            it[userId] = event.userId
-            it[timestamp] = System.currentTimeMillis()
-            it[eventType] = event.type.name
-            it[params] = encodeParams(event.params)
-        }[FeedbackEvents.id].value
-    }
+    suspend fun create(event: FeedbackEvent): UInt =
+        log.create(event.feedbackId, event.userId, event.type.name, event.params)
 
     /** The feedback's history, oldest first (id as a stable tiebreaker), with acting user names. */
-    suspend fun listForFeedback(feedbackId: UInt): List<FeedbackEventResponse> = suspendTransaction(database) {
-        (FeedbackEvents innerJoin UserService.Users)
-            .selectAll()
-            .where { FeedbackEvents.feedbackId eq feedbackId }
-            .orderBy(FeedbackEvents.timestamp to SortOrder.ASC, FeedbackEvents.id to SortOrder.ASC)
-            .map { it.toResponse() }
-            .toList()
-    }
-
-    private fun ResultRow.toResponse() = FeedbackEventResponse(
-        id = this[FeedbackEvents.id].value,
-        feedbackId = this[FeedbackEvents.feedbackId].value,
-        userId = this[FeedbackEvents.userId].value,
-        userName = this[UserService.Users.name],
-        timestamp = this[FeedbackEvents.timestamp],
-        type = FeedbackEventType.valueOf(this[FeedbackEvents.eventType]),
-        params = decodeParams(this[FeedbackEvents.params]),
-    )
+    suspend fun listForFeedback(feedbackId: UInt): List<FeedbackEventResponse> =
+        log.listFor(feedbackId).map {
+            FeedbackEventResponse(
+                id = it.id,
+                feedbackId = it.ownerId,
+                userId = it.userId,
+                userName = it.userName,
+                timestamp = it.timestamp,
+                type = FeedbackEventType.valueOf(it.type),
+                params = it.params,
+            )
+        }
 }

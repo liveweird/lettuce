@@ -26,7 +26,10 @@ internal fun goalTransitionNotifications(
         GoalStatus.ACTIVE to GoalStatus.DRAFT -> NotificationType.GOAL_DEACTIVATED_TO_SUBORDINATE
         GoalStatus.ACTIVE to GoalStatus.ARCHIVED -> NotificationType.GOAL_ARCHIVED_TO_SUBORDINATE
         GoalStatus.ARCHIVED to GoalStatus.ACTIVE -> NotificationType.GOAL_REOPENED_TO_SUBORDINATE
-        else -> return emptyList() // not a valid edge — the service rejects it before we get here
+        // Every legal edge of the DRAFT <-> ACTIVE <-> ARCHIVED machine is named above, so this
+        // is unreachable for a legal call — fail loud (the daysoff precedent) instead of silently
+        // dropping notifications when a future edge forgets its wording.
+        else -> error("Not a goal transition edge: $from -> $to")
     }
     return listOf(
         Notification(

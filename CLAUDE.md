@@ -43,10 +43,10 @@ Group is `ch.nokillswit`, version `1.0.0-SNAPSHOT` (set in root `build.gradle.kt
 ch.nokillswit
 ├── main.kt
 ├── plugins/            cross-cutting Ktor wiring (configureXxx that only `install` plugins)
-├── infra/db/           Flyway migrations + R2DBC connection bootstrap
+├── infra/db/           Flyway migrations + R2DBC connection bootstrap + the shared EventLog base behind the five `*_events` services (v2.4.1)
 ├── infra/paging/       list-endpoint paging/sort/filter helper (parsePaging, applyPaging)
 ├── infra/mail/         outbound email: Mailer (smtp via Jakarta/Angus, log, disabled) + configureMail (see "Outbound email" in `.claude/docs/security.md`)
-├── infra/crypto/       field-level encryption: FieldCipher (AES-256-GCM) + configureCrypto (see "Encryption at rest" in `.claude/docs/security.md`)
+├── infra/crypto/       field-level encryption: FieldCipher (AES-256-GCM) + configureCrypto + the EncryptedAtRest interface the seven encrypted services implement (see "Encryption at rest" in `.claude/docs/security.md`)
 ├── audit/              security audit trail: `audit(event, fields…)` → AUDIT-marked structured logs (see "Audit trail" in `.claude/docs/observability.md`)
 ├── authz/              RBAC guards + CallerPrincipal (see "Authorization model" in `.claude/docs/authorization.md`)
 ├── auth/               POST /api/v1/login (+ /login/mfa — the v2.4.0 opt-in email second factor, MfaChallenges store), /api/v1/refresh, /api/v1/logout, /api/v1/password-reset + token minting + password hashing + LoginThrottle/PasswordResetThrottle

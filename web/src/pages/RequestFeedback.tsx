@@ -23,7 +23,7 @@ import {
   createFeedback,
   getUserId,
   hasFeature,
-  listUsers,
+  listAllUsers,
   type FeedbackVisibility,
 } from "../api/client";
 import ConfirmActionModal from "../components/ConfirmActionModal";
@@ -36,8 +36,6 @@ import { showSuccessToast } from "../utils/toast";
 
 // The provider picker realistically chooses from a bounded set; fetch up to the 100-row
 // max (the list endpoint's cap). Fine at this app's scale.
-const PICKER_PAGE_SIZE = 100;
-
 type Provider = { id: number; name: string };
 
 export default function RequestFeedback() {
@@ -66,7 +64,9 @@ export default function RequestFeedback() {
 
   const { data: userPool } = useQuery({
     queryKey: ["users", "requestPicker"],
-    queryFn: () => listUsers({ page: 1, pageSize: PICKER_PAGE_SIZE, sort: "name" }),
+    // ALL pages (the single-page-picker lesson): this is the org-wide provider pool — a
+    // single name-sorted page of 100 silently hides providers in any larger org.
+    queryFn: () => listAllUsers(),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -101,9 +101,10 @@ export default function RequestFeedback() {
   // (provider == subject — see "Self-reflection" in the backend rules).
   const addOptions = useMemo(() => {
     const chosen = new Set(selected.map((p) => p.id));
-    return (userPool?.items ?? [])
+    return (userPool ?? [])
       .filter((u) => u.id !== requesterId && !chosen.has(u.id))
-      .map((u) => ({ value: String(u.id), label: u.name }));
+      .map((u) => ({ value: String(u.id), label: u.name }))
+      .sort((a, b) => a.label.localeCompare(b.label));
   }, [userPool, selected, requesterId]);
 
   // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
@@ -113,7 +114,7 @@ export default function RequestFeedback() {
   function add() {
     if (!pick) return;
     const id = Number(pick);
-    const user = (userPool?.items ?? []).find((u) => u.id === id);
+    const user = (userPool ?? []).find((u) => u.id === id);
     if (!user) return;
     setSelected((prev) => (prev.some((p) => p.id === id) ? prev : [...prev, { id, name: user.name }]));
     setPick(null);

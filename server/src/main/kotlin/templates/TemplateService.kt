@@ -105,9 +105,7 @@ class TemplateService(val database: R2dbcDatabase) {
         return op
     }
 
-    private fun validate(template: Template) {
-        if (template.name.isBlank()) {
-            throw BadRequestException("Template name must not be blank")
-        }
-    }
+    // Same rules the route enforces (single source in Template.kt) — re-checked here so
+    // direct service callers stay guarded too.
+    private fun validate(template: Template) = validateTemplateName(template.name)
 }

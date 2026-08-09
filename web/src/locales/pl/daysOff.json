@@ -123,7 +123,8 @@
     "deleteTitle": "Usunąć to święto?",
     "deleteMessage": "Data stanie się zwykłym dniem roboczym dla przyszłych wniosków; już złożone wnioski zachowują zapisany koszt.",
     "toastAdded": "Święto dodane",
-    "toastDeleted": "Święto usunięte"
+    "toastDeleted": "Święto usunięte",
+    "deleteFailed": "Usunięcie święta nie powiodło się"
   },
   "auditTitle": "Dni wolne — {{who}}",
   "auditHint": "Widok audytu HR: wszystkie wnioski o dni wolne, które złożył/złożyła {{who}}, w każdym statusie. Dostęp jest odnotowywany w dzienniku audytu.",

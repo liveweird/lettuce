@@ -20,7 +20,8 @@ import { IconCalendarStats, IconPlus } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ApiError, createReviewPeriod, deleteReviewPeriod, hasFeature, isAdmin } from "../api/client";
-import ConfirmActionModal from "../components/ConfirmActionModal";
+import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
+import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import EmptyState from "../components/EmptyState";
 import { useReviewPeriodOptions } from "../hooks/useReviewPeriodOptions";
 import {
@@ -65,8 +66,11 @@ export default function ReviewPeriods() {
   const [endChoice, setEndChoice] = useState<MonthChoice | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
+  const deleteConfirm = useDeleteConfirm<number>({
+    mutationFn: (periodId) => deleteReviewPeriod(periodId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["reviewPeriods"] }),
+    successMessage: t("performanceReview.toast.periodDeleted"),
+  });
 
   const admin = isAdmin();
   const { periods, isLoading, isError } = useReviewPeriodOptions();
@@ -116,32 +120,6 @@ export default function ReviewPeriods() {
       );
     } finally {
       setSubmitting(false);
-    }
-  }
-
-  async function removeLatest() {
-    if (deleteTarget == null) return;
-    setDeleting(true);
-    setError(null);
-    try {
-      await deleteReviewPeriod(deleteTarget);
-      await queryClient.invalidateQueries({ queryKey: ["reviewPeriods"] });
-      showSuccessToast(t("performanceReview.toast.periodDeleted"));
-      setDeleteTarget(null);
-    } catch (err) {
-      setDeleteTarget(null);
-      setError(
-        err instanceof ApiError && err.status === 409
-          ? t("performanceReview.periods.deleteConflict")
-          : saveErrorMessage(err, t, {
-              forbidden: "performanceReview.error.savePermission",
-              notFound: "performanceReview.error.gone",
-              failedStatus: "performanceReview.error.updateFailedStatus",
-              failed: "performanceReview.error.updateFailed",
-            }),
-      );
-    } finally {
-      setDeleting(false);
     }
   }
 
@@ -197,7 +175,7 @@ export default function ReviewPeriods() {
                           color="red"
                           variant="light"
                           size="xs"
-                          onClick={() => setDeleteTarget(p.id)}
+                          onClick={() => deleteConfirm.requestDelete(p.id)}
                           aria-label={t("performanceReview.periods.deleteAria", {
                             range: formatMonthRange(p.startMonth, p.endMonth, i18n.language),
                           })}
@@ -302,15 +280,22 @@ export default function ReviewPeriods() {
         </Stack>
       </Paper>
 
-      <ConfirmActionModal
-        opened={deleteTarget != null}
-        onClose={() => setDeleteTarget(null)}
+      <ConfirmDeleteModal
+        confirm={deleteConfirm}
         title={t("performanceReview.periods.deleteTitle")}
-        message={t("performanceReview.periods.deleteMessage")}
-        cancelLabel={t("common.action.cancel")}
-        confirmLabel={t("common.action.delete")}
-        onConfirm={() => void removeLatest()}
-        loading={deleting}
+        errorTitle={t("performanceReview.periods.deleteFailed")}
+        unknownError={t("performanceReview.error.updateFailed")}
+        body={() => t("performanceReview.periods.deleteMessage")}
+        errorMessage={(err) =>
+          err instanceof ApiError && err.status === 409
+            ? t("performanceReview.periods.deleteConflict")
+            : saveErrorMessage(err, t, {
+                forbidden: "performanceReview.error.savePermission",
+                notFound: "performanceReview.error.gone",
+                failedStatus: "performanceReview.error.updateFailedStatus",
+                failed: "performanceReview.error.updateFailed",
+              })
+        }
       />
     </Container>
   );

@@ -1,57 +1,40 @@
 package ch.nokillswit.goals
 
-import ch.nokillswit.infra.db.decodeParams
-import ch.nokillswit.infra.db.encodeParams
-import ch.nokillswit.users.UserService
+import ch.nokillswit.infra.db.EventLog
+import ch.nokillswit.infra.db.EventLogTable
 import io.ktor.util.AttributeKey
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.toList
-import org.jetbrains.exposed.v1.core.*
-import org.jetbrains.exposed.v1.core.dao.id.UIntIdTable
-import org.jetbrains.exposed.v1.r2dbc.*
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
-import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
 val GoalEventServiceKey = AttributeKey<GoalEventService>("GoalEventService")
 
+/**
+ * The goal audit trail — a thin wrapper over the shared [EventLog] mechanics (the five
+ * `*_events` tables are V15 clones; see infra/db/EventLog.kt). Only the typed DTO mapping
+ * lives here.
+ */
 class GoalEventService(val database: R2dbcDatabase) {
-    object GoalEvents : UIntIdTable("goal_events") {
-        val goalId = reference("goal_id", GoalService.Goals)
-        val userId = reference("user_id", UserService.Users)
-        val timestamp = long("created_at")
-        // Structured event so the SPA can localize it: the kind plus a JSON params map.
-        val eventType = varchar("event_type", 40)
-        val params = text("params")
+    object GoalEvents : EventLogTable("goal_events", "goal_id", GoalService.Goals) {
+        // Feature-named alias for direct DSL use (the same Column instance).
+        val goalId get() = ownerId
     }
+
+    private val log = EventLog(database, GoalEvents)
 
     /** Inserts an audit event. The timestamp is set here, never taken from a caller. */
-    suspend fun create(event: GoalEvent): UInt = suspendTransaction(database) {
-        GoalEvents.insert {
-            it[goalId] = event.goalId
-            it[userId] = event.userId
-            it[timestamp] = System.currentTimeMillis()
-            it[eventType] = event.type.name
-            it[params] = encodeParams(event.params)
-        }[GoalEvents.id].value
-    }
+    suspend fun create(event: GoalEvent): UInt =
+        log.create(event.goalId, event.userId, event.type.name, event.params)
 
     /** The goal's history, oldest first (id as a stable tiebreaker), with acting user names. */
-    suspend fun listForGoal(goalId: UInt): List<GoalEventResponse> = suspendTransaction(database) {
-        (GoalEvents innerJoin UserService.Users)
-            .selectAll()
-            .where { GoalEvents.goalId eq goalId }
-            .orderBy(GoalEvents.timestamp to SortOrder.ASC, GoalEvents.id to SortOrder.ASC)
-            .map { it.toResponse() }
-            .toList()
-    }
-
-    private fun ResultRow.toResponse() = GoalEventResponse(
-        id = this[GoalEvents.id].value,
-        goalId = this[GoalEvents.goalId].value,
-        userId = this[GoalEvents.userId].value,
-        userName = this[UserService.Users.name],
-        timestamp = this[GoalEvents.timestamp],
-        type = GoalEventType.valueOf(this[GoalEvents.eventType]),
-        params = decodeParams(this[GoalEvents.params]),
-    )
+    suspend fun listForGoal(goalId: UInt): List<GoalEventResponse> =
+        log.listFor(goalId).map {
+            GoalEventResponse(
+                id = it.id,
+                goalId = it.ownerId,
+                userId = it.userId,
+                userName = it.userName,
+                timestamp = it.timestamp,
+                type = GoalEventType.valueOf(it.type),
+                params = it.params,
+            )
+        }
 }

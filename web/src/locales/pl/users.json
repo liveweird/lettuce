@@ -105,7 +105,7 @@
   "removeConfirmFrom": "z",
   "setNewPassword": "Ustaw nowe hasło dla {{name}} ({{email}}).",
   "loadUsersFailed": "Nie udało się wczytać użytkowników",
-  "loadUserFailed": "Nie udało się wczytać użytkownika",
+  "loadUserFailed": "Nie udało się wczytać użytkownika{{suffix}}",
   "loadTeamsFailed": "Nie udało się wczytać zespołów",
   "loadManagersFailed": "Nie udało się wczytać menedżerów",
   "deleteUserFailed": "Nie udało się usunąć użytkownika",

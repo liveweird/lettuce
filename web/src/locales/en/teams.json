@@ -33,7 +33,7 @@
   "removeConfirmMid": "from",
   "loadFailed": "Failed to load teams",
   "deleteFailed": "Failed to delete team",
-  "loadTeamFailed": "Failed to load team",
+  "loadTeamFailed": "Failed to load team{{suffix}}",
   "loadMembersFailed": "Failed to load members",
   "loadMembersTableFailed": "Failed to load team members",
   "addMemberFailed": "Failed to add member",

@@ -224,7 +224,7 @@ export default function UserDetails() {
       </Stack>
 
       {isError ? (
-        <Alert color="red" variant="light" title={t("users.loadUserFailed")}>
+        <Alert color="red" variant="light" title={t("users.loadUserFailed", { suffix: "" })}>
           {error instanceof Error ? error.message : t("users.unknownError")}
         </Alert>
       ) : isLoading ? (

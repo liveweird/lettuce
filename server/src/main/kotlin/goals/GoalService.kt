@@ -1,6 +1,7 @@
 package ch.nokillswit.goals
 
 import ch.nokillswit.authz.ConflictException
+import ch.nokillswit.infra.crypto.EncryptedAtRest
 import ch.nokillswit.infra.crypto.FieldCipher
 import ch.nokillswit.infra.db.containsNormalized
 import ch.nokillswit.infra.paging.PageRequest
@@ -66,7 +67,9 @@ private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
 // every write and unwraps every read, so nothing above this service ever sees ciphertext. Neither
 // column is filtered/sorted/searched in SQL, so queries are unaffected; the title stays plaintext
 // on purpose — lists sort and substring-filter on it.
-class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) {
+class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) : EncryptedAtRest {
+    override val encryptedRowLabel = "goal"
+
     object Goals : UIntIdTable("goals") {
         val managerId = reference("manager_id", UserService.Users)
         val subordinateId = reference("subordinate_id", UserService.Users)
@@ -373,7 +376,7 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
      * decrypted (current or previous key) and rewritten under the current key. Idempotent;
      * returns the rewritten count.
      */
-    suspend fun encryptLegacyRows(reencryptAll: Boolean = false): Int = suspendTransaction(database) {
+    override suspend fun encryptLegacyRows(reencryptAll: Boolean): Int = suspendTransaction(database) {
         val enveloped = "${FieldCipher.PREFIX}%"
         val legacyOnly = (Goals.description notLike enveloped) or
             (Goals.summary.isNotNull() and (Goals.summary notLike enveloped))

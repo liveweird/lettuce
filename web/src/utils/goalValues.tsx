@@ -38,7 +38,7 @@ export function formatGoalValue(type: GoalType, value: number | null | undefined
 export function AchievedBadge({ achieved }: { achieved: boolean }) {
   const { t } = useTranslation();
   return (
-    <Badge variant="light" color={achieved ? "green" : "yellow"} style={{ minWidth: "max-content" }}>
+    <Badge variant="light" color={achieved ? "teal" : "yellow"} style={{ minWidth: "max-content" }}>
       {achieved ? t("goal.achieved") : t("goal.notAchieved")}
     </Badge>
   );
@@ -90,7 +90,7 @@ export function GoalValues({ goal, locale }: { goal: GoalResponse; locale: strin
             value={goal.currentValue ?? 0}
             color={
               goal.targetValue != null && (goal.currentValue ?? 0) >= goal.targetValue
-                ? "green"
+                ? "teal"
                 : "lettuce"
             }
             aria-label={t("goal.current")}

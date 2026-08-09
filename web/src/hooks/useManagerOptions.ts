@@ -12,7 +12,7 @@ export function useManagerOptions(enabled = true): {
 } {
   const { data: managerPool, isLoading: managersLoading } = useQuery({
     queryKey: ["users", "managerPicker"],
-    queryFn: listAllUsers,
+    queryFn: () => listAllUsers(),
     staleTime: 5 * 60 * 1000,
     enabled,
   });

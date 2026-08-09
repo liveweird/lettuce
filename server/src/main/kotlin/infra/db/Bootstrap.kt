@@ -1,6 +1,7 @@
 package ch.nokillswit.infra.db
 
 import ch.nokillswit.auth.hashPassword
+import ch.nokillswit.infra.crypto.EncryptedAtRest
 import ch.nokillswit.daysoff.DaysOffServiceKey
 import ch.nokillswit.feedbacks.FeedbackServiceKey
 import ch.nokillswit.goals.GoalServiceKey
@@ -66,42 +67,26 @@ suspend fun Application.configureBootstrap() {
 
     // Encryption-at-rest backfill: rows written before the field cipher existed still hold
     // plaintext — encrypt them once. While a rotation previousKey is configured, every row is
-    // re-encrypted under the current key instead (see FeedbackService.encryptLegacyRows).
+    // re-encrypted under the current key instead. THE list of encrypted-at-rest services —
+    // adding a newly encrypted feature registers it here (see infra/crypto/EncryptedAtRest.kt);
+    // removing an entry would strand that feature's rows under a rotated-away key.
     val rotating = environment.config
         .propertyOrNull("security.encryption.previousKey")?.getString()?.isNotBlank() == true
-    val encrypted = attributes[FeedbackServiceKey].encryptLegacyRows(reencryptAll = rotating)
-    if (encrypted > 0) {
-        log.info("Bootstrap: ${if (rotating) "re-" else ""}encrypted $encrypted feedback row(s) at rest")
-    }
-    // Same hook for the 1:1 meeting content columns — without it a key rotation would strand
-    // their rows under the previous key once it is removed from the config.
-    val oneOnOneEncrypted = attributes[OneOnOneServiceKey].encryptLegacyRows(reencryptAll = rotating)
-    if (oneOnOneEncrypted > 0) {
-        log.info("Bootstrap: ${if (rotating) "re-" else ""}encrypted $oneOnOneEncrypted 1:1 meeting row(s) at rest")
-    }
-    // And for the goal description/summary columns, for the same rotation reason.
-    val goalsEncrypted = attributes[GoalServiceKey].encryptLegacyRows(reencryptAll = rotating)
-    if (goalsEncrypted > 0) {
-        log.info("Bootstrap: ${if (rotating) "re-" else ""}encrypted $goalsEncrypted goal row(s) at rest")
-    }
-    // And for the team-KPI description/summary columns, for the same rotation reason.
-    val teamKpisEncrypted = attributes[TeamKpiServiceKey].encryptLegacyRows(reencryptAll = rotating)
-    if (teamKpisEncrypted > 0) {
-        log.info("Bootstrap: ${if (rotating) "re-" else ""}encrypted $teamKpisEncrypted team KPI row(s) at rest")
-    }
-    // And for the performance-review summary columns, for the same rotation reason.
-    val reviewsEncrypted = attributes[PerformanceReviewServiceKey].encryptLegacyRows(reencryptAll = rotating)
-    if (reviewsEncrypted > 0) {
-        log.info("Bootstrap: ${if (rotating) "re-" else ""}encrypted $reviewsEncrypted performance review row(s) at rest")
-    }
-    // And for the days-off correction comment column, for the same rotation reason.
-    val correctionsEncrypted = attributes[DaysOffServiceKey].encryptLegacyRows(reencryptAll = rotating)
-    if (correctionsEncrypted > 0) {
-        log.info("Bootstrap: ${if (rotating) "re-" else ""}encrypted $correctionsEncrypted days-off correction row(s) at rest")
-    }
-    // And for the seven pulse-response answer/comment columns, for the same rotation reason.
-    val pulseEncrypted = attributes[PulseResponseServiceKey].encryptLegacyRows(reencryptAll = rotating)
-    if (pulseEncrypted > 0) {
-        log.info("Bootstrap: ${if (rotating) "re-" else ""}encrypted $pulseEncrypted pulse response row(s) at rest")
+    val encryptedAtRest: List<EncryptedAtRest> = listOf(
+        attributes[FeedbackServiceKey],
+        attributes[OneOnOneServiceKey],
+        attributes[GoalServiceKey],
+        attributes[TeamKpiServiceKey],
+        attributes[PerformanceReviewServiceKey],
+        attributes[DaysOffServiceKey],
+        attributes[PulseResponseServiceKey],
+    )
+    encryptedAtRest.forEach { service ->
+        val encrypted = service.encryptLegacyRows(reencryptAll = rotating)
+        if (encrypted > 0) {
+            log.info(
+                "Bootstrap: ${if (rotating) "re-" else ""}encrypted $encrypted ${service.encryptedRowLabel} row(s) at rest",
+            )
+        }
     }
 }

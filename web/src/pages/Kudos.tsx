@@ -22,9 +22,8 @@ import { useTranslation } from "react-i18next";
 import { getUserId, hasFeature, listFeedbacks, type FeedbackPage } from "../api/client";
 import EmptyState from "../components/EmptyState";
 import MarkdownView from "../components/MarkdownView";
-import PersonaChip from "../components/PersonaChip";
+import PersonCell from "../components/PersonCell";
 import { formatRelativeTime, formatTimestamp } from "../utils/datetime";
-import { feedbackPartyName } from "../utils/userDisplay";
 
 const PAGE_SIZE = 20;
 
@@ -34,22 +33,27 @@ function KudosCard({ item }: { item: KudosItem }) {
   const { t, i18n } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const userId = getUserId();
-  const provider = feedbackPartyName(item.providerId, item.providerName, item.providerDeleted, userId, t);
-  const subject = feedbackPartyName(item.subjectId, item.subjectName, item.subjectDeleted, userId, t);
   // Kudos rows carry the full content; the preview is the defensive fallback only.
   const content = item.content ?? item.contentPreview;
-  // The FeedbackMeta convention: PersonaChip for a named party, plain text for "You".
-  const party = (display: string) =>
-    display === t("common.state.you") ? <Text size="sm">{display}</Text> : <PersonaChip name={display} />;
 
   return (
     <Stack gap={4}>
       <Group gap={8} wrap="wrap">
-        {party(provider)}
+        <PersonCell
+          userId={item.providerId}
+          name={item.providerName}
+          deleted={item.providerDeleted}
+          currentUserId={userId}
+        />
         <Text size="sm" c="dimmed">
           →
         </Text>
-        {party(subject)}
+        <PersonCell
+          userId={item.subjectId}
+          name={item.subjectName}
+          deleted={item.subjectDeleted}
+          currentUserId={userId}
+        />
       </Group>
       <Text size="xs" c="dimmed" title={formatTimestamp(item.lastModified)}>
         {formatRelativeTime(item.lastModified, i18n.language)}

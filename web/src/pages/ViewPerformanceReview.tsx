@@ -18,7 +18,6 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
-  ApiError,
   getPerformanceReview,
   getUserId,
   hasFeature,
@@ -39,6 +38,7 @@ import { formatDate, formatMonthRange, isCurrentPeriod } from "../utils/datetime
 import { reviewEditLink } from "../utils/performanceReviewLinks";
 import { invalidatePerformanceReview } from "../utils/performanceReviewQueries";
 import { showSuccessToast } from "../utils/toast";
+import { saveErrorMessage } from "../utils/saveError";
 import { ratingLabel, REVIEW_CATEGORIES } from "../utils/reviewRatings";
 
 // The manager's lifecycle actions per status (the ViewGoal ACTIONS idiom). Every edge is
@@ -130,15 +130,14 @@ export default function ViewPerformanceReview() {
       showSuccessToast(t(successKey));
       navigate(backTo, { replace: true });
     } catch (err) {
-      if (err instanceof ApiError && err.status === 400) {
-        setError(t("performanceReview.error.incomplete"));
-      } else if (err instanceof ApiError && err.status === 409) {
-        setError(t("performanceReview.error.invalidTransition"));
-      } else if (err instanceof ApiError && err.status === 403) {
-        setError(t("performanceReview.error.savePermission"));
-      } else {
-        setError(t("performanceReview.error.updateFailed"));
-      }
+      setError(
+        saveErrorMessage(err, t, {
+          invalid: "performanceReview.error.incomplete",
+          conflict: "performanceReview.error.invalidTransition",
+          forbidden: "performanceReview.error.savePermission",
+          failed: "performanceReview.error.updateFailed",
+        }),
+      );
       setSubmitting(null);
     }
   }

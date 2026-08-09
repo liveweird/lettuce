@@ -30,7 +30,13 @@ internal fun reviewTransitionNotifications(
                 "/performance-reviews/$reviewId/view"
         PerformanceReviewStatus.PUBLISHED to PerformanceReviewStatus.CALIBRATION ->
             NotificationType.PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE to null
-        else -> return emptyList() // draft <-> calibration is invisible to the subordinate
+        // DRAFT <-> CALIBRATION is DELIBERATELY silent — the subordinate cannot see either
+        // status, so there is nothing to tell them. Named explicitly so the terminal else can
+        // fail loud on a genuinely unknown edge (a future one forgetting its wording).
+        PerformanceReviewStatus.DRAFT to PerformanceReviewStatus.CALIBRATION,
+        PerformanceReviewStatus.CALIBRATION to PerformanceReviewStatus.DRAFT,
+        -> return emptyList()
+        else -> error("Not a performance-review transition edge: $from -> $to")
     }
     return listOf(
         Notification(

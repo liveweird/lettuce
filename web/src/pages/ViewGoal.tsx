@@ -39,6 +39,7 @@ import { formatDate, formatIsoDate } from "../utils/datetime";
 import { goalEditLink } from "../utils/goalLinks";
 import { invalidateGoal } from "../utils/goalQueries";
 import { showSuccessToast } from "../utils/toast";
+import { saveErrorMessage } from "../utils/saveError";
 import { GoalValues, isGoalOverdue, OverdueBadge } from "../utils/goalValues";
 
 // The manager's lifecycle actions per status. The view screen is their single home — ARCHIVED
@@ -109,13 +110,12 @@ export default function ViewGoal() {
       setActionError(
         // A 400 on a transition can only be the activate gate (a stale due date) — the close
         // modal already refuses a blank summary client-side.
-        err instanceof ApiError && err.status === 400
-          ? t("goal.error.activateOverdue")
-          : err instanceof ApiError && err.status === 409
-            ? t("goal.error.invalidTransition")
-            : err instanceof ApiError && err.status === 403
-              ? t("goal.error.savePermission")
-              : t("goal.error.updateFailed"),
+        saveErrorMessage(err, t, {
+          invalid: "goal.error.activateOverdue",
+          conflict: "goal.error.invalidTransition",
+          forbidden: "goal.error.savePermission",
+          failed: "goal.error.updateFailed",
+        }),
       );
       setSubmitting(null);
       setCloseOpened(false);

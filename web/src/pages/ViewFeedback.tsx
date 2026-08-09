@@ -40,6 +40,7 @@ import MarkdownView from "../components/MarkdownView";
 import RequesterMessage from "../components/RequesterMessage";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import { showSuccessToast } from "../utils/toast";
+import { saveErrorMessage } from "../utils/saveError";
 
 const RECEIVED = "/feedback?tab=received";
 
@@ -120,15 +121,16 @@ export default function ViewFeedback() {
       showSuccessToast(t(successKey));
       navigate(backTo, { replace: true });
     } catch (err) {
-      if (err instanceof ApiError) {
-        if (err.status === 403) setActionError(t("feedback.error.changePermission"));
-        else if (err.status === 404) setActionError(t("feedback.error.gone"));
-        else if (err.status === 409 || err.status === 400)
-          setActionError(t("feedback.error.invalidTransition"));
-        else setActionError(t("feedback.error.updateFailedStatus", { status: err.status }));
-      } else {
-        setActionError(t("feedback.error.updateFailed"));
-      }
+      setActionError(
+        saveErrorMessage(err, t, {
+          forbidden: "feedback.error.changePermission",
+          notFound: "feedback.error.gone",
+          conflict: "feedback.error.invalidTransition",
+          invalid: "feedback.error.invalidTransition",
+          failedStatus: "feedback.error.updateFailedStatus",
+          failed: "feedback.error.updateFailed",
+        }),
+      );
     } finally {
       setSubmitting(false);
     }

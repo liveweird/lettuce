@@ -1,6 +1,7 @@
 package ch.nokillswit.oneonones
 
 import ch.nokillswit.authz.ConflictException
+import ch.nokillswit.infra.crypto.EncryptedAtRest
 import ch.nokillswit.infra.crypto.FieldCipher
 import ch.nokillswit.infra.db.containsNormalized
 import ch.nokillswit.infra.paging.PageRequest
@@ -73,7 +74,9 @@ private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
 // the cipher wraps every write and unwraps every read, so nothing above this service ever sees
 // ciphertext. Neither column is filtered/sorted/searched in SQL (lists carry counts, not
 // previews), so queries are unaffected — never add a SQL-level filter/sort on them.
-class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCipher) {
+class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCipher) : EncryptedAtRest {
+    override val encryptedRowLabel = "1:1 meeting"
+
     object Meetings : UIntIdTable("one_on_one_meetings") {
         val managerId = reference("manager_id", UserService.Users)
         val subordinateId = reference("subordinate_id", UserService.Users)
@@ -603,7 +606,7 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
      * rewrites every note/action-item content under the current key. Idempotent; returns the
      * rewritten count. New rows are always written encrypted, so the legacy branch is defensive.
      */
-    suspend fun encryptLegacyRows(reencryptAll: Boolean = false): Int = suspendTransaction(database) {
+    override suspend fun encryptLegacyRows(reencryptAll: Boolean): Int = suspendTransaction(database) {
         val enveloped = "${FieldCipher.PREFIX}%"
         val noteRows = Notes.select(Notes.id, Notes.content)
             .where { if (reencryptAll) Op.TRUE else Notes.content notLike enveloped }
