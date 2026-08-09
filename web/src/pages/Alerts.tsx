@@ -171,7 +171,7 @@ export default function Alerts() {
                 <Table.Td>
                   <Badge
                     variant="light"
-                    color={alert.isActive ? "green" : "gray"}
+                    color={alert.isActive ? "teal" : "gray"}
                     style={{ minWidth: "max-content" }}
                   >
                     {alert.isActive ? t("common.state.yes") : t("common.state.no")}

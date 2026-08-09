@@ -31,7 +31,10 @@ internal fun teamKpiTransitionNotifications(
         TeamKpiStatus.ACTIVE to TeamKpiStatus.DRAFT -> NotificationType.TEAM_KPI_DEACTIVATED_TO_MEMBER
         TeamKpiStatus.ACTIVE to TeamKpiStatus.ARCHIVED -> NotificationType.TEAM_KPI_ARCHIVED_TO_MEMBER
         TeamKpiStatus.ARCHIVED to TeamKpiStatus.ACTIVE -> NotificationType.TEAM_KPI_REOPENED_TO_MEMBER
-        else -> return emptyList() // not a valid edge — the service rejects it before we get here
+        // Every legal edge of the DRAFT <-> ACTIVE <-> ARCHIVED machine is named above — fail
+        // loud on anything else (the daysoff precedent) so a future edge cannot silently mint
+        // nothing.
+        else -> error("Not a team-KPI transition edge: $from -> $to")
     }
     // Deactivation lands the KPI back in DRAFT, which members may not read — that notification
     // carries no link (the feedback convention: a link only when the recipient may follow it).

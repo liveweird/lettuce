@@ -1,6 +1,7 @@
 package ch.nokillswit.feedbacks
 
 import ch.nokillswit.authz.ConflictException
+import ch.nokillswit.infra.crypto.EncryptedAtRest
 import ch.nokillswit.infra.crypto.FieldCipher
 import ch.nokillswit.infra.db.containsNormalized
 import ch.nokillswit.infra.db.decodeParams
@@ -86,7 +87,9 @@ const val CONTENT_PREVIEW_LENGTH = 200
 // content/requester_message are encrypted at rest (see infra/crypto/FieldCipher.kt): the cipher
 // wraps every write and unwraps every read, so nothing above this service ever sees ciphertext.
 // Neither column is filtered/sorted/searched in SQL, so queries are unaffected.
-class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCipher) {
+class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCipher) : EncryptedAtRest {
+    override val encryptedRowLabel = "feedback"
+
     object Feedbacks : UIntIdTable("feedbacks") {
         val requesterId = reference("requester_id", UserService.Users).nullable()
         val subjectId = reference("subject_id", UserService.Users)
@@ -306,7 +309,7 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
      * key rotation, i.e. while a previous key is configured) every row is decrypted (current or
      * previous key) and rewritten under the current key. Idempotent; returns the rewritten count.
      */
-    suspend fun encryptLegacyRows(reencryptAll: Boolean = false): Int = suspendTransaction(database) {
+    override suspend fun encryptLegacyRows(reencryptAll: Boolean): Int = suspendTransaction(database) {
         val enveloped = "${FieldCipher.PREFIX}%"
         val legacyOnly = (Feedbacks.content notLike enveloped) or
             (Feedbacks.requesterMessage.isNotNull() and (Feedbacks.requesterMessage notLike enveloped))

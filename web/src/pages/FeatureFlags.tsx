@@ -11,6 +11,7 @@ import EmptyState from "../components/EmptyState";
 import TableLoadingRow from "../components/TableLoadingRow";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
+import PersonaChip from "../components/PersonaChip";
 import SortHeader from "../components/SortHeader";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isNumberOrNull, isOneOf, isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
@@ -84,7 +85,7 @@ export default function FeatureFlags() {
       sortFields: SORT_FIELDS,
     });
 
-  const teams = useQuery({ queryKey: ["teams", "all"], queryFn: listAllTeams, enabled: isAdmin() });
+  const teams = useQuery({ queryKey: ["teams", "all"], queryFn: () => listAllTeams(), enabled: isAdmin() });
 
   const listQuery = (p: number, size: number) =>
     listUsers({
@@ -323,9 +324,7 @@ export default function FeatureFlags() {
             data.items.map((u) => (
               <Table.Tr key={u.id}>
                 <Table.Td>
-                  <Text size="sm" fw={500}>
-                    {u.name}
-                  </Text>
+                  <PersonaChip name={u.name} />
                 </Table.Td>
                 <Table.Td>
                   <Text size="sm">{u.email}</Text>

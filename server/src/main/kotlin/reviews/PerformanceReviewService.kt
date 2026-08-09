@@ -2,6 +2,7 @@ package ch.nokillswit.reviews
 
 import ch.nokillswit.authz.ConflictException
 import io.ktor.server.plugins.BadRequestException
+import ch.nokillswit.infra.crypto.EncryptedAtRest
 import ch.nokillswit.infra.crypto.FieldCipher
 import ch.nokillswit.infra.db.containsNormalized
 import ch.nokillswit.infra.paging.PageRequest
@@ -69,7 +70,9 @@ private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
 // assessment column is filtered/sorted/aggregated in SQL — the reviews dashboard sorts and
 // computes its 1–6 distribution entirely client-side over list rows. Never add a SQL-level
 // filter/sort/aggregate on any of these columns: it would silently operate on ciphertext.
-class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: FieldCipher) {
+class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: FieldCipher) : EncryptedAtRest {
+    override val encryptedRowLabel = "performance review"
+
     object Reviews : UIntIdTable("performance_reviews") {
         val managerId = reference("manager_id", UserService.Users)
         val subordinateId = reference("subordinate_id", UserService.Users)
@@ -396,7 +399,7 @@ class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: 
      * [reencryptAll] (set during key rotation) every row is decrypted (current or previous key)
      * and rewritten under the current key. Idempotent; returns the rewritten count.
      */
-    suspend fun encryptLegacyRows(reencryptAll: Boolean = false): Int = suspendTransaction(database) {
+    override suspend fun encryptLegacyRows(reencryptAll: Boolean): Int = suspendTransaction(database) {
         val enveloped = "${FieldCipher.PREFIX}%"
         val encryptedColumns = listOf(
             Reviews.attitudeRating, Reviews.attitudeSummary,

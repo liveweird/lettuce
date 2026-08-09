@@ -1,5 +1,6 @@
 package ch.nokillswit.pulse
 
+import ch.nokillswit.infra.crypto.EncryptedAtRest
 import ch.nokillswit.infra.crypto.FieldCipher
 import ch.nokillswit.users.UserService
 import io.ktor.util.AttributeKey
@@ -24,7 +25,9 @@ val PulseResponseServiceKey = AttributeKey<PulseResponseService>("PulseResponseS
  * ever filters/sorts/aggregates the encrypted columns — scope rows are loaded and computed on
  * in Kotlin (see PulseAggregation.kt).
  */
-class PulseResponseService(val database: R2dbcDatabase, private val cipher: FieldCipher) {
+class PulseResponseService(val database: R2dbcDatabase, private val cipher: FieldCipher) : EncryptedAtRest {
+    override val encryptedRowLabel = "pulse response"
+
     object PulseParticipants : Table("pulse_participants") {
         val cycleId = reference("cycle_id", PulseCycleService.PulseCycles)
         val userId = reference("user_id", UserService.Users)
@@ -188,7 +191,7 @@ class PulseResponseService(val database: R2dbcDatabase, private val cipher: Fiel
      * plaintext; with [reencryptAll] (key rotation) every row is rewritten under the current
      * key. Idempotent; returns the rewritten count.
      */
-    suspend fun encryptLegacyRows(reencryptAll: Boolean = false): Int = suspendTransaction(database) {
+    override suspend fun encryptLegacyRows(reencryptAll: Boolean): Int = suspendTransaction(database) {
         val enveloped = "${FieldCipher.PREFIX}%"
         val legacyOnly = (PulseResponses.enps notLike enveloped) or
             (PulseResponses.driver1 notLike enveloped) or

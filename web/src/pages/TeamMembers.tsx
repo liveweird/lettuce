@@ -29,7 +29,6 @@ import {
   hasFeature,
   isAdmin,
   listAllUsers,
-  listUsers,
   removeTeamMember,
 } from "../api/client";
 import { showSuccessToast } from "../utils/toast";
@@ -42,10 +41,6 @@ import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { feedbackAskLink, feedbackProvideLink, userFeedbacksLink } from "../utils/feedbackLinks";
 import { userDetailsLink } from "../utils/userLinks";
 import { saveErrorMessage } from "../utils/saveError";
-
-// A single team realistically has a small, bounded set of members; fetch up to the 100-row
-// max so the member list and the add-picker exclusion share one complete source of truth.
-const PICKER_PAGE_SIZE = 100;
 
 type MemberRow = { id: number; name: string };
 
@@ -84,13 +79,16 @@ export default function TeamMembers() {
   });
 
   const {
-    data: membersPage,
+    data: allMembers,
     isLoading: membersLoading,
     isError: membersIsError,
     error: membersError,
   } = useQuery({
     queryKey: ["teamMembersList", id],
-    queryFn: () => listUsers({ teamId: id, page: 1, pageSize: PICKER_PAGE_SIZE, sort: "name" }),
+    // ALL pages (the single-page-picker lesson, applied to the roster half too): a single
+    // page of 100 would hide members 101+ from the roster AND wrongly offer them as addable.
+    // Client-sorted by name below.
+    queryFn: () => listAllUsers({ teamId: id }),
     enabled: idIsValid,
   });
 
@@ -99,7 +97,7 @@ export default function TeamMembers() {
   // pageSize. Client-sorted by name below.
   const { data: userPool } = useQuery({
     queryKey: ["users", "picker"],
-    queryFn: listAllUsers,
+    queryFn: () => listAllUsers(),
     staleTime: 5 * 60 * 1000,
     enabled: idIsValid && canManage,
   });
@@ -135,7 +133,7 @@ export default function TeamMembers() {
 
   if (!idIsValid) return <Navigate to="/teams" replace />;
 
-  const members = membersPage?.items ?? [];
+  const members = [...(allMembers ?? [])].sort((a, b) => a.name.localeCompare(b.name));
   const memberIds = new Set(members.map((m) => m.id));
   const addOptions = (userPool ?? [])
     .filter((u) => !memberIds.has(u.id) && u.id !== team?.managerId)
@@ -166,7 +164,9 @@ export default function TeamMembers() {
         <Alert color="red" variant="light">
           {teamNotFound
             ? t("teams.teamNotFound")
-            : `${t("teams.loadTeamFailed")}${teamError instanceof ApiError ? ` (${teamError.status})` : ""}.`}
+            : t("teams.loadTeamFailed", {
+                suffix: teamError instanceof ApiError ? ` (${teamError.status})` : "",
+              })}
         </Alert>
         <Group justify="flex-end">
           <Button component={RouterLink} to={backTo} variant="default">
@@ -234,7 +234,7 @@ export default function TeamMembers() {
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
-          {membersLoading && !membersPage ? (
+          {membersLoading && !allMembers ? (
             <TableLoadingRow colSpan={3} />
           ) : members.length > 0 ? (
             members.map((m) => (

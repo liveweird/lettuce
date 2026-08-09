@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.4.1",
+    date: "2026-08-09",
+    en: `Consistency fixes across the app. People pickers no longer truncate in large organizations — every list that offers users, teams, or direct reports now loads all of them, not just the first hundred (the "ask for feedback" provider picker, team rosters, and the goal, 1:1, and review subordinate pickers included). Success states now use one color everywhere: the notification bell's sent/activated/published/accepted entries match the teal badges the tables use. The pulse survey tabs share one width, "You" and deleted users render consistently on the Kudos wall and participation lists, and changes managers make to days-off budget corrections are now recorded in the security audit log.`,
+    pl: `Poprawki spójności w całej aplikacji. Listy wyboru osób nie ucinają się już w dużych organizacjach — każda lista oferująca użytkowników, zespoły lub podwładnych ładuje teraz wszystkich, a nie tylko pierwszą setkę (w tym wybór dostarczycieli w prośbie o feedback, składy zespołów oraz wybór podwładnych przy celach, spotkaniach 1:1 i ocenach). Stany sukcesu mają teraz jeden kolor wszędzie: wpisy dzwonka o wysłaniu, aktywacji, publikacji i akceptacji pasują do morskich odznak w tabelach. Zakładki ankiety pulsu mają wspólną szerokość, „Ty" i usunięci użytkownicy wyświetlają się spójnie na ścianie Kudos i listach udziału, a zmiany korekt budżetu dni wolnych wprowadzane przez menedżerów są teraz zapisywane w dzienniku audytu.`,
+  },
+  {
     version: "2.4.0",
     date: "2026-08-09",
     en: `Optional two-step sign-in. Administrators can now require a second sign-in step for selected accounts: with the new MFA flag enabled, entering the correct password emails you a 6-digit code, and signing in finishes only once you type it in. Codes expire after a few minutes and each one works exactly once. MFA is off for everyone by default — an administrator enables it per person on the user's Features screen, or for a whole team at once on the Feature flags screen.`,

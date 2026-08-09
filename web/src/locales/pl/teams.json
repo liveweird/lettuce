@@ -33,7 +33,7 @@
   "removeConfirmMid": "z zespołu",
   "loadFailed": "Nie udało się wczytać zespołów",
   "deleteFailed": "Nie udało się usunąć zespołu",
-  "loadTeamFailed": "Nie udało się wczytać zespołu",
+  "loadTeamFailed": "Nie udało się wczytać zespołu{{suffix}}",
   "loadMembersFailed": "Nie udało się wczytać członków",
   "loadMembersTableFailed": "Nie udało się wczytać członków zespołu",
   "addMemberFailed": "Nie udało się dodać członka",

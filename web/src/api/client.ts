@@ -474,23 +474,25 @@ export async function listTeamMembers(q: TeamMemberListQuery): Promise<TeamMembe
   return (await res.json()) as TeamMemberPage;
 }
 
-export async function listAllTeams(): Promise<TeamPage["items"]> {
+/** Every team (optionally: of one member), paging until the server total is reached. */
+export async function listAllTeams(filter: { memberId?: number } = {}): Promise<TeamPage["items"]> {
   const items: TeamPage["items"] = [];
   let page = 1;
   for (;;) {
-    const result = await listTeams({ page, pageSize: 100, sort: "name" });
+    const result = await listTeams({ page, pageSize: 100, sort: "name", ...filter });
     items.push(...result.items);
     if (items.length >= result.total || result.items.length === 0) return items;
     page += 1;
   }
 }
 
-/** Every user, paging until the server total is reached — the listAllTeams idiom. */
-export async function listAllUsers(): Promise<UserPage["items"]> {
+/** Every user (optionally: of one team), paging until the server total is reached — the
+ * listAllTeams idiom. */
+export async function listAllUsers(filter: { teamId?: number } = {}): Promise<UserPage["items"]> {
   const items: UserPage["items"] = [];
   let page = 1;
   for (;;) {
-    const result = await listUsers({ page, pageSize: 100, sort: "id" });
+    const result = await listUsers({ page, pageSize: 100, sort: "id", ...filter });
     items.push(...result.items);
     if (items.length >= result.total || result.items.length === 0) return items;
     page += 1;

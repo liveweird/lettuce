@@ -3,9 +3,9 @@ import { IconUsersGroup } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
-import { getPulseParticipationStatus, listPulseCycles } from "../api/client";
+import { getPulseParticipationStatus, getUserId, listPulseCycles } from "../api/client";
 import EmptyState from "../components/EmptyState";
-import PersonaChip from "../components/PersonaChip";
+import PersonCell from "../components/PersonCell";
 import { formatIsoDate } from "../utils/datetime";
 
 /**
@@ -17,6 +17,7 @@ export default function PulseParticipation() {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
   const [picked, setPicked] = useState<string | null>(null);
+  const currentUserId = getUserId();
 
   const cycles = useQuery({ queryKey: ["pulseCycles"], queryFn: listPulseCycles });
   const candidates = (cycles.data ?? [])
@@ -104,7 +105,11 @@ export default function PulseParticipation() {
                   {team.members.map((member) => (
                     <Table.Tr key={member.userId}>
                       <Table.Td>
-                        <PersonaChip name={member.name} />
+                        <PersonCell
+                          userId={member.userId}
+                          name={member.name}
+                          currentUserId={currentUserId}
+                        />
                       </Table.Td>
                       <Table.Td>
                         <Badge

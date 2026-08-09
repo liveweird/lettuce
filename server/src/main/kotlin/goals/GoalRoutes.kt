@@ -1,5 +1,6 @@
 package ch.nokillswit.goals
 
+import ch.nokillswit.authz.requireDirectReport
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAuditListAccess
@@ -82,6 +83,39 @@ fun Application.configureGoalRoutes() {
     val notificationService = attributes[NotificationServiceKey]
     val userService = attributes[UserServiceKey]
 
+    // The uniform read preamble (the 404-before-403 idiom): resolves the goal and enforces the
+    // document read rule (parties / audited HR at any status; chain managers once out of
+    // DRAFT). A null return means the 404 response was already sent; the guard itself throws
+    // ForbiddenException. Shared by the document and events GETs.
+    suspend fun readGuardedGoal(call: ApplicationCall, goalId: UInt): GoalResponse? {
+        val caller = call.goalCaller()
+        val goal = goalService.read(goalId)
+        if (goal == null) {
+            call.respondProblem(HttpStatusCode.NotFound, "Goal not found")
+            return null
+        }
+        requireGoalReadAllowingManager(caller, goal) {
+            goalService.managesSubordinate(caller.userId, goal.subordinateId)
+        }
+        return goal
+    }
+
+    // The write sibling: manager-only (nobody else — ADMIN included). Same null = the 404 was
+    // already sent contract; guards run BEFORE any body is received, so an outsider's
+    // malformed payload is still 403.
+    suspend fun writeGuardedGoal(call: ApplicationCall, goalId: UInt): GoalResponse? {
+        // The gated caller resolves FIRST: a GOALS-disabled caller gets a uniform 403
+        // before the read (the feature 403 must precede the 404).
+        val caller = call.goalCaller()
+        val goal = goalService.read(goalId)
+        if (goal == null) {
+            call.respondProblem(HttpStatusCode.NotFound, "Goal not found")
+            return null
+        }
+        requireGoalWrite(caller, goal)
+        return goal
+    }
+
     // Shared handler for the lifecycle-transition action endpoints: manager-only, 404 when
     // missing, 409 (via ConflictException in the service) when the goal is not at the edge's
     // source status, otherwise it applies the change, delivers the subordinate's notification,
@@ -94,13 +128,7 @@ fun Application.configureGoalRoutes() {
         target: GoalStatus,
         receiveSummary: (suspend () -> String?)? = null,
     ) {
-        val caller = call.goalCaller()
-        val existing = goalService.read(goalId)
-        if (existing == null) {
-            call.respondProblem(HttpStatusCode.NotFound, "Goal not found")
-            return
-        }
-        requireGoalWrite(caller, existing)
+        val existing = writeGuardedGoal(call, goalId) ?: return
         // Activation only (not reopen — ARCHIVED->ACTIVE must stay open for overdue goals, whose
         // due date is DRAFT-only editable): a stale draft must pick a fresh due date first.
         if (from == GoalStatus.DRAFT && target == GoalStatus.ACTIVE) validateGoalDueDate(existing.dueDate)
@@ -114,7 +142,7 @@ fun Application.configureGoalRoutes() {
             return
         }
         toNotify.forEach { notificationService.create(it) }
-        goalEventService.create(goalTransitionEvent(from, target).toEvent(goalId, caller.userId))
+        goalEventService.create(goalTransitionEvent(from, target).toEvent(goalId, call.caller().userId))
         call.respond(HttpStatusCode.NoContent)
     }
 
@@ -180,9 +208,10 @@ fun Application.configureGoalRoutes() {
                 // The manager is always the caller (no create-on-behalf, not even for ADMIN) and
                 // the subordinate must be a direct report right now. Checked before payload
                 // validation so an outsider's malformed request is still 403, not 400.
-                if (!goalService.isDirectReport(caller.userId, request.subordinateId)) {
-                    throw ForbiddenException("You may only set goals for your direct reports")
-                }
+                requireDirectReport(
+                    { goalService.isDirectReport(caller.userId, request.subordinateId) },
+                    "You may only set goals for your direct reports",
+                )
                 // After the authz guard (403 wins over 400): no NEW goals for deactivated users.
                 userService.requireNoDeactivatedUsers(listOf(request.subordinateId))
                 val id = requireValidReferences("Referenced user does not exist") {
@@ -199,25 +228,11 @@ fun Application.configureGoalRoutes() {
                 call.respond(HttpStatusCode.Created, created)
             }
             get<Goals.Id> { route ->
-                val caller = call.goalCaller()
-                val goal = goalService.read(route.id)
-                if (goal == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Goal not found")
-                    return@get
-                }
-                requireGoalReadAllowingManager(caller, goal) {
-                    goalService.managesSubordinate(caller.userId, goal.subordinateId)
-                }
+                val goal = readGuardedGoal(call, route.id) ?: return@get
                 call.respond(HttpStatusCode.OK, goal)
             }
             put<Goals.Id> { route ->
-                val caller = call.goalCaller()
-                val existing = goalService.read(route.id)
-                if (existing == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Goal not found")
-                    return@put
-                }
-                requireGoalWrite(caller, existing)
+                val existing = writeGuardedGoal(call, route.id) ?: return@put
                 val edit = call.receive<GoalDefinitionUpdate>()
                 // DRAFT-only (else 409) and per-type validation both happen in the service,
                 // atomically with the update.
@@ -228,19 +243,13 @@ fun Application.configureGoalRoutes() {
                 }
                 // Audit: one event per changed aspect; a no-op PUT records nothing.
                 goalDefinitionUpdateEvents(existing, edit).forEach { descriptor ->
-                    goalEventService.create(descriptor.toEvent(route.id, caller.userId))
+                    goalEventService.create(descriptor.toEvent(route.id, call.caller().userId))
                 }
                 call.respond(HttpStatusCode.NoContent)
             }
             put<Goals.Id.Progress> { route ->
-                val caller = call.goalCaller()
                 val goalId = route.parent.id
-                val existing = goalService.read(goalId)
-                if (existing == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Goal not found")
-                    return@put
-                }
-                requireGoalWrite(caller, existing)
+                val existing = writeGuardedGoal(call, goalId) ?: return@put
                 val edit = call.receive<GoalProgressUpdate>()
                 // ACTIVE-only (else 409) and the per-type field check both happen in the service.
                 val updated = goalService.updateProgress(goalId, edit)
@@ -249,7 +258,7 @@ fun Application.configureGoalRoutes() {
                     return@put
                 }
                 goalProgressUpdateEvent(existing, edit)?.let { descriptor ->
-                    goalEventService.create(descriptor.toEvent(goalId, caller.userId))
+                    goalEventService.create(descriptor.toEvent(goalId, call.caller().userId))
                 }
                 call.respond(HttpStatusCode.NoContent)
             }
@@ -268,27 +277,13 @@ fun Application.configureGoalRoutes() {
                 transitionTo(call, route.parent.id, from = GoalStatus.ARCHIVED, target = GoalStatus.ACTIVE)
             }
             get<Goals.Id.Events> { route ->
-                val caller = call.goalCaller()
                 val goalId = route.parent.id
-                val goal = goalService.read(goalId)
-                if (goal == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Goal not found")
-                    return@get
-                }
                 // Whoever may read the goal may read its history.
-                requireGoalReadAllowingManager(caller, goal) {
-                    goalService.managesSubordinate(caller.userId, goal.subordinateId)
-                }
+                readGuardedGoal(call, goalId) ?: return@get
                 call.respond(HttpStatusCode.OK, GoalEventListResponse(goalEventService.listForGoal(goalId)))
             }
             delete<Goals.Id> { route ->
-                val caller = call.goalCaller()
-                val existing = goalService.read(route.id)
-                if (existing == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Goal not found")
-                    return@delete
-                }
-                requireGoalWrite(caller, existing)
+                val existing = writeGuardedGoal(call, route.id) ?: return@delete
                 // Delete is a draft-only action; ACTIVE/ARCHIVED goals are closed (or reopened)
                 // through the transitions instead, keeping the record.
                 if (existing.status != GoalStatus.DRAFT) {
@@ -300,7 +295,7 @@ fun Application.configureGoalRoutes() {
                 }
                 // Audit the deletion against the acting manager (events outlive the soft-deleted
                 // row). No notification — deleting a private draft is invisible activity.
-                goalEventService.create(goalDeletionEvent().toEvent(route.id, caller.userId))
+                goalEventService.create(goalDeletionEvent().toEvent(route.id, call.caller().userId))
                 call.respond(HttpStatusCode.NoContent)
             }
         }

@@ -200,7 +200,7 @@ export default function CreateTeamKpi() {
         message={t("teamKpi.activatePromptQuestion")}
         cancelLabel={t("common.state.no")}
         confirmLabel={t("common.state.yes")}
-        confirmColor="green"
+        confirmColor="teal"
         onConfirm={activateNow}
         loading={activating}
       />

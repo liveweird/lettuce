@@ -19,7 +19,7 @@ import { getUserId, listAllPerformanceReviews, listAllTeamMembers } from "../api
 import EmptyState from "../components/EmptyState";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
-import PersonaChip from "../components/PersonaChip";
+import PersonCell from "../components/PersonCell";
 import PerformanceReviewStatusBadge from "../components/PerformanceReviewStatusBadge";
 import { RatingCells } from "../components/RatingBadge";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
@@ -351,7 +351,11 @@ export default function ReviewsDashboard() {
               return (
                 <Table.Tr key={person.userId}>
                   <Table.Td>
-                    <PersonaChip name={person.name} />
+                    <PersonCell
+                      userId={person.userId}
+                      name={person.name}
+                      currentUserId={currentUserId}
+                    />
                   </Table.Td>
                   <Table.Td>
                     <Group gap={4}>

@@ -10,6 +10,7 @@ import ch.nokillswit.feedbacks.isDelivered
 import ch.nokillswit.goals.GoalResponse
 import ch.nokillswit.goals.GoalStatus
 import ch.nokillswit.oneonones.OneOnOneResponse
+import ch.nokillswit.pulse.PulseCycleStatus
 import ch.nokillswit.reviews.PerformanceReviewResponse
 import ch.nokillswit.reviews.PerformanceReviewStatus
 import ch.nokillswit.teamkpis.TeamKpiResponse
@@ -30,13 +31,24 @@ fun CallerPrincipal.isHr(): Boolean = UserRole.HR in roles
  */
 private fun grantHrRead(caller: CallerPrincipal, resource: String, resourceId: UInt): Boolean {
     if (!caller.isHr()) return false
+    auditHrRead(resource, resourceId, caller.userId)
+    return true
+}
+
+/**
+ * The single writer of the `hr.read` event shape: resource + resourceId + byUserId, plus any
+ * per-site extras (the pulse team-scoped reads append a teamId). [grantHrRead] and the pulse
+ * guards below both emit through it, so the shape cannot drift per call site. (`hr.list` is a
+ * separate event with its own shape — see [requireAuditListAccess].)
+ */
+internal fun auditHrRead(resource: String, resourceId: UInt, byUserId: UInt, vararg extra: Pair<String, Any?>) {
     audit(
         "hr.read",
         "resource" to resource,
         "resourceId" to resourceId.toLong(),
-        "byUserId" to caller.userId.toLong(),
+        "byUserId" to byUserId.toLong(),
+        *extra,
     )
-    return true
 }
 
 fun requireAdmin(caller: CallerPrincipal) {
@@ -440,6 +452,17 @@ suspend fun requireDaysOffRead(
  * manager higher up, and nobody else (ADMIN included, mirroring [requireGoalWrite]); an admin
  * who is themselves a direct manager qualifies via the membership check like anyone.
  */
+/**
+ * The lifecycle features' create rule (goals / 1:1s / reviews / team KPIs): the author is
+ * always the caller — no create-on-behalf, ADMIN included — and the counterpart must be in
+ * the required CURRENT relationship (direct report, or managed team) at creation time. The
+ * denial message stays per-feature (tests pin the wording); call this BEFORE payload
+ * validation so an outsider's malformed request is still 403, not 400.
+ */
+suspend fun requireDirectReport(isDirectReport: suspend () -> Boolean, denied: String) {
+    if (!isDirectReport()) throw ForbiddenException(denied)
+}
+
 suspend fun requireDaysOffResolve(caller: CallerPrincipal, isDirectManager: suspend () -> Boolean) {
     if (!isDirectManager()) {
         throw ForbiddenException("Only a direct manager of the requester may resolve a days-off request")
@@ -468,4 +491,85 @@ suspend fun requireDaysOffCorrectionsRead(
     if (grantHrRead(caller, "daysOffCorrections", targetUserId)) return
     if (managesOwner()) return // DB hit only if needed
     throw ForbiddenException("Caller may not read this user's budget corrections")
+}
+
+// ── Pulse surveys ───────────────────────────────────────────────────────────────────────────
+// Cycle reads are read-before-guard (404 visible), and the team-scoped reads order their
+// checks deliberately — 404 → 409-state → 403-identity — so a non-closed cycle answers
+// uniformly for every caller, HR included. The routes own the 404/409 steps; these guards are
+// the identity step, with the HR-exemption branches (audited `hr.read`) kept in their place
+// in the order. See "Pulse surveys" in `.claude/docs/features/pulse-surveys.md`.
+
+/**
+ * The participant-only my-response gate (GET and PUT alike): only a member of the cycle's
+ * frozen eligibility snapshot may touch their own survey (a user enabled after open is NOT a
+ * participant), and even for them the cycle must be OPEN — after close, saved answers are
+ * never served again (the anti-copy-paste rule). Identity deliberately precedes state here:
+ * a non-participant gets the uniform 403 whatever the cycle's status.
+ */
+suspend fun requirePulseMyResponse(
+    caller: CallerPrincipal,
+    status: PulseCycleStatus,
+    isParticipant: suspend () -> Boolean,
+) {
+    if (!isParticipant()) throw ForbiddenException("You are not a participant of this pulse cycle")
+    if (status != PulseCycleStatus.OPEN) throw ConflictException("The pulse cycle is not open")
+}
+
+/**
+ * Team results access (the route has already answered the 404 and the CLOSED-only 409): the
+ * HR auditor reads org-wide (audited, resource `pulseResults`, the teamId as an extra field);
+ * everyone else — ADMIN included, no role exemption — must pass the per-cycle fill gate (they
+ * responded in THIS cycle) and the team must be inside their visible tree.
+ */
+suspend fun requirePulseResultsAccess(
+    caller: CallerPrincipal,
+    cycleId: UInt,
+    teamId: UInt,
+    hasResponded: suspend () -> Boolean,
+    visibleTeamIds: suspend () -> Set<UInt>,
+) {
+    if (caller.isHr()) {
+        auditHrRead("pulseResults", cycleId, caller.userId, "teamId" to teamId.toLong())
+        return
+    }
+    // The per-cycle fill gate: no participation, no results, then the team-tree scope.
+    if (!hasResponded()) throw ForbiddenException("Results are available only for cycles you took part in")
+    if (teamId !in visibleTeamIds()) throw ForbiddenException("The team is outside your visible scope")
+}
+
+/**
+ * Comments access — a monitoring right, not a results view, so no fill gate applies: managers
+ * over their monitored (managed) tree, the HR auditor org-wide (audited, resource
+ * `pulseComments`, the teamId as an extra field); a plain member never reads comments.
+ */
+suspend fun requirePulseMonitorAccess(
+    caller: CallerPrincipal,
+    cycleId: UInt,
+    teamId: UInt,
+    monitoredTeamIds: suspend () -> Set<UInt>,
+) {
+    if (caller.isHr()) {
+        auditHrRead("pulseComments", cycleId, caller.userId, "teamId" to teamId.toLong())
+        return
+    }
+    if (teamId !in monitoredTeamIds()) throw ForbiddenException("The team is outside your monitored scope")
+}
+
+/**
+ * Trend access — team scope as results (visible tree; the HR auditor org-wide, audited,
+ * resource `pulseTrend` with the TEAM as the resourceId — the trend spans cycles). The
+ * per-cycle fill gate is deliberately NOT here: it applies point-wise in the route (a cycle
+ * the caller sat out contributes a gap, not a number).
+ */
+suspend fun requirePulseTrendAccess(
+    caller: CallerPrincipal,
+    teamId: UInt,
+    visibleTeamIds: suspend () -> Set<UInt>,
+) {
+    if (caller.isHr()) {
+        auditHrRead("pulseTrend", teamId, caller.userId)
+        return
+    }
+    if (teamId !in visibleTeamIds()) throw ForbiddenException("The team is outside your visible scope")
 }

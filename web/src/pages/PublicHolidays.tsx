@@ -24,7 +24,8 @@ import {
   isAdmin,
   listPublicHolidays,
 } from "../api/client";
-import ConfirmActionModal from "../components/ConfirmActionModal";
+import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
+import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import EmptyState from "../components/EmptyState";
 import { formatIsoDate, todayIsoDate } from "../utils/datetime";
 import { saveErrorMessage } from "../utils/saveError";
@@ -45,8 +46,11 @@ export default function PublicHolidays() {
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
+  const deleteConfirm = useDeleteConfirm<number>({
+    mutationFn: (holidayId) => deletePublicHoliday(holidayId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["publicHolidays"] }),
+    successMessage: t("daysOff.holidays.toastDeleted"),
+  });
 
   const admin = isAdmin();
   const { data: holidays, isLoading, isError } = useQuery({
@@ -80,30 +84,6 @@ export default function PublicHolidays() {
       );
     } finally {
       setSubmitting(false);
-    }
-  }
-
-  async function remove() {
-    if (deleteTarget == null) return;
-    setDeleting(true);
-    setError(null);
-    try {
-      await deletePublicHoliday(deleteTarget);
-      await queryClient.invalidateQueries({ queryKey: ["publicHolidays"] });
-      showSuccessToast(t("daysOff.holidays.toastDeleted"));
-      setDeleteTarget(null);
-    } catch (err) {
-      setDeleteTarget(null);
-      setError(
-        saveErrorMessage(err, t, {
-          forbidden: "daysOff.error.actionPermission",
-          notFound: "daysOff.error.gone",
-          failedStatus: "daysOff.error.saveFailedStatus",
-          failed: "daysOff.error.saveFailed",
-        }),
-      );
-    } finally {
-      setDeleting(false);
     }
   }
 
@@ -153,7 +133,7 @@ export default function PublicHolidays() {
                         color="red"
                         variant="light"
                         size="xs"
-                        onClick={() => setDeleteTarget(h.id)}
+                        onClick={() => deleteConfirm.requestDelete(h.id)}
                         aria-label={t("daysOff.holidays.deleteAria", { name: h.name })}
                       >
                         {t("common.action.delete")}
@@ -201,15 +181,20 @@ export default function PublicHolidays() {
         </Stack>
       </Paper>
 
-      <ConfirmActionModal
-        opened={deleteTarget != null}
-        onClose={() => setDeleteTarget(null)}
+      <ConfirmDeleteModal
+        confirm={deleteConfirm}
         title={t("daysOff.holidays.deleteTitle")}
-        message={t("daysOff.holidays.deleteMessage")}
-        cancelLabel={t("common.action.cancel")}
-        confirmLabel={t("common.action.delete")}
-        onConfirm={() => void remove()}
-        loading={deleting}
+        errorTitle={t("daysOff.holidays.deleteFailed")}
+        unknownError={t("daysOff.error.saveFailed")}
+        body={() => t("daysOff.holidays.deleteMessage")}
+        errorMessage={(err) =>
+          saveErrorMessage(err, t, {
+            forbidden: "daysOff.error.actionPermission",
+            notFound: "daysOff.error.gone",
+            failedStatus: "daysOff.error.saveFailedStatus",
+            failed: "daysOff.error.saveFailed",
+          })
+        }
       />
     </Container>
   );

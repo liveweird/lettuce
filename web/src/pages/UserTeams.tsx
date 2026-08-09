@@ -22,7 +22,6 @@ import {
   getUser,
   isAdmin,
   listAllTeams,
-  listTeams,
   removeTeamMember,
 } from "../api/client";
 import { showSuccessToast } from "../utils/toast";
@@ -64,22 +63,21 @@ export default function UserTeams() {
   });
 
   const {
-    data: teamsPage,
+    data: allMemberTeams,
     isLoading: teamsLoading,
     isError: teamsIsError,
     error: teamsError,
   } = useQuery({
     queryKey: ["userTeams", id],
-    // A single user is realistically a member of only a handful of teams; fetch up to the
-    // 100-row max in one query (no pagination UI) so the add-dropdown exclusion below has a
-    // single, complete source of truth.
-    queryFn: () => listTeams({ memberId: id, page: 1, pageSize: 100, sort: "name" }),
+    // ALL pages (the single-page-picker lesson): a single page of 100 would hide
+    // memberships 101+ from the list AND wrongly offer those teams as addable.
+    queryFn: () => listAllTeams({ memberId: id }),
     enabled: idIsValid,
   });
 
   const { data: allTeams } = useQuery({
     queryKey: ["teams", "all"],
-    queryFn: listAllTeams,
+    queryFn: () => listAllTeams(),
     enabled: idIsValid && canManage,
   });
 
@@ -115,7 +113,7 @@ export default function UserTeams() {
   if (!idIsValid) return <Navigate to="/users" replace />;
 
   const displayName = user?.name ?? nameParam ?? null;
-  const memberTeams = teamsPage?.items ?? [];
+  const memberTeams = allMemberTeams ?? [];
   const memberTeamIds = new Set(memberTeams.map((team) => team.id));
   const addOptions = (allTeams ?? [])
     .filter((team) => !memberTeamIds.has(team.id) && team.managerId !== id)
@@ -145,7 +143,9 @@ export default function UserTeams() {
         <Alert color="red" variant="light">
           {userNotFound
             ? t("users.userNotFound")
-            : `${t("users.loadUserFailed")}${userError instanceof ApiError ? ` (${userError.status})` : ""}.`}
+            : t("users.loadUserFailed", {
+                suffix: userError instanceof ApiError ? ` (${userError.status})` : "",
+              })}
         </Alert>
         <Group justify="flex-end">
           <Button component={RouterLink} to="/users" variant="default">
@@ -210,7 +210,7 @@ export default function UserTeams() {
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
-          {teamsLoading && !teamsPage ? (
+          {teamsLoading && !allMemberTeams ? (
             <TableLoadingRow colSpan={canManage ? 3 : 2} />
           ) : memberTeams.length > 0 ? (
             memberTeams.map((team) => (

@@ -5,7 +5,7 @@ import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { activateGoal, createGoal, hasFeature, listTeamMembers } from "../api/client";
+import { activateGoal, createGoal, hasFeature, listAllTeamMembers } from "../api/client";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import GoalDefinitionFields from "../components/GoalDefinitionFields";
 import PersonaField from "../components/PersonaField";
@@ -22,8 +22,6 @@ import { groupTeamRows } from "../utils/teamRows";
 // Default cancel target when no `back` param is present: the subordinates grid, the only
 // entry point that links here today.
 const BACK_TO = "/?tab=subordinates";
-const PICKER_PAGE_SIZE = 100;
-
 /**
  * The manager's goal-create screen: pick (or arrive with) a direct report, define the goal —
  * the same definition fields the DRAFT editor offers — and Create. The goal always lands as
@@ -63,15 +61,17 @@ export default function CreateGoal() {
   // The picker is skipped entirely when the subordinate arrives prefilled (card/list flows).
   const { data: reports } = useQuery({
     queryKey: ["teamMembers", "goalPicker"],
-    queryFn: () =>
-      listTeamMembers({ view: "managed", page: 1, pageSize: PICKER_PAGE_SIZE, sort: "name" }),
+    // ALL pages (the single-page-picker lesson): rows are per-(user, team), so a single
+    // page of 100 truncates around ~50 reports across two teams. Deduped/sorted below.
+    queryFn: () => listAllTeamMembers("managed"),
     staleTime: 5 * 60 * 1000,
     enabled: !preselected,
   });
   const options = useMemo(
     // The members list has one row per (user, team) — groupTeamRows dedupes to one per person.
     () =>
-      groupTeamRows(reports?.items ?? []).map((p) => ({ value: String(p.userId), label: p.name })),
+      groupTeamRows(reports ?? [])
+        .sort((a, b) => a.name.localeCompare(b.name)).map((p) => ({ value: String(p.userId), label: p.name })),
     [reports],
   );
 
@@ -210,7 +210,7 @@ export default function CreateGoal() {
         message={t("goal.activatePromptQuestion")}
         cancelLabel={t("common.state.no")}
         confirmLabel={t("common.state.yes")}
-        confirmColor="green"
+        confirmColor="teal"
         onConfirm={activateNow}
         loading={activating}
       />

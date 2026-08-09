@@ -117,8 +117,9 @@ export default function ChangeUserPassword() {
           ) : isError ? (
             <>
               <Alert color="red" variant="light">
-                {t("users.loadUserFailed")}
-                {fetchError instanceof ApiError ? ` (${fetchError.status})` : ""}.
+                {t("users.loadUserFailed", {
+                  suffix: fetchError instanceof ApiError ? ` (${fetchError.status})` : "",
+                })}
               </Alert>
               <Group justify="flex-end">
                 <Button component={RouterLink} to={returnTo} variant="default">

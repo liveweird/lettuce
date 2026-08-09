@@ -14,7 +14,7 @@ import {
 } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { createOneOnOne, hasFeature, listTeamMembers } from "../api/client";
+import { createOneOnOne, hasFeature, listAllTeamMembers } from "../api/client";
 import PersonaField from "../components/PersonaField";
 import { todayIsoDate } from "../utils/datetime";
 import { oneOnOneSaveErrorMessage } from "../utils/oneOnOneForm";
@@ -25,8 +25,6 @@ const BACK_TO = "/one-on-ones?tab=managed";
 
 // The subordinate picker chooses from the caller's direct reports; fetch up to the 100-row
 // max (the list endpoint's cap). Fine at this app's scale.
-const PICKER_PAGE_SIZE = 100;
-
 /**
  * Creating a 1:1 is deliberately minimal — subordinate + date — and immediately lands on the
  * edit screen: the server copies the previous meeting's unresolved action items on create, so
@@ -59,8 +57,9 @@ export default function CreateOneOnOne() {
   // A prefilled subordinate needs no picker (and no fetch).
   const { data: reports } = useQuery({
     queryKey: ["teamMembers", "oneOnOnePicker"],
-    queryFn: () =>
-      listTeamMembers({ view: "managed", page: 1, pageSize: PICKER_PAGE_SIZE, sort: "name" }),
+    // ALL pages (the single-page-picker lesson): rows are per-(user, team), so a single
+    // page of 100 truncates around ~50 reports across two teams. Deduped/sorted below.
+    queryFn: () => listAllTeamMembers("managed"),
     staleTime: 5 * 60 * 1000,
     enabled: !preselected,
   });
@@ -68,10 +67,12 @@ export default function CreateOneOnOne() {
   // One row per (user, team) arrives; the picker wants one option per person.
   const options = useMemo(() => {
     const seen = new Map<number, string>();
-    for (const row of reports?.items ?? []) {
+    for (const row of reports ?? []) {
       if (!seen.has(row.userId)) seen.set(row.userId, row.name);
     }
-    return [...seen.entries()].map(([id, name]) => ({ value: String(id), label: name }));
+    return [...seen.entries()]
+      .map(([id, name]) => ({ value: String(id), label: name }))
+      .sort((a, b) => a.label.localeCompare(b.label));
   }, [reports]);
 
   // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.

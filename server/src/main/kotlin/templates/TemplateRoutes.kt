@@ -32,16 +32,6 @@ class Templates {
     class Id(val parent: Templates = Templates(), val id: UInt)
 }
 
-// Column limit (templates.name varchar(100)) enforced up-front: 400 instead of a DB-level 500.
-private const val MAX_TEMPLATE_NAME_LENGTH = 100
-
-private fun validateTemplateName(name: String) {
-    if (name.isBlank()) throw BadRequestException("Template name must not be blank")
-    if (name.length > MAX_TEMPLATE_NAME_LENGTH) {
-        throw BadRequestException("Template name must be at most $MAX_TEMPLATE_NAME_LENGTH characters")
-    }
-}
-
 fun Application.configureTemplateRoutes() {
     val templateService = attributes[TemplateServiceKey]
 

@@ -41,6 +41,7 @@ import { formatGoalValue } from "../utils/goalValues";
 import { teamKpiEditLink } from "../utils/teamKpiLinks";
 import { invalidateTeamKpi } from "../utils/teamKpiQueries";
 import { showSuccessToast } from "../utils/toast";
+import { saveErrorMessage } from "../utils/saveError";
 
 // The chart is the only consumer of @mantine/charts/recharts — lazy-loaded (the org-chart
 // precedent) so the libraries never touch the main bundle; keepMounted={false} on the Tabs
@@ -116,11 +117,11 @@ export default function ViewTeamKpi() {
       navigate(backTo, { replace: true });
     } catch (err) {
       setActionError(
-        err instanceof ApiError && err.status === 409
-          ? t("teamKpi.error.invalidTransition")
-          : err instanceof ApiError && err.status === 403
-            ? t("teamKpi.error.savePermission")
-            : t("teamKpi.error.updateFailed"),
+        saveErrorMessage(err, t, {
+          conflict: "teamKpi.error.invalidTransition",
+          forbidden: "teamKpi.error.savePermission",
+          failed: "teamKpi.error.updateFailed",
+        }),
       );
       setSubmitting(null);
       setCloseOpened(false);

@@ -1,5 +1,6 @@
 package ch.nokillswit.daysoff
 
+import ch.nokillswit.infra.crypto.EncryptedAtRest
 import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.infra.db.containsNormalized
 import ch.nokillswit.infra.paging.PageRequest
@@ -65,7 +66,9 @@ private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
  * dates and costs are immutable after create; only the status (and its resolution/cancellation
  * stamps) ever changes.
  */
-class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokillswit.infra.crypto.FieldCipher) {
+class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokillswit.infra.crypto.FieldCipher) : EncryptedAtRest {
+    override val encryptedRowLabel = "days-off correction"
+
     object Requests : org.jetbrains.exposed.v1.core.dao.id.UIntIdTable("days_off_requests") {
         val userId = reference("user_id", UserService.Users)
         val type = enumerationByName("type", 10, DaysOffType::class)
@@ -589,7 +592,7 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
      * legacy plaintext — including soft-deleted rows. With [reencryptAll] (key rotation) every
      * row is rewritten under the current key. Idempotent; returns the rewritten count.
      */
-    suspend fun encryptLegacyRows(reencryptAll: Boolean = false): Int = suspendTransaction(database) {
+    override suspend fun encryptLegacyRows(reencryptAll: Boolean): Int = suspendTransaction(database) {
         val enveloped = "${ch.nokillswit.infra.crypto.FieldCipher.PREFIX}%"
         val rows = Corrections
             .select(Corrections.id, Corrections.comment)

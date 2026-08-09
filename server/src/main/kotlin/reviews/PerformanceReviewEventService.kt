@@ -1,59 +1,40 @@
 package ch.nokillswit.reviews
 
-import ch.nokillswit.infra.db.decodeParams
-import ch.nokillswit.infra.db.encodeParams
-import ch.nokillswit.users.UserService
+import ch.nokillswit.infra.db.EventLog
+import ch.nokillswit.infra.db.EventLogTable
 import io.ktor.util.AttributeKey
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.toList
-import org.jetbrains.exposed.v1.core.*
-import org.jetbrains.exposed.v1.core.dao.id.UIntIdTable
-import org.jetbrains.exposed.v1.r2dbc.*
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
-import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
-val PerformanceReviewEventServiceKey =
-    AttributeKey<PerformanceReviewEventService>("PerformanceReviewEventService")
+val PerformanceReviewEventServiceKey = AttributeKey<PerformanceReviewEventService>("PerformanceReviewEventService")
 
+/**
+ * The performance review audit trail — a thin wrapper over the shared [EventLog] mechanics (the five
+ * `*_events` tables are V15 clones; see infra/db/EventLog.kt). Only the typed DTO mapping
+ * lives here.
+ */
 class PerformanceReviewEventService(val database: R2dbcDatabase) {
-    object ReviewEvents : UIntIdTable("performance_review_events") {
-        val reviewId = reference("review_id", PerformanceReviewService.Reviews)
-        val userId = reference("user_id", UserService.Users)
-        val timestamp = long("created_at")
-        // Structured event so the SPA can localize it: the kind plus a JSON params map.
-        val eventType = varchar("event_type", 40)
-        val params = text("params")
+    object ReviewEvents : EventLogTable("performance_review_events", "review_id", PerformanceReviewService.Reviews) {
+        // Feature-named alias for direct DSL use (the same Column instance).
+        val reviewId get() = ownerId
     }
+
+    private val log = EventLog(database, ReviewEvents)
 
     /** Inserts an audit event. The timestamp is set here, never taken from a caller. */
-    suspend fun create(event: PerformanceReviewEvent): UInt = suspendTransaction(database) {
-        ReviewEvents.insert {
-            it[reviewId] = event.reviewId
-            it[userId] = event.userId
-            it[timestamp] = System.currentTimeMillis()
-            it[eventType] = event.type.name
-            it[params] = encodeParams(event.params)
-        }[ReviewEvents.id].value
-    }
+    suspend fun create(event: PerformanceReviewEvent): UInt =
+        log.create(event.reviewId, event.userId, event.type.name, event.params)
 
-    /** The review's history, oldest first (id as a stable tiebreaker), with acting user names. */
+    /** The performance review's history, oldest first (id as a stable tiebreaker), with acting user names. */
     suspend fun listForReview(reviewId: UInt): List<PerformanceReviewEventResponse> =
-        suspendTransaction(database) {
-            (ReviewEvents innerJoin UserService.Users)
-                .selectAll()
-                .where { ReviewEvents.reviewId eq reviewId }
-                .orderBy(ReviewEvents.timestamp to SortOrder.ASC, ReviewEvents.id to SortOrder.ASC)
-                .map { it.toResponse() }
-                .toList()
+        log.listFor(reviewId).map {
+            PerformanceReviewEventResponse(
+                id = it.id,
+                reviewId = it.ownerId,
+                userId = it.userId,
+                userName = it.userName,
+                timestamp = it.timestamp,
+                type = PerformanceReviewEventType.valueOf(it.type),
+                params = it.params,
+            )
         }
-
-    private fun ResultRow.toResponse() = PerformanceReviewEventResponse(
-        id = this[ReviewEvents.id].value,
-        reviewId = this[ReviewEvents.reviewId].value,
-        userId = this[ReviewEvents.userId].value,
-        userName = this[UserService.Users.name],
-        timestamp = this[ReviewEvents.timestamp],
-        type = PerformanceReviewEventType.valueOf(this[ReviewEvents.eventType]),
-        params = decodeParams(this[ReviewEvents.params]),
-    )
 }

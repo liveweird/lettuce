@@ -185,7 +185,7 @@ export default function PulseCycles() {
   const rows = cycles.data ?? [];
 
   return (
-    <Container size="md" px={0}>
+    <Container size="sm" px={0}>
       <Stack gap="lg">
         <Title order={2} data-tour="config-pulse-cycles">
           {t("pulse.admin.title")}

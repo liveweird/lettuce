@@ -101,7 +101,7 @@
   "removeConfirmFrom": "from",
   "setNewPassword": "Set a new password for {{name}} ({{email}}).",
   "loadUsersFailed": "Failed to load users",
-  "loadUserFailed": "Failed to load user",
+  "loadUserFailed": "Failed to load user{{suffix}}",
   "loadTeamsFailed": "Failed to load teams",
   "loadManagersFailed": "Failed to load managers",
   "deleteUserFailed": "Failed to delete user",

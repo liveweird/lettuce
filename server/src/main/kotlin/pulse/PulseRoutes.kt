@@ -2,12 +2,16 @@ package ch.nokillswit.pulse
 
 import ch.nokillswit.audit.audit
 import ch.nokillswit.authz.ConflictException
-import ch.nokillswit.authz.ForbiddenException
+import ch.nokillswit.authz.auditHrRead
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.isAdmin
 import ch.nokillswit.authz.isHr
 import ch.nokillswit.authz.requireAdmin
 import ch.nokillswit.authz.requireFeatureEnabled
+import ch.nokillswit.authz.requirePulseMonitorAccess
+import ch.nokillswit.authz.requirePulseMyResponse
+import ch.nokillswit.authz.requirePulseResultsAccess
+import ch.nokillswit.authz.requirePulseTrendAccess
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.plugins.respondProblem
 import ch.nokillswit.settings.AppSettingsServiceKey
@@ -323,12 +327,7 @@ fun Application.configurePulseRoutes() {
                 // (audited). No fill gate — monitoring is a role right, and rows carry a bare
                 // yes/no, never content. Non-managers simply get an empty team list.
                 val teams = if (caller.isHr()) {
-                    audit(
-                        "hr.read",
-                        "resource" to "pulseParticipation",
-                        "resourceId" to cycle.id.toLong(),
-                        "byUserId" to caller.userId.toLong(),
-                    )
+                    auditHrRead("pulseParticipation", cycle.id, caller.userId)
                     teamService.allTeamRefs()
                 } else {
                     teamService.teamRefs(teamService.managedTeamTreeIds(caller.userId))
@@ -360,13 +359,10 @@ fun Application.configurePulseRoutes() {
                     call.respondProblem(HttpStatusCode.NotFound, "Pulse cycle not found")
                     return@get
                 }
-                if (!responseService.isParticipant(cycle.id, caller.userId)) {
-                    throw ForbiddenException("You are not a participant of this pulse cycle")
-                }
-                // OPEN-only even for the owner — once the cycle closes, saved answers are never
-                // served again (no copy-paste seed for the next cycle).
-                if (cycle.status != PulseCycleStatus.OPEN) {
-                    throw ConflictException("The pulse cycle is not open")
+                // Participant-only, and OPEN-only even for the owner — once the cycle closes,
+                // saved answers are never served again (no copy-paste seed for the next cycle).
+                requirePulseMyResponse(caller, cycle.status) {
+                    responseService.isParticipant(cycle.id, caller.userId)
                 }
                 val response = responseService.myResponse(cycle.id, caller.userId)
                 if (response == null) {
@@ -382,11 +378,8 @@ fun Application.configurePulseRoutes() {
                     call.respondProblem(HttpStatusCode.NotFound, "Pulse cycle not found")
                     return@put
                 }
-                if (!responseService.isParticipant(cycle.id, caller.userId)) {
-                    throw ForbiddenException("You are not a participant of this pulse cycle")
-                }
-                if (cycle.status != PulseCycleStatus.OPEN) {
-                    throw ConflictException("The pulse cycle is not open")
+                requirePulseMyResponse(caller, cycle.status) {
+                    responseService.isParticipant(cycle.id, caller.userId)
                 }
                 // Validation after the guards (403/409 win over 400); upsert = first submit or
                 // full replace, editable until the admin closes the cycle.
@@ -415,24 +408,15 @@ fun Application.configurePulseRoutes() {
                     call.respondProblem(HttpStatusCode.NotFound, "Team not found")
                     return@get
                 }
-                if (caller.isHr()) {
-                    audit(
-                        "hr.read",
-                        "resource" to "pulseResults",
-                        "resourceId" to cycle.id.toLong(),
-                        "byUserId" to caller.userId.toLong(),
-                        "teamId" to teamId.toLong(),
-                    )
-                } else {
-                    // The per-cycle fill gate: no participation, no results (roles other than
-                    // HR get no exemption — ADMIN included), then the team-tree scope.
-                    if (!responseService.hasResponded(cycle.id, caller.userId)) {
-                        throw ForbiddenException("Results are available only for cycles you took part in")
-                    }
-                    if (teamId !in teamService.visibleTeamTreeIds(caller.userId)) {
-                        throw ForbiddenException("The team is outside your visible scope")
-                    }
-                }
+                // The identity step: HR exempt from the fill gate (audited); everyone else —
+                // ADMIN included — must have responded in THIS cycle and stay in-tree.
+                requirePulseResultsAccess(
+                    caller,
+                    cycleId = cycle.id,
+                    teamId = teamId,
+                    hasResponded = { responseService.hasResponded(cycle.id, caller.userId) },
+                    visibleTeamIds = { teamService.visibleTeamTreeIds(caller.userId) },
+                )
                 val scope = teamService.teamScopeMembers(teamId, subtree = mode == PulseAggregationMode.SUBTREE)
                 val answers = responseService.answersForScope(cycle.id, scope)
                 val participantCount = responseService.participantCountForScope(cycle.id, scope)
@@ -482,17 +466,12 @@ fun Application.configurePulseRoutes() {
                 // Managers-and-above only (their monitored tree; HR org-wide, audited) — a
                 // plain member never reads comments, and no fill gate applies (a monitoring
                 // right, not a results view).
-                if (caller.isHr()) {
-                    audit(
-                        "hr.read",
-                        "resource" to "pulseComments",
-                        "resourceId" to cycle.id.toLong(),
-                        "byUserId" to caller.userId.toLong(),
-                        "teamId" to teamId.toLong(),
-                    )
-                } else if (teamId !in teamService.managedTeamTreeIds(caller.userId)) {
-                    throw ForbiddenException("The team is outside your monitored scope")
-                }
+                requirePulseMonitorAccess(
+                    caller,
+                    cycleId = cycle.id,
+                    teamId = teamId,
+                    monitoredTeamIds = { teamService.managedTeamTreeIds(caller.userId) },
+                )
                 val scope = teamService.teamScopeMembers(teamId, subtree = mode == PulseAggregationMode.SUBTREE)
                 val responseCount = responseService.respondedUserIds(cycle.id, scope).size
                 if (responseCount < MIN_PULSE_RESPONSES) {
@@ -525,16 +504,13 @@ fun Application.configurePulseRoutes() {
                     call.respondProblem(HttpStatusCode.NotFound, "Team not found")
                     return@get
                 }
-                if (caller.isHr()) {
-                    audit(
-                        "hr.read",
-                        "resource" to "pulseTrend",
-                        "resourceId" to teamId.toLong(),
-                        "byUserId" to caller.userId.toLong(),
-                    )
-                } else if (teamId !in teamService.visibleTeamTreeIds(caller.userId)) {
-                    throw ForbiddenException("The team is outside your visible scope")
-                }
+                // Team scope as results (HR org-wide, audited); the fill gate instead applies
+                // point-wise below.
+                requirePulseTrendAccess(
+                    caller,
+                    teamId = teamId,
+                    visibleTeamIds = { teamService.visibleTeamTreeIds(caller.userId) },
+                )
                 val scope = teamService.teamScopeMembers(teamId, subtree = mode == PulseAggregationMode.SUBTREE)
                 // The per-cycle fill gate applies POINT-WISE for non-HR callers: a cycle the
                 // caller sat out contributes a gap, not a number (and no counts either).

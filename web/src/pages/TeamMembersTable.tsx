@@ -93,7 +93,7 @@ export default function TeamMembersTable({
 
   const { data: teams } = useQuery({
     queryKey: ["teams", "all"],
-    queryFn: listAllTeams,
+    queryFn: () => listAllTeams(),
     enabled: !pinned, // only feeds the team Select, which a pinned grid never mounts
   });
   const teamOptions = (teams ?? []).map((team) => ({ value: String(team.id), label: team.name }));

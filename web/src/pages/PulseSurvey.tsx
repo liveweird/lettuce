@@ -1,4 +1,4 @@
-import { Alert, Button, Container, Group, Paper, Progress, Skeleton, Stack, Text, Textarea } from "@mantine/core";
+import { Alert, Button, Group, Paper, Progress, Skeleton, Stack, Text, Textarea } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { IconZzz } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -162,8 +162,9 @@ export default function PulseSurvey() {
 
   const scaleField = STEP_FIELD[step];
   return (
-    <Container size="md" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
+    // No Container: tab panels are bare (the parent Pulse hub owns the width) — every tab
+    // renders the same width, unlike a per-tab wrapper.
+    <Paper withBorder shadow="sm" p="xl" radius="md">
         <Stack gap="lg">
           <Text size="sm" c="dimmed">
             {t("pulse.surveyIntro")}
@@ -256,7 +257,6 @@ export default function PulseSurvey() {
             )}
           </Group>
         </Stack>
-      </Paper>
-    </Container>
+    </Paper>
   );
 }

@@ -15,6 +15,7 @@ export default function ConfirmDeleteModal<T>({
   unknownError,
   body,
   confirmLabel,
+  errorMessage,
 }: {
   confirm: DeleteConfirm<T>;
   title: string;
@@ -22,6 +23,9 @@ export default function ConfirmDeleteModal<T>({
   unknownError: string;
   body: (target: T) => ReactNode;
   confirmLabel?: string;
+  /** Optional status→message mapper (pair with utils/saveError.ts) — pages whose delete can
+   *  fail meaningfully (e.g. a registry 409) map it here instead of showing the raw error. */
+  errorMessage?: (error: unknown) => string;
 }) {
   const { t } = useTranslation();
   const { target, opened, cancelDelete, confirmDelete, mutation } = confirm;
@@ -31,7 +35,11 @@ export default function ConfirmDeleteModal<T>({
         {target && <Text>{body(target)}</Text>}
         {mutation.isError && (
           <Alert color="red" variant="light" title={errorTitle}>
-            {mutation.error instanceof Error ? mutation.error.message : unknownError}
+            {errorMessage
+              ? errorMessage(mutation.error)
+              : mutation.error instanceof Error
+                ? mutation.error.message
+                : unknownError}
           </Alert>
         )}
         <Group justify="flex-end" gap="sm">

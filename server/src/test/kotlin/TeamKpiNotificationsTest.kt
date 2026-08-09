@@ -8,6 +8,7 @@ import ch.nokillswit.teamkpis.teamKpiValueNotifications
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /** Pure unit tests of the team-KPI transition → notification fan-out (no DB, no HTTP). */
@@ -66,8 +67,8 @@ class TeamKpiNotificationsTest {
     }
 
     @Test
-    fun `an invalid edge and an empty membership both produce nothing`() {
-        assertTrue(notify(TeamKpiStatus.DRAFT, TeamKpiStatus.ARCHIVED).isEmpty())
+    fun `a non-edge fails loud and an empty membership produces nothing`() {
+        assertFailsWith<IllegalStateException> { notify(TeamKpiStatus.DRAFT, TeamKpiStatus.ARCHIVED) }
         assertTrue(notify(TeamKpiStatus.DRAFT, TeamKpiStatus.ACTIVE, memberIds = emptySet()).isEmpty())
     }
 

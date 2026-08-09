@@ -15,7 +15,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   addTeamKpiValue,
-  ApiError,
   deleteTeamKpiValue,
   getUserId,
   listTeamKpiValues,
@@ -29,6 +28,7 @@ import { formatIsoDate, todayIsoDate } from "../utils/datetime";
 import { formatGoalValue } from "../utils/goalValues";
 import { invalidateTeamKpi } from "../utils/teamKpiQueries";
 import { showSuccessToast } from "../utils/toast";
+import { saveErrorMessage } from "../utils/saveError";
 
 // One row is being edited at a time; its draft inputs live here.
 type RowDraft = { id: number; date: string; value: number | string };
@@ -84,9 +84,11 @@ export default function TeamKpiValuesEditor({ kpi }: { kpi: TeamKpiResponse }) {
   }
 
   function requestErrorMessage(err: unknown): string {
-    if (err instanceof ApiError && err.status === 409) return t("teamKpi.error.valueConflict");
-    if (err instanceof ApiError && err.status === 403) return t("teamKpi.error.savePermission");
-    return t("teamKpi.error.updateFailed");
+    return saveErrorMessage(err, t, {
+      conflict: "teamKpi.error.valueConflict",
+      forbidden: "teamKpi.error.savePermission",
+      failed: "teamKpi.error.updateFailed",
+    });
   }
 
   async function submitAdd() {
@@ -223,7 +225,6 @@ export default function TeamKpiValuesEditor({ kpi }: { kpi: TeamKpiResponse }) {
                     <Group gap="xs" wrap="nowrap">
                       <ActionIcon
                         variant="light"
-                        color="green"
                         aria-label={t("teamKpi.saveValueAria", {
                           date: formatIsoDate(row.date, locale),
                         })}

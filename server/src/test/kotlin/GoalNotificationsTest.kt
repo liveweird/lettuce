@@ -5,6 +5,7 @@ import ch.nokillswit.goals.goalTransitionNotifications
 import ch.nokillswit.notifications.NotificationType
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /** Pure builder tests (no DB); persistence and delivery live in GoalRoutesTest. */
@@ -48,9 +49,9 @@ class GoalNotificationsTest {
     }
 
     @Test
-    fun `an invalid edge produces no notifications`() {
-        assertTrue(build(GoalStatus.DRAFT, GoalStatus.ARCHIVED).isEmpty())
-        assertTrue(build(GoalStatus.ARCHIVED, GoalStatus.DRAFT).isEmpty())
-        assertTrue(build(GoalStatus.DRAFT, GoalStatus.DRAFT).isEmpty())
+    fun `a non-edge fails loud instead of silently minting nothing`() {
+        assertFailsWith<IllegalStateException> { build(GoalStatus.DRAFT, GoalStatus.ARCHIVED) }
+        assertFailsWith<IllegalStateException> { build(GoalStatus.ARCHIVED, GoalStatus.DRAFT) }
+        assertFailsWith<IllegalStateException> { build(GoalStatus.DRAFT, GoalStatus.DRAFT) }
     }
 }

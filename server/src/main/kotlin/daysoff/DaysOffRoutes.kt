@@ -1,5 +1,6 @@
 package ch.nokillswit.daysoff
 
+import ch.nokillswit.audit.audit
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAuditListAccess
 import ch.nokillswit.authz.requireFeatureEnabled
@@ -101,6 +102,23 @@ fun Application.configureDaysOffRoutes() {
         }
         toNotify.forEach { notificationService.create(it) }
         call.respond(HttpStatusCode.NoContent)
+    }
+
+    // The corrections write preamble (the teamkpis writeGuarded* idiom): resolves the row and
+    // enforces the resolve right against the ROW's user — the target user is immutable, so the
+    // guard never keys on a payload. A null return means the 404 response was already sent;
+    // the guard itself throws ForbiddenException. Shared by the correction PUT and DELETE.
+    suspend fun writeGuardedCorrection(call: ApplicationCall, correctionId: UInt): DaysOffCorrectionResponse? {
+        // The gated caller resolves FIRST: a DAYS_OFF-disabled caller gets a uniform 403
+        // before the read (the feature 403 must precede the 404).
+        val caller = call.daysOffCaller()
+        val existing = daysOffService.readCorrection(correctionId)
+        if (existing == null) {
+            call.respondProblem(HttpStatusCode.NotFound, "Days-off correction not found")
+            return null
+        }
+        requireDaysOffResolve(caller) { daysOffService.isDirectManagerOf(caller.userId, existing.userId) }
+        return existing
     }
 
     routing {
@@ -224,38 +242,56 @@ fun Application.configureDaysOffRoutes() {
                 notificationService.create(notification)
                 val created = daysOffService.readCorrection(id)
                     ?: error("Days-off correction $id vanished between create and re-read")
+                // A manager mutates a subordinate's paid-leave entitlement — audited like every
+                // other admin-ish mutation (v2.4.1; never the encrypted comment).
+                audit(
+                    "days_off_correction.created",
+                    "byUserId" to caller.userId.toLong(),
+                    "targetUserId" to write.userId.toLong(),
+                    "correctionId" to id.toLong(),
+                    "year" to write.year.toLong(),
+                    "operation" to write.operation.name,
+                    "days" to write.days,
+                )
                 call.respond(HttpStatusCode.Created, created)
             }
             put<DaysOffCorrections.Id> { route ->
-                val caller = call.daysOffCaller()
-                val existing = daysOffService.readCorrection(route.id)
-                if (existing == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Days-off correction not found")
-                    return@put
-                }
                 // The target user is immutable — the guard keys on the ROW's user, and the
                 // service ignores the payload's userId.
-                requireDaysOffResolve(caller) { daysOffService.isDirectManagerOf(caller.userId, existing.userId) }
+                val existing = writeGuardedCorrection(call, route.id) ?: return@put
                 val write = call.receive<DaysOffCorrectionWrite>()
                 validateDaysOffCorrection(write)
                 if (daysOffService.updateCorrection(route.id, write) == 0) {
                     call.respondProblem(HttpStatusCode.NotFound, "Days-off correction not found")
                     return@put
                 }
+                audit(
+                    "days_off_correction.updated",
+                    "byUserId" to call.caller().userId.toLong(),
+                    "targetUserId" to existing.userId.toLong(),
+                    "correctionId" to route.id.toLong(),
+                    "yearFrom" to existing.year.toLong(),
+                    "yearTo" to write.year.toLong(),
+                    "operationTo" to write.operation.name,
+                    "daysTo" to write.days,
+                )
                 call.respond(HttpStatusCode.NoContent)
             }
             delete<DaysOffCorrections.Id> { route ->
-                val caller = call.daysOffCaller()
-                val existing = daysOffService.readCorrection(route.id)
-                if (existing == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Days-off correction not found")
-                    return@delete
-                }
-                requireDaysOffResolve(caller) { daysOffService.isDirectManagerOf(caller.userId, existing.userId) }
+                val existing = writeGuardedCorrection(call, route.id) ?: return@delete
                 if (daysOffService.deleteCorrection(route.id) == 0) {
                     call.respondProblem(HttpStatusCode.NotFound, "Days-off correction not found")
                     return@delete
                 }
+                audit(
+                    "days_off_correction.deleted",
+                    "byUserId" to call.caller().userId.toLong(),
+                    "targetUserId" to existing.userId.toLong(),
+                    "correctionId" to route.id.toLong(),
+                    "year" to existing.year.toLong(),
+                    "operation" to existing.operation.name,
+                    "days" to existing.days,
+                )
                 call.respond(HttpStatusCode.NoContent)
             }
             get<DaysOffBudgets> {

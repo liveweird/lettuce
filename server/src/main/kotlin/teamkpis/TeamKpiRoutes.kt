@@ -1,5 +1,6 @@
 package ch.nokillswit.teamkpis
 
+import ch.nokillswit.authz.requireDirectReport
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireFeatureEnabled
@@ -205,9 +206,10 @@ fun Application.configureTeamKpiRoutes() {
                 // The author is always the team's CURRENT manager (no create-on-behalf, not even
                 // for ADMIN). Checked before payload validation so an outsider's malformed
                 // request is still 403, not 400.
-                if (!kpiService.managesTeam(caller.userId, request.teamId)) {
-                    throw ForbiddenException("You may only set KPIs for teams you manage")
-                }
+                requireDirectReport(
+                    { kpiService.managesTeam(caller.userId, request.teamId) },
+                    "You may only set KPIs for teams you manage",
+                )
                 val id = requireValidReferences("Referenced team does not exist") {
                     kpiService.create(request)
                 }

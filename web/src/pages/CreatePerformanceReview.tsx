@@ -14,7 +14,7 @@ import {
 } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { ApiError, createPerformanceReview, hasFeature, listTeamMembers } from "../api/client";
+import { ApiError, createPerformanceReview, hasFeature, listAllTeamMembers } from "../api/client";
 import PersonaField from "../components/PersonaField";
 import { renderPeriodOption, useReviewPeriodOptions } from "../hooks/useReviewPeriodOptions";
 import { reviewEditLink, reviewViewLink } from "../utils/performanceReviewLinks";
@@ -23,8 +23,6 @@ import { reviewSaveErrorMessage } from "../utils/reviewRatings";
 import { groupTeamRows } from "../utils/teamRows";
 
 const BACK_TO = "/performance?tab=managed";
-const PICKER_PAGE_SIZE = 100;
-
 // The occupied-slot 409 carries the existing review's API path in ProblemDetail.instance —
 // surface it as a link so the manager lands on the record instead of hunting for it.
 function conflictReviewId(err: unknown): number | null {
@@ -62,14 +60,16 @@ export default function CreatePerformanceReview() {
 
   const { data: reports } = useQuery({
     queryKey: ["teamMembers", "reviewPicker"],
-    queryFn: () =>
-      listTeamMembers({ view: "managed", page: 1, pageSize: PICKER_PAGE_SIZE, sort: "name" }),
+    // ALL pages (the single-page-picker lesson): rows are per-(user, team), so a single
+    // page of 100 truncates around ~50 reports across two teams. Deduped/sorted below.
+    queryFn: () => listAllTeamMembers("managed"),
     staleTime: 5 * 60 * 1000,
     enabled: !preselected,
   });
   const options = useMemo(
     () =>
-      groupTeamRows(reports?.items ?? []).map((p) => ({
+      groupTeamRows(reports ?? [])
+        .sort((a, b) => a.name.localeCompare(b.name)).map((p) => ({
         value: String(p.userId),
         label: p.name,
       })),
