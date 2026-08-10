@@ -15,7 +15,9 @@ import {
 // this file owns the (AAA Three ← AAA Two) triple, created directly as SENT — no open window.
 // Wall asserts go by this run's unique content, never by position: the shared DB accumulates rows.
 test("a public feedback lands on the Kudos wall for a non-party viewer", async ({ page }) => {
-  const body = uniqueText("E2E kudos");
+  // Long enough to overflow the five-line preview clamp, so the Show more toggle appears.
+  const marker = uniqueText("E2E kudos");
+  const body = `${marker} ${"Great teamwork all around, thank you for the support and the dedication shown. ".repeat(8)}`.trim();
   await login(page, AAA_TWO);
 
   // Provide PUBLIC feedback about AAA Three and send it in one step.
@@ -37,15 +39,21 @@ test("a public feedback lands on the Kudos wall for a non-party viewer", async (
   await page.getByRole("link", { name: "Kudos" }).click();
   await expect(page).toHaveURL(/\/kudos/);
 
-  // The collapsed card is an expandable button carrying the content; expanding swaps it for the
-  // rendered markdown plus the collapse control.
-  const card = page
-    .getByRole("button", { name: "Show the full content" })
-    .filter({ hasText: body });
+  // The card renders the content as markdown inside the read-only frame at all times; a long
+  // body is clamped to five lines with a Show more/Show less toggle below (short cards get no
+  // toggle at all). Scope to this run's card via its unique marker — the wall accumulates rows.
+  // The exact class token — a [class*=…] substring match would also hit the nested
+  // Timeline-itemBody/-itemContent wrappers and trip strict mode.
+  const card = page.locator(".mantine-Timeline-item").filter({ hasText: marker });
   await expect(card).toBeVisible();
   await expect(page.getByText("AAA Two").first()).toBeVisible();
   await expect(page.getByText("AAA Three").first()).toBeVisible();
-  await card.click();
-  await expect(page.getByText(body)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Show less" })).toBeVisible();
+
+  const showMore = card.getByRole("button", { name: "Show more" });
+  await expect(showMore).toBeVisible();
+  await showMore.click();
+  const showLess = card.getByRole("button", { name: "Show less" });
+  await expect(showLess).toBeVisible();
+  await showLess.click();
+  await expect(card.getByRole("button", { name: "Show more" })).toBeVisible();
 });

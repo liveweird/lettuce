@@ -144,24 +144,51 @@ describe("Kudos wall", () => {
     expect(screen.queryByText("Myself")).toBeNull();
   });
 
-  test("clicking a card expands the full markdown content and Show less collapses it back", async () => {
+  test("content that fits is rendered markdown with no toggle — the card is not interactive", async () => {
+    // happy-dom measures scrollHeight === clientHeight === 0, i.e. "nothing hidden".
     setupMocks({
       1: { items: [row(1, { content: "Great **markdown** kudos", contentPreview: "Great **markdown** kudos" })], total: 1 },
     });
     renderPage();
 
-    // Collapsed: the raw source as clamped plain text, exposed as an expandable button.
-    const toggle = await screen.findByRole("button", { name: "Show the full content" });
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.getByText("Great **markdown** kudos")).toBeInTheDocument();
-
-    await userEvent.click(toggle);
-    // Expanded: rendered markdown (the bold run becomes its own element) + the collapse control.
+    // Rendered markdown even in the collapsed state: the bold run is its own element,
+    // the raw source never shows.
     expect(await screen.findByText("markdown")).toBeInTheDocument();
     expect(screen.queryByText("Great **markdown** kudos")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Show more" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Show less" })).toBeNull();
+  });
 
-    await userEvent.click(screen.getByRole("button", { name: "Show less" }));
-    expect(await screen.findByText("Great **markdown** kudos")).toBeInTheDocument();
+  test("overflowing content gets the Show more/Show less toggle; markdown stays rendered", async () => {
+    // Force "the clamp hides something": happy-dom has no layout, so stub the measurements.
+    const scrollDesc = Object.getOwnPropertyDescriptor(Element.prototype, "scrollHeight");
+    Object.defineProperty(Element.prototype, "scrollHeight", {
+      configurable: true,
+      get: () => 200,
+    });
+    try {
+      setupMocks({
+        1: { items: [row(1, { content: "Long **markdown** kudos", contentPreview: "Long **markdown** kudos" })], total: 1 },
+      });
+      renderPage();
+
+      const toggle = await screen.findByRole("button", { name: "Show more" });
+      expect(toggle).toHaveAttribute("aria-expanded", "false");
+      // Collapsed is still the rendered markdown, only clamped.
+      expect(screen.getByText("markdown")).toBeInTheDocument();
+      expect(screen.queryByText("Long **markdown** kudos")).toBeNull();
+
+      await userEvent.click(toggle);
+      const collapse = await screen.findByRole("button", { name: "Show less" });
+      expect(collapse).toHaveAttribute("aria-expanded", "true");
+      expect(screen.getByText("markdown")).toBeInTheDocument();
+
+      await userEvent.click(collapse);
+      expect(await screen.findByRole("button", { name: "Show more" })).toBeInTheDocument();
+    } finally {
+      if (scrollDesc) Object.defineProperty(Element.prototype, "scrollHeight", scrollDesc);
+      else delete (Element.prototype as { scrollHeight?: unknown }).scrollHeight;
+    }
   });
 
   test("scrolling to the sentinel loads the next page and appends it", async () => {

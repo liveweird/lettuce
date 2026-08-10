@@ -1,9 +1,9 @@
 {
   "title": "Kudos",
-  "hint": "Public feedback from across the organization — newest first. Click a card to read the full content.",
+  "hint": "Public feedback from across the organization — newest first.",
   "empty": "No kudos yet — public feedback will appear here once it is sent.",
   "loadError": "Failed to load kudos",
   "unknownError": "Unknown error",
-  "expandAria": "Show the full content",
+  "showMore": "Show more",
   "showLess": "Show less"
 }

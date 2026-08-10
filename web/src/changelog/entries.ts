@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.5.1",
+    date: "2026-08-10",
+    en: `Kudos cards polished. Each kudos now sits in the same bordered content frame the rest of the app uses, and the preview shows properly rendered formatting instead of raw markdown source. Short kudos display in full with nothing to click; only longer ones are trimmed to five lines with an explicit "Show more" / "Show less" control below.`,
+    pl: `Dopracowane karty Kudos. Każdy kudos znajduje się teraz w tej samej obramowanej ramce treści, której używa reszta aplikacji, a podgląd pokazuje poprawnie wyrenderowane formatowanie zamiast surowego zapisu markdown. Krótkie kudosy wyświetlają się w całości i nie mają nic do klikania; tylko dłuższe są przycinane do pięciu linii z wyraźnym przyciskiem „Pokaż więcej" / „Pokaż mniej" poniżej.`,
+  },
+  {
     version: "2.5.0",
     date: "2026-08-10",
     en: `Emoji everywhere. The rich-text editor toolbar (feedback, templates, alerts, goals, team KPIs) gains an emoji button with a full picker — search, categories, skin tones, in your language. The same picker sits in comment and summary fields too: 1:1 discussion points and action items, review summaries, closing summaries, pulse comments, request messages and days-off correction comments. And GitHub-style codes like :tada: now render as real emoji wherever formatted text is displayed — including the Kudos wall.`,
