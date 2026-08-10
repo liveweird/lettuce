@@ -26,7 +26,6 @@
   "membersOfAria": "Członkowie zespołu {{name}}",
   "detailsForAria": "Szczegóły zespołu {{name}}",
   "subordinates": "Podwładni",
-  "subordinatesOfAria": "Podwładni zespołu {{name}}",
   "deleteAria": "Usuń {{name}}",
   "removeAria": "Usuń {{name}}",
   "deleteModalTitle": "Usunąć zespół?",

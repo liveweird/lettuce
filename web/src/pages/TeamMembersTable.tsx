@@ -32,7 +32,7 @@ const GRID_COLS = { base: 1, sm: 2 };
 
 // The dashboard "My peers" / "My subordinates" views: a person-card grid (same card language
 // as ManagersTable), keeping the table era's filters, sorting, and pagination. With `teamId`
-// the grid pins to one managed team (the /teams/:id/subordinates view): the team and reports
+// the grid pins to one managed team (the team-details page's manager view, v2.5.5): the team and reports
 // filters unmount (a specific managed team is inherently direct reports) and the drill-down
 // links carry the parameterized `team` origin so round-trips return to the team view.
 export default function TeamMembersTable({
@@ -131,7 +131,7 @@ export default function TeamMembersTable({
   const tab = view === "managed" ? "subordinates" : "peers";
   const backTo = backToProp ?? `/?tab=${tab}`;
   // The per-person drill-downs' origin: the pinned view threads `team` + teamId through so
-  // their "Back to …" returns to /teams/:id/subordinates.
+  // their "Back to …" returns to the team-details page (/teams/:id/members).
   const drillFrom = pinned ? "team" : view === "managed" ? "subordinates" : "peers";
   const drillTeamId = pinned ? teamId : undefined;
 
@@ -250,6 +250,9 @@ export default function TeamMembersTable({
                     back: backTo,
                     drillFrom,
                     drillTeamId,
+                    // Embeddings return the drill-downs to their exact host URL (origin query
+                    // included) — the v1.39.0 back= override; the label stays the origin's.
+                    drillBack: backToProp,
                     show: {
                       provide: true,
                       ask: true,

@@ -848,7 +848,7 @@ describe("TeamMembersTable", () => {
   });
 });
 
-// The team-scoped embedding (/teams/:id/subordinates): the grid pins to one managed team.
+// The team-scoped embedding (the team-details page's manager view): the grid pins to one managed team.
 describe("TeamMembersTable pinned to a team", () => {
   let mockFetch: FetchMock;
 
@@ -856,7 +856,7 @@ describe("TeamMembersTable pinned to a team", () => {
     view: "managed",
     teamId: 5,
     settingsKey: "teamSubordinates",
-    backTo: "/teams/5/subordinates",
+    backTo: "/teams/5/members",
     emptyMessage: "No team members",
   } as const;
 
@@ -920,14 +920,16 @@ describe("TeamMembersTable pinned to a team", () => {
     renderWithProviders(<TeamMembersTable {...PINNED_PROPS} />);
     await screen.findByText("Bob Brown");
 
-    const back = encodeURIComponent("/teams/5/subordinates");
+    const back = encodeURIComponent("/teams/5/members");
     await openCardMenu(/feedback actions for bob brown/i);
     expect(
       await screen.findByRole("menuitem", { name: /provide feedback to bob brown/i }),
     ).toHaveAttribute("href", `/feedback/new?subjectId=11&subjectName=Bob%20Brown&back=${back}`);
+    // Drill-downs carry the team origin AND the exact host URL as the v1.39.0 back=
+    // override (v2.5.5 — the embedding may hold an origin query the round-trip preserves).
     expect(screen.getByRole("menuitem", { name: /feedbacks with bob brown/i })).toHaveAttribute(
       "href",
-      "/users/11/feedbacks?name=Bob+Brown&from=team&teamId=5",
+      `/users/11/feedbacks?name=Bob+Brown&from=team&teamId=5&back=${back}`,
     );
     await openCardMenu(/1:1 actions for bob brown/i);
     expect(
@@ -938,11 +940,11 @@ describe("TeamMembersTable pinned to a team", () => {
     );
     expect(screen.getByRole("menuitem", { name: /1:1 meetings with bob brown/i })).toHaveAttribute(
       "href",
-      "/users/11/one-on-ones?name=Bob%20Brown&from=team&teamId=5",
+      `/users/11/one-on-ones?name=Bob%20Brown&from=team&teamId=5&back=${back}`,
     );
     expect(screen.getByRole("link", { name: /goals for bob brown/i })).toHaveAttribute(
       "href",
-      "/users/11/goals?name=Bob%20Brown&from=team&teamId=5",
+      `/users/11/goals?name=Bob%20Brown&from=team&teamId=5&back=${back}`,
     );
   });
 

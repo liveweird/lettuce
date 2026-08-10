@@ -22,10 +22,9 @@ type SortField = (typeof SORT_FIELDS)[number];
 const SETTINGS_KEY = "myTeams";
 
 // The Dashboard "My teams" tab: the teams the caller manages (server-side managerId filter).
-// The team name links to the team-details view (the v2.5.4 convention); the Subordinates
-// button opens the team-scoped subordinates card grid (/teams/:id/subordinates) — a distinct
-// stats view, so it keeps a dedicated button. No manager column (always the caller), no
-// admin actions.
+// The team name links to the team-details view (the v2.5.4 convention), where a manager
+// lands directly on their subordinates card grid (v2.5.5). No manager column (always the
+// caller), no admin actions; the only row button is the Team-KPIs drill-down.
 export default function MyTeamsTable() {
   const { t } = useTranslation();
   const uid = getUserId();
@@ -88,7 +87,7 @@ export default function MyTeamsTable() {
                 onToggle={toggleSort}
               />
             </Table.Th>
-            <Table.Th aria-label={t("teams.subordinates")} style={{ width: 1 }} />
+            <Table.Th aria-label={t("teams.kpis")} style={{ width: 1 }} />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -98,10 +97,11 @@ export default function MyTeamsTable() {
             data.items.map((team) => (
               <Table.Tr key={team.id}>
                 <Table.Td>
-                  {/* The team name links to the team-details view (name + manager + roster). */}
+                  {/* The team name links to the team-details view, where the manager lands on
+                      their subordinates grid (v2.5.5); ?from=myTeams keeps the back link here. */}
                   <Anchor
                     component={RouterLink}
-                    to={teamDetailsLink(team.id)}
+                    to={`${teamDetailsLink(team.id)}?from=myTeams`}
                     size="sm"
                     fw={500}
                     aria-label={t("teams.detailsForAria", { name: team.name })}
@@ -110,16 +110,6 @@ export default function MyTeamsTable() {
                   </Anchor>
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
-                  <Button
-                    component={RouterLink}
-                    to={`/teams/${team.id}/subordinates`}
-                    variant="subtle"
-                    size="xs"
-                    leftSection={<IconUsers size={14} />}
-                    aria-label={t("teams.subordinatesOfAria", { name: team.name })}
-                  >
-                    {t("teams.subordinates")}
-                  </Button>
                   {hasFeature("TEAM_KPIS") && (
                     <Button
                       component={RouterLink}

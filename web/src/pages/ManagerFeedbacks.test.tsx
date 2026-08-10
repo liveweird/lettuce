@@ -289,7 +289,7 @@ describe("ManagerFeedbacks page", () => {
     renderScreen("/users/10/feedbacks?name=Alice&from=team&teamId=3");
     expect(await screen.findByRole("link", { name: /back to team subordinates/i })).toHaveAttribute(
       "href",
-      "/teams/3/subordinates",
+      "/teams/3/members",
     );
 
     cleanup();
