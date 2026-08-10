@@ -4,9 +4,14 @@ import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
 import MarkdownEditor from "./MarkdownEditor";
 
+// The insertMarkdown$ publisher captured by the usePublisher mock below (hoisted — vi.mock
+// factories run before module-level consts).
+const insertSpy = vi.hoisted(() => vi.fn());
+
 // Stand in for the Lexical-based editor (which doesn't run in jsdom/happy-dom) with a plain
 // textarea that mirrors the parts of the MDXEditor API our wrapper touches: the `markdown`
-// initial value, `onChange`, `placeholder`, `className`, and a `setMarkdown` on the ref.
+// initial value, `onChange`, `placeholder`, `className`, a `setMarkdown` on the ref — and the
+// toolbarPlugin's toolbarContents, rendered next to the textarea so the emoji item is testable.
 vi.mock("@mdxeditor/editor", () => ({
   MDXEditor: ({
     markdown,
@@ -14,22 +19,27 @@ vi.mock("@mdxeditor/editor", () => ({
     placeholder,
     className,
     ref,
+    plugins,
   }: {
     markdown: string;
     onChange?: (md: string) => void;
     placeholder?: string;
     className?: string;
     ref?: { current: unknown };
+    plugins?: Array<{ toolbarContents?: () => React.ReactNode }>;
   }) => {
     if (ref) ref.current = { setMarkdown: (md: string) => onChange?.(md) };
     return (
-      <textarea
-        data-testid="mdx"
-        className={className}
-        placeholder={placeholder}
-        defaultValue={markdown}
-        onChange={(e) => onChange?.(e.target.value)}
-      />
+      <div>
+        {plugins?.map((p, i) => (p?.toolbarContents ? <div key={i}>{p.toolbarContents()}</div> : null))}
+        <textarea
+          data-testid="mdx"
+          className={className}
+          placeholder={placeholder}
+          defaultValue={markdown}
+          onChange={(e) => onChange?.(e.target.value)}
+        />
+      </div>
     );
   },
   headingsPlugin: () => ({}),
@@ -39,12 +49,22 @@ vi.mock("@mdxeditor/editor", () => ({
   linkDialogPlugin: () => ({}),
   thematicBreakPlugin: () => ({}),
   markdownShortcutPlugin: () => ({}),
-  toolbarPlugin: () => ({}),
+  toolbarPlugin: (opts: { toolbarContents?: () => React.ReactNode }) => opts,
   UndoRedo: () => null,
   BoldItalicUnderlineToggles: () => null,
   ListsToggle: () => null,
   BlockTypeSelect: () => null,
   CreateLink: () => null,
+  usePublisher: () => insertSpy,
+  insertMarkdown$: {},
+}));
+
+// The real EmojiButton lazy-loads emoji-mart; a stub button forwarding a fixed emoji is enough
+// to prove the toolbar item wires the picker to the insertMarkdown$ publisher.
+vi.mock("./EmojiButton", () => ({
+  default: ({ onSelect, label }: { onSelect: (native: string) => void; label: string }) => (
+    <button aria-label={label} onClick={() => onSelect("😀")} />
+  ),
 }));
 
 function renderEditor(ui: React.ReactElement, colorScheme: "light" | "dark" = "light") {
@@ -87,6 +107,13 @@ describe("MarkdownEditor", () => {
       "dark",
     );
     expect(screen.getByTestId("mdx").className).toContain("dark-theme");
+  });
+
+  test("the toolbar emoji button publishes the picked emoji into the editor", async () => {
+    insertSpy.mockClear();
+    renderEditor(<MarkdownEditor value="" onChange={() => {}} label="Content" />);
+    await userEvent.click(screen.getByLabelText("Insert emoji"));
+    expect(insertSpy).toHaveBeenCalledWith("😀");
   });
 
   test("pushes an external value change into the editor via the ref", () => {

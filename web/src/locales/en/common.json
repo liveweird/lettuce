@@ -40,6 +40,9 @@
     "careerSpecialization": "Career specialization",
     "seniorityLevel": "Seniority level"
   },
+  "emoji": {
+    "insert": "Insert emoji"
+  },
   "table": {
     "position": "#",
     "actions": "Actions",

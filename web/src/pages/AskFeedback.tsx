@@ -8,9 +8,9 @@ import {
   Paper,
   Select,
   Stack,
-  Textarea,
   Title,
 } from "@mantine/core";
+import EmojiTextarea from "../components/EmojiTextarea";
 import { useDisclosure } from "@mantine/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -124,11 +124,11 @@ export default function AskFeedback() {
             onChange={(v) => v && setVisibility(v as FeedbackVisibility)}
           />
 
-          <Textarea
+          <EmojiTextarea
             label={t("feedback.requesterMessageLabel")}
             placeholder={t("feedback.requesterMessagePlaceholder")}
             value={message}
-            onChange={(e) => setMessage(e.currentTarget.value)}
+            onChange={setMessage}
             autosize
             minRows={2}
             maxRows={6}

@@ -1,4 +1,5 @@
-import { Alert, Button, Group, Paper, Progress, Skeleton, Stack, Text, Textarea } from "@mantine/core";
+import { Alert, Button, Group, Paper, Progress, Skeleton, Stack, Text } from "@mantine/core";
+import EmojiTextarea from "../components/EmojiTextarea";
 import { useForm } from "@mantine/form";
 import { IconZzz } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -219,7 +220,7 @@ export default function PulseSurvey() {
           )}
           {step === COMMENT_STEP && (
             <>
-              <Textarea
+              <EmojiTextarea
                 label={t(`pulse.commentPrompt.${commentPromptKey(form.values.enps)}`)}
                 description={t("pulse.commentOptional", { max: PULSE_MAX_COMMENT })}
                 autosize

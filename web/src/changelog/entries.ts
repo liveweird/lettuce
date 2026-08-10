@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.5.0",
+    date: "2026-08-10",
+    en: `Emoji everywhere. The rich-text editor toolbar (feedback, templates, alerts, goals, team KPIs) gains an emoji button with a full picker — search, categories, skin tones, in your language. The same picker sits in comment and summary fields too: 1:1 discussion points and action items, review summaries, closing summaries, pulse comments, request messages and days-off correction comments. And GitHub-style codes like :tada: now render as real emoji wherever formatted text is displayed — including the Kudos wall.`,
+    pl: `Emoji wszędzie. Pasek narzędzi edytora tekstu (feedback, szablony, alerty, cele, KPI zespołów) zyskuje przycisk emoji z pełnym wyborem — wyszukiwarka, kategorie, odcienie skóry, w Twoim języku. Ten sam wybór znajdziesz też w polach komentarzy i podsumowań: punkty dyskusji i zadania ze spotkań 1:1, podsumowania ocen, podsumowania zamknięcia, komentarze pulsu, wiadomości próśb oraz komentarze korekt dni wolnych. A kody w stylu GitHuba, takie jak :tada:, wyświetlają się teraz jako prawdziwe emoji wszędzie tam, gdzie pokazujemy sformatowany tekst — także na ścianie Kudos.`,
+  },
+  {
     version: "2.4.2",
     date: "2026-08-10",
     en: `Tidier dashboard tiles. The stat tiles at the top of the Dashboard now line up: every tile reserves the same space for its label, so the numbers sit on one line across the row regardless of how long a label is (also in Polish, where labels run longer). The "vs previous 30 days" trend under the received-feedback count moved into a small info icon next to the number — hover it to see the comparison — so all tiles share the same clean shape.`,

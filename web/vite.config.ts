@@ -48,6 +48,9 @@ export default defineConfig({
             // Splitting it keeps every chunk under Vite's 500 kB warning threshold; both
             // halves load in parallel behind the same dynamic import.
             { name: 'lexical', test: /node_modules[\\/](?:@lexical|lexical)[\\/]/, priority: 5 },
+            // The emoji-mart data set — the bulk of the (lazy-loaded) picker payload; the
+            // same under-500 kB split as the lexical group above.
+            { name: 'emoji-data', test: /node_modules[\\/]@emoji-mart[\\/]data[\\/]/, priority: 5 },
           ],
         },
       },
