@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 import {
   Alert,
@@ -13,7 +13,6 @@ import {
   Text,
   Timeline,
   Title,
-  UnstyledButton,
 } from "@mantine/core";
 import { useIntersection } from "@mantine/hooks";
 import { IconConfetti } from "@tabler/icons-react";
@@ -23,18 +22,29 @@ import { getUserId, hasFeature, listFeedbacks, type FeedbackPage } from "../api/
 import EmptyState from "../components/EmptyState";
 import MarkdownView from "../components/MarkdownView";
 import PersonCell from "../components/PersonCell";
+import ProseBox from "../components/ProseBox";
 import { formatRelativeTime, formatTimestamp } from "../utils/datetime";
 
 const PAGE_SIZE = 20;
+const PREVIEW_LINES = 5;
 
 type KudosItem = FeedbackPage["items"][number];
 
 function KudosCard({ item }: { item: KudosItem }) {
   const { t, i18n } = useTranslation();
   const [expanded, setExpanded] = useState(false);
+  const [overflowing, setOverflowing] = useState(false);
+  const clampRef = useRef<HTMLDivElement>(null);
   const userId = getUserId();
   // Kudos rows carry the full content; the preview is the defensive fallback only.
   const content = item.content ?? item.contentPreview;
+
+  // Whether the clamped preview actually hides anything — measured on the collapsed render.
+  // Content that fits entirely gets no toggle: the card stays non-interactive.
+  useEffect(() => {
+    const el = clampRef.current;
+    if (el) setOverflowing(el.scrollHeight > el.clientHeight + 1);
+  }, [content]);
 
   return (
     <Stack gap={4}>
@@ -58,26 +68,36 @@ function KudosCard({ item }: { item: KudosItem }) {
       <Text size="xs" c="dimmed" title={formatTimestamp(item.lastModified)}>
         {formatRelativeTime(item.lastModified, i18n.language)}
       </Text>
-      {expanded ? (
-        <>
-          <MarkdownView>{content}</MarkdownView>
-          <Anchor component="button" type="button" size="xs" aria-expanded onClick={() => setExpanded(false)}>
-            {t("kudos.showLess")}
-          </Anchor>
-        </>
-      ) : (
-        // The whole clamped block expands on click; rendered markdown (with its own links)
-        // never sits inside this button — expanding swaps to the MarkdownView above.
-        <UnstyledButton
-          aria-expanded={false}
-          aria-label={t("kudos.expandAria")}
-          onClick={() => setExpanded(true)}
-          style={{ display: "block", width: "100%", textAlign: "left" }}
+      {/* Always the rendered markdown in the shared read-only frame; collapsing only clamps
+          the same rendering to the preview lines instead of swapping to raw text. */}
+      <ProseBox minHeightLines={1}>
+        <Box
+          ref={clampRef}
+          style={
+            expanded
+              ? undefined
+              : {
+                  display: "-webkit-box",
+                  WebkitLineClamp: PREVIEW_LINES,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                }
+          }
         >
-          <Text size="sm" lineClamp={5} style={{ wordBreak: "break-word" }}>
-            {content}
-          </Text>
-        </UnstyledButton>
+          <MarkdownView>{content}</MarkdownView>
+        </Box>
+      </ProseBox>
+      {(overflowing || expanded) && (
+        <Anchor
+          component="button"
+          type="button"
+          size="xs"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((e) => !e)}
+          style={{ alignSelf: "flex-start" }}
+        >
+          {expanded ? t("kudos.showLess") : t("kudos.showMore")}
+        </Anchor>
       )}
     </Stack>
   );
