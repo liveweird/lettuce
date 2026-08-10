@@ -80,7 +80,7 @@ export default function EmailNotifications() {
     <Container size="sm" px={0}>
       <Paper withBorder shadow="sm" p="xl" radius="md">
         <Stack>
-          <Title order={2}>{t("emailNotifications.title")}</Title>
+          <Title order={2} data-tour="account-email-notifications">{t("emailNotifications.title")}</Title>
           {isLoading ? (
             <Center py="xl">
               <Loader />

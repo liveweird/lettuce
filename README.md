@@ -1,8 +1,24 @@
 # lettuce
 
-A small peer-feedback app: users write, request, and receive feedback, organized
-into teams with manager oversight, with visibility rules, an audit history, and
-in-app notifications.
+A people-management app for teams and their managers. What started as a small
+peer-feedback tool now covers:
+
+- **Feedback** — write, request, and receive feedback with visibility rules and a
+  per-record audit trail, plus an org-wide public Kudos wall.
+- **1:1 meetings** — manager↔report meeting documents with notes and action items
+  that carry over between meetings.
+- **Goals & team KPIs** — per-person goals and per-team KPI series with status
+  lifecycles, progress tracking, and history.
+- **Performance reviews** — rated, encrypted-at-rest reviews over an admin-managed
+  review-period timeline, with a calibration phase before publishing.
+- **Days off** — leave requests with manager approval, budgets with carry-over and
+  corrections, a team calendar, and a public-holiday registry.
+- **Pulse surveys** — anonymous eNPS cycles with k≥3 anonymity, team-tree results,
+  and trends.
+- **Around it all** — teams with a transitive management chain, layered RBAC
+  (admin, read-only HR auditor), per-user feature flags, opt-in email MFA, in-app
+  notifications mirrored by email, admin broadcast alerts, dictionary-backed
+  career profiles, and a bilingual (English/Polish) UI with a guided tour.
 
 The stack:
 

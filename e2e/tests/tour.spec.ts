@@ -1,12 +1,15 @@
-import { collapseAlertsBanner, expect, login, MANAGER_AAA, test } from "./helpers";
+import { ADMIN, collapseAlertsBanner, expect, login, MANAGER_AAA, test } from "./helpers";
+import type { Page } from "@playwright/test";
 
-// The guided tour, actually walked: replay it as a manager and assert the landmark order the
-// tour promises — every left-menu section (Changelog included) and every tab of the views they
-// open, before the header icons. Anchors/steps that vanish or reorder fail this walk.
+// The guided tour, actually walked twice: as a manager and as the admin, asserting the landmark
+// order the tour promises — every left-menu section (Changelog included) and every tab of the
+// views they open, before the header icons. Anchors/steps that vanish or reorder fail the walks.
 // The suite's tour-seen stub only suppresses the AUTO-start; the replay button always works.
 //
-// 48, not the full 51: MANAGER_AAA is a manager but NOT an ADMIN, so the three admin-only
-// Config leaves (Pulse cycles, Feature flags, Alerts) are correctly absent from their walk.
+// Audience math over the 52 steps: MANAGER_AAA is a manager but NOT an ADMIN, so the three
+// admin-only Config leaves (Pulse cycles, Feature flags, Alerts) are absent → 49. The seed
+// admin is an ADMIN but manages no team, so the seven manager-only tab steps and the
+// manager-or-HR Pulse participation step are absent → 44.
 
 const LANDMARKS = [
   "Take a quick tour",
@@ -36,6 +39,7 @@ const LANDMARKS = [
   "Dictionaries — the shared lists",
   "Self-reflection",
   "Your account",
+  "Email notifications",
   "Changelog — what's new",
   "Notifications",
   "Switch the interface language",
@@ -44,12 +48,29 @@ const LANDMARKS = [
   "Replay this tour",
 ];
 
-test("the guided tour walks all 48 manager steps in the documented order", async ({ page }) => {
-  await login(page, MANAGER_AAA);
-  // A pre-existing active alert's expanded banner overlays the header (and the replay button).
-  await collapseAlertsBanner(page);
-  await page.locator('[data-tour="replay"]').click();
+// The admin walk's landmark subset: the manager-only tab steps drop out, the three admin-only
+// Config leaves join between the registries and Dictionaries (the TOUR_STEPS order).
+const ADMIN_LANDMARKS = [
+  "Take a quick tour",
+  "Feedback",
+  "1:1 meetings",
+  "Goals — the goals you're involved in",
+  "Days off — the team calendar",
+  "recurring pulse survey",
+  "Config — users, teams",
+  "Review periods — the timeline of periods",
+  "Public holidays — the non-working days",
+  "Pulse cycles — schedule a pulse survey",
+  "Feature flags — turn individual features on or off",
+  "Alerts — the announcement banners",
+  "Dictionaries — the shared lists",
+  "Your account",
+  "Email notifications",
+  "Replay this tour",
+];
 
+async function walkTour(page: Page): Promise<string[]> {
+  await page.locator('[data-tour="replay"]').click();
   const seen: string[] = [];
   for (let step = 1; step <= 60; step++) {
     const counter = page.getByText(new RegExp(`^Step ${step} of \\d+$`));
@@ -64,15 +85,53 @@ test("the guided tour walks all 48 manager steps in the documented order", async
     }
     await tooltip.getByRole("button", { name: "Next", exact: true }).click();
   }
+  return seen;
+}
 
-  expect(seen).toHaveLength(48);
+function assertLandmarkOrder(seen: string[], landmarks: string[]) {
   // Each landmark appears, strictly after the previous one.
   let cursor = -1;
-  for (const landmark of LANDMARKS) {
+  for (const landmark of landmarks) {
     const at = seen.findIndex((text, i) => i > cursor && text.includes(landmark));
     expect(at, `landmark "${landmark}" after step ${cursor + 1}`).toBeGreaterThan(cursor);
     cursor = at;
   }
+}
+
+test("the guided tour walks all 49 manager steps in the documented order", async ({ page }) => {
+  await login(page, MANAGER_AAA);
+  // A pre-existing active alert's expanded banner overlays the header (and the replay button).
+  await collapseAlertsBanner(page);
+  const seen = await walkTour(page);
+
+  expect(seen).toHaveLength(49);
+  assertLandmarkOrder(seen, LANDMARKS);
   // The tour's closing step returned home.
+  await expect(page).toHaveURL(/\/$|\?tab=/);
+});
+
+test("the guided tour walks the 44 admin steps including the admin-only Config leaves", async ({
+  page,
+  request,
+}) => {
+  await login(page, ADMIN);
+  await collapseAlertsBanner(page);
+
+  // The shared dev DB may carry a manually created team managed by the admin, which would
+  // legitimately add the 8 manager-gated steps — derive the expectation from the same signal
+  // the app's own gate uses (`useIsManager`: total of teams with managerId = caller).
+  const token = await page.evaluate(() => localStorage.getItem("lettuce.auth.token"));
+  const userId = await page.evaluate(() => localStorage.getItem("lettuce.auth.userId"));
+  const managed = (await (
+    await request.get(`/api/v1/teams?managerId=${userId}&pageSize=1`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  ).json()) as { total: number };
+  const expected = 44 + (managed.total > 0 ? 8 : 0);
+
+  const seen = await walkTour(page);
+
+  expect(seen).toHaveLength(expected);
+  assertLandmarkOrder(seen, ADMIN_LANDMARKS);
   await expect(page).toHaveURL(/\/$|\?tab=/);
 });
