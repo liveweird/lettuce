@@ -94,6 +94,24 @@ test("recipient toggles seen/unseen and marks all notifications as seen", async 
   ]);
   await expect(dialog.getByRole("button", { name: "Mark all as seen" })).toHaveCount(0);
   await expect(dialog.getByRole("button", { name: /Mark notification \d+ as seen/ })).toHaveCount(0);
+  // Delete one notification → its card disappears for good (survives a reopen). The other
+  // requester's card stays, so deletion is per-row, not a bulk clear.
+  await Promise.all([
+    page.waitForResponse(
+      (r) => /\/notifications\/\d+$/.test(r.url()) && r.request().method() === "DELETE" && r.ok(),
+    ),
+    card.getByRole("button", { name: /Delete notification \d+/ }).click(),
+  ]);
+  await expect(card).toHaveCount(0);
+  await expect(
+    notificationCard(dialog, "AAA Two requested feedback about AAA Two."),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  const reopened = await openBell(page);
+  await expect(
+    notificationCard(reopened, "AAA One requested feedback about AAA One."),
+  ).toHaveCount(0);
+
   // Close the modal via Escape — the header X has no reliable accessible name.
   await page.keyboard.press("Escape");
   await expect(page.getByRole("button", { name: "Notifications (0 unread)" })).toBeVisible();

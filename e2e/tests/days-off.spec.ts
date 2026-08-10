@@ -17,7 +17,9 @@ import type { APIRequestContext, Page } from "@playwright/test";
 // Days off end to end: the admin curates a public holiday and an allowance, AAA Two requests
 // two periods, Manager AAA accepts one and rejects the other, the accepted days show on the
 // team calendar, and the accepted (future) request is cancelled again — so seeded accounts are
-// never left with counting requests (REJECTED/CANCELLED rows are inert records).
+// never left with counting requests (REJECTED/CANCELLED rows are inert records). An UNPAID
+// single-day request then shows the same cost preview while leaving the paid budget untouched,
+// and is cancelled too.
 //
 // The request window is a run-specific future Monday (weeks vary per run), so residue from a
 // failed earlier run rarely collides via the overlap rule — but the sweep below is what
@@ -59,7 +61,8 @@ function pickMonday(): Date {
   monday = addDays(monday, weeks * 7);
   const windowBlocked = (m: Date) =>
     m.getFullYear() !== addDays(m, 8).getFullYear() ||
-    [0, 1, 7, 8].some((offset) => SEEDED_HOLIDAYS.has(isoDate(addDays(m, offset))));
+    // Offsets 0/1 + 7/8 are the two Mon–Tue requests; 2 is the UNPAID leg's Wednesday.
+    [0, 1, 2, 7, 8].some((offset) => SEEDED_HOLIDAYS.has(isoDate(addDays(m, offset))));
   while (windowBlocked(monday)) {
     monday = addDays(monday, 7);
   }
@@ -69,6 +72,9 @@ function pickMonday(): Date {
 const MONDAY = pickMonday();
 const MONDAY_ISO = isoDate(MONDAY);
 const TUESDAY_ISO = isoDate(addDays(MONDAY, 1));
+// The UNPAID leg's single day — inside the same booked week (no overlap: the Mon–Tue request
+// is cancelled by then, and cancelled rows are inert for the overlap rule anyway).
+const WEDNESDAY_ISO = isoDate(addDays(MONDAY, 2));
 const MONDAY2_ISO = isoDate(addDays(MONDAY, 7));
 const TUESDAY2_ISO = isoDate(addDays(MONDAY, 8));
 
@@ -139,9 +145,13 @@ async function sweepResidue(request: APIRequestContext) {
   }
 }
 
-async function newRequest(page: Page, from: string, to: string, expectedCost: string) {
+async function newRequest(page: Page, from: string, to: string, expectedCost: string, unpaid = false) {
   await page.getByRole("link", { name: "New request" }).click();
   await expect(page).toHaveURL(/\/days-off\/new/);
+  if (unpaid) {
+    await page.getByRole("combobox", { name: "Type" }).click();
+    await page.getByRole("option", { name: "Unpaid" }).click();
+  }
   await page.getByLabel("From", { exact: true }).fill(from);
   await page.getByLabel("To", { exact: true }).fill(to);
   await expect(page.getByText(`This request costs ${expectedCost} working day(s).`)).toBeVisible();
@@ -282,6 +292,25 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   // Cancel the accepted (still future) request — the reserved days return to the budget.
   await page.goto("/days-off?tab=requests");
   await page.getByLabel(`Cancel your days-off request starting ${MONDAY_ISO}`).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Cancel the request", exact: true })
+    .click();
+  await expect(page.getByText("Request cancelled")).toBeVisible();
+
+  // ── The UNPAID variant: same working-day cost preview, but the paid budget is untouched. ──
+  const budgetStrip = page.getByText(/Your paid days off in \d{4}/);
+  const budgetBefore = await budgetStrip.innerText();
+  await newRequest(page, WEDNESDAY_ISO, WEDNESDAY_ISO, "1", true);
+  // The stored Status filter still says Accepted — flip it to Requested to see the fresh row.
+  const unpaidFilters = page.getByRole("button", { name: "Filters" });
+  if ((await unpaidFilters.getAttribute("aria-expanded")) !== "true") await unpaidFilters.click();
+  await page.getByRole("combobox", { name: "Status" }).click();
+  await page.getByRole("option", { name: "Requested" }).click();
+  await expect(page.locator("tr", { hasText: "Unpaid" }).first()).toBeVisible();
+  await expect(budgetStrip).toHaveText(budgetBefore);
+  // Cancel it again so seed accounts keep no counting rows.
+  await page.getByLabel(`Cancel your days-off request starting ${WEDNESDAY_ISO}`).click();
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Cancel the request", exact: true })

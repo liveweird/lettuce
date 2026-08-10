@@ -261,6 +261,7 @@ describe("Tour", () => {
         '[data-tour="config-templates"]',
         '[data-tour="nav-dictionaries"]',
         '[data-tour="nav-change-password"]',
+        '[data-tour="account-email-notifications"]',
         '[data-tour="nav-changelog"]',
         '[data-tour="notifications"]',
         '[data-tour="language"]',
@@ -341,6 +342,9 @@ describe("Tour", () => {
       // These anchor on the navbar leaf but also open the actual screen (":userId" resolved).
       { target: '[data-tour="nav-self-reflection"]', path: "/feedback/self" },
       { target: '[data-tour="nav-change-password"]', path: "/users/7/change-password" },
+      // Email notifications has no navbar leaf (account-menu only) — the step opens the screen
+      // and anchors on its page title, the config-leaf idiom.
+      { target: '[data-tour="account-email-notifications"]', path: "/users/7/email-notifications" },
       { target: '[data-tour="nav-changelog"]', path: "/changelog" },
       // The closing step returns home.
       { target: '[data-tour="replay"]', path: "/" },

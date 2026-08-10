@@ -1254,12 +1254,6 @@ export async function createDaysOff(body: DaysOffCreateBody): Promise<DaysOffRes
   return (await res.json()) as DaysOffResponse;
 }
 
-export async function getDaysOff(id: number): Promise<DaysOffResponse> {
-  const res = await authedFetch(`/api/v1/days-off/${id}`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as DaysOffResponse;
-}
-
 // Lifecycle actions: accept/reject are the direct manager's resolution of a REQUESTED request;
 // cancel is the owner's withdrawal (REQUESTED anytime, ACCEPTED only before the start date).
 // A request not in the action's source status returns 409.
@@ -1475,7 +1469,6 @@ export type PulseVisibleTeams = components["schemas"]["PulseVisibleTeams"];
 export type PulseSettings = components["schemas"]["PulseSettings"];
 type PulseCycleListResponse =
   paths["/api/v1/pulse-surveys/cycles"]["get"]["responses"]["200"]["content"]["application/json"];
-export type PulseParticipationCounts = components["schemas"]["PulseParticipationCounts"];
 
 /** All cycles, newest first (unpaged registry). Admin rows carry the participation counts. */
 export async function listPulseCycles(): Promise<PulseCycle[]> {
@@ -1562,13 +1555,6 @@ export async function getPulseTrend(
   const res = await authedFetch(`/api/v1/pulse-surveys/trend?teamId=${teamId}&mode=${mode}`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json()) as PulseTrendResponse;
-}
-
-/** ADMIN's per-cycle counts (eligible / completed / rate) — never content. */
-export async function getPulseParticipation(cycleId: number): Promise<PulseParticipationCounts> {
-  const res = await authedFetch(`/api/v1/pulse-surveys/cycles/${cycleId}/participation`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as PulseParticipationCounts;
 }
 
 /** Managers' per-person submitted yes/no over their monitored teams (HR: whole org). */

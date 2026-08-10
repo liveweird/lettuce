@@ -76,7 +76,11 @@ commit** — this list is the suite's coverage map, and it has drifted three tim
   draft editor; the requester is notified on pick-up and send.
 - `kudos.spec.ts` — the Kudos wall (v2.2.0): a provider sends a **PUBLIC** feedback, then a
   caller who is **no party to it** finds it on `/kudos` and expands the card to the full content.
-- `notifications.spec.ts` — bell mechanics: unread badge, mark seen / unseen, mark all as seen.
+- `notifications.spec.ts` — bell mechanics: unread badge, mark seen / unseen, mark all as seen,
+  and per-row **delete** (gone for good, the sibling card stays).
+- `email-notifications.spec.ts` — the email-mirror opt-out (v2.3.0): a throwaway user reaches
+  the screen via the header **account menu**, opts out (the switch survives save + reopen) and
+  back in.
 - `user-edit.spec.ts` — admin creates (generated-password reveal) and renames a user; career profile: set a career path, dictionary rename propagates, retired entry keeps resolving
   (`PUT /users/{id}`).
 - `users-admin.spec.ts` — role change; admin password reset vs. self-change (current password
@@ -141,20 +145,24 @@ commit** — this list is the suite's coverage map, and it has drifted three tim
   **publishes** from the view screen (a CALIBRATION row's action is View — the lifecycle lives
   there); the subordinate is **notified** and reads it on the Performance page's **My
   performance** tab with zero write
-  affordances; an **Unpublish** takes it back to calibration. The manager leg also flips the
-  Team's-performance tab to the **Distribution** view (v1.40.0 toggle) and back. The
-  calibration leftover persists in the dev volume by design (a fresh subordinate each run).
-- `days-off.spec.ts` — the days-off journey: a user files a **PAID request** on a
-  run-varying future Monday (half-day edge, live cost preview), the direct manager
-  **accepts** it from the team tab (and the owner is **notified**), it lands on the shared
-  **calendar** and the per-user drill-down card stats; a manager records a **budget
-  correction** (v1.43.0) the subordinate sees read-only on their budget card; the owner
-  **cancels** the accepted request at the end so no counting rows persist on seed accounts
-  (seeded Polish holidays are blocklisted when picking the Monday).
-- `tour.spec.ts` — replays the guided tour as a manager and walks all 48 steps, pinning the
-  landmark order (whole left menu — Changelog included — and every tab of the views it opens,
-  before the header icons). 48 not 51: the walker is a manager but not an ADMIN, so the three
-  admin-only Config leaves are correctly absent.
+  affordances; an **Unpublish** takes it back to calibration, **Return to draft** takes it back
+  to DRAFT, and the editor's **Delete** removes the draft — the slot reads "No review yet"
+  again. The manager leg also flips the Team's-performance tab to the **Distribution** view
+  (v1.40.0 toggle) and back. Only the throwaway subordinate + team persist in the dev volume
+  (a fresh one each run).
+- `days-off.spec.ts` — the days-off journey: a user files two **PAID requests** on run-varying
+  future Mondays (half-day edge, live cost preview), the direct manager **accepts** one and
+  **rejects** the other from the team tab (both outcomes **notified**, the Rejected row found
+  via its status filter), the accepted one lands on the shared **calendar** and the per-user
+  drill-down card stats; an **UNPAID** single-day request shows the same cost preview while
+  leaving the paid budget untouched; a manager records a **budget correction** (v1.43.0) the
+  subordinate sees read-only on their budget card; the owner **cancels** the counting requests
+  at the end so none persist on seed accounts (seeded Polish holidays are blocklisted when
+  picking the Monday).
+- `tour.spec.ts` — replays the guided tour twice, pinning the landmark order (whole left menu —
+  Changelog included — and every tab of the views it opens, before the header icons): as a
+  manager (49 of the 52 steps — the three admin-only Config leaves are correctly absent) and as
+  the admin (44 steps — the manager-gated tabs drop out, the admin-only leaves join).
 - `alerts.spec.ts` — admin creates an alert; a regular user sees the **banner**, hides it to the
   strip and re-shows it (and has no alert management); deactivation and delete remove it.
 - `user-details.spec.ts` — the read-only user-details view: the name links (v2.5.2 — the
@@ -188,8 +196,8 @@ accounts are never mutated. The onboarding tour is suppressed via an init script
 
 `helpers.login()` has two paths. For a **seeded account with the seed password** it mints a session
 over the API and writes the five `lettuce.auth.*` localStorage keys the SPA itself persists
-(`sessions.ts`) — equivalent to having driven the form, minus the typing and a navigation, and the
-serial suite does ~90 logins. The session is minted **per call**, not cached: `logout()` revokes
+(`sessions.ts`) — equivalent to having driven the form, minus the typing and a navigation, and a
+full run does ~90 logins. The session is minted **per call**, not cached: `logout()` revokes
 both tokens server-side, so a session reused across specs would be a revoked one (the app then
 shows "You've been signed out"). If an injected session doesn't authenticate, the helper falls back
 to a real login — slow, never wrong.
@@ -215,5 +223,10 @@ remaining real logins aren't throttled either.
   asserts only user-visible consequences (a draft hidden from its subject, notification links).
 - **`DRAFT → WITHDRAWN` (abandon a draft)** — a valid backend transition with no UI affordance
   (the editor offers Delete instead), so it cannot be exercised through the browser.
+- **Dark-mode rendering** — the theme toggle is unit-tested and the palette is theme-owned
+  (`web/src/theme.ts`); no e2e asserts colors, and there is no visual-regression suite.
+- **Responsive / cross-browser / accessibility automation** — the suite deliberately runs
+  Desktop Chrome only, with no mobile project, screenshot comparison, or axe scan; layout and
+  a11y rely on Mantine semantics plus the role/label-based locators every spec already uses.
 
 Reports/artifacts land in `playwright-report/` and `test-results/` (git-ignored).

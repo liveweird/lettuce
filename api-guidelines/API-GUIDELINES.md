@@ -370,6 +370,8 @@ differences.
 ### API-ERR-007 — Conflicts point at the conflicting resource `[llm/manual]`
 **SHOULD**, when a `409` is caused by an existing record (duplicate, open conflict), carry
 that record's URI in the problem body's `instance` member so clients can link straight to it.
+*(Registered gap: populated where the service knows the row today — the feedback duplicate
+`409` and the days-off overlap `409`; the generic unique-violation handler cannot.)*
 **Check:** duplicate-style `409`s populate `instance` with the existing resource's URI.
 
 ---
@@ -424,7 +426,8 @@ sensitive/authed data, `max-age` for static assets) rather than relying on defau
 **SHOULD** protect lost-update-prone writes with conditional requests: accept `If-Match`
 against the resource's `ETag` and return `412 Precondition Failed` on mismatch. Domain-level
 guards (e.g. "only the latest document is editable" → `409`) are an acceptable alternative
-where they fit the model better — document which one each write uses.
+where they fit the model better — document which one each write uses. *(Registered gap: no
+`If-Match`/`412` anywhere; the per-write inventory lives under the known-gaps register.)*
 **Check:** concurrency-sensitive `PUT`/`DELETE` have a documented lost-update defense.
 
 ### API-CACHE-004 — Push for hot data `[llm/manual]`
@@ -609,7 +612,7 @@ gap"**, not as findings.
   consistent update convention, `204` no-body, `202` deferred)?
 - **API-ERR-002/003/006/007** — Right status per meaning (23505 → `409`, NUL → `400`);
   actionable leak-free errors; one intentional existence-disclosure idiom per resource;
-  duplicate `409`s carrying `instance`?
+  duplicate `409`s carrying `instance` *(registered gap for the generic handler)*?
 - **API-ERR-004** — Correlation id echoed on every response? *(registered gap)*
 - **API-ERR-005 / API-SEC-003** — `500`/`401`/`400` declared; authz before validation; every
   boundary input validated feature-locally?
@@ -617,8 +620,8 @@ gap"**, not as findings.
   only; `401` vs `403` + token-type enforcement; default-deny guards at the top of every
   handler?
 - **API-CACHE-001..004** — ETag/304 *(registered gap)*; deliberate `Cache-Control`
-  *(registered gap)*; a documented lost-update defense per concurrent write; push channel
-  where polling would be wasteful?
+  *(registered gap)*; a documented lost-update defense per concurrent write *(registered gap —
+  see the register's inventory)*; push channel where polling would be wasteful?
 - **API-RATE-001/002** — `429` + problem body; `Retry-After`/`RateLimit-*` *(registered
   gap)*; uniform lockout behavior; limits documented?
 - **API-IDEM-001/002** — Idempotency keys or a documented domain-level equivalent
@@ -643,9 +646,30 @@ prioritized. Reviewers cite these as "registered gap"; the Spectral ruleset carr
 | Rule | Gap | Adoption pointer |
 |---|---|---|
 | API-ERR-004 | `X-Request-Id` is read but not echoed or generated | `CallId` config in `plugins/Monitoring.kt`: add `replyToHeader(HttpHeaders.XRequestId)` + `generate { ... }`; declare the header on responses in the spec |
+| API-ERR-007 | Generic unique-violation `409`s carry no `instance` URI | `ConflictException.instance` already rides `ProblemDetail.instance` (`plugins/ErrorHandling.kt`); populated today by the feedback-duplicate and days-off-overlap `409`s — extend other domain conflict sites where the service knows the conflicting row's id (the generic 23505 handler never can, and existence-disclosure rules apply per API-ERR-006) |
 | API-RATE-001 | No `Retry-After` / `RateLimit-*` headers on `429`s | Set `Retry-After` where the wait is known (login lockout knows its window); add headers to the shared `TooManyRequests` response |
 | API-CACHE-001/002 | No `ETag`/`304`; `Cache-Control` only on CSS | Install `ConditionalHeaders`; extend the `CachingHeaders` config in `plugins/Http.kt` with deliberate per-class policies (`no-store` on API responses) |
+| API-CACHE-003 | No `If-Match`/`ETag`/`412` conditional writes anywhere; unguarded full-document writes are last-write-wins (see the inventory below) | Add `ETag` + `If-Match` handling to the concurrency-sensitive `PUT`s if contention ever materializes; a `version` column + `409` is the R2DBC-friendly alternative |
 | API-IDEM-001 | No `Idempotency-Key` handling | Domain no-duplicate `409`s cover double-submits today; adopt the header if external/retrying clients appear |
 | API-HTTP-001 | HTTP/1.1 only (Netty defaults; no edge HTTP/2) | Configure HTTP/2 at the TLS-terminating ingress when one exists |
 | API-META-001/002 | No `x-sla`, no `info.termsOfService` in the spec | Add both to `documentation.yaml` when commitments/terms exist to publish |
 | API-DOC-004 | Some generic error declarations are inline duplicates rather than `$ref`s | Fold pure duplicates into `#/components/responses` opportunistically; keep case-specific descriptions inline |
+
+### Lost-update inventory (the API-CACHE-003 row's per-write record)
+
+Per API-CACHE-003, each concurrency-sensitive write documents its defense (audited 2026-08-11):
+
+- **Domain-guarded** — a stale write is rejected by a state rule, not a validator: 1:1 meetings
+  (only the pair's *latest* meeting is editable/deletable → `409`), goals (definition edits
+  DRAFT-only, progress ACTIVE-only), team KPIs (same split; data-point mutations ACTIVE-only),
+  performance reviews (PUT in DRAFT/CALIBRATION only, PUBLISHED read-only → `409`; delete
+  DRAFT-only), pulse `my-response` (cycle OPEN only), feedbacks (PUT edits content/visibility by
+  the provider only; status moves only via transition POSTs with source-status `409`s), days-off
+  requests (no PUT at all — lifecycle POSTs with source-status `409`s).
+- **Accepted last-write-wins** — full-document/config writes with no version check, accepted
+  because writers are few and scoped (admin- or self-only) and the documents are small: users
+  PUT, teams PUT (roster + manager delta rules still apply), templates PUT, dictionaries
+  whole-document PUT, alerts PUT, per-user features PUT (wholesale replace by design),
+  email-notifications PUT, pulse settings PUT, days-off correction PUT (single-manager writes),
+  review-period/public-holiday registries (create/delete only). Two admins editing the same template simultaneously can overwrite each
+  other — a deliberate, documented trade-off at this scale.

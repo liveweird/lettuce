@@ -21,9 +21,10 @@ import type { Page } from "@playwright/test";
 // (subordinate, CURRENT period) slot new — the old fresh-period trick can't be used for
 // creation anymore), the manager fills and publishes a review for the CURRENT period from the
 // Performance page's Team's-performance tab (v1.45.0 — formerly the Dashboard tab), the
-// subordinate sees it (bell + the My-performance tab, read-only), and an unpublish takes it
-// back to calibration. The published record
-// deliberately persists in the dev volume — a CALIBRATION leftover blocks nothing, since the
+// subordinate sees it (bell + the My-performance tab, read-only), an unpublish takes it back
+// to calibration, a revert takes it back to DRAFT, and the editor's Delete removes the draft
+// (the slot reads "No review yet" again). Only the throwaway subordinate + team persist in the
+// dev volume; a mid-run death can additionally strand a review, which blocks nothing — the
 // next run reviews a fresh subordinate.
 
 const CATEGORIES = ["Attitude", "Delivery", "Skills", "Overall"] as const;
@@ -212,4 +213,30 @@ test("a performance review travels period → draft → calibration → publishe
   ]);
   await expect(page).toHaveURL(/\/performance\?tab=managed/);
   await expect(annRow.getByText("Calibration")).toBeVisible();
+
+  // 7. All the way back: CALIBRATION → DRAFT ("Return to draft" on the view screen), then the
+  // editor's Delete removes the draft — the throwaway's period slot reads Missing again.
+  await page.goto(`/performance-reviews/${reviewId}/view?back=%2Fperformance%3Ftab%3Dmanaged`);
+  await Promise.all([
+    page.waitForResponse(
+      (r) => r.url().includes(`/api/v1/performance-reviews/${reviewId}/revert`) && r.ok(),
+    ),
+    page.getByRole("button", { name: "Return to draft" }).click(),
+  ]);
+  await expect(page).toHaveURL(/\/performance\?tab=managed/);
+  await expect(annRow.getByText("Draft", { exact: true })).toBeVisible();
+  await annRow.getByRole("link", { name: `Edit the performance review of ${reviewee.name}` }).click();
+  await expect(page).toHaveURL(new RegExp(`/performance-reviews/${reviewId}/edit`));
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
+  await Promise.all([
+    page.waitForResponse(
+      (r) =>
+        r.url().includes(`/api/v1/performance-reviews/${reviewId}`) &&
+        r.request().method() === "DELETE" &&
+        r.ok(),
+    ),
+    page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click(),
+  ]);
+  await expect(page).toHaveURL(/\/performance\?tab=managed/);
+  await expect(annRow.getByText("No review yet")).toBeVisible();
 });

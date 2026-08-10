@@ -125,6 +125,9 @@ export const TOUR_STEPS: TourStepDef[] = [
   // screen behind it. The whole left menu is toured before the header icons below.
   { target: '[data-tour="nav-self-reflection"]', contentKey: "tour.steps.selfReflection", placement: "right", navTo: "/feedback/self" , feature: "FEEDBACKS" },
   { target: '[data-tour="nav-change-password"]', contentKey: "tour.steps.account", placement: "right", navTo: "/users/:userId/change-password" },
+  // Email notifications lives only in the header account menu (no navbar leaf), so its step
+  // anchors on the opened screen's page title instead — the config-leaf idiom.
+  { target: '[data-tour="account-email-notifications"]', contentKey: "tour.steps.emailNotifications", placement: "bottom", navTo: "/users/:userId/email-notifications" },
   // Opening /changelog marks the "what's new" dot as seen — coherent: the user just saw it.
   { target: '[data-tour="nav-changelog"]', contentKey: "tour.steps.changelog", placement: "right", navTo: "/changelog" },
   // The header chrome, left to right.

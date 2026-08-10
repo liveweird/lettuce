@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.5.6",
+    date: "2026-08-11",
+    en: `Tour completeness and housekeeping. The guided tour now also introduces the email-notification settings reached from the account menu, so every screen has its stop. Under the hood, an external code audit was reviewed and applied: documentation now matches the product exactly, a handful of unused code paths were removed, and browser tests cover several previously untested flows — deleting a notification, unpaid days off, and taking a performance review all the way back from published to deleted.`,
+    pl: `Kompletność samouczka i porządki. Samouczek wprowadza teraz także ustawienia powiadomień e-mail dostępne z menu konta, więc każdy ekran ma swój przystanek. Pod maską przejrzeliśmy i zastosowaliśmy zewnętrzny audyt kodu: dokumentacja dokładnie odpowiada teraz produktowi, usunęliśmy trochę nieużywanego kodu, a testy przeglądarkowe pokrywają kilka wcześniej nietestowanych ścieżek — usunięcie powiadomienia, bezpłatne dni wolne oraz cofnięcie oceny okresowej całą drogę od opublikowanej do usuniętej.`,
+  },
+  {
     version: "2.5.5",
     date: "2026-08-11",
     en: `One team page for everyone. The separate per-team subordinates screen is gone — clicking a team name always opens the team details page, which now adapts to who you are: the team's manager sees their people as the familiar stat cards with quick actions, administrators see the roster with member management, and an admin who also manages the team gets both. The extra "Subordinates" button on My teams is gone too — the team name is the way in.`,
