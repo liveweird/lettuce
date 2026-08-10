@@ -1,4 +1,5 @@
-import { Button, Group, Modal, Stack, Text, Textarea } from "@mantine/core";
+import { Button, Group, Modal, Stack, Text } from "@mantine/core";
+import EmojiTextarea from "./EmojiTextarea";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { MAX_GOAL_TEXT_LENGTH } from "../utils/goalForm";
@@ -52,12 +53,12 @@ export default function GoalCloseModal({
     <Modal opened={opened} onClose={reset} title={t(`${keyPrefix}.closeTitle`)} centered>
       <Stack gap="md">
         <Text>{t(`${keyPrefix}.closeMessage`)}</Text>
-        <Textarea
+        <EmojiTextarea
           label={t(`${keyPrefix}.summaryLabel`)}
           placeholder={t(`${keyPrefix}.summaryPlaceholder`)}
           value={summary}
-          onChange={(event) => {
-            setSummary(event.currentTarget.value);
+          onChange={(value) => {
+            setSummary(value);
             setError(null);
           }}
           error={error}

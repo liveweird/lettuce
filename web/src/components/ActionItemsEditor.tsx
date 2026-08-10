@@ -9,10 +9,10 @@ import {
   Select,
   Stack,
   Text,
-  Textarea,
   TextInput,
   Title,
 } from "@mantine/core";
+import EmojiTextarea from "./EmojiTextarea";
 import type { UseFormReturnType } from "@mantine/form";
 import { IconHistory, IconPlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
@@ -62,7 +62,7 @@ export default function ActionItemsEditor({
               <Text size="sm" c="dimmed" w={24} ta="right" pt={8} style={{ flexShrink: 0 }}>
                 {index + 1}.
               </Text>
-              <Textarea
+              <EmojiTextarea
                 style={{ flex: 1 }}
                 autosize
                 minRows={1}

@@ -10,8 +10,8 @@ import {
   Select,
   Stack,
   Text,
-  Textarea,
 } from "@mantine/core";
+import EmojiTextarea from "./EmojiTextarea";
 import { IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -244,15 +244,11 @@ export default function DaysOffCorrections({
               w={110}
             />
           </Group>
-          <Textarea
+          <EmojiTextarea
             label={t("daysOff.corrections.comment")}
             description={t("daysOff.corrections.commentHint")}
             value={draft.comment}
-            onChange={(e) => {
-              // Capture before the functional update — React nulls currentTarget afterwards.
-              const value = e.currentTarget.value;
-              setDraft((d) => ({ ...d, comment: value }));
-            }}
+            onChange={(value) => setDraft((d) => ({ ...d, comment: value }))}
             maxLength={MAX_COMMENT}
             autosize
             minRows={2}

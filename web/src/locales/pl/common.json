@@ -40,6 +40,9 @@
     "careerSpecialization": "Specjalizacja",
     "seniorityLevel": "Poziom zaszeregowania"
   },
+  "emoji": {
+    "insert": "Wstaw emoji"
+  },
   "table": {
     "position": "Lp.",
     "actions": "Akcje",

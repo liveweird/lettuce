@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { ActionIcon, Button, Group, Paper, Stack, Text, Textarea, Title } from "@mantine/core";
+import { ActionIcon, Button, Group, Paper, Stack, Text, Title } from "@mantine/core";
+import EmojiTextarea from "./EmojiTextarea";
 import type { UseFormReturnType } from "@mantine/form";
 import { IconArrowDown, IconArrowUp, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
@@ -42,7 +43,7 @@ export default function ParagraphListEditor({
             <Text size="sm" c="dimmed" w={24} ta="right" pt={8} style={{ flexShrink: 0 }}>
               {index + 1}.
             </Text>
-            <Textarea
+            <EmojiTextarea
               style={{ flex: 1 }}
               autosize
               minRows={1}

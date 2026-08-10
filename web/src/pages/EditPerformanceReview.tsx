@@ -14,9 +14,9 @@ import {
   Stack,
   Tabs,
   Text,
-  Textarea,
   Title,
 } from "@mantine/core";
+import EmojiTextarea from "../components/EmojiTextarea";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -238,7 +238,7 @@ export default function EditPerformanceReview() {
                           w={340}
                           {...form.getInputProps(`${category}.rating`)}
                         />
-                        <Textarea
+                        <EmojiTextarea
                           label={t("performanceReview.summary")}
                           autosize
                           minRows={2}

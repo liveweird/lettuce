@@ -16,9 +16,22 @@ import {
   ListsToggle,
   BlockTypeSelect,
   CreateLink,
+  usePublisher,
+  insertMarkdown$,
 } from "@mdxeditor/editor";
 import "@mdxeditor/editor/style.css";
+import { useTranslation } from "react-i18next";
+import EmojiButton from "./EmojiButton";
 import classes from "./MarkdownEditor.module.css";
+
+// Must render inside toolbarContents — usePublisher needs the editor's realm context.
+// A native emoji contains no markdown-significant characters, so insertMarkdown$ drops it
+// in as plain text at the caret.
+function EmojiToolbarItem() {
+  const insertMarkdown = usePublisher(insertMarkdown$);
+  const { t } = useTranslation();
+  return <EmojiButton label={t("common.emoji.insert")} onSelect={insertMarkdown} />;
+}
 
 type MarkdownEditorProps = {
   value: string;
@@ -85,6 +98,7 @@ export default function MarkdownEditor({
                 <ListsToggle />
                 <BlockTypeSelect />
                 <CreateLink />
+                <EmojiToolbarItem />
               </>
             ),
           }),
