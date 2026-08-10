@@ -33,7 +33,7 @@ function parsePositiveInt(value: string | null): number | null {
   return value != null && Number.isInteger(n) && n > 0 ? n : null;
 }
 
-// The `members` (team roster) and `team` (team-scoped subordinates view) origins are only
+// The `members` (team roster) and `team` (the team page's subordinates grid) origins are only
 // usable with a valid teamId — their back targets are that team's screens; without one they
 // degrade to the default `managers` origin.
 function resolveOrigin(
@@ -44,7 +44,7 @@ function resolveOrigin(
   const key: OriginKey =
     isOriginKey(fromParam) && (!parameterized || teamId != null) ? fromParam : "managers";
   if (key === "members") return { labelKey: ORIGIN.members.labelKey, to: `/teams/${teamId}/members` };
-  if (key === "team") return { labelKey: ORIGIN.team.labelKey, to: `/teams/${teamId}/subordinates` };
+  if (key === "team") return { labelKey: ORIGIN.team.labelKey, to: `/teams/${teamId}/members` };
   return ORIGIN[key];
 }
 

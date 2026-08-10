@@ -45,6 +45,20 @@ function isMembersUrl(url: string) {
 function isPoolUrl(url: string) {
   return url.startsWith("/api/v1/users?") && !url.includes("teamId=");
 }
+// The manager view's subordinates grid (TeamMembersTable pinned to the team, v2.5.5).
+function isGridUrl(url: string) {
+  return url.startsWith("/api/v1/teams/members?");
+}
+function gridPage() {
+  return jsonResponse(200, {
+    items: [
+      { userId: 1, name: "Carol", email: "carol@example.com", teamId: 3, teamName: "Platform" },
+    ],
+    page: 1,
+    pageSize: 100,
+    total: 1,
+  });
+}
 
 function renderTeamMembers(id: number | string = 3, search = "") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -140,6 +154,7 @@ describe("TeamMembers page", () => {
     localStorage.setItem("lettuce.auth.userId", "10");
     mockFetch.mockImplementation((url: string) => {
       if (url === "/api/v1/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
+      if (isGridUrl(url)) return Promise.resolve(gridPage());
       if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
       if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
       return Promise.resolve(jsonResponse(404, {}));
@@ -148,6 +163,65 @@ describe("TeamMembers page", () => {
 
     expect(await screen.findByText("Mona Manager")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "User details for Mona Manager" })).toBeNull();
+  });
+
+  test("the team's manager sees the subordinates card grid instead of the roster (v2.5.5)", async () => {
+    localStorage.setItem("lettuce.auth.userId", "10");
+    localStorage.setItem(ROLE_KEY, "[]"); // the manager, not an admin
+    mockFetch.mockImplementation((url: string) => {
+      if (url === "/api/v1/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
+      if (isGridUrl(url)) return Promise.resolve(gridPage());
+      if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    renderTeamMembers(3);
+
+    expect(await screen.findByRole("heading", { name: "Subordinates" })).toBeInTheDocument();
+    // The grid fetched the managed view pinned to this team.
+    await waitFor(() => {
+      expect(
+        mockFetch.mock.calls.some(
+          ([u]) =>
+            typeof u === "string" && isGridUrl(u) && u.includes("view=managed") && u.includes("teamId=3"),
+        ),
+      ).toBe(true);
+    });
+    // A non-admin manager gets no roster section at all: no Members header, no table.
+    expect(screen.queryByRole("heading", { name: "Members" })).toBeNull();
+    expect(screen.queryByRole("table")).toBeNull();
+  });
+
+  test("an admin who manages the team gets the grid AND the roster management, stacked", async () => {
+    localStorage.setItem("lettuce.auth.userId", "10"); // roles stay ADMIN from beforeEach
+    mockFetch.mockImplementation((url: string) => {
+      if (url === "/api/v1/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
+      if (isGridUrl(url)) return Promise.resolve(gridPage());
+      if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
+      if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    renderTeamMembers(3);
+
+    expect(await screen.findByRole("heading", { name: "Subordinates" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Members" })).toBeInTheDocument();
+    // The roster's admin management is intact below the grid.
+    expect(await screen.findByPlaceholderText("Pick a user")).toBeInTheDocument();
+    expect(screen.getByRole("table")).toBeInTheDocument();
+  });
+
+  test("?from=myTeams routes the back link to the My teams tab", async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (url === "/api/v1/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
+      if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
+      if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    renderTeamMembers(3, "?from=myTeams");
+
+    expect(await screen.findByRole("link", { name: "← Back to My teams" })).toHaveAttribute(
+      "href",
+      "/?tab=myTeams",
+    );
   });
 
   test("opened from the org chart, the back link returns to /org instead of the teams list", async () => {

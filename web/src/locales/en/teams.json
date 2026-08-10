@@ -26,7 +26,6 @@
   "membersOfAria": "Members of {{name}}",
   "detailsForAria": "Team details for {{name}}",
   "subordinates": "Subordinates",
-  "subordinatesOfAria": "Subordinates of {{name}}",
   "deleteAria": "Delete {{name}}",
   "removeAria": "Remove {{name}}",
   "deleteModalTitle": "Delete team?",

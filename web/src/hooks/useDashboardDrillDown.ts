@@ -4,7 +4,7 @@ import { userDetailsLink } from "../utils/userLinks";
 
 // Which screen a per-user drill-down (/users/:userId/…) was opened from — decides the
 // "Back to …" link and the invalid-id redirect. The managers/subordinates grids and the
-// team-scoped subordinates view link to these screens; defaults to managers for older links
+// adaptive team-details page link to these screens; defaults to managers for older links
 // lacking `from`. ManagerFeedbacks has a wider origin set (users list, team rosters + teamId)
 // and keeps its own resolver.
 export const DASHBOARD_ORIGINS = {
@@ -74,7 +74,7 @@ export function useDashboardDrillDown(basePath: string): {
           : "managers";
   const resolved =
     originKey === "team"
-      ? { labelKey: "feedback.origin.team", to: `/teams/${teamId}/subordinates` }
+      ? { labelKey: "feedback.origin.team", to: `/teams/${teamId}/members` }
       : originKey === "details"
         ? { labelKey: "feedback.origin.details", to: userDetailsLink(userId, name) }
         : DASHBOARD_ORIGINS[originKey];

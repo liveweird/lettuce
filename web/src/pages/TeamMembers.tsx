@@ -37,9 +37,11 @@ import TableLoadingRow from "../components/TableLoadingRow";
 import FeedbackActionsMenu from "../components/FeedbackActionsMenu";
 import PersonaChip from "../components/PersonaChip";
 import ReadOnlyField from "../components/ReadOnlyField";
+import TeamMembersTable from "./TeamMembersTable";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { feedbackAskLink, feedbackProvideLink, userFeedbacksLink } from "../utils/feedbackLinks";
 import { userDetailsLink } from "../utils/userLinks";
+import { teamDetailsLink } from "../utils/teamLinks";
 import { saveErrorMessage } from "../utils/saveError";
 
 type MemberRow = { id: number; name: string };
@@ -47,14 +49,17 @@ type MemberRow = { id: number; name: string };
 export default function TeamMembers() {
   const { t } = useTranslation();
   const params = useParams<{ id: string }>();
-  // The org chart opens rosters with ?from=org — back links return there, not to the teams
-  // list (the UserDetails origin idiom, reduced to the one extra origin this page can have).
+  // The org chart opens this page with ?from=org, My teams with ?from=myTeams — back links
+  // return there instead of the teams list (the UserDetails origin idiom).
   const [searchParams] = useSearchParams();
-  const fromOrg = searchParams.get("from") === "org";
-  const backTo = fromOrg ? "/org" : "/teams";
-  const backLabel = fromOrg
-    ? t("feedback.backToLabel", { label: t("feedback.origin.org") })
-    : t("teams.backToTeams");
+  const fromParam = searchParams.get("from");
+  const backTo = fromParam === "org" ? "/org" : fromParam === "myTeams" ? "/?tab=myTeams" : "/teams";
+  const backLabel =
+    fromParam === "org"
+      ? t("feedback.backToLabel", { label: t("feedback.origin.org") })
+      : fromParam === "myTeams"
+        ? t("feedback.backToLabel", { label: t("dashboard.tabs.myTeams") })
+        : t("teams.backToTeams");
   const id = Number(params.id);
   const idIsValid = Number.isFinite(id) && id > 0;
   const queryClient = useQueryClient();
@@ -146,6 +151,18 @@ export default function TeamMembers() {
 
   const teamNotFound = teamIsError && teamError instanceof ApiError && teamError.status === 404;
 
+  // The adaptive body (v2.5.5): the team's current manager gets the subordinates card grid;
+  // the roster renders for everyone else — and ALSO for an admin-manager (stacked), since
+  // the roster is the app's only membership add/remove UI.
+  const isManager = team != null && team.managerId === currentUserId;
+  const showRoster = !isManager || canManage;
+  // The grid's drill-down return target: this page with its own origin preserved, so the
+  // Back-to round-trip (My teams / org chart) survives the detour.
+  const backHere =
+    fromParam === "org" || fromParam === "myTeams"
+      ? `${teamDetailsLink(id)}?from=${fromParam}`
+      : teamDetailsLink(id);
+
   if (teamLoading) {
     return (
       <Stack gap="md">
@@ -214,6 +231,28 @@ export default function TeamMembers() {
         </Group>
       )}
 
+      {/* The team's manager sees their subordinates as the dashboard card grid (v2.5.5 —
+          the former /teams/:id/subordinates view, merged here). An admin-manager gets the
+          grid AND the roster-management section below (the roster is the only add/remove
+          UI); everyone else gets the roster alone. */}
+      {isManager && (
+        <>
+          <Title order={3}>{t("teams.subordinates")}</Title>
+          <Text size="sm" c="dimmed">
+            {t("dashboard.teamSubordinatesHint")}
+          </Text>
+          <TeamMembersTable
+            view="managed"
+            teamId={id}
+            settingsKey="teamSubordinates"
+            backTo={backHere}
+            emptyMessage={t("dashboard.empty.teamMembers")}
+          />
+        </>
+      )}
+
+      {showRoster && (
+        <>
       <Title order={3}>{t("teams.members")}</Title>
 
       {canManage && (
@@ -323,6 +362,8 @@ export default function TeamMembers() {
       <Text size="sm" c="dimmed">
         {t("common.table.total", { count: members.length })}
       </Text>
+        </>
+      )}
 
       <ConfirmDeleteModal
         confirm={removeConfirm}

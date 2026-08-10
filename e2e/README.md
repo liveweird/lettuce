@@ -115,8 +115,9 @@ commit** — this list is the suite's coverage map, and it has drifted three tim
   DRAFT-only delete); creating with **Yes** activates on the spot, **notifies** the
   subordinate, and shows read-only in their **My goals**.
 - `dashboard-my-teams.spec.ts` — the Dashboard **My teams** tab: a manager's teams (and only
-  theirs), the per-team subordinates view with the same cards/stats/actions as My subordinates,
-  a drill-down round-trip back to it, and a non-manager's empty state.
+  theirs), the name link into the adaptive team-details page where a manager lands on the
+  per-team subordinates grid (same cards/stats/actions as My subordinates, v2.5.5), a
+  drill-down round-trip back to it, and a non-manager's empty state.
 - `team-kpis.spec.ts` — a manager walks a team KPI around the whole lifecycle from the My-teams
   **Team KPIs** drill-down (a DRAFT row's action is **Edit** straight into the editor, every
   other row **View**; Save & activate, then the **KPI data** tab's inline editing — add a

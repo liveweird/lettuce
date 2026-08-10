@@ -60,6 +60,7 @@ import {
   Routes,
   useLocation,
   useNavigate,
+  useParams,
 } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -128,7 +129,13 @@ const CreateTeam = lazy(() => import("./pages/CreateTeam"));
 const EditTeam = lazy(() => import("./pages/EditTeam"));
 const Teams = lazy(() => import("./pages/Teams"));
 const TeamMembers = lazy(() => import("./pages/TeamMembers"));
-const TeamSubordinates = lazy(() => import("./pages/TeamSubordinates"));
+
+// The standalone subordinates view merged into the adaptive team-details page (v2.5.5) —
+// this keeps stale /teams/:id/subordinates links working (there is no catch-all route).
+function TeamSubordinatesRedirect() {
+  const { teamId } = useParams<{ teamId: string }>();
+  return <Navigate to={`/teams/${teamId}/members`} replace />;
+}
 // Lazy like MarkdownEditor: @xyflow/react + dagre stay out of the main bundle.
 const OrgChart = lazy(() => import("./pages/OrgChart"));
 const Users = lazy(() => import("./pages/Users"));
@@ -575,7 +582,7 @@ export default function App() {
             <Route path="teams/new" element={<CreateTeam />} />
             <Route path="teams/:id/edit" element={<EditTeam />} />
             <Route path="teams/:id/members" element={<TeamMembers />} />
-            <Route path="teams/:teamId/subordinates" element={<TeamSubordinates />} />
+            <Route path="teams/:teamId/subordinates" element={<TeamSubordinatesRedirect />} />
             <Route path="org" element={<OrgChart />} />
             <Route path="feedback" element={<Feedback />} />
             <Route path="kudos" element={<Kudos />} />

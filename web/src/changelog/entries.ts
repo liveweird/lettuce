@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.5.5",
+    date: "2026-08-11",
+    en: `One team page for everyone. The separate per-team subordinates screen is gone — clicking a team name always opens the team details page, which now adapts to who you are: the team's manager sees their people as the familiar stat cards with quick actions, administrators see the roster with member management, and an admin who also manages the team gets both. The extra "Subordinates" button on My teams is gone too — the team name is the way in.`,
+    pl: `Jedna strona zespołu dla wszystkich. Osobny ekran podwładnych zespołu zniknął — kliknięcie nazwy zespołu zawsze otwiera stronę szczegółów zespołu, która dostosowuje się teraz do tego, kim jesteś: menedżer zespołu widzi swoich ludzi jako znane karty ze statystykami i szybkimi akcjami, administratorzy widzą skład z zarządzaniem członkami, a administrator, który jednocześnie zarządza zespołem, dostaje jedno i drugie. Dodatkowy przycisk „Podwładni" w Moich zespołach również zniknął — wejściem jest nazwa zespołu.`,
+  },
+  {
     version: "2.5.4",
     date: "2026-08-10",
     en: `Team names are now links. Wherever a team appears — the Teams list, a user's Teams screen, the team badges on people cards and on the Feature flags screen, and the My teams tab — clicking its name opens the team details view. The separate "Members" buttons are gone. On My teams, a "Subordinates" button still opens the per-team card view with collaboration stats. Together with the previous release: people and teams are opened by clicking their names, everywhere.`,
