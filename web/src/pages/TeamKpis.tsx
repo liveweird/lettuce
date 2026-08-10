@@ -9,7 +9,7 @@ import TeamKpiTable from "./TeamKpiTable";
 
 const BACK_TO = "/?tab=myTeams";
 
-// The per-team KPI drill-down reached from Dashboard → My teams (the TeamSubordinates shape):
+// The per-team KPI drill-down reached from Dashboard → My teams (the team-pinned drill-down shape):
 // the managed KPI table pinned to one team, with the prefilled "New team KPI" entry point for
 // the team's manager. A team the caller does not manage renders an empty table (the server
 // scopes the managed view to the caller's own teams).
