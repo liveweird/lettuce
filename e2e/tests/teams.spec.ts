@@ -35,7 +35,8 @@ test("admin creates a team, manages members, reassigns the manager, and deletes 
 
   // Members: add B, then remove B (confirmation modal).
   await page.goto(`/teams/${teamId}/members`);
-  await expect(page.getByRole("heading", { name: `Members — ${teamName}` })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Team details" })).toBeVisible();
+  await expect(page.getByText(teamName, { exact: true })).toBeVisible();
   await pickSelectOption(page, "Add a user", userB.name);
   await Promise.all([
     // The member add is a PUT /teams/{id}/members/{userId} (see web/src/api/client.ts).

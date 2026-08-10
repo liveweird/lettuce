@@ -14,6 +14,7 @@ import io.ktor.client.request.put
 import io.ktor.client.request.request
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import io.ktor.http.ContentType
@@ -25,6 +26,7 @@ import io.ktor.server.testing.testApplication
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -56,7 +58,47 @@ class TeamRoutesTest {
         val readResponse = client.get("/api/v1/teams/${created.id}")
         assertEquals(HttpStatusCode.OK, readResponse.status)
         val read = readResponse.body<TeamResponse>()
-        assertEquals(created, read)
+        // The single-team GET additionally enriches the manager fields (create omits them).
+        assertEquals(created, read.copy(managerName = null, managerDeleted = null))
+        assertEquals("Test", read.managerName)
+        assertEquals(false, read.managerDeleted)
+    }
+
+    @Test
+    fun `single-team GET enriches manager fields, create and update omit the keys`() = testApplication {
+        usePostgresTestcontainer()
+        val managerEmail = uniqueEmail("mgr")
+        val managerId = TestUsers.seed(email = managerEmail, password = "pw", name = "Enrich Manager")
+        val adminEmail = uniqueEmail("adm")
+        TestUsers.seed(email = adminEmail, password = "pw")
+
+        val client = authedClient(managerEmail, "pw")
+        val createResponse = client.post("/api/v1/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "Enriched", managerId = managerId))
+        }
+        assertEquals(HttpStatusCode.Created, createResponse.status)
+        val createText = createResponse.bodyAsText()
+        assertFalse(createText.contains("managerName"), "create must omit the enrichment: $createText")
+        val teamId = Json.decodeFromString<TeamResponse>(createText).id
+
+        val read = client.get("/api/v1/teams/$teamId").body<TeamResponse>()
+        assertEquals("Enrich Manager", read.managerName)
+        assertEquals(false, read.managerDeleted)
+
+        // PUT answers a bodiless 204, so create is the only sibling emitting TeamResponse.
+        val putResponse = client.put("/api/v1/teams/$teamId") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "Enriched Still", managerId = managerId))
+        }
+        assertEquals(HttpStatusCode.NoContent, putResponse.status)
+
+        // A soft-deleted manager still resolves — with the flag set (the teams-list rule).
+        val admin = authedClient(adminEmail, "pw")
+        assertEquals(HttpStatusCode.NoContent, admin.delete("/api/v1/users/$managerId").status)
+        val readDeleted = admin.get("/api/v1/teams/$teamId").body<TeamResponse>()
+        assertEquals("Enrich Manager", readDeleted.managerName)
+        assertEquals(true, readDeleted.managerDeleted)
     }
 
     @Test

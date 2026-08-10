@@ -232,9 +232,9 @@ fun Application.configureTeamRoutes() {
             }
             get<Teams.Id> { route ->
                 call.caller()
-                val team = teamService.read(route.id)
-                if (team != null) {
-                    call.respond(HttpStatusCode.OK, team.toResponse(route.id))
+                val detail = teamService.readDetail(route.id)
+                if (detail != null) {
+                    call.respond(HttpStatusCode.OK, detail.toResponse(route.id))
                 } else {
                     call.respondProblem(HttpStatusCode.NotFound, "Team not found")
                 }

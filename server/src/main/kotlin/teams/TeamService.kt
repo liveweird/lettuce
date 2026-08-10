@@ -157,6 +157,32 @@ class TeamService(val database: R2dbcDatabase) {
         )
     }
 
+    /**
+     * The single-team GET's read: [read] plus the manager's display fields via the list's
+     * Users join — deliberately no active() on Users, so a soft-deleted manager still
+     * resolves (with the flag set) exactly like the teams-list rows.
+     */
+    suspend fun readDetail(id: UInt): TeamDetail? = suspendTransaction(database) {
+        val row = (Teams innerJoin UserService.Users)
+            .select(Teams.name, Teams.managerId, UserService.Users.name, UserService.Users.markedAsDeleted)
+            .where { (Teams.id eq id) and active() }
+            .singleOrNull()
+            ?: return@suspendTransaction null
+        val memberIds = TeamMembers.selectAll()
+            .where { TeamMembers.teamId eq id }
+            .map { it[TeamMembers.userId].value }
+            .toList()
+        TeamDetail(
+            team = Team(
+                name = row[Teams.name],
+                managerId = row[Teams.managerId].value,
+                memberIds = memberIds,
+            ),
+            managerName = row[UserService.Users.name],
+            managerDeleted = row[UserService.Users.markedAsDeleted],
+        )
+    }
+
     suspend fun update(id: UInt, team: Team): Int = suspendTransaction(database) {
         validateMembership(team)
         val updated = Teams.update({ (Teams.id eq id) and (Teams.markedAsDeleted eq false) }) {

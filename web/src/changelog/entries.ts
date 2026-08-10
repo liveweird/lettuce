@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.5.3",
+    date: "2026-08-10",
+    en: `Team details view. A team's Members screen is now a full team-details view: the team name and its manager sit at the top as read-only fields, with the member roster below under its own header. The manager's name is clickable — like everywhere else since the last release, it opens their user details.`,
+    pl: `Widok szczegółów zespołu. Ekran Członkowie zespołu jest teraz pełnym widokiem szczegółów zespołu: nazwa zespołu i jego menedżer znajdują się na górze jako pola tylko do odczytu, a skład zespołu poniżej pod własnym nagłówkiem. Imię i nazwisko menedżera jest klikalne — tak jak wszędzie od poprzedniego wydania, otwiera jego/jej szczegóły użytkownika.`,
+  },
+  {
     version: "2.5.2",
     date: "2026-08-10",
     en: `Names are now links. On the Users and Teams lists, a team's roster, and a user's Teams screen, clicking a person's name opens their details view directly — the separate "User details" buttons are gone, which also declutters the tables. Your own name and deleted users stay plain, as before.`,

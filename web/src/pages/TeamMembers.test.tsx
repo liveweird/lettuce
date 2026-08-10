@@ -19,8 +19,16 @@ function usersPage(items: UserItem[]) {
   return jsonResponse(200, { items, page: 1, pageSize: 100, total: items.length });
 }
 
-// Team 3 is managed by user 10; its members are users 1 and 2.
-const TEAM = { id: 3, name: "Platform", managerId: 10, memberIds: [1, 2] };
+// Team 3 is managed by user 10; its members are users 1 and 2. The single-team GET carries
+// the manager enrichment (managerName/managerDeleted) the details fields render.
+const TEAM = {
+  id: 3,
+  name: "Platform",
+  managerId: 10,
+  memberIds: [1, 2],
+  managerName: "Mona Manager",
+  managerDeleted: false,
+};
 const MEMBERS: UserItem[] = [
   { id: 1, name: "Carol", email: "carol@example.com", roles: [] },
   { id: 2, name: "Dave", email: "dave@example.com", roles: [] },
@@ -98,12 +106,48 @@ describe("TeamMembers page", () => {
     });
     renderTeamMembers(3);
 
-    expect(await screen.findByRole("heading", { name: "Members — Platform" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Team details" })).toBeInTheDocument();
+    // The identity fields: team name, and the manager as a details link (v2.5.3).
+    expect(await screen.findByText("Platform")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "User details for Mona Manager" })).toHaveAttribute(
+      "href",
+      "/users/10/details?name=Mona+Manager&from=members&teamId=3",
+    );
+    expect(screen.getByRole("heading", { name: "Members" })).toBeInTheDocument();
     expect(await screen.findByText("Carol")).toBeInTheDocument();
     expect(screen.getByText("dave@example.com")).toBeInTheDocument();
 
     const membersCall = mockFetch.mock.calls.find(([u]) => typeof u === "string" && isMembersUrl(u));
     expect(membersCall).toBeDefined();
+  });
+
+  test("a deleted manager renders as dimmed plain text with no details link", async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (url === "/api/v1/teams/3") {
+        return Promise.resolve(jsonResponse(200, { ...TEAM, managerDeleted: true }));
+      }
+      if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
+      if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    renderTeamMembers(3);
+
+    expect(await screen.findByText(/^Mona Manager \(deleted\)$/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "User details for Mona Manager" })).toBeNull();
+  });
+
+  test("a manager who is the current user stays a plain chip — no details link", async () => {
+    localStorage.setItem("lettuce.auth.userId", "10");
+    mockFetch.mockImplementation((url: string) => {
+      if (url === "/api/v1/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
+      if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
+      if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    renderTeamMembers(3);
+
+    expect(await screen.findByText("Mona Manager")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "User details for Mona Manager" })).toBeNull();
   });
 
   test("opened from the org chart, the back link returns to /org instead of the teams list", async () => {
@@ -134,7 +178,7 @@ describe("TeamMembers page", () => {
     renderTeamMembers(3);
 
     // Not redirected away: the roster renders.
-    expect(await screen.findByRole("heading", { name: "Members — Platform" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Team details" })).toBeInTheDocument();
     expect(await screen.findByText("Carol")).toBeInTheDocument();
     expect(screen.getByText("dave@example.com")).toBeInTheDocument();
 
@@ -146,14 +190,19 @@ describe("TeamMembers page", () => {
     expect(screen.getByRole("button", { name: "Feedback actions for Carol" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Feedback actions for Dave" })).toBeInTheDocument();
 
-    // And so is the User details link, carrying the members origin + teamId back here.
+    // And so are the User details links, carrying the members origin + teamId back here —
+    // the manager field's link first (it sits above the table), then the member rows.
     const detailLinks = screen.getAllByRole("link", { name: /^user details for /i });
-    expect(detailLinks).toHaveLength(2);
+    expect(detailLinks).toHaveLength(3);
     expect(detailLinks[0]).toHaveAttribute(
+      "href",
+      "/users/10/details?name=Mona+Manager&from=members&teamId=3",
+    );
+    expect(detailLinks[1]).toHaveAttribute(
       "href",
       "/users/1/details?name=Carol&from=members&teamId=3",
     );
-    expect(detailLinks[1]).toHaveAttribute(
+    expect(detailLinks[2]).toHaveAttribute(
       "href",
       "/users/2/details?name=Dave&from=members&teamId=3",
     );

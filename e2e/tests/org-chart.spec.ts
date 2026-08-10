@@ -33,7 +33,8 @@ test("the org chart renders the seed org and drills into details and rosters", a
 
   // A team node opens that team's roster — whose back link returns to the chart, not /teams.
   await page.getByRole("button", { name: "Members of AAA" }).click();
-  await expect(page.getByRole("heading", { name: "Members — AAA" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Team details" })).toBeVisible();
+  await expect(page.getByText("AAA", { exact: true })).toBeVisible();
   await page.getByRole("link", { name: /Back to Org chart/ }).click();
   await expect(page).toHaveURL(/\/org$/);
 });

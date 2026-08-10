@@ -3365,6 +3365,10 @@ export interface components {
             /** Format: int64 */
             managerId: number;
             memberIds: number[];
+            /** @description Display name of the user referenced by `managerId` (resolved even when that user is soft-deleted). Populated by the single-team GET only; the create/update responses omit the key. */
+            managerName?: string;
+            /** @description True when the user referenced by `managerId` has been soft-deleted. Populated by the single-team GET only; the create/update responses omit the key. */
+            managerDeleted?: boolean;
         };
         TeamListItem: {
             /** Format: int64 */
