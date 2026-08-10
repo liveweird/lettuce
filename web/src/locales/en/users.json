@@ -3,7 +3,6 @@
   "createUser": "New user",
   "editUser": "Edit user",
   "changePassword": "Change password",
-  "details": "User details",
   "detailsFor": "User details for {{name}}",
   "detailsTitle": "User details",
   "relationship": {

@@ -156,9 +156,10 @@ commit** — this list is the suite's coverage map, and it has drifted three tim
   admin-only Config leaves are correctly absent.
 - `alerts.spec.ts` — admin creates an alert; a regular user sees the **banner**, hides it to the
   strip and re-shows it (and has no alert management); deactivation and delete remove it.
-- `user-details.spec.ts` — the read-only user-details view: the "User details" buttons on the
-  users list and a team roster open the person's dashboard card in every relationship flavor
-  (their-manager / my-direct-report / unrelated fallback), with origin-aware back links.
+- `user-details.spec.ts` — the read-only user-details view: the name links (v2.5.2 — the
+  person's name, carrying the "User details for …" aria) on the users list and a team roster
+  open the person's dashboard card in every relationship flavor (their-manager /
+  my-direct-report / unrelated fallback), with origin-aware back links.
 - `hr.spec.ts` — the HR auditor role: an admin grants HR to a throwaway user; the auditor
   browses another pair's **private draft** read-only via the user-details **Audit** section
   (feedbacks / 1:1s / goals drill-downs), with zero write affordances and no admin surface —

@@ -331,6 +331,35 @@ describe("UserTeams page", () => {
     renderUserTeams(7);
     // A deleted manager renders as dimmed plain text (no PersonaChip), suffixed "(deleted)".
     expect(await screen.findByText(/^Mona Manager \(deleted\)$/)).toBeInTheDocument();
+    // …and never a details link.
+    expect(screen.queryByRole("link", { name: /^user details for /i })).toBeNull();
+  });
+
+  test("the manager's name links to their user details with the users origin", async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (url === "/api/v1/users/7") return Promise.resolve(jsonResponse(200, TARGET_USER));
+      if (isMembersUrl(url)) return Promise.resolve(teamsPage(MEMBER_TEAMS));
+      if (isAllTeamsUrl(url)) return Promise.resolve(teamsPage(ALL_TEAMS));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    renderUserTeams(7);
+
+    const link = await screen.findByRole("link", { name: "User details for Mona Manager" });
+    expect(link).toHaveAttribute("href", "/users/10/details?name=Mona+Manager&from=users");
+  });
+
+  test("a manager who is the current user stays a plain chip — no details link", async () => {
+    localStorage.setItem("lettuce.auth.userId", "10");
+    mockFetch.mockImplementation((url: string) => {
+      if (url === "/api/v1/users/7") return Promise.resolve(jsonResponse(200, TARGET_USER));
+      if (isMembersUrl(url)) return Promise.resolve(teamsPage(MEMBER_TEAMS));
+      if (isAllTeamsUrl(url)) return Promise.resolve(teamsPage(ALL_TEAMS));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    renderUserTeams(7);
+
+    expect(await screen.findByText("Mona Manager")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^user details for /i })).toBeNull();
   });
 
   test("a remove failure shows an alert inside the modal and keeps it open", async () => {

@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.5.2",
+    date: "2026-08-10",
+    en: `Names are now links. On the Users and Teams lists, a team's roster, and a user's Teams screen, clicking a person's name opens their details view directly — the separate "User details" buttons are gone, which also declutters the tables. Your own name and deleted users stay plain, as before.`,
+    pl: `Imiona i nazwiska są teraz linkami. Na listach Użytkowników i Zespołów, w składzie zespołu oraz na ekranie Zespoły użytkownika kliknięcie czyjegoś imienia i nazwiska otwiera bezpośrednio widok szczegółów tej osoby — osobne przyciski „Szczegóły użytkownika" zniknęły, co dodatkowo porządkuje tabele. Twoje własne imię i nazwisko oraz usunięci użytkownicy pozostają zwykłym tekstem, jak dotychczas.`,
+  },
+  {
     version: "2.5.1",
     date: "2026-08-10",
     en: `Kudos cards polished. Each kudos now sits in the same bordered content frame the rest of the app uses, and the preview shows properly rendered formatting instead of raw markdown source. Short kudos display in full with nothing to click; only longer ones are trimmed to five lines with an explicit "Show more" / "Show less" control below.`,
