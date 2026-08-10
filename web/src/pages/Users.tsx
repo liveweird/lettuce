@@ -17,7 +17,6 @@ import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   IconChevronDown,
-  IconId,
   IconKey,
   IconPencil,
   IconPlus,
@@ -168,7 +167,7 @@ export default function Users() {
   }
 
   const total = data?.total ?? 0;
-  const columnCount = 7;
+  const columnCount = 6;
 
   return (
     <Stack gap="md">
@@ -243,7 +242,6 @@ export default function Users() {
             </Table.Th>
             {/* A roles set has no order — plain header, deliberately not a SortHeader. */}
             <Table.Th>{t("common.field.roles")}</Table.Th>
-            <Table.Th aria-label={t("users.details")} style={{ width: 1 }} />
             <Table.Th aria-label={t("users.teams")} style={{ width: 1 }} />
             <Table.Th aria-label={t("users.feedbackActions")} style={{ width: 1 }} />
             <Table.Th aria-label={t("users.modifyActions")} style={{ width: 1 }} />
@@ -257,7 +255,14 @@ export default function Users() {
               <Table.Tr key={u.id}>
                 <Table.Td style={{ maxWidth: 240 }}>
                   <Group gap={6} wrap="nowrap">
-                    <PersonaChip name={u.name} />
+                    {/* The name links to the relationship-aware read-only card view — everyone,
+                        except one's own row (the card flavors describe the viewer's relationship
+                        to someone else). */}
+                    <PersonaChip
+                      name={u.name}
+                      to={u.id !== currentUserId ? userDetailsLink(u.id, u.name, "users") : undefined}
+                      ariaLabel={t("users.detailsFor", { name: u.name })}
+                    />
                     {/* The ONLY place the account state surfaces — everywhere else a
                         deactivated user renders exactly like an active one. Gray on purpose:
                         neither the brand accent nor a semantic state color. */}
@@ -292,22 +297,6 @@ export default function Users() {
                     <Text size="sm" c="dimmed" aria-label={t("common.field.roles")}>
                       —
                     </Text>
-                  )}
-                </Table.Td>
-                {/* The relationship-aware read-only card view — everyone, except one's own row
-                    (the card flavors describe the viewer's relationship to someone else). */}
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
-                  {u.id !== currentUserId && (
-                    <Button
-                      component={RouterLink}
-                      to={userDetailsLink(u.id, u.name, "users")}
-                      variant="subtle"
-                      size="xs"
-                      leftSection={<IconId size={14} />}
-                      aria-label={t("users.detailsFor", { name: u.name })}
-                    >
-                      {t("users.details")}
-                    </Button>
                   )}
                 </Table.Td>
                 {/* Everyone gets Teams — read-only for non-admins. The name param feeds the

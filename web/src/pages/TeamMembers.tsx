@@ -16,7 +16,6 @@ import {
 } from "@mantine/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  IconId,
   IconPlus,
   IconTrash,
   IconUsers,
@@ -240,7 +239,14 @@ export default function TeamMembers() {
             members.map((m) => (
               <Table.Tr key={m.id}>
                 <Table.Td style={{ maxWidth: 240 }}>
-                  <PersonaChip name={m.name} />
+                  {/* The name links to the relationship-aware read-only card view — everyone,
+                      except one's own row (the card flavors describe the viewer's relationship
+                      to someone else); the members origin threads the teamId back here. */}
+                  <PersonaChip
+                    name={m.name}
+                    to={m.id !== currentUserId ? userDetailsLink(m.id, m.name, "members", id) : undefined}
+                    ariaLabel={t("users.detailsFor", { name: m.name })}
+                  />
                 </Table.Td>
                 <Table.Td style={{ maxWidth: 280 }}>
                   <Text size="sm" truncate>
@@ -249,21 +255,6 @@ export default function TeamMembers() {
                 </Table.Td>
                 <Table.Td>
                   <Group gap="xs" wrap="nowrap" justify="flex-end">
-                    {/* The relationship-aware read-only card view — everyone, except one's own
-                        row (the card flavors describe the viewer's relationship to someone
-                        else); the members origin threads the teamId back here. */}
-                    {m.id !== currentUserId && (
-                      <Button
-                        component={RouterLink}
-                        to={userDetailsLink(m.id, m.name, "members", id)}
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconId size={14} />}
-                        aria-label={t("users.detailsFor", { name: m.name })}
-                      >
-                        {t("users.details")}
-                      </Button>
-                    )}
                     {m.id !== currentUserId && hasFeature("FEEDBACKS") && (
                       <FeedbackActionsMenu
                         provideTo={feedbackProvideLink(m.id, m.name)}

@@ -20,10 +20,12 @@ import {
   addTeamMember,
   ApiError,
   getUser,
+  getUserId,
   isAdmin,
   listAllTeams,
   removeTeamMember,
 } from "../api/client";
+import { userDetailsLink } from "../utils/userLinks";
 import { showSuccessToast } from "../utils/toast";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import EmptyState from "../components/EmptyState";
@@ -222,7 +224,18 @@ export default function UserTeams() {
                       {team.managerName} {t("users.deletedTag")}
                     </Text>
                   ) : (
-                    <PersonaChip name={team.managerName} />
+                    // The manager's name links to their details (the /users and /teams rule:
+                    // one's own persona stays a plain chip). `from=users` on purpose — this
+                    // page's own declared parent is the Users list.
+                    <PersonaChip
+                      name={team.managerName}
+                      to={
+                        team.managerId !== getUserId()
+                          ? userDetailsLink(team.managerId, team.managerName, "users")
+                          : undefined
+                      }
+                      ariaLabel={t("users.detailsFor", { name: team.managerName })}
+                    />
                   )}
                 </Table.Td>
                 {canManage && (

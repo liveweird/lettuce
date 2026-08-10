@@ -13,7 +13,6 @@ import {
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  IconId,
   IconPencil,
   IconPlus,
   IconTrash,
@@ -155,24 +154,18 @@ export default function Teams() {
                       {t("teams.deletedSuffix")}
                     </Text>
                   ) : (
-                    // The manager's details button lives inside this cell — next to the chip
-                    // and carrying the manager's name in its aria — so whose details it opens
-                    // is unambiguous. Hidden on one's own persona (the /users own-row rule).
-                    <Group gap="xs" wrap="nowrap">
-                      <PersonaChip name={team.managerName} />
-                      {team.managerId !== currentUserId && (
-                        <Button
-                          component={RouterLink}
-                          to={userDetailsLink(team.managerId, team.managerName, "teams")}
-                          variant="subtle"
-                          size="xs"
-                          leftSection={<IconId size={14} />}
-                          aria-label={t("users.detailsFor", { name: team.managerName })}
-                        >
-                          {t("users.details")}
-                        </Button>
-                      )}
-                    </Group>
+                    // The manager's name links to their details — the aria carries the name,
+                    // so whose details it opens is unambiguous. One's own persona stays a
+                    // plain chip (the /users own-row rule).
+                    <PersonaChip
+                      name={team.managerName}
+                      to={
+                        team.managerId !== currentUserId
+                          ? userDetailsLink(team.managerId, team.managerName, "teams")
+                          : undefined
+                      }
+                      ariaLabel={t("users.detailsFor", { name: team.managerName })}
+                    />
                   )}
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
