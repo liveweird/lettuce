@@ -54,11 +54,11 @@ describe("MyTeamsTable", () => {
     // subordinates grid, v2.5.5); ?from=myTeams routes the back link to this tab.
     expect(screen.getByRole("link", { name: "Team details for Platform" })).toHaveAttribute(
       "href",
-      "/teams/3/members?from=myTeams",
+      "/teams/3/details?from=myTeams",
     );
     expect(screen.getByRole("link", { name: "Team details for Support" })).toHaveAttribute(
       "href",
-      "/teams/5/members?from=myTeams",
+      "/teams/5/details?from=myTeams",
     );
     // No dedicated Subordinates button remains (v2.5.5).
     expect(screen.queryByRole("link", { name: /subordinates of /i })).toBeNull();

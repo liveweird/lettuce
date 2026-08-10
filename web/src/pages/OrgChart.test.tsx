@@ -74,7 +74,7 @@ function renderOrg() {
     <Routes>
       <Route path="/org" element={<OrgChart />} />
       <Route path="/users/:userId/details" element={<PathProbe />} />
-      <Route path="/teams/:id/members" element={<PathProbe />} />
+      <Route path="/teams/:id/details" element={<PathProbe />} />
     </Routes>,
     { route: "/org" },
   );
@@ -134,7 +134,7 @@ describe("OrgChart page", () => {
 
     await user.click(await screen.findByRole("button", { name: "Members of CCC" }));
     // The org origin rides along so the roster's back link returns to the chart.
-    expect(screen.getByTestId("probe")).toHaveTextContent("/teams/3/members?from=org");
+    expect(screen.getByTestId("probe")).toHaveTextContent("/teams/3/details?from=org");
   });
 
   test("with no teams the people still render in the unattached section", async () => {

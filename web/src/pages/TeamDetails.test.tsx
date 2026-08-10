@@ -4,7 +4,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import TeamMembers from "./TeamMembers";
+import TeamDetails from "./TeamDetails";
 import { jsonResponse } from "../test/http";
 
 const TOKEN_KEY = "lettuce.auth.token";
@@ -60,14 +60,14 @@ function gridPage() {
   });
 }
 
-function renderTeamMembers(id: number | string = 3, search = "") {
+function renderTeamDetails(id: number | string = 3, search = "") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <MantineProvider env="test">
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={[`/teams/${id}/members${search}`]}>
+        <MemoryRouter initialEntries={[`/teams/${id}/details${search}`]}>
           <Routes>
-            <Route path="/teams/:id/members" element={<TeamMembers />} />
+            <Route path="/teams/:id/details" element={<TeamDetails />} />
           </Routes>
         </MemoryRouter>
       </QueryClientProvider>
@@ -96,7 +96,7 @@ async function addErin(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole("button", { name: /^add$/i }));
 }
 
-describe("TeamMembers page", () => {
+describe("TeamDetails page", () => {
   let mockFetch: FetchMock;
 
   beforeEach(() => {
@@ -118,7 +118,7 @@ describe("TeamMembers page", () => {
       if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
       return Promise.resolve(jsonResponse(404, {}));
     });
-    renderTeamMembers(3);
+    renderTeamDetails(3);
 
     expect(await screen.findByRole("heading", { name: "Team details" })).toBeInTheDocument();
     // The identity fields: team name, and the manager as a details link (v2.5.3).
@@ -144,7 +144,7 @@ describe("TeamMembers page", () => {
       if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
       return Promise.resolve(jsonResponse(404, {}));
     });
-    renderTeamMembers(3);
+    renderTeamDetails(3);
 
     expect(await screen.findByText(/^Mona Manager \(deleted\)$/)).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "User details for Mona Manager" })).toBeNull();
@@ -159,7 +159,7 @@ describe("TeamMembers page", () => {
       if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
       return Promise.resolve(jsonResponse(404, {}));
     });
-    renderTeamMembers(3);
+    renderTeamDetails(3);
 
     expect(await screen.findByText("Mona Manager")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "User details for Mona Manager" })).toBeNull();
@@ -174,7 +174,7 @@ describe("TeamMembers page", () => {
       if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
       return Promise.resolve(jsonResponse(404, {}));
     });
-    renderTeamMembers(3);
+    renderTeamDetails(3);
 
     expect(await screen.findByRole("heading", { name: "Subordinates" })).toBeInTheDocument();
     // The grid fetched the managed view pinned to this team.
@@ -200,7 +200,7 @@ describe("TeamMembers page", () => {
       if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
       return Promise.resolve(jsonResponse(404, {}));
     });
-    renderTeamMembers(3);
+    renderTeamDetails(3);
 
     expect(await screen.findByRole("heading", { name: "Subordinates" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Members" })).toBeInTheDocument();
@@ -216,7 +216,7 @@ describe("TeamMembers page", () => {
       if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
       return Promise.resolve(jsonResponse(404, {}));
     });
-    renderTeamMembers(3, "?from=myTeams");
+    renderTeamDetails(3, "?from=myTeams");
 
     expect(await screen.findByRole("link", { name: "← Back to My teams" })).toHaveAttribute(
       "href",
@@ -231,7 +231,7 @@ describe("TeamMembers page", () => {
       if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
       return Promise.resolve(jsonResponse(404, {}));
     });
-    renderTeamMembers(3, "?from=org");
+    renderTeamDetails(3, "?from=org");
 
     expect(await screen.findByRole("link", { name: "← Back to Org chart" })).toHaveAttribute(
       "href",
@@ -249,7 +249,7 @@ describe("TeamMembers page", () => {
       if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
       return Promise.resolve(jsonResponse(404, {}));
     });
-    renderTeamMembers(3);
+    renderTeamDetails(3);
 
     // Not redirected away: the roster renders.
     expect(await screen.findByRole("heading", { name: "Team details" })).toBeInTheDocument();
@@ -293,7 +293,7 @@ describe("TeamMembers page", () => {
       return Promise.resolve(jsonResponse(404, {}));
     });
     const user = userEvent.setup();
-    renderTeamMembers(3);
+    renderTeamDetails(3);
 
     await user.click(await screen.findByRole("button", { name: "Feedback actions for Carol" }));
     expect(
@@ -301,7 +301,7 @@ describe("TeamMembers page", () => {
     ).toHaveAttribute("href", "/feedback/new?subjectId=1&subjectName=Carol");
     expect(screen.getByRole("menuitem", { name: "Ask Carol for feedback" })).toHaveAttribute(
       "href",
-      `/feedback/ask?providerId=1&providerName=Carol&back=${encodeURIComponent("/teams/3/members")}`,
+      `/feedback/ask?providerId=1&providerName=Carol&back=${encodeURIComponent("/teams/3/details")}`,
     );
     // The drill-down item carries from=members + the team id so "Back to …" returns to this roster.
     expect(screen.getByRole("menuitem", { name: "Feedbacks with Carol" })).toHaveAttribute(
@@ -319,7 +319,7 @@ describe("TeamMembers page", () => {
         if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
         return Promise.resolve(jsonResponse(404, {}));
       });
-      renderTeamMembers(3);
+      renderTeamDetails(3);
 
       // The roster still renders in full…
       expect(await screen.findByText("Carol")).toBeInTheDocument();
@@ -343,7 +343,7 @@ describe("TeamMembers page", () => {
       return Promise.resolve(jsonResponse(404, {}));
     });
     const user = userEvent.setup();
-    renderTeamMembers(3);
+    renderTeamDetails(3);
 
     await screen.findByText("Carol");
 
@@ -384,7 +384,7 @@ describe("TeamMembers page", () => {
       return Promise.resolve(jsonResponse(404, {}));
     });
     const user = userEvent.setup();
-    renderTeamMembers(3);
+    renderTeamDetails(3);
 
     await user.click(await screen.findByRole("button", { name: /remove carol/i }));
     const dialog = await screen.findByRole("dialog");
@@ -408,7 +408,7 @@ describe("TeamMembers page", () => {
       if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
       return Promise.resolve(jsonResponse(404, {}));
     });
-    renderTeamMembers(3);
+    renderTeamDetails(3);
 
     expect(await screen.findByText(/no members yet/i)).toBeInTheDocument();
   });
@@ -425,7 +425,7 @@ describe("TeamMembers page", () => {
       return Promise.resolve(jsonResponse(404, {}));
     });
     const user = userEvent.setup();
-    renderTeamMembers(3);
+    renderTeamDetails(3);
 
     await screen.findByText("Carol");
     await user.click(screen.getByPlaceholderText("Pick a user"));
@@ -439,7 +439,7 @@ describe("TeamMembers page", () => {
   test("add member 403 shows the permission message", async () => {
     mockAddError(mockFetch, () => Promise.resolve(jsonResponse(403, { error: "forbidden" })));
     const user = userEvent.setup();
-    renderTeamMembers(3);
+    renderTeamDetails(3);
     await addErin(user);
     expect(
       await screen.findByText("You don't have permission to modify this team."),
@@ -449,7 +449,7 @@ describe("TeamMembers page", () => {
   test("add member 404 shows the team-gone message", async () => {
     mockAddError(mockFetch, () => Promise.resolve(jsonResponse(404, { error: "not_found" })));
     const user = userEvent.setup();
-    renderTeamMembers(3);
+    renderTeamDetails(3);
     await addErin(user);
     expect(await screen.findByText("Team no longer exists.")).toBeInTheDocument();
   });
@@ -457,7 +457,7 @@ describe("TeamMembers page", () => {
   test("add member with an unexpected status shows the generic status message", async () => {
     mockAddError(mockFetch, () => Promise.resolve(jsonResponse(500, { error: "internal" })));
     const user = userEvent.setup();
-    renderTeamMembers(3);
+    renderTeamDetails(3);
     await addErin(user);
     expect(await screen.findByText("Add failed (500)")).toBeInTheDocument();
   });
@@ -465,7 +465,7 @@ describe("TeamMembers page", () => {
   test("add member network failure shows the connection message", async () => {
     mockAddError(mockFetch, () => Promise.reject(new Error("network down")));
     const user = userEvent.setup();
-    renderTeamMembers(3);
+    renderTeamDetails(3);
     await addErin(user);
     expect(
       await screen.findByText("Add failed. Check your connection and try again."),
@@ -479,7 +479,7 @@ describe("TeamMembers page", () => {
       if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
       return Promise.resolve(jsonResponse(404, {}));
     });
-    renderTeamMembers(3);
+    renderTeamDetails(3);
     expect(await screen.findByText("Team not found.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /back to teams/i })).toBeInTheDocument();
   });
@@ -491,7 +491,7 @@ describe("TeamMembers page", () => {
       if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
       return Promise.resolve(jsonResponse(404, {}));
     });
-    renderTeamMembers(3);
+    renderTeamDetails(3);
     expect(await screen.findByText(/failed to load team \(500\)/i)).toBeInTheDocument();
   });
 
@@ -502,7 +502,7 @@ describe("TeamMembers page", () => {
       if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
       return Promise.resolve(jsonResponse(404, {}));
     });
-    renderTeamMembers(3);
+    renderTeamDetails(3);
     expect(await screen.findByText(/failed to load members/i)).toBeInTheDocument();
   });
 
@@ -518,7 +518,7 @@ describe("TeamMembers page", () => {
       return Promise.resolve(jsonResponse(404, {}));
     });
     const user = userEvent.setup();
-    renderTeamMembers(3);
+    renderTeamDetails(3);
 
     await user.click(await screen.findByRole("button", { name: /remove carol/i }));
     const dialog = await screen.findByRole("dialog");
@@ -538,7 +538,7 @@ describe("TeamMembers page", () => {
       return Promise.resolve(jsonResponse(404, {}));
     });
     const user = userEvent.setup();
-    renderTeamMembers(3);
+    renderTeamDetails(3);
 
     await user.click(await screen.findByRole("button", { name: /remove carol/i }));
     const dialog = await screen.findByRole("dialog");

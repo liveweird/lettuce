@@ -116,7 +116,7 @@ export default function UserDetails() {
         : "users";
   const origin =
     originKey === "members"
-      ? { labelKey: "feedback.origin.members", to: `/teams/${teamId}/members` }
+      ? { labelKey: "feedback.origin.members", to: `/teams/${teamId}/details` }
       : originKey === "teams"
         ? { labelKey: "feedback.origin.teams", to: "/teams" }
         : originKey === "org"

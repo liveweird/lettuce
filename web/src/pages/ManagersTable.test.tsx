@@ -148,11 +148,11 @@ describe("ManagersTable", () => {
     expect(await screen.findAllByText("Manager One")).toHaveLength(1);
     expect(screen.getByRole("link", { name: "Team details for alpha" })).toHaveAttribute(
       "href",
-      "/teams/5/members",
+      "/teams/5/details",
     );
     expect(screen.getByRole("link", { name: "Team details for beta" })).toHaveAttribute(
       "href",
-      "/teams/9/members",
+      "/teams/9/details",
     );
     expect(
       screen.getAllByRole("button", { name: /feedback actions for manager one/i }),

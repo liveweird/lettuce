@@ -43,8 +43,8 @@ function resolveOrigin(
   const parameterized = fromParam === "members" || fromParam === "team";
   const key: OriginKey =
     isOriginKey(fromParam) && (!parameterized || teamId != null) ? fromParam : "managers";
-  if (key === "members") return { labelKey: ORIGIN.members.labelKey, to: `/teams/${teamId}/members` };
-  if (key === "team") return { labelKey: ORIGIN.team.labelKey, to: `/teams/${teamId}/members` };
+  if (key === "members") return { labelKey: ORIGIN.members.labelKey, to: `/teams/${teamId}/details` };
+  if (key === "team") return { labelKey: ORIGIN.team.labelKey, to: `/teams/${teamId}/details` };
   return ORIGIN[key];
 }
 

@@ -230,7 +230,7 @@ describe("UserDetails page", () => {
     // The fallback path's team badge links to team details too (v2.5.4).
     expect(screen.getByRole("link", { name: "Team details for Elsewhere" })).toHaveAttribute(
       "href",
-      "/teams/9/members",
+      "/teams/9/details",
     );
     // No relationship hint and no stats the server didn't compute.
     expect(screen.queryByText(/one of your/i)).not.toBeInTheDocument();
@@ -377,7 +377,7 @@ describe("UserDetails page", () => {
 
     expect(await screen.findByRole("link", { name: "← Back to Team members" })).toHaveAttribute(
       "href",
-      "/teams/3/members",
+      "/teams/3/details",
     );
   });
 

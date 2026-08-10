@@ -12,7 +12,7 @@ describe("toRelativePath", () => {
 
   test("strips the origin from an absolute same-origin URL", () => {
     // happy-dom default origin is http://localhost:3000
-    expect(toRelativePath(`${window.location.origin}/teams/9/members`)).toBe("/teams/9/members");
+    expect(toRelativePath(`${window.location.origin}/teams/9/details`)).toBe("/teams/9/details");
   });
 
   test("drops a cross-origin host, keeping only the path (preserves our origin)", () => {

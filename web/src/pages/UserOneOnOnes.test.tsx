@@ -194,7 +194,7 @@ describe("UserOneOnOnes page", () => {
 
     expect(await screen.findByRole("link", { name: /back to team subordinates/i })).toHaveAttribute(
       "href",
-      "/teams/5/members",
+      "/teams/5/details",
     );
     const back = encodeURIComponent("/users/10/one-on-ones?name=Alice&from=team&teamId=5");
     expect(screen.getByRole("link", { name: "New 1:1" })).toHaveAttribute(

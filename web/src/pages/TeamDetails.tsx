@@ -46,7 +46,7 @@ import { saveErrorMessage } from "../utils/saveError";
 
 type MemberRow = { id: number; name: string };
 
-export default function TeamMembers() {
+export default function TeamDetails() {
   const { t } = useTranslation();
   const params = useParams<{ id: string }>();
   // The org chart opens this page with ?from=org, My teams with ?from=myTeams — back links
@@ -325,7 +325,7 @@ export default function TeamMembers() {
                     {m.id !== currentUserId && hasFeature("FEEDBACKS") && (
                       <FeedbackActionsMenu
                         provideTo={feedbackProvideLink(m.id, m.name)}
-                        askTo={feedbackAskLink(m.id, m.name, `/teams/${id}/members`)}
+                        askTo={feedbackAskLink(m.id, m.name, `/teams/${id}/details`)}
                         listTo={userFeedbacksLink(m.id, m.name, "members", id)}
                         name={m.name}
                       />
