@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.5.7",
+    date: "2026-08-11",
+    en: `Team details has its own address. The team page now lives at /teams/…/details — the URL finally says what the page is, after the members screen grew into the full team-details view over the last releases. Old links keep working: both the former members and subordinates addresses redirect to the new one, bookmarks included.`,
+    pl: `Szczegóły zespołu mają własny adres. Strona zespołu znajduje się teraz pod /teams/…/details — adres w końcu mówi, czym jest ta strona, po tym jak ekran członków rozrósł się w ostatnich wydaniach do pełnego widoku szczegółów zespołu. Stare linki nadal działają: zarówno dawny adres członków, jak i podwładnych przekierowuje do nowego, łącznie z zakładkami.`,
+  },
+  {
     version: "2.5.6",
     date: "2026-08-11",
     en: `Tour completeness and housekeeping. The guided tour now also introduces the email-notification settings reached from the account menu, so every screen has its stop. Under the hood, an external code audit was reviewed and applied: documentation now matches the product exactly, a handful of unused code paths were removed, and browser tests cover several previously untested flows — deleting a notification, unpaid days off, and taking a performance review all the way back from published to deleted.`,

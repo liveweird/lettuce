@@ -216,7 +216,7 @@ describe("UserGoals page", () => {
     expect(await screen.findByText("Goals for Bob")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /back to team subordinates/i })).toHaveAttribute(
       "href",
-      "/teams/5/members",
+      "/teams/5/details",
     );
     await waitFor(() => {
       const urls = mockFetch.mock.calls.map(([u]) => String(u));

@@ -104,7 +104,7 @@ describe("TeamMembersTable", () => {
     // Badges link to the team-details view (v2.5.4).
     expect(screen.getByRole("link", { name: "Team details for Platform" })).toHaveAttribute(
       "href",
-      "/teams/3/members",
+      "/teams/3/details",
     );
 
     const urls = memberUrls(mockFetch);
@@ -856,7 +856,7 @@ describe("TeamMembersTable pinned to a team", () => {
     view: "managed",
     teamId: 5,
     settingsKey: "teamSubordinates",
-    backTo: "/teams/5/members",
+    backTo: "/teams/5/details",
     emptyMessage: "No team members",
   } as const;
 
@@ -920,7 +920,7 @@ describe("TeamMembersTable pinned to a team", () => {
     renderWithProviders(<TeamMembersTable {...PINNED_PROPS} />);
     await screen.findByText("Bob Brown");
 
-    const back = encodeURIComponent("/teams/5/members");
+    const back = encodeURIComponent("/teams/5/details");
     await openCardMenu(/feedback actions for bob brown/i);
     expect(
       await screen.findByRole("menuitem", { name: /provide feedback to bob brown/i }),

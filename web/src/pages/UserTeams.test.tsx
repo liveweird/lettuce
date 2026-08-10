@@ -114,7 +114,7 @@ describe("UserTeams page", () => {
     // The team name links to the team-details view (v2.5.4).
     expect(screen.getByRole("link", { name: "Team details for Platform" })).toHaveAttribute(
       "href",
-      "/teams/1/members",
+      "/teams/1/details",
     );
     // Query by text, not cell role — the PersonaChip avatar initials join the cell's accessible name.
     expect(screen.getByText("Mona Manager")).toBeInTheDocument();

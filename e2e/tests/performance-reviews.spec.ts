@@ -100,7 +100,7 @@ test("a performance review travels period → draft → calibration → publishe
     page.getByRole("button", { name: "Create" }).click(),
   ]);
   const teamId: number = (await teamCreated.json()).id;
-  await page.goto(`/teams/${teamId}/members`);
+  await page.goto(`/teams/${teamId}/details`);
   await pickSelectOption(page, "Add a user", reviewee.name);
   await Promise.all([
     page.waitForResponse(

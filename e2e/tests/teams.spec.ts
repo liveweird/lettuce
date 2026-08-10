@@ -34,7 +34,10 @@ test("admin creates a team, manages members, reassigns the manager, and deletes 
   const teamId: number = (await created.json()).id;
 
   // Members: add B, then remove B (confirmation modal).
+  // Deliberately the HISTORICAL url — v2.5.7 renamed the page to /details and this goto
+  // doubles as the redirect regression check.
   await page.goto(`/teams/${teamId}/members`);
+  await expect(page).toHaveURL(new RegExp(`/teams/${teamId}/details`));
   await expect(page.getByRole("heading", { name: "Team details" })).toBeVisible();
   await expect(page.getByText(teamName, { exact: true })).toBeVisible();
   await pickSelectOption(page, "Add a user", userB.name);

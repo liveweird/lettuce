@@ -74,7 +74,7 @@ export function useDashboardDrillDown(basePath: string): {
           : "managers";
   const resolved =
     originKey === "team"
-      ? { labelKey: "feedback.origin.team", to: `/teams/${teamId}/members` }
+      ? { labelKey: "feedback.origin.team", to: `/teams/${teamId}/details` }
       : originKey === "details"
         ? { labelKey: "feedback.origin.details", to: userDetailsLink(userId, name) }
         : DASHBOARD_ORIGINS[originKey];

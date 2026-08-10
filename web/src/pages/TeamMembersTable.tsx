@@ -131,7 +131,7 @@ export default function TeamMembersTable({
   const tab = view === "managed" ? "subordinates" : "peers";
   const backTo = backToProp ?? `/?tab=${tab}`;
   // The per-person drill-downs' origin: the pinned view threads `team` + teamId through so
-  // their "Back to …" returns to the team-details page (/teams/:id/members).
+  // their "Back to …" returns to the team-details page (/teams/:id/details).
   const drillFrom = pinned ? "team" : view === "managed" ? "subordinates" : "peers";
   const drillTeamId = pinned ? teamId : undefined;
 

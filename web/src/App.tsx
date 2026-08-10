@@ -128,13 +128,16 @@ const UserDetails = lazy(() => import("./pages/UserDetails"));
 const CreateTeam = lazy(() => import("./pages/CreateTeam"));
 const EditTeam = lazy(() => import("./pages/EditTeam"));
 const Teams = lazy(() => import("./pages/Teams"));
-const TeamMembers = lazy(() => import("./pages/TeamMembers"));
+const TeamDetails = lazy(() => import("./pages/TeamDetails"));
 
-// The standalone subordinates view merged into the adaptive team-details page (v2.5.5) —
-// this keeps stale /teams/:id/subordinates links working (there is no catch-all route).
-function TeamSubordinatesRedirect() {
+// The team-details page's historical URLs: /teams/:id/members (renamed v2.5.7 — the page had
+// been team details since v2.5.3) and /teams/:id/subordinates (merged in, v2.5.5). Both keep
+// working via this redirect (there is no catch-all route); the query string is forwarded so
+// back-origin links (?from=myTeams / ?from=org) survive.
+function TeamDetailsRedirect() {
   const { teamId } = useParams<{ teamId: string }>();
-  return <Navigate to={`/teams/${teamId}/members`} replace />;
+  const { search } = useLocation();
+  return <Navigate to={`/teams/${teamId}/details${search}`} replace />;
 }
 // Lazy like MarkdownEditor: @xyflow/react + dagre stay out of the main bundle.
 const OrgChart = lazy(() => import("./pages/OrgChart"));
@@ -581,8 +584,9 @@ export default function App() {
             <Route path="teams" element={<Teams />} />
             <Route path="teams/new" element={<CreateTeam />} />
             <Route path="teams/:id/edit" element={<EditTeam />} />
-            <Route path="teams/:id/members" element={<TeamMembers />} />
-            <Route path="teams/:teamId/subordinates" element={<TeamSubordinatesRedirect />} />
+            <Route path="teams/:id/details" element={<TeamDetails />} />
+            <Route path="teams/:teamId/members" element={<TeamDetailsRedirect />} />
+            <Route path="teams/:teamId/subordinates" element={<TeamDetailsRedirect />} />
             <Route path="org" element={<OrgChart />} />
             <Route path="feedback" element={<Feedback />} />
             <Route path="kudos" element={<Kudos />} />

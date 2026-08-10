@@ -15,7 +15,7 @@ test("a manager walks My teams into the team view and a drill-down round-trips b
 
   // The team NAME opens the adaptive team-details page — a manager lands on their grid.
   await page.getByRole("link", { name: "Team details for AAA" }).click();
-  await expect(page).toHaveURL(/\/teams\/\d+\/members\?from=myTeams/);
+  await expect(page).toHaveURL(/\/teams\/\d+\/details\?from=myTeams/);
   await expect(page.getByRole("heading", { name: "Team details" })).toBeVisible();
   await expect(page.getByText("AAA", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Subordinates" })).toBeVisible();
@@ -32,7 +32,7 @@ test("a manager walks My teams into the team view and a drill-down round-trips b
   await page.getByRole("link", { name: "Goals for AAA Three" }).click();
   await expect(page).toHaveURL(/\/users\/\d+\/goals\?/);
   await page.getByRole("link", { name: /Back to Team subordinates/ }).click();
-  await expect(page).toHaveURL(/\/teams\/\d+\/members/);
+  await expect(page).toHaveURL(/\/teams\/\d+\/details/);
   await expect(page.getByRole("heading", { name: "Subordinates" })).toBeVisible();
 
   // And the tab's own back anchor returns to the Dashboard tab.

@@ -261,7 +261,7 @@ describe("ManagerFeedbacks page", () => {
 
     expect(await screen.findByRole("link", { name: /back to team members/i })).toHaveAttribute(
       "href",
-      "/teams/3/members",
+      "/teams/3/details",
     );
 
     // Round-trips keep the origin: back carries from + teamId (+ the active tab).
@@ -289,7 +289,7 @@ describe("ManagerFeedbacks page", () => {
     renderScreen("/users/10/feedbacks?name=Alice&from=team&teamId=3");
     expect(await screen.findByRole("link", { name: /back to team subordinates/i })).toHaveAttribute(
       "href",
-      "/teams/3/members",
+      "/teams/3/details",
     );
 
     cleanup();

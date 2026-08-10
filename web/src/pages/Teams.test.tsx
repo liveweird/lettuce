@@ -374,7 +374,7 @@ describe("Teams page", () => {
     await screen.findByText("Platform");
     const links = screen.getAllByRole("link", { name: /^team details for /i });
     expect(links).toHaveLength(2);
-    expect(links[0]).toHaveAttribute("href", "/teams/1/members");
+    expect(links[0]).toHaveAttribute("href", "/teams/1/details");
     expect(screen.queryByRole("link", { name: /^members of /i })).not.toBeInTheDocument();
   });
 
@@ -386,7 +386,7 @@ describe("Teams page", () => {
     await screen.findByText("Platform");
     const links = screen.getAllByRole("link", { name: /^team details for /i });
     expect(links).toHaveLength(2);
-    expect(links[0]).toHaveAttribute("href", "/teams/1/members");
+    expect(links[0]).toHaveAttribute("href", "/teams/1/details");
     // Non-admin rows carry no action buttons — the name link is the only affordance.
     expect(screen.queryByRole("link", { name: /^edit /i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^delete /i })).not.toBeInTheDocument();

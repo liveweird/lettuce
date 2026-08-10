@@ -103,7 +103,7 @@ test("bulk toggle by team: filter to a fresh team, disable Goals for all members
     page.getByRole("button", { name: "Create" }).click(),
   ]);
   const teamId: number = (await created.json()).id;
-  await page.goto(`/teams/${teamId}/members`);
+  await page.goto(`/teams/${teamId}/details`);
   for (const member of [userA, userB]) {
     await pickSelectOption(page, "Add a user", member.name);
     await Promise.all([
