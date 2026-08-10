@@ -159,7 +159,8 @@ commit** — this list is the suite's coverage map, and it has drifted three tim
 - `user-details.spec.ts` — the read-only user-details view: the name links (v2.5.2 — the
   person's name, carrying the "User details for …" aria) on the users list and a team roster
   open the person's dashboard card in every relationship flavor (their-manager /
-  my-direct-report / unrelated fallback), with origin-aware back links.
+  my-direct-report / unrelated fallback), with origin-aware back links. Team names are links
+  too (v2.5.4 — "Team details for …" aria → /teams/:id/members); the Members buttons are gone.
 - `hr.spec.ts` — the HR auditor role: an admin grants HR to a throwaway user; the auditor
   browses another pair's **private draft** read-only via the user-details **Audit** section
   (feedbacks / 1:1s / goals drill-downs), with zero write affordances and no admin surface —

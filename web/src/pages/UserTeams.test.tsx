@@ -78,7 +78,7 @@ function mockAddError(mockFetch: FetchMock, putResult: () => Promise<Response>) 
 
 // Pick "Mobile" from the add picker and click Add.
 async function addMobile(user: ReturnType<typeof userEvent.setup>) {
-  await screen.findByRole("cell", { name: "Platform" });
+  await screen.findByRole("link", { name: "Team details for Platform" });
   await user.click(screen.getByPlaceholderText("Pick a team"));
   const listbox = await screen.findByRole("listbox", { hidden: true });
   await user.click(within(listbox).getByText("Mobile"));
@@ -110,7 +110,12 @@ describe("UserTeams page", () => {
     renderUserTeams(7);
 
     expect(await screen.findByRole("heading", { name: "Teams — Alice" })).toBeInTheDocument();
-    expect(await screen.findByRole("cell", { name: "Platform" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Team details for Platform" })).toBeInTheDocument();
+    // The team name links to the team-details view (v2.5.4).
+    expect(screen.getByRole("link", { name: "Team details for Platform" })).toHaveAttribute(
+      "href",
+      "/teams/1/members",
+    );
     // Query by text, not cell role — the PersonaChip avatar initials join the cell's accessible name.
     expect(screen.getByText("Mona Manager")).toBeInTheDocument();
 
@@ -132,7 +137,7 @@ describe("UserTeams page", () => {
 
     // Not redirected: heading (from the name param) and the team rows render.
     expect(await screen.findByRole("heading", { name: "Teams — Alice" })).toBeInTheDocument();
-    expect(await screen.findByRole("cell", { name: "Platform" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Team details for Platform" })).toBeInTheDocument();
 
     // No management controls.
     expect(screen.queryByLabelText("Add to team")).not.toBeInTheDocument();
@@ -157,7 +162,7 @@ describe("UserTeams page", () => {
     const user = userEvent.setup();
     renderUserTeams(7);
 
-    await screen.findByRole("cell", { name: "Platform" });
+    await screen.findByRole("link", { name: "Team details for Platform" });
 
     await user.click(screen.getByPlaceholderText("Pick a team"));
     // happy-dom marks the portaled dropdown as hidden, so query with hidden:true.
@@ -203,7 +208,7 @@ describe("UserTeams page", () => {
     await user.click(within(dialog).getByRole("button", { name: /^remove$/i }));
 
     await waitFor(() =>
-      expect(screen.queryByRole("cell", { name: "Platform" })).not.toBeInTheDocument(),
+      expect(screen.queryByRole("link", { name: "Team details for Platform" })).not.toBeInTheDocument(),
     );
     const deleteCall = mockFetch.mock.calls.find(
       ([u, init]) =>
@@ -238,7 +243,7 @@ describe("UserTeams page", () => {
     const user = userEvent.setup();
     renderUserTeams(7);
 
-    await screen.findByRole("cell", { name: "Platform" });
+    await screen.findByRole("link", { name: "Team details for Platform" });
     await user.click(screen.getByPlaceholderText("Pick a team"));
     const listbox = await screen.findByRole("listbox", { hidden: true });
     await user.click(within(listbox).getByText("Mobile"));

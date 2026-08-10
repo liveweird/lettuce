@@ -10,11 +10,12 @@ test("a manager walks My teams into the team view and a drill-down round-trips b
   await page.goto("/?tab=myTeams");
 
   // Manager AAA manages exactly team AAA (they are a mere member of CCC, which must not show).
-  await expect(page.getByRole("link", { name: "Members of AAA" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Members of CCC" })).toHaveCount(0);
+  // The team name links to team details (v2.5.4); the Subordinates button keeps the grid.
+  await expect(page.getByRole("link", { name: "Team details for AAA" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Team details for CCC" })).toHaveCount(0);
 
-  // The Members button opens the team-scoped subordinates view, not the /teams roster.
-  await page.getByRole("link", { name: "Members of AAA" }).click();
+  // The Subordinates button opens the team-scoped subordinates view, not the /teams roster.
+  await page.getByRole("link", { name: "Subordinates of AAA" }).click();
   await expect(page).toHaveURL(/\/teams\/\d+\/subordinates/);
   await expect(page.getByRole("heading", { name: "AAA", exact: true })).toBeVisible();
 

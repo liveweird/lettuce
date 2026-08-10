@@ -227,6 +227,11 @@ describe("UserDetails page", () => {
     expect(await screen.findByText("bob@example.com")).toBeInTheDocument();
     // Their teams still badge from the id-keyed teams filter.
     expect(screen.getByText("Elsewhere")).toBeInTheDocument();
+    // The fallback path's team badge links to team details too (v2.5.4).
+    expect(screen.getByRole("link", { name: "Team details for Elsewhere" })).toHaveAttribute(
+      "href",
+      "/teams/9/members",
+    );
     // No relationship hint and no stats the server didn't compute.
     expect(screen.queryByText(/one of your/i)).not.toBeInTheDocument();
     expect(screen.queryByText("Feedback from me")).not.toBeInTheDocument();

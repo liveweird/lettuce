@@ -101,6 +101,11 @@ describe("TeamMembersTable", () => {
     expect(screen.getAllByText("Alice Adams")).toHaveLength(1);
     expect(screen.getByText("Platform")).toBeInTheDocument();
     expect(screen.getAllByText("Support")).toHaveLength(2); // Alice's badge + Bob's badge
+    // Badges link to the team-details view (v2.5.4).
+    expect(screen.getByRole("link", { name: "Team details for Platform" })).toHaveAttribute(
+      "href",
+      "/teams/3/members",
+    );
 
     const urls = memberUrls(mockFetch);
     expect(urls.length).toBeGreaterThan(0);

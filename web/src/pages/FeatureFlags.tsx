@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Link as RouterLink, Navigate } from "react-router-dom";
 import { Alert, Badge, Button, Group, Select, Stack, Switch, Table, Text, Title } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -26,6 +26,7 @@ import {
 } from "../api/client";
 import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
+import { teamDetailsLink } from "../utils/teamLinks";
 
 const SORT_FIELDS = ["id", "name", "email"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
@@ -333,7 +334,15 @@ export default function FeatureFlags() {
                   {u.teams && u.teams.length > 0 ? (
                     <Group gap={4}>
                       {u.teams.map((team) => (
-                        <Badge key={team.id} variant="light" size="sm">
+                        <Badge
+                          key={team.id}
+                          component={RouterLink}
+                          to={teamDetailsLink(team.id)}
+                          aria-label={t("teams.detailsForAria", { name: team.name })}
+                          variant="light"
+                          size="sm"
+                          style={{ cursor: "pointer" }}
+                        >
                           {team.name}
                         </Badge>
                       ))}

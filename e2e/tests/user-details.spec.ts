@@ -64,7 +64,7 @@ test("the teams list's manager chip opens the details view and round-trips back"
 test("a team roster opens the peer flavor and round-trips back to the roster", async ({ page }) => {
   await login(page, MANAGER_AAA);
   await page.goto("/teams");
-  await page.getByRole("link", { name: "Members of CCC" }).click();
+  await page.getByRole("link", { name: "Team details for CCC" }).click();
 
   // Fellow member Manager BBB gets the button; one's own row does not.
   await expect(page.getByRole("link", { name: "User details for Manager BBB" })).toBeVisible();

@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
+  Anchor,
   Button,
   Group,
   Select,
@@ -32,6 +33,7 @@ import { isNumberOrNull, isString, useStoredState } from "../hooks/useStoredStat
 import { useManagerOptions } from "../hooks/useManagerOptions";
 import { deleteTeam, getUserId, isAdmin, listTeams } from "../api/client";
 import { userDetailsLink } from "../utils/userLinks";
+import { teamDetailsLink } from "../utils/teamLinks";
 
 const SORT_FIELDS = ["name"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
@@ -84,9 +86,9 @@ export default function Teams() {
   });
 
   const total = data?.total ?? 0;
-  // The actions column is always present now — everyone gets a "Members" button (read-only
-  // for non-admins); only Edit/Delete inside it are admin-gated.
-  const columnCount = 5;
+  // The team name itself links to the team-details view (v2.5.4) — the action columns hold
+  // only the admin-gated Edit/Delete, so non-admin rows carry no buttons at all.
+  const columnCount = 4;
 
   return (
     <Stack gap="md">
@@ -132,7 +134,6 @@ export default function Teams() {
             </Table.Th>
             <Table.Th>{t("common.field.manager")}</Table.Th>
             <Table.Th aria-label={t("common.action.edit")} style={{ width: 1 }} />
-            <Table.Th aria-label={t("teams.members")} style={{ width: 1 }} />
             <Table.Th aria-label={t("common.action.delete")} style={{ width: 1 }} />
           </Table.Tr>
         </Table.Thead>
@@ -143,9 +144,16 @@ export default function Teams() {
             data.items.map((team) => (
               <Table.Tr key={team.id}>
                 <Table.Td>
-                  <Text size="sm" fw={500}>
+                  {/* The team name links to the team-details view (name + manager + roster). */}
+                  <Anchor
+                    component={RouterLink}
+                    to={teamDetailsLink(team.id)}
+                    size="sm"
+                    fw={500}
+                    aria-label={t("teams.detailsForAria", { name: team.name })}
+                  >
                     {team.name}
-                  </Text>
+                  </Anchor>
                 </Table.Td>
                 <Table.Td>
                   {team.managerDeleted ? (
@@ -181,18 +189,6 @@ export default function Teams() {
                       {t("common.action.edit")}
                     </Button>
                   )}
-                </Table.Td>
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
-                  <Button
-                    component={RouterLink}
-                    to={`/teams/${team.id}/members`}
-                    variant="subtle"
-                    size="xs"
-                    leftSection={<IconUsers size={14} />}
-                    aria-label={t("teams.membersOfAria", { name: team.name })}
-                  >
-                    {t("teams.members")}
-                  </Button>
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                   {admin && (
