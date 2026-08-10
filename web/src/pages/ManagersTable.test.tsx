@@ -143,10 +143,17 @@ describe("ManagersTable", () => {
     );
     renderWithProviders(<ManagersTable />);
 
-    // One card (one name, one set of actions), both teams as badges.
+    // One card (one name, one set of actions), both teams as badges — each badge linking
+    // to that team's details view (v2.5.4).
     expect(await screen.findAllByText("Manager One")).toHaveLength(1);
-    expect(screen.getByText("alpha")).toBeInTheDocument();
-    expect(screen.getByText("beta")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Team details for alpha" })).toHaveAttribute(
+      "href",
+      "/teams/5/members",
+    );
+    expect(screen.getByRole("link", { name: "Team details for beta" })).toHaveAttribute(
+      "href",
+      "/teams/9/members",
+    );
     expect(
       screen.getAllByRole("button", { name: /feedback actions for manager one/i }),
     ).toHaveLength(1);

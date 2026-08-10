@@ -10,8 +10,11 @@ import {
 } from "./reviewsDashboard";
 import type { TeamRow } from "./teamRows";
 
+// teamId derived from the whole name — stable and unique per fixture team name
+// (grouping dedupes by teamId since v2.5.4).
 function member(userId: number, name: string, teamName: string, overrides: Partial<TeamRow> = {}): TeamRow {
-  return { userId, name, email: `${name}@x`, teamName, ...overrides };
+  const teamId = [...teamName].reduce((acc, ch) => acc * 31 + ch.charCodeAt(0), 7);
+  return { userId, name, email: `${name}@x`, teamId, teamName, ...overrides };
 }
 
 function review(subordinateId: number, overrides: Partial<PerformanceReviewListItem> = {}): PerformanceReviewListItem {

@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
-import { Alert, Button, Stack, Table, Text } from "@mantine/core";
+import { Alert, Anchor, Button, Stack, Table } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { IconChartLine, IconUsers } from "@tabler/icons-react";
@@ -14,16 +14,18 @@ import { usePagedSort } from "../hooks/usePagedSort";
 import { isString, useStoredState } from "../hooks/useStoredState";
 import { getUserId, hasFeature, listTeams } from "../api/client";
 import { teamKpisLink } from "../utils/teamKpiLinks";
+import { teamDetailsLink } from "../utils/teamLinks";
 
 const SORT_FIELDS = ["name"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
 
 const SETTINGS_KEY = "myTeams";
 
-// The Dashboard "My teams" tab: the teams the caller manages (server-side managerId filter),
-// each opening its team-scoped subordinates view (/teams/:id/subordinates) — NOT the /teams
-// roster screen. Visually a slice of the Teams page: name column + one Members button; no
-// manager column (it is always the caller) and no admin actions.
+// The Dashboard "My teams" tab: the teams the caller manages (server-side managerId filter).
+// The team name links to the team-details view (the v2.5.4 convention); the Subordinates
+// button opens the team-scoped subordinates card grid (/teams/:id/subordinates) — a distinct
+// stats view, so it keeps a dedicated button. No manager column (always the caller), no
+// admin actions.
 export default function MyTeamsTable() {
   const { t } = useTranslation();
   const uid = getUserId();
@@ -86,7 +88,7 @@ export default function MyTeamsTable() {
                 onToggle={toggleSort}
               />
             </Table.Th>
-            <Table.Th aria-label={t("teams.members")} style={{ width: 1 }} />
+            <Table.Th aria-label={t("teams.subordinates")} style={{ width: 1 }} />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -96,9 +98,16 @@ export default function MyTeamsTable() {
             data.items.map((team) => (
               <Table.Tr key={team.id}>
                 <Table.Td>
-                  <Text size="sm" fw={500}>
+                  {/* The team name links to the team-details view (name + manager + roster). */}
+                  <Anchor
+                    component={RouterLink}
+                    to={teamDetailsLink(team.id)}
+                    size="sm"
+                    fw={500}
+                    aria-label={t("teams.detailsForAria", { name: team.name })}
+                  >
                     {team.name}
-                  </Text>
+                  </Anchor>
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                   <Button
@@ -107,9 +116,9 @@ export default function MyTeamsTable() {
                     variant="subtle"
                     size="xs"
                     leftSection={<IconUsers size={14} />}
-                    aria-label={t("teams.membersOfAria", { name: team.name })}
+                    aria-label={t("teams.subordinatesOfAria", { name: team.name })}
                   >
-                    {t("teams.members")}
+                    {t("teams.subordinates")}
                   </Button>
                   {hasFeature("TEAM_KPIS") && (
                     <Button

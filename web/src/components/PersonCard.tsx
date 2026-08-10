@@ -1,5 +1,9 @@
 import { type ReactNode } from "react";
 import { Avatar, Badge, Group, Paper, Stack, Text } from "@mantine/core";
+import { Link as RouterLink } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { teamDetailsLink } from "../utils/teamLinks";
+import type { TeamRef } from "../utils/teamRows";
 import classes from "./PersonCard.module.css";
 
 // One person card in the dashboard grids (managers / peers / subordinates) and the
@@ -10,14 +14,15 @@ import classes from "./PersonCard.module.css";
 export default function PersonCard({
   name,
   email,
-  teamNames,
+  teams,
   body,
 }: {
   name: string;
   email: string;
-  teamNames: string[];
+  teams: TeamRef[];
   body?: ReactNode;
 }) {
+  const { t } = useTranslation();
   return (
     <Paper component="li" withBorder radius="md" p="md" shadow="xs" className={classes.card}>
       <Stack gap="sm" h="100%">
@@ -31,9 +36,18 @@ export default function PersonCard({
               {email}
             </Text>
             <Group gap={4}>
-              {teamNames.map((team) => (
-                <Badge key={team} variant="light" size="sm">
-                  {team}
+              {/* Each badge links to that team's details view (the v2.5.4 convention). */}
+              {teams.map((team) => (
+                <Badge
+                  key={team.id}
+                  component={RouterLink}
+                  to={teamDetailsLink(team.id)}
+                  aria-label={t("teams.detailsForAria", { name: team.name })}
+                  variant="light"
+                  size="sm"
+                  style={{ cursor: "pointer" }}
+                >
+                  {team.name}
                 </Badge>
               ))}
             </Group>

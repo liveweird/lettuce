@@ -1,13 +1,20 @@
 import { describe, expect, test } from "vitest";
 import { groupTeamRows, type TeamRow } from "./teamRows";
 
-const row = (overrides: Partial<TeamRow> = {}): TeamRow => ({
-  userId: 1,
-  name: "Alice Adams",
-  email: "alice@x.test",
-  teamName: "Platform",
-  ...overrides,
-});
+// Fixture teams get stable ids per name — the grouping dedupes by teamId (v2.5.4).
+const TEAM_IDS: Record<string, number> = { Platform: 100, Support: 200, Second: 300 };
+
+const row = (overrides: Partial<TeamRow> = {}): TeamRow => {
+  const teamName = overrides.teamName ?? "Platform";
+  return {
+    userId: 1,
+    name: "Alice Adams",
+    email: "alice@x.test",
+    teamId: TEAM_IDS[teamName] ?? 999,
+    teamName,
+    ...overrides,
+  };
+};
 
 describe("groupTeamRows", () => {
   test("collapses a user's per-team rows into one card aggregating unique team names", () => {
@@ -21,6 +28,12 @@ describe("groupTeamRows", () => {
     expect(cards).toHaveLength(2);
     expect(cards[0]).toMatchObject({ userId: 1, name: "Alice Adams", teamNames: ["Platform", "Support"] });
     expect(cards[1]).toMatchObject({ userId: 2, name: "Bob Brown", teamNames: ["Support"] });
+    // The id-carrying twin drives the badge links; teamNames stays derived from it.
+    expect(cards[0].teams).toEqual([
+      { id: 100, name: "Platform" },
+      { id: 200, name: "Support" },
+    ]);
+    expect(cards[1].teams).toEqual([{ id: 200, name: "Support" }]);
   });
 
   test("keeps the API's ordering — first appearance wins", () => {

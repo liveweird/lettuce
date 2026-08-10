@@ -367,26 +367,27 @@ describe("Teams page", () => {
     expect(screen.getAllByRole("button", { name: /^delete /i })).toHaveLength(2);
   });
 
-  test("admin sees a Members link per row pointing at /teams/:id/members", async () => {
+  test("each team name is a link to the team-details view (v2.5.4 — no Members button)", async () => {
     setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
     renderTeams();
 
     await screen.findByText("Platform");
-    const links = screen.getAllByRole("link", { name: /^members of /i });
+    const links = screen.getAllByRole("link", { name: /^team details for /i });
     expect(links).toHaveLength(2);
     expect(links[0]).toHaveAttribute("href", "/teams/1/members");
+    expect(screen.queryByRole("link", { name: /^members of /i })).not.toBeInTheDocument();
   });
 
-  test("non-admin sees Members links but not Edit or Delete controls", async () => {
+  test("non-admin sees the team-name links but no Edit or Delete controls at all", async () => {
     localStorage.setItem(ROLE_KEY, "[]");
     setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
     renderTeams();
 
     await screen.findByText("Platform");
-    const links = screen.getAllByRole("link", { name: /^members of /i });
+    const links = screen.getAllByRole("link", { name: /^team details for /i });
     expect(links).toHaveLength(2);
     expect(links[0]).toHaveAttribute("href", "/teams/1/members");
-    // The read-only roster is the only action available to non-admins.
+    // Non-admin rows carry no action buttons — the name link is the only affordance.
     expect(screen.queryByRole("link", { name: /^edit /i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^delete /i })).not.toBeInTheDocument();
   });

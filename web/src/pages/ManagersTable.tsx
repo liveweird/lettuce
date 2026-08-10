@@ -50,7 +50,7 @@ export default function ManagersTable() {
               key={m.userId}
               name={m.name}
               email={m.email}
-              teamNames={m.teamNames}
+              teams={m.teams}
               body={
                 <PersonCardBody
                   person={m}

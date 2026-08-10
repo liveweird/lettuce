@@ -26,6 +26,7 @@ import {
   removeTeamMember,
 } from "../api/client";
 import { userDetailsLink } from "../utils/userLinks";
+import { teamDetailsLink } from "../utils/teamLinks";
 import { showSuccessToast } from "../utils/toast";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import EmptyState from "../components/EmptyState";
@@ -217,7 +218,17 @@ export default function UserTeams() {
           ) : memberTeams.length > 0 ? (
             memberTeams.map((team) => (
               <Table.Tr key={team.id}>
-                <Table.Td>{team.name}</Table.Td>
+                <Table.Td>
+                  {/* The team name links to the team-details view (the v2.5.4 convention). */}
+                  <Anchor
+                    component={RouterLink}
+                    to={teamDetailsLink(team.id)}
+                    size="sm"
+                    aria-label={t("teams.detailsForAria", { name: team.name })}
+                  >
+                    {team.name}
+                  </Anchor>
+                </Table.Td>
                 <Table.Td>
                   {team.managerDeleted ? (
                     <Text size="sm" c="dimmed">

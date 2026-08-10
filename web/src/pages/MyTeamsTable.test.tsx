@@ -41,7 +41,7 @@ describe("MyTeamsTable", () => {
     localStorage.clear();
   });
 
-  test("lists the caller's managed teams (managerId filter) with a Members button each", async () => {
+  test("lists the caller's managed teams — name links to team details, Subordinates button to the grid", async () => {
     renderWithProviders(<MyTeamsTable />);
 
     expect(await screen.findByText("Platform")).toBeInTheDocument();
@@ -50,12 +50,21 @@ describe("MyTeamsTable", () => {
     expect(teamUrls(mockFetch)[0]).toContain("managerId=7");
     expect(teamUrls(mockFetch)[0]).toContain("sort=name");
 
-    // Each row's button opens the team-scoped subordinates view — NOT /teams/:id/members.
-    expect(screen.getByRole("link", { name: "Members of Platform" })).toHaveAttribute(
+    // The team name links to the team-details view (v2.5.4)…
+    expect(screen.getByRole("link", { name: "Team details for Platform" })).toHaveAttribute(
+      "href",
+      "/teams/3/members",
+    );
+    expect(screen.getByRole("link", { name: "Team details for Support" })).toHaveAttribute(
+      "href",
+      "/teams/5/members",
+    );
+    // …while the Subordinates button keeps the team-scoped stats grid reachable.
+    expect(screen.getByRole("link", { name: "Subordinates of Platform" })).toHaveAttribute(
       "href",
       "/teams/3/subordinates",
     );
-    expect(screen.getByRole("link", { name: "Members of Support" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Subordinates of Support" })).toHaveAttribute(
       "href",
       "/teams/5/subordinates",
     );
@@ -71,13 +80,13 @@ describe("MyTeamsTable", () => {
     );
   });
 
-  test("a disabled TEAM_KPIS feature hides the per-team Team KPIs button; Members stays (v1.53.0)", async () => {
+  test("a disabled TEAM_KPIS feature hides the per-team Team KPIs button; Subordinates stays (v1.53.0)", async () => {
     localStorage.setItem("lettuce.auth.disabledFeatures", JSON.stringify(["TEAM_KPIS"]));
     try {
       renderWithProviders(<MyTeamsTable />);
 
-      expect(await screen.findByRole("link", { name: "Members of Platform" })).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: "Members of Support" })).toBeInTheDocument();
+      expect(await screen.findByRole("link", { name: "Subordinates of Platform" })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Subordinates of Support" })).toBeInTheDocument();
       expect(screen.queryByRole("link", { name: /team kpis of /i })).toBeNull();
     } finally {
       localStorage.removeItem("lettuce.auth.disabledFeatures");

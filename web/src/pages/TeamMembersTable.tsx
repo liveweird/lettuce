@@ -222,7 +222,7 @@ export default function TeamMembersTable({
               key={m.userId}
               name={m.name}
               email={m.email}
-              teamNames={m.teamNames}
+              teams={m.teams}
               // Peer cards show the two feedback directions; subordinate cards show the
               // 1:1 + feedback stats, but only while every card is a direct report (same
               // rationale as the 1:1 button gate below): rows carry no direct/indirect

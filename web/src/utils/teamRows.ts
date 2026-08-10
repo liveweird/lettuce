@@ -4,10 +4,13 @@
 
 type CareerEntry = { id: number; value: string };
 
+export type TeamRef = { id: number; name: string };
+
 export type TeamRow = {
   userId: number;
   name: string;
   email: string;
+  teamId: number;
   teamName: string;
   // Dashboard stats, identical on every row of a user: the 1:1/lastFeedbackAt trio on
   // view=managers/managed rows, the given/received pair on view=member rows.
@@ -36,6 +39,9 @@ export type PersonCard = {
   userId: number;
   name: string;
   email: string;
+  /** The person's teams with ids — the card badges link to team details (v2.5.4). */
+  teams: TeamRef[];
+  /** Names only, derived from [teams] — kept for the name-keyed consumers (reviews dashboard). */
   teamNames: string[];
   lastOneOnOneDate: string | null;
   lastOneOnOneOpenItems: number | null;
@@ -59,12 +65,16 @@ export function groupTeamRows(rows: TeamRow[]): PersonCard[] {
   for (const r of rows) {
     const existing = byId.get(r.userId);
     if (existing) {
-      if (!existing.teamNames.includes(r.teamName)) existing.teamNames.push(r.teamName);
+      if (!existing.teams.some((team) => team.id === r.teamId)) {
+        existing.teams.push({ id: r.teamId, name: r.teamName });
+        existing.teamNames.push(r.teamName);
+      }
     } else {
       byId.set(r.userId, {
         userId: r.userId,
         name: r.name,
         email: r.email,
+        teams: [{ id: r.teamId, name: r.teamName }],
         teamNames: [r.teamName],
         // Normalize absent → null so every grid can render its "never" empty states
         // off the fields the other views don't populate.

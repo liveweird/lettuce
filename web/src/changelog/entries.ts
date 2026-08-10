@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.5.4",
+    date: "2026-08-10",
+    en: `Team names are now links. Wherever a team appears — the Teams list, a user's Teams screen, the team badges on people cards and on the Feature flags screen, and the My teams tab — clicking its name opens the team details view. The separate "Members" buttons are gone. On My teams, a "Subordinates" button still opens the per-team card view with collaboration stats. Together with the previous release: people and teams are opened by clicking their names, everywhere.`,
+    pl: `Nazwy zespołów są teraz linkami. Wszędzie tam, gdzie pojawia się zespół — na liście Zespołów, na ekranie Zespoły użytkownika, na odznakach zespołów na kartach osób i na ekranie Flagi funkcji oraz w zakładce Moje zespoły — kliknięcie jego nazwy otwiera widok szczegółów zespołu. Osobne przyciski „Członkowie" zniknęły. W Moich zespołach przycisk „Podwładni" nadal otwiera widok kart zespołu ze statystykami współpracy. Razem z poprzednim wydaniem: osoby i zespoły otwiera się, klikając ich nazwy — wszędzie.`,
+  },
+  {
     version: "2.5.3",
     date: "2026-08-10",
     en: `Team details view. A team's Members screen is now a full team-details view: the team name and its manager sit at the top as read-only fields, with the member roster below under its own header. The manager's name is clickable — like everywhere else since the last release, it opens their user details.`,

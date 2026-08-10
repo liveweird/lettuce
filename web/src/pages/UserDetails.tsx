@@ -71,6 +71,7 @@ async function fetchUserDetails(userId: number): Promise<UserDetailsData> {
       userId: found.id,
       name: found.name,
       email: found.email,
+      teams: teams.items.map((team) => ({ id: team.id, name: team.name })),
       teamNames: teams.items.map((team) => team.name),
       lastOneOnOneDate: null,
       lastOneOnOneOpenItems: null,
@@ -237,7 +238,7 @@ export default function UserDetails() {
           <PersonCard
             name={person.name}
             email={person.email}
-            teamNames={person.teamNames}
+            teams={person.teams}
             body={
               // Only view=managed rows carry the last-review and days-off stats, so those
               // sections show for a direct report and not for a manager (whose row never
