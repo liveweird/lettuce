@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.4.2",
+    date: "2026-08-10",
+    en: `Tidier dashboard tiles. The stat tiles at the top of the Dashboard now line up: every tile reserves the same space for its label, so the numbers sit on one line across the row regardless of how long a label is (also in Polish, where labels run longer). The "vs previous 30 days" trend under the received-feedback count moved into a small info icon next to the number — hover it to see the comparison — so all tiles share the same clean shape.`,
+    pl: `Bardziej uporządkowane kafelki pulpitu. Kafelki statystyk na górze Pulpitu są teraz wyrównane: każdy kafelek rezerwuje tyle samo miejsca na etykietę, więc liczby leżą w jednej linii w całym rzędzie niezależnie od długości etykiety (także po polsku, gdzie etykiety są dłuższe). Trend „vs poprzednie 30 dni" pod liczbą otrzymanego feedbacku przenieśliśmy do małej ikony informacji obok liczby — najedź na nią, aby zobaczyć porównanie — dzięki czemu wszystkie kafelki mają ten sam czysty kształt.`,
+  },
+  {
     version: "2.4.1",
     date: "2026-08-09",
     en: `Consistency fixes across the app. People pickers no longer truncate in large organizations — every list that offers users, teams, or direct reports now loads all of them, not just the first hundred (the "ask for feedback" provider picker, team rosters, and the goal, 1:1, and review subordinate pickers included). Success states now use one color everywhere: the notification bell's sent/activated/published/accepted entries match the teal badges the tables use. The pulse survey tabs share one width, "You" and deleted users render consistently on the Kudos wall and participation lists, and changes managers make to days-off budget corrections are now recorded in the security audit log.`,

@@ -11,6 +11,12 @@
   box-shadow: var(--mantine-shadow-md);
 }
 
+/* Always reserve two label lines so the values sit on one baseline across the row,
+   whether a label wraps or not (PL labels are longer than EN). */
+.label {
+  min-height: 2lh;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tile {
     transition: none;
