@@ -1,12 +1,10 @@
-import { Group, Paper, SimpleGrid, Skeleton, Text, ThemeIcon } from "@mantine/core";
+import { Group, Paper, SimpleGrid, Skeleton, Text, ThemeIcon, Tooltip } from "@mantine/core";
 import {
-  IconArrowDownRight,
-  IconArrowUpRight,
   IconClipboardText,
   IconHeartRateMonitor,
   IconInbox,
+  IconInfoCircle,
   IconMessage2,
-  IconMinus,
   IconTargetArrow,
   IconUsersGroup,
 } from "@tabler/icons-react";
@@ -19,6 +17,8 @@ import classes from "./DashboardHero.module.css";
 
 const GRID_COLS = { base: 2, sm: 3, lg: 5 };
 
+const signedDelta = (delta: number) => (delta > 0 ? `+${delta}` : String(delta));
+
 // One stat tile: sentence-case label, semibold proportional-figure value, a light brand icon.
 // The whole tile is a link to the screen the number comes from — text stays in text tokens.
 function StatTile({
@@ -26,14 +26,16 @@ function StatTile({
   value,
   to,
   icon,
-  sub,
+  hint,
 }: {
   label: string;
   value: string;
   to: string;
   icon: React.ReactNode;
-  /** Optional trend sub-line under the value (its own text node — tests key on bare values). */
-  sub?: React.ReactNode;
+  /** Optional comment shown as a hover tooltip on a hint icon after the value — never a
+   * visible sub-line, so every tile keeps the same height. Dimmed on purpose: the trend is
+   * a fact, not an error state. */
+  hint?: string;
 }) {
   return (
     <Paper
@@ -50,37 +52,27 @@ function StatTile({
           {icon}
         </ThemeIcon>
         <div style={{ minWidth: 0 }}>
-          <Text size="xs" c="dimmed" lineClamp={2}>
+          <Text size="xs" c="dimmed" lineClamp={2} className={classes.label}>
             {label}
           </Text>
-          <Text fz={26} fw={600} lh={1.2}>
-            {value}
-          </Text>
-          {sub}
+          <Group gap={6} wrap="nowrap" align="center">
+            <Text fz={26} fw={600} lh={1.2}>
+              {value}
+            </Text>
+            {hint != null && (
+              <Tooltip label={hint}>
+                <IconInfoCircle
+                  size={16}
+                  color="var(--mantine-color-dimmed)"
+                  role="img"
+                  aria-label={hint}
+                />
+              </Tooltip>
+            )}
+          </Group>
         </div>
       </Group>
     </Paper>
-  );
-}
-
-// The vs-previous-window trend line: neutral dimmed styling on purpose — receiving less
-// feedback is a fact, not an error state. The caption wraps rather than truncating — narrow
-// tiles (5-col grid) don't fit "+N vs previous 30 days" on one line.
-function TrendLine({ delta, caption }: { delta: number; caption: string }) {
-  const Arrow = delta > 0 ? IconArrowUpRight : delta < 0 ? IconArrowDownRight : IconMinus;
-  const signed = delta > 0 ? `+${delta}` : String(delta);
-  return (
-    <Group gap={4} mt={2}>
-      <Group gap={4} wrap="nowrap">
-        <Arrow size={14} color="var(--mantine-color-dimmed)" aria-hidden />
-        <Text size="xs" c="dimmed" span>
-          {signed}
-        </Text>
-      </Group>
-      <Text size="xs" c="dimmed" span>
-        {caption}
-      </Text>
-    </Group>
   );
 }
 
@@ -103,8 +95,8 @@ export default function DashboardHero() {
     return (
       <SimpleGrid cols={GRID_COLS} spacing="md">
         {[0, 1, 2].map((i) => (
-          // Matches the tile height including the received tile's trend sub-line (the grid
-          // row stretches every tile to the tallest), so load doesn't shift the layout.
+          // Matches the uniform tile height (two reserved label lines + value), so load
+          // doesn't shift the layout.
           <Skeleton key={i} height={92} radius="md" />
         ))}
       </SimpleGrid>
@@ -141,15 +133,12 @@ export default function DashboardHero() {
           value={String(data.feedbackReceived30d)}
           to="/feedback?tab=received"
           icon={<IconInbox size={20} />}
-          sub={
+          hint={
             // Per-field narrowing, NOT part of the shape probe above: an older server without
-            // the field simply renders no trend line.
-            typeof data.feedbackReceivedPrev30d === "number" ? (
-              <TrendLine
-                delta={data.feedbackReceived30d - data.feedbackReceivedPrev30d}
-                caption={t("dashboard.hero.vsPrev30d")}
-              />
-            ) : undefined
+            // the field simply renders no trend hint.
+            typeof data.feedbackReceivedPrev30d === "number"
+              ? `${signedDelta(data.feedbackReceived30d - data.feedbackReceivedPrev30d)} ${t("dashboard.hero.vsPrev30d")}`
+              : undefined
           }
         />
       )}
