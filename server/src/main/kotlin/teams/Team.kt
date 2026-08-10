@@ -3,6 +3,8 @@ package ch.nokillswit.teams
 import ch.nokillswit.dictionaries.DictionaryEntry
 import ch.nokillswit.infra.paging.PageResponse
 import ch.nokillswit.reviews.PerformanceReviewStatus
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -12,15 +14,38 @@ data class Team(
     val memberIds: List<UInt> = emptyList(),
 )
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class TeamResponse(
     val id: UInt,
     val name: String,
     val managerId: UInt,
     val memberIds: List<UInt>,
+    // Manager enrichment, populated by the single-team GET only (the users-list `teams`
+    // idiom): create/update responses omit the keys entirely rather than sending null.
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val managerName: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val managerDeleted: Boolean? = null,
 )
 
 fun Team.toResponse(id: UInt) = TeamResponse(id, name, managerId, memberIds)
+
+/** The single-team GET's enriched read: the team plus its manager's display fields. */
+data class TeamDetail(
+    val team: Team,
+    val managerName: String,
+    val managerDeleted: Boolean,
+) {
+    fun toResponse(id: UInt) = TeamResponse(
+        id = id,
+        name = team.name,
+        managerId = team.managerId,
+        memberIds = team.memberIds,
+        managerName = managerName,
+        managerDeleted = managerDeleted,
+    )
+}
 
 /** A bare (id, name) team reference — the pulse team pickers' row (v2.0.0). */
 @Serializable

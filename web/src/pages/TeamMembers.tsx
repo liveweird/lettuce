@@ -36,6 +36,7 @@ import EmptyState from "../components/EmptyState";
 import TableLoadingRow from "../components/TableLoadingRow";
 import FeedbackActionsMenu from "../components/FeedbackActionsMenu";
 import PersonaChip from "../components/PersonaChip";
+import ReadOnlyField from "../components/ReadOnlyField";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { feedbackAskLink, feedbackProvideLink, userFeedbacksLink } from "../utils/feedbackLinks";
 import { userDetailsLink } from "../utils/userLinks";
@@ -148,7 +149,7 @@ export default function TeamMembers() {
   if (teamLoading) {
     return (
       <Stack gap="md">
-        <Title order={2}>{t("teams.members")}</Title>
+        <Title order={2}>{t("teams.detailsTitle")}</Title>
         <Center py="xl">
           <Loader />
         </Center>
@@ -159,7 +160,7 @@ export default function TeamMembers() {
   if (teamNotFound || teamIsError) {
     return (
       <Stack gap="md">
-        <Title order={2}>{t("teams.members")}</Title>
+        <Title order={2}>{t("teams.detailsTitle")}</Title>
         <Alert color="red" variant="light">
           {teamNotFound
             ? t("teams.teamNotFound")
@@ -182,11 +183,38 @@ export default function TeamMembers() {
         <Anchor component={RouterLink} to={backTo} size="sm">
           {backLabel}
         </Anchor>
-        <Title order={2}>
-          {t("teams.members")}
-          {team ? ` — ${team.name}` : ""}
-        </Title>
+        <Title order={2}>{t("teams.detailsTitle")}</Title>
       </Stack>
+
+      {/* The team's identity fields — the name, and the manager as the standard clickable
+          persona (the v2.5.2 name-link idiom; deleted and one's own persona stay plain). */}
+      {team && (
+        <Group gap="xl">
+          <ReadOnlyField label={t("common.field.name")}>
+            <Text size="sm">{team.name}</Text>
+          </ReadOnlyField>
+          <ReadOnlyField label={t("common.field.manager")}>
+            {team.managerDeleted ? (
+              <Text size="sm" c="dimmed">
+                {team.managerName}
+                {t("teams.deletedSuffix")}
+              </Text>
+            ) : (
+              <PersonaChip
+                name={team.managerName ?? ""}
+                to={
+                  team.managerId !== currentUserId
+                    ? userDetailsLink(team.managerId, team.managerName, "members", id)
+                    : undefined
+                }
+                ariaLabel={t("users.detailsFor", { name: team.managerName })}
+              />
+            )}
+          </ReadOnlyField>
+        </Group>
+      )}
+
+      <Title order={3}>{t("teams.members")}</Title>
 
       {canManage && (
         <Group align="flex-end" gap="sm">

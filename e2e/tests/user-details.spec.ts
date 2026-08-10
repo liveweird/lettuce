@@ -78,5 +78,6 @@ test("a team roster opens the peer flavor and round-trips back to the roster", a
   // The members origin returns to that team's roster, not the users list.
   await page.getByRole("link", { name: /Back to Team members/ }).click();
   await expect(page).toHaveURL(/\/teams\/\d+\/members/);
-  await expect(page.getByRole("heading", { name: "Members — CCC" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Team details" })).toBeVisible();
+  await expect(page.getByText("CCC", { exact: true })).toBeVisible();
 });
