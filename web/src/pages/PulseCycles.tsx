@@ -298,8 +298,13 @@ export default function PulseCycles() {
                     <Table.Td>{formatIsoDate(cycle.plannedOpenDate, locale)}</Table.Td>
                     <Table.Td>{formatIsoDate(cycle.plannedCloseDate, locale)}</Table.Td>
                     <Table.Td>
-                      <Text size="sm" truncate maw={220} title={cycle.rotatingQuestion ?? undefined}>
-                        {cycle.rotatingQuestion ?? "—"}
+                      <Text
+                        size="sm"
+                        truncate
+                        maw={220}
+                        title={(locale === "pl" ? cycle.rotatingQuestionPl : cycle.rotatingQuestionEn) ?? undefined}
+                      >
+                        {(locale === "pl" ? cycle.rotatingQuestionPl : cycle.rotatingQuestionEn) ?? "—"}
                       </Text>
                     </Table.Td>
                     <Table.Td>

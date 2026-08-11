@@ -230,17 +230,17 @@ class AuditTest {
             val (a, b) = "audit-a-${UUID.randomUUID()}" to "audit-b-${UUID.randomUUID()}"
             adminClient.put("/api/v1/dictionaries/career-paths") {
                 contentType(ContentType.Application.Json)
-                setBody(DictionaryUpdateRequest(items = listOf(DictionaryEntryInput(value = a), DictionaryEntryInput(value = b))))
+                setBody(DictionaryUpdateRequest(items = listOf(DictionaryEntryInput(valueEn = a, valuePl = a), DictionaryEntryInput(valueEn = b, valuePl = b))))
             }
             val entries = adminClient.get("/api/v1/dictionaries/career-paths").body<DictionaryEntryList>().items
-            val aId = entries.first { it.value == a }.id
+            val aId = entries.first { it.valueEn == a }.id
             adminClient.put("/api/v1/dictionaries/career-paths") {
                 contentType(ContentType.Application.Json)
                 setBody(
                     DictionaryUpdateRequest(
                         items = listOf(
-                            DictionaryEntryInput(id = aId, value = "$a-renamed"),
-                            DictionaryEntryInput(value = "audit-c-${UUID.randomUUID()}"),
+                            DictionaryEntryInput(id = aId, valueEn = "$a-renamed", valuePl = "$a-renamed"),
+                            DictionaryEntryInput(valueEn = "audit-c-${UUID.randomUUID()}", valuePl = "audit-c-${UUID.randomUUID()}"),
                         ),
                     ),
                 )
@@ -257,11 +257,11 @@ class AuditTest {
             // A rejected save (403 non-admin, 400 blank value) mints no phantom event.
             userClient.put("/api/v1/dictionaries/career-paths") {
                 contentType(ContentType.Application.Json)
-                setBody(DictionaryUpdateRequest(items = listOf(DictionaryEntryInput(value = "x"))))
+                setBody(DictionaryUpdateRequest(items = listOf(DictionaryEntryInput(valueEn = "x", valuePl = "x"))))
             }
             adminClient.put("/api/v1/dictionaries/career-paths") {
                 contentType(ContentType.Application.Json)
-                setBody(DictionaryUpdateRequest(items = listOf(DictionaryEntryInput(value = "   "))))
+                setBody(DictionaryUpdateRequest(items = listOf(DictionaryEntryInput(valueEn = "   ", valuePl = "   "))))
             }
             assertEquals(successCount, appender.events.count { it.message == "dictionary.updated" })
         } finally {

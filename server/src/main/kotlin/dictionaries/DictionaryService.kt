@@ -24,12 +24,14 @@ data class DictionaryReplaceCounts(val added: Int, val renamed: Int, val removed
 
 class DictionaryService(val database: R2dbcDatabase) {
     object Entries : UIntIdTable("dictionary_entries") {
-        // Per-dictionary value uniqueness is enforced by a partial unique index (active rows
-        // only) in migration V31, so a soft-deleted entry frees its value. Exposed table defs
-        // are query-only (not DDL), so no `.uniqueIndex()` here.
+        // Per-dictionary, per-LANGUAGE value uniqueness is enforced by two partial unique
+        // indexes (active rows only; V31, split per language in V53), so a soft-deleted entry
+        // frees both its values. Exposed table defs are query-only (not DDL), so no
+        // `.uniqueIndex()` here.
         val dictionary = varchar("dictionary", length = 30)
         val position = integer("position")
-        val value = varchar("value", length = 100)
+        val valueEn = varchar("value_en", length = 100)
+        val valuePl = varchar("value_pl", length = 100)
         val markedAsDeleted = bool("marked_as_deleted").default(false)
     }
 
@@ -40,7 +42,13 @@ class DictionaryService(val database: R2dbcDatabase) {
         Entries.selectAll()
             .where { (Entries.dictionary eq dict.name) and active() }
             .orderBy(Entries.position to SortOrder.ASC, Entries.id to SortOrder.ASC)
-            .map { row -> DictionaryEntry(id = row[Entries.id].value, value = row[Entries.value]) }
+            .map { row ->
+                DictionaryEntry(
+                    id = row[Entries.id].value,
+                    valueEn = row[Entries.valueEn],
+                    valuePl = row[Entries.valuePl],
+                )
+            }
             .toList()
     }
 
@@ -54,15 +62,16 @@ class DictionaryService(val database: R2dbcDatabase) {
         suspendTransaction(database) {
             validateDictionaryUpdate(request)
 
-            // Snapshot the ACTIVE rows only (id -> stored value). The load-bearing difference
-            // from the 1:1 replaceNotes: a payload id pointing at a soft-deleted entry is a
-            // foreign id (400) — deleted entries are never resurrected; re-adding the same
-            // value mints a NEW id.
-            val existing: Map<UInt, String> = Entries.select(Entries.id, Entries.value)
-                .where { (Entries.dictionary eq dict.name) and active() }
-                .map { it[Entries.id].value to it[Entries.value] }
-                .toList()
-                .toMap()
+            // Snapshot the ACTIVE rows only (id -> stored value pair). The load-bearing
+            // difference from the 1:1 replaceNotes: a payload id pointing at a soft-deleted
+            // entry is a foreign id (400) — deleted entries are never resurrected; re-adding
+            // the same value mints a NEW id.
+            val existing: Map<UInt, Pair<String, String>> =
+                Entries.select(Entries.id, Entries.valueEn, Entries.valuePl)
+                    .where { (Entries.dictionary eq dict.name) and active() }
+                    .map { it[Entries.id].value to (it[Entries.valueEn] to it[Entries.valuePl]) }
+                    .toList()
+                    .toMap()
 
             val payloadIds = request.items.mapNotNull { it.id }
             requirePayloadIds(payloadIds, existing.keys)
@@ -76,24 +85,30 @@ class DictionaryService(val database: R2dbcDatabase) {
             }
 
             request.items.forEachIndexed { index, item ->
-                val trimmed = item.value.trim()
+                val trimmedEn = item.valueEn.trim()
+                val trimmedPl = item.valuePl.trim()
                 if (item.id != null) {
                     Entries.update({ (Entries.id eq item.id) and active() }) {
                         it[position] = index
-                        it[value] = trimmed
+                        it[valueEn] = trimmedEn
+                        it[valuePl] = trimmedPl
                     }
                 } else {
                     Entries.insert {
                         it[dictionary] = dict.name
                         it[position] = index
-                        it[value] = trimmed
+                        it[valueEn] = trimmedEn
+                        it[valuePl] = trimmedPl
                     }
                 }
             }
 
             DictionaryReplaceCounts(
                 added = request.items.count { it.id == null },
-                renamed = request.items.count { it.id != null && existing[it.id] != it.value.trim() },
+                // Renamed = either language's text changed (identity kept via the id).
+                renamed = request.items.count {
+                    it.id != null && existing[it.id] != (it.valueEn.trim() to it.valuePl.trim())
+                },
                 removed = toSoftDelete.size,
             )
         }

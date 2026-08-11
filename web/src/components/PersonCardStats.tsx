@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { hasFeature } from "../api/client";
 import { formatIsoDate, formatMonthRange, formatRelativeTime, formatTimestamp } from "../utils/datetime";
 import { formatDays } from "../utils/daysOffCost";
+import { pickDictionaryValue } from "../utils/dictionaryForm";
 import type { PersonCard as PersonCardData } from "../utils/teamRows";
 import PerformanceReviewStatusBadge from "./PerformanceReviewStatusBadge";
 import PersonCardActions, { type PersonCardActionsProps } from "./PersonCardActions";
@@ -55,13 +56,14 @@ function TimeStat({ at }: { at: number | null }) {
   );
 }
 
-// One career value: the entry's plain text, or the orange "Not set" badge — orange = warning
-// (the missing state is legitimate but should be acted on), consistent with the edit form.
-function CareerValue({ entry }: { entry: { id: number; value: string } | null }) {
-  const { t } = useTranslation();
+// One career value: the entry's text in the viewer's language, or the orange "Not set"
+// badge — orange = warning (the missing state is legitimate but should be acted on),
+// consistent with the edit form.
+function CareerValue({ entry }: { entry: { id: number; valueEn: string; valuePl: string } | null }) {
+  const { t, i18n } = useTranslation();
   return entry ? (
     <Text size="xs" truncate>
-      {entry.value}
+      {pickDictionaryValue(entry, i18n.resolvedLanguage)}
     </Text>
   ) : (
     <Badge size="sm" variant="light" color="orange" style={{ minWidth: "max-content" }}>

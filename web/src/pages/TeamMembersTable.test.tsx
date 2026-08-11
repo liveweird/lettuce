@@ -26,9 +26,9 @@ type TeamMemberItem = {
   lastReviewPeriodStartMonth?: string | null;
   lastReviewPeriodEndMonth?: string | null;
   lastReviewStatus?: "DRAFT" | "CALIBRATION" | "PUBLISHED" | null;
-  careerPath?: { id: number; value: string } | null;
-  careerSpecialization?: { id: number; value: string } | null;
-  seniorityLevel?: { id: number; value: string } | null;
+  careerPath?: { id: number; valueEn: string; valuePl: string } | null;
+  careerSpecialization?: { id: number; valueEn: string; valuePl: string } | null;
+  seniorityLevel?: { id: number; valueEn: string; valuePl: string } | null;
   nextVacationStart?: string | null;
   daysOffRemaining?: number | null;
 };
@@ -282,8 +282,8 @@ describe("TeamMembersTable", () => {
       membersPage([
         {
           ...SEED_MEMBERS[1],
-          careerPath: { id: 11, value: "System Analyst" },
-          careerSpecialization: { id: 21, value: "Java" },
+          careerPath: { id: 11, valueEn: "System Analyst", valuePl: "System Analyst" },
+          careerSpecialization: { id: 21, valueEn: "Java", valuePl: "Java" },
           seniorityLevel: null,
         },
       ]),
@@ -331,7 +331,7 @@ describe("TeamMembersTable", () => {
   test("the all-reports scope keeps the career column even though the stats disappear", async () => {
     setupMocks(
       mockFetch,
-      membersPage([{ ...SEED_MEMBERS[1], careerPath: { id: 11, value: "QA Engineer" } }]),
+      membersPage([{ ...SEED_MEMBERS[1], careerPath: { id: 11, valueEn: "QA Engineer", valuePl: "QA Engineer" } }]),
     );
     renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
     await screen.findByText("Path");

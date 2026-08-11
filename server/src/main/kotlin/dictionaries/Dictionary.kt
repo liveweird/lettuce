@@ -23,40 +23,48 @@ enum class Dictionary(val slug: String) {
     }
 }
 
+/** Every entry is bilingual (V53, v2.6.0): clients render the viewer's language. */
 @Serializable
-data class DictionaryEntry(val id: UInt, val value: String)
+data class DictionaryEntry(val id: UInt, val valueEn: String, val valuePl: String)
 
 @Serializable
 data class DictionaryEntryList(val items: List<DictionaryEntry>)
 
 /** PUT item: `id` present = update that active entry in place; absent = insert a new one. */
 @Serializable
-data class DictionaryEntryInput(val id: UInt? = null, val value: String)
+data class DictionaryEntryInput(val id: UInt? = null, val valueEn: String, val valuePl: String)
 
 @Serializable
 data class DictionaryUpdateRequest(val items: List<DictionaryEntryInput>)
 
-// Column limit (dictionary_entries.value varchar(100)) enforced up-front: 400, not a DB 500.
+// Column limit (dictionary_entries.value_en/_pl varchar(100)) enforced up-front: 400, not a DB 500.
 const val MAX_DICTIONARY_VALUE_LENGTH = 100
 const val MAX_DICTIONARY_ENTRIES = 200
 
 /**
  * Single home of the payload rules — enforced by the route and re-checked by the service
  * (the validateAlert pattern). Values are compared TRIMMED (the service stores them trimmed);
- * uniqueness is case-sensitive, matching the DB partial unique index.
+ * uniqueness is case-sensitive and PER LANGUAGE (matching the two DB partial unique
+ * indexes) — the same string may appear as one entry's English and another's Polish.
  */
 fun validateDictionaryUpdate(request: DictionaryUpdateRequest) {
     if (request.items.size > MAX_DICTIONARY_ENTRIES) {
         throw BadRequestException("A dictionary may hold at most $MAX_DICTIONARY_ENTRIES entries")
     }
-    val trimmed = request.items.map { it.value.trim() }
-    if (trimmed.any { it.isEmpty() }) {
-        throw BadRequestException("Dictionary values must not be blank")
-    }
-    if (trimmed.any { it.length > MAX_DICTIONARY_VALUE_LENGTH }) {
-        throw BadRequestException("Dictionary values must be at most $MAX_DICTIONARY_VALUE_LENGTH characters")
-    }
-    if (trimmed.size != trimmed.toSet().size) {
-        throw BadRequestException("Dictionary values must be unique")
+    for ((language, values) in mapOf(
+        "English" to request.items.map { it.valueEn.trim() },
+        "Polish" to request.items.map { it.valuePl.trim() },
+    )) {
+        if (values.any { it.isEmpty() }) {
+            throw BadRequestException("Dictionary $language values must not be blank")
+        }
+        if (values.any { it.length > MAX_DICTIONARY_VALUE_LENGTH }) {
+            throw BadRequestException(
+                "Dictionary $language values must be at most $MAX_DICTIONARY_VALUE_LENGTH characters",
+            )
+        }
+        if (values.size != values.toSet().size) {
+            throw BadRequestException("Dictionary $language values must be unique")
+        }
     }
 }

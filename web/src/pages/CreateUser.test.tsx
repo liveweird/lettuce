@@ -44,7 +44,7 @@ async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
 function mockApi(
   postStatus: number,
   postBody?: unknown,
-  dictionaries: Record<string, { id: number; value: string }[]> = {},
+  dictionaries: Record<string, { id: number; valueEn: string; valuePl: string }[]> = {},
 ): ReturnType<typeof vi.fn> {
   const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
   mockFetch.mockImplementation((input: string, init?: RequestInit) => {
@@ -286,8 +286,8 @@ describe("CreateUser page", () => {
   test("career pickers are optional but post numeric ids when chosen", async () => {
     const mockFetch = mockApi(201, CREATED_USER, {
       "career-paths": [
-        { id: 11, value: "Software Engineer" },
-        { id: 12, value: "System Analyst" },
+        { id: 11, valueEn: "Software Engineer", valuePl: "Software Engineer" },
+        { id: 12, valueEn: "System Analyst", valuePl: "System Analyst" },
       ],
     });
 

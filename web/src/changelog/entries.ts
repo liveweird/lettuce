@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.6.0",
+    date: "2026-08-11",
+    en: `Dictionaries speak both languages. Every dictionary entry — career paths, specializations, seniority levels, and the pulse survey's rotating questions — now holds an English and a Polish text, and the app shows the one matching your language. That closes the gap where pulse question 6 stayed English for Polish users while every other question was translated: career profiles on people cards, the reviews dashboard, and the pulse survey and its results all follow your language now. Administrators edit both texts side by side in the dictionary editor; the built-in values ship with Polish translations out of the box.`,
+    pl: `Słowniki mówią w obu językach. Każdy wpis słownika — ścieżki kariery, specjalizacje, poziomy zaszeregowania i pytania rotacyjne ankiety pulse — ma teraz tekst angielski i polski, a aplikacja pokazuje ten zgodny z Twoim językiem. To domyka lukę, w której pytanie 6 ankiety pulse pozostawało po angielsku dla polskich użytkowników, choć wszystkie inne pytania były przetłumaczone: profile kariery na kartach osób, panel ocen okresowych oraz ankieta pulse i jej wyniki podążają teraz za Twoim językiem. Administratorzy edytują oba teksty obok siebie w edytorze słowników; wbudowane wartości mają polskie tłumaczenia od razu.`,
+  },
+  {
     version: "2.5.9",
     date: "2026-08-11",
     en: `Pulse survey polish. Answering a question no longer jumps ahead on its own — you always move forward with the Next button, so it is clear which question you are on (all questions remain required). The agreement answers are now stacked vertically, which keeps the empty radio circles from blending with the colored scale markers, and the 0–10 scale's end labels sit exactly under 0 and 10. Finally, once you have submitted the survey, the tab shows a clear "your answers are saved" notice with an "Edit my answers" button instead of silently reopening the first question.`,

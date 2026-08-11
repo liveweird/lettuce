@@ -33,7 +33,7 @@ function renderEditUser(id: number | string = 7) {
   );
 }
 
-type Entry = { id: number; value: string };
+type Entry = { id: number; valueEn: string; valuePl: string };
 
 const EXISTING_USER = {
   id: 7,
@@ -209,15 +209,15 @@ describe("EditUser page", () => {
 
   test("career pickers prefill from the user and picked values are PUT as numeric ids", async () => {
     mockApi({
-      user: { ...EXISTING_USER, careerPath: { id: 11, value: "Software Engineer" } },
+      user: { ...EXISTING_USER, careerPath: { id: 11, valueEn: "Software Engineer", valuePl: "Software Engineer" } },
       dictionaries: {
         "career-paths": [
-          { id: 11, value: "Software Engineer" },
-          { id: 12, value: "System Analyst" },
+          { id: 11, valueEn: "Software Engineer", valuePl: "Software Engineer" },
+          { id: 12, valueEn: "System Analyst", valuePl: "System Analyst" },
         ],
         "seniority-levels": [
-          { id: 31, value: "Junior" },
-          { id: 32, value: "Senior" },
+          { id: 31, valueEn: "Junior", valuePl: "Junior" },
+          { id: 32, valueEn: "Senior", valuePl: "Senior" },
         ],
       },
     });
@@ -245,9 +245,9 @@ describe("EditUser page", () => {
 
   test("a soft-deleted current entry still displays in its picker", async () => {
     mockApi({
-      user: { ...EXISTING_USER, careerPath: { id: 99, value: "Retired Path" } },
+      user: { ...EXISTING_USER, careerPath: { id: 99, valueEn: "Retired Path", valuePl: "Retired Path" } },
       dictionaries: {
-        "career-paths": [{ id: 11, value: "Software Engineer" }], // 99 no longer active
+        "career-paths": [{ id: 11, valueEn: "Software Engineer", valuePl: "Software Engineer" }], // 99 no longer active
       },
     });
 
@@ -261,8 +261,8 @@ describe("EditUser page", () => {
 
   test("unset career fields show the orange missing hint", async () => {
     mockApi({
-      user: { ...EXISTING_USER, careerPath: { id: 11, value: "Software Engineer" } },
-      dictionaries: { "career-paths": [{ id: 11, value: "Software Engineer" }] },
+      user: { ...EXISTING_USER, careerPath: { id: 11, valueEn: "Software Engineer", valuePl: "Software Engineer" } },
+      dictionaries: { "career-paths": [{ id: 11, valueEn: "Software Engineer", valuePl: "Software Engineer" }] },
     });
 
     renderEditUser(7);

@@ -194,11 +194,11 @@ export default function PulseSurvey() {
           )}
           {scaleField != null && (
             <PulseScaleInput
-              // Q6: the rotating question, in the cycle's snapshotted wording (admin-authored
-              // dictionary content — deliberately NOT localized).
+              // Q6: the rotating question, in the cycle's snapshotted wording — the viewer's
+              // language since V53 (both texts frozen at schedule time).
               label={
                 scaleField === "rotating"
-                  ? (openCycle.rotatingQuestion ?? "")
+                  ? ((locale === "pl" ? openCycle.rotatingQuestionPl : openCycle.rotatingQuestionEn) ?? "")
                   : t(FIXED_LABEL_KEY[scaleField])
               }
               value={form.values[scaleField]}

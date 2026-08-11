@@ -1,11 +1,13 @@
 import { test, expect, login, logout, uniqueText, ADMIN } from "./helpers";
 import type { Page } from "@playwright/test";
 
-// The three global dictionaries share one page (`/dictionaries/:slug`): admins edit the whole
+// The global dictionaries share one page (`/dictionaries/:slug`): admins edit the whole
 // ordered list in place and save it atomically; everyone else gets the read-only numbered view.
-// The dictionary is a global document, so this spec only ever appends its own throwaway entries
-// (unique E2E-* values) after whatever the volume already holds, and removes them at the end —
-// pre-existing entries ride along in every save untouched.
+// Since v2.6.0 every entry is bilingual — each row has an English and a Polish input (aria
+// `Entry N (English)` / `Entry N (Polish)`), both required. The dictionary is a global
+// document, so this spec only ever appends its own throwaway entries (unique E2E-* values)
+// after whatever the volume already holds, and removes them at the end — pre-existing entries
+// ride along in every save untouched.
 
 // seniority-levels, not career-paths: user-edit.spec exercises the career-paths document (its
 // whole-list editor pattern removes entries BY INDEX), and under parallel workers each dictionary
@@ -32,6 +34,11 @@ async function saveDictionary(page: Page) {
   await expect(save).toBeDisabled();
 }
 
+/** Row counter: one English input per row (each row also has a Polish sibling). */
+async function rowCount(page: Page): Promise<number> {
+  return page.getByLabel(/^Entry \d+ \(English\)$/).count();
+}
+
 test("admin curates a dictionary; a regular user sees the read-only list", async ({ page }) => {
   const valueA = uniqueText("E2E-Level-A");
   const valueB = uniqueText("E2E-Level-B");
@@ -43,32 +50,37 @@ test("admin curates a dictionary; a regular user sees the read-only list", async
   const addEntry = page.getByRole("button", { name: "Add entry", exact: true });
   await expect(addEntry).toBeVisible();
 
-  // Append two entries after whatever is already there.
-  const base = await page.getByRole("textbox").count();
+  // Append two entries after whatever is already there — both languages are required.
+  const base = await rowCount(page);
   await addEntry.click();
-  await page.getByLabel(`Entry ${base + 1}`, { exact: true }).fill(valueA);
+  await page.getByLabel(`Entry ${base + 1} (English)`, { exact: true }).fill(valueA);
+  await page.getByLabel(`Entry ${base + 1} (Polish)`, { exact: true }).fill(`${valueA}-pl`);
   await addEntry.click();
-  await page.getByLabel(`Entry ${base + 2}`, { exact: true }).fill(valueB);
+  await page.getByLabel(`Entry ${base + 2} (English)`, { exact: true }).fill(valueB);
+  await page.getByLabel(`Entry ${base + 2} (Polish)`, { exact: true }).fill(`${valueB}-pl`);
   await saveDictionary(page);
 
   // The re-seeded editor shows both, in order, at the end of the list.
-  await expect(page.getByLabel(`Entry ${base + 1}`, { exact: true })).toHaveValue(valueA);
-  await expect(page.getByLabel(`Entry ${base + 2}`, { exact: true })).toHaveValue(valueB);
+  await expect(page.getByLabel(`Entry ${base + 1} (English)`, { exact: true })).toHaveValue(valueA);
+  await expect(page.getByLabel(`Entry ${base + 2} (English)`, { exact: true })).toHaveValue(valueB);
+  await expect(page.getByLabel(`Entry ${base + 2} (Polish)`, { exact: true })).toHaveValue(`${valueB}-pl`);
 
-  // Reorder (B above A) and rename A in the same save.
+  // Reorder (B above A) and rename A's English in the same save.
   await page.getByRole("button", { name: `Move entry ${base + 2} up`, exact: true }).click();
-  await page.getByLabel(`Entry ${base + 2}`, { exact: true }).fill(renamed);
+  await page.getByLabel(`Entry ${base + 2} (English)`, { exact: true }).fill(renamed);
   await saveDictionary(page);
-  await expect(page.getByLabel(`Entry ${base + 1}`, { exact: true })).toHaveValue(valueB);
-  await expect(page.getByLabel(`Entry ${base + 2}`, { exact: true })).toHaveValue(renamed);
+  await expect(page.getByLabel(`Entry ${base + 1} (English)`, { exact: true })).toHaveValue(valueB);
+  await expect(page.getByLabel(`Entry ${base + 2} (English)`, { exact: true })).toHaveValue(renamed);
 
-  // A regular user sees the same values read-only: no inputs, no editor buttons. Sign out
-  // through the UI first — the login helper drives the real /login form, which an
-  // authenticated session gets redirected away from.
+  // A regular user sees the same values read-only: no inputs, no editor buttons (the English
+  // leads under the EN test locale; the Polish rides along dimmed). Sign out through the UI
+  // first — the login helper drives the real /login form, which an authenticated session gets
+  // redirected away from.
   await logout(page);
   await login(page, "aaa-one@lettuce.local");
   await page.goto(`/dictionaries/${SLUG}`);
   await expect(page.getByText(valueB, { exact: true })).toBeVisible();
+  await expect(page.getByText(`${valueB}-pl`, { exact: true })).toBeVisible();
   await expect(page.getByText(renamed, { exact: true })).toBeVisible();
   await expect(page.getByRole("textbox")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Add entry", exact: true })).toHaveCount(0);
@@ -78,7 +90,7 @@ test("admin curates a dictionary; a regular user sees the read-only list", async
   await logout(page);
   await login(page, ADMIN);
   await page.goto(`/dictionaries/${SLUG}`);
-  await expect(page.getByLabel(`Entry ${base + 1}`, { exact: true })).toHaveValue(valueB);
+  await expect(page.getByLabel(`Entry ${base + 1} (English)`, { exact: true })).toHaveValue(valueB);
   await page.getByRole("button", { name: `Remove entry ${base + 1}`, exact: true }).click();
   await page.getByRole("button", { name: `Remove entry ${base + 1}`, exact: true }).click();
   await saveDictionary(page);

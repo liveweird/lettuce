@@ -266,7 +266,7 @@ object TestReviewPeriods {
 // Reads dictionary_entries rows raw, soft-deleted included (the API read filters active), to
 // assert that omitted entries are flagged rather than physically removed.
 object TestDictionaries {
-    data class RawEntry(val id: UInt, val value: String, val markedAsDeleted: Boolean)
+    data class RawEntry(val id: UInt, val value: String, val valuePl: String, val markedAsDeleted: Boolean)
 
     val service: ch.nokillswit.dictionaries.DictionaryService by lazy {
         ch.nokillswit.dictionaries.DictionaryService(sharedTestDatabase)
@@ -277,7 +277,7 @@ object TestDictionaries {
             val t = ch.nokillswit.dictionaries.DictionaryService.Entries
             t.selectAll()
                 .where { t.dictionary eq dict.name }
-                .map { RawEntry(it[t.id].value, it[t.value], it[t.markedAsDeleted]) }
+                .map { RawEntry(it[t.id].value, it[t.valueEn], it[t.valuePl], it[t.markedAsDeleted]) }
                 .toList()
         }
 
@@ -293,11 +293,12 @@ object TestDictionaries {
         service.replace(
             dict,
             ch.nokillswit.dictionaries.DictionaryUpdateRequest(
-                kept.map { ch.nokillswit.dictionaries.DictionaryEntryInput(it.id, it.value) } +
-                    values.map { ch.nokillswit.dictionaries.DictionaryEntryInput(value = it) },
+                kept.map { ch.nokillswit.dictionaries.DictionaryEntryInput(it.id, it.valueEn, it.valuePl) } +
+                    // Bilingual entries (V53): tests that don't care about the split get PL = EN.
+                    values.map { ch.nokillswit.dictionaries.DictionaryEntryInput(valueEn = it, valuePl = it) },
             ),
         )
-        val byValue = service.read(dict).associate { it.value to it.id }
+        val byValue = service.read(dict).associate { it.valueEn to it.id }
         return values.map { byValue.getValue(it) }
     }
 
@@ -307,7 +308,11 @@ object TestDictionaries {
             dict,
             ch.nokillswit.dictionaries.DictionaryUpdateRequest(
                 service.read(dict).map {
-                    ch.nokillswit.dictionaries.DictionaryEntryInput(it.id, if (it.id == id) newValue else it.value)
+                    if (it.id == id) {
+                        ch.nokillswit.dictionaries.DictionaryEntryInput(it.id, newValue, newValue)
+                    } else {
+                        ch.nokillswit.dictionaries.DictionaryEntryInput(it.id, it.valueEn, it.valuePl)
+                    }
                 },
             ),
         )
@@ -319,7 +324,7 @@ object TestDictionaries {
             dict,
             ch.nokillswit.dictionaries.DictionaryUpdateRequest(
                 service.read(dict).filterNot { it.id == id }
-                    .map { ch.nokillswit.dictionaries.DictionaryEntryInput(it.id, it.value) },
+                    .map { ch.nokillswit.dictionaries.DictionaryEntryInput(it.id, it.valueEn, it.valuePl) },
             ),
         )
     }
