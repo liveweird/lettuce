@@ -36,7 +36,7 @@ enum class PulseDriverQuestion { Q2, Q3, Q4, Q5, ROTATING }
 
 @Serializable
 data class PulseEnpsAggregate(
-    /** promoter% − detractor%, from UNROUNDED percentages, rounded to a whole point (−100..+100). */
+    /** promoter% − detractor% computed in one drift-free expression (v2.6.2), rounded to a whole point (−100..+100). */
     val score: Int,
     val promoterPct: Double,
     val passivePct: Double,

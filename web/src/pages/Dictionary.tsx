@@ -39,7 +39,7 @@ import {
   type DictionaryFormValues,
 } from "../utils/dictionaryForm";
 
-// The three global dictionaries — the slug is both the route param and the API path segment.
+// The four global dictionaries — the slug is both the route param and the API path segment.
 const DICTIONARIES: Record<DictionarySlug, { titleKey: string }> = {
   "career-paths": { titleKey: "dictionary.title.careerPaths" },
   "career-specializations": { titleKey: "dictionary.title.careerSpecializations" },
@@ -51,7 +51,7 @@ const isDictionarySlug = (s: string | undefined): s is DictionarySlug =>
   s != null && s in DICTIONARIES;
 
 /**
- * One page serves all three dictionaries (`/dictionaries/:slug`): everyone gets the ordered
+ * One page serves all four dictionaries (`/dictionaries/:slug`): everyone gets the ordered
  * read-only list; an ADMIN gets the whole-list document editor instead — add/edit/reorder/
  * remove rows locally, one Save replaces the dictionary atomically (the 1:1 editing idiom;
  * a removed entry is soft-deleted server-side).
