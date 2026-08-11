@@ -1,4 +1,4 @@
-import { Chip, Group, Input, Text } from "@mantine/core";
+import { Box, Chip, Group, Input, Text } from "@mantine/core";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { enpsColor, mantineColorVar } from "../utils/pulseSurveyForm";
@@ -23,6 +23,9 @@ export default function PulseEnpsInput({
   const { t } = useTranslation();
   return (
     <Input.Wrapper label={t("pulse.q1")} withAsterisk error={error}>
+      {/* fit-content: the caption row's space-between must span exactly the chip row's
+          width, so "Extremely likely" sits under the 10 chip, not at the panel's edge. */}
+      <Box w="fit-content">
       <Chip.Group
         multiple={false}
         value={value === null ? null : String(value)}
@@ -58,6 +61,7 @@ export default function PulseEnpsInput({
           {t("pulse.q1High")}
         </Text>
       </Group>
+      </Box>
     </Input.Wrapper>
   );
 }

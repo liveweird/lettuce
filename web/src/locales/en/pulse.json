@@ -38,7 +38,8 @@
     "submit": "Submit survey",
     "update": "Save changes",
     "back": "Back",
-    "next": "Next"
+    "next": "Next",
+    "editAgain": "Edit my answers"
   },
   "validation": {
     "answerRequired": "Please pick an answer.",

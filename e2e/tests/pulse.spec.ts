@@ -123,15 +123,17 @@ test("a participant is notified, walks the wizard, and edits it while open", asy
   await page.keyboard.press("Escape");
 
   await page.goto("/pulse");
-  // The wizard (v2.0.1): one question per step, auto-advancing on answer.
+  // The wizard (v2.5.9): one question per step, explicit Next after every answer —
+  // answering never auto-advances.
   await expect(page.getByText("Question 1 of 7")).toBeVisible();
   await expect(page.getByText("0 of 6 answered")).toBeVisible();
   await pickEnps(page, 9);
-  // Q2-Q6 appear one at a time; anchor each iteration on the step counter (the auto-advance
-  // has a 250ms beat — clicking by counter keeps the loop deterministic).
+  await expect(page.getByText("Question 1 of 7")).toBeVisible();
+  await page.getByRole("button", { name: "Next" }).click();
   for (let stepNo = 2; stepNo <= 6; stepNo++) {
     await expect(page.getByText(`Question ${stepNo} of 7`)).toBeVisible();
     await answerVisibleQuestion(page);
+    await page.getByRole("button", { name: "Next" }).click();
   }
   await expect(page.getByText("Question 7 of 7")).toBeVisible();
   await expect(page.getByText("6 of 6 answered")).toBeVisible();
@@ -140,17 +142,20 @@ test("a participant is notified, walks the wizard, and edits it while open", asy
   await page.getByRole("button", { name: "Submit survey" }).click();
   await expect(page.getByText("Survey submitted")).toBeVisible();
 
-  // A successful save restarts the wizard at Q1, prefilled; change the answer, walk the
-  // prefilled steps forward with Next, and save again.
+  // A successful save lands on the saved-summary screen (v2.5.9); "Edit my answers"
+  // reopens the wizard at Q1 prefilled — change the answer, Next through, save again.
   await expect(page.getByText(/Your answers are saved/)).toBeVisible();
+  await page.getByRole("button", { name: "Edit my answers" }).click();
   await expect(page.getByText("Question 1 of 7")).toBeVisible();
   await pickEnps(page, 10);
-  for (let stepNo = 2; stepNo <= 6; stepNo++) {
-    await expect(page.getByText(`Question ${stepNo} of 7`)).toBeVisible();
+  for (let stepNo = 2; stepNo <= 7; stepNo++) {
     await page.getByRole("button", { name: "Next" }).click();
+    await expect(page.getByText(`Question ${stepNo} of 7`)).toBeVisible();
   }
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText("Survey submitted")).toBeVisible();
+  // And back on the summary after the re-save.
+  await expect(page.getByText(/Your answers are saved/)).toBeVisible();
 });
 
 test("the manager monitors participation live while the cycle is open", async ({ page, request }) => {

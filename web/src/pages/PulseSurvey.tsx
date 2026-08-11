@@ -3,7 +3,7 @@ import EmojiTextarea from "../components/EmojiTextarea";
 import { useForm } from "@mantine/form";
 import { IconZzz } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ApiError,
@@ -51,12 +51,13 @@ function stepAnswered(step: number, values: PulseFormValues): boolean {
 }
 
 /**
- * The "Current survey" tab as a WIZARD (v2.0.1): one question per step, Back/Next traversal,
- * and auto-advance a beat after answering a scored question. All six scored questions stay
- * required — Next gates per step, the form validation backstops the submit. Prevent-duplicate
- * + edit-while-open both fall out of the server's upsert: the wizard prefills from the saved
- * answers and re-submitting replaces them (until the admin closes the cycle); a successful
- * save restarts at the first question for review.
+ * The "Current survey" tab as a WIZARD (v2.0.1, reworked v2.5.9): one question per step,
+ * explicit Back/Next traversal — answering never auto-advances, so the user always knows
+ * which question they are on. All six scored questions stay required — Next gates per step,
+ * the form validation backstops the submit. Prevent-duplicate + edit-while-open both fall
+ * out of the server's upsert: an already-submitted survey shows a saved-summary screen with
+ * an "Edit my answers" entry that reopens the wizard prefilled, and re-submitting replaces
+ * the answers (until the admin closes the cycle); a successful save returns to the summary.
  */
 export default function PulseSurvey() {
   const { t, i18n } = useTranslation();
@@ -65,13 +66,8 @@ export default function PulseSurvey() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState(0);
-  const advanceTimer = useRef<number | null>(null);
-  useEffect(
-    () => () => {
-      if (advanceTimer.current != null) window.clearTimeout(advanceTimer.current);
-    },
-    [],
-  );
+  // Whether the user explicitly (re-)entered the wizard despite an existing response.
+  const [editing, setEditing] = useState(false);
 
   const cycles = useQuery({ queryKey: ["pulseCycles"], queryFn: listPulseCycles });
   const openCycle = cycles.data?.find((c) => c.status === "OPEN");
@@ -127,21 +123,7 @@ export default function PulseSurvey() {
   const alreadySubmitted = saved.data != null;
   const closeDate = formatIsoDate(openCycle.plannedCloseDate, locale);
 
-  // Answering a scored question advances after a short beat (the selection stays visible for
-  // a moment); Back is the way to linger. Re-answering an already-given answer advances too.
-  function scheduleAdvance() {
-    if (advanceTimer.current != null) window.clearTimeout(advanceTimer.current);
-    advanceTimer.current = window.setTimeout(() => {
-      advanceTimer.current = null;
-      setStep((current) => Math.min(current + 1, COMMENT_STEP));
-    }, 250);
-  }
-
   function goTo(next: number) {
-    if (advanceTimer.current != null) {
-      window.clearTimeout(advanceTimer.current);
-      advanceTimer.current = null;
-    }
     setStep(Math.max(0, Math.min(next, COMMENT_STEP)));
   }
 
@@ -152,13 +134,31 @@ export default function PulseSurvey() {
       await submitMyPulseResponse(openCycle!.id, toPulseSubmitBody(values));
       showSuccessToast(t("pulse.toast.submitted"));
       await invalidatePulse(queryClient);
-      // Restart at the first question — the saved state prefills for review/editing.
+      // Back to the saved-summary screen; re-entering via "Edit my answers" starts at Q1.
       goTo(0);
+      setEditing(false);
     } catch (err) {
       setError(pulseSaveErrorMessage(err, t));
     } finally {
       setSubmitting(false);
     }
+  }
+
+  // An existing response parks the tab on the saved-summary screen — the wizard only shows
+  // once the user explicitly asks to edit, so "am I on a fresh survey?" is never ambiguous.
+  if (alreadySubmitted && !editing) {
+    return (
+      <Paper withBorder shadow="sm" p="xl" radius="md">
+        <Stack gap="lg">
+          <Alert color="teal" variant="light">
+            {t("pulse.editableUntil", { date: closeDate })}
+          </Alert>
+          <Group>
+            <Button onClick={() => setEditing(true)}>{t("pulse.action.editAgain")}</Button>
+          </Group>
+        </Stack>
+      </Paper>
+    );
   }
 
   const scaleField = STEP_FIELD[step];
@@ -170,15 +170,9 @@ export default function PulseSurvey() {
           <Text size="sm" c="dimmed">
             {t("pulse.surveyIntro")}
           </Text>
-          {alreadySubmitted ? (
-            <Alert color="teal" variant="light">
-              {t("pulse.editableUntil", { date: closeDate })}
-            </Alert>
-          ) : (
-            <Text size="sm" c="dimmed">
-              {t("pulse.closesOn", { date: closeDate })}
-            </Text>
-          )}
+          <Text size="sm" c="dimmed">
+            {t("pulse.closesOn", { date: closeDate })}
+          </Text>
           <div>
             <Group justify="space-between">
               <Text size="sm" c="dimmed">
@@ -194,10 +188,7 @@ export default function PulseSurvey() {
           {step === 0 && (
             <PulseEnpsInput
               value={form.values.enps}
-              onChange={(value) => {
-                form.setFieldValue("enps", value);
-                scheduleAdvance();
-              }}
+              onChange={(value) => form.setFieldValue("enps", value)}
               error={form.errors.enps}
             />
           )}
@@ -211,10 +202,7 @@ export default function PulseSurvey() {
                   : t(FIXED_LABEL_KEY[scaleField])
               }
               value={form.values[scaleField]}
-              onChange={(value: PulseScaleAnswer) => {
-                form.setFieldValue(scaleField, value);
-                scheduleAdvance();
-              }}
+              onChange={(value: PulseScaleAnswer) => form.setFieldValue(scaleField, value)}
               error={form.errors[scaleField]}
             />
           )}
@@ -244,11 +232,8 @@ export default function PulseSurvey() {
               {t("pulse.action.back")}
             </Button>
             {step < COMMENT_STEP ? (
-              <Button
-                variant="default"
-                onClick={() => goTo(step + 1)}
-                disabled={!stepAnswered(step, form.values)}
-              >
+              // Primary: since v2.5.9 Next is the ONLY way forward (no auto-advance).
+              <Button onClick={() => goTo(step + 1)} disabled={!stepAnswered(step, form.values)}>
                 {t("pulse.action.next")}
               </Button>
             ) : (

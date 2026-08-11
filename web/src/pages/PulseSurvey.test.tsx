@@ -46,15 +46,24 @@ describe("PulseSurvey (wizard)", () => {
     myResponse = null as unknown,
     myResponseStatus = 404,
   } = {}) {
+    // Upsert semantics like the real server: after a PUT the GET returns the stored row,
+    // so the post-save refetch flips the page to the saved-summary screen.
+    let stored = myResponse;
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
       if (url.includes("/my-response") && method === "PUT") {
+        stored = {
+          cycleId: OPEN_CYCLE.id,
+          ...JSON.parse(init!.body as string),
+          submittedAt: 1,
+          lastModified: 2,
+        };
         return Promise.resolve(new Response(null, { status: 204 }));
       }
       if (url.includes("/my-response")) {
         return Promise.resolve(
-          myResponse != null
-            ? jsonResponse(200, myResponse)
+          stored != null
+            ? jsonResponse(200, stored)
             : jsonResponse(myResponseStatus, { title: "nope", status: myResponseStatus }),
         );
       }
@@ -77,7 +86,8 @@ describe("PulseSurvey (wizard)", () => {
     vi.restoreAllMocks();
   });
 
-  /** Answers the currently shown agreement question and lets the auto-advance fire. */
+  /** Answers the currently shown agreement question, then advances via Next (v2.5.9 —
+   *  answering never auto-advances). */
   async function answerCurrentScale(
     user: ReturnType<typeof userEvent.setup>,
     question: string,
@@ -85,6 +95,7 @@ describe("PulseSurvey (wizard)", () => {
   ) {
     const group = await screen.findByRole("radiogroup", { name: question });
     await user.click(within(group).getByRole("radio", { name: point }));
+    await user.click(screen.getByRole("button", { name: "Next" }));
   }
 
   test("no open cycle → the clear status message, never data", async () => {
@@ -120,22 +131,26 @@ describe("PulseSurvey (wizard)", () => {
     expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
   });
 
-  test("answering auto-advances; Back returns with the selection kept", async () => {
+  test("answering enables Next but never auto-advances; Back returns with the selection kept", async () => {
     setupMocks();
     const user = userEvent.setup();
     renderWithProviders(<PulseSurvey />);
     await screen.findByText("Question 1 of 7");
 
     await user.click(screen.getByRole("radio", { name: "9" }));
-    // The 250ms beat, then Q2.
+    // Answering stays on the question (v2.5.9 — no auto-advance); Next unlocks.
+    expect(screen.getByText("Question 1 of 7")).toBeInTheDocument();
+    expect(screen.getByText("1 of 6 answered")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
+
+    await user.click(screen.getByRole("button", { name: "Next" }));
     expect(await screen.findByText(FIXED_QUESTIONS[0])).toBeInTheDocument();
     expect(screen.getByText("Question 2 of 7")).toBeInTheDocument();
-    expect(screen.getByText("1 of 6 answered")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Back" }));
     expect(await screen.findByText("Question 1 of 7")).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "9" })).toBeChecked();
-    // Forward again without changing the answer: Next is enabled now.
+    // Forward again without changing the answer: Next is still enabled.
     await user.click(screen.getByRole("button", { name: "Next" }));
     expect(await screen.findByText("Question 2 of 7")).toBeInTheDocument();
   });
@@ -148,6 +163,7 @@ describe("PulseSurvey (wizard)", () => {
     await screen.findByText("Question 1 of 7");
 
     await user.click(screen.getByRole("radio", { name: "9" }));
+    await user.click(screen.getByRole("button", { name: "Next" }));
     for (const question of FIXED_QUESTIONS) {
       await answerCurrentScale(user, question);
     }
@@ -180,15 +196,22 @@ describe("PulseSurvey (wizard)", () => {
       });
     });
     expect(toast).toHaveBeenCalled();
-    // A successful save restarts the wizard at Q1 for review.
-    expect(await screen.findByText("Question 1 of 7")).toBeInTheDocument();
+    // A successful save lands on the saved-summary screen (v2.5.9), not back in the wizard.
+    expect(await screen.findByText(/Your answers are saved/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit my answers" })).toBeInTheDocument();
+    expect(screen.queryByText("Question 1 of 7")).toBeNull();
   });
 
-  test("saved answers prefill the wizard; Next traverses without changes; last step says Save changes", async () => {
+  test("an existing response parks on the saved summary; Edit my answers reopens the wizard prefilled", async () => {
     setupMocks({ myResponse: SAVED });
     const user = userEvent.setup();
     renderWithProviders(<PulseSurvey />);
+    // The summary screen (v2.5.9): the saved notice + the edit entry — no questions yet.
     expect(await screen.findByText(/Your answers are saved/)).toBeInTheDocument();
+    expect(screen.queryByText("Question 1 of 7")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Edit my answers" }));
+    expect(await screen.findByText("Question 1 of 7")).toBeInTheDocument();
     expect(screen.getByText("6 of 6 answered")).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "8" })).toBeChecked();
 
@@ -222,6 +245,7 @@ describe("PulseSurvey (wizard)", () => {
     const user = userEvent.setup();
     renderWithProviders(<PulseSurvey />);
     await screen.findByText(/Your answers are saved/);
+    await user.click(screen.getByRole("button", { name: "Edit my answers" }));
     for (let i = 0; i < 6; i++) {
       await user.click(screen.getByRole("button", { name: "Next" }));
     }
@@ -245,6 +269,7 @@ describe("PulseSurvey (wizard)", () => {
 
     // Agreement radios: the swatch beside "Strongly agree" is green, "Strongly disagree" orange.
     await user.click(screen.getByRole("radio", { name: "9" }));
+    await user.click(screen.getByRole("button", { name: "Next" }));
     const group = await screen.findByRole("radiogroup", { name: FIXED_QUESTIONS[0] });
     const swatchColor = (label: string) =>
       within(group)
