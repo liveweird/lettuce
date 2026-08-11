@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.6.1",
+    date: "2026-08-11",
+    en: `Dictionary editor polish. The two text columns in the dictionary editor now carry visible "English" and "Polish" headers, so it is always clear which language goes where — previously the hint disappeared as soon as a field was filled.`,
+    pl: `Dopracowanie edytora słowników. Dwie kolumny tekstowe w edytorze słowników mają teraz widoczne nagłówki „Angielski" i „Polski", więc zawsze wiadomo, który język wpisać gdzie — wcześniej podpowiedź znikała, gdy tylko pole zostało wypełnione.`,
+  },
+  {
     version: "2.6.0",
     date: "2026-08-11",
     en: `Dictionaries speak both languages. Every dictionary entry — career paths, specializations, seniority levels, and the pulse survey's rotating questions — now holds an English and a Polish text, and the app shows the one matching your language. That closes the gap where pulse question 6 stayed English for Polish users while every other question was translated: career profiles on people cards, the reviews dashboard, and the pulse survey and its results all follow your language now. Administrators edit both texts side by side in the dictionary editor; the built-in values ship with Polish translations out of the box.`,

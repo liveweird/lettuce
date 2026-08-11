@@ -94,6 +94,9 @@ describe("Dictionary page", () => {
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Add entry" })).not.toBeInTheDocument();
+    // The editor's column headers don't render in the read-only view.
+    expect(screen.queryByText("English")).not.toBeInTheDocument();
+    expect(screen.queryByText("Polish")).not.toBeInTheDocument();
   });
 
   test("a non-admin with no entries sees the empty state", async () => {
@@ -110,6 +113,10 @@ describe("Dictionary page", () => {
 
     expect(await screen.findByDisplayValue("Engineering")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Management")).toBeInTheDocument();
+    // The two input columns carry visible language headers (v2.6.1 — the placeholders
+    // vanish once filled, so the headers are the only always-visible markers).
+    expect(screen.getByText("English")).toBeInTheDocument();
+    expect(screen.getByText("Polish")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
   });
