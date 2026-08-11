@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import {
   Alert,
+  Box,
   Button,
   Center,
   Container,
@@ -185,6 +186,35 @@ function DictionaryEditor({
           <Text c="dimmed" size="sm">
             {t("dictionary.empty")}
           </Text>
+        )}
+        {rows.length > 0 && (
+          // Column headers for the two language inputs (the placeholders vanish once
+          // filled). The row structure is mirrored — number gutter, two grown columns,
+          // and an invisible RowControls clone reserving exactly the controls' width —
+          // so the labels stay aligned with the columns at any viewport.
+          <Group align="flex-start" gap="xs" wrap="nowrap" px="sm" mb={-8}>
+            <Box w={24} style={{ flexShrink: 0 }} />
+            <Group style={{ flex: 1 }} gap="xs" grow>
+              <Text size="sm" fw={500}>
+                {t("dictionary.languageEn")}
+              </Text>
+              <Text size="sm" fw={500}>
+                {t("dictionary.languagePl")}
+              </Text>
+            </Group>
+            <Box aria-hidden style={{ visibility: "hidden" }}>
+              <RowControls
+                index={0}
+                count={1}
+                onMoveUp={() => {}}
+                onMoveDown={() => {}}
+                onRemove={() => {}}
+                moveUpLabel=""
+                moveDownLabel=""
+                removeLabel=""
+              />
+            </Box>
+          </Group>
         )}
         {rows.map((row, index) => (
           <Paper key={row.key} withBorder p="sm" radius="md">
