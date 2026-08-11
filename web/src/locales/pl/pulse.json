@@ -91,7 +91,15 @@
     "unfavorable": "Negatywne",
     "validCount": "n",
     "meanDelta": "Δ średniej",
+    "favorableDelta": "Δ pozytywnych",
     "notEnoughResponses": "Mniej niż 3 odpowiedzi — wyniki są ukryte, aby chronić anonimowość.",
+    "smallSample": "Mała grupa — pojedyncze odpowiedzi mogą mocno zmieniać te liczby.",
+    "band": {
+      "concern": "niepokojący",
+      "okay": "w porządku",
+      "good": "dobry",
+      "excellent": "świetny"
+    },
     "resultsGated": "Wyniki są dostępne dla zamkniętych cykli, w których wziąłeś/wzięłaś udział.",
     "noResultsYet": "Nie ma jeszcze zamkniętych cykli pulsu.",
     "noTeams": "Brak zespołów, dla których można pokazać wyniki.",

@@ -55,7 +55,13 @@ test("admin toggles a user's Goals feature via both surfaces; the user's UI foll
   await page.getByRole("option", { name: "Goals" }).click();
   await page.getByRole("combobox", { name: "State" }).click();
   await page.getByRole("option", { name: "Disabled" }).click();
-  await page.getByLabel("Email", { exact: true }).fill(user.email);
+  // Wait for the email-filtered list fetch to land before touching the row: the debounced
+  // refetch re-mounts the table, and a click racing that re-render dies silently (the PUT
+  // below then never fires — observed flake, 2026-08-12).
+  await Promise.all([
+    page.waitForResponse((r) => r.url().includes("email=") && r.url().includes("/api/v1/users") && r.ok()),
+    page.getByLabel("Email", { exact: true }).fill(user.email),
+  ]);
   const rowSwitch = page.getByRole("switch", { name: `Toggle Goals for ${user.name}` });
   await expect(rowSwitch).not.toBeChecked();
   await Promise.all([

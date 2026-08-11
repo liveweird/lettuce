@@ -474,4 +474,47 @@ class PulseResultsTest {
         assertTrue(hrTeams.resultsTeams.any { it.id == fx.teamId })
         assertTrue(hrTeams.monitoredTeams.any { it.id == fx.teamId })
     }
+
+    @Test
+    fun `a perfectly split scope reads eNPS zero with even thirds - route level`() = testApplication {
+        usePostgresTestcontainer()
+        TestPulse.sweepNonTerminal()
+        val fx = org()
+        // 1 promoter, 1 passive, 1 detractor — the same shape the e2e fixture produces.
+        val cycle = TestPulse.closedCycleWith(
+            respondents = mapOf(fx.xId to answers(10), fx.yId to answers(8), fx.zId to answers(2)),
+        )
+        val x = authedClient(fx.xEmail, "pw")
+        val block = x.results(cycle.id, fx.teamId).body<PulseTeamResults>()
+        assertEquals(0, block.enps!!.score)
+        assertEquals(33.3, block.enps!!.promoterPct)
+        assertEquals(33.3, block.enps!!.passivePct)
+        assertEquals(33.3, block.enps!!.detractorPct)
+        assertEquals(100.0, block.responseRate)
+    }
+
+    @Test
+    fun `a previous cycle sharing the exact closedAt is not a previous cycle - the strict ordering`() =
+        testApplication {
+            usePostgresTestcontainer()
+            TestPulse.sweepNonTerminal()
+            val fx = org()
+            val base = TestPulse.closedAtAfterAll()
+            // Two cycles closed at the SAME millisecond: the route's strict `<` on closedAt
+            // picks neither as the other's baseline, so no deltas ship — pinned as the
+            // documented tie behavior (real cycles close via distinct admin actions).
+            TestPulse.closedCycleWith(
+                respondents = mapOf(fx.xId to answers(2), fx.yId to answers(3), fx.zId to answers(7)),
+                closedAt = base,
+            )
+            val c2 = TestPulse.closedCycleWith(
+                respondents = mapOf(fx.xId to answers(10), fx.yId to answers(9), fx.zId to answers(8)),
+                closedAt = base,
+            )
+            val x = authedClient(fx.xEmail, "pw")
+            val block = x.results(c2.id, fx.teamId).body<PulseTeamResults>()
+            assertFalse(block.insufficientResponses)
+            assertNull(block.previous)
+            assertTrue(block.drivers!!.all { it.meanDelta == null && it.favorableDeltaPp == null })
+        }
 }

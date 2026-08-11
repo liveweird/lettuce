@@ -14,6 +14,30 @@ export function formatSigned(value: number, digits = 0): string {
   return value > 0 ? `+${fixed}` : fixed;
 }
 
+/** Below this many responses the card shows the volatility hint: at n=3 one person switching
+ *  bands moves eNPS by ±33 points, so small-scope swings must not be over-read (v2.6.2). */
+export const PULSE_SMALL_SAMPLE = 10;
+
+/**
+ * Contextual band for the eNPS headline (v2.6.2) — approximate industry conventions, not
+ * science: below 0 is a concern, 0–20 okay, 21–50 good, above 50 excellent. Colors follow
+ * the design language: red = concern, dimmed neutral, semantic teal = healthy (never the
+ * brand green).
+ */
+export function enpsBandKey(score: number): "concern" | "okay" | "good" | "excellent" {
+  if (score < 0) return "concern";
+  if (score <= 20) return "okay";
+  if (score <= 50) return "good";
+  return "excellent";
+}
+
+export function enpsBandColor(score: number): "red" | "dimmed" | "teal" {
+  const band = enpsBandKey(score);
+  if (band === "concern") return "red";
+  if (band === "okay") return "dimmed";
+  return "teal";
+}
+
 /** The chart's series: only points whose eNPS is actually available, oldest first. */
 export function buildTrendSeries(points: PulseTrendPoint[]): { closedAt: number; enps: number; n: number }[] {
   return points

@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.6.2",
+    date: "2026-08-11",
+    en: `Pulse results hardening. An audit of the results calculation confirmed the algorithm follows the standard eNPS methodology and added a battery of edge-case tests (score ties, declines, all-"not applicable" questions, tiny teams). Improvements that came out of it: the eNPS score is now computed in a way immune to floating-point drift for hairline ties; the per-question table gained a "Δ favorable" column showing how the favorable share changed versus the previous cycle; the headline score carries a contextual color and label (concern / okay / good / excellent); and small groups show a reminder that individual answers move the numbers a lot.`,
+    pl: `Wzmocnienie wyników pulse. Audyt obliczania wyników potwierdził, że algorytm stosuje standardową metodologię eNPS, i dodał baterię testów przypadków brzegowych (remisy wyniku, spadki, pytania w całości „nie dotyczy", małe zespoły). Ulepszenia, które z niego wynikły: wynik eNPS jest teraz liczony w sposób odporny na dryf zmiennoprzecinkowy przy granicznych remisach; tabela pytań zyskała kolumnę „Δ pozytywnych" pokazującą zmianę udziału odpowiedzi pozytywnych względem poprzedniego cyklu; główny wynik ma kontekstowy kolor i etykietę (niepokojący / w porządku / dobry / świetny); a małe grupy widzą przypomnienie, że pojedyncze odpowiedzi mocno zmieniają te liczby.`,
+  },
+  {
     version: "2.6.1",
     date: "2026-08-11",
     en: `Dictionary editor polish. The two text columns in the dictionary editor now carry visible "English" and "Polish" headers, so it is always clear which language goes where — previously the hint disappeared as soon as a field was filled.`,
