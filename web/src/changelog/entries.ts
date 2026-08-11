@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.5.9",
+    date: "2026-08-11",
+    en: `Pulse survey polish. Answering a question no longer jumps ahead on its own — you always move forward with the Next button, so it is clear which question you are on (all questions remain required). The agreement answers are now stacked vertically, which keeps the empty radio circles from blending with the colored scale markers, and the 0–10 scale's end labels sit exactly under 0 and 10. Finally, once you have submitted the survey, the tab shows a clear "your answers are saved" notice with an "Edit my answers" button instead of silently reopening the first question.`,
+    pl: `Dopracowanie ankiety pulse. Odpowiedź na pytanie nie przeskakuje już samoczynnie dalej — do przodu przechodzisz zawsze przyciskiem „Dalej", więc wiadomo, na którym pytaniu jesteś (wszystkie pytania pozostają wymagane). Odpowiedzi na skali zgody są teraz ułożone pionowo, dzięki czemu puste kółka nie zlewają się z kolorowymi znacznikami skali, a etykiety końców skali 0–10 znajdują się dokładnie pod 0 i 10. Wreszcie po wysłaniu ankiety zakładka pokazuje czytelną informację „Twoje odpowiedzi są zapisane" z przyciskiem „Edytuj moje odpowiedzi" zamiast po cichu otwierać pierwsze pytanie od nowa.`,
+  },
+  {
     version: "2.5.8",
     date: "2026-08-11",
     en: `The navigation menu scrolls. On shorter screens, expanding a section like Config could push the bottom menu entries off the screen with no way to reach them. The menu list now scrolls — mouse wheel included — whenever it outgrows the window, and the version stamp stays pinned at the bottom. Also: on the Feature flags screen, user names now open the user details view, just like names everywhere else in the app.`,

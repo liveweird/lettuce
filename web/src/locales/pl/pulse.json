@@ -38,7 +38,8 @@
     "submit": "Wyślij ankietę",
     "update": "Zapisz zmiany",
     "back": "Wstecz",
-    "next": "Dalej"
+    "next": "Dalej",
+    "editAgain": "Edytuj moje odpowiedzi"
   },
   "validation": {
     "answerRequired": "Wybierz odpowiedź.",
