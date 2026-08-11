@@ -196,6 +196,29 @@ test("admin closes; a respondent reads team results; the non-responding manager 
   await expect(page.getByRole("heading", { name: "AAA", exact: true })).toBeVisible();
   await expect(page.getByText("3 of 3 responded (100%)")).toBeVisible();
   await expect(page.getByText("eNPS", { exact: true })).toBeVisible();
+
+  // Hand-computed aggregates for THIS cycle's known answers (v2.6.2 — the numbers, not
+  // just the labels, verified through submit → encrypt → store → decrypt → aggregate →
+  // render). eNPS {10, 8, 2} = 1 promoter / 1 passive / 1 detractor → score 0, thirds.
+  // Deltas are deliberately NOT asserted: a shared-DB rerun has a previous cycle, CI doesn't.
+  const card = page.locator(".mantine-Paper-root").filter({ hasText: "eNPS" }).first();
+  await expect(card.getByText("0", { exact: true })).toBeVisible(); // the unsigned headline
+  await expect(card.getByText(/Promoters 33\.3%/)).toBeVisible();
+  await expect(card.getByText(/Passives 33\.3%/)).toBeVisible();
+  await expect(card.getByText(/Detractors 33\.3%/)).toBeVisible();
+  // Q2 {4,4,4}: mean 4.0, favorable 100.0%, n 3.
+  const q2Row = card.locator("tr").filter({ hasText: "I understand what is expected" });
+  await expect(q2Row.getByText("4.0", { exact: true })).toBeVisible();
+  await expect(q2Row.getByText("100.0%", { exact: true })).toBeVisible();
+  // Q3 {4,3,3}: mean 10/3 → 3.3, favorable 33.3%.
+  const q3Row = card.locator("tr").filter({ hasText: "I receive the support" });
+  await expect(q3Row.getByText("3.3", { exact: true })).toBeVisible();
+  await expect(q3Row.getByText("33.3%", { exact: true })).toBeVisible();
+  // Q5 {4, NA, NA}: the two NAs leave the mean but shrink n to 1.
+  const q5Row = card.locator("tr").filter({ hasText: "My current workload" });
+  await expect(q5Row.getByText("4.0", { exact: true })).toBeVisible();
+  await expect(q5Row.getByText("1", { exact: true })).toBeVisible();
+
   // A plain member never sees the comments section.
   await expect(page.getByText(COMMENT)).toHaveCount(0);
   await logout(page);

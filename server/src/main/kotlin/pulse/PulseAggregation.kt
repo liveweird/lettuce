@@ -104,14 +104,16 @@ fun aggregateEnps(scores: List<Int>): PulseEnpsAggregate {
     val promoters = scores.count { it >= 9 }
     val passives = scores.count { it in 7..8 }
     val detractors = scores.count { it <= 6 }
-    val promoterPct = pct(promoters, scores.size)
-    val detractorPct = pct(detractors, scores.size)
     return PulseEnpsAggregate(
-        // Whole-point score from the unrounded percentages (the spec's worked example).
-        score = (promoterPct - detractorPct).roundToInt(),
-        promoterPct = round1(promoterPct),
+        // Whole-point score, promoterPct − detractorPct computed in ONE expression (v2.6.2):
+        // differencing two separately-computed percentages let float drift flip exact .5
+        // ties either way for some scope sizes (n=24: 12.4999… vs 12.5000…4). This form is
+        // mathematically identical and drift-free; ties round half-up like every other
+        // rounding here (12.5 → 13, and −12.5 → −12 — roundToInt is half-toward-+∞).
+        score = ((promoters - detractors) * 100.0 / scores.size).roundToInt(),
+        promoterPct = round1(pct(promoters, scores.size)),
         passivePct = round1(pct(passives, scores.size)),
-        detractorPct = round1(detractorPct),
+        detractorPct = round1(pct(detractors, scores.size)),
     )
 }
 

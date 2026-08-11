@@ -91,7 +91,15 @@
     "unfavorable": "Unfavorable",
     "validCount": "n",
     "meanDelta": "Δ mean",
+    "favorableDelta": "Δ favorable",
     "notEnoughResponses": "Fewer than 3 responses — results are hidden to protect anonymity.",
+    "smallSample": "Small group — individual answers can move these numbers a lot.",
+    "band": {
+      "concern": "concern",
+      "okay": "okay",
+      "good": "good",
+      "excellent": "excellent"
+    },
     "resultsGated": "Results are available for closed cycles you took part in.",
     "noResultsYet": "No closed pulse cycles yet.",
     "noTeams": "No teams to show results for.",

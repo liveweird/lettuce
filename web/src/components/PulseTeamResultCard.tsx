@@ -22,7 +22,14 @@ import {
   type PulseAggregationMode,
   type PulseDriverResult,
 } from "../api/client";
-import { buildTrendSeries, deltaColor, formatSigned } from "../utils/pulseResults";
+import {
+  PULSE_SMALL_SAMPLE,
+  buildTrendSeries,
+  deltaColor,
+  enpsBandColor,
+  enpsBandKey,
+  formatSigned,
+} from "../utils/pulseResults";
 
 const PulseTrendChart = lazy(() => import("./PulseTrendChart"));
 
@@ -38,6 +45,19 @@ function DriverRow({ driver, questionLabel }: { driver: PulseDriverResult; quest
         {driver.meanDelta != null ? (
           <Text size="sm" c={deltaColor(driver.meanDelta)}>
             {formatSigned(driver.meanDelta, 1)}
+          </Text>
+        ) : (
+          <Text size="sm" c="dimmed">
+            —
+          </Text>
+        )}
+      </Table.Td>
+      <Table.Td>
+        {/* The favorable-share change vs the previous cycle, in percentage points (v2.6.2 —
+            the wire always carried it; the table finally shows it). */}
+        {driver.favorableDeltaPp != null ? (
+          <Text size="sm" c={deltaColor(driver.favorableDeltaPp)}>
+            {formatSigned(driver.favorableDeltaPp, 1)} pp
           </Text>
         ) : (
           <Text size="sm" c="dimmed">
@@ -131,13 +151,27 @@ export default function PulseTeamResultCard({
 
         {data && !data.insufficientResponses && data.enps && (
           <>
+            {/* Small scopes are volatile — at n=3 one person switching bands moves the score
+                by ±33 points. Say so rather than letting swings be over-read (v2.6.2). */}
+            {data.responseCount < PULSE_SMALL_SAMPLE && (
+              <Text size="xs" c="dimmed">
+                {t("pulse.results.smallSample")}
+              </Text>
+            )}
             <Group align="baseline" gap="md">
-              <Text fz={40} fw={600} lh={1}>
+              {/* Contextual band color + caption (v2.6.2) — approximate industry framing,
+                  deliberately coarse: red below 0, neutral to +20, teal above. */}
+              <Text fz={40} fw={600} lh={1} c={enpsBandColor(data.enps.score)}>
                 {data.enps.score > 0 ? `+${data.enps.score}` : data.enps.score}
               </Text>
-              <Text size="sm" c="dimmed">
-                {t("pulse.results.enps")}
-              </Text>
+              <Stack gap={0}>
+                <Text size="sm" c="dimmed">
+                  {t("pulse.results.enps")}
+                </Text>
+                <Text size="xs" c="dimmed">
+                  {t(`pulse.results.band.${enpsBandKey(data.enps.score)}`)}
+                </Text>
+              </Stack>
               {data.previous && (
                 <Badge color={deltaColor(data.previous.enpsDelta)} variant="light">
                   {formatSigned(data.previous.enpsDelta)} {t("pulse.results.deltaVsPrevious")}
@@ -171,6 +205,7 @@ export default function PulseTeamResultCard({
                     <Table.Th>{t("pulse.results.unfavorable")}</Table.Th>
                     <Table.Th>{t("pulse.results.validCount")}</Table.Th>
                     <Table.Th>{t("pulse.results.meanDelta")}</Table.Th>
+                    <Table.Th>{t("pulse.results.favorableDelta")}</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>

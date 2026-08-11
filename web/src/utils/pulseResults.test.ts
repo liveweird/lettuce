@@ -1,6 +1,15 @@
 import { describe, expect, test } from "vitest";
 import type { TFunction } from "i18next";
-import { addIsoDays, buildTrendSeries, closedCycleOptions, deltaColor, formatSigned } from "./pulseResults";
+import {
+  PULSE_SMALL_SAMPLE,
+  addIsoDays,
+  buildTrendSeries,
+  closedCycleOptions,
+  deltaColor,
+  enpsBandColor,
+  enpsBandKey,
+  formatSigned,
+} from "./pulseResults";
 import type { PulseCycle, PulseTrendPoint } from "../api/client";
 
 describe("delta presentation", () => {
@@ -16,6 +25,30 @@ describe("delta presentation", () => {
     expect(formatSigned(-3)).toBe("-3");
     expect(formatSigned(0)).toBe("0");
     expect(formatSigned(1.65, 1)).toBe("+1.6");
+  });
+});
+
+describe("eNPS band context (v2.6.2)", () => {
+  test("bands split at 0, 20, and 50 — approximate industry framing", () => {
+    expect(enpsBandKey(-1)).toBe("concern");
+    expect(enpsBandKey(-100)).toBe("concern");
+    expect(enpsBandKey(0)).toBe("okay");
+    expect(enpsBandKey(20)).toBe("okay");
+    expect(enpsBandKey(21)).toBe("good");
+    expect(enpsBandKey(50)).toBe("good");
+    expect(enpsBandKey(51)).toBe("excellent");
+    expect(enpsBandKey(100)).toBe("excellent");
+  });
+
+  test("colors: red for concern, dimmed neutral, teal for healthy — never brand green", () => {
+    expect(enpsBandColor(-10)).toBe("red");
+    expect(enpsBandColor(10)).toBe("dimmed");
+    expect(enpsBandColor(33)).toBe("teal");
+    expect(enpsBandColor(80)).toBe("teal");
+  });
+
+  test("the small-sample hint threshold is ten responses", () => {
+    expect(PULSE_SMALL_SAMPLE).toBe(10);
   });
 });
 
