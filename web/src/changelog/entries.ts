@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.5.8",
+    date: "2026-08-11",
+    en: `The navigation menu scrolls. On shorter screens, expanding a section like Config could push the bottom menu entries off the screen with no way to reach them. The menu list now scrolls — mouse wheel included — whenever it outgrows the window, and the version stamp stays pinned at the bottom. Also: on the Feature flags screen, user names now open the user details view, just like names everywhere else in the app.`,
+    pl: `Menu nawigacji się przewija. Na niższych ekranach rozwinięcie sekcji takiej jak Konfiguracja mogło wypchnąć dolne pozycje menu poza ekran bez możliwości dotarcia do nich. Lista menu przewija się teraz — także kółkiem myszy — zawsze gdy przerośnie okno, a stopka z wersją pozostaje przypięta na dole. Dodatkowo: na ekranie Flag funkcji nazwy użytkowników otwierają teraz widok szczegółów użytkownika, tak jak nazwy wszędzie indziej w aplikacji.`,
+  },
+  {
     version: "2.5.7",
     date: "2026-08-11",
     en: `Team details has its own address. The team page now lives at /teams/…/details — the URL finally says what the page is, after the members screen grew into the full team-details view over the last releases. Old links keep working: both the former members and subordinates addresses redirect to the new one, bookmarks included.`,

@@ -11,6 +11,7 @@ import { jsonResponse } from "../test/http";
 
 const TOKEN_KEY = "lettuce.auth.token";
 const ROLE_KEY = "lettuce.auth.roles";
+const USER_ID_KEY = "lettuce.auth.userId";
 
 function PathProbe() {
   const location = useLocation();
@@ -239,6 +240,20 @@ describe("FeatureFlags page", () => {
     expect(within(table).getByText("BBB")).toBeInTheDocument();
     // Bob is in no team — his row renders the dash placeholder.
     expect(within(table).getByText("—")).toBeInTheDocument();
+  });
+
+  test("user names link to their details view — except one's own row", async () => {
+    localStorage.setItem(USER_ID_KEY, "1"); // the viewer is Alice
+    mockApi();
+    renderFeatureFlags();
+    await screen.findByRole("switch", { name: "Toggle Feedbacks for Alice" });
+
+    expect(screen.getByRole("link", { name: "User details for Bob" })).toHaveAttribute(
+      "href",
+      "/users/2/details?name=Bob&from=users",
+    );
+    // Self stays a plain chip (the Users-list rule).
+    expect(screen.queryByRole("link", { name: "User details for Alice" })).not.toBeInTheDocument();
   });
 
   test("the team filter sends teamId", async () => {
