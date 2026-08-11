@@ -105,8 +105,10 @@ commit** — this list is the suite's coverage map, and it has drifted three tim
   (admin-only) / delete.
 - `templates.spec.ts` — template CRUD + **Insert** into the feedback editor.
 - `dictionaries.spec.ts` — the global dictionaries: an admin **adds**, **reorders**, and
-  **renames** entries in the whole-list editor (one Save per round), a regular user sees the
-  read-only numbered view, and the throwaway entries are removed at the end.
+  **renames** entries in the whole-list editor (one Save per round; bilingual since v2.6.0 —
+  two inputs per row, `Entry N (English)`/`(Polish)`, both values asserted in the read-only
+  view), a regular user sees the read-only numbered view, and the throwaway entries are
+  removed at the end.
 - `manager-oversight.spec.ts` — the **My team** feedback tab and the per-user two-way
   feedbacks screen.
 - `lists.spec.ts` — shared list plumbing on the Users page: filters (+ clear), sort toggle,
@@ -180,7 +182,7 @@ commit** — this list is the suite's coverage map, and it has drifted three tim
 - `pulse.spec.ts` — the pulse-survey lifecycle (v2.0.0): admin schedules (prefilled dates) and
   **opens** a cycle; a participant is notified, **fills** the 7-question survey and **edits** it
   while open; the manager watches per-person **participation** live; two teammates respond over
-  the API (k≥3), the admin **closes**; the respondent reads the team's aggregated **results**
+  the API (k≥3), the admin **closes**; the respondent reads the team's aggregated **results** (since v2.6.2 asserting HAND-COMPUTED aggregates — eNPS 0 with 33.3-thirds, per-row means/favorables/n)
   from the bell deep link while the non-responding manager still reads the anonymized
   **comments** (the fill-gate/monitoring split); and a scheduled cycle is **cancelled** with the
   audit-honest confirmation. Runs in its own serial phase — see "Parallel execution".

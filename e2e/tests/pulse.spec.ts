@@ -202,7 +202,9 @@ test("admin closes; a respondent reads team results; the non-responding manager 
   // render). eNPS {10, 8, 2} = 1 promoter / 1 passive / 1 detractor → score 0, thirds.
   // Deltas are deliberately NOT asserted: a shared-DB rerun has a previous cycle, CI doesn't.
   const card = page.locator(".mantine-Paper-root").filter({ hasText: "eNPS" }).first();
-  await expect(card.getByText("0", { exact: true })).toBeVisible(); // the unsigned headline
+  // The headline is a Mantine Text (<p>); plain getByText would also match the trend
+  // chart's y-axis "0" tick once a second closed cycle makes the chart render (reruns).
+  await expect(card.getByRole("paragraph").filter({ hasText: /^0$/ })).toBeVisible();
   await expect(card.getByText(/Promoters 33\.3%/)).toBeVisible();
   await expect(card.getByText(/Passives 33\.3%/)).toBeVisible();
   await expect(card.getByText(/Detractors 33\.3%/)).toBeVisible();
