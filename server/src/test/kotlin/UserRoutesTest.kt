@@ -862,9 +862,9 @@ class UserRoutesTest {
         assertEquals(HttpStatusCode.NoContent, put.status)
 
         val read = client.get("/api/v1/users/${created.id}").body<UserResponse>()
-        assertEquals(DictionaryEntry(pathId, "Path $marker"), read.careerPath)
-        assertEquals(DictionaryEntry(specId, "Spec $marker"), read.careerSpecialization)
-        assertEquals(DictionaryEntry(levelId, "Level $marker"), read.seniorityLevel)
+        assertEquals(DictionaryEntry(pathId, "Path $marker", "Path $marker"), read.careerPath)
+        assertEquals(DictionaryEntry(specId, "Spec $marker", "Spec $marker"), read.careerSpecialization)
+        assertEquals(DictionaryEntry(levelId, "Level $marker", "Level $marker"), read.seniorityLevel)
 
         // A follow-up PUT omitting the ids leaves them untouched — clearing is inexpressible.
         val nullPut = client.put("/api/v1/users/${created.id}") {
@@ -901,11 +901,11 @@ class UserRoutesTest {
         TestDictionaries.rename(Dictionary.CAREER_PATH, pathId, "AAA1 $marker")
 
         val read = client.get("/api/v1/users/${created.id}").body<UserResponse>()
-        assertEquals(DictionaryEntry(pathId, "AAA1 $marker"), read.careerPath)
+        assertEquals(DictionaryEntry(pathId, "AAA1 $marker", "AAA1 $marker"), read.careerPath)
 
         val page = client.get("/api/v1/users?email=${created.email}").body<UserPageResponse>()
         assertEquals(1, page.items.size)
-        assertEquals(DictionaryEntry(pathId, "AAA1 $marker"), page.items.single().careerPath)
+        assertEquals(DictionaryEntry(pathId, "AAA1 $marker", "AAA1 $marker"), page.items.single().careerPath)
     }
 
     @Test
@@ -932,7 +932,7 @@ class UserRoutesTest {
 
         // The retained value still resolves…
         val read = client.get("/api/v1/users/${created.id}").body<UserResponse>()
-        assertEquals(DictionaryEntry(pathId, "Gone $marker"), read.careerPath)
+        assertEquals(DictionaryEntry(pathId, "Gone $marker", "Gone $marker"), read.careerPath)
 
         // …and resubmitting the (now soft-deleted) current id passes — it is not a change.
         val resubmit = client.put("/api/v1/users/${created.id}") {
@@ -945,7 +945,7 @@ class UserRoutesTest {
             )
         }
         assertEquals(HttpStatusCode.NoContent, resubmit.status)
-        assertEquals(DictionaryEntry(pathId, "Gone $marker"), client.get("/api/v1/users/${created.id}").body<UserResponse>().careerPath)
+        assertEquals(DictionaryEntry(pathId, "Gone $marker", "Gone $marker"), client.get("/api/v1/users/${created.id}").body<UserResponse>().careerPath)
     }
 
     @Test
@@ -1000,9 +1000,9 @@ class UserRoutesTest {
         }
         assertEquals(HttpStatusCode.Created, plain.status)
         val plainBody = plain.body<UserResponse>()
-        assertEquals(DictionaryEntry(pathId, "CreatePath $marker"), plainBody.careerPath)
+        assertEquals(DictionaryEntry(pathId, "CreatePath $marker", "CreatePath $marker"), plainBody.careerPath)
         assertEquals(null, plainBody.careerSpecialization)
-        assertEquals(DictionaryEntry(levelId, "CreateLevel $marker"), plainBody.seniorityLevel)
+        assertEquals(DictionaryEntry(levelId, "CreateLevel $marker", "CreateLevel $marker"), plainBody.seniorityLevel)
 
         // The sendEmail shape (log transport in tests) resolves them too.
         val mailed = client.post("/api/v1/users") {
@@ -1017,7 +1017,7 @@ class UserRoutesTest {
         assertEquals(HttpStatusCode.Created, mailed.status)
         val mailedBody = mailed.body<UserCreateResponse>()
         assertEquals(true, mailedBody.emailSent)
-        assertEquals(DictionaryEntry(pathId, "CreatePath $marker"), mailedBody.careerPath)
+        assertEquals(DictionaryEntry(pathId, "CreatePath $marker", "CreatePath $marker"), mailedBody.careerPath)
 
         val invalid = client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)

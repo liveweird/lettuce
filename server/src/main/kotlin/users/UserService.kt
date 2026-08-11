@@ -531,7 +531,8 @@ class UserService(val database: R2dbcDatabase) {
             .associate {
                 it[DictionaryService.Entries.id].value to DictionaryEntry(
                     id = it[DictionaryService.Entries.id].value,
-                    value = it[DictionaryService.Entries.value],
+                    valueEn = it[DictionaryService.Entries.valueEn],
+                    valuePl = it[DictionaryService.Entries.valuePl],
                 )
             }
 }

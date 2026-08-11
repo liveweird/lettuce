@@ -78,7 +78,7 @@ class PulseCycleRoutesTest {
         assertNotNull(created.headers[HttpHeaders.Location])
         val cycle = created.body<PulseCycleResponse>()
         assertEquals(PulseCycleStatus.SCHEDULED, cycle.status)
-        assertNotNull(cycle.rotatingQuestion)
+        assertNotNull(cycle.rotatingQuestionEn)
         try {
             // The eligible got a link-less heads-up.
             val scheduled = participant.get("/api/v1/notifications").body<NotificationPageResponse>()
@@ -88,7 +88,7 @@ class PulseCycleRoutesTest {
 
             // A non-admin sees no question and no counts while SCHEDULED.
             val listed = participant.get(cyclesUrl).body<PulseCycleList>().items.first { it.id == cycle.id }
-            assertNull(listed.rotatingQuestion)
+            assertNull(listed.rotatingQuestionEn)
             assertNull(listed.participantCount)
 
             // Open: snapshot + linked notifications; the question becomes public; reopen is 409.
@@ -96,7 +96,7 @@ class PulseCycleRoutesTest {
             assertEquals(HttpStatusCode.Conflict, admin.post("$cyclesUrl/${cycle.id}/open").status)
             val visible = participant.get("$cyclesUrl/${cycle.id}").body<PulseCycleResponse>()
             assertEquals(PulseCycleStatus.OPEN, visible.status)
-            assertNotNull(visible.rotatingQuestion)
+            assertNotNull(visible.rotatingQuestionEn)
             val opened = participant.get("/api/v1/notifications").body<NotificationPageResponse>()
                 .items.first { it.type == NotificationType.PULSE_CYCLE_OPENED }
             assertEquals("/pulse?tab=survey", opened.link)

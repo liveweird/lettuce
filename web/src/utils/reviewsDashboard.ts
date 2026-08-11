@@ -3,6 +3,7 @@
 // and the filter predicates are unit-testable without rendering.
 
 import type { PerformanceReviewListItem } from "../api/client";
+import { pickDictionaryValue } from "./dictionaryForm";
 import { RATING_VALUES, type ReviewCategory } from "./reviewRatings";
 import type { PersonCard, TeamRow } from "./teamRows";
 import { groupTeamRows } from "./teamRows";
@@ -105,6 +106,8 @@ export function sortReviewsDashboardRows(
   rows: ReviewsDashboardRow[],
   field: ReviewsDashboardSortField,
   dir: "asc" | "desc",
+  // The viewer's language — career columns sort by the DISPLAYED (localized) value.
+  lang?: string,
 ): ReviewsDashboardRow[] {
   const sign = dir === "desc" ? -1 : 1;
   const stringKey = (r: ReviewsDashboardRow): string | null => {
@@ -114,11 +117,13 @@ export function sortReviewsDashboardRows(
       case "team":
         return r.person.teamNames[0] ?? null;
       case "careerPath":
-        return r.person.careerPath?.value ?? null;
+        return r.person.careerPath ? pickDictionaryValue(r.person.careerPath, lang) : null;
       case "careerSpecialization":
-        return r.person.careerSpecialization?.value ?? null;
+        return r.person.careerSpecialization
+          ? pickDictionaryValue(r.person.careerSpecialization, lang)
+          : null;
       case "seniorityLevel":
-        return r.person.seniorityLevel?.value ?? null;
+        return r.person.seniorityLevel ? pickDictionaryValue(r.person.seniorityLevel, lang) : null;
       default:
         return null;
     }

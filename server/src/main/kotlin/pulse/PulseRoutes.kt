@@ -106,8 +106,13 @@ fun Application.configurePulseRoutes() {
         status = row.status,
         plannedOpenDate = row.plannedOpenDate,
         plannedCloseDate = row.plannedCloseDate,
-        rotatingQuestion = if (admin || row.status == PulseCycleStatus.OPEN || row.status == PulseCycleStatus.CLOSED) {
-            row.rotatingQuestionText
+        rotatingQuestionEn = if (admin || row.status == PulseCycleStatus.OPEN || row.status == PulseCycleStatus.CLOSED) {
+            row.rotatingQuestionTextEn
+        } else {
+            null
+        },
+        rotatingQuestionPl = if (admin || row.status == PulseCycleStatus.OPEN || row.status == PulseCycleStatus.CLOSED) {
+            row.rotatingQuestionTextPl
         } else {
             null
         },
@@ -440,7 +445,8 @@ fun Application.configurePulseRoutes() {
                         mode = mode,
                         participantCount = participantCount,
                         answers = answers,
-                        rotatingText = cycle.rotatingQuestionText,
+                        rotatingTextEn = cycle.rotatingQuestionTextEn,
+                        rotatingTextPl = cycle.rotatingQuestionTextPl,
                         previous = previous,
                     ),
                 )

@@ -56,8 +56,8 @@ describe("reviewsDashboard", () => {
   test("filters narrow by team name and career entry ids", () => {
     const rows = buildReviewsDashboardRows(
       [
-        member(1, "Ann", "AAA", { careerPath: { id: 11, value: "Eng" } }),
-        member(2, "Zoe", "BBB", { seniorityLevel: { id: 31, value: "Senior" } }),
+        member(1, "Ann", "AAA", { careerPath: { id: 11, valueEn: "Eng", valuePl: "Eng" } }),
+        member(2, "Zoe", "BBB", { seniorityLevel: { id: 31, valueEn: "Senior", valuePl: "Senior" } }),
       ],
       [],
     );
@@ -88,7 +88,7 @@ describe("reviewsDashboard", () => {
   test("sorts strings per locale with unset values last", () => {
     const rows = buildReviewsDashboardRows(
       [
-        member(1, "Ann", "BBB", { seniorityLevel: { id: 31, value: "Senior" } }),
+        member(1, "Ann", "BBB", { seniorityLevel: { id: 31, valueEn: "Senior", valuePl: "Senior" } }),
         member(2, "Zoe", "AAA"),
       ],
       [],

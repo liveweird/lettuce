@@ -15,8 +15,8 @@ function PathProbe() {
 }
 
 const ENTRIES = [
-  { id: 1, value: "Engineering" },
-  { id: 2, value: "Management" },
+  { id: 1, valueEn: "Engineering", valuePl: "Inżynieria" },
+  { id: 2, valueEn: "Management", valuePl: "Zarządzanie" },
 ];
 
 function renderPage(route = "/dictionaries/career-paths") {
@@ -64,7 +64,7 @@ describe("Dictionary page", () => {
     });
   }
 
-  function putBodies(): { items: { id?: number; value: string }[] }[] {
+  function putBodies(): { items: { id?: number; valueEn: string; valuePl: string }[] }[] {
     return mockFetch.mock.calls
       .filter(([, init]) => (init as RequestInit | undefined)?.method === "PUT")
       .map(([, init]) => JSON.parse(String((init as RequestInit).body)));
@@ -86,6 +86,8 @@ describe("Dictionary page", () => {
 
     expect(await screen.findByText("Engineering")).toBeInTheDocument();
     expect(screen.getByText("Management")).toBeInTheDocument();
+    // The other language rides along, dimmed (the EN test locale leads with English).
+    expect(screen.getByText("Inżynieria")).toBeInTheDocument();
     // Ordered numbering, but nothing editable and no actions.
     expect(screen.getByText("1.")).toBeInTheDocument();
     expect(screen.getByText("2.")).toBeInTheDocument();
@@ -119,22 +121,23 @@ describe("Dictionary page", () => {
 
     await screen.findByDisplayValue("Engineering");
     await user.click(screen.getByRole("button", { name: "Add entry" }));
-    await user.type(screen.getByLabelText("Entry 3"), "Consulting");
+    await user.type(screen.getByLabelText("Entry 3 (English)"), "Consulting");
+    await user.type(screen.getByLabelText("Entry 3 (Polish)"), "Konsulting");
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(putBodies()).toHaveLength(1));
     expect(putBodies()[0]).toEqual({
       items: [
-        { id: 1, value: "Engineering" },
-        { id: 2, value: "Management" },
-        { value: "Consulting" },
+        { id: 1, valueEn: "Engineering", valuePl: "Inżynieria" },
+        { id: 2, valueEn: "Management", valuePl: "Zarządzanie" },
+        { valueEn: "Consulting", valuePl: "Konsulting" },
       ],
     });
   });
 
   test("reordering and removing rows shape the payload from the visible order", async () => {
     const user = userEvent.setup();
-    stubApi([...ENTRIES, { id: 3, value: "Sales" }]);
+    stubApi([...ENTRIES, { id: 3, valueEn: "Sales", valuePl: "Sprzedaż" }]);
     renderPage();
 
     await screen.findByDisplayValue("Sales");
@@ -145,8 +148,8 @@ describe("Dictionary page", () => {
     await waitFor(() => expect(putBodies()).toHaveLength(1));
     expect(putBodies()[0]).toEqual({
       items: [
-        { id: 3, value: "Sales" },
-        { id: 2, value: "Management" },
+        { id: 3, valueEn: "Sales", valuePl: "Sprzedaż" },
+        { id: 2, valueEn: "Management", valuePl: "Zarządzanie" },
       ],
     });
   });
@@ -156,7 +159,8 @@ describe("Dictionary page", () => {
     stubApi();
     renderPage();
 
-    const second = await screen.findByLabelText("Entry 2");
+    // A duplicate ENGLISH value is flagged even when the Polish side stays unique.
+    const second = await screen.findByLabelText("Entry 2 (English)");
     await user.clear(second);
     await user.type(second, "Engineering");
     await user.click(screen.getByRole("button", { name: "Save" }));
@@ -172,7 +176,7 @@ describe("Dictionary page", () => {
     stubApi(ENTRIES, 409);
     renderPage();
 
-    const first = await screen.findByLabelText("Entry 1");
+    const first = await screen.findByLabelText("Entry 1 (English)");
     await user.clear(first);
     await user.type(first, "Renamed");
     await user.click(screen.getByRole("button", { name: "Save" }));
@@ -189,7 +193,7 @@ describe("Dictionary page", () => {
     stubApi();
     renderPage();
 
-    const first = await screen.findByLabelText("Entry 1");
+    const first = await screen.findByLabelText("Entry 1 (English)");
     await user.clear(first);
     await user.type(first, "Changed");
     await user.click(screen.getByRole("button", { name: "Cancel" }));

@@ -51,7 +51,8 @@ const RESULTS = {
     { question: "Q5", validCount: 2, mean: 3.5, favorablePct: 50.0, unfavorablePct: 0.0 },
     {
       question: "ROTATING",
-      rotatingText: "Good work is recognized here.",
+      rotatingTextEn: "Good work is recognized here.",
+      rotatingTextPl: "Dobra praca jest tu doceniana.",
       validCount: 3,
       mean: 3.7,
       favorablePct: 33.3,

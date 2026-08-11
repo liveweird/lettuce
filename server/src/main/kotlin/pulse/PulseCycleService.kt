@@ -46,7 +46,8 @@ class PulseCycleService(
         val plannedOpenDate = varchar("planned_open_date", 10)
         val plannedCloseDate = varchar("planned_close_date", 10)
         val rotatingQuestionEntryId = reference("rotating_question_entry_id", DictionaryService.Entries)
-        val rotatingQuestionText = varchar("rotating_question_text", 100)
+        val rotatingQuestionTextEn = varchar("rotating_question_text_en", 100)
+        val rotatingQuestionTextPl = varchar("rotating_question_text_pl", 100)
         val createdAt = long("created_at")
         val openedAt = long("opened_at").nullable()
         val closedAt = long("closed_at").nullable()
@@ -78,8 +79,9 @@ class PulseCycleService(
             it[status] = PulseCycleStatus.SCHEDULED
             it[plannedOpenDate] = request.plannedOpenDate
             it[plannedCloseDate] = request.plannedCloseDate
-            it[rotatingQuestionEntryId] = question.first
-            it[rotatingQuestionText] = question.second
+            it[rotatingQuestionEntryId] = question.entryId
+            it[rotatingQuestionTextEn] = question.textEn
+            it[rotatingQuestionTextPl] = question.textPl
             it[createdAt] = now
             it[lastModified] = now
         }[PulseCycles.id].value
@@ -285,16 +287,28 @@ class PulseCycleService(
      * with the LOWEST usage count over non-cancelled cycles (a cancelled cycle returns its
      * question to the pool), picked uniformly at random. Nothing reaches usage n+1 until every
      * active entry reached n — the reset is implicit when counts equalize — and a newly added
-     * entry (usage 0) is automatically next in line. Returns (entryId, trimmed text).
+     * entry (usage 0) is automatically next in line. Returns the entry id + both trimmed texts.
      */
-    private suspend fun pickRotatingQuestion(): Pair<UInt, String> {
+    private data class RotatingPick(val entryId: UInt, val textEn: String, val textPl: String)
+
+    private suspend fun pickRotatingQuestion(): RotatingPick {
         val entries = DictionaryService.Entries
-            .select(DictionaryService.Entries.id, DictionaryService.Entries.value)
+            .select(
+                DictionaryService.Entries.id,
+                DictionaryService.Entries.valueEn,
+                DictionaryService.Entries.valuePl,
+            )
             .where {
                 (DictionaryService.Entries.dictionary eq Dictionary.PULSE_ROTATING_QUESTION.name) and
                     (DictionaryService.Entries.markedAsDeleted eq false)
             }
-            .map { it[DictionaryService.Entries.id].value to it[DictionaryService.Entries.value] }
+            .map {
+                RotatingPick(
+                    entryId = it[DictionaryService.Entries.id].value,
+                    textEn = it[DictionaryService.Entries.valueEn].trim(),
+                    textPl = it[DictionaryService.Entries.valuePl].trim(),
+                )
+            }
             .toList()
         if (entries.isEmpty()) {
             throw ConflictException("The pulse rotating-question dictionary has no active entries")
@@ -307,10 +321,9 @@ class PulseCycleService(
             .map { it[PulseCycles.rotatingQuestionEntryId].value to it[countColumn] }
             .toList()
             .toMap()
-        val minUsage = entries.minOf { usage[it.first] ?: 0L }
-        val candidates = entries.filter { (usage[it.first] ?: 0L) == minUsage }
-        val picked = candidates[random.nextInt(candidates.size)]
-        return picked.first to picked.second.trim()
+        val minUsage = entries.minOf { usage[it.entryId] ?: 0L }
+        val candidates = entries.filter { (usage[it.entryId] ?: 0L) == minUsage }
+        return candidates[random.nextInt(candidates.size)]
     }
 
     private fun ResultRow.toRow() = PulseCycleRow(
@@ -319,7 +332,8 @@ class PulseCycleService(
         plannedOpenDate = this[PulseCycles.plannedOpenDate],
         plannedCloseDate = this[PulseCycles.plannedCloseDate],
         rotatingQuestionEntryId = this[PulseCycles.rotatingQuestionEntryId].value,
-        rotatingQuestionText = this[PulseCycles.rotatingQuestionText],
+        rotatingQuestionTextEn = this[PulseCycles.rotatingQuestionTextEn],
+        rotatingQuestionTextPl = this[PulseCycles.rotatingQuestionTextPl],
         createdAt = this[PulseCycles.createdAt],
         openedAt = this[PulseCycles.openedAt],
         closedAt = this[PulseCycles.closedAt],

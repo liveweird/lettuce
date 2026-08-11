@@ -94,9 +94,14 @@ export default function Dictionary() {
   );
 }
 
-/** The non-admin view: the ordered values as numbered rows, nothing clickable. */
+/**
+ * The non-admin view: the ordered values as numbered rows, nothing clickable. The viewer's
+ * language leads; the other language sits beneath, dimmed — the dictionary IS the one place
+ * both languages are the content.
+ */
 function ReadOnlyEntries({ items }: { items: DictionaryEntry[] }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const pl = i18n.resolvedLanguage === "pl";
   if (items.length === 0) {
     return (
       <EmptyState
@@ -109,11 +114,16 @@ function ReadOnlyEntries({ items }: { items: DictionaryEntry[] }) {
     <Stack gap="xs">
       {items.map((entry, index) => (
         <Paper key={entry.id} withBorder p="sm" radius="md">
-          <Group gap="xs" wrap="nowrap">
+          <Group gap="xs" wrap="nowrap" align="flex-start">
             <Text size="sm" c="dimmed" w={24} ta="right" style={{ flexShrink: 0 }}>
               {index + 1}.
             </Text>
-            <Text size="sm">{entry.value}</Text>
+            <div>
+              <Text size="sm">{pl ? entry.valuePl : entry.valueEn}</Text>
+              <Text size="xs" c="dimmed">
+                {pl ? entry.valueEn : entry.valuePl}
+              </Text>
+            </div>
           </Group>
         </Paper>
       ))}
@@ -182,11 +192,20 @@ function DictionaryEditor({
               <Text size="sm" c="dimmed" w={24} ta="right" pt={8} style={{ flexShrink: 0 }}>
                 {index + 1}.
               </Text>
-              <TextInput
-                style={{ flex: 1 }}
-                aria-label={t("dictionary.entryAria", { position: index + 1 })}
-                {...form.getInputProps(`entries.${index}.value`)}
-              />
+              {/* Both languages side by side (stacking on narrow screens): every entry is
+                  bilingual, both fields required. */}
+              <Group style={{ flex: 1 }} gap="xs" align="flex-start" grow>
+                <TextInput
+                  aria-label={t("dictionary.entryAriaEn", { position: index + 1 })}
+                  placeholder={t("dictionary.languageEn")}
+                  {...form.getInputProps(`entries.${index}.valueEn`)}
+                />
+                <TextInput
+                  aria-label={t("dictionary.entryAriaPl", { position: index + 1 })}
+                  placeholder={t("dictionary.languagePl")}
+                  {...form.getInputProps(`entries.${index}.valuePl`)}
+                />
+              </Group>
               <RowControls
                 index={index}
                 count={rows.length}

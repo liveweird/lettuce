@@ -57,9 +57,9 @@ type MemberRow = {
   lastFeedbackGivenAt?: number | null;
   lastFeedbackReceivedAt?: number | null;
   activeGoalCount?: number | null;
-  careerPath?: { id: number; value: string } | null;
-  careerSpecialization?: { id: number; value: string } | null;
-  seniorityLevel?: { id: number; value: string } | null;
+  careerPath?: { id: number; valueEn: string; valuePl: string } | null;
+  careerSpecialization?: { id: number; valueEn: string; valuePl: string } | null;
+  seniorityLevel?: { id: number; valueEn: string; valuePl: string } | null;
 };
 
 const BOB_ROW: MemberRow = {
@@ -83,9 +83,9 @@ function mockApi(
       name: string;
       email: string;
       roles: Array<"ADMIN">;
-      careerPath?: { id: number; value: string } | null;
-      careerSpecialization?: { id: number; value: string } | null;
-      seniorityLevel?: { id: number; value: string } | null;
+      careerPath?: { id: number; valueEn: string; valuePl: string } | null;
+      careerSpecialization?: { id: number; valueEn: string; valuePl: string } | null;
+      seniorityLevel?: { id: number; valueEn: string; valuePl: string } | null;
     }>;
     teams?: Array<{ id: number; name: string }>;
   },
@@ -423,9 +423,9 @@ describe("UserDetails page", () => {
       managers: [
         {
           ...BOB_ROW,
-          careerPath: { id: 11, value: "Software Engineer" },
+          careerPath: { id: 11, valueEn: "Software Engineer", valuePl: "Software Engineer" },
           careerSpecialization: null,
-          seniorityLevel: { id: 31, value: "Senior" },
+          seniorityLevel: { id: 31, valueEn: "Senior", valuePl: "Senior" },
         },
       ],
     });

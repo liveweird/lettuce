@@ -70,10 +70,13 @@ class PulseRotatingQuestionTest {
         val cycleId = TestPulse.cycles.schedule(request())
         val cycle = checkNotNull(TestPulse.cycles.read(cycleId))
         assertEquals(entryId, cycle.rotatingQuestionEntryId)
-        assertEquals(original, cycle.rotatingQuestionText)
+        assertEquals(original, cycle.rotatingQuestionTextEn)
+        // The fixture writes PL = EN, and BOTH languages are frozen at schedule time.
+        assertEquals(original, cycle.rotatingQuestionTextPl)
 
         TestDictionaries.rename(Dictionary.PULSE_ROTATING_QUESTION, entryId, "Renamed ${UUID.randomUUID()}".take(100))
-        assertEquals(original, checkNotNull(TestPulse.cycles.read(cycleId)).rotatingQuestionText)
+        assertEquals(original, checkNotNull(TestPulse.cycles.read(cycleId)).rotatingQuestionTextEn)
+        assertEquals(original, checkNotNull(TestPulse.cycles.read(cycleId)).rotatingQuestionTextPl)
         checkNotNull(TestPulse.cycles.cancel(cycleId))
     }
 

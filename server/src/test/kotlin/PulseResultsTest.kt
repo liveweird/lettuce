@@ -228,7 +228,7 @@ class PulseResultsTest {
             // The rotating comparison follows the entry identity (the pool pick may or may
             // not repeat — assert consistency with the snapshotted entries).
             val rotating = block.drivers!!.first { it.question == PulseDriverQuestion.ROTATING }
-            assertEquals(c2.rotatingQuestionText, rotating.rotatingText)
+            assertEquals(c2.rotatingQuestionTextEn, rotating.rotatingTextEn)
             if (c1.rotatingQuestionEntryId == c2.rotatingQuestionEntryId) {
                 assertNotNull(rotating.meanDelta)
             } else {

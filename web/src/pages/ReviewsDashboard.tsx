@@ -31,6 +31,7 @@ import { renderPeriodOption, useReviewPeriodOptions } from "../hooks/useReviewPe
 import { isOneOf, isString, useStoredState } from "../hooks/useStoredState";
 import { reviewCreateLink, reviewEditLink, reviewViewLink } from "../utils/performanceReviewLinks";
 import { REVIEW_CATEGORIES } from "../utils/reviewRatings";
+import { pickDictionaryValue } from "../utils/dictionaryForm";
 import {
   buildReviewsDashboardRows,
   EMPTY_REVIEWS_DASHBOARD_FILTERS,
@@ -68,7 +69,7 @@ const RATING_COLUMNS = REVIEW_CATEGORIES.map((category) => ({
  * the dataset, like a tab.
  */
 export default function ReviewsDashboard() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const currentUserId = getUserId();
 
   const [reportsScope, setReportsScope] = useStoredState<(typeof REPORTS_SCOPES)[number]>(
@@ -151,6 +152,7 @@ export default function ReviewsDashboard() {
     filterReviewsDashboardRows(allRows, filters),
     sortField,
     sortDir,
+    i18n.resolvedLanguage,
   );
   const total = filteredRows.length;
   const rows = filteredRows.slice((page - 1) * pageSize, page * pageSize);
@@ -368,17 +370,23 @@ export default function ReviewsDashboard() {
                   </Table.Td>
                   <Table.Td>
                     <Text size="sm" c={person.careerPath ? undefined : "dimmed"}>
-                      {person.careerPath?.value ?? "—"}
+                      {person.careerPath
+                        ? pickDictionaryValue(person.careerPath, i18n.resolvedLanguage)
+                        : "—"}
                     </Text>
                   </Table.Td>
                   <Table.Td>
                     <Text size="sm" c={person.careerSpecialization ? undefined : "dimmed"}>
-                      {person.careerSpecialization?.value ?? "—"}
+                      {person.careerSpecialization
+                        ? pickDictionaryValue(person.careerSpecialization, i18n.resolvedLanguage)
+                        : "—"}
                     </Text>
                   </Table.Td>
                   <Table.Td>
                     <Text size="sm" c={person.seniorityLevel ? undefined : "dimmed"}>
-                      {person.seniorityLevel?.value ?? "—"}
+                      {person.seniorityLevel
+                        ? pickDictionaryValue(person.seniorityLevel, i18n.resolvedLanguage)
+                        : "—"}
                     </Text>
                   </Table.Td>
                   <Table.Td style={{ whiteSpace: "nowrap" }}>

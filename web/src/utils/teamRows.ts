@@ -2,7 +2,7 @@
 // to two of the caller's teams arrives twice. The person-card views collapse those rows to
 // one card per user, aggregating the team names for the badges.
 
-type CareerEntry = { id: number; value: string };
+type CareerEntry = { id: number; valueEn: string; valuePl: string };
 
 export type TeamRef = { id: number; name: string };
 

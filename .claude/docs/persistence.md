@@ -7,7 +7,7 @@ PostgreSQL is the only database. Connection settings come from the `postgres:` b
 
 The `org.postgresql:postgresql` JDBC driver is on the classpath solely for Flyway; runtime queries go through R2DBC.
 
-Current migrations are `V1`–`V52`. **The per-migration catalog lives in `.claude/docs/features/migrations.md`** — read it before adding a migration or reasoning about schema history.
+Current migrations are `V1`–`V53`. **The per-migration catalog lives in `.claude/docs/features/migrations.md`** — read it before adding a migration or reasoning about schema history.
 
 ### Consistency model (mutations vs. events & notifications) — deliberate
 
@@ -23,5 +23,5 @@ A business mutation, its history event, and its in-app notifications do **not** 
 4. **`delete` flips the flag** — `update({ (id eq id) and (markedAsDeleted eq false) }) { it[markedAsDeleted] = true }`, returning the affected-row `Int`; guard `update` mutations the same way. The route maps `0 → 404`, so a missing-or-already-deleted row is `404` (not `204`) and delete stays idempotent in effect.
 5. **Routes need no special-casing** — they already key `404`/`204`/`NoContent` off the row-count and the `active()`-filtered `read`.
 
-**Freeing a unique business field on delete.** To let a value be reused once its holder is soft-deleted, replace the global `UNIQUE` with a **partial unique index** over active rows: drop the original `<t>_<col>_key` constraint, then `CREATE UNIQUE INDEX uq_<t>_<col>_active ON <t>(<col>) WHERE marked_as_deleted = false;`. Drop the Exposed `.uniqueIndex()` on that column (Exposed defs are query-only — the DB enforces it). A clash with an **active** row still raises `23505 → 409`. In place today: `users.email` (`uq_users_email_active`, `V18`), `templates.name` (`uq_templates_name_active`, `V16`), and per-dictionary `dictionary_entries.value` (`uq_dictionary_entries_value_active` on `(dictionary, value)`, `V31`). Seeds using `ON CONFLICT (<col>)` keep working because they run on earlier migrations, while the global constraint still exists.
+**Freeing a unique business field on delete.** To let a value be reused once its holder is soft-deleted, replace the global `UNIQUE` with a **partial unique index** over active rows: drop the original `<t>_<col>_key` constraint, then `CREATE UNIQUE INDEX uq_<t>_<col>_active ON <t>(<col>) WHERE marked_as_deleted = false;`. Drop the Exposed `.uniqueIndex()` on that column (Exposed defs are query-only — the DB enforces it). A clash with an **active** row still raises `23505 → 409`. In place today: `users.email` (`uq_users_email_active`, `V18`), `templates.name` (`uq_templates_name_active`, `V16`), and per-dictionary, per-LANGUAGE `dictionary_entries.value_en`/`value_pl` (`uq_dictionary_entries_value_en_active`/`uq_dictionary_entries_value_pl_active`, `V31` split in `V53`). Seeds using `ON CONFLICT (<col>)` keep working because they run on earlier migrations, while the global constraint still exists.
 

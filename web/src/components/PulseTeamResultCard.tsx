@@ -74,7 +74,7 @@ export default function PulseTeamResultCard({
    *  and render only the comments section their monitoring right still covers. */
   commentsOnly?: boolean;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { data, isLoading, isError } = useQuery({
     queryKey: ["pulseResults", cycleId, teamId, mode],
     queryFn: () => getPulseResults(cycleId, teamId, mode),
@@ -96,7 +96,9 @@ export default function PulseTeamResultCard({
 
   const trendSeries = trend.data ? buildTrendSeries(trend.data.points) : [];
   const questionLabel = (driver: PulseDriverResult) =>
-    driver.question === "ROTATING" ? (driver.rotatingText ?? "") : t(`pulse.${driver.question.toLowerCase()}`);
+    driver.question === "ROTATING"
+      ? ((i18n.resolvedLanguage === "pl" ? driver.rotatingTextPl : driver.rotatingTextEn) ?? "")
+      : t(`pulse.${driver.question.toLowerCase()}`);
 
   return (
     <Paper withBorder shadow="sm" p="lg" radius="md">

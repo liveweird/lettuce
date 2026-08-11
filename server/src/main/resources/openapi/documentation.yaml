@@ -3919,7 +3919,8 @@ paths:
       summary: List pulse cycles
       description: |
         Any authenticated user with PULSE_SURVEYS enabled. Unpaged registry (newest first) —
-        a cadence of weeks caps the volume. `rotatingQuestion` is null for non-admins until
+        a cadence of weeks caps the volume. The `rotatingQuestionEn`/`rotatingQuestionPl`
+        pair is null for non-admins until
         the cycle is OPEN or CLOSED (an unopened cycle's question stays unspoiled; a cancelled
         one reveals nothing); the participation counts are ADMIN-only enrichment.
       responses:
@@ -5727,10 +5728,12 @@ components:
 
     DictionaryEntry:
       type: object
-      required: [id, value]
+      required: [id, valueEn, valuePl]
+      description: Every entry is bilingual (V53) — clients render the viewer's language.
       properties:
         id: { type: integer, format: int64, minimum: 0 }
-        value: { type: string }
+        valueEn: { type: string }
+        valuePl: { type: string }
 
     DictionaryEntryList:
       type: object
@@ -5743,7 +5746,7 @@ components:
 
     DictionaryEntryInput:
       type: object
-      required: [value]
+      required: [valueEn, valuePl]
       properties:
         id:
           type: integer
@@ -5751,7 +5754,8 @@ components:
           minimum: 0
           nullable: true
           description: Present = update that active entry in place; absent = insert a new entry.
-        value: { type: string, maxLength: 100 }
+        valueEn: { type: string, maxLength: 100 }
+        valuePl: { type: string, maxLength: 100 }
 
     DictionaryUpdateRequest:
       type: object
@@ -7283,12 +7287,17 @@ components:
           type: string
           format: date
           description: Advisory planned close date (ISO); admin-editable while OPEN ("extend").
-        rotatingQuestion:
+        rotatingQuestionEn:
           type: string
           nullable: true
           description: >-
-            The cycle's snapshotted Q6 text. Null for non-admins until the cycle is OPEN or
-            CLOSED (and always null to them for CANCELLED).
+            The cycle's snapshotted Q6 text, English. Null for non-admins until the cycle is
+            OPEN or CLOSED (and always null to them for CANCELLED); always paired with
+            rotatingQuestionPl — both-or-neither.
+        rotatingQuestionPl:
+          type: string
+          nullable: true
+          description: The Polish half of the snapshotted Q6 pair — same visibility rule.
         createdAt: { type: integer, format: int64 }
         openedAt: { type: integer, format: int64, nullable: true }
         closedAt: { type: integer, format: int64, nullable: true }
@@ -7442,10 +7451,15 @@ components:
       required: [question, validCount]
       properties:
         question: { $ref: '#/components/schemas/PulseDriverQuestion' }
-        rotatingText:
+        rotatingTextEn:
           type: string
           nullable: true
-          description: The cycle's snapshotted question text — set on the ROTATING row only.
+          description: >-
+            The cycle's snapshotted question text, English — set on the ROTATING row only.
+        rotatingTextPl:
+          type: string
+          nullable: true
+          description: The Polish half of the snapshotted pair — ROTATING row only.
         mean:
           type: number
           format: double

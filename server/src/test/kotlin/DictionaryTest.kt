@@ -47,7 +47,7 @@ class DictionaryTest {
         assertEquals(HttpStatusCode.Unauthorized, jsonClient().get("/api/v1/dictionaries/career-paths").status)
         assertEquals(
             HttpStatusCode.Unauthorized,
-            jsonClient().putDictionary("career-paths", DictionaryEntryInput(value = "x")).status,
+            jsonClient().putDictionary("career-paths", DictionaryEntryInput(valueEn = "x", valuePl = "x")).status,
         )
     }
 
@@ -61,12 +61,12 @@ class DictionaryTest {
         assertEquals(HttpStatusCode.OK, client.get("/api/v1/dictionaries/seniority-levels").status)
         assertEquals(
             HttpStatusCode.Forbidden,
-            client.putDictionary("seniority-levels", DictionaryEntryInput(value = "x")).status,
+            client.putDictionary("seniority-levels", DictionaryEntryInput(valueEn = "x", valuePl = "x")).status,
         )
         // The admin guard runs before slug resolution: no existence signal for non-admins.
         assertEquals(
             HttpStatusCode.Forbidden,
-            client.putDictionary("no-such-dictionary", DictionaryEntryInput(value = "x")).status,
+            client.putDictionary("no-such-dictionary", DictionaryEntryInput(valueEn = "x", valuePl = "x")).status,
         )
     }
 
@@ -80,7 +80,7 @@ class DictionaryTest {
         assertEquals(HttpStatusCode.NotFound, client.get("/api/v1/dictionaries/no-such-dictionary").status)
         assertEquals(
             HttpStatusCode.NotFound,
-            client.putDictionary("no-such-dictionary", DictionaryEntryInput(value = "x")).status,
+            client.putDictionary("no-such-dictionary", DictionaryEntryInput(valueEn = "x", valuePl = "x")).status,
         )
     }
 
@@ -96,36 +96,36 @@ class DictionaryTest {
             HttpStatusCode.NoContent,
             client.putDictionary(
                 "career-paths",
-                DictionaryEntryInput(value = a),
-                DictionaryEntryInput(value = b),
-                DictionaryEntryInput(value = c),
+                DictionaryEntryInput(valueEn = a, valuePl = a),
+                DictionaryEntryInput(valueEn = b, valuePl = b),
+                DictionaryEntryInput(valueEn = c, valuePl = c),
             ).status,
         )
         val initial = client.readDictionary("career-paths").items
-        assertEquals(listOf(a, b, c), initial.map { it.value })
+        assertEquals(listOf(a, b, c), initial.map { it.valueEn })
 
         // Reorder only: same ids, new order.
-        val reversed = initial.reversed().map { DictionaryEntryInput(id = it.id, value = it.value) }
+        val reversed = initial.reversed().map { DictionaryEntryInput(id = it.id, valueEn = it.valueEn, valuePl = it.valuePl) }
         assertEquals(
             HttpStatusCode.NoContent,
             client.putDictionary("career-paths", *reversed.toTypedArray()).status,
         )
         val reordered = client.readDictionary("career-paths").items
-        assertEquals(listOf(c, b, a), reordered.map { it.value })
+        assertEquals(listOf(c, b, a), reordered.map { it.valueEn })
         assertEquals(initial.map { it.id }.toSet(), reordered.map { it.id }.toSet())
 
         // Rename in place: the id survives the value change.
         val renamed = uniqueValue("Gamma-renamed")
         val edited = reordered.map {
-            if (it.value == c) DictionaryEntryInput(id = it.id, value = renamed)
-            else DictionaryEntryInput(id = it.id, value = it.value)
+            if (it.valueEn == c) DictionaryEntryInput(id = it.id, valueEn = renamed, valuePl = renamed)
+            else DictionaryEntryInput(id = it.id, valueEn = it.valueEn, valuePl = it.valuePl)
         }
         assertEquals(
             HttpStatusCode.NoContent,
             client.putDictionary("career-paths", *edited.toTypedArray()).status,
         )
         val afterRename = client.readDictionary("career-paths").items
-        assertEquals(listOf(renamed, b, a), afterRename.map { it.value })
+        assertEquals(listOf(renamed, b, a), afterRename.map { it.valueEn })
         assertEquals(reordered.map { it.id }, afterRename.map { it.id })
     }
 
@@ -140,15 +140,15 @@ class DictionaryTest {
         val drop = uniqueValue("Drop")
         client.putDictionary(
             "career-specializations",
-            DictionaryEntryInput(value = keep),
-            DictionaryEntryInput(value = drop),
+            DictionaryEntryInput(valueEn = keep, valuePl = keep),
+            DictionaryEntryInput(valueEn = drop, valuePl = drop),
         )
         val entries = client.readDictionary("career-specializations").items
-        val dropId = entries.first { it.value == drop }.id
-        val keepInput = entries.first { it.value == keep }.let { DictionaryEntryInput(id = it.id, value = it.value) }
+        val dropId = entries.first { it.valueEn == drop }.id
+        val keepInput = entries.first { it.valueEn == keep }.let { DictionaryEntryInput(id = it.id, valueEn = it.valueEn, valuePl = it.valuePl) }
 
         assertEquals(HttpStatusCode.NoContent, client.putDictionary("career-specializations", keepInput).status)
-        assertEquals(listOf(keep), client.readDictionary("career-specializations").items.map { it.value })
+        assertEquals(listOf(keep), client.readDictionary("career-specializations").items.map { it.valueEn })
 
         val raw = TestDictionaries.rawRows(Dictionary.CAREER_SPECIALIZATION)
         val dropRow = raw.single { it.id == dropId }
@@ -163,7 +163,7 @@ class DictionaryTest {
         TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
         val client = authedClient(adminEmail, "pw")
 
-        client.putDictionary("career-paths", DictionaryEntryInput(value = uniqueValue("Path")))
+        client.putDictionary("career-paths", DictionaryEntryInput(valueEn = uniqueValue("Path"), valuePl = uniqueValue("Path")))
         val pathId = client.readDictionary("career-paths").items.single().id
 
         // Duplicate id in one payload.
@@ -171,8 +171,8 @@ class DictionaryTest {
             HttpStatusCode.BadRequest,
             client.putDictionary(
                 "career-paths",
-                DictionaryEntryInput(id = pathId, value = uniqueValue("One")),
-                DictionaryEntryInput(id = pathId, value = uniqueValue("Two")),
+                DictionaryEntryInput(id = pathId, valueEn = uniqueValue("One"), valuePl = uniqueValue("One")),
+                DictionaryEntryInput(id = pathId, valueEn = uniqueValue("Two"), valuePl = uniqueValue("Two")),
             ).status,
         )
         // Foreign id: an id belonging to ANOTHER dictionary is unknown here.
@@ -180,7 +180,7 @@ class DictionaryTest {
             HttpStatusCode.BadRequest,
             client.putDictionary(
                 "seniority-levels",
-                DictionaryEntryInput(id = pathId, value = uniqueValue("Sen")),
+                DictionaryEntryInput(id = pathId, valueEn = uniqueValue("Sen"), valuePl = uniqueValue("Sen")),
             ).status,
         )
         // A soft-deleted entry's id can never be resubmitted (no resurrection).
@@ -189,7 +189,7 @@ class DictionaryTest {
             HttpStatusCode.BadRequest,
             client.putDictionary(
                 "career-paths",
-                DictionaryEntryInput(id = pathId, value = uniqueValue("Back")),
+                DictionaryEntryInput(id = pathId, valueEn = uniqueValue("Back"), valuePl = uniqueValue("Back")),
             ).status,
         )
     }
@@ -204,23 +204,23 @@ class DictionaryTest {
         val v = uniqueValue("Trimmed")
         assertEquals(
             HttpStatusCode.NoContent,
-            client.putDictionary("career-paths", DictionaryEntryInput(value = "  $v  ")).status,
+            client.putDictionary("career-paths", DictionaryEntryInput(valueEn = "  $v  ", valuePl = "  $v  ")).status,
         )
-        assertEquals(listOf(v), client.readDictionary("career-paths").items.map { it.value })
+        assertEquals(listOf(v), client.readDictionary("career-paths").items.map { it.valueEn })
 
         // "X" and " X" are the same value once trimmed → duplicate → 400.
         assertEquals(
             HttpStatusCode.BadRequest,
             client.putDictionary(
                 "career-paths",
-                DictionaryEntryInput(value = v),
-                DictionaryEntryInput(value = " $v"),
+                DictionaryEntryInput(valueEn = v, valuePl = v),
+                DictionaryEntryInput(valueEn = " $v", valuePl = " $v"),
             ).status,
         )
         // Blank and whitespace-only are rejected.
         assertEquals(
             HttpStatusCode.BadRequest,
-            client.putDictionary("career-paths", DictionaryEntryInput(value = "   ")).status,
+            client.putDictionary("career-paths", DictionaryEntryInput(valueEn = "   ", valuePl = "   ")).status,
         )
     }
 
@@ -233,19 +233,19 @@ class DictionaryTest {
 
         assertEquals(
             HttpStatusCode.BadRequest,
-            client.putDictionary("career-paths", DictionaryEntryInput(value = "x".repeat(101))).status,
+            client.putDictionary("career-paths", DictionaryEntryInput(valueEn = "x".repeat(101), valuePl = "x".repeat(101))).status,
         )
         assertEquals(
             HttpStatusCode.NoContent,
-            client.putDictionary("career-paths", DictionaryEntryInput(value = "y".repeat(100))).status,
+            client.putDictionary("career-paths", DictionaryEntryInput(valueEn = "y".repeat(100), valuePl = "y".repeat(100))).status,
         )
 
-        val cap = (1..200).map { DictionaryEntryInput(value = "Entry $it") }
+        val cap = (1..200).map { DictionaryEntryInput(valueEn = "Entry $it", valuePl = "Entry $it") }
         assertEquals(
             HttpStatusCode.NoContent,
             client.putDictionary("seniority-levels", *cap.toTypedArray()).status,
         )
-        val overCap = cap + DictionaryEntryInput(value = "Entry 201")
+        val overCap = cap + DictionaryEntryInput(valueEn = "Entry 201", valuePl = "Entry 201")
         assertEquals(
             HttpStatusCode.BadRequest,
             client.putDictionary("seniority-levels", *overCap.toTypedArray()).status,
@@ -259,7 +259,7 @@ class DictionaryTest {
         TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
         val client = authedClient(adminEmail, "pw")
 
-        client.putDictionary("career-specializations", DictionaryEntryInput(value = uniqueValue("Gone")))
+        client.putDictionary("career-specializations", DictionaryEntryInput(valueEn = uniqueValue("Gone"), valuePl = uniqueValue("Gone")))
         assertEquals(HttpStatusCode.NoContent, client.putDictionary("career-specializations").status)
         assertEquals(emptyList(), client.readDictionary("career-specializations").items)
     }
@@ -272,14 +272,14 @@ class DictionaryTest {
         val client = authedClient(adminEmail, "pw")
 
         val junior = uniqueValue("Junior")
-        client.putDictionary("seniority-levels", DictionaryEntryInput(value = junior))
+        client.putDictionary("seniority-levels", DictionaryEntryInput(valueEn = junior, valuePl = junior))
         val firstId = client.readDictionary("seniority-levels").items.single().id
 
         // Later PUT re-adds the value after it was removed.
         client.putDictionary("seniority-levels")
         assertEquals(
             HttpStatusCode.NoContent,
-            client.putDictionary("seniority-levels", DictionaryEntryInput(value = junior)).status,
+            client.putDictionary("seniority-levels", DictionaryEntryInput(valueEn = junior, valuePl = junior)).status,
         )
         val secondId = client.readDictionary("seniority-levels").items.single().id
         assertNotEquals(firstId, secondId, "re-adding a removed value must mint a new entry")
@@ -287,7 +287,7 @@ class DictionaryTest {
         // Remove + re-add the same value in ONE save: the delete-first ordering frees the value.
         assertEquals(
             HttpStatusCode.NoContent,
-            client.putDictionary("seniority-levels", DictionaryEntryInput(value = junior)).status,
+            client.putDictionary("seniority-levels", DictionaryEntryInput(valueEn = junior, valuePl = junior)).status,
         )
         val thirdId = client.readDictionary("seniority-levels").items.single().id
         assertNotEquals(secondId, thirdId)
@@ -303,14 +303,14 @@ class DictionaryTest {
         val shared = uniqueValue("Shared")
         assertEquals(
             HttpStatusCode.NoContent,
-            client.putDictionary("career-paths", DictionaryEntryInput(value = shared)).status,
+            client.putDictionary("career-paths", DictionaryEntryInput(valueEn = shared, valuePl = shared)).status,
         )
         assertEquals(
             HttpStatusCode.NoContent,
-            client.putDictionary("career-specializations", DictionaryEntryInput(value = shared)).status,
+            client.putDictionary("career-specializations", DictionaryEntryInput(valueEn = shared, valuePl = shared)).status,
         )
-        assertEquals(listOf(shared), client.readDictionary("career-paths").items.map { it.value })
-        assertEquals(listOf(shared), client.readDictionary("career-specializations").items.map { it.value })
+        assertEquals(listOf(shared), client.readDictionary("career-paths").items.map { it.valueEn })
+        assertEquals(listOf(shared), client.readDictionary("career-specializations").items.map { it.valueEn })
     }
 
     @Test
@@ -321,13 +321,13 @@ class DictionaryTest {
         val client = authedClient(adminEmail, "pw")
 
         val (a, b) = uniqueValue("SwapA") to uniqueValue("SwapB")
-        client.putDictionary("career-paths", DictionaryEntryInput(value = a), DictionaryEntryInput(value = b))
+        client.putDictionary("career-paths", DictionaryEntryInput(valueEn = a, valuePl = a), DictionaryEntryInput(valueEn = b, valuePl = b))
         val entries = client.readDictionary("career-paths").items
 
         val swapped = client.putDictionary(
             "career-paths",
-            DictionaryEntryInput(id = entries[0].id, value = b),
-            DictionaryEntryInput(id = entries[1].id, value = a),
+            DictionaryEntryInput(id = entries[0].id, valueEn = b, valuePl = b),
+            DictionaryEntryInput(id = entries[1].id, valueEn = a, valuePl = a),
         )
         assertEquals(HttpStatusCode.Conflict, swapped.status)
     }
@@ -344,10 +344,70 @@ class DictionaryTest {
             HttpStatusCode.NoContent,
             client.putDictionary(
                 "seniority-levels",
-                DictionaryEntryInput(value = "Senior-$suffix"),
-                DictionaryEntryInput(value = "senior-$suffix"),
+                DictionaryEntryInput(valueEn = "Senior-$suffix", valuePl = "Senior-$suffix"),
+                DictionaryEntryInput(valueEn = "senior-$suffix", valuePl = "senior-$suffix"),
             ).status,
         )
         assertEquals(2, client.readDictionary("seniority-levels").items.size)
+    }
+
+    @Test
+    fun `uniqueness is per language - a Polish duplicate is 400 while a cross-language match is fine`() =
+        testApplication {
+            usePostgresTestcontainer()
+            val adminEmail = uniqueEmail("admin")
+            TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
+            val client = authedClient(adminEmail, "pw")
+
+            val (en1, en2) = uniqueValue("Bi-A") to uniqueValue("Bi-B")
+            val pl = uniqueValue("Bi-PL")
+            // Two rows sharing a POLISH value → 400, even though the English side is unique.
+            assertEquals(
+                HttpStatusCode.BadRequest,
+                client.putDictionary(
+                    "career-paths",
+                    DictionaryEntryInput(valueEn = en1, valuePl = pl),
+                    DictionaryEntryInput(valueEn = en2, valuePl = pl),
+                ).status,
+            )
+            // One row's English matching ANOTHER row's Polish is fine — uniqueness is per column.
+            assertEquals(
+                HttpStatusCode.NoContent,
+                client.putDictionary(
+                    "career-paths",
+                    DictionaryEntryInput(valueEn = en1, valuePl = pl),
+                    DictionaryEntryInput(valueEn = pl, valuePl = en2),
+                ).status,
+            )
+            val items = client.readDictionary("career-paths").items
+            assertEquals(listOf(en1 to pl, pl to en2), items.map { it.valueEn to it.valuePl })
+        }
+
+    @Test
+    fun `a Polish-only rename keeps the id and counts as a rename`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw", roles = setOf(UserRole.ADMIN))
+        val client = authedClient(adminEmail, "pw")
+
+        val en = uniqueValue("PlOnly")
+        assertEquals(
+            HttpStatusCode.NoContent,
+            client.putDictionary("career-paths", DictionaryEntryInput(valueEn = en, valuePl = "$en-pl")).status,
+        )
+        val entry = client.readDictionary("career-paths").items.single()
+
+        val renamedPl = "$en-pl-renamed"
+        assertEquals(
+            HttpStatusCode.NoContent,
+            client.putDictionary(
+                "career-paths",
+                DictionaryEntryInput(id = entry.id, valueEn = en, valuePl = renamedPl),
+            ).status,
+        )
+        val after = client.readDictionary("career-paths").items.single()
+        assertEquals(entry.id, after.id)
+        assertEquals(en, after.valueEn)
+        assertEquals(renamedPl, after.valuePl)
     }
 }
