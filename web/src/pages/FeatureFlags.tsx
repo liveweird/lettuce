@@ -17,6 +17,7 @@ import { usePagedSort } from "../hooks/usePagedSort";
 import { isNumberOrNull, isOneOf, isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
 import {
   FEATURES,
+  getUserId,
   isAdmin,
   listAllTeams,
   listUsers,
@@ -27,6 +28,7 @@ import {
 import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
 import { teamDetailsLink } from "../utils/teamLinks";
+import { userDetailsLink } from "../utils/userLinks";
 
 const SORT_FIELDS = ["id", "name", "email"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
@@ -46,6 +48,7 @@ const SETTINGS_KEY = "featureFlags";
 export default function FeatureFlags() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const currentUserId = getUserId();
   const [feature, setFeature] = useStoredState<Feature>(
     `${SETTINGS_KEY}.feature`,
     "FEEDBACKS",
@@ -325,7 +328,13 @@ export default function FeatureFlags() {
             data.items.map((u) => (
               <Table.Tr key={u.id}>
                 <Table.Td>
-                  <PersonaChip name={u.name} />
+                  {/* The name links to the read-only details view — everyone except one's
+                      own row (the Users-list rule). */}
+                  <PersonaChip
+                    name={u.name}
+                    to={u.id !== currentUserId ? userDetailsLink(u.id, u.name, "users") : undefined}
+                    ariaLabel={t("users.detailsFor", { name: u.name })}
+                  />
                 </Table.Td>
                 <Table.Td>
                   <Text size="sm">{u.email}</Text>

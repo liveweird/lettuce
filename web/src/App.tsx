@@ -3,7 +3,6 @@ import {
   ActionIcon,
   AppShell,
   Avatar,
-  Box,
   Burger,
   Button,
   Center,
@@ -12,6 +11,7 @@ import {
   Loader,
   Menu,
   NavLink,
+  ScrollArea,
   Text,
   useMantineColorScheme,
   useComputedColorScheme,
@@ -500,6 +500,9 @@ function Shell() {
       </AppShell.Header>
 
       <AppShell.Navbar p="sm">
+        {/* The link list scrolls when expanded groups outgrow the viewport; the version
+            stamp below stays pinned. */}
+        <AppShell.Section grow component={ScrollArea} type="hover" scrollbarSize={6} offsetScrollbars>
         {allEntries.map((entry) => {
           if (!isGroup(entry)) {
             const active = entry.to === activeTo;
@@ -527,8 +530,9 @@ function Shell() {
             />
           );
         })}
+        </AppShell.Section>
         {/* The title carries the accessible "what's new" name only while the dot is shown. */}
-        <Box mt="auto" pt="xs" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
+        <AppShell.Section pt="xs" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
           <Indicator
             color="red"
             size={8}
@@ -537,7 +541,7 @@ function Shell() {
           >
             <VersionStamp to="/changelog" ta="center" pt={4} />
           </Indicator>
-        </Box>
+        </AppShell.Section>
       </AppShell.Navbar>
 
       <AppShell.Main id="main-content" tabIndex={-1}>
