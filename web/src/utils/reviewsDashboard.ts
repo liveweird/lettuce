@@ -96,6 +96,12 @@ const RATING_FIELDS: Partial<
   overall: (r) => r.review?.overallRating ?? null,
 };
 
+/** One category's rating on a row (null = no review, or that category unset) — the single
+ * accessor the sort, the distribution buckets, and the quadrants grid all share. */
+export function ratingOf(row: ReviewsDashboardRow, category: ReviewCategory): number | null {
+  return RATING_FIELDS[category]!(row);
+}
+
 /**
  * Client-side sort over the joined rows (the data is composed client-side, so sorting is too).
  * Strings compare per locale with unset values last; ratings compare numerically with
@@ -149,6 +155,40 @@ export function sortReviewsDashboardRows(
     if (bv == null) return -1;
     return sign * av.localeCompare(bv);
   });
+}
+
+/** The quadrants grid's cell key — "x:y" over the two picked categories' rating values. */
+export function quadrantCellKey(x: number, y: number): string {
+  return `${x}:${y}`;
+}
+
+/**
+ * Buckets the (filtered) rows onto the 6×6 quadrants lattice for the picked X/Y categories.
+ * A person lands in exactly one cell — keyed [quadrantCellKey] of their two ratings — or in
+ * `unrated` when they have no review or either picked rating is unset (the distribution view's
+ * exclude-and-caption convention: never plot missing data at 0). Input order (name-sorted by
+ * the builder) is preserved, so cell groups and the unrated list stay name-ordered.
+ */
+export function quadrantCells(
+  rows: ReviewsDashboardRow[],
+  x: ReviewCategory,
+  y: ReviewCategory,
+): { cells: Map<string, PersonCard[]>; unrated: PersonCard[] } {
+  const cells = new Map<string, PersonCard[]>();
+  const unrated: PersonCard[] = [];
+  for (const row of rows) {
+    const xr = ratingOf(row, x);
+    const yr = ratingOf(row, y);
+    if (xr == null || yr == null) {
+      unrated.push(row.person);
+      continue;
+    }
+    const key = quadrantCellKey(xr, yr);
+    const cell = cells.get(key);
+    if (cell) cell.push(row.person);
+    else cells.set(key, [row.person]);
+  }
+  return { cells, unrated };
 }
 
 /** One zero-filled bucket per rating value (1–6), for the distribution chart. */

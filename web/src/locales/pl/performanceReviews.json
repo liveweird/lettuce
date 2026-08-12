@@ -135,6 +135,12 @@
       "people": "Osoby",
       "ratedCount": "Ocenione osoby: {{rated}} z {{total}}",
       "empty": "W tym wyborze nie ma jeszcze ocen."
+    },
+    "quadrants": {
+      "view": "Kwadranty",
+      "xAxis": "Oś X",
+      "yAxis": "Oś Y",
+      "notRated": "Poza wykresem (brak oceny dla wybranych osi): {{names}}"
     }
   },
   "toast": {
