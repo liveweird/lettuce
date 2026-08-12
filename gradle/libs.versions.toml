@@ -1,12 +1,15 @@
 [versions]
 angus-mail = "2.0.5"
 bcrypt = "0.10.2"
+# Exposed pinned at 1.3.1: 1.4.0 stalls R2DBC work under full-suite load (PulseResultsTest
+# 3.9s -> 2402s, two 1m-coroutine timeouts; fine in isolation, so likely a connection-release
+# regression). Re-try at the next release with a full :server:test --rerun-tasks.
 exposed = "1.3.1"
-flyway = "13.1.0"
+flyway = "13.2.0"
 kotlin = "2.4.10"
 kover = "0.9.9"
-logback = "1.6.1"
-opentelemetry = "1.64.0"
+logback = "1.6.2"
+opentelemetry = "1.65.0"
 opentelemetry-ktor = "2.30.0-alpha"
 opentelemetry-semconv = "1.43.0"
 r2dbc-postgresql = "1.1.2.RELEASE"
