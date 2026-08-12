@@ -92,6 +92,15 @@
     "validCount": "n",
     "meanDelta": "Δ średniej",
     "favorableDelta": "Δ pozytywnych",
+    "hint": {
+      "enps": "Employee Net Promoter Score. Każda osoba odpowiada na pytanie o polecenie firmy w skali 0–10: 9–10 to promotorzy, 7–8 to neutralni, 0–6 to krytycy. Wynik to procent promotorów minus procent krytyków, więc mieści się w zakresie od −100 do +100.",
+      "mean": "Średnia odpowiedzi na to pytanie w skali zgody 1–5. Odpowiedzi „Nie dotyczy” nie są uwzględniane.",
+      "favorable": "Udział odpowiedzi pozytywnych — „Zgadzam się” lub „Zdecydowanie się zgadzam” (4–5) — wśród ważnych odpowiedzi (bez „Nie dotyczy”).",
+      "unfavorable": "Udział odpowiedzi negatywnych — „Nie zgadzam się” lub „Zdecydowanie się nie zgadzam” (1–2) — wśród ważnych odpowiedzi.",
+      "validCount": "Liczba ważnych odpowiedzi na to pytanie. Osoby, które wybrały „Nie dotyczy”, nie są liczone.",
+      "meanDelta": "Zmiana średniej względem poprzedniego zamkniętego cyklu, w tym samym zakresie zespołu.",
+      "favorableDelta": "Zmiana udziału odpowiedzi pozytywnych względem poprzedniego zamkniętego cyklu, w punktach procentowych."
+    },
     "notEnoughResponses": "Mniej niż 3 odpowiedzi — wyniki są ukryte, aby chronić anonimowość.",
     "smallSample": "Mała grupa — pojedyncze odpowiedzi mogą mocno zmieniać te liczby.",
     "band": {

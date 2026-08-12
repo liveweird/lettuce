@@ -150,6 +150,17 @@ describe("PulseResults", () => {
       const chart = screen.getByTestId("trend-chart");
       expect(JSON.parse(chart.getAttribute("data-points")!)).toHaveLength(2);
     });
+    // Methodology hints (v2.6.4): the eNPS headline and every metric header carry an
+    // info icon whose accessible name IS the tooltip explanation.
+    expect(
+      screen.getByRole("img", { name: /percentage of promoters minus the percentage of detractors/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /share of favorable answers/ })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /share of unfavorable answers/ })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /number of valid answers/ })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /average of this question/ })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /mean changed versus the previous/ })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /favorable share changed versus the previous/ })).toBeInTheDocument();
   });
 
   test("edge renderings: a zero score is unsigned and a zero delta stays gray", async () => {

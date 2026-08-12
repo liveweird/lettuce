@@ -92,6 +92,15 @@
     "validCount": "n",
     "meanDelta": "Δ mean",
     "favorableDelta": "Δ favorable",
+    "hint": {
+      "enps": "Employee Net Promoter Score. Each person answers the 0–10 recommendation question: 9–10 count as promoters, 7–8 as passives, 0–6 as detractors. The score is the percentage of promoters minus the percentage of detractors, so it ranges from −100 to +100.",
+      "mean": "The average of this question's answers on the 1–5 agreement scale. \"Not applicable\" answers are excluded.",
+      "favorable": "The share of favorable answers — Agree or Strongly agree (4–5) — among the valid answers (\"Not applicable\" excluded).",
+      "unfavorable": "The share of unfavorable answers — Disagree or Strongly disagree (1–2) — among the valid answers.",
+      "validCount": "The number of valid answers to this question. People who picked \"Not applicable\" are not counted.",
+      "meanDelta": "How the mean changed versus the previous closed cycle, over the same team scope.",
+      "favorableDelta": "How the favorable share changed versus the previous closed cycle, in percentage points."
+    },
     "notEnoughResponses": "Fewer than 3 responses — results are hidden to protect anonymity.",
     "smallSample": "Small group — individual answers can move these numbers a lot.",
     "band": {
