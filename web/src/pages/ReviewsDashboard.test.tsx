@@ -325,4 +325,80 @@ describe("ReviewsDashboard tab", () => {
     expect(screen.queryByTestId("bar-chart")).toBeNull();
     localStorage.removeItem("lettuce.viewSettings.dashboardReviews.view");
   });
+
+  test("the Quadrants toggle plots avatars at (x, y), groups same-cell people, lists the unrated", async () => {
+    // Bob shares Ann's exact delivery/attitude pair — the same-cell grouping case.
+    const bob = {
+      ...REVIEW,
+      id: 22, subordinateId: 9, subordinateName: "Zoe Zeta",
+      attitudeRating: 4, deliveryRating: 3, skillsRating: null, overallRating: null,
+    };
+    const members = [...MEMBERS, { userId: 10, name: "Uma Unrated", email: "u@x", teamId: 1, teamName: "AAA" }];
+    mockFetch.mockImplementation((url: string) => {
+      const u = String(url);
+      if (u.includes("/api/v1/review-periods")) return Promise.resolve(jsonResponse(200, { items: PERIODS }));
+      if (u.includes("/api/v1/teams/members")) {
+        return Promise.resolve(jsonResponse(200, { items: members, page: 1, pageSize: 100, total: members.length }));
+      }
+      if (u.includes("/api/v1/performance-reviews")) {
+        return Promise.resolve(jsonResponse(200, { items: [REVIEW, bob], page: 1, pageSize: 100, total: 2 }));
+      }
+      if (u.includes("/api/v1/dictionaries/")) return Promise.resolve(jsonResponse(200, { items: [] }));
+      return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }));
+    });
+    renderTab();
+    expect(await screen.findByText("Ann Alpha")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("radio", { name: /quadrants/i }));
+
+    // Defaults: X = Delivery, Y = Attitude. Ann (delivery 3, attitude 4) and Zoe (same pair)
+    // sit TOGETHER in the (3, 4) cell as sibling links; Uma has no review — unrated caption.
+    expect(await screen.findByLabelText("X axis", { selector: "input" })).toHaveValue("Delivery");
+    expect(screen.getByLabelText("Y axis", { selector: "input" })).toHaveValue("Attitude");
+    const cell = screen.getByTestId("quadrant-cell-3-4");
+    expect(within(cell).getByRole("link", { name: "User details for Ann Alpha" })).toBeInTheDocument();
+    expect(within(cell).getByRole("link", { name: "User details for Zoe Zeta" })).toBeInTheDocument();
+    expect(screen.getByText("2 of 3 people rated")).toBeInTheDocument();
+    expect(screen.getByText(/Not shown \(no rating for the picked axes\): Uma Unrated/)).toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem("lettuce.viewSettings.dashboardReviews.view") ?? "null")).toBe("quadrants");
+
+    // Re-pick X = Skills: Ann (skills 5, attitude 4) moves; Zoe's skills are unset → unrated.
+    fireEvent.click(screen.getByLabelText("X axis", { selector: "input" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Skills" }));
+    expect(await screen.findByTestId("quadrant-cell-5-4")).toBeInTheDocument();
+    expect(within(screen.getByTestId("quadrant-cell-5-4")).getByRole("link", { name: "User details for Ann Alpha" })).toBeInTheDocument();
+    expect(screen.getByText(/Uma Unrated, Zoe Zeta|Zoe Zeta, Uma Unrated/)).toBeInTheDocument();
+
+    // Picking Y = Skills (the X value) SWAPS the axes — they can never coincide.
+    fireEvent.click(screen.getByLabelText("Y axis", { selector: "input" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Skills" }));
+    await waitFor(() =>
+      expect(screen.getByLabelText("X axis", { selector: "input" })).toHaveValue("Attitude"),
+    );
+    expect(screen.getByLabelText("Y axis", { selector: "input" })).toHaveValue("Skills");
+    // Ann now plots at (attitude 4, skills 5).
+    expect(screen.getByTestId("quadrant-cell-4-5")).toBeInTheDocument();
+    expect(within(screen.getByTestId("quadrant-cell-4-5")).getByRole("link", { name: "User details for Ann Alpha" })).toBeInTheDocument();
+
+    // Back to the table.
+    fireEvent.click(screen.getByRole("radio", { name: /table/i }));
+    expect(await screen.findByText("No review yet")).toBeInTheDocument();
+    localStorage.removeItem("lettuce.viewSettings.dashboardReviews.view");
+    localStorage.removeItem("lettuce.viewSettings.dashboardReviews.quadrantX");
+    localStorage.removeItem("lettuce.viewSettings.dashboardReviews.quadrantY");
+  });
+
+  test("the quadrants view keeps the viewer's own avatar unlinked (self stays plain)", async () => {
+    // The viewer (userId 7) rated themselves impossible — instead make the subordinate BE the
+    // viewer id to exercise the self branch: Ann's userId 8 with the session user set to 8.
+    localStorage.setItem(USER_ID_KEY, "8");
+    setupMocks();
+    localStorage.setItem("lettuce.viewSettings.dashboardReviews.view", JSON.stringify("quadrants"));
+    renderTab();
+    const cell = await screen.findByTestId("quadrant-cell-3-4");
+    // Ann is the session user: an avatar, not a link.
+    expect(within(cell).queryByRole("link")).toBeNull();
+    expect(within(cell).getByRole("img", { name: "Ann Alpha" })).toBeInTheDocument();
+    localStorage.removeItem("lettuce.viewSettings.dashboardReviews.view");
+  });
 });

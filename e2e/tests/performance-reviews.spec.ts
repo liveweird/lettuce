@@ -179,6 +179,27 @@ test("a performance review travels period → draft → calibration → publishe
   await expect(page.getByText("1 of 1 people rated")).toBeVisible();
   await page.getByRole("tab", { name: "Skills" }).click();
   await expect(page.getByText("1 of 1 people rated")).toBeVisible();
+
+  // 4c. The Quadrants view (v2.7.0): the same selection on the 6×6 lattice — the reviewee
+  // (all four ratings 4) sits at (4, 4) with a details link; picking the X category on the
+  // Y axis swaps the axes (they can never coincide), re-plotting instantly.
+  await page.getByText("Quadrants", { exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "X axis" })).toHaveValue("Delivery");
+  await expect(page.getByRole("combobox", { name: "Y axis" })).toHaveValue("Attitude");
+  const quadrantCell = page.getByTestId("quadrant-cell-4-4");
+  await expect(
+    quadrantCell.getByRole("link", { name: `User details for ${reviewee.name}` }),
+  ).toBeVisible();
+  await expect(page.getByText("1 of 1 people rated")).toBeVisible();
+  await page.getByRole("combobox", { name: "Y axis" }).click();
+  await page.getByRole("option", { name: "Delivery" }).click();
+  await expect(page.getByRole("combobox", { name: "X axis" })).toHaveValue("Attitude");
+  await expect(page.getByRole("combobox", { name: "Y axis" })).toHaveValue("Delivery");
+  // All ratings are 4, so the reviewee stays at (4, 4) on the swapped axes too.
+  await expect(
+    quadrantCell.getByRole("link", { name: `User details for ${reviewee.name}` }),
+  ).toBeVisible();
+
   await page.getByText("Table", { exact: true }).click();
   await expect(annRow.getByText("Published")).toBeVisible();
   await logout(page);

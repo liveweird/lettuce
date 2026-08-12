@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.7.0",
+    date: "2026-08-12",
+    en: `Quadrants view for team performance. The Team's performance tab gained a third view next to Table and Distribution: pick two rating categories for the X and Y axes (attitude, delivery, skills, overall) and see every rated team member's avatar placed on a 6×6 plane — people with identical ratings sit together as a group, the plane's coloring runs from orange (low on both axes) to green (high on both), and swapping an axis re-draws instantly. People without a rating for the picked axes are listed below the plane. The period and all filters apply to this view exactly like to the other two.`,
+    pl: `Widok kwadrantów dla wyników zespołu. Zakładka wyników zespołu zyskała trzeci widok obok Tabeli i Rozkładu: wybierz dwie kategorie ocen dla osi X i Y (nastawienie, dostarczanie, umiejętności, ogółem), a każda oceniona osoba z zespołu pojawi się jako awatar na płaszczyźnie 6×6 — osoby z identycznymi ocenami stoją razem jako grupa, kolory płaszczyzny biegną od pomarańczowego (nisko na obu osiach) do zielonego (wysoko na obu), a zamiana osi natychmiast przerysowuje widok. Osoby bez oceny dla wybranych osi są wymienione pod płaszczyzną. Okres i wszystkie filtry działają w tym widoku dokładnie tak samo jak w dwóch pozostałych.`,
+  },
+  {
     version: "2.6.4",
     date: "2026-08-12",
     en: `Pulse results explained. The results tab now carries small info icons with plain-language explanations of how each figure is calculated: the eNPS score (promoter/passive/detractor bands and the −100..+100 scale), and every column of the per-question table — mean, favorable, unfavorable, the n count, and both change-vs-previous-cycle columns. Hover (or focus) an icon to see its explanation.`,

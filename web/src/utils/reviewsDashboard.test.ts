@@ -4,7 +4,10 @@ import {
   buildReviewsDashboardRows,
   EMPTY_REVIEWS_DASHBOARD_FILTERS,
   filterReviewsDashboardRows,
+  quadrantCellKey,
+  quadrantCells,
   ratingDistribution,
+  ratingOf,
   sortReviewsDashboardRows,
   teamNameOptions,
 } from "./reviewsDashboard";
@@ -189,5 +192,48 @@ describe("reviewsDashboard", () => {
     expect(dist.rated).toBe(0);
     expect(dist.total).toBe(1);
     expect(dist.counts.every((b) => b.count === 0)).toBe(true);
+  });
+
+  test("ratingOf reads the picked category's rating (null for no review or unset)", () => {
+    const rows = buildReviewsDashboardRows(
+      [member(1, "Ann", "AAA"), member(2, "Bob", "AAA")],
+      [review(1, { attitudeRating: 5, deliveryRating: null })],
+    );
+    expect(ratingOf(rows[0], "attitude")).toBe(5);
+    expect(ratingOf(rows[0], "delivery")).toBeNull();
+    expect(ratingOf(rows[1], "overall")).toBeNull(); // Bob has no review at all
+  });
+
+  test("quadrantCells groups same-coordinate people in one cell, name-ordered", () => {
+    const rows = buildReviewsDashboardRows(
+      [member(1, "Zoe", "AAA"), member(2, "Ann", "AAA"), member(3, "Bob", "AAA")],
+      [
+        review(1, { deliveryRating: 4, attitudeRating: 2 }),
+        review(2, { deliveryRating: 4, attitudeRating: 2 }),
+        review(3, { deliveryRating: 1, attitudeRating: 6 }),
+      ],
+    );
+    const { cells, unrated } = quadrantCells(rows, "delivery", "attitude");
+    expect(unrated).toEqual([]);
+    expect(cells.get(quadrantCellKey(4, 2))?.map((p) => p.name)).toEqual(["Ann", "Zoe"]);
+    expect(cells.get(quadrantCellKey(1, 6))?.map((p) => p.name)).toEqual(["Bob"]);
+    expect(cells.size).toBe(2);
+  });
+
+  test("quadrantCells sends no-review and either-axis-unset rows to unrated, never the plane", () => {
+    const rows = buildReviewsDashboardRows(
+      [member(1, "Ann", "AAA"), member(2, "Bob", "AAA"), member(3, "Cee", "AAA")],
+      [
+        review(1, { skillsRating: 3, overallRating: 5 }),
+        review(2, { skillsRating: 3, overallRating: null }), // one axis unset
+      ],
+    );
+    const { cells, unrated } = quadrantCells(rows, "skills", "overall");
+    expect(cells.get(quadrantCellKey(3, 5))?.map((p) => p.name)).toEqual(["Ann"]);
+    expect(unrated.map((p) => p.name)).toEqual(["Bob", "Cee"]);
+    // The same rows plotted on axes both present for Bob put him back on the plane.
+    const swapped = quadrantCells(rows, "attitude", "skills");
+    expect(swapped.cells.get(quadrantCellKey(3, 3))?.map((p) => p.name)).toEqual(["Ann", "Bob"]);
+    expect(swapped.unrated.map((p) => p.name)).toEqual(["Cee"]);
   });
 });

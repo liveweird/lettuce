@@ -135,6 +135,12 @@
       "people": "People",
       "ratedCount": "{{rated}} of {{total}} people rated",
       "empty": "No ratings in this selection yet."
+    },
+    "quadrants": {
+      "view": "Quadrants",
+      "xAxis": "X axis",
+      "yAxis": "Y axis",
+      "notRated": "Not shown (no rating for the picked axes): {{names}}"
     }
   },
   "toast": {

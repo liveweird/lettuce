@@ -12,7 +12,15 @@ import {
   Table,
   Text,
 } from "@mantine/core";
-import { IconChartBar, IconClipboardText, IconEye, IconPencil, IconPlus, IconTable } from "@tabler/icons-react";
+import {
+  IconChartBar,
+  IconClipboardText,
+  IconEye,
+  IconLayoutGrid,
+  IconPencil,
+  IconPlus,
+  IconTable,
+} from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { getUserId, listAllPerformanceReviews, listAllTeamMembers } from "../api/client";
@@ -22,6 +30,7 @@ import PaginationBar from "../components/PaginationBar";
 import PersonCell from "../components/PersonCell";
 import PerformanceReviewStatusBadge from "../components/PerformanceReviewStatusBadge";
 import { RatingCells } from "../components/RatingBadge";
+import ReviewQuadrants from "../components/ReviewQuadrants";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import SortHeader from "../components/SortHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
@@ -45,7 +54,7 @@ import {
 
 const SETTINGS_KEY = "dashboardReviews";
 const REPORTS_SCOPES = ["direct", "all"] as const;
-const VIEW_MODES = ["table", "chart"] as const;
+const VIEW_MODES = ["table", "chart", "quadrants"] as const;
 const BACK_TO = "/performance?tab=managed";
 
 // The rating-distribution charts are the second lazy @mantine/charts chunk (the TeamKpiChart
@@ -210,6 +219,15 @@ export default function ReviewsDashboard() {
                 </Group>
               ),
             },
+            {
+              value: "quadrants",
+              label: (
+                <Group gap={6} wrap="nowrap">
+                  <IconLayoutGrid size={16} />
+                  <span>{t("performanceReview.dashboard.quadrants.view")}</span>
+                </Group>
+              ),
+            },
           ]}
         />
       </Group>
@@ -262,6 +280,10 @@ export default function ReviewsDashboard() {
         <Suspense fallback={<Skeleton height={300} radius="md" />}>
           <ReviewRatingDistribution rows={filteredRows} />
         </Suspense>
+      ) : view === "quadrants" ? (
+        // The Quadrants view shares the same filtered-but-unpaginated selection. No Suspense:
+        // it is a plain CSS grid — no recharts, so it rides the main bundle.
+        <ReviewQuadrants rows={filteredRows} />
       ) : (
       <>
       <Table highlightOnHover withTableBorder verticalSpacing="sm">
