@@ -57,8 +57,8 @@ const REPORTS_SCOPES = ["direct", "all"] as const;
 const VIEW_MODES = ["table", "chart", "quadrants"] as const;
 const BACK_TO = "/performance?tab=managed";
 
-// The rating-distribution charts are the second lazy @mantine/charts chunk (the TeamKpiChart
-// precedent) — recharts never touches the main bundle.
+// The rating-distribution charts are one of the three lazy @mantine/charts chunks (the
+// TeamKpiChart precedent) — recharts never touches the main bundle.
 const ReviewRatingDistribution = lazy(() => import("../components/ReviewRatingDistribution"));
 
 // The rating columns in table order, paired with their sort fields.

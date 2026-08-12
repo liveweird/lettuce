@@ -62,8 +62,8 @@ const SUBORDINATE_COLUMN: PersonColumn = {
 };
 
 // Per-view differences, declaratively (the GoalTable shape). The row action is NOT per-view:
-// at any view the review's manager edits DRAFT/CALIBRATION rows and everyone else views (the
-// server enforces the same rule). view=team exists server-side but has no UI surface (the
+// at any view the review's manager edits their DRAFT rows and everyone else views (the view
+// screen owns the CALIBRATION-phase actions). view=team exists server-side but has no UI surface (the
 // reviews dashboard covers team browsing) — the goals precedent.
 const VIEW_CONFIG: Record<
   Exclude<PerformanceReviewListView, "team">,
