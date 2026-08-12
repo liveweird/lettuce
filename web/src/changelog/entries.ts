@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.6.3",
+    date: "2026-08-12",
+    en: `Tighter Kudos previews. Collapsed cards on the Kudos wall now show three lines of content instead of five, so more kudos fit on screen at once — "Show more" still expands the full text whenever a card overflows.`,
+    pl: `Zwięźlejsze podglądy Kudos. Zwinięte karty na tablicy Kudos pokazują teraz trzy linie treści zamiast pięciu, więc na ekranie mieści się naraz więcej kudosów — „Pokaż więcej" nadal rozwija pełny tekst, gdy karta się nie mieści.`,
+  },
+  {
     version: "2.6.2",
     date: "2026-08-11",
     en: `Pulse results hardening. An audit of the results calculation confirmed the algorithm follows the standard eNPS methodology and added a battery of edge-case tests (score ties, declines, all-"not applicable" questions, tiny teams). Improvements that came out of it: the eNPS score is now computed in a way immune to floating-point drift for hairline ties; the per-question table gained a "Δ favorable" column showing how the favorable share changed versus the previous cycle; the headline score carries a contextual color and label (concern / okay / good / excellent); and small groups show a reminder that individual answers move the numbers a lot.`,

@@ -26,7 +26,7 @@ import ProseBox from "../components/ProseBox";
 import { formatRelativeTime, formatTimestamp } from "../utils/datetime";
 
 const PAGE_SIZE = 20;
-const PREVIEW_LINES = 5;
+const PREVIEW_LINES = 3;
 
 type KudosItem = FeedbackPage["items"][number];
 
