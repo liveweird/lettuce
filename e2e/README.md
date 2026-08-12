@@ -150,7 +150,8 @@ commit** — this list is the suite's coverage map, and it has drifted three tim
   affordances; an **Unpublish** takes it back to calibration, **Return to draft** takes it back
   to DRAFT, and the editor's **Delete** removes the draft — the slot reads "No review yet"
   again. The manager leg also flips the Team's-performance tab to the **Distribution** view
-  (v1.40.0 toggle) and back. Only the throwaway subordinate + team persist in the dev volume
+  (v1.40.0 toggle) and the **Quadrants** view (v2.7.0 — the reviewee's avatar at the (4, 4)
+  cell, then an axis swap re-plots it) and back. Only the throwaway subordinate + team persist in the dev volume
   (a fresh one each run).
 - `days-off.spec.ts` — the days-off journey: a user files two **PAID requests** on run-varying
   future Mondays (half-day edge, live cost preview), the direct manager **accepts** one and
