@@ -11,7 +11,9 @@ import {
   Table,
   Text,
   Title,
+  Tooltip,
 } from "@mantine/core";
+import { IconInfoCircle } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { Suspense, lazy } from "react";
 import { useTranslation } from "react-i18next";
@@ -32,6 +34,22 @@ import {
 } from "../utils/pulseResults";
 
 const PulseTrendChart = lazy(() => import("./PulseTrendChart"));
+
+/** The methodology hint (v2.6.4): the DashboardHero info-icon idiom — the tooltip text doubles
+ *  as the icon's accessible name, so the explanation is also reachable without a pointer. */
+function HintIcon({ label }: { label: string }) {
+  return (
+    <Tooltip label={label} multiline w={280}>
+      <IconInfoCircle
+        size={14}
+        color="var(--mantine-color-dimmed)"
+        style={{ flexShrink: 0 }}
+        role="img"
+        aria-label={label}
+      />
+    </Tooltip>
+  );
+}
 
 function DriverRow({ driver, questionLabel }: { driver: PulseDriverResult; questionLabel: string }) {
   return (
@@ -165,9 +183,12 @@ export default function PulseTeamResultCard({
                 {data.enps.score > 0 ? `+${data.enps.score}` : data.enps.score}
               </Text>
               <Stack gap={0}>
-                <Text size="sm" c="dimmed">
-                  {t("pulse.results.enps")}
-                </Text>
+                <Group gap={4} wrap="nowrap">
+                  <Text size="sm" c="dimmed">
+                    {t("pulse.results.enps")}
+                  </Text>
+                  <HintIcon label={t("pulse.results.hint.enps")} />
+                </Group>
                 <Text size="xs" c="dimmed">
                   {t(`pulse.results.band.${enpsBandKey(data.enps.score)}`)}
                 </Text>
@@ -200,12 +221,17 @@ export default function PulseTeamResultCard({
                 <Table.Thead>
                   <Table.Tr>
                     <Table.Th>{t("pulse.results.question")}</Table.Th>
-                    <Table.Th>{t("pulse.results.mean")}</Table.Th>
-                    <Table.Th>{t("pulse.results.favorable")}</Table.Th>
-                    <Table.Th>{t("pulse.results.unfavorable")}</Table.Th>
-                    <Table.Th>{t("pulse.results.validCount")}</Table.Th>
-                    <Table.Th>{t("pulse.results.meanDelta")}</Table.Th>
-                    <Table.Th>{t("pulse.results.favorableDelta")}</Table.Th>
+                    {/* Every metric header carries a how-is-this-computed hint (v2.6.4). */}
+                    {(["mean", "favorable", "unfavorable", "validCount", "meanDelta", "favorableDelta"] as const).map(
+                      (metric) => (
+                        <Table.Th key={metric}>
+                          <Group gap={4} wrap="nowrap">
+                            {t(`pulse.results.${metric}`)}
+                            <HintIcon label={t(`pulse.results.hint.${metric}`)} />
+                          </Group>
+                        </Table.Th>
+                      ),
+                    )}
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>

@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.6.4",
+    date: "2026-08-12",
+    en: `Pulse results explained. The results tab now carries small info icons with plain-language explanations of how each figure is calculated: the eNPS score (promoter/passive/detractor bands and the −100..+100 scale), and every column of the per-question table — mean, favorable, unfavorable, the n count, and both change-vs-previous-cycle columns. Hover (or focus) an icon to see its explanation.`,
+    pl: `Wyniki pulsu z objaśnieniami. Zakładka wyników ma teraz małe ikony informacyjne z prostymi objaśnieniami, jak liczona jest każda wartość: wynik eNPS (grupy promotorów/neutralnych/krytyków i skala od −100 do +100) oraz każda kolumna tabeli pytań — średnia, odpowiedzi pozytywne i negatywne, liczba n oraz obie kolumny zmian względem poprzedniego cyklu. Najedź na ikonę (lub ją zaznacz), aby zobaczyć objaśnienie.`,
+  },
+  {
     version: "2.6.3",
     date: "2026-08-12",
     en: `Tighter Kudos previews. Collapsed cards on the Kudos wall now show three lines of content instead of five, so more kudos fit on screen at once — "Show more" still expands the full text whenever a card overflows.`,
