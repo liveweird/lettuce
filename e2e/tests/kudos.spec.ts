@@ -15,7 +15,7 @@ import {
 // this file owns the (AAA Three ← AAA Two) triple, created directly as SENT — no open window.
 // Wall asserts go by this run's unique content, never by position: the shared DB accumulates rows.
 test("a public feedback lands on the Kudos wall for a non-party viewer", async ({ page }) => {
-  // Long enough to overflow the five-line preview clamp, so the Show more toggle appears.
+  // Long enough to overflow the three-line preview clamp, so the Show more toggle appears.
   const marker = uniqueText("E2E kudos");
   const body = `${marker} ${"Great teamwork all around, thank you for the support and the dedication shown. ".repeat(8)}`.trim();
   await login(page, AAA_TWO);
@@ -40,7 +40,7 @@ test("a public feedback lands on the Kudos wall for a non-party viewer", async (
   await expect(page).toHaveURL(/\/kudos/);
 
   // The card renders the content as markdown inside the read-only frame at all times; a long
-  // body is clamped to five lines with a Show more/Show less toggle below (short cards get no
+  // body is clamped to three lines with a Show more/Show less toggle below (short cards get no
   // toggle at all). Scope to this run's card via its unique marker — the wall accumulates rows.
   // The exact class token — a [class*=…] substring match would also hit the nested
   // Timeline-itemBody/-itemContent wrappers and trip strict mode.
