@@ -28,7 +28,7 @@ function describeEvent(e: GoalEvent, t: TFunction, locale: string): string {
         to: t(`goal.type.${p.to}`),
       });
     case "TARGET_CHANGED":
-      // An empty side means "no target" (the BINARY side of a type change).
+      // An empty side means "no target" (the PLAN side of a type change).
       if (!p.to) return t("goal.event.targetCleared");
       if (!p.from) return t("goal.event.targetSet", { to: num(p.to) });
       return t("goal.event.targetChanged", { from: num(p.from), to: num(p.to) });
@@ -45,7 +45,18 @@ function describeEvent(e: GoalEvent, t: TFunction, locale: string): string {
       // A comment-only progress update (v2.8.0) — the comment itself renders below the title.
       return t("goal.event.progressCommented");
     case "ACHIEVED_CHANGED":
+      // Historical only: the pre-v2.9.0 BINARY type's flag flip — stored rows still render.
       return p.to === "true" ? t("goal.event.achievedYes") : t("goal.event.achievedNo");
+    case "MILESTONE_ADDED":
+      return t("goal.event.milestoneAdded", { position: p.position });
+    case "MILESTONE_EDITED":
+      return t("goal.event.milestoneEdited", { position: p.position });
+    case "MILESTONE_REMOVED":
+      return t("goal.event.milestoneRemoved", { position: p.position });
+    case "MILESTONE_COMPLETED":
+      return t("goal.event.milestoneCompleted", { position: p.position });
+    case "MILESTONE_REOPENED":
+      return t("goal.event.milestoneReopened", { position: p.position });
     case "STATUS_CHANGED":
       return t("goal.event.statusChanged", {
         from: t(`goal.status.${p.from}`),

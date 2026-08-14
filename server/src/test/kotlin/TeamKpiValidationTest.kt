@@ -11,7 +11,7 @@ import kotlin.test.Test
 import kotlin.test.assertFailsWith
 
 /**
- * Pure combination matrix of the team-KPI validators — no BINARY flavor, so a target/current
+ * Pure combination matrix of the team-KPI validators — no PLAN flavor, so a target/current
  * value is always required (finite; 0–100 for PERCENTAGE). The route/service behavior on top is
  * covered by TeamKpiRoutesTest.
  */

@@ -1112,15 +1112,16 @@ export interface paths {
          *       DRAFTs included. HR usage is recorded in the security audit trail. The ordinary
          *       sort/filter/paging parameters apply on top.
          *
-         *     Rows carry the party names, title, type, status, and the value fields — never the
-         *     description or summary.
+         *     Rows carry the party names, title, type, status, and the value fields — for PLAN goals
+         *     the milestone tally (`milestonesDone`/`milestonesTotal`) instead of a value — never the
+         *     description, summary, or milestone texts.
          *
          *     Supports offset pagination, sorting and filtering.
          *
          *     - Sortable fields: `id`, `managerName`, `subordinateName`, `title`, `type`, `status`,
          *       `targetValue`, `currentValue`, `createdAt`, `dueDate`, `lastModified`. Default sort is `createdAt`
          *       **descending** (newest goals first). `id` ascending is always appended as a
-         *       deterministic tiebreaker. The value columns are null for BINARY goals, so mixed-type
+         *       deterministic tiebreaker. The value columns are null for PLAN goals, so mixed-type
          *       lists sort those rows together at one end (database NULL ordering).
          *     - Filters (all optional, all whitelisted):
          *       - `managerName` / `subordinateName` — case- and accent-insensitive substring match against the
@@ -1144,10 +1145,13 @@ export interface paths {
          *     create-on-behalf. A **deactivated** subordinate is rejected with `400`.
          *
          *     The value fields are type-specific: `targetValue` is **required** for NUMBER and
-         *     PERCENTAGE goals (0–100 for PERCENTAGE) and **must be absent** for BINARY goals. The
-         *     current value starts **unset** (`currentValue`/`achieved` null — no recorded value) and
-         *     is only set (via `PUT /goals/{id}/progress`) once the goal is ACTIVE. The **due date**
-         *     is required and must not be earlier than the current date.
+         *     PERCENTAGE goals (0–100 for PERCENTAGE) and **must be absent** for PLAN goals, whose
+         *     progress model is instead their ordered **milestones** — id-less entries here (`400`
+         *     when an entry carries an id), each a non-blank description within 4000 characters, at
+         *     most 100 of them, all starting not-done; the numeric types must send none. The current
+         *     value starts **unset** (`currentValue` null — no recorded value) and is only set (via
+         *     `PUT /goals/{id}/progress`) once the goal is ACTIVE. The **due date** is required and
+         *     must not be earlier than the current date.
          *
          *     Nobody is notified — a draft is private to the pair until activated. The creation is
          *     recorded in the goal's audit history.
@@ -1181,18 +1185,25 @@ export interface paths {
         get: operations["getGoal"];
         /**
          * Edit a draft goal's definition
-         * @description Edits the goal's definition — title, description, type, target, and due date (the due
-         *     date is editable **only** here and at creation, i.e. only while DRAFT, and must not be
-         *     earlier than the current date). **Manager-only**
+         * @description Edits the goal's definition — title, description, type, target, milestones (PLAN), and
+         *     due date (the due date is editable **only** here and at creation, i.e. only while
+         *     DRAFT, and must not be earlier than the current date). **Manager-only**
          *     (the subordinate has read rights only; nobody else — ADMIN included — gets write
          *     access) and **DRAFT-only**: an ACTIVE or ARCHIVED goal's definition is immutable (`409`) — deactivate
-         *     it first to edit. The parties, status, current value, and summary are not settable here
-         *     (status moves through the action endpoints, the current value through
-         *     `PUT /goals/{id}/progress`, the summary through the archive action).
+         *     it first to edit. The parties, status, current value, milestone done flags, and summary
+         *     are not settable here (status moves through the action endpoints, progress — the
+         *     current value or the done flags — through `PUT /goals/{id}/progress`, the summary
+         *     through the archive action).
          *
-         *     Changing the type resets the value fields to **unset** (null — no recorded value),
-         *     discarding any previously recorded progress — the audit events explain the reset.
-         *     Every changed aspect is recorded in the audit history; a no-op PUT records nothing.
+         *     A PLAN goal's `milestones` is a **whole-list replace** in payload order: entries with
+         *     an `id` keep that row (its done flag preserved; a changed description is an edit),
+         *     stored rows missing from the payload are removed, id-less entries are added (starting
+         *     not-done). An id not belonging to this goal, or sent twice, is `400`.
+         *
+         *     Changing the type resets the value fields to **unset** (null — no recorded value; away
+         *     from PLAN the milestones are deleted), discarding any previously recorded progress —
+         *     the audit events explain the reset. Every changed aspect is recorded in the audit
+         *     history; a no-op PUT records nothing.
          */
         put: operations["updateGoalDefinition"];
         post?: never;
@@ -1220,18 +1231,22 @@ export interface paths {
         };
         get?: never;
         /**
-         * Update an active goal's current value
-         * @description Updates the goal's current value — the only edit an **ACTIVE** goal accepts (any other
+         * Update an active goal's progress
+         * @description Updates the goal's progress — the only edit an **ACTIVE** goal accepts (any other
          *     status is `409`). Open to **both parties** — the manager and the subordinate (v2.8.0);
-         *     anyone else is `403`. Only the field matching the goal's type may be set — `achieved`
-         *     for a BINARY goal, `currentValue` for NUMBER and PERCENTAGE (0–100 for PERCENTAGE);
+         *     anyone else is `403`. Only the field matching the goal's type may be set —
+         *     `milestones` for a PLAN goal (the **complete** done-state: one entry per milestone,
+         *     ids matching the goal's milestones exactly, else `400`; only actually-flipped flags
+         *     count as changes), `currentValue` for NUMBER and PERCENTAGE (0–100 for PERCENTAGE);
          *     the mismatched field is `400` — and it is **optional** (v2.8.1): absent leaves the
-         *     value untouched, but a value-less update must then carry a non-blank `comment` (else
+         *     state untouched, but a state-less update must then carry a non-blank `comment` (else
          *     `400`). The optional `comment` (context of the update) is recorded on the history
-         *     event, encrypted at rest; a non-blank comment with an unchanged value still records a
+         *     event, encrypted at rest; a non-blank comment with an unchanged state still records a
          *     `PROGRESS_COMMENTED` event. Any recorded update notifies the counterparty. The change
-         *     is recorded in the audit history (from/to values; an empty `from` = no previous
-         *     value); a true no-op (unchanged value, no comment) records nothing.
+         *     is recorded in the audit history — one `MILESTONE_COMPLETED`/`MILESTONE_REOPENED`
+         *     entry per toggled milestone (1-based positions), or one `PROGRESS_UPDATED` with
+         *     from/to values (an empty `from` = no previous value); a true no-op (unchanged state,
+         *     no comment) records nothing.
          */
         put: operations["updateGoalProgress"];
         post?: never;
@@ -1256,10 +1271,11 @@ export interface paths {
          * Activate a draft goal
          * @description Moves the goal `DRAFT → ACTIVE` (any other current status is `409`). **Manager-only.**
          *     The goal's **due date must not be in the past** (`400`) — a stale draft must be given a
-         *     fresh due date (via `PUT /goals/{id}`) before it can be activated. Once active, the
-         *     goal becomes visible to the subordinate's wider management chain and its current value
-         *     becomes editable via `PUT /goals/{id}/progress`. The subordinate is notified; the
-         *     transition is recorded in the audit history.
+         *     fresh due date (via `PUT /goals/{id}`) before it can be activated — and a **PLAN goal
+         *     needs at least one milestone** (`400`; milestones are defined via `PUT /goals/{id}`).
+         *     Once active, the goal becomes visible to the subordinate's wider management chain and
+         *     its progress becomes editable via `PUT /goals/{id}/progress`. The subordinate is
+         *     notified; the transition is recorded in the audit history.
          */
         post: operations["activateGoal"];
         delete?: never;
@@ -1282,8 +1298,9 @@ export interface paths {
         /**
          * Return an active goal to draft
          * @description Moves the goal `ACTIVE → DRAFT` (any other current status is `409`), making its
-         *     definition editable again. **Manager-only.** Recorded progress is kept (unless the type
-         *     is later changed in the draft, which resets the value fields to unset). The subordinate
+         *     definition editable again. **Manager-only.** Recorded progress — the current value or
+         *     the milestone done flags — is kept (unless the type is later changed in the draft,
+         *     which resets the value fields to unset and drops any milestones). The subordinate
          *     is notified; the transition is recorded in the audit history.
          */
         post: operations["deactivateGoal"];
@@ -1356,10 +1373,12 @@ export interface paths {
         /**
          * List a goal's audit history
          * @description Returns the immutable audit trail for a goal — one entry per creation, changed
-         *     definition aspect, progress update, status transition, and deletion — newest first (id
+         *     definition aspect, milestone change (identified by 1-based position), progress update,
+         *     status transition, and deletion — newest first (id
          *     descending as the same-instant tiebreaker). Each
-         *     entry is structural: an event `type` plus a `params` map (enum names and numeric values
-         *     — never title/description/summary text), with the acting user resolved to `userName`; no
+         *     entry is structural: an event `type` plus a `params` map (enum names, numeric values,
+         *     and positions — never title/description/summary/milestone text), with the acting user
+         *     resolved to `userName`; no
          *     rendered string is stored (clients localize the description). Authorization matches the
          *     single-GET above: whoever may read the goal may read its history. Events are
          *     server-generated; there is no create/update/delete endpoint.
@@ -1425,7 +1444,7 @@ export interface paths {
          *     **current manager**: the caller must be `teams.manager_id` of the (non-deleted)
          *     `teamId` at creation time — there is no ADMIN create-on-behalf.
          *
-         *     Unlike goals there is no BINARY type: `targetValue` is **always required** (finite;
+         *     Unlike goals there is no PLAN type: `targetValue` is **always required** (finite;
          *     0–100 for PERCENTAGE). The KPI starts with no data points (`currentValue` `0.0`,
          *     `currentValueDate` null); data points become recordable (via the
          *     `/team-kpis/{id}/values` sub-resource) once the KPI is ACTIVE. There is no due date.
@@ -3993,6 +4012,26 @@ export interface components {
         ActionItemHistoryList: {
             items: components["schemas"]["ActionItemHistoryEntry"][];
         };
+        GoalMilestoneInput: {
+            /**
+             * Format: int64
+             * @description An existing milestone row of this goal to keep (its done flag is preserved — the definition PUT never ticks); absent = a new milestone, starting not-done. Must be absent on create.
+             */
+            id?: number | null;
+            /** @description Non-blank; stored encrypted at rest. Payload order IS the order. */
+            description: string;
+        };
+        GoalMilestoneDone: {
+            /** Format: int64 */
+            id: number;
+            done: boolean;
+        };
+        GoalMilestoneResponse: {
+            /** Format: int64 */
+            id: number;
+            description: string;
+            done: boolean;
+        };
         GoalCreateRequest: {
             /**
              * Format: int64
@@ -4007,12 +4046,17 @@ export interface components {
              * @description How progress is tracked; decides which value fields apply.
              * @enum {string}
              */
-            type: "BINARY" | "NUMBER" | "PERCENTAGE";
+            type: "PLAN" | "NUMBER" | "PERCENTAGE";
             /**
              * Format: double
-             * @description Required for NUMBER and PERCENTAGE (0–100 for PERCENTAGE); must be absent for BINARY.
+             * @description Required for NUMBER and PERCENTAGE (0–100 for PERCENTAGE); must be absent for PLAN.
              */
             targetValue?: number | null;
+            /**
+             * @description PLAN only (the numeric types must send none, `400` otherwise): the goal's ordered milestones, id-less at creation. At most 100.
+             * @default []
+             */
+            milestones: components["schemas"]["GoalMilestoneInput"][];
             /**
              * Format: date
              * @description ISO `YYYY-MM-DD`; must not be earlier than the current date.
@@ -4024,15 +4068,20 @@ export interface components {
             /** @default  */
             description: string;
             /**
-             * @description Changing the type re-initializes the value fields for the new type, discarding any recorded progress.
+             * @description Changing the type re-initializes the value fields for the new type, discarding any recorded progress (away from PLAN the milestones are deleted).
              * @enum {string}
              */
-            type: "BINARY" | "NUMBER" | "PERCENTAGE";
+            type: "PLAN" | "NUMBER" | "PERCENTAGE";
             /**
              * Format: double
-             * @description Required for NUMBER and PERCENTAGE (0–100 for PERCENTAGE); must be absent for BINARY.
+             * @description Required for NUMBER and PERCENTAGE (0–100 for PERCENTAGE); must be absent for PLAN.
              */
             targetValue?: number | null;
+            /**
+             * @description PLAN only (the numeric types must send none, `400` otherwise): the whole-list replacement of the goal's milestones in payload order — id-matched rows kept (done flags preserved), missing rows removed, id-less rows added. Duplicate or foreign ids are `400`.
+             * @default []
+             */
+            milestones: components["schemas"]["GoalMilestoneInput"][];
             /**
              * Format: date
              * @description ISO `YYYY-MM-DD`; must not be earlier than the current date. Editable only while DRAFT (this endpoint is DRAFT-only).
@@ -4042,12 +4091,12 @@ export interface components {
         GoalProgressUpdate: {
             /**
              * Format: double
-             * @description The new current value — NUMBER and PERCENTAGE goals only (0–100 for PERCENTAGE); must be absent for BINARY. Optional: absent leaves the value untouched (a value-less update requires a non-blank comment).
+             * @description The new current value — NUMBER and PERCENTAGE goals only (0–100 for PERCENTAGE); must be absent for PLAN. Optional: absent leaves the value untouched (a state-less update requires a non-blank comment).
              */
             currentValue?: number | null;
-            /** @description The new done-flag — BINARY goals only; must be absent otherwise. Optional: absent leaves the flag untouched (a value-less update requires a non-blank comment). */
-            achieved?: boolean | null;
-            /** @description Optional context of the update, shown in the goal's history (stored encrypted at rest on the history event, never in its params). Blank counts as absent; a non-blank comment with an unchanged value records a `PROGRESS_COMMENTED` event. */
+            /** @description The complete done-state — PLAN goals only; must be absent otherwise. One entry per milestone, ids matching the goal's milestones exactly (else `400`). Optional: absent leaves the flags untouched (a state-less update requires a non-blank comment). */
+            milestones?: components["schemas"]["GoalMilestoneDone"][] | null;
+            /** @description Optional context of the update, shown in the goal's history (stored encrypted at rest on the history event, never in its params). Blank counts as absent; a non-blank comment with an unchanged state records a `PROGRESS_COMMENTED` event. */
             comment?: string | null;
         };
         GoalArchiveRequest: {
@@ -4076,19 +4125,19 @@ export interface components {
             title: string;
             description: string;
             /** @enum {string} */
-            type: "BINARY" | "NUMBER" | "PERCENTAGE";
+            type: "PLAN" | "NUMBER" | "PERCENTAGE";
             /**
              * Format: double
-             * @description Null for BINARY goals.
+             * @description Null for PLAN goals.
              */
             targetValue: number | null;
             /**
              * Format: double
-             * @description Null for BINARY goals — and null while no value has been recorded yet (a fresh goal starts unset); settable only while ACTIVE.
+             * @description Null for PLAN goals — and null while no value has been recorded yet (a fresh goal starts unset); settable only while ACTIVE.
              */
             currentValue: number | null;
-            /** @description Null unless BINARY — and null while no value has been recorded yet (a fresh goal starts unset); settable only while ACTIVE. */
-            achieved: boolean | null;
+            /** @description PLAN only (empty for the numeric types): the goal's ordered milestones — its whole progress model. Defined (whole-list replaced) while DRAFT via `PUT /goals/{id}`; done flags ticked while ACTIVE via `PUT /goals/{id}/progress`. */
+            milestones: components["schemas"]["GoalMilestoneResponse"][];
             /** @enum {string} */
             status: "DRAFT" | "ACTIVE" | "ARCHIVED";
             /** @description Non-null once the goal has been archived at least once — kept on reopen, overwritten at the next archiving. */
@@ -4112,12 +4161,15 @@ export interface components {
             subordinateDeleted: boolean;
             title: string;
             /** @enum {string} */
-            type: "BINARY" | "NUMBER" | "PERCENTAGE";
+            type: "PLAN" | "NUMBER" | "PERCENTAGE";
             /** Format: double */
             targetValue: number | null;
             /** Format: double */
             currentValue: number | null;
-            achieved: boolean | null;
+            /** @description PLAN only (null for the numeric types): how many milestones are done. Milestone texts never ride list rows. */
+            milestonesDone: number | null;
+            /** @description PLAN only (null for the numeric types): the milestone count. */
+            milestonesTotal: number | null;
             /** @enum {string} */
             status: "DRAFT" | "ACTIVE" | "ARCHIVED";
             /** Format: int64 */
@@ -4152,22 +4204,23 @@ export interface components {
              */
             timestamp: number;
             /**
-             * @description Structured event kind; the client renders it in the viewer's language.
+             * @description Structured event kind; the client renders it in the viewer's language. ACHIEVED_CHANGED is historical only (the pre-v2.9.0 BINARY type's flag flip) — nothing mints it anymore.
              * @enum {string}
              */
-            type: "CREATED" | "TITLE_CHANGED" | "DESCRIPTION_CHANGED" | "TYPE_CHANGED" | "TARGET_CHANGED" | "DUE_DATE_CHANGED" | "PROGRESS_UPDATED" | "ACHIEVED_CHANGED" | "PROGRESS_COMMENTED" | "STATUS_CHANGED" | "DELETED";
+            type: "CREATED" | "TITLE_CHANGED" | "DESCRIPTION_CHANGED" | "TYPE_CHANGED" | "TARGET_CHANGED" | "DUE_DATE_CHANGED" | "PROGRESS_UPDATED" | "ACHIEVED_CHANGED" | "MILESTONE_ADDED" | "MILESTONE_EDITED" | "MILESTONE_REMOVED" | "MILESTONE_COMPLETED" | "MILESTONE_REOPENED" | "PROGRESS_COMMENTED" | "STATUS_CHANGED" | "DELETED";
             /**
              * @description Interpolation params for the localized rendering — enum names (`from`/`to` statuses
              *     and types, the CREATED event's `type`), numeric values (target/progress
-             *     `from`/`to`, `""` = no value), and ISO dates (the due-date change's `from`/`to`).
-             *     Never title/description/summary/comment text (params stay plaintext by design; the
-             *     progress-update comment lives in the separate `comment` field, encrypted at rest).
-             *     Empty object when the event kind needs none.
+             *     `from`/`to`, `""` = no value), 1-based milestone positions (the `MILESTONE_*`
+             *     events' `position`), and ISO dates (the due-date change's `from`/`to`).
+             *     Never title/description/summary/milestone/comment text (params stay plaintext by
+             *     design; the progress-update comment lives in the separate `comment` field,
+             *     encrypted at rest). Empty object when the event kind needs none.
              */
             params: {
                 [key: string]: string;
             };
-            /** @description The progress update's optional context comment (PROGRESS_UPDATED / ACHIEVED_CHANGED / PROGRESS_COMMENTED events; stored encrypted at rest, decrypted here). Absent on every other event kind. */
+            /** @description The progress update's optional context comment (PROGRESS_UPDATED / MILESTONE_COMPLETED / MILESTONE_REOPENED / PROGRESS_COMMENTED — on a multi-event update it rides the last-minted event, topping the newest-first timeline; also on historical ACHIEVED_CHANGED rows; stored encrypted at rest, decrypted here). Absent on every other event kind. */
             comment?: string | null;
         };
         GoalEventList: {
@@ -4184,7 +4237,7 @@ export interface components {
             /** @default  */
             description: string;
             /**
-             * @description How the KPI is measured. There is no BINARY flavor.
+             * @description How the KPI is measured. There is no PLAN flavor.
              * @enum {string}
              */
             type: "NUMBER" | "PERCENTAGE";
@@ -7122,7 +7175,7 @@ export interface operations {
                 /** @description Case- and accent-insensitive substring match against the goal title. */
                 title?: string;
                 /** @description Exact goal-type match. */
-                type?: "BINARY" | "NUMBER" | "PERCENTAGE";
+                type?: "PLAN" | "NUMBER" | "PERCENTAGE";
                 /** @description Exact status match. */
                 status?: "DRAFT" | "ACTIVE" | "ARCHIVED";
                 /** @description Lower bound (inclusive) on the creation moment, epoch milliseconds. */
@@ -7183,7 +7236,7 @@ export interface operations {
                     "application/json": components["schemas"]["GoalResponse"];
                 };
             };
-            /** @description Validation error (blank or oversized title/description, a target value that is missing, out of range, or not applicable to the goal type, a due date that is missing, malformed, or in the past) or referenced user does not exist */
+            /** @description Validation error (blank or oversized title/description, a target value that is missing, out of range, or not applicable to the goal type, an invalid milestone list — blank/oversized descriptions, more than 100 entries, entries carrying ids, or milestones on a non-PLAN goal — a due date that is missing, malformed, or in the past) or referenced user does not exist */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -7254,7 +7307,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Validation error (blank or oversized title/description, a target value that is missing, out of range, or not applicable to the goal type, a due date that is missing, malformed, or in the past) */
+            /** @description Validation error (blank or oversized title/description, a target value that is missing, out of range, or not applicable to the goal type, an invalid milestone list — blank/oversized descriptions, more than 100 entries, duplicate or foreign ids, or milestones on a non-PLAN goal — a due date that is missing, malformed, or in the past) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -7333,7 +7386,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The value field does not match the goal's type or is out of range (PERCENTAGE is 0–100); neither a value nor a comment was supplied; or the comment exceeds 4000 characters */
+            /** @description The progress field does not match the goal's type or is out of range (PERCENTAGE is 0–100); a PLAN update's milestone ids do not match the goal's milestones exactly (missing, foreign, or duplicate ids); neither a state change field nor a comment was supplied; or the comment exceeds 4000 characters */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -7353,7 +7406,7 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
-            /** @description The goal is not ACTIVE — the current value is only editable while it is */
+            /** @description The goal is not ACTIVE — progress is only editable while it is */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -7383,7 +7436,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The goal's due date is in the past — update it before activating */
+            /** @description The goal's due date is in the past, or a PLAN goal has no milestones — update the draft before activating */
             400: {
                 headers: {
                     [name: string]: unknown;

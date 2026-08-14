@@ -94,11 +94,18 @@ export default function EditGoal() {
   });
 
   const definitionForm = useForm<GoalDefinitionFormValues>({
-    initialValues: { title: "", description: "", type: "NUMBER", targetValue: "", dueDate: "" },
+    initialValues: {
+      title: "",
+      description: "",
+      type: "NUMBER",
+      targetValue: "",
+      milestones: [],
+      dueDate: "",
+    },
     validate: goalDefinitionValidation(t),
   });
   const progressForm = useForm<GoalProgressFormValues>({
-    initialValues: { currentValue: "", achieved: false, comment: "" },
+    initialValues: { currentValue: "", milestones: [], comment: "" },
     validate: {
       currentValue: (value, values) =>
         validateProgressValue(value, values, data?.type, data?.currentValue != null, t),
@@ -112,7 +119,7 @@ export default function EditGoal() {
   if (data && data.status === "ACTIVE" && !progressForm.initialized) {
     progressForm.initialize({
       currentValue: data.currentValue ?? "",
-      achieved: data.achieved === true,
+      milestones: data.milestones.map((m) => ({ id: m.id, description: m.description, done: m.done })),
       comment: "",
     });
   }
@@ -175,13 +182,14 @@ export default function EditGoal() {
       const comment = values.comment.trim() ? values.comment : undefined;
       await updateGoalProgress(
         id,
-        data.type === "BINARY"
+        data.type === "PLAN"
           ? {
-              // Per-field isDirty (a first in this repo — see web/CLAUDE.md's whole-form
-              // convention): the Switch can't represent "no value" (v2.8.1), so only a
-              // deliberately toggled flag is sent — an untouched switch on a valueless goal
-              // makes this a comment-only update instead of silently recording "not achieved".
-              achieved: progressForm.isDirty("achieved") ? values.achieved : undefined,
+              // The complete done-state — but only when a checkbox was actually touched: an
+              // untouched list makes this a comment-only update (the server treats an
+              // unchanged list the same way, so this just keeps the payload minimal).
+              milestones: progressForm.isDirty("milestones")
+                ? values.milestones.map((m) => ({ id: m.id, done: m.done }))
+                : undefined,
               comment,
             }
           : {
@@ -417,7 +425,7 @@ export default function EditGoal() {
   );
 }
 
-// The ACTIVE progress rule for the numeric types (BINARY's Switch needs no validation).
+// The ACTIVE progress rule for the numeric types (PLAN's checkboxes need no validation).
 // v2.8.1: an empty input is allowed while the goal has no recorded value yet (the field is
 // simply omitted — a comment-only update); once a value exists it can never be unset.
 function validateProgressValue(
@@ -427,7 +435,7 @@ function validateProgressValue(
   hasRecordedValue: boolean,
   t: (key: string) => string,
 ): string | null {
-  if (type == null || type === "BINARY") return null;
+  if (type == null || type === "PLAN") return null;
   if (value === "" || value == null) {
     return hasRecordedValue ? t("goal.validation.currentRequired") : null;
   }

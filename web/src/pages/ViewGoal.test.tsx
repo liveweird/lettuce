@@ -31,7 +31,7 @@ const GOAL = {
   type: "PERCENTAGE",
   targetValue: 90,
   currentValue: 45,
-  achieved: null,
+  milestones: [],
   status: "ACTIVE",
   summary: null,
   lastModified: new Date(2026, 6, 1).getTime(),
@@ -114,9 +114,9 @@ describe("ViewGoal page", () => {
     expect(screen.queryByText("Overdue")).toBeNull();
   });
 
-  test("a goal with no recorded value shows the no-value note instead of a progress bar or pill", async () => {
-    // v2.8.1: fresh goals start valueless — numeric view drops the bar and the
-    // "— of the target" line; BINARY view drops the pill.
+  test("a goal with no recorded value shows the no-value note instead of a progress bar", async () => {
+    // v2.8.1: fresh goals start valueless — the numeric view drops the bar and the
+    // "— of the target" line; a milestone-less PLAN shows its own empty note.
     setupMocks({ ...GOAL, currentValue: null });
     renderScreen();
 
@@ -125,25 +125,45 @@ describe("ViewGoal page", () => {
     expect(screen.queryByText(/of the 90% target/)).toBeNull();
 
     cleanup();
-    setupMocks({ ...GOAL, type: "BINARY", targetValue: null, currentValue: null, achieved: null });
+    setupMocks({ ...GOAL, type: "PLAN", targetValue: null, currentValue: null, milestones: [] });
     renderScreen();
-    expect(await screen.findByText("No value recorded yet.")).toBeInTheDocument();
-    expect(screen.queryByText("Not achieved")).toBeNull();
+    expect(await screen.findByText("No milestones yet.")).toBeInTheDocument();
   });
 
-  test("an archived goal shows its summary pre-wrapped and the achieved pill for BINARY", async () => {
+  test("a PLAN goal lists its milestones with done ones struck through and a tally", async () => {
     setupMocks({
       ...GOAL,
-      type: "BINARY",
+      type: "PLAN",
       targetValue: null,
       currentValue: null,
-      achieved: true,
+      milestones: [
+        { id: 1, description: "Draft the design", done: true },
+        { id: 2, description: "Ship it", done: false },
+      ],
+    });
+    renderScreen();
+
+    const done = await screen.findByText("Draft the design");
+    // The completed-state emphasis (v2.9.0): struck through + dimmed.
+    expect(done).toHaveStyle({ textDecoration: "line-through" });
+    expect(screen.getByText("Ship it")).not.toHaveStyle({ textDecoration: "line-through" });
+    expect(screen.getByText("1 of 2 done")).toBeInTheDocument();
+  });
+
+  test("an archived PLAN goal shows its summary pre-wrapped and the milestone list", async () => {
+    setupMocks({
+      ...GOAL,
+      type: "PLAN",
+      targetValue: null,
+      currentValue: null,
+      milestones: [{ id: 1, description: "Certified", done: true }],
       status: "ARCHIVED",
       summary: "Done well.\nSecond line.",
     });
     renderScreen();
 
-    expect(await screen.findByText("Achieved")).toBeInTheDocument();
+    expect(await screen.findByText("Certified")).toBeInTheDocument();
+    expect(screen.getByText("1 of 1 done")).toBeInTheDocument();
     expect(screen.getByText("Summary")).toBeInTheDocument();
     expect(screen.getByText(/Done well\./)).toBeInTheDocument();
   });

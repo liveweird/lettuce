@@ -47,7 +47,13 @@ describe("GoalHistory", () => {
           event("TARGET_CHANGED", { from: "10.0", to: "80.0" }),
           event("PROGRESS_UPDATED", { from: "0.0", to: "40.5" }),
           event("PROGRESS_COMMENTED"),
+          // Historical only since v2.9.0 (the old BINARY type's flip) — still renders.
           event("ACHIEVED_CHANGED", { to: "true" }),
+          event("MILESTONE_ADDED", { position: "2" }),
+          event("MILESTONE_EDITED", { position: "2" }),
+          event("MILESTONE_REMOVED", { position: "1" }),
+          event("MILESTONE_COMPLETED", { position: "3" }),
+          event("MILESTONE_REOPENED", { position: "3" }),
           event("STATUS_CHANGED", { from: "DRAFT", to: "ACTIVE" }),
           event("DELETED"),
         ],
@@ -63,9 +69,14 @@ describe("GoalHistory", () => {
     expect(screen.getByText("Progress updated from 0 to 40.5.")).toBeInTheDocument();
     expect(screen.getByText("Progress note added.")).toBeInTheDocument();
     expect(screen.getByText("Marked as achieved.")).toBeInTheDocument();
+    expect(screen.getByText("Milestone 2 added.")).toBeInTheDocument();
+    expect(screen.getByText("Milestone 2 edited.")).toBeInTheDocument();
+    expect(screen.getByText("Milestone 1 removed.")).toBeInTheDocument();
+    expect(screen.getByText("Milestone 3 marked as done.")).toBeInTheDocument();
+    expect(screen.getByText("Milestone 3 marked as not done.")).toBeInTheDocument();
     expect(screen.getByText("Status changed from Draft to Active.")).toBeInTheDocument();
     expect(screen.getByText("Goal deleted.")).toBeInTheDocument();
-    expect(screen.getAllByText(/Mona Manager ·/).length).toBe(10);
+    expect(screen.getAllByText(/Mona Manager ·/).length).toBe(15);
   });
 
   test("a progress update's comment renders under its timeline entry", async () => {

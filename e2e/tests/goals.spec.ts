@@ -133,6 +133,71 @@ test("a manager walks a goal around the whole lifecycle: draft, activate, progre
   await expect(goalRow(page, title)).toHaveCount(0);
 });
 
+test("a PLAN goal: milestones defined in draft, ticked on the update screen, struck through when done", async ({ page }) => {
+  const title = uniqueText("E2E-goal-plan");
+
+  await login(page, MANAGER_AAA);
+  await gotoSubordinateGoals(page);
+
+  // Create a PLAN goal with two milestones (the createGoal helper is NUMBER-shaped).
+  await page.getByRole("link", { name: "New goal" }).click();
+  await expect(page).toHaveURL(/\/goals\/new/);
+  await page.getByLabel("Title").fill(title);
+  // exact — the description editor's toolbar has a "Block type" combobox that substring-matches.
+  await page.getByRole("combobox", { name: "Type", exact: true }).click();
+  await page.getByRole("option", { name: "Plan (milestones)" }).click();
+  await expect(page.getByLabel("Target")).toHaveCount(0); // PLAN has no target
+  // textbox role + exact — getByLabel would substring-match the rows' move/remove buttons.
+  await page.getByRole("button", { name: "Add milestone" }).click();
+  await page.getByRole("textbox", { name: "Milestone 1", exact: true }).fill("Pass the exam");
+  await page.getByRole("button", { name: "Add milestone" }).click();
+  await page.getByRole("textbox", { name: "Milestone 2", exact: true }).fill("File the certificate");
+  await page.getByLabel("Due date").fill(todayIso());
+  const [created] = await Promise.all([
+    page.waitForResponse(
+      (r) => r.url().endsWith("/api/v1/goals") && r.request().method() === "POST" && r.ok(),
+    ),
+    page.getByRole("button", { name: "Create", exact: true }).click(),
+  ]);
+  const id = (await created.json()).id as number;
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByText("Do you want to activate the goal immediately?")).toBeVisible();
+  await dialog.getByRole("button", { name: "Yes", exact: true }).click();
+  await expect(page).toHaveURL(/\/users\/\d+\/goals/);
+  // The list's Current cell is the milestone tally.
+  await expect(goalRow(page, title).getByText("0 / 2", { exact: true })).toBeVisible();
+
+  // Tick the first milestone on the Update screen, with a comment.
+  await goalRow(page, title).getByRole("link", { name: `Update goal ${title}` }).click();
+  await expect(page).toHaveURL(new RegExp(`/goals/${id}/edit`));
+  await page.getByLabel("Pass the exam").check();
+  await page.getByLabel("Comment (optional)").fill("Exam passed on the first try");
+  await Promise.all([
+    page.waitForResponse(
+      (r) => r.url().endsWith(`/api/v1/goals/${id}/progress`) && r.request().method() === "PUT" && r.ok(),
+    ),
+    page.getByRole("button", { name: "Save", exact: true }).click(),
+  ]);
+  await expect(page).toHaveURL(/\/users\/\d+\/goals/);
+  await expect(goalRow(page, title).getByText("1 / 2", { exact: true })).toBeVisible();
+
+  // The view: the done milestone is visibly settled (struck through), the open one is not,
+  // and the History tab carries the tick event with its comment.
+  await page.goto(`/goals/${id}/view`);
+  await expect(page.getByText("Pass the exam")).toHaveCSS("text-decoration-line", "line-through");
+  await expect(page.getByText("File the certificate")).not.toHaveCSS(
+    "text-decoration-line",
+    "line-through",
+  );
+  await expect(page.getByText("1 of 2 done")).toBeVisible();
+  await page.getByRole("tab", { name: "History" }).click();
+  await expect(page.getByText("Milestone 1 marked as done.")).toBeVisible();
+  await expect(page.getByText("Exam passed on the first try")).toBeVisible();
+
+  // Cleanup: back to draft, delete.
+  await deleteGoal(page, id);
+});
+
 test("the Goals-I've-set tab: Reports widens from own goals to goals set down the chain", async ({ page }) => {
   const title = uniqueText("E2E-goal-chain");
 

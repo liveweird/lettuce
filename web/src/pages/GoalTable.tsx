@@ -427,7 +427,8 @@ export default function GoalTable({
                     <GoalCurrentValue
                       type={g.type}
                       currentValue={g.currentValue}
-                      achieved={g.achieved}
+                      milestonesDone={g.milestonesDone}
+                      milestonesTotal={g.milestonesTotal}
                       locale={i18n.language}
                     />
                   </Table.Td>

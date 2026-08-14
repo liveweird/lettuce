@@ -47,7 +47,7 @@ const CREATED = {
   type: "NUMBER",
   targetValue: 4,
   currentValue: 0,
-  achieved: null,
+  milestones: [],
   status: "DRAFT",
   summary: null,
   lastModified: Date.now(),
@@ -133,6 +133,7 @@ describe("CreateGoal page", () => {
       description: "",
       type: "NUMBER",
       targetValue: 4,
+      milestones: [],
       dueDate: "2099-06-15",
     });
 
@@ -192,15 +193,21 @@ describe("CreateGoal page", () => {
     ).toBe(false);
   });
 
-  test("a BINARY goal posts a null target and hides the target input", async () => {
+  test("a PLAN goal posts milestones with a null target and hides the target input", async () => {
     const user = userEvent.setup();
     renderScreen("/goals/new?subordinateId=8&subordinateName=Sam");
 
     await user.type(await screen.findByLabelText(/title/i), "Get certified");
     fireEvent.change(screen.getByLabelText(/due date/i), { target: { value: "2099-06-15" } });
     fireEvent.click(screen.getByLabelText("Type", { selector: "input" }));
-    fireEvent.click(await screen.findByRole("option", { name: "Done / not done" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Plan (milestones)" }));
     expect(screen.queryByLabelText(/target/i)).toBeNull();
+
+    // The milestone editor appears; add two ordered steps.
+    await user.click(screen.getByRole("button", { name: "Add milestone" }));
+    await user.type(screen.getByLabelText("Milestone 1"), "Pass the exam");
+    await user.click(screen.getByRole("button", { name: "Add milestone" }));
+    await user.type(screen.getByLabelText("Milestone 2"), "File the certificate");
 
     await user.click(screen.getByRole("button", { name: /^create$/i }));
     await waitFor(() => {
@@ -209,10 +216,28 @@ describe("CreateGoal page", () => {
       );
       expect(post).toBeDefined();
       expect(JSON.parse((post![1] as RequestInit).body as string)).toMatchObject({
-        type: "BINARY",
+        type: "PLAN",
         targetValue: null,
+        milestones: [{ description: "Pass the exam" }, { description: "File the certificate" }],
       });
     });
+  });
+
+  test("a blank milestone blocks a PLAN goal's creation", async () => {
+    const user = userEvent.setup();
+    renderScreen("/goals/new?subordinateId=8&subordinateName=Sam");
+
+    await user.type(await screen.findByLabelText(/title/i), "Get certified");
+    fireEvent.change(screen.getByLabelText(/due date/i), { target: { value: "2099-06-15" } });
+    fireEvent.click(screen.getByLabelText("Type", { selector: "input" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Plan (milestones)" }));
+    await user.click(screen.getByRole("button", { name: "Add milestone" }));
+
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+    expect(await screen.findByText("A milestone description is required")).toBeInTheDocument();
+    expect(
+      mockFetch.mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === "POST"),
+    ).toBe(false);
   });
 
   test("validation blocks a blank title, a missing target, and a missing due date", async () => {

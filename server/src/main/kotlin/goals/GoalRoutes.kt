@@ -134,8 +134,15 @@ fun Application.configureGoalRoutes() {
     ) {
         val existing = writeGuardedGoal(call, goalId) ?: return
         // Activation only (not reopen — ARCHIVED->ACTIVE must stay open for overdue goals, whose
-        // due date is DRAFT-only editable): a stale draft must pick a fresh due date first.
-        if (from == GoalStatus.DRAFT && target == GoalStatus.ACTIVE) validateGoalDueDate(existing.dueDate)
+        // due date is DRAFT-only editable): a stale draft must pick a fresh due date first, and
+        // a PLAN draft needs something to track (milestones are DRAFT-only editable too, but
+        // reopen can't hit zero — an archived PLAN was ACTIVE, so it passed this gate).
+        if (from == GoalStatus.DRAFT && target == GoalStatus.ACTIVE) {
+            validateGoalDueDate(existing.dueDate)
+            if (existing.type == GoalType.PLAN && existing.milestones.isEmpty()) {
+                throw BadRequestException("A PLAN goal needs at least one milestone to activate")
+            }
+        }
         // The archive body is received (and validated) only after the write guard, so a
         // non-manager's malformed or blank summary is still 403 on a foreign goal, not 400.
         val summary = receiveSummary?.invoke()
@@ -270,12 +277,19 @@ fun Application.configureGoalRoutes() {
                     return@put
                 }
                 toNotify.forEach { notificationService.create(it) }
-                // Value change → PROGRESS_UPDATED/ACHIEVED_CHANGED; comment-only →
-                // PROGRESS_COMMENTED; true no-op → nothing. The comment (blank = absent) rides
-                // the event's encrypted column.
-                goalProgressUpdateEvent(existing, edit)?.let { descriptor ->
+                // State change → MILESTONE_COMPLETED/REOPENED per toggle (PLAN) or one
+                // PROGRESS_UPDATED (numeric); comment-only → PROGRESS_COMMENTED; true no-op →
+                // nothing. The comment (blank = absent) rides the encrypted column of the LAST
+                // event, so it tops the newest-first timeline.
+                val descriptors = goalProgressUpdateEvents(existing, edit)
+                val comment = edit.comment?.takeIf { it.isNotBlank() }
+                descriptors.forEachIndexed { index, descriptor ->
                     goalEventService.create(
-                        descriptor.toEvent(goalId, caller.userId, comment = edit.comment?.takeIf { it.isNotBlank() }),
+                        descriptor.toEvent(
+                            goalId,
+                            caller.userId,
+                            comment = comment.takeIf { index == descriptors.lastIndex },
+                        ),
                     )
                 }
                 call.respond(HttpStatusCode.NoContent)

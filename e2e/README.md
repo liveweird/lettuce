@@ -118,8 +118,10 @@ commit** — this list is the suite's coverage map, and it has drifted three tim
   ("Carried over" badge) and the subordinate is **notified** and reads the meeting read-only.
 - `goals.spec.ts` — a manager walks a goal around the whole lifecycle (draft via the
   activate-prompt's **No**, Save & activate, progress update, archive-with-summary, reopen,
-  DRAFT-only delete); creating with **Yes** activates on the spot, **notifies** the
-  subordinate, and shows read-only in their **My goals**.
+  DRAFT-only delete); a **PLAN goal** (v2.9.0) defines milestones in the draft, ticks one on
+  the Update screen, and shows it **struck through** with the "done / total" tally; creating
+  with **Yes** activates on the spot, **notifies** the subordinate, and shows read-only in
+  their **My goals**.
 - `dashboard-my-teams.spec.ts` — the Dashboard **My teams** tab: a manager's teams (and only
   theirs), the name link into the adaptive team-details page where a manager lands on the
   per-team subordinates grid (same cards/stats/actions as My subordinates, v2.5.5), a

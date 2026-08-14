@@ -11,6 +11,7 @@ import ch.nokillswit.teams.directSubordinateIds
 import ch.nokillswit.teams.isInManagementChain
 import ch.nokillswit.teams.transitiveSubordinateIds
 import ch.nokillswit.users.UserService
+import io.ktor.server.plugins.BadRequestException
 import io.ktor.util.AttributeKey
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.singleOrNull
@@ -53,7 +54,7 @@ private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
     "title" to GoalService.Goals.title,
     "type" to GoalService.Goals.type,
     "status" to GoalService.Goals.status,
-    // Nullable value columns: BINARY rows sort as SQL NULLs (first on DESC, last on ASC) —
+    // Nullable value columns: PLAN rows sort as SQL NULLs (first on DESC, last on ASC) —
     // documented in the spec; acceptable for mixed-type lists.
     "targetValue" to GoalService.Goals.targetValue,
     "currentValue" to GoalService.Goals.currentValue,
@@ -63,10 +64,11 @@ private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
     "lastModified" to GoalService.Goals.lastModified,
 )
 
-// description/summary are encrypted at rest (see infra/crypto/FieldCipher.kt): the cipher wraps
-// every write and unwraps every read, so nothing above this service ever sees ciphertext. Neither
-// column is filtered/sorted/searched in SQL, so queries are unaffected; the title stays plaintext
-// on purpose — lists sort and substring-filter on it.
+// description/summary and the milestone descriptions are encrypted at rest (see
+// infra/crypto/FieldCipher.kt): the cipher wraps every write and unwraps every read, so nothing
+// above this service ever sees ciphertext. None of these columns is filtered/sorted/searched in
+// SQL, so queries are unaffected; the title stays plaintext on purpose — lists sort and
+// substring-filter on it.
 class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) : EncryptedAtRest {
     override val encryptedRowLabel = "goal"
 
@@ -80,11 +82,20 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
         val type = enumerationByName("type", 20, GoalType::class)
         val targetValue = double("target_value").nullable()
         val currentValue = double("current_value").nullable()
-        val achieved = bool("achieved").nullable()
         val status = enumerationByName("status", 20, GoalStatus::class)
         val summary = text("summary").nullable()
         val lastModified = long("last_modified")
         val markedAsDeleted = bool("marked_as_deleted").default(false)
+    }
+
+    // A PLAN goal's ordered milestones (V56; the 1:1 detail-table pattern): whole-list replaced
+    // by the DRAFT definition PUT (rows hard-delete), done flags flipped by the ACTIVE progress
+    // PUT. Descriptions are encrypted at rest like the goal description.
+    object Milestones : UIntIdTable("goal_milestones") {
+        val goalId = reference("goal_id", Goals)
+        val position = integer("position")
+        val description = text("description")
+        val done = bool("done").default(false)
     }
 
     private fun active(): Op<Boolean> = Goals.markedAsDeleted eq false
@@ -96,9 +107,12 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
      * the new id.
      */
     suspend fun create(managerId: UInt, request: GoalCreateRequest): UInt = suspendTransaction(database) {
-        validateGoalDefinition(request.title, request.description, request.type, request.targetValue, request.dueDate)
+        validateGoalDefinition(
+            request.title, request.description, request.type, request.targetValue,
+            request.milestones, request.dueDate, newMilestonesOnly = true,
+        )
         val now = System.currentTimeMillis()
-        Goals.insert {
+        val id = Goals.insert {
             it[this.managerId] = managerId
             it[subordinateId] = request.subordinateId
             it[createdAt] = now
@@ -107,43 +121,55 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
             it[description] = cipher.encrypt(request.description)
             it[type] = request.type
             it[targetValue] = request.targetValue
-            // No recorded value yet (v2.8.1): both value fields stay null until the first
-            // progress update — an auto-zero would read as recorded progress.
+            // No recorded value yet (v2.8.1): the value field stays null until the first
+            // progress update — an auto-zero would read as recorded progress. (A PLAN goal's
+            // milestones likewise all start not-done.)
             it[currentValue] = null
-            it[achieved] = null
             it[status] = GoalStatus.DRAFT
             it[summary] = null
             it[lastModified] = now
         }[Goals.id].value
+        replaceMilestones(id, request.milestones)
+        id
     }
 
     suspend fun read(id: UInt): GoalResponse? = suspendTransaction(database) {
-        joined()
+        // Drain the row's result stream BEFORE the milestones select — a nested query while
+        // the outer flow is still open deadlocks the shared R2DBC connection.
+        val row = joined()
             .selectAll()
             .where { (Goals.id eq id) and active() }
-            .map { it.toResponse() }
+            .toList()
             .singleOrNull()
+            ?: return@suspendTransaction null
+        row.toResponse(milestonesFor(id))
     }
 
     /**
-     * Edits a DRAFT goal's definition (title, description, type, target — never its parties,
-     * status, current value, or summary). A type change re-initializes the value fields for the
-     * new type, discarding any recorded progress (the audit events explain the reset). Returns
+     * Edits a DRAFT goal's definition (title, description, type, target, milestones — never its
+     * parties, status, current value, or summary). A type change re-initializes the value fields
+     * for the new type, discarding any recorded progress — away from PLAN that means deleting
+     * the milestone rows (the audit events explain the reset). A PLAN goal's [update]'s
+     * milestones whole-list replace the stored ones: id-matched rows keep their done flags
+     * (defining is not ticking), missing rows hard-delete, id-less rows insert not-done. Returns
      * the affected-row count (0 → missing/deleted, mapped to 404 by the route); throws
      * [ConflictException] (→ 409) when the goal is not in DRAFT.
      */
     suspend fun updateDefinition(id: UInt, update: GoalDefinitionUpdate): Int = suspendTransaction(database) {
         val current = Goals.selectAll()
             .where { (Goals.id eq id) and active() }
-            .map { Triple(it[Goals.status], it[Goals.type], it[Goals.currentValue] to it[Goals.achieved]) }
+            .map { Triple(it[Goals.status], it[Goals.type], it[Goals.currentValue]) }
             .singleOrNull()
             ?: return@suspendTransaction 0
         if (current.first != GoalStatus.DRAFT) {
             throw ConflictException("Only a DRAFT goal's definition may be edited")
         }
-        validateGoalDefinition(update.title, update.description, update.type, update.targetValue, update.dueDate)
+        validateGoalDefinition(
+            update.title, update.description, update.type, update.targetValue,
+            update.milestones, update.dueDate,
+        )
         val typeChanged = current.second != update.type
-        Goals.update({ (Goals.id eq id) and (Goals.markedAsDeleted eq false) }) {
+        val updated = Goals.update({ (Goals.id eq id) and (Goals.markedAsDeleted eq false) }) {
             it[dueDate] = update.dueDate
             it[title] = update.title
             it[description] = cipher.encrypt(update.description)
@@ -151,19 +177,24 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
             it[targetValue] = update.targetValue
             // A type change discards recorded progress back to "no value" (v2.8.1: null, not
             // the old type's zero) — the audit events explain the reset.
-            it[currentValue] = if (typeChanged) null else current.third.first
-            it[achieved] = if (typeChanged) null else current.third.second
+            it[currentValue] = if (typeChanged) null else current.third
             it[lastModified] = System.currentTimeMillis()
         }
+        // Milestones follow the type: PLAN reconciles the payload list (empty for a non-PLAN
+        // payload by validation); a change away from PLAN drops the rows with the rest of the
+        // discarded progress.
+        replaceMilestones(id, update.milestones)
+        updated
     }
 
     /**
-     * Updates an ACTIVE goal's current value ([GoalProgressUpdate.achieved] for BINARY,
+     * Updates an ACTIVE goal's progress state ([GoalProgressUpdate.milestones] for PLAN,
      * [GoalProgressUpdate.currentValue] otherwise) on behalf of [actorUserId] — either party
-     * (the route's requireGoalProgressWrite has already checked that). Returns the counterparty
-     * notifications to persist (the transition pattern) — empty on a true no-op (nothing
-     * changed, no comment), null when the row is missing/deleted (→ 404); throws
-     * [ConflictException] (→ 409) when the goal is not ACTIVE.
+     * (the route's requireGoalProgressWrite has already checked that). A PLAN update carries
+     * the COMPLETE done-state — ids matching the stored milestone set exactly (else 400).
+     * Returns the counterparty notifications to persist (the transition pattern) — empty on a
+     * true no-op (nothing changed, no comment), null when the row is missing/deleted (→ 404);
+     * throws [ConflictException] (→ 409) when the goal is not ACTIVE.
      */
     suspend fun updateProgress(
         id: UInt,
@@ -172,32 +203,26 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
     ): List<Notification>? = suspendTransaction(database) {
         val current = Goals.selectAll()
             .where { (Goals.id eq id) and active() }
-            .map { it.toGoalRow() to Triple(it[Goals.type], it[Goals.currentValue], it[Goals.achieved]) }
+            .map { it.toGoalRow() to (it[Goals.type] to it[Goals.currentValue]) }
             .singleOrNull()
             ?: return@suspendTransaction null
         val (row, state) = current
-        val (type, currentValue, achieved) = state
+        val (type, currentValue) = state
         if (row.status != GoalStatus.ACTIVE) {
             throw ConflictException("Only an ACTIVE goal's current value may be updated")
         }
         validateGoalProgress(type, update)
+        // The progress field is optional (v2.8.1): absent = leave the state untouched (a
+        // comment-only update; the validator guaranteed a non-blank comment then).
+        val milestonesChanged = update.milestones?.let { applyMilestoneTicks(id, it) } ?: false
         Goals.update({ (Goals.id eq id) and (Goals.markedAsDeleted eq false) }) {
-            // The value field is optional (v2.8.1): absent = leave the value untouched (a
-            // comment-only update; the validator guaranteed a non-blank comment then).
-            when (type) {
-                GoalType.BINARY -> if (update.achieved != null) it[this.achieved] = update.achieved
-                GoalType.NUMBER, GoalType.PERCENTAGE ->
-                    if (update.currentValue != null) it[this.currentValue] = update.currentValue
-            }
+            if (update.currentValue != null) it[this.currentValue] = update.currentValue
             it[lastModified] = System.currentTimeMillis()
         }
-        // A true no-op (same value, no comment) stays silent — mirroring the event rule; a
-        // value change or a comment-only update notifies the counterparty.
-        val valueChanged = when (type) {
-            GoalType.BINARY -> update.achieved != null && update.achieved != achieved
-            GoalType.NUMBER, GoalType.PERCENTAGE ->
-                update.currentValue != null && update.currentValue != currentValue
-        }
+        // A true no-op (same state, no comment) stays silent — mirroring the event rule; a
+        // state change or a comment-only update notifies the counterparty.
+        val valueChanged = milestonesChanged ||
+            (update.currentValue != null && update.currentValue != currentValue)
         if (!valueChanged && update.comment.isNullOrBlank()) {
             emptyList()
         } else {
@@ -319,7 +344,6 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
                 Goals.type,
                 Goals.targetValue,
                 Goals.currentValue,
-                Goals.achieved,
                 Goals.status,
                 Goals.createdAt,
                 Goals.dueDate,
@@ -344,7 +368,8 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
                     type = row[Goals.type],
                     targetValue = row[Goals.targetValue],
                     currentValue = row[Goals.currentValue],
-                    achieved = row[Goals.achieved],
+                    milestonesDone = null,
+                    milestonesTotal = null,
                     status = row[Goals.status],
                     createdAt = row[Goals.createdAt],
                     dueDate = row[Goals.dueDate],
@@ -352,7 +377,30 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
                 )
             }
             .toList()
-        GoalListResult(items = rows, total = total)
+        GoalListResult(items = withMilestoneTallies(rows), total = total)
+    }
+
+    /**
+     * Fills the PLAN rows' milestone tally (done/total) with one grouped query over the page's
+     * ids (the users-list `teams` enrichment idiom, inside the list transaction). Numeric-type
+     * rows keep nulls; a milestone-less PLAN draft reads 0/0.
+     */
+    private suspend fun withMilestoneTallies(rows: List<GoalListItem>): List<GoalListItem> {
+        val planIds = rows.filter { it.type == GoalType.PLAN }.map { it.id }
+        if (planIds.isEmpty()) return rows
+        // Tiny per-page result set (≤ pageSize × MAX_GOAL_MILESTONES flags), tallied in Kotlin —
+        // no SQL ever touches the encrypted descriptions.
+        val flags = Milestones
+            .select(Milestones.goalId, Milestones.done)
+            .where { Milestones.goalId inList planIds }
+            .map { it[Milestones.goalId].value to it[Milestones.done] }
+            .toList()
+        val totals = flags.groupingBy { it.first }.eachCount()
+        val dones = flags.filter { it.second }.groupingBy { it.first }.eachCount()
+        return rows.map { row ->
+            if (row.type != GoalType.PLAN) row
+            else row.copy(milestonesDone = dones[row.id] ?: 0, milestonesTotal = totals[row.id] ?: 0)
+        }
     }
 
     /**
@@ -428,7 +476,18 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
                 it[summary] = row[Goals.summary]?.let { s -> cipher.encrypt(cipher.decrypt(s)) }
             }
         }
-        rows.size
+        // Milestone descriptions ride the same envelope — this pass also encrypts the V56
+        // conversion's plaintext 'Done' rows at first boot.
+        val milestoneRows = Milestones
+            .select(Milestones.id, Milestones.description)
+            .where { if (reencryptAll) Op.TRUE else Milestones.description notLike enveloped }
+            .toList()
+        milestoneRows.forEach { row ->
+            Milestones.update({ Milestones.id eq row[Milestones.id] }) {
+                it[description] = cipher.encrypt(cipher.decrypt(row[Milestones.description]))
+            }
+        }
+        rows.size + milestoneRows.size
     }
 
     private fun joined() = Goals
@@ -445,8 +504,9 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
             otherColumn = subordinateUsers[UserService.Users.id],
         )
 
-    // Row → full document, from the joined() select (party names come from the aliases).
-    private fun ResultRow.toResponse(): GoalResponse = GoalResponse(
+    // Row → full document, from the joined() select (party names come from the aliases; the
+    // milestones come from their own ordered select — see milestonesFor).
+    private fun ResultRow.toResponse(milestones: List<GoalMilestoneResponse>): GoalResponse = GoalResponse(
         id = this[Goals.id].value,
         managerId = this[Goals.managerId].value,
         subordinateId = this[Goals.subordinateId].value,
@@ -457,13 +517,93 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
         type = this[Goals.type],
         targetValue = this[Goals.targetValue],
         currentValue = this[Goals.currentValue],
-        achieved = this[Goals.achieved],
+        milestones = milestones,
         status = this[Goals.status],
         summary = this[Goals.summary]?.let(cipher::decrypt),
         lastModified = this[Goals.lastModified],
         managerName = this[managerUsers[UserService.Users.name]],
         subordinateName = this[subordinateUsers[UserService.Users.name]],
     )
+
+    // The goal's milestones in stored order (empty for the numeric types), decrypted.
+    private suspend fun milestonesFor(goalId: UInt): List<GoalMilestoneResponse> =
+        Milestones.selectAll()
+            .where { Milestones.goalId eq goalId }
+            .orderBy(Milestones.position to SortOrder.ASC, Milestones.id to SortOrder.ASC)
+            .map {
+                GoalMilestoneResponse(
+                    id = it[Milestones.id].value,
+                    description = cipher.decrypt(it[Milestones.description]),
+                    done = it[Milestones.done],
+                )
+            }
+            .toList()
+
+    /**
+     * Whole-list milestone replace (the 1:1 replaceActionItems algorithm): payload ids must
+     * reference this goal's rows without duplicates (else 400), rows missing from the payload
+     * hard-delete, id-matched rows re-encrypt description at their new position with the done
+     * flag deliberately untouched (ticking is the ACTIVE progress write), id-less rows insert
+     * not-done. Payload order IS the order.
+     */
+    private suspend fun replaceMilestones(goalId: UInt, items: List<GoalMilestoneInput>) {
+        val existingIds = Milestones.select(Milestones.id)
+            .where { Milestones.goalId eq goalId }
+            .map { it[Milestones.id].value }
+            .toList()
+            .toSet()
+        val payloadIds = items.mapNotNull { it.id }
+        if (payloadIds.size != payloadIds.toSet().size) {
+            throw BadRequestException("Duplicate milestone id in payload")
+        }
+        val foreign = payloadIds.filterNot { it in existingIds }
+        if (foreign.isNotEmpty()) {
+            throw BadRequestException("Unknown milestone id(s) for this goal: ${foreign.joinToString()}")
+        }
+        val toDelete = existingIds - payloadIds.toSet()
+        if (toDelete.isNotEmpty()) Milestones.deleteWhere { Milestones.id inList toDelete }
+        items.forEachIndexed { index, item ->
+            if (item.id != null) {
+                Milestones.update({ Milestones.id eq item.id }) {
+                    it[position] = index
+                    it[description] = cipher.encrypt(item.description)
+                }
+            } else {
+                Milestones.insert {
+                    it[this.goalId] = goalId
+                    it[position] = index
+                    it[description] = cipher.encrypt(item.description)
+                    it[done] = false
+                }
+            }
+        }
+    }
+
+    /**
+     * Applies a PLAN progress update's complete done-state: the sent ids must match the stored
+     * milestone set exactly (duplicate or mismatch → 400 — the client edits a stale document
+     * otherwise); only actually-flipped flags are written. Returns true when at least one flag
+     * changed.
+     */
+    private suspend fun applyMilestoneTicks(goalId: UInt, sent: List<GoalMilestoneDone>): Boolean {
+        val stored = Milestones.select(Milestones.id, Milestones.done)
+            .where { Milestones.goalId eq goalId }
+            .map { it[Milestones.id].value to it[Milestones.done] }
+            .toList()
+            .toMap()
+        val sentIds = sent.map { it.id }
+        if (sentIds.size != sentIds.toSet().size) {
+            throw BadRequestException("Duplicate milestone id in payload")
+        }
+        if (sentIds.toSet() != stored.keys) {
+            throw BadRequestException("A progress update must cover exactly the goal's milestones")
+        }
+        val changed = sent.filter { it.done != stored.getValue(it.id) }
+        changed.forEach { tick ->
+            Milestones.update({ Milestones.id eq tick.id }) { it[done] = tick.done }
+        }
+        return changed.isNotEmpty()
+    }
 
     // The transition path's un-joined row view (no name aliases, no decryption of the summary —
     // only the plaintext title is needed for the notification params).

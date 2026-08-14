@@ -1,7 +1,10 @@
 package ch.nokillswit
 
+import ch.nokillswit.goals.GoalMilestoneDone
+import ch.nokillswit.goals.GoalMilestoneInput
 import ch.nokillswit.goals.GoalProgressUpdate
 import ch.nokillswit.goals.GoalType
+import ch.nokillswit.goals.MAX_GOAL_MILESTONES
 import ch.nokillswit.goals.MAX_GOAL_TEXT_LENGTH
 import ch.nokillswit.goals.MAX_GOAL_TITLE_LENGTH
 import ch.nokillswit.goals.validateGoalDefinition
@@ -28,8 +31,13 @@ class GoalValidationTest {
         description: String = "desc",
         type: GoalType = GoalType.NUMBER,
         targetValue: Double? = 10.0,
+        milestones: List<GoalMilestoneInput> = emptyList(),
         dueDate: String = futureDate,
-    ) = validateGoalDefinition(title, description, type, targetValue, dueDate, today)
+        newMilestonesOnly: Boolean = false,
+    ) = validateGoalDefinition(
+        title, description, type, targetValue, milestones, dueDate,
+        newMilestonesOnly = newMilestonesOnly, today = today,
+    )
 
     // ---- definition: title / description bounds ----
 
@@ -58,9 +66,70 @@ class GoalValidationTest {
     // ---- definition: type-specific target rules ----
 
     @Test
-    fun `BINARY accepts a null target and rejects a set one`() {
-        definition(type = GoalType.BINARY, targetValue = null)
-        assertFailsWith<BadRequestException> { definition(type = GoalType.BINARY, targetValue = 1.0) }
+    fun `PLAN accepts a null target and rejects a set one`() {
+        definition(type = GoalType.PLAN, targetValue = null)
+        assertFailsWith<BadRequestException> { definition(type = GoalType.PLAN, targetValue = 1.0) }
+    }
+
+    // ---- definition: milestone rules (PLAN) ----
+
+    @Test
+    fun `PLAN milestones must be non-blank, bounded, and capped at 100`() {
+        definition(
+            type = GoalType.PLAN, targetValue = null,
+            milestones = listOf(GoalMilestoneInput(description = "m".repeat(MAX_GOAL_TEXT_LENGTH))),
+        )
+        definition(
+            type = GoalType.PLAN, targetValue = null,
+            milestones = List(MAX_GOAL_MILESTONES) { GoalMilestoneInput(description = "step $it") },
+        )
+        assertFailsWith<BadRequestException> {
+            definition(
+                type = GoalType.PLAN, targetValue = null,
+                milestones = listOf(GoalMilestoneInput(description = "   ")),
+            )
+        }
+        assertFailsWith<BadRequestException> {
+            definition(
+                type = GoalType.PLAN, targetValue = null,
+                milestones = listOf(GoalMilestoneInput(description = "m".repeat(MAX_GOAL_TEXT_LENGTH + 1))),
+            )
+        }
+        assertFailsWith<BadRequestException> {
+            definition(
+                type = GoalType.PLAN, targetValue = null,
+                milestones = List(MAX_GOAL_MILESTONES + 1) { GoalMilestoneInput(description = "step $it") },
+            )
+        }
+    }
+
+    @Test
+    fun `milestones are rejected on the numeric types`() {
+        assertFailsWith<BadRequestException> {
+            definition(type = GoalType.NUMBER, milestones = listOf(GoalMilestoneInput(description = "step")))
+        }
+        assertFailsWith<BadRequestException> {
+            definition(
+                type = GoalType.PERCENTAGE, targetValue = 50.0,
+                milestones = listOf(GoalMilestoneInput(description = "step")),
+            )
+        }
+    }
+
+    @Test
+    fun `create-time milestones must not carry ids`() {
+        // The DRAFT edit references existing rows by id; a create has none to reference.
+        definition(
+            type = GoalType.PLAN, targetValue = null,
+            milestones = listOf(GoalMilestoneInput(id = 7u, description = "kept")),
+        )
+        assertFailsWith<BadRequestException> {
+            definition(
+                type = GoalType.PLAN, targetValue = null,
+                milestones = listOf(GoalMilestoneInput(id = 7u, description = "kept")),
+                newMilestonesOnly = true,
+            )
+        }
     }
 
     @Test
@@ -111,23 +180,23 @@ class GoalValidationTest {
     // ---- progress ----
 
     @Test
-    fun `BINARY progress accepts only achieved - optional when a comment is present`() {
-        validateGoalProgress(GoalType.BINARY, GoalProgressUpdate(achieved = true))
-        // v2.8.1: the value field is optional — a value-less update needs a non-blank comment.
-        validateGoalProgress(GoalType.BINARY, GoalProgressUpdate(comment = "status note"))
+    fun `PLAN progress accepts only milestones - optional when a comment is present`() {
+        validateGoalProgress(GoalType.PLAN, GoalProgressUpdate(milestones = listOf(GoalMilestoneDone(1u, true))))
+        // v2.8.1: the progress field is optional — a state-less update needs a non-blank comment.
+        validateGoalProgress(GoalType.PLAN, GoalProgressUpdate(comment = "status note"))
         assertFailsWith<BadRequestException> {
-            validateGoalProgress(GoalType.BINARY, GoalProgressUpdate(currentValue = 1.0))
+            validateGoalProgress(GoalType.PLAN, GoalProgressUpdate(currentValue = 1.0))
         }
         // The wrong-type field stays rejected even alongside a comment.
         assertFailsWith<BadRequestException> {
-            validateGoalProgress(GoalType.BINARY, GoalProgressUpdate(currentValue = 1.0, comment = "note"))
+            validateGoalProgress(GoalType.PLAN, GoalProgressUpdate(currentValue = 1.0, comment = "note"))
         }
-        // Neither a value nor a comment = nothing to record.
+        // Neither a state change field nor a comment = nothing to record.
         assertFailsWith<BadRequestException> {
-            validateGoalProgress(GoalType.BINARY, GoalProgressUpdate())
+            validateGoalProgress(GoalType.PLAN, GoalProgressUpdate())
         }
         assertFailsWith<BadRequestException> {
-            validateGoalProgress(GoalType.BINARY, GoalProgressUpdate(comment = "   "))
+            validateGoalProgress(GoalType.PLAN, GoalProgressUpdate(comment = "   "))
         }
     }
 
@@ -136,7 +205,7 @@ class GoalValidationTest {
         validateGoalProgress(GoalType.NUMBER, GoalProgressUpdate(currentValue = 7.5))
         validateGoalProgress(GoalType.NUMBER, GoalProgressUpdate(comment = "blocked this week"))
         assertFailsWith<BadRequestException> {
-            validateGoalProgress(GoalType.NUMBER, GoalProgressUpdate(achieved = true))
+            validateGoalProgress(GoalType.NUMBER, GoalProgressUpdate(milestones = listOf(GoalMilestoneDone(1u, true))))
         }
         assertFailsWith<BadRequestException> {
             validateGoalProgress(GoalType.NUMBER, GoalProgressUpdate())

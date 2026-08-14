@@ -5,6 +5,7 @@ import ch.nokillswit.feedbacks.FeedbackCreateRequest
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
 import ch.nokillswit.goals.GoalCreateRequest
+import ch.nokillswit.goals.GoalMilestoneInput
 import ch.nokillswit.goals.GoalResponse
 import ch.nokillswit.goals.GoalType
 import ch.nokillswit.teams.Team
@@ -82,7 +83,8 @@ class DashboardSummaryTest {
             contentType(ContentType.Application.Json)
             setBody(
                 GoalCreateRequest(
-                    subordinateId = subId, title = "dash goal", type = GoalType.BINARY,
+                    subordinateId = subId, title = "dash goal", type = GoalType.PLAN,
+                    milestones = listOf(GoalMilestoneInput(description = "Done")),
                     dueDate = "2099-12-31",
                 ),
             )

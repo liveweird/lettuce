@@ -6,6 +6,7 @@ import ch.nokillswit.feedbacks.FeedbackResponse
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
 import ch.nokillswit.goals.GoalCreateRequest
+import ch.nokillswit.goals.GoalMilestoneInput
 import ch.nokillswit.goals.GoalPageResponse
 import ch.nokillswit.goals.GoalResponse
 import ch.nokillswit.goals.GoalStatus
@@ -89,7 +90,8 @@ class HrRoleTest {
                     subordinateId = subordinateId,
                     title = title,
                     description = "auditable",
-                    type = GoalType.BINARY,
+                    type = GoalType.PLAN,
+                    milestones = listOf(GoalMilestoneInput(description = "Done")),
                     dueDate = LocalDate.now().plusDays(30).toString(),
                 ),
             )

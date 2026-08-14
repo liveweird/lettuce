@@ -54,7 +54,7 @@ export default function CreateGoal() {
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
 
   const form = useForm<GoalDefinitionFormValues>({
-    initialValues: { title: "", description: "", type: "NUMBER", targetValue: "", dueDate: "" },
+    initialValues: { title: "", description: "", type: "NUMBER", targetValue: "", milestones: [], dueDate: "" },
     validate: goalDefinitionValidation(t),
   });
 

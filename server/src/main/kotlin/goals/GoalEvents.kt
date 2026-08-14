@@ -24,7 +24,16 @@ enum class GoalEventType {
     TARGET_CHANGED,
     DUE_DATE_CHANGED,
     PROGRESS_UPDATED,
+    // Historical only (the pre-v2.9.0 BINARY type's flag flip): nothing mints it anymore, but
+    // stored rows carry it and the SPA still renders it.
     ACHIEVED_CHANGED,
+    // PLAN milestones (v2.9.0): definition-edit diff (removed/edited/added, the 1:1 items
+    // order) and the progress ticks — params carry the 1-based position only, never the text.
+    MILESTONE_ADDED,
+    MILESTONE_EDITED,
+    MILESTONE_REMOVED,
+    MILESTONE_COMPLETED,
+    MILESTONE_REOPENED,
     // A comment-only progress update (v2.8.0): the value stayed put, the context is the
     // (encrypted, column-borne) comment.
     PROGRESS_COMMENTED,
@@ -38,9 +47,13 @@ data class GoalEventDescriptor(
     val params: Map<String, String> = emptyMap(),
 )
 
-// Doubles render as e.g. "5.0"/"12.5"; the SPA formats them per locale. "" = no value (a BINARY
+// Doubles render as e.g. "5.0"/"12.5"; the SPA formats them per locale. "" = no value (a PLAN
 // goal's side of a target change).
 private fun valueParam(value: Double?): String = value?.toString() ?: ""
+
+// Milestones are identified in params by 1-based position (the 1:1 items convention), never by
+// their (encrypted) description.
+private fun position(index: Int): Map<String, String> = mapOf("position" to (index + 1).toString())
 
 /** Structured event recorded when a goal is created (always as DRAFT), keyed on its type. */
 internal fun goalCreationEvent(type: GoalType): GoalEventDescriptor =
@@ -48,8 +61,9 @@ internal fun goalCreationEvent(type: GoalType): GoalEventDescriptor =
 
 /**
  * Structured events recorded on a DRAFT definition edit: one per changed aspect, in a stable
- * title → description → type → target → due date order. A no-op PUT returns an empty list (no
- * empty events).
+ * title → description → type → target → due date → milestones order (within milestones the 1:1
+ * items order: removed → edited → added; pure reordering yields nothing — order is
+ * presentational). A no-op PUT returns an empty list (no empty events).
  */
 internal fun goalDefinitionUpdateEvents(
     before: GoalResponse,
@@ -81,30 +95,75 @@ internal fun goalDefinitionUpdateEvents(
             mapOf("from" to before.dueDate, "to" to after.dueDate),
         )
     }
+    events += milestoneDefinitionEvents(before.milestones, after.milestones)
+    return events
+}
+
+// The 1:1 noteEvents diff: removed (before-ids missing from the payload, at their old
+// positions), then edited (id-matched, description differs, at their new positions), then
+// added (id-less, at their new positions). A type change away from PLAN sends an empty list
+// against a non-empty before, so the removals narrate the reset.
+private fun milestoneDefinitionEvents(
+    before: List<GoalMilestoneResponse>,
+    after: List<GoalMilestoneInput>,
+): List<GoalEventDescriptor> {
+    val afterIds = after.mapNotNull { it.id }.toSet()
+    val beforeById = before.associateBy { it.id }
+    val events = mutableListOf<GoalEventDescriptor>()
+    before.forEachIndexed { index, milestone ->
+        if (milestone.id !in afterIds) {
+            events += GoalEventDescriptor(GoalEventType.MILESTONE_REMOVED, position(index))
+        }
+    }
+    after.forEachIndexed { index, milestone ->
+        val previous = milestone.id?.let(beforeById::get) ?: return@forEachIndexed
+        if (previous.description != milestone.description) {
+            events += GoalEventDescriptor(GoalEventType.MILESTONE_EDITED, position(index))
+        }
+    }
+    after.forEachIndexed { index, milestone ->
+        if (milestone.id == null) {
+            events += GoalEventDescriptor(GoalEventType.MILESTONE_ADDED, position(index))
+        }
+    }
     return events
 }
 
 /**
- * Structured event recorded on an ACTIVE progress update: [GoalEventType.ACHIEVED_CHANGED] for a
- * BINARY goal, [GoalEventType.PROGRESS_UPDATED] (with the from/to values) otherwise; a
- * comment-only update (value unchanged, non-blank comment) records
- * [GoalEventType.PROGRESS_COMMENTED]. Returns null when neither the value nor a comment changed
- * anything (no event for a true no-op). The comment itself never enters params — the caller
- * hands it to GoalEventService separately (the encrypted column).
+ * Structured events recorded on an ACTIVE progress update: one
+ * [GoalEventType.MILESTONE_COMPLETED]/[GoalEventType.MILESTONE_REOPENED] per toggled milestone
+ * (1-based positions over the goal's stored order) for a PLAN goal, one
+ * [GoalEventType.PROGRESS_UPDATED] (with the from/to values) for the numeric types; an update
+ * that changed no state but carries a non-blank comment records
+ * [GoalEventType.PROGRESS_COMMENTED]. Empty for a true no-op. The comment itself never enters
+ * params — the caller hands it to GoalEventService separately (the encrypted column, attached
+ * to the LAST descriptor so it tops the newest-first timeline).
  */
-internal fun goalProgressUpdateEvent(
+internal fun goalProgressUpdateEvents(
     before: GoalResponse,
     after: GoalProgressUpdate,
-): GoalEventDescriptor? = when {
-    after.achieved != null && after.achieved != before.achieved ->
-        GoalEventDescriptor(GoalEventType.ACHIEVED_CHANGED, mapOf("to" to after.achieved.toString()))
-    after.currentValue != null && after.currentValue != before.currentValue ->
-        GoalEventDescriptor(
+): List<GoalEventDescriptor> {
+    val events = mutableListOf<GoalEventDescriptor>()
+    after.milestones?.let { sent ->
+        val sentById = sent.associateBy { it.id }
+        before.milestones.forEachIndexed { index, stored ->
+            val sentDone = sentById[stored.id]?.done ?: return@forEachIndexed
+            if (sentDone != stored.done) {
+                val type = if (sentDone) GoalEventType.MILESTONE_COMPLETED else GoalEventType.MILESTONE_REOPENED
+                events += GoalEventDescriptor(type, position(index))
+            }
+        }
+    }
+    if (after.currentValue != null && after.currentValue != before.currentValue) {
+        events += GoalEventDescriptor(
             GoalEventType.PROGRESS_UPDATED,
             mapOf("from" to valueParam(before.currentValue), "to" to valueParam(after.currentValue)),
         )
-    !after.comment.isNullOrBlank() -> GoalEventDescriptor(GoalEventType.PROGRESS_COMMENTED)
-    else -> null
+    }
+    if (events.isEmpty() && !after.comment.isNullOrBlank()) {
+        events += GoalEventDescriptor(GoalEventType.PROGRESS_COMMENTED)
+    }
+    return events
 }
 
 /** Structured event recorded on every status transition (activate/deactivate/archive/reopen). */
