@@ -250,7 +250,10 @@ export default function PulseTeamResultCard({
             <Divider label={t("pulse.results.trendTitle")} labelPosition="left" />
             {trendSeries.length >= 2 ? (
               <Suspense fallback={<Skeleton height={200} radius="sm" />}>
-                <PulseTrendChart points={trendSeries} />
+                <PulseTrendChart
+                  data={trendSeries}
+                  series={[{ name: "enps", label: t("pulse.results.enps"), color: "lettuce.6" }]}
+                />
               </Suspense>
             ) : (
               <Text size="sm" c="dimmed">

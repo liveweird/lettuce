@@ -66,6 +66,15 @@ data class PulseTrendPoint(
     /** Null for NOT_A_RESPONDENT (a non-respondent learns nothing about that cycle). */
     val responseCount: Int? = null,
     val responseRate: Double? = null,
+    /**
+     * Favorable% (4–5 among valid answers, 1dp) of the fixed driver; null unless [availability]
+     * is OK — and null even then when every answer was "Not applicable". The rotating question
+     * deliberately has no trend field: it changes between cycles, so trending it is meaningless.
+     */
+    val favorableQ2: Double? = null,
+    val favorableQ3: Double? = null,
+    val favorableQ4: Double? = null,
+    val favorableQ5: Double? = null,
 )
 
 @Serializable
@@ -92,6 +101,20 @@ data class PulseTeamComparison(
     val ownMembers: PulseTeamResults,
     /** One subtree-scoped block per direct child team, name-ascending. */
     val subTeams: List<PulseTeamResults>,
+)
+
+/**
+ * The multi-scope trend bundle (v2.11.0): the parent team's two own scopes plus one subtree
+ * series per direct child, each a self-describing [PulseTrendResponse]. A series is identified
+ * by its (teamId, mode) pair — the parent appears twice. The subtree series is always present,
+ * even for a childless team (where it equals the direct one — deduped at compute time only).
+ */
+@Serializable
+data class PulseTrendComparison(
+    val teamId: UInt,
+    val teamName: String,
+    /** [own DIRECT, own SUBTREE, one SUBTREE per direct child team (name-ascending)]. */
+    val series: List<PulseTrendResponse>,
 )
 
 @Serializable

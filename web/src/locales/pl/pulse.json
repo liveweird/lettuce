@@ -3,6 +3,7 @@
   "tab": {
     "survey": "Bieżąca ankieta",
     "results": "Wyniki",
+    "trend": "Trend",
     "participation": "Udział"
   },
   "surveyIntro": "Krótka anonimowa ankieta o tym, jak pracuje się w naszej firmie. Wyniki pokazujemy wyłącznie zbiorczo, na poziomie zespołów.",
@@ -127,6 +128,19 @@
     "commentsTitle": "Komentarze",
     "commentsAnonymized": "Wyświetlane anonimowo i w losowej kolejności.",
     "loadError": "Nie udało się wczytać wyników."
+  },
+  "trend": {
+    "team": "Zespół",
+    "metricAria": "Metryka trendu",
+    "metricLabel": {
+      "enps": "eNPS",
+      "q2": "Q2",
+      "q3": "Q3",
+      "q4": "Q4",
+      "q5": "Q5"
+    },
+    "seriesAria": "Porównywane zakresy",
+    "noChildren": "Ten zespół nie ma podzespołów — obie linie obejmują te same osoby."
   },
   "participation": {
     "hint": "Kto z Twoich podwładnych wypełnił ankietę — nigdy ich odpowiedzi.",

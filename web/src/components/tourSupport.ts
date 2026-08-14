@@ -100,6 +100,7 @@ export const TOUR_STEPS: TourStepDef[] = [
   { target: '[data-tour="nav-pulse"]', contentKey: "tour.steps.pulse", placement: "right", navTo: "/pulse", feature: "PULSE_SURVEYS" },
   { target: '[data-tour="pulse-survey"]', contentKey: "tour.steps.pulseSurvey", placement: "bottom", navTo: "/pulse?tab=survey", feature: "PULSE_SURVEYS" },
   { target: '[data-tour="pulse-results"]', contentKey: "tour.steps.pulseResults", placement: "bottom", navTo: "/pulse?tab=results", feature: "PULSE_SURVEYS" },
+  { target: '[data-tour="pulse-trend"]', contentKey: "tour.steps.pulseTrend", placement: "bottom", navTo: "/pulse?tab=trend", feature: "PULSE_SURVEYS" },
   { target: '[data-tour="pulse-participation"]', contentKey: "tour.steps.pulseParticipation", placement: "bottom", navTo: "/pulse?tab=participation", managerOrHr: true, feature: "PULSE_SURVEYS" },
   // The Config section + its subsections (separate routes). The nav step navigates into the
   // section a step early so the lazy /users route is mounted before its subsection target is needed.

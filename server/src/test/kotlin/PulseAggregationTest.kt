@@ -8,6 +8,7 @@ import ch.nokillswit.pulse.PulseScaleAnswer
 import ch.nokillswit.pulse.aggregateDriver
 import ch.nokillswit.pulse.aggregateEnps
 import ch.nokillswit.pulse.buildTeamResults
+import ch.nokillswit.pulse.driverFavorablePct
 import ch.nokillswit.pulse.pulseResponseRate
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -24,6 +25,33 @@ class PulseAggregationTest {
         q2: PulseScaleAnswer = PulseScaleAnswer.AGREE,
         rotating: PulseScaleAnswer = PulseScaleAnswer.AGREE,
     ) = PulseAnswers(enps = enps, q2 = q2, q3 = q2, q4 = q2, q5 = q2, rotating = rotating)
+
+    @Test
+    fun `driverFavorablePct - favorable is 4-5 among valid answers, all-NA is null, thirds land on 1dp`() {
+        // Q2 per row: 5, 4, 3, 2, NA -> favorable 2 of 4 valid = 50.0 (the NA leaves the denominator).
+        val rows = listOf(
+            answers(10, q2 = PulseScaleAnswer.STRONGLY_AGREE),
+            answers(10, q2 = PulseScaleAnswer.AGREE),
+            answers(10, q2 = PulseScaleAnswer.NEITHER),
+            answers(10, q2 = PulseScaleAnswer.DISAGREE),
+            answers(10, q2 = PulseScaleAnswer.NOT_APPLICABLE),
+        )
+        assertEquals(50.0, driverFavorablePct(rows, PulseDriverQuestion.Q2))
+        // An all-NA driver has no valid answers at all -> null, not 0.
+        assertNull(
+            driverFavorablePct(
+                listOf(answers(10, q2 = PulseScaleAnswer.NOT_APPLICABLE)),
+                PulseDriverQuestion.Q3,
+            ),
+        )
+        // A thirds share rounds to one decimal place: 1 favorable of 3 -> 33.3.
+        val thirds = listOf(
+            answers(10, q2 = PulseScaleAnswer.AGREE),
+            answers(10, q2 = PulseScaleAnswer.NEITHER),
+            answers(10, q2 = PulseScaleAnswer.DISAGREE),
+        )
+        assertEquals(33.3, driverFavorablePct(thirds, PulseDriverQuestion.Q4))
+    }
 
     @Test
     fun `the spec's worked example - 14 promoters, 18 passives, 8 detractors is +15`() {

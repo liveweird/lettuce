@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.11.0",
+    date: "2026-08-14",
+    en: `Watch your teams' pulse over time. The Pulse section grew a Trend tab: pick a team and see how its results move across the closed survey cycles — the team's direct members, the team with everyone below it, and each sub-team as separate lines on one chart, with chips to show or hide any line. A metric switch charts either the eNPS score or, for each fixed survey question, the share of favorable answers (the rotating question has no trend — it changes between cycles). Anonymity rules are unchanged: a cycle where a group had fewer than 3 responses — or one you did not take part in — simply leaves a gap in the line.`,
+    pl: `Obserwuj puls swoich zespołów w czasie. Sekcja Pulsu zyskała zakładkę Trend: wybierz zespół i zobacz, jak jego wyniki zmieniają się w kolejnych zamkniętych cyklach ankiety — członkowie zespołu, zespół ze wszystkimi poniżej i każdy podzespół jako osobne linie na jednym wykresie, z żetonami do pokazywania i ukrywania każdej linii. Przełącznik metryki rysuje albo wynik eNPS, albo — dla każdego stałego pytania ankiety — udział odpowiedzi pozytywnych (pytanie rotacyjne nie ma trendu — zmienia się między cyklami). Zasady anonimowości pozostają bez zmian: cykl, w którym grupa miała mniej niż 3 odpowiedzi — albo w którym nie wziąłeś/wzięłaś udziału — po prostu zostawia przerwę w linii.`,
+  },
+  {
     version: "2.10.0",
     date: "2026-08-14",
     en: `Compare your sub-teams at a glance. The pulse results tab grew a third view next to "Team members only" and "The team and everyone below" (the clearer new name of "Including sub-teams"): Sub-team comparison. For each of your teams it shows one packed table — a row for the people reporting directly to the team plus a row per sub-team (each covering that sub-team and everything below it) — with the response rate, the color-coded eNPS score and its change versus the previous cycle, and the favorable share for every survey question, side by side. Anonymity rules are unchanged: any row with fewer than 3 responses shows only its response count, and this view never shows comments.`,

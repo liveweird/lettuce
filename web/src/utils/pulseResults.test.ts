@@ -3,12 +3,15 @@ import type { TFunction } from "i18next";
 import {
   PULSE_SMALL_SAMPLE,
   addIsoDays,
+  buildTrendComparisonRows,
   buildTrendSeries,
   closedCycleOptions,
   deltaColor,
   enpsBandColor,
   enpsBandKey,
   formatSigned,
+  trendMetricDomain,
+  trendSeriesKey,
 } from "./pulseResults";
 import type { PulseCycle, PulseTrendPoint } from "../api/client";
 
@@ -61,9 +64,74 @@ describe("buildTrendSeries", () => {
       { cycleId: 4, closedAt: 400, availability: "OK", enps: -10, responseCount: 6, responseRate: 100 },
     ];
     expect(buildTrendSeries(points)).toEqual([
-      { closedAt: 100, enps: 40, n: 5 },
-      { closedAt: 400, enps: -10, n: 6 },
+      { closedAt: 100, enps: 40, n_enps: 5 },
+      { closedAt: 400, enps: -10, n_enps: 6 },
     ]);
+  });
+});
+
+describe("trend comparison builders (v2.11.0)", () => {
+  const p = (
+    cycleId: number,
+    closedAt: number,
+    availability: PulseTrendPoint["availability"],
+    enps: number | null,
+    favorableQ2: number | null,
+    responseCount: number | null,
+  ): PulseTrendPoint => ({
+    cycleId,
+    closedAt,
+    availability,
+    enps,
+    responseCount,
+    responseRate: responseCount == null ? null : 100,
+    favorableQ2,
+    favorableQ3: null,
+    favorableQ4: null,
+    favorableQ5: null,
+  });
+  const direct = {
+    teamId: 11,
+    teamName: "P",
+    mode: "direct" as const,
+    points: [p(1, 100, "OK", 40, 75.0, 4), p(2, 200, "OK", 50, 80.0, 5)],
+  };
+  const child = {
+    teamId: 21,
+    teamName: "A",
+    mode: "subtree" as const,
+    points: [p(1, 100, "NOT_ENOUGH_RESPONSES", null, null, 2), p(2, 200, "OK", -10, 33.3, 3)],
+  };
+
+  test("trendSeriesKey is the (teamId, mode) pair — the parent appears twice", () => {
+    expect(trendSeriesKey(direct)).toBe("t11_direct");
+    expect(trendSeriesKey({ teamId: 11, mode: "subtree" })).toBe("t11_subtree");
+    expect(trendSeriesKey(child)).toBe("t21_subtree");
+  });
+
+  test("rows carry per-series metric columns, n_ counts, and gaps for unavailable points", () => {
+    const rows = buildTrendComparisonRows([direct, child], "enps");
+    expect(rows).toEqual([
+      { closedAt: 100, t11_direct: 40, n_t11_direct: 4, t21_subtree: undefined, n_t21_subtree: 2 },
+      { closedAt: 200, t11_direct: 50, n_t11_direct: 5, t21_subtree: -10, n_t21_subtree: 3 },
+    ]);
+  });
+
+  test("a driver metric reads the favorable% and an absent value stays a gap", () => {
+    const rows = buildTrendComparisonRows([direct, child], "q2");
+    expect(rows[0].t11_direct).toBe(75.0);
+    expect(rows[1].t21_subtree).toBe(33.3);
+    // Q3 was never delivered in this fixture — null even on OK points → gap, not zero.
+    expect(buildTrendComparisonRows([direct], "q3")[0].t11_direct).toBeUndefined();
+  });
+
+  test("trendMetricDomain: eNPS spans the signed scale, drivers the percent scale", () => {
+    expect(trendMetricDomain("enps")).toEqual([-100, 100]);
+    expect(trendMetricDomain("q4")).toEqual([0, 100]);
+  });
+
+  test("no series yields no rows", () => {
+    expect(buildTrendComparisonRows([], "enps")).toEqual([]);
   });
 });
 
