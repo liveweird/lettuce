@@ -48,8 +48,9 @@ data class GoalDefinitionUpdate(
 
 /**
  * Body of `PUT /goals/{id}/progress` — the only edit an ACTIVE goal accepts, open to BOTH
- * parties (manager and subordinate) since v2.8.0. Exactly the field matching the goal's type
- * must be set: [achieved] for BINARY, [currentValue] for NUMBER/PERCENTAGE (see
+ * parties (manager and subordinate) since v2.8.0. Only the field matching the goal's type may
+ * be set — [achieved] for BINARY, [currentValue] for NUMBER/PERCENTAGE — and it is optional
+ * (v2.8.1): absent leaves the value untouched, but then [comment] must be non-blank (see
  * [validateGoalProgress]). [comment] is optional context for the update, recorded (encrypted)
  * on the history event; blank counts as absent.
  */
@@ -195,10 +196,11 @@ internal fun validateGoalDueDate(dueDate: String, today: LocalDate = LocalDate.n
 }
 
 /**
- * Validates a progress update against the goal's type: exactly the matching value field must be
+ * Validates a progress update against the goal's type: only the matching value field may be
  * set — [GoalProgressUpdate.achieved] for BINARY, [GoalProgressUpdate.currentValue] for
- * NUMBER/PERCENTAGE (0–100 for PERCENTAGE) — and the optional comment within the shared text
- * bound.
+ * NUMBER/PERCENTAGE (0–100 for PERCENTAGE) — and it is OPTIONAL (v2.8.1: absent = leave the
+ * value untouched), but a value-less update must carry a non-blank comment (else there is
+ * nothing to record). The comment stays within the shared text bound.
  */
 /**
  * Validates the archive action's summary: required non-blank, bounded like the description. The
@@ -215,23 +217,28 @@ internal fun validateGoalProgress(type: GoalType, update: GoalProgressUpdate) {
     if ((update.comment?.length ?: 0) > MAX_GOAL_TEXT_LENGTH) {
         throw BadRequestException("Goal progress comment must be at most $MAX_GOAL_TEXT_LENGTH characters")
     }
-    when (type) {
+    val hasValue = when (type) {
         GoalType.BINARY -> {
             if (update.currentValue != null) {
                 throw BadRequestException("A BINARY goal tracks progress via 'achieved', not 'currentValue'")
             }
-            if (update.achieved == null) throw BadRequestException("A BINARY goal progress update requires 'achieved'")
+            update.achieved != null
         }
         GoalType.NUMBER, GoalType.PERCENTAGE -> {
             if (update.achieved != null) {
                 throw BadRequestException("Only a BINARY goal tracks progress via 'achieved'")
             }
             val value = update.currentValue
-                ?: throw BadRequestException("A ${type.name} goal progress update requires 'currentValue'")
-            if (!value.isFinite()) throw BadRequestException("Current value must be a finite number")
-            if (type == GoalType.PERCENTAGE && value !in 0.0..100.0) {
-                throw BadRequestException("A PERCENTAGE current value must be between 0 and 100")
+            if (value != null) {
+                if (!value.isFinite()) throw BadRequestException("Current value must be a finite number")
+                if (type == GoalType.PERCENTAGE && value !in 0.0..100.0) {
+                    throw BadRequestException("A PERCENTAGE current value must be between 0 and 100")
+                }
             }
+            value != null
         }
+    }
+    if (!hasValue && update.comment.isNullOrBlank()) {
+        throw BadRequestException("A progress update requires a value or a comment")
     }
 }

@@ -56,7 +56,9 @@ export default function GoalProgressFields({
           </ReadOnlyField>
           <NumberInput
             label={t("goal.current")}
-            withAsterisk
+            // Required only once a value exists (it can't be unset); a valueless goal
+            // (v2.8.1) accepts a comment-only update with the field left empty.
+            withAsterisk={goal.currentValue != null}
             w={200}
             min={goal.type === "PERCENTAGE" ? 0 : undefined}
             max={goal.type === "PERCENTAGE" ? 100 : undefined}

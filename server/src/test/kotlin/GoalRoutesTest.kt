@@ -122,7 +122,8 @@ class GoalRoutesTest {
         assertEquals("Sub Ordinate", created.subordinateName)
         assertEquals(4.0, created.targetValue)
         assertEquals(LocalDate.now().plusDays(30).toString(), created.dueDate)
-        assertEquals(0.0, created.currentValue)
+        // No recorded value yet (v2.8.1) — both value fields start unset.
+        assertNull(created.currentValue)
         assertNull(created.achieved)
         assertNull(created.summary)
         assertTrue(created.createdAt > 0)
@@ -140,14 +141,15 @@ class GoalRoutesTest {
     }
 
     @Test
-    fun `a BINARY goal initializes achieved=false and carries no numeric values`() = testApplication {
+    fun `a BINARY goal starts with no achieved flag and carries no numeric values`() = testApplication {
         usePostgresTestcontainer()
         val pair = seedPair()
         val manager = authedClient(pair.managerEmail, "pw")
 
         val created = manager.createGoal(pair.subordinateId, type = GoalType.BINARY, targetValue = null)
         assertEquals(GoalType.BINARY, created.type)
-        assertEquals(false, created.achieved)
+        // v2.8.1: no recorded value until the first progress update — never an auto "false".
+        assertNull(created.achieved)
         assertNull(created.targetValue)
         assertNull(created.currentValue)
     }
@@ -607,7 +609,8 @@ class GoalRoutesTest {
         assertEquals(GoalType.BINARY, flipped.type)
         assertNull(flipped.targetValue)
         assertNull(flipped.currentValue)
-        assertEquals(false, flipped.achieved)
+        // The reset lands back at "no recorded value" (v2.8.1), not the new type's zero.
+        assertNull(flipped.achieved)
     }
 
     @Test
@@ -643,10 +646,10 @@ class GoalRoutesTest {
         assertEquals(HttpStatusCode.NoContent, manager.progress(GoalProgressUpdate(currentValue = 40.0)))
         assertEquals(40.0, manager.get("/api/v1/goals/${created.id}").body<GoalResponse>().currentValue)
 
-        // The change is audited with its from/to values.
+        // The change is audited with its from/to values ("" = no previous value, v2.8.1).
         val events = manager.get("/api/v1/goals/${created.id}/events").body<GoalEventListResponse>()
         val progressEvent = events.items.single { it.type == GoalEventType.PROGRESS_UPDATED }
-        assertEquals(mapOf("from" to "0.0", "to" to "40.0"), progressEvent.params)
+        assertEquals(mapOf("from" to "", "to" to "40.0"), progressEvent.params)
 
         // Not editable once ARCHIVED either.
         manager.post("/api/v1/goals/${created.id}/archive") {
@@ -782,7 +785,7 @@ class GoalRoutesTest {
         )
         var events = subordinate.get("/api/v1/goals/${created.id}/events").body<GoalEventListResponse>()
         val updated = events.items.single { it.type == GoalEventType.PROGRESS_UPDATED }
-        assertEquals(mapOf("from" to "0.0", "to" to "4.0"), updated.params)
+        assertEquals(mapOf("from" to "", "to" to "4.0"), updated.params)
         assertEquals("Landed the first two modules", updated.comment)
         // The comment never leaks into the plaintext params.
         assertFalse(updated.params.values.any { it.contains("modules") })
@@ -828,6 +831,70 @@ class GoalRoutesTest {
                 contentType(ContentType.Application.Json)
                 setBody(GoalProgressUpdate(currentValue = 5.0, comment = "x".repeat(4001)))
             }.status,
+        )
+    }
+
+    @Test
+    fun `the value field is optional - a value-less update needs a comment and leaves the value unset`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val manager = authedClient(pair.managerEmail, "pw")
+        val created = manager.createGoal(pair.subordinateId, title = "Valueless progress")
+        manager.post("/api/v1/goals/${created.id}/activate")
+        val subordinate = authedClient(pair.subordinateEmail, "pw")
+
+        // Neither a value nor a comment → 400 (nothing to record).
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            subordinate.put("/api/v1/goals/${created.id}/progress") {
+                contentType(ContentType.Application.Json)
+                setBody(GoalProgressUpdate())
+            }.status,
+        )
+
+        // A comment alone works even while the goal has no recorded value (v2.8.1): the value
+        // stays unset, PROGRESS_COMMENTED is minted, the counterparty is notified.
+        assertEquals(
+            HttpStatusCode.NoContent,
+            subordinate.put("/api/v1/goals/${created.id}/progress") {
+                contentType(ContentType.Application.Json)
+                setBody(GoalProgressUpdate(comment = "Kickoff scheduled for Monday"))
+            }.status,
+        )
+        val afterComment = subordinate.get("/api/v1/goals/${created.id}").body<GoalResponse>()
+        assertNull(afterComment.currentValue)
+        val events = subordinate.get("/api/v1/goals/${created.id}/events").body<GoalEventListResponse>()
+        assertEquals("Kickoff scheduled for Monday", events.items.single { it.type == GoalEventType.PROGRESS_COMMENTED }.comment)
+        val managerNotes = manager.get("/api/v1/notifications?pageSize=50").body<NotificationPageResponse>()
+        assertEquals(
+            1,
+            managerNotes.items.count {
+                it.params["title"] == "Valueless progress" && it.type == NotificationType.GOAL_PROGRESS_UPDATED_TO_MANAGER
+            },
+        )
+    }
+
+    @Test
+    fun `an explicit achieved=false on a fresh BINARY goal is a recorded change`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val manager = authedClient(pair.managerEmail, "pw")
+        val created = manager.createGoal(pair.subordinateId, type = GoalType.BINARY, targetValue = null)
+        manager.post("/api/v1/goals/${created.id}/activate")
+
+        // null → false IS a change (a deliberately recorded "not achieved", v2.8.1).
+        assertEquals(
+            HttpStatusCode.NoContent,
+            manager.put("/api/v1/goals/${created.id}/progress") {
+                contentType(ContentType.Application.Json)
+                setBody(GoalProgressUpdate(achieved = false))
+            }.status,
+        )
+        assertEquals(false, manager.get("/api/v1/goals/${created.id}").body<GoalResponse>().achieved)
+        val events = manager.get("/api/v1/goals/${created.id}/events").body<GoalEventListResponse>()
+        assertEquals(
+            mapOf("to" to "false"),
+            events.items.single { it.type == GoalEventType.ACHIEVED_CHANGED }.params,
         )
     }
 
@@ -978,9 +1045,10 @@ class GoalRoutesTest {
         assertEquals(2, page("title=${marker.uppercase()}").total)
         assertEquals(listOf(binary.id), page("title=$marker&type=BINARY").items.map { it.id })
         assertEquals(listOf(number.id), page("title=$marker&status=ACTIVE").items.map { it.id })
-        // The list never carries description/summary; it does carry the value fields.
+        // The list never carries description/summary; it does carry the value fields
+        // (unset here — a fresh goal has no recorded value, v2.8.1).
         val row = page("title=$marker&type=BINARY").items.single()
-        assertEquals(false, row.achieved)
+        assertNull(row.achieved)
         assertEquals("Mona Manager", row.managerName)
         assertFalse(row.managerDeleted)
 
@@ -1122,7 +1190,8 @@ class GoalRoutesTest {
 
         assertEquals(listOf(small.id, large.id), ids("targetValue"))
         assertEquals(listOf(large.id, small.id), ids("-targetValue"))
-        // currentValue is accepted too (both rows are 0.0 — id tiebreaker keeps it deterministic).
+        // currentValue is accepted too (both rows are NULL, no value recorded yet — the id
+        // tiebreaker keeps it deterministic).
         assertEquals(listOf(small.id, large.id), ids("currentValue"))
     }
 

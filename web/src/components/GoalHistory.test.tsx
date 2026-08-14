@@ -102,6 +102,16 @@ describe("GoalHistory", () => {
     expect(screen.getByText("Marked as not achieved.")).toBeInTheDocument();
   });
 
+  test("a first progress update (empty from) reads as Progress set", async () => {
+    // v2.8.1: fresh goals have no value — the first update's `from` is "" (the target idiom).
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, { items: [event("PROGRESS_UPDATED", { from: "", to: "40.5" })] }),
+    );
+    renderWithProviders(<GoalHistory goalId={9} />);
+
+    expect(await screen.findByText("Progress set to 40.5.")).toBeInTheDocument();
+  });
+
   test("an unknown event kind falls back to its raw type name", async () => {
     mockFetch.mockResolvedValue(
       jsonResponse(200, { items: [event("SOMETHING_NEW", { x: "1" })] }),

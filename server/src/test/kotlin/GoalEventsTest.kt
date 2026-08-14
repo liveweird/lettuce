@@ -132,6 +132,16 @@ class GoalEventsTest {
     }
 
     @Test
+    fun `the first progress update on a valueless goal reports an empty from side`() {
+        // v2.8.1: a fresh goal has no recorded value — "" is the "no value" convention (the
+        // TARGET_CHANGED empty-side precedent).
+        val before = goal(status = GoalStatus.ACTIVE, currentValue = null)
+        val event = goalProgressUpdateEvent(before, GoalProgressUpdate(currentValue = 7.5))
+        assertEquals(GoalEventType.PROGRESS_UPDATED, event?.type)
+        assertEquals(mapOf("from" to "", "to" to "7.5"), event?.params)
+    }
+
+    @Test
     fun `progress update on a BINARY goal reports the achieved flip`() {
         val before = goal(
             type = GoalType.BINARY, targetValue = null, currentValue = null,

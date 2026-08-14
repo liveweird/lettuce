@@ -2,7 +2,15 @@ import { useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import { Alert, Button, Group, Menu, Select, Stack, Table, Text } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
-import { IconAdjustments, IconChevronDown, IconEye, IconPencil, IconTargetArrow } from "@tabler/icons-react";
+import {
+  IconAdjustments,
+  IconArchive,
+  IconArrowBackUp,
+  IconChevronDown,
+  IconEye,
+  IconPencil,
+  IconTargetArrow,
+} from "@tabler/icons-react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
@@ -440,10 +448,16 @@ export default function GoalTable({
                             </Button>
                           </Menu.Target>
                           <Menu.Dropdown>
-                            <Menu.Item onClick={() => setPendingDeactivate(g)}>
+                            <Menu.Item
+                              leftSection={<IconArrowBackUp size={14} />}
+                              onClick={() => setPendingDeactivate(g)}
+                            >
                               {t("goal.action.deactivate")}
                             </Menu.Item>
-                            <Menu.Item onClick={() => setPendingArchive(g)}>
+                            <Menu.Item
+                              leftSection={<IconArchive size={14} />}
+                              onClick={() => setPendingArchive(g)}
+                            >
                               {t("goal.action.close")}
                             </Menu.Item>
                           </Menu.Dropdown>

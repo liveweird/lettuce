@@ -100,7 +100,8 @@ export default function EditGoal() {
   const progressForm = useForm<GoalProgressFormValues>({
     initialValues: { currentValue: "", achieved: false, comment: "" },
     validate: {
-      currentValue: (value, values) => validateProgressValue(value, values, data?.type, t),
+      currentValue: (value, values) =>
+        validateProgressValue(value, values, data?.type, data?.currentValue != null, t),
     },
   });
 
@@ -175,8 +176,20 @@ export default function EditGoal() {
       await updateGoalProgress(
         id,
         data.type === "BINARY"
-          ? { achieved: values.achieved, comment }
-          : { currentValue: Number(values.currentValue), comment },
+          ? {
+              // Per-field isDirty (a first in this repo — see web/CLAUDE.md's whole-form
+              // convention): the Switch can't represent "no value" (v2.8.1), so only a
+              // deliberately toggled flag is sent — an untouched switch on a valueless goal
+              // makes this a comment-only update instead of silently recording "not achieved".
+              achieved: progressForm.isDirty("achieved") ? values.achieved : undefined,
+              comment,
+            }
+          : {
+              // An empty input is only submittable while the goal has no recorded value
+              // (validated) — omit the field then, don't send Number("") === 0.
+              currentValue: values.currentValue === "" ? undefined : Number(values.currentValue),
+              comment,
+            },
       );
       await afterSave("goal.toast.progressSaved");
     } catch (err) {
@@ -405,14 +418,20 @@ export default function EditGoal() {
 }
 
 // The ACTIVE progress rule for the numeric types (BINARY's Switch needs no validation).
+// v2.8.1: an empty input is allowed while the goal has no recorded value yet (the field is
+// simply omitted — a comment-only update); once a value exists it can never be unset.
 function validateProgressValue(
   value: number | string,
   _values: GoalProgressFormValues,
   type: GoalType | undefined,
+  hasRecordedValue: boolean,
   t: (key: string) => string,
 ): string | null {
   if (type == null || type === "BINARY") return null;
-  if (value === "" || value == null || !Number.isFinite(Number(value))) {
+  if (value === "" || value == null) {
+    return hasRecordedValue ? t("goal.validation.currentRequired") : null;
+  }
+  if (!Number.isFinite(Number(value))) {
     return t("goal.validation.currentRequired");
   }
   if (type === "PERCENTAGE" && (Number(value) < 0 || Number(value) > 100)) {

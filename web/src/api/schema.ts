@@ -1143,9 +1143,9 @@ export interface paths {
          *
          *     The value fields are type-specific: `targetValue` is **required** for NUMBER and
          *     PERCENTAGE goals (0–100 for PERCENTAGE) and **must be absent** for BINARY goals. The
-         *     current value starts at the type's zero (`0.0` / not achieved) and only becomes editable
-         *     (via `PUT /goals/{id}/progress`) once the goal is ACTIVE. The **due date** is required
-         *     and must not be earlier than the current date.
+         *     current value starts **unset** (`currentValue`/`achieved` null — no recorded value) and
+         *     is only set (via `PUT /goals/{id}/progress`) once the goal is ACTIVE. The **due date**
+         *     is required and must not be earlier than the current date.
          *
          *     Nobody is notified — a draft is private to the pair until activated. The creation is
          *     recorded in the goal's audit history.
@@ -1188,10 +1188,9 @@ export interface paths {
          *     (status moves through the action endpoints, the current value through
          *     `PUT /goals/{id}/progress`, the summary through the archive action).
          *
-         *     Changing the type re-initializes the value fields for the new type (BINARY: not
-         *     achieved; NUMBER/PERCENTAGE: `0.0`), discarding any previously recorded progress — the
-         *     audit events explain the reset. Every changed aspect is recorded in the audit history;
-         *     a no-op PUT records nothing.
+         *     Changing the type resets the value fields to **unset** (null — no recorded value),
+         *     discarding any previously recorded progress — the audit events explain the reset.
+         *     Every changed aspect is recorded in the audit history; a no-op PUT records nothing.
          */
         put: operations["updateGoalDefinition"];
         post?: never;
@@ -1222,13 +1221,15 @@ export interface paths {
          * Update an active goal's current value
          * @description Updates the goal's current value — the only edit an **ACTIVE** goal accepts (any other
          *     status is `409`). Open to **both parties** — the manager and the subordinate (v2.8.0);
-         *     anyone else is `403`. Exactly the field matching the goal's type must be set:
-         *     `achieved` for a BINARY goal, `currentValue` for NUMBER and PERCENTAGE (0–100 for
-         *     PERCENTAGE); the mismatched field is `400`. An optional `comment` (context of the
-         *     update) is recorded on the history event, encrypted at rest; a non-blank comment with
-         *     an unchanged value still records a `PROGRESS_COMMENTED` event. Any recorded update
-         *     notifies the counterparty. The change is recorded in the audit history (from/to
-         *     values); a true no-op (unchanged value, no comment) records nothing.
+         *     anyone else is `403`. Only the field matching the goal's type may be set — `achieved`
+         *     for a BINARY goal, `currentValue` for NUMBER and PERCENTAGE (0–100 for PERCENTAGE);
+         *     the mismatched field is `400` — and it is **optional** (v2.8.1): absent leaves the
+         *     value untouched, but a value-less update must then carry a non-blank `comment` (else
+         *     `400`). The optional `comment` (context of the update) is recorded on the history
+         *     event, encrypted at rest; a non-blank comment with an unchanged value still records a
+         *     `PROGRESS_COMMENTED` event. Any recorded update notifies the counterparty. The change
+         *     is recorded in the audit history (from/to values; an empty `from` = no previous
+         *     value); a true no-op (unchanged value, no comment) records nothing.
          */
         put: operations["updateGoalProgress"];
         post?: never;
@@ -1280,7 +1281,7 @@ export interface paths {
          * Return an active goal to draft
          * @description Moves the goal `ACTIVE → DRAFT` (any other current status is `409`), making its
          *     definition editable again. **Manager-only.** Recorded progress is kept (unless the type
-         *     is later changed in the draft, which re-initializes the value fields). The subordinate
+         *     is later changed in the draft, which resets the value fields to unset). The subordinate
          *     is notified; the transition is recorded in the audit history.
          */
         post: operations["deactivateGoal"];
@@ -4036,10 +4037,10 @@ export interface components {
         GoalProgressUpdate: {
             /**
              * Format: double
-             * @description The new current value — required for NUMBER and PERCENTAGE goals (0–100 for PERCENTAGE); must be absent for BINARY.
+             * @description The new current value — NUMBER and PERCENTAGE goals only (0–100 for PERCENTAGE); must be absent for BINARY. Optional: absent leaves the value untouched (a value-less update requires a non-blank comment).
              */
             currentValue?: number | null;
-            /** @description The new done-flag — required for BINARY goals; must be absent otherwise. */
+            /** @description The new done-flag — BINARY goals only; must be absent otherwise. Optional: absent leaves the flag untouched (a value-less update requires a non-blank comment). */
             achieved?: boolean | null;
             /** @description Optional context of the update, shown in the goal's history (stored encrypted at rest on the history event, never in its params). Blank counts as absent; a non-blank comment with an unchanged value records a `PROGRESS_COMMENTED` event. */
             comment?: string | null;
@@ -4078,10 +4079,10 @@ export interface components {
             targetValue: number | null;
             /**
              * Format: double
-             * @description Null for BINARY goals; starts at 0.0, editable only while ACTIVE.
+             * @description Null for BINARY goals — and null while no value has been recorded yet (a fresh goal starts unset); settable only while ACTIVE.
              */
             currentValue: number | null;
-            /** @description Null unless BINARY; starts false, editable only while ACTIVE. */
+            /** @description Null unless BINARY — and null while no value has been recorded yet (a fresh goal starts unset); settable only while ACTIVE. */
             achieved: boolean | null;
             /** @enum {string} */
             status: "DRAFT" | "ACTIVE" | "ARCHIVED";
@@ -7327,7 +7328,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The value field does not match the goal's type, is missing, or is out of range (PERCENTAGE is 0–100); or the comment exceeds 4000 characters */
+            /** @description The value field does not match the goal's type or is out of range (PERCENTAGE is 0–100); neither a value nor a comment was supplied; or the comment exceeds 4000 characters */
             400: {
                 headers: {
                     [name: string]: unknown;
