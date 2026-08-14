@@ -75,21 +75,18 @@
   "results": {
     "cycle": "Cykl",
     "cycleOption": "Zamknięty {{date}}",
-    "mode": {
-      "direct": "Tylko członkowie zespołu",
-      "subtree": "Zespół i wszyscy poniżej",
-      "compare": "Porównanie podzespołów"
+    "view": {
+      "member": "Zespoły, do których należę",
+      "managed": "Zespoły, którymi zarządzam"
     },
-    "modeAria": "Zakres agregacji",
-    "comparison": {
-      "tableAria": "Porównanie podzespołów dla {{team}}",
-      "team": "Zespół",
-      "ownMembers": "Bezpośredni członkowie",
-      "responses": "Odpowiedzi",
-      "rotating": "Rotacyjne",
-      "noSubTeams": "Ten zespół nie ma podzespołów do porównania.",
-      "valuesNote": "Kolumny pytań pokazują udział odpowiedzi pozytywnych wśród ważnych odpowiedzi; każdy podzespół obejmuje wszystkich poniżej."
+    "viewAria": "Widok wyników",
+    "calc": {
+      "direct": "Tylko bezpośredni członkowie",
+      "indirect": "Razem ze wszystkimi poniżej"
     },
+    "calcAria": "Zakres obliczeń",
+    "noMemberTeams": "Nie należysz do żadnego zespołu.",
+    "noManagedTeams": "Nie zarządzasz żadnym zespołem.",
     "enps": "eNPS",
     "promoters": "Promotorzy",
     "passives": "Neutralni",
@@ -131,6 +128,10 @@
   },
   "trend": {
     "team": "Zespół",
+    "series": {
+      "own": "Bezpośredni członkowie",
+      "subtree": "Zespół i wszyscy poniżej"
+    },
     "metricAria": "Metryka trendu",
     "metricLabel": {
       "enps": "eNPS",

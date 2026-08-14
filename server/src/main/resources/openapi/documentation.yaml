@@ -4234,38 +4234,6 @@ paths:
         '409': { $ref: '#/components/responses/PulseNotClosed' }
         '500': { $ref: '#/components/responses/InternalServerError' }
 
-  /api/v1/pulse-surveys/cycles/{id}/team-comparison:
-    parameters:
-      - $ref: '#/components/parameters/ResourceId'
-      - $ref: '#/components/parameters/PulseTeamId'
-    get:
-      tags: [pulse-surveys]
-      operationId: getPulseTeamComparison
-      summary: Read a team's per-sub-team comparison for a closed cycle
-      description: |
-        The packed side-by-side view (v2.10.0): the parent team's own-members baseline
-        (direct scope — includes the sub-team managers, who are members of the parent) plus
-        one subtree-scoped results block per team DIRECTLY below the parent (a team is below
-        another iff its manager is a member of it), name-ascending. No `mode` parameter —
-        each row carries its own (`ownMembers` = `direct`, sub-teams = `subtree`). Pure
-        composition: every row equals a single-team `results` query the caller is already
-        authorized for (the visible tree is transitive), independently k-withheld
-        (`insufficientResponses`) with per-row previous-cycle deltas. Access, `409`, and
-        k-anonymity exactly as for `results` (the fill gate checks the parent team; HR
-        org-wide, audit-logged). Comments are never part of this view.
-      responses:
-        '200':
-          description: The own-members baseline plus one results block per direct sub-team
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/PulseTeamComparison' }
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/PulseNotClosed' }
-        '500': { $ref: '#/components/responses/InternalServerError' }
-
   /api/v1/pulse-surveys/cycles/{id}/comments:
     parameters:
       - $ref: '#/components/parameters/ResourceId'
@@ -4354,11 +4322,12 @@ paths:
       description: |
         Backs the SPA's team pickers (the team tree is derived server-side only):
         `resultsTeams` = teams the caller is a member of + teams they manage + everything
-        below either; `monitoredTeams` = managed + below (empty for non-managers). HR gets
-        every team in both.
+        below either; `monitoredTeams` = managed + below (empty for non-managers);
+        `memberTeams` = teams the caller is a MEMBER of (v2.12.0 — the Results tab's
+        "Teams I belong to" view). HR gets every team in all three.
       responses:
         '200':
-          description: The two team scopes
+          description: The three team scopes
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PulseVisibleTeams' }
@@ -7735,21 +7704,6 @@ components:
             Set only when an immediately preceding non-cancelled closed cycle exists AND its
             same-scope response count also passes the k-floor.
 
-    PulseTeamComparison:
-      type: object
-      required: [cycleId, teamId, teamName, ownMembers, subTeams]
-      properties:
-        cycleId: { type: integer, format: int64, minimum: 0 }
-        teamId: { type: integer, format: int64, minimum: 0 }
-        teamName: { type: string }
-        ownMembers:
-          allOf: [{ $ref: '#/components/schemas/PulseTeamResults' }]
-          description: The parent's direct-members scope (mode `direct`) — includes the sub-team managers.
-        subTeams:
-          type: array
-          items: { $ref: '#/components/schemas/PulseTeamResults' }
-          description: One subtree-scoped block per direct child team, name-ascending.
-
     PulseCommentsResponse:
       type: object
       required: [items, responseCount, insufficientResponses]
@@ -7830,7 +7784,7 @@ components:
 
     PulseVisibleTeams:
       type: object
-      required: [resultsTeams, monitoredTeams]
+      required: [resultsTeams, monitoredTeams, memberTeams]
       properties:
         resultsTeams:
           type: array
@@ -7840,6 +7794,10 @@ components:
           type: array
           items: { $ref: '#/components/schemas/TeamRef' }
           description: Teams the caller may monitor (managed + below; HR all; empty for non-managers).
+        memberTeams:
+          type: array
+          items: { $ref: '#/components/schemas/TeamRef' }
+          description: Teams the caller is a MEMBER of (the "Teams I belong to" results view; HR all).
 
     PulseSettings:
       type: object

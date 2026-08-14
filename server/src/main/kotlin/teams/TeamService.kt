@@ -87,6 +87,11 @@ class TeamService(val database: R2dbcDatabase) {
         monitoredTeamIds(userId)
     }
 
+    /** Teams [userId] is currently a MEMBER of (see TeamTree.memberTeamIds; v2.12.0). */
+    suspend fun membershipTeamIds(userId: UInt): Set<UInt> = suspendTransaction(database) {
+        memberTeamIds(userId)
+    }
+
     /** The users a team-scoped pulse aggregate draws from (see TeamTree.teamScopeUserIds). */
     suspend fun teamScopeMembers(teamId: UInt, subtree: Boolean): Set<UInt> = suspendTransaction(database) {
         teamScopeUserIds(teamId, subtree)

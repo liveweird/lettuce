@@ -29,7 +29,9 @@ describe("Pulse hub", () => {
         return Promise.resolve(jsonResponse(200, { items: [] }));
       }
       if (String(url).includes("/visible-teams")) {
-        return Promise.resolve(jsonResponse(200, { resultsTeams: [], monitoredTeams: [] }));
+        return Promise.resolve(
+          jsonResponse(200, { resultsTeams: [], monitoredTeams: [], memberTeams: [] }),
+        );
       }
       return Promise.resolve(jsonResponse(200, { items: [] }));
     });

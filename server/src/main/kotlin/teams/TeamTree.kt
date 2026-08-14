@@ -67,7 +67,7 @@ suspend fun membersOf(teamIds: Set<UInt>): Set<UInt> =
 
 /**
  * The teams DIRECTLY below [teamId]: teams managed by its current members — exactly the first
- * BFS edge of [teamsBelow] (v2.10.0, backing the pulse team-comparison view). Never includes
+ * BFS edge of [teamsBelow] (v2.10.0, backing the pulse trend-comparison series). Never includes
  * [teamId] itself (a manager is never a member of their own team, so the subtraction is
  * defensive only). Runs in the caller's transaction.
  */

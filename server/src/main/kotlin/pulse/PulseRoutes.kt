@@ -8,7 +8,6 @@ import ch.nokillswit.authz.isAdmin
 import ch.nokillswit.authz.isHr
 import ch.nokillswit.authz.requireAdmin
 import ch.nokillswit.authz.requireFeatureEnabled
-import ch.nokillswit.authz.requirePulseComparisonAccess
 import ch.nokillswit.authz.requirePulseMonitorAccess
 import ch.nokillswit.authz.requirePulseMyResponse
 import ch.nokillswit.authz.requirePulseResultsAccess
@@ -61,10 +60,6 @@ class PulseSurveys {
             @Serializable @Resource("my-response") class MyResponse(val parent: Id)
 
             @Serializable @Resource("results") class Results(val parent: Id)
-
-            // The packed per-sub-team comparison (v2.10.0): own-members baseline + one
-            // subtree row per direct child team. No mode param — each row is self-describing.
-            @Serializable @Resource("team-comparison") class TeamComparison(val parent: Id)
 
             @Serializable @Resource("comments") class Comments(val parent: Id)
         }
@@ -510,72 +505,6 @@ fun Application.configurePulseRoutes() {
                     ),
                 )
             }
-            get<PulseSurveys.Cycles.Id.TeamComparison> { route ->
-                val caller = call.pulseCaller()
-                val cycle = cycleService.read(route.parent.id)
-                if (cycle == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Pulse cycle not found")
-                    return@get
-                }
-                if (cycle.status != PulseCycleStatus.CLOSED) {
-                    throw ConflictException("Results are available only for closed cycles")
-                }
-                val teamId = call.request.queryParameters.requiredTeamId()
-                val team = teamService.read(teamId)
-                if (team == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Team not found")
-                    return@get
-                }
-                // The results rule on the PARENT team only — every row (parent-direct, each
-                // child-subtree) equals a single-team results query the caller could already
-                // make, since the visible tree is transitive.
-                requirePulseComparisonAccess(
-                    caller,
-                    cycleId = cycle.id,
-                    teamId = teamId,
-                    hasResponded = { responseService.hasResponded(cycle.id, caller.userId) },
-                    visibleTeamIds = { teamService.visibleTeamTreeIds(caller.userId) },
-                )
-                val previousCycle = cycleService.closedCyclesAsc()
-                    .filter { (it.closedAt ?: 0) < (cycle.closedAt ?: 0) }
-                    .maxByOrNull { it.closedAt ?: 0 }
-                // One results block per row, each over its own scope — k-withholding and the
-                // previous-baseline k-gating come from buildTeamResults unchanged.
-                suspend fun rowFor(rowTeamId: UInt, rowTeamName: String, mode: PulseAggregationMode): PulseTeamResults {
-                    val scope = teamService.teamScopeMembers(rowTeamId, subtree = mode == PulseAggregationMode.SUBTREE)
-                    val answers = responseService.answersForScope(cycle.id, scope)
-                    val participantCount = responseService.participantCountForScope(cycle.id, scope)
-                    val previous = previousCycle?.let {
-                        PulsePreviousCycleData(
-                            cycleId = it.id,
-                            answers = responseService.answersForScope(it.id, scope),
-                            sameRotatingEntry = it.rotatingQuestionEntryId == cycle.rotatingQuestionEntryId,
-                        )
-                    }
-                    return buildTeamResults(
-                        cycleId = cycle.id,
-                        teamId = rowTeamId,
-                        teamName = rowTeamName,
-                        mode = mode,
-                        participantCount = participantCount,
-                        answers = answers,
-                        rotatingTextEn = cycle.rotatingQuestionTextEn,
-                        rotatingTextPl = cycle.rotatingQuestionTextPl,
-                        previous = previous,
-                    )
-                }
-                val children = teamService.teamRefs(teamService.childTeamIds(teamId))
-                call.respond(
-                    HttpStatusCode.OK,
-                    PulseTeamComparison(
-                        cycleId = cycle.id,
-                        teamId = teamId,
-                        teamName = team.name,
-                        ownMembers = rowFor(teamId, team.name, PulseAggregationMode.DIRECT),
-                        subTeams = children.map { rowFor(it.id, it.name, PulseAggregationMode.SUBTREE) },
-                    ),
-                )
-            }
             get<PulseSurveys.Cycles.Id.Comments> { route ->
                 val caller = call.pulseCaller()
                 val cycle = cycleService.read(route.parent.id)
@@ -698,7 +627,10 @@ fun Application.configurePulseRoutes() {
                 // no audit needed for the HR branch.
                 if (caller.isHr()) {
                     val all = teamService.allTeamRefs()
-                    call.respond(HttpStatusCode.OK, PulseVisibleTeams(resultsTeams = all, monitoredTeams = all))
+                    call.respond(
+                        HttpStatusCode.OK,
+                        PulseVisibleTeams(resultsTeams = all, monitoredTeams = all, memberTeams = all),
+                    )
                     return@get
                 }
                 call.respond(
@@ -706,6 +638,7 @@ fun Application.configurePulseRoutes() {
                     PulseVisibleTeams(
                         resultsTeams = teamService.teamRefs(teamService.visibleTeamTreeIds(caller.userId)),
                         monitoredTeams = teamService.teamRefs(teamService.managedTeamTreeIds(caller.userId)),
+                        memberTeams = teamService.teamRefs(teamService.membershipTeamIds(caller.userId)),
                     ),
                 )
             }

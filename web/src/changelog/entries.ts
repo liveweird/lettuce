@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.12.0",
+    date: "2026-08-14",
+    en: `Pulse results, organized by your role. The Results tab now has two clear views instead of one mode switch: "Teams I belong to" shows only the teams you are a member of, and "Teams I manage" shows the teams you manage — directly or through the managers below you. In the managed view a calculation toggle decides what the numbers cover: "Direct members only" counts just each team's own roster, while "Including everyone below" also counts everyone reporting into it. The separate "Sub-team comparison" table is gone — the managed view with the toggle, and the Trend tab, cover what it did more clearly.`,
+    pl: `Wyniki pulsu uporządkowane według Twojej roli. Zakładka Wyniki ma teraz dwa czytelne widoki zamiast jednego przełącznika trybu: „Zespoły, do których należę" pokazuje tylko zespoły, których jesteś członkiem/członkinią, a „Zespoły, którymi zarządzam" — zespoły, którymi zarządzasz bezpośrednio lub poprzez menedżerów poniżej. W widoku zarządzania przełącznik obliczeń decyduje, co obejmują liczby: „Tylko bezpośredni członkowie" liczy wyłącznie skład danego zespołu, a „Razem ze wszystkimi poniżej" — także wszystkich, którzy do niego raportują. Osobna tabela „Porównanie podzespołów" znika — widok zarządzania z przełącznikiem oraz zakładka Trend pokazują to samo czytelniej.`,
+  },
+  {
     version: "2.11.0",
     date: "2026-08-14",
     en: `Watch your teams' pulse over time. The Pulse section grew a Trend tab: pick a team and see how its results move across the closed survey cycles — the team's direct members, the team with everyone below it, and each sub-team as separate lines on one chart, with chips to show or hide any line. A metric switch charts either the eNPS score or, for each fixed survey question, the share of favorable answers (the rotating question has no trend — it changes between cycles). Anonymity rules are unchanged: a cycle where a group had fewer than 3 responses — or one you did not take part in — simply leaves a gap in the line.`,
