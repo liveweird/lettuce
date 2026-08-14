@@ -62,7 +62,7 @@ function describeEvent(e: TeamKpiEvent, t: TFunction, locale: string, type: Team
   }
 }
 
-/** The team KPI's audit history as a timeline (oldest first), or an empty-state note. */
+/** The team KPI's audit history as a timeline (newest first, server-ordered), or an empty-state note. */
 export default function TeamKpiHistory({ kpiId, type }: { kpiId: number; type: TeamKpiType }) {
   const { t, i18n } = useTranslation();
   const { data: events } = useQuery({

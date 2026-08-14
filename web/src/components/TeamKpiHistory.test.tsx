@@ -25,24 +25,25 @@ describe("TeamKpiHistory", () => {
     localStorage.clear();
   });
 
-  test("renders each event kind in the viewer's language, oldest first", async () => {
+  test("renders each event kind in the viewer's language (newest first from the API)", async () => {
     mockFetch.mockResolvedValue(
       jsonResponse(200, {
+        // Newest first, the API's order since v2.8.2.
         items: [
-          event(1, "CREATED", { type: "NUMBER" }),
-          event(2, "TITLE_CHANGED"),
-          event(3, "TYPE_CHANGED", { from: "NUMBER", to: "PERCENTAGE" }),
-          event(4, "TARGET_CHANGED", { from: "10.0", to: "80.0" }),
-          event(5, "VALUE_RECORDED", { date: "2026-07-20", value: "45.0" }),
+          event(9, "DELETED"),
+          event(8, "STATUS_CHANGED", { from: "ACTIVE", to: "ARCHIVED" }),
+          event(7, "VALUE_REMOVED", { date: "2026-07-21", value: "47.5" }),
           event(6, "VALUE_CORRECTED", {
             fromDate: "2026-07-20",
             fromValue: "45.0",
             toDate: "2026-07-21",
             toValue: "47.5",
           }),
-          event(7, "VALUE_REMOVED", { date: "2026-07-21", value: "47.5" }),
-          event(8, "STATUS_CHANGED", { from: "ACTIVE", to: "ARCHIVED" }),
-          event(9, "DELETED"),
+          event(5, "VALUE_RECORDED", { date: "2026-07-20", value: "45.0" }),
+          event(4, "TARGET_CHANGED", { from: "10.0", to: "80.0" }),
+          event(3, "TYPE_CHANGED", { from: "NUMBER", to: "PERCENTAGE" }),
+          event(2, "TITLE_CHANGED"),
+          event(1, "CREATED", { type: "NUMBER" }),
         ],
       }),
     );

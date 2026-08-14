@@ -30,7 +30,7 @@ function describeEvent(e: FeedbackEvent, t: TFunction): string {
   }
 }
 
-/** The feedback's audit history as a timeline (oldest first), or an empty-state note. */
+/** The feedback's audit history as a timeline (newest first, server-ordered), or an empty-state note. */
 export default function FeedbackHistory({ feedbackId }: { feedbackId: number }) {
   const { t } = useTranslation();
   const { data: events } = useQuery({

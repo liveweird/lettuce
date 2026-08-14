@@ -417,10 +417,10 @@ class TeamKpiRoutesTest {
         val events = manager.get("/api/v1/team-kpis/${created.id}/events").body<TeamKpiEventListResponse>()
         assertEquals(
             listOf(
-                TeamKpiEventType.CREATED,
-                TeamKpiEventType.TITLE_CHANGED,
-                TeamKpiEventType.TYPE_CHANGED,
                 TeamKpiEventType.TARGET_CHANGED,
+                TeamKpiEventType.TYPE_CHANGED,
+                TeamKpiEventType.TITLE_CHANGED,
+                TeamKpiEventType.CREATED,
             ),
             events.items.map { it.type },
         )
@@ -573,11 +573,11 @@ class TeamKpiRoutesTest {
             }.status,
         )
 
-        // Every addition (and nothing else) is on the audit trail.
+        // Every addition (and nothing else) is on the audit trail, newest event first.
         val events = manager.get("/api/v1/team-kpis/${created.id}/events").body<TeamKpiEventListResponse>()
         val recorded = events.items.filter { it.type == TeamKpiEventType.VALUE_RECORDED }
         assertEquals(
-            listOf("2026-07-10" to "5.0", "2026-07-01" to "2.0"),
+            listOf("2026-07-01" to "2.0", "2026-07-10" to "5.0"),
             recorded.map { it.params["date"] to it.params["value"] },
         )
     }
@@ -628,11 +628,12 @@ class TeamKpiRoutesTest {
         )
 
         val events = manager.get("/api/v1/team-kpis/${created.id}/events").body<TeamKpiEventListResponse>()
+        // Newest correction first.
         val corrected = events.items.filter { it.type == TeamKpiEventType.VALUE_CORRECTED }
         assertEquals(
             listOf(
-                mapOf("fromDate" to "2026-07-10", "fromValue" to "5.0", "toDate" to "2026-07-10", "toValue" to "7.0"),
                 mapOf("fromDate" to "2026-07-01", "fromValue" to "2.0", "toDate" to "2026-07-20", "toValue" to "2.0"),
+                mapOf("fromDate" to "2026-07-10", "fromValue" to "5.0", "toDate" to "2026-07-10", "toValue" to "7.0"),
             ),
             corrected.map { it.params },
         )
@@ -665,9 +666,10 @@ class TeamKpiRoutesTest {
         assertTrue(manager.listValues(created.id).isEmpty())
 
         val events = manager.get("/api/v1/team-kpis/${created.id}/events").body<TeamKpiEventListResponse>()
+        // Newest removal first.
         val removed = events.items.filter { it.type == TeamKpiEventType.VALUE_REMOVED }
         assertEquals(
-            listOf("2026-07-10" to "5.0", "2026-07-01" to "2.0"),
+            listOf("2026-07-01" to "2.0", "2026-07-10" to "5.0"),
             removed.map { it.params["date"] to it.params["value"] },
         )
         // An already-removed (or foreign) valueId is 404.

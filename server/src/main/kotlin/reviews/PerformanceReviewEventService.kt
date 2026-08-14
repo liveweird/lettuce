@@ -24,7 +24,7 @@ class PerformanceReviewEventService(val database: R2dbcDatabase) {
     suspend fun create(event: PerformanceReviewEvent): UInt =
         log.create(event.reviewId, event.userId, event.type.name, event.params)
 
-    /** The performance review's history, oldest first (id as a stable tiebreaker), with acting user names. */
+    /** The performance review's history, newest first (id descending as the same-instant tiebreaker), with acting user names. */
     suspend fun listForReview(reviewId: UInt): List<PerformanceReviewEventResponse> =
         log.listFor(reviewId).map {
             PerformanceReviewEventResponse(

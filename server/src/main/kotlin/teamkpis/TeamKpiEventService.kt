@@ -24,7 +24,7 @@ class TeamKpiEventService(val database: R2dbcDatabase) {
     suspend fun create(event: TeamKpiEvent): UInt =
         log.create(event.kpiId, event.userId, event.type.name, event.params)
 
-    /** The team KPI's history, oldest first (id as a stable tiebreaker), with acting user names. */
+    /** The team KPI's history, newest first (id descending as the same-instant tiebreaker), with acting user names. */
     suspend fun listForKpi(kpiId: UInt): List<TeamKpiEventResponse> =
         log.listFor(kpiId).map {
             TeamKpiEventResponse(

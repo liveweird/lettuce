@@ -534,7 +534,7 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
     /**
      * The full history of an action item: every appearance across the chain of carried-over
      * copies — ancestors via `copied_from_id`, descendants (including branches off ancestors) via
-     * a frontier walk — ordered by meeting date. Entries whose meeting is soft-deleted are
+     * a frontier walk — newest meeting first. Entries whose meeting is soft-deleted are
      * skipped but walked *through*, so history survives a deleted intermediate meeting. Returns
      * null when the item is missing or its own meeting is soft-deleted (route → 404).
      */
@@ -596,7 +596,7 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
                     resolved = row[ActionItems.resolved],
                 )
             }
-            .sortedWith(compareBy({ it.meetingDate }, { it.meetingId }))
+            .sortedWith(compareByDescending<ActionItemHistoryEntry> { it.meetingDate }.thenByDescending { it.meetingId })
         ActionItemHistoryResult(meetingId = originMeetingId, entries = entries)
     }
 

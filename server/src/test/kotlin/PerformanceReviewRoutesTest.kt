@@ -398,11 +398,11 @@ class PerformanceReviewRoutesTest {
             assertEquals(HttpStatusCode.NoContent, manager.post("$url/unpublish").status)
             assertEquals(PerformanceReviewStatus.CALIBRATION, status())
 
-            // Every transition landed in the audit history.
+            // Every transition landed in the audit history, newest first.
             val events = manager.get("$url/events").body<PerformanceReviewEventListResponse>()
             assertEquals(
-                listOf("DRAFT->CALIBRATION", "CALIBRATION->DRAFT", "DRAFT->CALIBRATION",
-                    "CALIBRATION->PUBLISHED", "PUBLISHED->CALIBRATION"),
+                listOf("PUBLISHED->CALIBRATION", "CALIBRATION->PUBLISHED", "DRAFT->CALIBRATION",
+                    "CALIBRATION->DRAFT", "DRAFT->CALIBRATION"),
                 events.items.filter { it.type == PerformanceReviewEventType.STATUS_CHANGED }
                     .map { "${it.params["from"]}->${it.params["to"]}" },
             )
@@ -610,16 +610,17 @@ class PerformanceReviewRoutesTest {
                 )
             }.status,
         )
+        // Newest first: the freshly minted pair tops the list, reversed against mint order.
         val events = manager.get("$url/events").body<PerformanceReviewEventListResponse>().items
-        val minted = events.drop(baseline)
+        val minted = events.dropLast(baseline)
         assertEquals(
-            listOf(PerformanceReviewEventType.RATING_CHANGED, PerformanceReviewEventType.SUMMARY_CHANGED),
+            listOf(PerformanceReviewEventType.SUMMARY_CHANGED, PerformanceReviewEventType.RATING_CHANGED),
             minted.map { it.type },
         )
         // Category only — rating VALUES never reach the plaintext params (encrypted at rest
         // since v1.49.0), summary text never did.
-        assertEquals(mapOf("category" to "ATTITUDE"), minted[0].params)
-        assertEquals(mapOf("category" to "DELIVERY"), minted[1].params)
+        assertEquals(mapOf("category" to "DELIVERY"), minted[0].params)
+        assertEquals(mapOf("category" to "ATTITUDE"), minted[1].params)
     }
 
     // ---- delete ----

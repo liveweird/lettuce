@@ -94,14 +94,14 @@ class FeedbackEventsTest {
         assertEquals(providerId, ev.userId)
         assertEquals("Paula", ev.userName)
 
-        // Sending it adds a status-change event.
+        // Sending it adds a status-change event, topping the newest-first list.
         assertEquals(
             HttpStatusCode.NoContent,
             provider.post("/api/v1/feedbacks/${created.id}/send").status,
         )
         val afterSend = provider.get("/api/v1/feedbacks/${created.id}/events").body<FeedbackEventListResponse>()
         assertEquals(2, afterSend.items.size)
-        val sent = afterSend.items.last()
+        val sent = afterSend.items.first()
         assertEquals(FeedbackEventType.STATUS_CHANGED, sent.type)
         assertEquals(mapOf("from" to "DRAFT", "to" to "SENT"), sent.params)
     }
@@ -132,7 +132,7 @@ class FeedbackEventsTest {
 
         val events = provider.get("/api/v1/feedbacks/${created.id}/events").body<FeedbackEventListResponse>()
         assertEquals(
-            listOf(FeedbackEventType.CREATED, FeedbackEventType.CONTENT_UPDATED),
+            listOf(FeedbackEventType.CONTENT_UPDATED, FeedbackEventType.CREATED),
             events.items.map { it.type },
         )
     }
@@ -208,7 +208,7 @@ class FeedbackEventsTest {
         assertEquals(HttpStatusCode.NoContent, provider.delete("/api/v1/feedbacks/${created.id}").status)
         val events = TestFeedbackEvents.service.listForFeedback(created.id)
         assertEquals(2, events.size)
-        val deletion = events.last()
+        val deletion = events.first()
         assertEquals(FeedbackEventType.DELETED, deletion.type)
         assertEquals(providerId, deletion.userId)
     }

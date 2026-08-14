@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.8.2",
+    date: "2026-08-14",
+    en: `Histories read like news now. Every History tab — feedback, 1:1 meetings, goals, team KPIs, and performance reviews — shows the newest entries first, just like notifications, so the latest change is always at the top instead of at the end of a growing timeline. The 1:1 action items' "Carried over" history follows the same rule: the current copy first, its origins below.`,
+    pl: `Historie czyta się teraz jak wiadomości. Każda zakładka „Historia" — feedbacku, spotkań 1:1, celów, KPI zespołów i ocen okresowych — pokazuje najnowsze wpisy jako pierwsze, tak jak powiadomienia, więc ostatnia zmiana jest zawsze na górze, a nie na końcu rosnącej osi czasu. Historia „Przeniesione” punktów działań z 1:1 działa według tej samej reguły: najpierw bieżąca kopia, niżej jej początki.`,
+  },
+  {
     version: "2.8.1",
     date: "2026-08-14",
     en: `Goals start clean. A new goal no longer pretends to have progress: instead of an automatic 0 (or "Not achieved"), it simply has no recorded value until someone enters the first one — lists show a dash, the goal view says "No value recorded yet", and the history's first entry reads "Progress set to X". Existing goals whose value was never actually set were cleaned up the same way. On the update screen the value field is now optional while the goal has no value, so a comment-only status note works there too (a value, once set, cannot be unset). The Lifecycle menu also got its icons.`,

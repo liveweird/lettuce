@@ -344,10 +344,10 @@ class GoalRoutesTest {
         assertEquals(HttpStatusCode.NoContent, manager.post("/api/v1/goals/${created.id}/deactivate").status)
         assertEquals(GoalStatus.DRAFT, manager.get("/api/v1/goals/${created.id}").body<GoalResponse>().status)
 
-        // Every hop is in the audit trail.
+        // Every hop is in the audit trail, newest first.
         val events = manager.get("/api/v1/goals/${created.id}/events").body<GoalEventListResponse>()
         assertEquals(
-            listOf("DRAFT>ACTIVE", "ACTIVE>ARCHIVED", "ARCHIVED>ACTIVE", "ACTIVE>DRAFT"),
+            listOf("ACTIVE>DRAFT", "ARCHIVED>ACTIVE", "ACTIVE>ARCHIVED", "DRAFT>ACTIVE"),
             events.items.filter { it.type == GoalEventType.STATUS_CHANGED }
                 .map { "${it.params["from"]}>${it.params["to"]}" },
         )
@@ -551,10 +551,10 @@ class GoalRoutesTest {
         }
         val afterEdit = manager.get("/api/v1/goals/${created.id}/events").body<GoalEventListResponse>()
         assertEquals(
-            listOf(GoalEventType.CREATED, GoalEventType.TITLE_CHANGED, GoalEventType.TARGET_CHANGED),
+            listOf(GoalEventType.TARGET_CHANGED, GoalEventType.TITLE_CHANGED, GoalEventType.CREATED),
             afterEdit.items.map { it.type },
         )
-        assertEquals(mapOf("from" to "10.0", "to" to "20.0"), afterEdit.items.last().params)
+        assertEquals(mapOf("from" to "10.0", "to" to "20.0"), afterEdit.items.first().params)
 
         // Re-sending the same document records nothing new.
         manager.put("/api/v1/goals/${created.id}") {
@@ -922,10 +922,10 @@ class GoalRoutesTest {
         // Idempotent in effect: a second delete is 404.
         assertEquals(HttpStatusCode.NotFound, manager.delete("/api/v1/goals/${created.id}").status)
 
-        // Events outlive the soft-deleted row, ending with the deletion.
+        // Events outlive the soft-deleted row; the deletion tops the newest-first list.
         val events = TestGoalEvents.service.listForGoal(created.id)
-        assertEquals(GoalEventType.DELETED, events.last().type)
-        assertEquals(pair.managerId, events.last().userId)
+        assertEquals(GoalEventType.DELETED, events.first().type)
+        assertEquals(pair.managerId, events.first().userId)
     }
 
     // ---- list views ----

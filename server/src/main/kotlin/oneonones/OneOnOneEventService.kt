@@ -24,7 +24,7 @@ class OneOnOneEventService(val database: R2dbcDatabase) {
     suspend fun create(event: OneOnOneEvent): UInt =
         log.create(event.meetingId, event.userId, event.type.name, event.params)
 
-    /** The 1:1 meeting's history, oldest first (id as a stable tiebreaker), with acting user names. */
+    /** The 1:1 meeting's history, newest first (id descending as the same-instant tiebreaker), with acting user names. */
     suspend fun listForMeeting(meetingId: UInt): List<OneOnOneEventResponse> =
         log.listFor(meetingId).map {
             OneOnOneEventResponse(

@@ -30,6 +30,7 @@ function describeEvent(e: PerformanceReviewEvent, t: TFunction): string {
   }
 }
 
+/** The review's audit history as a timeline (newest first, server-ordered), or an empty-state note. */
 export default function PerformanceReviewHistory({ reviewId }: { reviewId: number }) {
   const { t } = useTranslation();
   const { data: events, isLoading } = useQuery({

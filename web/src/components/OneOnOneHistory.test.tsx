@@ -37,19 +37,20 @@ describe("OneOnOneHistory", () => {
     localStorage.clear();
   });
 
-  test("renders each structured event localized, oldest first", async () => {
+  test("renders each structured event localized (newest first from the API)", async () => {
     mockFetch.mockResolvedValue(
       jsonResponse(200, {
+        // Newest first, the API's order since v2.8.2.
         items: [
-          event(1, "CREATED", { date: "2026-07-01", carriedOver: "2" }),
-          event(2, "DATE_CHANGED", { from: "2026-07-01", to: "2026-07-02" }),
-          event(3, "POINT_ADDED", { position: "1" }),
-          event(4, "DECISION_REMOVED", { position: "2" }),
-          event(5, "ACTION_ITEM_RESOLVED", { position: "3" }),
-          event(6, "ACTION_ITEM_DUE_DATE_CHANGED", { position: "1", from: "", to: "2026-08-01" }),
-          event(7, "ACTION_ITEM_DUE_DATE_CHANGED", { position: "1", from: "2026-08-01", to: "" }),
-          event(8, "ACTION_ITEM_OWNER_CHANGED", { position: "2", from: "MANAGER", to: "SUBORDINATE" }),
           event(9, "DELETED"),
+          event(8, "ACTION_ITEM_OWNER_CHANGED", { position: "2", from: "MANAGER", to: "SUBORDINATE" }),
+          event(7, "ACTION_ITEM_DUE_DATE_CHANGED", { position: "1", from: "2026-08-01", to: "" }),
+          event(6, "ACTION_ITEM_DUE_DATE_CHANGED", { position: "1", from: "", to: "2026-08-01" }),
+          event(5, "ACTION_ITEM_RESOLVED", { position: "3" }),
+          event(4, "DECISION_REMOVED", { position: "2" }),
+          event(3, "POINT_ADDED", { position: "1" }),
+          event(2, "DATE_CHANGED", { from: "2026-07-01", to: "2026-07-02" }),
+          event(1, "CREATED", { date: "2026-07-01", carriedOver: "2" }),
         ],
       }),
     );

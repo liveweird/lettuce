@@ -70,7 +70,7 @@ function describeEvent(
   }
 }
 
-/** The 1:1 meeting's audit history as a timeline (oldest first), or an empty-state note. */
+/** The 1:1 meeting's audit history as a timeline (newest first, server-ordered), or an empty-state note. */
 export default function OneOnOneHistory({
   meetingId,
   managerName,
