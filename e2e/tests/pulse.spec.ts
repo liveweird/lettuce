@@ -267,6 +267,37 @@ test("admin closes; a respondent reads team results; the non-responding manager 
   // A child-less team's card carries the note instead of a table; comments never show here.
   await expect(page.getByText("This team has no sub-teams to compare.").first()).toBeVisible();
   await expect(page.getByText(COMMENT)).toHaveCount(0);
+
+  // The Trend tab (v2.11.0), same session: the team picker defaults to the first visible
+  // team alphabetically (AAA — childless, so its note shows), then CCC brings the full
+  // chip roster. Chart presence is RUN-DEPENDENT (CI has exactly one closed cycle → the
+  // pending text; shared-DB reruns accumulate cycles → the chart renders), so both legs
+  // assert an either-or locator and never point counts or values (the delta stance).
+  await page.goto("/pulse?tab=trend");
+  await expect(
+    page.getByText("This team has no sub-teams — both lines cover the same people."),
+  ).toBeVisible();
+  const chartOrPending = page
+    .getByText("The trend appears after two closed cycles.")
+    .or(page.locator("svg.recharts-surface"))
+    .first();
+  await expect(chartOrPending).toBeVisible();
+  // Pick CCC (the closed Selects' mounted-listbox gotcha: address the input by combobox role).
+  await page.getByRole("combobox", { name: "Team" }).click();
+  await page.getByRole("option", { name: "CCC" }).click();
+  // Scope to the chips group: the closed team Select keeps its listbox MOUNTED (the v2.7.0
+  // gotcha), so a bare getByText("AAA") strict-violates against the hidden option.
+  const chips = page.getByRole("group", { name: "Compared scopes" });
+  await expect(chips.getByText("Own members", { exact: true })).toBeVisible();
+  await expect(chips.getByText("The team and everyone below", { exact: true })).toBeVisible();
+  await expect(chips.getByText("AAA", { exact: true })).toBeVisible();
+  await expect(chips.getByText("BBB", { exact: true })).toBeVisible();
+  await expect(chartOrPending).toBeVisible();
+  // The metric switch survives the same way (the SegmentedControl's hidden-radio gotcha —
+  // click the visible label); the driver's full text appears as the caption.
+  await page.getByText("Q2", { exact: true }).click();
+  await expect(page.getByText("I understand what is expected of me in my role.")).toBeVisible();
+  await expect(chartOrPending).toBeVisible();
 });
 
 test("cancelling a scheduled cycle is confirmed and leaves the registry terminal", async ({ page }) => {

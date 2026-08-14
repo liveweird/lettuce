@@ -6,8 +6,9 @@ import { useIsManager } from "../hooks/useIsManager";
 import PulseParticipation from "./PulseParticipation";
 import PulseResults from "./PulseResults";
 import PulseSurvey from "./PulseSurvey";
+import PulseTrend from "./PulseTrend";
 
-const TABS = ["survey", "results", "participation"] as const;
+const TABS = ["survey", "results", "trend", "participation"] as const;
 type PulseTab = (typeof TABS)[number];
 
 function isPulseTab(value: string | null): value is PulseTab {
@@ -16,7 +17,8 @@ function isPulseTab(value: string | null): value is PulseTab {
 
 /**
  * The nav "Pulse" hub (the MyGoals tab idiom): the caller's current survey, the team results
- * for closed cycles, and — for managers and HR — the participation monitor.
+ * for closed cycles, the multi-scope trend across cycles (v2.11.0), and — for managers and
+ * HR — the participation monitor.
  */
 export default function Pulse() {
   const { t } = useTranslation();
@@ -52,6 +54,9 @@ export default function Pulse() {
           <Tabs.Tab value="results" data-tour="pulse-results">
             {t("pulse.tab.results")}
           </Tabs.Tab>
+          <Tabs.Tab value="trend" data-tour="pulse-trend">
+            {t("pulse.tab.trend")}
+          </Tabs.Tab>
           {canMonitor && (
             <Tabs.Tab value="participation" data-tour="pulse-participation">
               {t("pulse.tab.participation")}
@@ -64,6 +69,9 @@ export default function Pulse() {
         </Tabs.Panel>
         <Tabs.Panel value="results" pt="md">
           <PulseResults />
+        </Tabs.Panel>
+        <Tabs.Panel value="trend" pt="md">
+          <PulseTrend />
         </Tabs.Panel>
         {canMonitor && (
           <Tabs.Panel value="participation" pt="md">

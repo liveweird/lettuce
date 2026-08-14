@@ -3,6 +3,7 @@
   "tab": {
     "survey": "Current survey",
     "results": "Results",
+    "trend": "Trend",
     "participation": "Participation"
   },
   "surveyIntro": "A short anonymous survey about how it feels to work here. Results are only ever shown aggregated by team.",
@@ -127,6 +128,19 @@
     "commentsTitle": "Comments",
     "commentsAnonymized": "Shown anonymized and in random order.",
     "loadError": "Could not load the results."
+  },
+  "trend": {
+    "team": "Team",
+    "metricAria": "Trend metric",
+    "metricLabel": {
+      "enps": "eNPS",
+      "q2": "Q2",
+      "q3": "Q3",
+      "q4": "Q4",
+      "q5": "Q5"
+    },
+    "seriesAria": "Compared scopes",
+    "noChildren": "This team has no sub-teams — both lines cover the same people."
   },
   "participation": {
     "hint": "Who of your reports has submitted the survey — never their answers.",

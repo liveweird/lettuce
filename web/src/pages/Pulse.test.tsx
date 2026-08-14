@@ -54,11 +54,12 @@ describe("Pulse hub", () => {
     expect(screen.getByText("HOME")).toBeInTheDocument();
   });
 
-  test("the survey and results tabs render for everyone; participation stays manager/HR-only", async () => {
+  test("the survey, results, and trend tabs render for everyone; participation stays manager/HR-only", async () => {
     setupMocks();
     renderHub();
     expect(await screen.findByRole("tab", { name: "Current survey" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Results" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Trend" })).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Participation" })).toBeNull();
     // The tabs carry the data-tour anchors the guided tour targets for its subsection steps.
     expect(screen.getByRole("tab", { name: "Current survey" })).toHaveAttribute(
@@ -66,6 +67,7 @@ describe("Pulse hub", () => {
       "pulse-survey",
     );
     expect(screen.getByRole("tab", { name: "Results" })).toHaveAttribute("data-tour", "pulse-results");
+    expect(screen.getByRole("tab", { name: "Trend" })).toHaveAttribute("data-tour", "pulse-trend");
   });
 
   test("a manager gets the participation tab and ?tab= picks it", async () => {
@@ -90,5 +92,11 @@ describe("Pulse hub", () => {
     setupMocks();
     renderHub("/pulse?tab=results");
     expect(await screen.findByRole("tab", { name: "Results" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  test("?tab=trend selects the trend tab for everyone", async () => {
+    setupMocks();
+    renderHub("/pulse?tab=trend");
+    expect(await screen.findByRole("tab", { name: "Trend" })).toHaveAttribute("aria-selected", "true");
   });
 });

@@ -3,30 +3,42 @@ import { ChartTooltip, LineChart } from "@mantine/charts";
 import { useTranslation } from "react-i18next";
 import { formatDate } from "../utils/datetime";
 
-export interface PulseTrendChartPoint {
-  closedAt: number;
-  enps: number;
-  n: number;
+export interface PulseTrendSeriesDef {
+  name: string;
+  label: string;
+  color: string;
 }
 
 /**
- * The per-team eNPS trend across closed cycles. A lazy chunk (recharts must never enter the
- * main bundle — the TeamKpiChart rule; the styles.css import must ride this chunk). The
- * response count rides the tooltip so no number ever shows without its n.
+ * The trend line chart across closed cycles — single-series in the result cards' eNPS
+ * mini-chart, multi-series on the Trend tab (v2.11.0). A lazy chunk (recharts must never
+ * enter the main bundle — the TeamKpiChart rule; the styles.css import must ride this
+ * chunk). Rows are keyed by `closedAt` with one column per series name plus `n_<name>`
+ * count columns, which ride the tooltip so no number ever shows without its n; undefined
+ * cells render as line gaps (withheld or not-responded cycles).
  */
-export default function PulseTrendChart({ points }: { points: PulseTrendChartPoint[] }) {
-  const { t, i18n } = useTranslation();
+export default function PulseTrendChart({
+  data,
+  series,
+  yDomain = [-100, 100],
+}: {
+  data: Record<string, number | undefined>[];
+  series: PulseTrendSeriesDef[];
+  yDomain?: [number, number];
+}) {
+  const { i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
-  const series = [{ name: "enps", label: t("pulse.results.enps"), color: "lettuce.6" }];
+  const seriesNames = new Set(series.map((s) => s.name));
   return (
     <LineChart
-      h={200}
-      data={points}
+      h={series.length > 1 ? 260 : 200}
+      data={data}
       dataKey="closedAt"
       series={series}
       curveType="linear"
+      connectNulls={false}
       withDots
-      yAxisProps={{ domain: [-100, 100], allowDecimals: false }}
+      yAxisProps={{ domain: yDomain, allowDecimals: false }}
       xAxisProps={{
         type: "number",
         domain: ["dataMin", "dataMax"],
@@ -34,18 +46,20 @@ export default function PulseTrendChart({ points }: { points: PulseTrendChartPoi
       }}
       tooltipProps={{
         content: ({ label, payload }) => {
-          // Numeric-x tooltips include a ghost row for the x dataKey — filter it out (the
-          // TeamKpiChart gotcha) and append the point's n to the label.
-          const point = payload?.[0]?.payload as PulseTrendChartPoint | undefined;
-          const heading =
-            typeof label === "number"
-              ? `${formatDate(label, locale)} (n=${point?.n ?? "?"})`
-              : label;
+          // Numeric-x tooltips include ghost rows for the x dataKey and the n_* columns —
+          // the series-name allowlist drops them all (the TeamKpiChart gotcha). Each
+          // series' n is appended to its own label instead.
+          const row = payload?.[0]?.payload as Record<string, number | undefined> | undefined;
+          const heading = typeof label === "number" ? formatDate(label, locale) : label;
+          const enriched = series.map((s) => ({
+            ...s,
+            label: `${s.label} (n=${row?.[`n_${s.name}`] ?? "?"})`,
+          }));
           return (
             <ChartTooltip
               label={heading}
-              payload={(payload ?? []).filter((item) => item.dataKey !== "closedAt" && item.dataKey !== "n")}
-              series={series}
+              payload={(payload ?? []).filter((item) => seriesNames.has(String(item.dataKey)))}
+              series={enriched}
             />
           );
         },

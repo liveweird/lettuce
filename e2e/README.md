@@ -166,8 +166,8 @@ commit** — this list is the suite's coverage map, and it has drifted three tim
   picking the Monday).
 - `tour.spec.ts` — replays the guided tour twice, pinning the landmark order (whole left menu —
   Changelog included — and every tab of the views it opens, before the header icons): as a
-  manager (49 of the 52 steps — the three admin-only Config leaves are correctly absent) and as
-  the admin (44 steps — the manager-gated tabs drop out, the admin-only leaves join).
+  manager (50 of the 53 steps — the three admin-only Config leaves are correctly absent) and as
+  the admin (45 steps — the manager-gated tabs drop out, the admin-only leaves join).
 - `alerts.spec.ts` — admin creates an alert; a regular user sees the **banner**, hides it to the
   strip and re-shows it (and has no alert management); deactivation and delete remove it.
 - `user-details.spec.ts` — the read-only user-details view: the name links (v2.5.2 — the
@@ -190,9 +190,12 @@ commit** — this list is the suite's coverage map, and it has drifted three tim
   **comments** (the fill-gate/monitoring split); Manager CCC (a respondent in no team scope)
   flips the **Sub-team comparison** mode (v2.10.0) and reads the CCC card's packed table —
   Own-members and BBB rows k-withheld with counts visible, the AAA subtree row's hand-computed
-  favorables, no comments in the view, the child-less AAA/BBB cards' note; and a scheduled
-  cycle is **cancelled** with the audit-honest confirmation. Runs in its own serial phase —
-  see "Parallel execution".
+  favorables, no comments in the view, the child-less AAA/BBB cards' note; the same session
+  opens the **Trend** tab (v2.11.0) — the childless default team's note, CCC's four scope
+  chips via the team picker, and the metric switch to Q2, asserting chart-or-pending
+  either-or locators only (chart presence is run-dependent: CI has one closed cycle, reruns
+  accumulate); and a scheduled cycle is **cancelled** with the audit-honest confirmation.
+  Runs in its own serial phase — see "Parallel execution".
 
 Specs log in with the seeded accounts (`admin@lettuce.local`, `manager-aaa@…`, `aaa-one/two/three@…`,
 all password `changeme`), capture created ids from API responses so they act on their own rows, and

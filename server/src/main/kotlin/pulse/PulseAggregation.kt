@@ -132,6 +132,13 @@ fun aggregateDriver(answers: List<PulseScaleAnswer>): PulseDriverResult {
     )
 }
 
+/**
+ * Favorable share (4–5 among valid, 1dp percent) of one driver over a scope's answers;
+ * null when no valid (non-NA) answers exist. Backs the trend points' per-driver fields.
+ */
+fun driverFavorablePct(answers: List<PulseAnswers>, question: PulseDriverQuestion): Double? =
+    aggregateDriver(driverAnswers(answers, question)).favorablePct
+
 private fun driverAnswers(answers: List<PulseAnswers>, question: PulseDriverQuestion): List<PulseScaleAnswer> =
     answers.map {
         when (question) {

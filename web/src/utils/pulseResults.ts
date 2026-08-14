@@ -1,5 +1,5 @@
 import type { TFunction } from "i18next";
-import type { PulseCycle, PulseTrendPoint } from "../api/client";
+import type { PulseCycle, PulseTrendPoint, PulseTrendResponse } from "../api/client";
 import { formatIsoDate } from "./datetime";
 
 /** Delta presentation: improvements teal, declines red, flat/absent dimmed (never "significant"). */
@@ -38,11 +38,68 @@ export function enpsBandColor(score: number): "red" | "dimmed" | "teal" {
   return "teal";
 }
 
-/** The chart's series: only points whose eNPS is actually available, oldest first. */
-export function buildTrendSeries(points: PulseTrendPoint[]): { closedAt: number; enps: number; n: number }[] {
+/** The card mini-chart's series: only points whose eNPS is actually available, oldest first.
+ *  The count column is n_enps — the generalized chart's `n_<seriesName>` tooltip convention. */
+export function buildTrendSeries(points: PulseTrendPoint[]): { closedAt: number; enps: number; n_enps: number }[] {
   return points
     .filter((p) => p.availability === "OK" && p.enps != null)
-    .map((p) => ({ closedAt: p.closedAt, enps: p.enps!, n: p.responseCount ?? 0 }));
+    .map((p) => ({ closedAt: p.closedAt, enps: p.enps!, n_enps: p.responseCount ?? 0 }));
+}
+
+/** The Trend tab's metric picker: eNPS plus the fixed drivers' favorable% (the rotating
+ *  question deliberately has no trend — it changes between cycles). */
+export const TREND_METRICS = ["enps", "q2", "q3", "q4", "q5"] as const;
+export type TrendMetric = (typeof TREND_METRICS)[number];
+
+/** Stable, dot-free recharts dataKey for one comparison series. The (teamId, mode) PAIR is
+ *  the identity — the parent team appears twice (direct + subtree). */
+export function trendSeriesKey(series: Pick<PulseTrendResponse, "teamId" | "mode">): string {
+  return `t${series.teamId}_${series.mode}`;
+}
+
+export function trendMetricDomain(metric: TrendMetric): [number, number] {
+  return metric === "enps" ? [-100, 100] : [0, 100];
+}
+
+function metricValue(point: PulseTrendPoint, metric: TrendMetric): number | null | undefined {
+  switch (metric) {
+    case "enps":
+      return point.enps;
+    case "q2":
+      return point.favorableQ2;
+    case "q3":
+      return point.favorableQ3;
+    case "q4":
+      return point.favorableQ4;
+    case "q5":
+      return point.favorableQ5;
+  }
+}
+
+/**
+ * Chart rows for the multi-series comparison, keyed by closedAt: one column per series
+ * holding the picked metric on its OK points (undefined = line gap — withheld, not-responded,
+ * or an all-NA driver), plus an `n_<seriesKey>` column with that point's response count for
+ * the tooltip. Every series covers the same closed-cycle list, so rows zip by cycleId.
+ */
+export function buildTrendComparisonRows(
+  series: PulseTrendResponse[],
+  metric: TrendMetric,
+): Record<string, number | undefined>[] {
+  const first = series[0];
+  if (first == null) return [];
+  return first.points.map((anchor, index) => {
+    const row: Record<string, number | undefined> = { closedAt: anchor.closedAt };
+    for (const s of series) {
+      const point = s.points[index];
+      if (point == null || point.cycleId !== anchor.cycleId) continue;
+      const key = trendSeriesKey(s);
+      const value = point.availability === "OK" ? metricValue(point, metric) : null;
+      row[key] = value ?? undefined;
+      if (point.responseCount != null) row[`n_${key}`] = point.responseCount;
+    }
+    return row;
+  });
 }
 
 /** Closed cycles as Select options, newest first, labeled by close date. */

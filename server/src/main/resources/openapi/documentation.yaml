@@ -4320,6 +4320,32 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalServerError' }
 
+  /api/v1/pulse-surveys/trend-comparison:
+    parameters:
+      - $ref: '#/components/parameters/PulseTeamId'
+    get:
+      tags: [pulse-surveys]
+      operationId: getPulseTrendComparison
+      summary: Read a team's multi-scope trend across closed cycles
+      description: |
+        The trend series for the team's direct members, its whole subtree, and each direct
+        sub-team's subtree (no mode param — each series is self-describing; the parent team
+        appears twice, so a series is identified by its (teamId, mode) pair). Access as for
+        the single-team trend, checked on the PARENT team only (the visible tree is
+        transitive); HR org-wide, audited. The per-cycle fill gate applies POINT-WISE and
+        uniformly across every series for non-HR callers.
+      responses:
+        '200':
+          description: The trend-comparison bundle
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseTrendComparison' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
   /api/v1/pulse-surveys/visible-teams:
     get:
       tags: [pulse-surveys]
@@ -7755,6 +7781,18 @@ components:
           nullable: true
           description: Null for NOT_A_RESPONDENT (a non-respondent learns nothing about that cycle).
         responseRate: { type: number, format: double, nullable: true }
+        favorableQ2:
+          type: number
+          format: double
+          nullable: true
+          description: >-
+            Favorable share (Agree/Strongly agree among valid answers, 1dp percent) of the
+            fixed driver; null unless availability is OK — and null even then when every
+            answer was "Not applicable". The rotating question has no trend field: it
+            changes between cycles, so trending it is meaningless.
+        favorableQ3: { type: number, format: double, nullable: true }
+        favorableQ4: { type: number, format: double, nullable: true }
+        favorableQ5: { type: number, format: double, nullable: true }
 
     PulseTrendResponse:
       type: object
@@ -7767,6 +7805,21 @@ components:
           type: array
           items: { $ref: '#/components/schemas/PulseTrendPoint' }
           description: Non-cancelled CLOSED cycles, oldest first.
+
+    PulseTrendComparison:
+      type: object
+      required: [teamId, teamName, series]
+      properties:
+        teamId: { type: integer, format: int64, minimum: 0 }
+        teamName: { type: string }
+        series:
+          type: array
+          items: { $ref: '#/components/schemas/PulseTrendResponse' }
+          description: >-
+            The parent's direct scope, the parent's whole subtree, then one subtree series
+            per direct child team (name-ascending). A series is identified by its
+            (teamId, mode) pair — the parent appears twice. The subtree series is present
+            even for a childless team (identical to the direct one).
 
     TeamRef:
       type: object

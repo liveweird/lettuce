@@ -325,6 +325,7 @@ describe("Tour", () => {
       { target: '[data-tour="nav-pulse"]', path: "/pulse" },
       { target: '[data-tour="pulse-survey"]', path: "/pulse?tab=survey" },
       { target: '[data-tour="pulse-results"]', path: "/pulse?tab=results" },
+      { target: '[data-tour="pulse-trend"]', path: "/pulse?tab=trend" },
       { target: '[data-tour="pulse-participation"]', path: "/pulse?tab=participation" },
       { target: '[data-tour="nav-config"]', path: "/users" },
       { target: '[data-tour="config-users"]', path: "/users" },

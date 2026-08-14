@@ -13,6 +13,7 @@ import ch.nokillswit.authz.requirePulseMonitorAccess
 import ch.nokillswit.authz.requirePulseMyResponse
 import ch.nokillswit.authz.requirePulseResultsAccess
 import ch.nokillswit.authz.requirePulseTrendAccess
+import ch.nokillswit.authz.requirePulseTrendComparisonAccess
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.plugins.respondProblem
 import ch.nokillswit.settings.AppSettingsServiceKey
@@ -73,6 +74,12 @@ class PulseSurveys {
     @Resource("trend")
     class Trend(val parent: PulseSurveys = PulseSurveys())
 
+    // The multi-scope trend bundle (v2.11.0): own direct + own subtree + one subtree series
+    // per direct child team. No mode param — each series is self-describing.
+    @Serializable
+    @Resource("trend-comparison")
+    class TrendComparison(val parent: PulseSurveys = PulseSurveys())
+
     @Serializable
     @Resource("visible-teams")
     class VisibleTeams(val parent: PulseSurveys = PulseSurveys())
@@ -95,6 +102,53 @@ private fun Parameters.aggregationMode(): PulseAggregationMode {
     val raw = this["mode"] ?: return PulseAggregationMode.DIRECT
     return PulseAggregationMode.fromWire(raw)
         ?: throw BadRequestException("Unknown mode: $raw (allowed: direct, subtree)")
+}
+
+/**
+ * One trend point per closed cycle (oldest first) over one scope — shared by `/trend` and
+ * `/trend-comparison`. The per-cycle fill gate applies POINT-WISE for non-HR callers
+ * ([respondedCycleIds] null for HR): a cycle the caller sat out contributes a gap, not a
+ * number (and no counts either); a scope under the k-floor keeps its counts but no scores.
+ * [cycles] is a drained List — never nest queries inside an open flow (R2DBC deadlock).
+ */
+private suspend fun trendPoints(
+    cycles: List<PulseCycleRow>,
+    scope: Set<UInt>,
+    respondedCycleIds: Set<UInt>?,
+    responseService: PulseResponseService,
+): List<PulseTrendPoint> = cycles.map { c ->
+    if (respondedCycleIds != null && c.id !in respondedCycleIds) {
+        PulseTrendPoint(
+            cycleId = c.id,
+            closedAt = c.closedAt ?: 0,
+            availability = PulseTrendAvailability.NOT_A_RESPONDENT,
+        )
+    } else {
+        val answers = responseService.answersForScope(c.id, scope)
+        val participantCount = responseService.participantCountForScope(c.id, scope)
+        if (answers.size < MIN_PULSE_RESPONSES) {
+            PulseTrendPoint(
+                cycleId = c.id,
+                closedAt = c.closedAt ?: 0,
+                availability = PulseTrendAvailability.NOT_ENOUGH_RESPONSES,
+                responseCount = answers.size,
+                responseRate = pulseResponseRate(answers.size, participantCount),
+            )
+        } else {
+            PulseTrendPoint(
+                cycleId = c.id,
+                closedAt = c.closedAt ?: 0,
+                availability = PulseTrendAvailability.OK,
+                enps = aggregateEnps(answers.map { it.enps }).score,
+                responseCount = answers.size,
+                responseRate = pulseResponseRate(answers.size, participantCount),
+                favorableQ2 = driverFavorablePct(answers, PulseDriverQuestion.Q2),
+                favorableQ3 = driverFavorablePct(answers, PulseDriverQuestion.Q3),
+                favorableQ4 = driverFavorablePct(answers, PulseDriverQuestion.Q4),
+                favorableQ5 = driverFavorablePct(answers, PulseDriverQuestion.Q5),
+            )
+        }
+    }
 }
 
 fun Application.configurePulseRoutes() {
@@ -589,42 +643,53 @@ fun Application.configurePulseRoutes() {
                     visibleTeamIds = { teamService.visibleTeamTreeIds(caller.userId) },
                 )
                 val scope = teamService.teamScopeMembers(teamId, subtree = mode == PulseAggregationMode.SUBTREE)
-                // The per-cycle fill gate applies POINT-WISE for non-HR callers: a cycle the
-                // caller sat out contributes a gap, not a number (and no counts either).
                 val respondedCycleIds = if (caller.isHr()) null else responseService.respondedCycleIds(caller.userId)
-                val points = cycleService.closedCyclesAsc().map { c ->
-                    if (respondedCycleIds != null && c.id !in respondedCycleIds) {
-                        PulseTrendPoint(
-                            cycleId = c.id,
-                            closedAt = c.closedAt ?: 0,
-                            availability = PulseTrendAvailability.NOT_A_RESPONDENT,
-                        )
-                    } else {
-                        val answers = responseService.answersForScope(c.id, scope)
-                        val participantCount = responseService.participantCountForScope(c.id, scope)
-                        if (answers.size < MIN_PULSE_RESPONSES) {
-                            PulseTrendPoint(
-                                cycleId = c.id,
-                                closedAt = c.closedAt ?: 0,
-                                availability = PulseTrendAvailability.NOT_ENOUGH_RESPONSES,
-                                responseCount = answers.size,
-                                responseRate = pulseResponseRate(answers.size, participantCount),
-                            )
-                        } else {
-                            PulseTrendPoint(
-                                cycleId = c.id,
-                                closedAt = c.closedAt ?: 0,
-                                availability = PulseTrendAvailability.OK,
-                                enps = aggregateEnps(answers.map { it.enps }).score,
-                                responseCount = answers.size,
-                                responseRate = pulseResponseRate(answers.size, participantCount),
-                            )
-                        }
+                val points = trendPoints(cycleService.closedCyclesAsc(), scope, respondedCycleIds, responseService)
+                call.respond(
+                    HttpStatusCode.OK,
+                    PulseTrendResponse(teamId = teamId, teamName = team.name, mode = mode, points = points),
+                )
+            }
+            get<PulseSurveys.TrendComparison> {
+                val caller = call.pulseCaller()
+                val teamId = call.request.queryParameters.requiredTeamId()
+                val team = teamService.read(teamId)
+                if (team == null) {
+                    call.respondProblem(HttpStatusCode.NotFound, "Team not found")
+                    return@get
+                }
+                // Checked on the PARENT only — the visible tree is transitive, so every child
+                // series is a team the caller could query alone via /trend.
+                requirePulseTrendComparisonAccess(
+                    caller,
+                    teamId = teamId,
+                    visibleTeamIds = { teamService.visibleTeamTreeIds(caller.userId) },
+                )
+                // Everything cycle-independent resolved once; series built sequentially.
+                val cycles = cycleService.closedCyclesAsc()
+                val respondedCycleIds = if (caller.isHr()) null else responseService.respondedCycleIds(caller.userId)
+                val directScope = teamService.teamScopeMembers(teamId, subtree = false)
+                val subtreeScope = teamService.teamScopeMembers(teamId, subtree = true)
+                val children = teamService.teamRefs(teamService.childTeamIds(teamId))
+                val directPoints = trendPoints(cycles, directScope, respondedCycleIds, responseService)
+                // Childless teams: the subtree scope IS the direct scope — reuse the points
+                // (PulseTrendPoint carries no mode) instead of re-decrypting every cycle. The
+                // series itself is always present: the contract stays uniformly 3-family.
+                val subtreePoints =
+                    if (subtreeScope == directScope) directPoints
+                    else trendPoints(cycles, subtreeScope, respondedCycleIds, responseService)
+                val series = buildList {
+                    add(PulseTrendResponse(teamId, team.name, PulseAggregationMode.DIRECT, directPoints))
+                    add(PulseTrendResponse(teamId, team.name, PulseAggregationMode.SUBTREE, subtreePoints))
+                    children.forEach { child ->
+                        val childScope = teamService.teamScopeMembers(child.id, subtree = true)
+                        val childPoints = trendPoints(cycles, childScope, respondedCycleIds, responseService)
+                        add(PulseTrendResponse(child.id, child.name, PulseAggregationMode.SUBTREE, childPoints))
                     }
                 }
                 call.respond(
                     HttpStatusCode.OK,
-                    PulseTrendResponse(teamId = teamId, teamName = team.name, mode = mode, points = points),
+                    PulseTrendComparison(teamId = teamId, teamName = team.name, series = series),
                 )
             }
             get<PulseSurveys.VisibleTeams> {
