@@ -342,4 +342,22 @@ class GuardsTest {
         // The general write guard is untouched: the subordinate still cannot use it.
         assertFailsWith<ForbiddenException> { ch.nokillswit.authz.requireGoalWrite(subject, active) }
     }
+
+    @Test
+    fun `career position writes are the transitive chain's alone`() {
+        runBlocking {
+            // The guard is a pure gate over the chain check — role never matters (v2.15.0:
+            // ADMIN and HR are deliberately in the shut-out set; only the chain answer counts).
+            ch.nokillswit.authz.requireCareerPositionWrite(stranger) { true }
+            assertFailsWith<ForbiddenException> {
+                ch.nokillswit.authz.requireCareerPositionWrite(stranger) { false }
+            }
+            assertFailsWith<ForbiddenException> {
+                ch.nokillswit.authz.requireCareerPositionWrite(admin) { false }
+            }
+            assertFailsWith<ForbiddenException> {
+                ch.nokillswit.authz.requireCareerPositionWrite(hr) { false }
+            }
+        }
+    }
 }

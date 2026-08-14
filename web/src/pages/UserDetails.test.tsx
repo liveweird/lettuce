@@ -179,6 +179,12 @@ describe("UserDetails page", () => {
       "href",
       `/users/5/goals?name=Bob&from=details&back=${BACK_HERE}&manages=1`,
     );
+    // The Profile section's career drill-down (v2.15.0) carries the same round-trip params —
+    // manages=1 is what reveals the chain-manager editor on the career page.
+    expect(screen.getByRole("link", { name: "Career progression of Bob" })).toHaveAttribute(
+      "href",
+      `/users/5/career?name=Bob&from=details&back=${BACK_HERE}&manages=1`,
+    );
     // The subordinate flavor carries all four labeled sections (v1.46.0); "Days off"
     // matches the caption AND the drill-down button's text.
     expect(screen.getByText("Profile")).toBeInTheDocument();

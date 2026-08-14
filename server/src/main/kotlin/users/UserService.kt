@@ -70,11 +70,8 @@ class UserService(val database: R2dbcDatabase) {
         val deactivated = bool("deactivated").default(false)
         val passwordChangedAt = long("password_changed_at").default(0)
 
-        // Career profile refs into dictionary_entries (V33). Plain nullable id columns —
-        // the FK lives in the migration; Exposed defs are query-only.
-        val careerPathId = uinteger("career_path_id").nullable()
-        val careerSpecializationId = uinteger("career_specialization_id").nullable()
-        val seniorityLevelId = uinteger("seniority_level_id").nullable()
+        // The V33 career ref columns were dropped by V57 — the triple now derives from the
+        // user's latest career position (users/CareerPositionService.kt).
 
         // Annual paid days-off allowance in whole days (V38); null = not configured.
         val paidDaysOffAllowance = integer("paid_days_off_allowance").nullable()
@@ -101,9 +98,6 @@ class UserService(val database: R2dbcDatabase) {
             it[name] = user.name
             it[email] = user.email
             it[passwordHash] = user.passwordHash
-            it[careerPathId] = user.careerPathId
-            it[careerSpecializationId] = user.careerSpecializationId
-            it[seniorityLevelId] = user.seniorityLevelId
             it[paidDaysOffAllowance] = user.paidDaysOffAllowance
         }
         val id = newRecord[Users.id].value
@@ -148,9 +142,6 @@ class UserService(val database: R2dbcDatabase) {
             it[name] = user.name
             it[email] = user.email
             it[passwordHash] = user.passwordHash
-            it[careerPathId] = user.careerPathId
-            it[careerSpecializationId] = user.careerSpecializationId
-            it[seniorityLevelId] = user.seniorityLevelId
             it[paidDaysOffAllowance] = user.paidDaysOffAllowance
         }
         if (affected > 0) {
@@ -281,9 +272,6 @@ class UserService(val database: R2dbcDatabase) {
                         id = row[Users.id].value,
                         name = row[Users.name],
                         email = row[Users.email],
-                        careerPathId = row[Users.careerPathId],
-                        careerSpecializationId = row[Users.careerSpecializationId],
-                        seniorityLevelId = row[Users.seniorityLevelId],
                         paidDaysOffAllowance = row[Users.paidDaysOffAllowance],
                         deactivated = row[Users.deactivated],
                         emailNotificationsEnabled = row[Users.emailNotificationsEnabled],
@@ -294,18 +282,16 @@ class UserService(val database: R2dbcDatabase) {
             val rolesByUser = rolesByUserIds(rows.map { it.id })
             val featuresByUser = disabledFeaturesByUserIds(rows.map { it.id })
             val teamsByUser = teamRefsByUserIds(rows.map { it.id })
-            val entries = entriesByIds(
-                rows.flatMap { listOfNotNull(it.careerPathId, it.careerSpecializationId, it.seniorityLevelId) }.toSet(),
-            )
+            val profiles = currentProfilesByUserIds(rows.map { it.id }.toSet())
             val items = rows.map { row ->
                 UserResponse(
                     id = row.id,
                     name = row.name,
                     email = row.email,
                     roles = rolesByUser[row.id].orEmpty().sortedBy { r -> r.name },
-                    careerPath = row.careerPathId?.let { entries[it] },
-                    careerSpecialization = row.careerSpecializationId?.let { entries[it] },
-                    seniorityLevel = row.seniorityLevelId?.let { entries[it] },
+                    careerPath = profiles[row.id]?.careerPath,
+                    careerSpecialization = profiles[row.id]?.careerSpecialization,
+                    seniorityLevel = profiles[row.id]?.seniorityLevel,
                     paidDaysOffAllowance = row.paidDaysOffAllowance,
                     deactivated = row.deactivated,
                     disabledFeatures = featuresByUser[row.id].orEmpty().sortedBy { f -> f.name },
@@ -321,9 +307,6 @@ class UserService(val database: R2dbcDatabase) {
         val id: UInt,
         val name: String,
         val email: String,
-        val careerPathId: UInt?,
-        val careerSpecializationId: UInt?,
-        val seniorityLevelId: UInt?,
         val paidDaysOffAllowance: Int?,
         val deactivated: Boolean,
         val emailNotificationsEnabled: Boolean,
@@ -442,9 +425,6 @@ class UserService(val database: R2dbcDatabase) {
         disabledFeatures = disabledFeatures,
         deactivated = this[Users.deactivated],
         passwordChangedAt = this[Users.passwordChangedAt],
-        careerPathId = this[Users.careerPathId],
-        careerSpecializationId = this[Users.careerSpecializationId],
-        seniorityLevelId = this[Users.seniorityLevelId],
         paidDaysOffAllowance = this[Users.paidDaysOffAllowance],
         emailNotificationsEnabled = this[Users.emailNotificationsEnabled],
     )
@@ -459,40 +439,62 @@ class UserService(val database: R2dbcDatabase) {
         suspendTransaction(database) { entriesByIds(ids.filterNotNull().toSet()) }
 
     /**
-     * Batch career-profile resolution for a page of user ids (route-side list enrichment —
-     * the /teams/members rows). Two queries total: the users' ref columns, then one
-     * [entriesByIds] over every referenced entry. Soft-deleted entries resolve as everywhere.
+     * Batch career-profile resolution for a set of user ids (route-side enrichment — the
+     * /teams/members rows and the single-user GET). Since v2.15.0 the triple derives from each
+     * user's CURRENT career position — the latest active `user_career_positions` row (future
+     * starts are rejected on write, so latest == current; users with no positions are absent
+     * from the map). Two queries total: the position rows, then one [entriesByIds] over every
+     * referenced entry. Soft-deleted entries resolve as everywhere.
      */
     suspend fun careerProfilesByUserIds(ids: Set<UInt>): Map<UInt, CareerProfile> {
         if (ids.isEmpty()) return emptyMap()
-        return suspendTransaction(database) {
-            val refs = Users
-                .select(Users.id, Users.careerPathId, Users.careerSpecializationId, Users.seniorityLevelId)
-                .where { Users.id inList ids }
-                .map {
-                    CareerRefs(
-                        userId = it[Users.id].value,
-                        careerPathId = it[Users.careerPathId],
-                        careerSpecializationId = it[Users.careerSpecializationId],
-                        seniorityLevelId = it[Users.seniorityLevelId],
-                    )
-                }
-                .toList()
-            val entries = entriesByIds(
-                refs.flatMap { listOfNotNull(it.careerPathId, it.careerSpecializationId, it.seniorityLevelId) }.toSet(),
+        return suspendTransaction(database) { currentProfilesByUserIds(ids) }
+    }
+
+    /** Must run inside a transaction — see [careerProfilesByUserIds]. */
+    private suspend fun currentProfilesByUserIds(ids: Set<UInt>): Map<UInt, CareerProfile> {
+        if (ids.isEmpty()) return emptyMap()
+        val positions = CareerPositionService.CareerPositions
+            .select(
+                CareerPositionService.CareerPositions.userId,
+                CareerPositionService.CareerPositions.startDate,
+                CareerPositionService.CareerPositions.careerPathId,
+                CareerPositionService.CareerPositions.careerSpecializationId,
+                CareerPositionService.CareerPositions.seniorityLevelId,
             )
-            refs.associate { r ->
-                r.userId to CareerProfile(
-                    careerPath = r.careerPathId?.let { entries[it] },
-                    careerSpecialization = r.careerSpecializationId?.let { entries[it] },
-                    seniorityLevel = r.seniorityLevelId?.let { entries[it] },
+            .where {
+                (CareerPositionService.CareerPositions.userId inList ids) and
+                    (CareerPositionService.CareerPositions.markedAsDeleted eq false)
+            }
+            .map {
+                CurrentPositionRefs(
+                    userId = it[CareerPositionService.CareerPositions.userId].value,
+                    startDate = it[CareerPositionService.CareerPositions.startDate],
+                    careerPathId = it[CareerPositionService.CareerPositions.careerPathId],
+                    careerSpecializationId = it[CareerPositionService.CareerPositions.careerSpecializationId],
+                    seniorityLevelId = it[CareerPositionService.CareerPositions.seniorityLevelId],
                 )
             }
+            .toList()
+        // Latest start per user == current (strict ISO keeps the VARCHAR comparison chronological).
+        val current = positions.groupBy { it.userId }.mapValues { (_, rows) -> rows.maxBy { it.startDate } }
+        val entries = entriesByIds(
+            current.values
+                .flatMap { listOfNotNull(it.careerPathId, it.careerSpecializationId, it.seniorityLevelId) }
+                .toSet(),
+        )
+        return current.mapValues { (_, r) ->
+            CareerProfile(
+                careerPath = r.careerPathId?.let { entries[it] },
+                careerSpecialization = r.careerSpecializationId?.let { entries[it] },
+                seniorityLevel = r.seniorityLevelId?.let { entries[it] },
+            )
         }
     }
 
-    private data class CareerRefs(
+    private data class CurrentPositionRefs(
         val userId: UInt,
+        val startDate: String,
         val careerPathId: UInt?,
         val careerSpecializationId: UInt?,
         val seniorityLevelId: UInt?,

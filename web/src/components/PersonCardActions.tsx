@@ -11,6 +11,7 @@ import {
   IconMessageQuestion,
   IconMessages,
   IconPlus,
+  IconStairsUp,
   IconTargetArrow,
   IconUserPlus,
 } from "@tabler/icons-react";
@@ -20,6 +21,7 @@ import {
   feedbackRequestLink,
   userFeedbacksLink,
 } from "../utils/feedbackLinks";
+import { userCareerLink } from "../utils/careerLinks";
 import { userDaysOffLink } from "../utils/daysOffLinks";
 import { userGoalsLink } from "../utils/goalLinks";
 import { oneOnOneCreateLink, userOneOnOnesLink } from "../utils/oneOnOneLinks";
@@ -50,6 +52,7 @@ import {
 const LABELS = PERSON_CARD_ACTION_LABELS;
 
 const ICONS: Record<ButtonKey, React.ReactNode> = {
+  career: <IconStairsUp size={14} />,
   provide: <IconMessagePlus size={14} />,
   ask: <IconMessageQuestion size={14} />,
   request: <IconUserPlus size={14} />,
@@ -111,6 +114,7 @@ export default function PersonCardActions({
   const drillOpts = { back: drillBack, manages };
 
   const links: Partial<Record<ButtonKey, string>> = {
+    career: userCareerLink(userId, name, drillFrom ?? "managers", drillTeamId, drillOpts),
     provide: feedbackProvideLink(userId, name, back),
     ask: feedbackAskLink(userId, name, back),
     request: feedbackRequestLink(userId, name, back),
@@ -126,13 +130,15 @@ export default function PersonCardActions({
 
   // The feature check gates on the VIEWER's flags (v1.53.0, caller-only semantics) — it must
   // stay in lockstep with hasVisibleActions in personCardSupport.ts.
-  const visible = (Object.keys(ICONS) as ButtonKey[]).filter(
-    (key) =>
+  const visible = (Object.keys(ICONS) as ButtonKey[]).filter((key) => {
+    const feature = FEATURE_OF[key];
+    return (
       show[key] &&
       (only == null || only.includes(key)) &&
       labelSource[key] != null &&
-      hasFeature(FEATURE_OF[key]),
-  );
+      (feature == null || hasFeature(feature))
+    );
+  });
 
   const plainButton = (key: ButtonKey) => {
     const label = labelSource[key]!;

@@ -52,6 +52,7 @@ enum class NotificationType {
     PULSE_CYCLE_OPENED,
     PULSE_RESULTS_AVAILABLE,
     PULSE_CYCLE_CANCELLED,
+    CAREER_POSITION_STARTED_TO_USER,
     PASSWORD_CHANGED,
 }
 
@@ -108,7 +109,11 @@ val NotificationType.feature: Feature?
         NotificationType.PULSE_RESULTS_AVAILABLE,
         NotificationType.PULSE_CYCLE_CANCELLED,
         -> Feature.PULSE_SURVEYS
-        NotificationType.PASSWORD_CHANGED -> null
+        // Career positions ride the ungated users area (v2.15.0) — feature-neutral like the
+        // password notice, never filtered by a flag.
+        NotificationType.CAREER_POSITION_STARTED_TO_USER,
+        NotificationType.PASSWORD_CHANGED,
+        -> null
     }
 
 /**

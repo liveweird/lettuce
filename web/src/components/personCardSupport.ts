@@ -5,6 +5,7 @@
 import { hasFeature, type Feature } from "../api/client";
 
 export type ButtonKey =
+  | "career"
   | "provide"
   | "ask"
   | "request"
@@ -20,7 +21,9 @@ export type LabelPair = { aria: string; text: string };
 // The feature each button belongs to (v1.53.0): a button renders only while the VIEWER has
 // its feature enabled (caller-only semantics — the flags gate what the session user may do,
 // never what the card's person has). Team KPIs never surface as a person-card action.
-export const FEATURE_OF: Record<ButtonKey, Feature> = {
+// `null` (career, v2.15.0) = the ungated users area — the button never gates on a flag.
+export const FEATURE_OF: Record<ButtonKey, Feature | null> = {
+  career: null,
   provide: "FEEDBACKS",
   ask: "FEEDBACKS",
   request: "FEEDBACKS",
@@ -37,6 +40,9 @@ export const PERSON_CARD_ACTION_LABELS: Record<
   Partial<Record<ButtonKey, LabelPair>>
 > = {
   users: {
+    // The career-progression drill-down (v2.15.0) — readable for everyone, so every flavor
+    // carries it in its Profile section.
+    career: { aria: "users.careerProgressionFor", text: "users.careerProgression" },
     provide: { aria: "users.provideFeedbackTo", text: "users.provideFeedback" },
     ask: { aria: "users.askForFeedbackFrom", text: "users.askForFeedback" },
     // The drill-down texts are "… list" (v1.51.0) — under this flavor they sit inside (or next
@@ -46,6 +52,7 @@ export const PERSON_CARD_ACTION_LABELS: Record<
     goals: { aria: "users.goalsWith", text: "users.goals" },
   },
   teams: {
+    career: { aria: "teams.careerProgressionForAria", text: "teams.careerProgression" },
     provide: { aria: "teams.provideFeedbackToAria", text: "teams.provideFeedback" },
     ask: { aria: "teams.askForFeedbackAria", text: "teams.askForFeedback" },
     request: { aria: "teams.requestFeedbackAboutAria", text: "teams.requestFeedbackFor" },
@@ -103,8 +110,9 @@ export const ACTION_GROUPS: readonly ActionGroup[] = [
 
 // The card sections' button subsets (v1.46.0): PersonCardBody renders the buttons inside
 // their labeled sections via the `only` prop. The fixed button order splits cleanly at the
-// section boundaries (…goals | reviews | daysOff), so the overall button order across a
-// card is unchanged from the flat-footer era.
+// section boundaries (career | …goals | reviews | daysOff), so the overall button order
+// across a card is unchanged from the flat-footer era.
+export const PROFILE_ACTIONS: readonly ButtonKey[] = ["career"];
 export const OPERATIONAL_ACTIONS: readonly ButtonKey[] = [
   "provide",
   "ask",
@@ -129,5 +137,8 @@ export function hasVisibleActions(
   subset: readonly ButtonKey[],
 ): boolean {
   const labelSource = props.audit ? PERSON_CARD_ACTION_LABELS.audit : PERSON_CARD_ACTION_LABELS[props.labels];
-  return subset.some((key) => props.show[key] && labelSource[key] != null && hasFeature(FEATURE_OF[key]));
+  return subset.some((key) => {
+    const feature = FEATURE_OF[key];
+    return props.show[key] && labelSource[key] != null && (feature == null || hasFeature(feature));
+  });
 }

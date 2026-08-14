@@ -15,12 +15,10 @@ import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAdmin
 import ch.nokillswit.authz.requireCanAssignPaidDaysOffAllowance
-import ch.nokillswit.authz.requireCanAssignProfileFields
 import ch.nokillswit.authz.requireCanAssignRoles
 import ch.nokillswit.authz.requireSelfOrAdmin
 import ch.nokillswit.authz.requireUserRead
 import ch.nokillswit.daysoff.MAX_PAID_DAYS_OFF_ALLOWANCE
-import ch.nokillswit.dictionaries.Dictionary
 import ch.nokillswit.notifications.Notification
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.notifications.NotificationType
@@ -63,10 +61,6 @@ internal fun validatePassword(password: String) {
 }
 
 // Field validation (incl. the shared email rule) lives in users/Validation.kt.
-
-/** A (dictionary, id) ref to validate — only when [requested] actually changes [current]. */
-private fun changedRef(dict: Dictionary, requested: UInt?, current: UInt?): Pair<Dictionary, UInt>? =
-    requested?.takeIf { it != current }?.let { dict to it }
 
 /** Range rule for the paid days-off allowance (whole days). Runs AFTER the assign guard —
  * 403 wins over 400 for non-admins, the house convention. */
@@ -156,14 +150,6 @@ fun Application.configureUserRoutes() {
                 validatePassword(req.password)
                 // The whole POST is admin-only (requireAdmin above), so no assign guard needed.
                 validatePaidDaysOffAllowance(req.paidDaysOffAllowance)
-                // Every requested career ref is a fresh assignment here — all must be active.
-                userService.requireActiveEntries(
-                    listOfNotNull(
-                        changedRef(Dictionary.CAREER_PATH, req.careerPathId, null),
-                        changedRef(Dictionary.CAREER_SPECIALIZATION, req.careerSpecializationId, null),
-                        changedRef(Dictionary.SENIORITY_LEVEL, req.seniorityLevelId, null),
-                    ),
-                )
                 if (req.sendEmail && mailer == null) {
                     call.respondMailUnavailable("creating with the email option")
                     return@post
@@ -173,9 +159,6 @@ fun Application.configureUserRoutes() {
                     email = req.email,
                     passwordHash = hashPassword(req.password),
                     roles = req.roles?.toSet() ?: emptySet(),
-                    careerPathId = req.careerPathId,
-                    careerSpecializationId = req.careerSpecializationId,
-                    seniorityLevelId = req.seniorityLevelId,
                     paidDaysOffAllowance = req.paidDaysOffAllowance,
                 )
                 val id = userService.create(user)
@@ -185,9 +168,6 @@ fun Application.configureUserRoutes() {
                     "email" to user.email,
                     "roles" to user.roles.joinedNames(),
                 )
-                user.careerPathId?.let { createdFields += "careerPathId" to it.toLong() }
-                user.careerSpecializationId?.let { createdFields += "careerSpecializationId" to it.toLong() }
-                user.seniorityLevelId?.let { createdFields += "seniorityLevelId" to it.toLong() }
                 user.paidDaysOffAllowance?.let { createdFields += "allowance" to it.toLong() }
                 audit("user.created", *createdFields.toTypedArray())
                 // Same welcome email as the mass import; a delivery failure keeps the account
@@ -206,13 +186,9 @@ fun Application.configureUserRoutes() {
                     }
                 } else null
                 call.response.header(HttpHeaders.Location, call.application.href(Users.Id(id = id)))
-                val resolved = userService.resolveEntryRefs(
-                    user.careerPathId,
-                    user.careerSpecializationId,
-                    user.seniorityLevelId,
-                )
                 // Plain creates keep the pre-sendEmail wire shape (no emailSent key — Ktor's
-                // default Json encodes even null fields, which strict decoders reject).
+                // default Json encodes even null fields, which strict decoders reject). The
+                // career triple is always null here: a new user has no positions yet (v2.15.0).
                 if (emailSent != null) {
                     call.respond(
                         HttpStatusCode.Created,
@@ -222,9 +198,9 @@ fun Application.configureUserRoutes() {
                             user.email,
                             user.roles.sortedBy { it.name },
                             emailSent,
-                            careerPath = user.careerPathId?.let { resolved[it] },
-                            careerSpecialization = user.careerSpecializationId?.let { resolved[it] },
-                            seniorityLevel = user.seniorityLevelId?.let { resolved[it] },
+                            careerPath = null,
+                            careerSpecialization = null,
+                            seniorityLevel = null,
                             paidDaysOffAllowance = user.paidDaysOffAllowance,
                             deactivated = false,
                             disabledFeatures = listOf(Feature.MFA),
@@ -235,7 +211,7 @@ fun Application.configureUserRoutes() {
                     // create() stored the inverted-default MFA row — report the actual state.
                     call.respond(
                         HttpStatusCode.Created,
-                        user.copy(disabledFeatures = setOf(Feature.MFA)).toResponse(id, resolved),
+                        user.copy(disabledFeatures = setOf(Feature.MFA)).toResponse(id, profile = null),
                     )
                 }
             }
@@ -321,12 +297,9 @@ fun Application.configureUserRoutes() {
                 requireUserRead(call.caller(), route.id)
                 val user = userService.read(route.id)
                 if (user != null) {
-                    val resolved = userService.resolveEntryRefs(
-                        user.careerPathId,
-                        user.careerSpecializationId,
-                        user.seniorityLevelId,
-                    )
-                    call.respond(HttpStatusCode.OK, user.toResponse(route.id, resolved))
+                    // The triple = the user's current position (absent from the map = none).
+                    val profile = userService.careerProfilesByUserIds(setOf(route.id))[route.id]
+                    call.respond(HttpStatusCode.OK, user.toResponse(route.id, profile))
                 } else {
                     call.respondProblem(HttpStatusCode.NotFound, "User not found")
                 }
@@ -340,49 +313,27 @@ fun Application.configureUserRoutes() {
                     call.respondProblem(HttpStatusCode.NotFound, "User not found")
                     return@put
                 }
-                // Authz before validation: an unauthorized roles/profile change is 403, not 400.
+                // Authz before validation: an unauthorized roles/allowance change is 403, not 400.
                 requireCanAssignRoles(caller, existing.roles, req.roles.toSet())
-                requireCanAssignProfileFields(
-                    caller,
-                    req.careerPathId to existing.careerPathId,
-                    req.careerSpecializationId to existing.careerSpecializationId,
-                    req.seniorityLevelId to existing.seniorityLevelId,
-                )
                 requireCanAssignPaidDaysOffAllowance(caller, req.paidDaysOffAllowance, existing.paidDaysOffAllowance)
                 validateNameAndEmail(req.name, req.email)
                 validatePaidDaysOffAllowance(req.paidDaysOffAllowance)
-                // Validate only the CHANGED refs — resubmitting the current id (even one whose
-                // entry is now soft-deleted) is not a change. null = leave unchanged: a set
-                // value can never be cleared, by construction.
-                userService.requireActiveEntries(
-                    listOfNotNull(
-                        changedRef(Dictionary.CAREER_PATH, req.careerPathId, existing.careerPathId),
-                        changedRef(Dictionary.CAREER_SPECIALIZATION, req.careerSpecializationId, existing.careerSpecializationId),
-                        changedRef(Dictionary.SENIORITY_LEVEL, req.seniorityLevelId, existing.seniorityLevelId),
-                    ),
-                )
                 val user = User(
                     name = req.name,
                     email = req.email,
                     passwordHash = existing.passwordHash,
                     roles = req.roles.toSet(),
-                    careerPathId = req.careerPathId ?: existing.careerPathId,
-                    careerSpecializationId = req.careerSpecializationId ?: existing.careerSpecializationId,
-                    seniorityLevelId = req.seniorityLevelId ?: existing.seniorityLevelId,
                     paidDaysOffAllowance = req.paidDaysOffAllowance ?: existing.paidDaysOffAllowance,
                 )
                 val updated = userService.update(route.id, user)
                 if (updated == 0) {
                     call.respondProblem(HttpStatusCode.NotFound, "User not found")
                 } else {
-                    // Name and email are identity/security-relevant (email is the login identifier),
-                    // career refs shape the org directory; audit with deltas only for the fields
-                    // that actually changed.
-                    val profileChanged = user.careerPathId != existing.careerPathId ||
-                        user.careerSpecializationId != existing.careerSpecializationId ||
-                        user.seniorityLevelId != existing.seniorityLevelId ||
-                        user.paidDaysOffAllowance != existing.paidDaysOffAllowance
-                    if (req.name != existing.name || req.email != existing.email || profileChanged) {
+                    // Name and email are identity/security-relevant (email is the login
+                    // identifier); audit with deltas only for the fields that actually changed.
+                    // (Career changes moved to the career_position.* events in v2.15.0.)
+                    val allowanceChanged = user.paidDaysOffAllowance != existing.paidDaysOffAllowance
+                    if (req.name != existing.name || req.email != existing.email || allowanceChanged) {
                         val auditFields = mutableListOf<Pair<String, Any?>>(
                             "byUserId" to caller.userId.toLong(),
                             "targetUserId" to route.id.toLong(),
@@ -395,20 +346,9 @@ fun Application.configureUserRoutes() {
                             auditFields += "emailFrom" to existing.email
                             auditFields += "emailTo" to req.email
                         }
-                        // Entry ids, not values (ids are stable under renames; never log content
-                        // that isn't). From is omitted when the field was previously unset.
-                        fun delta(field: String, from: UInt?, to: UInt?) {
-                            if (to != null && to != from) {
-                                from?.let { auditFields += "${field}From" to it.toLong() }
-                                auditFields += "${field}To" to to.toLong()
-                            }
-                        }
-                        delta("careerPath", existing.careerPathId, user.careerPathId)
-                        delta("careerSpecialization", existing.careerSpecializationId, user.careerSpecializationId)
-                        delta("seniorityLevel", existing.seniorityLevelId, user.seniorityLevelId)
                         // The allowance shapes the paid-days budget — worth its own delta line
-                        // (From omitted when previously unset, like the career refs).
-                        if (user.paidDaysOffAllowance != existing.paidDaysOffAllowance) {
+                        // (From omitted when previously unset).
+                        if (allowanceChanged) {
                             existing.paidDaysOffAllowance?.let { auditFields += "allowanceFrom" to it.toLong() }
                             auditFields += "allowanceTo" to user.paidDaysOffAllowance!!.toLong()
                         }

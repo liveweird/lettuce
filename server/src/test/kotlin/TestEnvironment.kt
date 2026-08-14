@@ -220,6 +220,9 @@ object TestServices {
         ch.nokillswit.teams.TeamService(sharedTestDatabase)
     }
     val users: UserService by lazy { UserService(sharedTestDatabase) }
+    val careerPositions: ch.nokillswit.users.CareerPositionService by lazy {
+        ch.nokillswit.users.CareerPositionService(sharedTestDatabase)
+    }
     val alerts: ch.nokillswit.alerts.AlertService by lazy {
         ch.nokillswit.alerts.AlertService(sharedTestDatabase)
     }

@@ -50,7 +50,7 @@ ch.nokillswit
 ├── audit/              security audit trail: `audit(event, fields…)` → AUDIT-marked structured logs (see "Audit trail" in `.claude/docs/observability.md`)
 ├── authz/              RBAC guards + CallerPrincipal (see "Authorization model" in `.claude/docs/authorization.md`)
 ├── auth/               POST /api/v1/login (+ /login/mfa — the v2.4.0 opt-in email second factor, MfaChallenges store), /api/v1/refresh, /api/v1/logout, /api/v1/password-reset + token minting + password hashing + LoginThrottle/PasswordResetThrottle
-├── users/              /api/v1/users/* CRUD + list + mass CSV import + per-user feature flags (PUT {id}/features) + email-mirror opt-out (PUT {id}/email-notifications) + UserService + Users table
+├── users/              /api/v1/users/* CRUD + list + mass CSV import + per-user feature flags (PUT {id}/features) + email-mirror opt-out (PUT {id}/email-notifications) + the career-position timeline sub-resource ({id}/career-positions, v2.15.0 — see "Career progression" in `.claude/docs/features/dictionaries.md`) + UserService/CareerPositionService + Users/CareerPositions tables
 ├── teams/              /api/v1/teams/* CRUD + list + member sub-resource + TeamService + Teams/TeamMembers tables
 ├── templates/          /api/v1/templates/* CRUD + list + TemplateService + Templates table (read: any authenticated; write: ADMIN)
 ├── dictionaries/       /api/v1/dictionaries/{dictionary} read + whole-document replace + DictionaryService + dictionary_entries table (read: any authenticated; write: ADMIN — see "Dictionaries" in `.claude/docs/features/dictionaries.md`)
@@ -98,7 +98,7 @@ Each feature's authoritative deep-dive lives in `.claude/docs/features/`. **Befo
 - **Dictionaries & career profile** (`dictionaries/`, SPA `Dictionary*`, the users' career fields) → `.claude/docs/features/dictionaries.md` — the four global ordered lists (three career + the pulse rotating questions), whole-document PUT semantics, and the dictionary-backed career-profile refs on users.
 - **Notifications** (`notifications/`, SPA `NotificationsButton`) → `.claude/docs/features/notifications.md` — **the complete table of every situation that mints a notification** (typed structured rows, localized client-side) + the recipient-scoped routes. Read it before ANY change that creates or renders notifications.
 - **Alerts** (`alerts/`, SPA `Alert*`) → `.claude/docs/features/alerts.md` — admin-managed broadcast banners, server-side visibility windowing, the banner/strip UI contract.
-- **Migration catalog** → `.claude/docs/features/migrations.md` — the per-migration V1–V53 history. Read it before adding a migration or reasoning about schema history.
+- **Migration catalog** → `.claude/docs/features/migrations.md` — the per-migration V1–V57 history. Read it before adding a migration or reasoning about schema history.
 
 Users, teams, templates, auth, and dashboard have no separate feature doc: their rules live in `.claude/docs/authorization.md` (per-resource rules incl. `GET /api/v1/dashboard/summary`) and `.claude/docs/security.md` (login/lockout/refresh/password reset, bootstrap seeds).
 

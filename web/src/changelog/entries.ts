@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.15.0",
+    date: "2026-08-14",
+    en: `Career progression, with history. A person's career path, specialization, and seniority are no longer a single admin-edited value — they are a timeline of positions. Every person card and the user details page gained a Career progression button showing when each position started and ended, with the current one highlighted; anyone in the organization can view it. The person's managers (their manager, that manager's manager, and so on) maintain the timeline: starting a new position concludes the current one automatically, and historical entries can be corrected or removed — the timeline stays continuous, without gaps or overlaps. The person is notified whenever a new position is recorded for them. Administrators no longer edit career fields on the user form, and existing career values were reset — managers record each person's current position as the first timeline entry.`,
+    pl: `Historia kariery. Ścieżka kariery, specjalizacja i poziom nie są już pojedynczą wartością edytowaną przez administratora — to oś czasu stanowisk. Każda karta osoby i widok szczegółów użytkownika zyskały przycisk Historia kariery, pokazujący, kiedy każde stanowisko się zaczęło i skończyło, z wyróżnionym obecnym; może ją obejrzeć każdy w organizacji. Oś czasu prowadzą menedżerowie danej osoby (jej menedżer/ka, menedżer/ka tego menedżera i tak dalej): rozpoczęcie nowego stanowiska automatycznie kończy obecne, a wpisy historyczne można poprawiać i usuwać — oś czasu pozostaje ciągła, bez luk i nakładania. Osoba dostaje powiadomienie, gdy ktoś odnotuje dla niej nowe stanowisko. Administratorzy nie edytują już pól kariery w formularzu użytkownika, a dotychczasowe wartości zostały wyzerowane — menedżerowie zapisują obecne stanowisko każdej osoby jako pierwszy wpis osi czasu.`,
+  },
+  {
     version: "2.14.0",
     date: "2026-08-14",
     en: `The Trend chart now compares teams directly. Instead of picking one team from a list, every team of the current view is a pill under the chart — toggle pills on and off to draw several teams as separate lines on the same chart. In "Teams I manage" the familiar calculation switch decides what each line counts: "Direct members only" or "Including everyone below". The metric switch (eNPS or a question's favorable share) works as before.`,

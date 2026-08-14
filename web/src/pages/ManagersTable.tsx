@@ -62,7 +62,7 @@ export default function ManagersTable() {
                     back: "/?tab=managers",
                     // No drillFrom on purpose: the feedbacks drill-down historically omits
                     // `from` here (its resolver defaults to managers); 1:1s/goals default in.
-                    show: { provide: true, ask: true, feedbacks: true, oneOnOnes: true, goals: true },
+                    show: { career: true, provide: true, ask: true, feedbacks: true, oneOnOnes: true, goals: true },
                   }}
                 />
               }

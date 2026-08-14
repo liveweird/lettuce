@@ -40,7 +40,7 @@ for any new or edited spec:
   (`notificationCard`); *count/badge/mark-all-as-seen* asserts belong only on a **throwaway**
   recipient (`notifications.spec` is the template) — seed bells receive concurrent traffic.
 - **Global documents/registries have one writer file each**: dictionaries — `dictionaries.spec`
-  edits `seniority-levels`, `user-edit.spec` edits `career-paths`; review periods —
+  edits `seniority-levels`, `user-career.spec` edits `career-paths`; review periods —
   `performance-reviews.spec`; public holidays + AAA Two's days-off/allowance/corrections —
   `days-off.spec`; templates — `templates.spec` (unique names).
 - **`alerts.spec` and `pulse.spec` each run in their own project phase after everything else**
@@ -81,7 +81,8 @@ commit** — this list is the suite's coverage map, and it has drifted three tim
 - `email-notifications.spec.ts` — the email-mirror opt-out (v2.3.0): a throwaway user reaches
   the screen via the header **account menu**, opts out (the switch survives save + reopen) and
   back in.
-- `user-edit.spec.ts` — admin creates (generated-password reveal) and renames a user; career profile: set a career path, dictionary rename propagates, retired entry keeps resolving
+- `user-edit.spec.ts` — admin creates (generated-password reveal) and renames a user
+- `user-career.spec.ts` — career progression (v2.15.0): admin form has no career fields; a chain manager starts/concludes/corrects/deletes positions from the subordinates-card drill-down; the current position feeds the details Profile; the person is notified and reads their timeline read-only; dictionary rename propagates through the position ref, retired entry keeps resolving
   (`PUT /users/{id}`).
 - `users-admin.spec.ts` — role change; admin password reset vs. self-change (current password
   required, wrong one rejected); deactivate/reactivate (Inactive badge, the distinct

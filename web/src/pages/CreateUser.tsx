@@ -19,7 +19,6 @@ import { IconMail } from "@tabler/icons-react";
 import { hasLength, useForm } from "@mantine/form";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError, createUser, isAdmin, type UserRole } from "../api/client";
-import CareerProfileSelect from "../components/CareerProfileSelect";
 import RevealablePassword from "../components/RevealablePassword";
 import RolesMultiSelect from "../components/RolesMultiSelect";
 import { generatePassword } from "../utils/password";
@@ -29,10 +28,8 @@ type FormValues = {
   name: string;
   email: string;
   roles: UserRole[];
-  // Dictionary-entry ids as strings ("" = unset). Optional at creation — sent only when set.
-  careerPathId: string;
-  careerSpecializationId: string;
-  seniorityLevelId: string;
+  // No career fields (v2.15.0): a new user's career history starts empty — their management
+  // chain records positions on /users/:id/career.
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -59,9 +56,6 @@ export default function CreateUser() {
       name: "",
       email: "",
       roles: [],
-      careerPathId: "",
-      careerSpecializationId: "",
-      seniorityLevelId: "",
     },
     validate: {
       name: hasLength({ min: 1, max: 50 }, t("users.validation.nameLength")),
@@ -87,11 +81,6 @@ export default function CreateUser() {
         roles: values.roles,
         password,
         sendEmail,
-        ...(values.careerPathId ? { careerPathId: Number(values.careerPathId) } : {}),
-        ...(values.careerSpecializationId
-          ? { careerSpecializationId: Number(values.careerSpecializationId) }
-          : {}),
-        ...(values.seniorityLevelId ? { seniorityLevelId: Number(values.seniorityLevelId) } : {}),
       });
       await queryClient.invalidateQueries({ queryKey: ["users"] });
       setCreated({
@@ -189,21 +178,6 @@ export default function CreateUser() {
               {...form.getInputProps("email")}
             />
             <RolesMultiSelect {...form.getInputProps("roles")} />
-            <CareerProfileSelect
-              slug="career-paths"
-              label={t("common.field.careerPath")}
-              {...form.getInputProps("careerPathId")}
-            />
-            <CareerProfileSelect
-              slug="career-specializations"
-              label={t("common.field.careerSpecialization")}
-              {...form.getInputProps("careerSpecializationId")}
-            />
-            <CareerProfileSelect
-              slug="seniority-levels"
-              label={t("common.field.seniorityLevel")}
-              {...form.getInputProps("seniorityLevelId")}
-            />
             <Checkbox
               label={t("users.createSendEmail")}
               checked={sendEmail}

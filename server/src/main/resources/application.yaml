@@ -25,6 +25,7 @@ ktor:
       - ch.nokillswit.infra.db.BootstrapKt.configureBootstrap
       # — features
       - ch.nokillswit.users.UserRoutesKt.configureUserRoutes
+      - ch.nokillswit.users.CareerPositionRoutesKt.configureCareerPositionRoutes
       - ch.nokillswit.teams.TeamRoutesKt.configureTeamRoutes
       - ch.nokillswit.feedbacks.FeedbackRoutesKt.configureFeedbackRoutes
       - ch.nokillswit.oneonones.OneOnOneRoutesKt.configureOneOnOneRoutes

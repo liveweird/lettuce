@@ -64,7 +64,8 @@
     "pulseCycleScheduled": "Ankieta pulsu zostanie otwarta {{openDate}}.",
     "pulseCycleOpened": "Ankieta pulsu jest otwarta — odpowiedz do {{closeDate}}.",
     "pulseResultsAvailable": "Wyniki ankiety pulsu są już dostępne.",
-    "pulseCycleCancelled": "Ankieta pulsu zaplanowana na {{openDate}} została anulowana."
+    "pulseCycleCancelled": "Ankieta pulsu zaplanowana na {{openDate}} została anulowana.",
+    "careerPositionStarted": "{{manager}} odnotował/a nowe stanowisko w Twojej historii kariery, obowiązujące od {{startDate}}."
   },
   "delete": "Usuń",
   "deleteAria": "Usuń powiadomienie {{id}}"

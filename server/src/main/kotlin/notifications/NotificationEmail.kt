@@ -46,7 +46,12 @@ fun notificationEmailContent(
 }
 
 /** Bilingual per-area subject (the passwordResetEmailSubject idiom) — not per-type. */
-private fun subjectFor(type: NotificationType): String = when (type.feature) {
+private fun subjectFor(type: NotificationType): String = if (
+    type == NotificationType.CAREER_POSITION_STARTED_TO_USER
+) {
+    // Feature-neutral but not a security notice — the one type that names its own area.
+    "Lettuce: career update / aktualizacja kariery"
+} else when (type.feature) {
     Feature.FEEDBACKS -> "Lettuce: feedback update / aktualizacja feedbacku"
     Feature.ONE_ON_ONES -> "Lettuce: 1:1 meeting / spotkanie 1:1"
     Feature.GOALS -> "Lettuce: goal update / aktualizacja celu"
@@ -269,6 +274,10 @@ private fun sentences(type: NotificationType, p: Map<String, String>): Sentences
     NotificationType.PULSE_CYCLE_CANCELLED -> Sentences(
         en = "The pulse survey planned for ${p.v("openDate")} was cancelled.",
         pl = "Ankieta pulsu zaplanowana na ${p.v("openDate")} została anulowana.",
+    )
+    NotificationType.CAREER_POSITION_STARTED_TO_USER -> Sentences(
+        en = "${p.v("manager")} recorded a new position in your career progression, starting ${p.v("startDate")}.",
+        pl = "${p.v("manager")} odnotował/a nowe stanowisko w Twojej historii kariery, obowiązujące od ${p.v("startDate")}.",
     )
     NotificationType.PASSWORD_CHANGED -> when (p["self"]) {
         // The reset flow's own email (with the new password) IS the notice — no duplicate.

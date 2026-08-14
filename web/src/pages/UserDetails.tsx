@@ -160,7 +160,7 @@ export default function UserDetails() {
             back: backHere,
             drillFrom: "details",
             drillBack: backHere,
-            show: { provide: true, ask: true, feedbacks: true, oneOnOnes: true, goals: true },
+            show: { career: true, provide: true, ask: true, feedbacks: true, oneOnOnes: true, goals: true },
           }
         : relationship === "subordinate"
           ? {
@@ -176,6 +176,7 @@ export default function UserDetails() {
               drillBack: backHere,
               manages: true,
               show: {
+                career: true,
                 provide: true,
                 ask: true,
                 request: true,
@@ -196,7 +197,7 @@ export default function UserDetails() {
               back: backHere,
               drillFrom: "details",
               drillBack: backHere,
-              show: { provide: true, ask: true, feedbacks: true },
+              show: { career: true, provide: true, ask: true, feedbacks: true },
             };
 
   // Whether any audit drill-down survives the viewer's feature flags (v1.53.0) — with all

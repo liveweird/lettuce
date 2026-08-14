@@ -307,10 +307,12 @@ class FeatureFlagsTest {
     }
 
     @Test
-    fun `every notification type except PASSWORD_CHANGED maps to its prefix feature`() {
+    fun `every notification type except the feature-neutral pair maps to its prefix feature`() {
         NotificationType.entries.forEach { type ->
             val expected = when {
                 type == NotificationType.PASSWORD_CHANGED -> null
+                // Career positions ride the ungated users area (v2.15.0) — feature-neutral.
+                type.name.startsWith("CAREER_POSITION_") -> null
                 type.name.startsWith("FEEDBACK_") -> Feature.FEEDBACKS
                 type.name.startsWith("ONE_ON_ONE_") -> Feature.ONE_ON_ONES
                 type.name.startsWith("GOAL_") -> Feature.GOALS

@@ -46,11 +46,15 @@ class TeamMemberListTest {
         val (levelId) = TestDictionaries.append(Dictionary.SENIORITY_LEVEL, "MembersLvl $marker")
 
         // Manager gets a career path, the peer a seniority level; the report stays unset.
-        suspend fun assign(userId: UInt, mutate: (ch.nokillswit.users.User) -> ch.nokillswit.users.User) {
-            TestServices.users.update(userId, mutate(TestServices.users.read(userId)!!))
-        }
-        assign(managerId) { it.copy(careerPathId = pathId) }
-        assign(peerId) { it.copy(seniorityLevelId = levelId) }
+        // Since v2.15.0 the triple derives from the person's CURRENT career position.
+        TestServices.careerPositions.create(
+            managerId, managerId,
+            ch.nokillswit.users.CareerPositionWrite("2020-01-01", careerPathId = pathId),
+        )
+        TestServices.careerPositions.create(
+            peerId, peerId,
+            ch.nokillswit.users.CareerPositionWrite("2020-01-01", seniorityLevelId = levelId),
+        )
 
         val admin = authedClient(adminEmail, "pw")
         admin.createTeam("career-shared-$marker", managerId, listOf(callerId, peerId))

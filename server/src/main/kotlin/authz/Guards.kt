@@ -129,19 +129,20 @@ fun requireCanAssignRoles(caller: CallerPrincipal, current: Set<UserRole>, reque
 }
 
 /**
- * The [requireCanAssignRoles] sibling for the dictionary-backed career profile fields:
- * newly assigning or changing any of them is ADMIN-only. Each pair is (requested, current);
- * a null request (= leave unchanged) or resubmitting the current id is not a change.
+ * Writing a user's career position history (v2.15.0): any manager in the target's TRANSITIVE
+ * management chain — and nobody else. Deliberately wider than the days-off corrections write
+ * (direct managers only): career progression is the chain's shared record, and a skip-level
+ * manager concluding a position is a feature. ADMIN gets nothing (the management role lost the
+ * career write in v2.15.0), HR stays read-only, and the user never writes their own history.
  */
-fun requireCanAssignProfileFields(caller: CallerPrincipal, vararg fields: Pair<UInt?, UInt?>) {
-    val changed = fields.any { (requested, current) -> requested != null && requested != current }
-    if (changed && !caller.isAdmin()) {
-        throw ForbiddenException("Only admins may change a user's career profile fields")
+suspend fun requireCareerPositionWrite(caller: CallerPrincipal, managesTarget: suspend () -> Boolean) {
+    if (!managesTarget()) {
+        throw ForbiddenException("Only a manager in the user's management chain may manage their career positions")
     }
 }
 
 /**
- * The [requireCanAssignProfileFields] sibling for the paid days-off allowance (an Int, not a
+ * The [requireCanAssignRoles] sibling for the paid days-off allowance (an Int, not a
  * dictionary ref): newly assigning or changing it is ADMIN-only. A null request (= leave
  * unchanged) or resubmitting the current value is not a change; clearing is inexpressible.
  */
