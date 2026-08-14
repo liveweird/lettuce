@@ -72,21 +72,21 @@
     "CLOSED": "Zamknięty",
     "CANCELLED": "Anulowany"
   },
+  "view": {
+    "member": "Zespoły, do których należę",
+    "managed": "Zespoły, którymi zarządzam",
+    "aria": "Widok",
+    "noMemberTeams": "Nie należysz do żadnego zespołu.",
+    "noManagedTeams": "Nie zarządzasz żadnym zespołem."
+  },
   "results": {
     "cycle": "Cykl",
     "cycleOption": "Zamknięty {{date}}",
-    "view": {
-      "member": "Zespoły, do których należę",
-      "managed": "Zespoły, którymi zarządzam"
-    },
-    "viewAria": "Widok wyników",
     "calc": {
       "direct": "Tylko bezpośredni członkowie",
       "indirect": "Razem ze wszystkimi poniżej"
     },
     "calcAria": "Zakres obliczeń",
-    "noMemberTeams": "Nie należysz do żadnego zespołu.",
-    "noManagedTeams": "Nie zarządzasz żadnym zespołem.",
     "enps": "eNPS",
     "promoters": "Promotorzy",
     "passives": "Neutralni",
@@ -119,7 +119,6 @@
     },
     "resultsGated": "Wyniki są dostępne dla zamkniętych cykli, w których wziąłeś/wzięłaś udział.",
     "noResultsYet": "Nie ma jeszcze zamkniętych cykli pulsu.",
-    "noTeams": "Brak zespołów, dla których można pokazać wyniki.",
     "trendTitle": "Trend eNPS",
     "trendPending": "Trend pojawi się po dwóch zamkniętych cyklach.",
     "commentsTitle": "Komentarze",

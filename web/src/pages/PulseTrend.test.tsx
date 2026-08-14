@@ -87,31 +87,52 @@ const AAA_BUNDLE = {
   ],
 };
 
+// The member view's single-team direct series (the bare /trend endpoint's shape).
+const AAA_TREND = {
+  teamId: 21,
+  teamName: "AAA",
+  mode: "direct",
+  points: [point(1, 1000, "OK", 10, 66.7, 3), point(2, 2000, "OK", -10, 33.3, 3)],
+};
+
 describe("PulseTrend", () => {
   let mockFetch: FetchMock;
 
   function setupMocks({
     bundles = { 11: CCC_BUNDLE, 21: AAA_BUNDLE } as Record<number, unknown>,
-    teams = [
+    trends = { 21: AAA_TREND } as Record<number, unknown>,
+    member = [] as { id: number; name: string }[],
+    monitored = [
       { id: 11, name: "CCC" },
       { id: 21, name: "AAA" },
-    ],
+    ] as { id: number; name: string }[],
   } = {}) {
     mockFetch.mockImplementation((url: string) => {
       const u = String(url);
       if (u.includes("/visible-teams")) {
         return Promise.resolve(
-          jsonResponse(200, { resultsTeams: teams, monitoredTeams: [], memberTeams: [] }),
+          jsonResponse(200, {
+            resultsTeams: [...member, ...monitored],
+            monitoredTeams: monitored,
+            memberTeams: member,
+          }),
         );
       }
-      // NB: "/trend-comparison" must be matched before any bare "/trend" route.
+      // NB: "/trend-comparison" must be matched before the bare "/trend" route.
       if (u.includes("/trend-comparison")) {
         const teamId = Number(new URL(u, "http://x").searchParams.get("teamId"));
         return Promise.resolve(jsonResponse(200, bundles[teamId]));
       }
+      if (u.includes("/pulse-surveys/trend")) {
+        const teamId = Number(new URL(u, "http://x").searchParams.get("teamId"));
+        return Promise.resolve(jsonResponse(200, trends[teamId]));
+      }
       return Promise.resolve(jsonResponse(200, { items: [] }));
     });
   }
+
+  const presetManaged = () =>
+    localStorage.setItem("lettuce.viewSettings.pulse.trend.view", JSON.stringify("managed"));
 
   beforeEach(() => {
     mockFetch = vi.fn();
@@ -124,7 +145,8 @@ describe("PulseTrend", () => {
     localStorage.clear();
   });
 
-  test("defaults to the first visible team; all series chip-toggled on; withheld cycles are gaps", async () => {
+  test("managed view defaults to the first monitored team; all series chip-toggled on; withheld cycles are gaps", async () => {
+    presetManaged();
     setupMocks();
     renderWithProviders(<PulseTrend />);
 
@@ -153,6 +175,7 @@ describe("PulseTrend", () => {
   });
 
   test("switching the metric to Q2 swaps values, flips the domain, and persists", async () => {
+    presetManaged();
     setupMocks();
     renderWithProviders(<PulseTrend />);
     await screen.findByTestId("trend-chart");
@@ -171,6 +194,7 @@ describe("PulseTrend", () => {
   });
 
   test("toggling a chip off removes that series from the chart", async () => {
+    presetManaged();
     setupMocks();
     renderWithProviders(<PulseTrend />);
     await screen.findByTestId("trend-chart");
@@ -187,6 +211,7 @@ describe("PulseTrend", () => {
   });
 
   test("picking a childless team shows the no-sub-teams note and the pending text under two points", async () => {
+    presetManaged();
     setupMocks();
     renderWithProviders(<PulseTrend />);
     await screen.findByTestId("trend-chart");
@@ -205,10 +230,52 @@ describe("PulseTrend", () => {
     ).toBe(true);
   });
 
-  test("no visible teams renders the empty state, never a broken chart", async () => {
-    setupMocks({ teams: [] });
+  test("the member view charts a single own-members line from the single-team trend", async () => {
+    setupMocks({ member: [{ id: 21, name: "AAA" }] });
     renderWithProviders(<PulseTrend />);
-    expect(await screen.findByText("No teams to show results for.")).toBeInTheDocument();
+
+    const chart = await screen.findByTestId("trend-chart");
+    const series = JSON.parse(chart.getAttribute("data-series")!) as { name: string; label: string }[];
+    expect(series).toHaveLength(1);
+    expect(series[0].name).toBe("t21_direct");
+    expect(series[0].label).toBe("Own members");
+    expect(JSON.parse(chart.getAttribute("data-points")!)[0].t21_direct).toBe(10);
+    // The cheap single-team endpoint, not the comparison bundle; no chips, no note.
+    expect(
+      mockFetch.mock.calls.some((c) => String(c[0]).includes("/trend?teamId=21&mode=direct")),
+    ).toBe(true);
+    expect(mockFetch.mock.calls.some((c) => String(c[0]).includes("/trend-comparison"))).toBe(false);
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(screen.queryByText(/no sub-teams/)).toBeNull();
+  });
+
+  test("switching the view persists and swaps the team list", async () => {
+    setupMocks({ member: [{ id: 21, name: "AAA" }] });
+    renderWithProviders(<PulseTrend />);
+    await screen.findByTestId("trend-chart");
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("radio", { name: "Teams I manage" }));
+    // The managed list defaults to its first team (CCC) and brings the chips.
+    expect(await screen.findByRole("checkbox", { name: "Own members" })).toBeInTheDocument();
+    expect(localStorage.getItem("lettuce.viewSettings.pulse.trend.view")).toBe(
+      JSON.stringify("managed"),
+    );
+  });
+
+  test("a member of no team gets the member empty state but can still reach the managed view", async () => {
+    setupMocks({ member: [] });
+    renderWithProviders(<PulseTrend />);
+    expect(await screen.findByText("You are not a member of any team.")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Teams I manage" })).toBeInTheDocument();
+    expect(screen.queryByTestId("trend-chart")).toBeNull();
+  });
+
+  test("a non-manager gets the managed empty state", async () => {
+    presetManaged();
+    setupMocks({ member: [{ id: 21, name: "AAA" }], monitored: [] });
+    renderWithProviders(<PulseTrend />);
+    expect(await screen.findByText("You don't manage any teams.")).toBeInTheDocument();
     expect(screen.queryByTestId("trend-chart")).toBeNull();
   });
 });

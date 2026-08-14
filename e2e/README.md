@@ -194,7 +194,8 @@ commit** — this list is the suite's coverage map, and it has drifted three tim
   right), and "Including everyone below" widening CCC to "3 of N responded" with eNPS 0
   (N deliberately unpinned — reviews.spec's Manager-AAA-managed team joins CCC's subtree
   scope and accumulates on a shared DB); the same session
-  opens the **Trend** tab (v2.11.0) — the childless default team's note, CCC's four scope
+  opens the **Trend** tab (v2.11.0, two-view since v2.13.0) — the member empty state first,
+  then "Teams I manage": the childless default team's note, CCC's four scope
   chips via the team picker, and the metric switch to Q2, asserting chart-or-pending
   either-or locators only (chart presence is run-dependent: CI has one closed cycle, reruns
   accumulate); and a scheduled cycle is **cancelled** with the audit-honest confirmation.
