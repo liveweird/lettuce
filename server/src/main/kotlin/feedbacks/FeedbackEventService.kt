@@ -24,7 +24,7 @@ class FeedbackEventService(val database: R2dbcDatabase) {
     suspend fun create(event: FeedbackEvent): UInt =
         log.create(event.feedbackId, event.userId, event.type.name, event.params)
 
-    /** The feedback's history, oldest first (id as a stable tiebreaker), with acting user names. */
+    /** The feedback's history, newest first (id descending as the same-instant tiebreaker), with acting user names. */
     suspend fun listForFeedback(feedbackId: UInt): List<FeedbackEventResponse> =
         log.listFor(feedbackId).map {
             FeedbackEventResponse(

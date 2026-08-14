@@ -6,8 +6,8 @@ import { formatIsoDate } from "../utils/datetime";
 
 /**
  * The cross-meeting history of an action item: one timeline entry per meeting the item (or a
- * carried-over copy of it) appeared in, oldest first. Opened from the carried-over badge on the
- * 1:1 edit/view screens; `itemId == null` keeps the modal closed.
+ * carried-over copy of it) appeared in, newest meeting first (server-ordered). Opened from the
+ * carried-over badge on the 1:1 edit/view screens; `itemId == null` keeps the modal closed.
  */
 export default function ActionItemHistoryModal({
   itemId,

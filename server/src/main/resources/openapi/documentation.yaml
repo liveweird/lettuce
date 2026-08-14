@@ -1367,7 +1367,8 @@ paths:
       summary: List a feedback's audit history
       description: |
         Returns the immutable audit trail for a feedback — one entry per create, status transition,
-        content/visibility edit, and deletion — oldest first. Each entry is structural: an event
+        content/visibility edit, and deletion — newest first (id descending as the same-instant
+        tiebreaker). Each entry is structural: an event
         `type` plus a `params` map of enum names, with the acting user resolved to `userName`; no
         rendered string is stored (clients localize the description). Authorization matches the
         single-GET above (`canReadFeedback`, with a managing caller allowed): whoever may read the
@@ -1375,7 +1376,7 @@ paths:
         create/update/delete endpoint.
       responses:
         '200':
-          description: The feedback's events, oldest first
+          description: The feedback's events, newest first
           content:
             application/json:
               schema:
@@ -1745,7 +1746,8 @@ paths:
       summary: List a 1:1 meeting's audit history
       description: |
         Returns the immutable audit trail for a 1:1 meeting — one entry per creation, per-item
-        change, and deletion — oldest first. Each entry is structural: an event `type` plus a
+        change, and deletion — newest first (id descending as the same-instant tiebreaker). Each
+        entry is structural: an event `type` plus a
         `params` map (1-based positions, ISO dates, owner enum names — never item text), with the
         acting user resolved to `userName`; no rendered string is stored (clients localize the
         description). Authorization matches the single-GET above: whoever may read the meeting
@@ -1753,7 +1755,7 @@ paths:
         endpoint.
       responses:
         '200':
-          description: The meeting's events, oldest first
+          description: The meeting's events, newest first
           content:
             application/json:
               schema:
@@ -1774,8 +1776,8 @@ paths:
       description: |
         Returns the full history of an action item across the chain of carried-over copies — the
         queried item, its ancestors (via `copiedFromId`), and all descendants (copies of it, and
-        copies of those) — one entry per appearance, ordered by meeting date (meeting id as
-        tiebreaker). Entries whose meeting has been deleted are skipped, but the chain is walked
+        copies of those) — one entry per appearance, newest meeting first (meeting id descending
+        as tiebreaker). Entries whose meeting has been deleted are skipped, but the chain is walked
         through them, so history survives a deleted intermediate meeting.
 
         Authorization matches the meeting single-GET, checked against the queried item's meeting
@@ -1783,7 +1785,7 @@ paths:
         does not exist or its meeting has been deleted.
       responses:
         '200':
-          description: The action item's appearances, oldest meeting first
+          description: The action item's appearances, newest meeting first
           content:
             application/json:
               schema:
@@ -2232,7 +2234,8 @@ paths:
       summary: List a goal's audit history
       description: |
         Returns the immutable audit trail for a goal — one entry per creation, changed
-        definition aspect, progress update, status transition, and deletion — oldest first. Each
+        definition aspect, progress update, status transition, and deletion — newest first (id
+        descending as the same-instant tiebreaker). Each
         entry is structural: an event `type` plus a `params` map (enum names and numeric values
         — never title/description/summary text), with the acting user resolved to `userName`; no
         rendered string is stored (clients localize the description). Authorization matches the
@@ -2240,7 +2243,7 @@ paths:
         server-generated; there is no create/update/delete endpoint.
       responses:
         '200':
-          description: The goal's events, oldest first
+          description: The goal's events, newest first
           content:
             application/json:
               schema:
@@ -2724,7 +2727,8 @@ paths:
       description: |
         Returns the immutable audit trail for a team KPI — one entry per creation, changed
         definition aspect, data-point mutation (`VALUE_RECORDED` / `VALUE_CORRECTED` /
-        `VALUE_REMOVED`), status transition, and deletion — oldest first. Each entry is
+        `VALUE_REMOVED`), status transition, and deletion — newest first (id descending as the
+        same-instant tiebreaker). Each entry is
         structural: an event `type` plus a `params` map (enum names, numeric values, and ISO
         dates — never title/description/summary text), with the acting user resolved to
         `userName`; no rendered string is stored (clients localize the description).
@@ -2732,7 +2736,7 @@ paths:
         history. Events are server-generated; there is no create/update/delete endpoint.
       responses:
         '200':
-          description: The team KPI's events, oldest first
+          description: The team KPI's events, newest first
           content:
             application/json:
               schema:
@@ -3219,7 +3223,8 @@ paths:
       description: |
         Returns the immutable audit trail for a performance review — one entry per creation,
         changed assessment aspect (both rating and summary changes as the bare category-tagged
-        fact), status transition, and deletion — oldest first. Each entry is structural: an
+        fact), status transition, and deletion — newest first (id descending as the same-instant
+        tiebreaker). Each entry is structural: an
         event `type` plus a `params` map (category/status enum names only — never summary text
         and never rating values, since all eight assessment fields are encrypted at rest while
         this trail is plaintext), with the acting user resolved to `userName`; no rendered
@@ -3229,7 +3234,7 @@ paths:
         no create/update/delete endpoint.
       responses:
         '200':
-          description: The review's events, oldest first
+          description: The review's events, newest first
           content:
             application/json:
               schema:

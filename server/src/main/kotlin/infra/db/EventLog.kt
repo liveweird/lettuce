@@ -81,12 +81,16 @@ class EventLog(private val database: R2dbcDatabase, private val table: EventLogT
         }[table.id].value
     }
 
-    /** The record's history, oldest first (id as a stable tiebreaker), with acting user names. */
+    /**
+     * The record's history, newest first, with acting user names. The id tiebreaker is descending
+     * too: one mutation mints several events in the same millisecond, and they must read as a true
+     * reversal of mint order — not the notifications list's always-ascending-id quirk.
+     */
     suspend fun listFor(ownerId: UInt): List<EventLogRow> = suspendTransaction(database) {
         (table innerJoin UserService.Users)
             .selectAll()
             .where { table.ownerId eq ownerId }
-            .orderBy(table.timestamp to SortOrder.ASC, table.id to SortOrder.ASC)
+            .orderBy(table.timestamp to SortOrder.DESC, table.id to SortOrder.DESC)
             .map { row ->
                 EventLogRow(
                     id = row[table.id].value,

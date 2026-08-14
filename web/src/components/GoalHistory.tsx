@@ -59,7 +59,7 @@ function describeEvent(e: GoalEvent, t: TFunction, locale: string): string {
   }
 }
 
-/** The goal's audit history as a timeline (oldest first), or an empty-state note. */
+/** The goal's audit history as a timeline (newest first, server-ordered), or an empty-state note. */
 export default function GoalHistory({ goalId }: { goalId: number }) {
   const { t, i18n } = useTranslation();
   const { data: events } = useQuery({

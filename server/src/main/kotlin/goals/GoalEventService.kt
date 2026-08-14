@@ -44,7 +44,7 @@ class GoalEventService(val database: R2dbcDatabase, private val cipher: FieldCip
             comment = event.comment?.let(cipher::encrypt),
         )
 
-    /** The goal's history, oldest first (id as a stable tiebreaker), with acting user names. */
+    /** The goal's history, newest first (id descending as the same-instant tiebreaker), with acting user names. */
     suspend fun listForGoal(goalId: UInt): List<GoalEventResponse> =
         log.listFor(goalId).map {
             GoalEventResponse(

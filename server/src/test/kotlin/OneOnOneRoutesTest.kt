@@ -375,14 +375,14 @@ class OneOnOneRoutesTest {
         val events = manager.get("/api/v1/one-on-ones/${created.id}/events").body<OneOnOneEventListResponse>()
         assertEquals(
             listOf(
-                OneOnOneEventType.CREATED,
-                OneOnOneEventType.DATE_CHANGED,
-                OneOnOneEventType.POINT_REMOVED,
-                OneOnOneEventType.POINT_EDITED,
-                OneOnOneEventType.POINT_ADDED,
-                OneOnOneEventType.ACTION_ITEM_RESOLVED,
-                OneOnOneEventType.ACTION_ITEM_DUE_DATE_CHANGED,
                 OneOnOneEventType.ACTION_ITEM_OWNER_CHANGED,
+                OneOnOneEventType.ACTION_ITEM_DUE_DATE_CHANGED,
+                OneOnOneEventType.ACTION_ITEM_RESOLVED,
+                OneOnOneEventType.POINT_ADDED,
+                OneOnOneEventType.POINT_EDITED,
+                OneOnOneEventType.POINT_REMOVED,
+                OneOnOneEventType.DATE_CHANGED,
+                OneOnOneEventType.CREATED,
             ),
             events.items.map { it.type },
         )
@@ -575,8 +575,8 @@ class OneOnOneRoutesTest {
 
         // The audit trail outlives the soft-deleted row (read below the routes).
         val events = TestOneOnOneEvents.service.listForMeeting(created.id)
-        assertEquals(listOf(OneOnOneEventType.CREATED, OneOnOneEventType.DELETED), events.map { it.type })
-        assertEquals(pair.managerId, events.last().userId)
+        assertEquals(listOf(OneOnOneEventType.DELETED, OneOnOneEventType.CREATED), events.map { it.type })
+        assertEquals(pair.managerId, events.first().userId)
     }
 
     // ---- list views ----
@@ -786,11 +786,11 @@ class OneOnOneRoutesTest {
         val third = manager.createMeeting(pair.subordinateId, "2026-07-15")
         val thirdItem = third.actionItems.single()
 
-        // Full chain from the newest copy: three meetings, oldest first.
+        // Full chain from the newest copy: three meetings, newest meeting first.
         val history = manager.get("/api/v1/one-on-ones/action-items/${thirdItem.id}/history")
             .body<ActionItemHistoryResponse>()
-        assertEquals(listOf(first.id, second.id, third.id), history.items.map { it.meetingId })
-        assertEquals(listOf("2026-07-01", "2026-07-08", "2026-07-15"), history.items.map { it.meetingDate })
+        assertEquals(listOf(third.id, second.id, first.id), history.items.map { it.meetingId })
+        assertEquals(listOf("2026-07-15", "2026-07-08", "2026-07-01"), history.items.map { it.meetingDate })
         assertTrue(history.items.all { it.content == "long runner" })
 
         // Soft-delete the MIDDLE meeting: its entry disappears but the chain is walked through.
@@ -799,12 +799,12 @@ class OneOnOneRoutesTest {
         TestOneOnOneMaintenance.softDeleteMeeting(second.id)
         val afterDelete = manager.get("/api/v1/one-on-ones/action-items/${thirdItem.id}/history")
             .body<ActionItemHistoryResponse>()
-        assertEquals(listOf(first.id, third.id), afterDelete.items.map { it.meetingId })
+        assertEquals(listOf(third.id, first.id), afterDelete.items.map { it.meetingId })
 
         // Walking from the FIRST meeting's item reaches the same chain (descendants direction).
         val fromRoot = manager.get("/api/v1/one-on-ones/action-items/${first.actionItems.single().id}/history")
             .body<ActionItemHistoryResponse>()
-        assertEquals(listOf(first.id, third.id), fromRoot.items.map { it.meetingId })
+        assertEquals(listOf(third.id, first.id), fromRoot.items.map { it.meetingId })
 
         // firstAppearedOn survives the deleted middle hop (the root is intact) …
         val thirdReread = manager.get("/api/v1/one-on-ones/${third.id}").body<OneOnOneResponse>()
