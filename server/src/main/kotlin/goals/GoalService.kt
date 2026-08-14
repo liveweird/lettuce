@@ -90,9 +90,10 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
     private fun active(): Op<Boolean> = Goals.markedAsDeleted eq false
 
     /**
-     * Inserts a new goal, always in DRAFT status, with its current value initialized to the
-     * type's zero (not achieved / 0.0). The route has already verified the manager→subordinate
-     * relationship; the definition invariants are validated here. Returns the new id.
+     * Inserts a new goal, always in DRAFT status, with NO recorded value (both value fields
+     * null until the first progress update — v2.8.1). The route has already verified the
+     * manager→subordinate relationship; the definition invariants are validated here. Returns
+     * the new id.
      */
     suspend fun create(managerId: UInt, request: GoalCreateRequest): UInt = suspendTransaction(database) {
         validateGoalDefinition(request.title, request.description, request.type, request.targetValue, request.dueDate)
@@ -106,8 +107,10 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
             it[description] = cipher.encrypt(request.description)
             it[type] = request.type
             it[targetValue] = request.targetValue
-            it[currentValue] = initialCurrentValue(request.type)
-            it[achieved] = initialAchieved(request.type)
+            // No recorded value yet (v2.8.1): both value fields stay null until the first
+            // progress update — an auto-zero would read as recorded progress.
+            it[currentValue] = null
+            it[achieved] = null
             it[status] = GoalStatus.DRAFT
             it[summary] = null
             it[lastModified] = now
@@ -146,8 +149,10 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
             it[description] = cipher.encrypt(update.description)
             it[type] = update.type
             it[targetValue] = update.targetValue
-            it[currentValue] = if (typeChanged) initialCurrentValue(update.type) else current.third.first
-            it[achieved] = if (typeChanged) initialAchieved(update.type) else current.third.second
+            // A type change discards recorded progress back to "no value" (v2.8.1: null, not
+            // the old type's zero) — the audit events explain the reset.
+            it[currentValue] = if (typeChanged) null else current.third.first
+            it[achieved] = if (typeChanged) null else current.third.second
             it[lastModified] = System.currentTimeMillis()
         }
     }
@@ -177,17 +182,21 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
         }
         validateGoalProgress(type, update)
         Goals.update({ (Goals.id eq id) and (Goals.markedAsDeleted eq false) }) {
+            // The value field is optional (v2.8.1): absent = leave the value untouched (a
+            // comment-only update; the validator guaranteed a non-blank comment then).
             when (type) {
-                GoalType.BINARY -> it[this.achieved] = update.achieved
-                GoalType.NUMBER, GoalType.PERCENTAGE -> it[this.currentValue] = update.currentValue
+                GoalType.BINARY -> if (update.achieved != null) it[this.achieved] = update.achieved
+                GoalType.NUMBER, GoalType.PERCENTAGE ->
+                    if (update.currentValue != null) it[this.currentValue] = update.currentValue
             }
             it[lastModified] = System.currentTimeMillis()
         }
         // A true no-op (same value, no comment) stays silent — mirroring the event rule; a
         // value change or a comment-only update notifies the counterparty.
         val valueChanged = when (type) {
-            GoalType.BINARY -> update.achieved != achieved
-            GoalType.NUMBER, GoalType.PERCENTAGE -> update.currentValue != currentValue
+            GoalType.BINARY -> update.achieved != null && update.achieved != achieved
+            GoalType.NUMBER, GoalType.PERCENTAGE ->
+                update.currentValue != null && update.currentValue != currentValue
         }
         if (!valueChanged && update.comment.isNullOrBlank()) {
             emptyList()
@@ -499,14 +508,5 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
         return op
     }
 
-    private fun initialCurrentValue(type: GoalType): Double? = when (type) {
-        GoalType.BINARY -> null
-        GoalType.NUMBER, GoalType.PERCENTAGE -> 0.0
-    }
-
-    private fun initialAchieved(type: GoalType): Boolean? = when (type) {
-        GoalType.BINARY -> false
-        GoalType.NUMBER, GoalType.PERCENTAGE -> null
-    }
 
 }

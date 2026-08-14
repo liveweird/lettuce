@@ -111,27 +111,42 @@ class GoalValidationTest {
     // ---- progress ----
 
     @Test
-    fun `BINARY progress requires exactly achieved`() {
+    fun `BINARY progress accepts only achieved - optional when a comment is present`() {
         validateGoalProgress(GoalType.BINARY, GoalProgressUpdate(achieved = true))
+        // v2.8.1: the value field is optional — a value-less update needs a non-blank comment.
+        validateGoalProgress(GoalType.BINARY, GoalProgressUpdate(comment = "status note"))
         assertFailsWith<BadRequestException> {
             validateGoalProgress(GoalType.BINARY, GoalProgressUpdate(currentValue = 1.0))
         }
+        // The wrong-type field stays rejected even alongside a comment.
+        assertFailsWith<BadRequestException> {
+            validateGoalProgress(GoalType.BINARY, GoalProgressUpdate(currentValue = 1.0, comment = "note"))
+        }
+        // Neither a value nor a comment = nothing to record.
         assertFailsWith<BadRequestException> {
             validateGoalProgress(GoalType.BINARY, GoalProgressUpdate())
+        }
+        assertFailsWith<BadRequestException> {
+            validateGoalProgress(GoalType.BINARY, GoalProgressUpdate(comment = "   "))
         }
     }
 
     @Test
-    fun `NUMBER progress requires exactly a finite currentValue`() {
+    fun `NUMBER progress accepts only a finite currentValue - optional when a comment is present`() {
         validateGoalProgress(GoalType.NUMBER, GoalProgressUpdate(currentValue = 7.5))
+        validateGoalProgress(GoalType.NUMBER, GoalProgressUpdate(comment = "blocked this week"))
         assertFailsWith<BadRequestException> {
             validateGoalProgress(GoalType.NUMBER, GoalProgressUpdate(achieved = true))
         }
         assertFailsWith<BadRequestException> {
             validateGoalProgress(GoalType.NUMBER, GoalProgressUpdate())
         }
+        // A present value must still be finite — a comment doesn't rescue a broken value.
         assertFailsWith<BadRequestException> {
             validateGoalProgress(GoalType.NUMBER, GoalProgressUpdate(currentValue = Double.NaN))
+        }
+        assertFailsWith<BadRequestException> {
+            validateGoalProgress(GoalType.NUMBER, GoalProgressUpdate(currentValue = Double.NaN, comment = "note"))
         }
     }
 

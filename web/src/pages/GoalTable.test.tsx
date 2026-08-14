@@ -99,6 +99,19 @@ describe("GoalTable", () => {
     expect(screen.queryByText("Overdue")).toBeNull();
   });
 
+  test("a BINARY row with no recorded value shows an em dash, not the Not-achieved pill", async () => {
+    // v2.8.1: fresh goals start with null value fields — null must never read as "Not achieved".
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, page([{ ...BINARY_GOAL, status: "ACTIVE", achieved: null }])),
+    );
+    renderWithProviders(<GoalTable view="own" managerId={10} settingsKey="userGoals" />);
+
+    expect(await screen.findByText("Get certified")).toBeInTheDocument();
+    expect(screen.queryByText("Not achieved")).toBeNull();
+    expect(screen.queryByText("Achieved")).toBeNull();
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+  });
+
   test("an ACTIVE goal past its due date gets the overdue badge; DRAFT and CLOSED do not", async () => {
     // Every row's due date is long past — only the ACTIVE one may signal overdue.
     mockFetch.mockResolvedValue(

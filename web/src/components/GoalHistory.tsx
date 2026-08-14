@@ -38,6 +38,8 @@ function describeEvent(e: GoalEvent, t: TFunction, locale: string): string {
         to: formatIsoDate(p.to ?? "", locale),
       });
     case "PROGRESS_UPDATED":
+      // An empty `from` = no previous value (the goal's first update — the targetSet idiom).
+      if (!p.from) return t("goal.event.progressSet", { to: num(p.to) });
       return t("goal.event.progressUpdated", { from: num(p.from), to: num(p.to) });
     case "PROGRESS_COMMENTED":
       // A comment-only progress update (v2.8.0) — the comment itself renders below the title.

@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.8.1",
+    date: "2026-08-14",
+    en: `Goals start clean. A new goal no longer pretends to have progress: instead of an automatic 0 (or "Not achieved"), it simply has no recorded value until someone enters the first one — lists show a dash, the goal view says "No value recorded yet", and the history's first entry reads "Progress set to X". Existing goals whose value was never actually set were cleaned up the same way. On the update screen the value field is now optional while the goal has no value, so a comment-only status note works there too (a value, once set, cannot be unset). The Lifecycle menu also got its icons.`,
+    pl: `Cele zaczynają z czystą kartą. Nowy cel nie udaje już postępu: zamiast automatycznego 0 (albo „Nieosiągnięty") po prostu nie ma zapisanej wartości, dopóki ktoś nie wprowadzi pierwszej — listy pokazują kreskę, widok celu mówi „Nie zapisano jeszcze żadnej wartości", a pierwszy wpis w historii brzmi „Ustawiono postęp na X". Istniejące cele, których wartości nikt nigdy nie ustawił, zostały wyczyszczone w ten sam sposób. Na ekranie aktualizacji pole wartości jest teraz opcjonalne, dopóki cel nie ma wartości, więc działa tam też sama notatka z komentarzem (raz ustawionej wartości nie można cofnąć). Menu „Cykl życia" dostało też swoje ikony.`,
+  },
+  {
     version: "2.8.0",
     date: "2026-08-14",
     en: `Goal progress belongs to both of you. Team members can now update the progress of their own active goals — not just watch: an active goal's row (and its details view) shows an Update button for both the manager and the team member, leading to a focused update screen where only the current value can be changed. Each update can carry an optional comment giving the context of the change ("what happened here?") — comments land in the goal's history and are stored encrypted, and every update notifies the other party (bell and email). The goal's lifecycle stays with the manager: active rows in the goals list gained a Lifecycle menu with Return to draft and Archive, both asking for confirmation first (archiving still records the mandatory summary). Saving with nothing changed now tells you there is nothing to save, and closing the update screen with unsaved changes asks before discarding them.`,

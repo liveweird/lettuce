@@ -114,6 +114,23 @@ describe("ViewGoal page", () => {
     expect(screen.queryByText("Overdue")).toBeNull();
   });
 
+  test("a goal with no recorded value shows the no-value note instead of a progress bar or pill", async () => {
+    // v2.8.1: fresh goals start valueless — numeric view drops the bar and the
+    // "— of the target" line; BINARY view drops the pill.
+    setupMocks({ ...GOAL, currentValue: null });
+    renderScreen();
+
+    expect(await screen.findByText("Raise coverage")).toBeInTheDocument();
+    expect(screen.getByText("No value recorded yet.")).toBeInTheDocument();
+    expect(screen.queryByText(/of the 90% target/)).toBeNull();
+
+    cleanup();
+    setupMocks({ ...GOAL, type: "BINARY", targetValue: null, currentValue: null, achieved: null });
+    renderScreen();
+    expect(await screen.findByText("No value recorded yet.")).toBeInTheDocument();
+    expect(screen.queryByText("Not achieved")).toBeNull();
+  });
+
   test("an archived goal shows its summary pre-wrapped and the achieved pill for BINARY", async () => {
     setupMocks({
       ...GOAL,

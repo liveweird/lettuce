@@ -393,6 +393,91 @@ describe("EditGoal page", () => {
     });
   });
 
+  test("ACTIVE (valueless): a comment-only save omits the value field entirely", async () => {
+    // v2.8.1: a fresh goal has no recorded value — the empty input is submittable and the
+    // PUT carries only the comment (never Number('') === 0).
+    setupMocks({ ...DRAFT_GOAL, status: "ACTIVE", currentValue: null });
+    const user = userEvent.setup();
+    renderScreen();
+
+    await screen.findByLabelText(/current/i);
+    await user.type(screen.getByLabelText(/comment \(optional\)/i), "Kickoff next week");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      const put = mockFetch.mock.calls.find(
+        ([u, init]) =>
+          String(u) === "/api/v1/goals/5/progress" && (init as RequestInit)?.method === "PUT",
+      );
+      expect(put).toBeDefined();
+      expect(JSON.parse((put![1] as RequestInit).body as string)).toEqual({
+        comment: "Kickoff next week",
+      });
+    });
+  });
+
+  test("ACTIVE: clearing a recorded value is blocked — a set value can't be unset", async () => {
+    setupMocks({ ...DRAFT_GOAL, status: "ACTIVE", currentValue: 45 });
+    const user = userEvent.setup();
+    renderScreen();
+
+    const current = await screen.findByLabelText(/current/i);
+    await user.clear(current);
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(await screen.findByText("A current value is required")).toBeInTheDocument();
+    expect(
+      mockFetch.mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === "PUT"),
+    ).toBe(false);
+  });
+
+  test("ACTIVE (binary, valueless): an untouched switch stays out of a comment-only PUT; a toggle is sent", async () => {
+    const binary = {
+      ...DRAFT_GOAL,
+      type: "BINARY",
+      targetValue: null,
+      currentValue: null,
+      achieved: null,
+      status: "ACTIVE",
+    };
+    setupMocks(binary);
+    const user = userEvent.setup();
+    renderScreen();
+
+    // Comment only — the untouched switch must NOT silently record "not achieved".
+    await screen.findByLabelText("Achieved");
+    await user.type(screen.getByLabelText(/comment \(optional\)/i), "No progress yet");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+    await waitFor(() => {
+      const put = mockFetch.mock.calls.find(
+        ([u, init]) =>
+          String(u) === "/api/v1/goals/5/progress" && (init as RequestInit)?.method === "PUT",
+      );
+      expect(put).toBeDefined();
+      expect(JSON.parse((put![1] as RequestInit).body as string)).toEqual({
+        comment: "No progress yet",
+      });
+    });
+
+    cleanup();
+    setupMocks(binary);
+    renderScreen();
+
+    // A deliberate toggle IS sent.
+    await user.click(await screen.findByLabelText("Achieved"));
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+    await waitFor(() => {
+      const puts = mockFetch.mock.calls.filter(
+        ([u, init]) =>
+          String(u) === "/api/v1/goals/5/progress" && (init as RequestInit)?.method === "PUT",
+      );
+      expect(puts.length).toBeGreaterThan(0);
+      expect(JSON.parse((puts[puts.length - 1]![1] as RequestInit).body as string)).toEqual({
+        achieved: true,
+      });
+    });
+  });
+
   test("ACTIVE: Save with nothing changed shows the nothing-to-save notice and sends nothing", async () => {
     setupMocks({ ...DRAFT_GOAL, status: "ACTIVE", currentValue: 45 });
     const user = userEvent.setup();

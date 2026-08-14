@@ -45,7 +45,9 @@ export function AchievedBadge({ achieved }: { achieved: boolean }) {
 }
 
 // The per-type CURRENT value, compact (table cells): the achieved pill for BINARY, the
-// formatted number otherwise. The single home of that type branch.
+// formatted number otherwise. The single home of that type branch. A goal with no recorded
+// value yet (v2.8.1: both fields null until the first update) renders the em dash — a null
+// achieved is "not set", never the yellow "Not achieved" pill.
 export function GoalCurrentValue({
   type,
   currentValue,
@@ -57,7 +59,9 @@ export function GoalCurrentValue({
   achieved: boolean | null | undefined;
   locale: string;
 }) {
-  if (type === "BINARY") return <AchievedBadge achieved={achieved === true} />;
+  if (type === "BINARY") {
+    return achieved == null ? <>—</> : <AchievedBadge achieved={achieved} />;
+  }
   return <>{formatGoalValue(type, currentValue, locale)}</>;
 }
 
@@ -68,7 +72,14 @@ export function GoalValues({ goal, locale }: { goal: GoalResponse; locale: strin
   if (goal.type === "BINARY") {
     return (
       <ReadOnlyField label={t("goal.current")}>
-        <AchievedBadge achieved={goal.achieved === true} />
+        {/* Null = no value recorded yet (v2.8.1) — never the "Not achieved" pill. */}
+        {goal.achieved == null ? (
+          <Text size="sm" c="dimmed">
+            {t("goal.noValueYet")}
+          </Text>
+        ) : (
+          <AchievedBadge achieved={goal.achieved} />
+        )}
       </ReadOnlyField>
     );
   }
@@ -81,15 +92,15 @@ export function GoalValues({ goal, locale }: { goal: GoalResponse; locale: strin
           <Text size="sm">{target}</Text>
         </ReadOnlyField>
         <ReadOnlyField label={t("goal.current")}>
-          <Text size="sm">{current}</Text>
+          <Text size="sm">{goal.currentValue == null ? t("goal.noValueYet") : current}</Text>
         </ReadOnlyField>
       </Group>
-      {goal.type === "PERCENTAGE" && (
+      {goal.type === "PERCENTAGE" && goal.currentValue != null && (
         <>
           <Progress
-            value={goal.currentValue ?? 0}
+            value={goal.currentValue}
             color={
-              goal.targetValue != null && (goal.currentValue ?? 0) >= goal.targetValue
+              goal.targetValue != null && goal.currentValue >= goal.targetValue
                 ? "teal"
                 : "lettuce"
             }
