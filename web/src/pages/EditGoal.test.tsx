@@ -34,7 +34,7 @@ const DRAFT_GOAL = {
   type: "PERCENTAGE",
   targetValue: 90,
   currentValue: 0,
-  achieved: null,
+  milestones: [],
   status: "DRAFT",
   summary: null,
   lastModified: new Date(2026, 6, 1).getTime(),
@@ -152,6 +152,7 @@ describe("EditGoal page", () => {
         description: "Initial description",
         type: "PERCENTAGE",
         targetValue: 95,
+        milestones: [],
         dueDate: "2099-09-01",
       });
     });
@@ -172,7 +173,7 @@ describe("EditGoal page", () => {
     ).toBe(false);
   });
 
-  test("DRAFT: switching the type warns about the reset and drops the target for BINARY", async () => {
+  test("DRAFT: switching the type warns about the reset and swaps the target for milestones", async () => {
     setupMocks();
     const user = userEvent.setup();
     renderScreen();
@@ -180,12 +181,16 @@ describe("EditGoal page", () => {
     await screen.findByLabelText(/title/i);
     // happy-dom does not open Mantine comboboxes via userEvent's pointer simulation.
     fireEvent.click(screen.getByLabelText("Type", { selector: "input" }));
-    fireEvent.click(await screen.findByRole("option", { name: "Done / not done" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Plan (milestones)" }));
 
     expect(
-      screen.getByText("Changing the goal type resets its target and recorded progress."),
+      screen.getByText("Changing the goal type resets its target, milestones, and recorded progress."),
     ).toBeInTheDocument();
-    expect(screen.queryByLabelText(/target/i)).toBeNull(); // BINARY has no target input
+    expect(screen.queryByLabelText(/target/i)).toBeNull(); // PLAN has no target input
+
+    // The milestone editor is live: add one step.
+    await user.click(screen.getByRole("button", { name: "Add milestone" }));
+    await user.type(screen.getByLabelText("Milestone 1"), "First step");
 
     await user.click(screen.getByRole("button", { name: /^save draft$/i }));
     await waitFor(() => {
@@ -194,8 +199,40 @@ describe("EditGoal page", () => {
       );
       expect(put).toBeDefined();
       expect(JSON.parse((put![1] as RequestInit).body as string)).toMatchObject({
-        type: "BINARY",
+        type: "PLAN",
         targetValue: null,
+        milestones: [{ description: "First step" }],
+      });
+    });
+  });
+
+  test("DRAFT (plan): the loaded milestones reconcile — reorder keeps ids, removal drops them", async () => {
+    setupMocks({
+      ...DRAFT_GOAL,
+      type: "PLAN",
+      targetValue: null,
+      currentValue: null,
+      milestones: [
+        { id: 21, description: "Design", done: true },
+        { id: 22, description: "Build", done: false },
+      ],
+    });
+    const user = userEvent.setup();
+    renderScreen();
+
+    // Move "Design" (done — struck through in the gutter) below "Build", then drop "Build".
+    await screen.findByLabelText("Milestone 1");
+    await user.click(screen.getByRole("button", { name: "Move milestone 1 down" }));
+    await user.click(screen.getByRole("button", { name: "Remove milestone 1" }));
+
+    await user.click(screen.getByRole("button", { name: /^save draft$/i }));
+    await waitFor(() => {
+      const put = mockFetch.mock.calls.find(
+        ([u, init]) => String(u) === "/api/v1/goals/5" && (init as RequestInit)?.method === "PUT",
+      );
+      expect(put).toBeDefined();
+      expect(JSON.parse((put![1] as RequestInit).body as string)).toMatchObject({
+        milestones: [{ id: 21, description: "Design" }],
       });
     });
   });
@@ -431,21 +468,24 @@ describe("EditGoal page", () => {
     ).toBe(false);
   });
 
-  test("ACTIVE (binary, valueless): an untouched switch stays out of a comment-only PUT; a toggle is sent", async () => {
-    const binary = {
+  test("ACTIVE (plan): an untouched list stays out of a comment-only PUT; a toggle sends the full state", async () => {
+    const plan = {
       ...DRAFT_GOAL,
-      type: "BINARY",
+      type: "PLAN",
       targetValue: null,
       currentValue: null,
-      achieved: null,
+      milestones: [
+        { id: 21, description: "Design", done: true },
+        { id: 22, description: "Build", done: false },
+      ],
       status: "ACTIVE",
     };
-    setupMocks(binary);
+    setupMocks(plan);
     const user = userEvent.setup();
     renderScreen();
 
-    // Comment only — the untouched switch must NOT silently record "not achieved".
-    await screen.findByLabelText("Achieved");
+    // Comment only — untouched checkboxes keep the payload milestone-free.
+    await screen.findByLabelText("Build");
     await user.type(screen.getByLabelText(/comment \(optional\)/i), "No progress yet");
     await user.click(screen.getByRole("button", { name: /^save$/i }));
     await waitFor(() => {
@@ -460,11 +500,11 @@ describe("EditGoal page", () => {
     });
 
     cleanup();
-    setupMocks(binary);
+    setupMocks(plan);
     renderScreen();
 
-    // A deliberate toggle IS sent.
-    await user.click(await screen.findByLabelText("Achieved"));
+    // A toggle sends the COMPLETE done-state (every milestone id).
+    await user.click(await screen.findByLabelText("Build"));
     await user.click(screen.getByRole("button", { name: /^save$/i }));
     await waitFor(() => {
       const puts = mockFetch.mock.calls.filter(
@@ -473,7 +513,10 @@ describe("EditGoal page", () => {
       );
       expect(puts.length).toBeGreaterThan(0);
       expect(JSON.parse((puts[puts.length - 1]![1] as RequestInit).body as string)).toEqual({
-        achieved: true,
+        milestones: [
+          { id: 21, done: true },
+          { id: 22, done: true },
+        ],
       });
     });
   });
@@ -529,30 +572,26 @@ describe("EditGoal page", () => {
     ).toBe(false);
   });
 
-  test("ACTIVE (binary): the achieved switch PUTs the flag to /progress", async () => {
+  test("ACTIVE (plan): done milestones render struck through on the update screen", async () => {
     setupMocks({
       ...DRAFT_GOAL,
-      type: "BINARY",
+      type: "PLAN",
       targetValue: null,
       currentValue: null,
-      achieved: false,
+      milestones: [
+        { id: 21, description: "Design", done: true },
+        { id: 22, description: "Build", done: false },
+      ],
       status: "ACTIVE",
     });
-    const user = userEvent.setup();
     renderScreen();
 
-    const achieved = await screen.findByLabelText("Achieved");
-    await user.click(achieved);
-    await user.click(screen.getByRole("button", { name: /^save$/i }));
-
-    await waitFor(() => {
-      const put = mockFetch.mock.calls.find(
-        ([u, init]) =>
-          String(u) === "/api/v1/goals/5/progress" && (init as RequestInit)?.method === "PUT",
-      );
-      expect(put).toBeDefined();
-      expect(JSON.parse((put![1] as RequestInit).body as string)).toEqual({ achieved: true });
-    });
+    const done = await screen.findByText("Design");
+    expect(done).toHaveStyle({ textDecoration: "line-through" });
+    expect(screen.getByText("Build")).not.toHaveStyle({ textDecoration: "line-through" });
+    // The checkboxes carry the state.
+    expect(screen.getByLabelText("Design")).toBeChecked();
+    expect(screen.getByLabelText("Build")).not.toBeChecked();
   });
 
   test("a save failure keeps the form and shows the mapped message", async () => {

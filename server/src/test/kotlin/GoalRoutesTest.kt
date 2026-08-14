@@ -7,6 +7,8 @@ import ch.nokillswit.goals.GoalEventListResponse
 import ch.nokillswit.goals.GoalEventType
 import ch.nokillswit.goals.GoalListFilter
 import ch.nokillswit.goals.GoalListView
+import ch.nokillswit.goals.GoalMilestoneDone
+import ch.nokillswit.goals.GoalMilestoneInput
 import ch.nokillswit.goals.GoalPageResponse
 import ch.nokillswit.goals.GoalProgressUpdate
 import ch.nokillswit.goals.GoalResponse
@@ -73,6 +75,7 @@ class GoalRoutesTest {
         description: String = "Get the suite green and keep it there",
         type: GoalType = GoalType.NUMBER,
         targetValue: Double? = 10.0,
+        milestones: List<GoalMilestoneInput> = emptyList(),
         dueDate: String = LocalDate.now().toString(),
     ): GoalResponse {
         val response = post("/api/v1/goals") {
@@ -84,6 +87,7 @@ class GoalRoutesTest {
                     description = description,
                     type = type,
                     targetValue = targetValue,
+                    milestones = milestones,
                     dueDate = dueDate,
                 ),
             )
@@ -91,6 +95,16 @@ class GoalRoutesTest {
         assertEquals(HttpStatusCode.Created, response.status)
         return response.body<GoalResponse>()
     }
+
+    // A three-step PLAN create shorthand ("Design" / "Build" / "Ship", all not-done).
+    private suspend fun HttpClient.createPlanGoal(
+        subordinateId: UInt,
+        title: String = "Deliver the plan",
+        steps: List<String> = listOf("Design", "Build", "Ship"),
+    ): GoalResponse = createGoal(
+        subordinateId, title = title, type = GoalType.PLAN, targetValue = null,
+        milestones = steps.map { GoalMilestoneInput(description = it) },
+    )
 
     // ---- creation ----
 
@@ -122,9 +136,9 @@ class GoalRoutesTest {
         assertEquals("Sub Ordinate", created.subordinateName)
         assertEquals(4.0, created.targetValue)
         assertEquals(LocalDate.now().plusDays(30).toString(), created.dueDate)
-        // No recorded value yet (v2.8.1) — both value fields start unset.
+        // No recorded value yet (v2.8.1) — the value field starts unset.
         assertNull(created.currentValue)
-        assertNull(created.achieved)
+        assertTrue(created.milestones.isEmpty())
         assertNull(created.summary)
         assertTrue(created.createdAt > 0)
 
@@ -141,15 +155,17 @@ class GoalRoutesTest {
     }
 
     @Test
-    fun `a BINARY goal starts with no achieved flag and carries no numeric values`() = testApplication {
+    fun `a PLAN goal starts with its milestones not-done and carries no numeric values`() = testApplication {
         usePostgresTestcontainer()
         val pair = seedPair()
         val manager = authedClient(pair.managerEmail, "pw")
 
-        val created = manager.createGoal(pair.subordinateId, type = GoalType.BINARY, targetValue = null)
-        assertEquals(GoalType.BINARY, created.type)
-        // v2.8.1: no recorded value until the first progress update — never an auto "false".
-        assertNull(created.achieved)
+        val created = manager.createPlanGoal(pair.subordinateId)
+        assertEquals(GoalType.PLAN, created.type)
+        // Milestones come back in payload order, all not-done, with server-assigned ids.
+        assertEquals(listOf("Design", "Build", "Ship"), created.milestones.map { it.description })
+        assertTrue(created.milestones.none { it.done })
+        assertEquals(created.milestones.size, created.milestones.map { it.id }.toSet().size)
         assertNull(created.targetValue)
         assertNull(created.currentValue)
     }
@@ -191,18 +207,39 @@ class GoalRoutesTest {
             title: String = "T",
             type: GoalType = GoalType.NUMBER,
             targetValue: Double? = 1.0,
+            milestones: List<GoalMilestoneInput> = emptyList(),
             dueDate: String = LocalDate.now().toString(),
         ) = manager.post("/api/v1/goals") {
             contentType(ContentType.Application.Json)
             setBody(
                 GoalCreateRequest(
                     subordinateId = pair.subordinateId, title = title, type = type, targetValue = targetValue,
-                    dueDate = dueDate,
+                    milestones = milestones, dueDate = dueDate,
                 ),
             )
         }.status
 
-        assertEquals(HttpStatusCode.BadRequest, tryCreate(type = GoalType.BINARY, targetValue = 1.0))
+        assertEquals(HttpStatusCode.BadRequest, tryCreate(type = GoalType.PLAN, targetValue = 1.0))
+        // Milestone rules: blank descriptions, existing-row ids, and milestones on a numeric
+        // type are all rejected (the full matrix lives in GoalValidationTest).
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            tryCreate(
+                type = GoalType.PLAN, targetValue = null,
+                milestones = listOf(GoalMilestoneInput(description = "   ")),
+            ),
+        )
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            tryCreate(
+                type = GoalType.PLAN, targetValue = null,
+                milestones = listOf(GoalMilestoneInput(id = 1u, description = "smuggled id")),
+            ),
+        )
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            tryCreate(milestones = listOf(GoalMilestoneInput(description = "not on NUMBER"))),
+        )
         assertEquals(HttpStatusCode.BadRequest, tryCreate(type = GoalType.NUMBER, targetValue = null))
         assertEquals(HttpStatusCode.BadRequest, tryCreate(type = GoalType.PERCENTAGE, targetValue = null))
         assertEquals(HttpStatusCode.BadRequest, tryCreate(type = GoalType.PERCENTAGE, targetValue = 150.0))
@@ -580,7 +617,7 @@ class GoalRoutesTest {
         val manager = authedClient(pair.managerEmail, "pw")
         val created = manager.createGoal(pair.subordinateId, type = GoalType.NUMBER, targetValue = 10.0)
 
-        // Record some progress, then pull the goal back to DRAFT and flip it to BINARY.
+        // Record some progress, then pull the goal back to DRAFT and flip it to PLAN.
         manager.post("/api/v1/goals/${created.id}/activate")
         manager.put("/api/v1/goals/${created.id}/progress") {
             contentType(ContentType.Application.Json)
@@ -598,19 +635,49 @@ class GoalRoutesTest {
                     GoalDefinitionUpdate(
                         title = created.title,
                         description = created.description,
-                        type = GoalType.BINARY,
+                        type = GoalType.PLAN,
                         targetValue = null,
+                        milestones = listOf(GoalMilestoneInput(description = "Fresh step")),
                         dueDate = created.dueDate,
                     ),
                 )
             }.status,
         )
         val flipped = manager.get("/api/v1/goals/${created.id}").body<GoalResponse>()
-        assertEquals(GoalType.BINARY, flipped.type)
+        assertEquals(GoalType.PLAN, flipped.type)
         assertNull(flipped.targetValue)
+        // The reset lands back at "no recorded value" (v2.8.1) plus the payload's fresh
+        // not-done milestones.
         assertNull(flipped.currentValue)
-        // The reset lands back at "no recorded value" (v2.8.1), not the new type's zero.
-        assertNull(flipped.achieved)
+        assertEquals(listOf("Fresh step" to false), flipped.milestones.map { it.description to it.done })
+
+        // Tick the milestone, then flip back to NUMBER: the milestone rows are dropped with
+        // the rest of the discarded progress.
+        manager.post("/api/v1/goals/${created.id}/activate")
+        manager.put("/api/v1/goals/${created.id}/progress") {
+            contentType(ContentType.Application.Json)
+            setBody(GoalProgressUpdate(milestones = listOf(GoalMilestoneDone(flipped.milestones.single().id, true))))
+        }
+        manager.post("/api/v1/goals/${created.id}/deactivate")
+        assertEquals(
+            HttpStatusCode.NoContent,
+            manager.put("/api/v1/goals/${created.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    GoalDefinitionUpdate(
+                        title = created.title,
+                        description = created.description,
+                        type = GoalType.NUMBER,
+                        targetValue = 10.0,
+                        dueDate = created.dueDate,
+                    ),
+                )
+            }.status,
+        )
+        val flippedBack = manager.get("/api/v1/goals/${created.id}").body<GoalResponse>()
+        assertEquals(GoalType.NUMBER, flippedBack.type)
+        assertTrue(flippedBack.milestones.isEmpty())
+        assertNull(flippedBack.currentValue)
     }
 
     @Test
@@ -631,7 +698,10 @@ class GoalRoutesTest {
 
         manager.post("/api/v1/goals/${created.id}/activate")
         // The wrong field for the type, a missing field, and out-of-range percentages are 400.
-        assertEquals(HttpStatusCode.BadRequest, manager.progress(GoalProgressUpdate(achieved = true)))
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            manager.progress(GoalProgressUpdate(milestones = listOf(GoalMilestoneDone(1u, true)))),
+        )
         assertEquals(HttpStatusCode.BadRequest, manager.progress(GoalProgressUpdate()))
         assertEquals(HttpStatusCode.BadRequest, manager.progress(GoalProgressUpdate(currentValue = 101.0)))
         // A non-party never updates progress (the pair's shared write is manager + subordinate
@@ -660,33 +730,220 @@ class GoalRoutesTest {
     }
 
     @Test
-    fun `a BINARY goal's progress is the achieved flag`() = testApplication {
+    fun `a PLAN goal's progress is its milestone done-state`() = testApplication {
         usePostgresTestcontainer()
         val pair = seedPair()
         val manager = authedClient(pair.managerEmail, "pw")
-        val created = manager.createGoal(pair.subordinateId, type = GoalType.BINARY, targetValue = null)
+        val created = manager.createPlanGoal(pair.subordinateId)
         manager.post("/api/v1/goals/${created.id}/activate")
+        val (design, build, ship) = created.milestones
 
-        // currentValue is the wrong field for BINARY.
+        suspend fun progress(body: GoalProgressUpdate) =
+            manager.put("/api/v1/goals/${created.id}/progress") {
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            }.status
+
+        // currentValue is the wrong field for PLAN.
+        assertEquals(HttpStatusCode.BadRequest, progress(GoalProgressUpdate(currentValue = 1.0)))
+        // The done-state must cover exactly the goal's milestones: a partial list, a foreign
+        // id, and a duplicate are all 400.
         assertEquals(
             HttpStatusCode.BadRequest,
-            manager.put("/api/v1/goals/${created.id}/progress") {
-                contentType(ContentType.Application.Json)
-                setBody(GoalProgressUpdate(currentValue = 1.0))
-            }.status,
+            progress(GoalProgressUpdate(milestones = listOf(GoalMilestoneDone(design.id, true)))),
         )
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            progress(
+                GoalProgressUpdate(
+                    milestones = listOf(
+                        GoalMilestoneDone(design.id, true),
+                        GoalMilestoneDone(build.id, false),
+                        GoalMilestoneDone(999999u, false),
+                    ),
+                ),
+            ),
+        )
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            progress(
+                GoalProgressUpdate(
+                    milestones = listOf(
+                        GoalMilestoneDone(design.id, true),
+                        GoalMilestoneDone(design.id, true),
+                        GoalMilestoneDone(build.id, false),
+                    ),
+                ),
+            ),
+        )
+
+        // Tick the first and third in one save, with a comment.
         assertEquals(
             HttpStatusCode.NoContent,
-            manager.put("/api/v1/goals/${created.id}/progress") {
-                contentType(ContentType.Application.Json)
-                setBody(GoalProgressUpdate(achieved = true))
-            }.status,
+            progress(
+                GoalProgressUpdate(
+                    milestones = listOf(
+                        GoalMilestoneDone(design.id, true),
+                        GoalMilestoneDone(build.id, false),
+                        GoalMilestoneDone(ship.id, true),
+                    ),
+                    comment = "Design approved, and we shipped a beta",
+                ),
+            ),
         )
-        assertEquals(true, manager.get("/api/v1/goals/${created.id}").body<GoalResponse>().achieved)
+        val ticked = manager.get("/api/v1/goals/${created.id}").body<GoalResponse>()
+        assertEquals(listOf(true, false, true), ticked.milestones.map { it.done })
+
+        // One event per flipped flag (1-based stored positions), newest first; the comment
+        // rides the LAST-minted event, so it tops the timeline.
+        val events = manager.get("/api/v1/goals/${created.id}/events").body<GoalEventListResponse>()
+        val toggles = events.items.filter {
+            it.type == GoalEventType.MILESTONE_COMPLETED || it.type == GoalEventType.MILESTONE_REOPENED
+        }
+        assertEquals(
+            listOf(
+                GoalEventType.MILESTONE_COMPLETED to mapOf("position" to "3"),
+                GoalEventType.MILESTONE_COMPLETED to mapOf("position" to "1"),
+            ),
+            toggles.map { it.type to it.params },
+        )
+        assertEquals("Design approved, and we shipped a beta", toggles.first().comment)
+        assertNull(toggles.last().comment)
+
+        // Un-ticking is a recorded change too (MILESTONE_REOPENED).
+        assertEquals(
+            HttpStatusCode.NoContent,
+            progress(
+                GoalProgressUpdate(
+                    milestones = listOf(
+                        GoalMilestoneDone(design.id, true),
+                        GoalMilestoneDone(build.id, false),
+                        GoalMilestoneDone(ship.id, false),
+                    ),
+                ),
+            ),
+        )
+        val afterReopen = manager.get("/api/v1/goals/${created.id}/events").body<GoalEventListResponse>()
+        assertEquals(
+            mapOf("position" to "3"),
+            afterReopen.items.first { it.type == GoalEventType.MILESTONE_REOPENED }.params,
+        )
+        // Re-sending the same done-state with no comment is a silent no-op (no new events).
+        assertEquals(
+            HttpStatusCode.NoContent,
+            progress(
+                GoalProgressUpdate(
+                    milestones = listOf(
+                        GoalMilestoneDone(design.id, true),
+                        GoalMilestoneDone(build.id, false),
+                        GoalMilestoneDone(ship.id, false),
+                    ),
+                ),
+            ),
+        )
+        val afterNoop = manager.get("/api/v1/goals/${created.id}/events").body<GoalEventListResponse>()
+        assertEquals(afterReopen.items.size, afterNoop.items.size)
+    }
+
+    @Test
+    fun `a PLAN goal cannot activate without milestones - and the DRAFT edit reconciles them`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val manager = authedClient(pair.managerEmail, "pw")
+        val created = manager.createGoal(pair.subordinateId, type = GoalType.PLAN, targetValue = null)
+        assertTrue(created.milestones.isEmpty())
+
+        // A milestone-less PLAN draft is legal but cannot activate (nothing to track).
+        assertEquals(HttpStatusCode.BadRequest, manager.post("/api/v1/goals/${created.id}/activate").status)
+
+        suspend fun putDefinition(milestones: List<GoalMilestoneInput>) =
+            manager.put("/api/v1/goals/${created.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    GoalDefinitionUpdate(
+                        title = created.title,
+                        description = created.description,
+                        type = GoalType.PLAN,
+                        targetValue = null,
+                        milestones = milestones,
+                        dueDate = created.dueDate,
+                    ),
+                )
+            }.status
+
+        assertEquals(
+            HttpStatusCode.NoContent,
+            putDefinition(
+                listOf(
+                    GoalMilestoneInput(description = "Design"),
+                    GoalMilestoneInput(description = "Build"),
+                ),
+            ),
+        )
+        val defined = manager.get("/api/v1/goals/${created.id}").body<GoalResponse>()
+        assertEquals(listOf("Design", "Build"), defined.milestones.map { it.description })
+        val (design, build) = defined.milestones
+
+        // Tick "Design" while ACTIVE, then return to draft for a reconcile round.
+        manager.post("/api/v1/goals/${created.id}/activate")
+        manager.put("/api/v1/goals/${created.id}/progress") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                GoalProgressUpdate(
+                    milestones = listOf(GoalMilestoneDone(design.id, true), GoalMilestoneDone(build.id, false)),
+                ),
+            )
+        }
+        manager.post("/api/v1/goals/${created.id}/deactivate")
+
+        // Foreign and duplicate payload ids are 400 (nothing changes).
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            putDefinition(listOf(GoalMilestoneInput(id = 999999u, description = "foreign"))),
+        )
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            putDefinition(
+                listOf(
+                    GoalMilestoneInput(id = design.id, description = "dup"),
+                    GoalMilestoneInput(id = design.id, description = "dup"),
+                ),
+            ),
+        )
+
+        // The reconcile: drop "Build", rename+reorder "Design" (done flag preserved — the
+        // definition PUT never ticks), and add a new step (starting not-done).
+        assertEquals(
+            HttpStatusCode.NoContent,
+            putDefinition(
+                listOf(
+                    GoalMilestoneInput(description = "Kick off"),
+                    GoalMilestoneInput(id = design.id, description = "Design v2"),
+                ),
+            ),
+        )
+        val reconciled = manager.get("/api/v1/goals/${created.id}").body<GoalResponse>()
+        assertEquals(
+            listOf("Kick off" to false, "Design v2" to true),
+            reconciled.milestones.map { it.description to it.done },
+        )
+        assertEquals(design.id, reconciled.milestones[1].id)
+
+        // The reconcile is audited by position: removed (old position 2), edited (new
+        // position 2), added (new position 1) — newest first.
         val events = manager.get("/api/v1/goals/${created.id}/events").body<GoalEventListResponse>()
         assertEquals(
-            mapOf("to" to "true"),
-            events.items.single { it.type == GoalEventType.ACHIEVED_CHANGED }.params,
+            listOf(
+                GoalEventType.MILESTONE_ADDED to mapOf("position" to "1"),
+                GoalEventType.MILESTONE_EDITED to mapOf("position" to "2"),
+                GoalEventType.MILESTONE_REMOVED to mapOf("position" to "2"),
+            ),
+            events.items.filter { it.type.name.startsWith("MILESTONE_") }
+                .filterNot {
+                    it.type == GoalEventType.MILESTONE_COMPLETED || it.type == GoalEventType.MILESTONE_REOPENED
+                }
+                .map { it.type to it.params }
+                .take(3),
         )
     }
 
@@ -875,27 +1132,31 @@ class GoalRoutesTest {
     }
 
     @Test
-    fun `an explicit achieved=false on a fresh BINARY goal is a recorded change`() = testApplication {
+    fun `an unchanged milestone list with a comment records PROGRESS_COMMENTED`() = testApplication {
+        // The PLAN mirror of the numeric same-value-plus-comment case: the sent done-state
+        // matches the stored one, so the comment is the whole record.
         usePostgresTestcontainer()
         val pair = seedPair()
         val manager = authedClient(pair.managerEmail, "pw")
-        val created = manager.createGoal(pair.subordinateId, type = GoalType.BINARY, targetValue = null)
+        val created = manager.createPlanGoal(pair.subordinateId, steps = listOf("Only step"))
         manager.post("/api/v1/goals/${created.id}/activate")
 
-        // null → false IS a change (a deliberately recorded "not achieved", v2.8.1).
         assertEquals(
             HttpStatusCode.NoContent,
             manager.put("/api/v1/goals/${created.id}/progress") {
                 contentType(ContentType.Application.Json)
-                setBody(GoalProgressUpdate(achieved = false))
+                setBody(
+                    GoalProgressUpdate(
+                        milestones = listOf(GoalMilestoneDone(created.milestones.single().id, false)),
+                        comment = "Still blocked on procurement",
+                    ),
+                )
             }.status,
         )
-        assertEquals(false, manager.get("/api/v1/goals/${created.id}").body<GoalResponse>().achieved)
         val events = manager.get("/api/v1/goals/${created.id}/events").body<GoalEventListResponse>()
-        assertEquals(
-            mapOf("to" to "false"),
-            events.items.single { it.type == GoalEventType.ACHIEVED_CHANGED }.params,
-        )
+        val commented = events.items.single { it.type == GoalEventType.PROGRESS_COMMENTED }
+        assertEquals("Still blocked on procurement", commented.comment)
+        assertEquals(emptyMap(), commented.params)
     }
 
     // ---- delete ----
@@ -1032,33 +1293,47 @@ class GoalRoutesTest {
         val manager = authedClient(pair.managerEmail, "pw")
         val marker = "flt-${UUID.randomUUID().toString().take(8)}"
 
-        val binary = manager.createGoal(
-            pair.subordinateId, title = "$marker binary", type = GoalType.BINARY, targetValue = null,
-        )
+        val plan = manager.createPlanGoal(pair.subordinateId, title = "$marker aplan")
         val number = manager.createGoal(pair.subordinateId, title = "$marker number")
         manager.post("/api/v1/goals/${number.id}/activate")
+        // Tick one of the plan's three milestones so the tally has something to count.
+        manager.post("/api/v1/goals/${plan.id}/activate")
+        manager.put("/api/v1/goals/${plan.id}/progress") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                GoalProgressUpdate(
+                    milestones = plan.milestones.mapIndexed { i, m -> GoalMilestoneDone(m.id, i == 0) },
+                ),
+            )
+        }
+        manager.post("/api/v1/goals/${plan.id}/deactivate")
 
         suspend fun page(query: String) =
             manager.get("/api/v1/goals?view=managed&$query").body<GoalPageResponse>()
 
         // Substring title filter (case-insensitive) + type/status equality filters.
         assertEquals(2, page("title=${marker.uppercase()}").total)
-        assertEquals(listOf(binary.id), page("title=$marker&type=BINARY").items.map { it.id })
+        assertEquals(listOf(plan.id), page("title=$marker&type=PLAN").items.map { it.id })
         assertEquals(listOf(number.id), page("title=$marker&status=ACTIVE").items.map { it.id })
-        // The list never carries description/summary; it does carry the value fields
-        // (unset here — a fresh goal has no recorded value, v2.8.1).
-        val row = page("title=$marker&type=BINARY").items.single()
-        assertNull(row.achieved)
+        // The list never carries description/summary/milestone texts; a PLAN row carries the
+        // milestone tally instead of the (null) value fields, a numeric row the reverse.
+        val row = page("title=$marker&type=PLAN").items.single()
+        assertNull(row.targetValue)
+        assertEquals(1, row.milestonesDone)
+        assertEquals(3, row.milestonesTotal)
         assertEquals("Mona Manager", row.managerName)
         assertFalse(row.managerDeleted)
+        val numberRow = page("title=$marker&status=ACTIVE").items.single()
+        assertNull(numberRow.milestonesDone)
+        assertNull(numberRow.milestonesTotal)
 
-        // Sorting: title ascending puts "binary" before "number"; unknown sort fields are 400.
+        // Sorting: title ascending puts "aplan" before "number"; unknown sort fields are 400.
         assertEquals(
-            listOf(binary.id, number.id),
+            listOf(plan.id, number.id),
             page("title=$marker&sort=title").items.map { it.id },
         )
         assertEquals(
-            listOf(number.id, binary.id),
+            listOf(number.id, plan.id),
             page("title=$marker&sort=-title").items.map { it.id },
         )
         assertEquals(
@@ -1122,12 +1397,7 @@ class GoalRoutesTest {
         val manager = authedClient(pair.managerEmail, "pw")
         val marker = "flt-${UUID.randomUUID().toString().take(8)}"
 
-        val binary = manager.createGoal(
-            pair.subordinateId,
-            title = "$marker-binary",
-            type = GoalType.BINARY,
-            targetValue = null,
-        )
+        val plan = manager.createPlanGoal(pair.subordinateId, title = "$marker-aplan")
         val number = manager.createGoal(pair.subordinateId, title = "$marker-number")
         assertEquals(
             HttpStatusCode.NoContent,
@@ -1141,12 +1411,12 @@ class GoalRoutesTest {
         assertEquals(2, total(""))
         assertEquals(
             1,
-            manager.get("/api/v1/goals?view=managed&title=$marker-binary").body<GoalPageResponse>().total,
+            manager.get("/api/v1/goals?view=managed&title=$marker-aplan").body<GoalPageResponse>().total,
         )
         // type + status equality
-        assertEquals(1, total("type=BINARY"))
+        assertEquals(1, total("type=PLAN"))
         assertEquals(1, total("status=ACTIVE"))
-        assertEquals(setOf(binary.id), manager.get("/api/v1/goals?view=managed&title=$marker&status=DRAFT")
+        assertEquals(setOf(plan.id), manager.get("/api/v1/goals?view=managed&title=$marker&status=DRAFT")
             .body<GoalPageResponse>().items.map { it.id }.toSet())
         // party-name substrings, case-insensitive; a non-matching one excludes everything
         assertEquals(2, total("managerName=mona"))

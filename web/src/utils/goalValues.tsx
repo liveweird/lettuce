@@ -25,60 +25,82 @@ export function OverdueBadge() {
 }
 
 // A goal's numeric value rendered for its type: locale-formatted number, "%"-suffixed for
-// PERCENTAGE, an em dash for null (a BINARY goal's numeric columns). BINARY progress is the
-// achieved flag, rendered by AchievedBadge instead.
+// PERCENTAGE, an em dash for null (a PLAN goal's numeric columns). PLAN progress is its
+// milestone tally, rendered by GoalCurrentValue / MilestoneList instead.
 export function formatGoalValue(type: GoalType, value: number | null | undefined, locale: string): string {
-  if (type === "BINARY" || value == null) return "—";
+  if (type === "PLAN" || value == null) return "—";
   const formatted = new Intl.NumberFormat(locale).format(value);
   return type === "PERCENTAGE" ? `${formatted}%` : formatted;
 }
 
-// The BINARY goal's current-value pill (green done / yellow not-yet), shared by the table cell
-// and the view screen. min-width keeps Mantine from ellipsizing it inside table cells.
-export function AchievedBadge({ achieved }: { achieved: boolean }) {
-  const { t } = useTranslation();
-  return (
-    <Badge variant="light" color={achieved ? "teal" : "yellow"} style={{ minWidth: "max-content" }}>
-      {achieved ? t("goal.achieved") : t("goal.notAchieved")}
-    </Badge>
-  );
-}
-
-// The per-type CURRENT value, compact (table cells): the achieved pill for BINARY, the
-// formatted number otherwise. The single home of that type branch. A goal with no recorded
-// value yet (v2.8.1: both fields null until the first update) renders the em dash — a null
-// achieved is "not set", never the yellow "Not achieved" pill.
+// The per-type CURRENT value, compact (table cells): the "done / total" milestone tally for
+// PLAN (an em dash while a draft has no milestones yet), the formatted number otherwise. The
+// single home of that type branch.
 export function GoalCurrentValue({
   type,
   currentValue,
-  achieved,
+  milestonesDone,
+  milestonesTotal,
   locale,
 }: {
   type: GoalType;
   currentValue: number | null | undefined;
-  achieved: boolean | null | undefined;
+  milestonesDone: number | null | undefined;
+  milestonesTotal: number | null | undefined;
   locale: string;
 }) {
-  if (type === "BINARY") {
-    return achieved == null ? <>—</> : <AchievedBadge achieved={achieved} />;
+  if (type === "PLAN") {
+    if (!milestonesTotal) return <>—</>;
+    return <>{`${milestonesDone ?? 0} / ${milestonesTotal}`}</>;
   }
   return <>{formatGoalValue(type, currentValue, locale)}</>;
 }
 
+// The read-only milestone list (view screen + archived documents): a check square per row,
+// done rows visibly settled — struck through + dimmed (v2.9.0, the completed-state emphasis).
+export function MilestoneList({ milestones }: { milestones: GoalResponse["milestones"] }) {
+  return (
+    <Stack gap={6}>
+      {milestones.map((milestone) => (
+        <Group key={milestone.id} gap="xs" wrap="nowrap" align="flex-start">
+          <Text size="sm" c={milestone.done ? "teal" : "dimmed"} style={{ flexShrink: 0 }} aria-hidden>
+            {milestone.done ? "☑" : "☐"}
+          </Text>
+          <Text
+            size="sm"
+            c={milestone.done ? "dimmed" : undefined}
+            style={{
+              textDecoration: milestone.done ? "line-through" : undefined,
+              whiteSpace: "pre-wrap",
+            }}
+          >
+            {milestone.description}
+          </Text>
+        </Group>
+      ))}
+    </Stack>
+  );
+}
+
 // The type-specific value block for the read-only document: a progress bar for PERCENTAGE,
-// two labeled numbers for NUMBER, the achieved pill for BINARY.
+// two labeled numbers for NUMBER, the milestone list (+ "x of y done") for PLAN.
 export function GoalValues({ goal, locale }: { goal: GoalResponse; locale: string }) {
   const { t } = useTranslation();
-  if (goal.type === "BINARY") {
+  if (goal.type === "PLAN") {
+    const done = goal.milestones.filter((m) => m.done).length;
     return (
-      <ReadOnlyField label={t("goal.current")}>
-        {/* Null = no value recorded yet (v2.8.1) — never the "Not achieved" pill. */}
-        {goal.achieved == null ? (
+      <ReadOnlyField label={t("goal.milestones")}>
+        {goal.milestones.length === 0 ? (
           <Text size="sm" c="dimmed">
-            {t("goal.noValueYet")}
+            {t("goal.noMilestones")}
           </Text>
         ) : (
-          <AchievedBadge achieved={goal.achieved} />
+          <Stack gap="xs">
+            <MilestoneList milestones={goal.milestones} />
+            <Text size="sm" c="dimmed">
+              {t("goal.milestonesDone", { done, total: goal.milestones.length })}
+            </Text>
+          </Stack>
         )}
       </ReadOnlyField>
     );

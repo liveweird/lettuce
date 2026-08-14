@@ -5,6 +5,24 @@ import { saveErrorMessage } from "./saveError";
 
 export const MAX_GOAL_TITLE_LENGTH = 200;
 export const MAX_GOAL_TEXT_LENGTH = 4000;
+export const MAX_GOAL_MILESTONES = 100;
+
+// A PLAN milestone row in the definition editor (the oneOnOneForm draft-row scheme): the local
+// `key` is the React list identity (stable across reorders), the server `id` is preserved in
+// the PUT body so the backend tells edits from add/remove — new rows simply have no id. The
+// done flag is display-only here (defining is not ticking — the server preserves it by id).
+export type GoalMilestoneDraft = {
+  key: string;
+  id?: number;
+  description: string;
+  done: boolean;
+};
+
+let milestoneKeyCounter = 0;
+export function emptyMilestoneDraft(): GoalMilestoneDraft {
+  milestoneKeyCounter += 1;
+  return { key: `milestone-${milestoneKeyCounter}`, description: "", done: false };
+}
 
 // The DRAFT definition editor's form shape. targetValue is a string | number union because
 // Mantine's NumberInput reports "" while empty.
@@ -13,15 +31,23 @@ export interface GoalDefinitionFormValues {
   description: string;
   type: GoalType;
   targetValue: number | string;
+  milestones: GoalMilestoneDraft[];
   dueDate: string;
 }
 
 export function toDefinitionFormValues(goal: GoalResponse): GoalDefinitionFormValues {
+  milestoneKeyCounter += 1;
   return {
     title: goal.title,
     description: goal.description,
     type: goal.type,
     targetValue: goal.targetValue ?? "",
+    milestones: goal.milestones.map((m, i) => ({
+      key: `milestone-loaded-${milestoneKeyCounter}-${i}`,
+      id: m.id,
+      description: m.description,
+      done: m.done,
+    })),
     dueDate: goal.dueDate,
   };
 }
@@ -31,10 +57,16 @@ export function toDefinitionBody(values: GoalDefinitionFormValues): GoalDefiniti
     title: values.title,
     description: values.description,
     type: values.type,
-    // BINARY carries no target; an empty NumberInput ("") never survives validation for the
+    // PLAN carries no target; an empty NumberInput ("") never survives validation for the
     // numeric types, so the fallback is defensive only.
     targetValue:
-      values.type === "BINARY" || values.targetValue === "" ? null : Number(values.targetValue),
+      values.type === "PLAN" || values.targetValue === "" ? null : Number(values.targetValue),
+    // Milestones apply to PLAN only (the server 400s them elsewhere); keys stripped, ids
+    // preserved, payload order IS the order.
+    milestones:
+      values.type === "PLAN"
+        ? values.milestones.map((m) => ({ id: m.id, description: m.description }))
+        : [],
     dueDate: values.dueDate,
   };
 }
@@ -55,7 +87,7 @@ export function goalDefinitionValidation(t: TFunction) {
         ? t("goal.validation.descriptionTooLong", { max: MAX_GOAL_TEXT_LENGTH })
         : null,
     targetValue: (value: number | string, values: GoalDefinitionFormValues) => {
-      if (values.type === "BINARY") return null;
+      if (values.type === "PLAN") return null;
       if (value === "" || value == null) return t("goal.validation.targetRequired");
       const numeric = Number(value);
       if (!Number.isFinite(numeric)) return t("goal.validation.targetRequired");
@@ -63,6 +95,16 @@ export function goalDefinitionValidation(t: TFunction) {
         return t("goal.validation.percentageRange");
       }
       return null;
+    },
+    milestones: {
+      description: (value: string, values: GoalDefinitionFormValues) => {
+        if (values.type !== "PLAN") return null;
+        if (!value.trim()) return t("goal.validation.milestoneRequired");
+        if (value.length > MAX_GOAL_TEXT_LENGTH) {
+          return t("goal.validation.milestoneTooLong", { max: MAX_GOAL_TEXT_LENGTH });
+        }
+        return null;
+      },
     },
     // ISO strings compare chronologically, so a plain string compare mirrors the server rule
     // (dueDate === today is valid).

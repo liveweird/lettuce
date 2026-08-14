@@ -30,7 +30,8 @@ const NUMBER_GOAL = {
   type: "NUMBER",
   targetValue: 4,
   currentValue: 1.5,
-  achieved: null,
+  milestonesDone: null,
+  milestonesTotal: null,
   status: "ACTIVE",
 };
 
@@ -41,18 +42,20 @@ const PERCENTAGE_GOAL = {
   type: "PERCENTAGE",
   targetValue: 90,
   currentValue: 45,
-  achieved: null,
+  milestonesDone: null,
+  milestonesTotal: null,
   status: "DRAFT",
 };
 
-const BINARY_GOAL = {
+const PLAN_GOAL = {
   ...BASE,
   id: 3,
   title: "Get certified",
-  type: "BINARY",
+  type: "PLAN",
   targetValue: null,
   currentValue: null,
-  achieved: false,
+  milestonesDone: 1,
+  milestonesTotal: 3,
   status: "ARCHIVED",
 };
 
@@ -65,7 +68,7 @@ describe("GoalTable", () => {
 
   beforeEach(() => {
     mockFetch = vi.fn(() =>
-      Promise.resolve(jsonResponse(200, page([NUMBER_GOAL, PERCENTAGE_GOAL, BINARY_GOAL]))),
+      Promise.resolve(jsonResponse(200, page([NUMBER_GOAL, PERCENTAGE_GOAL, PLAN_GOAL]))),
     );
     vi.stubGlobal("fetch", mockFetch);
     localStorage.setItem(TOKEN_KEY, "fake-token");
@@ -87,9 +90,9 @@ describe("GoalTable", () => {
     // PERCENTAGE: %-suffixed.
     expect(screen.getByText("90%")).toBeInTheDocument();
     expect(screen.getByText("45%")).toBeInTheDocument();
-    // BINARY: no numeric target (em dashes), achieved pill as the current value.
+    // PLAN: no numeric target (em dashes), the milestone tally as the current value.
     expect(screen.getAllByText("—").length).toBeGreaterThan(0);
-    expect(screen.getByText("Not achieved")).toBeInTheDocument();
+    expect(screen.getByText("1 / 3")).toBeInTheDocument();
     // Status badges.
     expect(screen.getByText("Active")).toBeInTheDocument();
     expect(screen.getByText("Draft")).toBeInTheDocument();
@@ -99,16 +102,14 @@ describe("GoalTable", () => {
     expect(screen.queryByText("Overdue")).toBeNull();
   });
 
-  test("a BINARY row with no recorded value shows an em dash, not the Not-achieved pill", async () => {
-    // v2.8.1: fresh goals start with null value fields — null must never read as "Not achieved".
+  test("a PLAN draft with no milestones yet shows an em dash, not a zero tally", async () => {
     mockFetch.mockResolvedValue(
-      jsonResponse(200, page([{ ...BINARY_GOAL, status: "ACTIVE", achieved: null }])),
+      jsonResponse(200, page([{ ...PLAN_GOAL, status: "DRAFT", milestonesDone: 0, milestonesTotal: 0 }])),
     );
     renderWithProviders(<GoalTable view="own" managerId={10} settingsKey="userGoals" />);
 
     expect(await screen.findByText("Get certified")).toBeInTheDocument();
-    expect(screen.queryByText("Not achieved")).toBeNull();
-    expect(screen.queryByText("Achieved")).toBeNull();
+    expect(screen.queryByText("0 / 0")).toBeNull();
     expect(screen.getAllByText("—").length).toBeGreaterThan(0);
   });
 
@@ -120,7 +121,7 @@ describe("GoalTable", () => {
         page([
           { ...NUMBER_GOAL, dueDate: "2020-01-01" },
           { ...PERCENTAGE_GOAL, dueDate: "2020-01-01" },
-          { ...BINARY_GOAL, dueDate: "2020-01-01" },
+          { ...PLAN_GOAL, dueDate: "2020-01-01" },
         ]),
       ),
     );
@@ -343,7 +344,7 @@ describe("GoalTable", () => {
       if ((init?.method ?? "GET") === "POST") {
         return Promise.resolve(new Response(null, { status: 204 }));
       }
-      return Promise.resolve(jsonResponse(200, page([NUMBER_GOAL, PERCENTAGE_GOAL, BINARY_GOAL])));
+      return Promise.resolve(jsonResponse(200, page([NUMBER_GOAL, PERCENTAGE_GOAL, PLAN_GOAL])));
     });
     const toast = vi.spyOn(notifications, "show").mockReturnValue("id");
     const user = userEvent.setup();
@@ -380,7 +381,7 @@ describe("GoalTable", () => {
       if ((init?.method ?? "GET") === "POST") {
         return Promise.resolve(new Response(null, { status: 204 }));
       }
-      return Promise.resolve(jsonResponse(200, page([NUMBER_GOAL, PERCENTAGE_GOAL, BINARY_GOAL])));
+      return Promise.resolve(jsonResponse(200, page([NUMBER_GOAL, PERCENTAGE_GOAL, PLAN_GOAL])));
     });
     const user = userEvent.setup();
     renderWithProviders(<GoalTable view="managed" settingsKey="goals.managed" />);

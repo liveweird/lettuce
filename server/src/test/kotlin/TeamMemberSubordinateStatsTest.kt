@@ -30,6 +30,7 @@ import io.ktor.server.testing.testApplication
 import java.util.UUID
 import ch.nokillswit.goals.GoalArchiveRequest
 import ch.nokillswit.goals.GoalCreateRequest
+import ch.nokillswit.goals.GoalMilestoneInput
 import ch.nokillswit.goals.GoalResponse
 import ch.nokillswit.goals.GoalType
 import ch.nokillswit.reviews.CategoryAssessment
@@ -90,7 +91,8 @@ class TeamMemberSubordinateStatsTest {
             contentType(ContentType.Application.Json)
             setBody(
                 GoalCreateRequest(
-                    subordinateId = subordinateId, title = title, type = GoalType.BINARY, dueDate = "2099-12-31",
+                    subordinateId = subordinateId, title = title, type = GoalType.PLAN,
+                    milestones = listOf(GoalMilestoneInput(description = "Done")), dueDate = "2099-12-31",
                 ),
             )
         }

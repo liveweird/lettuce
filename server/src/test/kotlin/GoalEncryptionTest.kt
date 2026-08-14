@@ -2,6 +2,7 @@ package ch.nokillswit
 
 import ch.nokillswit.goals.GoalArchiveRequest
 import ch.nokillswit.goals.GoalCreateRequest
+import ch.nokillswit.goals.GoalMilestoneInput
 import ch.nokillswit.goals.GoalResponse
 import ch.nokillswit.goals.GoalService
 import ch.nokillswit.goals.GoalStatus
@@ -69,6 +70,7 @@ class GoalEncryptionTest {
 
         val secretDescription = "Confidential description: performance concerns"
         val secretSummary = "Confidential summary: goal missed, PIP next"
+        val secretMilestone = "Confidential milestone: settle the vendor dispute"
         val created = manager.post("/api/v1/goals") {
             contentType(ContentType.Application.Json)
             setBody(
@@ -76,7 +78,8 @@ class GoalEncryptionTest {
                     subordinateId = subordinateId,
                     title = "Public title",
                     description = secretDescription,
-                    type = GoalType.BINARY,
+                    type = GoalType.PLAN,
+                    milestones = listOf(GoalMilestoneInput(description = secretMilestone)),
                     dueDate = "2099-12-31",
                 ),
             )
@@ -99,10 +102,22 @@ class GoalEncryptionTest {
         assertTrue(raw.summary!!.startsWith(FieldCipher.PREFIX))
         assertFalse("Confidential" in raw.summary)
 
+        // The milestone description is enveloped the same way.
+        val rawMilestone = suspendTransaction(TestServices.goals.database) {
+            GoalService.Milestones.selectAll()
+                .where { GoalService.Milestones.goalId eq created.id }
+                .map { it[GoalService.Milestones.description] }
+                .toList()
+                .single()
+        }
+        assertTrue(rawMilestone.startsWith(FieldCipher.PREFIX))
+        assertFalse("Confidential" in rawMilestone)
+
         // What the API serves: the plaintext, decrypted transparently.
         val fetched = manager.get("/api/v1/goals/${created.id}").body<GoalResponse>()
         assertEquals(secretDescription, fetched.description)
         assertEquals(secretSummary, fetched.summary)
+        assertEquals(secretMilestone, fetched.milestones.single().description)
 
         // The event trail is plaintext by design — so it must never carry the secret texts.
         val rawEventParams = suspendTransaction(TestServices.goals.database) {
@@ -238,22 +253,42 @@ class GoalEncryptionTest {
                 it[GoalService.Goals.dueDate] = "2099-12-31"
                 it[GoalService.Goals.title] = "Legacy goal"
                 it[GoalService.Goals.description] = "legacy plain description"
-                it[GoalService.Goals.type] = GoalType.NUMBER
-                it[GoalService.Goals.targetValue] = 5.0
-                it[GoalService.Goals.currentValue] = 0.0
+                // PLAN, like a V56-converted ex-BINARY row (whose 'Done' milestone is below).
+                it[GoalService.Goals.type] = GoalType.PLAN
+                it[GoalService.Goals.targetValue] = null
+                it[GoalService.Goals.currentValue] = null
                 it[GoalService.Goals.status] = GoalStatus.ARCHIVED
                 it[GoalService.Goals.summary] = "legacy plain summary"
                 it[GoalService.Goals.lastModified] = now
             }[GoalService.Goals.id].value
         }
+        // A legacy plaintext milestone row too — exactly what the V56 conversion leaves behind
+        // ('Done' rows) for the first boot's backfill.
+        suspendTransaction(TestServices.goals.database) {
+            GoalService.Milestones.insert {
+                it[GoalService.Milestones.goalId] = legacyId
+                it[GoalService.Milestones.position] = 0
+                it[GoalService.Milestones.description] = "Done"
+                it[GoalService.Milestones.done] = true
+            }
+        }
 
-        assertTrue(TestServices.goals.encryptLegacyRows() >= 1)
+        assertTrue(TestServices.goals.encryptLegacyRows() >= 2)
         val raw = rawGoal(legacyId)
         assertTrue(raw.description.startsWith(FieldCipher.PREFIX))
         assertTrue(raw.summary!!.startsWith(FieldCipher.PREFIX))
+        val rawMilestone = suspendTransaction(TestServices.goals.database) {
+            GoalService.Milestones.selectAll()
+                .where { GoalService.Milestones.goalId eq legacyId }
+                .map { it[GoalService.Milestones.description] }
+                .toList()
+                .single()
+        }
+        assertTrue(rawMilestone.startsWith(FieldCipher.PREFIX))
         // The plaintext survives the wrap.
         assertEquals("legacy plain description", TestServices.goals.read(legacyId)!!.description)
         assertEquals("legacy plain summary", TestServices.goals.read(legacyId)!!.summary)
+        assertEquals("Done" to true, TestServices.goals.read(legacyId)!!.milestones.single().let { it.description to it.done })
         // Idempotent: a second pass finds nothing legacy.
         assertEquals(0, TestServices.goals.encryptLegacyRows())
     }
@@ -274,8 +309,8 @@ class GoalEncryptionTest {
                 subordinateId = subordinateId,
                 title = "Rotate me",
                 description = "rotate this description",
-                type = GoalType.NUMBER,
-                targetValue = 3.0,
+                type = GoalType.PLAN,
+                milestones = listOf(GoalMilestoneInput(description = "rotate this milestone")),
                 dueDate = "2099-12-31",
             ),
         )
@@ -287,12 +322,20 @@ class GoalEncryptionTest {
             TestServices.goals.database,
             FieldCipher(newKey, previousKeyHex = oldKey),
         )
-        assertTrue(rotatingService.encryptLegacyRows(reencryptAll = true) >= 1)
+        assertTrue(rotatingService.encryptLegacyRows(reencryptAll = true) >= 2)
 
-        // After the backfill the new key ALONE decrypts both columns — the old key can be retired.
+        // After the backfill the new key ALONE decrypts every column — the old key can be retired.
         val raw = rawGoal(id)
         assertEquals("rotate this description", FieldCipher(newKey).decrypt(raw.description))
         assertEquals("rotate this summary", FieldCipher(newKey).decrypt(raw.summary!!))
+        val rawMilestone = suspendTransaction(TestServices.goals.database) {
+            GoalService.Milestones.selectAll()
+                .where { GoalService.Milestones.goalId eq id }
+                .map { it[GoalService.Milestones.description] }
+                .toList()
+                .single()
+        }
+        assertEquals("rotate this milestone", FieldCipher(newKey).decrypt(rawMilestone))
         // Idempotent second pass without rotation finds nothing legacy.
         assertEquals(0, rotatingService.encryptLegacyRows())
     }

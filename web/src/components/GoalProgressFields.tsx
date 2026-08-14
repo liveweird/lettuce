@@ -1,4 +1,4 @@
-import { Group, Input, NumberInput, Stack, Switch, Text } from "@mantine/core";
+import { Checkbox, Group, Input, NumberInput, Stack, Text } from "@mantine/core";
 import type { UseFormReturnType } from "@mantine/form";
 import { useTranslation } from "react-i18next";
 import type { GoalResponse } from "../api/client";
@@ -9,18 +9,27 @@ import MarkdownView from "./MarkdownView";
 import { MAX_GOAL_TEXT_LENGTH } from "../utils/goalForm";
 import { formatGoalValue } from "../utils/goalValues";
 
+export interface GoalProgressMilestoneValue {
+  id: number;
+  description: string;
+  done: boolean;
+}
+
 export interface GoalProgressFormValues {
   currentValue: number | string;
-  achieved: boolean;
+  // PLAN: the complete done-state, one entry per milestone (descriptions are display-only —
+  // the definition owns them).
+  milestones: GoalProgressMilestoneValue[];
   // The optional context of this update (v2.8.0) — lands in the goal's history, never stored
   // on the goal itself.
   comment: string;
 }
 
 /**
- * The Update screen's field block: the frozen definition (title, target) plus the one live
- * value — the achieved Switch for BINARY, the current-value NumberInput otherwise — and the
- * optional per-update comment. The embedding form owns submission and the footer.
+ * The Update screen's field block: the frozen definition (title, target) plus the live progress
+ * state — one checkbox per milestone for PLAN (done rows struck through), the current-value
+ * NumberInput otherwise — and the optional per-update comment. The embedding form owns
+ * submission and the footer.
  */
 export default function GoalProgressFields({
   goal,
@@ -34,7 +43,7 @@ export default function GoalProgressFields({
   const { t } = useTranslation();
   return (
     <Stack gap="lg">
-      {/* The definition is frozen while ACTIVE (deactivate to edit it) — only the value is live. */}
+      {/* The definition is frozen while ACTIVE (deactivate to edit it) — only progress is live. */}
       <Input.Wrapper label={t("goal.title")}>
         <Text fw={500}>{goal.title}</Text>
       </Input.Wrapper>
@@ -43,12 +52,31 @@ export default function GoalProgressFields({
           <MarkdownView>{goal.description}</MarkdownView>
         </ProseBox>
       </Input.Wrapper>
-      {goal.type === "BINARY" ? (
-        <Switch
-          label={t("goal.achieved")}
-          checked={form.values.achieved}
-          onChange={(event) => form.setFieldValue("achieved", event.currentTarget.checked)}
-        />
+      {goal.type === "PLAN" ? (
+        <Input.Wrapper label={t("goal.milestones")}>
+          <Stack gap="xs" mt={4}>
+            {form.values.milestones.map((milestone, index) => (
+              <Checkbox
+                key={milestone.id}
+                label={
+                  <Text
+                    span
+                    size="sm"
+                    c={milestone.done ? "dimmed" : undefined}
+                    style={{
+                      // Done milestones are visibly settled: struck through + dimmed.
+                      textDecoration: milestone.done ? "line-through" : undefined,
+                      whiteSpace: "pre-wrap",
+                    }}
+                  >
+                    {milestone.description}
+                  </Text>
+                }
+                {...form.getInputProps(`milestones.${index}.done`, { type: "checkbox" })}
+              />
+            ))}
+          </Stack>
+        </Input.Wrapper>
       ) : (
         <Group gap="xl" align="flex-start">
           <ReadOnlyField label={t("goal.target")}>

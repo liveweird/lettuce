@@ -6,8 +6,8 @@ import java.time.LocalDate
 import java.time.format.DateTimeParseException
 import kotlinx.serialization.Serializable
 
-// No BINARY on purpose: a team KPI is always a measured value, so target/current are non-null
-// and there is no `achieved` flag (the goals machinery it drops).
+// No PLAN on purpose: a team KPI is always a measured value, so target/current are non-null
+// and there are no milestones (the goals machinery it drops).
 @Serializable
 enum class TeamKpiType { NUMBER, PERCENTAGE }
 
@@ -154,7 +154,7 @@ data class TeamKpiEventListResponse(
 
 /**
  * Validates a KPI's definition fields (create and DRAFT edit): title/description bounds plus the
- * type-specific target rule — a finite target is always required (there is no BINARY), and a
+ * type-specific target rule — a finite target is always required (there is no PLAN), and a
  * PERCENTAGE target must be within 0–100.
  */
 internal fun validateTeamKpiDefinition(
@@ -179,7 +179,7 @@ internal fun validateTeamKpiDefinition(
 
 /**
  * Validates a data point (add and correct): [TeamKpiValueWrite.value] is always required (there is
- * no BINARY flavor), finite, and 0–100 for a PERCENTAGE KPI; [TeamKpiValueWrite.date] is
+ * no PLAN flavor), finite, and 0–100 for a PERCENTAGE KPI; [TeamKpiValueWrite.date] is
  * required, strict zero-padded ISO `YYYY-MM-DD` (anything else would break the VARCHAR column's
  * lexicographic == chronological ordering), and not after [today] (`== today` is allowed — the
  * value was measured then, so it can never be in the future). [today] is injectable for tests,

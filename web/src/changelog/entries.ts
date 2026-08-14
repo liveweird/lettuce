@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.9.0",
+    date: "2026-08-14",
+    en: `Done/not-done goals grew into plans. The old yes-or-no goal type is now called Plan and holds an ordered list of milestones, each with its own description and checkbox. The manager defines the milestones while the goal is a draft (add, edit, reorder, remove — a plan needs at least one milestone to be activated), and once the goal is active both the manager and the team member tick milestones off (or back on) from the Update screen, optionally with a comment — every change lands in the goal's history and notifies the other party, as before. Completed milestones are visibly settled: struck through and dimmed wherever the list appears, and goal lists show the plan's progress as a "done / total" count. Existing yes-or-no goals were converted automatically: each carries a single "Done" milestone reflecting its previous state.`,
+    pl: `Cele „zrobione/niezrobione" wyrosły na plany. Dawny zero-jedynkowy typ celu nazywa się teraz Plan i zawiera uporządkowaną listę kamieni milowych, każdy z własnym opisem i polem wyboru. Menedżer definiuje kamienie milowe, dopóki cel jest szkicem (dodawanie, edycja, zmiana kolejności, usuwanie — plan potrzebuje co najmniej jednego kamienia milowego, żeby dało się go aktywować), a gdy cel jest aktywny, zarówno menedżer, jak i członek zespołu odhaczają kamienie milowe (albo cofają odhaczenie) na ekranie aktualizacji, opcjonalnie z komentarzem — każda zmiana trafia do historii celu i powiadamia drugą stronę, tak jak dotąd. Ukończone kamienie milowe widać od razu: są przekreślone i przygaszone wszędzie tam, gdzie pojawia się lista, a listy celów pokazują postęp planu jako licznik „ukończone / wszystkie". Istniejące cele zero-jedynkowe zostały przekonwertowane automatycznie: każdy ma teraz jeden kamień milowy „Done" odzwierciedlający poprzedni stan.`,
+  },
+  {
     version: "2.8.2",
     date: "2026-08-14",
     en: `Histories read like news now. Every History tab — feedback, 1:1 meetings, goals, team KPIs, and performance reviews — shows the newest entries first, just like notifications, so the latest change is always at the top instead of at the end of a growing timeline. The 1:1 action items' "Carried over" history follows the same rule: the current copy first, its origins below.`,

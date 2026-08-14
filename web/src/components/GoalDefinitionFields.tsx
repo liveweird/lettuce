@@ -8,15 +8,17 @@ import {
   MAX_GOAL_TITLE_LENGTH,
   type GoalDefinitionFormValues,
 } from "../utils/goalForm";
+import GoalMilestonesEditor from "./GoalMilestonesEditor";
 
 // ~0.5 MB of MDXEditor — loaded only when a definition form actually renders.
 const MarkdownEditor = lazy(() => import("./MarkdownEditor"));
 
 /**
- * The goal-definition field block (title, markdown description, type, type-specific target),
- * shared by the create screen and the DRAFT editor. The embedding form owns submission,
- * footer buttons, and the surrounding layout; `typeChangeWarning` is the DRAFT editor's
- * "changing the type discards recorded progress" notice.
+ * The goal-definition field block (title, markdown description, type, type-specific target or
+ * — for PLAN — the milestone list editor), shared by the create screen and the DRAFT editor.
+ * The embedding form owns submission, footer buttons, and the surrounding layout;
+ * `typeChangeWarning` is the DRAFT editor's "changing the type discards recorded progress"
+ * notice.
  */
 export default function GoalDefinitionFields({
   form,
@@ -52,7 +54,7 @@ export default function GoalDefinitionFields({
       <Group gap="xl" align="flex-start">
         <Select
           label={t("goal.type.label")}
-          data={(["BINARY", "NUMBER", "PERCENTAGE"] as const).map((type) => ({
+          data={(["PLAN", "NUMBER", "PERCENTAGE"] as const).map((type) => ({
             value: type,
             label: t(`goal.type.${type}`),
           }))}
@@ -60,7 +62,7 @@ export default function GoalDefinitionFields({
           w={200}
           {...form.getInputProps("type")}
         />
-        {form.values.type !== "BINARY" && (
+        {form.values.type !== "PLAN" && (
           <NumberInput
             label={t("goal.target")}
             withAsterisk
@@ -80,6 +82,7 @@ export default function GoalDefinitionFields({
           {...form.getInputProps("dueDate")}
         />
       </Group>
+      {form.values.type === "PLAN" && <GoalMilestonesEditor form={form} />}
       {typeChangeWarning && (
         <Text size="sm" c="orange">
           {t("goal.typeChangeWarning")}
