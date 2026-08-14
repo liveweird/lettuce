@@ -1221,10 +1221,14 @@ export interface paths {
         /**
          * Update an active goal's current value
          * @description Updates the goal's current value — the only edit an **ACTIVE** goal accepts (any other
-         *     status is `409`). **Manager-only**. Exactly the field matching the goal's type must be
-         *     set: `achieved` for a BINARY goal, `currentValue` for NUMBER and PERCENTAGE (0–100 for
-         *     PERCENTAGE); the mismatched field is `400`. The change is recorded in the audit history
-         *     (from/to values); a no-op update records nothing.
+         *     status is `409`). Open to **both parties** — the manager and the subordinate (v2.8.0);
+         *     anyone else is `403`. Exactly the field matching the goal's type must be set:
+         *     `achieved` for a BINARY goal, `currentValue` for NUMBER and PERCENTAGE (0–100 for
+         *     PERCENTAGE); the mismatched field is `400`. An optional `comment` (context of the
+         *     update) is recorded on the history event, encrypted at rest; a non-blank comment with
+         *     an unchanged value still records a `PROGRESS_COMMENTED` event. Any recorded update
+         *     notifies the counterparty. The change is recorded in the audit history (from/to
+         *     values); a true no-op (unchanged value, no comment) records nothing.
          */
         put: operations["updateGoalProgress"];
         post?: never;
@@ -4037,6 +4041,8 @@ export interface components {
             currentValue?: number | null;
             /** @description The new done-flag — required for BINARY goals; must be absent otherwise. */
             achieved?: boolean | null;
+            /** @description Optional context of the update, shown in the goal's history (stored encrypted at rest on the history event, never in its params). Blank counts as absent; a non-blank comment with an unchanged value records a `PROGRESS_COMMENTED` event. */
+            comment?: string | null;
         };
         GoalArchiveRequest: {
             /** @description The archiving summary — required and non-blank; recorded on the goal. */
@@ -4143,18 +4149,20 @@ export interface components {
              * @description Structured event kind; the client renders it in the viewer's language.
              * @enum {string}
              */
-            type: "CREATED" | "TITLE_CHANGED" | "DESCRIPTION_CHANGED" | "TYPE_CHANGED" | "TARGET_CHANGED" | "DUE_DATE_CHANGED" | "PROGRESS_UPDATED" | "ACHIEVED_CHANGED" | "STATUS_CHANGED" | "DELETED";
+            type: "CREATED" | "TITLE_CHANGED" | "DESCRIPTION_CHANGED" | "TYPE_CHANGED" | "TARGET_CHANGED" | "DUE_DATE_CHANGED" | "PROGRESS_UPDATED" | "ACHIEVED_CHANGED" | "PROGRESS_COMMENTED" | "STATUS_CHANGED" | "DELETED";
             /**
              * @description Interpolation params for the localized rendering — enum names (`from`/`to` statuses
              *     and types, the CREATED event's `type`), numeric values (target/progress
              *     `from`/`to`, `""` = no value), and ISO dates (the due-date change's `from`/`to`).
-             *     Never title/description/summary text (description and
-             *     summary are encrypted at rest; this trail is plaintext by design). Empty object when
-             *     the event kind needs none.
+             *     Never title/description/summary/comment text (params stay plaintext by design; the
+             *     progress-update comment lives in the separate `comment` field, encrypted at rest).
+             *     Empty object when the event kind needs none.
              */
             params: {
                 [key: string]: string;
             };
+            /** @description The progress update's optional context comment (PROGRESS_UPDATED / ACHIEVED_CHANGED / PROGRESS_COMMENTED events; stored encrypted at rest, decrypted here). Absent on every other event kind. */
+            comment?: string | null;
         };
         GoalEventList: {
             items: components["schemas"]["GoalEventResponse"][];
@@ -4755,7 +4763,7 @@ export interface components {
              * @description Notification kind; the client renders it in the viewer's language.
              * @enum {string}
              */
-            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_REQUESTED_TO_MANAGER" | "DAYS_OFF_ACCEPTED_TO_OWNER" | "DAYS_OFF_REJECTED_TO_OWNER" | "DAYS_OFF_CANCELLED_TO_MANAGER" | "DAYS_OFF_CORRECTED_TO_OWNER" | "PULSE_CYCLE_SCHEDULED" | "PULSE_CYCLE_OPENED" | "PULSE_RESULTS_AVAILABLE" | "PULSE_CYCLE_CANCELLED" | "PASSWORD_CHANGED";
+            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_MANAGER" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_REQUESTED_TO_MANAGER" | "DAYS_OFF_ACCEPTED_TO_OWNER" | "DAYS_OFF_REJECTED_TO_OWNER" | "DAYS_OFF_CANCELLED_TO_MANAGER" | "DAYS_OFF_CORRECTED_TO_OWNER" | "PULSE_CYCLE_SCHEDULED" | "PULSE_CYCLE_OPENED" | "PULSE_RESULTS_AVAILABLE" | "PULSE_CYCLE_CANCELLED" | "PASSWORD_CHANGED";
             /**
              * @description Interpolation values for the localized message — party names (proper nouns), e.g.
              *     `{provider,subject,requester}`; plus `self` — the SPA's i18next context carrier:
@@ -7319,7 +7327,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The value field does not match the goal's type, is missing, or is out of range (PERCENTAGE is 0–100) */
+            /** @description The value field does not match the goal's type, is missing, or is out of range (PERCENTAGE is 0–100); or the comment exceeds 4000 characters */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -7329,7 +7337,15 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
-            403: components["responses"]["GoalNotManager"];
+            /** @description The caller is neither the goal's manager nor its subordinate */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             404: components["responses"]["NotFound"];
             /** @description The goal is not ACTIVE — the current value is only editable while it is */
             409: {

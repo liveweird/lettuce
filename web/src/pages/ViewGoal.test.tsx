@@ -131,7 +131,7 @@ describe("ViewGoal page", () => {
     expect(screen.getByText(/Done well\./)).toBeInTheDocument();
   });
 
-  test("the subordinate gets no lifecycle actions and no Edit", async () => {
+  test("the subordinate gets no lifecycle actions and no Edit — but Update on ACTIVE (v2.8.0)", async () => {
     setupMocks();
     renderScreen();
 
@@ -139,8 +139,21 @@ describe("ViewGoal page", () => {
     expect(screen.queryByRole("button", { name: /^activate$/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /archive goal/i })).toBeNull();
     expect(screen.queryByRole("link", { name: /^edit$/i })).toBeNull();
+    // Progress is the pair's shared write: the subordinate reaches the Update screen.
+    expect(screen.getByRole("link", { name: /^update$/i })).toHaveAttribute(
+      "href",
+      expect.stringContaining("/goals/5/edit?from=own"),
+    );
     // Close (the back link) is always there.
     expect(screen.getByRole("link", { name: /^close$/i })).toHaveAttribute("href", "/users/7/goals");
+  });
+
+  test("the subordinate gets no Update on a non-ACTIVE goal", async () => {
+    setupMocks({ ...GOAL, status: "ARCHIVED", summary: "done" });
+    renderScreen();
+
+    await screen.findByText("Raise coverage");
+    expect(screen.queryByRole("link", { name: /^update$/i })).toBeNull();
   });
 
   test("the manager sees per-status actions: Activate on DRAFT", async () => {
@@ -155,15 +168,23 @@ describe("ViewGoal page", () => {
     );
   });
 
-  test("the manager on ACTIVE sees Return to draft + Archive goal; an action fires and navigates back", async () => {
+  test("the manager on ACTIVE sees Return to draft + Archive goal + Update; deactivate confirms, then fires and navigates back", async () => {
     localStorage.setItem(USER_ID_KEY, "7");
     setupMocks();
     const toast = vi.spyOn(notifications, "show").mockReturnValue("id");
     const user = userEvent.setup();
     renderScreen();
 
-    expect(await screen.findByRole("button", { name: /return to draft/i })).toBeInTheDocument();
+    // The manager's ACTIVE affordances: Update (progress) + the two lifecycle exits.
+    expect(await screen.findByRole("link", { name: /^update$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /return to draft/i })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /return to draft/i }));
+
+    // Return-to-draft asks first (v2.8.0) — nothing fires until confirmed.
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Return this goal to draft?")).toBeInTheDocument();
+    expect(mockFetch.mock.calls.some(([u]) => String(u).includes("/deactivate"))).toBe(false);
+    await user.click(within(dialog).getByRole("button", { name: /return to draft/i }));
 
     await waitFor(() => {
       expect(
@@ -181,7 +202,21 @@ describe("ViewGoal page", () => {
     toast.mockRestore();
   });
 
-  test("a running action spins only its own button, not its ACTIVE sibling", async () => {
+  test("cancelling the deactivate confirm fires nothing", async () => {
+    localStorage.setItem(USER_ID_KEY, "7");
+    setupMocks();
+    const user = userEvent.setup();
+    renderScreen();
+
+    await user.click(await screen.findByRole("button", { name: /return to draft/i }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /^cancel$/i }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(mockFetch.mock.calls.some(([u]) => String(u).includes("/deactivate"))).toBe(false);
+  });
+
+  test("a running deactivate spins the confirm button while the footer stays blocked", async () => {
     localStorage.setItem(USER_ID_KEY, "7");
     setupMocks();
     // Keep the deactivate POST pending so the in-flight state is observable.
@@ -197,10 +232,12 @@ describe("ViewGoal page", () => {
     renderScreen();
 
     await user.click(await screen.findByRole("button", { name: /return to draft/i }));
+    const dialog = await screen.findByRole("dialog");
+    const confirm = within(dialog).getByRole("button", { name: /return to draft/i });
+    await user.click(confirm);
 
-    const deactivate = screen.getByRole("button", { name: /return to draft/i });
+    await waitFor(() => expect(confirm).toHaveAttribute("data-loading", "true"));
     const close = screen.getByRole("button", { name: /archive goal/i });
-    await waitFor(() => expect(deactivate).toHaveAttribute("data-loading", "true"));
     expect(close).not.toHaveAttribute("data-loading");
     expect(close).toBeDisabled(); // still blocked from double-firing, just not spinning
   });

@@ -4,6 +4,7 @@ import ch.nokillswit.auth.hashPassword
 import ch.nokillswit.infra.crypto.EncryptedAtRest
 import ch.nokillswit.daysoff.DaysOffServiceKey
 import ch.nokillswit.feedbacks.FeedbackServiceKey
+import ch.nokillswit.goals.GoalEventServiceKey
 import ch.nokillswit.goals.GoalServiceKey
 import ch.nokillswit.oneonones.OneOnOneServiceKey
 import ch.nokillswit.pulse.PulseResponseServiceKey
@@ -76,6 +77,7 @@ suspend fun Application.configureBootstrap() {
         attributes[FeedbackServiceKey],
         attributes[OneOnOneServiceKey],
         attributes[GoalServiceKey],
+        attributes[GoalEventServiceKey],
         attributes[TeamKpiServiceKey],
         attributes[PerformanceReviewServiceKey],
         attributes[DaysOffServiceKey],

@@ -68,7 +68,8 @@ suspend fun Application.configureDatabase() {
     attributes.put(OneOnOneServiceKey, OneOnOneService(database, attributes[FieldCipherKey]))
     attributes.put(OneOnOneEventServiceKey, OneOnOneEventService(database))
     attributes.put(GoalServiceKey, GoalService(database, attributes[FieldCipherKey]))
-    attributes.put(GoalEventServiceKey, GoalEventService(database))
+    // The goal event trail carries the encrypted progress-update comment (V54), hence the cipher.
+    attributes.put(GoalEventServiceKey, GoalEventService(database, attributes[FieldCipherKey]))
     attributes.put(TeamKpiServiceKey, TeamKpiService(database, attributes[FieldCipherKey]))
     attributes.put(TeamKpiEventServiceKey, TeamKpiEventService(database))
     attributes.put(ReviewPeriodServiceKey, ReviewPeriodService(database))

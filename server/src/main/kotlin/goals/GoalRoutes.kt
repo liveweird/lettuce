@@ -5,6 +5,7 @@ import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAuditListAccess
 import ch.nokillswit.authz.requireFeatureEnabled
+import ch.nokillswit.authz.requireGoalProgressWrite
 import ch.nokillswit.authz.requireGoalReadAllowingManager
 import ch.nokillswit.authz.requireGoalWrite
 import ch.nokillswit.infra.db.requireValidReferences
@@ -65,11 +66,14 @@ class Goals {
 }
 
 // Turn a structured event descriptor into the persistable audit event (the SPA localizes it).
-private fun GoalEventDescriptor.toEvent(goalId: UInt, userId: UInt) = GoalEvent(
+// The optional comment (progress updates only) rides the event's own encrypted column, never
+// its plaintext params.
+private fun GoalEventDescriptor.toEvent(goalId: UInt, userId: UInt, comment: String? = null) = GoalEvent(
     goalId = goalId,
     userId = userId,
     type = type,
     params = params,
+    comment = comment,
 )
 
 // The gated caller (V46): every goal handler resolves its principal through this, so the
@@ -249,16 +253,30 @@ fun Application.configureGoalRoutes() {
             }
             put<Goals.Id.Progress> { route ->
                 val goalId = route.parent.id
-                val existing = writeGuardedGoal(call, goalId) ?: return@put
-                val edit = call.receive<GoalProgressUpdate>()
-                // ACTIVE-only (else 409) and the per-type field check both happen in the service.
-                val updated = goalService.updateProgress(goalId, edit)
-                if (updated == 0) {
+                // Progress is the pair's shared write (v2.8.0): manager OR subordinate — the
+                // definition/lifecycle routes keep the manager-only writeGuardedGoal.
+                val caller = call.goalCaller()
+                val existing = goalService.read(goalId)
+                if (existing == null) {
                     call.respondProblem(HttpStatusCode.NotFound, "Goal not found")
                     return@put
                 }
+                requireGoalProgressWrite(caller, existing)
+                val edit = call.receive<GoalProgressUpdate>()
+                // ACTIVE-only (else 409) and the per-type field check both happen in the service.
+                val toNotify = goalService.updateProgress(goalId, caller.userId, edit)
+                if (toNotify == null) {
+                    call.respondProblem(HttpStatusCode.NotFound, "Goal not found")
+                    return@put
+                }
+                toNotify.forEach { notificationService.create(it) }
+                // Value change → PROGRESS_UPDATED/ACHIEVED_CHANGED; comment-only →
+                // PROGRESS_COMMENTED; true no-op → nothing. The comment (blank = absent) rides
+                // the event's encrypted column.
                 goalProgressUpdateEvent(existing, edit)?.let { descriptor ->
-                    goalEventService.create(descriptor.toEvent(goalId, call.caller().userId))
+                    goalEventService.create(
+                        descriptor.toEvent(goalId, caller.userId, comment = edit.comment?.takeIf { it.isNotBlank() }),
+                    )
                 }
                 call.respond(HttpStatusCode.NoContent)
             }

@@ -2,20 +2,25 @@ import { Group, Input, NumberInput, Stack, Switch, Text } from "@mantine/core";
 import type { UseFormReturnType } from "@mantine/form";
 import { useTranslation } from "react-i18next";
 import type { GoalResponse } from "../api/client";
+import EmojiTextarea from "./EmojiTextarea";
 import ReadOnlyField from "./ReadOnlyField";
 import ProseBox from "./ProseBox";
 import MarkdownView from "./MarkdownView";
+import { MAX_GOAL_TEXT_LENGTH } from "../utils/goalForm";
 import { formatGoalValue } from "../utils/goalValues";
 
 export interface GoalProgressFormValues {
   currentValue: number | string;
   achieved: boolean;
+  // The optional context of this update (v2.8.0) — lands in the goal's history, never stored
+  // on the goal itself.
+  comment: string;
 }
 
 /**
- * The ACTIVE editor's field block: the frozen definition (title, target) plus the one live
- * value — the achieved Switch for BINARY, the current-value NumberInput otherwise. The
- * embedding form owns submission and the footer.
+ * The Update screen's field block: the frozen definition (title, target) plus the one live
+ * value — the achieved Switch for BINARY, the current-value NumberInput otherwise — and the
+ * optional per-update comment. The embedding form owns submission and the footer.
  */
 export default function GoalProgressFields({
   goal,
@@ -60,6 +65,15 @@ export default function GoalProgressFields({
           />
         </Group>
       )}
+      <EmojiTextarea
+        label={t("goal.progress.commentLabel")}
+        placeholder={t("goal.progress.commentPlaceholder")}
+        value={form.values.comment}
+        onChange={(value) => form.setFieldValue("comment", value)}
+        maxLength={MAX_GOAL_TEXT_LENGTH}
+        autosize
+        minRows={2}
+      />
     </Stack>
   );
 }

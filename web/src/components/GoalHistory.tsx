@@ -39,6 +39,9 @@ function describeEvent(e: GoalEvent, t: TFunction, locale: string): string {
       });
     case "PROGRESS_UPDATED":
       return t("goal.event.progressUpdated", { from: num(p.from), to: num(p.to) });
+    case "PROGRESS_COMMENTED":
+      // A comment-only progress update (v2.8.0) — the comment itself renders below the title.
+      return t("goal.event.progressCommented");
     case "ACHIEVED_CHANGED":
       return p.to === "true" ? t("goal.event.achievedYes") : t("goal.event.achievedNo");
     case "STATUS_CHANGED":
@@ -74,6 +77,13 @@ export default function GoalHistory({ goalId }: { goalId: number }) {
     <Timeline bulletSize={12} lineWidth={2}>
       {events.map((e) => (
         <Timeline.Item key={e.id} title={describeEvent(e, t, i18n.language)}>
+          {/* The progress update's optional context comment (v2.8.0) — plain text, pre-wrap
+              like the archive summary (it is captured in a plain textarea, not markdown). */}
+          {e.comment != null && e.comment !== "" && (
+            <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
+              {e.comment}
+            </Text>
+          )}
           <Text size="xs" c="dimmed">
             {e.userName} · {formatTimestamp(e.timestamp)}
           </Text>

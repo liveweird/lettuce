@@ -182,6 +182,14 @@ private fun sentences(type: NotificationType, p: Map<String, String>): Sentences
         en = "${p.v("manager")} reopened the goal \"${p.v("title")}\".",
         pl = "${p.v("manager")} ponownie otworzył/a cel „${p.v("title")}”.",
     )
+    NotificationType.GOAL_PROGRESS_UPDATED_TO_SUBORDINATE -> Sentences(
+        en = "${p.v("manager")} updated the progress of your goal \"${p.v("title")}\".",
+        pl = "${p.v("manager")} zaktualizował/a postęp Twojego celu „${p.v("title")}”.",
+    )
+    NotificationType.GOAL_PROGRESS_UPDATED_TO_MANAGER -> Sentences(
+        en = "${p.v("subordinate")} updated the progress of the goal \"${p.v("title")}\".",
+        pl = "${p.v("subordinate")} zaktualizował/a postęp celu „${p.v("title")}”.",
+    )
     NotificationType.TEAM_KPI_ACTIVATED_TO_MEMBER -> Sentences(
         en = "${p.v("manager")} activated the KPI \"${p.v("title")}\" for team ${p.v("team")}.",
         pl = "${p.v("manager")} aktywował/a KPI „${p.v("title")}” dla zespołu ${p.v("team")}.",

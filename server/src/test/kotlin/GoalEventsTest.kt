@@ -151,6 +151,31 @@ class GoalEventsTest {
                 GoalProgressUpdate(achieved = true),
             ),
         )
+        // A blank comment counts as absent — still a no-op.
+        assertNull(
+            goalProgressUpdateEvent(goal(currentValue = 5.0), GoalProgressUpdate(currentValue = 5.0, comment = "  ")),
+        )
+    }
+
+    @Test
+    fun `a comment-only update yields PROGRESS_COMMENTED with content-free params`() {
+        val event = goalProgressUpdateEvent(
+            goal(status = GoalStatus.ACTIVE, currentValue = 5.0),
+            GoalProgressUpdate(currentValue = 5.0, comment = "Blocked on the vendor"),
+        )
+        assertEquals(GoalEventType.PROGRESS_COMMENTED, event?.type)
+        // The comment text never enters the plaintext params (it rides the encrypted column).
+        assertEquals(emptyMap(), event?.params)
+    }
+
+    @Test
+    fun `a value change with a comment stays a PROGRESS_UPDATED event`() {
+        val event = goalProgressUpdateEvent(
+            goal(status = GoalStatus.ACTIVE, currentValue = 2.5),
+            GoalProgressUpdate(currentValue = 7.5, comment = "Two modules landed"),
+        )
+        assertEquals(GoalEventType.PROGRESS_UPDATED, event?.type)
+        assertEquals(mapOf("from" to "2.5", "to" to "7.5"), event?.params)
     }
 
     @Test

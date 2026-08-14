@@ -13,6 +13,7 @@ import ch.nokillswit.users.UserRole
 import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.post
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
@@ -112,6 +113,113 @@ class GoalEncryptionTest {
         }
         assertTrue(rawEventParams.isNotEmpty())
         rawEventParams.forEach { assertFalse("Confidential" in it) }
+    }
+
+    @Test
+    fun `progress-update comments are ciphertext in the DB but plaintext over the API`() = testApplication {
+        usePostgresTestcontainer()
+        val managerEmail = uniqueEmail("goal-cenc-manager")
+        val managerId = TestUsers.seed(managerEmail, "pw", roles = emptySet())
+        val subordinateId = TestUsers.seed(uniqueEmail("goal-cenc-sub"), "pw", roles = emptySet())
+        val teamId = TestServices.teams.create(Team(name = "goal-cenc-${UUID.randomUUID()}", managerId = managerId))
+        TestServices.teams.addMember(teamId, subordinateId)
+        val manager = authedClient(managerEmail, "pw")
+
+        val secretComment = "Confidential comment: struggled with the vendor outage"
+        val created = manager.post("/api/v1/goals") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                GoalCreateRequest(
+                    subordinateId = subordinateId,
+                    title = "Commented goal",
+                    description = "d",
+                    type = GoalType.NUMBER,
+                    targetValue = 10.0,
+                    dueDate = "2099-12-31",
+                ),
+            )
+        }.body<GoalResponse>()
+        manager.post("/api/v1/goals/${created.id}/activate")
+        manager.put("/api/v1/goals/${created.id}/progress") {
+            contentType(ContentType.Application.Json)
+            setBody(ch.nokillswit.goals.GoalProgressUpdate(currentValue = 2.0, comment = secretComment))
+        }
+
+        // Raw column: an envelope, never the plaintext — and params stay comment-free.
+        val rawRows = suspendTransaction(TestServices.goals.database) {
+            ch.nokillswit.goals.GoalEventService.GoalEvents.selectAll()
+                .where { ch.nokillswit.goals.GoalEventService.GoalEvents.goalId eq created.id }
+                .map {
+                    it[ch.nokillswit.goals.GoalEventService.GoalEvents.params] to
+                        it[ch.nokillswit.goals.GoalEventService.GoalEvents.comment]
+                }
+                .toList()
+        }
+        val rawComment = rawRows.mapNotNull { it.second }.single()
+        assertTrue(rawComment.startsWith(FieldCipher.PREFIX))
+        assertFalse("Confidential" in rawComment)
+        rawRows.forEach { (params, _) -> assertFalse("Confidential" in params) }
+
+        // The API decrypts transparently.
+        val events = manager.get("/api/v1/goals/${created.id}/events")
+            .body<ch.nokillswit.goals.GoalEventListResponse>()
+        assertEquals(secretComment, events.items.single { it.comment != null }.comment)
+    }
+
+    @Test
+    fun `legacy plaintext event comments are encrypted by the startup backfill and rotation`() = testApplication {
+        usePostgresTestcontainer()
+        val managerId = TestUsers.seed(uniqueEmail("goal-clegacy-manager"), "pw", roles = emptySet())
+        val subordinateId = TestUsers.seed(uniqueEmail("goal-clegacy-sub"), "pw", roles = emptySet())
+
+        // A goal plus a pre-encryption event row with a plaintext comment.
+        val goalId = TestServices.goals.create(
+            managerId,
+            GoalCreateRequest(
+                subordinateId = subordinateId,
+                title = "Legacy comment goal",
+                description = "d",
+                type = GoalType.NUMBER,
+                targetValue = 5.0,
+                dueDate = "2099-12-31",
+            ),
+        )
+        val events = ch.nokillswit.goals.GoalEventService.GoalEvents
+        val legacyEventId = suspendTransaction(TestServices.goals.database) {
+            events.insert {
+                it[events.goalId] = goalId
+                it[events.userId] = managerId
+                it[events.timestamp] = System.currentTimeMillis()
+                it[events.eventType] = "PROGRESS_COMMENTED"
+                it[events.params] = "{}"
+                it[events.comment] = "legacy plain comment"
+            }[events.id].value
+        }
+
+        suspend fun rawComment(): String = suspendTransaction(TestServices.goals.database) {
+            events.selectAll().where { events.id eq legacyEventId }
+                .map { it[events.comment]!! }
+                .toList()
+                .single()
+        }
+
+        assertTrue(TestGoalEvents.service.encryptLegacyRows() >= 1)
+        assertTrue(rawComment().startsWith(FieldCipher.PREFIX))
+        assertEquals(
+            "legacy plain comment",
+            TestGoalEvents.service.listForGoal(goalId).single { it.id == legacyEventId }.comment,
+        )
+        // Idempotent second pass finds nothing legacy.
+        assertEquals(0, TestGoalEvents.service.encryptLegacyRows())
+
+        // Rotation: with (new, previous=old) every commented row is rewritten under the new key.
+        val newKey = "0000000000000000000000000000000000000000000000000000000000000009"
+        val rotatingService = ch.nokillswit.goals.GoalEventService(
+            TestServices.goals.database,
+            FieldCipher(newKey, previousKeyHex = DEV_DATA_ENCRYPTION_KEY),
+        )
+        assertTrue(rotatingService.encryptLegacyRows(reencryptAll = true) >= 1)
+        assertEquals("legacy plain comment", FieldCipher(newKey).decrypt(rawComment()))
     }
 
     @Test

@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
+import { within } from "@testing-library/react";
+import { notifications } from "@mantine/notifications";
 import { fireEvent, renderWithProviders, screen, waitFor } from "../test/render";
 import GoalTable from "./GoalTable";
 import { jsonResponse } from "../test/http";
@@ -284,29 +286,115 @@ describe("GoalTable", () => {
     });
   });
 
-  test("as the manager, DRAFT and ACTIVE rows get Edit; CLOSED rows View — with back overrides", async () => {
+  test("as the manager, DRAFT rows get Edit, ACTIVE rows Lifecycle+Update, ARCHIVED rows View — with back overrides", async () => {
     localStorage.setItem(USER_ID_KEY, "10"); // Alice herself
     renderWithProviders(
       <GoalTable view="own" managerId={10} settingsKey="userGoals" backTo="/somewhere" />,
     );
 
     const back = encodeURIComponent("/somewhere");
-    const editActive = await screen.findByRole("link", { name: "Edit goal Ship four reports" });
-    expect(editActive).toHaveAttribute("href", expect.stringContaining("/goals/1/edit?from=own"));
-    expect(editActive).toHaveAttribute("href", expect.stringContaining(`back=${back}`));
+    // ACTIVE (v2.8.0): the Lifecycle ▾ menu plus the Update link.
+    const updateActive = await screen.findByRole("link", { name: "Update goal Ship four reports" });
+    expect(updateActive).toHaveAttribute("href", expect.stringContaining("/goals/1/edit?from=own"));
+    expect(updateActive).toHaveAttribute("href", expect.stringContaining(`back=${back}`));
+    expect(
+      screen.getByRole("button", { name: "Lifecycle actions for goal Ship four reports" }),
+    ).toBeInTheDocument();
+    // DRAFT: the definition editor, no lifecycle menu.
     expect(screen.getByRole("link", { name: "Edit goal Raise coverage" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Lifecycle actions for goal Raise coverage" })).toBeNull();
+    // ARCHIVED: view only.
     expect(screen.getByRole("link", { name: "View goal Get certified" })).toHaveAttribute(
       "href",
       expect.stringContaining("/goals/3/view?from=own"),
     );
   });
 
-  test("as the subordinate every row is a View link", async () => {
+  test("as the subordinate, ACTIVE rows get Update (no lifecycle menu); the rest are View links", async () => {
     renderWithProviders(<GoalTable view="own" managerId={10} settingsKey="userGoals" />);
 
-    expect(await screen.findByRole("link", { name: "View goal Ship four reports" })).toBeInTheDocument();
+    // ACTIVE: progress is the pair's shared write (v2.8.0) — but the status stays manager-only.
+    expect(
+      await screen.findByRole("link", { name: "Update goal Ship four reports" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /lifecycle actions/i })).toBeNull();
+    // DRAFT + ARCHIVED: read-only.
     expect(screen.getByRole("link", { name: "View goal Raise coverage" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View goal Get certified" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /edit goal/i })).toBeNull();
+  });
+
+  test("Return to draft from the Lifecycle menu confirms, POSTs deactivate, and toasts", async () => {
+    localStorage.setItem(USER_ID_KEY, "10");
+    mockFetch.mockImplementation((_url: string, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "POST") {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      return Promise.resolve(jsonResponse(200, page([NUMBER_GOAL, PERCENTAGE_GOAL, BINARY_GOAL])));
+    });
+    const toast = vi.spyOn(notifications, "show").mockReturnValue("id");
+    const user = userEvent.setup();
+    renderWithProviders(<GoalTable view="managed" settingsKey="goals.managed" />);
+
+    await user.click(
+      await screen.findByRole("button", { name: "Lifecycle actions for goal Ship four reports" }),
+    );
+    await user.click(await screen.findByRole("menuitem", { name: "Return to draft" }));
+
+    // The confirm gate: nothing fires until confirmed.
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Return this goal to draft?")).toBeInTheDocument();
+    expect(mockFetch.mock.calls.some(([u]) => String(u).includes("/deactivate"))).toBe(false);
+    await user.click(within(dialog).getByRole("button", { name: "Return to draft" }));
+
+    await waitFor(() => {
+      expect(
+        mockFetch.mock.calls.some(
+          ([u, init]) =>
+            String(u) === "/api/v1/goals/1/deactivate" && (init as RequestInit)?.method === "POST",
+        ),
+      ).toBe(true);
+    });
+    expect(toast).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "Goal returned to draft", color: "teal" }),
+    );
+    toast.mockRestore();
+  });
+
+  test("Archive from the Lifecycle menu collects the summary and posts it", async () => {
+    localStorage.setItem(USER_ID_KEY, "10");
+    mockFetch.mockImplementation((_url: string, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "POST") {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      return Promise.resolve(jsonResponse(200, page([NUMBER_GOAL, PERCENTAGE_GOAL, BINARY_GOAL])));
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<GoalTable view="managed" settingsKey="goals.managed" />);
+
+    await user.click(
+      await screen.findByRole("button", { name: "Lifecycle actions for goal Ship four reports" }),
+    );
+    await user.click(await screen.findByRole("menuitem", { name: "Archive goal" }));
+    const dialog = await screen.findByRole("dialog");
+
+    // Blank summary is blocked client-side (the GoalCloseModal rule).
+    await user.click(within(dialog).getByRole("button", { name: "Archive goal" }));
+    expect(
+      await within(dialog).findByText("A summary is required to archive a goal"),
+    ).toBeInTheDocument();
+    expect(mockFetch.mock.calls.some(([u]) => String(u).includes("/archive"))).toBe(false);
+
+    await user.type(within(dialog).getByLabelText(/summary/i), "Shipped all four");
+    await user.click(within(dialog).getByRole("button", { name: "Archive goal" }));
+
+    await waitFor(() => {
+      const call = mockFetch.mock.calls.find(([u]) => String(u) === "/api/v1/goals/1/archive");
+      expect(call).toBeDefined();
+      expect(JSON.parse((call![1] as RequestInit).body as string)).toEqual({
+        summary: "Shipped all four",
+      });
+    });
   });
 
   test("shows the empty state when there are no goals", async () => {

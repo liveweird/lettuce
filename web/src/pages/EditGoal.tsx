@@ -20,8 +20,6 @@ import { useTranslation } from "react-i18next";
 import {
   activateGoal,
   ApiError,
-  archiveGoal,
-  deactivateGoal,
   deleteGoal,
   getGoal,
   getUserId,
@@ -31,7 +29,6 @@ import {
   type GoalType,
 } from "../api/client";
 import ConfirmActionModal from "../components/ConfirmActionModal";
-import GoalCloseModal from "../components/GoalCloseModal";
 import GoalDefinitionFields from "../components/GoalDefinitionFields";
 import GoalHistory from "../components/GoalHistory";
 import GoalProgressFields, { type GoalProgressFormValues } from "../components/GoalProgressFields";
@@ -51,11 +48,14 @@ import { invalidateGoal } from "../utils/goalQueries";
 import { showSuccessToast } from "../utils/toast";
 
 /**
- * The manager's status-dependent editor on one route (the EditFeedback precedent): a DRAFT
- * renders the definition form, an ACTIVE the progress form; an ARCHIVED goal (nothing editable —
- * reopen it from the view screen) and any non-manager redirect to the read-only view. The
- * field blocks live in GoalDefinitionFields / GoalProgressFields (the FeedbackForm shape);
- * this route owns the branching, submission, and footers.
+ * The status-dependent editor on one route (the EditFeedback precedent): a DRAFT renders the
+ * manager's definition form; an ACTIVE renders the Update screen (v2.8.0) — the progress value
+ * plus an optional history comment, open to BOTH parties (progress is the pair's shared
+ * write). An ARCHIVED goal (nothing editable — reopen it from the view screen), a non-manager
+ * on a DRAFT, and a non-party on an ACTIVE all redirect to the read-only view. The field
+ * blocks live in GoalDefinitionFields / GoalProgressFields (the FeedbackForm shape); this
+ * route owns the branching, submission, and footers. Lifecycle actions live on the list rows
+ * and the view screen, not here.
  */
 export default function EditGoal() {
   const { t, i18n } = useTranslation();
@@ -71,13 +71,12 @@ export default function EditGoal() {
   const [error, setError] = useState<string | null>(null);
   // Which submit is in flight — drives the pressed button's spinner while all buttons disable
   // (the FeedbackForm `submitting === "DRAFT"` idiom).
-  const [submitting, setSubmitting] = useState<
-    "draft" | "activate" | "progress" | "deactivate" | "archive" | null
-  >(null);
+  const [submitting, setSubmitting] = useState<"draft" | "activate" | "progress" | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
   const [deleteOpen, { open: openDelete, close: closeDelete }] = useDisclosure(false);
-  const [closeOpen, setCloseOpen] = useState(false);
+  // The Update screen's "nothing to save" notice — auto-hides once the form goes dirty.
+  const [nothingToSave, setNothingToSave] = useState(false);
 
   const id = Number(params.id);
   const idIsValid = Number.isFinite(id) && id > 0;
@@ -99,7 +98,7 @@ export default function EditGoal() {
     validate: goalDefinitionValidation(t),
   });
   const progressForm = useForm<GoalProgressFormValues>({
-    initialValues: { currentValue: "", achieved: false },
+    initialValues: { currentValue: "", achieved: false, comment: "" },
     validate: {
       currentValue: (value, values) => validateProgressValue(value, values, data?.type, t),
     },
@@ -113,16 +112,28 @@ export default function EditGoal() {
     progressForm.initialize({
       currentValue: data.currentValue ?? "",
       achieved: data.achieved === true,
+      comment: "",
     });
   }
+
+  const currentUserId = getUserId();
 
   // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
   if (!hasFeature("GOALS")) return <Navigate to="/" replace />;
   if (!idIsValid) return <Navigate to={backTo} replace />;
   // Redirects to the read-only view keep the originating context (`from` / `back` override).
   const viewLink = goalViewLink(id, from, backOverride ?? undefined);
-  // Only the manager edits; anyone else who can read lands on the view screen.
-  if (data && getUserId() !== data.managerId) {
+  // DRAFT: only the manager edits the definition. ACTIVE: both parties update progress
+  // (v2.8.0). Anyone else who can read lands on the view screen.
+  if (data && data.status === "DRAFT" && currentUserId !== data.managerId) {
+    return <Navigate to={viewLink} replace />;
+  }
+  if (
+    data &&
+    data.status === "ACTIVE" &&
+    currentUserId !== data.managerId &&
+    currentUserId !== data.subordinateId
+  ) {
     return <Navigate to={viewLink} replace />;
   }
   // An ARCHIVED goal has nothing editable — its only action (Reopen) lives on the view screen.
@@ -149,39 +160,28 @@ export default function EditGoal() {
     }
   }
 
-  async function saveProgress(
-    values: GoalProgressFormValues,
-    then: "none" | "deactivate" | "archive" = "none",
-    summary?: string,
-  ) {
+  async function saveProgress(values: GoalProgressFormValues) {
     if (!data) return;
+    // Nothing changed (neither the value nor a comment) — tell the user instead of firing a
+    // no-op PUT; the notice hides again the moment the form goes dirty.
+    if (!progressForm.isDirty()) {
+      setNothingToSave(true);
+      return;
+    }
     setError(null);
-    setSubmitting(then === "none" ? "progress" : then);
+    setSubmitting("progress");
     try {
+      const comment = values.comment.trim() ? values.comment : undefined;
       await updateGoalProgress(
         id,
         data.type === "BINARY"
-          ? { achieved: values.achieved }
-          : { currentValue: Number(values.currentValue) },
+          ? { achieved: values.achieved, comment }
+          : { currentValue: Number(values.currentValue), comment },
       );
-      if (then === "deactivate") {
-        // Save first so no typed value is lost, then step back to draft — and stay: the
-        // refetched DRAFT re-renders this route as the definition editor (the EditFeedback
-        // "Accept reloads in place" precedent), which is exactly why one deactivates.
-        await deactivateGoal(id);
-        await invalidateGoal(queryClient, id);
-        showSuccessToast(t("goal.toast.deactivated"));
-        setSubmitting(null);
-        return;
-      }
-      if (then === "archive") {
-        await archiveGoal(id, { summary: summary ?? "" });
-      }
-      await afterSave(then === "archive" ? "goal.toast.archived" : "goal.toast.progressSaved");
+      await afterSave("goal.toast.progressSaved");
     } catch (err) {
       setError(goalSaveErrorMessage(err, t));
       setSubmitting(null);
-      setCloseOpen(false);
     }
   }
 
@@ -305,8 +305,17 @@ export default function EditGoal() {
             <form onSubmit={progressForm.onSubmit((values) => saveProgress(values))} noValidate>
               <Stack>
                 <Group gap="xl">
-                  <PersonaField label={t("goal.manager")} you />
-                  <PersonaField label={t("goal.subordinate")} name={data.subordinateName} />
+                  {/* Either party may be here now (v2.8.0) — "You" follows the caller. */}
+                  <PersonaField
+                    label={t("goal.manager")}
+                    name={data.managerName}
+                    you={currentUserId === data.managerId}
+                  />
+                  <PersonaField
+                    label={t("goal.subordinate")}
+                    name={data.subordinateName}
+                    you={currentUserId === data.subordinateId}
+                  />
                   <ReadOnlyField label={t("goal.type.label")}>
                     <Text size="sm">{t(`goal.type.${data.type}`)}</Text>
                   </ReadOnlyField>
@@ -339,46 +348,32 @@ export default function EditGoal() {
                     {error}
                   </Alert>
                 )}
+                {/* Save with no changes: a notice, not an error — hides once the form is dirty. */}
+                {nothingToSave && !progressForm.isDirty() && (
+                  <Alert color="gray" variant="light">
+                    {t("goal.progress.nothingToSave")}
+                  </Alert>
+                )}
 
-                {/* No discard confirm: a one-field progress tweak isn't a long-form editor. */}
-                <Group justify="space-between" gap="sm">
+                {/* Lifecycle actions live on the list and the view screen — this screen only
+                    updates progress. Close confirms only when there are unsaved changes (the
+                    EditPerformanceReview dirty-aware pattern). */}
+                <Group justify="flex-end" gap="sm">
                   <Button
                     type="button"
-                    variant="light"
-                    // Validated like the other submits; saves the progress before stepping back.
-                    onClick={() => progressForm.onSubmit((values) => saveProgress(values, "deactivate"))()}
-                    loading={submitting === "deactivate"}
+                    variant="default"
+                    onClick={() => (progressForm.isDirty() ? openCancel() : navigate(backTo))}
                     disabled={submitting !== null}
                   >
-                    {t("goal.action.deactivate")}
+                    {t("common.action.close")}
                   </Button>
-                  <Group gap="sm">
-                    <Button
-                      type="button"
-                      variant="default"
-                      onClick={() => navigate(backTo)}
-                      disabled={submitting !== null}
-                    >
-                      {t("common.action.cancel")}
-                    </Button>
-                    <Button
-                      type="submit"
-                      variant="light"
-                      loading={submitting === "progress"}
-                      disabled={submitting !== null}
-                    >
-                      {t("common.action.save")}
-                    </Button>
-                    <Button
-                      type="button"
-                      // Validate first, then collect the mandatory summary in the close dialog.
-                      onClick={() => progressForm.onSubmit(() => setCloseOpen(true))()}
-                      loading={submitting === "archive"}
-                      disabled={submitting !== null}
-                    >
-                      {t("goal.action.saveAndArchive")}
-                    </Button>
-                  </Group>
+                  <Button
+                    type="submit"
+                    loading={submitting === "progress"}
+                    disabled={submitting !== null}
+                  >
+                    {t("common.action.save")}
+                  </Button>
                 </Group>
               </Stack>
             </form>
@@ -404,12 +399,6 @@ export default function EditGoal() {
         confirmLabel={t("common.action.delete")}
         loading={deleting}
         onConfirm={remove}
-      />
-      <GoalCloseModal
-        opened={closeOpen}
-        onClose={() => setCloseOpen(false)}
-        loading={submitting === "archive"}
-        onConfirm={(summary) => void saveProgress(progressForm.values, "archive", summary)}
       />
     </Container>
   );

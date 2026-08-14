@@ -315,14 +315,27 @@ suspend fun requireGoalReadAllowingManager(
 }
 
 /**
- * The manager is always the author: only they may edit, transition, or delete the goal — the
- * subordinate has read rights only, and nobody else (ADMIN included, mirroring
- * [canWriteFeedback]) has any; an admin who is themselves the manager qualifies via the
- * userId check like anyone.
+ * The manager is always the author: only they may edit the definition, transition, or delete
+ * the goal — nobody else (ADMIN included, mirroring [canWriteFeedback]) has any of that; an
+ * admin who is themselves the manager qualifies via the userId check like anyone. The one
+ * subordinate write is the ACTIVE progress update, guarded by [requireGoalProgressWrite]
+ * instead (v2.8.0).
  */
 fun requireGoalWrite(caller: CallerPrincipal, goal: GoalResponse) {
     if (caller.userId != goal.managerId) {
         throw ForbiddenException("Only the goal's manager may modify this goal")
+    }
+}
+
+/**
+ * Progress updates on an ACTIVE goal are a shared right of the pair (v2.8.0): the manager OR
+ * the subordinate — the definition/lifecycle stays manager-only via [requireGoalWrite].
+ * Nobody else (HR reads only; ADMIN nothing special). The ACTIVE-only rule itself lives in
+ * the service (409), like every other status rule.
+ */
+fun requireGoalProgressWrite(caller: CallerPrincipal, goal: GoalResponse) {
+    if (caller.userId != goal.managerId && caller.userId != goal.subordinateId) {
+        throw ForbiddenException("Only the goal's manager or subordinate may update its progress")
     }
 }
 

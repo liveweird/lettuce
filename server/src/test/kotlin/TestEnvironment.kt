@@ -376,9 +376,10 @@ object TestGoalMaintenance {
 }
 
 // Reads the goal_events audit table directly (e.g. to assert events outlive a soft delete).
+// Shares the dev-default cipher so encrypted progress-update comments round-trip.
 object TestGoalEvents {
     val service: ch.nokillswit.goals.GoalEventService by lazy {
-        ch.nokillswit.goals.GoalEventService(sharedTestDatabase)
+        ch.nokillswit.goals.GoalEventService(sharedTestDatabase, TestServices.cipher)
     }
 }
 

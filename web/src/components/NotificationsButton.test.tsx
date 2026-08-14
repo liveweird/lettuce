@@ -151,6 +151,33 @@ describe("NotificationsButton", () => {
     expect(screen.getByText('Mona Manager reopened the goal "Raise coverage".')).toBeInTheDocument();
   });
 
+  test("renders the two progress-update kinds, each worded for its recipient", async () => {
+    const rows: Item[] = [
+      {
+        id: 25, recipientId: 7, timestamp: Date.now(), wasSeen: false,
+        type: "GOAL_PROGRESS_UPDATED_TO_SUBORDINATE",
+        params: { manager: "Mona Manager", title: "Raise coverage" },
+        link: "/goals/5/view",
+      },
+      {
+        id: 26, recipientId: 7, timestamp: Date.now(), wasSeen: false,
+        type: "GOAL_PROGRESS_UPDATED_TO_MANAGER",
+        params: { subordinate: "Sam Subject", title: "Raise coverage" },
+        link: "/goals/5/view",
+      },
+    ];
+    setupMocks(mockFetch, rows, 2);
+    renderWithProviders(<Harness />);
+    await userEvent.setup().click(await screen.findByRole("button", { name: /notifications/i }));
+
+    expect(
+      await screen.findByText('Mona Manager updated the progress of your goal "Raise coverage".'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Sam Subject updated the progress of the goal "Raise coverage".'),
+    ).toBeInTheDocument();
+  });
+
   test("renders the team-KPI data-point kinds with type-formatted values and localized dates", async () => {
     const base = {
       recipientId: 7,

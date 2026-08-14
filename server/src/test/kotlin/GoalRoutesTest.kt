@@ -631,10 +631,13 @@ class GoalRoutesTest {
         assertEquals(HttpStatusCode.BadRequest, manager.progress(GoalProgressUpdate(achieved = true)))
         assertEquals(HttpStatusCode.BadRequest, manager.progress(GoalProgressUpdate()))
         assertEquals(HttpStatusCode.BadRequest, manager.progress(GoalProgressUpdate(currentValue = 101.0)))
-        // The subordinate never edits.
+        // A non-party never updates progress (the pair's shared write is manager + subordinate
+        // only — see the dedicated shared-write test below).
+        val outsiderEmail = uniqueEmail("goal-outsider")
+        TestUsers.seed(outsiderEmail, "pw", roles = emptySet())
         assertEquals(
             HttpStatusCode.Forbidden,
-            authedClient(pair.subordinateEmail, "pw").progress(GoalProgressUpdate(currentValue = 10.0)),
+            authedClient(outsiderEmail, "pw").progress(GoalProgressUpdate(currentValue = 10.0)),
         )
 
         assertEquals(HttpStatusCode.NoContent, manager.progress(GoalProgressUpdate(currentValue = 40.0)))
@@ -681,6 +684,150 @@ class GoalRoutesTest {
         assertEquals(
             mapOf("to" to "true"),
             events.items.single { it.type == GoalEventType.ACHIEVED_CHANGED }.params,
+        )
+    }
+
+    @Test
+    fun `progress is the pair's shared write - each party's update notifies the counterparty`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val manager = authedClient(pair.managerEmail, "pw")
+        val created = manager.createGoal(pair.subordinateId, title = "Shared progress")
+        manager.post("/api/v1/goals/${created.id}/activate")
+
+        val subordinate = authedClient(pair.subordinateEmail, "pw")
+
+        // The subordinate updates (v2.8.0) — the manager is notified.
+        assertEquals(
+            HttpStatusCode.NoContent,
+            subordinate.put("/api/v1/goals/${created.id}/progress") {
+                contentType(ContentType.Application.Json)
+                setBody(GoalProgressUpdate(currentValue = 3.0))
+            }.status,
+        )
+        assertEquals(3.0, subordinate.get("/api/v1/goals/${created.id}").body<GoalResponse>().currentValue)
+        val managerNotes = manager.get("/api/v1/notifications?pageSize=50").body<NotificationPageResponse>()
+        val toManager = managerNotes.items.single { it.params["title"] == "Shared progress" }
+        assertEquals(NotificationType.GOAL_PROGRESS_UPDATED_TO_MANAGER, toManager.type)
+        assertEquals("Sub Ordinate", toManager.params["subordinate"])
+        assertEquals("/goals/${created.id}/view", toManager.link)
+
+        // The manager updates — the subordinate is notified.
+        assertEquals(
+            HttpStatusCode.NoContent,
+            manager.put("/api/v1/goals/${created.id}/progress") {
+                contentType(ContentType.Application.Json)
+                setBody(GoalProgressUpdate(currentValue = 5.0))
+            }.status,
+        )
+        val subNotes = subordinate.get("/api/v1/notifications?pageSize=50").body<NotificationPageResponse>()
+        val toSubordinate = subNotes.items
+            .single { it.params["title"] == "Shared progress" && it.type == NotificationType.GOAL_PROGRESS_UPDATED_TO_SUBORDINATE }
+        assertEquals("Mona Manager", toSubordinate.params["manager"])
+
+        // Only the STATUS stays manager-only: the subordinate still cannot transition, edit the
+        // definition, or delete.
+        assertEquals(
+            HttpStatusCode.Forbidden,
+            subordinate.post("/api/v1/goals/${created.id}/deactivate").status,
+        )
+
+        // A true no-op (same value, no comment) mints neither a notification nor an event.
+        val eventsBefore = manager.get("/api/v1/goals/${created.id}/events").body<GoalEventListResponse>()
+        assertEquals(
+            HttpStatusCode.NoContent,
+            manager.put("/api/v1/goals/${created.id}/progress") {
+                contentType(ContentType.Application.Json)
+                setBody(GoalProgressUpdate(currentValue = 5.0))
+            }.status,
+        )
+        val eventsAfter = manager.get("/api/v1/goals/${created.id}/events").body<GoalEventListResponse>()
+        assertEquals(eventsBefore.items.size, eventsAfter.items.size)
+        val subNotesAfter = subordinate.get("/api/v1/notifications?pageSize=50").body<NotificationPageResponse>()
+        assertEquals(
+            1,
+            subNotesAfter.items.count {
+                it.params["title"] == "Shared progress" && it.type == NotificationType.GOAL_PROGRESS_UPDATED_TO_SUBORDINATE
+            },
+        )
+
+        // HR reads everything but writes nothing — progress included.
+        val hrEmail = uniqueEmail("goal-hr")
+        TestUsers.seed(hrEmail, "pw", roles = setOf(UserRole.HR))
+        assertEquals(
+            HttpStatusCode.Forbidden,
+            authedClient(hrEmail, "pw").put("/api/v1/goals/${created.id}/progress") {
+                contentType(ContentType.Application.Json)
+                setBody(GoalProgressUpdate(currentValue = 9.0))
+            }.status,
+        )
+    }
+
+    @Test
+    fun `a progress comment lands on the history event and comment-only updates record PROGRESS_COMMENTED`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val manager = authedClient(pair.managerEmail, "pw")
+        val created = manager.createGoal(pair.subordinateId, title = "Commented progress")
+        manager.post("/api/v1/goals/${created.id}/activate")
+        val subordinate = authedClient(pair.subordinateEmail, "pw")
+
+        // A value change with a comment: the comment rides the PROGRESS_UPDATED event.
+        assertEquals(
+            HttpStatusCode.NoContent,
+            subordinate.put("/api/v1/goals/${created.id}/progress") {
+                contentType(ContentType.Application.Json)
+                setBody(GoalProgressUpdate(currentValue = 4.0, comment = "Landed the first two modules"))
+            }.status,
+        )
+        var events = subordinate.get("/api/v1/goals/${created.id}/events").body<GoalEventListResponse>()
+        val updated = events.items.single { it.type == GoalEventType.PROGRESS_UPDATED }
+        assertEquals(mapOf("from" to "0.0", "to" to "4.0"), updated.params)
+        assertEquals("Landed the first two modules", updated.comment)
+        // The comment never leaks into the plaintext params.
+        assertFalse(updated.params.values.any { it.contains("modules") })
+
+        // A comment-only update (value unchanged) still records — and notifies.
+        assertEquals(
+            HttpStatusCode.NoContent,
+            subordinate.put("/api/v1/goals/${created.id}/progress") {
+                contentType(ContentType.Application.Json)
+                setBody(GoalProgressUpdate(currentValue = 4.0, comment = "No movement — blocked by the API review"))
+            }.status,
+        )
+        events = subordinate.get("/api/v1/goals/${created.id}/events").body<GoalEventListResponse>()
+        val commented = events.items.single { it.type == GoalEventType.PROGRESS_COMMENTED }
+        assertEquals(emptyMap<String, String>(), commented.params)
+        assertEquals("No movement — blocked by the API review", commented.comment)
+        val managerNotes = manager.get("/api/v1/notifications?pageSize=50").body<NotificationPageResponse>()
+        assertEquals(
+            2,
+            managerNotes.items.count {
+                it.params["title"] == "Commented progress" && it.type == NotificationType.GOAL_PROGRESS_UPDATED_TO_MANAGER
+            },
+        )
+
+        // A blank comment counts as absent: same value + blank comment = true no-op.
+        assertEquals(
+            HttpStatusCode.NoContent,
+            subordinate.put("/api/v1/goals/${created.id}/progress") {
+                contentType(ContentType.Application.Json)
+                setBody(GoalProgressUpdate(currentValue = 4.0, comment = "   "))
+            }.status,
+        )
+        val afterBlank = subordinate.get("/api/v1/goals/${created.id}/events").body<GoalEventListResponse>()
+        assertEquals(events.items.size, afterBlank.items.size)
+
+        // Other event kinds carry no comment.
+        assertTrue(afterBlank.items.filter { it.type == GoalEventType.CREATED }.all { it.comment == null })
+
+        // An oversized comment is 400.
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            subordinate.put("/api/v1/goals/${created.id}/progress") {
+                contentType(ContentType.Application.Json)
+                setBody(GoalProgressUpdate(currentValue = 5.0, comment = "x".repeat(4001)))
+            }.status,
         )
     }
 

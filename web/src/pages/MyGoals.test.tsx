@@ -124,9 +124,10 @@ describe("MyGoals page", () => {
     mockApi(mockFetch);
     renderWithProviders(<MyGoals />);
 
-    const view = await screen.findByRole("link", { name: "View goal Ship four reports" });
-    expect(view).toHaveAttribute("href", expect.stringContaining("from=own"));
-    expect(view.getAttribute("href")).not.toContain("back=");
+    // The caller is the subordinate of this ACTIVE row → the Update entry point (v2.8.0).
+    const update = await screen.findByRole("link", { name: "Update goal Ship four reports" });
+    expect(update).toHaveAttribute("href", expect.stringContaining("from=own"));
+    expect(update.getAttribute("href")).not.toContain("back=");
   });
 
   test("manager: the Goals-I've-set tab lists view=managed with the Team-member column and tab-preserving back links", async () => {
@@ -147,9 +148,9 @@ describe("MyGoals page", () => {
       expect(managed).not.toContain("includeIndirect");
     });
 
-    // Edit/View return to this tab, not the default own tab.
-    const edit = screen.getByRole("link", { name: "Edit goal Mentor the intern" });
-    expect(edit.getAttribute("href")).toContain(`back=${encodeURIComponent("/goals?tab=managed")}`);
+    // Row actions return to this tab, not the default own tab (ACTIVE + manager → Update).
+    const update = screen.getByRole("link", { name: "Update goal Mentor the intern" });
+    expect(update.getAttribute("href")).toContain(`back=${encodeURIComponent("/goals?tab=managed")}`);
 
     // The footer create entry point (v1.30.1 — the MyTeamKpis pattern): unprefilled create,
     // returning to this tab.
