@@ -9,11 +9,12 @@ import java.time.LocalDate
 import java.time.format.DateTimeParseException
 
 /**
- * Body of POST/PUT on the career-position sub-resource. The refs are a FULL replace of the
- * position's triple (null = that field is unset for this position — unlike the old users PUT,
- * where null meant leave-unchanged); at least one of the three must be set. Newly-assigned
- * ids must be ACTIVE entries of the matching dictionary; a PUT resubmitting the row's current
- * (possibly since-soft-deleted) id is not a change and is never validated.
+ * Body of POST/PUT on the career-position sub-resource. ALL THREE refs are required
+ * (v2.15.1 — a position IS the full triple; the fields are nullable here only so the route
+ * can answer a clean 400 instead of a decode error, and so legacy partial rows can still be
+ * read). Newly-assigned ids must be ACTIVE entries of the matching dictionary; a PUT
+ * resubmitting the row's current (possibly since-soft-deleted) id is not a change and is
+ * never validated — so correcting a legacy partial row just means completing the triple.
  */
 @Serializable
 data class CareerPositionWrite(
@@ -59,14 +60,14 @@ internal fun validateCareerPositionStartDate(startDate: String, today: LocalDate
     if (parsed > today) throw BadRequestException("Position start date must not be in the future")
 }
 
-/** A position with no career field at all would be an empty timeline entry — reject it. */
+/** A position IS the full triple (v2.15.1) — every field is required on create and correct. */
 internal fun validateCareerPositionRefs(write: CareerPositionWrite) {
-    if (write.careerPathId == null && write.careerSpecializationId == null && write.seniorityLevelId == null) {
-        throw BadRequestException("A position must set at least one career profile field")
+    if (write.careerPathId == null || write.careerSpecializationId == null || write.seniorityLevelId == null) {
+        throw BadRequestException("A position must set all three career profile fields")
     }
 }
 
-/** Shared shape rule for create and correct: valid start date plus a non-empty triple. */
+/** Shared shape rule for create and correct: valid start date plus the complete triple. */
 internal fun validateCareerPositionWrite(write: CareerPositionWrite, today: LocalDate = LocalDate.now()) {
     validateCareerPositionStartDate(write.startDate, today)
     validateCareerPositionRefs(write)

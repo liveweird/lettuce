@@ -30,21 +30,22 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * The career position timeline (v2.15.0): CRUD with the derived end dates (the start-only
- * model), the append/correct ordering rules (409), the transitive-chain write guard vs the
- * any-authenticated read, dictionary-ref validation and resolution (renames propagate,
- * soft-deleted refs keep resolving, date-only corrections never trip over a stale ref), the
- * current-position triple flowing into the user responses, and the owner notification
- * (create only). Positions use far-past dates freely — nothing else keys on them.
+ * The career position timeline (v2.15.0; full-triple writes since v2.15.1): CRUD with the
+ * derived end dates (the start-only model), the append/correct ordering rules (409), the
+ * transitive-chain write guard vs the any-authenticated read, dictionary-ref validation and
+ * resolution (renames propagate, soft-deleted refs keep resolving, corrections resubmitting
+ * a stale ref never trip over it), the current-position triple flowing into the user
+ * responses, and the owner notification (create only). Positions use far-past dates freely —
+ * nothing else keys on them.
  */
 class CareerPositionRoutesTest {
 
     private suspend fun HttpClient.createPosition(
         userId: UInt,
         startDate: String,
-        careerPathId: UInt? = null,
-        careerSpecializationId: UInt? = null,
-        seniorityLevelId: UInt? = null,
+        careerPathId: UInt?,
+        careerSpecializationId: UInt?,
+        seniorityLevelId: UInt?,
     ): HttpResponse = post("/api/v1/users/$userId/career-positions") {
         contentType(ContentType.Application.Json)
         setBody(CareerPositionWrite(startDate, careerPathId, careerSpecializationId, seniorityLevelId))
@@ -52,6 +53,13 @@ class CareerPositionRoutesTest {
 
     private suspend fun HttpClient.listPositions(userId: UInt): List<CareerPositionResponse> =
         get("/api/v1/users/$userId/career-positions").body<CareerPositionList>().items
+
+    /** One spec + level entry per test (the triple is fully required since v2.15.1). */
+    private suspend fun specAndLevel(marker: String): Pair<UInt, UInt> {
+        val (specId) = TestDictionaries.append(Dictionary.CAREER_SPECIALIZATION, "CpSpec $marker")
+        val (levelId) = TestDictionaries.append(Dictionary.SENIORITY_LEVEL, "CpLevel $marker")
+        return specId to levelId
+    }
 
     @Test
     fun `positions CRUD - derived end dates, corrections, soft delete, and the current triple`() =
@@ -68,20 +76,21 @@ class CareerPositionRoutesTest {
 
             val marker = UUID.randomUUID().toString().take(8)
             val (pathId, pathId2) = TestDictionaries.append(Dictionary.CAREER_PATH, "CpA $marker", "CpB $marker")
-            val (levelId) = TestDictionaries.append(Dictionary.SENIORITY_LEVEL, "CpL $marker")
+            val (specId, levelId) = specAndLevel(marker)
 
-            // Create: 201 + Location + the resolved open-ended position.
-            val response = manager.createPosition(subId, "2019-02-01", careerPathId = pathId)
+            // Create: 201 + Location + the resolved open-ended position with the full triple.
+            val response = manager.createPosition(subId, "2019-02-01", pathId, specId, levelId)
             assertEquals(HttpStatusCode.Created, response.status)
             val first = response.body<CareerPositionResponse>()
             assertEquals("/api/v1/users/$subId/career-positions/${first.id}", response.headers["Location"])
             assertEquals("2019-02-01", first.startDate)
             assertNull(first.endDate)
             assertEquals(DictionaryEntry(pathId, "CpA $marker", "CpA $marker"), first.careerPath)
-            assertNull(first.careerSpecialization)
+            assertEquals(DictionaryEntry(specId, "CpSpec $marker", "CpSpec $marker"), first.careerSpecialization)
+            assertEquals(DictionaryEntry(levelId, "CpLevel $marker", "CpLevel $marker"), first.seniorityLevel)
 
             // A second position concludes the first the day before its start.
-            val second = manager.createPosition(subId, "2021-06-15", careerPathId = pathId2, seniorityLevelId = levelId)
+            val second = manager.createPosition(subId, "2021-06-15", pathId2, specId, levelId)
                 .body<CareerPositionResponse>()
             val listed = sub.listPositions(subId)
             assertEquals(listOf(first.id, second.id), listed.map { it.id })
@@ -94,22 +103,22 @@ class CareerPositionRoutesTest {
             val admin = authedClient(adminEmail, "pw")
             val userRead = admin.get("/api/v1/users/$subId").body<UserResponse>()
             assertEquals(DictionaryEntry(pathId2, "CpB $marker", "CpB $marker"), userRead.careerPath)
-            assertEquals(DictionaryEntry(levelId, "CpL $marker", "CpL $marker"), userRead.seniorityLevel)
+            assertEquals(DictionaryEntry(levelId, "CpLevel $marker", "CpLevel $marker"), userRead.seniorityLevel)
 
-            // Correct the FIRST position in place: date + triple (full replace of the refs).
+            // Correct the FIRST position in place: date + a different path.
             val put = manager.put("/api/v1/users/$subId/career-positions/${first.id}") {
                 contentType(ContentType.Application.Json)
-                setBody(CareerPositionWrite("2019-05-01", careerPathId = pathId, seniorityLevelId = levelId))
+                setBody(CareerPositionWrite("2019-05-01", pathId2, specId, levelId))
             }
             assertEquals(HttpStatusCode.NoContent, put.status)
             val corrected = sub.listPositions(subId).first()
             assertEquals("2019-05-01", corrected.startDate)
-            assertEquals(DictionaryEntry(levelId, "CpL $marker", "CpL $marker"), corrected.seniorityLevel)
+            assertEquals(DictionaryEntry(pathId2, "CpB $marker", "CpB $marker"), corrected.careerPath)
 
             // A positionId under the WRONG user's path is 404, not a cross-user edit.
             val foreign = manager.put("/api/v1/users/$mgrId/career-positions/${first.id}") {
                 contentType(ContentType.Application.Json)
-                setBody(CareerPositionWrite("2019-05-01", careerPathId = pathId))
+                setBody(CareerPositionWrite("2019-05-01", pathId, specId, levelId))
             }
             assertEquals(HttpStatusCode.NotFound, foreign.status)
 
@@ -129,7 +138,7 @@ class CareerPositionRoutesTest {
             // The freed (user, start) pair is reusable after the soft delete.
             assertEquals(
                 HttpStatusCode.Created,
-                manager.createPosition(subId, "2021-06-15", careerPathId = pathId2).status,
+                manager.createPosition(subId, "2021-06-15", pathId2, specId, levelId).status,
             )
 
             // GET of an unknown user is 404 (the read-before-guard pick).
@@ -149,21 +158,23 @@ class CareerPositionRoutesTest {
 
         val marker = UUID.randomUUID().toString().take(8)
         val (pathId) = TestDictionaries.append(Dictionary.CAREER_PATH, "CpO $marker")
-        val (specId) = TestDictionaries.append(Dictionary.CAREER_SPECIALIZATION, "CpOS $marker")
+        val (specId, levelId) = specAndLevel(marker)
+        suspend fun create(start: String, path: UInt? = pathId, spec: UInt? = specId, level: UInt? = levelId) =
+            manager.createPosition(subId, start, path, spec, level)
 
-        val a = manager.createPosition(subId, "2018-01-10", careerPathId = pathId).body<CareerPositionResponse>()
-        val b = manager.createPosition(subId, "2020-01-10", careerPathId = pathId).body<CareerPositionResponse>()
-        val c = manager.createPosition(subId, "2022-01-10", careerPathId = pathId).body<CareerPositionResponse>()
+        val a = create("2018-01-10").body<CareerPositionResponse>()
+        val b = create("2020-01-10").body<CareerPositionResponse>()
+        val c = create("2022-01-10").body<CareerPositionResponse>()
 
         // Appends must come strictly after the latest start (equal included).
-        assertEquals(HttpStatusCode.Conflict, manager.createPosition(subId, "2022-01-10", careerPathId = pathId).status)
-        assertEquals(HttpStatusCode.Conflict, manager.createPosition(subId, "2021-01-01", careerPathId = pathId).status)
+        assertEquals(HttpStatusCode.Conflict, create("2022-01-10").status)
+        assertEquals(HttpStatusCode.Conflict, create("2021-01-01").status)
 
         // A correction must keep the row between its neighbors (strictly).
         suspend fun correct(positionId: UInt, start: String): HttpStatusCode =
             manager.put("/api/v1/users/$subId/career-positions/$positionId") {
                 contentType(ContentType.Application.Json)
-                setBody(CareerPositionWrite(start, careerPathId = pathId))
+                setBody(CareerPositionWrite(start, pathId, specId, levelId))
             }.status
         assertEquals(HttpStatusCode.NoContent, correct(b.id, "2019-07-01"))
         assertEquals(HttpStatusCode.Conflict, correct(b.id, "2018-01-10"))
@@ -175,19 +186,15 @@ class CareerPositionRoutesTest {
         // The FIRST row has no previous neighbor — it may move arbitrarily far back.
         assertEquals(HttpStatusCode.NoContent, correct(a.id, "2015-01-01"))
 
-        // Shape 400s: malformed/unpadded/future dates, the empty triple, bad refs.
-        assertEquals(HttpStatusCode.BadRequest, manager.createPosition(subId, "2023-1-05", careerPathId = pathId).status)
-        assertEquals(HttpStatusCode.BadRequest, manager.createPosition(subId, "not-a-date", careerPathId = pathId).status)
-        assertEquals(HttpStatusCode.BadRequest, manager.createPosition(subId, "2999-01-01", careerPathId = pathId).status)
-        assertEquals(HttpStatusCode.BadRequest, manager.createPosition(subId, "2023-05-05").status)
-        assertEquals(
-            HttpStatusCode.BadRequest,
-            manager.createPosition(subId, "2023-05-05", careerPathId = specId).status, // wrong dictionary
-        )
-        assertEquals(
-            HttpStatusCode.BadRequest,
-            manager.createPosition(subId, "2023-05-05", careerPathId = 999_999_999u).status,
-        )
+        // Shape 400s: malformed/unpadded/future dates, any missing triple field, bad refs.
+        assertEquals(HttpStatusCode.BadRequest, create("2023-1-05").status)
+        assertEquals(HttpStatusCode.BadRequest, create("not-a-date").status)
+        assertEquals(HttpStatusCode.BadRequest, create("2999-01-01").status)
+        assertEquals(HttpStatusCode.BadRequest, create("2023-05-05", path = null).status)
+        assertEquals(HttpStatusCode.BadRequest, create("2023-05-05", spec = null).status)
+        assertEquals(HttpStatusCode.BadRequest, create("2023-05-05", level = null).status)
+        assertEquals(HttpStatusCode.BadRequest, create("2023-05-05", path = specId).status) // wrong dictionary
+        assertEquals(HttpStatusCode.BadRequest, create("2023-05-05", path = 999_999_999u).status)
     }
 
     @Test
@@ -225,18 +232,24 @@ class CareerPositionRoutesTest {
 
             val marker = UUID.randomUUID().toString().take(8)
             val (pathId) = TestDictionaries.append(Dictionary.CAREER_PATH, "CpZ $marker")
+            val (specId, levelId) = specAndLevel(marker)
+            suspend fun create(client: HttpClient, start: String) =
+                client.createPosition(sId, start, pathId, specId, levelId)
 
             // Writes: the direct manager AND the chain above — nobody else (ADMIN and HR
             // deliberately included in the 403 set; the write is the chain's alone).
-            assertEquals(HttpStatusCode.Created, m.createPosition(sId, "2016-01-01", careerPathId = pathId).status)
-            assertEquals(HttpStatusCode.Created, g.createPosition(sId, "2017-01-01", careerPathId = pathId).status)
-            assertEquals(HttpStatusCode.Forbidden, s.createPosition(sId, "2018-01-01", careerPathId = pathId).status)
-            assertEquals(HttpStatusCode.Forbidden, t.createPosition(sId, "2018-01-01", careerPathId = pathId).status)
-            assertEquals(HttpStatusCode.Forbidden, u.createPosition(sId, "2018-01-01", careerPathId = pathId).status)
-            assertEquals(HttpStatusCode.Forbidden, a.createPosition(sId, "2018-01-01", careerPathId = pathId).status)
-            assertEquals(HttpStatusCode.Forbidden, h.createPosition(sId, "2018-01-01", careerPathId = pathId).status)
+            assertEquals(HttpStatusCode.Created, create(m, "2016-01-01").status)
+            assertEquals(HttpStatusCode.Created, create(g, "2017-01-01").status)
+            assertEquals(HttpStatusCode.Forbidden, create(s, "2018-01-01").status)
+            assertEquals(HttpStatusCode.Forbidden, create(t, "2018-01-01").status)
+            assertEquals(HttpStatusCode.Forbidden, create(u, "2018-01-01").status)
+            assertEquals(HttpStatusCode.Forbidden, create(a, "2018-01-01").status)
+            assertEquals(HttpStatusCode.Forbidden, create(h, "2018-01-01").status)
             // The 403 is uniform for an unknown target too (guard before read on POST).
-            assertEquals(HttpStatusCode.Forbidden, u.createPosition(999_999_999u, "2018-01-01", careerPathId = pathId).status)
+            assertEquals(
+                HttpStatusCode.Forbidden,
+                u.createPosition(999_999_999u, "2018-01-01", pathId, specId, levelId).status,
+            )
 
             // Reads: ANY authenticated caller — teammates, unrelated, ADMIN, HR alike.
             for (client in listOf(s, t, u, a, h, g, m)) {
@@ -253,10 +266,10 @@ class CareerPositionRoutesTest {
                 HttpStatusCode.Forbidden,
                 m.put("/api/v1/users/$sId/career-positions/$positionId") {
                     contentType(ContentType.Application.Json)
-                    setBody(CareerPositionWrite("2015-06-01", careerPathId = pathId))
+                    setBody(CareerPositionWrite("2015-06-01", pathId, specId, levelId))
                 }.status,
             )
-            assertEquals(HttpStatusCode.Forbidden, m.createPosition(sId, "2019-01-01", careerPathId = pathId).status)
+            assertEquals(HttpStatusCode.Forbidden, create(m, "2019-01-01").status)
             assertEquals(HttpStatusCode.NoContent, g.delete("/api/v1/users/$sId/career-positions/$positionId").status)
         }
 
@@ -274,9 +287,10 @@ class CareerPositionRoutesTest {
 
             val marker = UUID.randomUUID().toString().take(8)
             val (pathId) = TestDictionaries.append(Dictionary.CAREER_PATH, "CpD $marker")
+            val (specId, levelId) = specAndLevel(marker)
             val (deadId) = TestDictionaries.append(Dictionary.SENIORITY_LEVEL, "CpDead $marker")
 
-            val position = manager.createPosition(subId, "2019-09-01", careerPathId = pathId)
+            val position = manager.createPosition(subId, "2019-09-01", pathId, specId, levelId)
                 .body<CareerPositionResponse>()
 
             // Renames propagate to the timeline and the derived user triple alike.
@@ -297,7 +311,7 @@ class CareerPositionRoutesTest {
                 HttpStatusCode.NoContent,
                 manager.put("/api/v1/users/$subId/career-positions/${position.id}") {
                     contentType(ContentType.Application.Json)
-                    setBody(CareerPositionWrite("2019-10-01", careerPathId = pathId))
+                    setBody(CareerPositionWrite("2019-10-01", pathId, specId, levelId))
                 }.status,
             )
 
@@ -307,7 +321,7 @@ class CareerPositionRoutesTest {
                 HttpStatusCode.BadRequest,
                 manager.put("/api/v1/users/$subId/career-positions/${position.id}") {
                     contentType(ContentType.Application.Json)
-                    setBody(CareerPositionWrite("2019-10-01", careerPathId = pathId, seniorityLevelId = deadId))
+                    setBody(CareerPositionWrite("2019-10-01", pathId, specId, deadId))
                 }.status,
             )
         }
@@ -327,14 +341,15 @@ class CareerPositionRoutesTest {
 
             val marker = UUID.randomUUID().toString().take(8)
             val (pathId) = TestDictionaries.append(Dictionary.CAREER_PATH, "CpN $marker")
+            val (specId, levelId) = specAndLevel(marker)
 
-            val position = manager.createPosition(subId, "2020-04-01", careerPathId = pathId)
+            val position = manager.createPosition(subId, "2020-04-01", pathId, specId, levelId)
                 .body<CareerPositionResponse>()
             manager.put("/api/v1/users/$subId/career-positions/${position.id}") {
                 contentType(ContentType.Application.Json)
-                setBody(CareerPositionWrite("2020-05-01", careerPathId = pathId))
+                setBody(CareerPositionWrite("2020-05-01", pathId, specId, levelId))
             }.let { assertEquals(HttpStatusCode.NoContent, it.status) }
-            val second = manager.createPosition(subId, "2021-04-01", careerPathId = pathId)
+            val second = manager.createPosition(subId, "2021-04-01", pathId, specId, levelId)
                 .body<CareerPositionResponse>()
             manager.delete("/api/v1/users/$subId/career-positions/${second.id}")
                 .let { assertEquals(HttpStatusCode.NoContent, it.status) }

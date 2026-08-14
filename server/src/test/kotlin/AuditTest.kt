@@ -376,6 +376,12 @@ class AuditTest {
             "CpAudit A $marker",
             "CpAudit B $marker",
         )
+        val (specId) = TestDictionaries.append(
+            ch.nokillswit.dictionaries.Dictionary.CAREER_SPECIALIZATION, "CpAudit S $marker",
+        )
+        val (levelId) = TestDictionaries.append(
+            ch.nokillswit.dictionaries.Dictionary.SENIORITY_LEVEL, "CpAudit L $marker",
+        )
         val appender = LogCapture("ch.nokillswit.audit")
         try {
             val client = authedClient(mgrEmail, "pw")
@@ -383,7 +389,7 @@ class AuditTest {
             // Create → career_position.created with the start date and the set ref ids only.
             val created = client.post("/api/v1/users/$subId/career-positions") {
                 contentType(ContentType.Application.Json)
-                setBody(ch.nokillswit.users.CareerPositionWrite("2020-02-02", careerPathId = ids[0]))
+                setBody(ch.nokillswit.users.CareerPositionWrite("2020-02-02", ids[0], specId, levelId))
             }.body<ch.nokillswit.users.CareerPositionResponse>()
             val createdEvent = appender.events.find { it.message == "career_position.created" }
             assertNotNull(createdEvent, "expected a career_position.created audit event")
@@ -391,12 +397,13 @@ class AuditTest {
             assertEquals(subId.toLong(), createdEvent.keyValuePairs.first { it.key == "targetUserId" }.value)
             assertEquals("2020-02-02", createdEvent.keyValuePairs.first { it.key == "startDate" }.value)
             assertEquals(ids[0].toLong(), createdEvent.keyValuePairs.first { it.key == "careerPathId" }.value)
-            assertTrue(createdEvent.keyValuePairs.none { it.key == "seniorityLevelId" })
+            // The full triple is required since v2.15.1 — all three ids ride the event.
+            assertEquals(levelId.toLong(), createdEvent.keyValuePairs.first { it.key == "seniorityLevelId" }.value)
 
             // Correction → career_position.updated with From/To deltas for what changed.
             client.put("/api/v1/users/$subId/career-positions/${created.id}") {
                 contentType(ContentType.Application.Json)
-                setBody(ch.nokillswit.users.CareerPositionWrite("2020-03-03", careerPathId = ids[1]))
+                setBody(ch.nokillswit.users.CareerPositionWrite("2020-03-03", ids[1], specId, levelId))
             }
             val updated = appender.events.find { it.message == "career_position.updated" }
             assertNotNull(updated, "expected a career_position.updated audit event")

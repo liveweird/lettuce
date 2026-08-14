@@ -26,11 +26,27 @@ class CareerPositionValidationTest {
     }
 
     @Test
-    fun `a position must set at least one of the three refs`() {
-        validateCareerPositionRefs(CareerPositionWrite("2020-01-01", careerPathId = 1u))
-        validateCareerPositionRefs(CareerPositionWrite("2020-01-01", seniorityLevelId = 3u))
+    fun `a position must set all three refs (v2 15 1)`() {
+        validateCareerPositionRefs(
+            CareerPositionWrite("2020-01-01", careerPathId = 1u, careerSpecializationId = 2u, seniorityLevelId = 3u),
+        )
         assertFailsWith<BadRequestException> {
             validateCareerPositionRefs(CareerPositionWrite("2020-01-01"))
+        }
+        assertFailsWith<BadRequestException> {
+            validateCareerPositionRefs(
+                CareerPositionWrite("2020-01-01", careerSpecializationId = 2u, seniorityLevelId = 3u),
+            )
+        }
+        assertFailsWith<BadRequestException> {
+            validateCareerPositionRefs(
+                CareerPositionWrite("2020-01-01", careerPathId = 1u, seniorityLevelId = 3u),
+            )
+        }
+        assertFailsWith<BadRequestException> {
+            validateCareerPositionRefs(
+                CareerPositionWrite("2020-01-01", careerPathId = 1u, careerSpecializationId = 2u),
+            )
         }
     }
 }

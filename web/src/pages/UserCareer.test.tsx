@@ -18,7 +18,7 @@ const POSITIONS = [
     startDate: "2019-02-01",
     endDate: "2021-06-14",
     careerPath: ENTRY(11, "Engineer"),
-    careerSpecialization: null,
+    careerSpecialization: ENTRY(21, "Backend"),
     seniorityLevel: ENTRY(31, "Junior"),
     createdAt: 1_600_000_000_000,
     lastModified: 1_600_000_000_000,
@@ -28,7 +28,7 @@ const POSITIONS = [
     startDate: "2021-06-15",
     endDate: null,
     careerPath: ENTRY(12, "Senior Engineer"),
-    careerSpecialization: null,
+    careerSpecialization: ENTRY(21, "Backend"),
     seniorityLevel: ENTRY(32, "Senior"),
     createdAt: 1_700_000_000_000,
     lastModified: 1_700_000_000_000,
@@ -63,9 +63,14 @@ describe("UserCareer", () => {
       const url = String(input);
       const method = init?.method ?? "GET";
       if (method === "GET" && url.startsWith("/api/v1/dictionaries/")) {
-        return Promise.resolve(
-          jsonResponse(200, { items: [ENTRY(11, "Engineer"), ENTRY(12, "Senior Engineer")] }),
-        );
+        const slug = url.split("/").pop()!;
+        const items =
+          slug === "career-paths"
+            ? [ENTRY(11, "Engineer"), ENTRY(12, "Senior Engineer")]
+            : slug === "career-specializations"
+              ? [ENTRY(21, "Backend")]
+              : [ENTRY(31, "Junior"), ENTRY(32, "Senior")];
+        return Promise.resolve(jsonResponse(200, { items }));
       }
       if (method === "GET" && url.includes("/career-positions")) {
         return Promise.resolve(jsonResponse(200, { items: positions }));
@@ -133,38 +138,60 @@ describe("UserCareer", () => {
     expect(await screen.findByText("No positions recorded yet.")).toBeInTheDocument();
   });
 
-  test("manager origin: starting a new position POSTs the date and set refs only", async () => {
+  test("the add form prefills from the current position; a date + one change POSTs the full triple", async () => {
     setupMocks();
     const user = userEvent.setup();
     renderPage("/users/9/career?name=Riley%20Report&from=subordinates");
 
     expect(await screen.findByText("Start a new position")).toBeInTheDocument();
-    const dateInput = screen.getByLabelText("Start date") as HTMLInputElement;
-    fireEvent.change(dateInput, { target: { value: "2024-03-01" } });
+    // Prefill (v2.15.1): the three pickers start from the CURRENT position's values. The
+    // keyed form REMOUNTS when the positions load, so re-query the node inside the wait.
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText(/^Career path/, { selector: "input" }) as HTMLInputElement).value,
+      ).toBe("Senior Engineer"),
+    );
+    const pathInput = screen.getByLabelText(/^Career path/, { selector: "input" }) as HTMLInputElement;
+    expect((screen.getByLabelText(/^Seniority level/, { selector: "input" }) as HTMLInputElement).value).toBe(
+      "Senior",
+    );
+    // No date yet — the submit waits for it despite the prefilled triple.
+    const submit = screen.getByRole("button", { name: "Start position" });
+    expect(submit).toBeDisabled();
 
-    const pathInput = screen.getByLabelText("Career path", { selector: "input" });
-    await waitFor(() => expect(pathInput).not.toBeDisabled());
+    fireEvent.change(screen.getByLabelText(/^Start date/), { target: { value: "2024-03-01" } });
+    // A promotion is a delta: change just the path, keep the prefilled rest.
     fireEvent.click(pathInput);
-    await user.click(await screen.findByRole("option", { name: "Senior Engineer" }));
-
-    await user.click(screen.getByRole("button", { name: "Start position" }));
+    await user.click(await screen.findByRole("option", { name: "Engineer" }));
+    await user.click(submit);
 
     await waitFor(() => {
       const post = mockFetch.mock.calls.find(([, init]) => (init as RequestInit)?.method === "POST");
       expect(post).toBeDefined();
       expect(String(post![0])).toBe("/api/v1/users/9/career-positions");
       const body = JSON.parse((post![1] as { body: string }).body);
-      expect(body).toEqual({ startDate: "2024-03-01", careerPathId: 12 });
+      expect(body).toEqual({
+        startDate: "2024-03-01",
+        careerPathId: 11,
+        careerSpecializationId: 21,
+        seniorityLevelId: 32,
+      });
     });
   });
 
-  test("the submit stays disabled until a date AND at least one field are set", async () => {
-    setupMocks();
+  test("with no positions yet the form starts blank and needs the date AND all three fields", async () => {
+    setupMocks({ positions: [] });
+    const user = userEvent.setup();
     renderPage("/users/9/career?name=R&from=subordinates");
     const submit = await screen.findByRole("button", { name: "Start position" });
     expect(submit).toBeDisabled();
-    fireEvent.change(screen.getByLabelText("Start date"), { target: { value: "2024-03-01" } });
-    expect(submit).toBeDisabled(); // date alone is not enough — the triple is still empty
+    fireEvent.change(screen.getByLabelText(/^Start date/), { target: { value: "2024-03-01" } });
+    expect(submit).toBeDisabled(); // all three fields are required (v2.15.1), none set yet
+    const pathInput = screen.getByLabelText(/^Career path/, { selector: "input" });
+    await waitFor(() => expect(pathInput).not.toBeDisabled());
+    fireEvent.click(pathInput);
+    await user.click(await screen.findByRole("option", { name: "Engineer" }));
+    expect(submit).toBeDisabled(); // one of three is still not enough
   });
 
   test("editing a row pre-fills the form and PUTs the correction", async () => {
@@ -174,7 +201,7 @@ describe("UserCareer", () => {
 
     await user.click(await screen.findByLabelText("Edit the position started 2019-02-01"));
     expect(screen.getByText("Correct the position")).toBeInTheDocument();
-    const dateInput = screen.getByLabelText("Start date") as HTMLInputElement;
+    const dateInput = screen.getByLabelText(/^Start date/) as HTMLInputElement;
     expect(dateInput.value).toBe("2019-02-01");
 
     fireEvent.change(dateInput, { target: { value: "2019-05-01" } });
@@ -185,7 +212,12 @@ describe("UserCareer", () => {
       expect(put).toBeDefined();
       expect(String(put![0])).toBe("/api/v1/users/9/career-positions/1");
       const body = JSON.parse((put![1] as { body: string }).body);
-      expect(body).toEqual({ startDate: "2019-05-01", careerPathId: 11, seniorityLevelId: 31 });
+      expect(body).toEqual({
+        startDate: "2019-05-01",
+        careerPathId: 11,
+        careerSpecializationId: 21,
+        seniorityLevelId: 31,
+      });
     });
   });
 
@@ -213,13 +245,16 @@ describe("UserCareer", () => {
     const user = userEvent.setup();
     renderPage("/users/9/career?name=R&from=subordinates");
 
-    fireEvent.change(await screen.findByLabelText("Start date"), {
+    // The triple prefills from the current position — only the date is needed (re-query:
+    // the keyed form remounts when the positions load).
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText(/^Career path/, { selector: "input" }) as HTMLInputElement).value,
+      ).toBe("Senior Engineer"),
+    );
+    fireEvent.change(screen.getByLabelText(/^Start date/), {
       target: { value: "2020-01-01" },
     });
-    const pathInput = screen.getByLabelText("Career path", { selector: "input" });
-    await waitFor(() => expect(pathInput).not.toBeDisabled());
-    fireEvent.click(pathInput);
-    await user.click(await screen.findByRole("option", { name: "Senior Engineer" }));
     await user.click(screen.getByRole("button", { name: "Start position" }));
 
     expect(
