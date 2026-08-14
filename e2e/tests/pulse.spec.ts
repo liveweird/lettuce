@@ -276,37 +276,29 @@ test("admin closes; a respondent reads team results; the non-responding manager 
   await expect(cardOf("CCC").getByRole("paragraph").filter({ hasText: /^0$/ })).toBeVisible();
   await expect(cardOf("AAA").getByText("3 of 3 responded (100%)")).toBeVisible();
 
-  // The Trend tab (v2.11.0), same session: the team picker defaults to the first visible
-  // team alphabetically (AAA — childless, so its note shows), then CCC brings the full
-  // chip roster. Chart presence is RUN-DEPENDENT (CI has exactly one closed cycle → the
-  // pending text; shared-DB reruns accumulate cycles → the chart renders), so both legs
-  // assert an either-or locator and never point counts or values (the delta stance).
+  // The Trend tab (team pills since v2.14.0), same session: the member view is the empty
+  // state for the team-less Manager CCC; "Teams I manage" shows one pill per monitored team
+  // (AAA/BBB/CCC, all on — one line each) plus the same calc switch as Results. Chart
+  // presence is RUN-DEPENDENT (CI has exactly one closed cycle → the pending text;
+  // shared-DB reruns accumulate cycles → the chart renders), so every step asserts an
+  // either-or locator and never point counts or values (the delta stance).
   await page.goto("/pulse?tab=trend");
-  // The two-view model (v2.13.0): the tab opens on "Teams I belong to" — for the team-less
-  // Manager CCC that's the member empty state — and the managed view holds the comparison.
   await expect(page.getByText("You are not a member of any team.")).toBeVisible();
   await page.getByText("Teams I manage", { exact: true }).click();
-  await expect(
-    page.getByText("This team has no sub-teams — both lines cover the same people."),
-  ).toBeVisible();
+  const chips = page.getByRole("group", { name: "Teams on the chart" });
+  await expect(chips.getByText("AAA", { exact: true })).toBeVisible();
+  await expect(chips.getByText("BBB", { exact: true })).toBeVisible();
+  await expect(chips.getByText("CCC", { exact: true })).toBeVisible();
   const chartOrPending = page
     .getByText("The trend appears after two closed cycles.")
     .or(page.locator("svg.recharts-surface"))
     .first();
   await expect(chartOrPending).toBeVisible();
-  // Pick CCC (the closed Selects' mounted-listbox gotcha: address the input by combobox role).
-  await page.getByRole("combobox", { name: "Team" }).click();
-  await page.getByRole("option", { name: "CCC" }).click();
-  // Scope to the chips group: the closed team Select keeps its listbox MOUNTED (the v2.7.0
-  // gotcha), so a bare getByText("AAA") strict-violates against the hidden option.
-  const chips = page.getByRole("group", { name: "Compared scopes" });
-  await expect(chips.getByText("Own members", { exact: true })).toBeVisible();
-  await expect(chips.getByText("The team and everyone below", { exact: true })).toBeVisible();
-  await expect(chips.getByText("AAA", { exact: true })).toBeVisible();
-  await expect(chips.getByText("BBB", { exact: true })).toBeVisible();
+  // The calc switch redraws every line over the subtree scope (hidden-radio gotcha —
+  // click the visible label; unique on this page).
+  await page.getByText("Including everyone below", { exact: true }).click();
   await expect(chartOrPending).toBeVisible();
-  // The metric switch survives the same way (the SegmentedControl's hidden-radio gotcha —
-  // click the visible label); the driver's full text appears as the caption.
+  // The metric switch survives the same way; the driver's full text appears as the caption.
   await page.getByText("Q2", { exact: true }).click();
   await expect(page.getByText("I understand what is expected of me in my role.")).toBeVisible();
   await expect(chartOrPending).toBeVisible();

@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.14.0",
+    date: "2026-08-14",
+    en: `The Trend chart now compares teams directly. Instead of picking one team from a list, every team of the current view is a pill under the chart — toggle pills on and off to draw several teams as separate lines on the same chart. In "Teams I manage" the familiar calculation switch decides what each line counts: "Direct members only" or "Including everyone below". The metric switch (eNPS or a question's favorable share) works as before.`,
+    pl: `Wykres trendu porównuje teraz zespoły bezpośrednio. Zamiast wybierać jeden zespół z listy, każdy zespół bieżącego widoku jest pigułką pod wykresem — włączasz i wyłączasz pigułki, aby narysować kilka zespołów jako osobne linie na tym samym wykresie. W „Zespołach, którymi zarządzam" znajomy przełącznik obliczeń decyduje, co liczy każda linia: „Tylko bezpośredni członkowie" albo „Razem ze wszystkimi poniżej". Przełącznik metryki (eNPS albo udział odpowiedzi pozytywnych dla pytania) działa jak dotąd.`,
+  },
+  {
     version: "2.13.0",
     date: "2026-08-14",
     en: `The Trend tab follows the same two views as Results. "Teams I belong to" shows a single line — your team's direct members over the closed cycles — while "Teams I manage" keeps the full comparison chart with a toggleable line for the team's members, everyone below, and each sub-team. The metric switch (eNPS or a question's favorable share) works in both views, and each tab remembers its own view choice.`,

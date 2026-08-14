@@ -79,14 +79,14 @@
     "noMemberTeams": "Nie należysz do żadnego zespołu.",
     "noManagedTeams": "Nie zarządzasz żadnym zespołem."
   },
+  "calc": {
+    "direct": "Tylko bezpośredni członkowie",
+    "indirect": "Razem ze wszystkimi poniżej",
+    "aria": "Zakres obliczeń"
+  },
   "results": {
     "cycle": "Cykl",
     "cycleOption": "Zamknięty {{date}}",
-    "calc": {
-      "direct": "Tylko bezpośredni członkowie",
-      "indirect": "Razem ze wszystkimi poniżej"
-    },
-    "calcAria": "Zakres obliczeń",
     "enps": "eNPS",
     "promoters": "Promotorzy",
     "passives": "Neutralni",
@@ -126,11 +126,6 @@
     "loadError": "Nie udało się wczytać wyników."
   },
   "trend": {
-    "team": "Zespół",
-    "series": {
-      "own": "Bezpośredni członkowie",
-      "subtree": "Zespół i wszyscy poniżej"
-    },
     "metricAria": "Metryka trendu",
     "metricLabel": {
       "enps": "eNPS",
@@ -139,8 +134,8 @@
       "q4": "Q4",
       "q5": "Q5"
     },
-    "seriesAria": "Porównywane zakresy",
-    "noChildren": "Ten zespół nie ma podzespołów — obie linie obejmują te same osoby."
+    "seriesAria": "Zespoły na wykresie",
+    "noneSelected": "Włącz co najmniej jeden zespół, aby narysować wykres."
   },
   "participation": {
     "hint": "Kto z Twoich podwładnych wypełnił ankietę — nigdy ich odpowiedzi.",

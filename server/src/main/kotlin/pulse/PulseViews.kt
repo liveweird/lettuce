@@ -86,20 +86,6 @@ data class PulseTrendResponse(
     val points: List<PulseTrendPoint>,
 )
 
-/**
- * The multi-scope trend bundle (v2.11.0): the parent team's two own scopes plus one subtree
- * series per direct child, each a self-describing [PulseTrendResponse]. A series is identified
- * by its (teamId, mode) pair — the parent appears twice. The subtree series is always present,
- * even for a childless team (where it equals the direct one — deduped at compute time only).
- */
-@Serializable
-data class PulseTrendComparison(
-    val teamId: UInt,
-    val teamName: String,
-    /** [own DIRECT, own SUBTREE, one SUBTREE per direct child team (name-ascending)]. */
-    val series: List<PulseTrendResponse>,
-)
-
 @Serializable
 data class PulseVisibleTeams(
     /** Teams the caller may open results for (own + managed + below; HR: all). */

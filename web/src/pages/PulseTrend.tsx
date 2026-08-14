@@ -1,14 +1,14 @@
 import { lazy, Suspense, useState } from "react";
-import { Alert, Chip, Group, Paper, SegmentedControl, Select, Skeleton, Stack, Text } from "@mantine/core";
+import { Alert, Chip, Group, Paper, SegmentedControl, Skeleton, Stack, Text } from "@mantine/core";
 import { IconChartLine } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   getPulseTrend,
-  getPulseTrendComparison,
   getPulseVisibleTeams,
-  type PulseTrendComparison,
+  type PulseAggregationMode,
   type PulseTrendResponse,
+  type TeamRef,
 } from "../api/client";
 import EmptyState from "../components/EmptyState";
 import { HintIcon } from "../components/PulseTeamResultCard";
@@ -23,56 +23,37 @@ import {
 
 const PulseTrendChart = lazy(() => import("../components/PulseTrendChart"));
 
-// The v2.12.0 two-view model, mirrored (v2.13.0): "member" = teams the caller belongs to,
-// one own-members line; "managed" = the monitored tree with the full multi-series chart.
 const VIEWS = ["member", "managed"] as const;
 type TrendView = (typeof VIEWS)[number];
+const CALCS = ["direct", "indirect"] as const;
+type TrendCalc = (typeof CALCS)[number];
 
-// Own-direct keeps the brand color (the primary line); the rest cycle distinct hues. If a
-// team has more children than hues the colors repeat — the chips disambiguate.
-const SERIES_COLORS = ["indigo.6", "teal.6", "orange.6", "grape.6", "cyan.6", "pink.6"];
+// One hue per team pill, assigned by index over the FULL team list so a team keeps its
+// color while others toggle off. If there are more teams than hues the colors repeat.
+const SERIES_COLORS = ["lettuce.6", "indigo.6", "teal.6", "orange.6", "grape.6", "cyan.6", "pink.6"];
 
 /**
- * The "Trend" tab (v2.11.0, two-view since v2.13.0): how results evolve across closed
- * cycles for one picked team. The member view charts a single line — the team's direct
- * members; the managed view compares the three scope families (direct members, whole
- * subtree, each direct sub-team's subtree) with per-series toggle chips. A metric picker
- * (eNPS or a fixed driver's favorable%) applies to both. The fill gate is point-wise on
- * the wire (never a request-level 403 for a visible team), so a total non-respondent
- * simply sees gaps → the pending note.
+ * The "Trend" tab (team-pills model, v2.14.0): every pill is a TEAM of the active view —
+ * toggled-on pills become lines on ONE chart, so several teams compare directly. The member
+ * view charts each team's direct members; the managed view adds the same calculation switch
+ * as Results ("Direct members only" ↔ "Including everyone below"). One `/trend` request per
+ * toggled-on team (cache-shared with the Results cards' mini-charts — identical query keys);
+ * the metric picker (eNPS or a driver's favorable%) applies to every line. The fill gate is
+ * point-wise on the wire, so a total non-respondent sees gaps → the pending note.
  */
 export default function PulseTrend() {
   const { t } = useTranslation();
   const teams = useQuery({ queryKey: ["pulseVisibleTeams"], queryFn: getPulseVisibleTeams });
   const [view, setView] = useStoredState<TrendView>("pulse.trend.view", "member", isOneOf(VIEWS));
+  const [calc, setCalc] = useStoredState<TrendCalc>("pulse.trend.calc", "direct", isOneOf(CALCS));
   const [metric, setMetric] = useStoredState<TrendMetric>(
     "pulse.trend.metric",
     "enps",
     isOneOf(TREND_METRICS),
   );
-  const [pickedTeam, setPickedTeam] = useState<string | null>(null);
 
   const viewTeams = (view === "member" ? teams.data?.memberTeams : teams.data?.monitoredTeams) ?? [];
-  const teamId =
-    pickedTeam != null && viewTeams.some((team) => String(team.id) === pickedTeam)
-      ? Number(pickedTeam)
-      : (viewTeams[0]?.id ?? null);
-
-  // Member view: the single-team direct series (the result cards' mini-chart query — same
-  // key and fetch, so the cache is shared). Managed view: the comparison bundle.
-  const memberTrend = useQuery({
-    queryKey: ["pulseTrend", teamId, "direct"],
-    queryFn: () => getPulseTrend(teamId!, "direct"),
-    enabled: view === "member" && teamId != null,
-    retry: false,
-  });
-  const managedTrend = useQuery({
-    queryKey: ["pulseTrendComparison", teamId],
-    queryFn: () => getPulseTrendComparison(teamId!),
-    enabled: view === "managed" && teamId != null,
-    retry: false,
-  });
-  const trend = view === "member" ? memberTrend : managedTrend;
+  const wireMode: PulseAggregationMode = view === "managed" && calc === "indirect" ? "subtree" : "direct";
 
   if (teams.isLoading) return <Skeleton height={280} radius="md" />;
   if (teams.isError) {
@@ -86,21 +67,19 @@ export default function PulseTrend() {
   return (
     <Stack gap="md">
       <Group justify="space-between" align="flex-end" wrap="wrap">
-        <Group gap="xs" align="flex-end" wrap="wrap">
+        <Group gap="xs" wrap="wrap">
           <SegmentedControl
             aria-label={t("pulse.view.aria")}
             value={view}
             onChange={(value) => setView(value as TrendView)}
             data={VIEWS.map((v) => ({ value: v, label: t(`pulse.view.${v}`) }))}
           />
-          {viewTeams.length > 0 && (
-            <Select
-              label={t("pulse.trend.team")}
-              data={viewTeams.map((team) => ({ value: String(team.id), label: team.name }))}
-              value={teamId != null ? String(teamId) : null}
-              onChange={(value) => value != null && setPickedTeam(value)}
-              allowDeselect={false}
-              w={260}
+          {view === "managed" && (
+            <SegmentedControl
+              aria-label={t("pulse.calc.aria")}
+              value={calc}
+              onChange={(value) => setCalc(value as TrendCalc)}
+              data={CALCS.map((c) => ({ value: c, label: t(`pulse.calc.${c}`) }))}
             />
           )}
         </Group>
@@ -122,107 +101,88 @@ export default function PulseTrend() {
         </Text>
       )}
 
-      {/* The per-view empty states render BELOW the selector (the v2.12.0 rule) — a
-          member-of-nothing manager must still be able to switch views. */}
+      {/* The per-view empty states render BELOW the selector (the v2.12.0 rule). */}
       {viewTeams.length === 0 ? (
         <EmptyState
           icon={<IconChartLine size={32} />}
           label={t(view === "member" ? "pulse.view.noMemberTeams" : "pulse.view.noManagedTeams")}
         />
       ) : (
-        <>
-          {trend.isLoading && <Skeleton height={280} radius="md" />}
-          {trend.isError && (
-            <Alert color="red" variant="light">
-              {t("pulse.error.loadFailed")}
-            </Alert>
-          )}
-          {view === "member" && memberTrend.data && (
-            <MemberTrendCard series={memberTrend.data} metric={metric} />
-          )}
-          {view === "managed" && managedTrend.data && (
-            <TrendChartSection key={teamId} bundle={managedTrend.data} metric={metric} />
-          )}
-        </>
+        <TrendChartSection key={view} teams={viewTeams} wireMode={wireMode} metric={metric} />
       )}
     </Stack>
   );
 }
 
-/** The member view's single-line card: the picked team's direct members over cycles. */
-function MemberTrendCard({ series, metric }: { series: PulseTrendResponse; metric: TrendMetric }) {
+/** Keyed by view in the parent so the pill state resets when the view (and team set) changes. */
+function TrendChartSection({
+  teams,
+  wireMode,
+  metric,
+}: {
+  teams: TeamRef[];
+  wireMode: PulseAggregationMode;
+  metric: TrendMetric;
+}) {
   const { t } = useTranslation();
-  const def = {
-    name: trendSeriesKey(series),
-    label: t("pulse.trend.series.own"),
-    color: "lettuce.6",
-  };
-  const rows = buildTrendComparisonRows([series], metric);
-  const renderableRows = rows.filter((row) => row[def.name] != null);
-  return (
-    <Paper withBorder shadow="sm" p="lg" radius="md">
-      <Stack gap="sm">
-        {renderableRows.length >= 2 ? (
-          <Suspense fallback={<Skeleton height={260} radius="sm" />}>
-            <PulseTrendChart data={rows} series={[def]} yDomain={trendMetricDomain(metric)} />
-          </Suspense>
-        ) : (
-          <Text size="sm" c="dimmed">
-            {t("pulse.results.trendPending")}
-          </Text>
-        )}
-      </Stack>
-    </Paper>
-  );
-}
+  // All pills start ON (user decision) — each toggled-on pill is one /trend request.
+  const [visible, setVisible] = useState<string[]>(teams.map((team) => String(team.id)));
+  const toggledTeams = teams.filter((team) => visible.includes(String(team.id)));
 
-/** Keyed by teamId in the parent so the chip state resets whenever the team pick changes. */
-function TrendChartSection({ bundle, metric }: { bundle: PulseTrendComparison; metric: TrendMetric }) {
-  const { t } = useTranslation();
-  const [visible, setVisible] = useState<string[]>(bundle.series.map(trendSeriesKey));
+  const results = useQueries({
+    queries: toggledTeams.map((team) => ({
+      queryKey: ["pulseTrend", team.id, wireMode],
+      queryFn: () => getPulseTrend(team.id, wireMode),
+      retry: false,
+    })),
+  });
+  const loading = results.some((r) => r.isLoading);
+  const failed = results.some((r) => r.isError);
+  const series = results
+    .map((r) => r.data)
+    .filter((s): s is PulseTrendResponse => s != null);
 
-  const seriesLabel = (index: number): string => {
-    const series = bundle.series[index];
-    if (series.teamId === bundle.teamId) {
-      return series.mode === "direct" ? t("pulse.trend.series.own") : t("pulse.trend.series.subtree");
-    }
-    return series.teamName;
-  };
-  const seriesColor = (index: number): string =>
-    index === 0 ? "lettuce.6" : SERIES_COLORS[(index - 1) % SERIES_COLORS.length];
-
-  const defs = bundle.series.map((series, index) => ({
-    key: trendSeriesKey(series),
-    name: trendSeriesKey(series),
-    label: seriesLabel(index),
-    color: seriesColor(index),
+  // Every /trend response covers the same global closed-cycle list, so the rows zip cleanly;
+  // if requests straddle an admin cycle-close, the builder's cycleId guard yields gaps for
+  // the mismatched tail — never misattributed values — until the next refetch.
+  const rows = buildTrendComparisonRows(series, metric);
+  const defs = series.map((s) => ({
+    name: trendSeriesKey(s),
+    label: s.teamName,
+    color: SERIES_COLORS[teams.findIndex((team) => team.id === s.teamId) % SERIES_COLORS.length],
   }));
-  const visibleDefs = defs.filter((def) => visible.includes(def.key));
-  const visibleSeries = bundle.series.filter((series) => visible.includes(trendSeriesKey(series)));
-  const rows = buildTrendComparisonRows(visibleSeries, metric);
-  // A row "renders" when at least one toggled-on series has a value at that cycle.
-  const renderableRows = rows.filter((row) => visibleDefs.some((def) => row[def.name] != null));
+  const renderableRows = rows.filter((row) => defs.some((def) => row[def.name] != null));
 
   return (
     <Paper withBorder shadow="sm" p="lg" radius="md">
       <Stack gap="sm">
         <Chip.Group multiple value={visible} onChange={setVisible}>
           <Group gap="xs" wrap="wrap" aria-label={t("pulse.trend.seriesAria")} role="group">
-            {defs.map((def) => (
-              <Chip key={def.key} value={def.key} color={def.color} size="xs">
-                {def.label}
+            {teams.map((team, index) => (
+              <Chip
+                key={team.id}
+                value={String(team.id)}
+                color={SERIES_COLORS[index % SERIES_COLORS.length]}
+                size="xs"
+              >
+                {team.name}
               </Chip>
             ))}
           </Group>
         </Chip.Group>
-        {bundle.series.length === 2 && (
+        {toggledTeams.length === 0 ? (
           <Text size="sm" c="dimmed">
-            {t("pulse.trend.noChildren")}
+            {t("pulse.trend.noneSelected")}
           </Text>
-        )}
-        {renderableRows.length >= 2 ? (
+        ) : loading ? (
+          <Skeleton height={260} radius="sm" />
+        ) : failed ? (
+          <Alert color="red" variant="light">
+            {t("pulse.error.loadFailed")}
+          </Alert>
+        ) : renderableRows.length >= 2 ? (
           <Suspense fallback={<Skeleton height={260} radius="sm" />}>
-            <PulseTrendChart data={rows} series={visibleDefs} yDomain={trendMetricDomain(metric)} />
+            <PulseTrendChart data={rows} series={defs} yDomain={trendMetricDomain(metric)} />
           </Suspense>
         ) : (
           <Text size="sm" c="dimmed">

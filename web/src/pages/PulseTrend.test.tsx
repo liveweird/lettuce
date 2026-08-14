@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import PulseTrend from "./PulseTrend";
 import { renderWithProviders } from "../test/render";
@@ -42,69 +42,62 @@ function point(
   };
 }
 
-const CCC_BUNDLE = {
-  teamId: 11,
-  teamName: "CCC",
-  series: [
-    {
-      teamId: 11,
-      teamName: "CCC",
-      mode: "direct",
-      points: [point(1, 1000, "OK", 40, 75.0, 4), point(2, 2000, "OK", 50, 80.0, 5)],
-    },
-    {
-      teamId: 11,
-      teamName: "CCC",
-      mode: "subtree",
-      points: [point(1, 1000, "OK", 20, 60.0, 9), point(2, 2000, "OK", 30, 65.0, 10)],
-    },
-    {
-      teamId: 21,
-      teamName: "AAA",
-      mode: "subtree",
-      // The second cycle is withheld — its cell must become a gap, not a zero.
-      points: [point(1, 1000, "OK", -10, 33.3, 3), point(2, 2000, "NOT_ENOUGH_RESPONSES", undefined, null, 2)],
-    },
-    {
-      teamId: 22,
-      teamName: "BBB",
-      mode: "subtree",
-      points: [
-        point(1, 1000, "NOT_ENOUGH_RESPONSES", undefined, null, 2),
-        point(2, 2000, "NOT_ENOUGH_RESPONSES", undefined, null, 1),
-      ],
-    },
-  ],
-};
-
-// A childless team: only the two own scopes, and just one OK point → the pending note.
-const AAA_BUNDLE = {
-  teamId: 21,
-  teamName: "AAA",
-  series: [
-    { teamId: 21, teamName: "AAA", mode: "direct", points: [point(2, 2000, "OK", -10, 33.3, 3)] },
-    { teamId: 21, teamName: "AAA", mode: "subtree", points: [point(2, 2000, "OK", -10, 33.3, 3)] },
-  ],
-};
-
-// The member view's single-team direct series (the bare /trend endpoint's shape).
-const AAA_TREND = {
-  teamId: 21,
-  teamName: "AAA",
-  mode: "direct",
-  points: [point(1, 1000, "OK", 10, 66.7, 3), point(2, 2000, "OK", -10, 33.3, 3)],
+// Per-(teamId, mode) single-team /trend fixtures — one series per toggled-on team pill.
+const TRENDS: Record<string, unknown> = {
+  "11:direct": {
+    teamId: 11,
+    teamName: "CCC",
+    mode: "direct",
+    points: [point(1, 1000, "OK", 40, 75.0, 4), point(2, 2000, "OK", 50, 80.0, 5)],
+  },
+  "11:subtree": {
+    teamId: 11,
+    teamName: "CCC",
+    mode: "subtree",
+    points: [point(1, 1000, "OK", 20, 60.0, 9), point(2, 2000, "OK", 30, 65.0, 10)],
+  },
+  "21:direct": {
+    teamId: 21,
+    teamName: "AAA",
+    mode: "direct",
+    // The second cycle is withheld — its cell must become a gap, not a zero.
+    points: [point(1, 1000, "OK", -10, 33.3, 3), point(2, 2000, "NOT_ENOUGH_RESPONSES", undefined, null, 2)],
+  },
+  "21:subtree": {
+    teamId: 21,
+    teamName: "AAA",
+    mode: "subtree",
+    points: [point(1, 1000, "OK", -20, 30.0, 4), point(2, 2000, "OK", -30, 25.0, 4)],
+  },
+  "22:direct": {
+    teamId: 22,
+    teamName: "BBB",
+    mode: "direct",
+    points: [
+      point(1, 1000, "NOT_ENOUGH_RESPONSES", undefined, null, 2),
+      point(2, 2000, "NOT_ENOUGH_RESPONSES", undefined, null, 1),
+    ],
+  },
+  "22:subtree": {
+    teamId: 22,
+    teamName: "BBB",
+    mode: "subtree",
+    points: [
+      point(1, 1000, "NOT_ENOUGH_RESPONSES", undefined, null, 2),
+      point(2, 2000, "NOT_ENOUGH_RESPONSES", undefined, null, 1),
+    ],
+  },
 };
 
 describe("PulseTrend", () => {
   let mockFetch: FetchMock;
 
   function setupMocks({
-    bundles = { 11: CCC_BUNDLE, 21: AAA_BUNDLE } as Record<number, unknown>,
-    trends = { 21: AAA_TREND } as Record<number, unknown>,
     member = [] as { id: number; name: string }[],
     monitored = [
-      { id: 11, name: "CCC" },
       { id: 21, name: "AAA" },
+      { id: 22, name: "BBB" },
+      { id: 11, name: "CCC" },
     ] as { id: number; name: string }[],
   } = {}) {
     mockFetch.mockImplementation((url: string) => {
@@ -118,14 +111,11 @@ describe("PulseTrend", () => {
           }),
         );
       }
-      // NB: "/trend-comparison" must be matched before the bare "/trend" route.
-      if (u.includes("/trend-comparison")) {
-        const teamId = Number(new URL(u, "http://x").searchParams.get("teamId"));
-        return Promise.resolve(jsonResponse(200, bundles[teamId]));
-      }
       if (u.includes("/pulse-surveys/trend")) {
-        const teamId = Number(new URL(u, "http://x").searchParams.get("teamId"));
-        return Promise.resolve(jsonResponse(200, trends[teamId]));
+        const params = new URL(u, "http://x").searchParams;
+        return Promise.resolve(
+          jsonResponse(200, TRENDS[`${params.get("teamId")}:${params.get("mode")}`]),
+        );
       }
       return Promise.resolve(jsonResponse(200, { items: [] }));
     });
@@ -145,33 +135,56 @@ describe("PulseTrend", () => {
     localStorage.clear();
   });
 
-  test("managed view defaults to the first monitored team; all series chip-toggled on; withheld cycles are gaps", async () => {
+  test("managed view: one pill per monitored team, all on, one direct line each, gaps for withheld cycles", async () => {
     presetManaged();
     setupMocks();
     renderWithProviders(<PulseTrend />);
 
-    // The two own scopes reuse the established scope labels; children carry their names.
-    expect(await screen.findByRole("checkbox", { name: "Own members" })).toBeChecked();
-    expect(screen.getByRole("checkbox", { name: "The team and everyone below" })).toBeChecked();
-    expect(screen.getByRole("checkbox", { name: "AAA" })).toBeChecked();
+    expect(await screen.findByRole("checkbox", { name: "AAA" })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: "BBB" })).toBeChecked();
-    expect(
-      mockFetch.mock.calls.some((c) => String(c[0]).includes("/trend-comparison?teamId=11")),
-    ).toBe(true);
+    expect(screen.getByRole("checkbox", { name: "CCC" })).toBeChecked();
 
     const chart = await screen.findByTestId("trend-chart");
-    // Default metric: eNPS over the full -100..+100 domain.
     expect(JSON.parse(chart.getAttribute("data-domain")!)).toEqual([-100, 100]);
+    const series = JSON.parse(chart.getAttribute("data-series")!) as { name: string; label: string }[];
+    expect(series.map((s) => s.name).sort()).toEqual(["t11_direct", "t21_direct", "t22_direct"]);
+    expect(series.map((s) => s.label).sort()).toEqual(["AAA", "BBB", "CCC"]);
     const rows = JSON.parse(chart.getAttribute("data-points")!);
     expect(rows).toHaveLength(2);
-    expect(rows[0].t11_direct).toBe(40);
-    expect(rows[0].n_t11_direct).toBe(4);
-    expect(rows[0].t21_subtree).toBe(-10);
+    expect(rows[0].t21_direct).toBe(-10);
+    expect(rows[0].n_t21_direct).toBe(3);
     // AAA's withheld second cycle and BBB's both cycles are gaps (absent), never zeros.
-    expect(rows[1].t21_subtree).toBeUndefined();
-    expect(rows[0].t22_subtree).toBeUndefined();
-    // BBB's withheld points still carry their counts for the tooltip.
-    expect(rows[0].n_t22_subtree).toBe(2);
+    expect(rows[1].t21_direct).toBeUndefined();
+    expect(rows[0].t22_direct).toBeUndefined();
+    // Withheld points still carry their counts for the tooltip.
+    expect(rows[0].n_t22_direct).toBe(2);
+    // One /trend request per toggled-on team, all direct at the default calc.
+    expect(
+      mockFetch.mock.calls.filter(([u]) => String(u).includes("mode=direct")).length,
+    ).toBe(3);
+  });
+
+  test("the calc switch refetches every line with subtree numbers and persists", async () => {
+    presetManaged();
+    setupMocks();
+    renderWithProviders(<PulseTrend />);
+    await screen.findByTestId("trend-chart");
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("radio", { name: "Including everyone below" }));
+
+    await waitFor(() => {
+      const chart = screen.getByTestId("trend-chart");
+      const series = JSON.parse(chart.getAttribute("data-series")!) as { name: string }[];
+      expect(series.map((s) => s.name).sort()).toEqual(["t11_subtree", "t21_subtree", "t22_subtree"]);
+      expect(JSON.parse(chart.getAttribute("data-points")!)[0].t11_subtree).toBe(20);
+    });
+    expect(
+      mockFetch.mock.calls.some(([u]) => String(u).includes("/trend?teamId=11&mode=subtree")),
+    ).toBe(true);
+    expect(localStorage.getItem("lettuce.viewSettings.pulse.trend.calc")).toBe(
+      JSON.stringify("indirect"),
+    );
   });
 
   test("switching the metric to Q2 swaps values, flips the domain, and persists", async () => {
@@ -188,12 +201,11 @@ describe("PulseTrend", () => {
       expect(JSON.parse(chart.getAttribute("data-domain")!)).toEqual([0, 100]);
       expect(JSON.parse(chart.getAttribute("data-points")!)[0].t11_direct).toBe(75);
     });
-    // The full driver text appears as a caption; the pick persists device-level.
     expect(screen.getByText("I understand what is expected of me in my role.")).toBeInTheDocument();
     expect(localStorage.getItem("lettuce.viewSettings.pulse.trend.metric")).toBe(JSON.stringify("q2"));
   });
 
-  test("toggling a chip off removes that series from the chart", async () => {
+  test("toggling a pill off removes that team's line; all off shows the none-selected note", async () => {
     presetManaged();
     setupMocks();
     renderWithProviders(<PulseTrend />);
@@ -201,63 +213,45 @@ describe("PulseTrend", () => {
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("checkbox", { name: "AAA" }));
-
     await waitFor(() => {
       const chart = screen.getByTestId("trend-chart");
       const series = JSON.parse(chart.getAttribute("data-series")!) as { name: string }[];
-      expect(series.map((s) => s.name)).toEqual(["t11_direct", "t11_subtree", "t22_subtree"]);
-      expect(JSON.parse(chart.getAttribute("data-points")!)[0].t21_subtree).toBeUndefined();
+      expect(series.map((s) => s.name).sort()).toEqual(["t11_direct", "t22_direct"]);
     });
-  });
 
-  test("picking a childless team shows the no-sub-teams note and the pending text under two points", async () => {
-    presetManaged();
-    setupMocks();
-    renderWithProviders(<PulseTrend />);
-    await screen.findByTestId("trend-chart");
-
-    fireEvent.click(screen.getByLabelText("Team", { selector: "input" }));
-    fireEvent.click(await screen.findByRole("option", { name: "AAA" }));
-
+    await user.click(screen.getByRole("checkbox", { name: "BBB" }));
+    await user.click(screen.getByRole("checkbox", { name: "CCC" }));
     expect(
-      await screen.findByText("This team has no sub-teams — both lines cover the same people."),
+      await screen.findByText("Toggle at least one team to draw the chart."),
     ).toBeInTheDocument();
-    // One OK point only → the trend-pending idiom, no chart.
-    expect(screen.getByText("The trend appears after two closed cycles.")).toBeInTheDocument();
     expect(screen.queryByTestId("trend-chart")).toBeNull();
-    expect(
-      mockFetch.mock.calls.some((c) => String(c[0]).includes("/trend-comparison?teamId=21")),
-    ).toBe(true);
   });
 
-  test("the member view charts a single own-members line from the single-team trend", async () => {
-    setupMocks({ member: [{ id: 21, name: "AAA" }] });
+  test("the member view charts the member teams' direct lines with their own pills", async () => {
+    setupMocks({ member: [{ id: 11, name: "CCC" }], monitored: [] });
     renderWithProviders(<PulseTrend />);
 
+    expect(await screen.findByRole("checkbox", { name: "CCC" })).toBeChecked();
     const chart = await screen.findByTestId("trend-chart");
     const series = JSON.parse(chart.getAttribute("data-series")!) as { name: string; label: string }[];
     expect(series).toHaveLength(1);
-    expect(series[0].name).toBe("t21_direct");
-    expect(series[0].label).toBe("Own members");
-    expect(JSON.parse(chart.getAttribute("data-points")!)[0].t21_direct).toBe(10);
-    // The cheap single-team endpoint, not the comparison bundle; no chips, no note.
+    expect(series[0].name).toBe("t11_direct");
+    expect(series[0].label).toBe("CCC");
+    // The member view is always direct — no calc switch rendered.
+    expect(screen.queryByRole("radio", { name: "Including everyone below" })).toBeNull();
     expect(
-      mockFetch.mock.calls.some((c) => String(c[0]).includes("/trend?teamId=21&mode=direct")),
+      mockFetch.mock.calls.some(([u]) => String(u).includes("/trend?teamId=11&mode=direct")),
     ).toBe(true);
-    expect(mockFetch.mock.calls.some((c) => String(c[0]).includes("/trend-comparison"))).toBe(false);
-    expect(screen.queryByRole("checkbox")).toBeNull();
-    expect(screen.queryByText(/no sub-teams/)).toBeNull();
   });
 
-  test("switching the view persists and swaps the team list", async () => {
+  test("switching the view persists and swaps the pill set", async () => {
     setupMocks({ member: [{ id: 21, name: "AAA" }] });
     renderWithProviders(<PulseTrend />);
-    await screen.findByTestId("trend-chart");
+    await screen.findByRole("checkbox", { name: "AAA" });
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("radio", { name: "Teams I manage" }));
-    // The managed list defaults to its first team (CCC) and brings the chips.
-    expect(await screen.findByRole("checkbox", { name: "Own members" })).toBeInTheDocument();
+    expect(await screen.findByRole("checkbox", { name: "CCC" })).toBeChecked();
     expect(localStorage.getItem("lettuce.viewSettings.pulse.trend.view")).toBe(
       JSON.stringify("managed"),
     );
@@ -276,6 +270,37 @@ describe("PulseTrend", () => {
     setupMocks({ member: [{ id: 21, name: "AAA" }], monitored: [] });
     renderWithProviders(<PulseTrend />);
     expect(await screen.findByText("You don't manage any teams.")).toBeInTheDocument();
+    expect(screen.queryByTestId("trend-chart")).toBeNull();
+  });
+
+  test("a single renderable point renders the pending note, not a one-point chart", async () => {
+    setupMocks({
+      member: [{ id: 21, name: "AAA" }],
+      monitored: [],
+    });
+    // Override AAA's direct series to a single OK point.
+    const single = {
+      teamId: 21,
+      teamName: "AAA",
+      mode: "direct",
+      points: [point(2, 2000, "OK", -10, 33.3, 3)],
+    };
+    mockFetch.mockImplementation((url: string) => {
+      const u = String(url);
+      if (u.includes("/visible-teams")) {
+        return Promise.resolve(
+          jsonResponse(200, {
+            resultsTeams: [{ id: 21, name: "AAA" }],
+            monitoredTeams: [],
+            memberTeams: [{ id: 21, name: "AAA" }],
+          }),
+        );
+      }
+      if (u.includes("/pulse-surveys/trend")) return Promise.resolve(jsonResponse(200, single));
+      return Promise.resolve(jsonResponse(200, { items: [] }));
+    });
+    renderWithProviders(<PulseTrend />);
+    expect(await screen.findByText("The trend appears after two closed cycles.")).toBeInTheDocument();
     expect(screen.queryByTestId("trend-chart")).toBeNull();
   });
 });
