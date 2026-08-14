@@ -88,13 +88,15 @@ describe("UserGoals page", () => {
     });
   });
 
-  test("rows link to the goal view (I'm the subordinate, never the editor), returning here", async () => {
+  test("as the subordinate an ACTIVE row links to the Update screen (v2.8.0), returning here", async () => {
     renderScreen();
 
     const back = encodeURIComponent("/users/10/goals?name=Alice&from=managers");
-    const viewLink = await screen.findByRole("link", { name: "View goal Ship the reporting module" });
-    expect(viewLink).toHaveAttribute("href", expect.stringContaining("/goals/21/view?from=own"));
-    expect(viewLink).toHaveAttribute("href", expect.stringContaining(`back=${back}`));
+    const updateLink = await screen.findByRole("link", { name: "Update goal Ship the reporting module" });
+    expect(updateLink).toHaveAttribute("href", expect.stringContaining("/goals/21/edit?from=own"));
+    expect(updateLink).toHaveAttribute("href", expect.stringContaining(`back=${back}`));
+    // The status stays manager-only: no lifecycle menu for the subordinate.
+    expect(screen.queryByRole("button", { name: /lifecycle actions/i })).toBeNull();
   });
 
   test("mode=audit with the HR role renders the auditor view (view=user)", async () => {

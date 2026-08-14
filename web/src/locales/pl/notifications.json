@@ -41,6 +41,8 @@
     "goalDeactivated": "{{manager}} cofnął/cofnęła cel „{{title}}” do szkicu.",
     "goalArchived": "{{manager}} zarchiwizował/zarchiwizowała cel „{{title}}”.",
     "goalReopened": "{{manager}} ponownie otworzył/a cel „{{title}}”.",
+    "goalProgressUpdatedToSubordinate": "{{manager}} zaktualizował/a postęp Twojego celu „{{title}}”.",
+    "goalProgressUpdatedToManager": "{{subordinate}} zaktualizował/a postęp celu „{{title}}”.",
     "teamKpiActivated": "{{manager}} aktywował/a KPI „{{title}}” dla zespołu {{team}}.",
     "teamKpiDeactivated": "{{manager}} przywrócił/przywróciła KPI „{{title}}” zespołu {{team}} do szkicu.",
     "teamKpiArchived": "{{manager}} zarchiwizował/zarchiwizowała KPI „{{title}}” zespołu {{team}}.",

@@ -8,7 +8,7 @@ const TOKEN_KEY = "lettuce.auth.token";
 type FetchMock = ReturnType<typeof vi.fn>;
 
 let nextId = 1;
-function event(type: string, params: Record<string, string> = {}) {
+function event(type: string, params: Record<string, string> = {}, comment?: string) {
   return {
     id: nextId++,
     goalId: 9,
@@ -17,6 +17,7 @@ function event(type: string, params: Record<string, string> = {}) {
     timestamp: new Date(2026, 6, 1, 12, 0).getTime(),
     type,
     params,
+    comment: comment ?? null,
   };
 }
 
@@ -45,6 +46,7 @@ describe("GoalHistory", () => {
           event("TYPE_CHANGED", { from: "NUMBER", to: "PERCENTAGE" }),
           event("TARGET_CHANGED", { from: "10.0", to: "80.0" }),
           event("PROGRESS_UPDATED", { from: "0.0", to: "40.5" }),
+          event("PROGRESS_COMMENTED"),
           event("ACHIEVED_CHANGED", { to: "true" }),
           event("STATUS_CHANGED", { from: "DRAFT", to: "ACTIVE" }),
           event("DELETED"),
@@ -59,10 +61,28 @@ describe("GoalHistory", () => {
     expect(screen.getByText("Type changed from Number to Percentage.")).toBeInTheDocument();
     expect(screen.getByText("Target changed from 10 to 80.")).toBeInTheDocument();
     expect(screen.getByText("Progress updated from 0 to 40.5.")).toBeInTheDocument();
+    expect(screen.getByText("Progress note added.")).toBeInTheDocument();
     expect(screen.getByText("Marked as achieved.")).toBeInTheDocument();
     expect(screen.getByText("Status changed from Draft to Active.")).toBeInTheDocument();
     expect(screen.getByText("Goal deleted.")).toBeInTheDocument();
-    expect(screen.getAllByText(/Mona Manager ·/).length).toBe(9);
+    expect(screen.getAllByText(/Mona Manager ·/).length).toBe(10);
+  });
+
+  test("a progress update's comment renders under its timeline entry", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        items: [
+          event("PROGRESS_UPDATED", { from: "0.0", to: "40.5" }, "Two modules landed.\nOne left."),
+          event("PROGRESS_COMMENTED", {}, "No movement — blocked."),
+          event("STATUS_CHANGED", { from: "DRAFT", to: "ACTIVE" }),
+        ],
+      }),
+    );
+    renderWithProviders(<GoalHistory goalId={9} />);
+
+    // Pre-wrap plain text (not markdown), one comment per commented event.
+    expect(await screen.findByText(/Two modules landed\./)).toBeInTheDocument();
+    expect(screen.getByText("No movement — blocked.")).toBeInTheDocument();
   });
 
   test("the empty-string target sides get their own wording (set / cleared)", async () => {

@@ -322,9 +322,24 @@ class GuardsTest {
         assertFailsWith<ForbiddenException> { ch.nokillswit.authz.requireFeedbackWrite(hr, sent) }
         assertFailsWith<ForbiddenException> { ch.nokillswit.authz.requireOneOnOneWrite(hr, meeting()) }
         assertFailsWith<ForbiddenException> { ch.nokillswit.authz.requireGoalWrite(hr, goal(GoalStatus.ACTIVE)) }
+        assertFailsWith<ForbiddenException> {
+            ch.nokillswit.authz.requireGoalProgressWrite(hr, goal(GoalStatus.ACTIVE))
+        }
         assertFailsWith<ForbiddenException> { ch.nokillswit.authz.requireAdmin(hr) }
         assertFailsWith<ForbiddenException> {
             requireCanAssignRoles(hr, current = emptySet(), requested = setOf(UserRole.ADMIN))
         }
+    }
+
+    @Test
+    fun `goal progress write is the pair's shared right - definition write stays manager-only`() {
+        val active = goal(GoalStatus.ACTIVE)
+        // Both parties may update progress (v2.8.0); nobody else — ADMIN included.
+        ch.nokillswit.authz.requireGoalProgressWrite(provider, active) // the manager
+        ch.nokillswit.authz.requireGoalProgressWrite(subject, active) // the subordinate
+        assertFailsWith<ForbiddenException> { ch.nokillswit.authz.requireGoalProgressWrite(stranger, active) }
+        assertFailsWith<ForbiddenException> { ch.nokillswit.authz.requireGoalProgressWrite(admin, active) }
+        // The general write guard is untouched: the subordinate still cannot use it.
+        assertFailsWith<ForbiddenException> { ch.nokillswit.authz.requireGoalWrite(subject, active) }
     }
 }

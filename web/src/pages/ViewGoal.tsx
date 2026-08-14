@@ -28,6 +28,7 @@ import {
   reopenGoal,
   type GoalStatus,
 } from "../api/client";
+import ConfirmActionModal from "../components/ConfirmActionModal";
 import GoalCloseModal from "../components/GoalCloseModal";
 import GoalHistory from "../components/GoalHistory";
 import GoalStatusBadge from "../components/GoalStatusBadge";
@@ -73,6 +74,8 @@ export default function ViewGoal() {
   const [submitting, setSubmitting] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [closeOpened, setCloseOpened] = useState(false);
+  // Return-to-draft asks first (the list rows' v2.8.0 confirmation, mirrored here).
+  const [deactivateOpened, setDeactivateOpened] = useState(false);
 
   const id = Number(params.id);
   const idIsValid = Number.isFinite(id) && id > 0;
@@ -90,6 +93,11 @@ export default function ViewGoal() {
 
   const currentUserId = getUserId();
   const isManager = data != null && currentUserId != null && currentUserId === data.managerId;
+  // Progress is the pair's shared write (v2.8.0): both parties get the Update entry point.
+  const isParty =
+    data != null &&
+    currentUserId != null &&
+    (currentUserId === data.managerId || currentUserId === data.subordinateId);
   const errorStatus = error instanceof ApiError ? error.status : null;
   const errorMessage =
     errorStatus === 404
@@ -119,6 +127,7 @@ export default function ViewGoal() {
       );
       setSubmitting(null);
       setCloseOpened(false);
+      setDeactivateOpened(false);
     }
   }
 
@@ -215,7 +224,7 @@ export default function ViewGoal() {
             <Button component={RouterLink} to={backTo} variant="default" disabled={submitting != null}>
               {t("common.action.close")}
             </Button>
-            {isManager && data && (data.status === "DRAFT" || data.status === "ACTIVE") && (
+            {isManager && data && data.status === "DRAFT" && (
               <Button
                 component={RouterLink}
                 to={editLink}
@@ -226,17 +235,33 @@ export default function ViewGoal() {
                 {t("common.action.edit")}
               </Button>
             )}
+            {/* ACTIVE: both parties update progress (v2.8.0) — the manager's DRAFT Edit above
+                stays definition-only. */}
+            {isParty && data && data.status === "ACTIVE" && (
+              <Button
+                component={RouterLink}
+                to={editLink}
+                variant="light"
+                leftSection={<IconPencil size={16} />}
+                disabled={submitting != null}
+              >
+                {t("goal.action.update")}
+              </Button>
+            )}
             {isManager &&
               data &&
               ACTIONS[data.status].map((action) => (
                 <Button
                   key={action.labelKey}
                   variant={action.primary ? "filled" : "light"}
-                  loading={submitting === action.labelKey && !closeOpened}
+                  loading={submitting === action.labelKey && !closeOpened && !deactivateOpened}
                   disabled={submitting != null}
                   onClick={() => {
                     if (action.close) {
                       setCloseOpened(true);
+                    } else if (action.labelKey === "goal.action.deactivate") {
+                      // Return-to-draft confirms first (the list rows do the same).
+                      setDeactivateOpened(true);
                     } else if (action.run) {
                       void runAction(action.labelKey, action.run, action.successKey);
                     }
@@ -255,6 +280,19 @@ export default function ViewGoal() {
         loading={submitting != null}
         onConfirm={(summary) =>
           void runAction("goal.action.close", (goalId) => archiveGoal(goalId, { summary }), "goal.toast.archived")
+        }
+      />
+      <ConfirmActionModal
+        opened={deactivateOpened}
+        onClose={() => submitting == null && setDeactivateOpened(false)}
+        title={t("goal.deactivateConfirmTitle")}
+        message={t("goal.deactivateConfirmMessage")}
+        cancelLabel={t("common.action.cancel")}
+        confirmLabel={t("goal.action.deactivate")}
+        confirmColor="lettuce"
+        loading={submitting === "goal.action.deactivate"}
+        onConfirm={() =>
+          void runAction("goal.action.deactivate", deactivateGoal, "goal.toast.deactivated")
         }
       />
     </Container>

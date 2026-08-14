@@ -33,6 +33,12 @@ abstract class EventLogTable(
     // Structured event so the SPA can localize it: the kind plus a JSON params map.
     val eventType = varchar("event_type", 40)
     val params = text("params")
+
+    // Opt-in free-text column (V54, goal_events only so far): params stay content-free by the
+    // house invariant, so an event's free text lives in its own column — encrypted at rest by
+    // the OWNING feature service (EventLog itself stays cipher-free). A table without the
+    // column simply leaves this null.
+    open val commentColumn: Column<String?>? = null
 }
 
 /** One raw event row with the acting user's name resolved — feature wrappers map it to their typed response. */
@@ -44,22 +50,34 @@ data class EventLogRow(
     val timestamp: Long,
     val type: String,
     val params: Map<String, String>,
+    // Raw column value — encrypted when the owning service encrypts it; null without the column.
+    val comment: String? = null,
 )
 
 class EventLog(private val database: R2dbcDatabase, private val table: EventLogTable) {
-    /** Inserts an audit event. The timestamp is set here, never taken from a caller. */
+    /**
+     * Inserts an audit event. The timestamp is set here, never taken from a caller. [comment]
+     * (already encrypted by the owning service) requires the table to declare
+     * [EventLogTable.commentColumn].
+     */
     suspend fun create(
         ownerId: UInt,
         actingUserId: UInt,
         type: String,
         eventParams: Map<String, String>,
+        comment: String? = null,
     ): UInt = suspendTransaction(database) {
+        val commentColumn = table.commentColumn
+        require(comment == null || commentColumn != null) {
+            "${table.tableName} has no comment column but a comment was supplied"
+        }
         table.insert {
             it[table.ownerId] = ownerId
             it[table.userId] = actingUserId
             it[table.timestamp] = System.currentTimeMillis()
             it[table.eventType] = type
             it[table.params] = encodeParams(eventParams)
+            if (commentColumn != null) it[commentColumn] = comment
         }[table.id].value
     }
 
@@ -78,6 +96,7 @@ class EventLog(private val database: R2dbcDatabase, private val table: EventLogT
                     timestamp = row[table.timestamp],
                     type = row[table.eventType],
                     params = decodeParams(row[table.params]),
+                    comment = table.commentColumn?.let { row[it] },
                 )
             }
             .toList()

@@ -47,14 +47,17 @@ data class GoalDefinitionUpdate(
 )
 
 /**
- * Body of `PUT /goals/{id}/progress` — the only edit an ACTIVE goal accepts. Exactly the field
- * matching the goal's type must be set: [achieved] for BINARY, [currentValue] for
- * NUMBER/PERCENTAGE (see [validateGoalProgress]).
+ * Body of `PUT /goals/{id}/progress` — the only edit an ACTIVE goal accepts, open to BOTH
+ * parties (manager and subordinate) since v2.8.0. Exactly the field matching the goal's type
+ * must be set: [achieved] for BINARY, [currentValue] for NUMBER/PERCENTAGE (see
+ * [validateGoalProgress]). [comment] is optional context for the update, recorded (encrypted)
+ * on the history event; blank counts as absent.
  */
 @Serializable
 data class GoalProgressUpdate(
     val currentValue: Double? = null,
     val achieved: Boolean? = null,
+    val comment: String? = null,
 )
 
 /** Body of `POST /goals/{id}/archive` — archiving always records a non-blank summary. */
@@ -115,6 +118,8 @@ data class GoalEvent(
     val userId: UInt,
     val type: GoalEventType,
     val params: Map<String, String> = emptyMap(),
+    // Optional progress-update context (plaintext here; GoalEventService encrypts at rest).
+    val comment: String? = null,
 )
 
 @Serializable
@@ -126,6 +131,8 @@ data class GoalEventResponse(
     val timestamp: Long,
     val type: GoalEventType,
     val params: Map<String, String> = emptyMap(),
+    // The progress update's optional comment (decrypted); null on every other event kind.
+    val comment: String? = null,
 )
 
 @Serializable
@@ -190,7 +197,8 @@ internal fun validateGoalDueDate(dueDate: String, today: LocalDate = LocalDate.n
 /**
  * Validates a progress update against the goal's type: exactly the matching value field must be
  * set — [GoalProgressUpdate.achieved] for BINARY, [GoalProgressUpdate.currentValue] for
- * NUMBER/PERCENTAGE (0–100 for PERCENTAGE).
+ * NUMBER/PERCENTAGE (0–100 for PERCENTAGE) — and the optional comment within the shared text
+ * bound.
  */
 /**
  * Validates the archive action's summary: required non-blank, bounded like the description. The
@@ -204,6 +212,9 @@ internal fun validateGoalSummary(summary: String?) {
 }
 
 internal fun validateGoalProgress(type: GoalType, update: GoalProgressUpdate) {
+    if ((update.comment?.length ?: 0) > MAX_GOAL_TEXT_LENGTH) {
+        throw BadRequestException("Goal progress comment must be at most $MAX_GOAL_TEXT_LENGTH characters")
+    }
     when (type) {
         GoalType.BINARY -> {
             if (update.currentValue != null) {

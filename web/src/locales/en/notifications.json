@@ -39,6 +39,8 @@
     "goalDeactivated": "{{manager}} returned the goal \"{{title}}\" to draft.",
     "goalArchived": "{{manager}} archived the goal \"{{title}}\".",
     "goalReopened": "{{manager}} reopened the goal \"{{title}}\".",
+    "goalProgressUpdatedToSubordinate": "{{manager}} updated the progress of your goal \"{{title}}\".",
+    "goalProgressUpdatedToManager": "{{subordinate}} updated the progress of the goal \"{{title}}\".",
     "teamKpiActivated": "{{manager}} activated the KPI \"{{title}}\" for team {{team}}.",
     "teamKpiDeactivated": "{{manager}} returned the KPI \"{{title}}\" of team {{team}} to draft.",
     "teamKpiArchived": "{{manager}} archived the KPI \"{{title}}\" of team {{team}}.",

@@ -57,6 +57,10 @@ async function deleteGoal(page: Page, id: number): Promise<void> {
   await expect(deactivate.or(editLink).first()).toBeVisible();
   if (await deactivate.isVisible()) {
     await deactivate.click();
+    // Return-to-draft asks first (v2.8.0) — confirm inside the dialog.
+    const confirm = page.getByRole("dialog");
+    await expect(confirm.getByText("Return this goal to draft?")).toBeVisible();
+    await confirm.getByRole("button", { name: "Return to draft", exact: true }).click();
     await expect(page).toHaveURL(/\/goals$/); // the action navigated to the default backTo
     await page.goto(`/goals/${id}/edit`);
   } else {
@@ -89,16 +93,18 @@ test("a manager walks a goal around the whole lifecycle: draft, activate, progre
   // exact — getByText substring-matching would also hit the goal's own lowercase title.
   await expect(goalRow(page, title).getByText("Active", { exact: true })).toBeVisible();
 
-  // The ACTIVE editor is the progress form: record a current value.
-  await goalRow(page, title).getByRole("link", { name: `Edit goal ${title}` }).click();
+  // The ACTIVE row leads to the Update screen (v2.8.0): record a current value with a comment.
+  await goalRow(page, title).getByRole("link", { name: `Update goal ${title}` }).click();
+  await expect(page).toHaveURL(new RegExp(`/goals/${id}/edit`));
   await page.getByLabel("Current").fill("3");
+  await page.getByLabel("Comment (optional)").fill("Three of five shipped");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page).toHaveURL(/\/users\/\d+\/goals/);
   await expect(goalRow(page, title).getByText("3", { exact: true })).toBeVisible();
 
-  // Archive from the view screen — the summary is mandatory.
-  await page.goto(`/goals/${id}/view`);
-  await page.getByRole("button", { name: "Archive goal", exact: true }).click();
+  // Archive from the row's Lifecycle ▾ menu — the summary is mandatory.
+  await goalRow(page, title).getByRole("button", { name: `Lifecycle actions for goal ${title}` }).click();
+  await page.getByRole("menuitem", { name: "Archive goal" }).click();
   const archiveDialog = page.getByRole("dialog");
   await archiveDialog.getByLabel("Summary").fill("Wrapped up in the e2e run");
   await Promise.all([
@@ -107,10 +113,16 @@ test("a manager walks a goal around the whole lifecycle: draft, activate, progre
     ),
     archiveDialog.getByRole("button", { name: "Archive goal", exact: true }).click(),
   ]);
+  await expect(goalRow(page, title).getByText("Archived", { exact: true })).toBeVisible();
 
-  // Reopen — the record (summary included) survives the round-trip.
+  // The view: the record (summary included) survives, and the History tab carries the
+  // progress-update comment.
   await page.goto(`/goals/${id}/view`);
   await expect(page.getByText("Wrapped up in the e2e run")).toBeVisible();
+  await page.getByRole("tab", { name: "History" }).click();
+  await expect(page.getByText("Three of five shipped")).toBeVisible();
+
+  // Reopen from the view screen (the footer actions sit outside the tabs).
   await page.getByRole("button", { name: "Reopen", exact: true }).click();
   await expect(page).toHaveURL(/\/goals$/);
 
@@ -152,8 +164,13 @@ test("the Goals-I've-set tab: Reports widens from own goals to goals set down th
     })(),
   ]);
   await expect(goalRow(page, title).getByText("Active", { exact: true })).toBeVisible();
+  // A chain manager is not a party: read-only — no Edit, no Update, no lifecycle menu.
   await expect(goalRow(page, title).getByRole("link", { name: `View goal ${title}` })).toBeVisible();
   await expect(goalRow(page, title).getByRole("link", { name: `Edit goal ${title}` })).toHaveCount(0);
+  await expect(goalRow(page, title).getByRole("link", { name: `Update goal ${title}` })).toHaveCount(0);
+  await expect(
+    goalRow(page, title).getByRole("button", { name: `Lifecycle actions for goal ${title}` }),
+  ).toHaveCount(0);
 
   // Cleanup by the goal's own manager.
   await logout(page);
@@ -161,7 +178,7 @@ test("the Goals-I've-set tab: Reports widens from own goals to goals set down th
   await deleteGoal(page, id);
 });
 
-test("activating at creation notifies the subordinate, who sees the goal read-only in My goals", async ({ page }) => {
+test("activating at creation notifies the subordinate, who updates progress with a comment that notifies the manager", async ({ page }) => {
   const title = uniqueText("E2E-goal-active");
 
   await login(page, MANAGER_AAA);
@@ -180,12 +197,34 @@ test("activating at creation notifies the subordinate, who sees the goal read-on
 
   await page.goto("/goals");
   await expect(goalRow(page, title).getByText("Active", { exact: true })).toBeVisible();
-  // Read-only from the subordinate's side: a View link, never Edit.
-  await expect(goalRow(page, title).getByRole("link", { name: `View goal ${title}` })).toBeVisible();
-  await expect(goalRow(page, title).getByRole("link", { name: `Edit goal ${title}` })).toHaveCount(0);
+  // The subordinate updates progress (v2.8.0) but never drives the lifecycle.
+  await expect(
+    goalRow(page, title).getByRole("button", { name: `Lifecycle actions for goal ${title}` }),
+  ).toHaveCount(0);
+  await goalRow(page, title).getByRole("link", { name: `Update goal ${title}` }).click();
+  await expect(page).toHaveURL(new RegExp(`/goals/${id}/edit`));
+  // A comment-only update: the value stays put, the context lands in the history.
+  await page.getByLabel("Comment (optional)").fill("No movement yet — kickoff next week");
+  await Promise.all([
+    page.waitForResponse(
+      (r) => r.url().endsWith(`/api/v1/goals/${id}/progress`) && r.request().method() === "PUT" && r.ok(),
+    ),
+    page.getByRole("button", { name: "Save", exact: true }).click(),
+  ]);
+  await expect(page).toHaveURL(/\/goals$/);
 
-  // Cleanup: the manager deactivates and deletes.
+  // The manager: the counterparty notification, and the comment in the goal's history.
   await logout(page);
   await login(page, MANAGER_AAA);
+  const managerBell = await openBell(page);
+  await expect(
+    notificationCard(managerBell, `AAA Three updated the progress of the goal "${title}"`),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.goto(`/goals/${id}/view`);
+  await page.getByRole("tab", { name: "History" }).click();
+  await expect(page.getByText("No movement yet — kickoff next week")).toBeVisible();
+
+  // Cleanup: the manager deactivates and deletes.
   await deleteGoal(page, id);
 });

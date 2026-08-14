@@ -9,8 +9,10 @@ import kotlinx.serialization.Serializable
  *
  * Events are stored structurally ([GoalEventType] + [GoalEventDescriptor.params]) so the SPA
  * renders each one in the viewer's language. Params carry enum names and numeric values only —
- * NEVER title/description/summary text (description and summary are encrypted at rest;
- * goal_events.params is plaintext).
+ * NEVER title/description/summary/comment text (description and summary are encrypted at rest;
+ * goal_events.params is plaintext). The optional progress-update comment (v2.8.0) rides its own
+ * encrypted goal_events.comment column, passed to GoalEventService.create alongside the
+ * descriptor — never through params.
  */
 
 @Serializable
@@ -23,6 +25,9 @@ enum class GoalEventType {
     DUE_DATE_CHANGED,
     PROGRESS_UPDATED,
     ACHIEVED_CHANGED,
+    // A comment-only progress update (v2.8.0): the value stayed put, the context is the
+    // (encrypted, column-borne) comment.
+    PROGRESS_COMMENTED,
     STATUS_CHANGED,
     DELETED,
 }
@@ -81,8 +86,11 @@ internal fun goalDefinitionUpdateEvents(
 
 /**
  * Structured event recorded on an ACTIVE progress update: [GoalEventType.ACHIEVED_CHANGED] for a
- * BINARY goal, [GoalEventType.PROGRESS_UPDATED] (with the from/to values) otherwise. Returns null
- * when the value did not actually change (no event for a no-op).
+ * BINARY goal, [GoalEventType.PROGRESS_UPDATED] (with the from/to values) otherwise; a
+ * comment-only update (value unchanged, non-blank comment) records
+ * [GoalEventType.PROGRESS_COMMENTED]. Returns null when neither the value nor a comment changed
+ * anything (no event for a true no-op). The comment itself never enters params — the caller
+ * hands it to GoalEventService separately (the encrypted column).
  */
 internal fun goalProgressUpdateEvent(
     before: GoalResponse,
@@ -95,6 +103,7 @@ internal fun goalProgressUpdateEvent(
             GoalEventType.PROGRESS_UPDATED,
             mapOf("from" to valueParam(before.currentValue), "to" to valueParam(after.currentValue)),
         )
+    !after.comment.isNullOrBlank() -> GoalEventDescriptor(GoalEventType.PROGRESS_COMMENTED)
     else -> null
 }
 

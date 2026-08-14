@@ -154,25 +154,54 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
 
     /**
      * Updates an ACTIVE goal's current value ([GoalProgressUpdate.achieved] for BINARY,
-     * [GoalProgressUpdate.currentValue] otherwise). Returns the affected-row count (0 →
-     * missing/deleted → 404); throws [ConflictException] (→ 409) when the goal is not ACTIVE.
+     * [GoalProgressUpdate.currentValue] otherwise) on behalf of [actorUserId] — either party
+     * (the route's requireGoalProgressWrite has already checked that). Returns the counterparty
+     * notifications to persist (the transition pattern) — empty on a true no-op (nothing
+     * changed, no comment), null when the row is missing/deleted (→ 404); throws
+     * [ConflictException] (→ 409) when the goal is not ACTIVE.
      */
-    suspend fun updateProgress(id: UInt, update: GoalProgressUpdate): Int = suspendTransaction(database) {
+    suspend fun updateProgress(
+        id: UInt,
+        actorUserId: UInt,
+        update: GoalProgressUpdate,
+    ): List<Notification>? = suspendTransaction(database) {
         val current = Goals.selectAll()
             .where { (Goals.id eq id) and active() }
-            .map { it[Goals.status] to it[Goals.type] }
+            .map { it.toGoalRow() to Triple(it[Goals.type], it[Goals.currentValue], it[Goals.achieved]) }
             .singleOrNull()
-            ?: return@suspendTransaction 0
-        if (current.first != GoalStatus.ACTIVE) {
+            ?: return@suspendTransaction null
+        val (row, state) = current
+        val (type, currentValue, achieved) = state
+        if (row.status != GoalStatus.ACTIVE) {
             throw ConflictException("Only an ACTIVE goal's current value may be updated")
         }
-        validateGoalProgress(current.second, update)
+        validateGoalProgress(type, update)
         Goals.update({ (Goals.id eq id) and (Goals.markedAsDeleted eq false) }) {
-            when (current.second) {
-                GoalType.BINARY -> it[achieved] = update.achieved
-                GoalType.NUMBER, GoalType.PERCENTAGE -> it[currentValue] = update.currentValue
+            when (type) {
+                GoalType.BINARY -> it[this.achieved] = update.achieved
+                GoalType.NUMBER, GoalType.PERCENTAGE -> it[this.currentValue] = update.currentValue
             }
             it[lastModified] = System.currentTimeMillis()
+        }
+        // A true no-op (same value, no comment) stays silent — mirroring the event rule; a
+        // value change or a comment-only update notifies the counterparty.
+        val valueChanged = when (type) {
+            GoalType.BINARY -> update.achieved != achieved
+            GoalType.NUMBER, GoalType.PERCENTAGE -> update.currentValue != currentValue
+        }
+        if (!valueChanged && update.comment.isNullOrBlank()) {
+            emptyList()
+        } else {
+            listOf(
+                goalProgressUpdateNotification(
+                    goalId = id,
+                    actorUserId = actorUserId,
+                    managerId = row.managerId,
+                    subordinateId = row.subordinateId,
+                    actorName = userName(actorUserId),
+                    title = row.title,
+                ),
+            )
         }
     }
 

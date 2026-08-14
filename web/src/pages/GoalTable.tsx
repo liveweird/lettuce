@@ -1,10 +1,13 @@
+import { useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
-import { Alert, Button, Group, Select, Stack, Table, Text } from "@mantine/core";
+import { Alert, Button, Group, Menu, Select, Stack, Table, Text } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
-import { IconEye, IconPencil, IconTargetArrow } from "@tabler/icons-react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { IconAdjustments, IconChevronDown, IconEye, IconPencil, IconTargetArrow } from "@tabler/icons-react";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
+  archiveGoal,
+  deactivateGoal,
   getUserId,
   listGoals,
   type GoalListItem,
@@ -12,8 +15,10 @@ import {
   type GoalStatus,
 } from "../api/client";
 import ClearableTextInput from "../components/ClearableTextInput";
+import ConfirmActionModal from "../components/ConfirmActionModal";
 import EmptyState from "../components/EmptyState";
 import FilterPanel from "../components/FilterPanel";
+import GoalCloseModal from "../components/GoalCloseModal";
 import GoalStatusBadge from "../components/GoalStatusBadge";
 import PaginationBar from "../components/PaginationBar";
 import PersonCell from "../components/PersonCell";
@@ -30,8 +35,11 @@ import {
   formatTimestamp,
   type CreatedWindow,
 } from "../utils/datetime";
+import { goalSaveErrorMessage } from "../utils/goalForm";
 import { goalEditLink, goalViewLink } from "../utils/goalLinks";
+import { invalidateGoal } from "../utils/goalQueries";
 import { formatGoalValue, GoalCurrentValue, isGoalOverdue, OverdueBadge } from "../utils/goalValues";
+import { showSuccessToast } from "../utils/toast";
 
 const BASE_SORT_FIELDS = ["title", "createdAt", "dueDate", "status", "targetValue", "currentValue"] as const;
 type SortField = (typeof BASE_SORT_FIELDS)[number] | "managerName" | "subordinateName";
@@ -73,8 +81,10 @@ const SUBORDINATE_COLUMN: PersonColumn = {
 // Per-view differences, declaratively (the OneOnOneTable/FeedbackTable shape): which person
 // columns the view shows — own = who set the goal, managed/team = whose goal it is / who set
 // it, and the HR auditor view (`user`) shows both parties (the audited person can sit on
-// either side). The row action is NOT per-view: at any view the goal's manager edits
-// DRAFT/ACTIVE rows and everyone else views (the server enforces the same rule).
+// either side). The row actions are NOT per-view but id-derived (the server enforces the same
+// rules): the manager edits DRAFT rows and gets the Lifecycle ▾ menu on ACTIVE ones; BOTH
+// parties get Update on ACTIVE rows (v2.8.0 — progress is the pair's shared write); everyone
+// else views.
 const VIEW_CONFIG: Record<GoalListView, { personColumns: PersonColumn[] }> = {
   own: { personColumns: [MANAGER_COLUMN] },
   managed: { personColumns: [SUBORDINATE_COLUMN] },
@@ -215,6 +225,30 @@ export default function GoalTable({
 
   const total = data?.total ?? 0;
 
+  const queryClient = useQueryClient();
+  // Row-side lifecycle actions (v2.8.0): Return-to-draft behind a ConfirmActionModal, Archive
+  // behind the summary modal — one pending target per modal (the DaysOffTable idiom).
+  const [pendingDeactivate, setPendingDeactivate] = useState<GoalListItem | null>(null);
+  const [pendingArchive, setPendingArchive] = useState<GoalListItem | null>(null);
+  const [acting, setActing] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  async function runLifecycle(goalId: number, run: () => Promise<void>, successKey: string) {
+    setActing(true);
+    setActionError(null);
+    try {
+      await run();
+      await invalidateGoal(queryClient, goalId);
+      showSuccessToast(t(successKey));
+    } catch (err) {
+      setActionError(goalSaveErrorMessage(err, t));
+    } finally {
+      setActing(false);
+      setPendingDeactivate(null);
+      setPendingArchive(null);
+    }
+  }
+
   return (
     <Stack gap="md">
       <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey}>
@@ -258,6 +292,11 @@ export default function GoalTable({
       {isError && (
         <Alert color="red" variant="light" title={t("goal.loadListError")}>
           {error instanceof Error ? error.message : t("goal.unknownError")}
+        </Alert>
+      )}
+      {actionError && (
+        <Alert color="red" variant="light">
+          {actionError}
         </Alert>
       )}
 
@@ -337,10 +376,12 @@ export default function GoalTable({
             <TableLoadingRow colSpan={columnCount} />
           ) : data && data.items.length > 0 ? (
             data.items.map((g) => {
-              const canEdit =
-                currentUserId != null &&
-                g.managerId === currentUserId &&
-                (g.status === "DRAFT" || g.status === "ACTIVE");
+              const isRowManager = currentUserId != null && g.managerId === currentUserId;
+              const isRowSubordinate = currentUserId != null && g.subordinateId === currentUserId;
+              // DRAFT: the manager edits the definition. ACTIVE: BOTH parties update progress
+              // (v2.8.0), the manager additionally gets the Lifecycle ▾ menu. Everyone else views.
+              const canEditDraft = isRowManager && g.status === "DRAFT";
+              const canUpdate = g.status === "ACTIVE" && (isRowManager || isRowSubordinate);
               const backParam = backTo || undefined;
               return (
                 <Table.Tr key={g.id}>
@@ -383,29 +424,66 @@ export default function GoalTable({
                     />
                   </Table.Td>
                   <Table.Td>
-                    {canEdit ? (
-                      <Button
-                        component={RouterLink}
-                        to={goalEditLink(g.id, view, backParam)}
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconPencil size={14} />}
-                        aria-label={t("goal.editAria", { title: g.title })}
-                      >
-                        {t("common.action.edit")}
-                      </Button>
-                    ) : (
-                      <Button
-                        component={RouterLink}
-                        to={goalViewLink(g.id, view, backParam)}
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconEye size={14} />}
-                        aria-label={t("goal.viewAria", { title: g.title })}
-                      >
-                        {t("common.action.view")}
-                      </Button>
-                    )}
+                    <Group gap="xs" wrap="nowrap" justify="flex-end">
+                      {isRowManager && g.status === "ACTIVE" && (
+                        <Menu position="bottom-end" withinPortal>
+                          <Menu.Target>
+                            <Button
+                              variant="subtle"
+                              size="xs"
+                              leftSection={<IconAdjustments size={14} />}
+                              rightSection={<IconChevronDown size={14} />}
+                              aria-label={t("goal.lifecycleFor", { title: g.title })}
+                              disabled={acting}
+                            >
+                              {t("goal.action.lifecycle")}
+                            </Button>
+                          </Menu.Target>
+                          <Menu.Dropdown>
+                            <Menu.Item onClick={() => setPendingDeactivate(g)}>
+                              {t("goal.action.deactivate")}
+                            </Menu.Item>
+                            <Menu.Item onClick={() => setPendingArchive(g)}>
+                              {t("goal.action.close")}
+                            </Menu.Item>
+                          </Menu.Dropdown>
+                        </Menu>
+                      )}
+                      {canEditDraft ? (
+                        <Button
+                          component={RouterLink}
+                          to={goalEditLink(g.id, view, backParam)}
+                          variant="subtle"
+                          size="xs"
+                          leftSection={<IconPencil size={14} />}
+                          aria-label={t("goal.editAria", { title: g.title })}
+                        >
+                          {t("common.action.edit")}
+                        </Button>
+                      ) : canUpdate ? (
+                        <Button
+                          component={RouterLink}
+                          to={goalEditLink(g.id, view, backParam)}
+                          variant="subtle"
+                          size="xs"
+                          leftSection={<IconPencil size={14} />}
+                          aria-label={t("goal.updateAria", { title: g.title })}
+                        >
+                          {t("goal.action.update")}
+                        </Button>
+                      ) : (
+                        <Button
+                          component={RouterLink}
+                          to={goalViewLink(g.id, view, backParam)}
+                          variant="subtle"
+                          size="xs"
+                          leftSection={<IconEye size={14} />}
+                          aria-label={t("goal.viewAria", { title: g.title })}
+                        >
+                          {t("common.action.view")}
+                        </Button>
+                      )}
+                    </Group>
                   </Table.Td>
                 </Table.Tr>
               );
@@ -430,6 +508,38 @@ export default function GoalTable({
         onPageChange={setPage}
         onPageSizeChange={setPageSize}
         rowsPerPageLabelKey="goal.rowsPerPage"
+      />
+
+      <ConfirmActionModal
+        opened={pendingDeactivate != null}
+        onClose={() => !acting && setPendingDeactivate(null)}
+        title={t("goal.deactivateConfirmTitle")}
+        message={t("goal.deactivateConfirmMessage")}
+        cancelLabel={t("common.action.cancel")}
+        confirmLabel={t("goal.action.deactivate")}
+        confirmColor="lettuce"
+        loading={acting}
+        onConfirm={() => {
+          if (!pendingDeactivate) return;
+          void runLifecycle(
+            pendingDeactivate.id,
+            () => deactivateGoal(pendingDeactivate.id),
+            "goal.toast.deactivated",
+          );
+        }}
+      />
+      <GoalCloseModal
+        opened={pendingArchive != null}
+        onClose={() => setPendingArchive(null)}
+        loading={acting}
+        onConfirm={(summary) => {
+          if (!pendingArchive) return;
+          void runLifecycle(
+            pendingArchive.id,
+            () => archiveGoal(pendingArchive.id, { summary }),
+            "goal.toast.archived",
+          );
+        }}
       />
     </Stack>
   );
