@@ -115,9 +115,7 @@ function TrendChartSection({ bundle, metric }: { bundle: PulseTrendComparison; m
   const seriesLabel = (index: number): string => {
     const series = bundle.series[index];
     if (series.teamId === bundle.teamId) {
-      return series.mode === "direct"
-        ? t("pulse.results.comparison.ownMembers")
-        : t("pulse.results.mode.subtree");
+      return series.mode === "direct" ? t("pulse.trend.series.own") : t("pulse.trend.series.subtree");
     }
     return series.teamName;
   };

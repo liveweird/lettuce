@@ -75,21 +75,18 @@
   "results": {
     "cycle": "Cycle",
     "cycleOption": "Closed {{date}}",
-    "mode": {
-      "direct": "Team members only",
-      "subtree": "The team and everyone below",
-      "compare": "Sub-team comparison"
+    "view": {
+      "member": "Teams I belong to",
+      "managed": "Teams I manage"
     },
-    "modeAria": "Aggregation scope",
-    "comparison": {
-      "tableAria": "Sub-team comparison for {{team}}",
-      "team": "Team",
-      "ownMembers": "Own members",
-      "responses": "Responses",
-      "rotating": "Rotating",
-      "noSubTeams": "This team has no sub-teams to compare.",
-      "valuesNote": "Question columns show the favorable share of valid answers; each sub-team includes everyone below it."
+    "viewAria": "Results view",
+    "calc": {
+      "direct": "Direct members only",
+      "indirect": "Including everyone below"
     },
+    "calcAria": "Calculation scope",
+    "noMemberTeams": "You are not a member of any team.",
+    "noManagedTeams": "You don't manage any teams.",
     "enps": "eNPS",
     "promoters": "Promoters",
     "passives": "Passives",
@@ -131,6 +128,10 @@
   },
   "trend": {
     "team": "Team",
+    "series": {
+      "own": "Own members",
+      "subtree": "The team and everyone below"
+    },
     "metricAria": "Trend metric",
     "metricLabel": {
       "enps": "eNPS",

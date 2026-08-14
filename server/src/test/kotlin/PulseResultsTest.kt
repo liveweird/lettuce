@@ -288,157 +288,6 @@ class PulseResultsTest {
         assertEquals(PulseAggregationMode.SUBTREE, subtree.mode)
     }
 
-    private suspend fun HttpClient.comparison(cycleId: UInt, teamId: UInt? = null) =
-        get("$cyclesUrl/$cycleId/team-comparison") {
-            if (teamId != null) parameter("teamId", teamId)
-        }
-
-    @Test
-    fun `team comparison - own-members baseline, subtree children name-ascending, per-row k-withholding`() =
-        testApplication {
-            usePostgresTestcontainer()
-            TestPulse.sweepNonTerminal()
-            val fx = org()
-            // Sub-team A (under X): three respondents; a GRANDCHILD team under A's member p1
-            // whose three respondents must roll into A's subtree row, never their own row.
-            val p1 = TestUsers.seed(uniqueEmail("pulse-p1"), "pw", roles = emptySet())
-            val p2 = TestUsers.seed(uniqueEmail("pulse-p2"), "pw", roles = emptySet())
-            val p3 = TestUsers.seed(uniqueEmail("pulse-p3"), "pw", roles = emptySet())
-            val subA = TestServices.teams.create(
-                Team(name = "pulse-cmp-a-${UUID.randomUUID()}", managerId = fx.xId, memberIds = listOf(p1, p2, p3)),
-            )
-            val g1 = TestUsers.seed(uniqueEmail("pulse-g1"), "pw", roles = emptySet())
-            val g2 = TestUsers.seed(uniqueEmail("pulse-g2"), "pw", roles = emptySet())
-            val g3 = TestUsers.seed(uniqueEmail("pulse-g3"), "pw", roles = emptySet())
-            TestServices.teams.create(
-                Team(name = "pulse-cmp-g-${UUID.randomUUID()}", managerId = p1, memberIds = listOf(g1, g2, g3)),
-            )
-            // Sub-team B (under Y): only two respondents — withheld while its sibling shows.
-            val q1 = TestUsers.seed(uniqueEmail("pulse-q1"), "pw", roles = emptySet())
-            val q2 = TestUsers.seed(uniqueEmail("pulse-q2"), "pw", roles = emptySet())
-            val subB = TestServices.teams.create(
-                Team(name = "pulse-cmp-b-${UUID.randomUUID()}", managerId = fx.yId, memberIds = listOf(q1, q2)),
-            )
-            val cycle = TestPulse.closedCycleWith(
-                respondents = mapOf(
-                    // The parent's own members (the sub-team managers X and Y among them).
-                    fx.xId to answers(10), fx.yId to answers(10), fx.zId to answers(10),
-                    // A's members are detractors, its grandchild's members promoters -> subtree eNPS 0.
-                    p1 to answers(0), p2 to answers(0), p3 to answers(0),
-                    g1 to answers(10), g2 to answers(10), g3 to answers(10),
-                    q1 to answers(10), q2 to answers(10),
-                ),
-            )
-
-            val x = authedClient(fx.xEmail, "pw")
-            val block = x.comparison(cycle.id, fx.teamId).body<ch.nokillswit.pulse.PulseTeamComparison>()
-            assertEquals(fx.teamId, block.teamId)
-            // The baseline: the parent's direct roster (X, Y, Z — sub-team managers included).
-            assertEquals(PulseAggregationMode.DIRECT, block.ownMembers.mode)
-            assertEquals(fx.teamId, block.ownMembers.teamId)
-            assertEquals(3, block.ownMembers.responseCount)
-            assertEquals(100, block.ownMembers.enps!!.score)
-            // Direct children only, name-ascending, each over its whole subtree.
-            assertEquals(listOf(subA, subB), block.subTeams.map { it.teamId })
-            val rowA = block.subTeams[0]
-            assertEquals(PulseAggregationMode.SUBTREE, rowA.mode)
-            assertEquals(6, rowA.responseCount) // p1-p3 + the grandchild's g1-g3
-            assertEquals(0, rowA.enps!!.score) // 3 promoters vs 3 detractors
-            val rowB = block.subTeams[1]
-            assertTrue(rowB.insufficientResponses) // 2 responses: withheld while A shows
-            assertEquals(2, rowB.responseCount)
-            assertNull(rowB.enps)
-
-            // A child-less team compares to an empty list (its own members still reported).
-            val leaf = x.comparison(cycle.id, subB).body<ch.nokillswit.pulse.PulseTeamComparison>()
-            assertTrue(leaf.subTeams.isEmpty())
-            assertEquals(2, leaf.ownMembers.responseCount)
-
-            // Missing teamId -> 400; unknown team -> 404.
-            assertEquals(HttpStatusCode.BadRequest, x.comparison(cycle.id).status)
-            assertEquals(HttpStatusCode.NotFound, x.comparison(cycle.id, 999_999_999u).status)
-        }
-
-    @Test
-    fun `team comparison - fill gate, HR audit, ancestor visibility, CLOSED-only`() = testApplication {
-        usePostgresTestcontainer()
-        TestPulse.sweepNonTerminal()
-        val fx = org()
-        // A sub-team under X so the comparison has a row; an upper manager whose visibility
-        // reaches fx.team only transitively (their managed tree's member M manages it).
-        val p1 = TestUsers.seed(uniqueEmail("pulse-p1"), "pw", roles = emptySet())
-        TestServices.teams.create(
-            Team(name = "pulse-cmp-sub-${UUID.randomUUID()}", managerId = fx.xId, memberIds = listOf(p1)),
-        )
-        val upperEmail = uniqueEmail("pulse-upper")
-        val upperId = TestUsers.seed(upperEmail, "pw", roles = emptySet())
-        TestServices.teams.create(
-            Team(name = "pulse-cmp-top-${UUID.randomUUID()}", managerId = upperId, memberIds = listOf(fx.managerId)),
-        )
-        val outsiderEmail = uniqueEmail("pulse-outsider")
-        val outsiderId = TestUsers.seed(outsiderEmail, "pw", roles = emptySet())
-        val adminEmail = uniqueEmail("pulse-admin")
-        TestUsers.seed(adminEmail, "pw")
-        val hrEmail = uniqueEmail("pulse-hr")
-        TestUsers.seed(hrEmail, "pw", roles = setOf(UserRole.HR))
-
-        val cycle = TestPulse.closedCycleWith(
-            respondents = mapOf(
-                fx.xId to answers(10), fx.yId to answers(9), fx.zId to answers(8),
-                upperId to answers(7),
-                // The outsider responded — their 403 is the team gate, not the fill gate.
-                outsiderId to answers(5),
-            ),
-            silentParticipants = listOf(fx.managerId),
-        )
-
-        // The non-responding manager: the fill gate, ADMIN no exemption, outsider out of tree.
-        assertEquals(
-            HttpStatusCode.Forbidden,
-            authedClient(fx.managerEmail, "pw").comparison(cycle.id, fx.teamId).status,
-        )
-        assertEquals(
-            HttpStatusCode.Forbidden,
-            authedClient(adminEmail, "pw").comparison(cycle.id, fx.teamId).status,
-        )
-        assertEquals(
-            HttpStatusCode.Forbidden,
-            authedClient(outsiderEmail, "pw").comparison(cycle.id, fx.teamId).status,
-        )
-        // The upper manager sees fx.team only through the tree walk — the parent-only check
-        // covers the child rows because visibility is transitive.
-        assertEquals(
-            HttpStatusCode.OK,
-            authedClient(upperEmail, "pw").comparison(cycle.id, fx.teamId).status,
-        )
-        // HR reads without responding — audited under its own resource.
-        val capture = LogCapture("ch.nokillswit.audit")
-        try {
-            val hr = authedClient(hrEmail, "pw")
-            assertEquals(HttpStatusCode.OK, hr.comparison(cycle.id, fx.teamId).status)
-            assertNotNull(
-                capture.awaitEvent { it.message == "hr.read" && it.hasKeyValue("resource", "pulseComparison") },
-            )
-        } finally {
-            capture.detach()
-        }
-
-        // CLOSED-only, uniform: an OPEN cycle answers 409 even for HR.
-        val id = TestPulse.cycles.schedule(
-            ch.nokillswit.pulse.PulseCycleCreateRequest("2099-01-01", "2099-01-08"),
-        )
-        try {
-            TestPulse.addParticipants(id, listOf(fx.xId))
-            TestPulse.forceStatus(id, PulseCycleStatus.OPEN, openedAt = System.currentTimeMillis())
-            assertEquals(
-                HttpStatusCode.Conflict,
-                authedClient(hrEmail, "pw").comparison(id, fx.teamId).status,
-            )
-        } finally {
-            TestPulse.sweepNonTerminal()
-        }
-    }
-
     @Test
     fun `comments - monitored managers and HR only, k-gated, author-free`() = testApplication {
         usePostgresTestcontainer()
@@ -819,21 +668,25 @@ class PulseResultsTest {
         TestUsers.seed(hrEmail, "pw", roles = setOf(UserRole.HR))
         suspend fun HttpClient.visible() = get("/api/v1/pulse-surveys/visible-teams").body<PulseVisibleTeams>()
 
-        // A member: results yes, monitoring no.
+        // A member: results yes, membership yes, monitoring no.
         val x = authedClient(fx.xEmail, "pw")
         val xTeams = x.visible()
         assertTrue(xTeams.resultsTeams.any { it.id == fx.teamId })
+        assertTrue(xTeams.memberTeams.any { it.id == fx.teamId })
         assertTrue(xTeams.monitoredTeams.none { it.id == fx.teamId })
-        // The manager: both.
+        // The manager: results + monitoring, but NOT membership (v2.12.0 — managing a team
+        // never makes you a member of it).
         val manager = authedClient(fx.managerEmail, "pw")
         val mTeams = manager.visible()
         assertTrue(mTeams.resultsTeams.any { it.id == fx.teamId })
         assertTrue(mTeams.monitoredTeams.any { it.id == fx.teamId })
-        // HR: everything, both scopes.
+        assertTrue(mTeams.memberTeams.none { it.id == fx.teamId })
+        // HR: everything, all three scopes (the auditor posture).
         val hr = authedClient(hrEmail, "pw")
         val hrTeams = hr.visible()
         assertTrue(hrTeams.resultsTeams.any { it.id == fx.teamId })
         assertTrue(hrTeams.monitoredTeams.any { it.id == fx.teamId })
+        assertTrue(hrTeams.memberTeams.any { it.id == fx.teamId })
     }
 
     @Test

@@ -188,9 +188,12 @@ commit** — this list is the suite's coverage map, and it has drifted three tim
   the API (k≥3), the admin **closes**; the respondent reads the team's aggregated **results** (since v2.6.2 asserting HAND-COMPUTED aggregates — eNPS 0 with 33.3-thirds, per-row means/favorables/n)
   from the bell deep link while the non-responding manager still reads the anonymized
   **comments** (the fill-gate/monitoring split); Manager CCC (a respondent in no team scope)
-  flips the **Sub-team comparison** mode (v2.10.0) and reads the CCC card's packed table —
-  Own-members and BBB rows k-withheld with counts visible, the AAA subtree row's hand-computed
-  favorables, no comments in the view, the child-less AAA/BBB cards' note; the same session
+  exercises the **two-view Results layout** (v2.12.0) — the member view's empty state (no
+  comments there), then "Teams I manage" with CCC/AAA/BBB cards: CCC withheld on the direct
+  calculation ("0 of 2"), AAA's hand-computed numbers, comments visible (the monitoring
+  right), and "Including everyone below" widening CCC to "3 of N responded" with eNPS 0
+  (N deliberately unpinned — reviews.spec's Manager-AAA-managed team joins CCC's subtree
+  scope and accumulates on a shared DB); the same session
   opens the **Trend** tab (v2.11.0) — the childless default team's note, CCC's four scope
   chips via the team picker, and the metric switch to Q2, asserting chart-or-pending
   either-or locators only (chart presence is run-dependent: CI has one closed cycle, reruns

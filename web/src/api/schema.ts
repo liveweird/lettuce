@@ -2731,40 +2731,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/pulse-surveys/cycles/{id}/team-comparison": {
-        parameters: {
-            query: {
-                /** @description The team the pulse scope is built from. Unknown/deleted teams answer 404. */
-                teamId: components["parameters"]["PulseTeamId"];
-            };
-            header?: never;
-            path: {
-                id: components["parameters"]["ResourceId"];
-            };
-            cookie?: never;
-        };
-        /**
-         * Read a team's per-sub-team comparison for a closed cycle
-         * @description The packed side-by-side view (v2.10.0): the parent team's own-members baseline
-         *     (direct scope — includes the sub-team managers, who are members of the parent) plus
-         *     one subtree-scoped results block per team DIRECTLY below the parent (a team is below
-         *     another iff its manager is a member of it), name-ascending. No `mode` parameter —
-         *     each row carries its own (`ownMembers` = `direct`, sub-teams = `subtree`). Pure
-         *     composition: every row equals a single-team `results` query the caller is already
-         *     authorized for (the visible tree is transitive), independently k-withheld
-         *     (`insufficientResponses`) with per-row previous-cycle deltas. Access, `409`, and
-         *     k-anonymity exactly as for `results` (the fill gate checks the parent team; HR
-         *     org-wide, audit-logged). Comments are never part of this view.
-         */
-        get: operations["getPulseTeamComparison"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/pulse-surveys/cycles/{id}/comments": {
         parameters: {
             query: {
@@ -2864,8 +2830,9 @@ export interface paths {
          * List the teams the caller's pulse views may target
          * @description Backs the SPA's team pickers (the team tree is derived server-side only):
          *     `resultsTeams` = teams the caller is a member of + teams they manage + everything
-         *     below either; `monitoredTeams` = managed + below (empty for non-managers). HR gets
-         *     every team in both.
+         *     below either; `monitoredTeams` = managed + below (empty for non-managers);
+         *     `memberTeams` = teams the caller is a MEMBER of (v2.12.0 — the Results tab's
+         *     "Teams I belong to" view). HR gets every team in all three.
          */
         get: operations["getPulseVisibleTeams"];
         put?: never;
@@ -5164,17 +5131,6 @@ export interface components {
             /** @description Set only when an immediately preceding non-cancelled closed cycle exists AND its same-scope response count also passes the k-floor. */
             previous?: components["schemas"]["PulsePreviousComparison"] | null;
         };
-        PulseTeamComparison: {
-            /** Format: int64 */
-            cycleId: number;
-            /** Format: int64 */
-            teamId: number;
-            teamName: string;
-            /** @description The parent's direct-members scope (mode `direct`) — includes the sub-team managers. */
-            ownMembers: components["schemas"]["PulseTeamResults"];
-            /** @description One subtree-scoped block per direct child team, name-ascending. */
-            subTeams: components["schemas"]["PulseTeamResults"][];
-        };
         PulseCommentsResponse: {
             /** @description Author-free, shuffled per request; empty when withheld. */
             items: string[];
@@ -5232,6 +5188,8 @@ export interface components {
             resultsTeams: components["schemas"]["TeamRef"][];
             /** @description Teams the caller may monitor (managed + below; HR all; empty for non-managers). */
             monitoredTeams: components["schemas"]["TeamRef"][];
+            /** @description Teams the caller is a MEMBER of (the "Teams I belong to" results view; HR all). */
+            memberTeams: components["schemas"]["TeamRef"][];
         };
         PulseSettings: {
             /** @description Suggested weeks between cycle opens (admin-form prefill only). */
@@ -9666,37 +9624,6 @@ export interface operations {
             500: components["responses"]["InternalServerError"];
         };
     };
-    getPulseTeamComparison: {
-        parameters: {
-            query: {
-                /** @description The team the pulse scope is built from. Unknown/deleted teams answer 404. */
-                teamId: components["parameters"]["PulseTeamId"];
-            };
-            header?: never;
-            path: {
-                id: components["parameters"]["ResourceId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The own-members baseline plus one results block per direct sub-team */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PulseTeamComparison"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["PulseNotClosed"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
     getPulseComments: {
         parameters: {
             query: {
@@ -9797,7 +9724,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The two team scopes */
+            /** @description The three team scopes */
             200: {
                 headers: {
                     [name: string]: unknown;

@@ -238,35 +238,43 @@ test("admin closes; a respondent reads team results; the non-responding manager 
   await expect(page.getByText("Shown anonymized and in random order.").first()).toBeVisible();
   await logout(page);
 
-  // The sub-team comparison (v2.10.0): Manager CCC (who responded) flips the third mode and
-  // reads the CCC card — the Own-members baseline (manager-aaa + manager-bbb, neither
-  // responded → withheld with the count still visible), the AAA subtree row with this run's
-  // known aggregates, and the BBB row withheld (nobody in BBB responded). No comments render
-  // in this view, even though CCC's manager monitors AAA.
+  // The two-view Results layout (v2.12.0): Manager CCC belongs to NO team, so the default
+  // "Teams I belong to" view is the member empty state (and, with no cards, no comments);
+  // "Teams I manage" lists CCC + AAA + BBB, starting on the direct calculation.
   await login(page, MANAGER_CCC);
   await page.goto("/pulse?tab=results");
-  // The SegmentedControl's radio input is hidden (the Chip gotcha) — click the visible label.
-  await page.getByText("Sub-team comparison", { exact: true }).click();
-  const cccTable = page.getByRole("table", { name: "Sub-team comparison for CCC" });
-  await expect(cccTable).toBeVisible();
-  const rowIn = (name: string) => cccTable.getByRole("row").filter({ hasText: name });
-  await expect(rowIn("Own members").getByText("0 of 2 responded (0%)")).toBeVisible();
-  await expect(
-    rowIn("Own members").getByText("Fewer than 3 responses — results are hidden to protect anonymity."),
-  ).toBeVisible();
-  // AAA {10, 8, 2}: eNPS 0. Favorables: Q2 {4,4,4}, Q4 {4,4,4}, and the NA-shrunk Q5 {4}
-  // are all 100.0%; Q3 and the rotating question {4,3,3} are 33.3% — exact counts pin all
-  // five columns at once.
-  const aaaRow = cccTable.getByRole("row").filter({ hasText: "AAA" }).first();
-  await expect(aaaRow.getByText("3 of 3 responded (100%)")).toBeVisible();
-  await expect(aaaRow.getByText("100.0%", { exact: true })).toHaveCount(3);
-  await expect(aaaRow.getByText("33.3%", { exact: true })).toHaveCount(2);
-  await expect(
-    rowIn("BBB").getByText("Fewer than 3 responses — results are hidden to protect anonymity."),
-  ).toBeVisible();
-  // A child-less team's card carries the note instead of a table; comments never show here.
-  await expect(page.getByText("This team has no sub-teams to compare.").first()).toBeVisible();
+  await expect(page.getByText("You are not a member of any team.")).toBeVisible();
   await expect(page.getByText(COMMENT)).toHaveCount(0);
+  // The SegmentedControl's radio input is hidden (the Chip gotcha) — click the visible label.
+  await page.getByText("Teams I manage", { exact: true }).click();
+  const cardOf = (team: string) =>
+    page
+      .locator(".mantine-Paper-root")
+      .filter({ has: page.getByRole("heading", { name: team, exact: true }) });
+  // Direct calculation: CCC's own roster (manager-aaa + manager-bbb, neither responded) is
+  // withheld with the count visible; AAA shows this run's respondents; BBB is silent.
+  await expect(cardOf("CCC").getByText("0 of 2 responded (0%)")).toBeVisible();
+  await expect(
+    cardOf("CCC").getByText("Fewer than 3 responses — results are hidden to protect anonymity."),
+  ).toBeVisible();
+  await expect(cardOf("AAA").getByText("3 of 3 responded (100%)")).toBeVisible();
+  await expect(
+    cardOf("BBB").getByText("Fewer than 3 responses — results are hidden to protect anonymity."),
+  ).toBeVisible();
+  // Comments legitimately render here — monitoring is a standing right (only the removed
+  // v2.10.0 comparison view suppressed them). The run's unique comment sits in AAA's scope.
+  await expect(page.getByText(COMMENT).first()).toBeVisible();
+  // "Including everyone below": CCC widens to the whole subtree — the AAA trio {10, 8, 2}
+  // are the only respondents (-> eNPS 0), but the PARTICIPANT total is deliberately not
+  // pinned: reviews.spec creates a team managed by Manager AAA every run, which hangs
+  // under CCC in the tree and adds its member to the subtree scope (8 seed people + one
+  // per accumulated run on a shared DB). The response count stays 3 — nobody outside the
+  // AAA trio in that scope ever responds. (The "0" eNPS uses the paragraph-role locator
+  // to dodge the trend chart's y-axis "0" tick on reruns.)
+  await page.getByText("Including everyone below", { exact: true }).click();
+  await expect(cardOf("CCC").getByText(/^3 of \d+ responded/)).toBeVisible();
+  await expect(cardOf("CCC").getByRole("paragraph").filter({ hasText: /^0$/ })).toBeVisible();
+  await expect(cardOf("AAA").getByText("3 of 3 responded (100%)")).toBeVisible();
 
   // The Trend tab (v2.11.0), same session: the team picker defaults to the first visible
   // team alphabetically (AAA — childless, so its note shows), then CCC brings the full

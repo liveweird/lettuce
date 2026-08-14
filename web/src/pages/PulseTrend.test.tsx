@@ -100,7 +100,9 @@ describe("PulseTrend", () => {
     mockFetch.mockImplementation((url: string) => {
       const u = String(url);
       if (u.includes("/visible-teams")) {
-        return Promise.resolve(jsonResponse(200, { resultsTeams: teams, monitoredTeams: [] }));
+        return Promise.resolve(
+          jsonResponse(200, { resultsTeams: teams, monitoredTeams: [], memberTeams: [] }),
+        );
       }
       // NB: "/trend-comparison" must be matched before any bare "/trend" route.
       if (u.includes("/trend-comparison")) {

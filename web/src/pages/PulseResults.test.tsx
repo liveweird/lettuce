@@ -84,86 +84,25 @@ const TREND = {
   ],
 };
 
-// A per-row results block for the comparison fixture — favorable% is what the packed table shows.
-function comparisonRow(
-  teamId: number,
-  teamName: string,
-  mode: "direct" | "subtree",
-  overrides: Record<string, unknown> = {},
-) {
-  return {
-    cycleId: 5,
-    teamId,
-    teamName,
-    mode,
-    participantCount: 4,
-    responseCount: 3,
-    responseRate: 75.0,
-    insufficientResponses: false,
-    enps: { score: 33, promoterPct: 66.7, passivePct: 0.0, detractorPct: 33.3 },
-    drivers: [
-      { question: "Q2", validCount: 3, favorablePct: 83.3, mean: 4.3, unfavorablePct: 0.0 },
-      { question: "Q3", validCount: 3, favorablePct: 66.7, mean: 4.0, unfavorablePct: 0.0 },
-      { question: "Q4", validCount: 3, favorablePct: 66.7, mean: 4.0, unfavorablePct: 0.0 },
-      { question: "Q5", validCount: 0 },
-      {
-        question: "ROTATING",
-        rotatingTextEn: "Good work is recognized here.",
-        rotatingTextPl: "Dobra praca jest tu doceniana.",
-        validCount: 3,
-        favorablePct: 33.3,
-        mean: 3.7,
-        unfavorablePct: 33.3,
-      },
-    ],
-    previous: { cycleId: 4, enpsDelta: 12 },
-    ...overrides,
-  };
-}
-
-const COMPARISON = {
-  cycleId: 5,
-  teamId: 11,
-  teamName: "AAA",
-  ownMembers: comparisonRow(11, "AAA", "direct", {
-    enps: { score: 100, promoterPct: 100.0, passivePct: 0.0, detractorPct: 0.0 },
-  }),
-  subTeams: [
-    comparisonRow(21, "Sub A", "subtree", { responseCount: 6, participantCount: 8 }),
-    comparisonRow(22, "Sub B", "subtree", {
-      responseCount: 2,
-      responseRate: 50.0,
-      insufficientResponses: true,
-      enps: null,
-      drivers: null,
-      previous: null,
-    }),
-  ],
-};
-
 describe("PulseResults", () => {
   let mockFetch: FetchMock;
 
   function setupMocks({
     resultsStatus = 200,
     results = RESULTS as unknown,
-    comparisonStatus = 200,
-    comparison = COMPARISON as unknown,
-    monitored = [] as unknown[],
+    member = [{ id: 11, name: "AAA" }] as { id: number; name: string }[],
+    monitored = [] as { id: number; name: string }[],
     comments = { items: [], responseCount: 3, insufficientResponses: false } as unknown,
   } = {}) {
     mockFetch.mockImplementation((url: string) => {
       const u = String(url);
       if (u.includes("/visible-teams")) {
         return Promise.resolve(
-          jsonResponse(200, { resultsTeams: [{ id: 11, name: "AAA" }], monitoredTeams: monitored }),
-        );
-      }
-      if (u.includes("/team-comparison")) {
-        return Promise.resolve(
-          comparisonStatus === 200
-            ? jsonResponse(200, comparison)
-            : jsonResponse(comparisonStatus, { title: "no", status: comparisonStatus }),
+          jsonResponse(200, {
+            resultsTeams: [...member, ...monitored],
+            monitoredTeams: monitored,
+            memberTeams: member,
+          }),
         );
       }
       if (u.includes("/results")) {
@@ -311,73 +250,69 @@ describe("PulseResults", () => {
     expect(screen.getByText("Shown anonymized and in random order.")).toBeInTheDocument();
   });
 
-  test("switching to the comparison mode renders the packed per-sub-team table", async () => {
-    setupMocks();
+  test("the managed view lists the monitored teams and the calc toggle flips the wire mode", async () => {
+    setupMocks({
+      member: [{ id: 11, name: "AAA" }],
+      monitored: [
+        { id: 31, name: "CCC" },
+        { id: 11, name: "AAA" },
+      ],
+    });
     const user = userEvent.setup();
     renderWithProviders(<PulseResults />);
-    // Starts in direct mode (the full card), then the third segment flips the view.
-    await screen.findByText("+33");
-    await user.click(screen.getByRole("radio", { name: "Sub-team comparison" }));
+    // The default member view shows only the membership card.
+    await screen.findByRole("heading", { name: "AAA" });
+    expect(screen.queryByRole("heading", { name: "CCC" })).toBeNull();
 
-    // One row per scope: the own-members baseline plus both sub-teams.
-    expect(await screen.findByText("Own members")).toBeInTheDocument();
-    const table = screen.getByRole("table", { name: "Sub-team comparison for AAA" });
-    expect(within(table).getByText("Sub A")).toBeInTheDocument();
-    expect(within(table).getByText("Sub B")).toBeInTheDocument();
-    // The comparison endpoint carried the cycle and parent team.
+    await user.click(screen.getByRole("radio", { name: "Teams I manage" }));
+    expect(await screen.findByRole("heading", { name: "CCC" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "AAA" })).toBeInTheDocument();
+    // Managed cards start on the direct calculation and the pick persists.
     expect(
-      mockFetch.mock.calls.some(([url]) =>
-        String(url).includes("/cycles/5/team-comparison?teamId=11"),
-      ),
+      mockFetch.mock.calls.some(([url]) => String(url).includes("/results?teamId=31&mode=direct")),
     ).toBe(true);
-    // Packed metrics: the baseline's +100, Sub A's favorable shares, per-row responses.
-    expect(within(table).getByText("+100")).toBeInTheDocument();
-    expect(within(table).getAllByText("83.3%").length).toBeGreaterThan(0);
-    expect(within(table).getByText("6 of 8 responded (75%)")).toBeInTheDocument();
-    // The withheld Sub B row keeps its responses but hides the metrics.
-    const subBRow = within(table).getByText("Sub B").closest("tr")!;
-    expect(
-      within(subBRow).getByText("Fewer than 3 responses — results are hidden to protect anonymity."),
-    ).toBeInTheDocument();
-    expect(within(subBRow).getByText("2 of 4 responded (50%)")).toBeInTheDocument();
-    // Header hints: eNPS methodology, the fixed question texts, the cycle's rotating text.
-    expect(
-      within(table).getByRole("img", { name: "I understand what is expected of me in my role." }),
-    ).toBeInTheDocument();
-    expect(
-      within(table).getByRole("img", { name: "Good work is recognized here." }),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/Question columns show the favorable share/)).toBeInTheDocument();
-    // Deliberately absent in this view: comments and the trend chart.
-    expect(screen.queryByText("Comments")).toBeNull();
-    expect(screen.queryByTestId("trend-chart")).toBeNull();
+    expect(localStorage.getItem("lettuce.viewSettings.pulse.results.view")).toBe(
+      JSON.stringify("managed"),
+    );
+
+    await user.click(screen.getByRole("radio", { name: "Including everyone below" }));
+    await waitFor(() => {
+      expect(
+        mockFetch.mock.calls.some(([url]) =>
+          String(url).includes("/results?teamId=31&mode=subtree"),
+        ),
+      ).toBe(true);
+    });
+    expect(localStorage.getItem("lettuce.viewSettings.pulse.results.calc")).toBe(
+      JSON.stringify("indirect"),
+    );
   });
 
-  test("comparison mode: a team without sub-teams shows the in-card note", async () => {
-    localStorage.setItem("lettuce.viewSettings.pulse.results.mode", JSON.stringify("compare"));
-    setupMocks({ comparison: { ...COMPARISON, subTeams: [] } });
+  test("a member of no team gets the member empty state but can still reach the managed view", async () => {
+    setupMocks({ member: [], monitored: [{ id: 31, name: "CCC" }] });
+    const user = userEvent.setup();
     renderWithProviders(<PulseResults />);
-    expect(
-      await screen.findByText("This team has no sub-teams to compare."),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("table")).toBeNull();
+    // The empty state renders BELOW the selector — the view switch stays reachable.
+    expect(await screen.findByText("You are not a member of any team.")).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: "Teams I manage" }));
+    expect(await screen.findByRole("heading", { name: "CCC" })).toBeInTheDocument();
   });
 
-  test("comparison mode: the fill gate renders the same informational empty state", async () => {
-    localStorage.setItem("lettuce.viewSettings.pulse.results.mode", JSON.stringify("compare"));
-    setupMocks({ comparisonStatus: 403 });
+  test("a non-manager gets the managed empty state", async () => {
+    localStorage.setItem("lettuce.viewSettings.pulse.results.view", JSON.stringify("managed"));
+    setupMocks({ member: [{ id: 11, name: "AAA" }], monitored: [] });
     renderWithProviders(<PulseResults />);
-    expect(
-      await screen.findByText("Results are available for closed cycles you took part in."),
-    ).toBeInTheDocument();
-    expect(screen.queryByText("Own members")).toBeNull();
+    expect(await screen.findByText("You don't manage any teams.")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "AAA" })).toBeNull();
   });
 
   test("no closed cycles yet → the empty state", async () => {
     setupMocks();
     mockFetch.mockImplementation((url: string) => {
       if (String(url).includes("/visible-teams")) {
-        return Promise.resolve(jsonResponse(200, { resultsTeams: [], monitoredTeams: [] }));
+        return Promise.resolve(
+          jsonResponse(200, { resultsTeams: [], monitoredTeams: [], memberTeams: [] }),
+        );
       }
       return Promise.resolve(jsonResponse(200, { items: [] }));
     });
