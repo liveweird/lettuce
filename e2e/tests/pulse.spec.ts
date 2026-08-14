@@ -12,6 +12,7 @@ import {
   AAA_TWO,
   AAA_THREE,
   MANAGER_AAA,
+  MANAGER_CCC,
   PASSWORD,
 } from "./helpers";
 
@@ -177,8 +178,11 @@ test("admin closes; a respondent reads team results; the non-responding manager 
   page,
   request,
 }) => {
-  // Third respondent (k >= 3) with this run's unique comment.
+  // Third respondent (k >= 3) with this run's unique comment. Manager CCC responds too —
+  // they are a member of NO team, so no scope's hand-computed numbers move; it just passes
+  // the fill gate for the sub-team comparison leg below (v2.10.0).
   await apiFillSurvey(request, AAA_THREE, 2, COMMENT);
+  await apiFillSurvey(request, MANAGER_CCC, 8);
 
   await login(page, ADMIN);
   await page.goto("/pulse-cycles");
@@ -232,6 +236,37 @@ test("admin closes; a respondent reads team results; the non-responding manager 
   await expect(page.getByText("Results are available for closed cycles you took part in.")).toBeVisible();
   await expect(page.getByText(COMMENT)).toBeVisible();
   await expect(page.getByText("Shown anonymized and in random order.").first()).toBeVisible();
+  await logout(page);
+
+  // The sub-team comparison (v2.10.0): Manager CCC (who responded) flips the third mode and
+  // reads the CCC card — the Own-members baseline (manager-aaa + manager-bbb, neither
+  // responded → withheld with the count still visible), the AAA subtree row with this run's
+  // known aggregates, and the BBB row withheld (nobody in BBB responded). No comments render
+  // in this view, even though CCC's manager monitors AAA.
+  await login(page, MANAGER_CCC);
+  await page.goto("/pulse?tab=results");
+  // The SegmentedControl's radio input is hidden (the Chip gotcha) — click the visible label.
+  await page.getByText("Sub-team comparison", { exact: true }).click();
+  const cccTable = page.getByRole("table", { name: "Sub-team comparison for CCC" });
+  await expect(cccTable).toBeVisible();
+  const rowIn = (name: string) => cccTable.getByRole("row").filter({ hasText: name });
+  await expect(rowIn("Own members").getByText("0 of 2 responded (0%)")).toBeVisible();
+  await expect(
+    rowIn("Own members").getByText("Fewer than 3 responses — results are hidden to protect anonymity."),
+  ).toBeVisible();
+  // AAA {10, 8, 2}: eNPS 0. Favorables: Q2 {4,4,4}, Q4 {4,4,4}, and the NA-shrunk Q5 {4}
+  // are all 100.0%; Q3 and the rotating question {4,3,3} are 33.3% — exact counts pin all
+  // five columns at once.
+  const aaaRow = cccTable.getByRole("row").filter({ hasText: "AAA" }).first();
+  await expect(aaaRow.getByText("3 of 3 responded (100%)")).toBeVisible();
+  await expect(aaaRow.getByText("100.0%", { exact: true })).toHaveCount(3);
+  await expect(aaaRow.getByText("33.3%", { exact: true })).toHaveCount(2);
+  await expect(
+    rowIn("BBB").getByText("Fewer than 3 responses — results are hidden to protect anonymity."),
+  ).toBeVisible();
+  // A child-less team's card carries the note instead of a table; comments never show here.
+  await expect(page.getByText("This team has no sub-teams to compare.").first()).toBeVisible();
+  await expect(page.getByText(COMMENT)).toHaveCount(0);
 });
 
 test("cancelling a scheduled cycle is confirmed and leaves the registry terminal", async ({ page }) => {

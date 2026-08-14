@@ -1459,6 +1459,7 @@ export type PulseScaleAnswer = components["schemas"]["PulseScaleAnswer"];
 export type PulseSubmitBody = components["schemas"]["PulseResponseSubmitRequest"];
 export type PulseMyResponse = components["schemas"]["PulseMyResponse"];
 export type PulseTeamResults = components["schemas"]["PulseTeamResults"];
+export type PulseTeamComparison = components["schemas"]["PulseTeamComparison"];
 export type PulseDriverResult = components["schemas"]["PulseDriverResult"];
 export type PulseAggregationMode = components["schemas"]["PulseAggregationMode"];
 export type PulseTrendResponse = components["schemas"]["PulseTrendResponse"];
@@ -1534,6 +1535,19 @@ export async function getPulseResults(
   );
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json()) as PulseTeamResults;
+}
+
+/** The packed per-sub-team comparison (v2.10.0): the parent's own-members baseline plus one
+ *  subtree-scoped block per direct sub-team — no mode param, each row carries its own. */
+export async function getPulseTeamComparison(
+  cycleId: number,
+  teamId: number,
+): Promise<PulseTeamComparison> {
+  const res = await authedFetch(
+    `/api/v1/pulse-surveys/cycles/${cycleId}/team-comparison?teamId=${teamId}`,
+  );
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return (await res.json()) as PulseTeamComparison;
 }
 
 export async function getPulseComments(

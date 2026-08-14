@@ -6,34 +6,41 @@ import { useSearchParams } from "react-router-dom";
 import {
   ApiError,
   getPulseResults,
+  getPulseTeamComparison,
   getPulseVisibleTeams,
   isHr,
   listPulseCycles,
   type PulseAggregationMode,
 } from "../api/client";
 import EmptyState from "../components/EmptyState";
+import PulseTeamComparisonCard from "../components/PulseTeamComparisonCard";
 import PulseTeamResultCard from "../components/PulseTeamResultCard";
 import { useStoredState, isOneOf } from "../hooks/useStoredState";
 import { closedCycleOptions } from "../utils/pulseResults";
 
-const MODES = ["direct", "subtree"] as const;
+// "compare" is a UI-only view mode (v2.10.0) — the wire enum stays direct/subtree; the
+// comparison rides its own endpoint where each row carries its own mode.
+const MODES = ["direct", "subtree", "compare"] as const;
+type ResultsViewMode = (typeof MODES)[number];
 
 /**
  * The "Results" tab: one card per visible team for the picked CLOSED cycle. The cycle pick
  * follows `?cycle=` (the results-notification deep link) and defaults to the latest closed
- * cycle; the direct/subtree scope persists per device. The per-cycle fill gate surfaces as a
- * single informational empty state (probed once on the first team — the server 403s every
- * team uniformly for a non-respondent), never as a wall of red cards.
+ * cycle; the view mode (direct/subtree scope, or the per-sub-team comparison) persists per
+ * device. The per-cycle fill gate surfaces as a single informational empty state (probed once
+ * on the first team — the server 403s every team uniformly for a non-respondent), never as a
+ * wall of red cards.
  */
 export default function PulseResults() {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
   const [searchParams, setSearchParams] = useSearchParams();
-  const [mode, setMode] = useStoredState<PulseAggregationMode>(
+  const [mode, setMode] = useStoredState<ResultsViewMode>(
     "pulse.results.mode",
     "direct",
     isOneOf(MODES),
   );
+  const compare = mode === "compare";
 
   const cycles = useQuery({ queryKey: ["pulseCycles"], queryFn: listPulseCycles });
   const teams = useQuery({ queryKey: ["pulseVisibleTeams"], queryFn: getPulseVisibleTeams });
@@ -51,14 +58,22 @@ export default function PulseResults() {
   const monitoredIds = new Set((teams.data?.monitoredTeams ?? []).map((team) => team.id));
   const firstTeam = resultsTeams[0];
 
-  // The fill-gate probe: shares its query key with the first card, so no extra request.
+  // The fill-gate probe: shares its query key with the first card (comparison or results,
+  // per the view mode), so no extra request.
   const probe = useQuery({
-    queryKey: ["pulseResults", selectedCycle, firstTeam?.id, mode],
-    queryFn: () => getPulseResults(selectedCycle!, firstTeam!.id, mode),
+    queryKey: compare
+      ? ["pulseComparison", selectedCycle, firstTeam?.id]
+      : ["pulseResults", selectedCycle, firstTeam?.id, mode],
+    // Only the error is read here (the shapes differ per view mode; the cards own the data).
+    queryFn: (): Promise<unknown> =>
+      compare
+        ? getPulseTeamComparison(selectedCycle!, firstTeam!.id)
+        : getPulseResults(selectedCycle!, firstTeam!.id, mode as PulseAggregationMode),
     enabled: selectedCycle != null && firstTeam != null,
     retry: false,
   });
   const gated = probe.error instanceof ApiError && probe.error.status === 403;
+  const selectedCycleRow = cycles.data?.find((cycle) => cycle.id === selectedCycle);
 
   if (cycles.isLoading || teams.isLoading) return <Skeleton height={280} radius="md" />;
   if (cycles.isError || teams.isError) {
@@ -95,7 +110,7 @@ export default function PulseResults() {
         <SegmentedControl
           aria-label={t("pulse.results.modeAria")}
           value={mode}
-          onChange={(value) => setMode(value as PulseAggregationMode)}
+          onChange={(value) => setMode(value as ResultsViewMode)}
           data={MODES.map((m) => ({ value: m, label: t(`pulse.results.mode.${m}`) }))}
         />
       </Group>
@@ -104,7 +119,9 @@ export default function PulseResults() {
         <>
           <EmptyState icon={<IconChartBar size={32} />} label={t("pulse.results.resultsGated")} />
           {/* A fill-gated MONITOR (a manager who didn't respond) keeps their comments right —
-              render comments-only cards for the monitored teams so the gate never hides them. */}
+              render comments-only cards for the monitored teams so the gate never hides them.
+              The comparison view has no comments, so the gated compare branch falls back to
+              the direct comments scope. */}
           {selectedCycle != null &&
             resultsTeams
               .filter((team) => isHr() || monitoredIds.has(team.id))
@@ -114,12 +131,24 @@ export default function PulseResults() {
                   cycleId={selectedCycle}
                   teamId={team.id}
                   teamName={team.name}
-                  mode={mode}
+                  mode={compare ? "direct" : mode}
                   canMonitor
                   commentsOnly
                 />
               ))}
         </>
+      ) : compare ? (
+        selectedCycle != null &&
+        resultsTeams.map((team) => (
+          <PulseTeamComparisonCard
+            key={team.id}
+            cycleId={selectedCycle}
+            teamId={team.id}
+            teamName={team.name}
+            rotatingTextEn={selectedCycleRow?.rotatingQuestionEn}
+            rotatingTextPl={selectedCycleRow?.rotatingQuestionPl}
+          />
+        ))
       ) : (
         selectedCycle != null &&
         resultsTeams.map((team) => (

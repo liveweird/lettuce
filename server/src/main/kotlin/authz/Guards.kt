@@ -552,6 +552,29 @@ suspend fun requirePulseResultsAccess(
 }
 
 /**
+ * Team-comparison access (v2.10.0; the route has already answered the 404 and the CLOSED-only
+ * 409) — the results rule applied to the PARENT team: the HR auditor org-wide (audited,
+ * resource `pulseComparison`, the teamId as an extra field); everyone else the per-cycle fill
+ * gate plus the parent inside their visible tree. Checking the parent alone covers every row:
+ * the visible tree is transitive, so each child team is visible too, and every row equals an
+ * already-authorized single-team results query.
+ */
+suspend fun requirePulseComparisonAccess(
+    caller: CallerPrincipal,
+    cycleId: UInt,
+    teamId: UInt,
+    hasResponded: suspend () -> Boolean,
+    visibleTeamIds: suspend () -> Set<UInt>,
+) {
+    if (caller.isHr()) {
+        auditHrRead("pulseComparison", cycleId, caller.userId, "teamId" to teamId.toLong())
+        return
+    }
+    if (!hasResponded()) throw ForbiddenException("Results are available only for cycles you took part in")
+    if (teamId !in visibleTeamIds()) throw ForbiddenException("The team is outside your visible scope")
+}
+
+/**
  * Comments access — a monitoring right, not a results view, so no fill gate applies: managers
  * over their monitored (managed) tree, the HR auditor org-wide (audited, resource
  * `pulseComments`, the teamId as an extra field); a plain member never reads comments.

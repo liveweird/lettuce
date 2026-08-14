@@ -36,8 +36,9 @@ import {
 const PulseTrendChart = lazy(() => import("./PulseTrendChart"));
 
 /** The methodology hint (v2.6.4): the DashboardHero info-icon idiom — the tooltip text doubles
- *  as the icon's accessible name, so the explanation is also reachable without a pointer. */
-function HintIcon({ label }: { label: string }) {
+ *  as the icon's accessible name, so the explanation is also reachable without a pointer.
+ *  Exported for the comparison card (v2.10.0), which reuses it on its column headers. */
+export function HintIcon({ label }: { label: string }) {
   return (
     <Tooltip label={label} multiline w={280}>
       <IconInfoCircle
