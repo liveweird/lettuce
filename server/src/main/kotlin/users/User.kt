@@ -58,12 +58,8 @@ data class User(
     // Epoch millis of the last password change (0 = never). Server-internal; used to
     // invalidate refresh tokens minted before the change (see /api/v1/refresh).
     val passwordChangedAt: Long = 0,
-    // Career profile: ids into dictionary_entries (CAREER_PATH / CAREER_SPECIALIZATION /
-    // SENIORITY_LEVEL). Values are resolved at read time so dictionary renames propagate;
-    // a soft-deleted referenced entry keeps resolving to its retained value.
-    val careerPathId: UInt? = null,
-    val careerSpecializationId: UInt? = null,
-    val seniorityLevelId: UInt? = null,
+    // The career triple no longer lives on the user (v2.15.0): it derives from the LATEST
+    // career position (users/CareerPositionService.kt) and is resolved response-side.
     // Annual paid days-off allowance in whole days (V38). Null = not configured = zero paid
     // budget. ADMIN-only assignable; the current value applies to every calendar year.
     val paidDaysOffAllowance: Int? = null,
@@ -82,10 +78,6 @@ data class UserRequest(
     // Create only (PUT ignores it): email the new user their credentials (users/WelcomeEmail.kt),
     // like the mass import's sendEmails option. 503 on a mail-less deployment.
     val sendEmail: Boolean = false,
-    // Optional career profile refs — each must be an ACTIVE entry of its dictionary (400 otherwise).
-    val careerPathId: UInt? = null,
-    val careerSpecializationId: UInt? = null,
-    val seniorityLevelId: UInt? = null,
     // Optional paid days-off allowance in whole days (0–365) — ADMIN-only.
     val paidDaysOffAllowance: Int? = null,
 )
@@ -99,7 +91,9 @@ data class UserCreateResponse(
     // Only present when the create requested an email: true = handed to SMTP, false = delivery
     // failed (the account exists either way — the modal still shows the password).
     val emailSent: Boolean? = null,
-    // No defaults: every construction site must resolve them, and the keys are always emitted.
+    // Always null at creation since v2.15.0 (a new user has no career positions yet); the keys
+    // stay in the shape so both user-response schemas stay aligned. No defaults: every
+    // construction site must resolve them, and the keys are always emitted.
     val careerPath: DictionaryEntry?,
     val careerSpecialization: DictionaryEntry?,
     val seniorityLevel: DictionaryEntry?,
@@ -118,14 +112,9 @@ data class UserUpdateRequest(
     val name: String,
     val email: String,
     val roles: List<UserRole>,
-    // Career profile refs. null/omitted = leave unchanged — a set value can never be cleared
-    // (there is deliberately no way to express clearing). Assigning or changing any of them
-    // is ADMIN-only; a newly-assigned id must be an ACTIVE entry of the matching dictionary.
-    val careerPathId: UInt? = null,
-    val careerSpecializationId: UInt? = null,
-    val seniorityLevelId: UInt? = null,
-    // Paid days-off allowance (whole days, 0–365). Same null/omitted = leave unchanged and
-    // ADMIN-only-change semantics as the career refs; clearing is inexpressible.
+    // Paid days-off allowance (whole days, 0–365). null/omitted = leave unchanged, changing
+    // it is ADMIN-only; clearing is inexpressible. (The career refs left this request in
+    // v2.15.0 — the position history owns them now.)
     val paidDaysOffAllowance: Int? = null,
 )
 
@@ -198,7 +187,8 @@ data class UserResponse(
     val name: String,
     val email: String,
     val roles: List<UserRole>,
-    // Career profile, resolved from dictionary_entries at read time (renames propagate;
+    // Career profile — since v2.15.0 the user's CURRENT position (their latest career
+    // position row), resolved from dictionary_entries at read time (renames propagate;
     // soft-deleted entries keep resolving). No defaults — see UserCreateResponse.
     val careerPath: DictionaryEntry?,
     val careerSpecialization: DictionaryEntry?,
@@ -228,14 +218,14 @@ data class UserResponse(
 
 typealias UserPageResponse = PageResponse<UserResponse>
 
-fun User.toResponse(id: UInt, entries: Map<UInt, DictionaryEntry>) = UserResponse(
+fun User.toResponse(id: UInt, profile: CareerProfile?) = UserResponse(
     id,
     name,
     email,
     roles.sortedBy { it.name },
-    careerPath = careerPathId?.let { entries[it] },
-    careerSpecialization = careerSpecializationId?.let { entries[it] },
-    seniorityLevel = seniorityLevelId?.let { entries[it] },
+    careerPath = profile?.careerPath,
+    careerSpecialization = profile?.careerSpecialization,
+    seniorityLevel = profile?.seniorityLevel,
     paidDaysOffAllowance = paidDaysOffAllowance,
     deactivated = deactivated,
     disabledFeatures = disabledFeatures.sortedBy { it.name },

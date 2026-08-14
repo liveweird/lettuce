@@ -48,6 +48,8 @@ import ch.nokillswit.templates.TemplateService
 import ch.nokillswit.templates.TemplateServiceKey
 import ch.nokillswit.settings.AppSettingsService
 import ch.nokillswit.settings.AppSettingsServiceKey
+import ch.nokillswit.users.CareerPositionService
+import ch.nokillswit.users.CareerPositionServiceKey
 import ch.nokillswit.users.UserService
 import ch.nokillswit.users.UserServiceKey
 import io.ktor.server.application.*
@@ -61,6 +63,7 @@ suspend fun Application.configureDatabase() {
     )
     val userService = UserService(database)
     attributes.put(UserServiceKey, userService)
+    attributes.put(CareerPositionServiceKey, CareerPositionService(database))
     attributes.put(TeamServiceKey, TeamService(database))
     // configureCrypto runs before this module (application.yaml order), so the cipher is present.
     attributes.put(FeedbackServiceKey, FeedbackService(database, attributes[FieldCipherKey]))

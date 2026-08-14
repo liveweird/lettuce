@@ -648,4 +648,24 @@ describe("NotificationsButton", () => {
       await screen.findByText("You asked Pat Provider for feedback on your performance."),
     ).toBeInTheDocument();
   });
+
+  test("renders the career-position notification with a locale-formatted start date", async () => {
+    const note: Item = {
+      ...UNSEEN,
+      id: 5,
+      type: "CAREER_POSITION_STARTED_TO_USER",
+      params: { manager: "Mona Manager", startDate: "2026-08-10" },
+      link: "/users/2/career",
+    };
+    setupMocks(mockFetch, [note]);
+    const user = userEvent.setup();
+    renderWithProviders(<NotificationsButton />);
+
+    await user.click(await screen.findByRole("button", { name: /unread/i }));
+    expect(
+      await screen.findByText(
+        "Mona Manager recorded a new position in your career progression, starting Aug 10, 2026.",
+      ),
+    ).toBeInTheDocument();
+  });
 });

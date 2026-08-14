@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -207,70 +207,4 @@ describe("EditUser page", () => {
     expect(putCall).toBeUndefined();
   });
 
-  test("career pickers prefill from the user and picked values are PUT as numeric ids", async () => {
-    mockApi({
-      user: { ...EXISTING_USER, careerPath: { id: 11, valueEn: "Software Engineer", valuePl: "Software Engineer" } },
-      dictionaries: {
-        "career-paths": [
-          { id: 11, valueEn: "Software Engineer", valuePl: "Software Engineer" },
-          { id: 12, valueEn: "System Analyst", valuePl: "System Analyst" },
-        ],
-        "seniority-levels": [
-          { id: 31, valueEn: "Junior", valuePl: "Junior" },
-          { id: 32, valueEn: "Senior", valuePl: "Senior" },
-        ],
-      },
-    });
-
-    const user = userEvent.setup();
-    renderEditUser(7);
-
-    const careerPathInput = (await screen.findByLabelText("Career path", {
-      selector: "input",
-    })) as HTMLInputElement;
-    await waitFor(() => expect(careerPathInput.value).toBe("Software Engineer"));
-
-    const seniorityInput = screen.getByLabelText("Seniority level", { selector: "input" });
-    await waitFor(() => expect(seniorityInput).not.toBeDisabled());
-    fireEvent.click(seniorityInput); // open the searchable combobox
-    await user.click(await screen.findByText("Senior"));
-    await user.click(screen.getByRole("button", { name: /^save$/i }));
-
-    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/users"));
-    const body = putBody();
-    expect(body.careerPathId).toBe(11); // resubmitting the current value is fine
-    expect(body.seniorityLevelId).toBe(32);
-    expect(body).not.toHaveProperty("careerSpecializationId"); // still unset → omitted
-  });
-
-  test("a soft-deleted current entry still displays in its picker", async () => {
-    mockApi({
-      user: { ...EXISTING_USER, careerPath: { id: 99, valueEn: "Retired Path", valuePl: "Retired Path" } },
-      dictionaries: {
-        "career-paths": [{ id: 11, valueEn: "Software Engineer", valuePl: "Software Engineer" }], // 99 no longer active
-      },
-    });
-
-    renderEditUser(7);
-
-    const careerPathInput = (await screen.findByLabelText("Career path", {
-      selector: "input",
-    })) as HTMLInputElement;
-    await waitFor(() => expect(careerPathInput.value).toBe("Retired Path"));
-  });
-
-  test("unset career fields show the orange missing hint", async () => {
-    mockApi({
-      user: { ...EXISTING_USER, careerPath: { id: 11, valueEn: "Software Engineer", valuePl: "Software Engineer" } },
-      dictionaries: { "career-paths": [{ id: 11, valueEn: "Software Engineer", valuePl: "Software Engineer" }] },
-    });
-
-    renderEditUser(7);
-
-    await screen.findByDisplayValue("Alice");
-    // Two of the three fields are unset — exactly two hints.
-    await waitFor(() =>
-      expect(screen.getAllByText("Missing — providing it is strongly advised")).toHaveLength(2),
-    );
-  });
 });

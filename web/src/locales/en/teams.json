@@ -86,5 +86,7 @@
     "memberRemoved": "Member removed"
   },
   "daysOff": "Days off",
-  "daysOffForAria": "Days off of {{name}}"
+  "daysOffForAria": "Days off of {{name}}",
+  "careerProgression": "Career progression",
+  "careerProgressionForAria": "Career progression of {{name}}"
 }

@@ -30,7 +30,6 @@ import {
   type UserRole,
 } from "../api/client";
 import { showSuccessToast } from "../utils/toast";
-import CareerProfileSelect from "../components/CareerProfileSelect";
 import RolesMultiSelect from "../components/RolesMultiSelect";
 import { saveErrorMessage } from "../utils/saveError";
 
@@ -38,13 +37,10 @@ type FormValues = {
   name: string;
   email: string;
   roles: UserRole[];
-  // Dictionary-entry ids as strings ("" = unset). Sent only when set — omitting encodes
-  // "leave unchanged", so clearing a value is inexpressible client-side too.
-  careerPathId: string;
-  careerSpecializationId: string;
-  seniorityLevelId: string;
-  // Whole days ("" = unset). Sent only when set — same leave-unchanged encoding as the
-  // career refs, so clearing a set allowance is inexpressible client-side too.
+  // The career triple left this form in v2.15.0 — it lives on /users/:id/career now,
+  // managed by the person's management chain, not by admins.
+  // Whole days ("" = unset). Sent only when set — omitting encodes "leave unchanged",
+  // so clearing a set allowance is inexpressible client-side too.
   paidDaysOffAllowance: number | "";
 };
 
@@ -64,9 +60,6 @@ export default function EditUser() {
       name: "",
       email: "",
       roles: [],
-      careerPathId: "",
-      careerSpecializationId: "",
-      seniorityLevelId: "",
       paidDaysOffAllowance: "",
     },
     validate: {
@@ -95,9 +88,6 @@ export default function EditUser() {
         name: data.name,
         email: data.email,
         roles: [...data.roles],
-        careerPathId: data.careerPath ? String(data.careerPath.id) : "",
-        careerSpecializationId: data.careerSpecialization ? String(data.careerSpecialization.id) : "",
-        seniorityLevelId: data.seniorityLevel ? String(data.seniorityLevel.id) : "",
         paidDaysOffAllowance: data.paidDaysOffAllowance ?? "",
       });
     }
@@ -115,11 +105,6 @@ export default function EditUser() {
         name: values.name,
         email: values.email,
         roles: values.roles,
-        ...(values.careerPathId ? { careerPathId: Number(values.careerPathId) } : {}),
-        ...(values.careerSpecializationId
-          ? { careerSpecializationId: Number(values.careerSpecializationId) }
-          : {}),
-        ...(values.seniorityLevelId ? { seniorityLevelId: Number(values.seniorityLevelId) } : {}),
         ...(values.paidDaysOffAllowance !== ""
           ? { paidDaysOffAllowance: values.paidDaysOffAllowance }
           : {}),
@@ -223,24 +208,6 @@ export default function EditUser() {
                   {...form.getInputProps("email")}
                 />
                 <RolesMultiSelect {...form.getInputProps("roles")} />
-                <CareerProfileSelect
-                  slug="career-paths"
-                  label={t("common.field.careerPath")}
-                  current={data?.careerPath}
-                  {...form.getInputProps("careerPathId")}
-                />
-                <CareerProfileSelect
-                  slug="career-specializations"
-                  label={t("common.field.careerSpecialization")}
-                  current={data?.careerSpecialization}
-                  {...form.getInputProps("careerSpecializationId")}
-                />
-                <CareerProfileSelect
-                  slug="seniority-levels"
-                  label={t("common.field.seniorityLevel")}
-                  current={data?.seniorityLevel}
-                  {...form.getInputProps("seniorityLevelId")}
-                />
                 <NumberInput
                   label={t("users.paidDaysOffAllowance")}
                   description={t("users.paidDaysOffAllowanceHint")}

@@ -62,7 +62,8 @@
     "pulseCycleScheduled": "A pulse survey is scheduled to open on {{openDate}}.",
     "pulseCycleOpened": "The pulse survey is open — share your answers by {{closeDate}}.",
     "pulseResultsAvailable": "Pulse survey results are available.",
-    "pulseCycleCancelled": "The pulse survey planned for {{openDate}} was cancelled."
+    "pulseCycleCancelled": "The pulse survey planned for {{openDate}} was cancelled.",
+    "careerPositionStarted": "{{manager}} recorded a new position in your career progression, starting {{startDate}}."
   },
   "delete": "Delete",
   "deleteAria": "Delete notification {{id}}"

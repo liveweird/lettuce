@@ -129,6 +129,23 @@ describe("ManagersTable", () => {
     expect(link).toHaveAttribute("href", "/users/1/goals?name=Manager%20One&from=managers");
   });
 
+  test("renders a Career progression link in the card's Profile section (v2.15.0)", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        items: [
+          { userId: 1, name: "Manager One", email: "m1@example.com", teamId: 5, teamName: "alpha" },
+        ],
+        page: 1,
+        pageSize: 100,
+        total: 1,
+      }),
+    );
+    renderWithProviders(<ManagersTable />);
+
+    const link = await screen.findByRole("link", { name: "Career progression of Manager One" });
+    expect(link).toHaveAttribute("href", "/users/1/career?name=Manager%20One&from=managers");
+  });
+
   test("a manager of two of my teams gets one card with both team badges", async () => {
     mockFetch.mockResolvedValue(
       jsonResponse(200, {

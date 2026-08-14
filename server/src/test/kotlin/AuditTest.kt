@@ -360,63 +360,56 @@ class AuditTest {
     }
 
     @Test
-    fun `career profile changes carry id deltas in user updated and user created`() = testApplication {
+    fun `career position mutations emit their own audit events with deltas`() = testApplication {
         usePostgresTestcontainer()
-        val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw")
-        val targetEmail = uniqueEmail("career-target")
-        val targetId = TestUsers.seed(email = targetEmail, password = "pw", roles = emptySet())
+        val mgrEmail = uniqueEmail("cpa-m")
+        val subEmail = uniqueEmail("cpa-s")
+        val mgrId = TestUsers.seed(email = mgrEmail, password = "pw", roles = emptySet())
+        val subId = TestUsers.seed(email = subEmail, password = "pw", roles = emptySet())
+        val teamId = TestServices.teams.create(
+            ch.nokillswit.teams.Team(name = "cpa-${java.util.UUID.randomUUID()}", managerId = mgrId),
+        )
+        TestServices.teams.addMember(teamId, subId)
         val marker = java.util.UUID.randomUUID().toString().take(8)
         val ids = TestDictionaries.append(
             ch.nokillswit.dictionaries.Dictionary.CAREER_PATH,
-            "Audit A $marker",
-            "Audit B $marker",
+            "CpAudit A $marker",
+            "CpAudit B $marker",
         )
         val appender = LogCapture("ch.nokillswit.audit")
         try {
-            val client = authedClient(adminEmail, "pw")
+            val client = authedClient(mgrEmail, "pw")
 
-            // First assignment: To present, From absent (the field was unset).
-            client.put("/api/v1/users/$targetId") {
+            // Create → career_position.created with the start date and the set ref ids only.
+            val created = client.post("/api/v1/users/$subId/career-positions") {
                 contentType(ContentType.Application.Json)
-                setBody(UserUpdateRequest(name = "Test", email = targetEmail, roles = emptyList(), careerPathId = ids[0]))
-            }
-            val assigned = appender.events.find { it.message == "user.updated" }
-            assertNotNull(assigned, "expected a user.updated audit event")
-            assertEquals(ids[0].toLong(), assigned.keyValuePairs.first { it.key == "careerPathTo" }.value)
-            assertTrue(assigned.keyValuePairs.none { it.key == "careerPathFrom" })
-            assertTrue(assigned.keyValuePairs.none { it.key == "nameFrom" })
+                setBody(ch.nokillswit.users.CareerPositionWrite("2020-02-02", careerPathId = ids[0]))
+            }.body<ch.nokillswit.users.CareerPositionResponse>()
+            val createdEvent = appender.events.find { it.message == "career_position.created" }
+            assertNotNull(createdEvent, "expected a career_position.created audit event")
+            assertEquals(mgrId.toLong(), createdEvent.keyValuePairs.first { it.key == "byUserId" }.value)
+            assertEquals(subId.toLong(), createdEvent.keyValuePairs.first { it.key == "targetUserId" }.value)
+            assertEquals("2020-02-02", createdEvent.keyValuePairs.first { it.key == "startDate" }.value)
+            assertEquals(ids[0].toLong(), createdEvent.keyValuePairs.first { it.key == "careerPathId" }.value)
+            assertTrue(createdEvent.keyValuePairs.none { it.key == "seniorityLevelId" })
 
-            // Resubmitting the same id is not a change → nothing new.
-            client.put("/api/v1/users/$targetId") {
+            // Correction → career_position.updated with From/To deltas for what changed.
+            client.put("/api/v1/users/$subId/career-positions/${created.id}") {
                 contentType(ContentType.Application.Json)
-                setBody(UserUpdateRequest(name = "Test", email = targetEmail, roles = emptyList(), careerPathId = ids[0]))
+                setBody(ch.nokillswit.users.CareerPositionWrite("2020-03-03", careerPathId = ids[1]))
             }
-            assertEquals(1, appender.events.count { it.message == "user.updated" })
+            val updated = appender.events.find { it.message == "career_position.updated" }
+            assertNotNull(updated, "expected a career_position.updated audit event")
+            assertEquals("2020-02-02", updated.keyValuePairs.first { it.key == "startDateFrom" }.value)
+            assertEquals("2020-03-03", updated.keyValuePairs.first { it.key == "startDateTo" }.value)
+            assertEquals(ids[0].toLong(), updated.keyValuePairs.first { it.key == "careerPathFrom" }.value)
+            assertEquals(ids[1].toLong(), updated.keyValuePairs.first { it.key == "careerPathTo" }.value)
 
-            // Changing to another entry → From and To both present.
-            client.put("/api/v1/users/$targetId") {
-                contentType(ContentType.Application.Json)
-                setBody(UserUpdateRequest(name = "Test", email = targetEmail, roles = emptyList(), careerPathId = ids[1]))
-            }
-            val changed = appender.events.last { it.message == "user.updated" }
-            assertEquals(ids[0].toLong(), changed.keyValuePairs.first { it.key == "careerPathFrom" }.value)
-            assertEquals(ids[1].toLong(), changed.keyValuePairs.first { it.key == "careerPathTo" }.value)
-
-            // Create with a career field → user.created carries the id.
-            client.post("/api/v1/users") {
-                contentType(ContentType.Application.Json)
-                setBody(
-                    ch.nokillswit.users.UserRequest(
-                        name = "Career Created", email = uniqueEmail("career-created"), password = "pw-123456789",
-                        careerPathId = ids[0],
-                    ),
-                )
-            }
-            val created = appender.events.find { it.message == "user.created" }
-            assertNotNull(created, "expected a user.created audit event")
-            assertEquals(ids[0].toLong(), created.keyValuePairs.first { it.key == "careerPathId" }.value)
-            assertTrue(created.keyValuePairs.none { it.key == "seniorityLevelId" })
+            // Delete → career_position.deleted with the (final) start date.
+            client.delete("/api/v1/users/$subId/career-positions/${created.id}")
+            val deleted = appender.events.find { it.message == "career_position.deleted" }
+            assertNotNull(deleted, "expected a career_position.deleted audit event")
+            assertEquals("2020-03-03", deleted.keyValuePairs.first { it.key == "startDate" }.value)
         } finally {
             appender.detach()
         }

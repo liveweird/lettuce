@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -281,33 +281,5 @@ describe("CreateUser page", () => {
 
     expect(screen.getByTestId("probe")).toHaveTextContent("/users");
     expect(screen.queryByRole("heading", { name: /new user/i })).not.toBeInTheDocument();
-  });
-
-  test("career pickers are optional but post numeric ids when chosen", async () => {
-    const mockFetch = mockApi(201, CREATED_USER, {
-      "career-paths": [
-        { id: 11, valueEn: "Software Engineer", valuePl: "Software Engineer" },
-        { id: 12, valueEn: "System Analyst", valuePl: "System Analyst" },
-      ],
-    });
-
-    const user = userEvent.setup();
-    renderCreateUser();
-
-    // All three start unset — three orange hints.
-    expect(screen.getAllByText("Missing — providing it is strongly advised")).toHaveLength(3);
-
-    await fillValidForm(user);
-    const careerPathInput = screen.getByLabelText("Career path", { selector: "input" });
-    await waitFor(() => expect(careerPathInput).not.toBeDisabled());
-    fireEvent.click(careerPathInput); // open the searchable combobox
-    await user.click(await screen.findByText("System Analyst"));
-    await user.click(screen.getByRole("button", { name: /^create$/i }));
-
-    await screen.findByText("User created");
-    const body = postBodyOf(mockFetch);
-    expect(body.careerPathId).toBe(12);
-    expect(body).not.toHaveProperty("careerSpecializationId");
-    expect(body).not.toHaveProperty("seniorityLevelId");
   });
 });

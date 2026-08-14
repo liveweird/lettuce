@@ -11,6 +11,7 @@ import {
   DAYS_OFF_ACTIONS,
   OPERATIONAL_ACTIONS,
   PERFORMANCE_ACTIONS,
+  PROFILE_ACTIONS,
   hasVisibleActions,
   type ButtonKey,
 } from "./personCardSupport";
@@ -190,6 +191,8 @@ export default function PersonCardBody({
     <div className={classes.body}>
       <Section label={t("users.section.profile")}>
         <CareerRows person={person} />
+        {/* The career-progression drill-down (v2.15.0) — the profile's own button row. */}
+        {actionsRow(PROFILE_ACTIONS)}
       </Section>
 
       {showCollaboration && (

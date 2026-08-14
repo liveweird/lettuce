@@ -32,6 +32,7 @@ import {
   IconMessageQuestion,
   IconPencil,
   IconSend,
+  IconStairsUp,
   IconTargetArrow,
   IconTrash,
   IconX,
@@ -93,6 +94,7 @@ const EVENT_KEY: Record<NotificationItem["type"], string> = {
   PULSE_CYCLE_OPENED: "pulseCycleOpened",
   PULSE_RESULTS_AVAILABLE: "pulseResultsAvailable",
   PULSE_CYCLE_CANCELLED: "pulseCycleCancelled",
+  CAREER_POSITION_STARTED_TO_USER: "careerPositionStarted",
   PASSWORD_CHANGED: "passwordChanged",
 };
 
@@ -149,6 +151,10 @@ function describeNotification(n: NotificationItem, t: TFunction, locale: string)
       if (params[k] != null) params[k] = formatIsoDate(params[k]!, locale);
     }
   }
+  // The career kind carries the position's raw ISO start date — format per locale.
+  if (key === "careerPositionStarted" && params.startDate != null) {
+    params.startDate = formatIsoDate(params.startDate, locale);
+  }
   // The correction kind words ADD/SUBTRACT via i18next context.
   if (key === "daysOffCorrected") {
     return t(`notifications.event.${key}`, { ...params, context: params.operation });
@@ -197,6 +203,7 @@ const TYPE_META: Record<NotificationItem["type"], { icon: typeof IconBell; color
   PULSE_CYCLE_OPENED: { icon: IconHeartRateMonitor, color: "teal" },
   PULSE_RESULTS_AVAILABLE: { icon: IconHeartRateMonitor, color: "grape" },
   PULSE_CYCLE_CANCELLED: { icon: IconHeartRateMonitor, color: "gray" },
+  CAREER_POSITION_STARTED_TO_USER: { icon: IconStairsUp, color: "indigo" },
   PASSWORD_CHANGED: { icon: IconKey, color: "orange" },
 };
 

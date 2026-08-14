@@ -429,6 +429,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/{id}/career-positions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The user's career position timeline
+         * @description The user's career progression (v2.15.0): every position (career path / specialization /
+         *     seniority triple) they have held, chronological, **unpaged** (positions are
+         *     intrinsically few). The start-only model makes the timeline continuous and
+         *     non-overlapping by construction: each `endDate` is DERIVED — the day before the next
+         *     position's start — and the last position's is null (the current, open-ended one).
+         *     Any authenticated caller may read any user's timeline (position titles are org-visible
+         *     on person cards already); a missing or soft-deleted user is 404 (the read-before-guard
+         *     idiom — for this resource existence is no secret).
+         */
+        get: operations["listUserCareerPositions"];
+        put?: never;
+        /**
+         * Start a new position (chain managers only)
+         * @description Appends a position to the user's timeline, implicitly concluding the current one the
+         *     day before the new `startDate`. Caller must be a manager in the user's TRANSITIVE
+         *     management chain — nobody else (not the user, not ADMIN, not HR). The start date must
+         *     be strictly after the current position's start and not in the future; at least one of
+         *     the three refs must be set, and each set ref must be an ACTIVE entry of its dictionary.
+         *     The user is notified (a new position is worth telling them about; corrections and
+         *     deletions stay silent). Audited as `career_position.created`.
+         */
+        post: operations["createUserCareerPosition"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{id}/career-positions/{positionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+                positionId: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Correct a position (chain managers only)
+         * @description Corrects a position's start date and/or triple in place. Same write right as the
+         *     create; a position belonging to a different user than the path names is 404. The
+         *     corrected start date must stay strictly between the neighboring positions' starts
+         *     (409 otherwise — a correction never reorders the timeline) and not in the future;
+         *     the refs are a FULL replace (null = unset), at least one must be set, and only
+         *     CHANGED refs are validated as active (a date-only correction never trips over a
+         *     since-soft-deleted ref). Silent (no notification); audited as
+         *     `career_position.updated` with deltas.
+         */
+        put: operations["replaceUserCareerPosition"];
+        post?: never;
+        /**
+         * Remove a position (chain managers only)
+         * @description Soft-deletes a position; the neighbors merge implicitly (the previous position
+         *     absorbs the span — the start-only model needs no re-dating). Same write right as
+         *     the create. Silent; audited as `career_position.deleted`.
+         */
+        delete: operations["deleteUserCareerPosition"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/teams": {
         parameters: {
             query?: never;
@@ -3228,22 +3303,6 @@ export interface components {
              */
             sendEmail: boolean;
             /**
-             * Format: int64
-             * @description Id of an ACTIVE CAREER_PATH dictionary entry. Omitted or null = leave unset.
-             *     An unknown, wrong-dictionary, or soft-deleted id is rejected with 400.
-             */
-            careerPathId?: number | null;
-            /**
-             * Format: int64
-             * @description Id of an ACTIVE CAREER_SPECIALIZATION dictionary entry — see careerPathId.
-             */
-            careerSpecializationId?: number | null;
-            /**
-             * Format: int64
-             * @description Id of an ACTIVE SENIORITY_LEVEL dictionary entry — see careerPathId.
-             */
-            seniorityLevelId?: number | null;
-            /**
              * @description Annual paid days-off allowance in whole days. Omitted or null = leave unset
              *     (= zero paid budget). The current value applies to every calendar year.
              */
@@ -3257,6 +3316,7 @@ export interface components {
             roles: ("ADMIN" | "HR")[];
             /** @description Present only when sendEmail was requested — false means the delivery failed (the account exists regardless; the password is still shown once). */
             emailSent?: boolean | null;
+            /** @description Always null at creation (v2.15.0) — a new user has no career positions yet; the keys stay so both user-response shapes align. */
             careerPath: components["schemas"]["DictionaryEntry"] | null;
             careerSpecialization: components["schemas"]["DictionaryEntry"] | null;
             seniorityLevel: components["schemas"]["DictionaryEntry"] | null;
@@ -3279,25 +3339,6 @@ export interface components {
              */
             roles: ("ADMIN" | "HR")[];
             /**
-             * Format: int64
-             * @description Id of an ACTIVE CAREER_PATH dictionary entry. Omitted or null = leave unchanged —
-             *     there is deliberately no way to clear a set value. Assigning or changing requires
-             *     ADMIN (403 otherwise); an unknown, wrong-dictionary, or soft-deleted NEW id is 400.
-             *     Resubmitting the user's current id is never a change (allowed for any caller, even
-             *     when that entry has been soft-deleted since).
-             */
-            careerPathId?: number | null;
-            /**
-             * Format: int64
-             * @description Id of an ACTIVE CAREER_SPECIALIZATION dictionary entry — semantics as careerPathId.
-             */
-            careerSpecializationId?: number | null;
-            /**
-             * Format: int64
-             * @description Id of an ACTIVE SENIORITY_LEVEL dictionary entry — semantics as careerPathId.
-             */
-            seniorityLevelId?: number | null;
-            /**
              * @description Annual paid days-off allowance in whole days. Omitted or null = leave unchanged —
              *     there is deliberately no way to clear a set value. Assigning or changing requires
              *     ADMIN (403 otherwise); resubmitting the current value is never a change. The
@@ -3305,6 +3346,63 @@ export interface components {
              *     retroactively.
              */
             paidDaysOffAllowance?: number | null;
+        };
+        CareerPositionWrite: {
+            /**
+             * Format: date
+             * @description Strict zero-padded ISO YYYY-MM-DD, not in the future. Create: strictly after the
+             *     current position's start (409 otherwise). Correct: strictly between the
+             *     neighboring positions' starts (409 otherwise).
+             */
+            startDate: string;
+            /**
+             * Format: int64
+             * @description Id of an ACTIVE CAREER_PATH dictionary entry; null = this position leaves the
+             *     field unset (a FULL replace on PUT, unlike the old users-PUT leave-unchanged
+             *     null). At least one of the three refs must be set. On PUT, only ids that CHANGE
+             *     the stored value are validated as active.
+             */
+            careerPathId?: number | null;
+            /**
+             * Format: int64
+             * @description Id of an ACTIVE CAREER_SPECIALIZATION dictionary entry — see careerPathId.
+             */
+            careerSpecializationId?: number | null;
+            /**
+             * Format: int64
+             * @description Id of an ACTIVE SENIORITY_LEVEL dictionary entry — see careerPathId.
+             */
+            seniorityLevelId?: number | null;
+        };
+        CareerPositionResponse: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date */
+            startDate: string;
+            /**
+             * Format: date
+             * @description DERIVED, never stored (the start-only model): the day before the user's next
+             *     position starts; null = the open-ended current position (always the last item).
+             */
+            endDate: string | null;
+            /** @description Resolved at read time (renames propagate; soft-deleted entries keep resolving to their retained values). */
+            careerPath: components["schemas"]["DictionaryEntry"] | null;
+            careerSpecialization: components["schemas"]["DictionaryEntry"] | null;
+            seniorityLevel: components["schemas"]["DictionaryEntry"] | null;
+            /**
+             * Format: int64
+             * @description Epoch milliseconds.
+             */
+            createdAt: number;
+            /**
+             * Format: int64
+             * @description Epoch milliseconds.
+             */
+            lastModified: number;
+        };
+        CareerPositionList: {
+            /** @description Chronological (start ascending) — the last item is the current position. */
+            items: components["schemas"]["CareerPositionResponse"][];
         };
         PasswordUpdateRequest: {
             /** @description At most 71 bytes in UTF-8 (bcrypt limit) — longer is rejected with 400. */
@@ -3324,9 +3422,11 @@ export interface components {
             /** @description Additional roles — empty for a regular user. */
             roles: ("ADMIN" | "HR")[];
             /**
-             * @description The user's career path, resolved from the CAREER_PATH dictionary at read time
-             *     (renames propagate; a soft-deleted referenced entry keeps resolving to its
-             *     retained value). Null until set; once set it can never be cleared.
+             * @description The user's career path, taken from their CURRENT career position (the latest
+             *     entry of GET /users/{id}/career-positions — v2.15.0) and resolved from the
+             *     CAREER_PATH dictionary at read time (renames propagate; a soft-deleted
+             *     referenced entry keeps resolving to its retained value). Null while the user
+             *     has no positions or the current position leaves the field unset.
              */
             careerPath: components["schemas"]["DictionaryEntry"] | null;
             /** @description Resolved from the CAREER_SPECIALIZATION dictionary — see careerPath. */
@@ -3516,10 +3616,11 @@ export interface components {
              */
             lastReviewStatus?: "DRAFT" | "CALIBRATION" | "PUBLISHED" | null;
             /**
-             * @description The row user's career path, resolved from the CAREER_PATH dictionary at read
-             *     time (renames propagate; a soft-deleted referenced entry keeps resolving to
-             *     its retained value). Unlike the directional stats, populated for EVERY view;
-             *     null when the field is unset.
+             * @description The row user's career path, taken from their CURRENT career position (v2.15.0)
+             *     and resolved from the CAREER_PATH dictionary at read time (renames propagate;
+             *     a soft-deleted referenced entry keeps resolving to its retained value). Unlike
+             *     the directional stats, populated for EVERY view; null while the user has no
+             *     positions or their current position leaves the field unset.
              */
             careerPath?: components["schemas"]["DictionaryEntry"] | null;
             /** @description Resolved from the CAREER_SPECIALIZATION dictionary — see careerPath. */
@@ -4823,7 +4924,7 @@ export interface components {
              * @description Notification kind; the client renders it in the viewer's language.
              * @enum {string}
              */
-            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_MANAGER" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_REQUESTED_TO_MANAGER" | "DAYS_OFF_ACCEPTED_TO_OWNER" | "DAYS_OFF_REJECTED_TO_OWNER" | "DAYS_OFF_CANCELLED_TO_MANAGER" | "DAYS_OFF_CORRECTED_TO_OWNER" | "PULSE_CYCLE_SCHEDULED" | "PULSE_CYCLE_OPENED" | "PULSE_RESULTS_AVAILABLE" | "PULSE_CYCLE_CANCELLED" | "PASSWORD_CHANGED";
+            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_MANAGER" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_REQUESTED_TO_MANAGER" | "DAYS_OFF_ACCEPTED_TO_OWNER" | "DAYS_OFF_REJECTED_TO_OWNER" | "DAYS_OFF_CANCELLED_TO_MANAGER" | "DAYS_OFF_CORRECTED_TO_OWNER" | "PULSE_CYCLE_SCHEDULED" | "PULSE_CYCLE_OPENED" | "PULSE_RESULTS_AVAILABLE" | "PULSE_CYCLE_CANCELLED" | "CAREER_POSITION_STARTED_TO_USER" | "PASSWORD_CHANGED";
             /**
              * @description Interpolation values for the localized message — party names (proper nouns), e.g.
              *     `{provider,subject,requester}`; plus `self` — the SPA's i18next context carrier:
@@ -6087,6 +6188,163 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             /** @description Caller is neither the target user nor ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listUserCareerPositions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CareerPositionList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    createUserCareerPosition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CareerPositionWrite"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    /** @description URL of the new position */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CareerPositionResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not in the user's management chain */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description The start date does not come after the current position's start */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    replaceUserCareerPosition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+                positionId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CareerPositionWrite"];
+            };
+        };
+        responses: {
+            /** @description Corrected */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not in the user's management chain */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description The corrected start date would reorder the timeline */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    deleteUserCareerPosition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+                positionId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not in the user's management chain */
             403: {
                 headers: {
                     [name: string]: unknown;

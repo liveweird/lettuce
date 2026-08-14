@@ -86,5 +86,7 @@
     "memberRemoved": "Członek usunięty"
   },
   "daysOff": "Dni wolne",
-  "daysOffForAria": "Dni wolne: {{name}}"
+  "daysOffForAria": "Dni wolne: {{name}}",
+  "careerProgression": "Historia kariery",
+  "careerProgressionForAria": "Historia kariery: {{name}}"
 }

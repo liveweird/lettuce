@@ -254,6 +254,7 @@ export default function TeamMembersTable({
                     // included) — the v1.39.0 back= override; the label stays the origin's.
                     drillBack: backToProp,
                     show: {
+                      career: true,
                       provide: true,
                       ask: true,
                       request: view === "managed",

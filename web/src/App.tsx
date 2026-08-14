@@ -111,6 +111,7 @@ const ReviewPeriods = lazy(() => import("./pages/ReviewPeriods"));
 const DaysOff = lazy(() => import("./pages/DaysOff"));
 const CreateDaysOff = lazy(() => import("./pages/CreateDaysOff"));
 const UserDaysOff = lazy(() => import("./pages/UserDaysOff"));
+const UserCareer = lazy(() => import("./pages/UserCareer"));
 const Pulse = lazy(() => import("./pages/Pulse"));
 const PulseCycles = lazy(() => import("./pages/PulseCycles"));
 const PublicHolidays = lazy(() => import("./pages/PublicHolidays"));
@@ -628,6 +629,7 @@ export default function App() {
             <Route path="days-off" element={<DaysOff />} />
             <Route path="days-off/new" element={<CreateDaysOff />} />
             <Route path="users/:userId/days-off" element={<UserDaysOff />} />
+            <Route path="users/:userId/career" element={<UserCareer />} />
             <Route path="public-holidays" element={<PublicHolidays />} />
             <Route path="teams/:teamId/kpis" element={<TeamKpis />} />
             <Route path="templates" element={<Templates />} />
