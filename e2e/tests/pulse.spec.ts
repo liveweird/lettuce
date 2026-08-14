@@ -282,6 +282,10 @@ test("admin closes; a respondent reads team results; the non-responding manager 
   // pending text; shared-DB reruns accumulate cycles → the chart renders), so both legs
   // assert an either-or locator and never point counts or values (the delta stance).
   await page.goto("/pulse?tab=trend");
+  // The two-view model (v2.13.0): the tab opens on "Teams I belong to" — for the team-less
+  // Manager CCC that's the member empty state — and the managed view holds the comparison.
+  await expect(page.getByText("You are not a member of any team.")).toBeVisible();
+  await page.getByText("Teams I manage", { exact: true }).click();
   await expect(
     page.getByText("This team has no sub-teams — both lines cover the same people."),
   ).toBeVisible();

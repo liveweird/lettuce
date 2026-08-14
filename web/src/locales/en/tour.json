@@ -41,7 +41,7 @@
     "daysOffTeam": "My team — the requests your direct reports have filed, where you accept or reject them.",
     "pulseSurvey": "Current survey — the open cycle's questions. Your answers are anonymous, and you have to answer before you can see any results.",
     "pulseResults": "Results — the anonymous eNPS and question scores of a closed cycle, shown only for groups big enough to keep answers unattributable.",
-    "pulseTrend": "Trend — how a team's scores move across closed cycles, with its members, everyone below, and each sub-team as separate lines you can toggle.",
+    "pulseTrend": "Trend — how a team's scores move across closed cycles: one line for a team you belong to, or a managed team with everyone below and each sub-team as lines you can toggle.",
     "pulseParticipation": "Participation — how many people in the teams you watch have answered. You see counts and names of who responded, never their answers.",
     "config": "Config — users, teams, templates and the registries the rest of the app draws on.",
     "configUsers": "Users — the people directory (admins manage accounts).",

@@ -72,21 +72,21 @@
     "CLOSED": "Closed",
     "CANCELLED": "Cancelled"
   },
+  "view": {
+    "member": "Teams I belong to",
+    "managed": "Teams I manage",
+    "aria": "View",
+    "noMemberTeams": "You are not a member of any team.",
+    "noManagedTeams": "You don't manage any teams."
+  },
   "results": {
     "cycle": "Cycle",
     "cycleOption": "Closed {{date}}",
-    "view": {
-      "member": "Teams I belong to",
-      "managed": "Teams I manage"
-    },
-    "viewAria": "Results view",
     "calc": {
       "direct": "Direct members only",
       "indirect": "Including everyone below"
     },
     "calcAria": "Calculation scope",
-    "noMemberTeams": "You are not a member of any team.",
-    "noManagedTeams": "You don't manage any teams.",
     "enps": "eNPS",
     "promoters": "Promoters",
     "passives": "Passives",
@@ -119,7 +119,6 @@
     },
     "resultsGated": "Results are available for closed cycles you took part in.",
     "noResultsYet": "No closed pulse cycles yet.",
-    "noTeams": "No teams to show results for.",
     "trendTitle": "eNPS trend",
     "trendPending": "The trend appears after two closed cycles.",
     "commentsTitle": "Comments",

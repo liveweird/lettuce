@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.13.0",
+    date: "2026-08-14",
+    en: `The Trend tab follows the same two views as Results. "Teams I belong to" shows a single line — your team's direct members over the closed cycles — while "Teams I manage" keeps the full comparison chart with a toggleable line for the team's members, everyone below, and each sub-team. The metric switch (eNPS or a question's favorable share) works in both views, and each tab remembers its own view choice.`,
+    pl: `Zakładka Trend działa teraz w tych samych dwóch widokach co Wyniki. „Zespoły, do których należę" pokazuje jedną linię — bezpośrednich członków Twojego zespołu w kolejnych zamkniętych cyklach — a „Zespoły, którymi zarządzam" zachowuje pełny wykres porównawczy z przełączalnymi liniami dla członków zespołu, wszystkich poniżej i każdego podzespołu. Przełącznik metryki (eNPS albo udział odpowiedzi pozytywnych dla pytania) działa w obu widokach, a każda zakładka pamięta swój wybór widoku osobno.`,
+  },
+  {
     version: "2.12.0",
     date: "2026-08-14",
     en: `Pulse results, organized by your role. The Results tab now has two clear views instead of one mode switch: "Teams I belong to" shows only the teams you are a member of, and "Teams I manage" shows the teams you manage — directly or through the managers below you. In the managed view a calculation toggle decides what the numbers cover: "Direct members only" counts just each team's own roster, while "Including everyone below" also counts everyone reporting into it. The separate "Sub-team comparison" table is gone — the managed view with the toggle, and the Trend tab, cover what it did more clearly.`,

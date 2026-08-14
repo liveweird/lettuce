@@ -98,10 +98,10 @@ export default function PulseResults() {
         />
         <Group gap="xs" wrap="wrap">
           <SegmentedControl
-            aria-label={t("pulse.results.viewAria")}
+            aria-label={t("pulse.view.aria")}
             value={view}
             onChange={(value) => setView(value as ResultsView)}
-            data={VIEWS.map((v) => ({ value: v, label: t(`pulse.results.view.${v}`) }))}
+            data={VIEWS.map((v) => ({ value: v, label: t(`pulse.view.${v}`) }))}
           />
           {view === "managed" && (
             <SegmentedControl
@@ -119,7 +119,7 @@ export default function PulseResults() {
       {viewTeams.length === 0 ? (
         <EmptyState
           icon={<IconChartBar size={32} />}
-          label={t(view === "member" ? "pulse.results.noMemberTeams" : "pulse.results.noManagedTeams")}
+          label={t(view === "member" ? "pulse.view.noMemberTeams" : "pulse.view.noManagedTeams")}
         />
       ) : gated ? (
         <>
