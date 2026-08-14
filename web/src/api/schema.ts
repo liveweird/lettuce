@@ -2791,34 +2791,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/pulse-surveys/trend-comparison": {
-        parameters: {
-            query: {
-                /** @description The team the pulse scope is built from. Unknown/deleted teams answer 404. */
-                teamId: components["parameters"]["PulseTeamId"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Read a team's multi-scope trend across closed cycles
-         * @description The trend series for the team's direct members, its whole subtree, and each direct
-         *     sub-team's subtree (no mode param — each series is self-describing; the parent team
-         *     appears twice, so a series is identified by its (teamId, mode) pair). Access as for
-         *     the single-team trend, checked on the PARENT team only (the visible tree is
-         *     transitive); HR org-wide, audited. The per-cycle fill gate applies POINT-WISE and
-         *     uniformly across every series for non-HR callers.
-         */
-        get: operations["getPulseTrendComparison"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/pulse-surveys/visible-teams": {
         parameters: {
             query?: never;
@@ -5170,13 +5142,6 @@ export interface components {
             mode: components["schemas"]["PulseAggregationMode"];
             /** @description Non-cancelled CLOSED cycles, oldest first. */
             points: components["schemas"]["PulseTrendPoint"][];
-        };
-        PulseTrendComparison: {
-            /** Format: int64 */
-            teamId: number;
-            teamName: string;
-            /** @description The parent's direct scope, the parent's whole subtree, then one subtree series per direct child team (name-ascending). A series is identified by its (teamId, mode) pair — the parent appears twice. The subtree series is present even for a childless team (identical to the direct one). */
-            series: components["schemas"]["PulseTrendResponse"][];
         };
         TeamRef: {
             /** Format: int64 */
@@ -9678,34 +9643,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PulseTrendResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    getPulseTrendComparison: {
-        parameters: {
-            query: {
-                /** @description The team the pulse scope is built from. Unknown/deleted teams answer 404. */
-                teamId: components["parameters"]["PulseTeamId"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The trend-comparison bundle */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PulseTrendComparison"];
                 };
             };
             400: components["responses"]["BadRequest"];

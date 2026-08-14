@@ -41,7 +41,7 @@
     "daysOffTeam": "Mój zespół — wnioski złożone przez Twoich bezpośrednich podwładnych; tutaj je akceptujesz lub odrzucasz.",
     "pulseSurvey": "Bieżąca ankieta — pytania otwartego cyklu. Twoje odpowiedzi są anonimowe, a wyniki zobaczysz dopiero po ich udzieleniu.",
     "pulseResults": "Wyniki — anonimowy eNPS i oceny pytań z zamkniętego cyklu, pokazywane tylko dla grup na tyle dużych, by odpowiedzi pozostały nieprzypisywalne.",
-    "pulseTrend": "Trend — jak zmieniają się wyniki zespołu w kolejnych zamkniętych cyklach: jedna linia dla zespołu, do którego należysz, albo zarządzany zespół ze wszystkimi poniżej i każdym podzespołem jako osobne, przełączalne linie.",
+    "pulseTrend": "Trend — jak zmieniają się wyniki zespołu w kolejnych zamkniętych cyklach: przełączasz zespoły, do których należysz lub którymi zarządzasz, na jeden wspólny wykres — dla zarządzanych zespołów z liczbami tylko bezpośrednich członków albo wszystkich poniżej.",
     "pulseParticipation": "Udział — ile osób z obserwowanych przez Ciebie zespołów już odpowiedziało. Widzisz liczby i to, kto odpowiedział, nigdy same odpowiedzi.",
     "config": "Konfiguracja — użytkownicy, zespoły, szablony i rejestry, z których korzysta reszta aplikacji.",
     "configUsers": "Użytkownicy — katalog osób (administratorzy zarządzają kontami).",

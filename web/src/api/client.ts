@@ -1463,10 +1463,10 @@ export type PulseDriverResult = components["schemas"]["PulseDriverResult"];
 export type PulseAggregationMode = components["schemas"]["PulseAggregationMode"];
 export type PulseTrendResponse = components["schemas"]["PulseTrendResponse"];
 export type PulseTrendPoint = components["schemas"]["PulseTrendPoint"];
-export type PulseTrendComparison = components["schemas"]["PulseTrendComparison"];
 export type PulseCommentsResponse = components["schemas"]["PulseCommentsResponse"];
 export type PulseParticipationStatus = components["schemas"]["PulseParticipationStatusResponse"];
 export type PulseVisibleTeams = components["schemas"]["PulseVisibleTeams"];
+export type TeamRef = components["schemas"]["TeamRef"];
 export type PulseSettings = components["schemas"]["PulseSettings"];
 type PulseCycleListResponse =
   paths["/api/v1/pulse-surveys/cycles"]["get"]["responses"]["200"]["content"]["application/json"];
@@ -1556,14 +1556,6 @@ export async function getPulseTrend(
   const res = await authedFetch(`/api/v1/pulse-surveys/trend?teamId=${teamId}&mode=${mode}`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json()) as PulseTrendResponse;
-}
-
-/** The multi-scope trend bundle (v2.11.0): own direct + own subtree + one subtree series
- *  per direct sub-team — no mode param, each series carries its own. */
-export async function getPulseTrendComparison(teamId: number): Promise<PulseTrendComparison> {
-  const res = await authedFetch(`/api/v1/pulse-surveys/trend-comparison?teamId=${teamId}`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as PulseTrendComparison;
 }
 
 /** Managers' per-person submitted yes/no over their monitored teams (HR: whole org). */

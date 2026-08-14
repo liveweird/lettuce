@@ -10,7 +10,6 @@ export async function invalidatePulse(queryClient: QueryClient): Promise<void> {
   queryClient.invalidateQueries({ queryKey: ["pulseSurvey"] });
   queryClient.invalidateQueries({ queryKey: ["pulseResults"] });
   queryClient.invalidateQueries({ queryKey: ["pulseTrend"] });
-  queryClient.invalidateQueries({ queryKey: ["pulseTrendComparison"] });
   queryClient.invalidateQueries({ queryKey: ["pulseComments"] });
   queryClient.invalidateQueries({ queryKey: ["pulseParticipation"] });
   queryClient.invalidateQueries({ queryKey: ["pulseSettings"] });

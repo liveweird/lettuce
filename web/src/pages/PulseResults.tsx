@@ -105,10 +105,10 @@ export default function PulseResults() {
           />
           {view === "managed" && (
             <SegmentedControl
-              aria-label={t("pulse.results.calcAria")}
+              aria-label={t("pulse.calc.aria")}
               value={calc}
               onChange={(value) => setCalc(value as ResultsCalc)}
-              data={CALCS.map((c) => ({ value: c, label: t(`pulse.results.calc.${c}`) }))}
+              data={CALCS.map((c) => ({ value: c, label: t(`pulse.calc.${c}`) }))}
             />
           )}
         </Group>

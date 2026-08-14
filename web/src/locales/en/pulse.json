@@ -79,14 +79,14 @@
     "noMemberTeams": "You are not a member of any team.",
     "noManagedTeams": "You don't manage any teams."
   },
+  "calc": {
+    "direct": "Direct members only",
+    "indirect": "Including everyone below",
+    "aria": "Calculation scope"
+  },
   "results": {
     "cycle": "Cycle",
     "cycleOption": "Closed {{date}}",
-    "calc": {
-      "direct": "Direct members only",
-      "indirect": "Including everyone below"
-    },
-    "calcAria": "Calculation scope",
     "enps": "eNPS",
     "promoters": "Promoters",
     "passives": "Passives",
@@ -126,11 +126,6 @@
     "loadError": "Could not load the results."
   },
   "trend": {
-    "team": "Team",
-    "series": {
-      "own": "Own members",
-      "subtree": "The team and everyone below"
-    },
     "metricAria": "Trend metric",
     "metricLabel": {
       "enps": "eNPS",
@@ -139,8 +134,8 @@
       "q4": "Q4",
       "q5": "Q5"
     },
-    "seriesAria": "Compared scopes",
-    "noChildren": "This team has no sub-teams — both lines cover the same people."
+    "seriesAria": "Teams on the chart",
+    "noneSelected": "Toggle at least one team to draw the chart."
   },
   "participation": {
     "hint": "Who of your reports has submitted the survey — never their answers.",

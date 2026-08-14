@@ -587,21 +587,3 @@ suspend fun requirePulseTrendAccess(
     if (teamId !in visibleTeamIds()) throw ForbiddenException("The team is outside your visible scope")
 }
 
-/**
- * Trend-comparison access (v2.11.0) — the trend rule checked on the PARENT team only
- * (the visible tree is transitive, so every child series is a team the caller could query
- * alone — the visible tree is transitive). Same body as [requirePulseTrendAccess]
- * apart from the audit resource — the hardcoded-resource reason the per-view siblings exist.
- * The per-cycle fill gate stays point-wise in the route, uniform across every series.
- */
-suspend fun requirePulseTrendComparisonAccess(
-    caller: CallerPrincipal,
-    teamId: UInt,
-    visibleTeamIds: suspend () -> Set<UInt>,
-) {
-    if (caller.isHr()) {
-        auditHrRead("pulseTrendComparison", teamId, caller.userId)
-        return
-    }
-    if (teamId !in visibleTeamIds()) throw ForbiddenException("The team is outside your visible scope")
-}
