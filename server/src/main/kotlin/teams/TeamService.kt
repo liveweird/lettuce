@@ -92,6 +92,11 @@ class TeamService(val database: R2dbcDatabase) {
         teamScopeUserIds(teamId, subtree)
     }
 
+    /** Teams directly below [teamId] — managed by its current members (see TeamTree.childTeamsOf). */
+    suspend fun childTeamIds(teamId: UInt): Set<UInt> = suspendTransaction(database) {
+        childTeamsOf(teamId)
+    }
+
     /** (id, name) of the non-deleted teams among [ids], name-ascending. */
     suspend fun teamRefs(ids: Set<UInt>): List<TeamRef> = suspendTransaction(database) {
         if (ids.isEmpty()) return@suspendTransaction emptyList()

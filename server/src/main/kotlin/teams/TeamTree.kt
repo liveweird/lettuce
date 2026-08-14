@@ -66,6 +66,15 @@ suspend fun membersOf(teamIds: Set<UInt>): Set<UInt> =
         .toSet()
 
 /**
+ * The teams DIRECTLY below [teamId]: teams managed by its current members — exactly the first
+ * BFS edge of [teamsBelow] (v2.10.0, backing the pulse team-comparison view). Never includes
+ * [teamId] itself (a manager is never a member of their own team, so the subtraction is
+ * defensive only). Runs in the caller's transaction.
+ */
+suspend fun childTeamsOf(teamId: UInt): Set<UInt> =
+    teamsManagedBy(membersOf(setOf(teamId))) - teamId
+
+/**
  * Every team strictly below any of [startTeamIds]: teams managed by their members, teams
  * managed by THOSE teams' members, and so on. Never includes the start set itself.
  * Runs in the caller's transaction.

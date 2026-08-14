@@ -77,6 +77,23 @@ data class PulseTrendResponse(
     val points: List<PulseTrendPoint>,
 )
 
+/**
+ * The packed per-sub-team comparison (v2.10.0): the parent team's own-members baseline plus
+ * one subtree-scoped block per team directly below it. Pure composition — every row equals an
+ * already-authorized single-team results query (parent direct / child subtree), each
+ * independently k-withheld via [PulseTeamResults.insufficientResponses].
+ */
+@Serializable
+data class PulseTeamComparison(
+    val cycleId: UInt,
+    val teamId: UInt,
+    val teamName: String,
+    /** The parent's direct-members scope (mode DIRECT) — includes the sub-team managers. */
+    val ownMembers: PulseTeamResults,
+    /** One subtree-scoped block per direct child team, name-ascending. */
+    val subTeams: List<PulseTeamResults>,
+)
+
 @Serializable
 data class PulseVisibleTeams(
     /** Teams the caller may open results for (own + managed + below; HR: all). */

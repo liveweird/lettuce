@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.10.0",
+    date: "2026-08-14",
+    en: `Compare your sub-teams at a glance. The pulse results tab grew a third view next to "Team members only" and "The team and everyone below" (the clearer new name of "Including sub-teams"): Sub-team comparison. For each of your teams it shows one packed table — a row for the people reporting directly to the team plus a row per sub-team (each covering that sub-team and everything below it) — with the response rate, the color-coded eNPS score and its change versus the previous cycle, and the favorable share for every survey question, side by side. Anonymity rules are unchanged: any row with fewer than 3 responses shows only its response count, and this view never shows comments.`,
+    pl: `Porównaj swoje podzespoły jednym spojrzeniem. Zakładka wyników pulsu zyskała trzeci widok obok „Tylko członkowie zespołu" i „Zespół i wszyscy poniżej" (to czytelniejsza nowa nazwa opcji „Razem z podzespołami"): Porównanie podzespołów. Dla każdego z Twoich zespołów pokazuje jedną zwartą tabelę — wiersz dla osób raportujących bezpośrednio do zespołu oraz wiersz na każdy podzespół (każdy obejmuje ten podzespół i wszystkich poniżej) — z odsetkiem odpowiedzi, kolorowanym wynikiem eNPS i jego zmianą względem poprzedniego cyklu oraz udziałem odpowiedzi pozytywnych dla każdego pytania ankiety, obok siebie. Zasady anonimowości pozostają bez zmian: każdy wiersz z mniej niż 3 odpowiedziami pokazuje tylko liczbę odpowiedzi, a ten widok nigdy nie pokazuje komentarzy.`,
+  },
+  {
     version: "2.9.0",
     date: "2026-08-14",
     en: `Done/not-done goals grew into plans. The old yes-or-no goal type is now called Plan and holds an ordered list of milestones, each with its own description and checkbox. The manager defines the milestones while the goal is a draft (add, edit, reorder, remove — a plan needs at least one milestone to be activated), and once the goal is active both the manager and the team member tick milestones off (or back on) from the Update screen, optionally with a comment — every change lands in the goal's history and notifies the other party, as before. Completed milestones are visibly settled: struck through and dimmed wherever the list appears, and goal lists show the plan's progress as a "done / total" count. Existing yes-or-no goals were converted automatically: each carries a single "Done" milestone reflecting its previous state.`,

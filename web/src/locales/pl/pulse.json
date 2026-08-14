@@ -76,9 +76,19 @@
     "cycleOption": "Zamknięty {{date}}",
     "mode": {
       "direct": "Tylko członkowie zespołu",
-      "subtree": "Razem z podzespołami"
+      "subtree": "Zespół i wszyscy poniżej",
+      "compare": "Porównanie podzespołów"
     },
     "modeAria": "Zakres agregacji",
+    "comparison": {
+      "tableAria": "Porównanie podzespołów dla {{team}}",
+      "team": "Zespół",
+      "ownMembers": "Bezpośredni członkowie",
+      "responses": "Odpowiedzi",
+      "rotating": "Rotacyjne",
+      "noSubTeams": "Ten zespół nie ma podzespołów do porównania.",
+      "valuesNote": "Kolumny pytań pokazują udział odpowiedzi pozytywnych wśród ważnych odpowiedzi; każdy podzespół obejmuje wszystkich poniżej."
+    },
     "enps": "eNPS",
     "promoters": "Promotorzy",
     "passives": "Neutralni",

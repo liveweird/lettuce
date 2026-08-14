@@ -76,9 +76,19 @@
     "cycleOption": "Closed {{date}}",
     "mode": {
       "direct": "Team members only",
-      "subtree": "Including sub-teams"
+      "subtree": "The team and everyone below",
+      "compare": "Sub-team comparison"
     },
     "modeAria": "Aggregation scope",
+    "comparison": {
+      "tableAria": "Sub-team comparison for {{team}}",
+      "team": "Team",
+      "ownMembers": "Own members",
+      "responses": "Responses",
+      "rotating": "Rotating",
+      "noSubTeams": "This team has no sub-teams to compare.",
+      "valuesNote": "Question columns show the favorable share of valid answers; each sub-team includes everyone below it."
+    },
     "enps": "eNPS",
     "promoters": "Promoters",
     "passives": "Passives",

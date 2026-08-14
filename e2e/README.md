@@ -187,8 +187,12 @@ commit** — this list is the suite's coverage map, and it has drifted three tim
   while open; the manager watches per-person **participation** live; two teammates respond over
   the API (k≥3), the admin **closes**; the respondent reads the team's aggregated **results** (since v2.6.2 asserting HAND-COMPUTED aggregates — eNPS 0 with 33.3-thirds, per-row means/favorables/n)
   from the bell deep link while the non-responding manager still reads the anonymized
-  **comments** (the fill-gate/monitoring split); and a scheduled cycle is **cancelled** with the
-  audit-honest confirmation. Runs in its own serial phase — see "Parallel execution".
+  **comments** (the fill-gate/monitoring split); Manager CCC (a respondent in no team scope)
+  flips the **Sub-team comparison** mode (v2.10.0) and reads the CCC card's packed table —
+  Own-members and BBB rows k-withheld with counts visible, the AAA subtree row's hand-computed
+  favorables, no comments in the view, the child-less AAA/BBB cards' note; and a scheduled
+  cycle is **cancelled** with the audit-honest confirmation. Runs in its own serial phase —
+  see "Parallel execution".
 
 Specs log in with the seeded accounts (`admin@lettuce.local`, `manager-aaa@…`, `aaa-one/two/three@…`,
 all password `changeme`), capture created ids from API responses so they act on their own rows, and
