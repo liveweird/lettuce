@@ -456,8 +456,8 @@ export interface paths {
          * @description Appends a position to the user's timeline, implicitly concluding the current one the
          *     day before the new `startDate`. Caller must be a manager in the user's TRANSITIVE
          *     management chain — nobody else (not the user, not ADMIN, not HR). The start date must
-         *     be strictly after the current position's start and not in the future; at least one of
-         *     the three refs must be set, and each set ref must be an ACTIVE entry of its dictionary.
+         *     be strictly after the current position's start and not in the future; all three refs
+         *     are required (v2.15.1), each an ACTIVE entry of its dictionary.
          *     The user is notified (a new position is worth telling them about; corrections and
          *     deletions stay silent). Audited as `career_position.created`.
          */
@@ -485,10 +485,10 @@ export interface paths {
          *     create; a position belonging to a different user than the path names is 404. The
          *     corrected start date must stay strictly between the neighboring positions' starts
          *     (409 otherwise — a correction never reorders the timeline) and not in the future;
-         *     the refs are a FULL replace (null = unset), at least one must be set, and only
-         *     CHANGED refs are validated as active (a date-only correction never trips over a
-         *     since-soft-deleted ref). Silent (no notification); audited as
-         *     `career_position.updated` with deltas.
+         *     all three refs are required (v2.15.1 — correcting a pre-v2.15.1 partial row means
+         *     completing its triple), and only CHANGED refs are validated as active (a date-only
+         *     correction never trips over a since-soft-deleted ref). Silent (no notification);
+         *     audited as `career_position.updated` with deltas.
          */
         put: operations["replaceUserCareerPosition"];
         post?: never;
@@ -3357,22 +3357,23 @@ export interface components {
             startDate: string;
             /**
              * Format: int64
-             * @description Id of an ACTIVE CAREER_PATH dictionary entry; null = this position leaves the
-             *     field unset (a FULL replace on PUT, unlike the old users-PUT leave-unchanged
-             *     null). At least one of the three refs must be set. On PUT, only ids that CHANGE
-             *     the stored value are validated as active.
+             * @description Id of an ACTIVE CAREER_PATH dictionary entry. All three refs are REQUIRED
+             *     (v2.15.1 — a position is the full triple; a missing field is 400). On PUT, only
+             *     ids that CHANGE the stored value are validated as active — resubmitting a
+             *     since-soft-deleted current id passes, so correcting a legacy partial row just
+             *     means completing the triple.
              */
-            careerPathId?: number | null;
+            careerPathId: number;
             /**
              * Format: int64
              * @description Id of an ACTIVE CAREER_SPECIALIZATION dictionary entry — see careerPathId.
              */
-            careerSpecializationId?: number | null;
+            careerSpecializationId: number;
             /**
              * Format: int64
              * @description Id of an ACTIVE SENIORITY_LEVEL dictionary entry — see careerPathId.
              */
-            seniorityLevelId?: number | null;
+            seniorityLevelId: number;
         };
         CareerPositionResponse: {
             /** Format: int64 */
@@ -3385,7 +3386,7 @@ export interface components {
              *     position starts; null = the open-ended current position (always the last item).
              */
             endDate: string | null;
-            /** @description Resolved at read time (renames propagate; soft-deleted entries keep resolving to their retained values). */
+            /** @description Resolved at read time (renames propagate; soft-deleted entries keep resolving to their retained values). Nullable because rows written before the v2.15.1 full-triple rule may leave fields unset — new writes always set all three. */
             careerPath: components["schemas"]["DictionaryEntry"] | null;
             careerSpecialization: components["schemas"]["DictionaryEntry"] | null;
             seniorityLevel: components["schemas"]["DictionaryEntry"] | null;

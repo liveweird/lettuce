@@ -80,6 +80,14 @@ test("career progression: chain manager records positions, the person sees the t
   await careerPath.click();
   await careerPath.fill(value1); // searchable — narrow the shared dictionary's long list
   await page.getByRole("option", { name: value1, exact: true }).click();
+  // All three fields are required (v2.15.1). Pick the FIRST option of the other two — seed
+  // values with stable ids (dictionaries.spec only appends/removes its OWN throwaway
+  // seniority entries and the server validates by id, so a concurrent rename is harmless);
+  // nothing is asserted on these two values.
+  await page.getByRole("combobox", { name: "Career specialization" }).click();
+  await page.getByRole("option").first().click();
+  await page.getByRole("combobox", { name: "Seniority level" }).click();
+  await page.getByRole("option").first().click();
   await Promise.all([
     page.waitForResponse((r) => isPositionsCall(r) && r.request().method() === "POST" && r.ok()),
     page.getByRole("button", { name: "Start position" }).click(),
@@ -89,12 +97,10 @@ test("career progression: chain manager records positions, the person sees the t
   // (the Mantine gotcha), so an unscoped exact-text locator strict-violates against it.
   await expect(page.locator("#main-content").getByText(value1, { exact: true })).toBeVisible();
 
-  // 5. Starting a second position concludes the first: exactly one Current badge, and the
-  //    older row now shows a bounded range (no "Since" prefix on it anymore).
+  // 5. Starting a second position concludes the first — and the form PREFILLS from the
+  //    current position (v2.15.1): the combos already hold values, only the date is needed.
+  await expect(careerPath).toHaveValue(value1);
   await page.getByLabel("Start date").fill("2025-02-01");
-  await careerPath.click();
-  await careerPath.fill(value1);
-  await page.getByRole("option", { name: value1, exact: true }).click();
   await Promise.all([
     page.waitForResponse((r) => isPositionsCall(r) && r.request().method() === "POST" && r.ok()),
     page.getByRole("button", { name: "Start position" }).click(),

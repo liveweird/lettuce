@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.15.1",
+    date: "2026-08-15",
+    en: `Career position form polish. A position now always carries the complete set — career path, specialization, and seniority are all required (marked with asterisks; the confusing "missing" warning is gone). When starting a new position, the three fields begin pre-filled from the person's current position, so a promotion is just changing what's new plus the start date. Correcting an older entry that predates this rule simply means completing its missing fields.`,
+    pl: `Dopracowany formularz stanowiska. Stanowisko zawsze niesie teraz komplet danych — ścieżka kariery, specjalizacja i poziom są wymagane (oznaczone gwiazdkami; mylące ostrzeżenie o „braku wartości" zniknęło). Przy rozpoczynaniu nowego stanowiska trzy pola startują z wartościami obecnego stanowiska, więc awans to tylko zmiana tego, co nowe, plus data rozpoczęcia. Poprawa starszego wpisu sprzed tej reguły oznacza po prostu uzupełnienie brakujących pól.`,
+  },
+  {
     version: "2.15.0",
     date: "2026-08-14",
     en: `Career progression, with history. A person's career path, specialization, and seniority are no longer a single admin-edited value — they are a timeline of positions. Every person card and the user details page gained a Career progression button showing when each position started and ended, with the current one highlighted; anyone in the organization can view it. The person's managers (their manager, that manager's manager, and so on) maintain the timeline: starting a new position concludes the current one automatically, and historical entries can be corrected or removed — the timeline stays continuous, without gaps or overlaps. The person is notified whenever a new position is recorded for them. Administrators no longer edit career fields on the user form, and existing career values were reset — managers record each person's current position as the first timeline entry.`,

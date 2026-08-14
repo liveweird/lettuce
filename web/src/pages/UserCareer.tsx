@@ -35,18 +35,11 @@ import { showSuccessToast } from "../utils/toast";
 
 type Draft = {
   startDate: string;
-  // Dictionary-entry ids as strings ("" = this position leaves the field unset). Unlike the
-  // retired user-edit pickers this is a FULL replace — the server has no leave-unchanged null.
+  // Dictionary-entry ids as strings ("" = not picked yet). All three are REQUIRED on submit
+  // (v2.15.1 — a position IS the full triple); the submit stays disabled until they are set.
   careerPathId: string;
   careerSpecializationId: string;
   seniorityLevelId: string;
-};
-
-const EMPTY_DRAFT: Draft = {
-  startDate: "",
-  careerPathId: "",
-  careerSpecializationId: "",
-  seniorityLevelId: "",
 };
 
 function draftOf(p: CareerPosition): Draft {
@@ -58,15 +51,125 @@ function draftOf(p: CareerPosition): Draft {
   };
 }
 
+// The ADD form starts from the CURRENT position (a new position is usually a one-field
+// delta — promotion, path switch); only the start date begins empty. No positions yet =
+// a blank triple.
+function addDraftOf(current?: CareerPosition): Draft {
+  return {
+    startDate: "",
+    careerPathId: current?.careerPath ? String(current.careerPath.id) : "",
+    careerSpecializationId: current?.careerSpecialization
+      ? String(current.careerSpecialization.id)
+      : "",
+    seniorityLevelId: current?.seniorityLevel ? String(current.seniorityLevel.id) : "",
+  };
+}
+
+// draftValid guarantees all three are set, so the body always carries the complete triple
+// (the wire type requires it since v2.15.1).
 function toBody(draft: Draft) {
   return {
     startDate: draft.startDate,
-    ...(draft.careerPathId ? { careerPathId: Number(draft.careerPathId) } : {}),
-    ...(draft.careerSpecializationId
-      ? { careerSpecializationId: Number(draft.careerSpecializationId) }
-      : {}),
-    ...(draft.seniorityLevelId ? { seniorityLevelId: Number(draft.seniorityLevelId) } : {}),
+    careerPathId: Number(draft.careerPathId),
+    careerSpecializationId: Number(draft.careerSpecializationId),
+    seniorityLevelId: Number(draft.seniorityLevelId),
   };
+}
+
+// The editor (add or correct). Owns the draft; the PARENT remounts it via `key` whenever the
+// seed changes (a row enters/leaves edit mode, the current position changes after a submit),
+// which is what prefills the fields — no state-syncing effect, and a background refetch that
+// changes nothing keeps the key stable, so in-progress input is never clobbered.
+function PositionForm({
+  initial,
+  seedPosition,
+  editing,
+  submitting,
+  onSubmit,
+  onCancel,
+}: {
+  initial: Draft;
+  /** The position whose values seeded [initial] — its (possibly soft-deleted) entries keep displaying. */
+  seedPosition?: CareerPosition;
+  editing: boolean;
+  submitting: boolean;
+  onSubmit: (draft: Draft) => void;
+  onCancel?: () => void;
+}) {
+  const { t } = useTranslation();
+  const [draft, setDraft] = useState<Draft>(initial);
+  const draftValid =
+    draft.startDate !== "" &&
+    draft.careerPathId !== "" &&
+    draft.careerSpecializationId !== "" &&
+    draft.seniorityLevelId !== "";
+
+  return (
+    <Stack gap="xs">
+      <Text size="sm" fw={600}>
+        {t(editing ? "users.career.editTitle" : "users.career.startTitle")}
+      </Text>
+      <Text size="xs" c="dimmed">
+        {t(editing ? "users.career.editHint" : "users.career.startHint")}
+      </Text>
+      <Group align="flex-start" gap="md" wrap="wrap">
+        <TextInput
+          type="date"
+          withAsterisk
+          label={t("users.career.startDate")}
+          value={draft.startDate}
+          max={todayIsoDate()}
+          onChange={(e) => {
+            const value = e.currentTarget.value;
+            setDraft((d) => ({ ...d, startDate: value }));
+          }}
+          w={170}
+        />
+        <CareerProfileSelect
+          slug="career-paths"
+          withAsterisk
+          label={t("common.field.careerPath")}
+          current={seedPosition?.careerPath}
+          value={draft.careerPathId}
+          onChange={(value) => setDraft((d) => ({ ...d, careerPathId: value ?? "" }))}
+          w={210}
+        />
+        <CareerProfileSelect
+          slug="career-specializations"
+          withAsterisk
+          label={t("common.field.careerSpecialization")}
+          current={seedPosition?.careerSpecialization}
+          value={draft.careerSpecializationId}
+          onChange={(value) => setDraft((d) => ({ ...d, careerSpecializationId: value ?? "" }))}
+          w={210}
+        />
+        <CareerProfileSelect
+          slug="seniority-levels"
+          withAsterisk
+          label={t("common.field.seniorityLevel")}
+          current={seedPosition?.seniorityLevel}
+          value={draft.seniorityLevelId}
+          onChange={(value) => setDraft((d) => ({ ...d, seniorityLevelId: value ?? "" }))}
+          w={210}
+        />
+      </Group>
+      <Group justify="flex-end" gap="sm">
+        {onCancel != null && (
+          <Button variant="default" disabled={submitting} onClick={onCancel}>
+            {t("common.action.cancel")}
+          </Button>
+        )}
+        <Button
+          leftSection={editing ? undefined : <IconPlus size={16} />}
+          onClick={() => onSubmit(draft)}
+          loading={submitting}
+          disabled={!draftValid}
+        >
+          {t(editing ? "common.action.save" : "users.career.startAction")}
+        </Button>
+      </Group>
+    </Stack>
+  );
 }
 
 // One position's triple, small: dimmed label + value in the viewer's language (or a dash).
@@ -106,7 +209,6 @@ export default function UserCareer() {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const { userId, idIsValid, name, origin, callerManages } = useDashboardDrillDown("career");
-  const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -118,15 +220,14 @@ export default function UserCareer() {
     enabled: idIsValid,
   });
 
+  const currentPosition = data && data.length > 0 ? data[data.length - 1] : undefined;
+
   if (!idIsValid) return <Navigate to="/" replace />;
 
   const who = name ?? t("users.career.userFallback", { id: userId });
   // Server order is chronological; the timeline reads newest-first like every history surface.
   const newestFirst = data ? [...data].reverse() : [];
   const editingPosition = editingId != null ? data?.find((p) => p.id === editingId) : undefined;
-  const draftValid =
-    draft.startDate !== "" &&
-    (draft.careerPathId !== "" || draft.careerSpecializationId !== "" || draft.seniorityLevelId !== "");
 
   async function run(action: () => Promise<unknown>, successKey: string) {
     setSubmitting(true);
@@ -139,7 +240,8 @@ export default function UserCareer() {
       await queryClient.invalidateQueries({ queryKey: ["users"] });
       await queryClient.invalidateQueries({ queryKey: ["user", userId] });
       showSuccessToast(t(successKey));
-      setDraft(EMPTY_DRAFT);
+      // Back to the ADD form; the refetched data changes the form's key, so it remounts
+      // prefilled from the (possibly just-changed) current position.
       setEditingId(null);
       setDeleteTarget(null);
     } catch (err) {
@@ -159,8 +261,7 @@ export default function UserCareer() {
     }
   }
 
-  function submit() {
-    if (!draftValid) return;
+  function submit(draft: Draft) {
     if (editingId != null) {
       void run(
         () => updateCareerPosition(userId, editingId, toBody(draft)),
@@ -230,10 +331,7 @@ export default function UserCareer() {
                         size="xs"
                         leftSection={<IconPencil size={14} />}
                         disabled={submitting}
-                        onClick={() => {
-                          setEditingId(p.id);
-                          setDraft(draftOf(p));
-                        }}
+                        onClick={() => setEditingId(p.id)}
                         aria-label={t("users.career.editAria", { date: p.startDate })}
                       >
                         {t("common.action.edit")}
@@ -266,73 +364,22 @@ export default function UserCareer() {
 
       {callerManages && (
         <Paper withBorder p="md" radius="md">
-          <Stack gap="xs">
-            <Text size="sm" fw={600}>
-              {t(editingId != null ? "users.career.editTitle" : "users.career.startTitle")}
-            </Text>
-            <Text size="xs" c="dimmed">
-              {t(editingId != null ? "users.career.editHint" : "users.career.startHint")}
-            </Text>
-            <Group align="flex-start" gap="md" wrap="wrap">
-              <TextInput
-                type="date"
-                label={t("users.career.startDate")}
-                value={draft.startDate}
-                max={todayIsoDate()}
-                onChange={(e) => {
-                  const value = e.currentTarget.value;
-                  setDraft((d) => ({ ...d, startDate: value }));
-                }}
-                w={170}
-              />
-              <CareerProfileSelect
-                slug="career-paths"
-                label={t("common.field.careerPath")}
-                current={editingPosition?.careerPath}
-                value={draft.careerPathId}
-                onChange={(value) => setDraft((d) => ({ ...d, careerPathId: value ?? "" }))}
-                w={210}
-              />
-              <CareerProfileSelect
-                slug="career-specializations"
-                label={t("common.field.careerSpecialization")}
-                current={editingPosition?.careerSpecialization}
-                value={draft.careerSpecializationId}
-                onChange={(value) => setDraft((d) => ({ ...d, careerSpecializationId: value ?? "" }))}
-                w={210}
-              />
-              <CareerProfileSelect
-                slug="seniority-levels"
-                label={t("common.field.seniorityLevel")}
-                current={editingPosition?.seniorityLevel}
-                value={draft.seniorityLevelId}
-                onChange={(value) => setDraft((d) => ({ ...d, seniorityLevelId: value ?? "" }))}
-                w={210}
-              />
-            </Group>
-            <Group justify="flex-end" gap="sm">
-              {editingId != null && (
-                <Button
-                  variant="default"
-                  disabled={submitting}
-                  onClick={() => {
-                    setEditingId(null);
-                    setDraft(EMPTY_DRAFT);
-                  }}
-                >
-                  {t("common.action.cancel")}
-                </Button>
-              )}
-              <Button
-                leftSection={editingId == null ? <IconPlus size={16} /> : undefined}
-                onClick={submit}
-                loading={submitting}
-                disabled={!draftValid}
-              >
-                {t(editingId != null ? "common.action.save" : "users.career.startAction")}
-              </Button>
-            </Group>
-          </Stack>
+          <PositionForm
+            // Remounting IS the prefill: a fresh key on entering/leaving edit mode or when
+            // the current position changes (after a submit's refetch) reseeds the fields;
+            // an unchanged key across background refetches preserves in-progress input.
+            key={
+              editingPosition != null
+                ? `edit-${editingPosition.id}-${editingPosition.lastModified}`
+                : `add-${currentPosition?.id ?? 0}`
+            }
+            initial={editingPosition != null ? draftOf(editingPosition) : addDraftOf(currentPosition)}
+            seedPosition={editingPosition ?? currentPosition}
+            editing={editingPosition != null}
+            submitting={submitting}
+            onSubmit={submit}
+            onCancel={editingPosition != null ? () => setEditingId(null) : undefined}
+          />
         </Paper>
       )}
 
