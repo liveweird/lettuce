@@ -16,10 +16,12 @@ val CareerPositionServiceKey = AttributeKey<CareerPositionService>("CareerPositi
 /**
  * The per-user career position timeline (V57) — the start-only model: rows store only their
  * start date; a position's end is the day before the user's next active position starts, so
- * the timeline is continuous and non-overlapping by construction. Ordering rules that depend
- * on the user's OTHER rows (append-after-latest, correct-between-neighbors) are enforced here,
- * atomically with the write (the ReviewPeriodService adjacency idiom) → [ConflictException]
- * (409); pure shape rules (ISO date, not-future, ≥1 ref) are the route's 400s.
+ * the timeline is continuous and non-overlapping by construction. Rules that depend on the
+ * user's OTHER rows — the ordering rules (append-after-latest, correct-between-neighbors) and
+ * the adjacent-sameness rule (v2.15.2: no position may carry the exact same triple as its
+ * neighbor — a repeat is not a step) — are enforced here, atomically with the write (the
+ * ReviewPeriodService adjacency idiom) → [ConflictException] (409); pure shape rules (ISO
+ * date, not-future, full triple) are the route's 400s.
  */
 class CareerPositionService(val database: R2dbcDatabase) {
     object CareerPositions : UIntIdTable("user_career_positions") {
@@ -48,6 +50,14 @@ class CareerPositionService(val database: R2dbcDatabase) {
 
     private fun active(): Op<Boolean> = CareerPositions.markedAsDeleted eq false
 
+    // Id-based, nullable-aware: a legacy partial row (unset refs) never equals a full-triple
+    // write, so pre-v2.15.1 data can't block a write. (A DELETE may leave two equal adjacent
+    // rows behind — deliberately unguarded; reads tolerate it like they tolerate partials.)
+    private fun sameTriple(write: CareerPositionWrite, row: PositionRow): Boolean =
+        write.careerPathId == row.careerPathId &&
+            write.careerSpecializationId == row.careerSpecializationId &&
+            write.seniorityLevelId == row.seniorityLevelId
+
     /** The user's active positions, chronological (start ASC — end derivation reads i+1). */
     suspend fun listRows(userId: UInt): List<PositionRow> = suspendTransaction(database) {
         rowsOf(userId)
@@ -68,7 +78,8 @@ class CareerPositionService(val database: R2dbcDatabase) {
     /**
      * Appends a position: the new start must be strictly after the latest existing one (409
      * otherwise — inserting a forgotten historical position is deliberately not a thing; the
-     * timeline grows at the end and history is fixed via [update]/[delete]). Returns the id
+     * timeline grows at the end and history is fixed via [update]/[delete]), and its triple
+     * must differ from the latest position's (409 — a repeat is not a step). Returns the id
      * plus the owner's notification descriptor (the createCorrection shape — the route
      * persists it after this transaction commits).
      */
@@ -78,6 +89,11 @@ class CareerPositionService(val database: R2dbcDatabase) {
             if (latest != null && write.startDate <= latest.startDate) {
                 throw ConflictException(
                     "A new position must start after the current one (started ${latest.startDate})",
+                )
+            }
+            if (latest != null && sameTriple(write, latest)) {
+                throw ConflictException(
+                    "A new position must differ from the previous one (same career path, specialization, and seniority)",
                 )
             }
             val now = System.currentTimeMillis()
@@ -100,7 +116,9 @@ class CareerPositionService(val database: R2dbcDatabase) {
     /**
      * Corrects a position's start date and/or triple. The new start must keep the row in its
      * place: strictly between the starts of its current neighbors (409 otherwise) — a
-     * correction never reorders the sequence, it fixes values in place. 0 → missing → 404.
+     * correction never reorders the sequence, it fixes values in place — and the corrected
+     * triple must differ from BOTH neighbors' (409: equal-to-previous is the repeat-step the
+     * append rule blocks; equal-to-next would make the NEXT row the repeat). 0 → missing → 404.
      */
     suspend fun update(id: UInt, write: CareerPositionWrite): Int = suspendTransaction(database) {
         val existing = CareerPositions.selectAll()
@@ -120,6 +138,9 @@ class CareerPositionService(val database: R2dbcDatabase) {
                     listOfNotNull(prev?.let { " (after ${it.startDate})" }, next?.let { " (before ${it.startDate})" })
                         .joinToString(""),
             )
+        }
+        if ((prev != null && sameTriple(write, prev)) || (next != null && sameTriple(write, next))) {
+            throw ConflictException("The corrected position must differ from the neighboring positions")
         }
         CareerPositions.update({ (CareerPositions.id eq id) and (CareerPositions.markedAsDeleted eq false) }) {
             it[startDate] = write.startDate

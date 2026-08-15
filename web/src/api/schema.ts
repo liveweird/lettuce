@@ -457,7 +457,9 @@ export interface paths {
          *     day before the new `startDate`. Caller must be a manager in the user's TRANSITIVE
          *     management chain — nobody else (not the user, not ADMIN, not HR). The start date must
          *     be strictly after the current position's start and not in the future; all three refs
-         *     are required (v2.15.1), each an ACTIVE entry of its dictionary.
+         *     are required (v2.15.1), each an ACTIVE entry of its dictionary; the triple must
+         *     differ from the current position's (v2.15.2 — a repeat of the same career path,
+         *     specialization, and seniority is not a step, 409).
          *     The user is notified (a new position is worth telling them about; corrections and
          *     deletions stay silent). Audited as `career_position.created`.
          */
@@ -487,8 +489,10 @@ export interface paths {
          *     (409 otherwise — a correction never reorders the timeline) and not in the future;
          *     all three refs are required (v2.15.1 — correcting a pre-v2.15.1 partial row means
          *     completing its triple), and only CHANGED refs are validated as active (a date-only
-         *     correction never trips over a since-soft-deleted ref). Silent (no notification);
-         *     audited as `career_position.updated` with deltas.
+         *     correction never trips over a since-soft-deleted ref). The corrected triple must
+         *     differ from BOTH neighbors' (v2.15.2, 409 — equal-to-previous is the repeat-step the
+         *     create blocks; equal-to-next would make the next position the repeat). Silent (no
+         *     notification); audited as `career_position.updated` with deltas.
          */
         put: operations["replaceUserCareerPosition"];
         post?: never;
@@ -6265,7 +6269,7 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
-            /** @description The start date does not come after the current position's start */
+            /** @description The start date does not come after the current position's start, or the triple is identical to the current position's */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -6312,7 +6316,7 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
-            /** @description The corrected start date would reorder the timeline */
+            /** @description The corrected start date would reorder the timeline, or the corrected triple is identical to a neighboring position's */
             409: {
                 headers: {
                     [name: string]: unknown;

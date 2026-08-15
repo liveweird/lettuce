@@ -240,13 +240,14 @@ describe("UserCareer", () => {
     });
   });
 
-  test("a 409 on create surfaces the ordering error inline", async () => {
+  test("a 409 on create surfaces the conflict error inline", async () => {
     setupMocks({ postStatus: 409 });
     const user = userEvent.setup();
     renderPage("/users/9/career?name=R&from=subordinates");
 
-    // The triple prefills from the current position — only the date is needed (re-query:
-    // the keyed form remounts when the positions load).
+    // The triple prefills from the current position (re-query: the keyed form remounts when
+    // the positions load); a date plus one changed field makes it submittable (v2.15.2 — an
+    // unchanged triple is not a step, see the dedicated case below).
     await waitFor(() =>
       expect(
         (screen.getByLabelText(/^Career path/, { selector: "input" }) as HTMLInputElement).value,
@@ -255,10 +256,66 @@ describe("UserCareer", () => {
     fireEvent.change(screen.getByLabelText(/^Start date/), {
       target: { value: "2020-01-01" },
     });
+    fireEvent.click(screen.getByLabelText(/^Career path/, { selector: "input" }));
+    await user.click(await screen.findByRole("option", { name: "Engineer" }));
     await user.click(screen.getByRole("button", { name: "Start position" }));
 
     expect(
-      await screen.findByText("The start date conflicts with the neighboring positions."),
+      await screen.findByText(
+        "The position conflicts with its neighbors: the start date must keep the order, and the values must not repeat a neighboring position.",
+      ),
     ).toBeInTheDocument();
+  });
+
+  test("an unchanged triple is not a new position: submit stays disabled with the explanatory note", async () => {
+    setupMocks();
+    const user = userEvent.setup();
+    renderPage("/users/9/career?name=R&from=subordinates");
+
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText(/^Career path/, { selector: "input" }) as HTMLInputElement).value,
+      ).toBe("Senior Engineer"),
+    );
+    // Even with a date, the prefilled (= current) triple keeps the submit disabled and the
+    // note explains why (the server's adjacent-sameness 409, v2.15.2, mirrored client-side).
+    fireEvent.change(screen.getByLabelText(/^Start date/), { target: { value: "2024-03-01" } });
+    expect(screen.getByRole("button", { name: "Start position" })).toBeDisabled();
+    expect(
+      screen.getByText(
+        "This repeats the current position exactly — change at least one of the three fields.",
+      ),
+    ).toBeInTheDocument();
+
+    // One changed field clears the note and enables the submit.
+    fireEvent.click(screen.getByLabelText(/^Career path/, { selector: "input" }));
+    await user.click(await screen.findByRole("option", { name: "Engineer" }));
+    expect(
+      screen.queryByText(
+        "This repeats the current position exactly — change at least one of the three fields.",
+      ),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start position" })).toBeEnabled();
+  });
+
+  test("a correction may not make the position identical to its neighbor", async () => {
+    setupMocks();
+    const user = userEvent.setup();
+    renderPage("/users/9/career?name=R&from=subordinates");
+
+    // Edit the CURRENT position (12|21|32); its predecessor is 11|21|31.
+    await user.click(await screen.findByLabelText("Edit the position started 2021-06-15"));
+    expect(screen.getByText("Correct the position")).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText(/^Career path/, { selector: "input" }));
+    await user.click(await screen.findByRole("option", { name: "Engineer" }));
+    fireEvent.click(screen.getByLabelText(/^Seniority level/, { selector: "input" }));
+    await user.click(await screen.findByRole("option", { name: "Junior" }));
+
+    expect(
+      screen.getByText(
+        "This would make the position identical to a neighboring one — corrections must keep every step distinct.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^save$/i })).toBeDisabled();
   });
 });
