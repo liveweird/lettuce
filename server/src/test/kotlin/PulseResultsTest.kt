@@ -455,7 +455,7 @@ class PulseResultsTest {
     }
 
     @Test
-    fun `visible teams - the two scopes per role`() = testApplication {
+    fun `visible teams - the three scopes per role`() = testApplication {
         usePostgresTestcontainer()
         TestPulse.sweepNonTerminal()
         val fx = org()
