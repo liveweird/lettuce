@@ -178,7 +178,7 @@ fun Application.configureUserRoutes() {
                     try {
                         mailer!!.send(
                             user.email,
-                            welcomeEmailSubject(),
+                            WELCOME_EMAIL_SUBJECT,
                             welcomeEmailBody(user.name, user.email, req.password, mailAppUrl),
                         )
                         true
@@ -270,7 +270,7 @@ fun Application.configureUserRoutes() {
                     var message: String? = null
                     if (req.sendEmails) {
                         try {
-                            mailer!!.send(email, welcomeEmailSubject(), welcomeEmailBody(name, email, password, mailAppUrl))
+                            mailer!!.send(email, WELCOME_EMAIL_SUBJECT, welcomeEmailBody(name, email, password, mailAppUrl))
                         } catch (e: Exception) {
                             log.error("User import: welcome email to $email failed", e)
                             status = UserImportStatus.EMAIL_FAILED

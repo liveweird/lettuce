@@ -580,7 +580,14 @@ class UserRoutesTest {
         val tag = UUID.randomUUID().toString().substring(0, 8)
         client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)
-            setBody(UserRequest(name = "role-$tag-admin", email = uniqueEmail("ra-$tag"), password = "pw-123456789", roles = listOf(UserRole.ADMIN)))
+            setBody(
+                UserRequest(
+                    name = "role-$tag-admin",
+                    email = uniqueEmail("ra-$tag"),
+                    password = "pw-123456789",
+                    roles = listOf(UserRole.ADMIN),
+                ),
+            )
         }
         client.post("/api/v1/users") {
             contentType(ContentType.Application.Json)

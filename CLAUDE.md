@@ -11,6 +11,7 @@ Gradle wrapper is at `./gradlew` (use `gradlew.bat` on Windows). JDK 21 toolchai
 - Run all tests: `./gradlew test`
 - Run server tests only: `./gradlew :server:test`
 - Run a single test: `./gradlew :server:test --tests "ch.nokillswit.ServerTest.security headers are set on responses"`
+- Static analysis (detekt, both Kotlin modules): `./gradlew detekt` — rides `check`/`build`, zero-findings gate (no baseline file). Rule tuning lives in `config/detekt/detekt.yml` ONLY, one commented override per deliberate repo idiom; never add an uncommented `@Suppress`.
 - Package the server for deployment: `./gradlew :server:installDist`. **Never use `:server:buildFatJar`** — the fat JAR breaks Flyway's `ServiceLoader` discovery and NPEs at startup (details in the `run-stack` skill).
 - JVM memory flags are pre-tuned in `server/build.gradle.kts` (`applicationDefaultJvmArgs`) — rationale and per-deploy overrides in the `run-stack` skill.
 - **Run the whole stack with one command: `docker compose up --build`** (only Docker required). See "Running the full stack" below.

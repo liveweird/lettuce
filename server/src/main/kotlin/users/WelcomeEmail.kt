@@ -9,7 +9,7 @@ import ch.nokillswit.infra.mail.bilingualPasswordEmail
  * draft built from `users.onboardingEmailSubject/Body` in web/src/locales — keep the two
  * texts aligned when editing either.
  */
-internal fun welcomeEmailSubject(): String =
+internal const val WELCOME_EMAIL_SUBJECT: String =
     "Your Lettuce account is ready / Twoje konto Lettuce jest gotowe"
 
 internal fun welcomeEmailBody(name: String, email: String, password: String, appUrl: String?): String =

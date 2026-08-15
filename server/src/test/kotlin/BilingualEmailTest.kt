@@ -1,9 +1,9 @@
 package ch.nokillswit
 
 import ch.nokillswit.auth.passwordResetEmailBody
-import ch.nokillswit.auth.passwordResetEmailSubject
+import ch.nokillswit.auth.PASSWORD_RESET_EMAIL_SUBJECT
 import ch.nokillswit.users.welcomeEmailBody
-import ch.nokillswit.users.welcomeEmailSubject
+import ch.nokillswit.users.WELCOME_EMAIL_SUBJECT
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -21,7 +21,7 @@ class BilingualEmailTest {
         assertTrue("s3cret-P4ss_word" in body)
         assertTrue("no longer works" in body)
         assertTrue("już nie działa" in body)
-        assertTrue("/" in passwordResetEmailSubject(), "subject is bilingual")
+        assertTrue("/" in PASSWORD_RESET_EMAIL_SUBJECT, "subject is bilingual")
     }
 
     @Test
@@ -32,7 +32,7 @@ class BilingualEmailTest {
         assertTrue("(bob@x.test)" in body)
         assertTrue("Password / Hasło:" in body)
         assertTrue("s3cret-P4ss_word" in body)
-        assertTrue("/" in welcomeEmailSubject(), "subject is bilingual")
+        assertTrue("/" in WELCOME_EMAIL_SUBJECT, "subject is bilingual")
     }
 
     @Test

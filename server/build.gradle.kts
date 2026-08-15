@@ -4,6 +4,7 @@ plugins {
     alias(ktorLibs.plugins.ktor)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kover)
+    alias(libs.plugins.detekt)
 }
 
 
@@ -50,6 +51,13 @@ kover {
 
 tasks.named("check") {
     dependsOn(tasks.named("koverVerify"))
+}
+
+// Static analysis (plain rule sets only — no type resolution). Rule tuning lives in
+// config/detekt/detekt.yml; the task rides `check`, so `build` gates on it.
+detekt {
+    buildUponDefaultConfig = true
+    config.setFrom(rootProject.file("config/detekt/detekt.yml"))
 }
 dependencies {
     implementation(project(":core"))

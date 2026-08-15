@@ -45,7 +45,7 @@ fun notificationEmailContent(
     return NotificationEmailContent(subject = subjectFor(type), body = body)
 }
 
-/** Bilingual per-area subject (the passwordResetEmailSubject idiom) — not per-type. */
+/** Bilingual per-area subject (the PASSWORD_RESET_EMAIL_SUBJECT idiom) — not per-type. */
 private fun subjectFor(type: NotificationType): String = if (
     type == NotificationType.CAREER_POSITION_STARTED_TO_USER
 ) {
@@ -79,6 +79,7 @@ private fun daysOffTypePl(value: String): String = when (value) {
     else -> value
 }
 
+// The exhaustive per-type wording table — one branch per notification type, by design.
 @Suppress("CyclomaticComplexMethod", "LongMethod")
 private fun sentences(type: NotificationType, p: Map<String, String>): Sentences? = when (type) {
     NotificationType.FEEDBACK_REQUESTED_TO_PROVIDER ->
@@ -213,7 +214,8 @@ private fun sentences(type: NotificationType, p: Map<String, String>): Sentences
     )
     NotificationType.TEAM_KPI_VALUE_RECORDED_TO_MEMBER -> Sentences(
         en = "${p.v("manager")} recorded ${p.v("value")} for ${p.v("date")} on the KPI \"${p.v("title")}\" of team ${p.v("team")}.",
-        pl = "${p.v("manager")} zapisał/zapisała wartość ${p.v("value")} z dnia ${p.v("date")} w KPI „${p.v("title")}” zespołu ${p.v("team")}.",
+        pl = "${p.v("manager")} zapisał/zapisała wartość ${p.v("value")} z dnia ${p.v("date")} " +
+            "w KPI „${p.v("title")}” zespołu ${p.v("team")}.",
     )
     NotificationType.TEAM_KPI_VALUE_CORRECTED_TO_MEMBER -> Sentences(
         en = "${p.v("manager")} corrected a data point of the KPI \"${p.v("title")}\" of team ${p.v("team")}: " +
@@ -222,7 +224,8 @@ private fun sentences(type: NotificationType, p: Map<String, String>): Sentences
             "${p.v("fromValue")} (${p.v("fromDate")}) → ${p.v("toValue")} (${p.v("toDate")}).",
     )
     NotificationType.TEAM_KPI_VALUE_REMOVED_TO_MEMBER -> Sentences(
-        en = "${p.v("manager")} removed the value ${p.v("value")} (${p.v("date")}) from the KPI \"${p.v("title")}\" of team ${p.v("team")}.",
+        en = "${p.v("manager")} removed the value ${p.v("value")} (${p.v("date")}) " +
+            "from the KPI \"${p.v("title")}\" of team ${p.v("team")}.",
         pl = "${p.v("manager")} usunął/usunęła wartość ${p.v("value")} (${p.v("date")}) z KPI „${p.v("title")}” zespołu ${p.v("team")}.",
     )
     NotificationType.PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE -> Sentences(
