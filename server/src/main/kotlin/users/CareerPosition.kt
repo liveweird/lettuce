@@ -45,6 +45,30 @@ data class CareerPositionResponse(
 data class CareerPositionList(val items: List<CareerPositionResponse>)
 
 /**
+ * One subordinate in the caller's team pyramid (v2.16.0): the CURRENT position's resolved
+ * triple plus the two tenure anchors — the current position's start ("tenure at level"
+ * counts from here; any recorded position change resets it, a deliberate product decision)
+ * and the FIRST recorded position's start (tenure in the organization AS RECORDED — V57
+ * seeded no history, so this is not necessarily the true hire date). All career fields are
+ * null for a subordinate with no recorded positions — such rows are deliberately included
+ * so the manager sees who still needs one.
+ */
+@Serializable
+data class CareerPyramidItem(
+    val userId: UInt,
+    val name: String,
+    val careerPath: DictionaryEntry?,
+    val careerSpecialization: DictionaryEntry?,
+    val seniorityLevel: DictionaryEntry?,
+    val currentPositionStart: String?,
+    val organizationSince: String?,
+)
+
+/** Unpaged (bounded by the caller's subordinate count) — the CareerPositionList shape. */
+@Serializable
+data class CareerPyramidList(val items: List<CareerPyramidItem>)
+
+/**
  * Validates the start date: strict zero-padded ISO `YYYY-MM-DD` (anything else would break
  * the VARCHAR column's lexicographic == chronological ordering) and not in the future —
  * `== today` is allowed. No future starts means the user's latest position is always the

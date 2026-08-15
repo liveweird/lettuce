@@ -1,0 +1,53 @@
+{
+  "title": "Kariera",
+  "tab": {
+    "my": "Moja kariera",
+    "pyramid": "Piramida zespołu"
+  },
+  "my": {
+    "hint": "Każde stanowisko, które zajmowałeś/aś: ścieżka kariery, specjalizacja i poziom, wraz z datami rozpoczęcia i zakończenia. Tę oś czasu prowadzą Twoi menedżerowie."
+  },
+  "pyramid": {
+    "hint": "Struktura kariery osób, które Ci raportują — role, poziomy oraz to, jak długo każda osoba zajmuje obecne stanowisko i jak długo jest w organizacji.",
+    "viewAria": "Tryb wyświetlania piramidy",
+    "viewTable": "Tabela",
+    "viewChart": "Wykres",
+    "filterName": "Imię i nazwisko",
+    "notSet": "Nie ustawiono",
+    "empty": "W tym zakresie nikt Ci nie raportuje.",
+    "noMatches": "Żadna osoba nie pasuje do bieżących filtrów.",
+    "loadError": "Nie udało się wczytać piramidy zespołu.",
+    "colLevelSince": "Staż na poziomie",
+    "colOrganizationSince": "W organizacji",
+    "metricLabel": "Rozkład według",
+    "metric": {
+      "careerPath": "Ścieżka kariery",
+      "careerSpecialization": "Specjalizacja",
+      "seniorityLevel": "Poziom",
+      "tenureAtLevel": "Staż na poziomie",
+      "tenureInOrganization": "Staż w organizacji"
+    },
+    "bucket": {
+      "lt1": "Poniżej 1 roku",
+      "y1to2": "1–2 lata",
+      "y2to5": "2–5 lat",
+      "y5to10": "5–10 lat",
+      "y10plus": "10+ lat"
+    },
+    "chartCount": "Osoby",
+    "rowsPerPage": "Wierszy na stronę",
+    "unknownError": "Nieznany błąd",
+    "clearNameFilter": "Wyczyść filtr nazwiska"
+  },
+  "tenure": {
+    "underMonth": "poniżej miesiąca",
+    "year_one": "{{count}} rok",
+    "year_few": "{{count}} lata",
+    "year_many": "{{count}} lat",
+    "year_other": "{{count}} roku",
+    "month_one": "{{count}} miesiąc",
+    "month_few": "{{count}} miesiące",
+    "month_many": "{{count}} miesięcy",
+    "month_other": "{{count}} miesiąca"
+  }
+}

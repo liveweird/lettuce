@@ -43,7 +43,7 @@ import { invalidateTeamKpi } from "../utils/teamKpiQueries";
 import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
 
-// The chart is one of the three lazy consumers of @mantine/charts/recharts (the org-chart
+// The chart is one of the four lazy consumers of @mantine/charts/recharts (the org-chart
 // precedent) so the libraries never touch the main bundle; keepMounted={false} on the Tabs
 // means they load only when the Graph tab is actually opened.
 const TeamKpiChart = lazy(() => import("../components/TeamKpiChart"));

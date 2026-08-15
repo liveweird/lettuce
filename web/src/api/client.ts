@@ -311,6 +311,23 @@ export async function listCareerPositions(userId: number): Promise<CareerPositio
   return ((await res.json()) as CareerPositionListResponse).items;
 }
 
+export type CareerPyramidItem = components["schemas"]["CareerPyramidItem"];
+type CareerPyramidResponse =
+  paths["/api/v1/career/pyramid"]["get"]["responses"]["200"]["content"]["application/json"];
+
+/**
+ * The caller's team pyramid (v2.16.0): one row per subordinate — direct reports, or the
+ * whole transitive chain. Unpaged (bounded by the subordinate count); name-sorted.
+ */
+export async function listCareerPyramid(includeIndirect: boolean): Promise<CareerPyramidItem[]> {
+  const params = new URLSearchParams();
+  if (includeIndirect) params.set("includeIndirect", "true");
+  const query = params.toString();
+  const res = await authedFetch(`/api/v1/career/pyramid${query ? `?${query}` : ""}`);
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return ((await res.json()) as CareerPyramidResponse).items;
+}
+
 /** Start a new position (chain managers only) — implicitly concludes the current one. */
 export async function createCareerPosition(
   userId: number,

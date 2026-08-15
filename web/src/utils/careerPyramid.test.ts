@@ -1,0 +1,174 @@
+import { describe, expect, test } from "vitest";
+import type { CareerPyramidItem } from "../api/client";
+import {
+  CAREER_PYRAMID_SORT_FIELDS,
+  EMPTY_CAREER_PYRAMID_FILTERS,
+  NOT_SET,
+  buildCareerDistribution,
+  buildCareerPyramidRows,
+  filterCareerPyramidRows,
+  formatTenure,
+  monthsBetween,
+  sortCareerPyramidRows,
+  tenureBucket,
+} from "./careerPyramid";
+
+const ENTRY = (id: number, en: string, pl = en) => ({ id, valueEn: en, valuePl: pl });
+
+const ITEMS: CareerPyramidItem[] = [
+  {
+    userId: 1,
+    name: "Żaneta Boss",
+    careerPath: ENTRY(11, "Engineer", "Inżynier"),
+    careerSpecialization: ENTRY(21, "Backend"),
+    seniorityLevel: ENTRY(31, "Senior"),
+    currentPositionStart: "2023-03-10",
+    organizationSince: "2015-01-01",
+  },
+  {
+    userId: 2,
+    name: "adam nowak",
+    careerPath: ENTRY(12, "Manager"),
+    careerSpecialization: null,
+    seniorityLevel: ENTRY(31, "Senior"),
+    currentPositionStart: "2024-11-20",
+    organizationSince: "2024-11-20",
+  },
+  {
+    userId: 3,
+    name: "Bare Person",
+    careerPath: null,
+    careerSpecialization: null,
+    seniorityLevel: null,
+    currentPositionStart: null,
+    organizationSince: null,
+  },
+];
+
+const TODAY = "2026-08-15";
+const rows = () => buildCareerPyramidRows(ITEMS, "en", TODAY);
+
+describe("monthsBetween", () => {
+  test("counts whole calendar months, day-aware", () => {
+    expect(monthsBetween("2026-06-15", "2026-08-15")).toBe(2);
+    expect(monthsBetween("2026-06-16", "2026-08-15")).toBe(1); // day not reached yet
+    expect(monthsBetween("2025-08-15", "2026-08-15")).toBe(12);
+    expect(monthsBetween("2026-08-01", "2026-08-15")).toBe(0);
+    expect(monthsBetween("2026-09-01", "2026-08-15")).toBe(0); // future-proof floor
+  });
+});
+
+describe("buildCareerPyramidRows", () => {
+  test("resolves locale texts and derives tenure months; missing data stays null", () => {
+    const [boss, , bare] = rows();
+    expect(boss.pathText).toBe("Engineer");
+    expect(boss.levelMonths).toBe(41); // 2023-03-10 → 2026-08-15
+    expect(boss.organizationMonths).toBe(139); // 2015-01-01 → 2026-08-15
+    expect(bare.pathText).toBeNull();
+    expect(bare.levelMonths).toBeNull();
+    expect(bare.organizationMonths).toBeNull();
+  });
+
+  test("the PL locale picks the Polish value", () => {
+    expect(buildCareerPyramidRows(ITEMS, "pl", TODAY)[0].pathText).toBe("Inżynier");
+  });
+});
+
+describe("filterCareerPyramidRows", () => {
+  test("name matches accent- and case-insensitively", () => {
+    const out = filterCareerPyramidRows(rows(), { ...EMPTY_CAREER_PYRAMID_FILTERS, name: "zaneta" });
+    expect(out.map((r) => r.userId)).toEqual([1]);
+  });
+
+  test("entry-id filters match by id; NOT_SET matches the missing value", () => {
+    expect(
+      filterCareerPyramidRows(rows(), { ...EMPTY_CAREER_PYRAMID_FILTERS, careerPathId: "12" }).map(
+        (r) => r.userId,
+      ),
+    ).toEqual([2]);
+    expect(
+      filterCareerPyramidRows(rows(), {
+        ...EMPTY_CAREER_PYRAMID_FILTERS,
+        careerSpecializationId: NOT_SET,
+      }).map((r) => r.userId),
+    ).toEqual([2, 3]);
+  });
+});
+
+describe("sortCareerPyramidRows", () => {
+  test("tenure fields sort by the underlying date with nulls last in both directions", () => {
+    const asc = sortCareerPyramidRows(rows(), "levelSince", "asc");
+    expect(asc.map((r) => r.userId)).toEqual([1, 2, 3]); // earliest start (longest tenure) first
+    const desc = sortCareerPyramidRows(rows(), "levelSince", "desc");
+    expect(desc.map((r) => r.userId)).toEqual([2, 1, 3]); // nulls STILL last
+  });
+
+  test("every whitelisted field sorts without throwing", () => {
+    for (const field of CAREER_PYRAMID_SORT_FIELDS) {
+      expect(() => sortCareerPyramidRows(rows(), field, "asc")).not.toThrow();
+    }
+  });
+});
+
+describe("tenure formatting and buckets", () => {
+  test("formatTenure composes localized years and months", () => {
+    const t = (key: string, opts?: { count?: number }) =>
+      key === "career.tenure.year"
+        ? `${opts?.count}y`
+        : key === "career.tenure.month"
+          ? `${opts?.count}m`
+          : key;
+    expect(formatTenure(0, t as never)).toBe("career.tenure.underMonth");
+    expect(formatTenure(5, t as never)).toBe("5m");
+    expect(formatTenure(24, t as never)).toBe("2y");
+    expect(formatTenure(41, t as never)).toBe("3y 5m");
+  });
+
+  test("tenureBucket boundaries", () => {
+    expect(tenureBucket(0)).toBe("lt1");
+    expect(tenureBucket(11)).toBe("lt1");
+    expect(tenureBucket(12)).toBe("y1to2");
+    expect(tenureBucket(24)).toBe("y2to5");
+    expect(tenureBucket(59)).toBe("y2to5");
+    expect(tenureBucket(60)).toBe("y5to10");
+    expect(tenureBucket(120)).toBe("y10plus");
+  });
+});
+
+describe("buildCareerDistribution", () => {
+  test("categorical: count-descending with Not set last, empty values dropped", () => {
+    expect(buildCareerDistribution(rows(), "seniorityLevel")).toEqual([
+      { key: "Senior", count: 2 },
+      { key: NOT_SET, count: 1 },
+    ]);
+    expect(buildCareerDistribution(rows(), "careerPath")).toEqual([
+      { key: "Engineer", count: 1 },
+      { key: "Manager", count: 1 },
+      { key: NOT_SET, count: 1 },
+    ]);
+  });
+
+  test("tenure: the fixed bucket order is kept, empty buckets included, Not set last", () => {
+    expect(buildCareerDistribution(rows(), "tenureAtLevel")).toEqual([
+      { key: "lt1", count: 0 },
+      { key: "y1to2", count: 1 }, // adam: 2024-11-20 → 21 months
+      { key: "y2to5", count: 1 }, // boss: 41 months
+      { key: "y5to10", count: 0 },
+      { key: "y10plus", count: 0 },
+      { key: NOT_SET, count: 1 },
+    ]);
+    expect(buildCareerDistribution(rows(), "tenureInOrganization")).toEqual([
+      { key: "lt1", count: 0 },
+      { key: "y1to2", count: 1 },
+      { key: "y2to5", count: 0 },
+      { key: "y5to10", count: 0 },
+      { key: "y10plus", count: 1 }, // boss: 139 months
+      { key: NOT_SET, count: 1 },
+    ]);
+  });
+
+  test("no Not-set bar when everyone has the value", () => {
+    const complete = buildCareerDistribution(rows().slice(0, 2), "seniorityLevel");
+    expect(complete).toEqual([{ key: "Senior", count: 2 }]);
+  });
+});

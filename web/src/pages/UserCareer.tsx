@@ -1,20 +1,6 @@
 import { useState } from "react";
-import {
-  Alert,
-  Anchor,
-  Badge,
-  Button,
-  Center,
-  Group,
-  Loader,
-  Paper,
-  Stack,
-  Text,
-  TextInput,
-  Timeline,
-  Title,
-} from "@mantine/core";
-import { IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
+import { Alert, Anchor, Button, Group, Paper, Stack, Text, TextInput, Title } from "@mantine/core";
+import { IconPlus } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link as RouterLink, Navigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -26,10 +12,10 @@ import {
   type CareerPosition,
 } from "../api/client";
 import CareerProfileSelect from "../components/CareerProfileSelect";
+import CareerTimeline from "../components/CareerTimeline";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import { useDashboardDrillDown } from "../hooks/useDashboardDrillDown";
-import { formatIsoDate, todayIsoDate } from "../utils/datetime";
-import { pickDictionaryValue } from "../utils/dictionaryForm";
+import { todayIsoDate } from "../utils/datetime";
 import { saveErrorMessage } from "../utils/saveError";
 import { showSuccessToast } from "../utils/toast";
 
@@ -193,31 +179,6 @@ function PositionForm({
   );
 }
 
-// One position's triple, small: dimmed label + value in the viewer's language (or a dash).
-function PositionValue({
-  label,
-  entry,
-}: {
-  label: string;
-  entry: { id: number; valueEn: string; valuePl: string } | null;
-}) {
-  const { i18n } = useTranslation();
-  return (
-    <Group gap={6} wrap="nowrap">
-      <Text size="xs" c="dimmed" style={{ minWidth: "max-content" }}>
-        {label}
-      </Text>
-      {entry ? (
-        <Text size="sm">{pickDictionaryValue(entry, i18n.resolvedLanguage)}</Text>
-      ) : (
-        <Text size="sm" c="dimmed">
-          —
-        </Text>
-      )}
-    </Group>
-  );
-}
-
 /**
  * The per-user career progression drill-down (`/users/:userId/career`, v2.15.0): the position
  * timeline, newest first, the current (open-ended) position emphasized. Readable by ANY
@@ -227,7 +188,7 @@ function PositionValue({
  * editor: start a new position (concluding the current one), correct a row, delete a row.
  */
 export default function UserCareer() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { userId, idIsValid, name, origin, callerManages } = useDashboardDrillDown("career");
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -246,8 +207,6 @@ export default function UserCareer() {
   if (!idIsValid) return <Navigate to="/" replace />;
 
   const who = name ?? t("users.career.userFallback", { id: userId });
-  // Server order is chronological; the timeline reads newest-first like every history surface.
-  const newestFirst = data ? [...data].reverse() : [];
   const editingPosition = editingId != null ? data?.find((p) => p.id === editingId) : undefined;
   // The triples the draft must differ from (the adjacent-sameness rule, v2.15.2): the current
   // position when adding; the chronological neighbors of the edited row when correcting.
@@ -314,77 +273,14 @@ export default function UserCareer() {
         </Text>
       </Stack>
 
-      <Paper withBorder p="md" radius="md">
-        {isError ? (
-          <Alert color="red" variant="light">
-            {t("users.career.loadError")}
-          </Alert>
-        ) : isLoading || !data ? (
-          <Center py="md">
-            <Loader size="sm" />
-          </Center>
-        ) : newestFirst.length === 0 ? (
-          <Text size="sm" c="dimmed" ta="center" py="md">
-            {t("users.career.empty")}
-          </Text>
-        ) : (
-          <Timeline active={0} bulletSize={14} lineWidth={2}>
-            {newestFirst.map((p) => (
-              <Timeline.Item
-                key={p.id}
-                title={
-                  <Group gap="xs" wrap="wrap">
-                    <Text size="sm" fw={600} span>
-                      {p.endDate != null
-                        ? `${formatIsoDate(p.startDate, i18n.language)} – ${formatIsoDate(p.endDate, i18n.language)}`
-                        : t("users.career.since", { date: formatIsoDate(p.startDate, i18n.language) })}
-                    </Text>
-                    {p.endDate == null && (
-                      <Badge size="sm" variant="light" color="lettuce">
-                        {t("users.career.currentBadge")}
-                      </Badge>
-                    )}
-                  </Group>
-                }
-              >
-                <Stack gap={2} mt={2}>
-                  <PositionValue label={t("users.profile.path")} entry={p.careerPath} />
-                  <PositionValue
-                    label={t("users.profile.specialization")}
-                    entry={p.careerSpecialization}
-                  />
-                  <PositionValue label={t("users.profile.seniority")} entry={p.seniorityLevel} />
-                  {callerManages && (
-                    <Group gap={4} mt={4}>
-                      <Button
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconPencil size={14} />}
-                        disabled={submitting}
-                        onClick={() => setEditingId(p.id)}
-                        aria-label={t("users.career.editAria", { date: p.startDate })}
-                      >
-                        {t("common.action.edit")}
-                      </Button>
-                      <Button
-                        variant="subtle"
-                        color="red"
-                        size="xs"
-                        leftSection={<IconTrash size={14} />}
-                        disabled={submitting}
-                        onClick={() => setDeleteTarget(p.id)}
-                        aria-label={t("users.career.deleteAria", { date: p.startDate })}
-                      >
-                        {t("common.action.delete")}
-                      </Button>
-                    </Group>
-                  )}
-                </Stack>
-              </Timeline.Item>
-            ))}
-          </Timeline>
-        )}
-      </Paper>
+      <CareerTimeline
+        positions={data}
+        isLoading={isLoading}
+        isError={isError}
+        onEdit={callerManages ? setEditingId : undefined}
+        onDelete={callerManages ? setDeleteTarget : undefined}
+        busy={submitting}
+      />
 
       {error && (
         <Alert color="red" variant="light">

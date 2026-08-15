@@ -82,7 +82,7 @@ commit** — this list is the suite's coverage map, and it has drifted three tim
   the screen via the header **account menu**, opts out (the switch survives save + reopen) and
   back in.
 - `user-edit.spec.ts` — admin creates (generated-password reveal) and renames a user
-- `user-career.spec.ts` — career progression (v2.15.0): admin form has no career fields; a chain manager starts/concludes/corrects/deletes positions from the subordinates-card drill-down; the current position feeds the details Profile; the person is notified and reads their timeline read-only; dictionary rename propagates through the position ref, retired entry keeps resolving
+- `user-career.spec.ts` — career progression (v2.15.0): admin form has no career fields; a chain manager starts/concludes/corrects/deletes positions from the subordinates-card drill-down (a date-only repeat stays disabled — v2.15.2); the current position feeds the details Profile; the nav Career page (v2.16.0) shows the manager's own My career plus the Team pyramid (subordinate row, reports-scope toggle, chart view) and the subordinate My career only; the person is notified and reads their timeline read-only; dictionary rename propagates through the position ref, retired entry keeps resolving
   (`PUT /users/{id}`).
 - `users-admin.spec.ts` — role change; admin password reset vs. self-change (current password
   required, wrong one rejected); deactivate/reactivate (Inactive badge, the distinct

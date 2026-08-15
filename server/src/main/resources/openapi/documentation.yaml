@@ -823,6 +823,43 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalServerError' }
 
+  /api/v1/career/pyramid:
+    get:
+      tags: [users]
+      operationId: getCareerPyramid
+      summary: The caller's team pyramid (career composition of their subordinates)
+      description: |
+        Caller-relative (v2.16.0): one row per subordinate of the authenticated caller —
+        direct reports by default, the whole transitive management chain with
+        `includeIndirect=true` (the `/teams/members?view=managed` semantics; strict
+        boolean, anything else 400). Any authenticated caller may ask; a caller who
+        manages nobody gets an empty list (no 403 — the days-off budgets idiom). No role
+        widening: HR and ADMIN see exactly their own subordinates.
+
+        Each row carries the subordinate's CURRENT career triple plus the two tenure
+        anchors (`currentPositionStart`, `organizationSince` — see the schema); all career
+        fields are null for a subordinate with no recorded positions, and such rows are
+        deliberately included so the manager sees who still needs one. Soft-deleted users
+        are excluded; deactivated users are included (the members-list rule).
+
+        **Unpaged** — bounded by the caller's subordinate count, intrinsically small.
+      parameters:
+        - name: includeIndirect
+          in: query
+          required: false
+          schema: { type: boolean }
+          description: Widen from direct reports to the transitive management chain (strict true/false).
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CareerPyramidList'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
   /api/v1/teams:
     get:
       tags: [teams]
@@ -5420,6 +5457,46 @@ components:
           type: array
           items: { $ref: '#/components/schemas/CareerPositionResponse' }
           description: Chronological (start ascending) — the last item is the current position.
+
+    CareerPyramidItem:
+      type: object
+      required: [userId, name, careerPath, careerSpecialization, seniorityLevel, currentPositionStart, organizationSince]
+      properties:
+        userId: { type: integer, format: int64, minimum: 0 }
+        name: { type: string }
+        careerPath:
+          nullable: true
+          allOf: [ { $ref: '#/components/schemas/DictionaryEntry' } ]
+          description: The CURRENT position's career path, resolved at read time (renames
+            propagate; soft-deleted entries keep resolving). Null when the subordinate has
+            no recorded positions or a legacy row leaves the field unset.
+        careerSpecialization:
+          nullable: true
+          allOf: [ { $ref: '#/components/schemas/DictionaryEntry' } ]
+        seniorityLevel:
+          nullable: true
+          allOf: [ { $ref: '#/components/schemas/DictionaryEntry' } ]
+        currentPositionStart:
+          type: string
+          format: date
+          nullable: true
+          description: The current position's start — the "tenure at level" anchor (any
+            recorded position change resets it). Null when no positions are recorded.
+        organizationSince:
+          type: string
+          format: date
+          nullable: true
+          description: The FIRST recorded position's start — organization tenure AS RECORDED
+            (v2.15.0 histories started empty, so not necessarily the true hire date).
+
+    CareerPyramidList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/CareerPyramidItem' }
+          description: Sorted by name (case-insensitive), then id.
 
     PasswordUpdateRequest:
       type: object

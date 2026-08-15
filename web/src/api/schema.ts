@@ -508,6 +508,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/career/pyramid": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's team pyramid (career composition of their subordinates)
+         * @description Caller-relative (v2.16.0): one row per subordinate of the authenticated caller —
+         *     direct reports by default, the whole transitive management chain with
+         *     `includeIndirect=true` (the `/teams/members?view=managed` semantics; strict
+         *     boolean, anything else 400). Any authenticated caller may ask; a caller who
+         *     manages nobody gets an empty list (no 403 — the days-off budgets idiom). No role
+         *     widening: HR and ADMIN see exactly their own subordinates.
+         *
+         *     Each row carries the subordinate's CURRENT career triple plus the two tenure
+         *     anchors (`currentPositionStart`, `organizationSince` — see the schema); all career
+         *     fields are null for a subordinate with no recorded positions, and such rows are
+         *     deliberately included so the manager sees who still needs one. Soft-deleted users
+         *     are excluded; deactivated users are included (the members-list rule).
+         *
+         *     **Unpaged** — bounded by the caller's subordinate count, intrinsically small.
+         */
+        get: operations["getCareerPyramid"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/teams": {
         parameters: {
             query?: never;
@@ -3408,6 +3441,29 @@ export interface components {
         CareerPositionList: {
             /** @description Chronological (start ascending) — the last item is the current position. */
             items: components["schemas"]["CareerPositionResponse"][];
+        };
+        CareerPyramidItem: {
+            /** Format: int64 */
+            userId: number;
+            name: string;
+            /** @description The CURRENT position's career path, resolved at read time (renames propagate; soft-deleted entries keep resolving). Null when the subordinate has no recorded positions or a legacy row leaves the field unset. */
+            careerPath: components["schemas"]["DictionaryEntry"] | null;
+            careerSpecialization: components["schemas"]["DictionaryEntry"] | null;
+            seniorityLevel: components["schemas"]["DictionaryEntry"] | null;
+            /**
+             * Format: date
+             * @description The current position's start — the "tenure at level" anchor (any recorded position change resets it). Null when no positions are recorded.
+             */
+            currentPositionStart: string | null;
+            /**
+             * Format: date
+             * @description The FIRST recorded position's start — organization tenure AS RECORDED (v2.15.0 histories started empty, so not necessarily the true hire date).
+             */
+            organizationSince: string | null;
+        };
+        CareerPyramidList: {
+            /** @description Sorted by name (case-insensitive), then id. */
+            items: components["schemas"]["CareerPyramidItem"][];
         };
         PasswordUpdateRequest: {
             /** @description At most 71 bytes in UTF-8 (bcrypt limit) — longer is rejected with 400. */
@@ -6359,6 +6415,32 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getCareerPyramid: {
+        parameters: {
+            query?: {
+                /** @description Widen from direct reports to the transitive management chain (strict true/false). */
+                includeIndirect?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CareerPyramidList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
             500: components["responses"]["InternalServerError"];
         };
     };

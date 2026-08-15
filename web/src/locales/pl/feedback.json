@@ -96,7 +96,8 @@
     "teams": "Zespoły",
     "org": "Struktura organizacji",
     "team": "Podwładni zespołu",
-    "details": "Szczegóły użytkownika"
+    "details": "Szczegóły użytkownika",
+    "career": "Piramida zespołu"
   },
   "duplicate": {
     "draft": "Szkic tego feedbacku już istnieje.",
