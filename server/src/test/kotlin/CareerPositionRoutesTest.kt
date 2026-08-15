@@ -35,8 +35,9 @@ import kotlin.test.assertTrue
  * transitive-chain write guard vs the any-authenticated read, dictionary-ref validation and
  * resolution (renames propagate, soft-deleted refs keep resolving, corrections resubmitting
  * a stale ref never trip over it), the current-position triple flowing into the user
- * responses, and the owner notification (create only). Positions use far-past dates freely —
- * nothing else keys on them.
+ * responses, the adjacent-sameness rule (v2.15.2: no position may repeat its neighbor's exact
+ * triple — 409), and the owner notification (create only). Positions use far-past dates
+ * freely — nothing else keys on them.
  */
 class CareerPositionRoutesTest {
 
@@ -77,6 +78,7 @@ class CareerPositionRoutesTest {
             val marker = UUID.randomUUID().toString().take(8)
             val (pathId, pathId2) = TestDictionaries.append(Dictionary.CAREER_PATH, "CpA $marker", "CpB $marker")
             val (specId, levelId) = specAndLevel(marker)
+            val (specId2) = TestDictionaries.append(Dictionary.CAREER_SPECIALIZATION, "CpSpec2 $marker")
 
             // Create: 201 + Location + the resolved open-ended position with the full triple.
             val response = manager.createPosition(subId, "2019-02-01", pathId, specId, levelId)
@@ -105,15 +107,17 @@ class CareerPositionRoutesTest {
             assertEquals(DictionaryEntry(pathId2, "CpB $marker", "CpB $marker"), userRead.careerPath)
             assertEquals(DictionaryEntry(levelId, "CpLevel $marker", "CpLevel $marker"), userRead.seniorityLevel)
 
-            // Correct the FIRST position in place: date + a different path.
+            // Correct the FIRST position in place: date + a different path (the spec differs
+            // too — a correction may not make the row identical to its neighbor, v2.15.2).
             val put = manager.put("/api/v1/users/$subId/career-positions/${first.id}") {
                 contentType(ContentType.Application.Json)
-                setBody(CareerPositionWrite("2019-05-01", pathId2, specId, levelId))
+                setBody(CareerPositionWrite("2019-05-01", pathId2, specId2, levelId))
             }
             assertEquals(HttpStatusCode.NoContent, put.status)
             val corrected = sub.listPositions(subId).first()
             assertEquals("2019-05-01", corrected.startDate)
             assertEquals(DictionaryEntry(pathId2, "CpB $marker", "CpB $marker"), corrected.careerPath)
+            assertEquals(DictionaryEntry(specId2, "CpSpec2 $marker", "CpSpec2 $marker"), corrected.careerSpecialization)
 
             // A positionId under the WRONG user's path is 404, not a cross-user edit.
             val foreign = manager.put("/api/v1/users/$mgrId/career-positions/${first.id}") {
@@ -157,34 +161,38 @@ class CareerPositionRoutesTest {
         val manager = authedClient(mgrEmail, "pw")
 
         val marker = UUID.randomUUID().toString().take(8)
-        val (pathId) = TestDictionaries.append(Dictionary.CAREER_PATH, "CpO $marker")
+        // Distinct path per row: same-triple neighbors are their own 409 (the sameness test).
+        val (pathA, pathB, pathC) = TestDictionaries.append(
+            Dictionary.CAREER_PATH, "CpO A $marker", "CpO B $marker", "CpO C $marker",
+        )
         val (specId, levelId) = specAndLevel(marker)
-        suspend fun create(start: String, path: UInt? = pathId, spec: UInt? = specId, level: UInt? = levelId) =
+        suspend fun create(start: String, path: UInt? = pathA, spec: UInt? = specId, level: UInt? = levelId) =
             manager.createPosition(subId, start, path, spec, level)
 
         val a = create("2018-01-10").body<CareerPositionResponse>()
-        val b = create("2020-01-10").body<CareerPositionResponse>()
-        val c = create("2022-01-10").body<CareerPositionResponse>()
+        val b = create("2020-01-10", path = pathB).body<CareerPositionResponse>()
+        val c = create("2022-01-10", path = pathC).body<CareerPositionResponse>()
 
         // Appends must come strictly after the latest start (equal included).
         assertEquals(HttpStatusCode.Conflict, create("2022-01-10").status)
         assertEquals(HttpStatusCode.Conflict, create("2021-01-01").status)
 
-        // A correction must keep the row between its neighbors (strictly).
-        suspend fun correct(positionId: UInt, start: String): HttpStatusCode =
+        // A correction must keep the row between its neighbors (strictly); each row keeps
+        // its own path, so only the date rule is in play here.
+        suspend fun correct(positionId: UInt, start: String, path: UInt): HttpStatusCode =
             manager.put("/api/v1/users/$subId/career-positions/$positionId") {
                 contentType(ContentType.Application.Json)
-                setBody(CareerPositionWrite(start, pathId, specId, levelId))
+                setBody(CareerPositionWrite(start, path, specId, levelId))
             }.status
-        assertEquals(HttpStatusCode.NoContent, correct(b.id, "2019-07-01"))
-        assertEquals(HttpStatusCode.Conflict, correct(b.id, "2018-01-10"))
-        assertEquals(HttpStatusCode.Conflict, correct(b.id, "2017-12-31"))
-        assertEquals(HttpStatusCode.Conflict, correct(b.id, "2022-01-10"))
-        assertEquals(HttpStatusCode.Conflict, correct(b.id, "2023-01-01"))
+        assertEquals(HttpStatusCode.NoContent, correct(b.id, "2019-07-01", pathB))
+        assertEquals(HttpStatusCode.Conflict, correct(b.id, "2018-01-10", pathB))
+        assertEquals(HttpStatusCode.Conflict, correct(b.id, "2017-12-31", pathB))
+        assertEquals(HttpStatusCode.Conflict, correct(b.id, "2022-01-10", pathB))
+        assertEquals(HttpStatusCode.Conflict, correct(b.id, "2023-01-01", pathB))
         // The LAST row has no next neighbor — any date after its predecessor works (not future).
-        assertEquals(HttpStatusCode.NoContent, correct(c.id, "2021-11-11"))
+        assertEquals(HttpStatusCode.NoContent, correct(c.id, "2021-11-11", pathC))
         // The FIRST row has no previous neighbor — it may move arbitrarily far back.
-        assertEquals(HttpStatusCode.NoContent, correct(a.id, "2015-01-01"))
+        assertEquals(HttpStatusCode.NoContent, correct(a.id, "2015-01-01", pathA))
 
         // Shape 400s: malformed/unpadded/future dates, any missing triple field, bad refs.
         assertEquals(HttpStatusCode.BadRequest, create("2023-1-05").status)
@@ -195,6 +203,53 @@ class CareerPositionRoutesTest {
         assertEquals(HttpStatusCode.BadRequest, create("2023-05-05", level = null).status)
         assertEquals(HttpStatusCode.BadRequest, create("2023-05-05", path = specId).status) // wrong dictionary
         assertEquals(HttpStatusCode.BadRequest, create("2023-05-05", path = 999_999_999u).status)
+    }
+
+    @Test
+    fun `adjacent sameness - a position must differ from its neighbors`() = testApplication {
+        usePostgresTestcontainer()
+        val mgrEmail = uniqueEmail("cps-m")
+        val subEmail = uniqueEmail("cps-s")
+        val mgrId = TestUsers.seed(mgrEmail, "pw", roles = emptySet())
+        val subId = TestUsers.seed(subEmail, "pw", roles = emptySet())
+        val teamId = TestServices.teams.create(Team(name = "cps-${UUID.randomUUID()}", managerId = mgrId))
+        TestServices.teams.addMember(teamId, subId)
+        val manager = authedClient(mgrEmail, "pw")
+
+        val marker = UUID.randomUUID().toString().take(8)
+        val (pathA, pathB, pathC) = TestDictionaries.append(
+            Dictionary.CAREER_PATH, "CpS A $marker", "CpS B $marker", "CpS C $marker",
+        )
+        val (specId, levelId) = specAndLevel(marker)
+        suspend fun correct(positionId: UInt, start: String, path: UInt): HttpStatusCode =
+            manager.put("/api/v1/users/$subId/career-positions/$positionId") {
+                contentType(ContentType.Application.Json)
+                setBody(CareerPositionWrite(start, path, specId, levelId))
+            }.status
+
+        val a = manager.createPosition(subId, "2018-03-01", pathA, specId, levelId)
+            .body<CareerPositionResponse>()
+        // Appending the exact same triple is 409 — a repeat is not a step…
+        assertEquals(
+            HttpStatusCode.Conflict,
+            manager.createPosition(subId, "2020-03-01", pathA, specId, levelId).status,
+        )
+        // …while changing ANY one field makes it a position again.
+        val b = manager.createPosition(subId, "2020-03-01", pathB, specId, levelId)
+            .body<CareerPositionResponse>()
+        val c = manager.createPosition(subId, "2022-03-01", pathC, specId, levelId)
+            .body<CareerPositionResponse>()
+
+        // A correction may not make the row identical to its PREDECESSOR (b → a's triple)…
+        assertEquals(HttpStatusCode.Conflict, correct(b.id, "2020-03-01", pathA))
+        // …nor to its SUCCESSOR (b → c's triple; that would make c the meaningless repeat)…
+        assertEquals(HttpStatusCode.Conflict, correct(b.id, "2020-03-01", pathC))
+        // …but a date-only correction (own triple kept, differing from both neighbors) is fine,
+        // and so is the FIRST row matching the LAST (they are not adjacent).
+        assertEquals(HttpStatusCode.NoContent, correct(b.id, "2020-06-01", pathB))
+        assertEquals(HttpStatusCode.NoContent, correct(a.id, "2018-03-01", pathC))
+        assertEquals(listOf(pathC, pathB, pathC), manager.listPositions(subId).map { it.careerPath?.id })
+        assertTrue(c.id > 0u)
     }
 
     @Test
@@ -231,15 +286,16 @@ class CareerPositionRoutesTest {
             val h = authedClient(hEmail, "pw")
 
             val marker = UUID.randomUUID().toString().take(8)
-            val (pathId) = TestDictionaries.append(Dictionary.CAREER_PATH, "CpZ $marker")
+            val (pathId, pathId2) = TestDictionaries.append(Dictionary.CAREER_PATH, "CpZ $marker", "CpZ2 $marker")
             val (specId, levelId) = specAndLevel(marker)
-            suspend fun create(client: HttpClient, start: String) =
-                client.createPosition(sId, start, pathId, specId, levelId)
+            suspend fun create(client: HttpClient, start: String, path: UInt = pathId) =
+                client.createPosition(sId, start, path, specId, levelId)
 
             // Writes: the direct manager AND the chain above — nobody else (ADMIN and HR
-            // deliberately included in the 403 set; the write is the chain's alone).
+            // deliberately included in the 403 set; the write is the chain's alone). The
+            // second create switches path — a repeat triple would be the sameness 409.
             assertEquals(HttpStatusCode.Created, create(m, "2016-01-01").status)
-            assertEquals(HttpStatusCode.Created, create(g, "2017-01-01").status)
+            assertEquals(HttpStatusCode.Created, create(g, "2017-01-01", path = pathId2).status)
             assertEquals(HttpStatusCode.Forbidden, create(s, "2018-01-01").status)
             assertEquals(HttpStatusCode.Forbidden, create(t, "2018-01-01").status)
             assertEquals(HttpStatusCode.Forbidden, create(u, "2018-01-01").status)
@@ -340,7 +396,7 @@ class CareerPositionRoutesTest {
             val sub = authedClient(subEmail, "pw")
 
             val marker = UUID.randomUUID().toString().take(8)
-            val (pathId) = TestDictionaries.append(Dictionary.CAREER_PATH, "CpN $marker")
+            val (pathId, pathId2) = TestDictionaries.append(Dictionary.CAREER_PATH, "CpN $marker", "CpN2 $marker")
             val (specId, levelId) = specAndLevel(marker)
 
             val position = manager.createPosition(subId, "2020-04-01", pathId, specId, levelId)
@@ -349,7 +405,7 @@ class CareerPositionRoutesTest {
                 contentType(ContentType.Application.Json)
                 setBody(CareerPositionWrite("2020-05-01", pathId, specId, levelId))
             }.let { assertEquals(HttpStatusCode.NoContent, it.status) }
-            val second = manager.createPosition(subId, "2021-04-01", pathId, specId, levelId)
+            val second = manager.createPosition(subId, "2021-04-01", pathId2, specId, levelId)
                 .body<CareerPositionResponse>()
             manager.delete("/api/v1/users/$subId/career-positions/${second.id}")
                 .let { assertEquals(HttpStatusCode.NoContent, it.status) }

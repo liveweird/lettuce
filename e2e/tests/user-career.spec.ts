@@ -97,10 +97,20 @@ test("career progression: chain manager records positions, the person sees the t
   // (the Mantine gotcha), so an unscoped exact-text locator strict-violates against it.
   await expect(page.locator("#main-content").getByText(value1, { exact: true })).toBeVisible();
 
-  // 5. Starting a second position concludes the first — and the form PREFILLS from the
-  //    current position (v2.15.1): the combos already hold values, only the date is needed.
+  // 5. Starting a second position concludes the first — the form PREFILLS from the current
+  //    position (v2.15.1), and a date alone is NOT enough (v2.15.2: the triple must differ
+  //    from the current position's — the note explains, the submit stays disabled).
   await expect(careerPath).toHaveValue(value1);
   await page.getByLabel("Start date").fill("2025-02-01");
+  await expect(page.getByRole("button", { name: "Start position" })).toBeDisabled();
+  await expect(
+    page.getByText("This repeats the current position exactly", { exact: false }),
+  ).toBeVisible();
+  // Change the seniority to the SECOND option (a different seed value — same shared-dictionary
+  // etiquette as the first pick: stable ids, nothing asserted on the value).
+  await page.getByRole("combobox", { name: "Seniority level" }).click();
+  await page.getByRole("option").nth(1).click();
+  await expect(page.getByRole("button", { name: "Start position" })).toBeEnabled();
   await Promise.all([
     page.waitForResponse((r) => isPositionsCall(r) && r.request().method() === "POST" && r.ok()),
     page.getByRole("button", { name: "Start position" }).click(),

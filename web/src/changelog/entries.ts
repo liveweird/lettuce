@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.15.2",
+    date: "2026-08-15",
+    en: `Every career step must be a real change. A new position can no longer repeat the previous one exactly — at least one of the three fields (career path, specialization, seniority level) has to differ, and corrections may not make a position identical to its neighbor either. The form explains this on the spot: with the fields pre-filled from the current position, the start button stays disabled until something actually changes.`,
+    pl: `Każdy krok kariery musi być realną zmianą. Nowe stanowisko nie może już dokładnie powtarzać poprzedniego — przynajmniej jedno z trzech pól (ścieżka kariery, specjalizacja, poziom) musi się różnić, a korekta także nie może upodobnić stanowiska do sąsiedniego. Formularz tłumaczy to na bieżąco: przy polach wypełnionych wartościami obecnego stanowiska przycisk rozpoczęcia pozostaje wyłączony, dopóki coś faktycznie się nie zmieni.`,
+  },
+  {
     version: "2.15.1",
     date: "2026-08-15",
     en: `Career position form polish. A position now always carries the complete set — career path, specialization, and seniority are all required (marked with asterisks; the confusing "missing" warning is gone). When starting a new position, the three fields begin pre-filled from the person's current position, so a promotion is just changing what's new plus the start date. Correcting an older entry that predates this rule simply means completing its missing fields.`,

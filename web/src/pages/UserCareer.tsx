@@ -65,6 +65,20 @@ function addDraftOf(current?: CareerPosition): Draft {
   };
 }
 
+// The triple as a comparable key ("" when any field is unset). Mirrors the server's
+// adjacent-sameness 409 (v2.15.2): a position identical to its neighbor is not a step.
+function tripleKey(d: Pick<Draft, "careerPathId" | "careerSpecializationId" | "seniorityLevelId">) {
+  if (d.careerPathId === "" || d.careerSpecializationId === "" || d.seniorityLevelId === "") return "";
+  return `${d.careerPathId}|${d.careerSpecializationId}|${d.seniorityLevelId}`;
+}
+
+// A neighbor's triple key, or null when it is a legacy partial row (which never blocks).
+function neighborTripleKey(p: CareerPosition | undefined): string | null {
+  if (p == null) return null;
+  const key = tripleKey(draftOf(p));
+  return key === "" ? null : key;
+}
+
 // draftValid guarantees all three are set, so the body always carries the complete triple
 // (the wire type requires it since v2.15.1).
 function toBody(draft: Draft) {
@@ -83,6 +97,7 @@ function toBody(draft: Draft) {
 function PositionForm({
   initial,
   seedPosition,
+  forbiddenTriples,
   editing,
   submitting,
   onSubmit,
@@ -91,6 +106,8 @@ function PositionForm({
   initial: Draft;
   /** The position whose values seeded [initial] — its (possibly soft-deleted) entries keep displaying. */
   seedPosition?: CareerPosition;
+  /** The neighboring positions' triple keys the draft must differ from (the server's v2.15.2 409). */
+  forbiddenTriples: string[];
   editing: boolean;
   submitting: boolean;
   onSubmit: (draft: Draft) => void;
@@ -98,11 +115,10 @@ function PositionForm({
 }) {
   const { t } = useTranslation();
   const [draft, setDraft] = useState<Draft>(initial);
-  const draftValid =
-    draft.startDate !== "" &&
-    draft.careerPathId !== "" &&
-    draft.careerSpecializationId !== "" &&
-    draft.seniorityLevelId !== "";
+  const draftKey = tripleKey(draft);
+  // "" = not all three set yet — the required-fields rule already blocks that case.
+  const sameAsNeighbor = draftKey !== "" && forbiddenTriples.includes(draftKey);
+  const draftValid = draft.startDate !== "" && draftKey !== "" && !sameAsNeighbor;
 
   return (
     <Stack gap="xs">
@@ -153,6 +169,11 @@ function PositionForm({
           w={210}
         />
       </Group>
+      {sameAsNeighbor && (
+        <Text size="xs" c="dimmed">
+          {t(editing ? "users.career.sameAsNeighborEdit" : "users.career.sameAsNeighbor")}
+        </Text>
+      )}
       <Group justify="flex-end" gap="sm">
         {onCancel != null && (
           <Button variant="default" disabled={submitting} onClick={onCancel}>
@@ -228,6 +249,15 @@ export default function UserCareer() {
   // Server order is chronological; the timeline reads newest-first like every history surface.
   const newestFirst = data ? [...data].reverse() : [];
   const editingPosition = editingId != null ? data?.find((p) => p.id === editingId) : undefined;
+  // The triples the draft must differ from (the adjacent-sameness rule, v2.15.2): the current
+  // position when adding; the chronological neighbors of the edited row when correcting.
+  // Legacy partial neighbors resolve to null and never block.
+  const editingIndex = editingPosition != null && data ? data.indexOf(editingPosition) : -1;
+  const forbiddenTriples = (
+    editingIndex >= 0
+      ? [neighborTripleKey(data?.[editingIndex - 1]), neighborTripleKey(data?.[editingIndex + 1])]
+      : [neighborTripleKey(currentPosition)]
+  ).filter((k): k is string => k != null);
 
   async function run(action: () => Promise<unknown>, successKey: string) {
     setSubmitting(true);
@@ -375,6 +405,7 @@ export default function UserCareer() {
             }
             initial={editingPosition != null ? draftOf(editingPosition) : addDraftOf(currentPosition)}
             seedPosition={editingPosition ?? currentPosition}
+            forbiddenTriples={forbiddenTriples}
             editing={editingPosition != null}
             submitting={submitting}
             onSubmit={submit}
