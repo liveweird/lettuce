@@ -51,7 +51,7 @@ function row(id: number, over: Partial<KudosRow> = {}): KudosRow {
 // this manual stub lets the test push an "is intersecting" entry through Mantine's
 // useIntersection. First of its kind in the repo (the Kudos wall is the first infinite scroll).
 class MockIntersectionObserver {
-  static instances: MockIntersectionObserver[] = [];
+  static readonly instances: MockIntersectionObserver[] = [];
   callback: IntersectionObserverCallback;
   observed: Element[] = [];
   constructor(callback: IntersectionObserverCallback) {
@@ -111,7 +111,7 @@ describe("Kudos wall", () => {
   beforeEach(() => {
     mockFetch = vi.fn();
     vi.stubGlobal("fetch", mockFetch);
-    MockIntersectionObserver.instances = [];
+    MockIntersectionObserver.instances.length = 0;
     vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
     localStorage.setItem("lettuce.auth.token", "fake-token");
     localStorage.setItem("lettuce.auth.userId", "7");

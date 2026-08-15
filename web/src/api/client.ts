@@ -197,7 +197,7 @@ export async function logout(): Promise<void> {
 // (e.g. several requests that all 401 at once) share one in-flight /refresh call.
 let refreshInflight: Promise<string | null> | null = null;
 
-export function refresh(): Promise<string | null> {
+function refresh(): Promise<string | null> {
   if (refreshInflight === null) {
     refreshInflight = doRefresh().finally(() => {
       refreshInflight = null;
@@ -705,7 +705,7 @@ export const withdrawFeedback = (id: number) => feedbackTransition(id, "withdraw
 export const rejectFeedback = (id: number) => feedbackTransition(id, "reject");
 export const pickUpFeedback = (id: number) => feedbackTransition(id, "pick-up");
 
-export type FeedbackEventList =
+type FeedbackEventList =
   paths["/api/v1/feedbacks/{id}/events"]["get"]["responses"]["200"]["content"]["application/json"];
 export type FeedbackEvent = FeedbackEventList["items"][number];
 
@@ -792,7 +792,7 @@ export async function deleteOneOnOne(id: number): Promise<void> {
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
-export type OneOnOneEventList =
+type OneOnOneEventList =
   paths["/api/v1/one-on-ones/{id}/events"]["get"]["responses"]["200"]["content"]["application/json"];
 export type OneOnOneEvent = OneOnOneEventList["items"][number];
 
@@ -802,7 +802,7 @@ export async function listOneOnOneEvents(id: number): Promise<OneOnOneEvent[]> {
   return ((await res.json()) as OneOnOneEventList).items;
 }
 
-export type ActionItemHistoryList =
+type ActionItemHistoryList =
   paths["/api/v1/one-on-ones/action-items/{id}/history"]["get"]["responses"]["200"]["content"]["application/json"];
 export type ActionItemHistoryEntry = ActionItemHistoryList["items"][number];
 
@@ -929,7 +929,7 @@ export async function archiveGoal(id: number, body: GoalArchiveBody): Promise<vo
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
-export type GoalEventList =
+type GoalEventList =
   paths["/api/v1/goals/{id}/events"]["get"]["responses"]["200"]["content"]["application/json"];
 export type GoalEvent = GoalEventList["items"][number];
 
@@ -941,7 +941,6 @@ export async function listGoalEvents(id: number): Promise<GoalEvent[]> {
 
 export type TeamKpiPage =
   paths["/api/v1/team-kpis"]["get"]["responses"]["200"]["content"]["application/json"];
-export type TeamKpiListItem = TeamKpiPage["items"][number];
 export type TeamKpiResponse =
   paths["/api/v1/team-kpis/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
 export type TeamKpiStatus = TeamKpiResponse["status"];
@@ -995,7 +994,7 @@ export async function createTeamKpi(body: TeamKpiCreateBody): Promise<TeamKpiRes
 
 export type TeamKpiDefinitionUpdateBody =
   paths["/api/v1/team-kpis/{id}"]["put"]["requestBody"]["content"]["application/json"];
-export type TeamKpiValueList =
+type TeamKpiValueList =
   paths["/api/v1/team-kpis/{id}/values"]["get"]["responses"]["200"]["content"]["application/json"];
 export type TeamKpiValue = TeamKpiValueList["items"][number];
 export type TeamKpiValueWriteBody =
@@ -1081,7 +1080,7 @@ export async function archiveTeamKpi(id: number, body: TeamKpiArchiveBody): Prom
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
-export type TeamKpiEventList =
+type TeamKpiEventList =
   paths["/api/v1/team-kpis/{id}/events"]["get"]["responses"]["200"]["content"]["application/json"];
 export type TeamKpiEvent = TeamKpiEventList["items"][number];
 
@@ -1249,7 +1248,7 @@ export const revertPerformanceReview = (id: number) => reviewTransition(id, "rev
 export const publishPerformanceReview = (id: number) => reviewTransition(id, "publish");
 export const unpublishPerformanceReview = (id: number) => reviewTransition(id, "unpublish");
 
-export type PerformanceReviewEventList =
+type PerformanceReviewEventList =
   paths["/api/v1/performance-reviews/{id}/events"]["get"]["responses"]["200"]["content"]["application/json"];
 export type PerformanceReviewEvent = PerformanceReviewEventList["items"][number];
 
@@ -1336,7 +1335,7 @@ export const cancelDaysOff = (id: number) => daysOffTransition(id, "cancel");
 
 export type DaysOffCalendarResponse =
   paths["/api/v1/days-off/calendar"]["get"]["responses"]["200"]["content"]["application/json"];
-export type DaysOffCalendarUser = DaysOffCalendarResponse["users"][number];
+type DaysOffCalendarUser = DaysOffCalendarResponse["users"][number];
 export type DaysOffCalendarEntry = DaysOffCalendarUser["entries"][number];
 export type DaysOffCalendarScope = "member" | "managed";
 
@@ -1714,7 +1713,7 @@ export async function deleteAlert(id: number): Promise<void> {
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
-export type VisibleAlertList =
+type VisibleAlertList =
   paths["/api/v1/alerts/visible"]["get"]["responses"]["200"]["content"]["application/json"];
 export type VisibleAlert = VisibleAlertList["items"][number];
 

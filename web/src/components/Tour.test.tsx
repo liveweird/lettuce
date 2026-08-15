@@ -141,7 +141,7 @@ describe("Tour", () => {
       expect(nonManager.some((s) => s.target === target), target).toBe(false);
       expect(manager.some((s) => s.target === target), target).toBe(true);
     }
-    expect(manager.length).toBe(nonManager.length + managerGatedTargets.length);
+    expect(manager).toHaveLength(nonManager.length + managerGatedTargets.length);
     // The 1:1 nav step and its "own" tab are for everyone — as is the Goals "My goals" tab.
     expect(nonManager.some((s) => s.target === '[data-tour="nav-one-on-ones"]')).toBe(true);
     expect(nonManager.some((s) => s.target === '[data-tour="one-on-one-own"]')).toBe(true);
@@ -175,7 +175,7 @@ describe("Tour", () => {
     for (const target of adminOnlyTargets) {
       expect(admin.some((s) => s.target === target), target).toBe(true);
     }
-    expect(admin.length).toBe(plain.length + adminOnlyTargets.length);
+    expect(admin).toHaveLength(plain.length + adminOnlyTargets.length);
 
     // The rest of Config — including the two read-open registries — stays ungated by role.
     for (const target of [
@@ -218,7 +218,7 @@ describe("Tour", () => {
         expect(all.some((s) => s.target === target), target).toBe(true);
         expect(filtered.some((s) => s.target === target), target).toBe(false);
       }
-      expect(filtered.length).toBe(all.length - goalTargets.length);
+      expect(filtered).toHaveLength(all.length - goalTargets.length);
       // The "Step X of Y" numbering shrinks with the filtered total.
       const total = filtered.length;
       expect(filtered[0].title).toBe(`1/${total}`);
@@ -273,7 +273,7 @@ describe("Tour", () => {
         '[data-tour="user-menu"]',
         '[data-tour="replay"]',
       ]);
-      expect(steps.length).toBe(TOUR_STEPS.filter((s) => !s.feature && !s.adminOnly).length);
+      expect(steps).toHaveLength(TOUR_STEPS.filter((s) => !s.feature && !s.adminOnly).length);
     } finally {
       localStorage.removeItem("lettuce.auth.disabledFeatures");
     }

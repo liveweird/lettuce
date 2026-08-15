@@ -2,7 +2,7 @@ import type { TFunction } from "i18next";
 import type { DictionaryEntry, DictionaryUpdateBody } from "../api/client";
 import { saveErrorMessage } from "./saveError";
 
-export const MAX_DICTIONARY_VALUE_LENGTH = 100;
+const MAX_DICTIONARY_VALUE_LENGTH = 100;
 
 /**
  * The ONE localization seam for bilingual dictionary values (V53): every display site picks
@@ -31,7 +31,7 @@ export type DictionaryFormValues = {
 };
 
 let keyCounter = 0;
-export function newDraftKey(): string {
+function newDraftKey(): string {
   keyCounter += 1;
   return `dict-draft-${keyCounter}`;
 }

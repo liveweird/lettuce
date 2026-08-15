@@ -160,8 +160,8 @@ describe("PulseTrend", () => {
     expect(rows[0].n_t22_direct).toBe(2);
     // One /trend request per toggled-on team, all direct at the default calc.
     expect(
-      mockFetch.mock.calls.filter(([u]) => String(u).includes("mode=direct")).length,
-    ).toBe(3);
+      mockFetch.mock.calls.filter(([u]) => String(u).includes("mode=direct")),
+    ).toHaveLength(3);
   });
 
   test("the calc switch refetches every line with subtree numbers and persists", async () => {
