@@ -3,14 +3,16 @@
 ## Sources of Truth
 
 This file is the Codex entry point. Before changing code, also read the relevant sections of
-`CLAUDE.md`; when working under `web/`, read `web/CLAUDE.md` as well. `CLAUDE.md` imports the
-cross-cutting conventions from `.claude/docs/*.md` (persistence, list endpoints, security,
-authorization, observability, testing), and each feature's authoritative deep-dive lives in
-`.claude/docs/features/*.md` — read the matching feature doc before changing that feature.
-Together those files contain the detailed, actively maintained domain, security, persistence,
-UI, and testing conventions shared by the project. For API work, `api-guidelines/API-GUIDELINES.md` is authoritative and its stable
-rule IDs should be cited in reviews. If documentation and executable configuration disagree, the
-configuration and code win; update the affected guidance in the same change.
+`CLAUDE.md`; when working under `web/`, read `web/CLAUDE.md` as well. `CLAUDE.md` uses Claude's
+`@...` import syntax to reference the cross-cutting conventions in `.claude/docs/` (persistence,
+list endpoints, security, authorization, observability, testing); Codex must open the applicable
+files directly. Each feature's authoritative deep-dive lives in `.claude/docs/features/` — read
+the matching feature doc before changing that feature, and read `migrations.md` before adding a
+migration or reasoning about schema history. Together those files contain the detailed, actively
+maintained domain, security, persistence, UI, and testing conventions shared by the project. For
+API work, `api-guidelines/API-GUIDELINES.md` is authoritative and its stable rule IDs should be
+cited in reviews. If documentation and executable configuration disagree, the configuration and
+code win; update the affected guidance in the same change.
 
 The playbooks in `.claude/skills/` are useful repository-local references even outside Claude:
 `api-review` covers the two-pass OpenAPI review, `run-stack` covers packaging/deployment, and
@@ -24,8 +26,9 @@ This is a Kotlin/Gradle backend plus a separate React frontend:
   bootstrap.
 - `server/` is the Kotlin/JVM Ktor application. Feature packages live directly under
   `server/src/main/kotlin/` (`auth`, `users`, `teams`, `feedbacks`, `oneonones`, `goals`,
-  `teamkpis`, `reviews`, `templates`, `dictionaries`, `notifications`, `alerts`, and
-  `dashboard`); cross-cutting wiring is in `plugins/`, and infrastructure is in `infra/`.
+  `teamkpis`, `reviews`, `daysoff`, `pulse`, `settings`, `templates`, `dictionaries`,
+  `notifications`, `alerts`, and `dashboard`). Cross-cutting wiring and policy live in
+  `plugins/`, `audit/`, and `authz/`; infrastructure is in `infra/`.
 - `server/src/main/resources/application.yaml` declaratively registers application modules.
   `main.kt` only starts `EngineMain`; do not wire features from it. Module order matters because
   modules publish and consume Ktor application attributes.
@@ -84,7 +87,8 @@ When an API changes, update all of the following in the same change:
 Use `V<number>__description.sql` for migrations. Most business entities follow the established
 soft-delete convention (`marked_as_deleted`, active-row filtering on every read/count/mutation,
 and partial unique indexes where deleted values may be reused); follow the detailed pattern in
-`CLAUDE.md` rather than inventing a variant. Emit structured `audit(...)` events for
+`.claude/docs/persistence.md` rather than inventing a variant, and keep
+`.claude/docs/features/migrations.md` current. Emit structured `audit(...)` events for
 security-relevant mutations and denials, and never log passwords or tokens.
 
 Use four-space indentation, preserve existing package boundaries, PascalCase for Kotlin types,
@@ -104,6 +108,11 @@ Polish uses inclusive slash forms and the declined loanword `feedback`, not `opi
 mutations use the shared fixed-vocabulary success toast, while errors remain inline. Follow
 `web/CLAUDE.md` for the exact list-page, form-container, navigation, and Markdown discard-confirm
 patterns.
+
+Per-user feature flags are enforced independently by the server and SPA. When adding or changing
+a gated surface, keep route guards, navigation, page guards, cards/actions, notifications, and
+tour-step gates aligned with the feature-flag rules in `web/CLAUDE.md` and
+`.claude/docs/authorization.md`.
 
 `web/src/changelog/entries.ts` is the sole source of the displayed app version. Adding a newest
 English/Polish changelog entry is the release bump; the Gradle snapshot version is unrelated.
