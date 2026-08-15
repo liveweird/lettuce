@@ -75,8 +75,7 @@
     "update": "Update",
     "lifecycle": "Lifecycle",
     "saveDraft": "Save draft",
-    "saveAndActivate": "Save & activate",
-    "saveAndArchive": "Save & archive"
+    "saveAndActivate": "Save & activate"
   },
   "lifecycleFor": "Lifecycle actions for goal {{title}}",
   "updateAria": "Update goal {{title}}",

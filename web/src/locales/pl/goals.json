@@ -75,8 +75,7 @@
     "update": "Aktualizuj",
     "lifecycle": "Cykl życia",
     "saveDraft": "Zapisz wersję roboczą",
-    "saveAndActivate": "Zapisz i aktywuj",
-    "saveAndArchive": "Zapisz i zarchiwizuj"
+    "saveAndActivate": "Zapisz i aktywuj"
   },
   "lifecycleFor": "Akcje cyklu życia celu {{title}}",
   "updateAria": "Aktualizuj cel {{title}}",
