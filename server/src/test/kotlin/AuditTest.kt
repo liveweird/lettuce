@@ -92,7 +92,49 @@ class AuditTest {
                 assertTrue(event.markerList.any { it.name == "AUDIT" })
                 assertEquals(adminId.toLong(), event.keyValuePairs.first { it.key == "byUserId" }.value)
                 assertEquals(targetId.toLong(), event.keyValuePairs.first { it.key == "targetUserId" }.value)
+                // No career positions → the v2.17.0 stamp fields are OMITTED, not null.
+                assertTrue(event.keyValuePairs.none { it.key == "careerPositionId" })
             }
+        } finally {
+            appender.detach()
+        }
+    }
+
+    @Test
+    fun `deactivation with a career position carries the closed position in the audit event`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("audit-cpos-admin")
+        TestUsers.seed(email = adminEmail, password = "pw-123456789")
+        val mgrId = TestUsers.seed(email = uniqueEmail("audit-cpos-mgr"), password = "pw", roles = emptySet())
+        val targetId = TestUsers.seed(email = uniqueEmail("audit-cpos-target"), password = "pw", roles = emptySet())
+        val teamId = TestServices.teams.create(
+            ch.nokillswit.teams.Team(name = "audit-cpos-${java.util.UUID.randomUUID()}", managerId = mgrId),
+        )
+        TestServices.teams.addMember(teamId, targetId)
+        val marker = java.util.UUID.randomUUID().toString().take(8)
+        val (pathId) = TestDictionaries.append(ch.nokillswit.dictionaries.Dictionary.CAREER_PATH, "AuC $marker")
+        val (specId) = TestDictionaries.append(ch.nokillswit.dictionaries.Dictionary.CAREER_SPECIALIZATION, "AuS $marker")
+        val (levelId) = TestDictionaries.append(ch.nokillswit.dictionaries.Dictionary.SENIORITY_LEVEL, "AuL $marker")
+        val (positionId, _) = TestServices.careerPositions.create(
+            mgrId, targetId, ch.nokillswit.users.CareerPositionWrite("2022-02-02", pathId, specId, levelId),
+        )
+        val appender = LogCapture("ch.nokillswit.audit")
+        try {
+            val client = authedClient(adminEmail, "pw-123456789")
+            client.post("/api/v1/users/$targetId/deactivate")
+            client.post("/api/v1/users/$targetId/activate")
+
+            val deactivated = appender.events.find { it.message == "user.deactivated" }
+            assertNotNull(deactivated)
+            assertEquals(positionId.toLong(), deactivated.keyValuePairs.first { it.key == "careerPositionId" }.value)
+            assertEquals(
+                java.time.LocalDate.now().toString(),
+                deactivated.keyValuePairs.first { it.key == "careerPositionEndDate" }.value,
+            )
+            val reactivated = appender.events.find { it.message == "user.reactivated" }
+            assertNotNull(reactivated)
+            assertEquals(positionId.toLong(), reactivated.keyValuePairs.first { it.key == "careerPositionId" }.value)
+            assertTrue(reactivated.keyValuePairs.none { it.key == "careerPositionEndDate" })
         } finally {
             appender.detach()
         }

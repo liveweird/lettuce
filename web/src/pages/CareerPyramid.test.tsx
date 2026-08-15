@@ -9,24 +9,46 @@ type FetchMock = ReturnType<typeof vi.fn>;
 
 const ENTRY = (id: number, value: string) => ({ id, valueEn: value, valuePl: value });
 
+// Full-history payload (v2.17.0). Alice's TODAY view matches the old flat fixture (Senior
+// since 2023-01-10, in the org since 2019-06-01); her first position carries the "Regular"
+// seniority the time-travel test looks for. Carol is deactivated with a stamped end — she
+// must never render at today, only when the slider covers her interval.
 const ITEMS = [
   {
     userId: 1,
     name: "Alice Anchor",
-    careerPath: ENTRY(11, "Engineer"),
-    careerSpecialization: ENTRY(21, "Backend"),
-    seniorityLevel: ENTRY(31, "Senior"),
-    currentPositionStart: "2023-01-10",
-    organizationSince: "2019-06-01",
+    deactivated: false,
+    positions: [
+      {
+        startDate: "2019-06-01",
+        endDate: "2023-01-09",
+        careerPath: ENTRY(11, "Engineer"),
+        careerSpecialization: ENTRY(21, "Backend"),
+        seniorityLevel: ENTRY(30, "Regular"),
+      },
+      {
+        startDate: "2023-01-10",
+        endDate: null,
+        careerPath: ENTRY(11, "Engineer"),
+        careerSpecialization: ENTRY(21, "Backend"),
+        seniorityLevel: ENTRY(31, "Senior"),
+      },
+    ],
   },
+  { userId: 2, name: "Bob Blank", deactivated: false, positions: [] },
   {
-    userId: 2,
-    name: "Bob Blank",
-    careerPath: null,
-    careerSpecialization: null,
-    seniorityLevel: null,
-    currentPositionStart: null,
-    organizationSince: null,
+    userId: 3,
+    name: "Carol Gone",
+    deactivated: true,
+    positions: [
+      {
+        startDate: "2020-02-01",
+        endDate: "2024-05-31",
+        careerPath: ENTRY(12, "Manager"),
+        careerSpecialization: ENTRY(21, "Backend"),
+        seniorityLevel: ENTRY(31, "Senior"),
+      },
+    ],
   },
 ];
 
@@ -34,7 +56,7 @@ function mockApi(mockFetch: FetchMock) {
   mockFetch.mockImplementation((url: string) => {
     const u = String(url);
     if (u.startsWith("/api/v1/career/pyramid"))
-      return Promise.resolve(jsonResponse(200, { items: ITEMS }));
+      return Promise.resolve(jsonResponse(200, { items: ITEMS, earliestStartDate: "2019-06-01" }));
     if (u.includes("/api/v1/dictionaries/career-paths"))
       return Promise.resolve(jsonResponse(200, { items: [ENTRY(11, "Engineer"), ENTRY(12, "Manager")] }));
     if (u.startsWith("/api/v1/dictionaries/"))
@@ -82,8 +104,41 @@ describe("CareerPyramid", () => {
     );
     // Bob's row: all four value cells say Not set.
     expect(screen.getAllByText("Not set").length).toBeGreaterThanOrEqual(4);
+    // Carol is deactivated with an ended position — at today she is dropped, not "Not set".
+    expect(screen.queryByText("Carol Gone")).not.toBeInTheDocument();
     // Direct scope by default — no includeIndirect param.
     expect(pyramidUrls(mockFetch)[0]).toBe("/api/v1/career/pyramid");
+  });
+
+  test("the time slider re-renders the table as of a past date and Today resets it", async () => {
+    mockApi(mockFetch);
+    const user = userEvent.setup();
+    renderWithProviders(<CareerPyramid />);
+    await screen.findByText("Alice Anchor");
+
+    // Default = today: no "As of" badge, Alice shows her CURRENT seniority.
+    expect(screen.queryByText(/As of/)).not.toBeInTheDocument();
+    expect(screen.getByText("Senior")).toBeInTheDocument();
+
+    // Home jumps the slider to its minimum — the org-wide earliest start (2019-06-01).
+    const slider = screen.getByRole("slider", { name: "Show the pyramid as of a past date" });
+    fireEvent.keyDown(slider, { key: "Home" });
+
+    expect(await screen.findByText(/As of/)).toBeInTheDocument();
+    // Alice's FIRST position starts exactly on that date → her historical seniority shows...
+    expect(screen.getByText("Regular")).toBeInTheDocument();
+    expect(screen.queryByText("Senior")).not.toBeInTheDocument();
+    // ...Bob (active, no positions yet) stays as Not set, Carol (deactivated, not started
+    // until 2020) stays dropped.
+    expect(screen.getByText("Bob Blank")).toBeInTheDocument();
+    expect(screen.queryByText("Carol Gone")).not.toBeInTheDocument();
+
+    // The Today button resets to the default view. (Interval membership — Carol coming
+    // back mid-range — is pinned by the careerPyramid.ts unit tests; the keyboard step
+    // sizes here depend on the live range, so the UI test stays on the deterministic ends.)
+    await user.click(screen.getByRole("button", { name: "Today" }));
+    await waitFor(() => expect(screen.queryByText(/As of/)).not.toBeInTheDocument());
+    expect(screen.getByText("Senior")).toBeInTheDocument();
   });
 
   test("the reports scope refetches with includeIndirect", async () => {

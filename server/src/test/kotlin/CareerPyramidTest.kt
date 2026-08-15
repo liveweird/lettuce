@@ -7,19 +7,23 @@ import ch.nokillswit.users.CareerPositionWrite
 import ch.nokillswit.users.CareerPyramidList
 import io.ktor.client.call.body
 import io.ktor.client.request.get
+import io.ktor.client.request.post
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.testApplication
+import java.time.LocalDate
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
- * The caller-relative team-pyramid read (v2.16.0): chain scoping (direct vs includeIndirect,
- * dedupe, cycle safety, caller exclusion), the tenure anchors (current position start = the
- * level-tenure anchor by product decision, first position start = organization tenure as
- * recorded), all-null rows for subordinates without positions, soft-deleted exclusion, the
- * strict-boolean 400, and the name sort. Non-managers get an empty list, not a 403.
+ * The caller-relative team-pyramid read (v2.16.0; full-history payload since v2.17.0):
+ * chain scoping (direct vs includeIndirect, dedupe, cycle safety, caller exclusion), the
+ * per-position intervals (derived ends, the stored deactivation end on the final row), the
+ * deactivated flag, empty position lists for subordinates without positions, the org-wide
+ * earliestStartDate slider anchor, soft-deleted exclusion, the strict-boolean 400, and the
+ * name sort. Non-managers get an empty list, not a 403.
  */
 class CareerPyramidTest {
 
@@ -61,7 +65,7 @@ class CareerPyramidTest {
     }
 
     @Test
-    fun `rows - tenure anchors, resolved triple, all-null without positions, soft-delete exclusion`() =
+    fun `rows - position history with derived ends, empty without positions, soft-delete exclusion`() =
         testApplication {
             usePostgresTestcontainer()
             val mgrEmail = uniqueEmail("pyt-m")
@@ -76,7 +80,6 @@ class CareerPyramidTest {
             val (pathA, pathB) = TestDictionaries.append(Dictionary.CAREER_PATH, "PyT A $marker", "PyT B $marker")
             val (specId) = TestDictionaries.append(Dictionary.CAREER_SPECIALIZATION, "PyT S $marker")
             val (levelId) = TestDictionaries.append(Dictionary.SENIORITY_LEVEL, "PyT L $marker")
-            // Two positions: organizationSince = the FIRST start, level anchor = the CURRENT start.
             TestServices.careerPositions.create(
                 mgrId, richId, CareerPositionWrite("2018-04-01", pathA, specId, levelId),
             )
@@ -85,18 +88,63 @@ class CareerPyramidTest {
             )
             TestServices.users.delete(goneId)
 
-            val items = authedClient(mgrEmail, "pw").pyramid().items
+            val list = authedClient(mgrEmail, "pw").pyramid()
+            val items = list.items
             assertEquals(listOf(richId, bareId), items.map { it.userId }.sortedBy { it })
             val rich = items.single { it.userId == richId }
-            assertEquals("2022-09-15", rich.currentPositionStart)
-            assertEquals("2018-04-01", rich.organizationSince)
-            assertEquals(DictionaryEntry(pathB, "PyT B $marker", "PyT B $marker"), rich.careerPath)
-            assertEquals(DictionaryEntry(levelId, "PyT L $marker", "PyT L $marker"), rich.seniorityLevel)
+            assertEquals(false, rich.deactivated)
+            // FULL history, chronological, ends derived from the next start (v2.17.0).
+            assertEquals(2, rich.positions.size)
+            val (first, current) = rich.positions
+            assertEquals("2018-04-01", first.startDate)
+            assertEquals("2022-09-14", first.endDate)
+            assertEquals(DictionaryEntry(pathA, "PyT A $marker", "PyT A $marker"), first.careerPath)
+            assertEquals("2022-09-15", current.startDate)
+            assertNull(current.endDate)
+            assertEquals(DictionaryEntry(pathB, "PyT B $marker", "PyT B $marker"), current.careerPath)
+            assertEquals(DictionaryEntry(levelId, "PyT L $marker", "PyT L $marker"), current.seniorityLevel)
             val bare = items.single { it.userId == bareId }
-            assertNull(bare.careerPath)
-            assertNull(bare.currentPositionStart)
-            assertNull(bare.organizationSince)
+            assertEquals(emptyList(), bare.positions)
+            // The slider anchor is ORG-WIDE over the shared test DB — other tests' rows may
+            // predate ours, so pin only the upper bound.
+            val earliest = list.earliestStartDate
+            assertTrue(earliest != null && earliest <= "2018-04-01", "earliest=$earliest")
         }
+
+    @Test
+    fun `deactivation closes the final position in the payload and flags the item`() = testApplication {
+        usePostgresTestcontainer()
+        val mgrEmail = uniqueEmail("pyd-m")
+        val mgrId = TestUsers.seed(mgrEmail, "pw", roles = emptySet())
+        val subId = TestUsers.seed(uniqueEmail("pyd-s"), "pw", name = "Pyd Sub", roles = emptySet())
+        val teamId = TestServices.teams.create(Team(name = "pyd-${UUID.randomUUID()}", managerId = mgrId))
+        TestServices.teams.addMember(teamId, subId)
+        val marker = UUID.randomUUID().toString().take(8)
+        val (pathId) = TestDictionaries.append(Dictionary.CAREER_PATH, "PyD $marker")
+        val (specId) = TestDictionaries.append(Dictionary.CAREER_SPECIALIZATION, "PyD S $marker")
+        val (levelId) = TestDictionaries.append(Dictionary.SENIORITY_LEVEL, "PyD L $marker")
+        TestServices.careerPositions.create(
+            mgrId, subId, CareerPositionWrite("2021-05-01", pathId, specId, levelId),
+        )
+
+        val adminEmail = uniqueEmail("pyd-a")
+        TestUsers.seed(adminEmail, "pw")
+        val admin = authedClient(adminEmail, "pw")
+        assertEquals(
+            HttpStatusCode.NoContent,
+            admin.post("/api/v1/users/$subId/deactivate").status,
+        )
+        val mgr = authedClient(mgrEmail, "pw")
+        val closed = mgr.pyramid().items.single { it.userId == subId }
+        assertEquals(true, closed.deactivated)
+        assertEquals(LocalDate.now().toString(), closed.positions.single().endDate)
+
+        // Reactivation reopens the position — the timeline resumes as before.
+        assertEquals(HttpStatusCode.NoContent, admin.post("/api/v1/users/$subId/activate").status)
+        val reopened = mgr.pyramid().items.single { it.userId == subId }
+        assertEquals(false, reopened.deactivated)
+        assertNull(reopened.positions.single().endDate)
+    }
 
     @Test
     fun `a non-manager gets an empty list and an anonymous caller 401`() = testApplication {

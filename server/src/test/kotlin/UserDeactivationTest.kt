@@ -1,5 +1,6 @@
 package ch.nokillswit
 
+import ch.nokillswit.dictionaries.Dictionary
 import ch.nokillswit.feedbacks.FeedbackCreateRequest
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
@@ -9,6 +10,8 @@ import ch.nokillswit.oneonones.OneOnOneCreateRequest
 import ch.nokillswit.plugins.ProblemDetail
 import ch.nokillswit.reviews.PerformanceReviewCreateRequest
 import ch.nokillswit.teams.Team
+import ch.nokillswit.users.CareerPositionList
+import ch.nokillswit.users.CareerPositionWrite
 import ch.nokillswit.users.UserPageResponse
 import ch.nokillswit.users.UserRequest
 import ch.nokillswit.users.UserResponse
@@ -61,6 +64,42 @@ class UserDeactivationTest {
         assertEquals(HttpStatusCode.NoContent, admin.post("/api/v1/users/${target.id}/activate").status)
         assertEquals(false, admin.get("/api/v1/users/${target.id}").body<UserResponse>().deactivated)
         assertEquals(HttpStatusCode.Conflict, admin.post("/api/v1/users/${target.id}/activate").status)
+    }
+
+    @Test
+    fun `deactivation closes the final career position and reactivation reopens it`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw-123456789")
+        val admin = authedClient(adminEmail, "pw-123456789")
+        val mgrId = TestUsers.seed(uniqueEmail("cdx-m"), "pw", roles = emptySet())
+        val subId = TestUsers.seed(uniqueEmail("cdx-s"), "pw", roles = emptySet())
+        val bareId = TestUsers.seed(uniqueEmail("cdx-b"), "pw", roles = emptySet())
+        val teamId = TestServices.teams.create(Team(name = "cdx-${UUID.randomUUID()}", managerId = mgrId))
+        TestServices.teams.addMember(teamId, subId)
+        val marker = UUID.randomUUID().toString().take(8)
+        val (pathA, pathB) = TestDictionaries.append(Dictionary.CAREER_PATH, "CdxA $marker", "CdxB $marker")
+        val (specId) = TestDictionaries.append(Dictionary.CAREER_SPECIALIZATION, "CdxS $marker")
+        val (levelId) = TestDictionaries.append(Dictionary.SENIORITY_LEVEL, "CdxL $marker")
+        TestServices.careerPositions.create(mgrId, subId, CareerPositionWrite("2020-01-01", pathA, specId, levelId))
+        TestServices.careerPositions.create(mgrId, subId, CareerPositionWrite("2023-06-01", pathB, specId, levelId))
+
+        suspend fun endDates() = admin
+            .get("/api/v1/users/$subId/career-positions")
+            .body<CareerPositionList>()
+            .items.map { it.endDate }
+
+        // Deactivation stamps TODAY on the final position; the earlier row keeps its derived end.
+        assertEquals(HttpStatusCode.NoContent, admin.post("/api/v1/users/$subId/deactivate").status)
+        assertEquals(listOf("2023-05-31", LocalDate.now().toString()), endDates())
+
+        // Reactivation clears the stamp — the position resumes as the open-ended current one.
+        assertEquals(HttpStatusCode.NoContent, admin.post("/api/v1/users/$subId/activate").status)
+        assertEquals(listOf("2023-05-31", null), endDates())
+
+        // No positions at all: the stamp is a silent no-op, the transition still works.
+        assertEquals(HttpStatusCode.NoContent, admin.post("/api/v1/users/$bareId/deactivate").status)
+        assertEquals(HttpStatusCode.NoContent, admin.post("/api/v1/users/$bareId/activate").status)
     }
 
     @Test

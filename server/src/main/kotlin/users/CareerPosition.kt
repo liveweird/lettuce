@@ -28,8 +28,9 @@ data class CareerPositionWrite(
 data class CareerPositionResponse(
     val id: UInt,
     val startDate: String,
-    // Derived, never stored (the start-only model): the day before the user's NEXT active
-    // position starts; null = the open-ended current position.
+    // Derived (the start-only model): the day before the user's NEXT active position starts —
+    // EXCEPT the final row, which since V58 may carry the stored deactivation end date.
+    // null = the open-ended current position.
     val endDate: String?,
     // Resolved at read time like everywhere (renames propagate; soft-deleted entries keep
     // resolving to their retained values).
@@ -45,28 +46,44 @@ data class CareerPositionResponse(
 data class CareerPositionList(val items: List<CareerPositionResponse>)
 
 /**
- * One subordinate in the caller's team pyramid (v2.16.0): the CURRENT position's resolved
- * triple plus the two tenure anchors — the current position's start ("tenure at level"
- * counts from here; any recorded position change resets it, a deliberate product decision)
- * and the FIRST recorded position's start (tenure in the organization AS RECORDED — V57
- * seeded no history, so this is not necessarily the true hire date). All career fields are
- * null for a subordinate with no recorded positions — such rows are deliberately included
- * so the manager sees who still needs one.
+ * One position in a pyramid item's history (v2.17.0): the resolved triple plus the interval.
+ * [endDate] follows the CareerPositionResponse rule — derived from the next position's start,
+ * or the stored deactivation end on the final row; null = open-ended.
+ */
+@Serializable
+data class CareerPyramidPosition(
+    val startDate: String,
+    val endDate: String?,
+    val careerPath: DictionaryEntry?,
+    val careerSpecialization: DictionaryEntry?,
+    val seniorityLevel: DictionaryEntry?,
+)
+
+/**
+ * One subordinate in the caller's team pyramid — since v2.17.0 the FULL chronological
+ * position history (the SPA's time slider computes the as-of position client-side; "tenure
+ * at level" anchors on the as-of position's start, organization tenure on the first
+ * position's start — AS RECORDED, V57 seeded no history). [positions] is empty for a
+ * subordinate with no recorded positions — such entries are deliberately included so the
+ * manager sees who still needs one, EXCEPT client-side when the person is [deactivated]:
+ * the SPA lists a person only while they actively held a position at the slider date.
  */
 @Serializable
 data class CareerPyramidItem(
     val userId: UInt,
     val name: String,
-    val careerPath: DictionaryEntry?,
-    val careerSpecialization: DictionaryEntry?,
-    val seniorityLevel: DictionaryEntry?,
-    val currentPositionStart: String?,
-    val organizationSince: String?,
+    val deactivated: Boolean,
+    val positions: List<CareerPyramidPosition>,
 )
 
 /** Unpaged (bounded by the caller's subordinate count) — the CareerPositionList shape. */
 @Serializable
-data class CareerPyramidList(val items: List<CareerPyramidItem>)
+data class CareerPyramidList(
+    val items: List<CareerPyramidItem>,
+    /** Earliest start of ANY active position org-wide — the time slider's lower bound;
+     *  null = none recorded anywhere. */
+    val earliestStartDate: String?,
+)
 
 /**
  * Validates the start date: strict zero-padded ISO `YYYY-MM-DD` (anything else would break

@@ -1,14 +1,19 @@
 import type { TFunction } from "i18next";
-import type { CareerPyramidItem, DictionaryEntry } from "../api/client";
+import type { CareerPyramidItem, CareerPyramidPosition, DictionaryEntry } from "../api/client";
 import { pickDictionaryValue } from "./dictionaryForm";
 import { foldDiacritics } from "./text";
 
 // Pure helpers behind the Career → Team pyramid tab (v2.16.0): the endpoint returns the
-// caller's subordinates unpaged, and the SPA filters/sorts/pages/aggregates client-side —
-// the ReviewsDashboard pattern. Tenure semantics (user decision): "tenure at level" counts
-// from the CURRENT position's start (any recorded position change resets it), "in the
-// organization" from the FIRST recorded position (histories started empty in v2.15.0, so
-// this is tenure-as-recorded, not necessarily the true hire date).
+// caller's subordinates unpaged — since v2.17.0 with each subordinate's FULL position
+// history — and the SPA filters/sorts/pages/aggregates client-side, the ReviewsDashboard
+// pattern. The time slider re-runs the SAME pipeline for a past `asOf` date: the as-of
+// position is the one whose [start, end] interval covers the date (end inclusive — on the
+// deactivation day the person still shows). A person with no as-of position shows as
+// "Not set" only while ACTIVE; a deactivated one is dropped entirely (they are listed only
+// while they actively held a position — user decision). Tenure semantics (user decision):
+// "tenure at level" counts from the as-of position's start (any recorded position change
+// resets it), "in the organization" from the FIRST recorded position (histories started
+// empty in v2.15.0, so this is tenure-as-recorded, not necessarily the true hire date).
 
 export type CareerPyramidRow = {
   userId: number;
@@ -36,27 +41,50 @@ export function monthsBetween(fromIso: string, toIso: string): number {
   return Math.max(0, months);
 }
 
+/** The position held on [asOfIso] — interval match, end inclusive; strict ISO compares. */
+function positionAsOf(
+  positions: CareerPyramidPosition[],
+  asOfIso: string,
+): CareerPyramidPosition | null {
+  for (let i = positions.length - 1; i >= 0; i--) {
+    const p = positions[i];
+    if (p.startDate <= asOfIso && (p.endDate == null || asOfIso <= p.endDate)) return p;
+  }
+  return null;
+}
+
 export function buildCareerPyramidRows(
   items: CareerPyramidItem[],
   locale: string | undefined,
-  todayIso: string,
+  asOfIso: string,
 ): CareerPyramidRow[] {
-  return items.map((item) => ({
-    userId: item.userId,
-    name: item.name,
-    careerPath: item.careerPath ?? null,
-    careerSpecialization: item.careerSpecialization ?? null,
-    seniorityLevel: item.seniorityLevel ?? null,
-    pathText: item.careerPath ? pickDictionaryValue(item.careerPath, locale) : null,
-    specializationText: item.careerSpecialization
-      ? pickDictionaryValue(item.careerSpecialization, locale)
-      : null,
-    seniorityText: item.seniorityLevel ? pickDictionaryValue(item.seniorityLevel, locale) : null,
-    currentPositionStart: item.currentPositionStart ?? null,
-    organizationSince: item.organizationSince ?? null,
-    levelMonths: item.currentPositionStart ? monthsBetween(item.currentPositionStart, todayIso) : null,
-    organizationMonths: item.organizationSince ? monthsBetween(item.organizationSince, todayIso) : null,
-  }));
+  const rows: CareerPyramidRow[] = [];
+  for (const item of items) {
+    const asOfPos = positionAsOf(item.positions, asOfIso);
+    // Deactivated people are listed only while they actively held a position.
+    if (asOfPos == null && item.deactivated) continue;
+    const firstStart = item.positions[0]?.startDate ?? null;
+    const organizationSince = firstStart != null && firstStart <= asOfIso ? firstStart : null;
+    rows.push({
+      userId: item.userId,
+      name: item.name,
+      careerPath: asOfPos?.careerPath ?? null,
+      careerSpecialization: asOfPos?.careerSpecialization ?? null,
+      seniorityLevel: asOfPos?.seniorityLevel ?? null,
+      pathText: asOfPos?.careerPath ? pickDictionaryValue(asOfPos.careerPath, locale) : null,
+      specializationText: asOfPos?.careerSpecialization
+        ? pickDictionaryValue(asOfPos.careerSpecialization, locale)
+        : null,
+      seniorityText: asOfPos?.seniorityLevel
+        ? pickDictionaryValue(asOfPos.seniorityLevel, locale)
+        : null,
+      currentPositionStart: asOfPos?.startDate ?? null,
+      organizationSince,
+      levelMonths: asOfPos ? monthsBetween(asOfPos.startDate, asOfIso) : null,
+      organizationMonths: organizationSince ? monthsBetween(organizationSince, asOfIso) : null,
+    });
+  }
+  return rows;
 }
 
 /** The "Not set" filter/bucket sentinel (never collides with an entry id or display text). */

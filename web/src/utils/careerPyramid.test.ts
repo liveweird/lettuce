@@ -15,34 +15,45 @@ import {
 
 const ENTRY = (id: number, en: string, pl = en) => ({ id, valueEn: en, valuePl: pl });
 
+// Full-history items (v2.17.0) whose TODAY view matches the original v2.16.0 fixture: the
+// as-of pipeline must land on the same current triples and anchors the flat payload carried.
 const ITEMS: CareerPyramidItem[] = [
   {
     userId: 1,
     name: "Żaneta Boss",
-    careerPath: ENTRY(11, "Engineer", "Inżynier"),
-    careerSpecialization: ENTRY(21, "Backend"),
-    seniorityLevel: ENTRY(31, "Senior"),
-    currentPositionStart: "2023-03-10",
-    organizationSince: "2015-01-01",
+    deactivated: false,
+    positions: [
+      {
+        startDate: "2015-01-01",
+        endDate: "2023-03-09",
+        careerPath: ENTRY(11, "Engineer", "Inżynier"),
+        careerSpecialization: ENTRY(21, "Backend"),
+        seniorityLevel: ENTRY(30, "Regular"),
+      },
+      {
+        startDate: "2023-03-10",
+        endDate: null,
+        careerPath: ENTRY(11, "Engineer", "Inżynier"),
+        careerSpecialization: ENTRY(21, "Backend"),
+        seniorityLevel: ENTRY(31, "Senior"),
+      },
+    ],
   },
   {
     userId: 2,
     name: "adam nowak",
-    careerPath: ENTRY(12, "Manager"),
-    careerSpecialization: null,
-    seniorityLevel: ENTRY(31, "Senior"),
-    currentPositionStart: "2024-11-20",
-    organizationSince: "2024-11-20",
+    deactivated: false,
+    positions: [
+      {
+        startDate: "2024-11-20",
+        endDate: null,
+        careerPath: ENTRY(12, "Manager"),
+        careerSpecialization: null,
+        seniorityLevel: ENTRY(31, "Senior"),
+      },
+    ],
   },
-  {
-    userId: 3,
-    name: "Bare Person",
-    careerPath: null,
-    careerSpecialization: null,
-    seniorityLevel: null,
-    currentPositionStart: null,
-    organizationSince: null,
-  },
+  { userId: 3, name: "Bare Person", deactivated: false, positions: [] },
 ];
 
 const TODAY = "2026-08-15";
@@ -71,6 +82,53 @@ describe("buildCareerPyramidRows", () => {
 
   test("the PL locale picks the Polish value", () => {
     expect(buildCareerPyramidRows(ITEMS, "pl", TODAY)[0].pathText).toBe("Inżynier");
+  });
+});
+
+describe("time travel (as-of)", () => {
+  test("a past date lands on the historical position and re-anchors both tenures", () => {
+    const [boss] = buildCareerPyramidRows(ITEMS, "en", "2020-01-01");
+    expect(boss.seniorityText).toBe("Regular"); // the pre-promotion position
+    expect(boss.currentPositionStart).toBe("2015-01-01");
+    expect(boss.levelMonths).toBe(60); // 2015-01-01 → 2020-01-01
+    expect(boss.organizationMonths).toBe(60);
+  });
+
+  test("an ACTIVE person before their first position shows as Not set with no org tenure", () => {
+    const past = buildCareerPyramidRows(ITEMS, "en", "2020-01-01");
+    const adam = past.find((r) => r.userId === 2);
+    expect(adam).toBeDefined(); // active → kept as a "Not set" row
+    expect(adam?.seniorityText).toBeNull();
+    expect(adam?.levelMonths).toBeNull();
+    expect(adam?.organizationSince).toBeNull(); // not in the org yet as recorded
+  });
+
+  test("a DEACTIVATED person is listed only while they actively held a position (end inclusive)", () => {
+    const gone: CareerPyramidItem = {
+      userId: 9,
+      name: "Gone Person",
+      deactivated: true,
+      positions: [
+        {
+          startDate: "2024-01-01",
+          endDate: "2026-08-10", // the deactivation stamp
+          careerPath: ENTRY(11, "Engineer"),
+          careerSpecialization: ENTRY(21, "Backend"),
+          seniorityLevel: ENTRY(31, "Senior"),
+        },
+      ],
+    };
+    const at = (asOf: string) => buildCareerPyramidRows([gone], "en", asOf);
+    expect(at("2026-08-10")).toHaveLength(1); // the deactivation day itself still shows
+    expect(at("2026-08-10")[0].seniorityText).toBe("Senior");
+    expect(at("2026-08-11")).toHaveLength(0); // the day after: dropped, never "Not set"
+    expect(at("2023-12-31")).toHaveLength(0); // before their first position: dropped too
+  });
+
+  test("a deactivated person with no positions at all never shows", () => {
+    const bareGone: CareerPyramidItem = { userId: 8, name: "X", deactivated: true, positions: [] };
+    expect(buildCareerPyramidRows([bareGone], "en", TODAY)).toHaveLength(0);
+    expect(buildCareerPyramidRows([bareGone], "en", "2015-06-01")).toHaveLength(0);
   });
 });
 

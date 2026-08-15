@@ -150,6 +150,69 @@ class CareerPositionRoutesTest {
         }
 
     @Test
+    fun `deactivation interplay - stored end blocks appends, transfers on delete, bounds corrections`() =
+        testApplication {
+            usePostgresTestcontainer()
+            val mgrEmail = uniqueEmail("cpd-m")
+            val mgrId = TestUsers.seed(mgrEmail, "pw", roles = emptySet())
+            val subId = TestUsers.seed(uniqueEmail("cpd-s"), "pw", roles = emptySet())
+            val teamId = TestServices.teams.create(Team(name = "cpd-${UUID.randomUUID()}", managerId = mgrId))
+            TestServices.teams.addMember(teamId, subId)
+            val manager = authedClient(mgrEmail, "pw")
+            val marker = UUID.randomUUID().toString().take(8)
+            val (pathId, pathId2) = TestDictionaries.append(Dictionary.CAREER_PATH, "CpDA $marker", "CpDB $marker")
+            val (specId, levelId) = specAndLevel(marker)
+            manager.createPosition(subId, "2018-03-01", pathId, specId, levelId)
+            val second = manager.createPosition(subId, "2020-09-01", pathId2, specId, levelId)
+                .body<CareerPositionResponse>()
+
+            val adminEmail = uniqueEmail("cpd-a")
+            TestUsers.seed(adminEmail, "pw")
+            val admin = authedClient(adminEmail, "pw")
+            assertEquals(HttpStatusCode.NoContent, admin.post("/api/v1/users/$subId/deactivate").status)
+            val today = java.time.LocalDate.now().toString()
+            assertEquals(listOf("2020-08-31", today), manager.listPositions(subId).map { it.endDate })
+
+            // A NEW position for a deactivated user is 400 — a new assignment (and it keeps
+            // the stored end unshadowable: nothing can ever be appended behind it).
+            assertEquals(
+                HttpStatusCode.BadRequest,
+                manager.createPosition(subId, "2024-01-01", pathId, specId, levelId).status,
+            )
+
+            // Deleting the stamped final row transfers the stamp to the survivor.
+            assertEquals(
+                HttpStatusCode.NoContent,
+                manager.delete("/api/v1/users/$subId/career-positions/${second.id}").status,
+            )
+            val survivor = manager.listPositions(subId).single()
+            assertEquals("2018-03-01", survivor.startDate)
+            assertEquals(today, survivor.endDate)
+
+            // Reactivation reopens the (transferred) stamp — the survivor is Current again.
+            assertEquals(HttpStatusCode.NoContent, admin.post("/api/v1/users/$subId/activate").status)
+            assertNull(manager.listPositions(subId).single().endDate)
+
+            // A correction must not push a closed final row past its stored end (reachable
+            // only once the stamp lies in the past — simulate an old deactivation directly).
+            TestServices.careerPositions.closeFinalPosition(subId, "2020-12-31")
+            val put409 = manager.put("/api/v1/users/$subId/career-positions/${survivor.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(CareerPositionWrite("2021-06-01", pathId, specId, levelId))
+            }
+            assertEquals(HttpStatusCode.Conflict, put409.status)
+            // An in-bounds correction passes and PRESERVES the stored end.
+            val putOk = manager.put("/api/v1/users/$subId/career-positions/${survivor.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(CareerPositionWrite("2019-01-01", pathId2, specId, levelId))
+            }
+            assertEquals(HttpStatusCode.NoContent, putOk.status)
+            val corrected = manager.listPositions(subId).single()
+            assertEquals("2019-01-01", corrected.startDate)
+            assertEquals("2020-12-31", corrected.endDate)
+        }
+
+    @Test
     fun `ordering and shape rules - append-after-latest, between-neighbors, 400 sweep`() = testApplication {
         usePostgresTestcontainer()
         val mgrEmail = uniqueEmail("cpo-m")
