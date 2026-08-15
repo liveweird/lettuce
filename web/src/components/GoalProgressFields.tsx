@@ -9,7 +9,7 @@ import MarkdownView from "./MarkdownView";
 import { MAX_GOAL_TEXT_LENGTH } from "../utils/goalForm";
 import { formatGoalValue } from "../utils/goalValues";
 
-export interface GoalProgressMilestoneValue {
+interface GoalProgressMilestoneValue {
   id: number;
   description: string;
   done: boolean;

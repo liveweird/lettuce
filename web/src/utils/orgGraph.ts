@@ -16,10 +16,10 @@ export type OrgTeamInput = {
 
 export type OrgMembership = { teamId: number; memberIds: number[] };
 
-export type OrgPersonNode = { id: string; kind: "person"; userId: number; name: string; deleted: boolean };
-export type OrgTeamNode = { id: string; kind: "team"; teamId: number; name: string };
+type OrgPersonNode = { id: string; kind: "person"; userId: number; name: string; deleted: boolean };
+type OrgTeamNode = { id: string; kind: "team"; teamId: number; name: string };
 /** The "Not in any team" label heading the unattached-people rows (see layoutOrgGraph). */
-export type OrgSectionNode = { id: string; kind: "section" };
+type OrgSectionNode = { id: string; kind: "section" };
 export type OrgNode = OrgPersonNode | OrgTeamNode | OrgSectionNode;
 
 export type OrgEdge = {

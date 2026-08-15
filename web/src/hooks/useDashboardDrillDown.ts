@@ -7,7 +7,7 @@ import { userDetailsLink } from "../utils/userLinks";
 // adaptive team-details page link to these screens; defaults to managers for older links
 // lacking `from`. ManagerFeedbacks has a wider origin set (users list, team rosters + teamId)
 // and keeps its own resolver.
-export const DASHBOARD_ORIGINS = {
+const DASHBOARD_ORIGINS = {
   managers: { labelKey: "feedback.origin.managers", to: "/?tab=managers" },
   subordinates: { labelKey: "feedback.origin.subordinates", to: "/?tab=subordinates" },
 } as const;

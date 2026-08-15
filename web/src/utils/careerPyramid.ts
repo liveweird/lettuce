@@ -187,7 +187,7 @@ export const CHART_METRICS = [
 ] as const;
 export type CareerChartMetric = (typeof CHART_METRICS)[number];
 
-export const TENURE_BUCKETS = ["lt1", "y1to2", "y2to5", "y5to10", "y10plus"] as const;
+const TENURE_BUCKETS = ["lt1", "y1to2", "y2to5", "y5to10", "y10plus"] as const;
 export type TenureBucket = (typeof TENURE_BUCKETS)[number];
 
 export function tenureBucket(months: number): TenureBucket {

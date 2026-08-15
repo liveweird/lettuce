@@ -6,7 +6,7 @@ import type {
 } from "../api/client";
 import { saveErrorMessage } from "./saveError";
 
-export const MAX_REVIEW_SUMMARY_LENGTH = 4000;
+const MAX_REVIEW_SUMMARY_LENGTH = 4000;
 
 /** The fixed 1–6 scale — the numeric value travels on the wire; the wording is i18n. */
 export const RATING_VALUES = [1, 2, 3, 4, 5, 6] as const;
@@ -48,7 +48,7 @@ export function ratingOptions(t: TFunction): { value: string; label: string }[] 
 
 // The editor's form shape: one {rating, summary} pair per category; the rating is the Select's
 // string value ("" = unset — legal while DRAFT).
-export interface CategoryFormValues {
+interface CategoryFormValues {
   rating: string;
   summary: string;
 }

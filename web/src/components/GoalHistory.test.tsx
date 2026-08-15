@@ -76,7 +76,7 @@ describe("GoalHistory", () => {
     expect(screen.getByText("Milestone 3 marked as not done.")).toBeInTheDocument();
     expect(screen.getByText("Status changed from Draft to Active.")).toBeInTheDocument();
     expect(screen.getByText("Goal deleted.")).toBeInTheDocument();
-    expect(screen.getAllByText(/Mona Manager ·/).length).toBe(15);
+    expect(screen.getAllByText(/Mona Manager ·/)).toHaveLength(15);
   });
 
   test("a progress update's comment renders under its timeline entry", async () => {

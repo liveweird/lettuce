@@ -16,7 +16,7 @@ export interface PulseFormValues {
   comment: string;
 }
 
-export const SCALE_FIELDS = ["q2", "q3", "q4", "q5", "rotating"] as const;
+const SCALE_FIELDS = ["q2", "q3", "q4", "q5", "rotating"] as const;
 export type PulseScaleField = (typeof SCALE_FIELDS)[number];
 
 export function emptyPulseFormValues(): PulseFormValues {

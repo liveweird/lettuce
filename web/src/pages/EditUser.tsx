@@ -44,7 +44,8 @@ type FormValues = {
   paidDaysOffAllowance: number | "";
 };
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Linear-time (no ambiguous backtracking): dot-separated domain labels may not contain dots.
+const EMAIL_RE = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
 
 export default function EditUser() {
   const { t } = useTranslation();

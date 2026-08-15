@@ -58,7 +58,7 @@ export function GoalCurrentValue({
 
 // The read-only milestone list (view screen + archived documents): a check square per row,
 // done rows visibly settled — struck through + dimmed (v2.9.0, the completed-state emphasis).
-export function MilestoneList({ milestones }: { milestones: GoalResponse["milestones"] }) {
+function MilestoneList({ milestones }: { milestones: GoalResponse["milestones"] }) {
   return (
     <Stack gap={6}>
       {milestones.map((milestone) => (

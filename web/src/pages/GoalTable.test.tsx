@@ -98,7 +98,7 @@ describe("GoalTable", () => {
     expect(screen.getByText("Draft")).toBeInTheDocument();
     expect(screen.getByText("Archived")).toBeInTheDocument();
     // Due dates (all far-future here, so no overdue badge).
-    expect(screen.getAllByText("Jun 15, 2099").length).toBe(3);
+    expect(screen.getAllByText("Jun 15, 2099")).toHaveLength(3);
     expect(screen.queryByText("Overdue")).toBeNull();
   });
 
@@ -128,7 +128,7 @@ describe("GoalTable", () => {
     renderWithProviders(<GoalTable view="own" managerId={10} settingsKey="userGoals" />);
 
     expect(await screen.findByText("Ship four reports")).toBeInTheDocument();
-    expect(screen.getAllByText("Overdue").length).toBe(1);
+    expect(screen.getAllByText("Overdue")).toHaveLength(1);
   });
 
   test("queries with the fixed managerId and the default -createdAt sort", async () => {

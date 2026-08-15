@@ -120,7 +120,7 @@ describe("trend comparison builders (v2.11.0)", () => {
   test("a driver metric reads the favorable% and an absent value stays a gap", () => {
     const rows = buildTrendComparisonRows([direct, child], "q2");
     expect(rows[0].t11_direct).toBe(75.0);
-    expect(rows[1].t21_subtree).toBe(33.3);
+    expect(rows[1].t21_subtree).toBeCloseTo(33.3, 5);
     // Q3 was never delivered in this fixture — null even on OK points → gap, not zero.
     expect(buildTrendComparisonRows([direct], "q3")[0].t11_direct).toBeUndefined();
   });

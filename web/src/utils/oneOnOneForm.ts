@@ -2,7 +2,7 @@ import type { TFunction } from "i18next";
 import type { ActionItemOwner, OneOnOneResponse, UpdateOneOnOneBody } from "../api/client";
 import { saveErrorMessage } from "./saveError";
 
-export const MAX_ITEM_LENGTH = 4000;
+const MAX_ITEM_LENGTH = 4000;
 
 // Draft rows carry a local `key` for React list identity (stable across reorders, unlike the
 // index); rows loaded from the server also keep their `id`, which the PUT body preserves so the
@@ -35,7 +35,7 @@ export type OneOnOneFormValues = {
 };
 
 let keyCounter = 0;
-export function newDraftKey(): string {
+function newDraftKey(): string {
   keyCounter += 1;
   return `draft-${keyCounter}`;
 }
