@@ -5317,8 +5317,11 @@ components:
         password:
           type: string
           minLength: 10
-          maxLength: 64
-          description: At most 71 bytes in UTF-8 (bcrypt limit) — longer is rejected with 400.
+          maxLength: 71
+          description: |
+            The real limit is 71 BYTES in UTF-8 (bcrypt ceiling) — longer is rejected with 400.
+            maxLength here is the character-count consequence (UTF-8 bytes >= chars, so >71 chars
+            can never fit); multibyte characters use up the byte budget faster than maxLength shows.
         roles:
           type: array
           items: { type: string, enum: [ADMIN, HR] }
@@ -5540,8 +5543,11 @@ components:
         password:
           type: string
           minLength: 10
-          maxLength: 64
-          description: At most 71 bytes in UTF-8 (bcrypt limit) — longer is rejected with 400.
+          maxLength: 71
+          description: |
+            The real limit is 71 BYTES in UTF-8 (bcrypt ceiling) — longer is rejected with 400.
+            maxLength here is the character-count consequence (UTF-8 bytes >= chars, so >71 chars
+            can never fit); multibyte characters use up the byte budget faster than maxLength shows.
         currentPassword:
           type: string
           description: |

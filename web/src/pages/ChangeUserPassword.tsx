@@ -19,11 +19,12 @@ import {
   Text,
   Title,
 } from "@mantine/core";
-import { hasLength, matchesField, useForm } from "@mantine/form";
+import { matchesField, useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, changeUserPassword, getUser, getUserId, isAdmin } from "../api/client";
 import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
+import { MAX_PASSWORD_BYTES, utf8ByteLength } from "../utils/userForm";
 
 type FormValues = {
   currentPassword: string;
@@ -51,7 +52,14 @@ export default function ChangeUserPassword() {
       // an admin resetting another user's password does not.
       currentPassword: (value) =>
         isSelf && value.length === 0 ? t("users.validation.currentPasswordRequired") : null,
-      password: hasLength({ min: 10 }, t("users.validation.passwordLength")),
+      password: (value) => {
+        if (value.length < 10) return t("users.validation.passwordLength");
+        // bcrypt's ceiling is 71 UTF-8 BYTES — reachable under 71 chars with non-Latin input.
+        if (utf8ByteLength(value) > MAX_PASSWORD_BYTES) {
+          return t("users.validation.passwordTooLong", { max: MAX_PASSWORD_BYTES });
+        }
+        return null;
+      },
       confirmPassword: matchesField("password", t("users.validation.passwordsMismatch")),
     },
   });

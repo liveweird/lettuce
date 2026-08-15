@@ -102,6 +102,22 @@ describe("ChangeUserPassword page", () => {
     expect(mockFetch.mock.calls.some(([url]) => url === "/api/v1/users/7/password")).toBe(false);
   });
 
+  test("rejects a password over bcrypt's 71 UTF-8 bytes client-side", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse(200, EXISTING_USER));
+
+    const user = userEvent.setup();
+    renderChangePassword(7);
+
+    // 36 chars (passes the min-10 rule) but 72 UTF-8 bytes ("ó" is 2 bytes each).
+    const multibyte = "ó".repeat(36);
+    await user.type(await screen.findByLabelText("New password"), multibyte);
+    await user.type(screen.getByLabelText("Confirm password"), multibyte);
+    await user.click(screen.getByRole("button", { name: /^change password$/i }));
+
+    expect(await screen.findByText(/must fit in 71 bytes/i)).toBeInTheDocument();
+    expect(mockFetch.mock.calls.some(([url]) => url === "/api/v1/users/7/password")).toBe(false);
+  });
+
   test("non-admin changing another user is redirected to /users", async () => {
     localStorage.setItem(ROLE_KEY, "[]");
     localStorage.setItem(USER_ID_KEY, "99");

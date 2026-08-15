@@ -3341,7 +3341,11 @@ export interface components {
             name: string;
             /** Format: email */
             email: string;
-            /** @description At most 71 bytes in UTF-8 (bcrypt limit) — longer is rejected with 400. */
+            /**
+             * @description The real limit is 71 BYTES in UTF-8 (bcrypt ceiling) — longer is rejected with 400.
+             *     maxLength here is the character-count consequence (UTF-8 bytes >= chars, so >71 chars
+             *     can never fit); multibyte characters use up the byte budget faster than maxLength shows.
+             */
             password: string;
             /**
              * @description Additional roles (every user is implicitly a regular user). Create is
@@ -3491,7 +3495,11 @@ export interface components {
             earliestStartDate: string | null;
         };
         PasswordUpdateRequest: {
-            /** @description At most 71 bytes in UTF-8 (bcrypt limit) — longer is rejected with 400. */
+            /**
+             * @description The real limit is 71 BYTES in UTF-8 (bcrypt ceiling) — longer is rejected with 400.
+             *     maxLength here is the character-count consequence (UTF-8 bytes >= chars, so >71 chars
+             *     can never fit); multibyte characters use up the byte budget faster than maxLength shows.
+             */
             password: string;
             /**
              * @description Required when the caller changes their own password (verified against the

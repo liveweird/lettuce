@@ -131,7 +131,8 @@
     "emailTooLong": "Email is too long",
     "passwordLength": "Password must be at least 10 characters",
     "passwordsMismatch": "Passwords do not match",
-    "currentPasswordRequired": "Current password is required"
+    "currentPasswordRequired": "Current password is required",
+    "passwordTooLong": "The password must fit in {{max}} bytes — non-Latin characters count as more than one"
   },
   "currentPassword": "Current password",
   "wrongCurrentPassword": "The current password is incorrect.",
