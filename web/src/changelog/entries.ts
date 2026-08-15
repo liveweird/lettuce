@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.17.0",
+    date: "2026-08-15",
+    en: `The Team pyramid learned to time travel, and deactivation closes the career timeline. A new slider above the pyramid rewinds both the table and the chart to any past date — each person appears with the position they actually held then, tenures counted up to that date, back to the earliest recorded position in the organization; one click returns to today. And when an administrator deactivates an account, the person's current career position is closed with that day's date (visible as a normal end date on their timeline; reactivating the account reopens it). The pyramid lists only people who actively held a position at the chosen date — a deactivated person disappears after their last day but reappears when you slide back into their time.`,
+    pl: `Piramida zespołu nauczyła się podróży w czasie, a dezaktywacja zamyka oś kariery. Nowy suwak nad piramidą przewija tabelę i wykres do dowolnej przeszłej daty — każda osoba pojawia się ze stanowiskiem, które wtedy faktycznie zajmowała, ze stażem liczonym do tej daty, aż do najwcześniejszego zapisanego stanowiska w organizacji; jedno kliknięcie wraca do dziś. A gdy administrator/ka dezaktywuje konto, obecne stanowisko tej osoby zostaje zamknięte z datą tego dnia (widoczną jako zwykła data zakończenia na osi kariery; ponowna aktywacja konta ją otwiera). Piramida pokazuje tylko osoby, które w wybranym dniu faktycznie zajmowały stanowisko — osoba dezaktywowana znika po swoim ostatnim dniu, ale wraca, gdy przesuniesz suwak w jej czasy.`,
+  },
+  {
     version: "2.16.0",
     date: "2026-08-15",
     en: `A new Career section in the menu. "My career" shows your own position history — every career path, specialization, and seniority you have held, with the current position highlighted. Managers additionally get "Team pyramid": all their subordinates (direct reports, or everyone below including indirect) with each person's current role, seniority, time at the current position, and time in the organization — as a filterable, sortable table or as a distribution chart showing the team's composition for any of those variables, including who has no recorded position yet.`,

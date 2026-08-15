@@ -52,6 +52,13 @@ private fun changedRefs(
     changedRef(Dictionary.SENIORITY_LEVEL, write.seniorityLevelId, current?.seniorityLevelId),
 )
 
+/**
+ * A row's effective end within its chronological run: the day before the next row's start,
+ * or — final row only — the stored deactivation end (null = open-ended current position).
+ */
+private fun effectiveEndDate(rows: List<CareerPositionService.PositionRow>, i: Int): String? =
+    rows.getOrNull(i + 1)?.let { LocalDate.parse(it.startDate).minusDays(1).toString() } ?: rows[i].endDate
+
 /** Chronological rows → responses: resolve refs and derive each end from the next start. */
 private fun toResponses(
     rows: List<CareerPositionService.PositionRow>,
@@ -60,7 +67,7 @@ private fun toResponses(
     CareerPositionResponse(
         id = row.id,
         startDate = row.startDate,
-        endDate = rows.getOrNull(i + 1)?.let { LocalDate.parse(it.startDate).minusDays(1).toString() },
+        endDate = effectiveEndDate(rows, i),
         careerPath = row.careerPathId?.let { entries[it] },
         careerSpecialization = row.careerSpecializationId?.let { entries[it] },
         seniorityLevel = row.seniorityLevelId?.let { entries[it] },
@@ -112,25 +119,34 @@ fun Application.configureCareerPositionRoutes() {
             get<CareerPyramid> {
                 val caller = call.caller()
                 val includeIndirect = call.request.queryParameters.optionalBoolean("includeIndirect")
-                val rows = careerPositionService.pyramidRows(caller.userId, includeIndirect == true)
+                val data = careerPositionService.pyramidRows(caller.userId, includeIndirect == true)
                 val entries = userService.resolveEntryRefs(
-                    *rows.flatMap { listOf(it.careerPathId, it.careerSpecializationId, it.seniorityLevelId) }
-                        .toTypedArray(),
+                    *data.users.flatMap { user ->
+                        user.positions.flatMap {
+                            listOf(it.careerPathId, it.careerSpecializationId, it.seniorityLevelId)
+                        }
+                    }.toTypedArray(),
                 )
                 call.respond(
                     HttpStatusCode.OK,
                     CareerPyramidList(
-                        rows.map {
+                        items = data.users.map { user ->
                             CareerPyramidItem(
-                                userId = it.userId,
-                                name = it.name,
-                                careerPath = it.careerPathId?.let(entries::get),
-                                careerSpecialization = it.careerSpecializationId?.let(entries::get),
-                                seniorityLevel = it.seniorityLevelId?.let(entries::get),
-                                currentPositionStart = it.currentPositionStart,
-                                organizationSince = it.organizationSince,
+                                userId = user.userId,
+                                name = user.name,
+                                deactivated = user.deactivated,
+                                positions = user.positions.mapIndexed { i, row ->
+                                    CareerPyramidPosition(
+                                        startDate = row.startDate,
+                                        endDate = effectiveEndDate(user.positions, i),
+                                        careerPath = row.careerPathId?.let(entries::get),
+                                        careerSpecialization = row.careerSpecializationId?.let(entries::get),
+                                        seniorityLevel = row.seniorityLevelId?.let(entries::get),
+                                    )
+                                },
                             )
                         },
+                        earliestStartDate = data.earliestStartDate,
                     ),
                 )
             }
@@ -156,6 +172,11 @@ fun Application.configureCareerPositionRoutes() {
                     call.respondProblem(HttpStatusCode.NotFound, "User not found")
                     return@post
                 }
+                // Recording a NEW position is a new assignment — blocked for deactivated users
+                // (the requireNoDeactivatedUsers rule; 400 after the guard, so 403 still wins).
+                // This also keeps the stored deactivation end unshadowable: no row can ever be
+                // appended behind it. Corrections and deletes of history stay allowed.
+                userService.requireNoDeactivatedUsers(listOf(route.id))
                 val write = call.receive<CareerPositionWrite>()
                 validateCareerPositionWrite(write)
                 // Every set ref is a fresh assignment on create — all must be active entries.

@@ -1,6 +1,19 @@
-import { Suspense, lazy } from "react";
-import { Alert, Group, SegmentedControl, Select, Skeleton, Stack, Table, Text } from "@mantine/core";
-import { IconChartBar, IconTable, IconUsersGroup } from "@tabler/icons-react";
+import { Suspense, lazy, useState } from "react";
+import {
+  Alert,
+  Badge,
+  Button,
+  Group,
+  Paper,
+  SegmentedControl,
+  Select,
+  Skeleton,
+  Slider,
+  Stack,
+  Table,
+  Text,
+} from "@mantine/core";
+import { IconChartBar, IconHistory, IconTable, IconUsersGroup } from "@tabler/icons-react";
 import { useDebouncedValue } from "@mantine/hooks";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -27,7 +40,7 @@ import {
   type CareerPyramidRow,
   type CareerPyramidSortField,
 } from "../utils/careerPyramid";
-import { todayIsoDate } from "../utils/datetime";
+import { addIsoDays, formatIsoDate, isoDayDiff, todayIsoDate } from "../utils/datetime";
 import { userDetailsLink } from "../utils/userLinks";
 
 const SETTINGS_KEY = "career.pyramid";
@@ -40,10 +53,12 @@ const CareerPyramidChart = lazy(() => import("../components/CareerPyramidChart")
 
 /**
  * The Career page's "Team pyramid" tab (v2.16.0): the caller's subordinates with their
- * current career triple and the two tenures, composed client-side over the unpaged
+ * as-of career triple and the two tenures, composed client-side over the unpaged
  * caller-relative endpoint (the ReviewsDashboard pattern — the standard list plumbing runs
  * client-side over the loaded rows). The chart view replaces the table + pager and consumes
- * the same filtered selection.
+ * the same filtered selection. The time slider (v2.17.0) re-renders BOTH views as of a past
+ * date — deliberately plain state (never persisted: every visit starts at today) ranging
+ * from the org-wide earliest position start to today, day steps.
  */
 export default function CareerPyramid() {
   const { t, i18n } = useTranslation();
@@ -87,10 +102,15 @@ export default function CareerPyramid() {
     ...options,
   ];
 
+  // Time travel (v2.17.0): plain state on purpose — a persisted past date would silently
+  // time-travel every future visit; the spec's default is today.
+  const today = todayIsoDate();
+  const [asOf, setAsOf] = useState(today);
+
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, toggleSort } =
     usePagedSort<CareerPyramidSortField>(
       "name",
-      [reportsScope, debouncedName, pathFilter, specFilter, seniorityFilter],
+      [reportsScope, debouncedName, pathFilter, specFilter, seniorityFilter, asOf],
       { key: SETTINGS_KEY, sortFields: CAREER_PYRAMID_SORT_FIELDS },
     );
 
@@ -98,6 +118,7 @@ export default function CareerPyramid() {
     queryKey: ["careerPyramid", includeIndirect],
     queryFn: () => listCareerPyramid(includeIndirect),
   });
+  const earliest = data?.earliestStartDate ?? null;
 
   const filters: CareerPyramidFilters = {
     name: debouncedName,
@@ -111,7 +132,7 @@ export default function CareerPyramid() {
     (specFilter ? 1 : 0) +
     (seniorityFilter ? 1 : 0) +
     (includeIndirect ? 1 : 0);
-  const allRows = buildCareerPyramidRows(data ?? [], i18n.resolvedLanguage, todayIsoDate());
+  const allRows = buildCareerPyramidRows(data?.items ?? [], i18n.resolvedLanguage, asOf);
   const filteredRows = sortCareerPyramidRows(
     filterCareerPyramidRows(allRows, filters),
     sortField,
@@ -213,6 +234,40 @@ export default function CareerPyramid() {
         />
       </FilterPanel>
 
+      {earliest != null && earliest < today && (
+        <Paper withBorder p="md" radius="md">
+          <Group gap="md" wrap="nowrap" align="center">
+            <Group gap={6} wrap="nowrap">
+              <IconHistory size={18} stroke={1.6} color="var(--mantine-color-dimmed)" />
+              <Text size="sm" fw={500} style={{ whiteSpace: "nowrap" }}>
+                {t("career.pyramid.timeTravel")}
+              </Text>
+            </Group>
+            <Slider
+              flex={1}
+              min={0}
+              max={isoDayDiff(earliest, today)}
+              value={isoDayDiff(earliest, asOf)}
+              onChange={(v) => setAsOf(addIsoDays(earliest, v))}
+              // thumbLabel is the THUMB's aria-label (the role="slider" element) — a bare
+              // aria-label would name the root div nobody can query.
+              thumbLabel={t("career.pyramid.timeTravelAria")}
+              label={(v) => formatIsoDate(addIsoDays(earliest, v), i18n.language)}
+            />
+            {asOf !== today && (
+              <>
+                <Badge variant="light" color="lettuce" style={{ textTransform: "none" }}>
+                  {t("career.pyramid.asOfDate", { date: formatIsoDate(asOf, i18n.language) })}
+                </Badge>
+                <Button size="compact-xs" variant="light" onClick={() => setAsOf(today)}>
+                  {t("career.pyramid.backToToday")}
+                </Button>
+              </>
+            )}
+          </Group>
+        </Paper>
+      )}
+
       {isError && (
         <Alert color="red" variant="light" title={t("career.pyramid.loadError")}>
           {t("career.pyramid.unknownError")}
@@ -222,7 +277,9 @@ export default function CareerPyramid() {
       {!isLoading && !isError && allRows.length === 0 ? (
         <EmptyState
           icon={<IconUsersGroup size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
-          label={t("career.pyramid.empty")}
+          // At a past date an empty list means "nobody held a position then", not
+          // "nobody reports to you" — deactivated people drop out entirely back then too.
+          label={t(asOf === today ? "career.pyramid.empty" : "career.pyramid.noneAtDate")}
         />
       ) : view === "chart" ? (
         // The chart replaces the table + pager; every filter above keeps applying —

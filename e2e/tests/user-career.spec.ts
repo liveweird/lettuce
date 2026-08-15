@@ -8,7 +8,7 @@ import type { Page } from "@playwright/test";
 // a read-only view of their own timeline, and a dictionary rename still propagates through the
 // position's entry ref (the old user-edit acceptance scenario, re-homed). The v2.16.0 leg walks
 // the nav Career page: the manager's own (empty) My career + the Team pyramid (row, scope
-// toggle, chart view); the subordinate gets My career only. Owns all its state:
+// toggle, the v2.17.0 time slider, chart view); the subordinate gets My career only. Owns all its state:
 // throwaway users + team per run, plus one appended-then-retired career-paths entry (the same
 // shared-dictionary etiquette the retired user-edit career leg used).
 
@@ -168,6 +168,14 @@ test("career progression: chain manager records positions, the person sees the t
   await page.getByRole("option", { name: "All reports (including indirect)" }).click();
   await indirectFetch;
   await expect(subRow).toHaveCount(1);
+  // The time slider (v2.17.0): one day back shows the "As of" badge, Today resets it.
+  // (Always present here: this spec's own position guarantees an earliest start < today;
+  // the as-of ROW semantics are pinned by unit + server tests.)
+  const slider = page.getByRole("slider", { name: "Show the pyramid as of a past date" });
+  await slider.press("ArrowLeft");
+  await expect(page.getByText(/^As of /)).toBeVisible();
+  await page.getByRole("button", { name: "Today", exact: true }).click();
+  await expect(page.getByText(/^As of /)).toHaveCount(0);
   await page.getByText("Chart", { exact: true }).click();
   await expect(page.getByText("Distribution of", { exact: true })).toBeVisible();
   await expect(page.getByRole("table")).toHaveCount(0);

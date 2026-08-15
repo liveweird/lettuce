@@ -560,9 +560,13 @@ paths:
         in (`403` at login once the password verifies), existing sessions end at the next
         refresh, self-service password reset is silently skipped, and the user cannot be
         NEWLY assigned anywhere (team member/manager, goal/1:1/review subordinate, feedback
-        party — `400` at those create endpoints). Everything else is untouched: their
+        party, a new career position — `400` at those create endpoints). Deactivation also
+        CLOSES the career timeline (v2.17.0): the final active career position gets today
+        stamped as its stored end date (no-op when there are no positions or the final one
+        is already closed); reactivation reopens it. Everything else is untouched: their
         historical data stays visible under unchanged rights, they keep their email reserved,
-        and `POST /users/{id}/activate` restores access. Audited as `user.deactivated`.
+        and `POST /users/{id}/activate` restores access. Audited as `user.deactivated`
+        (plus `careerPositionId`/`careerPositionEndDate` when a position was closed).
       responses:
         '204': { description: Deactivated }
         '400': { $ref: '#/components/responses/BadRequest' }
@@ -589,9 +593,11 @@ paths:
       summary: Reactivate a deactivated user account (ADMIN only)
       description: |
         Reverses `POST /users/{id}/deactivate` (an account that is not deactivated is `409`).
-        **ADMIN-only.** The user can sign in again with their existing password; nothing else
-        changes — their data, roles, and email were never touched. Audited as
-        `user.reactivated`.
+        **ADMIN-only.** The user can sign in again with their existing password, and the
+        stored end date deactivation stamped on their final career position is cleared —
+        the position resumes as the open-ended current one (v2.17.0); nothing else changes —
+        their data, roles, and email were never touched. Audited as `user.reactivated`
+        (plus `careerPositionId` when a position was reopened).
       responses:
         '204': { description: Reactivated }
         '400': { $ref: '#/components/responses/BadRequest' }
@@ -694,7 +700,9 @@ paths:
         seniority triple) they have held, chronological, **unpaged** (positions are
         intrinsically few). The start-only model makes the timeline continuous and
         non-overlapping by construction: each `endDate` is DERIVED — the day before the next
-        position's start — and the last position's is null (the current, open-ended one).
+        position's start — and the last position's is null (the current, open-ended one)
+        UNLESS account deactivation stamped a stored end on it (V58, v2.17.0; cleared on
+        reactivation).
         Any authenticated caller may read any user's timeline (position titles are org-visible
         on person cards already); a missing or soft-deleted user is 404 (the read-before-guard
         idiom — for this resource existence is no secret).
@@ -720,7 +728,9 @@ paths:
         be strictly after the current position's start and not in the future; all three refs
         are required (v2.15.1), each an ACTIVE entry of its dictionary; the triple must
         differ from the current position's (v2.15.2 — a repeat of the same career path,
-        specialization, and seniority is not a step, 409).
+        specialization, and seniority is not a step, 409). A DEACTIVATED user is `400`
+        (v2.17.0 — recording a new position is a new assignment; corrections and deletions
+        of history stay allowed).
         The user is notified (a new position is worth telling them about; corrections and
         deletions stay silent). Audited as `career_position.created`.
       requestBody:
@@ -777,8 +787,9 @@ paths:
         completing its triple), and only CHANGED refs are validated as active (a date-only
         correction never trips over a since-soft-deleted ref). The corrected triple must
         differ from BOTH neighbors' (v2.15.2, 409 — equal-to-previous is the repeat-step the
-        create blocks; equal-to-next would make the next position the repeat). Silent (no
-        notification); audited as `career_position.updated` with deltas.
+        create blocks; equal-to-next would make the next position the repeat), and a final
+        position closed by deactivation must not start after its stored end date (v2.17.0,
+        409). Silent (no notification); audited as `career_position.updated` with deltas.
       requestBody:
         required: true
         content:
@@ -809,7 +820,9 @@ paths:
       summary: Remove a position (chain managers only)
       description: |
         Soft-deletes a position; the neighbors merge implicitly (the previous position
-        absorbs the span — the start-only model needs no re-dating). Same write right as
+        absorbs the span — the start-only model needs no re-dating). If the removed position
+        carried the stored deactivation end date, the stamp transfers to the surviving final
+        position (v2.17.0 — a deactivated user's timeline stays closed). Same write right as
         the create. Silent; audited as `career_position.deleted`.
       responses:
         '204': { description: Removed }
@@ -836,11 +849,13 @@ paths:
         manages nobody gets an empty list (no 403 — the days-off budgets idiom). No role
         widening: HR and ADMIN see exactly their own subordinates.
 
-        Each row carries the subordinate's CURRENT career triple plus the two tenure
-        anchors (`currentPositionStart`, `organizationSince` — see the schema); all career
-        fields are null for a subordinate with no recorded positions, and such rows are
-        deliberately included so the manager sees who still needs one. Soft-deleted users
-        are excluded; deactivated users are included (the members-list rule).
+        Each item carries the subordinate's FULL chronological position history (v2.17.0)
+        plus their `deactivated` flag — the client computes the position as-of its time
+        slider's date itself, and lists a person only while they actively held a position
+        at that date (a deactivated subordinate past their stored end date, or with no
+        positions at all, is dropped client-side; an ACTIVE subordinate with no as-of
+        position still shows as "Not set"). `earliestStartDate` (org-wide, any user, even
+        deactivated ones) anchors the slider's lower bound. Soft-deleted users are excluded.
 
         **Unpaged** — bounded by the caller's subordinate count, intrinsically small.
       parameters:
@@ -5432,8 +5447,10 @@ components:
           format: date
           nullable: true
           description: |
-            DERIVED, never stored (the start-only model): the day before the user's next
-            position starts; null = the open-ended current position (always the last item).
+            DERIVED from the next position (the start-only model): the day before the
+            user's next position starts — EXCEPT the last item, which may carry the STORED
+            end date that account deactivation stamps (V58; reactivation clears it); null =
+            the open-ended current position (always the last item).
         careerPath:
           nullable: true
           allOf: [ { $ref: '#/components/schemas/DictionaryEntry' } ]
@@ -5458,45 +5475,63 @@ components:
           items: { $ref: '#/components/schemas/CareerPositionResponse' }
           description: Chronological (start ascending) — the last item is the current position.
 
-    CareerPyramidItem:
+    CareerPyramidPosition:
       type: object
-      required: [userId, name, careerPath, careerSpecialization, seniorityLevel, currentPositionStart, organizationSince]
+      required: [startDate, endDate, careerPath, careerSpecialization, seniorityLevel]
       properties:
-        userId: { type: integer, format: int64, minimum: 0 }
-        name: { type: string }
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+          nullable: true
+          description: The CareerPositionResponse rule — derived from the next position's
+            start, or the stored deactivation end on the final position; null = open-ended.
         careerPath:
           nullable: true
           allOf: [ { $ref: '#/components/schemas/DictionaryEntry' } ]
-          description: The CURRENT position's career path, resolved at read time (renames
-            propagate; soft-deleted entries keep resolving). Null when the subordinate has
-            no recorded positions or a legacy row leaves the field unset.
+          description: Resolved at read time (renames propagate; soft-deleted entries keep
+            resolving). Null only on legacy rows written before the v2.15.1 full-triple rule.
         careerSpecialization:
           nullable: true
           allOf: [ { $ref: '#/components/schemas/DictionaryEntry' } ]
         seniorityLevel:
           nullable: true
           allOf: [ { $ref: '#/components/schemas/DictionaryEntry' } ]
-        currentPositionStart:
-          type: string
-          format: date
-          nullable: true
-          description: The current position's start — the "tenure at level" anchor (any
-            recorded position change resets it). Null when no positions are recorded.
-        organizationSince:
-          type: string
-          format: date
-          nullable: true
-          description: The FIRST recorded position's start — organization tenure AS RECORDED
-            (v2.15.0 histories started empty, so not necessarily the true hire date).
+
+    CareerPyramidItem:
+      type: object
+      required: [userId, name, deactivated, positions]
+      properties:
+        userId: { type: integer, format: int64, minimum: 0 }
+        name: { type: string }
+        deactivated:
+          type: boolean
+          description: The reversible account-disable flag — the client drops a deactivated
+            person for slider dates with no active position, instead of showing "Not set".
+        positions:
+          type: array
+          items: { $ref: '#/components/schemas/CareerPyramidPosition' }
+          description: FULL chronological position history (start ascending; empty = none
+            recorded). "Tenure at level" anchors on the as-of position's start, organization
+            tenure on the first position's start (AS RECORDED — v2.15.0 histories started
+            empty, so not necessarily the true hire date).
 
     CareerPyramidList:
       type: object
-      required: [items]
+      required: [items, earliestStartDate]
       properties:
         items:
           type: array
           items: { $ref: '#/components/schemas/CareerPyramidItem' }
           description: Sorted by name (case-insensitive), then id.
+        earliestStartDate:
+          type: string
+          format: date
+          nullable: true
+          description: Earliest start of ANY active career position org-wide (any user,
+            deactivated included) — the time slider's lower bound; null = none recorded.
 
     PasswordUpdateRequest:
       type: object

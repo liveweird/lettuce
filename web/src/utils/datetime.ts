@@ -93,6 +93,19 @@ export function todayIsoDate(): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
+// Whole days from one ISO "YYYY-MM-DD" to another (negative when to < from) — UTC-anchored
+// parsing so DST transitions can't skew the count. Backs the pyramid time slider's mapping.
+export function isoDayDiff(fromIso: string, toIso: string): number {
+  return Math.round((Date.parse(`${toIso}T00:00:00Z`) - Date.parse(`${fromIso}T00:00:00Z`)) / 86_400_000);
+}
+
+// The ISO date [days] whole days after [iso] (negative = before) — the isoDayDiff inverse.
+export function addIsoDays(iso: string, days: number): string {
+  const d = new Date(Date.parse(`${iso}T00:00:00Z`) + days * 86_400_000);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}`;
+}
+
 // The current month as ISO "YYYY-MM" (local time) — the review-period granularity.
 export function currentIsoMonth(): string {
   return todayIsoDate().slice(0, 7);

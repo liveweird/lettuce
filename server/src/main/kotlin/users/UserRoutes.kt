@@ -29,6 +29,7 @@ import ch.nokillswit.infra.paging.optionalString
 import ch.nokillswit.infra.paging.optionalUInt
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.plugins.respondProblem
+import java.time.LocalDate
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
@@ -112,6 +113,7 @@ private const val MAX_IMPORT_CSV_CHARS = 256 * 1024
 
 fun Application.configureUserRoutes() {
     val userService = attributes[UserServiceKey]
+    val careerPositionService = attributes[CareerPositionServiceKey]
     // For the password-changed notification (published by configureDatabase, which loads earlier).
     val notificationService = attributes[NotificationServiceKey]
     val mailer = mailer()
@@ -441,10 +443,27 @@ fun Application.configureUserRoutes() {
                     call.respondProblem(HttpStatusCode.NotFound, "User not found")
                     return
                 }
-                audit(
-                    if (deactivate) "user.deactivated" else "user.reactivated",
+                // Career timeline side effect (v2.17.0): deactivation closes the final active
+                // position on the deactivation date; reactivation reopens it. Own transaction
+                // after the flag commit — the app's documented non-atomic side-effect shape.
+                val auditFields = mutableListOf<Pair<String, Any?>>(
                     "byUserId" to caller.userId.toLong(),
                     "targetUserId" to targetId.toLong(),
+                )
+                if (deactivate) {
+                    val endDate = LocalDate.now().toString()
+                    careerPositionService.closeFinalPosition(targetId, endDate)?.let {
+                        auditFields += "careerPositionId" to it.toLong()
+                        auditFields += "careerPositionEndDate" to endDate
+                    }
+                } else {
+                    careerPositionService.reopenFinalPosition(targetId)?.let {
+                        auditFields += "careerPositionId" to it.toLong()
+                    }
+                }
+                audit(
+                    if (deactivate) "user.deactivated" else "user.reactivated",
+                    *auditFields.toTypedArray(),
                 )
                 call.respond(HttpStatusCode.NoContent)
             }

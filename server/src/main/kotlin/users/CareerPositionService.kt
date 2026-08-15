@@ -18,7 +18,12 @@ val CareerPositionServiceKey = AttributeKey<CareerPositionService>("CareerPositi
 /**
  * The per-user career position timeline (V57) — the start-only model: rows store only their
  * start date; a position's end is the day before the user's next active position starts, so
- * the timeline is continuous and non-overlapping by construction. Rules that depend on the
+ * the timeline is continuous and non-overlapping by construction. ONE exception (V58,
+ * v2.17.0): account deactivation stamps a stored `end_date` on the user's final active
+ * position (cleared again by reactivation) — only the final row ever carries it (a new
+ * position cannot be recorded for a deactivated user, and [delete] transfers the stamp to
+ * the surviving final row), so derived ends stay authoritative everywhere else. Rules that
+ * depend on the
  * user's OTHER rows — the ordering rules (append-after-latest, correct-between-neighbors) and
  * the adjacent-sameness rule (v2.15.2: no position may carry the exact same triple as its
  * neighbor — a repeat is not a step) — are enforced here, atomically with the write (the
@@ -30,6 +35,8 @@ class CareerPositionService(val database: R2dbcDatabase) {
         val userId = reference("user_id", UserService.Users)
         // Strict zero-padded ISO YYYY-MM-DD — lexicographic == chronological (the V34 idiom).
         val startDate = varchar("start_date", length = 10)
+        // Stored end (V58) — deactivation-only, final row only; null everywhere else.
+        val endDate = varchar("end_date", length = 10).nullable()
         val careerPathId = uinteger("career_path_id").nullable()
         val careerSpecializationId = uinteger("career_specialization_id").nullable()
         val seniorityLevelId = uinteger("seniority_level_id").nullable()
@@ -43,6 +50,8 @@ class CareerPositionService(val database: R2dbcDatabase) {
         val id: UInt,
         val userId: UInt,
         val startDate: String,
+        /** The STORED end (deactivation) — reads fall back to the derived next-start − 1. */
+        val endDate: String?,
         val careerPathId: UInt?,
         val careerSpecializationId: UInt?,
         val seniorityLevelId: UInt?,
@@ -77,63 +86,76 @@ class CareerPositionService(val database: R2dbcDatabase) {
     suspend fun managesUser(callerId: UInt, targetUserId: UInt): Boolean =
         suspendTransaction(database) { isInManagementChain(callerId, targetUserId) }
 
-    /** One team-pyramid row (refs unresolved — the route resolves entries, v2.16.0). */
-    data class PyramidRow(
+    /** One pyramid subordinate: full position history, refs unresolved (v2.17.0). */
+    data class PyramidUser(
         val userId: UInt,
         val name: String,
-        val careerPathId: UInt?,
-        val careerSpecializationId: UInt?,
-        val seniorityLevelId: UInt?,
-        /** The current position's start — the "tenure at level" anchor; null = no positions. */
-        val currentPositionStart: String?,
-        /** The first recorded position's start — organization tenure AS RECORDED. */
-        val organizationSince: String?,
+        val deactivated: Boolean,
+        /** Chronological (start ASC) — the client computes the as-of position itself. */
+        val positions: List<PositionRow>,
+    )
+
+    /** The pyramid payload plus the org-wide time-slider anchor. */
+    data class PyramidData(
+        val users: List<PyramidUser>,
+        /** Earliest start of ANY active position org-wide (even deactivated users' — the
+         *  slider's lower bound, per spec); null = no positions recorded anywhere. */
+        val earliestStartDate: String?,
     )
 
     /**
-     * The caller's team pyramid (v2.16.0): one row per subordinate — direct reports, or the
-     * whole transitive chain with [includeIndirect] (the /teams/members view=managed
-     * semantics; caller-excluded and cycle-safe via the shared chain walk). Soft-deleted
-     * users drop out; deactivated ones stay (the members-list rule). Rows with NO positions
-     * keep all career fields null. Sorted by name (case-insensitive), then id.
+     * The caller's team pyramid (v2.16.0; full-history shape since v2.17.0): one entry per
+     * subordinate — direct reports, or the whole transitive chain with [includeIndirect]
+     * (the /teams/members view=managed semantics; caller-excluded and cycle-safe via the
+     * shared chain walk). Soft-deleted users drop out; deactivated ones are INCLUDED with
+     * their flag — the SPA drops them client-side for slider dates past their stored end
+     * (v2.17.0 — a person shows only while they actively held a position). Subordinates with
+     * NO positions come with an empty list. Sorted by name (case-insensitive), then id.
      */
-    suspend fun pyramidRows(callerId: UInt, includeIndirect: Boolean): List<PyramidRow> =
+    suspend fun pyramidRows(callerId: UInt, includeIndirect: Boolean): PyramidData =
         suspendTransaction(database) {
+            val minStart = CareerPositions.startDate.min()
+            val earliest = CareerPositions.select(minStart)
+                .where { active() }
+                .toList()
+                .firstOrNull()
+                ?.get(minStart)
             val subordinateIds =
                 if (includeIndirect) transitiveSubordinateIds(callerId) else directSubordinateIds(callerId)
-            if (subordinateIds.isEmpty()) return@suspendTransaction emptyList()
-            val names = UserService.Users
-                .select(UserService.Users.id, UserService.Users.name)
+            if (subordinateIds.isEmpty()) return@suspendTransaction PyramidData(emptyList(), earliest)
+            val users = UserService.Users
+                .select(UserService.Users.id, UserService.Users.name, UserService.Users.deactivated)
                 .where {
                     (UserService.Users.id inList subordinateIds) and
                         (UserService.Users.markedAsDeleted eq false)
                 }
                 .toList()
-                .associate { it[UserService.Users.id].value to it[UserService.Users.name] }
-            if (names.isEmpty()) return@suspendTransaction emptyList()
+                .associate {
+                    it[UserService.Users.id].value to
+                        (it[UserService.Users.name] to it[UserService.Users.deactivated])
+                }
+            if (users.isEmpty()) return@suspendTransaction PyramidData(emptyList(), earliest)
             // Drained before grouping — a nested query inside a still-open flow would
             // deadlock the shared R2DBC connection.
             val positionsByUser = CareerPositions.selectAll()
-                .where { (CareerPositions.userId inList names.keys) and active() }
+                .where { (CareerPositions.userId inList users.keys) and active() }
                 .orderBy(CareerPositions.startDate to SortOrder.ASC, CareerPositions.id to SortOrder.ASC)
                 .map { it.toRow() }
                 .toList()
                 .groupBy { it.userId }
-            names.entries
-                .map { (id, name) ->
-                    val rows = positionsByUser[id].orEmpty()
-                    val current = rows.lastOrNull()
-                    PyramidRow(
-                        userId = id,
-                        name = name,
-                        careerPathId = current?.careerPathId,
-                        careerSpecializationId = current?.careerSpecializationId,
-                        seniorityLevelId = current?.seniorityLevelId,
-                        currentPositionStart = current?.startDate,
-                        organizationSince = rows.firstOrNull()?.startDate,
-                    )
-                }
-                .sortedWith(compareBy({ it.name.lowercase() }, { it.userId }))
+            PyramidData(
+                users = users.entries
+                    .map { (id, user) ->
+                        PyramidUser(
+                            userId = id,
+                            name = user.first,
+                            deactivated = user.second,
+                            positions = positionsByUser[id].orEmpty(),
+                        )
+                    }
+                    .sortedWith(compareBy({ it.name.lowercase() }, { it.userId })),
+                earliestStartDate = earliest,
+            )
         }
 
     /**
@@ -203,6 +225,12 @@ class CareerPositionService(val database: R2dbcDatabase) {
         if ((prev != null && sameTriple(write, prev)) || (next != null && sameTriple(write, next))) {
             throw ConflictException("The corrected position must differ from the neighboring positions")
         }
+        // A deactivation-stamped final row must not be pushed past its own stored end.
+        if (existing.endDate != null && write.startDate > existing.endDate) {
+            throw ConflictException(
+                "The corrected position must not start after its end date (ended ${existing.endDate})",
+            )
+        }
         CareerPositions.update({ (CareerPositions.id eq id) and (CareerPositions.markedAsDeleted eq false) }) {
             it[startDate] = write.startDate
             it[careerPathId] = write.careerPathId
@@ -212,11 +240,58 @@ class CareerPositionService(val database: R2dbcDatabase) {
         }
     }
 
-    /** Soft delete; the neighbors merge implicitly (the previous position absorbs the span). */
+    /**
+     * Soft delete; the neighbors merge implicitly (the previous position absorbs the span).
+     * If the deleted row carried the stored deactivation end (it is then the final row by
+     * invariant), the stamp transfers to the surviving final row — a deactivated user's
+     * timeline stays closed no matter which rows a manager prunes.
+     */
     suspend fun delete(id: UInt): Int = suspendTransaction(database) {
-        CareerPositions.update({ (CareerPositions.id eq id) and (CareerPositions.markedAsDeleted eq false) }) {
+        val existing = CareerPositions.selectAll()
+            .where { (CareerPositions.id eq id) and active() }
+            .map { it.toRow() }
+            .toList()
+            .singleOrNull()
+            ?: return@suspendTransaction 0
+        val updated = CareerPositions.update({ (CareerPositions.id eq id) and (CareerPositions.markedAsDeleted eq false) }) {
             it[markedAsDeleted] = true
         }
+        if (updated > 0 && existing.endDate != null) {
+            rowsOf(existing.userId).lastOrNull()?.let { survivor ->
+                CareerPositions.update({ (CareerPositions.id eq survivor.id) and active() }) {
+                    it[endDate] = existing.endDate
+                    it[lastModified] = System.currentTimeMillis()
+                }
+            }
+        }
+        updated
+    }
+
+    /**
+     * Deactivation side effect (v2.17.0): stamp [endDateIso] on the user's final active
+     * position — only when it is still open. Returns the stamped position's id (for the
+     * audit event), or null when the user has no positions or the final row is already
+     * closed (a legacy pre-V58 deactivation re-run).
+     */
+    suspend fun closeFinalPosition(userId: UInt, endDateIso: String): UInt? = suspendTransaction(database) {
+        val latest = rowsOf(userId).lastOrNull() ?: return@suspendTransaction null
+        if (latest.endDate != null) return@suspendTransaction null
+        CareerPositions.update({ (CareerPositions.id eq latest.id) and active() }) {
+            it[endDate] = endDateIso
+            it[lastModified] = System.currentTimeMillis()
+        }
+        latest.id
+    }
+
+    /** Reactivation clears the stamp — the final position resumes as the open-ended current one. */
+    suspend fun reopenFinalPosition(userId: UInt): UInt? = suspendTransaction(database) {
+        val latest = rowsOf(userId).lastOrNull() ?: return@suspendTransaction null
+        if (latest.endDate == null) return@suspendTransaction null
+        CareerPositions.update({ (CareerPositions.id eq latest.id) and active() }) {
+            it[endDate] = null
+            it[lastModified] = System.currentTimeMillis()
+        }
+        latest.id
     }
 
     /** Must run inside a transaction. Chronological; same-start impossible among active rows. */
@@ -240,6 +315,7 @@ class CareerPositionService(val database: R2dbcDatabase) {
         id = this[CareerPositions.id].value,
         userId = this[CareerPositions.userId].value,
         startDate = this[CareerPositions.startDate],
+        endDate = this[CareerPositions.endDate],
         careerPathId = this[CareerPositions.careerPathId],
         careerSpecializationId = this[CareerPositions.careerSpecializationId],
         seniorityLevelId = this[CareerPositions.seniorityLevelId],

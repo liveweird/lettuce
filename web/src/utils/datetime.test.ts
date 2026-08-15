@@ -1,14 +1,30 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import {
+  addIsoDays,
   currentIsoMonth,
   formatIsoMonth,
   formatMonthRange,
   formatRelativeTime,
   formatTimestamp,
   isCurrentPeriod,
+  isoDayDiff,
   lastModifiedCutoff,
   nextIsoMonth,
 } from "./datetime";
+
+describe("day arithmetic (the pyramid time slider)", () => {
+  test("isoDayDiff and addIsoDays are inverse, across month and year bounds", () => {
+    expect(isoDayDiff("2026-08-01", "2026-08-15")).toBe(14);
+    expect(isoDayDiff("2026-08-15", "2026-08-15")).toBe(0);
+    expect(isoDayDiff("2025-12-30", "2026-01-02")).toBe(3);
+    expect(addIsoDays("2026-08-01", 14)).toBe("2026-08-15");
+    expect(addIsoDays("2026-01-02", -3)).toBe("2025-12-30");
+    expect(addIsoDays("2024-02-28", 1)).toBe("2024-02-29"); // leap day
+    const from = "2015-01-01";
+    const to = "2026-08-15";
+    expect(addIsoDays(from, isoDayDiff(from, to))).toBe(to);
+  });
+});
 
 describe("formatTimestamp", () => {
   test("formats local time as YYYY-MM-DD HH:mm with zero-padding", () => {
