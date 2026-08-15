@@ -135,7 +135,8 @@
     "emailTooLong": "Adres e-mail jest zbyt długi",
     "passwordLength": "Hasło musi mieć co najmniej 10 znaków",
     "passwordsMismatch": "Hasła nie są zgodne",
-    "currentPasswordRequired": "Obecne hasło jest wymagane"
+    "currentPasswordRequired": "Obecne hasło jest wymagane",
+    "passwordTooLong": "Hasło musi zmieścić się w {{max}} bajtach — znaki spoza alfabetu łacińskiego liczą się jako więcej niż jeden"
   },
   "currentPassword": "Obecne hasło",
   "wrongCurrentPassword": "Obecne hasło jest nieprawidłowe.",

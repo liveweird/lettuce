@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.18.1",
+    date: "2026-08-16",
+    en: `Password length rules are now consistent everywhere. The technical limit was always 71 bytes (a property of the password-hashing algorithm), but the API documentation claimed 64 characters — long-but-valid passwords looked forbidden on paper, while some passwords with many non-Latin characters passed the documented rule yet were rejected. The documentation now states the real limit, and the change-password form checks it up front with a clear message instead of letting the server reject the save.`,
+    pl: `Reguły długości hasła są teraz wszędzie spójne. Techniczny limit zawsze wynosił 71 bajtów (właściwość algorytmu haszującego hasła), ale dokumentacja API podawała 64 znaki — długie, lecz poprawne hasła wyglądały na papierze na zabronione, a niektóre hasła z wieloma znakami spoza alfabetu łacińskiego spełniały udokumentowaną regułę, ale były odrzucane. Dokumentacja podaje teraz prawdziwy limit, a formularz zmiany hasła sprawdza go od razu, z czytelnym komunikatem, zamiast pozwolić serwerowi odrzucić zapis.`,
+  },
+  {
     version: "2.18.0",
     date: "2026-08-16",
     en: `Text fields now show how much room is left. Every capped text area and editor — feedback content, goal and KPI descriptions, milestones, 1:1 notes, review summaries, comments, and more — displays a live character counter (like 123 / 4000); short single-line fields such as names show theirs once the text approaches the limit. Limits are enforced as you type, so overlong text is caught in the form instead of surfacing as a server error, and three previously unlimited fields (feedback content, the request message, and template content) now have sensible caps end to end.`,
