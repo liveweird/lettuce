@@ -106,12 +106,13 @@ export default function UserDetails() {
   const teamIdRaw = Number(search.get("teamId"));
   const teamId = Number.isFinite(teamIdRaw) && teamIdRaw > 0 ? teamIdRaw : undefined;
   // The members origin needs its teamId to link back to that roster; teams is the teams list's
-  // manager chip; org is the org-chart canvas. Anything else degrades to the users list.
+  // manager chip; org is the org-chart canvas; career is the Career page's Team pyramid tab
+  // (v2.16.0). Anything else degrades to the users list.
   const fromParam = search.get("from");
-  const originKey: "users" | "members" | "teams" | "org" =
+  const originKey: "users" | "members" | "teams" | "org" | "career" =
     fromParam === "members" && teamId != null
       ? "members"
-      : fromParam === "teams" || fromParam === "org"
+      : fromParam === "teams" || fromParam === "org" || fromParam === "career"
         ? fromParam
         : "users";
   const origin =
@@ -121,7 +122,9 @@ export default function UserDetails() {
         ? { labelKey: "feedback.origin.teams", to: "/teams" }
         : originKey === "org"
           ? { labelKey: "feedback.origin.org", to: "/org" }
-          : { labelKey: "feedback.origin.users", to: "/users" };
+          : originKey === "career"
+            ? { labelKey: "feedback.origin.career", to: "/career?tab=pyramid" }
+            : { labelKey: "feedback.origin.users", to: "/users" };
   const selfView = userId === getUserId();
 
   const { data, isLoading, isError, error } = useQuery({

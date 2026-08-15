@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.16.0",
+    date: "2026-08-15",
+    en: `A new Career section in the menu. "My career" shows your own position history — every career path, specialization, and seniority you have held, with the current position highlighted. Managers additionally get "Team pyramid": all their subordinates (direct reports, or everyone below including indirect) with each person's current role, seniority, time at the current position, and time in the organization — as a filterable, sortable table or as a distribution chart showing the team's composition for any of those variables, including who has no recorded position yet.`,
+    pl: `Nowa sekcja Kariera w menu. „Moja kariera" pokazuje Twoją historię stanowisk — każdą ścieżkę kariery, specjalizację i poziom, z wyróżnionym obecnym stanowiskiem. Menedżerowie dostają dodatkowo „Piramidę zespołu": wszystkich swoich podwładnych (bezpośrednich albo wszystkich poniżej, razem z pośrednimi) z obecną rolą, poziomem, stażem na obecnym stanowisku i stażem w organizacji — jako filtrowalną, sortowalną tabelę albo wykres rozkładu pokazujący strukturę zespołu według dowolnej z tych zmiennych, w tym osoby bez zapisanego stanowiska.`,
+  },
+  {
     version: "2.15.2",
     date: "2026-08-15",
     en: `Every career step must be a real change. A new position can no longer repeat the previous one exactly — at least one of the three fields (career path, specialization, seniority level) has to differ, and corrections may not make a position identical to its neighbor either. The form explains this on the spot: with the fields pre-filled from the current position, the start button stays disabled until something actually changes.`,

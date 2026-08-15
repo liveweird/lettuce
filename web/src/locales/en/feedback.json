@@ -96,7 +96,8 @@
     "teams": "Teams",
     "org": "Org chart",
     "team": "Team subordinates",
-    "details": "User details"
+    "details": "User details",
+    "career": "Team pyramid"
   },
   "duplicate": {
     "draft": "A draft of this feedback already exists.",

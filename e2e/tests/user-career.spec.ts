@@ -6,7 +6,9 @@ import type { Page } from "@playwright/test";
 // drill-down (start → conclude-by-starting-another → correct a date → delete), the current
 // position feeds the details card's Profile section, the subordinate gets the notification and
 // a read-only view of their own timeline, and a dictionary rename still propagates through the
-// position's entry ref (the old user-edit acceptance scenario, re-homed). Owns all its state:
+// position's entry ref (the old user-edit acceptance scenario, re-homed). The v2.16.0 leg walks
+// the nav Career page: the manager's own (empty) My career + the Team pyramid (row, scope
+// toggle, chart view); the subordinate gets My career only. Owns all its state:
 // throwaway users + team per run, plus one appended-then-retired career-paths entry (the same
 // shared-dictionary etiquette the retired user-edit career leg used).
 
@@ -140,6 +142,35 @@ test("career progression: chain manager records positions, the person sees the t
   // 8. The current position backs the details card's Profile section.
   await page.goto(`/users/${sub.id}/details`);
   await expect(page.getByText(value1, { exact: true })).toBeVisible();
+
+  // 8b. The nav Career page (v2.16.0), still as the manager: My career = own (empty)
+  //     timeline; Team pyramid = the subordinate's row with the surviving position, the
+  //     scope toggle re-fetching with includeIndirect, and the chart view mounting.
+  await page.getByRole("link", { name: "Career", exact: true }).click();
+  await expect(page.getByRole("tab", { name: "My career" })).toBeVisible();
+  await expect(page.getByText("No positions recorded yet.")).toBeVisible();
+  await Promise.all([
+    page.waitForResponse((r) => r.url().includes("/api/v1/career/pyramid") && r.ok()),
+    page.getByRole("tab", { name: "Team pyramid" }).click(),
+  ]);
+  // Locate through the ROW (the filter Selects hold mounted dictionary listboxes, so a bare
+  // value1 locator would strict-violate once the panel opens); tenure cells render "…year…".
+  const subRow = page.getByRole("row").filter({ hasText: sub.name });
+  await expect(subRow).toHaveCount(1);
+  await expect(subRow).toContainText(value1);
+  await page.getByRole("button", { name: /^Filters/ }).click();
+  const indirectFetch = page.waitForResponse(
+    (r) => r.url().includes("/career/pyramid?includeIndirect=true") && r.ok(),
+  );
+  // The Reports select is NOT searchable (readonly input) — click + option, never
+  // pickSelectOption (its narrowing fill would hang on the readonly input).
+  await page.getByRole("combobox", { name: "Reports" }).click();
+  await page.getByRole("option", { name: "All reports (including indirect)" }).click();
+  await indirectFetch;
+  await expect(subRow).toHaveCount(1);
+  await page.getByText("Chart", { exact: true }).click();
+  await expect(page.getByText("Distribution of", { exact: true })).toBeVisible();
+  await expect(page.getByRole("table")).toHaveCount(0);
   await logout(page);
 
   // 9. The subordinate was notified and reads their own timeline WITHOUT the editor.
@@ -152,6 +183,11 @@ test("career progression: chain manager records positions, the person sees the t
   await page.goto(`/users/${sub.id}/career`);
   await expect(page.getByText("Current", { exact: true })).toBeVisible();
   await expect(page.getByText("Start a new position")).toHaveCount(0);
+  // The nav page for a non-manager: My career only — no pyramid tab.
+  await page.goto("/career?tab=pyramid");
+  await expect(page.getByRole("tab", { name: "My career" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Team pyramid" })).toHaveCount(0);
+  await expect(page.getByText("Current", { exact: true })).toBeVisible();
   await logout(page);
 
   // 10. A dictionary rename propagates through the position's entry ref; retiring the entry

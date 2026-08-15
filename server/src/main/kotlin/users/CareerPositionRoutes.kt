@@ -5,6 +5,7 @@ import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireCareerPositionWrite
 import ch.nokillswit.dictionaries.Dictionary
 import ch.nokillswit.dictionaries.DictionaryEntry
+import ch.nokillswit.infra.paging.optionalBoolean
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpHeaders
@@ -31,6 +32,11 @@ class UserCareerPositions(val id: UInt) {
     @Resource("{positionId}")
     class Position(val parent: UserCareerPositions, val positionId: UInt)
 }
+
+/** The caller-relative team-pyramid read (v2.16.0) — the dashboard/summary two-segment shape. */
+@Serializable
+@Resource("/api/v1/career/pyramid")
+class CareerPyramid
 
 /** A (dictionary, id) ref to validate — only when [requested] actually changes [current]. */
 private fun changedRef(dict: Dictionary, requested: UInt?, current: UInt?): Pair<Dictionary, UInt>? =
@@ -99,6 +105,35 @@ fun Application.configureCareerPositionRoutes() {
 
     routing {
         authenticate {
+            // Caller-relative (v2.16.0): any authenticated caller; a non-manager simply gets
+            // an empty list (the days-off budgets idiom — no 403). No role widening: HR and
+            // ADMIN see exactly their own subordinates, so the endpoint discloses nothing the
+            // members list and the open career-positions GET don't already.
+            get<CareerPyramid> {
+                val caller = call.caller()
+                val includeIndirect = call.request.queryParameters.optionalBoolean("includeIndirect")
+                val rows = careerPositionService.pyramidRows(caller.userId, includeIndirect == true)
+                val entries = userService.resolveEntryRefs(
+                    *rows.flatMap { listOf(it.careerPathId, it.careerSpecializationId, it.seniorityLevelId) }
+                        .toTypedArray(),
+                )
+                call.respond(
+                    HttpStatusCode.OK,
+                    CareerPyramidList(
+                        rows.map {
+                            CareerPyramidItem(
+                                userId = it.userId,
+                                name = it.name,
+                                careerPath = it.careerPathId?.let(entries::get),
+                                careerSpecialization = it.careerSpecializationId?.let(entries::get),
+                                seniorityLevel = it.seniorityLevelId?.let(entries::get),
+                                currentPositionStart = it.currentPositionStart,
+                                organizationSince = it.organizationSince,
+                            )
+                        },
+                    ),
+                )
+            }
             get<UserCareerPositions> { route ->
                 call.caller()
                 if (userService.read(route.id) == null) {

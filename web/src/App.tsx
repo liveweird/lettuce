@@ -46,6 +46,7 @@ import {
   IconMoon,
   IconSettings,
   IconStairs,
+  IconStairsUp,
   IconSun,
   IconTargetArrow,
   IconUserScan,
@@ -103,6 +104,7 @@ const EditTeamKpi = lazy(() => import("./pages/EditTeamKpi"));
 const ViewTeamKpi = lazy(() => import("./pages/ViewTeamKpi"));
 const TeamKpis = lazy(() => import("./pages/TeamKpis"));
 const Performance = lazy(() => import("./pages/Performance"));
+const Career = lazy(() => import("./pages/Career"));
 const UserPerformanceReviews = lazy(() => import("./pages/UserPerformanceReviews"));
 const CreatePerformanceReview = lazy(() => import("./pages/CreatePerformanceReview"));
 const EditPerformanceReview = lazy(() => import("./pages/EditPerformanceReview"));
@@ -189,6 +191,8 @@ const NAV_ITEMS: ReadonlyArray<NavEntry> = [
     tourId: "nav-performance",
     feature: "PERFORMANCE_REVIEWS",
   },
+  // Deliberately feature-UNGATED — the whole career area is (FEATURE_OF.career = null).
+  { to: "/career", label: "appShell.nav.career", icon: IconStairsUp, tourId: "nav-career" },
   { to: "/days-off", label: "appShell.nav.daysOff", icon: IconBeach, tourId: "nav-days-off", feature: "DAYS_OFF" },
   { to: "/pulse", label: "appShell.nav.pulse", icon: IconHeartRateMonitor, tourId: "nav-pulse", feature: "PULSE_SURVEYS" },
   {
@@ -617,6 +621,7 @@ export default function App() {
             <Route path="team-kpis/:id/edit" element={<EditTeamKpi />} />
             <Route path="team-kpis/:id/view" element={<ViewTeamKpi />} />
             <Route path="performance" element={<Performance />} />
+            <Route path="career" element={<Career />} />
             {/* The pre-v1.45 URL of the own view — bookmarks/notification landings keep working. */}
             <Route path="my-performance" element={<Navigate to="/performance" replace />} />
             <Route path="users/:userId/performance-reviews" element={<UserPerformanceReviews />} />

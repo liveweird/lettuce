@@ -1,0 +1,49 @@
+{
+  "title": "Career",
+  "tab": {
+    "my": "My career",
+    "pyramid": "Team pyramid"
+  },
+  "my": {
+    "hint": "Every position you have held: career path, specialization, and seniority, with when each one started and ended. Your managers maintain this timeline."
+  },
+  "pyramid": {
+    "hint": "The career composition of the people who report to you — roles, seniority, and how long each person has held their current position and been in the organization.",
+    "viewAria": "Pyramid display mode",
+    "viewTable": "Table",
+    "viewChart": "Chart",
+    "filterName": "Name",
+    "notSet": "Not set",
+    "empty": "Nobody reports to you in this scope.",
+    "noMatches": "No subordinates match the current filters.",
+    "loadError": "Could not load the team pyramid.",
+    "colLevelSince": "Tenure at level",
+    "colOrganizationSince": "In the organization",
+    "metricLabel": "Distribution of",
+    "metric": {
+      "careerPath": "Career path",
+      "careerSpecialization": "Career specialization",
+      "seniorityLevel": "Seniority level",
+      "tenureAtLevel": "Tenure at level",
+      "tenureInOrganization": "Tenure in the organization"
+    },
+    "bucket": {
+      "lt1": "Under 1 year",
+      "y1to2": "1–2 years",
+      "y2to5": "2–5 years",
+      "y5to10": "5–10 years",
+      "y10plus": "10+ years"
+    },
+    "chartCount": "People",
+    "rowsPerPage": "Rows per page",
+    "unknownError": "Unknown error",
+    "clearNameFilter": "Clear the name filter"
+  },
+  "tenure": {
+    "underMonth": "under a month",
+    "year_one": "{{count}} year",
+    "year_other": "{{count}} years",
+    "month_one": "{{count}} month",
+    "month_other": "{{count}} months"
+  }
+}

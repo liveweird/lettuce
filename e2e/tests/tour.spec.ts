@@ -6,10 +6,10 @@ import type { Page } from "@playwright/test";
 // views they open, before the header icons. Anchors/steps that vanish or reorder fail the walks.
 // The suite's tour-seen stub only suppresses the AUTO-start; the replay button always works.
 //
-// Audience math over the 53 steps: MANAGER_AAA is a manager but NOT an ADMIN, so the three
-// admin-only Config leaves (Pulse cycles, Feature flags, Alerts) are absent → 50. The seed
-// admin is an ADMIN but manages no team, so the seven manager-only tab steps and the
-// manager-or-HR Pulse participation step are absent → 45.
+// Audience math over the 56 steps: MANAGER_AAA is a manager but NOT an ADMIN, so the three
+// admin-only Config leaves (Pulse cycles, Feature flags, Alerts) are absent → 53. The seed
+// admin is an ADMIN but manages no team, so the eight manager-only tab steps and the
+// manager-or-HR Pulse participation step are absent → 47.
 
 const LANDMARKS = [
   "Take a quick tour",
@@ -25,6 +25,9 @@ const LANDMARKS = [
   "Performance — the performance reviews your manager published",
   "My performance — every review published about you",
   "Team's performance — every subordinate's review",
+  "Career — your own position history",
+  "My career — every position you have held",
+  "Team pyramid — your subordinates' career paths",
   "Days off — the team calendar",
   "Calendar — who is away and when",
   "My requests — your own days off",
@@ -56,6 +59,8 @@ const ADMIN_LANDMARKS = [
   "Feedback",
   "1:1 meetings",
   "Goals — the goals you're involved in",
+  "Career — your own position history",
+  "My career — every position you have held",
   "Days off — the team calendar",
   "recurring pulse survey",
   "Trend — how a team's scores move",
@@ -100,19 +105,19 @@ function assertLandmarkOrder(seen: string[], landmarks: string[]) {
   }
 }
 
-test("the guided tour walks all 50 manager steps in the documented order", async ({ page }) => {
+test("the guided tour walks all 53 manager steps in the documented order", async ({ page }) => {
   await login(page, MANAGER_AAA);
   // A pre-existing active alert's expanded banner overlays the header (and the replay button).
   await collapseAlertsBanner(page);
   const seen = await walkTour(page);
 
-  expect(seen).toHaveLength(50);
+  expect(seen).toHaveLength(53);
   assertLandmarkOrder(seen, LANDMARKS);
   // The tour's closing step returned home.
   await expect(page).toHaveURL(/\/$|\?tab=/);
 });
 
-test("the guided tour walks the 45 admin steps including the admin-only Config leaves", async ({
+test("the guided tour walks the 47 admin steps including the admin-only Config leaves", async ({
   page,
   request,
 }) => {
@@ -129,7 +134,7 @@ test("the guided tour walks the 45 admin steps including the admin-only Config l
       headers: { Authorization: `Bearer ${token}` },
     })
   ).json()) as { total: number };
-  const expected = 45 + (managed.total > 0 ? 8 : 0);
+  const expected = 47 + (managed.total > 0 ? 9 : 0);
 
   const seen = await walkTour(page);
 

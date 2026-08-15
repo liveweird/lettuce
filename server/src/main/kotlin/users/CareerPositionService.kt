@@ -2,7 +2,9 @@ package ch.nokillswit.users
 
 import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.notifications.Notification
+import ch.nokillswit.teams.directSubordinateIds
 import ch.nokillswit.teams.isInManagementChain
+import ch.nokillswit.teams.transitiveSubordinateIds
 import io.ktor.util.AttributeKey
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
@@ -74,6 +76,65 @@ class CareerPositionService(val database: R2dbcDatabase) {
     /** Write right: the caller is in the target's transitive management chain (own transaction). */
     suspend fun managesUser(callerId: UInt, targetUserId: UInt): Boolean =
         suspendTransaction(database) { isInManagementChain(callerId, targetUserId) }
+
+    /** One team-pyramid row (refs unresolved — the route resolves entries, v2.16.0). */
+    data class PyramidRow(
+        val userId: UInt,
+        val name: String,
+        val careerPathId: UInt?,
+        val careerSpecializationId: UInt?,
+        val seniorityLevelId: UInt?,
+        /** The current position's start — the "tenure at level" anchor; null = no positions. */
+        val currentPositionStart: String?,
+        /** The first recorded position's start — organization tenure AS RECORDED. */
+        val organizationSince: String?,
+    )
+
+    /**
+     * The caller's team pyramid (v2.16.0): one row per subordinate — direct reports, or the
+     * whole transitive chain with [includeIndirect] (the /teams/members view=managed
+     * semantics; caller-excluded and cycle-safe via the shared chain walk). Soft-deleted
+     * users drop out; deactivated ones stay (the members-list rule). Rows with NO positions
+     * keep all career fields null. Sorted by name (case-insensitive), then id.
+     */
+    suspend fun pyramidRows(callerId: UInt, includeIndirect: Boolean): List<PyramidRow> =
+        suspendTransaction(database) {
+            val subordinateIds =
+                if (includeIndirect) transitiveSubordinateIds(callerId) else directSubordinateIds(callerId)
+            if (subordinateIds.isEmpty()) return@suspendTransaction emptyList()
+            val names = UserService.Users
+                .select(UserService.Users.id, UserService.Users.name)
+                .where {
+                    (UserService.Users.id inList subordinateIds) and
+                        (UserService.Users.markedAsDeleted eq false)
+                }
+                .toList()
+                .associate { it[UserService.Users.id].value to it[UserService.Users.name] }
+            if (names.isEmpty()) return@suspendTransaction emptyList()
+            // Drained before grouping — a nested query inside a still-open flow would
+            // deadlock the shared R2DBC connection.
+            val positionsByUser = CareerPositions.selectAll()
+                .where { (CareerPositions.userId inList names.keys) and active() }
+                .orderBy(CareerPositions.startDate to SortOrder.ASC, CareerPositions.id to SortOrder.ASC)
+                .map { it.toRow() }
+                .toList()
+                .groupBy { it.userId }
+            names.entries
+                .map { (id, name) ->
+                    val rows = positionsByUser[id].orEmpty()
+                    val current = rows.lastOrNull()
+                    PyramidRow(
+                        userId = id,
+                        name = name,
+                        careerPathId = current?.careerPathId,
+                        careerSpecializationId = current?.careerSpecializationId,
+                        seniorityLevelId = current?.seniorityLevelId,
+                        currentPositionStart = current?.startDate,
+                        organizationSince = rows.firstOrNull()?.startDate,
+                    )
+                }
+                .sortedWith(compareBy({ it.name.lowercase() }, { it.userId }))
+        }
 
     /**
      * Appends a position: the new start must be strictly after the latest existing one (409

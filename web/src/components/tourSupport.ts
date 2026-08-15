@@ -90,6 +90,10 @@ export const TOUR_STEPS: TourStepDef[] = [
   { target: '[data-tour="nav-performance"]', contentKey: "tour.steps.performance", placement: "right", navTo: "/performance?tab=own" , feature: "PERFORMANCE_REVIEWS" },
   { target: '[data-tour="performance-own"]', contentKey: "tour.steps.performanceOwn", placement: "bottom", navTo: "/performance?tab=own" , feature: "PERFORMANCE_REVIEWS" },
   { target: '[data-tour="performance-managed"]', contentKey: "tour.steps.performanceManaged", placement: "bottom", navTo: "/performance?tab=managed", managerOnly: true , feature: "PERFORMANCE_REVIEWS" },
+  // The career area is feature-UNGATED (v2.16.0) — no `feature` on any of its steps.
+  { target: '[data-tour="nav-career"]', contentKey: "tour.steps.career", placement: "right", navTo: "/career?tab=my" },
+  { target: '[data-tour="career-my"]', contentKey: "tour.steps.careerMy", placement: "bottom", navTo: "/career?tab=my" },
+  { target: '[data-tour="career-pyramid"]', contentKey: "tour.steps.careerPyramid", placement: "bottom", navTo: "/career?tab=pyramid", managerOnly: true },
   // Days off — every user has the calendar + own requests (v1.42.0), so only "team" is gated.
   { target: '[data-tour="nav-days-off"]', contentKey: "tour.steps.daysOff", placement: "right", navTo: "/days-off" , feature: "DAYS_OFF" },
   { target: '[data-tour="days-off-calendar"]', contentKey: "tour.steps.daysOffCalendar", placement: "bottom", navTo: "/days-off?tab=calendar" , feature: "DAYS_OFF" },
