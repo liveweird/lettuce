@@ -6,7 +6,7 @@ import ch.nokillswit.infra.mail.bilingualPasswordEmail
  * Content of the password-reset email. Thin wrapper over the shared bilingual scaffold
  * (infra/mail/BilingualEmail.kt) — only the intro copy and the password label live here.
  */
-internal fun passwordResetEmailSubject(): String =
+internal const val PASSWORD_RESET_EMAIL_SUBJECT: String =
     "Your new Lettuce password / Twoje nowe hasło Lettuce"
 
 internal fun passwordResetEmailBody(name: String, password: String, appUrl: String?): String =

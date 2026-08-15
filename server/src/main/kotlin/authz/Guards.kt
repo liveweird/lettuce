@@ -135,6 +135,7 @@ fun requireCanAssignRoles(caller: CallerPrincipal, current: Set<UserRole>, reque
  * manager concluding a position is a feature. ADMIN gets nothing (the management role lost the
  * career write in v2.15.0), HR stays read-only, and the user never writes their own history.
  */
+@Suppress("UnusedParameter") // caller kept for the uniform caller-first guard signature
 suspend fun requireCareerPositionWrite(caller: CallerPrincipal, managesTarget: suspend () -> Boolean) {
     if (!managesTarget()) {
         throw ForbiddenException("Only a manager in the user's management chain may manage their career positions")
@@ -164,7 +165,8 @@ fun canReadFeedback(
     // - visibility: provider-requester, or provider-requester-subject
     // - status: any
     if ((feedback.requesterId != null && caller.userId == feedback.requesterId) &&
-        (feedback.visibility == FeedbackVisibility.PROVIDER_REQUESTER || feedback.visibility == FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT)
+        (feedback.visibility == FeedbackVisibility.PROVIDER_REQUESTER ||
+            feedback.visibility == FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT)
     ) return true
 
     // what SUBJECT sees
@@ -172,7 +174,8 @@ fun canReadFeedback(
     // - visibility: provider-subject, or provider-requester-subject
     // - status: Sent, Withdawn
     if (caller.userId == feedback.subjectId &&
-        (feedback.visibility == FeedbackVisibility.PROVIDER_SUBJECT || feedback.visibility == FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT) &&
+        (feedback.visibility == FeedbackVisibility.PROVIDER_SUBJECT ||
+            feedback.visibility == FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT) &&
         feedback.status.isDelivered
     ) return true
 
@@ -477,6 +480,7 @@ suspend fun requireDirectReport(isDirectReport: suspend () -> Boolean, denied: S
     if (!isDirectReport()) throw ForbiddenException(denied)
 }
 
+@Suppress("UnusedParameter") // caller kept for the uniform caller-first guard signature
 suspend fun requireDaysOffResolve(caller: CallerPrincipal, isDirectManager: suspend () -> Boolean) {
     if (!isDirectManager()) {
         throw ForbiddenException("Only a direct manager of the requester may resolve a days-off request")
@@ -521,6 +525,7 @@ suspend fun requireDaysOffCorrectionsRead(
  * never served again (the anti-copy-paste rule). Identity deliberately precedes state here:
  * a non-participant gets the uniform 403 whatever the cycle's status.
  */
+@Suppress("UnusedParameter") // caller kept for the uniform caller-first guard signature
 suspend fun requirePulseMyResponse(
     caller: CallerPrincipal,
     status: PulseCycleStatus,

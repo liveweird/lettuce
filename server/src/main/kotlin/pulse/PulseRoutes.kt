@@ -93,7 +93,8 @@ private fun Parameters.aggregationMode(): PulseAggregationMode {
 }
 
 /**
- * One trend point per closed cycle (oldest first) over one scope — backs `/trend`. The per-cycle fill gate applies POINT-WISE for non-HR callers
+ * One trend point per closed cycle (oldest first) over one scope — backs `/trend`. The
+ * per-cycle fill gate applies POINT-WISE for non-HR callers
  * ([respondedCycleIds] null for HR): a cycle the caller sat out contributes a gap, not a
  * number (and no counts either); a scope under the k-floor keeps its counts but no scores.
  * [cycles] is a drained List — never nest queries inside an open flow (R2DBC deadlock).

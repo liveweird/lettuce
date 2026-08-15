@@ -145,7 +145,8 @@ class DictionaryTest {
         )
         val entries = client.readDictionary("career-specializations").items
         val dropId = entries.first { it.valueEn == drop }.id
-        val keepInput = entries.first { it.valueEn == keep }.let { DictionaryEntryInput(id = it.id, valueEn = it.valueEn, valuePl = it.valuePl) }
+        val keepInput = entries.first { it.valueEn == keep }
+            .let { DictionaryEntryInput(id = it.id, valueEn = it.valueEn, valuePl = it.valuePl) }
 
         assertEquals(HttpStatusCode.NoContent, client.putDictionary("career-specializations", keepInput).status)
         assertEquals(listOf(keep), client.readDictionary("career-specializations").items.map { it.valueEn })

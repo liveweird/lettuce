@@ -99,7 +99,8 @@ class FeedbackRoutesTest {
         val client = authedClient(t.providerEmail, "pw")
 
         // lastModified is server-managed and not part of FeedbackRequest; sending it is a 400.
-        val base = """"subjectId":${t.subjectId},"providerId":${t.providerId},"visibility":"PROVIDER_SUBJECT","status":"DRAFT","content":"x""""
+        val base = """"subjectId":${t.subjectId},"providerId":${t.providerId},""" +
+            """"visibility":"PROVIDER_SUBJECT","status":"DRAFT","content":"x""""
         val rejected = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody("""{$base,"lastModified":123}""")

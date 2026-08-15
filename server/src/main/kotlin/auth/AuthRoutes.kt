@@ -226,7 +226,7 @@ fun Application.configureAuthRoutes() {
                         try {
                             mailer.send(
                                 to = user.email,
-                                subject = mfaEmailSubject(),
+                                subject = MFA_EMAIL_SUBJECT,
                                 body = mfaEmailBody(user.name, challenge.code, mfaTtlMinutes),
                             )
                         } catch (e: Exception) {
@@ -374,7 +374,7 @@ fun Application.configureAuthRoutes() {
                         // working; a storage failure after delivery is recoverable by retrying.
                         mailer.send(
                             to = user.email,
-                            subject = passwordResetEmailSubject(),
+                            subject = PASSWORD_RESET_EMAIL_SUBJECT,
                             body = passwordResetEmailBody(user.name, newPassword, mailAppUrl),
                         )
                         userService.updatePassword(userId, hashPassword(newPassword))

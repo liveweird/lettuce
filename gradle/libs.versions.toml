@@ -1,6 +1,9 @@
 [versions]
 angus-mail = "2.0.5"
 bcrypt = "0.10.2"
+# detekt 1.23.x embeds a pre-2.x Kotlin compiler — fine for the plain rule sets we run
+# (no type resolution); revisit the detekt 2.x line once it has a stable release.
+detekt = "1.23.8"
 # Exposed pinned at 1.3.1: 1.4.0 stalls R2DBC work under full-suite load (PulseResultsTest
 # 3.9s -> 2402s, two 1m-coroutine timeouts; fine in isolation, so likely a connection-release
 # regression). Re-try at the next release with a full :server:test --rerun-tasks.
@@ -36,6 +39,7 @@ swagger-request-validator-core = { module = "com.atlassian.oai:openapi-request-v
 testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql", version.ref = "testcontainers" }
 
 [plugins]
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

@@ -16,9 +16,9 @@ import kotlin.test.assertTrue
 class FeedbackNotificationsTest {
 
     private val names = mapOf(1u to "Provider Pat", 2u to "Subject Sam", 3u to "Requester Rita")
-    private val P = "Provider Pat"
-    private val S = "Subject Sam"
-    private val R = "Requester Rita"
+    private val pat = "Provider Pat"
+    private val sam = "Subject Sam"
+    private val rita = "Requester Rita"
 
     private fun feedback(
         status: FeedbackStatus,
@@ -45,20 +45,20 @@ class FeedbackNotificationsTest {
         val toRequester = result.single { it.recipientId == 3u }
 
         assertEquals(NotificationType.FEEDBACK_SENT_TO_SUBJECT, toSubject.type)
-        assertEquals(P, toSubject.params["provider"])
-        assertEquals(S, toSubject.params["subject"])
+        assertEquals(pat, toSubject.params["provider"])
+        assertEquals(sam, toSubject.params["subject"])
         // PROVIDER_REQUESTER_SUBJECT is readable by both → both get links.
         assertEquals("/feedback/42/view", toSubject.link)
 
         // The provider (sender) gets a confirmation with an unconditional view link.
         assertEquals(NotificationType.FEEDBACK_SENT_TO_PROVIDER, toProvider.type)
-        assertEquals(S, toProvider.params["subject"])
+        assertEquals(sam, toProvider.params["subject"])
         assertEquals("/feedback/42/view", toProvider.link)
 
         assertEquals(NotificationType.FEEDBACK_SENT_TO_REQUESTER, toRequester.type)
-        assertEquals(R, toRequester.params["requester"])
-        assertEquals(P, toRequester.params["provider"])
-        assertEquals(S, toRequester.params["subject"])
+        assertEquals(rita, toRequester.params["requester"])
+        assertEquals(pat, toRequester.params["provider"])
+        assertEquals(sam, toRequester.params["subject"])
         assertEquals("/feedback/42/view", toRequester.link)
     }
 
@@ -134,7 +134,7 @@ class FeedbackNotificationsTest {
             .single { it.recipientId == 1u }
         assertEquals("/feedback/42/view", toProvider.link)
         assertEquals(NotificationType.FEEDBACK_SENT_TO_PROVIDER, toProvider.type)
-        assertEquals(S, toProvider.params["subject"])
+        assertEquals(sam, toProvider.params["subject"])
     }
 
     @Test
@@ -183,9 +183,9 @@ class FeedbackNotificationsTest {
         assertEquals(3u, n.recipientId)
         assertNull(n.link)
         assertEquals(NotificationType.FEEDBACK_REJECTED_TO_REQUESTER, n.type)
-        assertEquals(R, n.params["requester"])
-        assertEquals(P, n.params["provider"])
-        assertEquals(S, n.params["subject"])
+        assertEquals(rita, n.params["requester"])
+        assertEquals(pat, n.params["provider"])
+        assertEquals(sam, n.params["subject"])
     }
 
     @Test
@@ -196,9 +196,9 @@ class FeedbackNotificationsTest {
         assertEquals(3u, n.recipientId)
         assertNull(n.link)
         assertEquals(NotificationType.FEEDBACK_PICKED_UP_TO_REQUESTER, n.type)
-        assertEquals(R, n.params["requester"])
-        assertEquals(P, n.params["provider"])
-        assertEquals(S, n.params["subject"])
+        assertEquals(rita, n.params["requester"])
+        assertEquals(pat, n.params["provider"])
+        assertEquals(sam, n.params["subject"])
     }
 
     @Test
@@ -210,7 +210,7 @@ class FeedbackNotificationsTest {
         assertEquals(NotificationType.FEEDBACK_WITHDRAWN_TO_SUBJECT, result.single { it.recipientId == 2u }.type)
         val toRequester = result.single { it.recipientId == 3u }
         assertEquals(NotificationType.FEEDBACK_WITHDRAWN_TO_REQUESTER, toRequester.type)
-        assertEquals(R, toRequester.params["requester"])
+        assertEquals(rita, toRequester.params["requester"])
     }
 
     @Test
@@ -270,15 +270,15 @@ class FeedbackNotificationsTest {
         val toProvider = result.single { it.recipientId == 1u }
         assertEquals("/feedback/11/edit", toProvider.link)
         assertEquals(NotificationType.FEEDBACK_REQUESTED_TO_PROVIDER, toProvider.type)
-        assertEquals(R, toProvider.params["requester"])
-        assertEquals(S, toProvider.params["subject"])
+        assertEquals(rita, toProvider.params["requester"])
+        assertEquals(sam, toProvider.params["subject"])
 
         // The requester gets a confirmation with no link, naming the provider and subject.
         val toRequester = result.single { it.recipientId == 3u }
         assertNull(toRequester.link, "the requester confirmation carries no link")
         assertEquals(NotificationType.FEEDBACK_REQUESTED_TO_REQUESTER, toRequester.type)
-        assertEquals(P, toRequester.params["provider"])
-        assertEquals(S, toRequester.params["subject"])
+        assertEquals(pat, toRequester.params["provider"])
+        assertEquals(sam, toRequester.params["subject"])
         assertNull(toRequester.params["self"], "not a self-request")
     }
 
@@ -326,18 +326,18 @@ class FeedbackNotificationsTest {
         assertEquals(3, result.size)
         val toSubject = result.single { it.recipientId == 2u }
         assertEquals(NotificationType.FEEDBACK_SENT_TO_SUBJECT, toSubject.type)
-        assertEquals(P, toSubject.params["provider"])
-        assertEquals(S, toSubject.params["subject"])
+        assertEquals(pat, toSubject.params["provider"])
+        assertEquals(sam, toSubject.params["subject"])
         assertEquals("/feedback/42/view", toSubject.link)
 
         val toProvider = result.single { it.recipientId == 1u }
         assertEquals(NotificationType.FEEDBACK_SENT_TO_PROVIDER, toProvider.type)
-        assertEquals(S, toProvider.params["subject"])
+        assertEquals(sam, toProvider.params["subject"])
         assertEquals("/feedback/42/view", toProvider.link)
 
         val toRequester = result.single { it.recipientId == 3u }
         assertEquals(NotificationType.FEEDBACK_SENT_TO_REQUESTER, toRequester.type)
-        assertEquals(R, toRequester.params["requester"])
+        assertEquals(rita, toRequester.params["requester"])
         assertEquals("/feedback/42/view", toRequester.link)
     }
 
@@ -372,8 +372,8 @@ class FeedbackNotificationsTest {
         val toManagers = result.filter { it.type == NotificationType.FEEDBACK_SENT_TO_MANAGER }
         assertEquals(setOf(9u, 10u), toManagers.map { it.recipientId }.toSet())
         toManagers.forEach {
-            assertEquals(P, it.params["provider"])
-            assertEquals(S, it.params["subject"])
+            assertEquals(pat, it.params["provider"])
+            assertEquals(sam, it.params["subject"])
             assertEquals("/feedback/42/view", it.link)
         }
     }
@@ -382,7 +382,7 @@ class FeedbackNotificationsTest {
     fun `managers who are themselves a party are not double-notified`() {
         val next = feedback(FeedbackStatus.SENT)
         // 1u is the provider, 3u the requester — both already notified in that role.
-        val managers = mapOf(1u to P, 3u to R, 9u to "Manager Mo")
+        val managers = mapOf(1u to pat, 3u to rita, 9u to "Manager Mo")
         val result = feedbackTransitionNotifications(42u, FeedbackStatus.DRAFT, next, names, managers)
         assertEquals(
             listOf(9u),
@@ -471,8 +471,8 @@ class FeedbackNotificationsTest {
         assertEquals(3u, n.recipientId, "the requester is notified")
         assertNull(n.link)
         assertEquals(NotificationType.FEEDBACK_DELETED_TO_REQUESTER, n.type)
-        assertEquals(P, n.params["provider"])
-        assertEquals(S, n.params["subject"])
+        assertEquals(pat, n.params["provider"])
+        assertEquals(sam, n.params["subject"])
     }
 
     @Test

@@ -6,7 +6,7 @@ package ch.nokillswit.auth
  * than reusing bilingualPasswordEmail because a sign-in code needs no sign-in link — the user
  * is already mid-login.
  */
-internal fun mfaEmailSubject(): String =
+internal const val MFA_EMAIL_SUBJECT: String =
     "Lettuce: your sign-in code / twój kod logowania"
 
 internal fun mfaEmailBody(name: String, code: String, ttlMinutes: Long): String = buildString {

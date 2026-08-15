@@ -272,7 +272,14 @@ class AuditTest {
             val (a, b) = "audit-a-${UUID.randomUUID()}" to "audit-b-${UUID.randomUUID()}"
             adminClient.put("/api/v1/dictionaries/career-paths") {
                 contentType(ContentType.Application.Json)
-                setBody(DictionaryUpdateRequest(items = listOf(DictionaryEntryInput(valueEn = a, valuePl = a), DictionaryEntryInput(valueEn = b, valuePl = b))))
+                setBody(
+                    DictionaryUpdateRequest(
+                        items = listOf(
+                            DictionaryEntryInput(valueEn = a, valuePl = a),
+                            DictionaryEntryInput(valueEn = b, valuePl = b),
+                        ),
+                    ),
+                )
             }
             val entries = adminClient.get("/api/v1/dictionaries/career-paths").body<DictionaryEntryList>().items
             val aId = entries.first { it.valueEn == a }.id
@@ -323,7 +330,11 @@ class AuditTest {
                 val client = authedClient(adminEmail, "pw")
                 client.put("/api/v1/users/$targetId/features") {
                     contentType(ContentType.Application.Json)
-                    setBody(ch.nokillswit.users.UserFeaturesUpdateRequest(listOf(ch.nokillswit.users.Feature.GOALS, ch.nokillswit.users.Feature.DAYS_OFF)))
+                    setBody(
+                        ch.nokillswit.users.UserFeaturesUpdateRequest(
+                            listOf(ch.nokillswit.users.Feature.GOALS, ch.nokillswit.users.Feature.DAYS_OFF),
+                        ),
+                    )
                 }
                 val change = appender.events.find { it.message == "user.features_changed" }
                 assertNotNull(change, "expected a user.features_changed audit event")
@@ -336,7 +347,11 @@ class AuditTest {
                 // A same-set re-PUT is a no-op replace — no second event.
                 client.put("/api/v1/users/$targetId/features") {
                     contentType(ContentType.Application.Json)
-                    setBody(ch.nokillswit.users.UserFeaturesUpdateRequest(listOf(ch.nokillswit.users.Feature.DAYS_OFF, ch.nokillswit.users.Feature.GOALS)))
+                    setBody(
+                        ch.nokillswit.users.UserFeaturesUpdateRequest(
+                            listOf(ch.nokillswit.users.Feature.DAYS_OFF, ch.nokillswit.users.Feature.GOALS),
+                        ),
+                    )
                 }
                 assertEquals(1, appender.events.count { it.message == "user.features_changed" })
             } finally {
