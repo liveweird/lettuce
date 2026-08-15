@@ -59,7 +59,7 @@
   "deleteTitle": "Delete this 1:1 meeting?",
   "deleteMessage": "The meeting will disappear from all lists; its change history is retained. This cannot be undone.",
   "itemRequired": "The entry must not be empty",
-  "itemTooLong": "The entry must be at most 4000 characters",
+  "itemTooLong": "The entry must be at most {{max}} characters",
   "dateRequired": "Pick the meeting date",
   "dateBeforePrevious": "Cannot be before the previous meeting ({{date}}).",
   "error": {

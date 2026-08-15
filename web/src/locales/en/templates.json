@@ -36,5 +36,6 @@
     "created": "Template created",
     "updated": "Template updated",
     "deleted": "Template deleted"
-  }
+  },
+  "contentLength": "Content must be at most 5000 characters"
 }

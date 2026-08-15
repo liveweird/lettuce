@@ -21,6 +21,7 @@ import {
 } from "@mdxeditor/editor";
 import "@mdxeditor/editor/style.css";
 import { useTranslation } from "react-i18next";
+import CharCount from "./CharCount";
 import EmojiButton from "./EmojiButton";
 import classes from "./MarkdownEditor.module.css";
 
@@ -39,6 +40,8 @@ type MarkdownEditorProps = {
   label: string;
   placeholder?: string;
   maxLength?: number;
+  /** Character counter under the editor when maxLength is set (v2.18.0). */
+  counter?: boolean;
 };
 
 // A Mantine-friendly WYSIWYG editor whose document model is markdown: `value`/`onChange`
@@ -52,6 +55,7 @@ export default function MarkdownEditor({
   label,
   placeholder,
   maxLength,
+  counter = true,
 }: MarkdownEditorProps) {
   const scheme = useComputedColorScheme("light");
   const ref = useRef<MDXEditorMethods>(null);
@@ -104,6 +108,7 @@ export default function MarkdownEditor({
           }),
         ]}
       />
+      {maxLength != null && counter && <CharCount current={value.length} max={maxLength} />}
     </Input.Wrapper>
   );
 }

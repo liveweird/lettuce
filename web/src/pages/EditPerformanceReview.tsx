@@ -40,6 +40,7 @@ import { invalidatePerformanceReview } from "../utils/performanceReviewQueries";
 import { showSuccessToast } from "../utils/toast";
 import {
   isReviewComplete,
+  MAX_REVIEW_SUMMARY_LENGTH,
   ratingColor,
   ratingOptions,
   REVIEW_CATEGORIES,
@@ -240,6 +241,7 @@ export default function EditPerformanceReview() {
                         />
                         <EmojiTextarea
                           label={t("performanceReview.summary")}
+                          maxLength={MAX_REVIEW_SUMMARY_LENGTH}
                           autosize
                           minRows={2}
                           maxRows={8}

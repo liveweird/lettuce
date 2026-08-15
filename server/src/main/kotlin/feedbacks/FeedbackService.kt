@@ -165,6 +165,7 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
      * Returns the affected-row count (0 → missing/deleted, mapped to 404 by the route).
      */
     suspend fun editContent(id: UInt, content: String, visibility: FeedbackVisibility): Int {
+        validateFeedbackTexts(content)
         return suspendTransaction(database) {
             val current = Feedbacks.selectAll()
                 .where { (Feedbacks.id eq id) and active() }
@@ -638,6 +639,7 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
         if (next.requesterId != null && next.requesterId == next.providerId) {
             throw BadRequestException("Requester cannot also be the provider")
         }
+        validateFeedbackTexts(next.content, next.requesterMessage)
         requireCoherentVisibility(next.requesterId, next.visibility)
         if (next.status == FeedbackStatus.REQUESTED && next.requesterId == null) {
             throw BadRequestException("Requested status requires a requester")

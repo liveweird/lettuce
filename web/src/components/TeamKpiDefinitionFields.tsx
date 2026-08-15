@@ -1,3 +1,4 @@
+import { charCountDescription } from "../utils/charCount";
 import { lazy, Suspense } from "react";
 import { Group, NumberInput, Select, Skeleton, Stack, Text, TextInput } from "@mantine/core";
 import type { UseFormReturnType } from "@mantine/form";
@@ -32,6 +33,8 @@ export default function TeamKpiDefinitionFields({
       <TextInput
         label={t("teamKpi.title")}
         maxLength={MAX_TEAM_KPI_TITLE_LENGTH}
+        description={charCountDescription(form.values.title.length, MAX_TEAM_KPI_TITLE_LENGTH)}
+        inputWrapperOrder={["label", "input", "description", "error"]}
         withAsterisk
         {...form.getInputProps("title")}
       />

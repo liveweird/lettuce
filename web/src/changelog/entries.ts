@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.18.0",
+    date: "2026-08-16",
+    en: `Text fields now show how much room is left. Every capped text area and editor — feedback content, goal and KPI descriptions, milestones, 1:1 notes, review summaries, comments, and more — displays a live character counter (like 123 / 4000); short single-line fields such as names show theirs once the text approaches the limit. Limits are enforced as you type, so overlong text is caught in the form instead of surfacing as a server error, and three previously unlimited fields (feedback content, the request message, and template content) now have sensible caps end to end.`,
+    pl: `Pola tekstowe pokazują teraz, ile miejsca zostało. Każde ograniczone pole tekstowe i edytor — treść feedbacku, opisy celów i KPI, kamienie milowe, notatki 1:1, podsumowania ocen, komentarze i inne — wyświetla licznik znaków na żywo (np. 123 / 4000); krótkie pola jednowierszowe, jak nazwy, pokazują swój licznik, gdy tekst zbliża się do limitu. Limity są egzekwowane podczas pisania, więc zbyt długi tekst zostaje wychwycony w formularzu, zamiast kończyć się błędem serwera, a trzy dotąd nieograniczone pola (treść feedbacku, wiadomość do proszonej osoby i treść szablonu) mają teraz rozsądne limity od początku do końca.`,
+  },
+  {
     version: "2.17.0",
     date: "2026-08-15",
     en: `The Team pyramid learned to time travel, and deactivation closes the career timeline. A new slider above the pyramid rewinds both the table and the chart to any past date — each person appears with the position they actually held then, tenures counted up to that date, back to the earliest recorded position in the organization; one click returns to today. And when an administrator deactivates an account, the person's current career position is closed with that day's date (visible as a normal end date on their timeline; reactivating the account reopens it). The pyramid lists only people who actively held a position at the chosen date — a deactivated person disappears after their last day but reappears when you slide back into their time.`,

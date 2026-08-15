@@ -19,7 +19,7 @@ import { useTranslation } from "react-i18next";
 import type { ActionItemOwner } from "../api/client";
 import { formatIsoDate } from "../utils/datetime";
 import type { OneOnOneFormValues } from "../utils/oneOnOneForm";
-import { emptyActionItemDraft } from "../utils/oneOnOneForm";
+import { MAX_ITEM_LENGTH, emptyActionItemDraft } from "../utils/oneOnOneForm";
 import ActionItemHistoryModal from "./ActionItemHistoryModal";
 import { RowControls } from "./ParagraphListEditor";
 
@@ -67,6 +67,8 @@ export default function ActionItemsEditor({
                 autosize
                 minRows={1}
                 maxRows={8}
+                maxLength={MAX_ITEM_LENGTH}
+                counter="nearLimit"
                 aria-label={t("oneOnOne.itemAria", { list: title, position: index + 1 })}
                 {...form.getInputProps(`actionItems.${index}.content`)}
               />

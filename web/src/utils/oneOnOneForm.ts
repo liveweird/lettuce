@@ -2,7 +2,7 @@ import type { TFunction } from "i18next";
 import type { ActionItemOwner, OneOnOneResponse, UpdateOneOnOneBody } from "../api/client";
 import { saveErrorMessage } from "./saveError";
 
-const MAX_ITEM_LENGTH = 4000;
+export const MAX_ITEM_LENGTH = 4000;
 
 // Draft rows carry a local `key` for React list identity (stable across reorders, unlike the
 // index); rows loaded from the server also keep their `id`, which the PUT body preserves so the
@@ -91,7 +91,7 @@ export function toUpdateBody(values: OneOnOneFormValues): UpdateOneOnOneBody {
 export function oneOnOneFormValidation(t: TFunction, minMeetingDate?: string | null) {
   const contentRule = (v: string) => {
     if (!v.trim()) return t("oneOnOne.itemRequired");
-    if (v.length > MAX_ITEM_LENGTH) return t("oneOnOne.itemTooLong");
+    if (v.length > MAX_ITEM_LENGTH) return t("oneOnOne.itemTooLong", { max: MAX_ITEM_LENGTH });
     return null;
   };
   return {

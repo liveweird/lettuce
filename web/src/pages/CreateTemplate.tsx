@@ -9,10 +9,13 @@ import {
   Paper,
   Skeleton,
   Stack,
+  Text,
   TextInput,
   Title,
 } from "@mantine/core";
 import { hasLength, useForm } from "@mantine/form";
+import { charCountDescription } from "../utils/charCount";
+import { MAX_TEMPLATE_CONTENT_LENGTH, MAX_TEMPLATE_NAME_LENGTH } from "../utils/templateForm";
 import { useDisclosure } from "@mantine/hooks";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
@@ -39,7 +42,12 @@ export default function CreateTemplate() {
   const form = useForm<FormValues>({
     initialValues: { name: "", content: "" },
     validate: {
-      name: hasLength({ min: 1, max: 100 }, t("templates.nameLength")),
+      name: hasLength({ min: 1, max: MAX_TEMPLATE_NAME_LENGTH }, t("templates.nameLength")),
+      // The editor hard-caps typing; this catches pre-limit legacy rows loaded for editing.
+      content: (v) =>
+        v.length > MAX_TEMPLATE_CONTENT_LENGTH
+          ? t("templates.contentLength")
+          : null,
     },
   });
 
@@ -81,7 +89,9 @@ export default function CreateTemplate() {
             <TextInput
               label={t("common.field.name")}
               autoFocus
-              maxLength={100}
+              maxLength={MAX_TEMPLATE_NAME_LENGTH}
+              description={charCountDescription(form.values.name.length, MAX_TEMPLATE_NAME_LENGTH)}
+              inputWrapperOrder={["label", "input", "description", "error"]}
               rightSection={
                 form.values.name ? (
                   <CloseButton
@@ -100,11 +110,16 @@ export default function CreateTemplate() {
               <MarkdownEditor
                 label={t("common.field.content")}
                 placeholder={t("templates.contentPlaceholder")}
-                maxLength={5000}
+                maxLength={MAX_TEMPLATE_CONTENT_LENGTH}
                 value={form.values.content}
                 onChange={(md) => form.setFieldValue("content", md)}
               />
             </Suspense>
+            {form.errors.content && (
+              <Text size="sm" c="red">
+                {form.errors.content}
+              </Text>
+            )}
             {error && (
               <Alert color="red" variant="light">
                 {error}

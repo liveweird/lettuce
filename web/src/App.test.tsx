@@ -229,7 +229,9 @@ describe("App shell", () => {
       await screen.findByTitle("What's new");
       await user.click(screen.getByRole("link", { name: /^changelog$/i }));
       expect(
-        await screen.findByRole("heading", { level: 2, name: "Changelog" }),
+        // The Changelog page is lazy-loaded; under full-suite CPU load the chunk import can
+        // exceed findBy's default 1s — the recurring source of this test's flakes.
+        await screen.findByRole("heading", { level: 2, name: "Changelog" }, { timeout: 5000 }),
       ).toBeInTheDocument();
       await waitFor(() =>
         expect(screen.queryByTitle("What's new")).not.toBeInTheDocument(),

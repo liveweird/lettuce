@@ -6,7 +6,7 @@ import type {
 } from "../api/client";
 import { saveErrorMessage } from "./saveError";
 
-const MAX_REVIEW_SUMMARY_LENGTH = 4000;
+export const MAX_REVIEW_SUMMARY_LENGTH = 4000;
 
 /** The fixed 1–6 scale — the numeric value travels on the wire; the wording is i18n. */
 export const RATING_VALUES = [1, 2, 3, 4, 5, 6] as const;

@@ -51,6 +51,7 @@ fun Application.configureTemplateRoutes() {
                 requireAdmin(caller)
                 val template = call.receive<Template>()
                 validateTemplateName(template.name)
+                validateTemplateContent(template.content)
                 val id = templateService.create(template)
                 audit("template.created", "byUserId" to caller.userId.toLong(), "templateId" to id.toLong())
                 call.response.header(HttpHeaders.Location, call.application.href(Templates.Id(id = id)))
@@ -70,6 +71,7 @@ fun Application.configureTemplateRoutes() {
                 requireAdmin(caller)
                 val template = call.receive<Template>()
                 validateTemplateName(template.name)
+                validateTemplateContent(template.content)
                 if (templateService.update(route.id, template) == 0) {
                     call.respondProblem(HttpStatusCode.NotFound, "Template not found")
                 } else {

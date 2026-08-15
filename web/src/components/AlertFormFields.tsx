@@ -2,7 +2,8 @@ import { lazy, Suspense } from "react";
 import { Checkbox, CloseButton, Group, Skeleton, Stack, Switch, Text, TextInput } from "@mantine/core";
 import { type UseFormReturnType } from "@mantine/form";
 import { useTranslation } from "react-i18next";
-import type { AlertFormValues } from "../utils/alertForm";
+import { MAX_ALERT_CONTENT_LENGTH, MAX_ALERT_TITLE_LENGTH, type AlertFormValues } from "../utils/alertForm";
+import { charCountDescription } from "../utils/charCount";
 
 const MarkdownEditor = lazy(() => import("./MarkdownEditor"));
 
@@ -58,7 +59,9 @@ export default function AlertFormFields({ form }: { form: UseFormReturnType<Aler
       <TextInput
         label={t("alerts.fieldTitle")}
         autoFocus
-        maxLength={150}
+        maxLength={MAX_ALERT_TITLE_LENGTH}
+        description={charCountDescription(form.values.title.length, MAX_ALERT_TITLE_LENGTH)}
+        inputWrapperOrder={["label", "input", "description", "error"]}
         rightSection={
           form.values.title ? (
             <CloseButton
@@ -98,7 +101,7 @@ export default function AlertFormFields({ form }: { form: UseFormReturnType<Aler
         <MarkdownEditor
           label={t("common.field.content")}
           placeholder={t("alerts.contentPlaceholder")}
-          maxLength={5000}
+          maxLength={MAX_ALERT_CONTENT_LENGTH}
           value={form.values.content}
           onChange={(md) => form.setFieldValue("content", md)}
         />
