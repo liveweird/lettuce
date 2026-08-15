@@ -11,6 +11,7 @@ import {
   Title,
 } from "@mantine/core";
 import EmojiTextarea from "../components/EmojiTextarea";
+import { MAX_REQUESTER_MESSAGE_LENGTH } from "../utils/feedbackForm";
 import { useDisclosure } from "@mantine/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -129,6 +130,7 @@ export default function AskFeedback() {
             placeholder={t("feedback.requesterMessagePlaceholder")}
             value={message}
             onChange={setMessage}
+            maxLength={MAX_REQUESTER_MESSAGE_LENGTH}
             autosize
             minRows={2}
             maxRows={6}

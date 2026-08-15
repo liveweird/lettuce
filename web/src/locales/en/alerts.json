@@ -52,5 +52,6 @@
     "created": "Alert created",
     "updated": "Alert updated",
     "deleted": "Alert deleted"
-  }
+  },
+  "contentLength": "Content must be at most 5000 characters"
 }

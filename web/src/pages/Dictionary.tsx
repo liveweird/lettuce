@@ -34,10 +34,12 @@ import {
   dictionaryFormValidation,
   dictionarySaveErrorMessage,
   emptyEntryDraft,
+  MAX_DICTIONARY_VALUE_LENGTH,
   toFormValues,
   toUpdateBody,
   type DictionaryFormValues,
 } from "../utils/dictionaryForm";
+import { charCountDescription } from "../utils/charCount";
 
 // The four global dictionaries — the slug is both the route param and the API path segment.
 const DICTIONARIES: Record<DictionarySlug, { titleKey: string }> = {
@@ -228,11 +230,23 @@ function DictionaryEditor({
                 <TextInput
                   aria-label={t("dictionary.entryAriaEn", { position: index + 1 })}
                   placeholder={t("dictionary.languageEn")}
+                  maxLength={MAX_DICTIONARY_VALUE_LENGTH}
+                  description={charCountDescription(
+                    form.values.entries[index]?.valueEn.length ?? 0,
+                    MAX_DICTIONARY_VALUE_LENGTH,
+                  )}
+                  inputWrapperOrder={["label", "input", "description", "error"]}
                   {...form.getInputProps(`entries.${index}.valueEn`)}
                 />
                 <TextInput
                   aria-label={t("dictionary.entryAriaPl", { position: index + 1 })}
                   placeholder={t("dictionary.languagePl")}
+                  maxLength={MAX_DICTIONARY_VALUE_LENGTH}
+                  description={charCountDescription(
+                    form.values.entries[index]?.valuePl.length ?? 0,
+                    MAX_DICTIONARY_VALUE_LENGTH,
+                  )}
+                  inputWrapperOrder={["label", "input", "description", "error"]}
                   {...form.getInputProps(`entries.${index}.valuePl`)}
                 />
               </Group>

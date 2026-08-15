@@ -59,7 +59,7 @@
   "deleteTitle": "Usunąć to spotkanie 1:1?",
   "deleteMessage": "Spotkanie zniknie ze wszystkich list; historia zmian zostanie zachowana. Tej operacji nie można cofnąć.",
   "itemRequired": "Pozycja nie może być pusta",
-  "itemTooLong": "Pozycja może mieć najwyżej 4000 znaków",
+  "itemTooLong": "Pozycja może mieć najwyżej {{max}} znaków",
   "dateRequired": "Wybierz datę spotkania",
   "dateBeforePrevious": "Nie może być wcześniejsza niż poprzednie spotkanie ({{date}}).",
   "error": {

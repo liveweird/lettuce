@@ -92,5 +92,6 @@
   "language": {
     "label": "Language"
   },
-  "buildInfo": "Build version"
+  "buildInfo": "Build version",
+  "charCount": "{{current}} / {{max}}"
 }

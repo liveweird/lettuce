@@ -153,5 +153,6 @@
     "rejected": "Prośba odrzucona",
     "withdrawn": "Feedback wycofany",
     "deleted": "Wersja robocza usunięta"
-  }
+  },
+  "contentTooLong": "Treść może mieć najwyżej {{max}} znaków"
 }

@@ -2,7 +2,7 @@ import type { TFunction } from "i18next";
 import type { DictionaryEntry, DictionaryUpdateBody } from "../api/client";
 import { saveErrorMessage } from "./saveError";
 
-const MAX_DICTIONARY_VALUE_LENGTH = 100;
+export const MAX_DICTIONARY_VALUE_LENGTH = 100;
 
 /**
  * The ONE localization seam for bilingual dictionary values (V53): every display site picks
@@ -65,7 +65,7 @@ export function dictionaryFormValidation(t: TFunction) {
     (v: string, values: DictionaryFormValues, path: string) => {
       const trimmed = v.trim();
       if (!trimmed) return t("dictionary.valueRequired");
-      if (trimmed.length > MAX_DICTIONARY_VALUE_LENGTH) return t("dictionary.valueTooLong");
+      if (trimmed.length > MAX_DICTIONARY_VALUE_LENGTH) return t("dictionary.valueTooLong", { max: MAX_DICTIONARY_VALUE_LENGTH });
       const index = Number(path.split(".")[1]);
       const earlier = values.entries.slice(0, index);
       if (earlier.some((e) => e[field].trim() === trimmed)) return t("dictionary.valueDuplicate");

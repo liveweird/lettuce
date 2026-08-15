@@ -155,6 +155,7 @@ export default function Login() {
             type="email"
             autoFocus
             autoComplete="email"
+            maxLength={254}
             {...form.getInputProps("email")}
           />
           <PasswordInput

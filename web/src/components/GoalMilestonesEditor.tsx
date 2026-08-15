@@ -3,7 +3,7 @@ import type { UseFormReturnType } from "@mantine/form";
 import { IconPlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import type { GoalDefinitionFormValues } from "../utils/goalForm";
-import { MAX_GOAL_MILESTONES, emptyMilestoneDraft } from "../utils/goalForm";
+import { MAX_GOAL_MILESTONES, MAX_GOAL_TEXT_LENGTH, emptyMilestoneDraft } from "../utils/goalForm";
 import EmojiTextarea from "./EmojiTextarea";
 import { RowControls } from "./ParagraphListEditor";
 
@@ -51,6 +51,8 @@ export default function GoalMilestonesEditor({
                 autosize
                 minRows={1}
                 maxRows={8}
+                maxLength={MAX_GOAL_TEXT_LENGTH}
+                counter="nearLimit"
                 aria-label={t("goal.milestoneAria", { position: index + 1 })}
                 {...form.getInputProps(`milestones.${index}.description`)}
               />

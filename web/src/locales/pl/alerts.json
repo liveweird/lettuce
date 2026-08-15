@@ -54,5 +54,6 @@
     "created": "Alert utworzony",
     "updated": "Alert zaktualizowany",
     "deleted": "Alert usunięty"
-  }
+  },
+  "contentLength": "Treść może mieć najwyżej 5000 znaków"
 }

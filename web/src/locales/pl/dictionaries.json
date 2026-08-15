@@ -15,7 +15,7 @@
   "moveDown": "Przesuń wpis {{position}} w dół",
   "removeEntry": "Usuń wpis {{position}}",
   "valueRequired": "Wartość jest wymagana",
-  "valueTooLong": "Wartość może mieć najwyżej 100 znaków",
+  "valueTooLong": "Wartość może mieć najwyżej {{max}} znaków",
   "valueDuplicate": "Ta wartość już istnieje w słowniku",
   "discardTitle": "Odrzucić zmiany?",
   "discardMessage": "Niezapisane zmiany w słowniku zostaną utracone.",

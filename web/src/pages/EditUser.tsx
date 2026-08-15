@@ -1,3 +1,5 @@
+import { charCountDescription } from "../utils/charCount";
+import { MAX_EMAIL_LENGTH, MAX_USER_NAME_LENGTH } from "../utils/userForm";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -174,7 +176,9 @@ export default function EditUser() {
                 <TextInput
                   label={t("common.field.name")}
                   autoFocus
-                  maxLength={50}
+                  maxLength={MAX_USER_NAME_LENGTH}
+                  description={charCountDescription(form.values.name.length, MAX_USER_NAME_LENGTH)}
+                  inputWrapperOrder={["label", "input", "description", "error"]}
                   rightSection={
                     form.values.name ? (
                       <CloseButton
@@ -193,7 +197,9 @@ export default function EditUser() {
                   label={t("common.field.email")}
                   type="email"
                   autoComplete="email"
-                  maxLength={254}
+                  maxLength={MAX_EMAIL_LENGTH}
+                  description={charCountDescription(form.values.email.length, MAX_EMAIL_LENGTH)}
+                  inputWrapperOrder={["label", "input", "description", "error"]}
                   rightSection={
                     form.values.email ? (
                       <CloseButton

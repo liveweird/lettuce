@@ -1,9 +1,25 @@
 package ch.nokillswit.feedbacks
 
 import ch.nokillswit.infra.paging.PageResponse
+import io.ktor.server.plugins.BadRequestException
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
+
+// Free-text limits enforced up-front (400, the validateAlert idiom) — both columns are
+// unbounded `text` (encrypted at rest), so without these the only backstop would be
+// request-size/memory limits. Mirrored by the SPA's maxLength caps and the spec's maxLength.
+const val MAX_FEEDBACK_CONTENT_LENGTH = 5000
+const val MAX_REQUESTER_MESSAGE_LENGTH = 1000
+
+internal fun validateFeedbackTexts(content: String, requesterMessage: String? = null) {
+    if (content.length > MAX_FEEDBACK_CONTENT_LENGTH) {
+        throw BadRequestException("Feedback content must be at most $MAX_FEEDBACK_CONTENT_LENGTH characters")
+    }
+    if (requesterMessage != null && requesterMessage.length > MAX_REQUESTER_MESSAGE_LENGTH) {
+        throw BadRequestException("Requester message must be at most $MAX_REQUESTER_MESSAGE_LENGTH characters")
+    }
+}
 
 @Serializable
 enum class FeedbackVisibility {

@@ -8,6 +8,7 @@ import {
   Skeleton,
   Stack,
   Tabs,
+  Text,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
@@ -22,6 +23,7 @@ import {
 } from "../api/client";
 import ConfirmActionModal from "./ConfirmActionModal";
 import FeedbackHistory from "./FeedbackHistory";
+import { MAX_FEEDBACK_CONTENT_LENGTH } from "../utils/feedbackForm";
 import { NO_REQUESTER_VISIBILITIES } from "../utils/feedbackVisibility";
 import FeedbackLifecycle from "./FeedbackLifecycle";
 import FeedbackMeta from "./FeedbackMeta";
@@ -105,6 +107,14 @@ export default function FeedbackForm({
 
   const form = useForm<FormValues>({
     initialValues: { visibility: initialVisibility, content: initialContent },
+    validate: {
+      // The editor hard-caps typing, but template insertion pushes the value externally —
+      // this catches that path at submit time (see insertTemplate).
+      content: (v) =>
+        v.length > MAX_FEEDBACK_CONTENT_LENGTH
+          ? t("feedback.contentTooLong", { max: MAX_FEEDBACK_CONTENT_LENGTH })
+          : null,
+    },
   });
 
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
@@ -148,10 +158,15 @@ export default function FeedbackForm({
       <MarkdownEditor
         label={t("common.field.content")}
         placeholder={t("feedback.contentPlaceholder")}
-        maxLength={5000}
+        maxLength={MAX_FEEDBACK_CONTENT_LENGTH}
         value={form.values.content}
         onChange={(md) => form.setFieldValue("content", md)}
       />
+      {form.errors.content && (
+        <Text size="sm" c="red">
+          {form.errors.content}
+        </Text>
+      )}
     </Suspense>
   );
 
@@ -307,7 +322,9 @@ export default function FeedbackForm({
               </Button>
               <Button
                 type="button"
-                onClick={() => onSubmit("SENT", form.values)}
+                onClick={() => {
+                  if (!form.validate().hasErrors) onSubmit("SENT", form.values);
+                }}
                 loading={submitting === "SENT"}
                 disabled={submitting !== null || deleting || duplicate != null}
               >

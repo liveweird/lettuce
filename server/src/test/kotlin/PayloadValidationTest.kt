@@ -2,6 +2,11 @@ package ch.nokillswit
 
 import ch.nokillswit.auth.LoginRequest
 import ch.nokillswit.auth.LoginResponse
+import ch.nokillswit.feedbacks.FeedbackContentUpdate
+import ch.nokillswit.feedbacks.FeedbackCreateRequest
+import ch.nokillswit.feedbacks.FeedbackResponse
+import ch.nokillswit.feedbacks.FeedbackStatus
+import ch.nokillswit.feedbacks.FeedbackVisibility
 import ch.nokillswit.teams.Team
 import ch.nokillswit.templates.Template
 import ch.nokillswit.users.UserRequest
@@ -141,5 +146,75 @@ class PayloadValidationTest {
             setBody(Template(name = "x".repeat(101), content = "body"))
         }
         assertEquals(HttpStatusCode.BadRequest, oversized.status)
+    }
+
+    @Test
+    fun `template content is capped at 5000 - 400 over, 201 at the boundary`() = testApplication {
+        usePostgresTestcontainer()
+        val client = adminClient()
+
+        val over = client.post("/api/v1/templates") {
+            contentType(ContentType.Application.Json)
+            setBody(Template(name = uniqueEmail("tpl-over"), content = "x".repeat(5001)))
+        }
+        assertEquals(HttpStatusCode.BadRequest, over.status)
+
+        val atLimit = client.post("/api/v1/templates") {
+            contentType(ContentType.Application.Json)
+            setBody(Template(name = uniqueEmail("tpl-max"), content = "x".repeat(5000)))
+        }
+        assertEquals(HttpStatusCode.Created, atLimit.status)
+    }
+
+    @Test
+    fun `feedback content and requester message are length-capped with 400`() = testApplication {
+        usePostgresTestcontainer()
+        val email = uniqueEmail("fb-len")
+        val callerId = TestUsers.seed(email = email, password = "pw-123456789", roles = emptySet())
+        val providerId = TestUsers.seed(email = uniqueEmail("fb-len-p"), password = "pw", roles = emptySet())
+        val client = authedClient(email, "pw-123456789")
+
+        // Self-reflection draft (provider == subject == caller) keeps the party rules simple.
+        suspend fun create(content: String) = client.post("/api/v1/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                FeedbackCreateRequest(
+                    subjectId = callerId,
+                    providerId = callerId,
+                    visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                    status = FeedbackStatus.DRAFT,
+                    content = content,
+                ),
+            )
+        }
+
+        assertEquals(HttpStatusCode.BadRequest, create("x".repeat(5001)).status)
+        val atLimit = create("x".repeat(5000))
+        assertEquals(HttpStatusCode.Created, atLimit.status)
+
+        // The PUT edit path applies the same content cap (reuse the draft — a second
+        // in-progress create for the same parties would hit the no-duplicate 409).
+        val id = atLimit.body<FeedbackResponse>().id
+        val putOver = client.put("/api/v1/feedbacks/$id") {
+            contentType(ContentType.Application.Json)
+            setBody(FeedbackContentUpdate(content = "x".repeat(5001), visibility = FeedbackVisibility.PROVIDER_SUBJECT))
+        }
+        assertEquals(HttpStatusCode.BadRequest, putOver.status)
+
+        // Requester message (create-only field) has its own 1000 cap.
+        val requestOver = client.post("/api/v1/feedbacks") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                FeedbackCreateRequest(
+                    requesterId = callerId,
+                    subjectId = callerId,
+                    providerId = providerId,
+                    visibility = FeedbackVisibility.PROVIDER_REQUESTER,
+                    status = FeedbackStatus.REQUESTED,
+                    requesterMessage = "x".repeat(1001),
+                ),
+            )
+        }
+        assertEquals(HttpStatusCode.BadRequest, requestOver.status)
     }
 }

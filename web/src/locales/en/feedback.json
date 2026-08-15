@@ -153,5 +153,6 @@
     "rejected": "Request declined",
     "withdrawn": "Feedback withdrawn",
     "deleted": "Draft deleted"
-  }
+  },
+  "contentTooLong": "The content must be at most {{max}} characters"
 }

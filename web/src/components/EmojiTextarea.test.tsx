@@ -54,6 +54,33 @@ describe("EmojiTextarea", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  test("renders the counter when maxLength is set", () => {
+    renderArea({ maxLength: 20 });
+    expect(screen.getByText("11 / 20")).toBeInTheDocument();
+  });
+
+  test("counter='none' suppresses it and no maxLength means no counter", () => {
+    renderArea({ maxLength: 20, counter: "none" });
+    expect(screen.queryByText("11 / 20")).not.toBeInTheDocument();
+    cleanup();
+    renderArea();
+    expect(screen.queryByText(/\/ \d+$/)).not.toBeInTheDocument();
+  });
+
+  test("nearLimit counter stays hidden until 80% of the cap", () => {
+    renderArea({ maxLength: 100, counter: "nearLimit" }); // 11 chars < 80
+    expect(screen.queryByText("11 / 100")).not.toBeInTheDocument();
+    cleanup();
+    renderArea({ maxLength: 12, counter: "nearLimit" }); // 11 >= 9.6
+    expect(screen.getByText("11 / 12")).toBeInTheDocument();
+  });
+
+  test("a caller-passed description shares the line with the counter", () => {
+    renderArea({ maxLength: 20, description: "Optional hint" });
+    expect(screen.getByText("Optional hint")).toBeInTheDocument();
+    expect(screen.getByText("11 / 20")).toBeInTheDocument();
+  });
+
   test("passes label and error through to the Textarea", () => {
     const onChange = vi.fn();
     render(

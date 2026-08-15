@@ -36,5 +36,6 @@
     "created": "Szablon utworzony",
     "updated": "Szablon zaktualizowany",
     "deleted": "Szablon usunięty"
-  }
+  },
+  "contentLength": "Treść może mieć najwyżej 5000 znaków"
 }

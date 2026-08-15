@@ -5857,7 +5857,7 @@ components:
       required: [visibility]
       description: Body of `PUT /feedbacks/{id}` — the editable representation (content + visibility).
       properties:
-        content: { type: string, default: "" }
+        content: { type: string, default: "", maxLength: 5000 }
         visibility:
           type: string
           enum: [PROVIDER_SUBJECT, PROVIDER_REQUESTER, PROVIDER_REQUESTER_SUBJECT, PUBLIC]
@@ -5879,10 +5879,11 @@ components:
         status:
           type: string
           enum: [REQUESTED, DRAFT, SENT, WITHDRAWN, REJECTED]
-        content: { type: string, default: "" }
+        content: { type: string, default: "", maxLength: 5000 }
         requesterMessage:
           type: string
           nullable: true
+          maxLength: 1000
           description: |
             Requester's clarification note to the provider (why they asked, what they expect).
             Captured only when a feedback is created; immutable afterward — any value sent on
@@ -6021,7 +6022,7 @@ components:
       required: [name]
       properties:
         name: { type: string, maxLength: 100 }
-        content: { type: string, default: "" }
+        content: { type: string, default: "", maxLength: 5000 }
 
     TemplateResponse:
       type: object
@@ -7082,6 +7083,7 @@ components:
         summary:
           type: string
           nullable: true
+          maxLength: 4000
           description: Free-text summary for the category (at most 4000 characters).
 
     PerformanceReviewCreateRequest:

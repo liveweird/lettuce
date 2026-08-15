@@ -59,6 +59,7 @@ export default function ResetPassword() {
               type="email"
               autoFocus
               autoComplete="email"
+              maxLength={254}
               {...form.getInputProps("email")}
             />
             {error && (

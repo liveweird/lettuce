@@ -39,3 +39,13 @@ internal fun validateTemplateName(name: String) {
         throw BadRequestException("Template name must be at most $MAX_TEMPLATE_NAME_LENGTH characters")
     }
 }
+
+// The content column is unbounded `text` — this up-front check is the only limit (400, not a
+// request-size blowup). Mirrored by the SPA's maxLength cap and the spec's maxLength.
+internal const val MAX_TEMPLATE_CONTENT_LENGTH = 5000
+
+internal fun validateTemplateContent(content: String) {
+    if (content.length > MAX_TEMPLATE_CONTENT_LENGTH) {
+        throw BadRequestException("Template content must be at most $MAX_TEMPLATE_CONTENT_LENGTH characters")
+    }
+}

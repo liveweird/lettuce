@@ -14,6 +14,7 @@ import {
   Title,
 } from "@mantine/core";
 import EmojiTextarea from "../components/EmojiTextarea";
+import { MAX_REQUESTER_MESSAGE_LENGTH } from "../utils/feedbackForm";
 import { useDisclosure } from "@mantine/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconPlus, IconTrash, IconUserPlus } from "@tabler/icons-react";
@@ -191,6 +192,7 @@ export default function RequestFeedback() {
             placeholder={t("feedback.requesterMessagePlaceholder")}
             value={message}
             onChange={setMessage}
+            maxLength={MAX_REQUESTER_MESSAGE_LENGTH}
             autosize
             minRows={2}
             maxRows={6}

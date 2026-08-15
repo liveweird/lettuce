@@ -5,7 +5,7 @@ import type { UseFormReturnType } from "@mantine/form";
 import { IconArrowDown, IconArrowUp, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import type { OneOnOneFormValues } from "../utils/oneOnOneForm";
-import { emptyItemDraft } from "../utils/oneOnOneForm";
+import { MAX_ITEM_LENGTH, emptyItemDraft } from "../utils/oneOnOneForm";
 
 /**
  * The ordered-paragraph-list editor shared by the 1:1 form's "points discussed" and
@@ -48,6 +48,8 @@ export default function ParagraphListEditor({
               autosize
               minRows={1}
               maxRows={8}
+              maxLength={MAX_ITEM_LENGTH}
+              counter="nearLimit"
               aria-label={t("oneOnOne.itemAria", { list: title, position: index + 1 })}
               {...form.getInputProps(`${listField}.${index}.content`)}
             />

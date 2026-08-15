@@ -107,5 +107,8 @@ class TemplateService(val database: R2dbcDatabase) {
 
     // Same rules the route enforces (single source in Template.kt) — re-checked here so
     // direct service callers stay guarded too.
-    private fun validate(template: Template) = validateTemplateName(template.name)
+    private fun validate(template: Template) {
+        validateTemplateName(template.name)
+        validateTemplateContent(template.content)
+    }
 }

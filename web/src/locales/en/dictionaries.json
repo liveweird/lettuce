@@ -15,7 +15,7 @@
   "moveDown": "Move entry {{position}} down",
   "removeEntry": "Remove entry {{position}}",
   "valueRequired": "Value is required",
-  "valueTooLong": "Value must be at most 100 characters",
+  "valueTooLong": "Value must be at most {{max}} characters",
   "valueDuplicate": "This value already exists in the dictionary",
   "discardTitle": "Discard changes?",
   "discardMessage": "Your unsaved dictionary changes will be lost.",

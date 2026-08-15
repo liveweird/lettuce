@@ -1,3 +1,5 @@
+import { charCountDescription } from "../utils/charCount";
+import { MAX_TEAM_NAME_LENGTH } from "../utils/teamForm";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useManagerOptions } from "../hooks/useManagerOptions";
@@ -35,7 +37,7 @@ export default function CreateTeam() {
   const form = useForm<FormValues>({
     initialValues: { name: "", managerId: "" },
     validate: {
-      name: hasLength({ min: 1, max: 100 }, t("teams.nameLength")),
+      name: hasLength({ min: 1, max: MAX_TEAM_NAME_LENGTH }, t("teams.nameLength")),
       managerId: (value) => (value ? null : t("teams.managerRequired")),
     },
   });
@@ -79,7 +81,9 @@ export default function CreateTeam() {
             <TextInput
               label={t("common.field.name")}
               autoFocus
-              maxLength={100}
+              maxLength={MAX_TEAM_NAME_LENGTH}
+              description={charCountDescription(form.values.name.length, MAX_TEAM_NAME_LENGTH)}
+              inputWrapperOrder={["label", "input", "description", "error"]}
               rightSection={
                 form.values.name ? (
                   <CloseButton
