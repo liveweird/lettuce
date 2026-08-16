@@ -1,4 +1,4 @@
-import { ApiError } from "../api/client";
+import { ApiError } from "../api/http";
 
 /**
  * The i18n keys a page maps save/mutation failures onto. Statuses without a key fall through:

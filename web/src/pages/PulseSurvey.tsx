@@ -5,13 +5,8 @@ import { IconZzz } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  ApiError,
-  getMyPulseResponse,
-  listPulseCycles,
-  submitMyPulseResponse,
-  type PulseScaleAnswer,
-} from "../api/client";
+import { ApiError } from "../api/http";
+import { getMyPulseResponse, listPulseCycles, submitMyPulseResponse, type PulseScaleAnswer } from "../api/pulse";
 import EmptyState from "../components/EmptyState";
 import PulseEnpsInput from "../components/PulseEnpsInput";
 import PulseScaleInput from "../components/PulseScaleInput";

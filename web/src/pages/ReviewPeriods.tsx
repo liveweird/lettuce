@@ -19,7 +19,9 @@ import {
 import { IconCalendarStats, IconPlus } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { ApiError, createReviewPeriod, deleteReviewPeriod, hasFeature, isAdmin } from "../api/client";
+import { ApiError } from "../api/http";
+import { hasFeature, isAdmin } from "../api/session";
+import { createReviewPeriod, deleteReviewPeriod } from "../api/reviews";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import EmptyState from "../components/EmptyState";

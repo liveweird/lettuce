@@ -2,13 +2,8 @@ import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  createFeedback,
-  getUserId,
-  hasFeature,
-  type FeedbackStatus,
-  type FeedbackVisibility,
-} from "../api/client";
+import { getUserId, hasFeature } from "../api/session";
+import { createFeedback, type FeedbackStatus, type FeedbackVisibility } from "../api/feedbacks";
 import DuplicateFeedbackAlert from "../components/DuplicateFeedbackAlert";
 import FeedbackForm from "../components/FeedbackForm";
 import { useFeedbackDuplicate } from "../hooks/useFeedbackDuplicate";

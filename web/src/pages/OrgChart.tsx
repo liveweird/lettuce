@@ -17,7 +17,9 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { getTeam, getUserId, listAllTeams, listAllUsers } from "../api/client";
+import { getUserId } from "../api/session";
+import { listAllUsers } from "../api/users";
+import { getTeam, listAllTeams } from "../api/teams";
 import EmptyState from "../components/EmptyState";
 import PersonaChip from "../components/PersonaChip";
 import {

@@ -2,7 +2,7 @@ import { Text, Timeline } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { listGoalEvents, type GoalEvent } from "../api/client";
+import { listGoalEvents, type GoalEvent } from "../api/goals";
 import { formatIsoDate, formatTimestamp } from "../utils/datetime";
 
 // Render a structured goal audit event in the current language. Params carry enum names and

@@ -1,6 +1,6 @@
 import { Badge } from "@mantine/core";
 import { useTranslation } from "react-i18next";
-import type { PerformanceReviewStatus } from "../api/client";
+import type { PerformanceReviewStatus } from "../api/reviews";
 
 // One color per lifecycle stage: draft = neutral, calibration = in-progress attention,
 // published = delivered (the GoalStatusBadge idiom).

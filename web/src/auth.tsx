@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useSyncExternalStore, type ReactElement } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { getToken, TOKEN_KEY } from "./api/client";
+import { getToken, TOKEN_KEY } from "./api/session";
 
 const listeners = new Set<() => void>();
 

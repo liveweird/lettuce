@@ -3,7 +3,8 @@ import { Link as RouterLink, Navigate, useParams } from "react-router-dom";
 import { Alert, Anchor, Button, Group, Stack, Text, Title } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { getTeam, getUserId, hasFeature } from "../api/client";
+import { getUserId, hasFeature } from "../api/session";
+import { getTeam } from "../api/teams";
 import { teamKpiCreateLink, teamKpisLink } from "../utils/teamKpiLinks";
 import TeamKpiTable from "./TeamKpiTable";
 

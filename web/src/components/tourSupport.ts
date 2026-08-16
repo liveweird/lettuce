@@ -5,7 +5,7 @@ import { createContext, useContext } from "react";
 // Types only — erased at build time. The runtime react-joyride import lives solely in
 // TourJoyride.tsx, which Tour.tsx lazy-loads so the library stays out of the entry chunk.
 import type { Step } from "react-joyride";
-import { hasFeature, isAdmin, isHr, type Feature } from "../api/client";
+import { hasFeature, isAdmin, isHr, type Feature } from "../api/session";
 
 const SEEN_PREFIX = "lettuce.tour.seen.";
 const seenKey = (userId: number) => `${SEEN_PREFIX}${userId}`;

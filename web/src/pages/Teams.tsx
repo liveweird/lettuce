@@ -31,7 +31,8 @@ import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isNumberOrNull, isString, useStoredState } from "../hooks/useStoredState";
 import { useManagerOptions } from "../hooks/useManagerOptions";
-import { deleteTeam, getUserId, isAdmin, listTeams } from "../api/client";
+import { getUserId, isAdmin } from "../api/session";
+import { deleteTeam, listTeams } from "../api/teams";
 import { userDetailsLink } from "../utils/userLinks";
 import { teamDetailsLink } from "../utils/teamLinks";
 

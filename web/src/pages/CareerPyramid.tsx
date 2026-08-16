@@ -17,7 +17,7 @@ import { IconChartBar, IconHistory, IconTable, IconUsersGroup } from "@tabler/ic
 import { useDebouncedValue } from "@mantine/hooks";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { listCareerPyramid } from "../api/client";
+import { listCareerPyramid } from "../api/career";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
 import FilterPanel from "../components/FilterPanel";

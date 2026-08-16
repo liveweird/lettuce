@@ -20,13 +20,9 @@ import { IconUpload } from "@tabler/icons-react";
 import RevealablePassword from "../components/RevealablePassword";
 import { saveErrorMessage } from "../utils/saveError";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  ApiError,
-  importUsers,
-  isAdmin,
-  type UserImportResult,
-  type UserImportRow,
-} from "../api/client";
+import { ApiError } from "../api/http";
+import { isAdmin } from "../api/session";
+import { importUsers, type UserImportResult, type UserImportRow } from "../api/users";
 
 const STATUS_COLOR: Record<UserImportRow["status"], string> = {
   CREATED: "green",

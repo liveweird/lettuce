@@ -1,21 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import {
-  ApiError,
-  authedFetch,
-  canAudit,
-  getDisabledFeatures,
-  getRoles,
-  getToken,
-  hasFeature,
-  isHr,
-  getUserId,
-  isAdmin,
-  listFeedbacks,
-  login,
-  logout,
-  setToken,
-  updateUserFeatures,
-} from "./client";
+import { ApiError, authedFetch } from "./http";
+import { canAudit, getDisabledFeatures, getRoles, getToken, hasFeature, isHr, getUserId, isAdmin, setToken } from "./session";
+import { login, logout } from "./auth";
+import { updateUserFeatures } from "./users";
+import { listFeedbacks } from "./feedbacks";
 import { consumeSignedOut } from "../auth";
 import { jsonResponse } from "../test/http";
 

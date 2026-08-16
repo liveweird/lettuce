@@ -1,7 +1,7 @@
 import { Checkbox, Group, Input, NumberInput, Stack, Text } from "@mantine/core";
 import type { UseFormReturnType } from "@mantine/form";
 import { useTranslation } from "react-i18next";
-import type { GoalResponse } from "../api/client";
+import type { GoalResponse } from "../api/goals";
 import EmojiTextarea from "./EmojiTextarea";
 import ReadOnlyField from "./ReadOnlyField";
 import ProseBox from "./ProseBox";

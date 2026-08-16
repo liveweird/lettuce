@@ -1,6 +1,6 @@
 import { Badge, Divider, Group, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
-import { hasFeature } from "../api/client";
+import { hasFeature } from "../api/session";
 import { formatIsoDate, formatMonthRange, formatRelativeTime, formatTimestamp } from "../utils/datetime";
 import { formatDays } from "../utils/daysOffCost";
 import { pickDictionaryValue } from "../utils/dictionaryForm";

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { getUserId, listTeams } from "../api/client";
+import { getUserId } from "../api/session";
+import { listTeams } from "../api/teams";
 
 /**
  * Whether the current user manages at least one team — the gate for the manager-only tabs

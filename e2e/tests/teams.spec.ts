@@ -42,7 +42,7 @@ test("admin creates a team, manages members, reassigns the manager, and deletes 
   await expect(page.getByText(teamName, { exact: true })).toBeVisible();
   await pickSelectOption(page, "Add a user", userB.name);
   await Promise.all([
-    // The member add is a PUT /teams/{id}/members/{userId} (see web/src/api/client.ts).
+    // The member add is a PUT /teams/{id}/members/{userId} (see web/src/api/teams.ts).
     page.waitForResponse(
       (r) => r.url().includes(`/teams/${teamId}/members/`) && r.request().method() === "PUT" && r.ok(),
     ),

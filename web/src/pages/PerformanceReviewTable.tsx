@@ -4,13 +4,8 @@ import { useDebouncedValue } from "@mantine/hooks";
 import { IconClipboardText, IconEye, IconPencil } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  getUserId,
-  listPerformanceReviews,
-  type PerformanceReviewListItem,
-  type PerformanceReviewListView,
-  type PerformanceReviewStatus,
-} from "../api/client";
+import { getUserId } from "../api/session";
+import { listPerformanceReviews, type PerformanceReviewListItem, type PerformanceReviewListView, type PerformanceReviewStatus } from "../api/reviews";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
 import FilterPanel from "../components/FilterPanel";

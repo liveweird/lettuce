@@ -12,7 +12,8 @@ import SortHeader from "../components/SortHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isString, useStoredState } from "../hooks/useStoredState";
-import { getUserId, hasFeature, listTeams } from "../api/client";
+import { getUserId, hasFeature } from "../api/session";
+import { listTeams } from "../api/teams";
 import { teamKpisLink } from "../utils/teamKpiLinks";
 import { teamDetailsLink } from "../utils/teamLinks";
 

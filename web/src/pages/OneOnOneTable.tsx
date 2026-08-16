@@ -5,12 +5,8 @@ import { useDebouncedValue } from "@mantine/hooks";
 import { IconCalendarEvent, IconEye, IconPencil } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  getUserId,
-  listOneOnOnes,
-  type OneOnOneListView,
-  type OneOnOnePage,
-} from "../api/client";
+import { getUserId } from "../api/session";
+import { listOneOnOnes, type OneOnOneListView, type OneOnOnePage } from "../api/oneonones";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
 import TableLoadingRow from "../components/TableLoadingRow";

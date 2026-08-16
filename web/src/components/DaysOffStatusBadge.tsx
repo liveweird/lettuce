@@ -1,6 +1,6 @@
 import { Badge } from "@mantine/core";
 import { useTranslation } from "react-i18next";
-import type { DaysOffStatus } from "../api/client";
+import type { DaysOffStatus } from "../api/daysoff";
 
 // The single color source for days-off statuses (the GoalStatusBadge analogue): pending is
 // yellow, accepted is the semantic-success teal, rejected red, cancelled a neutral gray.

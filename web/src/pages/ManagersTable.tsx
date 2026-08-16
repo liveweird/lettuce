@@ -2,7 +2,7 @@ import { Alert, SimpleGrid, Skeleton } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { IconUsersGroup } from "@tabler/icons-react";
-import { listAllTeamMembers } from "../api/client";
+import { listAllTeamMembers } from "../api/teams";
 import EmptyState from "../components/EmptyState";
 import PersonCard from "../components/PersonCard";
 import PersonCardBody from "../components/PersonCardStats";

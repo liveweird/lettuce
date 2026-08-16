@@ -17,14 +17,9 @@ import {
 import { IconCalendarOff, IconPlus } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  ApiError,
-  createPublicHoliday,
-  deletePublicHoliday,
-  hasFeature,
-  isAdmin,
-  listPublicHolidays,
-} from "../api/client";
+import { ApiError } from "../api/http";
+import { hasFeature, isAdmin } from "../api/session";
+import { createPublicHoliday, deletePublicHoliday, listPublicHolidays } from "../api/daysoff";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import EmptyState from "../components/EmptyState";

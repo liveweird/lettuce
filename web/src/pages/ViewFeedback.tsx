@@ -23,16 +23,9 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trans, useTranslation } from "react-i18next";
-import {
-  ApiError,
-  getFeedback,
-  getUserId,
-  hasFeature,
-  pickUpFeedback,
-  sendFeedback,
-  withdrawFeedback,
-  type FeedbackStatus,
-} from "../api/client";
+import { ApiError } from "../api/http";
+import { getUserId, hasFeature } from "../api/session";
+import { getFeedback, pickUpFeedback, sendFeedback, withdrawFeedback, type FeedbackStatus } from "../api/feedbacks";
 import FeedbackHistory from "../components/FeedbackHistory";
 import FeedbackMeta from "../components/FeedbackMeta";
 import FeedbackLifecycle from "../components/FeedbackLifecycle";

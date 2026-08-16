@@ -2,7 +2,7 @@ import { Anchor, Button, Group, Stack, Text, Title } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { Link as RouterLink, Navigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { hasFeature } from "../api/client";
+import { hasFeature } from "../api/session";
 import { useDashboardDrillDown } from "../hooks/useDashboardDrillDown";
 import { oneOnOneCreateLink } from "../utils/oneOnOneLinks";
 import OneOnOneTable from "./OneOnOneTable";

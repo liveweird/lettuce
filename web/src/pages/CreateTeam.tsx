@@ -18,7 +18,8 @@ import {
 } from "@mantine/core";
 import { hasLength, useForm } from "@mantine/form";
 import { useQueryClient } from "@tanstack/react-query";
-import { createTeam, isAdmin } from "../api/client";
+import { isAdmin } from "../api/session";
+import { createTeam } from "../api/teams";
 import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
 

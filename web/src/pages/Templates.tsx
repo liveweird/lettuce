@@ -22,7 +22,8 @@ import SortHeader from "../components/SortHeader";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isString, useStoredState } from "../hooks/useStoredState";
-import { deleteTemplate, isAdmin, listTemplates } from "../api/client";
+import { isAdmin } from "../api/session";
+import { deleteTemplate, listTemplates } from "../api/templates";
 
 const SORT_FIELDS = ["name"] as const;
 type SortField = (typeof SORT_FIELDS)[number];

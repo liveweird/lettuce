@@ -1,7 +1,7 @@
 import { Badge, Center, Group, Loader, Modal, Text, Timeline } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { getActionItemHistory } from "../api/client";
+import { getActionItemHistory } from "../api/oneonones";
 import { formatIsoDate } from "../utils/datetime";
 
 /**

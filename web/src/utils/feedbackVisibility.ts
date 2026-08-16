@@ -1,4 +1,4 @@
-import type { FeedbackVisibility } from "../api/client";
+import type { FeedbackVisibility } from "../api/feedbacks";
 
 // The single frontend home of the feedback-visibility domain rule (mirrors the backend
 // invariants): a requester-backed feedback must keep a requester-inclusive visibility

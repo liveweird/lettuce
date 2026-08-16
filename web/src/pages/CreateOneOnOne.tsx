@@ -14,7 +14,9 @@ import {
 } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { createOneOnOne, hasFeature, listAllTeamMembers } from "../api/client";
+import { hasFeature } from "../api/session";
+import { listAllTeamMembers } from "../api/teams";
+import { createOneOnOne } from "../api/oneonones";
 import PersonaField from "../components/PersonaField";
 import { todayIsoDate } from "../utils/datetime";
 import { oneOnOneSaveErrorMessage } from "../utils/oneOnOneForm";

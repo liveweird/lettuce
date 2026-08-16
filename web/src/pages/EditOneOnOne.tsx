@@ -18,14 +18,9 @@ import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  ApiError,
-  deleteOneOnOne,
-  getOneOnOne,
-  getUserId,
-  hasFeature,
-  updateOneOnOne,
-} from "../api/client";
+import { ApiError } from "../api/http";
+import { getUserId, hasFeature } from "../api/session";
+import { deleteOneOnOne, getOneOnOne, updateOneOnOne } from "../api/oneonones";
 import ActionItemsEditor from "../components/ActionItemsEditor";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import OneOnOneHistory from "../components/OneOnOneHistory";

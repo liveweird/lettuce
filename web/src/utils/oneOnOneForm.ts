@@ -1,5 +1,5 @@
 import type { TFunction } from "i18next";
-import type { ActionItemOwner, OneOnOneResponse, UpdateOneOnOneBody } from "../api/client";
+import type { ActionItemOwner, OneOnOneResponse, UpdateOneOnOneBody } from "../api/oneonones";
 import { saveErrorMessage } from "./saveError";
 
 export const MAX_ITEM_LENGTH = 4000;

@@ -3,14 +3,9 @@ import { IconChartBar } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
-import {
-  ApiError,
-  getPulseResults,
-  getPulseVisibleTeams,
-  isHr,
-  listPulseCycles,
-  type PulseAggregationMode,
-} from "../api/client";
+import { ApiError } from "../api/http";
+import { isHr } from "../api/session";
+import { getPulseResults, getPulseVisibleTeams, listPulseCycles, type PulseAggregationMode } from "../api/pulse";
 import EmptyState from "../components/EmptyState";
 import PulseTeamResultCard from "../components/PulseTeamResultCard";
 import { useStoredState, isOneOf } from "../hooks/useStoredState";

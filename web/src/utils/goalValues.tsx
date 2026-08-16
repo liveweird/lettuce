@@ -3,7 +3,7 @@
 // small presentational components share one home, at the cost of Fast Refresh for it.
 import { Badge, Group, Progress, Stack, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
-import type { GoalResponse, GoalStatus, GoalType } from "../api/client";
+import type { GoalResponse, GoalStatus, GoalType } from "../api/goals";
 import ReadOnlyField from "../components/ReadOnlyField";
 import { todayIsoDate } from "./datetime";
 

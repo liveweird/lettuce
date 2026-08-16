@@ -18,17 +18,9 @@ import {
 import { IconPencil } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  activateTeamKpi,
-  ApiError,
-  archiveTeamKpi,
-  deactivateTeamKpi,
-  getTeamKpi,
-  getUserId,
-  hasFeature,
-  reopenTeamKpi,
-  type TeamKpiStatus,
-} from "../api/client";
+import { ApiError } from "../api/http";
+import { getUserId, hasFeature } from "../api/session";
+import { activateTeamKpi, archiveTeamKpi, deactivateTeamKpi, getTeamKpi, reopenTeamKpi, type TeamKpiStatus } from "../api/teamkpis";
 import GoalCloseModal from "../components/GoalCloseModal";
 import MarkdownView from "../components/MarkdownView";
 import ProseBox from "../components/ProseBox";

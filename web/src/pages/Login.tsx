@@ -13,7 +13,8 @@ import {
   TextInput,
 } from "@mantine/core";
 import { isEmail, isNotEmpty, useForm } from "@mantine/form";
-import { ApiError, isMfaChallenge, login, verifyMfa, type MfaChallenge } from "../api/client";
+import { ApiError } from "../api/http";
+import { isMfaChallenge, login, verifyMfa, type MfaChallenge } from "../api/auth";
 import { consumeSignedOut, notifyAuthChange } from "../auth";
 import AuthCard from "../components/AuthCard";
 

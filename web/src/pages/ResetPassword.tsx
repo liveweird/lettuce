@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
 import { Alert, Anchor, Button, Stack, Text, TextInput } from "@mantine/core";
 import { isEmail, useForm } from "@mantine/form";
-import { ApiError, requestPasswordReset } from "../api/client";
+import { ApiError } from "../api/http";
+import { requestPasswordReset } from "../api/auth";
 import AuthCard from "../components/AuthCard";
 
 export default function ResetPassword() {

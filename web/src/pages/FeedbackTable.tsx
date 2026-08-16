@@ -12,14 +12,8 @@ import { useDebouncedValue } from "@mantine/hooks";
 import { IconEye, IconMessages, IconPencil } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  getUserId,
-  listFeedbacks,
-  type FeedbackListView,
-  type FeedbackPage,
-  type FeedbackStatus,
-  type FeedbackVisibility,
-} from "../api/client";
+import { getUserId } from "../api/session";
+import { listFeedbacks, type FeedbackListView, type FeedbackPage, type FeedbackStatus, type FeedbackVisibility } from "../api/feedbacks";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
 import TableLoadingRow from "../components/TableLoadingRow";

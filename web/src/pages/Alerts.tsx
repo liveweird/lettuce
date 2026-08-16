@@ -24,7 +24,8 @@ import SortHeader from "../components/SortHeader";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
-import { deleteAlert, isAdmin, listAlerts } from "../api/client";
+import { isAdmin } from "../api/session";
+import { deleteAlert, listAlerts } from "../api/alerts";
 import { formatTimestamp } from "../utils/datetime";
 
 const SORT_FIELDS = ["id", "title", "startsAt", "endsAt"] as const;

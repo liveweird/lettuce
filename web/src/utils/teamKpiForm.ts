@@ -1,5 +1,5 @@
 import type { TFunction } from "i18next";
-import type { TeamKpiDefinitionUpdateBody, TeamKpiResponse, TeamKpiType } from "../api/client";
+import type { TeamKpiDefinitionUpdateBody, TeamKpiResponse, TeamKpiType } from "../api/teamkpis";
 import { saveErrorMessage } from "./saveError";
 
 export const MAX_TEAM_KPI_TITLE_LENGTH = 200;

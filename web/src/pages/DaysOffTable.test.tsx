@@ -5,7 +5,7 @@ import { notifications } from "@mantine/notifications";
 import { renderWithProviders } from "../test/render";
 import { jsonResponse } from "../test/http";
 import DaysOffTable from "./DaysOffTable";
-import type { DaysOffListItem } from "../api/client";
+import type { DaysOffListItem } from "../api/daysoff";
 
 type FetchMock = ReturnType<typeof vi.fn>;
 

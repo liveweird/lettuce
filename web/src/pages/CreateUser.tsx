@@ -20,7 +20,9 @@ import {
 import { IconMail } from "@tabler/icons-react";
 import { hasLength, useForm } from "@mantine/form";
 import { useQueryClient } from "@tanstack/react-query";
-import { ApiError, createUser, isAdmin, type UserRole } from "../api/client";
+import { ApiError } from "../api/http";
+import { isAdmin, type UserRole } from "../api/session";
+import { createUser } from "../api/users";
 import RevealablePassword from "../components/RevealablePassword";
 import RolesMultiSelect from "../components/RolesMultiSelect";
 import { generatePassword } from "../utils/password";

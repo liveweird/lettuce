@@ -16,7 +16,7 @@ import EmojiTextarea from "./EmojiTextarea";
 import type { UseFormReturnType } from "@mantine/form";
 import { IconHistory, IconPlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
-import type { ActionItemOwner } from "../api/client";
+import type { ActionItemOwner } from "../api/oneonones";
 import { formatIsoDate } from "../utils/datetime";
 import type { OneOnOneFormValues } from "../utils/oneOnOneForm";
 import { MAX_ITEM_LENGTH, emptyActionItemDraft } from "../utils/oneOnOneForm";

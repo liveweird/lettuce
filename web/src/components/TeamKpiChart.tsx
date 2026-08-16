@@ -7,7 +7,7 @@ import { Stack, Text } from "@mantine/core";
 import { ChartTooltip, LineChart } from "@mantine/charts";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { listTeamKpiValues, type TeamKpiResponse } from "../api/client";
+import { listTeamKpiValues, type TeamKpiResponse } from "../api/teamkpis";
 import { formatDate } from "../utils/datetime";
 import { formatGoalValue } from "../utils/goalValues";
 import { buildTeamKpiSeries } from "../utils/teamKpiChart";

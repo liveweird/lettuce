@@ -1,6 +1,6 @@
 import { MultiSelect, Pill, type MultiSelectProps } from "@mantine/core";
 import { useTranslation } from "react-i18next";
-import { USER_ROLES, type UserRole } from "../api/client";
+import { USER_ROLES, type UserRole } from "../api/session";
 
 /**
  * The Roles field shared by the user create/edit forms: one option per additional role, empty =

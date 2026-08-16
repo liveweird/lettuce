@@ -1,6 +1,6 @@
 import { Badge } from "@mantine/core";
 import { useTranslation } from "react-i18next";
-import type { TeamKpiStatus } from "../api/client";
+import type { TeamKpiStatus } from "../api/teamkpis";
 
 // The single color source for team-KPI statuses (the GoalStatusBadge analogue — split off in
 // v1.29.0 when the KPI vocabulary diverged: the terminal state is ARCHIVED, not CLOSED).

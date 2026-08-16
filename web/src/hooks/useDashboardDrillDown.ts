@@ -1,5 +1,5 @@
 import { useParams, useSearchParams } from "react-router-dom";
-import { canAudit } from "../api/client";
+import { canAudit } from "../api/session";
 import { userDetailsLink } from "../utils/userLinks";
 
 // Which screen a per-user drill-down (/users/:userId/…) was opened from — decides the

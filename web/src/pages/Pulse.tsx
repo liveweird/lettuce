@@ -1,7 +1,7 @@
 import { Stack, Tabs, Title } from "@mantine/core";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { hasFeature, isHr } from "../api/client";
+import { hasFeature, isHr } from "../api/session";
 import { useIsManager } from "../hooks/useIsManager";
 import PulseParticipation from "./PulseParticipation";
 import PulseResults from "./PulseResults";

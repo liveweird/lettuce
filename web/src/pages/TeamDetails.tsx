@@ -20,16 +20,10 @@ import {
   IconTrash,
   IconUsers,
 } from "@tabler/icons-react";
-import {
-  addTeamMember,
-  ApiError,
-  getTeam,
-  getUserId,
-  hasFeature,
-  isAdmin,
-  listAllUsers,
-  removeTeamMember,
-} from "../api/client";
+import { ApiError } from "../api/http";
+import { getUserId, hasFeature, isAdmin } from "../api/session";
+import { listAllUsers } from "../api/users";
+import { addTeamMember, getTeam, removeTeamMember } from "../api/teams";
 import { showSuccessToast } from "../utils/toast";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import EmptyState from "../components/EmptyState";

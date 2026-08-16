@@ -4,13 +4,7 @@ import { IconPlus } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link as RouterLink, Navigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import {
-  createCareerPosition,
-  deleteCareerPosition,
-  listCareerPositions,
-  updateCareerPosition,
-  type CareerPosition,
-} from "../api/client";
+import { createCareerPosition, deleteCareerPosition, listCareerPositions, updateCareerPosition, type CareerPosition } from "../api/career";
 import CareerProfileSelect from "../components/CareerProfileSelect";
 import CareerTimeline from "../components/CareerTimeline";
 import ConfirmActionModal from "../components/ConfirmActionModal";

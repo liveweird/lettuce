@@ -2,7 +2,7 @@ import { Text, Timeline } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { listOneOnOneEvents, type OneOnOneEvent } from "../api/client";
+import { listOneOnOneEvents, type OneOnOneEvent } from "../api/oneonones";
 import { formatIsoDate, formatTimestamp } from "../utils/datetime";
 
 // Render a structured 1:1 audit event in the current language. Params carry positions/dates/
