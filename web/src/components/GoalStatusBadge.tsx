@@ -1,6 +1,6 @@
 import { Badge } from "@mantine/core";
 import { useTranslation } from "react-i18next";
-import type { GoalStatus } from "../api/client";
+import type { GoalStatus } from "../api/goals";
 
 // The single color source for goal statuses (the goal analogue of FeedbackBadges' StatusBadge —
 // kept separate because the two features' status vocabularies are unrelated).

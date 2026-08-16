@@ -3,14 +3,9 @@ import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-
 import { Alert, Anchor, Group, Paper, SimpleGrid, Skeleton, Stack, Text, Title } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { IconUsersGroup } from "@tabler/icons-react";
-import {
-  canAudit,
-  getUserId,
-  listAllTeamMembers,
-  listTeams,
-  listUsers,
-  type UserPage,
-} from "../api/client";
+import { canAudit, getUserId } from "../api/session";
+import { listUsers, type UserPage } from "../api/users";
+import { listAllTeamMembers, listTeams } from "../api/teams";
 import EmptyState from "../components/EmptyState";
 import PersonCard from "../components/PersonCard";
 import PersonCardActions, { type PersonCardActionsProps } from "../components/PersonCardActions";

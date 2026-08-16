@@ -2,7 +2,7 @@ import { Text, Timeline } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { listFeedbackEvents, type FeedbackEvent } from "../api/client";
+import { listFeedbackEvents, type FeedbackEvent } from "../api/feedbacks";
 import { formatTimestamp } from "../utils/datetime";
 
 // Render a structured audit event in the current language.

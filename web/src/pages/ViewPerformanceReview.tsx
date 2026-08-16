@@ -17,17 +17,8 @@ import {
 } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  getPerformanceReview,
-  getUserId,
-  hasFeature,
-  publishPerformanceReview,
-  revertPerformanceReview,
-  submitPerformanceReview,
-  unpublishPerformanceReview,
-  type CategoryAssessment,
-  type PerformanceReviewStatus,
-} from "../api/client";
+import { getUserId, hasFeature } from "../api/session";
+import { getPerformanceReview, publishPerformanceReview, revertPerformanceReview, submitPerformanceReview, unpublishPerformanceReview, type CategoryAssessment, type PerformanceReviewStatus } from "../api/reviews";
 import PerformanceReviewHistory from "../components/PerformanceReviewHistory";
 import PerformanceReviewStatusBadge from "../components/PerformanceReviewStatusBadge";
 import PersonaField from "../components/PersonaField";

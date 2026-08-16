@@ -2,7 +2,7 @@ import { Text, Timeline } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { listTeamKpiEvents, type TeamKpiEvent, type TeamKpiType } from "../api/client";
+import { listTeamKpiEvents, type TeamKpiEvent, type TeamKpiType } from "../api/teamkpis";
 import { formatIsoDate, formatTimestamp } from "../utils/datetime";
 import { formatGoalValue } from "../utils/goalValues";
 

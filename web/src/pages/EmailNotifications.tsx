@@ -15,7 +15,9 @@ import {
   Title,
 } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError, getUser, getUserId, isAdmin, setEmailNotifications } from "../api/client";
+import { ApiError } from "../api/http";
+import { getUserId, isAdmin } from "../api/session";
+import { getUser, setEmailNotifications } from "../api/users";
 import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
 

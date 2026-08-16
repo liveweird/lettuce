@@ -1,5 +1,5 @@
 import type { TFunction } from "i18next";
-import type { GoalDefinitionUpdateBody, GoalResponse, GoalType } from "../api/client";
+import type { GoalDefinitionUpdateBody, GoalResponse, GoalType } from "../api/goals";
 import { todayIsoDate } from "./datetime";
 import { saveErrorMessage } from "./saveError";
 

@@ -235,7 +235,7 @@ remaining real logins aren't throttled either.
   shared database and poison the rest of the run. Covered by `LoginThrottleTest` /
   `LoginLockoutTest` (server).
 - **Token refresh / expiry** — needs clock control; covered by server tests and the
-  `web/src/api/client.ts` unit tests.
+  `web/src/api/api.test.ts` unit tests.
 - **The authz / visibility matrix** — exhaustively covered by `AuthorizationTest` (server); E2E
   asserts only user-visible consequences (a draft hidden from its subject, notification links).
 - **`DRAFT → WITHDRAWN` (abandon a draft)** — a valid backend transition with no UI affordance

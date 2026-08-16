@@ -65,8 +65,10 @@ import {
 } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { getCurrentUser, getUserId, hasFeature, isAdmin, logout } from "./api/client";
-import type { Feature } from "./api/client";
+import { getUserId, hasFeature, isAdmin } from "./api/session";
+import { logout } from "./api/auth";
+import { getCurrentUser } from "./api/users";
+import type { Feature } from "./api/session";
 import { RedirectIfAuthed, RequireAuth, flagSignedOut, notifyAuthChange } from "./auth";
 import AlertsBanner from "./components/AlertsBanner";
 import { ALERTS_BAR_HEIGHT, useVisibleAlerts } from "./hooks/useVisibleAlerts";

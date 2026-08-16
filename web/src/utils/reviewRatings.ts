@@ -1,9 +1,5 @@
 import type { TFunction } from "i18next";
-import type {
-  CategoryAssessment,
-  PerformanceReviewResponse,
-  PerformanceReviewUpdateBody,
-} from "../api/client";
+import type { CategoryAssessment, PerformanceReviewResponse, PerformanceReviewUpdateBody } from "../api/reviews";
 import { saveErrorMessage } from "./saveError";
 
 export const MAX_REVIEW_SUMMARY_LENGTH = 4000;

@@ -26,7 +26,9 @@ import { MAX_TEMPLATE_CONTENT_LENGTH, MAX_TEMPLATE_NAME_LENGTH } from "../utils/
 import { useDisclosure } from "@mantine/hooks";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError, getTemplate, isAdmin, updateTemplate } from "../api/client";
+import { ApiError } from "../api/http";
+import { isAdmin } from "../api/session";
+import { getTemplate, updateTemplate } from "../api/templates";
 import { showSuccessToast } from "../utils/toast";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import { saveErrorMessage } from "../utils/saveError";

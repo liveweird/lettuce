@@ -19,13 +19,8 @@ import { useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { IconPlus, IconListDetails } from "@tabler/icons-react";
-import {
-  getDictionary,
-  isAdmin,
-  updateDictionary,
-  type DictionaryEntry,
-  type DictionarySlug,
-} from "../api/client";
+import { isAdmin } from "../api/session";
+import { getDictionary, updateDictionary, type DictionaryEntry, type DictionarySlug } from "../api/dictionaries";
 import { showSuccessToast } from "../utils/toast";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import EmptyState from "../components/EmptyState";

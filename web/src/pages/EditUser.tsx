@@ -24,13 +24,9 @@ import {
 } from "@mantine/core";
 import { hasLength, useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ApiError,
-  getUser,
-  isAdmin,
-  updateUser,
-  type UserRole,
-} from "../api/client";
+import { ApiError } from "../api/http";
+import { isAdmin, type UserRole } from "../api/session";
+import { getUser, updateUser } from "../api/users";
 import { showSuccessToast } from "../utils/toast";
 import RolesMultiSelect from "../components/RolesMultiSelect";
 import { saveErrorMessage } from "../utils/saveError";

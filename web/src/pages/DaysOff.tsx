@@ -16,7 +16,8 @@ import { IconChevronLeft, IconChevronRight, IconPlus } from "@tabler/icons-react
 import { useQuery } from "@tanstack/react-query";
 import { Link as RouterLink, Navigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { getDaysOffCalendar, hasFeature, type DaysOffCalendarScope } from "../api/client";
+import { hasFeature } from "../api/session";
+import { getDaysOffCalendar, type DaysOffCalendarScope } from "../api/daysoff";
 import DaysOffBudgetCard from "../components/DaysOffBudgetCard";
 import DaysOffBudgetsTable from "../components/DaysOffBudgetsTable";
 import DaysOffMonthGrid from "../components/DaysOffMonthGrid";

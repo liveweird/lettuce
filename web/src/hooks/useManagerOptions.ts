@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { listAllUsers } from "../api/client";
+import { listAllUsers } from "../api/users";
 
 // The shared manager-picker pool: EVERY user (paged via listAllUsers — a single capped page
 // silently dropped anyone past the first 100 by name, v1.51.0 fix), name-sorted client-side

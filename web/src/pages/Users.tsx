@@ -29,18 +29,9 @@ import {
   IconUsersGroup,
 } from "@tabler/icons-react";
 import PersonaChip from "../components/PersonaChip";
-import {
-  deactivateUser,
-  deleteUser,
-  getUserId,
-  hasFeature,
-  isAdmin,
-  listUsers,
-  logout,
-  reactivateUser,
-  USER_ROLES,
-  type UserRole,
-} from "../api/client";
+import { getUserId, hasFeature, isAdmin, USER_ROLES, type UserRole } from "../api/session";
+import { logout } from "../api/auth";
+import { deactivateUser, deleteUser, listUsers, reactivateUser } from "../api/users";
 import { saveErrorMessage } from "../utils/saveError";
 import { showSuccessToast } from "../utils/toast";
 import FeedbackActionsMenu from "../components/FeedbackActionsMenu";

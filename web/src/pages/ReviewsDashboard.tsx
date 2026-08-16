@@ -23,7 +23,9 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { getUserId, listAllPerformanceReviews, listAllTeamMembers } from "../api/client";
+import { getUserId } from "../api/session";
+import { listAllTeamMembers } from "../api/teams";
+import { listAllPerformanceReviews } from "../api/reviews";
 import EmptyState from "../components/EmptyState";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";

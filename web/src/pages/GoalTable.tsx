@@ -13,15 +13,8 @@ import {
 } from "@tabler/icons-react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  archiveGoal,
-  deactivateGoal,
-  getUserId,
-  listGoals,
-  type GoalListItem,
-  type GoalListView,
-  type GoalStatus,
-} from "../api/client";
+import { getUserId } from "../api/session";
+import { archiveGoal, deactivateGoal, listGoals, type GoalListItem, type GoalListView, type GoalStatus } from "../api/goals";
 import ClearableTextInput from "../components/ClearableTextInput";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import EmptyState from "../components/EmptyState";

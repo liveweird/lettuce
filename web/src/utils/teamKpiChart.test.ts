@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import type { TeamKpiValue } from "../api/client";
+import type { TeamKpiValue } from "../api/teamkpis";
 import { buildTeamKpiSeries } from "./teamKpiChart";
 
 const value = (id: number, date: string, v: number): TeamKpiValue => ({ id, date, value: v });

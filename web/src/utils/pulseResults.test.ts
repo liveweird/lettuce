@@ -13,7 +13,7 @@ import {
   trendMetricDomain,
   trendSeriesKey,
 } from "./pulseResults";
-import type { PulseCycle, PulseTrendPoint } from "../api/client";
+import type { PulseCycle, PulseTrendPoint } from "../api/pulse";
 
 describe("delta presentation", () => {
   test("improvements teal, declines red, flat or absent dimmed", () => {

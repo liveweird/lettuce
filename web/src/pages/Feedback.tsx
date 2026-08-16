@@ -1,7 +1,7 @@
 import { Stack, Tabs, Title } from "@mantine/core";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { hasFeature } from "../api/client";
+import { hasFeature } from "../api/session";
 import { useIsManager } from "../hooks/useIsManager";
 import FeedbackTable from "./FeedbackTable";
 

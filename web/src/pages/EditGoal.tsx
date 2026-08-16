@@ -17,17 +17,9 @@ import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  activateGoal,
-  ApiError,
-  deleteGoal,
-  getGoal,
-  getUserId,
-  hasFeature,
-  updateGoalDefinition,
-  updateGoalProgress,
-  type GoalType,
-} from "../api/client";
+import { ApiError } from "../api/http";
+import { getUserId, hasFeature } from "../api/session";
+import { activateGoal, deleteGoal, getGoal, updateGoalDefinition, updateGoalProgress, type GoalType } from "../api/goals";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import GoalDefinitionFields from "../components/GoalDefinitionFields";
 import GoalHistory from "../components/GoalHistory";

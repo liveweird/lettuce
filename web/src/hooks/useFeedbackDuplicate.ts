@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { checkFeedbackDuplicate } from "../api/client";
+import { checkFeedbackDuplicate } from "../api/feedbacks";
 
 // The no-duplicate early check for one prospective (subject, provider, requester) triple —
 // the create screens call it as soon as their triple is known, so the user is warned (with a

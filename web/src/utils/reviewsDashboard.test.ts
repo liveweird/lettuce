@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import type { PerformanceReviewListItem } from "../api/client";
+import type { PerformanceReviewListItem } from "../api/reviews";
 import {
   buildReviewsDashboardRows,
   EMPTY_REVIEWS_DASHBOARD_FILTERS,

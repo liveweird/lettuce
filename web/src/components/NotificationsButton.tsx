@@ -42,14 +42,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { useNavigate } from "react-router-dom";
-import {
-  deleteNotification,
-  listNotifications,
-  markAllNotificationsSeen,
-  markNotificationSeen,
-  markNotificationUnseen,
-  type NotificationItem,
-} from "../api/client";
+import { deleteNotification, listNotifications, markAllNotificationsSeen, markNotificationSeen, markNotificationUnseen, type NotificationItem } from "../api/notifications";
 import { formatIsoDate, formatIsoMonth, formatTimestamp } from "../utils/datetime";
 import { formatGoalValue } from "../utils/goalValues";
 import { toRelativePath } from "../utils/url";

@@ -2,7 +2,7 @@ import { Fragment } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import { Avatar, Box, Group, Select, Stack, Text, Tooltip } from "@mantine/core";
 import { useTranslation } from "react-i18next";
-import { getUserId } from "../api/client";
+import { getUserId } from "../api/session";
 import { isOneOf, useStoredState } from "../hooks/useStoredState";
 import { mantineColorVar } from "../utils/pulseSurveyForm";
 import { ratingColor, RATING_VALUES, REVIEW_CATEGORIES, type ReviewCategory } from "../utils/reviewRatings";

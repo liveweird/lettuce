@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { ApiError } from "../api/client";
+import { ApiError } from "../api/http";
 import { saveErrorMessage } from "./saveError";
 
 // A `t` stub that makes the chosen key (and any {{status}} interpolation) observable.

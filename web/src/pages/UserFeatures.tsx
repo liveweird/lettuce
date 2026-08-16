@@ -15,14 +15,9 @@ import {
   Title,
 } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ApiError,
-  FEATURES,
-  getUser,
-  isAdmin,
-  updateUserFeatures,
-  type Feature,
-} from "../api/client";
+import { ApiError } from "../api/http";
+import { FEATURES, isAdmin, type Feature } from "../api/session";
+import { getUser, updateUserFeatures } from "../api/users";
 import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
 

@@ -18,7 +18,8 @@ import {
 } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { ApiError, getTemplate } from "../api/client";
+import { ApiError } from "../api/http";
+import { getTemplate } from "../api/templates";
 import MarkdownView from "../components/MarkdownView";
 import ProseBox from "../components/ProseBox";
 

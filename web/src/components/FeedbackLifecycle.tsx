@@ -1,6 +1,6 @@
 import { Stack, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
-import type { FeedbackStatus } from "../api/client";
+import type { FeedbackStatus } from "../api/feedbacks";
 
 // A simplified, end-user-facing diagram of how a feedback moves through its states. Hand-authored
 // inline SVG (no charting dependency); colors use Mantine CSS variables so it follows light/dark

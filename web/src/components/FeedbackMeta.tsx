@@ -1,6 +1,6 @@
 import { Group, Stack, Text, Title } from "@mantine/core";
 import { useTranslation } from "react-i18next";
-import type { FeedbackStatus, FeedbackVisibility } from "../api/client";
+import type { FeedbackStatus, FeedbackVisibility } from "../api/feedbacks";
 import { formatTimestamp } from "../utils/datetime";
 import { StatusBadge, VisibilityBadge } from "./FeedbackBadges";
 import PersonaChip from "./PersonaChip";

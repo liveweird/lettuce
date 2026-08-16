@@ -1,6 +1,6 @@
 import { Badge } from "@mantine/core";
 import { useTranslation } from "react-i18next";
-import type { FeedbackStatus, FeedbackVisibility } from "../api/client";
+import type { FeedbackStatus, FeedbackVisibility } from "../api/feedbacks";
 
 // The single source of truth for feedback status colors — shared by the view/edit header
 // (FeedbackMeta) and the list tables, so the pills stay coherent everywhere.

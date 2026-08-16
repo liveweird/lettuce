@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { getVisibleAlerts } from "../api/client";
+import { getVisibleAlerts } from "../api/alerts";
 
 /** Height of the permanent slim strip the alerts banner adds above the app header. */
 export const ALERTS_BAR_HEIGHT = 30;

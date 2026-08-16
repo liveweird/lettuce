@@ -1,6 +1,6 @@
 import { Badge } from "@mantine/core";
 import { useTranslation } from "react-i18next";
-import type { PulseCycleStatus } from "../api/client";
+import type { PulseCycleStatus } from "../api/pulse";
 
 // OPEN is the semantic-success teal (never stock green — the theme rule); SCHEDULED is the
 // forward-looking blue; the terminal states stay muted/red.

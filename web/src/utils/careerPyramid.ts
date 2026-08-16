@@ -1,5 +1,6 @@
 import type { TFunction } from "i18next";
-import type { CareerPyramidItem, CareerPyramidPosition, DictionaryEntry } from "../api/client";
+import type { CareerPyramidItem, CareerPyramidPosition } from "../api/career";
+import type { DictionaryEntry } from "../api/dictionaries";
 import { pickDictionaryValue } from "./dictionaryForm";
 import { foldDiacritics } from "./text";
 

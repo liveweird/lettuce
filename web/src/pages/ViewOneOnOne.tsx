@@ -21,7 +21,9 @@ import {
 import { IconHistory } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { ApiError, getOneOnOne, getUserId, hasFeature } from "../api/client";
+import { ApiError } from "../api/http";
+import { getUserId, hasFeature } from "../api/session";
+import { getOneOnOne } from "../api/oneonones";
 import ActionItemHistoryModal from "../components/ActionItemHistoryModal";
 import OneOnOneHistory from "../components/OneOnOneHistory";
 import PersonaField from "../components/PersonaField";

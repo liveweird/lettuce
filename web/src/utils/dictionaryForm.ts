@@ -1,5 +1,5 @@
 import type { TFunction } from "i18next";
-import type { DictionaryEntry, DictionaryUpdateBody } from "../api/client";
+import type { DictionaryEntry, DictionaryUpdateBody } from "../api/dictionaries";
 import { saveErrorMessage } from "./saveError";
 
 export const MAX_DICTIONARY_VALUE_LENGTH = 100;

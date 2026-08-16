@@ -21,7 +21,9 @@ import {
 } from "@mantine/core";
 import { matchesField, useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError, changeUserPassword, getUser, getUserId, isAdmin } from "../api/client";
+import { ApiError } from "../api/http";
+import { getUserId, isAdmin } from "../api/session";
+import { changeUserPassword, getUser } from "../api/users";
 import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
 import { MAX_PASSWORD_BYTES, utf8ByteLength } from "../utils/userForm";

@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Select, type SelectProps } from "@mantine/core";
-import type { DictionaryEntry, DictionarySlug } from "../api/client";
+import type { DictionaryEntry, DictionarySlug } from "../api/dictionaries";
 import { useDictionaryOptions } from "../hooks/useDictionaryOptions";
 
 type Props = {

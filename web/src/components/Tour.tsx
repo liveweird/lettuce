@@ -7,7 +7,7 @@ const TourJoyride = lazy(() => import("./TourJoyride"));
 import { Button, Group, Paper, Stack, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { getUserId } from "../api/client";
+import { getUserId } from "../api/session";
 import { useIsManager } from "../hooks/useIsManager";
 // Steps, seen-state, contexts and useTour live in tourSupport.ts so this file only exports
 // components (react-refresh/only-export-components).

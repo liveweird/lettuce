@@ -15,14 +15,7 @@ import EmojiTextarea from "./EmojiTextarea";
 import { IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  createDaysOffCorrection,
-  deleteDaysOffCorrection,
-  listDaysOffCorrections,
-  updateDaysOffCorrection,
-  type DaysOffCorrection,
-  type DaysOffCorrectionOperation,
-} from "../api/client";
+import { createDaysOffCorrection, deleteDaysOffCorrection, listDaysOffCorrections, updateDaysOffCorrection, type DaysOffCorrection, type DaysOffCorrectionOperation } from "../api/daysoff";
 import { formatDate } from "../utils/datetime";
 import { formatDays } from "../utils/daysOffCost";
 import { invalidateDaysOffCorrections } from "../utils/daysOffQueries";

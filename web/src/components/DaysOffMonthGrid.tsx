@@ -1,7 +1,7 @@
 import { Group, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
-import type { DaysOffCalendarEntry, DaysOffCalendarResponse } from "../api/client";
-import { getUserId } from "../api/client";
+import type { DaysOffCalendarEntry, DaysOffCalendarResponse } from "../api/daysoff";
+import { getUserId } from "../api/session";
 import { formatDays } from "../utils/daysOffCost";
 import classes from "./DaysOffMonthGrid.module.css";
 

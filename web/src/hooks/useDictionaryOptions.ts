@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { getDictionary, type DictionaryEntry, type DictionarySlug } from "../api/client";
+import { getDictionary, type DictionaryEntry, type DictionarySlug } from "../api/dictionaries";
 import { pickDictionaryValue } from "../utils/dictionaryForm";
 
 // One cached query per dictionary (the ["dictionary", slug] key is shared with

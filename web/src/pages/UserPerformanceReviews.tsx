@@ -2,7 +2,7 @@ import { Link as RouterLink, Navigate } from "react-router-dom";
 import { Anchor, Button, Group, Stack, Text, Title } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
-import { hasFeature } from "../api/client";
+import { hasFeature } from "../api/session";
 import { useDashboardDrillDown, type DashboardOriginKey } from "../hooks/useDashboardDrillDown";
 import { reviewCreateLink } from "../utils/performanceReviewLinks";
 import PerformanceReviewTable from "./PerformanceReviewTable";

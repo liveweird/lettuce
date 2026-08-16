@@ -2,7 +2,7 @@ import { Anchor, Button, Group, Stack, Tabs, Text, Title } from "@mantine/core";
 import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { IconMessagePlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
-import { canAudit, hasFeature } from "../api/client";
+import { canAudit, hasFeature } from "../api/session";
 import FeedbackTable from "./FeedbackTable";
 import { feedbackProvideLink, userFeedbacksLink } from "../utils/feedbackLinks";
 import { userDetailsLink } from "../utils/userLinks";

@@ -15,16 +15,9 @@ import PersonaChip from "../components/PersonaChip";
 import SortHeader from "../components/SortHeader";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isNumberOrNull, isOneOf, isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
-import {
-  FEATURES,
-  getUserId,
-  isAdmin,
-  listAllTeams,
-  listUsers,
-  updateUserFeatures,
-  type Feature,
-  type UserPage,
-} from "../api/client";
+import { FEATURES, getUserId, isAdmin, type Feature } from "../api/session";
+import { listUsers, updateUserFeatures, type UserPage } from "../api/users";
+import { listAllTeams } from "../api/teams";
 import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
 import { teamDetailsLink } from "../utils/teamLinks";

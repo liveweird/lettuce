@@ -1,7 +1,7 @@
 import { Alert, Badge, Button, Center, Group, Loader, Paper, Stack, Text, Timeline } from "@mantine/core";
 import { IconPencil, IconTrash } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
-import type { CareerPosition } from "../api/client";
+import type { CareerPosition } from "../api/career";
 import { formatIsoDate } from "../utils/datetime";
 import { pickDictionaryValue } from "../utils/dictionaryForm";
 

@@ -2,7 +2,7 @@ import { Loader, Text, Timeline } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { listPerformanceReviewEvents, type PerformanceReviewEvent } from "../api/client";
+import { listPerformanceReviewEvents, type PerformanceReviewEvent } from "../api/reviews";
 import { formatTimestamp } from "../utils/datetime";
 
 // Renders one structured event in the viewer's language. The server stores no strings — just

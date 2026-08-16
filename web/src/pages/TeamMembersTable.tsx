@@ -11,7 +11,7 @@ import {
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconArrowDown, IconArrowUp, IconUsersGroup } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { listAllTeams, listTeamMembers, type TeamMemberListView } from "../api/client";
+import { listAllTeams, listTeamMembers, type TeamMemberListView } from "../api/teams";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
 import PersonCard from "../components/PersonCard";

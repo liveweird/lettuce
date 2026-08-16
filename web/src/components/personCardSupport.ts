@@ -2,7 +2,7 @@
 // only component exports and stays compatible with React Fast Refresh
 // (react-refresh/only-export-components) — the tourSupport.ts idiom.
 
-import { hasFeature, type Feature } from "../api/client";
+import { hasFeature, type Feature } from "../api/session";
 
 export type ButtonKey =
   | "career"

@@ -17,15 +17,9 @@ import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  activateTeamKpi,
-  ApiError,
-  deleteTeamKpi,
-  getTeamKpi,
-  getUserId,
-  hasFeature,
-  updateTeamKpiDefinition,
-} from "../api/client";
+import { ApiError } from "../api/http";
+import { getUserId, hasFeature } from "../api/session";
+import { activateTeamKpi, deleteTeamKpi, getTeamKpi, updateTeamKpiDefinition } from "../api/teamkpis";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import ReadOnlyField from "../components/ReadOnlyField";
 import TeamKpiDefinitionFields from "../components/TeamKpiDefinitionFields";

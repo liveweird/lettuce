@@ -4,18 +4,9 @@ import { useDebouncedValue } from "@mantine/hooks";
 import { IconBeach, IconCheck, IconX } from "@tabler/icons-react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  acceptDaysOff,
-  ApiError,
-  cancelDaysOff,
-  getUserId,
-  listDaysOff,
-  rejectDaysOff,
-  type DaysOffListItem,
-  type DaysOffListView,
-  type DaysOffStatus,
-  type DaysOffType,
-} from "../api/client";
+import { ApiError } from "../api/http";
+import { getUserId } from "../api/session";
+import { acceptDaysOff, cancelDaysOff, listDaysOff, rejectDaysOff, type DaysOffListItem, type DaysOffListView, type DaysOffStatus, type DaysOffType } from "../api/daysoff";
 import ClearableTextInput from "../components/ClearableTextInput";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import DaysOffStatusBadge from "../components/DaysOffStatusBadge";

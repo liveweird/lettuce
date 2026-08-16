@@ -18,20 +18,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate } from "react-router-dom";
-import {
-  cancelPulseCycle,
-  closePulseCycle,
-  createPulseCycle,
-  getPulseSettings,
-  hasFeature,
-  isAdmin,
-  listPulseCycles,
-  openPulseCycle,
-  updatePulseCycleDates,
-  updatePulseSettings,
-  type PulseCycle,
-  type PulseSettings,
-} from "../api/client";
+import { hasFeature, isAdmin } from "../api/session";
+import { cancelPulseCycle, closePulseCycle, createPulseCycle, getPulseSettings, listPulseCycles, openPulseCycle, updatePulseCycleDates, updatePulseSettings, type PulseCycle, type PulseSettings } from "../api/pulse";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import EmptyState from "../components/EmptyState";
 import PulseCycleStatusBadge from "../components/PulseCycleStatusBadge";

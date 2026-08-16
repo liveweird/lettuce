@@ -1,7 +1,7 @@
 import { ColorSwatch, Group, Radio, Stack } from "@mantine/core";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import type { PulseScaleAnswer } from "../api/client";
+import type { PulseScaleAnswer } from "../api/pulse";
 import { PULSE_SCALE_VALUES, mantineColorVar, pulseScaleColor } from "../utils/pulseSurveyForm";
 
 /**

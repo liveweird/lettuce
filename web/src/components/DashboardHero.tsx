@@ -11,7 +11,8 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { Link as RouterLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { getDashboardSummary, hasFeature } from "../api/client";
+import { hasFeature } from "../api/session";
+import { getDashboardSummary } from "../api/dashboard";
 import { formatIsoDate } from "../utils/datetime";
 import classes from "./DashboardHero.module.css";
 

@@ -17,17 +17,9 @@ import {
 import { IconPencil } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  activateGoal,
-  ApiError,
-  archiveGoal,
-  deactivateGoal,
-  getGoal,
-  getUserId,
-  hasFeature,
-  reopenGoal,
-  type GoalStatus,
-} from "../api/client";
+import { ApiError } from "../api/http";
+import { getUserId, hasFeature } from "../api/session";
+import { activateGoal, archiveGoal, deactivateGoal, getGoal, reopenGoal, type GoalStatus } from "../api/goals";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import GoalCloseModal from "../components/GoalCloseModal";
 import GoalHistory from "../components/GoalHistory";

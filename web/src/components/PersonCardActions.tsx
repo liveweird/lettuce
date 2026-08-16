@@ -26,7 +26,7 @@ import { userDaysOffLink } from "../utils/daysOffLinks";
 import { userGoalsLink } from "../utils/goalLinks";
 import { oneOnOneCreateLink, userOneOnOnesLink } from "../utils/oneOnOneLinks";
 import { userPerformanceReviewsLink } from "../utils/performanceReviewLinks";
-import { hasFeature } from "../api/client";
+import { hasFeature } from "../api/session";
 import {
   ACTION_GROUPS,
   FEATURE_OF,

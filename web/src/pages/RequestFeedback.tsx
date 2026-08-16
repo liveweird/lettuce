@@ -20,14 +20,9 @@ import { useDisclosure } from "@mantine/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconPlus, IconTrash, IconUserPlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
-import {
-  checkFeedbackDuplicate,
-  createFeedback,
-  getUserId,
-  hasFeature,
-  listAllUsers,
-  type FeedbackVisibility,
-} from "../api/client";
+import { getUserId, hasFeature } from "../api/session";
+import { listAllUsers } from "../api/users";
+import { checkFeedbackDuplicate, createFeedback, type FeedbackVisibility } from "../api/feedbacks";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import EmptyState from "../components/EmptyState";
 import PersonaChip from "../components/PersonaChip";

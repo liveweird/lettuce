@@ -1,4 +1,4 @@
-import type { TeamKpiValue } from "../api/client";
+import type { TeamKpiValue } from "../api/teamkpis";
 
 // One point of the KPI value-over-time series (epoch millis + the value recorded then).
 export interface TeamKpiSeriesPoint {

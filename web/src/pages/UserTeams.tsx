@@ -16,15 +16,10 @@ import {
 } from "@mantine/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconPlus, IconTrash, IconUsersGroup } from "@tabler/icons-react";
-import {
-  addTeamMember,
-  ApiError,
-  getUser,
-  getUserId,
-  isAdmin,
-  listAllTeams,
-  removeTeamMember,
-} from "../api/client";
+import { ApiError } from "../api/http";
+import { getUserId, isAdmin } from "../api/session";
+import { getUser } from "../api/users";
+import { addTeamMember, listAllTeams, removeTeamMember } from "../api/teams";
 import { userDetailsLink } from "../utils/userLinks";
 import { teamDetailsLink } from "../utils/teamLinks";
 import { showSuccessToast } from "../utils/toast";

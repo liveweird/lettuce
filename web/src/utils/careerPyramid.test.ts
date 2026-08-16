@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import type { CareerPyramidItem } from "../api/client";
+import type { CareerPyramidItem } from "../api/career";
 import {
   CAREER_PYRAMID_SORT_FIELDS,
   EMPTY_CAREER_PYRAMID_FILTERS,

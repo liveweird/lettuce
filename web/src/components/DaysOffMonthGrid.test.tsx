@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { screen } from "@testing-library/react";
 import { renderWithProviders } from "../test/render";
 import DaysOffMonthGrid from "./DaysOffMonthGrid";
-import type { DaysOffCalendarResponse } from "../api/client";
+import type { DaysOffCalendarResponse } from "../api/daysoff";
 
 const DATA: DaysOffCalendarResponse = {
   month: "2026-01",

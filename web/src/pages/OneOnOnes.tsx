@@ -2,7 +2,7 @@ import { Button, Group, Stack, Tabs, Title } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { Link as RouterLink, Navigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { hasFeature } from "../api/client";
+import { hasFeature } from "../api/session";
 import { useIsManager } from "../hooks/useIsManager";
 import OneOnOneTable from "./OneOnOneTable";
 

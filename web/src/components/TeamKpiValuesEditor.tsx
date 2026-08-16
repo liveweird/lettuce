@@ -13,15 +13,8 @@ import {
 import { IconCheck, IconPencil, IconTrash, IconX } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  addTeamKpiValue,
-  deleteTeamKpiValue,
-  getUserId,
-  listTeamKpiValues,
-  updateTeamKpiValue,
-  type TeamKpiResponse,
-  type TeamKpiValue,
-} from "../api/client";
+import { getUserId } from "../api/session";
+import { addTeamKpiValue, deleteTeamKpiValue, listTeamKpiValues, updateTeamKpiValue, type TeamKpiResponse, type TeamKpiValue } from "../api/teamkpis";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import ConfirmDeleteModal from "./ConfirmDeleteModal";
 import { formatIsoDate, todayIsoDate } from "../utils/datetime";

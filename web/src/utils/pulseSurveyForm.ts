@@ -1,4 +1,4 @@
-import type { PulseMyResponse, PulseScaleAnswer, PulseSubmitBody } from "../api/client";
+import type { PulseMyResponse, PulseScaleAnswer, PulseSubmitBody } from "../api/pulse";
 import { saveErrorMessage } from "./saveError";
 
 export const PULSE_MAX_COMMENT = 1000;

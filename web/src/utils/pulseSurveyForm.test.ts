@@ -11,7 +11,7 @@ import {
   toPulseSubmitBody,
   PULSE_MAX_COMMENT,
 } from "./pulseSurveyForm";
-import type { PulseMyResponse } from "../api/client";
+import type { PulseMyResponse } from "../api/pulse";
 
 const t = (key: string) => key;
 

@@ -3,13 +3,8 @@ import { Alert, Chip, Group, Paper, SegmentedControl, Skeleton, Stack, Text } fr
 import { IconChartLine } from "@tabler/icons-react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  getPulseTrend,
-  getPulseVisibleTeams,
-  type PulseAggregationMode,
-  type PulseTrendResponse,
-  type TeamRef,
-} from "../api/client";
+import { type TeamRef } from "../api/teams";
+import { getPulseTrend, getPulseVisibleTeams, type PulseAggregationMode, type PulseTrendResponse } from "../api/pulse";
 import EmptyState from "../components/EmptyState";
 import { HintIcon } from "../components/PulseTeamResultCard";
 import { useStoredState, isOneOf } from "../hooks/useStoredState";

@@ -4,7 +4,7 @@ import { fireEvent, renderWithProviders, screen, waitFor, within } from "../test
 import TeamKpiValuesEditor from "./TeamKpiValuesEditor";
 import { jsonResponse } from "../test/http";
 import { todayIsoDate } from "../utils/datetime";
-import type { TeamKpiResponse } from "../api/client";
+import type { TeamKpiResponse } from "../api/teamkpis";
 
 const TOKEN_KEY = "lettuce.auth.token";
 const USER_ID_KEY = "lettuce.auth.userId";

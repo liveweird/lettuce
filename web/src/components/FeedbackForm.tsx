@@ -15,12 +15,8 @@ import { useForm } from "@mantine/form";
 import { useQuery } from "@tanstack/react-query";
 import { lazy, Suspense, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  getTemplate,
-  listTemplates,
-  type FeedbackStatus,
-  type FeedbackVisibility,
-} from "../api/client";
+import { type FeedbackStatus, type FeedbackVisibility } from "../api/feedbacks";
+import { getTemplate, listTemplates } from "../api/templates";
 import ConfirmActionModal from "./ConfirmActionModal";
 import FeedbackHistory from "./FeedbackHistory";
 import { MAX_FEEDBACK_CONTENT_LENGTH } from "../utils/feedbackForm";

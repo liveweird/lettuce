@@ -1,5 +1,5 @@
 import type { TFunction } from "i18next";
-import type { PulseCycle, PulseTrendPoint, PulseTrendResponse } from "../api/client";
+import type { PulseCycle, PulseTrendPoint, PulseTrendResponse } from "../api/pulse";
 import { formatIsoDate } from "./datetime";
 
 /** Delta presentation: improvements teal, declines red, flat/absent dimmed (never "significant"). */

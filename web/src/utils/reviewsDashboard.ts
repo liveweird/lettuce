@@ -2,7 +2,7 @@
 // the picked period (client-side — the org-bounded card-grid precedent). Pure, so the merge
 // and the filter predicates are unit-testable without rendering.
 
-import type { PerformanceReviewListItem } from "../api/client";
+import type { PerformanceReviewListItem } from "../api/reviews";
 import { pickDictionaryValue } from "./dictionaryForm";
 import { RATING_VALUES, type ReviewCategory } from "./reviewRatings";
 import type { PersonCard, TeamRow } from "./teamRows";

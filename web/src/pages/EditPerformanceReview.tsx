@@ -21,14 +21,8 @@ import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  deletePerformanceReview,
-  getPerformanceReview,
-  getUserId,
-  hasFeature,
-  submitPerformanceReview,
-  updatePerformanceReview,
-} from "../api/client";
+import { getUserId, hasFeature } from "../api/session";
+import { deletePerformanceReview, getPerformanceReview, submitPerformanceReview, updatePerformanceReview } from "../api/reviews";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import PerformanceReviewHistory from "../components/PerformanceReviewHistory";
 import PerformanceReviewStatusBadge from "../components/PerformanceReviewStatusBadge";

@@ -25,7 +25,9 @@ import {
 } from "@mantine/core";
 import { hasLength, useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError, getTeam, isAdmin, updateTeam } from "../api/client";
+import { ApiError } from "../api/http";
+import { isAdmin } from "../api/session";
+import { getTeam, updateTeam } from "../api/teams";
 import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
 

@@ -1,5 +1,5 @@
 import { hasLength } from "@mantine/form";
-import { type CreateAlertBody } from "../api/client";
+import { type CreateAlertBody } from "../api/alerts";
 import { datetimeLocalToEpoch } from "./datetime";
 
 // Server limits (server alerts/Alert.kt) mirrored client-side.

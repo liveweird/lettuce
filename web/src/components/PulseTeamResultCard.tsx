@@ -17,13 +17,7 @@ import { IconInfoCircle } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { Suspense, lazy } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  getPulseComments,
-  getPulseResults,
-  getPulseTrend,
-  type PulseAggregationMode,
-  type PulseDriverResult,
-} from "../api/client";
+import { getPulseComments, getPulseResults, getPulseTrend, type PulseAggregationMode, type PulseDriverResult } from "../api/pulse";
 import {
   PULSE_SMALL_SAMPLE,
   buildTrendSeries,

@@ -3,7 +3,8 @@ import { Alert, Button, Group, Modal, Paper, Skeleton, Stack, Text } from "@mant
 import { IconAdjustments } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { getUserId, listDaysOffBudgets } from "../api/client";
+import { getUserId } from "../api/session";
+import { listDaysOffBudgets } from "../api/daysoff";
 import { formatDays } from "../utils/daysOffCost";
 import DaysOffCorrections from "./DaysOffCorrections";
 

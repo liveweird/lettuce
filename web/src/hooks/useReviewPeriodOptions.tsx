@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { Badge, Group } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { listReviewPeriods, type ReviewPeriod } from "../api/client";
+import { listReviewPeriods, type ReviewPeriod } from "../api/reviews";
 import { currentIsoMonth, formatMonthRange, isCurrentPeriod } from "../utils/datetime";
 
 export type ReviewPeriodOption = {

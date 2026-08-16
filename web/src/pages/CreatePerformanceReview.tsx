@@ -14,7 +14,10 @@ import {
 } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { ApiError, createPerformanceReview, hasFeature, listAllTeamMembers } from "../api/client";
+import { ApiError } from "../api/http";
+import { hasFeature } from "../api/session";
+import { listAllTeamMembers } from "../api/teams";
+import { createPerformanceReview } from "../api/reviews";
 import PersonaField from "../components/PersonaField";
 import { renderPeriodOption, useReviewPeriodOptions } from "../hooks/useReviewPeriodOptions";
 import { reviewEditLink, reviewViewLink } from "../utils/performanceReviewLinks";

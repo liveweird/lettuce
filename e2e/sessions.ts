@@ -9,7 +9,7 @@ export interface LoginBody {
 
 /**
  * The localStorage a signed-in SPA holds: exactly the five keys `persistSession` writes in
- * web/src/api/client.ts. Writing them is equivalent to having driven the login form, which lets
+ * web/src/api/session.ts. Writing them is equivalent to having driven the login form, which lets
  * helpers.login() skip it — see "Logging in" in e2e/README.md. If that key set ever changes, the
  * injected session simply fails to authenticate and the helper falls back to the real form.
  */

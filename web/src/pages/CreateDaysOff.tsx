@@ -15,14 +15,9 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link as RouterLink, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import {
-  ApiError,
-  createDaysOff,
-  hasFeature,
-  listDaysOffBudgets,
-  listPublicHolidays,
-  type DaysOffType,
-} from "../api/client";
+import { ApiError } from "../api/http";
+import { hasFeature } from "../api/session";
+import { createDaysOff, listDaysOffBudgets, listPublicHolidays, type DaysOffType } from "../api/daysoff";
 import { todayIsoDate } from "../utils/datetime";
 import { costHalfDays, formatDays } from "../utils/daysOffCost";
 import { daysOffListLink } from "../utils/daysOffLinks";
