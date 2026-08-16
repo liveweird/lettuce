@@ -51,12 +51,15 @@ import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
 
-const SORT_FIELDS = ["name", "email"] as const;
+const SORT_FIELDS = ["name", "email", "uniqueId"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
 
 const SETTINGS_KEY = "users";
 
 type UserRow = { id: number; name: string; email: string };
+
+// Stored tri-state filter value: "true"/"false" select a boolean query param, null = any.
+type BooleanFilter = "true" | "false" | null;
 
 export default function Users() {
   const { t } = useTranslation();
@@ -72,8 +75,20 @@ export default function Users() {
     isOneOfOrNull([...USER_ROLES]),
   );
   // "true" = inactive only, "false" = active only, null = any (the Alerts isActive idiom).
-  const [statusFilter, setStatusFilter] = useStoredState<"true" | "false" | null>(
+  const [statusFilter, setStatusFilter] = useStoredState<BooleanFilter>(
     `${SETTINGS_KEY}.filter.deactivated`,
+    null,
+    isOneOfOrNull(["true", "false"]),
+  );
+  const [uniqueIdFilter, setUniqueIdFilter] = useStoredState(
+    `${SETTINGS_KEY}.filter.uniqueId`,
+    "",
+    isString,
+  );
+  // "true" = missing only, "false" = set only, null = any (the status-filter idiom) — the
+  // missing view is how admins work down the fill-ASAP backlog.
+  const [uniqueIdMissingFilter, setUniqueIdMissingFilter] = useStoredState<BooleanFilter>(
+    `${SETTINGS_KEY}.filter.uniqueIdMissing`,
     null,
     isOneOfOrNull(["true", "false"]),
   );
@@ -81,7 +96,9 @@ export default function Users() {
     (nameFilter.trim() ? 1 : 0) +
     (emailFilter.trim() ? 1 : 0) +
     (roleFilter ? 1 : 0) +
-    (statusFilter ? 1 : 0);
+    (statusFilter ? 1 : 0) +
+    (uniqueIdFilter.trim() ? 1 : 0) +
+    (uniqueIdMissingFilter ? 1 : 0);
 
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -90,15 +107,31 @@ export default function Users() {
 
   const [debouncedName] = useDebouncedValue(nameFilter, 300);
   const [debouncedEmail] = useDebouncedValue(emailFilter, 300);
+  const [debouncedUniqueId] = useDebouncedValue(uniqueIdFilter, 300);
 
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
-    usePagedSort<SortField>("name", [debouncedName, debouncedEmail, roleFilter, statusFilter], {
-      key: SETTINGS_KEY,
-      sortFields: SORT_FIELDS,
-    });
+    usePagedSort<SortField>(
+      "name",
+      [debouncedName, debouncedEmail, roleFilter, statusFilter, debouncedUniqueId, uniqueIdMissingFilter],
+      {
+        key: SETTINGS_KEY,
+        sortFields: SORT_FIELDS,
+      },
+    );
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["users", page, pageSize, sortParam, debouncedName, debouncedEmail, roleFilter, statusFilter],
+    queryKey: [
+      "users",
+      page,
+      pageSize,
+      sortParam,
+      debouncedName,
+      debouncedEmail,
+      roleFilter,
+      statusFilter,
+      debouncedUniqueId,
+      uniqueIdMissingFilter,
+    ],
     queryFn: () =>
       listUsers({
         page,
@@ -108,6 +141,8 @@ export default function Users() {
         email: debouncedEmail || undefined,
         role: roleFilter ?? undefined,
         deactivated: statusFilter == null ? undefined : statusFilter === "true",
+        uniqueId: debouncedUniqueId || undefined,
+        uniqueIdMissing: uniqueIdMissingFilter == null ? undefined : uniqueIdMissingFilter === "true",
       }),
     placeholderData: keepPreviousData,
   });
@@ -159,7 +194,7 @@ export default function Users() {
   }
 
   const total = data?.total ?? 0;
-  const columnCount = 6;
+  const columnCount = 7;
 
   return (
     <Stack gap="md">
@@ -194,7 +229,24 @@ export default function Users() {
             { value: "true", label: t("users.statusInactive") },
           ]}
           value={statusFilter}
-          onChange={(v) => setStatusFilter((v as "true" | "false" | null) ?? null)}
+          onChange={(v) => setStatusFilter((v as BooleanFilter) ?? null)}
+          clearable
+        />
+        <ClearableTextInput
+          label={t("users.uniqueId")}
+          value={uniqueIdFilter}
+          onChange={setUniqueIdFilter}
+          clearLabel={t("users.clearUniqueIdFilter")}
+        />
+        <Select
+          label={t("users.uniqueIdFilterLabel")}
+          placeholder={t("common.state.any")}
+          data={[
+            { value: "false", label: t("users.uniqueIdSet") },
+            { value: "true", label: t("users.uniqueIdMissing") },
+          ]}
+          value={uniqueIdMissingFilter}
+          onChange={(v) => setUniqueIdMissingFilter((v as BooleanFilter) ?? null)}
           clearable
         />
       </FilterPanel>
@@ -227,6 +279,15 @@ export default function Users() {
               <SortHeader
                 field="email"
                 label={t("common.field.email")}
+                activeField={sortField}
+                activeDir={sortDir}
+                onToggle={toggleSort}
+              />
+            </Table.Th>
+            <Table.Th>
+              <SortHeader
+                field="uniqueId"
+                label={t("users.uniqueId")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
@@ -269,6 +330,25 @@ export default function Users() {
                   <Text size="sm" truncate>
                     {u.email}
                   </Text>
+                </Table.Td>
+                <Table.Td style={{ maxWidth: 160 }}>
+                  {u.uniqueId != null ? (
+                    <Text size="sm" truncate aria-label={t("users.uniqueId")}>
+                      {u.uniqueId}
+                    </Text>
+                  ) : (
+                    /* Orange = warning, actionable-missing (the career "Not set" idiom):
+                       the id is optional but should be filled ASAP. */
+                    <Badge
+                      size="sm"
+                      variant="light"
+                      color="orange"
+                      style={{ minWidth: "max-content" }}
+                      aria-label={t("users.uniqueId")}
+                    >
+                      {t("users.uniqueIdMissingBadge")}
+                    </Badge>
+                  )}
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                   {u.roles.length > 0 ? (

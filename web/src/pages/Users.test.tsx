@@ -625,4 +625,45 @@ describe("Users page", () => {
     expect(screen.queryByRole("button", { name: /modify actions for /i })).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: /^deactivate /i })).not.toBeInTheDocument();
   });
+
+  test("shows the unique id value, and the orange Not set badge on rows without one", async () => {
+    const items = [
+      { id: 1, name: "Alice", email: "alice@example.com", roles: [] as Array<"ADMIN">, uniqueId: "EMP-42" },
+      SEED_USERS[1],
+    ];
+    mockUsers(mockFetch, items);
+    renderUsers();
+
+    await screen.findByText("EMP-42");
+    // Bob has no unique id → the actionable-missing cue (one badge, Alice has none).
+    expect(screen.getAllByText("Not set")).toHaveLength(1);
+  });
+
+  test("typing the Unique ID filter refetches with uniqueId= (debounced)", async () => {
+    mockUsers(mockFetch);
+    const user = userEvent.setup();
+    renderUsers();
+
+    await screen.findByText("Alice");
+    await user.click(screen.getByRole("button", { name: /filters/i }));
+    // selector-scoped: the rows' aria-labelled Unique ID cells share the accessible name.
+    await user.type(screen.getByLabelText("Unique ID", { selector: "input" }), "EMP");
+    await waitFor(
+      () => expect(userUrls(mockFetch).some((u) => u.includes("uniqueId=EMP"))).toBe(true),
+      { timeout: 1500 },
+    );
+  });
+
+  test("selecting the Unique ID status filter refetches with uniqueIdMissing=", async () => {
+    mockUsers(mockFetch);
+    renderUsers();
+
+    await screen.findByText("Alice");
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+    fireEvent.click(screen.getByLabelText("Unique ID status", { selector: "input" }));
+    fireEvent.click(await screen.findByRole("option", { name: /^missing$/i }));
+    await waitFor(() =>
+      expect(userUrls(mockFetch).some((u) => u.includes("uniqueIdMissing=true"))).toBe(true),
+    );
+  });
 });

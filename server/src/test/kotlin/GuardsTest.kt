@@ -10,6 +10,7 @@ import ch.nokillswit.authz.isAdmin
 import ch.nokillswit.authz.isHr
 import ch.nokillswit.authz.requireAuditListAccess
 import ch.nokillswit.authz.requireCanAssignRoles
+import ch.nokillswit.authz.requireCanAssignUniqueId
 import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.authz.requireFeedbackReadAllowingManager
 import ch.nokillswit.authz.requireGoalReadAllowingManager
@@ -177,6 +178,24 @@ class GuardsTest {
             requireCanAssignRoles(subject, current = setOf(UserRole.ADMIN), requested = emptySet())
         }
         requireCanAssignRoles(admin, current = emptySet(), requested = setOf(UserRole.ADMIN))
+    }
+
+    // ── requireCanAssignUniqueId (V59) ─────────────────────────────────────────
+
+    @Test
+    fun `unique id changes are admin-only - null or the current value is not a change`() {
+        // A non-admin omitting the field or resubmitting the current value must pass.
+        requireCanAssignUniqueId(subject, requested = null, current = null)
+        requireCanAssignUniqueId(subject, requested = null, current = "EMP-1")
+        requireCanAssignUniqueId(subject, requested = "EMP-1", current = "EMP-1")
+        // Assigning or changing is admin-only.
+        assertFailsWith<ForbiddenException> {
+            requireCanAssignUniqueId(subject, requested = "EMP-1", current = null)
+        }
+        assertFailsWith<ForbiddenException> {
+            requireCanAssignUniqueId(subject, requested = "EMP-2", current = "EMP-1")
+        }
+        requireCanAssignUniqueId(admin, requested = "EMP-2", current = "EMP-1")
     }
 
     // ── requireFeatureEnabled (per-user feature flags, V46) ────────────────────

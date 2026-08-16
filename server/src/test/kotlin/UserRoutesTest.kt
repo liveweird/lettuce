@@ -877,4 +877,141 @@ class UserRoutesTest {
         assertEquals(HttpStatusCode.Forbidden, putAllowance(self, 31).status)
         assertEquals(30, admin.get("/api/v1/users/${created.id}").body<UserResponse>().paidDaysOffAllowance)
     }
+
+    // --- Unique id (v2.19.0, V59) ---
+
+    @Test
+    fun `the unique id is ADMIN-assignable, validated, and null means leave unchanged`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("uid-admin")
+        TestUsers.seed(email = adminEmail, password = "pw-123456789")
+        val admin = authedClient(adminEmail, "pw-123456789")
+        val tag = UUID.randomUUID().toString().take(8)
+
+        // Create with a unique id (admin-only POST) round-trips it; without one it is null.
+        val created = admin.post("/api/v1/users") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                UserRequest(
+                    name = "Uid Target", email = uniqueEmail("uid-target"),
+                    password = "pw-123456789", uniqueId = "EMP-$tag",
+                ),
+            )
+        }.body<UserResponse>()
+        assertEquals("EMP-$tag", created.uniqueId)
+
+        suspend fun putUniqueId(client: io.ktor.client.HttpClient, value: String?) =
+            client.put("/api/v1/users/${created.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    UserUpdateRequest(
+                        name = created.name, email = created.email, roles = emptyList(),
+                        uniqueId = value,
+                    ),
+                )
+            }
+
+        // Field rules: blank and oversized are 400.
+        assertEquals(HttpStatusCode.BadRequest, putUniqueId(admin, "   ").status)
+        assertEquals(HttpStatusCode.BadRequest, putUniqueId(admin, "x".repeat(51)).status)
+        // Admin changes it; null/omitted leaves it unchanged.
+        assertEquals(HttpStatusCode.NoContent, putUniqueId(admin, "EMP-$tag-2").status)
+        assertEquals(HttpStatusCode.NoContent, putUniqueId(admin, null).status)
+        assertEquals("EMP-$tag-2", admin.get("/api/v1/users/${created.id}").body<UserResponse>().uniqueId)
+
+        // The target themselves may resubmit the current value but never change it.
+        val self = authedClient(created.email, "pw-123456789")
+        assertEquals(HttpStatusCode.NoContent, putUniqueId(self, "EMP-$tag-2").status)
+        assertEquals(HttpStatusCode.Forbidden, putUniqueId(self, "EMP-$tag-3").status)
+        assertEquals("EMP-$tag-2", admin.get("/api/v1/users/${created.id}").body<UserResponse>().uniqueId)
+    }
+
+    @Test
+    fun `a unique id clash with an active user is 409 and a soft-deleted user frees theirs`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("uid-clash-admin")
+        TestUsers.seed(email = adminEmail, password = "pw-123456789")
+        val admin = authedClient(adminEmail, "pw-123456789")
+        val tag = UUID.randomUUID().toString().take(8)
+
+        suspend fun createWithUid(uid: String?) = admin.post("/api/v1/users") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                UserRequest(
+                    name = "Uid Holder", email = uniqueEmail("uid-holder"),
+                    password = "pw-123456789", uniqueId = uid,
+                ),
+            )
+        }
+
+        val holder = createWithUid("CLASH-$tag").body<UserResponse>()
+
+        // Create clash → the specific 409 detail (the SPA attributes it to the right field).
+        val clash = createWithUid("CLASH-$tag")
+        assertEquals(HttpStatusCode.Conflict, clash.status)
+        assertEquals("Unique id already in use", clash.body<ProblemDetail>().detail)
+
+        // Update clash → the same 409; missing ids never clash (two id-less creates are fine).
+        val other = createWithUid(null).body<UserResponse>()
+        assertEquals(null, other.uniqueId)
+        assertEquals(HttpStatusCode.Created, createWithUid(null).status)
+        val updateClash = admin.put("/api/v1/users/${other.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                UserUpdateRequest(
+                    name = other.name, email = other.email, roles = emptyList(),
+                    uniqueId = "CLASH-$tag",
+                ),
+            )
+        }
+        assertEquals(HttpStatusCode.Conflict, updateClash.status)
+        assertEquals("Unique id already in use", updateClash.body<ProblemDetail>().detail)
+
+        // Soft-deleting the holder frees the id (the partial-index convention).
+        assertEquals(HttpStatusCode.NoContent, admin.delete("/api/v1/users/${holder.id}").status)
+        assertEquals(HttpStatusCode.Created, createWithUid("CLASH-$tag").status)
+    }
+
+    @Test
+    fun `the users list filters and sorts by unique id`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("uid-list-admin")
+        TestUsers.seed(email = adminEmail, password = "pw-123456789")
+        val admin = authedClient(adminEmail, "pw-123456789")
+        val tag = UUID.randomUUID().toString().take(8)
+
+        suspend fun create(name: String, uid: String?) = admin.post("/api/v1/users") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                UserRequest(
+                    name = name, email = uniqueEmail("uid-list"),
+                    password = "pw-123456789", uniqueId = uid,
+                ),
+            )
+        }.body<UserResponse>()
+
+        create("List-$tag B", "ZZ-$tag-b")
+        create("List-$tag A", "ZZ-$tag-a")
+        val missing = create("List-$tag M", null)
+
+        // Substring filter is case-insensitive and never matches null ids.
+        val filtered = admin.get("/api/v1/users?uniqueId=zz-$tag").body<UserPageResponse>()
+        assertEquals(2, filtered.total)
+        // Sortable: uniqueId ascending.
+        assertEquals(
+            listOf("ZZ-$tag-a", "ZZ-$tag-b"),
+            admin.get("/api/v1/users?uniqueId=zz-$tag&sort=uniqueId").body<UserPageResponse>()
+                .items.map { it.uniqueId },
+        )
+        // Presence filter, scoped by the name tag so seed users stay out of the assertion.
+        val missingOnly = admin.get("/api/v1/users?name=List-$tag&uniqueIdMissing=true").body<UserPageResponse>()
+        assertEquals(listOf(missing.id), missingOnly.items.map { it.id })
+        val havingOnly = admin.get("/api/v1/users?name=List-$tag&uniqueIdMissing=false").body<UserPageResponse>()
+        assertEquals(2, havingOnly.total)
+        // Strict boolean: junk is 400.
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            admin.get("/api/v1/users?uniqueIdMissing=maybe").status,
+        )
+    }
 }

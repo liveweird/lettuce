@@ -248,6 +248,37 @@ describe("CreateUser page", () => {
     expect(screen.queryByText("User created")).not.toBeInTheDocument();
   });
 
+  test("a filled unique id is POSTed trimmed; empty is omitted", async () => {
+    const mockFetch = mockApi(201, CREATED_USER);
+
+    const user = userEvent.setup();
+    renderCreateUser();
+
+    await fillValidForm(user);
+    await user.type(screen.getByLabelText("Unique ID"), " EMP-42 ");
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+
+    expect(await screen.findByText("User created")).toBeInTheDocument();
+    expect(postBodyOf(mockFetch).uniqueId).toBe("EMP-42");
+    // The default (untouched) field never puts the key on the wire — the "posts a
+    // generated password" test's exact-body assertion pins the omitted case.
+  });
+
+  test("a 409 naming the unique id attributes the error to the Unique ID field", async () => {
+    mockApi(409, { detail: "Unique id already in use" });
+
+    const user = userEvent.setup();
+    renderCreateUser();
+
+    await fillValidForm(user);
+    await user.type(screen.getByLabelText("Unique ID"), "EMP-taken");
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+
+    expect(await screen.findByText(/unique id already in use/i)).toBeInTheDocument();
+    expect(screen.queryByText(/email already in use/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("User created")).not.toBeInTheDocument();
+  });
+
   test("other API errors surface a banner", async () => {
     mockApi(500);
 

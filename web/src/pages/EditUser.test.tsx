@@ -66,11 +66,13 @@ describe("EditUser page", () => {
     user = EXISTING_USER,
     userStatus = 200,
     putStatus = 204,
+    putProblem,
     dictionaries = {},
   }: {
     user?: typeof EXISTING_USER;
     userStatus?: number;
     putStatus?: number;
+    putProblem?: Record<string, unknown>;
     dictionaries?: Record<string, Entry[]>;
   } = {}) {
     mockFetch.mockImplementation((input: string, init?: RequestInit) => {
@@ -84,7 +86,7 @@ describe("EditUser page", () => {
         return Promise.resolve(
           putStatus === 204
             ? new Response(null, { status: 204 })
-            : jsonResponse(putStatus, { error: "err", message: "err" }),
+            : jsonResponse(putStatus, putProblem ?? { error: "err", message: "err" }),
         );
       }
       if (method === "GET") {
@@ -150,6 +152,57 @@ describe("EditUser page", () => {
     await user.click(screen.getByRole("button", { name: /^save$/i }));
 
     expect(await screen.findByText(/email already in use/i)).toBeInTheDocument();
+    expect(screen.queryByTestId("probe")).not.toBeInTheDocument();
+  });
+
+  test("pre-fills the unique id from GET and PUTs the trimmed change", async () => {
+    const withUid = { ...EXISTING_USER, uniqueId: "EMP-7" };
+    mockApi({ user: withUid });
+
+    const user = userEvent.setup();
+    renderEditUser(7);
+
+    const uidInput = (await screen.findByLabelText("Unique ID")) as HTMLInputElement;
+    await waitFor(() => expect(uidInput.value).toBe("EMP-7"));
+
+    await user.clear(uidInput);
+    await user.type(uidInput, " EMP-8 ");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/users"));
+    expect(putBody().uniqueId).toBe("EMP-8");
+  });
+
+  test("an emptied unique id is omitted from the PUT (leave unchanged, no clearing)", async () => {
+    const withUid = { ...EXISTING_USER, uniqueId: "EMP-7" };
+    mockApi({ user: withUid });
+
+    const user = userEvent.setup();
+    renderEditUser(7);
+
+    const uidInput = (await screen.findByLabelText("Unique ID")) as HTMLInputElement;
+    await waitFor(() => expect(uidInput.value).toBe("EMP-7"));
+
+    await user.clear(uidInput);
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/users"));
+    expect(putBody()).not.toHaveProperty("uniqueId");
+  });
+
+  test("a 409 naming the unique id attributes the error to the Unique ID field", async () => {
+    mockApi({ putStatus: 409, putProblem: { detail: "Unique id already in use" } });
+
+    const user = userEvent.setup();
+    renderEditUser(7);
+
+    const uidInput = (await screen.findByLabelText("Unique ID")) as HTMLInputElement;
+    await user.type(uidInput, "EMP-taken");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(await screen.findByText(/unique id already in use/i)).toBeInTheDocument();
+    // The email field keeps no error — the detail routed the 409 to the right field.
+    expect(screen.queryByText(/email already in use/i)).not.toBeInTheDocument();
     expect(screen.queryByTestId("probe")).not.toBeInTheDocument();
   });
 

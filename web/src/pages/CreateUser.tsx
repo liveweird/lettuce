@@ -1,5 +1,10 @@
 import { charCountDescription } from "../utils/charCount";
-import { MAX_EMAIL_LENGTH, MAX_USER_NAME_LENGTH } from "../utils/userForm";
+import {
+  isUniqueIdConflict,
+  MAX_EMAIL_LENGTH,
+  MAX_UNIQUE_ID_LENGTH,
+  MAX_USER_NAME_LENGTH,
+} from "../utils/userForm";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink, Navigate, useNavigate } from "react-router-dom";
@@ -32,6 +37,9 @@ type FormValues = {
   name: string;
   email: string;
   roles: UserRole[];
+  // Sent only when non-blank (trimmed) — optional, but admins should assign one ASAP
+  // (the users list flags the missing state).
+  uniqueId: string;
   // No career fields (v2.15.0): a new user's career history starts empty — their management
   // chain records positions on /users/:id/career.
 };
@@ -61,6 +69,7 @@ export default function CreateUser() {
       name: "",
       email: "",
       roles: [],
+      uniqueId: "",
     },
     validate: {
       name: hasLength({ min: 1, max: 50 }, t("users.validation.nameLength")),
@@ -86,6 +95,7 @@ export default function CreateUser() {
         roles: values.roles,
         password,
         sendEmail,
+        ...(values.uniqueId.trim() !== "" ? { uniqueId: values.uniqueId.trim() } : {}),
       });
       await queryClient.invalidateQueries({ queryKey: ["users"] });
       setCreated({
@@ -95,8 +105,11 @@ export default function CreateUser() {
         emailSent: res.emailSent ?? null,
       });
     } catch (err) {
-      // A duplicate email is a field-level problem, not a page-level one.
-      if (err instanceof ApiError && err.status === 409) {
+      // A duplicate email or unique id is a field-level problem, not a page-level one —
+      // the ProblemDetail detail decides which field (both clashes share the 409).
+      if (isUniqueIdConflict(err)) {
+        form.setFieldError("uniqueId", t("users.uniqueIdAlreadyInUse"));
+      } else if (err instanceof ApiError && err.status === 409) {
         form.setFieldError("email", t("users.emailAlreadyInUse"));
       } else if (err instanceof ApiError && err.status === 503) {
         // Deployment without outbound email — outside saveErrorMessage's vocabulary.
@@ -185,6 +198,18 @@ export default function CreateUser() {
               }
               rightSectionPointerEvents="auto"
               {...form.getInputProps("email")}
+            />
+            <TextInput
+              label={t("users.uniqueId")}
+              maxLength={MAX_UNIQUE_ID_LENGTH}
+              // The counter takes over the description slot near the cap (the name idiom);
+              // otherwise the slot explains the set-once semantics.
+              description={
+                charCountDescription(form.values.uniqueId.length, MAX_UNIQUE_ID_LENGTH) ??
+                t("users.uniqueIdHint")
+              }
+              inputWrapperOrder={["label", "input", "description", "error"]}
+              {...form.getInputProps("uniqueId")}
             />
             <RolesMultiSelect {...form.getInputProps("roles")} />
             <Checkbox

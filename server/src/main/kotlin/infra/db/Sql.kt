@@ -24,7 +24,7 @@ import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
  * silently stop matching. Every per-column substring filter MUST use this — never hand-roll
  * `lowerCase() like`.
  */
-fun Expression<String>.containsNormalized(raw: String): Op<Boolean> {
+fun Expression<out String?>.containsNormalized(raw: String): Op<Boolean> {
     val pattern = containsPattern(raw)
     return LikeEscapeOp(
         LowerCase(unaccent(this)),
@@ -34,8 +34,10 @@ fun Expression<String>.containsNormalized(raw: String): Op<Boolean> {
     )
 }
 
-// Schema-qualified so resolution never depends on search_path.
-private fun unaccent(expr: Expression<String>): CustomFunction<String> =
+// Schema-qualified so resolution never depends on search_path. Accepts nullable string
+// expressions too (users.unique_id): a NULL value never LIKE-matches, which is exactly
+// what a substring filter over an optional column should do.
+private fun unaccent(expr: Expression<*>): CustomFunction<String> =
     CustomFunction("public.unaccent", TextColumnType(), expr)
 
 /**

@@ -16,6 +16,7 @@ import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAdmin
 import ch.nokillswit.authz.requireCanAssignPaidDaysOffAllowance
 import ch.nokillswit.authz.requireCanAssignRoles
+import ch.nokillswit.authz.requireCanAssignUniqueId
 import ch.nokillswit.authz.requireSelfOrAdmin
 import ch.nokillswit.authz.requireUserRead
 import ch.nokillswit.daysoff.MAX_PAID_DAYS_OFF_ALLOWANCE
@@ -123,7 +124,7 @@ fun Application.configureUserRoutes() {
         authenticate {
             get<Users> {
                 call.caller()
-                val paging = call.parsePaging(sortable = setOf("id", "name", "email"))
+                val paging = call.parsePaging(sortable = setOf("id", "name", "email", "uniqueId"))
                 val params = call.request.queryParameters
                 // Feature-flag state filter: the pair must come together — a feature without a
                 // direction (or vice versa) is ambiguous, so a lone half is a clean 400.
@@ -140,6 +141,8 @@ fun Application.configureUserRoutes() {
                     deactivated = params.optionalBoolean("deactivated"),
                     feature = feature,
                     featureEnabled = featureEnabled,
+                    uniqueId = params.optionalString("uniqueId"),
+                    uniqueIdMissing = params.optionalBoolean("uniqueIdMissing"),
                 )
                 val result = userService.list(filter, paging)
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
@@ -152,9 +155,15 @@ fun Application.configureUserRoutes() {
                 validatePassword(req.password)
                 // The whole POST is admin-only (requireAdmin above), so no assign guard needed.
                 validatePaidDaysOffAllowance(req.paidDaysOffAllowance)
+                validateUniqueId(req.uniqueId)
                 if (req.sendEmail && mailer == null) {
                     call.respondMailUnavailable("creating with the email option")
                     return@post
+                }
+                // Pre-check for the specific 409 detail (the SPA attributes it to the right
+                // field); the V59 partial index stays the race backstop (generic 409).
+                if (req.uniqueId != null && userService.uniqueIdInUse(req.uniqueId)) {
+                    throw ConflictException("Unique id already in use")
                 }
                 val user = User(
                     name = req.name,
@@ -162,6 +171,7 @@ fun Application.configureUserRoutes() {
                     passwordHash = hashPassword(req.password),
                     roles = req.roles?.toSet() ?: emptySet(),
                     paidDaysOffAllowance = req.paidDaysOffAllowance,
+                    uniqueId = req.uniqueId,
                 )
                 val id = userService.create(user)
                 val createdFields = mutableListOf<Pair<String, Any?>>(
@@ -171,6 +181,7 @@ fun Application.configureUserRoutes() {
                     "roles" to user.roles.joinedNames(),
                 )
                 user.paidDaysOffAllowance?.let { createdFields += "allowance" to it.toLong() }
+                user.uniqueId?.let { createdFields += "uniqueId" to it }
                 audit("user.created", *createdFields.toTypedArray())
                 // Same welcome email as the mass import; a delivery failure keeps the account
                 // (the modal still reveals the password) and is reported via emailSent=false.
@@ -207,6 +218,7 @@ fun Application.configureUserRoutes() {
                             deactivated = false,
                             disabledFeatures = listOf(Feature.MFA),
                             emailNotificationsEnabled = true,
+                            uniqueId = user.uniqueId,
                         ),
                     )
                 } else {
@@ -318,14 +330,24 @@ fun Application.configureUserRoutes() {
                 // Authz before validation: an unauthorized roles/allowance change is 403, not 400.
                 requireCanAssignRoles(caller, existing.roles, req.roles.toSet())
                 requireCanAssignPaidDaysOffAllowance(caller, req.paidDaysOffAllowance, existing.paidDaysOffAllowance)
+                requireCanAssignUniqueId(caller, req.uniqueId, existing.uniqueId)
                 validateNameAndEmail(req.name, req.email)
                 validatePaidDaysOffAllowance(req.paidDaysOffAllowance)
+                validateUniqueId(req.uniqueId)
+                // Pre-check for the specific 409 detail (POST precedent); the partial index
+                // stays the race backstop. Excluding self keeps a same-value resubmit a no-op.
+                if (req.uniqueId != null && req.uniqueId != existing.uniqueId &&
+                    userService.uniqueIdInUse(req.uniqueId, excludeId = route.id)
+                ) {
+                    throw ConflictException("Unique id already in use")
+                }
                 val user = User(
                     name = req.name,
                     email = req.email,
                     passwordHash = existing.passwordHash,
                     roles = req.roles.toSet(),
                     paidDaysOffAllowance = req.paidDaysOffAllowance ?: existing.paidDaysOffAllowance,
+                    uniqueId = req.uniqueId ?: existing.uniqueId,
                 )
                 val updated = userService.update(route.id, user)
                 if (updated == 0) {
@@ -335,7 +357,8 @@ fun Application.configureUserRoutes() {
                     // identifier); audit with deltas only for the fields that actually changed.
                     // (Career changes moved to the career_position.* events in v2.15.0.)
                     val allowanceChanged = user.paidDaysOffAllowance != existing.paidDaysOffAllowance
-                    if (req.name != existing.name || req.email != existing.email || allowanceChanged) {
+                    val uniqueIdChanged = user.uniqueId != existing.uniqueId
+                    if (req.name != existing.name || req.email != existing.email || allowanceChanged || uniqueIdChanged) {
                         val auditFields = mutableListOf<Pair<String, Any?>>(
                             "byUserId" to caller.userId.toLong(),
                             "targetUserId" to route.id.toLong(),
@@ -353,6 +376,11 @@ fun Application.configureUserRoutes() {
                         if (allowanceChanged) {
                             existing.paidDaysOffAllowance?.let { auditFields += "allowanceFrom" to it.toLong() }
                             auditFields += "allowanceTo" to user.paidDaysOffAllowance!!.toLong()
+                        }
+                        // From omitted when previously unset (the allowance idiom).
+                        if (uniqueIdChanged) {
+                            existing.uniqueId?.let { auditFields += "uniqueIdFrom" to it }
+                            auditFields += "uniqueIdTo" to user.uniqueId!!
                         }
                         audit("user.updated", *auditFields.toTypedArray())
                     }

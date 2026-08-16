@@ -20,6 +20,9 @@ type UserListQuery = {
   // so listUsers serializes them only when `feature` is set.
   feature?: Feature;
   featureEnabled?: boolean;
+  uniqueId?: string;
+  // Presence filter: true = only users missing a unique id, false = only users having one.
+  uniqueIdMissing?: boolean;
 };
 
 type CurrentUser = paths["/api/v1/users/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
@@ -145,6 +148,8 @@ export async function listUsers(q: UserListQuery): Promise<UserPage> {
     params.set("feature", q.feature);
     params.set("featureEnabled", String(q.featureEnabled));
   }
+  if (q.uniqueId) params.set("uniqueId", q.uniqueId);
+  if (q.uniqueIdMissing != null) params.set("uniqueIdMissing", String(q.uniqueIdMissing));
   const res = await authedFetch(`/api/v1/users?${params.toString()}`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json()) as UserPage;

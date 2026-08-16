@@ -43,6 +43,10 @@ data class UserListFilter(
      */
     val feature: Feature? = null,
     val featureEnabled: Boolean? = null,
+    /** Substring filter on the unique id (V59), accent-insensitive like name/email. */
+    val uniqueId: String? = null,
+    /** Strict-boolean presence filter: only users missing a unique id (true) or having one (false). */
+    val uniqueIdMissing: Boolean? = null,
 )
 
 data class UserListResult(
@@ -54,6 +58,7 @@ private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
     "id" to UserService.Users.id,
     "name" to UserService.Users.name,
     "email" to UserService.Users.email,
+    "uniqueId" to UserService.Users.uniqueId,
 )
 
 class UserService(val database: R2dbcDatabase) {
@@ -78,6 +83,10 @@ class UserService(val database: R2dbcDatabase) {
 
         // Email-notification opt-out (V51): true = in-app notifications are mirrored by email.
         val emailNotificationsEnabled = bool("email_notifications_enabled").default(true)
+
+        // Optional unique id (V59). Like email, uniqueness is a partial unique index over
+        // active rows only (uq_users_unique_id_active) — no `.uniqueIndex()` here.
+        val uniqueId = varchar("unique_id", length = 50).nullable()
     }
 
     object UserRoles : Table("user_roles") {
@@ -99,6 +108,7 @@ class UserService(val database: R2dbcDatabase) {
             it[email] = user.email
             it[passwordHash] = user.passwordHash
             it[paidDaysOffAllowance] = user.paidDaysOffAllowance
+            it[uniqueId] = user.uniqueId
         }
         val id = newRecord[Users.id].value
         insertRoles(id, user.roles)
@@ -143,6 +153,7 @@ class UserService(val database: R2dbcDatabase) {
             it[email] = user.email
             it[passwordHash] = user.passwordHash
             it[paidDaysOffAllowance] = user.paidDaysOffAllowance
+            it[uniqueId] = user.uniqueId
         }
         if (affected > 0) {
             // Wholesale replace — the set is tiny and this is idempotent and diff-free.
@@ -260,6 +271,18 @@ class UserService(val database: R2dbcDatabase) {
         }
     }
 
+    /**
+     * Is [uniqueId] already held by an ACTIVE user other than [excludeId]? Backs the route
+     * pre-check that turns a clash into a specific 409 detail; the V59 partial unique index
+     * stays the race backstop (a concurrent write still lands as the generic 23505 → 409).
+     */
+    suspend fun uniqueIdInUse(uniqueId: String, excludeId: UInt? = null): Boolean =
+        suspendTransaction(database) {
+            var predicate: Op<Boolean> = (Users.uniqueId eq uniqueId) and active()
+            excludeId?.let { predicate = predicate and (Users.id neq it) }
+            Users.select(Users.id).where { predicate }.toList().isNotEmpty()
+        }
+
     suspend fun list(filter: UserListFilter, paging: PageRequest): UserListResult =
         suspendTransaction(database) {
             val predicate: Op<Boolean> = buildPredicate(filter) and active()
@@ -275,6 +298,7 @@ class UserService(val database: R2dbcDatabase) {
                         paidDaysOffAllowance = row[Users.paidDaysOffAllowance],
                         deactivated = row[Users.deactivated],
                         emailNotificationsEnabled = row[Users.emailNotificationsEnabled],
+                        uniqueId = row[Users.uniqueId],
                     )
                 }
                 .toList()
@@ -296,6 +320,7 @@ class UserService(val database: R2dbcDatabase) {
                     deactivated = row.deactivated,
                     disabledFeatures = featuresByUser[row.id].orEmpty().sortedBy { f -> f.name },
                     emailNotificationsEnabled = row.emailNotificationsEnabled,
+                    uniqueId = row.uniqueId,
                     teams = teamsByUser[row.id].orEmpty(),
                 )
             }
@@ -310,6 +335,7 @@ class UserService(val database: R2dbcDatabase) {
         val paidDaysOffAllowance: Int?,
         val deactivated: Boolean,
         val emailNotificationsEnabled: Boolean,
+        val uniqueId: String?,
     )
 
     // Soft-delete ONLY — deactivated users must stay readable everywhere (their historical
@@ -403,6 +429,12 @@ class UserService(val database: R2dbcDatabase) {
         filter.deactivated?.let {
             op = op and (Users.deactivated eq it)
         }
+        filter.uniqueId?.takeIf { it.isNotBlank() }?.let {
+            op = op and (Users.uniqueId.containsNormalized(it))
+        }
+        filter.uniqueIdMissing?.let {
+            op = op and if (it) Users.uniqueId.isNull() else Users.uniqueId.isNotNull()
+        }
         filter.feature?.let { f ->
             // The route guarantees featureEnabled is non-null whenever feature is set.
             val disabled = UserDisabledFeatures
@@ -427,6 +459,7 @@ class UserService(val database: R2dbcDatabase) {
         passwordChangedAt = this[Users.passwordChangedAt],
         paidDaysOffAllowance = this[Users.paidDaysOffAllowance],
         emailNotificationsEnabled = this[Users.emailNotificationsEnabled],
+        uniqueId = this[Users.uniqueId],
     )
 
     /**

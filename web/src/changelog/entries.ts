@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.19.0",
+    date: "2026-08-16",
+    en: `Every person can now carry a unique ID — an employee-number-like reference, visible wherever users are listed. Administrators assign it when creating an account or later from the edit form; it must be unique among active users (a clear message points at the field if the value is taken), and once set it can be changed but not cleared. The users list shows the ID in its own sortable column, an orange "Not set" badge flags people still missing one, and new filters find someone by ID or list exactly those without one — so working down the backlog is one filter away.`,
+    pl: `Każda osoba może teraz mieć unikalny identyfikator — odpowiednik numeru pracownika, widoczny wszędzie tam, gdzie wyświetlana jest lista osób. Administratorzy nadają go przy zakładaniu konta albo później w formularzu edycji; musi być unikalny wśród aktywnych osób (czytelny komunikat wskaże pole, jeśli wartość jest zajęta), a raz ustawiony można go zmienić, ale nie wyczyścić. Lista osób pokazuje identyfikator w osobnej, sortowalnej kolumnie, pomarańczowa plakietka „Nie ustawiono" oznacza osoby, które jeszcze go nie mają, a nowe filtry pozwalają znaleźć kogoś po identyfikatorze albo wyświetlić dokładnie te osoby bez niego — więc uzupełnienie zaległości jest o jeden filtr stąd.`,
+  },
+  {
     version: "2.18.3",
     date: "2026-08-16",
     en: `An accessibility pass. The page-navigation buttons under every list (first/previous/next/last page) now announce proper names to screen readers instead of being nameless icons, and the application's main screens are checked against the WCAG accessibility rules by an automated scan on every test run — so regressions in labels, roles, and structure get caught before they ship.`,

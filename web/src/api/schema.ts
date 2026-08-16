@@ -180,11 +180,15 @@ export interface paths {
          * List users
          * @description Any authenticated user may list. Supports offset pagination, sorting and filtering.
          *
-         *     - Sortable fields: `id`, `name`, `email`. Default sort is `id` ascending.
+         *     - Sortable fields: `id`, `name`, `email`, `uniqueId`. Default sort is `id` ascending.
          *       `id` ascending is always appended as a deterministic tiebreaker.
          *     - Filters (all optional, all whitelisted):
          *       - `name` — case- and accent-insensitive substring match against `name`.
          *       - `email` — case- and accent-insensitive substring match against `email`.
+         *       - `uniqueId` — case- and accent-insensitive substring match against `uniqueId`
+         *         (users without one never match).
+         *       - `uniqueIdMissing` — strict boolean: only users missing a unique id (`true`)
+         *         or having one (`false`).
          *       - `role` — has-role match: only users holding this additional role (`ADMIN`/`HR`).
          *       - `teamId` — restrict to users who are members of the given team.
          *       - `deactivated` — strict boolean: only deactivated (`true`) or only active (`false`)
@@ -270,8 +274,9 @@ export interface paths {
          * @description Replaces a user's editable representation — `name`, `email`, and `roles` (all required).
          *     The password is NOT part of this representation (it has its own `PUT /users/{id}/password`
          *     sub-resource and is preserved here). Requires the caller to be the target user, or ADMIN.
-         *     Only ADMIN may change a user's `roles`; a non-ADMIN caller must send the set the user
-         *     already has, otherwise the request is rejected with 403.
+         *     Only ADMIN may change a user's `roles`, `paidDaysOffAllowance`, or `uniqueId`; a
+         *     non-ADMIN caller must send the set/values the user already has (or omit the optional
+         *     fields), otherwise the request is rejected with 403.
          */
         put: operations["replaceUser"];
         post?: never;
@@ -3363,6 +3368,12 @@ export interface components {
              *     (= zero paid budget). The current value applies to every calendar year.
              */
             paidDaysOffAllowance?: number | null;
+            /**
+             * @description Optional unique id (an employee-id-like reference). Omitted or null = not set.
+             *     Unique among ACTIVE (non-deleted) users — a clash is 409; a soft-deleted user
+             *     frees their id. Non-blank when provided (400 otherwise).
+             */
+            uniqueId?: string | null;
         };
         UserCreateResponse: {
             /** Format: int64 */
@@ -3384,6 +3395,8 @@ export interface components {
             disabledFeatures: components["schemas"]["Feature"][];
             /** @description Always true at creation (the V51 default) — aligned with UserResponse. */
             emailNotificationsEnabled: boolean;
+            /** @description The unique id assigned at creation, or null — aligned with UserResponse. */
+            uniqueId: string | null;
         };
         UserUpdateRequest: {
             name: string;
@@ -3402,6 +3415,14 @@ export interface components {
              *     retroactively.
              */
             paidDaysOffAllowance?: number | null;
+            /**
+             * @description Optional unique id (an employee-id-like reference). Omitted or null = leave
+             *     unchanged — there is deliberately no way to clear a set value. Assigning or
+             *     changing requires ADMIN (403 otherwise); resubmitting the current value is never
+             *     a change. Unique among ACTIVE (non-deleted) users — a clash is 409; non-blank
+             *     when provided (400 otherwise).
+             */
+            uniqueId?: string | null;
         };
         CareerPositionWrite: {
             /**
@@ -3562,6 +3583,12 @@ export interface components {
              *     PUT /users/{id}/email-notifications — never via the whole-user PUT.
              */
             emailNotificationsEnabled: boolean;
+            /**
+             * @description Optional unique id (an employee-id-like reference, v2.19.0). Null = not set yet —
+             *     the admin users list renders a "Not set" cue off this. ADMIN-only assignable
+             *     (via POST/PUT), unique among active users; readable by everyone.
+             */
+            uniqueId: string | null;
         };
         UserPage: {
             items: components["schemas"]["UserResponse"][];
@@ -5853,6 +5880,10 @@ export interface operations {
                 name?: string;
                 /** @description Case- and accent-insensitive substring match against the user's email. */
                 email?: string;
+                /** @description Case- and accent-insensitive substring match against the user's unique id; users without one never match. */
+                uniqueId?: string;
+                /** @description Strict boolean — only users missing a unique id (true) or having one (false). */
+                uniqueIdMissing?: boolean;
                 /** @description Only users holding this additional role. */
                 role?: "ADMIN" | "HR";
                 /** @description Filter to users who are members of the given team. */
@@ -5919,7 +5950,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Email already in use */
+            /** @description Email or unique id already in use by an active user */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -6046,7 +6077,7 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
-            /** @description Email already in use by another user */
+            /** @description Email or unique id already in use by another active user */
             409: {
                 headers: {
                     [name: string]: unknown;
