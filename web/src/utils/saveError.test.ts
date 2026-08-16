@@ -1,19 +1,23 @@
+import type { TFunction } from "i18next";
 import { describe, expect, test } from "vitest";
 import { ApiError } from "../api/http";
-import { saveErrorMessage } from "./saveError";
+import { saveErrorMessage, type SaveErrorKeys } from "./saveError";
 
 // A `t` stub that makes the chosen key (and any {{status}} interpolation) observable.
-const t = (key: string, opts?: Record<string, unknown>) =>
-  opts?.status != null ? `${key}(${opts.status})` : key;
+const t = ((key: string, opts?: Record<string, unknown>) =>
+  opts?.status != null ? `${key}(${opts.status})` : key) as unknown as TFunction;
 
-const ALL_KEYS = {
+// The fake "k.*" keys make the CHOSEN key observable — brand them past the typed key union.
+const keys = (partial: Record<string, string>) => partial as unknown as SaveErrorKeys;
+
+const ALL_KEYS = keys({
   forbidden: "k.forbidden",
   notFound: "k.notFound",
   conflict: "k.conflict",
   invalid: "k.invalid",
   failedStatus: "k.failedStatus",
   failed: "k.failed",
-};
+});
 
 describe("saveErrorMessage", () => {
   test("403 maps to forbidden", () => {
@@ -22,10 +26,10 @@ describe("saveErrorMessage", () => {
 
   test("403 without a forbidden key falls through to failedStatus", () => {
     expect(
-      saveErrorMessage(new ApiError(403, null), t, {
+      saveErrorMessage(new ApiError(403, null), t, keys({
         failedStatus: "k.failedStatus",
         failed: "k.failed",
-      }),
+      })),
     ).toBe("k.failedStatus(403)");
   });
 
@@ -35,11 +39,11 @@ describe("saveErrorMessage", () => {
 
   test("404 without a notFound key falls through to failedStatus", () => {
     expect(
-      saveErrorMessage(new ApiError(404, null), t, {
+      saveErrorMessage(new ApiError(404, null), t, keys({
         forbidden: "k.forbidden",
         failedStatus: "k.failedStatus",
         failed: "k.failed",
-      }),
+      })),
     ).toBe("k.failedStatus(404)");
   });
 
@@ -49,11 +53,11 @@ describe("saveErrorMessage", () => {
 
   test("409 without a conflict key falls through to failedStatus", () => {
     expect(
-      saveErrorMessage(new ApiError(409, null), t, {
+      saveErrorMessage(new ApiError(409, null), t, keys({
         forbidden: "k.forbidden",
         failedStatus: "k.failedStatus",
         failed: "k.failed",
-      }),
+      })),
     ).toBe("k.failedStatus(409)");
   });
 
@@ -63,11 +67,11 @@ describe("saveErrorMessage", () => {
 
   test("400 without an invalid key falls through to failedStatus", () => {
     expect(
-      saveErrorMessage(new ApiError(400, null), t, {
+      saveErrorMessage(new ApiError(400, null), t, keys({
         forbidden: "k.forbidden",
         failedStatus: "k.failedStatus",
         failed: "k.failed",
-      }),
+      })),
     ).toBe("k.failedStatus(400)");
   });
 
@@ -77,12 +81,12 @@ describe("saveErrorMessage", () => {
 
   test("an unmatched status without failedStatus lands on failed", () => {
     expect(
-      saveErrorMessage(new ApiError(500, null), t, {
+      saveErrorMessage(new ApiError(500, null), t, keys({
         forbidden: "k.forbidden",
         notFound: "k.notFound",
         invalid: "k.invalid",
         failed: "k.failed",
-      }),
+      })),
     ).toBe("k.failed");
   });
 

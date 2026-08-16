@@ -47,7 +47,11 @@
     "position": "Lp.",
     "actions": "Akcje",
     "total": "łącznie: {{count}}",
-    "perPage": "{{count}} / strona"
+    "perPage": "{{count}} / strona",
+    "firstPage": "Pierwsza strona",
+    "previousPage": "Poprzednia strona",
+    "nextPage": "Następna strona",
+    "lastPage": "Ostatnia strona"
   },
   "filter": {
     "contains": "zawiera…",

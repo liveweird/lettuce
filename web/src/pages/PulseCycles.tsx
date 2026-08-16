@@ -1,3 +1,4 @@
+import type { ParseKeys } from "i18next";
 import {
   Alert,
   Button,
@@ -27,7 +28,7 @@ import { IconHeartRateMonitor } from "@tabler/icons-react";
 import { formatIsoDate, todayIsoDate } from "../utils/datetime";
 import { addIsoDays } from "../utils/pulseResults";
 import { invalidatePulse } from "../utils/pulseQueries";
-import { saveErrorMessage } from "../utils/saveError";
+import { saveErrorMessage, type SaveErrorKeys } from "../utils/saveError";
 import { showSuccessToast } from "../utils/toast";
 
 type CycleAction = "open" | "close" | "cancel";
@@ -38,7 +39,13 @@ const ACTION_API: Record<CycleAction, (id: number) => Promise<void>> = {
   cancel: cancelPulseCycle,
 };
 
-const ACTION_TOAST: Record<CycleAction, string> = {
+const CONFIRM_KEY: Record<CycleAction, ParseKeys> = {
+  open: "pulse.admin.confirmOpen",
+  close: "pulse.admin.confirmClose",
+  cancel: "pulse.admin.confirmCancel",
+};
+
+const ACTION_TOAST: Record<CycleAction, ParseKeys> = {
   open: "pulse.toast.opened",
   close: "pulse.toast.closed",
   cancel: "pulse.toast.cancelled",
@@ -87,7 +94,7 @@ export default function PulseCycles() {
     closeDateInput ??
     (settings.data && isValidIsoDate(openDate) ? addIsoDays(openDate, settings.data.openDays) : "");
 
-  const adminErrorKeys = {
+  const adminErrorKeys: SaveErrorKeys = {
     conflict: "pulse.error.conflict",
     invalid: "pulse.error.invalid",
     failedStatus: "pulse.error.failedStatus",
@@ -373,7 +380,7 @@ export default function PulseCycles() {
         opened={pendingAction != null}
         onClose={() => setPendingAction(null)}
         title={t("pulse.admin.title")}
-        message={pendingAction != null ? t(`pulse.admin.confirm${capitalize(pendingAction.action)}`) : ""}
+        message={pendingAction != null ? t(CONFIRM_KEY[pendingAction.action]) : ""}
         cancelLabel={t("common.action.cancel")}
         confirmLabel={
           pendingAction?.action === "open"
@@ -438,8 +445,4 @@ export default function PulseCycles() {
       </Modal>
     </Container>
   );
-}
-
-function capitalize(value: string): string {
-  return value.charAt(0).toUpperCase() + value.slice(1);
 }

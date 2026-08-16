@@ -2,6 +2,7 @@
 // only component exports and stays compatible with React Fast Refresh
 // (react-refresh/only-export-components) — the tourSupport.ts idiom.
 
+import type { ParseKeys } from "i18next";
 import { hasFeature, type Feature } from "../api/session";
 
 export type ButtonKey =
@@ -16,7 +17,7 @@ export type ButtonKey =
   | "reviews"
   | "daysOff";
 
-export type LabelPair = { aria: string; text: string };
+export type LabelPair = { aria: ParseKeys; text: ParseKeys };
 
 // The feature each button belongs to (v1.53.0): a button renders only while the VIEWER has
 // its feature enabled (caller-only semantics — the flags gate what the session user may do,

@@ -1,3 +1,4 @@
+import type { TFunction } from "i18next";
 // Epoch millis -> "YYYY-MM-DD HH:mm" in local time.
 export function formatTimestamp(ms: number): string {
   const d = new Date(ms);
@@ -152,7 +153,7 @@ export function formatDate(ms: number, locale: string): string {
 export type LastModifiedWindow = "all" | "week" | "month";
 
 // Built from a translator so the labels stay localized; callers pass their `t` from useTranslation.
-export function lastModifiedOptions(t: (key: string) => string) {
+export function lastModifiedOptions(t: TFunction) {
   return [
     { value: "all", label: t("common.state.all") },
     { value: "week", label: t("feedback.lastWeek") },
@@ -176,7 +177,7 @@ export function lastModifiedCutoff(w: LastModifiedWindow): number | undefined {
 // wider than the lastModified ones).
 export type CreatedWindow = "all" | "month" | "sixMonths";
 
-export function createdWindowOptions(t: (key: string) => string) {
+export function createdWindowOptions(t: TFunction) {
   return [
     { value: "all", label: t("common.state.all") },
     { value: "month", label: t("goal.createdWindow.month") },

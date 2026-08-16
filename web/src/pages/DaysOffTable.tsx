@@ -1,3 +1,4 @@
+import type { ParseKeys } from "i18next";
 import { useState } from "react";
 import { Alert, Button, Group, Select, Stack, Table, Text } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
@@ -104,7 +105,7 @@ export default function DaysOffTable({
   async function runAction(
     id: number,
     run: (id: number) => Promise<void>,
-    successKey: string,
+    successKey: ParseKeys,
   ) {
     setActingId(id);
     setActionError(null);

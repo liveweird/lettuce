@@ -1,3 +1,4 @@
+import type { ParseKeys } from "i18next";
 import { useState } from "react";
 import { Link as RouterLink, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
@@ -39,7 +40,7 @@ import { GoalValues, isGoalOverdue, OverdueBadge } from "../utils/goalValues";
 // goals have no edit form, so Reopen could live nowhere else, and keeping all four here means
 // one 409-handling path (mirrors ViewFeedback's NEXT_ACTION, pluralized because ACTIVE has two
 // exits). Close is special-cased: it opens the summary modal instead of firing directly.
-const ACTIONS: Record<GoalStatus, { labelKey: string; successKey: string; run?: (id: number) => Promise<void>; close?: true; primary: boolean }[]> = {
+const ACTIONS: Record<GoalStatus, { labelKey: ParseKeys; successKey: ParseKeys; run?: (id: number) => Promise<void>; close?: true; primary: boolean }[]> = {
   DRAFT: [{ labelKey: "goal.action.activate", successKey: "goal.toast.activated", run: activateGoal, primary: true }],
   ACTIVE: [
     { labelKey: "goal.action.deactivate", successKey: "goal.toast.deactivated", run: deactivateGoal, primary: false },
@@ -98,7 +99,7 @@ export default function ViewGoal() {
         ? t("goal.error.viewPermission")
         : t("goal.error.loadFailed");
 
-  async function runAction(actionKey: string, run: (id: number) => Promise<void>, successKey: string) {
+  async function runAction(actionKey: string, run: (id: number) => Promise<void>, successKey: ParseKeys) {
     setSubmitting(actionKey);
     setActionError(null);
     try {

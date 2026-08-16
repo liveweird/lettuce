@@ -96,6 +96,13 @@ commit** — this list is the suite's coverage map, and it has drifted three tim
   the count-stating confirm (the fresh team is deleted at the end).
 - `users-import.spec.ts` — mass CSV import: a mixed file imports row-by-row (an imported
   password signs in); re-importing the same rows yields duplicates, not new accounts.
+- `accessibility.spec.ts` — axe (WCAG 2.0/2.1 A+AA) smoke over the login screen and the
+  admin's read-only views of the main areas; strictly read-only. `color-contrast` is a
+  documented waiver (the theme's dimmed text sits below AA by design — revisit only as a
+  theme-wide design pass), so any new violation is a regression in names/roles/structure.
+- `welcome-email.spec.ts` — admin create with the email option: the welcome email lands in
+  Mailpit, carries the same one-time password as the reveal modal, and it signs in (skips
+  when Mailpit is unreachable, like the other mail specs).
 - `password-reset.spec.ts` — the "Forgot password?" flow: neutral answer for unknown emails;
   a reset email delivers a working new password and kills the old one.
 - `mfa.spec.ts` — email MFA at login (v2.4.0): admin enables the inverted-default MFA flag for a
@@ -242,8 +249,10 @@ remaining real logins aren't throttled either.
   (the editor offers Delete instead), so it cannot be exercised through the browser.
 - **Dark-mode rendering** — the theme toggle is unit-tested and the palette is theme-owned
   (`web/src/theme.ts`); no e2e asserts colors, and there is no visual-regression suite.
-- **Responsive / cross-browser / accessibility automation** — the suite deliberately runs
-  Desktop Chrome only, with no mobile project, screenshot comparison, or axe scan; layout and
-  a11y rely on Mantine semantics plus the role/label-based locators every spec already uses.
+- **Responsive / cross-browser / visual automation** — the suite deliberately runs Desktop
+  Chrome only, with no mobile project or screenshot comparison; layout relies on Mantine
+  semantics plus the role/label-based locators every spec already uses. Accessibility gets
+  the `accessibility.spec.ts` axe smoke (see above) — structural rules only, with
+  `color-contrast` consciously waived.
 
 Reports/artifacts land in `playwright-report/` and `test-results/` (git-ignored).

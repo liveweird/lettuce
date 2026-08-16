@@ -1,3 +1,4 @@
+import type { TFunction } from "i18next";
 // Renders one of a feedback's user-typed fields (provider / requester / subject).
 // Shows the translated "You" when the field's user is the logged-in user; otherwise
 // the display name, with a deleted suffix for soft-deleted users, falling back to an
@@ -8,7 +9,7 @@ export function feedbackPartyName(
   name: string | null | undefined,
   deleted: boolean,
   currentUserId: number | null,
-  t: (key: string, opts?: Record<string, unknown>) => string,
+  t: TFunction,
 ): string {
   if (currentUserId != null && userId === currentUserId) return t("common.state.you");
   if (name == null) return "—";

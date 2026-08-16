@@ -1,3 +1,4 @@
+import type { ParseKeys } from "i18next";
 import { useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import { Alert, Button, Group, Menu, Select, Stack, Table, Text } from "@mantine/core";
@@ -53,8 +54,8 @@ const REPORTS_SCOPES = ["direct", "all"] as const;
 // whose goals these are is pinned by the embedding page, so the *other* party is the column.
 type PersonColumn = {
   field: "managerName" | "subordinateName";
-  labelKey: string;
-  clearFilterLabelKey: string;
+  labelKey: ParseKeys;
+  clearFilterLabelKey: ParseKeys;
   /** localStorage atom under the view's settings namespace. */
   id: (g: GoalListItem) => number;
   name: (g: GoalListItem) => string;
@@ -234,7 +235,7 @@ export default function GoalTable({
   const [acting, setActing] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  async function runLifecycle(goalId: number, run: () => Promise<void>, successKey: string) {
+  async function runLifecycle(goalId: number, run: () => Promise<void>, successKey: ParseKeys) {
     setActing(true);
     setActionError(null);
     try {

@@ -278,12 +278,16 @@ export function notificationCard(dialog: Locator, text: string) {
 export async function createUserViaUi(
   page: Page,
   namePrefix = "E2E User",
+  opts: { sendEmail?: boolean } = {},
 ): Promise<{ id: number; name: string; email: string; password: string }> {
   const name = uniqueText(namePrefix);
   const email = `${name.toLowerCase().replace(/[^a-z0-9-]/g, "-")}@lettuce.local`;
   await page.goto("/users/new");
   await page.getByRole("textbox", { name: "Name" }).fill(name);
   await page.getByRole("textbox", { name: "Email" }).fill(email);
+  if (opts.sendEmail) {
+    await page.getByRole("checkbox", { name: "Email the credentials to the new user" }).check();
+  }
   const [created] = await Promise.all([
     page.waitForResponse(
       (r) => r.url().endsWith("/api/v1/users") && r.request().method() === "POST" && r.ok(),
@@ -292,6 +296,9 @@ export async function createUserViaUi(
   ]);
   const id: number = (await created.json()).id;
   const dialog = page.getByRole("dialog");
+  if (opts.sendEmail) {
+    await expect(dialog.getByText(/the credentials have been emailed to/i)).toBeVisible();
+  }
   // The password is masked as "*" until revealed (v1.5) — click the eye toggle first.
   await dialog.getByRole("button", { name: "Show password" }).click();
   const password = (await dialog.locator("code").textContent()) ?? "";

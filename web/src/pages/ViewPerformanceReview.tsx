@@ -1,3 +1,4 @@
+import type { ParseKeys } from "i18next";
 import { useState } from "react";
 import { Link as RouterLink, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
@@ -37,7 +38,7 @@ import { ratingLabel, REVIEW_CATEGORIES } from "../utils/reviewRatings";
 // deliberate retraction.
 const ACTIONS: Record<
   PerformanceReviewStatus,
-  { labelKey: string; successKey: string; run: (id: number) => Promise<void>; primary: boolean }[]
+  { labelKey: ParseKeys; successKey: ParseKeys; run: (id: number) => Promise<void>; primary: boolean }[]
 > = {
   DRAFT: [
     { labelKey: "performanceReview.action.submit", successKey: "performanceReview.toast.submitted", run: submitPerformanceReview, primary: true },
@@ -51,7 +52,7 @@ const ACTIONS: Record<
   ],
 };
 
-function CategoryBlock({ category, assessment }: { category: string; assessment: CategoryAssessment }) {
+function CategoryBlock({ category, assessment }: { category: "attitude" | "delivery" | "skills" | "overall"; assessment: CategoryAssessment }) {
   const { t } = useTranslation();
   return (
     <Stack gap={4}>
@@ -112,7 +113,7 @@ export default function ViewPerformanceReview() {
   // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
   if (!hasFeature("PERFORMANCE_REVIEWS")) return <Navigate to="/" replace />;
 
-  async function runAction(labelKey: string, run: (id: number) => Promise<void>, successKey: string) {
+  async function runAction(labelKey: string, run: (id: number) => Promise<void>, successKey: ParseKeys) {
     setSubmitting(labelKey);
     setError(null);
     try {

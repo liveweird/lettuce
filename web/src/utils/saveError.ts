@@ -1,3 +1,4 @@
+import type { ParseKeys, TFunction } from "i18next";
 import { ApiError } from "../api/http";
 
 /**
@@ -7,17 +8,17 @@ import { ApiError } from "../api/http";
  */
 export interface SaveErrorKeys {
   /** 403. Omit only when the page routes a 403 through the generic fallbacks. */
-  forbidden?: string;
+  forbidden?: ParseKeys;
   /** 404 — omit to route it through the generic fallbacks. */
-  notFound?: string;
+  notFound?: ParseKeys;
   /** 409 — omit to route it through the generic fallbacks. */
-  conflict?: string;
+  conflict?: ParseKeys;
   /** 400 — omit to route it through the generic fallbacks. */
-  invalid?: string;
+  invalid?: ParseKeys;
   /** Any otherwise-unmatched ApiError status; interpolates {{status}}. */
-  failedStatus?: string;
+  failedStatus?: ParseKeys;
   /** Generic + network fallback. */
-  failed: string;
+  failed: ParseKeys;
 }
 
 /**
@@ -27,7 +28,7 @@ export interface SaveErrorKeys {
  */
 export function saveErrorMessage(
   err: unknown,
-  t: (key: string, opts?: Record<string, unknown>) => string,
+  t: TFunction,
   keys: SaveErrorKeys,
 ): string {
   if (err instanceof ApiError) {

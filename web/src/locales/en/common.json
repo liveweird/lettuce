@@ -47,7 +47,11 @@
     "position": "#",
     "actions": "Actions",
     "total": "{{count}} total",
-    "perPage": "{{count}} / page"
+    "perPage": "{{count}} / page",
+    "firstPage": "First page",
+    "previousPage": "Previous page",
+    "nextPage": "Next page",
+    "lastPage": "Last page"
   },
   "filter": {
     "contains": "contains…",

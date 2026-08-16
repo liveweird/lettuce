@@ -1,3 +1,4 @@
+import type { ParseKeys } from "i18next";
 import { Link as RouterLink } from "react-router-dom";
 import { Alert, Button, Select, Stack, Table, Text } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
@@ -31,8 +32,8 @@ const STATUS_VALUES = ["DRAFT", "CALIBRATION", "PUBLISHED"] as const;
 // reviews these are is pinned by the embedding page, so the *other* party is the column.
 type PersonColumn = {
   field: "managerName" | "subordinateName";
-  labelKey: string;
-  clearFilterLabelKey: string;
+  labelKey: ParseKeys;
+  clearFilterLabelKey: ParseKeys;
   id: (r: PerformanceReviewListItem) => number;
   name: (r: PerformanceReviewListItem) => string;
   deleted: (r: PerformanceReviewListItem) => boolean;

@@ -1,3 +1,4 @@
+import type { ParseKeys, TFunction } from "i18next";
 import { type ReactNode } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import {
@@ -58,8 +59,8 @@ const STATUS_VALUES: FeedbackStatus[] = [
 // A filterable + sortable person column (the first column is always the requester).
 type PersonColumn = {
   field: "providerName" | "subjectName";
-  labelKey: string;
-  clearFilterLabelKey: string;
+  labelKey: ParseKeys;
+  clearFilterLabelKey: ParseKeys;
   id: (f: FeedbackRow) => number;
   name: (f: FeedbackRow) => string;
   deleted: (f: FeedbackRow) => boolean;
@@ -88,7 +89,7 @@ type ActionContext = {
   currentUserId: number | null;
   // Return target carried into the View/Edit links (the `backTo` prop); unset = feedback tabs.
   backTo?: string;
-  t: (key: string, opts?: Record<string, unknown>) => string;
+  t: TFunction;
 };
 
 // The views this table renders — every list view except `kudos`, which has its own

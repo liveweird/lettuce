@@ -1,3 +1,4 @@
+import type { TFunction } from "i18next";
 import { describe, expect, test } from "vitest";
 import {
   answeredCount,
@@ -13,7 +14,7 @@ import {
 } from "./pulseSurveyForm";
 import type { PulseMyResponse } from "../api/pulse";
 
-const t = (key: string) => key;
+const t = ((key: string) => key) as unknown as TFunction;
 
 describe("commentPromptKey", () => {
   test("bands: 0-6 low, 7-8 mid, 9-10 high, unanswered default", () => {

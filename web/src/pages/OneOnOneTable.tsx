@@ -1,3 +1,4 @@
+import type { ParseKeys, TFunction } from "i18next";
 import { type ReactNode } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import { Alert, Badge, Button, Stack, Table, Text } from "@mantine/core";
@@ -27,8 +28,8 @@ type OneOnOneRow = OneOnOnePage["items"][number];
 // A filterable + sortable person column.
 type PersonColumn = {
   field: "managerName" | "subordinateName";
-  labelKey: string;
-  clearFilterLabelKey: string;
+  labelKey: ParseKeys;
+  clearFilterLabelKey: ParseKeys;
   id: (m: OneOnOneRow) => number;
   name: (m: OneOnOneRow) => string;
   deleted: (m: OneOnOneRow) => boolean;
@@ -55,7 +56,7 @@ const SUBORDINATE_COLUMN: PersonColumn = {
 type ActionContext = {
   backParam: string;
   currentUserId: number | null;
-  t: (key: string, opts?: Record<string, unknown>) => string;
+  t: TFunction;
 };
 
 // Per-view differences: which person columns appear and how the row action is rendered —

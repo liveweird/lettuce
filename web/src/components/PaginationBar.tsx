@@ -1,3 +1,4 @@
+import type { ParseKeys } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Group, Pagination, Select, Text } from "@mantine/core";
 import { PAGE_SIZE_OPTIONS } from "../hooks/usePagedSort";
@@ -18,7 +19,7 @@ export default function PaginationBar({
   pageSize: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
-  rowsPerPageLabelKey: string;
+  rowsPerPageLabelKey: ParseKeys;
 }) {
   const { t } = useTranslation();
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -49,6 +50,9 @@ export default function PaginationBar({
           total={totalPages}
           siblings={1}
           withEdges
+          // The edge/arrow controls are icon-only; without names they fail WCAG 4.1.2
+          // (the axe e2e spec pins this).
+          getControlProps={(control) => ({ "aria-label": t(`common.table.${control}Page`) })}
         />
       </Group>
     </Group>

@@ -1,3 +1,4 @@
+import type { TFunction } from "i18next";
 import { hasLength } from "@mantine/form";
 import { type CreateAlertBody } from "../api/alerts";
 import { datetimeLocalToEpoch } from "./datetime";
@@ -33,7 +34,7 @@ export function emptyAlertFormValues(): AlertFormValues {
 }
 
 /** Validation rules shared by the create and edit alert pages (mirrors the server's checks). */
-export function alertFormValidation(t: (key: string) => string) {
+export function alertFormValidation(t: TFunction) {
   return {
     title: hasLength({ min: 1, max: MAX_ALERT_TITLE_LENGTH }, t("alerts.titleLength")),
     content: (v: string) => {

@@ -1,3 +1,4 @@
+import { dynamicKey } from "../utils/i18nKey";
 import { Text, Timeline } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -20,15 +21,15 @@ function describeEvent(e: TeamKpiEvent, t: TFunction, locale: string, type: Team
   };
   switch (e.type) {
     case "CREATED":
-      return t("teamKpi.event.created", { type: t(`teamKpi.type.${p.type}`) });
+      return t("teamKpi.event.created", { type: t(dynamicKey(`teamKpi.type.${p.type}`)) });
     case "TITLE_CHANGED":
       return t("teamKpi.event.titleChanged");
     case "DESCRIPTION_CHANGED":
       return t("teamKpi.event.descriptionChanged");
     case "TYPE_CHANGED":
       return t("teamKpi.event.typeChanged", {
-        from: t(`teamKpi.type.${p.from}`),
-        to: t(`teamKpi.type.${p.to}`),
+        from: t(dynamicKey(`teamKpi.type.${p.from}`)),
+        to: t(dynamicKey(`teamKpi.type.${p.to}`)),
       });
     case "TARGET_CHANGED":
       return t("teamKpi.event.targetChanged", { from: num(p.from), to: num(p.to) });
@@ -51,8 +52,8 @@ function describeEvent(e: TeamKpiEvent, t: TFunction, locale: string, type: Team
       });
     case "STATUS_CHANGED":
       return t("teamKpi.event.statusChanged", {
-        from: t(`teamKpi.status.${p.from}`),
-        to: t(`teamKpi.status.${p.to}`),
+        from: t(dynamicKey(`teamKpi.status.${p.from}`)),
+        to: t(dynamicKey(`teamKpi.status.${p.to}`)),
       });
     case "DELETED":
       return t("teamKpi.event.deleted");

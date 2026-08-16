@@ -1,3 +1,4 @@
+import type { ParseKeys } from "i18next";
 import { useState } from "react";
 import { Link as RouterLink, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
@@ -105,7 +106,7 @@ export default function EditPerformanceReview() {
   // A PUBLISHED review is read-only — its only action (Unpublish) lives on the view screen.
   if (data && data.status === "PUBLISHED") return <Navigate to={viewLink} replace />;
 
-  async function afterSave(successKey: string) {
+  async function afterSave(successKey: ParseKeys) {
     await invalidatePerformanceReview(queryClient, id);
     showSuccessToast(t(successKey));
     navigate(backTo, { replace: true });

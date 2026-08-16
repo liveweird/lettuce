@@ -1,3 +1,4 @@
+import type { ParseKeys, TFunction } from "i18next";
 import { useState } from "react";
 import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
@@ -141,7 +142,7 @@ export default function EditGoal() {
     return <Navigate to={viewLink} replace />;
   }
 
-  async function afterSave(successKey: string) {
+  async function afterSave(successKey: ParseKeys) {
     await invalidateGoal(queryClient, id);
     showSuccessToast(t(successKey));
     navigate(backTo, { replace: true });
@@ -425,7 +426,7 @@ function validateProgressValue(
   _values: GoalProgressFormValues,
   type: GoalType | undefined,
   hasRecordedValue: boolean,
-  t: (key: string) => string,
+  t: TFunction,
 ): string | null {
   if (type == null || type === "PLAN") return null;
   if (value === "" || value == null) {

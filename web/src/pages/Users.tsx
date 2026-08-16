@@ -1,3 +1,4 @@
+import type { ParseKeys } from "i18next";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
@@ -135,7 +136,7 @@ export default function Users() {
   const [transitionPending, setTransitionPending] = useState(false);
   const [transitionError, setTransitionError] = useState<string | null>(null);
 
-  async function runAccountTransition(action: () => Promise<void>, successKey: string) {
+  async function runAccountTransition(action: () => Promise<void>, successKey: ParseKeys) {
     setTransitionPending(true);
     setTransitionError(null);
     try {

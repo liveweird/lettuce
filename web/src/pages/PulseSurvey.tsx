@@ -1,3 +1,4 @@
+import type { ParseKeys } from "i18next";
 import { Alert, Button, Group, Paper, Progress, Skeleton, Stack, Text } from "@mantine/core";
 import EmojiTextarea from "../components/EmojiTextarea";
 import { useForm } from "@mantine/form";
@@ -32,7 +33,7 @@ import { showSuccessToast } from "../utils/toast";
 const TOTAL_STEPS = 7;
 const COMMENT_STEP = TOTAL_STEPS - 1;
 const STEP_FIELD: Record<number, PulseScaleField> = { 1: "q2", 2: "q3", 3: "q4", 4: "q5", 5: "rotating" };
-const FIXED_LABEL_KEY: Record<Exclude<PulseScaleField, "rotating">, string> = {
+const FIXED_LABEL_KEY: Record<Exclude<PulseScaleField, "rotating">, ParseKeys> = {
   q2: "pulse.q2",
   q3: "pulse.q3",
   q4: "pulse.q4",
