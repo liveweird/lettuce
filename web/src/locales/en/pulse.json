@@ -100,6 +100,7 @@
     "validCount": "n",
     "meanDelta": "Δ mean",
     "favorableDelta": "Δ favorable",
+    "ppUnit": "pp",
     "hint": {
       "enps": "Employee Net Promoter Score. Each person answers the 0–10 recommendation question: 9–10 count as promoters, 7–8 as passives, 0–6 as detractors. The score is the percentage of promoters minus the percentage of detractors, so it ranges from −100 to +100.",
       "mean": "The average of this question's answers on the 1–5 agreement scale. \"Not applicable\" answers are excluded.",

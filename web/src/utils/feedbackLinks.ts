@@ -38,6 +38,42 @@ export function feedbackRequestLink(subjectId: number, subjectName: string, back
 }
 
 /**
+ * Optional addressing for the view/edit detail screens. Party names pre-fill the header while
+ * the record loads; `as` picks the provider/team reading of a row the caller is a party to;
+ * `requesterName` is appended only when the row has one; `back` overrides the return target
+ * (the FeedbackTable embeddings); `from` marks the team-view origin on edit links.
+ */
+export type FeedbackDetailOpts = {
+  as?: "provider" | "team";
+  providerName?: string;
+  subjectName?: string;
+  requesterName?: string | null;
+  from?: string;
+  back?: string;
+};
+
+function feedbackDetailSearch(opts?: FeedbackDetailOpts): string {
+  const parts: string[] = [];
+  if (opts?.as) parts.push(`as=${opts.as}`);
+  if (opts?.providerName) parts.push(`providerName=${encodeURIComponent(opts.providerName)}`);
+  if (opts?.subjectName) parts.push(`subjectName=${encodeURIComponent(opts.subjectName)}`);
+  if (opts?.requesterName) parts.push(`requesterName=${encodeURIComponent(opts.requesterName)}`);
+  if (opts?.from) parts.push(`from=${opts.from}`);
+  if (opts?.back) parts.push(`back=${encodeURIComponent(opts.back)}`);
+  return parts.length ? `?${parts.join("&")}` : "";
+}
+
+/** The read-only feedback document (`/feedback/:id/view`). */
+export function feedbackViewLink(id: number, opts?: FeedbackDetailOpts): string {
+  return `/feedback/${id}/view${feedbackDetailSearch(opts)}`;
+}
+
+/** The feedback editor (`/feedback/:id/edit`). */
+export function feedbackEditLink(id: number, opts?: FeedbackDetailOpts): string {
+  return `/feedback/${id}/edit${feedbackDetailSearch(opts)}`;
+}
+
+/**
  * The per-person two-way feedbacks drill-down (`/users/:userId/feedbacks`). `from` names the
  * originating screen (an ORIGIN key of ManagerFeedbacks — drives its "Back to …" link); the
  * `members` origin additionally needs the `teamId` to link back to that team's roster. `tab`

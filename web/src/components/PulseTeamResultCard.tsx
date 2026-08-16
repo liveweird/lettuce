@@ -53,6 +53,7 @@ export function HintIcon({ label }: { label: string }) {
 }
 
 function DriverRow({ driver, questionLabel }: { driver: PulseDriverResult; questionLabel: string }) {
+  const { t } = useTranslation();
   return (
     <Table.Tr>
       <Table.Td>{questionLabel}</Table.Td>
@@ -76,7 +77,7 @@ function DriverRow({ driver, questionLabel }: { driver: PulseDriverResult; quest
             the wire always carried it; the table finally shows it). */}
         {driver.favorableDeltaPp != null ? (
           <Text size="sm" c={deltaColor(driver.favorableDeltaPp)}>
-            {formatSigned(driver.favorableDeltaPp, 1)} pp
+            {formatSigned(driver.favorableDeltaPp, 1)} {t("pulse.results.ppUnit")}
           </Text>
         ) : (
           <Text size="sm" c="dimmed">

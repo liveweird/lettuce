@@ -163,8 +163,8 @@ export default function PulseSurvey() {
 
   const scaleField = STEP_FIELD[step];
   return (
-    // No Container: tab panels are bare (the parent Pulse hub owns the width) — every tab
-    // renders the same width, unlike a per-tab wrapper.
+    // No Container: tab panels are bare (the AppShell padding governs the width, hub-wide) —
+    // every tab renders the same width, unlike a per-tab wrapper.
     <Paper withBorder shadow="sm" p="xl" radius="md">
         <Stack gap="lg">
           <Text size="sm" c="dimmed">

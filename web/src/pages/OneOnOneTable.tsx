@@ -16,42 +16,17 @@ import EmptyState from "../components/EmptyState";
 import TableLoadingRow from "../components/TableLoadingRow";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
-import PersonaChip from "../components/PersonaChip";
+import PersonCell from "../components/PersonCell";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import SortHeader from "../components/SortHeader";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOf, isString, useStoredState } from "../hooks/useStoredState";
 import { formatIsoDate, formatRelativeTime, formatTimestamp } from "../utils/datetime";
-import { feedbackPartyName } from "../utils/userDisplay";
 
 const SORT_FIELDS = ["meetingDate", "managerName", "subordinateName", "lastModified"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
 
 type OneOnOneRow = OneOnOnePage["items"][number];
-
-// A person cell: "You" and deleted users render as plain text (the FeedbackTable language).
-function PersonCell({
-  userId,
-  name,
-  deleted,
-  currentUserId,
-  youLabel,
-}: {
-  userId: number;
-  name: string;
-  deleted: boolean;
-  currentUserId: number | null;
-  youLabel: string;
-}) {
-  const { t } = useTranslation();
-  if (currentUserId != null && userId === currentUserId) {
-    return <Text size="sm">{youLabel}</Text>;
-  }
-  if (deleted) {
-    return <Text size="sm">{feedbackPartyName(userId, name, true, currentUserId, t)}</Text>;
-  }
-  return <PersonaChip name={name} />;
-}
 
 // A filterable + sortable person column.
 type PersonColumn = {
@@ -358,7 +333,6 @@ export default function OneOnOneTable({
                       name={col.name(m)}
                       deleted={col.deleted(m)}
                       currentUserId={currentUserId}
-                      youLabel={t("common.state.you")}
                     />
                   </Table.Td>
                 ))}

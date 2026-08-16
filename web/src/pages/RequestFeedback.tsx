@@ -15,6 +15,7 @@ import {
 } from "@mantine/core";
 import EmojiTextarea from "../components/EmojiTextarea";
 import { MAX_REQUESTER_MESSAGE_LENGTH } from "../utils/feedbackForm";
+import { feedbackViewLink } from "../utils/feedbackLinks";
 import { useDisclosure } from "@mantine/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconPlus, IconTrash, IconUserPlus } from "@tabler/icons-react";
@@ -224,41 +225,44 @@ export default function RequestFeedback() {
             </Table.Thead>
             <Table.Tbody>
               {selected.length > 0 ? (
-                selected.map((p) => (
-                  <Table.Tr key={p.id}>
-                    <Table.Td>
-                      <PersonaChip name={p.name} />
-                      {duplicates.has(p.id) && (
-                        <Text size="xs" c="orange.8" mt={4}>
-                          {duplicates.get(p.id)?.existingStatus === "DRAFT"
-                            ? t("feedback.duplicate.draft")
-                            : t("feedback.duplicate.requested")}{" "}
-                          <Anchor
-                            component={RouterLink}
-                            to={`/feedback/${duplicates.get(p.id)?.existingId}/view`}
-                            size="xs"
-                            fw={600}
-                            c="orange"
-                          >
-                            {t("feedback.duplicate.open")}
-                          </Anchor>
-                        </Text>
-                      )}
-                    </Table.Td>
-                    <Table.Td>
-                      <Button
-                        color="red"
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconTrash size={14} />}
-                        onClick={() => remove(p.id)}
-                        aria-label={t("feedback.removeName", { name: p.name })}
-                      >
-                        {t("feedback.remove")}
-                      </Button>
-                    </Table.Td>
-                  </Table.Tr>
-                ))
+                selected.map((p) => {
+                  const dup = duplicates.get(p.id);
+                  return (
+                    <Table.Tr key={p.id}>
+                      <Table.Td>
+                        <PersonaChip name={p.name} />
+                        {dup?.existingId != null && (
+                          <Text size="xs" c="orange.8" mt={4}>
+                            {dup.existingStatus === "DRAFT"
+                              ? t("feedback.duplicate.draft")
+                              : t("feedback.duplicate.requested")}{" "}
+                            <Anchor
+                              component={RouterLink}
+                              to={feedbackViewLink(dup.existingId)}
+                              size="xs"
+                              fw={600}
+                              c="orange"
+                            >
+                              {t("feedback.duplicate.open")}
+                            </Anchor>
+                          </Text>
+                        )}
+                      </Table.Td>
+                      <Table.Td>
+                        <Button
+                          color="red"
+                          variant="subtle"
+                          size="xs"
+                          leftSection={<IconTrash size={14} />}
+                          onClick={() => remove(p.id)}
+                          aria-label={t("feedback.removeName", { name: p.name })}
+                        >
+                          {t("feedback.remove")}
+                        </Button>
+                      </Table.Td>
+                    </Table.Tr>
+                  );
+                })
               ) : (
                 <Table.Tr>
                   <Table.Td colSpan={2}>

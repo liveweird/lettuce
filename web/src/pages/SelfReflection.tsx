@@ -12,6 +12,7 @@ import {
 import DuplicateFeedbackAlert from "../components/DuplicateFeedbackAlert";
 import FeedbackForm from "../components/FeedbackForm";
 import { useFeedbackDuplicate } from "../hooks/useFeedbackDuplicate";
+import { feedbackEditLink } from "../utils/feedbackLinks";
 import { saveErrorMessage } from "../utils/saveError";
 import { showSuccessToast } from "../utils/toast";
 
@@ -89,7 +90,7 @@ export default function SelfReflection() {
         duplicate.existingId != null ? (
           <DuplicateFeedbackAlert
             status={duplicate.existingStatus ?? "DRAFT"}
-            to={`/feedback/${duplicate.existingId}/edit`}
+            to={feedbackEditLink(duplicate.existingId)}
           />
         ) : undefined
       }

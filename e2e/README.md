@@ -167,8 +167,8 @@ commit** — this list is the suite's coverage map, and it has drifted three tim
   picking the Monday).
 - `tour.spec.ts` — replays the guided tour twice, pinning the landmark order (whole left menu —
   Changelog included — and every tab of the views it opens, before the header icons): as a
-  manager (50 of the 53 steps — the three admin-only Config leaves are correctly absent) and as
-  the admin (45 steps — the manager-gated tabs drop out, the admin-only leaves join).
+  manager (53 of the 56 steps — the three admin-only Config leaves are correctly absent) and as
+  the admin (47 steps — the manager-gated tabs drop out, the admin-only leaves join).
 - `alerts.spec.ts` — admin creates an alert; a regular user sees the **banner**, hides it to the
   strip and re-shows it (and has no alert management); deactivation and delete remove it.
 - `user-details.spec.ts` — the read-only user-details view: the name links (v2.5.2 — the
