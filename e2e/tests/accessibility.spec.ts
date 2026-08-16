@@ -1,7 +1,8 @@
-// Axe accessibility smoke: WCAG 2.0/2.1 A+AA scans over a representative page set — the
-// login screen plus the admin's read-only views of the main areas. Strictly read-only
-// (no created state), so it shares the chromium phase safely; pages owned by the later
-// alerts/pulse phases are deliberately not scanned.
+// Axe accessibility smoke: WCAG 2.0/2.1 A+AA scans over the login screen plus the admin's
+// read-only views of every nav area. Strictly read-only (no created state), so it shares the
+// chromium phase safely — that includes the /alerts and /pulse MANAGEMENT LISTS (reading them
+// mutates nothing the later alerts/pulse phases own; those phases' interactive journeys stay
+// unscanned).
 import AxeBuilder from "@axe-core/playwright";
 import { ADMIN, expect, login, test } from "./helpers";
 
@@ -41,9 +42,18 @@ const AUTHED_PAGES: { path: string; heading: string }[] = [
   { path: "/users/new", heading: "New user" },
   { path: "/teams", heading: "Teams" },
   { path: "/feedback", heading: "Feedback" },
+  { path: "/kudos", heading: "Kudos" },
   { path: "/goals", heading: "Goals" },
   { path: "/one-on-ones", heading: "1:1 meetings" },
+  { path: "/performance", heading: "Performance" },
+  { path: "/career", heading: "Career" },
+  { path: "/days-off", heading: "Days off" },
+  { path: "/pulse", heading: "Pulse surveys" },
+  { path: "/org", heading: "Org chart" },
   { path: "/templates", heading: "Templates" },
+  { path: "/dictionaries/career-paths", heading: "Career paths" },
+  { path: "/alerts", heading: "Alerts" },
+  { path: "/changelog", heading: "Changelog" },
 ];
 
 for (const { path, heading } of AUTHED_PAGES) {

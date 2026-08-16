@@ -1,7 +1,7 @@
 // Welcome email (admin create with the email option): the credentials are delivered to the
 // mail catcher and actually work. Complements users-import.spec, which deliberately runs
 // without the email option; the Mailpit roundtrip idiom is password-reset.spec's.
-import { ADMIN, createUserViaUi, expect, login, loginWithPassword, logout, test } from "./helpers";
+import { ADMIN, createUserViaUi, expect, login, loginWithPassword, logout, test, userMenu } from "./helpers";
 
 const MAILPIT = "http://localhost:8025";
 
@@ -42,5 +42,5 @@ test("creating a user with the email option delivers working credentials", async
   // The reveal modal and the email carry the same one-time password, and it signs in.
   expect(emailedPassword).toBe(user.password);
   await loginWithPassword(page, user.email, emailedPassword);
-  await expect(page.getByRole("button", { name: "User menu" })).toBeVisible();
+  await expect(userMenu(page)).toBeVisible();
 });

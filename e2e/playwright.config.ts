@@ -16,7 +16,7 @@ export default defineConfig({
   workers: Number(process.env.E2E_WORKERS ?? 4),
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : [["list"], ["html", { open: "never" }]],
+  reporter: [["list"], ["html", { open: "never" }]],
   // 60s: the old 180s existed only to feed the login helper's per-IP rate-limit retry ladder,
   // which could eat ~90s on its own. Development stacks now lift that bucket and the seeded
   // accounts replay a minted session instead of signing in (global-setup.ts / sessions.ts), so

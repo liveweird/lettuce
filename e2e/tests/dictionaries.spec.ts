@@ -9,9 +9,9 @@ import type { Page } from "@playwright/test";
 // after whatever the volume already holds, and removes them at the end — pre-existing entries
 // ride along in every save untouched.
 
-// seniority-levels, not career-paths: user-edit.spec exercises the career-paths document (its
-// whole-list editor pattern removes entries BY INDEX), and under parallel workers each dictionary
-// document needs exactly one writer file.
+// seniority-levels, not career-paths: user-career.spec exercises the career-paths document
+// (since the v2.15.0 career split; its whole-list editor pattern removes entries BY INDEX), and
+// under parallel workers each dictionary document needs exactly one writer file.
 const SLUG = "seniority-levels";
 
 async function saveDictionary(page: Page) {

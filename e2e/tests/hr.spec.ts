@@ -9,8 +9,8 @@ import {
   ADMIN,
   AAA_THREE,
   MANAGER_AAA,
-  PASSWORD,
 } from "./helpers";
+import { apiToken, authHeader } from "./api";
 
 // The probe DRAFT minted below (manager-aaa → AAA Three — this file's exclusively-owned pair
 // under parallel workers; AAA One belongs to the other feedback specs) would block any later
@@ -22,22 +22,9 @@ test.afterEach(async ({ request }) => {
   if (probeFeedbackId == null) return;
   const id = probeFeedbackId;
   probeFeedbackId = null;
-  // Retry through the per-IP login bucket like helpers.login() does.
-  for (let attempt = 0; attempt < 12; attempt++) {
-    const res = await request.post("/api/v1/login", {
-      data: { email: MANAGER_AAA, password: PASSWORD },
-    });
-    if (res.ok()) {
-      const { token } = (await res.json()) as { token: string };
-      await request.delete(`/api/v1/feedbacks/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      return;
-    }
-    if (res.status() !== 429) break;
-    await new Promise((r) => setTimeout(r, 10_000));
-  }
-  throw new Error(`hr.spec cleanup failed: could not delete probe feedback ${id}`);
+  // apiToken retries through the per-IP login bucket like helpers.login() does.
+  const token = await apiToken(request, MANAGER_AAA);
+  await request.delete(`/api/v1/feedbacks/${id}`, { headers: authHeader(token) });
 });
 
 // The HR auditor role (v1.25.0): read-only access to everything any user is a party to —

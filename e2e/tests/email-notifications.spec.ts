@@ -1,4 +1,4 @@
-import { ADMIN, collapseAlertsBanner, expect, login, PASSWORD, test, uniqueText } from "./helpers";
+import { ADMIN, expect, login, openUserMenu, PASSWORD, test, uniqueText } from "./helpers";
 
 // The email-mirror opt-out (v2.3.0): the header account menu opens the self-service screen,
 // the switch persists through save + reload, and turning it back on persists too. Runs on a
@@ -26,11 +26,9 @@ test("a user opts out of email notifications from the account menu and opts back
   expect(created.ok()).toBeTruthy();
 
   await login(page, user.email, user.password);
-  // A pre-existing active alert's expanded banner overlays the header account menu.
-  await collapseAlertsBanner(page);
-
-  // The screen is reached through the header account menu (its only entry point).
-  await page.getByRole("button", { name: "User menu" }).click();
+  // The screen is reached through the header account menu (its only entry point);
+  // openUserMenu collapses any active alert banner overlaying the header first.
+  await openUserMenu(page);
   await page.getByRole("menuitem", { name: "Email notifications" }).click();
   await expect(page).toHaveURL(/\/users\/\d+\/email-notifications/);
   const mirror = page.getByRole("switch", { name: "Send me an email for every notification" });
@@ -47,7 +45,7 @@ test("a user opts out of email notifications from the account menu and opts back
   ]);
   await expect(page.getByText("Email notification settings saved")).toBeVisible();
   await expect(page).toHaveURL(/\/$/);
-  await page.getByRole("button", { name: "User menu" }).click();
+  await openUserMenu(page);
   await page.getByRole("menuitem", { name: "Email notifications" }).click();
   await expect(mirror).not.toBeChecked();
 
@@ -61,7 +59,7 @@ test("a user opts out of email notifications from the account menu and opts back
   ]);
   await expect(page.getByText("Email notification settings saved")).toBeVisible();
   await expect(page).toHaveURL(/\/$/);
-  await page.getByRole("button", { name: "User menu" }).click();
+  await openUserMenu(page);
   await page.getByRole("menuitem", { name: "Email notifications" }).click();
   await expect(mirror).toBeChecked();
 });

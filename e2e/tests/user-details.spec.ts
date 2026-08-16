@@ -81,3 +81,18 @@ test("a team roster opens the peer flavor and round-trips back to the roster", a
   await expect(page.getByRole("heading", { name: "Team details" })).toBeVisible();
   await expect(page.getByText("CCC", { exact: true })).toBeVisible();
 });
+
+// The /users/:id/teams membership view (previously uncovered): every authenticated user gets
+// the row's "Teams" button; the page heading carries the person's name from the ?name= param
+// (getUser is self-or-admin-only, so the list passes the name along), and each membership row
+// links to the team-details view. Read-only against seed users — no roster is mutated.
+test("the Users list's Teams button opens the read-only membership view", async ({ page }) => {
+  await login(page, MANAGER_AAA);
+  await gotoUserRow(page, "AAA One");
+  await page.getByRole("link", { name: "Teams for AAA One" }).click();
+
+  await expect(page).toHaveURL(/\/users\/\d+\/teams\?name=/);
+  await expect(page.getByRole("heading", { name: "Teams — AAA One" })).toBeVisible();
+  // AAA One is on team AAA's roster; the row links to that team's details view.
+  await expect(page.getByRole("link", { name: "Team details for AAA" })).toBeVisible();
+});

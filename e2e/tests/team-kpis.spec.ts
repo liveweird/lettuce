@@ -1,4 +1,4 @@
-import { AAA_ONE, expect, login, logout, MANAGER_AAA, notificationCard, openBell, test, uniqueText } from "./helpers";
+import { AAA_ONE, expect, login, logout, MANAGER_AAA, notificationCard, openBell, rowByTitle, test, uniqueText } from "./helpers";
 import type { Page } from "@playwright/test";
 
 // Team KPIs: a manager defines a KPI for a team they manage and walks it around the
@@ -33,11 +33,6 @@ async function createKpi(page: Page, title: string, activate: boolean): Promise<
   await dialog.getByRole("button", { name: activate ? "Yes" : "No", exact: true }).click();
   await expect(page).toHaveURL(/\/teams\/\d+\/kpis/);
   return id;
-}
-
-// The row for a KPI, located by its unique title.
-function kpiRow(page: Page, title: string) {
-  return page.locator("tr", { hasText: title });
 }
 
 // Add a data point on the view screen's KPI data tab (assumes the tab is open).
@@ -87,17 +82,17 @@ test("a manager walks a team KPI around the whole lifecycle, managing its data p
   await login(page, MANAGER_AAA);
   await gotoTeamKpis(page);
   const id = await createKpi(page, title, false); // "No" keeps the draft
-  await expect(kpiRow(page, title).getByText("Draft", { exact: true })).toBeVisible();
+  await expect(rowByTitle(page, title).getByText("Draft", { exact: true })).toBeVisible();
 
   // The manager's DRAFT row opens the definition editor directly (v1.29.1).
-  await kpiRow(page, title).getByRole("link", { name: `Edit team KPI ${title}` }).click();
+  await rowByTitle(page, title).getByRole("link", { name: `Edit team KPI ${title}` }).click();
   await expect(page).toHaveURL(new RegExp(`/team-kpis/${id}/edit`));
   await page.getByRole("button", { name: "Save & activate", exact: true }).click();
-  await expect(kpiRow(page, title).getByText("Active", { exact: true })).toBeVisible();
+  await expect(rowByTitle(page, title).getByText("Active", { exact: true })).toBeVisible();
 
   // The KPI data tab: add a backdated point and a later one, correct the first, remove the
   // second — every operation persists immediately (no Save button on the screen).
-  await kpiRow(page, title).getByRole("link", { name: `View team KPI ${title}` }).click();
+  await rowByTitle(page, title).getByRole("link", { name: `View team KPI ${title}` }).click();
   await page.getByRole("tab", { name: "KPI data" }).click();
   await expect(page.getByText("No data points yet.")).toBeVisible();
   await addValue(page, id, "2026-07-01", "30");
@@ -132,10 +127,10 @@ test("a manager walks a team KPI around the whole lifecycle, managing its data p
 
   // The list's Current column reflects the max-dated point (35 after the removal).
   await gotoTeamKpis(page);
-  await expect(kpiRow(page, title).getByText("35", { exact: true })).toBeVisible();
+  await expect(rowByTitle(page, title).getByText("35", { exact: true })).toBeVisible();
 
   // Archive from the view screen — the summary is mandatory.
-  await kpiRow(page, title).getByRole("link", { name: `View team KPI ${title}` }).click();
+  await rowByTitle(page, title).getByRole("link", { name: `View team KPI ${title}` }).click();
   await page.getByRole("button", { name: "Archive", exact: true }).click();
   const archiveDialog = page.getByRole("dialog");
   await archiveDialog.getByLabel("Summary").fill("Wrapped up in the e2e run");
@@ -158,7 +153,7 @@ test("a manager walks a team KPI around the whole lifecycle, managing its data p
   await deleteKpi(page, id);
   await gotoTeamKpis(page);
   await expect(page.getByRole("heading", { name: /Team KPIs of AAA/ })).toBeVisible();
-  await expect(kpiRow(page, title)).toHaveCount(0);
+  await expect(rowByTitle(page, title)).toHaveCount(0);
 });
 
 test("activating at creation notifies the members, who see the KPI read-only in My teams' KPIs", async ({ page }) => {
@@ -167,10 +162,10 @@ test("activating at creation notifies the members, who see the KPI read-only in 
   await login(page, MANAGER_AAA);
   await gotoTeamKpis(page);
   const id = await createKpi(page, title, true); // "Yes" activates on the spot
-  await expect(kpiRow(page, title).getByText("Active", { exact: true })).toBeVisible();
+  await expect(rowByTitle(page, title).getByText("Active", { exact: true })).toBeVisible();
 
   // The manager records a data point — members are notified about that too (v1.30.0).
-  await kpiRow(page, title).getByRole("link", { name: `View team KPI ${title}` }).click();
+  await rowByTitle(page, title).getByRole("link", { name: `View team KPI ${title}` }).click();
   await page.getByRole("tab", { name: "KPI data" }).click();
   await addValue(page, id, "2026-07-27", "42");
 
@@ -196,8 +191,8 @@ test("activating at creation notifies the members, who see the KPI read-only in 
 
   // The nav page lists it under "My teams' KPIs" — the row action is View here too.
   await page.goto("/team-kpis");
-  await expect(kpiRow(page, title).getByText("Active", { exact: true })).toBeVisible();
-  await expect(kpiRow(page, title).getByRole("link", { name: `View team KPI ${title}` })).toBeVisible();
+  await expect(rowByTitle(page, title).getByText("Active", { exact: true })).toBeVisible();
+  await expect(rowByTitle(page, title).getByRole("link", { name: `View team KPI ${title}` })).toBeVisible();
 
   // Cleanup: the manager deactivates and deletes.
   await logout(page);

@@ -65,7 +65,7 @@ export async function login(page: Page, email: string, password = PASSWORD): Pro
   }, entries);
   await page.goto("/");
   try {
-    await expect(page.getByRole("button", { name: "User menu" })).toBeVisible({ timeout: 15_000 });
+    await expect(userMenu(page)).toBeVisible({ timeout: 15_000 });
   } catch {
     // Self-heal: if the injected session doesn't authenticate (a renamed storage key), fall back
     // to the real form. Drift costs one slow login here, never a red spec.
@@ -99,7 +99,7 @@ export async function loginWithPassword(
   // Target by textbox role: getByLabel("Password") also matches the visibility-toggle button.
   await page.getByRole("textbox", { name: "Email" }).fill(email);
   await page.getByRole("textbox", { name: "Password" }).fill(password);
-  const loggedIn = page.getByRole("button", { name: "User menu" });
+  const loggedIn = userMenu(page);
   const limited = page.getByText(RATE_LIMIT_ALERT);
   for (let attempt = 0; attempt < RATE_LIMIT_RETRIES; attempt++) {
     await page.getByRole("button", { name: "Sign in" }).click();
@@ -110,7 +110,7 @@ export async function loginWithPassword(
       // location.state.from survives a same-URL goto("/login") because browsers keep
       // history.state across reloads). Land deterministically on the dashboard instead.
       await page.goto("/");
-      await expect(page.getByRole("button", { name: "User menu" })).toBeVisible();
+      await expect(userMenu(page)).toBeVisible();
       return;
     }
     await page.waitForTimeout(RATE_LIMIT_WAIT_MS);
@@ -144,10 +144,23 @@ export async function expectLoginRejected(
   throw new Error(`Login for ${email} still rate-limited after ${RATE_LIMIT_RETRIES} attempts`);
 }
 
-export async function logout(page: Page): Promise<void> {
+/**
+ * The header account-menu button (avatar dropdown, v1.37.0) — the one locator every "am I
+ * logged in?" assert and menu interaction shares. Specs must use this instead of re-spelling
+ * the accessible name.
+ */
+export function userMenu(page: Page): Locator {
+  return page.getByRole("button", { name: "User menu" });
+}
+
+/** Collapse the alert banner (it overlays the header) and open the account menu. */
+export async function openUserMenu(page: Page): Promise<void> {
   await collapseAlertsBanner(page);
-  // Logout lives inside the header user menu (avatar dropdown, v1.37.0).
-  await page.getByRole("button", { name: "User menu" }).click();
+  await userMenu(page).click();
+}
+
+export async function logout(page: Page): Promise<void> {
+  await openUserMenu(page);
   await page.getByRole("menuitem", { name: "Logout" }).click();
   await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
 }
@@ -180,6 +193,11 @@ export async function typeContent(page: Page, text: string): Promise<void> {
 /** Collision-free text so specs never depend on absolute counts or clean state. */
 export function uniqueText(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+}
+
+/** The list row containing [title] — the goals/team-KPIs lifecycle specs' shared row anchor. */
+export function rowByTitle(page: Page, title: string): Locator {
+  return page.locator("tr", { hasText: title });
 }
 
 /**

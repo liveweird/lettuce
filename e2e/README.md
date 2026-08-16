@@ -57,157 +57,50 @@ for any new or edited spec:
 ## What's covered
 
 Real user journeys, prioritizing the feedback lifecycle (which validates the POST-action verb
-endpoints through the UI). **A new spec file must land with its bullet below in the same
-commit** — this list is the suite's coverage map, and it has drifted three times.
+endpoints through the UI). **Each spec's full design lives in its scenario file under
+[`scenarios/`](scenarios/README.md)** — versioned natural-language test-design artifacts (actors,
+owned state, numbered steps, expected outcomes). **A new or behaviorally changed test lands with
+its scenario file and its line below in the same commit** — this list is the coverage map, the
+scenario file is the design.
 
-- `auth.spec.ts` — login / logout / invalid credentials.
-- `feedback-provide.spec.ts` — provide → save draft → **send** → **withdraw** (create, `PUT` content,
-  `POST /send`, `POST /withdraw`).
-- `feedback-request-triage.spec.ts` — ask → **accept** (`POST /pick-up`) → send; and **reject**
-  (`POST /reject`).
-- `feedback-lifecycle-rest.spec.ts` — direct create-as-**SENT** ("Save & send" on the create form),
-  the provider-only **draft delete** (soft-delete → 404 + gone from lists), and the **History** /
-  **Lifecycle** tabs on the view screen.
-- `feedback-delivery.spec.ts` — the receiving side: a draft is invisible to its subject; once sent
-  it appears in their **Received** list and the **bell notification**'s "Go to" opens it (and
-  marks the notification as seen).
-- `feedback-request-third-party.spec.ts` — a manager **requests feedback about a subordinate from a
-  third party** with a **requester message**; the message rides read-only through triage and the
-  draft editor; the requester is notified on pick-up and send.
-- `kudos.spec.ts` — the Kudos wall (v2.2.0): a provider sends a **PUBLIC** feedback, then a
-  caller who is **no party to it** finds it on `/kudos` and expands the card to the full content.
-- `notifications.spec.ts` — bell mechanics: unread badge, mark seen / unseen, mark all as seen,
-  and per-row **delete** (gone for good, the sibling card stays).
-- `email-notifications.spec.ts` — the email-mirror opt-out (v2.3.0): a throwaway user reaches
-  the screen via the header **account menu**, opts out (the switch survives save + reopen) and
-  back in.
-- `user-edit.spec.ts` — admin creates (generated-password reveal) and renames a user
-- `user-career.spec.ts` — career progression (v2.15.0): admin form has no career fields; a chain manager starts/concludes/corrects/deletes positions from the subordinates-card drill-down (a date-only repeat stays disabled — v2.15.2); the current position feeds the details Profile; the nav Career page (v2.16.0) shows the manager's own My career plus the Team pyramid (subordinate row, reports-scope toggle, the v2.17.0 time slider's As-of/Today roundtrip, chart view) and the subordinate My career only; the person is notified and reads their timeline read-only; dictionary rename propagates through the position ref, retired entry keeps resolving
-  (`PUT /users/{id}`).
-- `users-admin.spec.ts` — role change; admin password reset vs. self-change (current password
-  required, wrong one rejected); deactivate/reactivate (Inactive badge, the distinct
-  "account has been deactivated" sign-in rejection, reactivation restores access); delete
-  (deleted account can no longer sign in).
-- `feature-flags.spec.ts` — per-user feature flags: admin disables Goals for a fresh user via
-  the per-user editor (Modify ▾ → Features), the user loses the feature end to end (nav link
-  gone, direct URL bounces home), then re-enables it from the per-feature `/feature-flags`
-  screen and the user gets it back; plus the v2.1.0 team bulk toggle — a fresh team of two
-  fresh users, the Team filter narrows the table, bulk disable/enable flips both rows behind
-  the count-stating confirm (the fresh team is deleted at the end).
-- `users-import.spec.ts` — mass CSV import: a mixed file imports row-by-row (an imported
-  password signs in); re-importing the same rows yields duplicates, not new accounts.
-- `accessibility.spec.ts` — axe (WCAG 2.0/2.1 A+AA) smoke over the login screen and the
-  admin's read-only views of the main areas; strictly read-only. `color-contrast` is a
-  documented waiver (the theme's dimmed text sits below AA by design — revisit only as a
-  theme-wide design pass), so any new violation is a regression in names/roles/structure.
-- `welcome-email.spec.ts` — admin create with the email option: the welcome email lands in
-  Mailpit, carries the same one-time password as the reveal modal, and it signs in (skips
-  when Mailpit is unreachable, like the other mail specs).
-- `password-reset.spec.ts` — the "Forgot password?" flow: neutral answer for unknown emails;
-  a reset email delivers a working new password and kills the old one.
-- `mfa.spec.ts` — email MFA at login (v2.4.0): admin enables the inverted-default MFA flag for a
-  throwaway user; their next sign-in demands the 6-digit code fetched from Mailpit (wrong code
-  rejected inline first). Skips itself when Mailpit is unreachable; seed accounts stay MFA-off,
-  so no other spec's login path is touched.
-- `teams.spec.ts` — team create / rename / member add + remove / **manager reassignment**
-  (admin-only) / delete.
-- `templates.spec.ts` — template CRUD + **Insert** into the feedback editor.
-- `dictionaries.spec.ts` — the global dictionaries: an admin **adds**, **reorders**, and
-  **renames** entries in the whole-list editor (one Save per round; bilingual since v2.6.0 —
-  two inputs per row, `Entry N (English)`/`(Polish)`, both values asserted in the read-only
-  view), a regular user sees the read-only numbered view, and the throwaway entries are
-  removed at the end.
-- `manager-oversight.spec.ts` — the **My team** feedback tab and the per-user two-way
-  feedbacks screen.
-- `lists.spec.ts` — shared list plumbing on the Users page: filters (+ clear), sort toggle,
-  page size.
-- `one-on-ones.spec.ts` — a manager documents a 1:1 (points / decisions / action items) with a
-  direct report, views and deletes it; open action items **carry over** to the next meeting
-  ("Carried over" badge) and the subordinate is **notified** and reads the meeting read-only.
-- `goals.spec.ts` — a manager walks a goal around the whole lifecycle (draft via the
-  activate-prompt's **No**, Save & activate, progress update, archive-with-summary, reopen,
-  DRAFT-only delete); a **PLAN goal** (v2.9.0) defines milestones in the draft, ticks one on
-  the Update screen, and shows it **struck through** with the "done / total" tally; creating
-  with **Yes** activates on the spot, **notifies** the subordinate, and shows read-only in
-  their **My goals**.
-- `dashboard-my-teams.spec.ts` — the Dashboard **My teams** tab: a manager's teams (and only
-  theirs), the name link into the adaptive team-details page where a manager lands on the
-  per-team subordinates grid (same cards/stats/actions as My subordinates, v2.5.5), a
-  drill-down round-trip back to it, and a non-manager's empty state.
-- `team-kpis.spec.ts` — a manager walks a team KPI around the whole lifecycle from the My-teams
-  **Team KPIs** drill-down (a DRAFT row's action is **Edit** straight into the editor, every
-  other row **View**; Save & activate, then the **KPI data** tab's inline editing — add a
-  backdated and a later point, correct one, remove one, the list's Current following the
-  max-dated point — the **Graph** tab, archive-with-summary, reopen, DRAFT-only delete);
-  creating with **Yes** activates on the spot and **notifies the members** — as does the
-  manager recording a data point (the bell shows both; "Go to" opens the document) — and the
-  KPI shows read-only — no lifecycle/Edit/Add-value affordances — in their **My teams' KPIs**.
-- `org-chart.spec.ts` — the org-chart canvas: seed org nodes render, teamless people (the seed
-  Administrator) appear under the "Not in any team" section; a person node opens the
-  user-details view (and returns), a team node opens the roster.
-- `performance-reviews.spec.ts` — the performance-review journey: the admin **appends a review
-  period** (Config → Review periods, the adjacent start pre-locked — the fresh period is
-  **future**, so since v1.34.2 no review can target it; the spec reads the **current** period
-  off the timeline's Current badge instead) and mints a **throwaway subordinate + team** under
-  Manager AAA (a fresh person per run keeps the (subordinate, current period) slot new); the
-  manager scopes the Performance page's **Team's performance** tab (v1.45.0 — formerly the
-  Dashboard's reviews tab) to the current period + throwaway
-  team ("No review yet" → New review → the editor, which defaults to the newest **started**
-  period and greys the future one out), fills all four categories, **Save & submit**, then
-  **publishes** from the view screen (a CALIBRATION row's action is View — the lifecycle lives
-  there); the subordinate is **notified** and reads it on the Performance page's **My
-  performance** tab with zero write
-  affordances; an **Unpublish** takes it back to calibration, **Return to draft** takes it back
-  to DRAFT, and the editor's **Delete** removes the draft — the slot reads "No review yet"
-  again. The manager leg also flips the Team's-performance tab to the **Distribution** view
-  (v1.40.0 toggle) and the **Quadrants** view (v2.7.0 — the reviewee's avatar at the (4, 4)
-  cell, then an axis swap re-plots it) and back. Only the throwaway subordinate + team persist in the dev volume
-  (a fresh one each run).
-- `days-off.spec.ts` — the days-off journey: a user files two **PAID requests** on run-varying
-  future Mondays (half-day edge, live cost preview), the direct manager **accepts** one and
-  **rejects** the other from the team tab (both outcomes **notified**, the Rejected row found
-  via its status filter), the accepted one lands on the shared **calendar** and the per-user
-  drill-down card stats; an **UNPAID** single-day request shows the same cost preview while
-  leaving the paid budget untouched; a manager records a **budget correction** (v1.43.0) the
-  subordinate sees read-only on their budget card; the owner **cancels** the counting requests
-  at the end so none persist on seed accounts (seeded Polish holidays are blocklisted when
-  picking the Monday).
-- `tour.spec.ts` — replays the guided tour twice, pinning the landmark order (whole left menu —
-  Changelog included — and every tab of the views it opens, before the header icons): as a
-  manager (53 of the 56 steps — the three admin-only Config leaves are correctly absent) and as
-  the admin (47 steps — the manager-gated tabs drop out, the admin-only leaves join).
-- `alerts.spec.ts` — admin creates an alert; a regular user sees the **banner**, hides it to the
-  strip and re-shows it (and has no alert management); deactivation and delete remove it.
-- `user-details.spec.ts` — the read-only user-details view: the name links (v2.5.2 — the
-  person's name, carrying the "User details for …" aria) on the users list and a team roster
-  open the person's dashboard card in every relationship flavor (their-manager /
-  my-direct-report / unrelated fallback), with origin-aware back links. Team names are links
-  too (v2.5.4 — "Team details for …" aria → /teams/:id/details); the Members buttons are gone.
-- `hr.spec.ts` — the HR auditor role: an admin grants HR to a throwaway user; the auditor
-  browses another pair's **private draft** read-only via the user-details **Audit** section
-  (feedbacks / 1:1s / goals drill-downs), with zero write affordances and no admin surface —
-  while the seed **admin gets no Audit section at all** (management-only ADMIN, v1.26.0).
-- `self-reflection.spec.ts` — a user writes feedback about themselves (both parties "You",
-  the no-requester visibility pair) and finds it delivered in their Provided tab.
-- `i18n.spec.ts` — PL/EN switch, persisted across reload.
-- `pulse.spec.ts` — the pulse-survey lifecycle (v2.0.0): admin schedules (prefilled dates) and
-  **opens** a cycle; a participant is notified, **fills** the 7-question survey and **edits** it
-  while open; the manager watches per-person **participation** live; two teammates respond over
-  the API (k≥3), the admin **closes**; the respondent reads the team's aggregated **results** (since v2.6.2 asserting HAND-COMPUTED aggregates — eNPS 0 with 33.3-thirds, per-row means/favorables/n)
-  from the bell deep link while the non-responding manager still reads the anonymized
-  **comments** (the fill-gate/monitoring split); Manager CCC (a respondent in no team scope)
-  exercises the **two-view Results layout** (v2.12.0) — the member view's empty state (no
-  comments there), then "Teams I manage" with CCC/AAA/BBB cards: CCC withheld on the direct
-  calculation ("0 of 2"), AAA's hand-computed numbers, comments visible (the monitoring
-  right), and "Including everyone below" widening CCC to "3 of N responded" with eNPS 0
-  (N deliberately unpinned — reviews.spec's Manager-AAA-managed team joins CCC's subtree
-  scope and accumulates on a shared DB); the same session
-  opens the **Trend** tab (team pills since v2.14.0) — the member empty state first, then
-  "Teams I manage": one pill per monitored team (AAA/BBB/CCC, all on — one line each), the
-  calc switch to "Including everyone below", and the metric switch to Q2, asserting
-  chart-or-pending either-or locators only (chart presence is run-dependent: CI has one
-  closed cycle, reruns accumulate); and a scheduled cycle is **cancelled** with the audit-honest confirmation.
-  Runs in its own serial phase — see "Parallel execution".
+- [`accessibility.spec.ts`](scenarios/accessibility.md) — axe WCAG A/AA smoke: login + 17 authed read-only pages; `color-contrast` consciously waived.
+- [`alerts.spec.ts`](scenarios/alerts.md) — admin broadcast alert: banner, hide/re-show, deactivate, delete (own serial phase).
+- [`auth.spec.ts`](scenarios/auth.md) — login / logout / invalid credentials.
+- [`changelog.spec.ts`](scenarios/changelog.md) — the bundled release history renders versioned entries in EN and PL.
+- [`dashboard-my-teams.spec.ts`](scenarios/dashboard-my-teams.md) — the My teams tab, team-details drill-down round-trip, non-manager empty state.
+- [`days-off.spec.ts`](scenarios/days-off.md) — requests (paid/unpaid, half-days), manager accept/reject, calendar, budgets + corrections, cancel.
+- [`dictionaries.spec.ts`](scenarios/dictionaries.md) — the whole-list dictionary editor (add/reorder/rename, bilingual) + the read-only view.
+- [`email-notifications.spec.ts`](scenarios/email-notifications.md) — the per-user email-mirror opt-out toggle.
+- [`feature-flags.spec.ts`](scenarios/feature-flags.md) — per-user feature flags end to end + the per-feature screen's team bulk toggle.
+- [`feedback-delivery.spec.ts`](scenarios/feedback-delivery.md) — the receiving side: draft invisibility, Received list, bell deep link.
+- [`feedback-lifecycle-rest.spec.ts`](scenarios/feedback-lifecycle-rest.md) — create-as-SENT, provider draft delete, History/Lifecycle tabs.
+- [`feedback-provide.spec.ts`](scenarios/feedback-provide.md) — provide → draft → send → withdraw.
+- [`feedback-request-third-party.spec.ts`](scenarios/feedback-request-third-party.md) — manager requests feedback about a subordinate from a third party; requester message rides along.
+- [`feedback-request-triage.spec.ts`](scenarios/feedback-request-triage.md) — ask → accept → send; and reject.
+- [`goals.spec.ts`](scenarios/goals.md) — the goal lifecycle, PLAN milestones, chain-manager visibility, notifications.
+- [`hr.spec.ts`](scenarios/hr.md) — the HR auditor reads a private draft via the Audit section; admin gets no audit surface.
+- [`i18n.spec.ts`](scenarios/i18n.md) — PL/EN switch, persisted across reload.
+- [`kudos.spec.ts`](scenarios/kudos.md) — a PUBLIC feedback lands on the Kudos wall for a non-party.
+- [`lists.spec.ts`](scenarios/lists.md) — shared list plumbing: filters, sort toggle, page size.
+- [`manager-oversight.spec.ts`](scenarios/manager-oversight.md) — the My team feedback tab and the per-user two-way screen.
+- [`mfa.spec.ts`](scenarios/mfa.md) — opt-in email MFA at login (Mailpit-gated).
+- [`notifications.spec.ts`](scenarios/notifications.md) — bell mechanics: badge, seen/unseen, mark all, delete.
+- [`one-on-ones.spec.ts`](scenarios/one-on-ones.md) — documenting 1:1s, action-item carry-over, subordinate notification.
+- [`org-chart.spec.ts`](scenarios/org-chart.md) — the org-chart canvas and its drill-downs.
+- [`password-reset.spec.ts`](scenarios/password-reset.md) — the Forgot-password flow (neutral answers, working new password; Mailpit-gated).
+- [`performance-reviews.spec.ts`](scenarios/performance-reviews.md) — review periods, the full review lifecycle, Distribution + Quadrants views.
+- [`pulse.spec.ts`](scenarios/pulse.md) — the pulse cycle end to end: schedule/open/fill/monitor/close/results/trend/cancel (own serial phase).
+- [`self-reflection.spec.ts`](scenarios/self-reflection.md) — feedback about oneself, delivered to the Provided tab.
+- [`team-kpis.spec.ts`](scenarios/team-kpis.md) — the team-KPI lifecycle, data points + graph, member notifications.
+- [`teams.spec.ts`](scenarios/teams.md) — team CRUD, roster edits, admin-only manager reassignment.
+- [`templates.spec.ts`](scenarios/templates.md) — template CRUD + Insert into the feedback editor.
+- [`tour.spec.ts`](scenarios/tour.md) — the guided tour's landmark order as manager and admin.
+- [`user-career.spec.ts`](scenarios/user-career.md) — the career-position timeline, Career page + Team pyramid + time slider, dictionary rename propagation.
+- [`user-details.spec.ts`](scenarios/user-details.md) — the read-only user-details card in every relationship flavor + the Teams membership view.
+- [`user-edit.spec.ts`](scenarios/user-edit.md) — admin creates (password reveal) and renames a user.
+- [`users-admin.spec.ts`](scenarios/users-admin.md) — roles, password reset vs self-change, deactivate/reactivate, delete.
+- [`users-import.spec.ts`](scenarios/users-import.md) — mass CSV import; re-import yields duplicates.
+- [`welcome-email.spec.ts`](scenarios/welcome-email.md) — create-with-email: the welcome mail's password signs in (Mailpit-gated).
 
 Specs log in with the seeded accounts (`admin@lettuce.local`, `manager-aaa@…`, `aaa-one/two/three@…`,
 all password `changeme`), capture created ids from API responses so they act on their own rows, and
