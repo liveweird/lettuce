@@ -1,4 +1,4 @@
-import { test, expect, login, logout, createUserViaUi, ADMIN } from "./helpers";
+import { test, expect, login, logout, createUserViaUi, ADMIN, userMenu } from "./helpers";
 
 // Email MFA at login (v2.4.0): the admin enables the inverted-default MFA flag for a throwaway
 // user; that user's next sign-in demands the 6-digit code emailed to them. The code roundtrip
@@ -71,6 +71,6 @@ test("an MFA-enabled user must enter the emailed code; a wrong code is rejected 
   // The correct code finishes the sign-in.
   for (let i = 0; i < 6; i++) await codeBoxes.nth(i).fill(code![i]);
   await page.getByRole("button", { name: "Verify" }).click();
-  await expect(page.getByRole("button", { name: "User menu" })).toBeVisible({ timeout: 15_000 });
+  await expect(userMenu(page)).toBeVisible({ timeout: 15_000 });
   await logout(page);
 });

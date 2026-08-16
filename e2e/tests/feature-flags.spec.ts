@@ -1,4 +1,5 @@
 import {
+  userMenu,
   test,
   expect,
   ADMIN,
@@ -42,7 +43,7 @@ test("admin toggles a user's Goals feature via both surfaces; the user's UI foll
   await expect(page.getByRole("link", { name: "Feedback", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Goals", exact: true })).toHaveCount(0);
   await page.goto("/goals");
-  await expect(page.getByRole("button", { name: "User menu" })).toBeVisible();
+  await expect(userMenu(page)).toBeVisible();
   await expect(page).not.toHaveURL(/\/goals/);
   await logout(page);
 

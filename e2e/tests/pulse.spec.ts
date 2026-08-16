@@ -13,8 +13,8 @@ import {
   AAA_THREE,
   MANAGER_AAA,
   MANAGER_CCC,
-  PASSWORD,
 } from "./helpers";
+import { apiToken } from "./api";
 
 // Pulse surveys (v2.0.0), the whole lifecycle through the real UI. This spec runs in its OWN
 // serial phase (playwright.config.ts `pulse` project, after `alerts`): scheduling/opening a
@@ -25,16 +25,10 @@ import {
 // (each run leaves one more CLOSED cycle behind — the results asserts therefore always pin the
 // CURRENT cycle via the notification deep link / latest-closed default, never cycle #1).
 
-async function apiLogin(request: APIRequestContext, email: string): Promise<string> {
-  const res = await request.post("/api/v1/login", { data: { email, password: PASSWORD } });
-  expect(res.ok()).toBeTruthy();
-  return ((await res.json()) as { token: string }).token;
-}
-
 /** Cancels any SCHEDULED/OPEN cycle a previous (failed) run stranded — the registry admits
  *  only one non-terminal cycle, so residue would 409 this run's schedule. */
 async function sweepNonTerminalCycles(request: APIRequestContext): Promise<void> {
-  const token = await apiLogin(request, ADMIN);
+  const token = await apiToken(request, ADMIN);
   const auth = { Authorization: `Bearer ${token}` };
   const cycles = (await (await request.get("/api/v1/pulse-surveys/cycles", { headers: auth })).json()) as {
     items: { id: number; status: string }[];
@@ -62,7 +56,7 @@ async function apiFillSurvey(
   enps: number,
   comment?: string,
 ): Promise<void> {
-  const token = await apiLogin(request, email);
+  const token = await apiToken(request, email);
   const cycleId = await openCycleId(request, token);
   const res = await request.put(`/api/v1/pulse-surveys/cycles/${cycleId}/my-response`, {
     headers: { Authorization: `Bearer ${token}` },
