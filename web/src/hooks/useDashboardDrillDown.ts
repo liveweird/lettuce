@@ -1,3 +1,4 @@
+import type { ParseKeys } from "i18next";
 import { useParams, useSearchParams } from "react-router-dom";
 import { canAudit } from "../api/session";
 import { userDetailsLink } from "../utils/userLinks";
@@ -40,7 +41,7 @@ export function useDashboardDrillDown(basePath: string): {
   idIsValid: boolean;
   name: string | null;
   originKey: DashboardOriginKey;
-  origin: { labelKey: string; to: string };
+  origin: { labelKey: ParseKeys; to: string };
   callerManages: boolean;
   /** `?mode=audit` requested by an HR caller: the page renders the auditor view. */
   auditMode: boolean;
@@ -74,9 +75,9 @@ export function useDashboardDrillDown(basePath: string): {
           : "managers";
   const resolved =
     originKey === "team"
-      ? { labelKey: "feedback.origin.team", to: `/teams/${teamId}/details` }
+      ? ({ labelKey: "feedback.origin.team", to: `/teams/${teamId}/details` } as const)
       : originKey === "details"
-        ? { labelKey: "feedback.origin.details", to: userDetailsLink(userId, name) }
+        ? ({ labelKey: "feedback.origin.details", to: userDetailsLink(userId, name) } as const)
         : DASHBOARD_ORIGINS[originKey];
   // The back override wins for the destination; the origin key keeps naming the label.
   const origin = backOverride ? { labelKey: resolved.labelKey, to: backOverride } : resolved;

@@ -1,5 +1,6 @@
 // The charts stylesheet must ride every lazy @mantine/charts chunk (the TeamKpiChart rule) —
 // without it the tooltip renders unstyled and explodes into scattered fragments.
+import { dynamicKey } from "../utils/i18nKey";
 import "@mantine/charts/styles.css";
 import { Select, Stack, Text } from "@mantine/core";
 import { BarChart } from "@mantine/charts";
@@ -35,7 +36,7 @@ export default function CareerPyramidChart({ rows }: { rows: CareerPyramidRow[] 
       key === NOT_SET
         ? t("career.pyramid.notSet")
         : isTenure
-          ? t(`career.pyramid.bucket.${key}`)
+          ? t(dynamicKey(`career.pyramid.bucket.${key}`))
           : key,
     count,
   }));

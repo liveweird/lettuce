@@ -1,3 +1,4 @@
+import type { ParseKeys } from "i18next";
 import { lazy, Suspense, useState } from "react";
 import { Link as RouterLink, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
@@ -44,7 +45,7 @@ const TeamKpiChart = lazy(() => import("../components/TeamKpiChart"));
 // special-cased: it opens the summary modal instead of firing directly. (The label key stays
 // `action.close` because GoalCloseModal derives its confirm label from `${keyPrefix}.action.close`
 // — the wording is "Archive".)
-const ACTIONS: Record<TeamKpiStatus, { labelKey: string; successKey: string; run?: (id: number) => Promise<void>; close?: true; primary: boolean }[]> = {
+const ACTIONS: Record<TeamKpiStatus, { labelKey: ParseKeys; successKey: ParseKeys; run?: (id: number) => Promise<void>; close?: true; primary: boolean }[]> = {
   DRAFT: [{ labelKey: "teamKpi.action.activate", successKey: "teamKpi.toast.activated", run: activateTeamKpi, primary: true }],
   ACTIVE: [
     { labelKey: "teamKpi.action.deactivate", successKey: "teamKpi.toast.deactivated", run: deactivateTeamKpi, primary: false },
@@ -99,7 +100,7 @@ export default function ViewTeamKpi() {
         ? t("teamKpi.error.viewPermission")
         : t("teamKpi.error.loadFailed");
 
-  async function runAction(actionKey: string, run: (id: number) => Promise<void>, successKey: string) {
+  async function runAction(actionKey: string, run: (id: number) => Promise<void>, successKey: ParseKeys) {
     setSubmitting(actionKey);
     setActionError(null);
     try {

@@ -1,10 +1,11 @@
+import type { TFunction } from "i18next";
 import type { PulseMyResponse, PulseScaleAnswer, PulseSubmitBody } from "../api/pulse";
 import { saveErrorMessage } from "./saveError";
 
 export const PULSE_MAX_COMMENT = 1000;
 
 /** The five agreement points in display order; "NA" renders visually separated. */
-export const PULSE_SCALE_VALUES: readonly PulseScaleAnswer[] = ["1", "2", "3", "4", "5"];
+export const PULSE_SCALE_VALUES = ["1", "2", "3", "4", "5"] as const satisfies readonly PulseScaleAnswer[];
 
 export interface PulseFormValues {
   enps: number | null;
@@ -110,7 +111,7 @@ export function mantineColorVar(token: string): string {
   return `var(--mantine-color-${token.replace(".", "-")})`;
 }
 
-export function pulseFormValidation(t: (key: string, opts?: Record<string, unknown>) => string) {
+export function pulseFormValidation(t: TFunction) {
   const required = (value: number | PulseScaleAnswer | null) =>
     value === null ? t("pulse.validation.answerRequired") : null;
   return {
@@ -129,7 +130,7 @@ export function pulseFormValidation(t: (key: string, opts?: Record<string, unkno
 
 export function pulseSaveErrorMessage(
   err: unknown,
-  t: (key: string, opts?: Record<string, unknown>) => string,
+  t: TFunction,
 ): string {
   return saveErrorMessage(err, t, {
     forbidden: "pulse.error.submitForbidden",

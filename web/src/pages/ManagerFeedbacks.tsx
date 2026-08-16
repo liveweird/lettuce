@@ -1,3 +1,4 @@
+import type { ParseKeys } from "i18next";
 import { Anchor, Button, Group, Stack, Tabs, Text, Title } from "@mantine/core";
 import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { IconMessagePlus } from "@tabler/icons-react";
@@ -39,7 +40,7 @@ function parsePositiveInt(value: string | null): number | null {
 function resolveOrigin(
   fromParam: string | null,
   teamId: number | null,
-): { labelKey: string; to: string } {
+): { labelKey: ParseKeys; to: string } {
   const parameterized = fromParam === "members" || fromParam === "team";
   const key: OriginKey =
     isOriginKey(fromParam) && (!parameterized || teamId != null) ? fromParam : "managers";

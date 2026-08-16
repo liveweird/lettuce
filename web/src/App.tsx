@@ -1,3 +1,4 @@
+import type { ParseKeys } from "i18next";
 import { lazy, Suspense, useState } from "react";
 import {
   ActionIcon,
@@ -167,13 +168,13 @@ function RouteFallback() {
 
 type NavLeaf = {
   to: string;
-  label: string;
+  label: ParseKeys;
   icon: typeof IconLayoutDashboard;
   tourId?: string;
   // When set, the leaf renders only while the session user has the feature enabled (v1.53.0).
   feature?: Feature;
 };
-type NavGroup = { label: string; icon: typeof IconLayoutDashboard; children: NavLeaf[]; tourId?: string };
+type NavGroup = { label: ParseKeys; icon: typeof IconLayoutDashboard; children: NavLeaf[]; tourId?: string };
 type NavEntry = NavLeaf | NavGroup;
 const isGroup = (e: NavEntry): e is NavGroup => "children" in e;
 

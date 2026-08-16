@@ -1,3 +1,4 @@
+import type { ParseKeys } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { Alert, Anchor, Group, Paper, SimpleGrid, Skeleton, Stack, Text, Title } from "@mantine/core";
@@ -110,7 +111,7 @@ export default function UserDetails() {
       : fromParam === "teams" || fromParam === "org" || fromParam === "career"
         ? fromParam
         : "users";
-  const origin =
+  const origin: { labelKey: ParseKeys; to: string } =
     originKey === "members"
       ? { labelKey: "feedback.origin.members", to: `/teams/${teamId}/details` }
       : originKey === "teams"

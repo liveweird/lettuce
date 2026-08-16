@@ -1,3 +1,4 @@
+import type { ParseKeys } from "i18next";
 import { useState } from "react";
 import {
   Alert,
@@ -75,7 +76,7 @@ export default function DaysOffCorrections({
   const draftValid =
     draft.days !== "" && draft.days > 0 && (draft.days * 2) % 1 === 0 && draft.comment.trim().length > 0;
 
-  async function run(action: () => Promise<unknown>, successKey: string) {
+  async function run(action: () => Promise<unknown>, successKey: ParseKeys) {
     setSubmitting(true);
     setError(null);
     try {

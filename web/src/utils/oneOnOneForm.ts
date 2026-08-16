@@ -1,4 +1,4 @@
-import type { TFunction } from "i18next";
+import type { ParseKeys, TFunction } from "i18next";
 import type { ActionItemOwner, OneOnOneResponse, UpdateOneOnOneBody } from "../api/oneonones";
 import { saveErrorMessage } from "./saveError";
 
@@ -114,7 +114,7 @@ export function oneOnOneFormValidation(t: TFunction, minMeetingDate?: string | n
 export function oneOnOneSaveErrorMessage(
   err: unknown,
   t: TFunction,
-  conflictKey: string = "oneOnOne.error.notLatest",
+  conflictKey: ParseKeys = "oneOnOne.error.notLatest",
 ): string {
   return saveErrorMessage(err, t, {
     forbidden: "oneOnOne.error.permission",

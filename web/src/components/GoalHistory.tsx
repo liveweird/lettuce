@@ -1,3 +1,4 @@
+import { dynamicKey } from "../utils/i18nKey";
 import { Text, Timeline } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -17,15 +18,15 @@ function describeEvent(e: GoalEvent, t: TFunction, locale: string): string {
   };
   switch (e.type) {
     case "CREATED":
-      return t("goal.event.created", { type: t(`goal.type.${p.type}`) });
+      return t("goal.event.created", { type: t(dynamicKey(`goal.type.${p.type}`)) });
     case "TITLE_CHANGED":
       return t("goal.event.titleChanged");
     case "DESCRIPTION_CHANGED":
       return t("goal.event.descriptionChanged");
     case "TYPE_CHANGED":
       return t("goal.event.typeChanged", {
-        from: t(`goal.type.${p.from}`),
-        to: t(`goal.type.${p.to}`),
+        from: t(dynamicKey(`goal.type.${p.from}`)),
+        to: t(dynamicKey(`goal.type.${p.to}`)),
       });
     case "TARGET_CHANGED":
       // An empty side means "no target" (the PLAN side of a type change).
@@ -59,8 +60,8 @@ function describeEvent(e: GoalEvent, t: TFunction, locale: string): string {
       return t("goal.event.milestoneReopened", { position: p.position });
     case "STATUS_CHANGED":
       return t("goal.event.statusChanged", {
-        from: t(`goal.status.${p.from}`),
-        to: t(`goal.status.${p.to}`),
+        from: t(dynamicKey(`goal.status.${p.from}`)),
+        to: t(dynamicKey(`goal.status.${p.to}`)),
       });
     case "DELETED":
       return t("goal.event.deleted");

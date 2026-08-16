@@ -1,3 +1,4 @@
+import { dynamicKey } from "../utils/i18nKey";
 import {
   ActionIcon,
   Alert,
@@ -137,7 +138,7 @@ function describeNotification(n: NotificationItem, t: TFunction, locale: string)
     for (const k of ["startDate", "endDate"]) {
       if (params[k] != null) params[k] = formatIsoDate(params[k]!, locale);
     }
-    if (params.type != null) params.type = t(`daysOff.type.${params.type}`);
+    if (params.type != null) params.type = t(dynamicKey(`daysOff.type.${params.type}`));
   }
   if (PULSE_KEYS.has(key)) {
     for (const k of ["openDate", "closeDate"]) {
@@ -150,10 +151,10 @@ function describeNotification(n: NotificationItem, t: TFunction, locale: string)
   }
   // The correction kind words ADD/SUBTRACT via i18next context.
   if (key === "daysOffCorrected") {
-    return t(`notifications.event.${key}`, { ...params, context: params.operation });
+    return t(dynamicKey(`notifications.event.${key}`), { ...params, context: params.operation });
   }
   // `self` drives the "about yourself" wording variant via i18next context.
-  return t(`notifications.event.${key}`, { ...params, context: params.self });
+  return t(dynamicKey(`notifications.event.${key}`), { ...params, context: params.self });
 }
 
 // Per-type row icon + accent color, for scannability. Same forward-compat stance as

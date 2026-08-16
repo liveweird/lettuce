@@ -1,3 +1,4 @@
+import type { ParseKeys } from "i18next";
 import { Anchor, Button, Group, Stack, Text, Title } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { Link as RouterLink, Navigate } from "react-router-dom";
@@ -11,7 +12,7 @@ import GoalTable from "./GoalTable";
 // subordinate (goals the clicked manager set for them), from the subordinates grid or a
 // team-scoped subordinates view the caller is the manager (goals they set for the clicked
 // report — same wording either way).
-const WORDING: Record<DashboardOriginKey, { titleKey: string; hintKey: string }> = {
+const WORDING: Record<DashboardOriginKey, { titleKey: ParseKeys; hintKey: ParseKeys }> = {
   managers: { titleKey: "goal.goalsWith", hintKey: "goal.goalsWithHint" },
   subordinates: { titleKey: "goal.goalsFor", hintKey: "goal.goalsForHint" },
   team: { titleKey: "goal.goalsFor", hintKey: "goal.goalsForHint" },
@@ -32,7 +33,7 @@ export default function UserGoals() {
 
   const who = name ?? t("goal.userFallback", { id: userId });
   const wording = auditMode
-    ? { titleKey: "goal.goalsAudit", hintKey: "goal.goalsAuditHint" }
+    ? ({ titleKey: "goal.goalsAudit", hintKey: "goal.goalsAuditHint" } as const)
     : WORDING[originKey];
 
   return (

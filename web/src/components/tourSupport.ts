@@ -1,6 +1,7 @@
 // Non-component support for the guided tour (Tour.tsx): step definitions, seen-state persistence,
 // contexts and the useTour hook. Kept out of Tour.tsx so that file only exports components and
 // stays compatible with React Fast Refresh (react-refresh/only-export-components).
+import type { ParseKeys } from "i18next";
 import { createContext, useContext } from "react";
 // Types only — erased at build time. The runtime react-joyride import lives solely in
 // TourJoyride.tsx, which Tour.tsx lazy-loads so the library stays out of the entry chunk.
@@ -22,7 +23,7 @@ export function markSeen(userId: number | null) {
 
 type TourStepDef = {
   target: string;
-  contentKey: string;
+  contentKey: ParseKeys;
   placement?: Step["placement"];
   /** Shown only to callers who manage a team (e.g. the Feedback "My team" tab and the 1:1
    *  "I'm a manager" / "My subordinate's a manager" tabs are manager-only). */
@@ -162,7 +163,7 @@ export function waitForElement(selector: string, timeoutMs = 4000): Promise<void
 
 /** Build the audience-filtered, translated Joyride steps. Exported for unit tests. */
 export function buildSteps(
-  translate: (key: string, opts?: Record<string, unknown>) => string,
+  translate: (key: ParseKeys, opts?: Record<string, unknown>) => string,
   manager: boolean,
   navigateTo?: (path: string, target?: string) => Promise<void> | void,
   userId?: number | null,

@@ -1,3 +1,4 @@
+import { dynamicKey } from "../utils/i18nKey";
 import { Text, Timeline } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -15,15 +16,15 @@ function describeEvent(e: FeedbackEvent, t: TFunction): string {
       return t("feedback.event.deleted");
     case "STATUS_CHANGED":
       return t("feedback.event.statusChanged", {
-        from: t(`common.status.${p.from}`),
-        to: t(`common.status.${p.to}`),
+        from: t(dynamicKey(`common.status.${p.from}`)),
+        to: t(dynamicKey(`common.status.${p.to}`)),
       });
     case "CONTENT_UPDATED":
       return t("feedback.event.contentUpdated");
     case "CONTENT_AND_VISIBILITY_UPDATED":
       return t("feedback.event.contentAndVisibilityUpdated");
     case "VISIBILITY_CHANGED":
-      return t("feedback.event.visibilityChanged", { to: t(`common.visibility.${p.to}`) });
+      return t("feedback.event.visibilityChanged", { to: t(dynamicKey(`common.visibility.${p.to}`)) });
     default:
       // Forward-compat: an event kind this client build doesn't know yet — show the raw type.
       return e.type;

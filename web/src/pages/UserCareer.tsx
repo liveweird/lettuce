@@ -1,3 +1,4 @@
+import type { ParseKeys } from "i18next";
 import { useState } from "react";
 import { Alert, Anchor, Button, Group, Paper, Stack, Text, TextInput, Title } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
@@ -212,7 +213,7 @@ export default function UserCareer() {
       : [neighborTripleKey(currentPosition)]
   ).filter((k): k is string => k != null);
 
-  async function run(action: () => Promise<unknown>, successKey: string) {
+  async function run(action: () => Promise<unknown>, successKey: ParseKeys) {
     setSubmitting(true);
     setError(null);
     try {

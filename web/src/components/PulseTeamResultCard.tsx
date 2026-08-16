@@ -1,3 +1,4 @@
+import { dynamicKey } from "../utils/i18nKey";
 import {
   Alert,
   Badge,
@@ -132,7 +133,7 @@ export default function PulseTeamResultCard({
   const questionLabel = (driver: PulseDriverResult) =>
     driver.question === "ROTATING"
       ? ((i18n.resolvedLanguage === "pl" ? driver.rotatingTextPl : driver.rotatingTextEn) ?? "")
-      : t(`pulse.${driver.question.toLowerCase()}`);
+      : t(dynamicKey(`pulse.${driver.question.toLowerCase()}`));
 
   return (
     <Paper withBorder shadow="sm" p="lg" radius="md">

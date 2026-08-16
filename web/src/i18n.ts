@@ -56,7 +56,13 @@ export const SUPPORTED_LANGUAGES = ["en", "pl"] as const;
 
 const LANGUAGE_STORAGE_KEY = "lettuce.lang";
 
-const en = {
+/**
+ * Exported for the i18next type augmentation (src/i18next.d.ts): the EN tree is the
+ * canonical key set every t() call is checked against. Knip cannot trace the d.ts
+ * consumer, hence the public tag.
+ * @public
+ */
+export const en = {
   common: enCommon,
   appShell: enAppShell,
   auth: enAuth,

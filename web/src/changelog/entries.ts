@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.18.3",
+    date: "2026-08-16",
+    en: `An accessibility pass. The page-navigation buttons under every list (first/previous/next/last page) now announce proper names to screen readers instead of being nameless icons, and the application's main screens are checked against the WCAG accessibility rules by an automated scan on every test run — so regressions in labels, roles, and structure get caught before they ship.`,
+    pl: `Szlif dostępności. Przyciski nawigacji po stronach pod każdą listą (pierwsza/poprzednia/następna/ostatnia strona) przedstawiają się teraz czytnikom ekranu właściwymi nazwami, zamiast być bezimiennymi ikonami, a główne ekrany aplikacji są sprawdzane pod kątem reguł dostępności WCAG przez automatyczny skan przy każdym uruchomieniu testów — więc regresje etykiet, ról i struktury zostają wychwycone przed wydaniem.`,
+  },
+  {
     version: "2.18.2",
     date: "2026-08-16",
     en: `A polish pass after an external code review. The percentage-point unit in the pulse survey results ("pp") is now translated — the Polish view shows the correct "p.p." abbreviation — and a handful of internal inconsistencies flagged by the review were cleaned up behind the scenes, with no visible changes.`,

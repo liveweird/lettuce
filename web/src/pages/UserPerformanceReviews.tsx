@@ -1,3 +1,4 @@
+import type { ParseKeys } from "i18next";
 import { Link as RouterLink, Navigate } from "react-router-dom";
 import { Anchor, Button, Group, Stack, Text, Title } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
@@ -9,7 +10,7 @@ import PerformanceReviewTable from "./PerformanceReviewTable";
 
 // Per-origin wording: manager-side origins list the subordinate's reviews, the managers/details
 // origins list "their reviews of you" (the UserGoals idiom); audit mode overrides both.
-const WORDING: Record<DashboardOriginKey, { titleKey: string; hintKey: string }> = {
+const WORDING: Record<DashboardOriginKey, { titleKey: ParseKeys; hintKey: ParseKeys }> = {
   managers: { titleKey: "performanceReview.reviewsWith", hintKey: "performanceReview.reviewsWithHint" },
   subordinates: { titleKey: "performanceReview.reviewsFor", hintKey: "performanceReview.reviewsForHint" },
   team: { titleKey: "performanceReview.reviewsFor", hintKey: "performanceReview.reviewsForHint" },
@@ -25,7 +26,7 @@ export default function UserPerformanceReviews() {
   if (!idIsValid) return <Navigate to={origin.to} replace />;
   const who = name ?? t("performanceReview.userFallback", { id: userId });
   const wording = auditMode
-    ? { titleKey: "performanceReview.reviewsAudit", hintKey: "performanceReview.reviewsAuditHint" }
+    ? ({ titleKey: "performanceReview.reviewsAudit", hintKey: "performanceReview.reviewsAuditHint" } as const)
     : WORDING[originKey];
 
   return (

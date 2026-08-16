@@ -1,3 +1,4 @@
+import { dynamicKey } from "./i18nKey";
 import type { TFunction } from "i18next";
 import type { CategoryAssessment, PerformanceReviewResponse, PerformanceReviewUpdateBody } from "../api/reviews";
 import { saveErrorMessage } from "./saveError";
@@ -29,7 +30,7 @@ export function ratingColor(rating: number): string {
 
 /** The localized scale wording for a rating ("Sometimes exceeds expectations"). */
 export function ratingLabel(t: TFunction, rating: number): string {
-  return t(`performanceReview.rating.${rating}`);
+  return t(dynamicKey(`performanceReview.rating.${rating}`));
 }
 
 /** "4 — Sometimes exceeds expectations": the number stays visible next to its wording. */

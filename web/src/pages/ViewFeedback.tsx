@@ -1,3 +1,4 @@
+import type { ParseKeys } from "i18next";
 import { useState } from "react";
 import {
   Link as RouterLink,
@@ -41,7 +42,7 @@ const RECEIVED = "/feedback?tab=received";
 // backend state machine in FeedbackService.isAllowedTransition). WITHDRAWN is terminal
 // and intentionally absent → the provider sees only Close. `labelKey` resolves via i18n.
 const NEXT_ACTION: Partial<
-  Record<FeedbackStatus, { labelKey: string; successKey: string; run: (id: number) => Promise<void>; confirm?: boolean }>
+  Record<FeedbackStatus, { labelKey: ParseKeys; successKey: ParseKeys; run: (id: number) => Promise<void>; confirm?: boolean }>
 > = {
   REQUESTED: { labelKey: "feedback.action.draft", successKey: "feedback.toast.accepted", run: pickUpFeedback },
   DRAFT: { labelKey: "feedback.action.send", successKey: "feedback.toast.sent", run: sendFeedback },
@@ -101,7 +102,7 @@ export default function ViewFeedback() {
     isRequester &&
     (data!.status === "REQUESTED" || data!.status === "REJECTED" || data!.status === "DRAFT");
 
-  async function handleAction(run: (id: number) => Promise<void>, successKey: string) {
+  async function handleAction(run: (id: number) => Promise<void>, successKey: ParseKeys) {
     if (!data) return;
     setActionError(null);
     setSubmitting(true);

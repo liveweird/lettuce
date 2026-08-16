@@ -1,3 +1,4 @@
+import type { ParseKeys } from "i18next";
 import { useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import {
@@ -37,7 +38,7 @@ import {
 import { charCountDescription } from "../utils/charCount";
 
 // The four global dictionaries — the slug is both the route param and the API path segment.
-const DICTIONARIES: Record<DictionarySlug, { titleKey: string }> = {
+const DICTIONARIES: Record<DictionarySlug, { titleKey: ParseKeys }> = {
   "career-paths": { titleKey: "dictionary.title.careerPaths" },
   "career-specializations": { titleKey: "dictionary.title.careerSpecializations" },
   "seniority-levels": { titleKey: "dictionary.title.seniorityLevels" },

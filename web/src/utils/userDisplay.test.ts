@@ -1,13 +1,14 @@
+import type { TFunction } from "i18next";
 import { describe, expect, test } from "vitest";
 import { feedbackPartyName } from "./userDisplay";
 
 // A stand-in for i18next's t: returns "You" for the self key and "Name (deleted)"
 // for the deleted-suffix key, so assertions read clearly.
-const t = (key: string, opts?: Record<string, unknown>): string => {
+const t = ((key: string, opts?: Record<string, unknown>): string => {
   if (key === "common.state.you") return "You";
   if (key === "feedback.deletedSuffix") return `${opts?.name} (deleted)`;
   return key;
-};
+}) as unknown as TFunction;
 
 describe("feedbackPartyName", () => {
   test("returns 'You' when the user is the current user", () => {
