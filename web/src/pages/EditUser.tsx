@@ -1,5 +1,10 @@
 import { charCountDescription } from "../utils/charCount";
-import { MAX_EMAIL_LENGTH, MAX_USER_NAME_LENGTH } from "../utils/userForm";
+import {
+  isUniqueIdConflict,
+  MAX_EMAIL_LENGTH,
+  MAX_UNIQUE_ID_LENGTH,
+  MAX_USER_NAME_LENGTH,
+} from "../utils/userForm";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -40,6 +45,9 @@ type FormValues = {
   // Whole days ("" = unset). Sent only when set — omitting encodes "leave unchanged",
   // so clearing a set allowance is inexpressible client-side too.
   paidDaysOffAllowance: number | "";
+  // Sent only when non-blank (trimmed) — the allowance semantics: emptying the field
+  // leaves the server value unchanged, clearing a set id is inexpressible.
+  uniqueId: string;
 };
 
 // Linear-time (no ambiguous backtracking): dot-separated domain labels may not contain dots.
@@ -60,6 +68,7 @@ export default function EditUser() {
       email: "",
       roles: [],
       paidDaysOffAllowance: "",
+      uniqueId: "",
     },
     validate: {
       name: hasLength({ min: 1, max: 50 }, t("users.validation.nameLength")),
@@ -88,6 +97,7 @@ export default function EditUser() {
         email: data.email,
         roles: [...data.roles],
         paidDaysOffAllowance: data.paidDaysOffAllowance ?? "",
+        uniqueId: data.uniqueId ?? "",
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -107,14 +117,18 @@ export default function EditUser() {
         ...(values.paidDaysOffAllowance !== ""
           ? { paidDaysOffAllowance: values.paidDaysOffAllowance }
           : {}),
+        ...(values.uniqueId.trim() !== "" ? { uniqueId: values.uniqueId.trim() } : {}),
       });
       await queryClient.invalidateQueries({ queryKey: ["users"] });
       await queryClient.invalidateQueries({ queryKey: ["user", id] });
       showSuccessToast(t("users.toast.updated"));
       navigate("/users", { replace: true });
     } catch (err) {
-      // A duplicate email is a field-level problem, not a page-level one.
-      if (err instanceof ApiError && err.status === 409) {
+      // A duplicate email or unique id is a field-level problem, not a page-level one —
+      // the ProblemDetail detail decides which field (both clashes share the 409).
+      if (isUniqueIdConflict(err)) {
+        form.setFieldError("uniqueId", t("users.uniqueIdAlreadyInUse"));
+      } else if (err instanceof ApiError && err.status === 409) {
         form.setFieldError("email", t("users.emailAlreadyInUse"));
       } else {
         setError(
@@ -209,6 +223,18 @@ export default function EditUser() {
                   }
                   rightSectionPointerEvents="auto"
                   {...form.getInputProps("email")}
+                />
+                <TextInput
+                  label={t("users.uniqueId")}
+                  maxLength={MAX_UNIQUE_ID_LENGTH}
+                  // The counter takes over the description slot near the cap (the name idiom);
+                  // otherwise the slot explains the set-once semantics.
+                  description={
+                    charCountDescription(form.values.uniqueId.length, MAX_UNIQUE_ID_LENGTH) ??
+                    t("users.uniqueIdHint")
+                  }
+                  inputWrapperOrder={["label", "input", "description", "error"]}
+                  {...form.getInputProps("uniqueId")}
                 />
                 <RolesMultiSelect {...form.getInputProps("roles")} />
                 <NumberInput

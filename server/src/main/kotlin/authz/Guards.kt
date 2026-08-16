@@ -152,6 +152,16 @@ fun requireCanAssignPaidDaysOffAllowance(caller: CallerPrincipal, requested: Int
     if (!caller.isAdmin()) throw ForbiddenException("Only admins may change a user's paid days-off allowance")
 }
 
+/**
+ * The [requireCanAssignPaidDaysOffAllowance] sibling for the unique id (V59): newly assigning
+ * or changing it is ADMIN-only. A null request (= leave unchanged) or resubmitting the current
+ * value is not a change; clearing is inexpressible — a wrong id is corrected by overwriting.
+ */
+fun requireCanAssignUniqueId(caller: CallerPrincipal, requested: String?, current: String?) {
+    if (requested == null || requested == current) return
+    if (!caller.isAdmin()) throw ForbiddenException("Only admins may change a user's unique id")
+}
+
 fun canReadFeedback(
     caller: CallerPrincipal,
     feedback: Feedback,

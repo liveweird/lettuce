@@ -76,6 +76,30 @@ class PayloadValidationTest {
     }
 
     @Test
+    fun `user create rejects a blank or oversized unique id with 400`() = testApplication {
+        usePostgresTestcontainer()
+        val client = adminClient()
+
+        suspend fun createStatus(uniqueId: String?): HttpStatusCode =
+            client.post("/api/v1/users") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    UserRequest(
+                        name = "Ok", email = uniqueEmail("uid"),
+                        password = "pw-123456789", uniqueId = uniqueId,
+                    ),
+                )
+            }.status
+
+        assertEquals(HttpStatusCode.BadRequest, createStatus("  "))
+        assertEquals(HttpStatusCode.BadRequest, createStatus("x".repeat(51)))
+        // Control: exactly at the cap (unique per run — the id is a unique column) and absent both pass.
+        val atCap = (uniqueEmail("cap").substringBefore("@") + "-" + "x".repeat(50)).take(50)
+        assertEquals(HttpStatusCode.Created, createStatus(atCap))
+        assertEquals(HttpStatusCode.Created, createStatus(null))
+    }
+
+    @Test
     fun `a NUL character in stored text is a 400 problem - not a 500`() = testApplication {
         usePostgresTestcontainer()
         val client = adminClient()

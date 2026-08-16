@@ -532,6 +532,59 @@ class AuditTest {
     }
 
     @Test
+    fun `unique id changes carry deltas in user updated and user created`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw")
+        val targetEmail = uniqueEmail("uid-target")
+        val targetId = TestUsers.seed(email = targetEmail, password = "pw", roles = emptySet())
+        val appender = LogCapture("ch.nokillswit.audit")
+        try {
+            val client = authedClient(adminEmail, "pw")
+            val tag = uniqueEmail("uid").substringBefore("@")
+
+            suspend fun putUniqueId(value: String?) = client.put("/api/v1/users/$targetId") {
+                contentType(ContentType.Application.Json)
+                setBody(UserUpdateRequest(name = "Test", email = targetEmail, roles = emptyList(), uniqueId = value))
+            }
+
+            // First assignment: To present, From absent (previously unset).
+            putUniqueId("A-$tag")
+            val assigned = appender.events.find { it.message == "user.updated" }
+            assertNotNull(assigned, "expected a user.updated audit event")
+            assertEquals("A-$tag", assigned.keyValuePairs.first { it.key == "uniqueIdTo" }.value)
+            assertTrue(assigned.keyValuePairs.none { it.key == "uniqueIdFrom" })
+
+            // Resubmitting the same value (or null) is not a change → nothing new.
+            putUniqueId("A-$tag")
+            putUniqueId(null)
+            assertEquals(1, appender.events.count { it.message == "user.updated" })
+
+            // Changing it → From and To both present.
+            putUniqueId("B-$tag")
+            val changed = appender.events.last { it.message == "user.updated" }
+            assertEquals("A-$tag", changed.keyValuePairs.first { it.key == "uniqueIdFrom" }.value)
+            assertEquals("B-$tag", changed.keyValuePairs.first { it.key == "uniqueIdTo" }.value)
+
+            // Create with a unique id → user.created carries it.
+            client.post("/api/v1/users") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    ch.nokillswit.users.UserRequest(
+                        name = "Uid Created", email = uniqueEmail("uid-created"),
+                        password = "pw-123456789", uniqueId = "C-$tag",
+                    ),
+                )
+            }
+            val created = appender.events.find { it.message == "user.created" }
+            assertNotNull(created, "expected a user.created audit event")
+            assertEquals("C-$tag", created.keyValuePairs.first { it.key == "uniqueId" }.value)
+        } finally {
+            appender.detach()
+        }
+    }
+
+    @Test
     fun `no-op member mutations and phantom template updates emit no audit events`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")

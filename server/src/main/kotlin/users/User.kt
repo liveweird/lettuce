@@ -67,6 +67,9 @@ data class User(
     // mirrored to the user's inbox. Never client-settable via PUT — flipped only by
     // PUT /users/{id}/email-notifications (target user or ADMIN).
     val emailNotificationsEnabled: Boolean = true,
+    // Optional unique id (V59, an employee-id-like reference). ADMIN-only assignable;
+    // unique among active users (partial index — a soft-deleted user frees their id).
+    val uniqueId: String? = null,
 )
 
 @Serializable
@@ -80,6 +83,9 @@ data class UserRequest(
     val sendEmail: Boolean = false,
     // Optional paid days-off allowance in whole days (0–365) — ADMIN-only.
     val paidDaysOffAllowance: Int? = null,
+    // Optional unique id (V59) — the whole POST is ADMIN-only anyway. Unique among active
+    // users; a clash is 409.
+    val uniqueId: String? = null,
 )
 
 @Serializable
@@ -105,6 +111,8 @@ data class UserCreateResponse(
     val disabledFeatures: List<Feature>,
     // Always true at creation (the V51 default); aligned with UserResponse.
     val emailNotificationsEnabled: Boolean,
+    // The unique id assigned at creation, or null; aligned with UserResponse.
+    val uniqueId: String?,
 )
 
 @Serializable
@@ -116,6 +124,9 @@ data class UserUpdateRequest(
     // it is ADMIN-only; clearing is inexpressible. (The career refs left this request in
     // v2.15.0 — the position history owns them now.)
     val paidDaysOffAllowance: Int? = null,
+    // Unique id (V59) — the allowance semantics verbatim: null/omitted = leave unchanged,
+    // changing is ADMIN-only, clearing is inexpressible. A clash with an active user is 409.
+    val uniqueId: String? = null,
 )
 
 /** Body of PUT /users/{id}/features — a wholesale replace of the user's disabled set. */
@@ -206,6 +217,9 @@ data class UserResponse(
     // Rides every user response (the deactivated posture) so the self-service toggle can
     // load its current state via GET /users/{id}.
     val emailNotificationsEnabled: Boolean,
+    // Unique id (V59): null = not set yet — the admin list renders the "fill me" cue off
+    // this. Readable by everyone (an employee-id-like reference); writes are ADMIN-only.
+    val uniqueId: String?,
     // Teams the user is a MEMBER of (non-deleted, name-ascending) — a LIST enrichment
     // (v2.1.0, backs the /feature-flags team column): computed by UserService.list only.
     // Membership only — managing a team without being on its roster does not put it here.
@@ -230,4 +244,5 @@ fun User.toResponse(id: UInt, profile: CareerProfile?) = UserResponse(
     deactivated = deactivated,
     disabledFeatures = disabledFeatures.sortedBy { it.name },
     emailNotificationsEnabled = emailNotificationsEnabled,
+    uniqueId = uniqueId,
 )
