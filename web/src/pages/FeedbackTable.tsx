@@ -24,7 +24,7 @@ import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
 import TableLoadingRow from "../components/TableLoadingRow";
 import { StatusBadge, VisibilityBadge } from "../components/FeedbackBadges";
-import PersonaChip from "../components/PersonaChip";
+import PersonCell from "../components/PersonCell";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
@@ -39,35 +39,7 @@ import {
   type LastModifiedWindow,
 } from "../utils/datetime";
 import { ALL_VISIBILITIES } from "../utils/feedbackVisibility";
-import { feedbackPartyName } from "../utils/userDisplay";
-
-// A person cell: mini initials avatar + name (the dashboard cards' language). "You", absent
-// (—) and deleted users render as plain text — the avatar is for identifiable other people.
-function PersonCell({
-  userId,
-  name,
-  deleted,
-  currentUserId,
-  t,
-}: {
-  userId: number | null | undefined;
-  name: string | null | undefined;
-  deleted: boolean;
-  currentUserId: number | null;
-  t: (key: string, opts?: Record<string, unknown>) => string;
-}) {
-  const display = feedbackPartyName(userId, name, deleted, currentUserId, t);
-  const isSelf = currentUserId != null && userId === currentUserId;
-  const plain = isSelf || name == null || deleted;
-  if (plain) {
-    return (
-      <Text size="sm" c={name == null ? "dimmed" : undefined}>
-        {display}
-      </Text>
-    );
-  }
-  return <PersonaChip name={display} />;
-}
+import { feedbackEditLink, feedbackViewLink } from "../utils/feedbackLinks";
 
 const SORT_FIELDS = [
   "requesterName",
@@ -120,8 +92,8 @@ const SUBJECT_COLUMN: PersonColumn = {
 // What the per-view action renderers get from the component.
 type ActionContext = {
   currentUserId: number | null;
-  // `&back=…` suffix carrying the `backTo` prop; empty when unset.
-  backParam: string;
+  // Return target carried into the View/Edit links (the `backTo` prop); unset = feedback tabs.
+  backTo?: string;
   t: (key: string, opts?: Record<string, unknown>) => string;
 };
 
@@ -143,14 +115,14 @@ const VIEW_CONFIG: Record<
   received: {
     personColumns: [PROVIDER_COLUMN],
     defaultSortField: "providerName",
-    renderAction: (f, { t, backParam }) => (
+    renderAction: (f, { t, backTo }) => (
       <Button
         component={RouterLink}
-        to={
-          `/feedback/${f.id}/view?providerName=${encodeURIComponent(f.providerName)}` +
-          (f.requesterName ? `&requesterName=${encodeURIComponent(f.requesterName)}` : "") +
-          backParam
-        }
+        to={feedbackViewLink(f.id, {
+          providerName: f.providerName,
+          requesterName: f.requesterName,
+          back: backTo,
+        })}
         variant="subtle"
         size="xs"
         leftSection={<IconEye size={14} />}
@@ -163,11 +135,11 @@ const VIEW_CONFIG: Record<
   provided: {
     personColumns: [SUBJECT_COLUMN],
     defaultSortField: "subjectName",
-    renderAction: (f, { t, backParam }) =>
+    renderAction: (f, { t, backTo }) =>
       f.status === "REQUESTED" || f.status === "DRAFT" ? (
         <Button
           component={RouterLink}
-          to={`/feedback/${f.id}/edit?subjectName=${encodeURIComponent(f.subjectName)}${backParam}`}
+          to={feedbackEditLink(f.id, { subjectName: f.subjectName, back: backTo })}
           variant="subtle"
           size="xs"
           leftSection={<IconPencil size={14} />}
@@ -178,11 +150,12 @@ const VIEW_CONFIG: Record<
       ) : (
         <Button
           component={RouterLink}
-          to={
-            `/feedback/${f.id}/view?as=provider&subjectName=${encodeURIComponent(f.subjectName)}` +
-            (f.requesterName ? `&requesterName=${encodeURIComponent(f.requesterName)}` : "") +
-            backParam
-          }
+          to={feedbackViewLink(f.id, {
+            as: "provider",
+            subjectName: f.subjectName,
+            requesterName: f.requesterName,
+            back: backTo,
+          })}
           variant="subtle"
           size="xs"
           leftSection={<IconEye size={14} />}
@@ -197,14 +170,15 @@ const VIEW_CONFIG: Record<
   user: {
     personColumns: [PROVIDER_COLUMN, SUBJECT_COLUMN],
     defaultSortField: "lastModified",
-    renderAction: (f, { t, backParam }) => (
+    renderAction: (f, { t, backTo }) => (
       <Button
         component={RouterLink}
-        to={
-          `/feedback/${f.id}/view?providerName=${encodeURIComponent(f.providerName)}&subjectName=${encodeURIComponent(f.subjectName)}` +
-          (f.requesterName ? `&requesterName=${encodeURIComponent(f.requesterName)}` : "") +
-          backParam
-        }
+        to={feedbackViewLink(f.id, {
+          providerName: f.providerName,
+          subjectName: f.subjectName,
+          requesterName: f.requesterName,
+          back: backTo,
+        })}
         variant="subtle"
         size="xs"
         leftSection={<IconEye size={14} />}
@@ -217,11 +191,11 @@ const VIEW_CONFIG: Record<
   team: {
     personColumns: [PROVIDER_COLUMN, SUBJECT_COLUMN],
     defaultSortField: "subjectName",
-    renderAction: (f, { t, currentUserId, backParam }) =>
+    renderAction: (f, { t, currentUserId, backTo }) =>
       currentUserId === f.providerId && f.status === "DRAFT" ? (
         <Button
           component={RouterLink}
-          to={`/feedback/${f.id}/edit?subjectName=${encodeURIComponent(f.subjectName)}&from=team${backParam}`}
+          to={feedbackEditLink(f.id, { subjectName: f.subjectName, from: "team", back: backTo })}
           variant="subtle"
           size="xs"
           leftSection={<IconPencil size={14} />}
@@ -232,11 +206,13 @@ const VIEW_CONFIG: Record<
       ) : (
         <Button
           component={RouterLink}
-          to={
-            `/feedback/${f.id}/view?as=team&providerName=${encodeURIComponent(f.providerName)}&subjectName=${encodeURIComponent(f.subjectName)}` +
-            (f.requesterName ? `&requesterName=${encodeURIComponent(f.requesterName)}` : "") +
-            backParam
-          }
+          to={feedbackViewLink(f.id, {
+            as: "team",
+            providerName: f.providerName,
+            subjectName: f.subjectName,
+            requesterName: f.requesterName,
+            back: backTo,
+          })}
           variant="subtle"
           size="xs"
           leftSection={<IconEye size={14} />}
@@ -280,7 +256,6 @@ export default function FeedbackTable({
     value,
     label: t(`common.status.${value}`),
   }));
-  const backParam = backTo ? `&back=${encodeURIComponent(backTo)}` : "";
   const columnCount = config.personColumns.length + 6; // requester + preview + vis + status + modified + actions
 
   const storeKey = settingsKey ?? `feedbacks.${view}`;
@@ -507,7 +482,6 @@ export default function FeedbackTable({
                     name={f.requesterName}
                     deleted={f.requesterDeleted}
                     currentUserId={currentUserId}
-                    t={t}
                   />
                 </Table.Td>
                 {config.personColumns.map((col) => (
@@ -517,7 +491,6 @@ export default function FeedbackTable({
                       name={col.name(f)}
                       deleted={col.deleted(f)}
                       currentUserId={currentUserId}
-                      t={t}
                     />
                   </Table.Td>
                 ))}
@@ -539,7 +512,7 @@ export default function FeedbackTable({
                 <Table.Td style={{ whiteSpace: "nowrap" }} title={formatTimestamp(f.lastModified)}>
                   {formatRelativeTime(f.lastModified, i18n.language)}
                 </Table.Td>
-                <Table.Td>{config.renderAction(f, { currentUserId, backParam, t })}</Table.Td>
+                <Table.Td>{config.renderAction(f, { currentUserId, backTo, t })}</Table.Td>
               </Table.Tr>
             ))
           ) : !isError ? (

@@ -12,6 +12,7 @@ import {
 } from "@mantine/core";
 import EmojiTextarea from "../components/EmojiTextarea";
 import { MAX_REQUESTER_MESSAGE_LENGTH } from "../utils/feedbackForm";
+import { feedbackViewLink } from "../utils/feedbackLinks";
 import { useDisclosure } from "@mantine/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -112,7 +113,7 @@ export default function AskFeedback() {
             // The caller is the requester of the existing row, so the view route is theirs.
             <DuplicateFeedbackAlert
               status={duplicate.existingStatus ?? "REQUESTED"}
-              to={`/feedback/${duplicate.existingId}/view`}
+              to={feedbackViewLink(duplicate.existingId)}
             />
           )}
 

@@ -100,6 +100,7 @@
     "validCount": "n",
     "meanDelta": "Δ średniej",
     "favorableDelta": "Δ pozytywnych",
+    "ppUnit": "p.p.",
     "hint": {
       "enps": "Employee Net Promoter Score. Każda osoba odpowiada na pytanie o polecenie firmy w skali 0–10: 9–10 to promotorzy, 7–8 to neutralni, 0–6 to krytycy. Wynik to procent promotorów minus procent krytyków, więc mieści się w zakresie od −100 do +100.",
       "mean": "Średnia odpowiedzi na to pytanie w skali zgody 1–5. Odpowiedzi „Nie dotyczy” nie są uwzględniane.",

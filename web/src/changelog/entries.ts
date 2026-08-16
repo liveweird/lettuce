@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.18.2",
+    date: "2026-08-16",
+    en: `A polish pass after an external code review. The percentage-point unit in the pulse survey results ("pp") is now translated — the Polish view shows the correct "p.p." abbreviation — and a handful of internal inconsistencies flagged by the review were cleaned up behind the scenes, with no visible changes.`,
+    pl: `Szlif po zewnętrznym przeglądzie kodu. Jednostka punktów procentowych w wynikach ankiet pulse („pp") jest teraz tłumaczona — polski widok pokazuje poprawny skrót „p.p." — a kilka wewnętrznych niespójności wskazanych w przeglądzie zostało uporządkowanych za kulisami, bez widocznych zmian.`,
+  },
+  {
     version: "2.18.1",
     date: "2026-08-16",
     en: `Password length rules are now consistent everywhere. The technical limit was always 71 bytes (a property of the password-hashing algorithm), but the API documentation claimed 64 characters — long-but-valid passwords looked forbidden on paper, while some passwords with many non-Latin characters passed the documented rule yet were rejected. The documentation now states the real limit, and the change-password form checks it up front with a clear message instead of letting the server reject the save.`,
