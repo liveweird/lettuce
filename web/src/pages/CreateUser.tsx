@@ -17,6 +17,7 @@ import {
   Group,
   Modal,
   Paper,
+  Select,
   Stack,
   Text,
   TextInput,
@@ -28,6 +29,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "../api/http";
 import { isAdmin, type UserRole } from "../api/session";
 import { createUser } from "../api/users";
+import { NATIVE_LANGUAGE_NAMES, SUPPORTED_LANGUAGES, type SupportedLanguage } from "../i18n";
 import RevealablePassword from "../components/RevealablePassword";
 import RolesMultiSelect from "../components/RolesMultiSelect";
 import { generatePassword } from "../utils/password";
@@ -40,6 +42,9 @@ type FormValues = {
   // Sent only when non-blank (trimmed) — optional, but admins should assign one ASAP
   // (the users list flags the missing state).
   uniqueId: string;
+  // The new user's language (v2.21.0) — drives their UI at sign-in and every email sent to
+  // them; they can change it themselves later via the header switcher.
+  language: SupportedLanguage;
   // No career fields (v2.15.0): a new user's career history starts empty — their management
   // chain records positions on /users/:id/career.
 };
@@ -61,6 +66,7 @@ export default function CreateUser() {
     name: string;
     password: string;
     emailSent: boolean | null;
+    language: SupportedLanguage;
   } | null>(null);
 
   const form = useForm<FormValues>({
@@ -70,6 +76,7 @@ export default function CreateUser() {
       email: "",
       roles: [],
       uniqueId: "",
+      language: "en",
     },
     validate: {
       name: hasLength({ min: 1, max: 50 }, t("users.validation.nameLength")),
@@ -95,6 +102,7 @@ export default function CreateUser() {
         roles: values.roles,
         password,
         sendEmail,
+        language: values.language,
         ...(values.uniqueId.trim() !== "" ? { uniqueId: values.uniqueId.trim() } : {}),
       });
       await queryClient.invalidateQueries({ queryKey: ["users"] });
@@ -103,6 +111,7 @@ export default function CreateUser() {
         name: values.name,
         password,
         emailSent: res.emailSent ?? null,
+        language: values.language,
       });
     } catch (err) {
       // A duplicate email or unique id is a field-level problem, not a page-level one —
@@ -139,11 +148,14 @@ export default function CreateUser() {
   // keep the two texts (users.onboardingEmailSubject/Body here) aligned when editing either.
   // RFC 6068: the recipient's "@" must stay literal (clients don't decode %40 in the To field);
   // everything else in the address is percent-encoded as usual.
+  // Rendered in the NEW USER'S language (v2.21.0 — matching the server's welcome email rule),
+  // not the admin's UI language: i18next's per-call lng override.
   const mailtoHref = created
     ? `mailto:${encodeURIComponent(created.email).replace(/%40/g, "@")}` +
-      `?subject=${encodeURIComponent(t("users.onboardingEmailSubject"))}` +
+      `?subject=${encodeURIComponent(t("users.onboardingEmailSubject", { lng: created.language }))}` +
       `&body=${encodeURIComponent(
         t("users.onboardingEmailBody", {
+          lng: created.language,
           name: created.name,
           url: window.location.origin,
           password: created.password,
@@ -212,6 +224,16 @@ export default function CreateUser() {
               {...form.getInputProps("uniqueId")}
             />
             <RolesMultiSelect {...form.getInputProps("roles")} />
+            <Select
+              label={t("common.language.label")}
+              description={t("users.languageHint")}
+              data={SUPPORTED_LANGUAGES.map((lng) => ({
+                value: lng,
+                label: NATIVE_LANGUAGE_NAMES[lng],
+              }))}
+              allowDeselect={false}
+              {...form.getInputProps("language")}
+            />
             <Checkbox
               label={t("users.createSendEmail")}
               checked={sendEmail}

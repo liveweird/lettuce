@@ -59,6 +59,7 @@ class NotificationEmailer(
             params = notification.params,
             link = notification.link,
             appUrl = appUrl,
+            language = recipient.language,
         ) ?: return
         mailer.send(recipient.email, content.subject, content.body)
     }

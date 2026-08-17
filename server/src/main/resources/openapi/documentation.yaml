@@ -370,8 +370,8 @@ paths:
       description: |
         Requires ADMIN. If the request body omits `roles`, the new user gets no additional
         roles (every user is implicitly a regular user).
-        With `sendEmail: true` the new user is emailed their credentials (the same bilingual
-        welcome message as the mass import); `emailSent` in the response reports the delivery
+        With `sendEmail: true` the new user is emailed their credentials (the same welcome
+        message as the mass import, in the user's language); `emailSent` in the response reports the delivery
         outcome (a failure keeps the account). Rejected with `503` before creating anything
         when the deployment has no outbound email (`MAIL_TRANSPORT=disabled`).
       requestBody:
@@ -423,7 +423,7 @@ paths:
         failure on one line never affects the others. Each created account is a regular user
         (no additional roles) with a server-generated 16-character password, returned in that row's `password`
         field — shown to the admin ONCE, never retrievable again. With `sendEmails: true`
-        each new user is emailed their password (bilingual EN/PL); if the deployment has no
+        each new user is emailed their password (in English — imported users default to it); if the deployment has no
         outbound email (`MAIL_TRANSPORT=disabled`) the request is rejected with `503` before
         importing anything. A delivery failure after creation yields status `EMAIL_FAILED`
         (the account exists; the password is still in the row). `created` counts `CREATED`
@@ -680,7 +680,7 @@ paths:
       description: |
         The per-user email-mirror opt-out (v2.3.0): while `enabled` is `true` (the default for
         every account), each in-app notification minted for the user is also sent to their
-        email address — bilingual EN+PL, including the notification's deep link when the
+        email address — in the user's language (v2.21.0), including the notification's deep link when the
         deployment's `mail.appUrl` is configured. `false` = in-app only. **Target user or
         ADMIN** (self-service is the point — the sibling features PUT stays ADMIN-only);
         idempotent (a same-value re-PUT is `204` again); a deactivated target is allowed (the
@@ -696,6 +696,41 @@ paths:
               $ref: '#/components/schemas/UserEmailNotificationsUpdateRequest'
       responses:
         '204': { description: Email-notification setting stored }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is neither the target user nor ADMIN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/users/{id}/language:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    put:
+      tags: [users]
+      operationId: setUserLanguage
+      summary: Set the user's language (self or ADMIN)
+      description: |
+        The per-user language (v2.21.0): applied to the SPA at sign-in and used for every
+        email sent to the user (recipient-specific since v2.21.0 — previously bilingual
+        EN+PL). **Target user or ADMIN** — the header language switcher is the self-service
+        writer (switching while signed in also saves here); an admin may fix a mis-set
+        language. Idempotent (a same-value re-PUT is `204` again); a deactivated target is
+        allowed (the setting is inert until reactivation); an unsupported code is `400`.
+        Read at send time, so a change takes effect immediately for emails; the UI picks it
+        up at the next sign-in or token refresh. Audited as `user.language_changed` on an
+        actual change.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserLanguageUpdateRequest'
+      responses:
+        '204': { description: Language stored }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
@@ -5193,7 +5228,7 @@ components:
 
     LoginResponse:
       type: object
-      required: [token, expiresAt, refreshToken, refreshExpiresAt, userId, roles, disabledFeatures]
+      required: [token, expiresAt, refreshToken, refreshExpiresAt, userId, roles, disabledFeatures, language]
       properties:
         token:
           type: string
@@ -5219,6 +5254,15 @@ components:
           items: { $ref: '#/components/schemas/Feature' }
           description: >-
             The authenticated user's admin-disabled features — empty for full access.
+        language: { $ref: '#/components/schemas/Language' }
+
+    Language:
+      type: string
+      enum: [en, pl]
+      description: >-
+        A supported UI/email language code (V61) — the build-time supported set; adding a
+        language is a code+spec change by design. The user's stored language is applied to
+        the SPA at sign-in and picks the language of every email sent to them.
 
     MfaChallengeResponse:
       type: object
@@ -5273,6 +5317,12 @@ components:
           description: >-
             True = mirror every in-app notification to the user's email address (the
             default); false = in-app only.
+
+    UserLanguageUpdateRequest:
+      type: object
+      required: [language]
+      properties:
+        language: { $ref: '#/components/schemas/Language' }
 
     RefreshRequest:
       type: object
@@ -5354,8 +5404,9 @@ components:
         sendEmail:
           type: boolean
           default: false
-          description: Create only — email the new user their credentials (the bilingual
-            welcome message). Rejected with 503 on a deployment without outbound email.
+          description: Create only — email the new user their credentials (the welcome
+            message, in the user's language). Rejected with 503 on a deployment without
+            outbound email.
         paidDaysOffAllowance:
           type: integer
           minimum: 0
@@ -5372,10 +5423,16 @@ components:
             Optional unique id (an employee-id-like reference). Omitted or null = not set.
             Unique among ACTIVE (non-deleted) users — a clash is 409; a soft-deleted user
             frees their id. Non-blank when provided (400 otherwise).
+        language:
+          nullable: true
+          allOf: [ { $ref: '#/components/schemas/Language' } ]
+          description: |
+            The user's language (V61) — create only; omitted or null = English. An
+            unsupported code is 400. Changed later only via PUT /users/{id}/language.
 
     UserCreateResponse:
       type: object
-      required: [id, name, email, roles, careerPath, careerSpecialization, seniorityLevel, paidDaysOffAllowance, deactivated, disabledFeatures, emailNotificationsEnabled, uniqueId]
+      required: [id, name, email, roles, careerPath, careerSpecialization, seniorityLevel, paidDaysOffAllowance, deactivated, disabledFeatures, emailNotificationsEnabled, uniqueId, language]
       properties:
         id: { type: integer, format: int64 }
         name: { type: string }
@@ -5417,6 +5474,10 @@ components:
           type: string
           nullable: true
           description: The unique id assigned at creation, or null — aligned with UserResponse.
+        language:
+          allOf: [ { $ref: '#/components/schemas/Language' } ]
+          description: The language assigned at creation ("en" unless the request chose
+            another) — aligned with UserResponse.
 
     UserUpdateRequest:
       type: object
@@ -5600,7 +5661,7 @@ components:
 
     UserResponse:
       type: object
-      required: [id, name, email, roles, careerPath, careerSpecialization, seniorityLevel, paidDaysOffAllowance, deactivated, disabledFeatures, emailNotificationsEnabled, uniqueId]
+      required: [id, name, email, roles, careerPath, careerSpecialization, seniorityLevel, paidDaysOffAllowance, deactivated, disabledFeatures, emailNotificationsEnabled, uniqueId, language]
       properties:
         id: { type: integer, format: int64, minimum: 0 }
         name: { type: string }
@@ -5671,6 +5732,12 @@ components:
             Optional unique id (an employee-id-like reference, v2.19.0). Null = not set yet —
             the admin users list renders a "Not set" cue off this. ADMIN-only assignable
             (via POST/PUT), unique among active users; readable by everyone.
+        language:
+          allOf: [ { $ref: '#/components/schemas/Language' } ]
+          description: |
+            The user's language (V61, v2.21.0): applied to the SPA at sign-in and used for
+            every email sent to the user. Changed only via PUT /users/{id}/language (target
+            user or ADMIN) — never via the whole-user PUT.
 
     UserPage:
       type: object

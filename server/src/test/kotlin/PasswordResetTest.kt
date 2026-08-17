@@ -27,6 +27,28 @@ import kotlin.test.assertTrue
 class PasswordResetTest {
 
     @Test
+    fun `a Polish-language account gets the Polish reset email`() = testApplication {
+        usePostgresTestcontainer()
+        val email = uniqueEmail("reset-pl")
+        TestUsers.seed(email = email, password = "old-password-123", name = "Pola Reset", language = "pl")
+        val mail = LogCapture("ch.nokillswit.mail")
+        try {
+            val response = jsonClient().post("/api/v1/password-reset") {
+                contentType(ContentType.Application.Json)
+                setBody(PasswordResetRequest(email))
+            }
+            assertEquals(HttpStatusCode.Accepted, response.status)
+            val message = mail.awaitEvent { "To: $email" in it.formattedMessage }?.formattedMessage
+            assertNotNull(message, "the reset email should have been delivered (log transport)")
+            assertTrue("Cześć Pola Reset," in message)
+            assertTrue("Nowe hasło" in message, "the PL body")
+            assertTrue("Twoje nowe hasło Lettuce" in message, "the PL subject")
+        } finally {
+            mail.detach()
+        }
+    }
+
+    @Test
     fun `existing account gets a working new password by email and the old one stops working`() = testApplication {
         usePostgresTestcontainer()
         val email = uniqueEmail("reset")
@@ -51,7 +73,7 @@ class PasswordResetTest {
             )
             val message = mail.awaitEvent { "To: $email" in it.formattedMessage }?.formattedMessage
             assertNotNull(message, "the reset email should have been delivered (log transport)")
-            assertTrue("Nowe hasło" in message, "email should carry the bilingual body")
+            assertTrue("New password" in message, "email should carry the EN body (the seeded user defaults to English)")
             val newPassword = Regex("""(?m)^[A-Za-z0-9_-]{16}$""").find(message)?.value
             assertNotNull(newPassword, "email should contain the generated password on its own line")
 

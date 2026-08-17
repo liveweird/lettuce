@@ -67,7 +67,7 @@ class MfaLoginTest {
     private suspend fun LogCapture.codeFor(email: String): String {
         val message = awaitEvent { "To: $email" in it.formattedMessage }?.formattedMessage
         assertNotNull(message, "the sign-in code email should have been delivered (log transport)")
-        assertTrue("Twój kod logowania" in message, "email should carry the bilingual body")
+        assertTrue("Your sign-in code" in message, "email should carry the EN body (the seeded user defaults to English)")
         val code = Regex("""(?m)^\d{6}$""").find(message)?.value
         assertNotNull(code, "email should contain the 6-digit code on its own line")
         return code

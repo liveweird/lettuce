@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { ApiError, authedFetch } from "./http";
 import { canAudit, getDisabledFeatures, getRoles, getToken, hasFeature, isHr, getUserId, isAdmin, setToken } from "./session";
 import { login, logout } from "./auth";
-import { updateUserFeatures } from "./users";
+import { setUserLanguage, updateUserFeatures } from "./users";
+import i18n from "../i18n";
 import { listFeedbacks } from "./feedbacks";
 import { consumeSignedOut } from "../auth";
 import { jsonResponse } from "../test/http";
@@ -137,6 +138,36 @@ describe("login", () => {
       body: { type: "about:blank", title: "Unauthorized", status: 401, detail: "no" },
     });
     expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
+  });
+
+  test("applies the stored language to the UI on login and skips a language-less payload", async () => {
+    try {
+      // The V61 sync: the server's stored language wins over the device default.
+      mockFetch.mockResolvedValue(jsonResponse(200, tokenPair({ language: "pl" })));
+      await login({ email: "a@b", password: "pw" });
+      expect(i18n.resolvedLanguage).toBe("pl");
+
+      // A mid-deploy older server without the field leaves the UI language untouched.
+      await i18n.changeLanguage("en");
+      mockFetch.mockResolvedValue(jsonResponse(200, tokenPair()));
+      await login({ email: "a@b", password: "pw" });
+      expect(i18n.resolvedLanguage).toBe("en");
+    } finally {
+      // The suite renders English globally — never leak a flipped instance.
+      await i18n.changeLanguage("en");
+    }
+  });
+});
+
+describe("setUserLanguage", () => {
+  test("PUTs the language to the dedicated endpoint", async () => {
+    setToken("t");
+    mockFetch.mockResolvedValue(new Response(null, { status: 204 }));
+    await setUserLanguage(7, "pl");
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/v1/users/7/language");
+    expect(init.method).toBe("PUT");
+    expect(JSON.parse(String(init.body))).toEqual({ language: "pl" });
   });
 });
 

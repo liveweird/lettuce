@@ -87,6 +87,9 @@ class RefreshTest {
         assertNotEquals(first.refreshToken, body.refreshToken, "a fresh refresh token is minted")
         // Roles are re-read from the DB on every refresh (the seed helper defaults to ADMIN).
         assertEquals(listOf(ch.nokillswit.users.UserRole.ADMIN), body.roles)
+        // The language is re-read too (V61) — an admin change propagates at the next refresh.
+        assertEquals(1, TestServices.users.setLanguage(userId, "pl"))
+        assertEquals("pl", postRefresh(client, body.refreshToken).body<LoginResponse>().language)
 
         // The new access token authenticates a protected route.
         val authed = client.get("/api/v1/users/$userId") {

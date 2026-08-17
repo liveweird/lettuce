@@ -148,12 +148,14 @@ object TestUsers {
         password: String,
         name: String = "Test",
         roles: Set<UserRole> = setOf(UserRole.ADMIN),
+        language: String = "en",
     ): UInt = service.create(
         User(
             name = name,
             email = email,
             passwordHash = hashPassword(password, cost = 4),
             roles = roles,
+            language = language,
         )
     )
 }
@@ -175,6 +177,9 @@ object TestSeedState {
                 it[UserService.Users.markedAsDeleted] = false
                 it[UserService.Users.deactivated] = false
                 it[UserService.Users.passwordChangedAt] = 0
+                // A test flipping a seed account's language (V61) must not leak into the
+                // shared container — every seed account is English.
+                it[UserService.Users.language] = "en"
             }
             // Also drop any feature flags a test left on the seed accounts (V46)…
             val seedIds = UserService.Users.selectAll()

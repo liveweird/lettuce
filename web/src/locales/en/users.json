@@ -239,6 +239,7 @@
   "inactiveBadge": "Inactive",
   "uniqueId": "Unique ID",
   "uniqueIdHint": "Optional; unique across active users. Leave empty to keep the current value — a set ID can be changed but not cleared.",
+  "languageHint": "Their interface and email language — the person can change it themselves later.",
   "uniqueIdMissingBadge": "Not set",
   "uniqueIdFilterLabel": "Unique ID status",
   "uniqueIdSet": "Set",

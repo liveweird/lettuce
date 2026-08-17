@@ -143,7 +143,7 @@ class UserImportTest {
             val message = mail.events.map { it.formattedMessage }.singleOrNull { "To: $a" in it }
             assertNotNull(message, "exactly one welcome email for the created row")
             assertTrue(password in message, "the emailed password matches the response row")
-            assertTrue("Twoje konto Lettuce" in message, "bilingual welcome content")
+            assertTrue("Your Lettuce account is ready" in message, "imported users default to the EN welcome")
         } finally {
             mail.detach()
         }

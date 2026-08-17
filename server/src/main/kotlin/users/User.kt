@@ -70,6 +70,11 @@ data class User(
     // Optional unique id (V59, an employee-id-like reference). ADMIN-only assignable;
     // unique among active users (partial index — a soft-deleted user frees their id).
     val uniqueId: String? = null,
+    // Per-user language (V61) — drives the UI at sign-in and every server-composed email's
+    // language. SUPPORTED_LANGUAGES (dictionaries/Languages.kt) is the whitelist. Never
+    // client-settable via PUT — set at create, then flipped only by
+    // PUT /users/{id}/language (target user or ADMIN).
+    val language: String = "en",
 )
 
 @Serializable
@@ -86,6 +91,9 @@ data class UserRequest(
     // Optional unique id (V59) — the whole POST is ADMIN-only anyway. Unique among active
     // users; a clash is 409.
     val uniqueId: String? = null,
+    // The user's language (V61) — create only (PUT ignores it); omitted = English. Must be
+    // one of the supported codes, else 400.
+    val language: String? = null,
 )
 
 @Serializable
@@ -113,6 +121,9 @@ data class UserCreateResponse(
     val emailNotificationsEnabled: Boolean,
     // The unique id assigned at creation, or null; aligned with UserResponse.
     val uniqueId: String?,
+    // The language assigned at creation (V61, "en" unless the request chose another);
+    // aligned with UserResponse.
+    val language: String,
 )
 
 @Serializable
@@ -139,6 +150,12 @@ data class UserFeaturesUpdateRequest(
 @Serializable
 data class UserEmailNotificationsUpdateRequest(
     val enabled: Boolean,
+)
+
+/** Body of PUT /users/{id}/language — the V61 per-user language (target user or ADMIN). */
+@Serializable
+data class UserLanguageUpdateRequest(
+    val language: String,
 )
 
 @Serializable
@@ -220,6 +237,9 @@ data class UserResponse(
     // Unique id (V59): null = not set yet — the admin list renders the "fill me" cue off
     // this. Readable by everyone (an employee-id-like reference); writes are ADMIN-only.
     val uniqueId: String?,
+    // Per-user language (V61): the UI language applied at sign-in and the language of every
+    // email sent to this user. Changed only via PUT /users/{id}/language (self or ADMIN).
+    val language: String,
     // Teams the user is a MEMBER of (non-deleted, name-ascending) — a LIST enrichment
     // (v2.1.0, backs the /feature-flags team column): computed by UserService.list only.
     // Membership only — managing a team without being on its roster does not put it here.
@@ -245,4 +265,5 @@ fun User.toResponse(id: UInt, profile: CareerProfile?) = UserResponse(
     disabledFeatures = disabledFeatures.sortedBy { it.name },
     emailNotificationsEnabled = emailNotificationsEnabled,
     uniqueId = uniqueId,
+    language = language,
 )

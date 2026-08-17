@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.21.0",
+    date: "2026-08-17",
+    en: `Every email now speaks your language. Each person has a language of their own — administrators pick it when creating an account (English by default), and switching the language in the header saves it to your profile, so signing in on any device brings your language back. All emails the application sends — welcome messages, password resets, sign-in codes, and notification copies — arrive in the recipient's language instead of the previous two-language combo, falling back to English where no translation exists. Administrators can also correct someone's language from the user edit form.`,
+    pl: `Każdy e-mail mówi teraz w Twoim języku. Każda osoba ma własny język — administratorzy/ki wybierają go przy zakładaniu konta (domyślnie angielski), a przełączenie języka w nagłówku zapisuje go w Twoim profilu, więc logowanie na dowolnym urządzeniu przywraca Twój język. Wszystkie e-maile wysyłane przez aplikację — wiadomości powitalne, resety hasła, kody logowania i kopie powiadomień — przychodzą w języku odbiorcy/czyni zamiast dotychczasowej dwujęzycznej sklejki, z angielskim tam, gdzie brakuje tłumaczenia. Administratorzy/ki mogą też poprawić czyjś język w formularzu edycji osoby.`,
+  },
+  {
     version: "2.20.0",
     date: "2026-08-17",
     en: `The application is ready for many languages. The header language control is now a menu listing each language by its native name, and the whole language machinery — interface translations, dictionaries, and the pulse survey's rotating question — works for any number of languages, with English as the default. Dictionaries changed the most: only the English value of an entry is required now, every other language is optional, and wherever a translation is missing the English value is shown instead — so administrators can translate at their own pace without blocking a save. English and Polish remain the two available languages today; adding another is now a small, well-defined step instead of a rebuild.`,

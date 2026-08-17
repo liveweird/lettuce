@@ -132,6 +132,44 @@ describe("EditUser page", () => {
     });
   });
 
+  test("a changed language is saved via the dedicated PUT after the main update", async () => {
+    mockApi();
+
+    const user = userEvent.setup();
+    renderEditUser(7);
+
+    const nameInput = (await screen.findByLabelText("Name")) as HTMLInputElement;
+    await waitFor(() => expect(nameInput.value).toBe("Alice"));
+
+    // Non-searchable Select: click the input, then the option.
+    await user.click(screen.getByLabelText("Language", { selector: "input" }));
+    await user.click(await screen.findByRole("option", { name: "Polski" }));
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/users"));
+
+    const puts = mockFetch.mock.calls.filter(([, init]) => (init as RequestInit)?.method === "PUT");
+    expect(puts.map(([url]) => url)).toEqual(["/api/v1/users/7", "/api/v1/users/7/language"]);
+    expect(JSON.parse((puts[1][1] as { body: string }).body)).toEqual({ language: "pl" });
+  });
+
+  test("an unchanged language sends no language PUT", async () => {
+    mockApi();
+
+    const user = userEvent.setup();
+    renderEditUser(7);
+
+    const nameInput = (await screen.findByLabelText("Name")) as HTMLInputElement;
+    await waitFor(() => expect(nameInput.value).toBe("Alice"));
+    await user.clear(nameInput);
+    await user.type(nameInput, "Alicia");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/users"));
+    const puts = mockFetch.mock.calls.filter(([, init]) => (init as RequestInit)?.method === "PUT");
+    expect(puts.map(([url]) => url)).toEqual(["/api/v1/users/7"]);
+  });
+
   test("non-admin is redirected to /users without fetching", () => {
     localStorage.setItem(ROLE_KEY, "[]");
     renderEditUser(7);

@@ -37,7 +37,7 @@ import enOrg from "./locales/en/org.json";
  * in `dictionaries/Languages.kt` (they must agree). Adding a language: a complete
  * `locales/<lang>/` folder (parity-gated), one code here, one NATIVE_LANGUAGE_NAMES line,
  * `common.languageName.<lang>` in every language file, one EMOJI_I18N line (EmojiPicker),
- * and the server constant. English is THE default and the display fallback everywhere.
+ * the server constant, and a parameter on the server's LocalizedText (email texts). English is THE default and the display fallback everywhere.
  */
 export const SUPPORTED_LANGUAGES = ["en", "pl"] as const;
 

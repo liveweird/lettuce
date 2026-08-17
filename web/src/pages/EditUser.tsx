@@ -23,6 +23,7 @@ import {
   Loader,
   NumberInput,
   Paper,
+  Select,
   Stack,
   TextInput,
   Title,
@@ -30,8 +31,9 @@ import {
 import { hasLength, useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "../api/http";
-import { isAdmin, type UserRole } from "../api/session";
-import { getUser, updateUser } from "../api/users";
+import { getUserId, isAdmin, type UserRole } from "../api/session";
+import { getUser, setUserLanguage, updateUser } from "../api/users";
+import i18n, { NATIVE_LANGUAGE_NAMES, SUPPORTED_LANGUAGES, asSupportedLanguage, type SupportedLanguage } from "../i18n";
 import { showSuccessToast } from "../utils/toast";
 import RolesMultiSelect from "../components/RolesMultiSelect";
 import { saveErrorMessage } from "../utils/saveError";
@@ -48,6 +50,9 @@ type FormValues = {
   // Sent only when non-blank (trimmed) — the allowance semantics: emptying the field
   // leaves the server value unchanged, clearing a set id is inexpressible.
   uniqueId: string;
+  // Saved via the dedicated PUT /users/{id}/language (self or ADMIN) — never part of the
+  // whole-user PUT (v2.21.0).
+  language: SupportedLanguage;
 };
 
 // Linear-time (no ambiguous backtracking): dot-separated domain labels may not contain dots.
@@ -69,6 +74,7 @@ export default function EditUser() {
       roles: [],
       paidDaysOffAllowance: "",
       uniqueId: "",
+      language: "en",
     },
     validate: {
       name: hasLength({ min: 1, max: 50 }, t("users.validation.nameLength")),
@@ -98,6 +104,7 @@ export default function EditUser() {
         roles: [...data.roles],
         paidDaysOffAllowance: data.paidDaysOffAllowance ?? "",
         uniqueId: data.uniqueId ?? "",
+        language: asSupportedLanguage(data.language),
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -119,6 +126,14 @@ export default function EditUser() {
           : {}),
         ...(values.uniqueId.trim() !== "" ? { uniqueId: values.uniqueId.trim() } : {}),
       });
+      // The language rides its own endpoint (v2.21.0) — saved only when actually changed,
+      // AFTER the main update so a failed save never half-applies.
+      if (data && values.language !== asSupportedLanguage(data.language)) {
+        await setUserLanguage(id, values.language);
+        // Editing one's own account applies the language immediately (the features self-edit
+        // precedent); others pick it up at their next sign-in or token refresh.
+        if (getUserId() === id) void i18n.changeLanguage(values.language);
+      }
       await queryClient.invalidateQueries({ queryKey: ["users"] });
       await queryClient.invalidateQueries({ queryKey: ["user", id] });
       showSuccessToast(t("users.toast.updated"));
@@ -237,6 +252,16 @@ export default function EditUser() {
                   {...form.getInputProps("uniqueId")}
                 />
                 <RolesMultiSelect {...form.getInputProps("roles")} />
+                <Select
+                  label={t("common.language.label")}
+                  description={t("users.languageHint")}
+                  data={SUPPORTED_LANGUAGES.map((lng) => ({
+                    value: lng,
+                    label: NATIVE_LANGUAGE_NAMES[lng],
+                  }))}
+                  allowDeselect={false}
+                  {...form.getInputProps("language")}
+                />
                 <NumberInput
                   label={t("users.paidDaysOffAllowance")}
                   description={t("users.paidDaysOffAllowanceHint")}
