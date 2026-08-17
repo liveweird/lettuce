@@ -115,6 +115,7 @@ describe("CreateUser page", () => {
     expect(body).toEqual({
       name: "Alice",
       email: "alice@example.com",
+      language: "en",
       password: expect.stringMatching(PASSWORD_RE),
       roles: [],
       sendEmail: false,

@@ -6,6 +6,7 @@ import ch.nokillswit.auth.exceedsBcryptLimit
 import ch.nokillswit.auth.generatePassword
 import ch.nokillswit.auth.hashPassword
 import ch.nokillswit.auth.verifyPassword
+import ch.nokillswit.dictionaries.DEFAULT_LANGUAGE
 import ch.nokillswit.infra.mail.mailAppUrl
 import ch.nokillswit.infra.mail.mailer
 import ch.nokillswit.infra.mail.respondMailUnavailable
@@ -104,6 +105,10 @@ class Users {
         @Serializable
         @Resource("email-notifications")
         class EmailNotifications(val parent: Id)
+
+        @Serializable
+        @Resource("language")
+        class Language(val parent: Id)
     }
 }
 
@@ -156,6 +161,7 @@ fun Application.configureUserRoutes() {
                 // The whole POST is admin-only (requireAdmin above), so no assign guard needed.
                 validatePaidDaysOffAllowance(req.paidDaysOffAllowance)
                 validateUniqueId(req.uniqueId)
+                validateLanguage(req.language)
                 if (req.sendEmail && mailer == null) {
                     call.respondMailUnavailable("creating with the email option")
                     return@post
@@ -172,6 +178,7 @@ fun Application.configureUserRoutes() {
                     roles = req.roles?.toSet() ?: emptySet(),
                     paidDaysOffAllowance = req.paidDaysOffAllowance,
                     uniqueId = req.uniqueId,
+                    language = req.language ?: DEFAULT_LANGUAGE,
                 )
                 val id = userService.create(user)
                 val createdFields = mutableListOf<Pair<String, Any?>>(
@@ -182,6 +189,7 @@ fun Application.configureUserRoutes() {
                 )
                 user.paidDaysOffAllowance?.let { createdFields += "allowance" to it.toLong() }
                 user.uniqueId?.let { createdFields += "uniqueId" to it }
+                if (user.language != DEFAULT_LANGUAGE) createdFields += "language" to user.language
                 audit("user.created", *createdFields.toTypedArray())
                 // Same welcome email as the mass import; a delivery failure keeps the account
                 // (the modal still reveals the password) and is reported via emailSent=false.
@@ -189,8 +197,8 @@ fun Application.configureUserRoutes() {
                     try {
                         mailer!!.send(
                             user.email,
-                            WELCOME_EMAIL_SUBJECT,
-                            welcomeEmailBody(user.name, user.email, req.password, mailAppUrl),
+                            WELCOME_EMAIL_SUBJECT.of(user.language),
+                            welcomeEmailBody(user.name, user.email, req.password, mailAppUrl, user.language),
                         )
                         true
                     } catch (e: Exception) {
@@ -219,6 +227,7 @@ fun Application.configureUserRoutes() {
                             disabledFeatures = listOf(Feature.MFA),
                             emailNotificationsEnabled = true,
                             uniqueId = user.uniqueId,
+                            language = user.language,
                         ),
                     )
                 } else {
@@ -282,7 +291,12 @@ fun Application.configureUserRoutes() {
                     var message: String? = null
                     if (req.sendEmails) {
                         try {
-                            mailer!!.send(email, WELCOME_EMAIL_SUBJECT, welcomeEmailBody(name, email, password, mailAppUrl))
+                            mailer!!.send(
+                                email,
+                                WELCOME_EMAIL_SUBJECT.of(DEFAULT_LANGUAGE),
+                                // Imported users default to English (the CSV stays two-column).
+                                welcomeEmailBody(name, email, password, mailAppUrl, DEFAULT_LANGUAGE),
+                            )
                         } catch (e: Exception) {
                             log.error("User import: welcome email to $email failed", e)
                             status = UserImportStatus.EMAIL_FAILED
@@ -556,6 +570,34 @@ fun Application.configureUserRoutes() {
                         "targetUserId" to route.parent.id.toLong(),
                         "from" to existing.emailNotificationsEnabled,
                         "to" to req.enabled,
+                    )
+                }
+                call.respond(HttpStatusCode.NoContent)
+            }
+            // Per-user language (V61): the email-notifications idiom verbatim — self or ADMIN
+            // (the header switcher is the self-service writer; an admin may fix a mis-set
+            // language), idempotent, deactivated target allowed (inert until reactivation).
+            put<Users.Id.Language> { route ->
+                val caller = call.caller()
+                requireSelfOrAdmin(caller, route.parent.id)
+                val req = call.receive<UserLanguageUpdateRequest>()
+                validateLanguage(req.language)
+                val existing = userService.read(route.parent.id)
+                if (existing == null) {
+                    call.respondProblem(HttpStatusCode.NotFound, "User not found")
+                    return@put
+                }
+                if (userService.setLanguage(route.parent.id, req.language) == 0) {
+                    call.respondProblem(HttpStatusCode.NotFound, "User not found")
+                    return@put
+                }
+                if (req.language != existing.language) {
+                    audit(
+                        "user.language_changed",
+                        "byUserId" to caller.userId.toLong(),
+                        "targetUserId" to route.parent.id.toLong(),
+                        "from" to existing.language,
+                        "to" to req.language,
                     )
                 }
                 call.respond(HttpStatusCode.NoContent)

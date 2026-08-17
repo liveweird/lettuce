@@ -18,6 +18,7 @@ import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.coroutineScope
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -50,11 +51,35 @@ class NotificationEmailDeliveryTest {
             }
             val message = mail.events.firstOrNull { "To: $email" in it.formattedMessage }?.formattedMessage
             assertNotNull(message, "the mirror email should have been delivered")
-            assertTrue("Lettuce: feedback update / aktualizacja feedbacku" in message)
+            assertTrue("Lettuce: feedback update" in message)
             assertTrue("Hi Mia Mirror," in message)
             assertTrue("Feedback from Pat Provider about Sam Subject has been sent." in message)
+            // Single-language since v2.21.0: the EN-default recipient gets no Polish.
+            assertFalse("Feedback od Pat Provider" in message)
+            assertTrue("Open in Lettuce: https://lettuce.test/feedback/7/view" in message)
+        } finally {
+            mail.detach()
+        }
+    }
+
+    @Test
+    fun `a Polish-language recipient gets the Polish wording`() = testApplication {
+        usePostgresTestcontainer()
+        val email = uniqueEmail("mirror-pl")
+        val userId = TestUsers.seed(email = email, password = "pw", name = "Pola Polska", language = "pl")
+        val mail = LogCapture("ch.nokillswit.mail")
+        try {
+            coroutineScope {
+                TestNotifications.withEmailer(this, LogMailer(), "https://lettuce.test/")
+                    .create(sentNote(userId))
+            }
+            val message = mail.events.firstOrNull { "To: $email" in it.formattedMessage }?.formattedMessage
+            assertNotNull(message, "the mirror email should have been delivered")
+            assertTrue("Lettuce: aktualizacja feedbacku" in message)
+            assertTrue("Cześć Pola Polska," in message)
             assertTrue("Feedback od Pat Provider na temat Sam Subject został wysłany." in message)
-            assertTrue("Open in Lettuce / Otwórz w Lettuce: https://lettuce.test/feedback/7/view" in message)
+            assertFalse("Hi Pola Polska," in message)
+            assertTrue("Otwórz w Lettuce: https://lettuce.test/feedback/7/view" in message)
         } finally {
             mail.detach()
         }
@@ -187,7 +212,7 @@ class NotificationEmailDeliveryTest {
             // The mirror is fire-and-forget on the app scope — poll like the reset test does.
             val message = mail.awaitEvent { "To: $subjectEmail" in it.formattedMessage }?.formattedMessage
             assertNotNull(message, "the subject's notification should be mirrored by email")
-            assertTrue("Open in Lettuce / Otwórz w Lettuce: https://app.example/feedback/$feedbackId/view" in message)
+            assertTrue("Open in Lettuce: https://app.example/feedback/$feedbackId/view" in message)
         } finally {
             mail.detach()
         }

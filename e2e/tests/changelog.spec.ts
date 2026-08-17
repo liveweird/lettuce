@@ -1,12 +1,18 @@
-import { expect, login, switchLanguage, test, ADMIN } from "./helpers";
+import { createUserViaUi, expect, login, loginWithPassword, logout, switchLanguage, test, ADMIN } from "./helpers";
 
 // The changelog page (/changelog): the bundled release history whose newest entry IS the
 // app's displayed version. Read-only — the visit only marks the "new entries" dot as seen
 // in the viewer's own localStorage. No exact-version assert on purpose: that would need a
 // hand-edit every release; the semver shape + a rendered body already prove the page wires
-// the bundled entries in, in both languages.
+// the bundled entries in, in both languages. The PL leg runs on a THROWAWAY user since
+// v2.21.0 — switching persists the server-side language, and seeded accounts must stay
+// English for the parallel suite.
 test("the changelog lists versioned entries and renders them in the picked language", async ({ page }) => {
   await login(page, ADMIN);
+  const user = await createUserViaUi(page, "E2E Changelog");
+  await logout(page);
+  await loginWithPassword(page, user.email, user.password);
+
   await page.goto("/changelog");
   await expect(page.getByRole("heading", { name: "Changelog" })).toBeVisible();
 
@@ -21,7 +27,7 @@ test("the changelog lists versioned entries and renders them in the picked langu
   await expect(page.getByRole("heading", { name: "Historia zmian" })).toBeVisible();
   await expect(page.getByText(/^v\d+\.\d+\.\d+$/).first()).toBeVisible();
 
-  // Back to EN — hygiene, matching i18n.spec (contexts are per-test anyway).
+  // Back to EN — hygiene (the switcher helper's trigger/name locators are language-proof).
   await switchLanguage(page, "English");
   await expect(page.getByRole("heading", { name: "Changelog" })).toBeVisible();
 });

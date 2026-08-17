@@ -85,6 +85,8 @@ data class LoginResponse(
     val roles: List<UserRole>,
     /** Per-user feature flags (V46) — the admin-disabled set; empty = full access. */
     val disabledFeatures: List<Feature>,
+    /** The user's stored language (V61) — the SPA applies it to the UI on login/refresh. */
+    val language: String,
 )
 
 private fun JwtConfig.authResponse(
@@ -92,6 +94,7 @@ private fun JwtConfig.authResponse(
     email: String,
     roles: Set<UserRole>,
     disabledFeatures: Set<Feature>,
+    language: String,
 ): LoginResponse {
     val access = issueAccessToken(userId, email, roles, disabledFeatures)
     val refresh = issueRefreshToken(userId, email, roles, disabledFeatures)
@@ -103,6 +106,7 @@ private fun JwtConfig.authResponse(
         userId = userId,
         roles = roles.sortedBy { it.name },
         disabledFeatures = disabledFeatures.sortedBy { it.name },
+        language = language,
     )
 }
 
@@ -226,8 +230,8 @@ fun Application.configureAuthRoutes() {
                         try {
                             mailer.send(
                                 to = user.email,
-                                subject = MFA_EMAIL_SUBJECT,
-                                body = mfaEmailBody(user.name, challenge.code, mfaTtlMinutes),
+                                subject = MFA_EMAIL_SUBJECT.of(user.language),
+                                body = mfaEmailBody(user.name, challenge.code, mfaTtlMinutes, user.language),
                             )
                         } catch (e: Exception) {
                             audit("login.mfa_send_failed", "email" to user.email, "error" to e.message)
@@ -243,7 +247,7 @@ fun Application.configureAuthRoutes() {
                     return@post
                 }
                 audit("login.success", "email" to user.email, "userId" to userId.toLong())
-                call.respond(jwtConfig.authResponse(userId, user.email, user.roles, user.disabledFeatures))
+                call.respond(jwtConfig.authResponse(userId, user.email, user.roles, user.disabledFeatures, user.language))
             }
         }
         rateLimit(RateLimitName(MFA_RATE_LIMIT)) {
@@ -273,7 +277,7 @@ fun Application.configureAuthRoutes() {
                             throw ForbiddenException("Account is deactivated")
                         }
                         audit("login.mfa_success", "email" to user.email, "userId" to userId.toLong())
-                        call.respond(jwtConfig.authResponse(userId, user.email, user.roles, user.disabledFeatures))
+                        call.respond(jwtConfig.authResponse(userId, user.email, user.roles, user.disabledFeatures, user.language))
                     }
                 }
             }
@@ -330,7 +334,7 @@ fun Application.configureAuthRoutes() {
                 if (issuedAtSec < user.passwordChangedAt / 1000) {
                     reject("predates_password_change", rawUserId)
                 }
-                call.respond(jwtConfig.authResponse(userId, user.email, user.roles, user.disabledFeatures))
+                call.respond(jwtConfig.authResponse(userId, user.email, user.roles, user.disabledFeatures, user.language))
             }
         }
         rateLimit(RateLimitName(PASSWORD_RESET_RATE_LIMIT)) {
@@ -374,8 +378,8 @@ fun Application.configureAuthRoutes() {
                         // working; a storage failure after delivery is recoverable by retrying.
                         mailer.send(
                             to = user.email,
-                            subject = PASSWORD_RESET_EMAIL_SUBJECT,
-                            body = passwordResetEmailBody(user.name, newPassword, mailAppUrl),
+                            subject = PASSWORD_RESET_EMAIL_SUBJECT.of(user.language),
+                            body = passwordResetEmailBody(user.name, newPassword, mailAppUrl, user.language),
                         )
                         userService.updatePassword(userId, hashPassword(newPassword))
                         // The owner sees the confirmation once they sign in with the new

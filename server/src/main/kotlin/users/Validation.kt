@@ -1,5 +1,6 @@
 package ch.nokillswit.users
 
+import ch.nokillswit.dictionaries.SUPPORTED_LANGUAGES
 import io.ktor.server.plugins.BadRequestException
 
 /** Column limits (see Users table / migrations) enforced up-front so oversized or blank
@@ -21,6 +22,13 @@ internal fun validateNameAndEmail(name: String, email: String) {
     if (name.isBlank()) throw BadRequestException("Name must not be blank")
     if (name.length > MAX_NAME_LENGTH) throw BadRequestException("Name must be at most $MAX_NAME_LENGTH characters")
     validateEmail(email)
+}
+
+/** The user language (V61) when provided: must be a supported code. Null = default. */
+internal fun validateLanguage(language: String?) {
+    if (language != null && language !in SUPPORTED_LANGUAGES) {
+        throw BadRequestException("Unsupported language (supported: ${SUPPORTED_LANGUAGES.joinToString()})")
+    }
 }
 
 /** The unique id (V59) when provided: non-blank, within the column cap. Null = not set /

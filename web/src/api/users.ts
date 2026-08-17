@@ -133,6 +133,18 @@ export async function setEmailNotifications(id: number, enabled: boolean): Promi
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
+/**
+ * Sets the user's language (v2.21.0) — target user or ADMIN. Applied to the UI at sign-in
+ * and used for every email sent to the user (read at send time, no token staleness).
+ */
+export async function setUserLanguage(id: number, language: string): Promise<void> {
+  const res = await authedFetch(`/api/v1/users/${id}/language`, {
+    method: "PUT",
+    body: JSON.stringify({ language }),
+  });
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
+
 export async function listUsers(q: UserListQuery): Promise<UserPage> {
   const params = new URLSearchParams();
   params.set("page", String(q.page));

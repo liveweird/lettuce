@@ -24,9 +24,18 @@ class UserCreateEmailTest {
         email: String,
         password: String,
         sendEmail: Boolean,
+        language: String? = null,
     ) = post("/api/v1/users") {
         contentType(ContentType.Application.Json)
-        setBody(UserRequest(name = "Mail Create", email = email, password = password, sendEmail = sendEmail))
+        setBody(
+            UserRequest(
+                name = "Mail Create",
+                email = email,
+                password = password,
+                sendEmail = sendEmail,
+                language = language,
+            ),
+        )
     }
 
     @Test
@@ -46,7 +55,28 @@ class UserCreateEmailTest {
             val message = mail.events.map { it.formattedMessage }.singleOrNull { "To: $email" in it }
             assertNotNull(message, "exactly one welcome email")
             assertTrue("chosen-password-1" in message, "the email carries the request's password")
-            assertTrue("Twoje konto Lettuce" in message, "bilingual welcome content")
+            assertTrue("Your Lettuce account is ready" in message, "the EN welcome content (default language)")
+        } finally {
+            mail.detach()
+        }
+    }
+
+    @Test
+    fun `the welcome email renders in the requested language`() = testApplication {
+        usePostgresTestcontainer()
+        val admin = uniqueEmail("create-mail-pl-admin")
+        TestUsers.seed(email = admin, password = "admin-pass-123")
+        val client = authedClient(admin, "admin-pass-123")
+        val email = uniqueEmail("create-mail-pl")
+        val mail = LogCapture("ch.nokillswit.mail")
+        try {
+            val response = client.createUser(email, "chosen-password-1", sendEmail = true, language = "pl")
+            assertEquals(HttpStatusCode.Created, response.status)
+            val message = mail.events.map { it.formattedMessage }.singleOrNull { "To: $email" in it }
+            assertNotNull(message, "exactly one welcome email")
+            assertTrue("Twoje konto Lettuce jest gotowe" in message, "the PL subject")
+            assertTrue("Cześć Mail Create," in message, "the PL body")
+            assertTrue("Hasło:" in message)
         } finally {
             mail.detach()
         }

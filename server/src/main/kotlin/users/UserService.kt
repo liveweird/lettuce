@@ -89,6 +89,10 @@ class UserService(val database: R2dbcDatabase) {
         // Optional unique id (V59). Like email, uniqueness is a partial unique index over
         // active rows only (uq_users_unique_id_active) — no `.uniqueIndex()` here.
         val uniqueId = varchar("unique_id", length = 50).nullable()
+
+        // Per-user language (V61): sign-in UI language + the language of every email sent
+        // to the user. No CHECK — SUPPORTED_LANGUAGES is the whitelist.
+        val language = varchar("language", length = 10).default("en")
     }
 
     object UserRoles : Table("user_roles") {
@@ -111,6 +115,7 @@ class UserService(val database: R2dbcDatabase) {
             it[passwordHash] = user.passwordHash
             it[paidDaysOffAllowance] = user.paidDaysOffAllowance
             it[uniqueId] = user.uniqueId
+            it[language] = user.language
         }
         val id = newRecord[Users.id].value
         insertRoles(id, user.roles)
@@ -156,6 +161,8 @@ class UserService(val database: R2dbcDatabase) {
             it[passwordHash] = user.passwordHash
             it[paidDaysOffAllowance] = user.paidDaysOffAllowance
             it[uniqueId] = user.uniqueId
+            // Deliberately NO language write: the whole-user PUT never flips it (V61) —
+            // PUT /users/{id}/language via setLanguage is the only writer after create.
         }
         if (affected > 0) {
             // Wholesale replace — the set is tiny and this is idempotent and diff-free.
@@ -245,6 +252,16 @@ class UserService(val database: R2dbcDatabase) {
     }
 
     /**
+     * Set the per-user language (V61). Returns 1, or 0 when the id is unknown or soft-deleted
+     * (the route 404s). Idempotent like [setEmailNotifications]; validated by the route.
+     */
+    suspend fun setLanguage(id: UInt, language: String): Int = suspendTransaction(database) {
+        Users.update({ (Users.id eq id) and active() }) {
+            it[Users.language] = language
+        }
+    }
+
+    /**
      * Which of [ids] are deactivated (active, non-soft-deleted) users — one SELECT, backing the
      * creation-time assignment blocks. Soft-deleted or unknown ids fall through to the existing
      * FK/reference validation.
@@ -301,6 +318,7 @@ class UserService(val database: R2dbcDatabase) {
                         deactivated = row[Users.deactivated],
                         emailNotificationsEnabled = row[Users.emailNotificationsEnabled],
                         uniqueId = row[Users.uniqueId],
+                        language = row[Users.language],
                     )
                 }
                 .toList()
@@ -323,6 +341,7 @@ class UserService(val database: R2dbcDatabase) {
                     disabledFeatures = featuresByUser[row.id].orEmpty().sortedBy { f -> f.name },
                     emailNotificationsEnabled = row.emailNotificationsEnabled,
                     uniqueId = row.uniqueId,
+                    language = row.language,
                     teams = teamsByUser[row.id].orEmpty(),
                 )
             }
@@ -338,6 +357,7 @@ class UserService(val database: R2dbcDatabase) {
         val deactivated: Boolean,
         val emailNotificationsEnabled: Boolean,
         val uniqueId: String?,
+        val language: String,
     )
 
     // Soft-delete ONLY — deactivated users must stay readable everywhere (their historical
@@ -462,6 +482,7 @@ class UserService(val database: R2dbcDatabase) {
         paidDaysOffAllowance = this[Users.paidDaysOffAllowance],
         emailNotificationsEnabled = this[Users.emailNotificationsEnabled],
         uniqueId = this[Users.uniqueId],
+        language = this[Users.language],
     )
 
     /**
