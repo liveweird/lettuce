@@ -113,8 +113,10 @@ accounts are never mutated. The onboarding tour is suppressed via an init script
 
 `helpers.login()` has two paths. For a **seeded account with the seed password** it mints a session
 over the API and writes the five `lettuce.auth.*` localStorage keys the SPA itself persists
-(`sessions.ts`) — equivalent to having driven the form, minus the typing and a navigation, and a
-full run does ~90 logins. The session is minted **per call**, not cached: `logout()` revokes
+(`sessions.ts`) — equivalent to having driven the form, minus the typing, a navigation, and the
+stored-language application (only the real form/refresh path runs `persistSession`, which applies
+`LoginResponse.language` to the UI — v2.21.0; language-sensitive journeys must use
+`loginWithPassword()`). A full run does ~90 logins. The session is minted **per call**, not cached: `logout()` revokes
 both tokens server-side, so a session reused across specs would be a revoked one (the app then
 shows "You've been signed out"). If an injected session doesn't authenticate, the helper falls back
 to a real login — slow, never wrong.
