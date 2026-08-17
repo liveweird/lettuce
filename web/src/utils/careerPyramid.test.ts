@@ -13,7 +13,7 @@ import {
   tenureBucket,
 } from "./careerPyramid";
 
-const ENTRY = (id: number, en: string, pl = en) => ({ id, valueEn: en, valuePl: pl });
+const ENTRY = (id: number, en: string, pl = en) => ({ id, values: { en: en, pl: pl } });
 
 // Full-history items (v2.17.0) whose TODAY view matches the original v2.16.0 fixture: the
 // as-of pipeline must land on the same current triples and anchors the flat payload carried.
@@ -82,6 +82,27 @@ describe("buildCareerPyramidRows", () => {
 
   test("the PL locale picks the Polish value", () => {
     expect(buildCareerPyramidRows(ITEMS, "pl", TODAY)[0].pathText).toBe("Inżynier");
+  });
+
+  test("a missing translation falls back to English for that locale", () => {
+    const items: CareerPyramidItem[] = [
+      {
+        userId: 9,
+        name: "Fallback Case",
+        deactivated: false,
+        positions: [
+          {
+            startDate: "2020-01-01",
+            endDate: null,
+            // No Polish translation on the path entry (EN-only values map).
+            careerPath: { id: 90, values: { en: "Consultant" } },
+            careerSpecialization: null,
+            seniorityLevel: null,
+          },
+        ],
+      },
+    ];
+    expect(buildCareerPyramidRows(items, "pl", TODAY)[0].pathText).toBe("Consultant");
   });
 });
 

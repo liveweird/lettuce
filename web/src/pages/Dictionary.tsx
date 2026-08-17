@@ -21,6 +21,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { IconPlus, IconListDetails } from "@tabler/icons-react";
 import { isAdmin } from "../api/session";
+import { SUPPORTED_LANGUAGES } from "../i18n";
 import { getDictionary, updateDictionary, type DictionaryEntry, type DictionarySlug } from "../api/dictionaries";
 import { showSuccessToast } from "../utils/toast";
 import ConfirmActionModal from "../components/ConfirmActionModal";
@@ -95,12 +96,12 @@ export default function Dictionary() {
 
 /**
  * The non-admin view: the ordered values as numbered rows, nothing clickable. The viewer's
- * language leads; the other language sits beneath, dimmed — the dictionary IS the one place
- * both languages are the content.
+ * language leads (with the English fallback); every OTHER language that actually has a value
+ * sits beneath, dimmed — the dictionary IS the one place all languages are the content.
  */
 function ReadOnlyEntries({ items }: { items: DictionaryEntry[] }) {
   const { t, i18n } = useTranslation();
-  const pl = i18n.resolvedLanguage === "pl";
+  const lang = i18n.resolvedLanguage;
   if (items.length === 0) {
     return (
       <EmptyState
@@ -111,21 +112,29 @@ function ReadOnlyEntries({ items }: { items: DictionaryEntry[] }) {
   }
   return (
     <Stack gap="xs">
-      {items.map((entry, index) => (
-        <Paper key={entry.id} withBorder p="sm" radius="md">
-          <Group gap="xs" wrap="nowrap" align="flex-start">
-            <Text size="sm" c="dimmed" w={24} ta="right" style={{ flexShrink: 0 }}>
-              {index + 1}.
-            </Text>
-            <div>
-              <Text size="sm">{pl ? entry.valuePl : entry.valueEn}</Text>
-              <Text size="xs" c="dimmed">
-                {pl ? entry.valueEn : entry.valuePl}
+      {items.map((entry, index) => {
+        const shownLang = lang && entry.values[lang]?.trim() ? lang : "en";
+        const others = SUPPORTED_LANGUAGES.filter(
+          (l) => l !== shownLang && entry.values[l]?.trim(),
+        );
+        return (
+          <Paper key={entry.id} withBorder p="sm" radius="md">
+            <Group gap="xs" wrap="nowrap" align="flex-start">
+              <Text size="sm" c="dimmed" w={24} ta="right" style={{ flexShrink: 0 }}>
+                {index + 1}.
               </Text>
-            </div>
-          </Group>
-        </Paper>
-      ))}
+              <div>
+                <Text size="sm">{entry.values[shownLang]}</Text>
+                {others.map((l) => (
+                  <Text key={l} size="xs" c="dimmed">
+                    {entry.values[l]}
+                  </Text>
+                ))}
+              </div>
+            </Group>
+          </Paper>
+        );
+      })}
     </Stack>
   );
 }
@@ -186,19 +195,25 @@ function DictionaryEditor({
           </Text>
         )}
         {rows.length > 0 && (
-          // Column headers for the two language inputs (the placeholders vanish once
-          // filled). The row structure is mirrored — number gutter, two grown columns,
-          // and an invisible RowControls clone reserving exactly the controls' width —
-          // so the labels stay aligned with the columns at any viewport.
+          // Column headers for the per-language inputs (the placeholders vanish once
+          // filled). The row structure is mirrored — number gutter, one grown column per
+          // supported language, and an invisible RowControls clone reserving exactly the
+          // controls' width — so the labels stay aligned with the columns at any viewport.
+          // Works up to ~3 languages; at more, switch the row body to stacked inputs.
           <Group align="flex-start" gap="xs" wrap="nowrap" px="sm" mb={-8}>
             <Box w={24} style={{ flexShrink: 0 }} />
             <Group style={{ flex: 1 }} gap="xs" grow>
-              <Text size="sm" fw={500}>
-                {t("dictionary.languageEn")}
-              </Text>
-              <Text size="sm" fw={500}>
-                {t("dictionary.languagePl")}
-              </Text>
+              {SUPPORTED_LANGUAGES.map((lang) => (
+                <Text key={lang} size="sm" fw={500}>
+                  {t(`common.languageName.${lang}`)}
+                  {lang !== "en" && (
+                    <Text span size="xs" c="dimmed">
+                      {" "}
+                      {t("dictionary.optionalSuffix")}
+                    </Text>
+                  )}
+                </Text>
+              ))}
             </Group>
             <Box aria-hidden style={{ visibility: "hidden" }}>
               <RowControls
@@ -220,31 +235,27 @@ function DictionaryEditor({
               <Text size="sm" c="dimmed" w={24} ta="right" pt={8} style={{ flexShrink: 0 }}>
                 {index + 1}.
               </Text>
-              {/* Both languages side by side (stacking on narrow screens): every entry is
-                  bilingual, both fields required. */}
+              {/* One input per supported language, side by side (stacking on narrow
+                  screens): English is required, every other language optional — a blank
+                  input means "no translation" and is omitted from the save. */}
               <Group style={{ flex: 1 }} gap="xs" align="flex-start" grow>
-                <TextInput
-                  aria-label={t("dictionary.entryAriaEn", { position: index + 1 })}
-                  placeholder={t("dictionary.languageEn")}
-                  maxLength={MAX_DICTIONARY_VALUE_LENGTH}
-                  description={charCountDescription(
-                    form.values.entries[index]?.valueEn.length ?? 0,
-                    MAX_DICTIONARY_VALUE_LENGTH,
-                  )}
-                  inputWrapperOrder={["label", "input", "description", "error"]}
-                  {...form.getInputProps(`entries.${index}.valueEn`)}
-                />
-                <TextInput
-                  aria-label={t("dictionary.entryAriaPl", { position: index + 1 })}
-                  placeholder={t("dictionary.languagePl")}
-                  maxLength={MAX_DICTIONARY_VALUE_LENGTH}
-                  description={charCountDescription(
-                    form.values.entries[index]?.valuePl.length ?? 0,
-                    MAX_DICTIONARY_VALUE_LENGTH,
-                  )}
-                  inputWrapperOrder={["label", "input", "description", "error"]}
-                  {...form.getInputProps(`entries.${index}.valuePl`)}
-                />
+                {SUPPORTED_LANGUAGES.map((lang) => (
+                  <TextInput
+                    key={lang}
+                    aria-label={t("dictionary.entryAria", {
+                      position: index + 1,
+                      language: t(`common.languageName.${lang}`),
+                    })}
+                    placeholder={t(`common.languageName.${lang}`)}
+                    maxLength={MAX_DICTIONARY_VALUE_LENGTH}
+                    description={charCountDescription(
+                      form.values.entries[index]?.values[lang].length ?? 0,
+                      MAX_DICTIONARY_VALUE_LENGTH,
+                    )}
+                    inputWrapperOrder={["label", "input", "description", "error"]}
+                    {...form.getInputProps(`entries.${index}.values.${lang}`)}
+                  />
+                ))}
               </Group>
               <RowControls
                 index={index}

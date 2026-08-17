@@ -37,9 +37,9 @@ const PERIODS = [
 const MEMBERS = [
   {
     userId: 8, name: "Ann Alpha", email: "a@x", teamId: 1, teamName: "AAA",
-    careerPath: { id: 11, valueEn: "Software Engineer", valuePl: "Software Engineer" },
+    careerPath: { id: 11, values: { en: "Software Engineer" } },
     careerSpecialization: null,
-    seniorityLevel: { id: 31, valueEn: "Senior", valuePl: "Senior" },
+    seniorityLevel: { id: 31, values: { en: "Senior" } },
   },
   { userId: 9, name: "Zoe Zeta", email: "z@x", teamId: 2, teamName: "BBB" },
 ];
@@ -87,7 +87,7 @@ describe("ReviewsDashboard tab", () => {
         );
       }
       if (u.includes("/api/v1/dictionaries/")) {
-        return Promise.resolve(jsonResponse(200, { items: [{ id: 11, valueEn: "Software Engineer", valuePl: "Software Engineer" }] }));
+        return Promise.resolve(jsonResponse(200, { items: [{ id: 11, values: { en: "Software Engineer" } }] }));
       }
       return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }));
     });

@@ -4171,10 +4171,10 @@ paths:
       summary: List pulse cycles
       description: |
         Any authenticated user with PULSE_SURVEYS enabled. Unpaged registry (newest first) —
-        a cadence of weeks caps the volume. The `rotatingQuestionEn`/`rotatingQuestionPl`
-        pair is null for non-admins until
-        the cycle is OPEN or CLOSED (an unopened cycle's question stays unspoiled; a cancelled
-        one reveals nothing); the participation counts are ADMIN-only enrichment.
+        a cadence of weeks caps the volume. The `rotatingQuestion` language map is null for
+        non-admins until the cycle is OPEN or CLOSED (an unopened cycle's question stays
+        unspoiled; a cancelled one reveals nothing); the participation counts are ADMIN-only
+        enrichment.
       responses:
         '200':
           description: All cycles, newest first
@@ -4596,12 +4596,16 @@ paths:
         are rewritten from payload order. An empty `items` array is allowed and soft-deletes
         every entry.
 
-        Values are trimmed before storage and comparison. Blank or oversized values,
-        duplicate values within the payload (case-sensitive), duplicated or unknown /
-        soft-deleted entry ids, and more than 200 items are 400. A clash with another
-        active entry's value — e.g. swapping two values in one save, which trips the
-        per-statement unique index — is 409; work around a swap with a two-save rename
-        through a temporary value.
+        Values are trimmed before storage and comparison; uniqueness is per language and
+        case-sensitive (the same string may appear under two different languages). Only
+        the "en" value is required; omit a language to clear its translation — a PRESENT
+        blank value is 400. Unsupported language codes, blank or oversized values,
+        per-language duplicate values within the payload, duplicated or unknown /
+        soft-deleted entry ids, and more than 200 items are 400. Because the payload is
+        the whole active set, payload-level uniqueness is post-save uniqueness; only the
+        English value additionally has a DB unique index, so swapping two ENGLISH values
+        in one save is 409 (work around with a two-save rename through a temporary
+        value) — swapping translations succeeds.
       requestBody:
         required: true
         content:
@@ -6111,14 +6115,24 @@ components:
           minimum: 0
           description: Row count after filters, before pagination.
 
+    DictionaryValues:
+      type: object
+      required: [en]
+      description: >-
+        Language code -> value (V60). "en" is always present and is the display fallback;
+        other supported languages ("pl" today) appear only when a translation exists.
+        Keys outside the build-time supported set are rejected with 400.
+      properties:
+        en: { type: string, maxLength: 100 }
+      additionalProperties: { type: string, maxLength: 100 }
+
     DictionaryEntry:
       type: object
-      required: [id, valueEn, valuePl]
-      description: Every entry is bilingual (V53) — clients render the viewer's language.
+      required: [id, values]
+      description: Every entry carries a language->value map — clients render the viewer's language, falling back to English.
       properties:
         id: { type: integer, format: int64, minimum: 0 }
-        valueEn: { type: string }
-        valuePl: { type: string }
+        values: { $ref: '#/components/schemas/DictionaryValues' }
 
     DictionaryEntryList:
       type: object
@@ -6131,7 +6145,7 @@ components:
 
     DictionaryEntryInput:
       type: object
-      required: [valueEn, valuePl]
+      required: [values]
       properties:
         id:
           type: integer
@@ -6139,8 +6153,7 @@ components:
           minimum: 0
           nullable: true
           description: Present = update that active entry in place; absent = insert a new entry.
-        valueEn: { type: string, maxLength: 100 }
-        valuePl: { type: string, maxLength: 100 }
+        values: { $ref: '#/components/schemas/DictionaryValues' }
 
     DictionaryUpdateRequest:
       type: object
@@ -7777,17 +7790,18 @@ components:
           type: string
           format: date
           description: Advisory planned close date (ISO); admin-editable while OPEN ("extend").
-        rotatingQuestionEn:
-          type: string
+        rotatingQuestion:
+          type: object
           nullable: true
+          required: [en]
+          properties:
+            en: { type: string }
+          additionalProperties: { type: string }
           description: >-
-            The cycle's snapshotted Q6 text, English. Null for non-admins until the cycle is
-            OPEN or CLOSED (and always null to them for CANCELLED); always paired with
-            rotatingQuestionPl — both-or-neither.
-        rotatingQuestionPl:
-          type: string
-          nullable: true
-          description: The Polish half of the snapshotted Q6 pair — same visibility rule.
+            The cycle's snapshotted Q6 text as a language->value map ("en" always present —
+            the DictionaryValues shape, frozen at schedule time). Null for non-admins until
+            the cycle is OPEN or CLOSED (and always null to them for CANCELLED) —
+            whole-map-or-null.
         createdAt: { type: integer, format: int64 }
         openedAt: { type: integer, format: int64, nullable: true }
         closedAt: { type: integer, format: int64, nullable: true }
@@ -7941,15 +7955,16 @@ components:
       required: [question, validCount]
       properties:
         question: { $ref: '#/components/schemas/PulseDriverQuestion' }
-        rotatingTextEn:
-          type: string
+        rotatingText:
+          type: object
           nullable: true
+          required: [en]
+          properties:
+            en: { type: string }
+          additionalProperties: { type: string }
           description: >-
-            The cycle's snapshotted question text, English — set on the ROTATING row only.
-        rotatingTextPl:
-          type: string
-          nullable: true
-          description: The Polish half of the snapshotted pair — ROTATING row only.
+            The cycle's snapshotted question text as a language->value map ("en" always
+            present) — set on the ROTATING row only.
         mean:
           type: number
           format: double

@@ -2625,10 +2625,10 @@ export interface paths {
         /**
          * List pulse cycles
          * @description Any authenticated user with PULSE_SURVEYS enabled. Unpaged registry (newest first) —
-         *     a cadence of weeks caps the volume. The `rotatingQuestionEn`/`rotatingQuestionPl`
-         *     pair is null for non-admins until
-         *     the cycle is OPEN or CLOSED (an unopened cycle's question stays unspoiled; a cancelled
-         *     one reveals nothing); the participation counts are ADMIN-only enrichment.
+         *     a cadence of weeks caps the volume. The `rotatingQuestion` language map is null for
+         *     non-admins until the cycle is OPEN or CLOSED (an unopened cycle's question stays
+         *     unspoiled; a cancelled one reveals nothing); the participation counts are ADMIN-only
+         *     enrichment.
          */
         get: operations["listPulseCycles"];
         put?: never;
@@ -2999,12 +2999,16 @@ export interface paths {
          *     are rewritten from payload order. An empty `items` array is allowed and soft-deletes
          *     every entry.
          *
-         *     Values are trimmed before storage and comparison. Blank or oversized values,
-         *     duplicate values within the payload (case-sensitive), duplicated or unknown /
-         *     soft-deleted entry ids, and more than 200 items are 400. A clash with another
-         *     active entry's value — e.g. swapping two values in one save, which trips the
-         *     per-statement unique index — is 409; work around a swap with a two-save rename
-         *     through a temporary value.
+         *     Values are trimmed before storage and comparison; uniqueness is per language and
+         *     case-sensitive (the same string may appear under two different languages). Only
+         *     the "en" value is required; omit a language to clear its translation — a PRESENT
+         *     blank value is 400. Unsupported language codes, blank or oversized values,
+         *     per-language duplicate values within the payload, duplicated or unknown /
+         *     soft-deleted entry ids, and more than 200 items are 400. Because the payload is
+         *     the whole active set, payload-level uniqueness is post-save uniqueness; only the
+         *     English value additionally has a DB unique index, so swapping two ENGLISH values
+         *     in one save is 409 (work around with a two-save rename through a temporary
+         *     value) — swapping translations succeeds.
          */
         put: operations["replaceDictionary"];
         post?: never;
@@ -3921,12 +3925,17 @@ export interface components {
              */
             total: number;
         };
-        /** @description Every entry is bilingual (V53) — clients render the viewer's language. */
+        /** @description Language code -> value (V60). "en" is always present and is the display fallback; other supported languages ("pl" today) appear only when a translation exists. Keys outside the build-time supported set are rejected with 400. */
+        DictionaryValues: {
+            en: string;
+        } & {
+            [key: string]: string;
+        };
+        /** @description Every entry carries a language->value map — clients render the viewer's language, falling back to English. */
         DictionaryEntry: {
             /** Format: int64 */
             id: number;
-            valueEn: string;
-            valuePl: string;
+            values: components["schemas"]["DictionaryValues"];
         };
         DictionaryEntryList: {
             items: components["schemas"]["DictionaryEntry"][];
@@ -3937,8 +3946,7 @@ export interface components {
              * @description Present = update that active entry in place; absent = insert a new entry.
              */
             id?: number | null;
-            valueEn: string;
-            valuePl: string;
+            values: components["schemas"]["DictionaryValues"];
         };
         DictionaryUpdateRequest: {
             items: components["schemas"]["DictionaryEntryInput"][];
@@ -5144,10 +5152,12 @@ export interface components {
              * @description Advisory planned close date (ISO); admin-editable while OPEN ("extend").
              */
             plannedCloseDate: string;
-            /** @description The cycle's snapshotted Q6 text, English. Null for non-admins until the cycle is OPEN or CLOSED (and always null to them for CANCELLED); always paired with rotatingQuestionPl — both-or-neither. */
-            rotatingQuestionEn?: string | null;
-            /** @description The Polish half of the snapshotted Q6 pair — same visibility rule. */
-            rotatingQuestionPl?: string | null;
+            /** @description The cycle's snapshotted Q6 text as a language->value map ("en" always present — the DictionaryValues shape, frozen at schedule time). Null for non-admins until the cycle is OPEN or CLOSED (and always null to them for CANCELLED) — whole-map-or-null. */
+            rotatingQuestion?: ({
+                en: string;
+            } & {
+                [key: string]: string;
+            }) | null;
             /** Format: int64 */
             createdAt: number;
             /** Format: int64 */
@@ -5268,10 +5278,12 @@ export interface components {
         PulseDriverQuestion: "Q2" | "Q3" | "Q4" | "Q5" | "ROTATING";
         PulseDriverResult: {
             question: components["schemas"]["PulseDriverQuestion"];
-            /** @description The cycle's snapshotted question text, English — set on the ROTATING row only. */
-            rotatingTextEn?: string | null;
-            /** @description The Polish half of the snapshotted pair — ROTATING row only. */
-            rotatingTextPl?: string | null;
+            /** @description The cycle's snapshotted question text as a language->value map ("en" always present) — set on the ROTATING row only. */
+            rotatingText?: ({
+                en: string;
+            } & {
+                [key: string]: string;
+            }) | null;
             /**
              * Format: double
              * @description 1dp mean over valid (non-NA) answers; null when none exist.

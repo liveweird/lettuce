@@ -2,7 +2,7 @@
 // to two of the caller's teams arrives twice. The person-card views collapse those rows to
 // one card per user, aggregating the team names for the badges.
 
-type CareerEntry = { id: number; valueEn: string; valuePl: string };
+import type { LocalizedEntry } from "./localized";
 
 export type TeamRef = { id: number; name: string };
 
@@ -26,9 +26,9 @@ export type TeamRow = {
   lastReviewPeriodEndMonth?: string | null;
   lastReviewStatus?: "DRAFT" | "CALIBRATION" | "PUBLISHED" | null;
   // The career profile (v1.32.1), populated on every view's rows; null = unset.
-  careerPath?: CareerEntry | null;
-  careerSpecialization?: CareerEntry | null;
-  seniorityLevel?: CareerEntry | null;
+  careerPath?: LocalizedEntry | null;
+  careerSpecialization?: LocalizedEntry | null;
+  seniorityLevel?: LocalizedEntry | null;
   // Days-off card stats (v1.44.0): next accepted vacation on managed + member rows;
   // remaining budget on managed rows only.
   nextVacationStart?: string | null;
@@ -53,9 +53,9 @@ export type PersonCard = {
   lastReviewPeriodStartMonth: string | null;
   lastReviewPeriodEndMonth: string | null;
   lastReviewStatus: "DRAFT" | "CALIBRATION" | "PUBLISHED" | null;
-  careerPath: CareerEntry | null;
-  careerSpecialization: CareerEntry | null;
-  seniorityLevel: CareerEntry | null;
+  careerPath: LocalizedEntry | null;
+  careerSpecialization: LocalizedEntry | null;
+  seniorityLevel: LocalizedEntry | null;
   nextVacationStart: string | null;
   daysOffRemaining: number | null;
 };

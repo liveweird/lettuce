@@ -98,11 +98,11 @@ class CareerPyramidTest {
             val (first, current) = rich.positions
             assertEquals("2018-04-01", first.startDate)
             assertEquals("2022-09-14", first.endDate)
-            assertEquals(DictionaryEntry(pathA, "PyT A $marker", "PyT A $marker"), first.careerPath)
+            assertEquals(DictionaryEntry(pathA, mapOf("en" to "PyT A $marker")), first.careerPath)
             assertEquals("2022-09-15", current.startDate)
             assertNull(current.endDate)
-            assertEquals(DictionaryEntry(pathB, "PyT B $marker", "PyT B $marker"), current.careerPath)
-            assertEquals(DictionaryEntry(levelId, "PyT L $marker", "PyT L $marker"), current.seniorityLevel)
+            assertEquals(DictionaryEntry(pathB, mapOf("en" to "PyT B $marker")), current.careerPath)
+            assertEquals(DictionaryEntry(levelId, mapOf("en" to "PyT L $marker")), current.seniorityLevel)
             val bare = items.single { it.userId == bareId }
             assertEquals(emptyList(), bare.positions)
             // The slider anchor is ORG-WIDE over the shared test DB — other tests' rows may

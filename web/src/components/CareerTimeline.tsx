@@ -3,7 +3,7 @@ import { IconPencil, IconTrash } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import type { CareerPosition } from "../api/career";
 import { formatIsoDate } from "../utils/datetime";
-import { pickDictionaryValue } from "../utils/dictionaryForm";
+import { pickLocalized, type LocalizedEntry } from "../utils/localized";
 
 // One position's triple, small: dimmed label + value in the viewer's language (or a dash).
 function PositionValue({
@@ -11,7 +11,7 @@ function PositionValue({
   entry,
 }: {
   label: string;
-  entry: { id: number; valueEn: string; valuePl: string } | null;
+  entry: LocalizedEntry | null;
 }) {
   const { i18n } = useTranslation();
   return (
@@ -20,7 +20,7 @@ function PositionValue({
         {label}
       </Text>
       {entry ? (
-        <Text size="sm">{pickDictionaryValue(entry, i18n.resolvedLanguage)}</Text>
+        <Text size="sm">{pickLocalized(entry.values, i18n.resolvedLanguage)}</Text>
       ) : (
         <Text size="sm" c="dimmed">
           —

@@ -13,8 +13,10 @@ const OPEN_CYCLE = {
   status: "OPEN",
   plannedOpenDate: "2026-08-01",
   plannedCloseDate: "2026-08-08",
-  rotatingQuestionEn: "Good work is recognized here." as string | null,
-  rotatingQuestionPl: "Dobra praca jest tu doceniana." as string | null,
+  rotatingQuestion: { en: "Good work is recognized here.", pl: "Dobra praca jest tu doceniana." } as {
+    en: string;
+    pl?: string;
+  } | null,
   createdAt: 0,
   lastModified: 0,
 };
@@ -100,7 +102,7 @@ describe("PulseSurvey (wizard)", () => {
   }
 
   test("no open cycle → the clear status message, never data", async () => {
-    setupMocks({ cycles: [{ ...OPEN_CYCLE, status: "SCHEDULED", rotatingQuestionEn: null, rotatingQuestionPl: null }] });
+    setupMocks({ cycles: [{ ...OPEN_CYCLE, status: "SCHEDULED", rotatingQuestion: null }] });
     renderWithProviders(<PulseSurvey />);
     expect(await screen.findByText("There is no pulse survey open right now.")).toBeInTheDocument();
     expect(screen.queryByText(/recognized here/)).toBeNull();

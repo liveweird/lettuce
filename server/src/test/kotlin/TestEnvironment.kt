@@ -269,7 +269,12 @@ object TestReviewPeriods {
 // Reads dictionary_entries rows raw, soft-deleted included (the API read filters active), to
 // assert that omitted entries are flagged rather than physically removed.
 object TestDictionaries {
-    data class RawEntry(val id: UInt, val value: String, val valuePl: String, val markedAsDeleted: Boolean)
+    data class RawEntry(
+        val id: UInt,
+        val valueEn: String,
+        val translations: Map<String, String>,
+        val markedAsDeleted: Boolean,
+    )
 
     val service: ch.nokillswit.dictionaries.DictionaryService by lazy {
         ch.nokillswit.dictionaries.DictionaryService(sharedTestDatabase)
@@ -280,7 +285,14 @@ object TestDictionaries {
             val t = ch.nokillswit.dictionaries.DictionaryService.Entries
             t.selectAll()
                 .where { t.dictionary eq dict.name }
-                .map { RawEntry(it[t.id].value, it[t.valueEn], it[t.valuePl], it[t.markedAsDeleted]) }
+                .map {
+                    RawEntry(
+                        it[t.id].value,
+                        it[t.valueEn],
+                        kotlinx.serialization.json.Json.decodeFromString<Map<String, String>>(it[t.translations]),
+                        it[t.markedAsDeleted],
+                    )
+                }
                 .toList()
         }
 
@@ -296,25 +308,26 @@ object TestDictionaries {
         service.replace(
             dict,
             ch.nokillswit.dictionaries.DictionaryUpdateRequest(
-                kept.map { ch.nokillswit.dictionaries.DictionaryEntryInput(it.id, it.valueEn, it.valuePl) } +
-                    // Bilingual entries (V53): tests that don't care about the split get PL = EN.
-                    values.map { ch.nokillswit.dictionaries.DictionaryEntryInput(valueEn = it, valuePl = it) },
+                kept.map { ch.nokillswit.dictionaries.DictionaryEntryInput(it.id, it.values) } +
+                    // N-language entries (V60): tests that don't care about translations
+                    // write EN only — display falls back to English anyway.
+                    values.map { ch.nokillswit.dictionaries.DictionaryEntryInput(values = mapOf("en" to it)) },
             ),
         )
-        val byValue = service.read(dict).associate { it.valueEn to it.id }
+        val byValue = service.read(dict).associate { it.values.getValue("en") to it.id }
         return values.map { byValue.getValue(it) }
     }
 
-    /** Renames entry [id] in place (identity kept), leaving everything else untouched. */
+    /** Renames entry [id] in place (identity kept, EN only), leaving everything else untouched. */
     suspend fun rename(dict: ch.nokillswit.dictionaries.Dictionary, id: UInt, newValue: String) {
         service.replace(
             dict,
             ch.nokillswit.dictionaries.DictionaryUpdateRequest(
                 service.read(dict).map {
                     if (it.id == id) {
-                        ch.nokillswit.dictionaries.DictionaryEntryInput(it.id, newValue, newValue)
+                        ch.nokillswit.dictionaries.DictionaryEntryInput(it.id, mapOf("en" to newValue))
                     } else {
-                        ch.nokillswit.dictionaries.DictionaryEntryInput(it.id, it.valueEn, it.valuePl)
+                        ch.nokillswit.dictionaries.DictionaryEntryInput(it.id, it.values)
                     }
                 },
             ),
@@ -327,7 +340,7 @@ object TestDictionaries {
             dict,
             ch.nokillswit.dictionaries.DictionaryUpdateRequest(
                 service.read(dict).filterNot { it.id == id }
-                    .map { ch.nokillswit.dictionaries.DictionaryEntryInput(it.id, it.valueEn, it.valuePl) },
+                    .map { ch.nokillswit.dictionaries.DictionaryEntryInput(it.id, it.values) },
             ),
         )
     }

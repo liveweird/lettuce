@@ -1,4 +1,5 @@
 import type { ParseKeys } from "i18next";
+import { pickLocalized } from "../utils/localized";
 import {
   Alert,
   Button,
@@ -297,9 +298,9 @@ export default function PulseCycles() {
                         size="sm"
                         truncate
                         maw={220}
-                        title={(locale === "pl" ? cycle.rotatingQuestionPl : cycle.rotatingQuestionEn) ?? undefined}
+                        title={cycle.rotatingQuestion ? pickLocalized(cycle.rotatingQuestion, locale) : undefined}
                       >
-                        {(locale === "pl" ? cycle.rotatingQuestionPl : cycle.rotatingQuestionEn) ?? "—"}
+                        {cycle.rotatingQuestion ? pickLocalized(cycle.rotatingQuestion, locale) : "—"}
                       </Text>
                     </Table.Td>
                     <Table.Td>

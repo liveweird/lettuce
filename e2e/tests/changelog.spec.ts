@@ -1,4 +1,4 @@
-import { collapseAlertsBanner, expect, login, test, ADMIN } from "./helpers";
+import { expect, login, switchLanguage, test, ADMIN } from "./helpers";
 
 // The changelog page (/changelog): the bundled release history whose newest entry IS the
 // app's displayed version. Read-only — the visit only marks the "new entries" dot as seen
@@ -17,13 +17,11 @@ test("the changelog lists versioned entries and renders them in the picked langu
 
   // Entry bodies are bilingual (content, not chrome): switching to PL re-renders the
   // heading and keeps the version timeline (the i18n.spec switcher idiom).
-  await collapseAlertsBanner(page);
-  const switcher = page.getByRole("radiogroup", { name: /Language|Język/ });
-  await switcher.getByText("PL", { exact: true }).click();
+  await switchLanguage(page, "Polski");
   await expect(page.getByRole("heading", { name: "Historia zmian" })).toBeVisible();
   await expect(page.getByText(/^v\d+\.\d+\.\d+$/).first()).toBeVisible();
 
   // Back to EN — hygiene, matching i18n.spec (contexts are per-test anyway).
-  await switcher.getByText("EN", { exact: true }).click();
+  await switchLanguage(page, "English");
   await expect(page.getByRole("heading", { name: "Changelog" })).toBeVisible();
 });

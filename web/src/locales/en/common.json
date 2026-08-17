@@ -96,6 +96,10 @@
   "language": {
     "label": "Language"
   },
+  "languageName": {
+    "en": "English",
+    "pl": "Polish"
+  },
   "buildInfo": "Build version",
   "charCount": "{{current}} / {{max}}"
 }

@@ -4,6 +4,9 @@ import LanguageDetector from "i18next-browser-languagedetector";
 
 // Per-namespace resource files (one folder per language). Each area file is merged into a single
 // `translation` namespace keyed by area, so keys read as e.g. `common.cancel`, `feedback.editTitle`.
+// Only EN is imported statically: the typed `en` tree below is the canonical key set
+// (src/i18next.d.ts) AND the runtime fallback bundle; every other language is auto-discovered
+// from its `locales/<lang>/` folder by the glob further down.
 import enCommon from "./locales/en/common.json";
 import enAppShell from "./locales/en/appShell.json";
 import enAuth from "./locales/en/auth.json";
@@ -28,31 +31,34 @@ import enChangelog from "./locales/en/changelog.json";
 import enTour from "./locales/en/tour.json";
 import enOrg from "./locales/en/org.json";
 
-import plCommon from "./locales/pl/common.json";
-import plAppShell from "./locales/pl/appShell.json";
-import plAuth from "./locales/pl/auth.json";
-import plDashboard from "./locales/pl/dashboard.json";
-import plFeedback from "./locales/pl/feedback.json";
-import plKudos from "./locales/pl/kudos.json";
-import plCareer from "./locales/pl/career.json";
-import plOneOnOne from "./locales/pl/oneOnOne.json";
-import plGoals from "./locales/pl/goals.json";
-import plTeamKpis from "./locales/pl/teamKpis.json";
-import plPerformanceReviews from "./locales/pl/performanceReviews.json";
-import plDaysOff from "./locales/pl/daysOff.json";
-import plPulse from "./locales/pl/pulse.json";
-import plUsers from "./locales/pl/users.json";
-import plTeams from "./locales/pl/teams.json";
-import plTemplates from "./locales/pl/templates.json";
-import plDictionaries from "./locales/pl/dictionaries.json";
-import plNotifications from "./locales/pl/notifications.json";
-import plEmailNotifications from "./locales/pl/emailNotifications.json";
-import plAlerts from "./locales/pl/alerts.json";
-import plChangelog from "./locales/pl/changelog.json";
-import plTour from "./locales/pl/tour.json";
-import plOrg from "./locales/pl/org.json";
 
+/**
+ * The build-time supported-language set — mirrored by the server's `SUPPORTED_LANGUAGES`
+ * in `dictionaries/Languages.kt` (they must agree). Adding a language: a complete
+ * `locales/<lang>/` folder (parity-gated), one code here, one NATIVE_LANGUAGE_NAMES line,
+ * `common.languageName.<lang>` in every language file, one EMOJI_I18N line (EmojiPicker),
+ * and the server constant. English is THE default and the display fallback everywhere.
+ */
 export const SUPPORTED_LANGUAGES = ["en", "pl"] as const;
+
+export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
+
+/**
+ * Each language names itself — deliberate constants, not translations (a switcher entry must
+ * be readable BEFORE switching) and not Intl.DisplayNames (which yields lowercase "polski"
+ * and varies across engines). The Record enforces one line per supported language.
+ */
+export const NATIVE_LANGUAGE_NAMES: Record<SupportedLanguage, string> = {
+  en: "English",
+  pl: "Polski",
+};
+
+/** Narrow an arbitrary language tag to a supported one, defaulting to English. */
+export function asSupportedLanguage(lang: string | undefined): SupportedLanguage {
+  return (SUPPORTED_LANGUAGES as readonly string[]).includes(lang ?? "")
+    ? (lang as SupportedLanguage)
+    : "en";
+}
 
 const LANGUAGE_STORAGE_KEY = "lettuce.lang";
 
@@ -90,40 +96,44 @@ export const en = {
   org: enOrg,
 };
 
-const pl = {
-  common: plCommon,
-  appShell: plAppShell,
-  auth: plAuth,
-  dashboard: plDashboard,
-  feedback: plFeedback,
-  kudos: plKudos,
-  career: plCareer,
-  oneOnOne: plOneOnOne,
-  goal: plGoals,
-  teamKpi: plTeamKpis,
-  performanceReview: plPerformanceReviews,
-  daysOff: plDaysOff,
-  pulse: plPulse,
-  users: plUsers,
-  teams: plTeams,
-  templates: plTemplates,
-  dictionary: plDictionaries,
-  notifications: plNotifications,
-  emailNotifications: plEmailNotifications,
-  alerts: plAlerts,
-  changelog: plChangelog,
-  tour: plTour,
-  org: plOrg,
+
+// Every non-EN bundle is assembled from its locales/<lang>/ folder — adding a language never
+// adds imports here. Eager on purpose: at 2 shipped languages the whole set rides the main
+// chunk (~95KB raw per language); move non-EN to lazy loading when a 3rd language ships or a
+// bundle passes ~150KB (documented in web/CLAUDE.md).
+const NON_EN_MODULES = import.meta.glob<Record<string, unknown>>(
+  ["./locales/*/*.json", "!./locales/en/**"],
+  { eager: true, import: "default" },
+);
+
+// Area files whose mount key differs from the filename (the EN tree above is the reference).
+const AREA_MOUNT: Record<string, string> = {
+  goals: "goal",
+  teamKpis: "teamKpi",
+  performanceReviews: "performanceReview",
+  dictionaries: "dictionary",
 };
+
+function bundleFor(lang: SupportedLanguage): Record<string, unknown> {
+  const bundle: Record<string, unknown> = {};
+  for (const [path, module] of Object.entries(NON_EN_MODULES)) {
+    const match = /\/([^/]+)\/([^/]+)\.json$/.exec(path);
+    if (!match || match[1] !== lang) continue;
+    bundle[AREA_MOUNT[match[2]] ?? match[2]] = module;
+  }
+  return bundle;
+}
 
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
-    resources: {
-      en: { translation: en },
-      pl: { translation: pl },
-    },
+    resources: Object.fromEntries(
+      SUPPORTED_LANGUAGES.map((lang) => [
+        lang,
+        { translation: lang === "en" ? en : bundleFor(lang) },
+      ]),
+    ),
     fallbackLng: "en",
     supportedLngs: SUPPORTED_LANGUAGES,
     // Map e.g. pl-PL -> pl.

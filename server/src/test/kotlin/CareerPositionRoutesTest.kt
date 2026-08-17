@@ -87,9 +87,9 @@ class CareerPositionRoutesTest {
             assertEquals("/api/v1/users/$subId/career-positions/${first.id}", response.headers["Location"])
             assertEquals("2019-02-01", first.startDate)
             assertNull(first.endDate)
-            assertEquals(DictionaryEntry(pathId, "CpA $marker", "CpA $marker"), first.careerPath)
-            assertEquals(DictionaryEntry(specId, "CpSpec $marker", "CpSpec $marker"), first.careerSpecialization)
-            assertEquals(DictionaryEntry(levelId, "CpLevel $marker", "CpLevel $marker"), first.seniorityLevel)
+            assertEquals(DictionaryEntry(pathId, mapOf("en" to "CpA $marker")), first.careerPath)
+            assertEquals(DictionaryEntry(specId, mapOf("en" to "CpSpec $marker")), first.careerSpecialization)
+            assertEquals(DictionaryEntry(levelId, mapOf("en" to "CpLevel $marker")), first.seniorityLevel)
 
             // A second position concludes the first the day before its start.
             val second = manager.createPosition(subId, "2021-06-15", pathId2, specId, levelId)
@@ -104,8 +104,8 @@ class CareerPositionRoutesTest {
             TestUsers.seed(adminEmail, "pw")
             val admin = authedClient(adminEmail, "pw")
             val userRead = admin.get("/api/v1/users/$subId").body<UserResponse>()
-            assertEquals(DictionaryEntry(pathId2, "CpB $marker", "CpB $marker"), userRead.careerPath)
-            assertEquals(DictionaryEntry(levelId, "CpLevel $marker", "CpLevel $marker"), userRead.seniorityLevel)
+            assertEquals(DictionaryEntry(pathId2, mapOf("en" to "CpB $marker")), userRead.careerPath)
+            assertEquals(DictionaryEntry(levelId, mapOf("en" to "CpLevel $marker")), userRead.seniorityLevel)
 
             // Correct the FIRST position in place: date + a different path (the spec differs
             // too — a correction may not make the row identical to its neighbor, v2.15.2).
@@ -116,8 +116,8 @@ class CareerPositionRoutesTest {
             assertEquals(HttpStatusCode.NoContent, put.status)
             val corrected = sub.listPositions(subId).first()
             assertEquals("2019-05-01", corrected.startDate)
-            assertEquals(DictionaryEntry(pathId2, "CpB $marker", "CpB $marker"), corrected.careerPath)
-            assertEquals(DictionaryEntry(specId2, "CpSpec2 $marker", "CpSpec2 $marker"), corrected.careerSpecialization)
+            assertEquals(DictionaryEntry(pathId2, mapOf("en" to "CpB $marker")), corrected.careerPath)
+            assertEquals(DictionaryEntry(specId2, mapOf("en" to "CpSpec2 $marker")), corrected.careerSpecialization)
 
             // A positionId under the WRONG user's path is 404, not a cross-user edit.
             val foreign = manager.put("/api/v1/users/$mgrId/career-positions/${first.id}") {
@@ -415,7 +415,7 @@ class CareerPositionRoutesTest {
             // Renames propagate to the timeline and the derived user triple alike.
             TestDictionaries.rename(Dictionary.CAREER_PATH, pathId, "CpD2 $marker")
             assertEquals(
-                DictionaryEntry(pathId, "CpD2 $marker", "CpD2 $marker"),
+                DictionaryEntry(pathId, mapOf("en" to "CpD2 $marker")),
                 manager.listPositions(subId).single().careerPath,
             )
 
@@ -423,7 +423,7 @@ class CareerPositionRoutesTest {
             // (a date-only fix) is NOT a change — no 400 on the stale ref.
             TestDictionaries.remove(Dictionary.CAREER_PATH, pathId)
             assertEquals(
-                DictionaryEntry(pathId, "CpD2 $marker", "CpD2 $marker"),
+                DictionaryEntry(pathId, mapOf("en" to "CpD2 $marker")),
                 manager.listPositions(subId).single().careerPath,
             )
             assertEquals(

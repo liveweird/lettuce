@@ -14,8 +14,8 @@
    - *Expected*: a semver-shaped version title (vX.Y.Z), a release date (YYYY-MM-DD), and a
      rendered entry body. Why no exact-version assert: it would need a hand-edit every release;
      the semver shape plus a rendered body already prove the page wires the bundled entries in.
-3. They collapse the alert banner and switch the interface language to PL.
+3. They switch the interface language to Polish through the header language menu.
    - *Expected*: the heading re-renders as "Historia zmian" and the version timeline stays —
      entry bodies are bilingual content, not just translated chrome.
-4. They switch back to EN (hygiene, matching the i18n journey — contexts are per-test anyway).
+4. They switch back to English (hygiene, matching the i18n journey — contexts are per-test anyway).
    - *Expected*: the "Changelog" heading is back.

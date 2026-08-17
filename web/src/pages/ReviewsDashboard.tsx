@@ -42,7 +42,7 @@ import { renderPeriodOption, useReviewPeriodOptions } from "../hooks/useReviewPe
 import { isOneOf, isString, useStoredState } from "../hooks/useStoredState";
 import { reviewCreateLink, reviewEditLink, reviewViewLink } from "../utils/performanceReviewLinks";
 import { REVIEW_CATEGORIES } from "../utils/reviewRatings";
-import { pickDictionaryValue } from "../utils/dictionaryForm";
+import { pickLocalized } from "../utils/localized";
 import {
   buildReviewsDashboardRows,
   EMPTY_REVIEWS_DASHBOARD_FILTERS,
@@ -395,21 +395,21 @@ export default function ReviewsDashboard() {
                   <Table.Td>
                     <Text size="sm" c={person.careerPath ? undefined : "dimmed"}>
                       {person.careerPath
-                        ? pickDictionaryValue(person.careerPath, i18n.resolvedLanguage)
+                        ? pickLocalized(person.careerPath.values, i18n.resolvedLanguage)
                         : "—"}
                     </Text>
                   </Table.Td>
                   <Table.Td>
                     <Text size="sm" c={person.careerSpecialization ? undefined : "dimmed"}>
                       {person.careerSpecialization
-                        ? pickDictionaryValue(person.careerSpecialization, i18n.resolvedLanguage)
+                        ? pickLocalized(person.careerSpecialization.values, i18n.resolvedLanguage)
                         : "—"}
                     </Text>
                   </Table.Td>
                   <Table.Td>
                     <Text size="sm" c={person.seniorityLevel ? undefined : "dimmed"}>
                       {person.seniorityLevel
-                        ? pickDictionaryValue(person.seniorityLevel, i18n.resolvedLanguage)
+                        ? pickLocalized(person.seniorityLevel.values, i18n.resolvedLanguage)
                         : "—"}
                     </Text>
                   </Table.Td>
