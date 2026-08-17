@@ -10,6 +10,8 @@ import ch.nokillswit.teams.TeamService
 import ch.nokillswit.teams.directManagerIds
 import ch.nokillswit.teams.directSubordinateIds
 import ch.nokillswit.teams.isInManagementChain
+import ch.nokillswit.teams.memberTeamIds
+import ch.nokillswit.teams.membersOf
 import ch.nokillswit.users.UserService
 import io.ktor.server.plugins.BadRequestException
 import io.ktor.util.AttributeKey
@@ -660,30 +662,8 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
 
     /** Members of the non-deleted teams [userId] belongs to (the caller themselves included when
      * they are a member anywhere; empty for a team-less user). Runs in the caller's transaction. */
-    private suspend fun teamMemberPeers(userId: UInt): Set<UInt> {
-        val myTeams = TeamService.TeamMembers
-            .join(
-                TeamService.Teams,
-                JoinType.INNER,
-                onColumn = TeamService.TeamMembers.teamId,
-                otherColumn = TeamService.Teams.id,
-            )
-            .select(TeamService.TeamMembers.teamId)
-            .where {
-                (TeamService.TeamMembers.userId eq userId) and
-                    (TeamService.Teams.markedAsDeleted eq false)
-            }
-            .map { it[TeamService.TeamMembers.teamId].value }
-            .toList()
-            .toSet()
-        if (myTeams.isEmpty()) return emptySet()
-        return TeamService.TeamMembers
-            .select(TeamService.TeamMembers.userId)
-            .where { TeamService.TeamMembers.teamId inList myTeams }
-            .map { it[TeamService.TeamMembers.userId].value }
-            .toList()
-            .toSet()
-    }
+    private suspend fun teamMemberPeers(userId: UInt): Set<UInt> =
+        membersOf(memberTeamIds(userId))
 
     private suspend fun holidaysOfYear(year: Int): Set<LocalDate> =
         PublicHolidayService.PublicHolidays

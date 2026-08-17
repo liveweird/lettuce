@@ -294,11 +294,11 @@ fun Application.configureFeedbackRoutes() {
                     call.respondProblem(HttpStatusCode.NotFound, "Feedback not found")
                     return@delete
                 }
-                // Audit the deletion against the acting provider (events outlive the soft-deleted row).
-                feedbackEventService.create(feedbackDeletionEvent().toEvent(route.id, call.caller().userId))
                 // Best-effort side effect: tell the requester (if any) the provider deleted it (no link).
                 val names = feedbackService.partyNames(existing)
                 feedbackDeletionNotifications(existing, names).forEach { notificationService.create(it) }
+                // Audit the deletion against the acting provider (events outlive the soft-deleted row).
+                feedbackEventService.create(feedbackDeletionEvent().toEvent(route.id, call.caller().userId))
                 call.respond(HttpStatusCode.NoContent)
             }
         }

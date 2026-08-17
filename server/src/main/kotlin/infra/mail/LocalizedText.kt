@@ -6,7 +6,7 @@ package ch.nokillswit.infra.mail
  * language to SUPPORTED_LANGUAGES means adding a parameter here, which turns every email
  * text in the codebase into a compile error until translated — the server-side sibling of
  * the SPA's locale-parity gate. [of] resolves the recipient's language with the English
- * fallback for anything unknown (LocalizedTextTest pins that no supported language falls
+ * fallback for anything unknown (LocalizedEmailTest pins that no supported language falls
  * into the fallback).
  */
 internal data class LocalizedText(val en: String, val pl: String) {

@@ -50,6 +50,7 @@ export default function SelfReflection() {
         content: values.content,
       });
       await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
+      await queryClient.invalidateQueries({ queryKey: ["notifications"] });
       showSuccessToast(t(status === "SENT" ? "feedback.toast.sent" : "feedback.toast.draftSaved"));
       navigate(BACK_TO, { replace: true });
     } catch (err) {

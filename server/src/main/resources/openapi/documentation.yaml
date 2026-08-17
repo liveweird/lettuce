@@ -13,8 +13,11 @@ info:
       reads those management screens need) — and NOTHING more: on feedbacks,
       1:1 meetings, goals, and notifications an admin is exactly a standard
       user. `HR` is the read-only AUDITOR: it reads every user, feedback,
-      1:1 meeting, and goal — drafts included, content never redacted — plus
-      the auditor list view (`view=user`), while its WRITE access stays
+      1:1 meeting, goal, team KPI, performance review, and days-off
+      request/correction, plus the pulse results/comments/participation
+      reads — drafts included, content never redacted — plus the auditor
+      list view (`view=user`, on the feedback/1:1/goal/review/days-off
+      lists), while its WRITE access stays
       exactly regular-user (no management bypasses, and no notification or
       alert-management access). Reads granted by the HR privilege are
       recorded in the security audit trail (`hr.read` / `hr.list`). A person
@@ -332,7 +335,7 @@ paths:
         - name: teamId
           in: query
           required: false
-          schema: { type: integer, format: int64, minimum: 0 }
+          schema: { type: integer, format: int32, minimum: 0 }
           description: Filter to users who are members of the given team.
         - name: deactivated
           in: query
@@ -428,7 +431,8 @@ paths:
         importing anything. A delivery failure after creation yields status `EMAIL_FAILED`
         (the account exists; the password is still in the row). `created` counts `CREATED`
         plus `EMAIL_FAILED` rows; `errors` counts `PARSE_ERROR` plus `ERROR` rows. Caps:
-        200 data rows / 256 KiB of CSV per request (`400` beyond either). Deliberately not
+        200 data rows / 262 144 characters of CSV per request (`400` beyond either; the cap
+        counts characters, so multi-byte CSV may exceed 256 KiB of bytes). Deliberately not
         rate-limited per IP (unlike the password reset): the endpoint is admin-only and the
         row/size caps already bound the work per request.
       requestBody:
@@ -501,7 +505,9 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
-          description: Caller is not the target user and not ADMIN, or attempted to change roles
+          description: >
+            Caller is not the target user and not ADMIN, or a non-ADMIN attempted to change
+            roles, the paid days-off allowance, or the unique id
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
@@ -552,7 +558,7 @@ paths:
       responses:
         '204': { description: Password updated }
         '400':
-          description: New password shorter than 10 characters
+          description: New password shorter than 10 characters or longer than 71 UTF-8 bytes
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
@@ -826,7 +832,7 @@ paths:
       - name: positionId
         in: path
         required: true
-        schema: { type: integer, format: int64, minimum: 0 }
+        schema: { type: integer, format: int32, minimum: 0 }
     put:
       tags: [users]
       operationId: replaceUserCareerPosition
@@ -907,8 +913,9 @@ paths:
         slider's date itself, and lists a person only while they actively held a position
         at that date (a deactivated subordinate past their stored end date, or with no
         positions at all, is dropped client-side; an ACTIVE subordinate with no as-of
-        position still shows as "Not set"). `earliestStartDate` (org-wide, any user, even
-        deactivated ones) anchors the slider's lower bound. Soft-deleted users are excluded.
+        position still shows as "Not set"). `earliestStartDate` (org-wide, spanning every
+        non-deleted position — deactivated AND soft-deleted users' positions included)
+        anchors the slider's lower bound. Soft-deleted users are excluded from `items`.
 
         **Unpaged** — bounded by the caller's subordinate count, intrinsically small.
       parameters:
@@ -960,12 +967,12 @@ paths:
         - name: managerId
           in: query
           required: false
-          schema: { type: integer, format: int64, minimum: 0 }
+          schema: { type: integer, format: int32, minimum: 0 }
           description: Exact match against the team's manager id.
         - name: memberId
           in: query
           required: false
-          schema: { type: integer, format: int64, minimum: 0 }
+          schema: { type: integer, format: int32, minimum: 0 }
           description: Filter to teams the given user is a member of.
       responses:
         '200':
@@ -1116,7 +1123,7 @@ paths:
         - name: teamId
           in: query
           required: false
-          schema: { type: integer, format: int64, minimum: 0 }
+          schema: { type: integer, format: int32, minimum: 0 }
           description: Exact match against the team's id.
       responses:
         '200':
@@ -1646,7 +1653,8 @@ paths:
       summary: Send a feedback (DRAFT → SENT)
       description: |
         Delivers a draft. Provider-only, no request body. Valid only from DRAFT (otherwise 409).
-        Notifies the subject, the provider, and the requester (if any) and records an audit
+        Notifies the subject, the provider, the requester (if any), and each of the subject's
+        direct managers (who gain read access on delivery), and records an audit
         event. For a self-reflection (provider == subject) only the requester, if any, is
         notified — the other recipients would be the acting user.
       responses:
@@ -2159,12 +2167,12 @@ paths:
         - name: createdAt[gte]
           in: query
           required: false
-          schema: { type: integer, format: int64, minimum: 0 }
+          schema: { type: integer, format: int64 }
           description: Lower bound (inclusive) on the creation moment, epoch milliseconds.
         - name: lastModified[gte]
           in: query
           required: false
-          schema: { type: integer, format: int64, minimum: 0 }
+          schema: { type: integer, format: int64 }
           description: Lower bound (inclusive) on the last-modified moment, epoch milliseconds.
       responses:
         '200':
@@ -2583,7 +2591,7 @@ paths:
         - name: teamId
           in: query
           required: false
-          schema: { type: integer, format: int64, minimum: 0 }
+          schema: { type: integer, format: int32, minimum: 0 }
           description: Exact team-id match (the per-team drill-down).
         - name: title
           in: query
@@ -2603,12 +2611,12 @@ paths:
         - name: createdAt[gte]
           in: query
           required: false
-          schema: { type: integer, format: int64, minimum: 0 }
+          schema: { type: integer, format: int64 }
           description: Lower bound (inclusive) on the creation moment, epoch milliseconds.
         - name: lastModified[gte]
           in: query
           required: false
-          schema: { type: integer, format: int64, minimum: 0 }
+          schema: { type: integer, format: int64 }
           description: Lower bound (inclusive) on the last-modified moment, epoch milliseconds.
       responses:
         '200':
@@ -3219,12 +3227,12 @@ paths:
         - name: createdAt[gte]
           in: query
           required: false
-          schema: { type: integer, format: int64, minimum: 0 }
+          schema: { type: integer, format: int64 }
           description: Lower bound (inclusive) on the creation moment, epoch milliseconds.
         - name: lastModified[gte]
           in: query
           required: false
-          schema: { type: integer, format: int64, minimum: 0 }
+          schema: { type: integer, format: int64 }
           description: Lower bound (inclusive) on the last-modified moment, epoch milliseconds.
       responses:
         '200':
@@ -3724,13 +3732,15 @@ paths:
       description: |
         One budget row per user for the given calendar year: the configured **allowance**
         (null = not configured = zero budget), the **carriedOver** days from previous years,
-        the year's **reserved** (REQUESTED) and **used** (ACCEPTED) paid days, and the
-        **remaining** balance (`carriedOver + allowance − reserved − used`, may be negative
-        after a retroactive allowance cut).
+        the year's **reserved** (REQUESTED) and **used** (ACCEPTED) paid days, the year's
+        net manager **corrections**, and the **remaining** balance
+        (`carriedOver + allowance + corrected − reserved − used`, may be negative after a
+        retroactive allowance cut).
 
         Carry-over is automatic: unused budget in one calendar year transfers to the next.
-        The accumulation is anchored at the year of the user's earliest REQUESTED/ACCEPTED
-        PAID request (the allowance never phantom-accumulates over empty historical years),
+        The accumulation is anchored at the year of the user's earliest counting PAID
+        request (REQUESTED/ACCEPTED) **or budget correction**, whichever is earlier (the
+        allowance never phantom-accumulates over empty historical years),
         and the CURRENT allowance value applies to every year — an admin's allowance change
         recomputes history (documented behavior). REJECTED and CANCELLED requests never count.
 
@@ -5466,7 +5476,9 @@ components:
         disabledFeatures:
           type: array
           items: { $ref: '#/components/schemas/Feature' }
-          description: Always empty at creation (default all-enabled) — aligned with UserResponse.
+          description: >
+            Always exactly ["MFA"] at creation — every new user starts with the inverted-default
+            MFA flag disabled (email MFA is opt-in); all other features start enabled.
         emailNotificationsEnabled:
           type: boolean
           description: Always true at creation (the V51 default) — aligned with UserResponse.
@@ -5526,7 +5538,7 @@ components:
             neighboring positions' starts (409 otherwise).
         careerPathId:
           type: integer
-          format: int64
+          format: int32
           description: |
             Id of an ACTIVE CAREER_PATH dictionary entry. All three refs are REQUIRED
             (v2.15.1 — a position is the full triple; a missing field is 400). On PUT, only
@@ -5535,11 +5547,11 @@ components:
             means completing the triple.
         careerSpecializationId:
           type: integer
-          format: int64
+          format: int32
           description: Id of an ACTIVE CAREER_SPECIALIZATION dictionary entry — see careerPathId.
         seniorityLevelId:
           type: integer
-          format: int64
+          format: int32
           description: Id of an ACTIVE SENIORITY_LEVEL dictionary entry — see careerPathId.
 
     CareerPositionResponse:
@@ -5759,7 +5771,7 @@ components:
       type: object
       required: [name, managerId]
       properties:
-        name: { type: string, maxLength: 100 }
+        name: { type: string, minLength: 1, maxLength: 100 }
         managerId: { type: integer, format: int64, minimum: 0 }
         memberIds:
           type: array
@@ -6010,8 +6022,8 @@ components:
           maxLength: 1000
           description: |
             Requester's clarification note to the provider (why they asked, what they expect).
-            Captured only when a feedback is created; immutable afterward — any value sent on
-            update (`PUT`) is ignored.
+            Create-only: the `PUT` body has no such field, and sending it there is rejected
+            with `400` (unknown keys are not accepted).
 
     FeedbackResponse:
       type: object
@@ -6234,12 +6246,12 @@ components:
 
     AlertRequest:
       type: object
-      required: [title]
+      required: [title, content]
       properties:
         title: { type: string, maxLength: 150 }
         content:
           type: string
-          default: ""
+          minLength: 1
           maxLength: 5000
           description: Markdown-formatted message body. Must not be blank.
         isActive: { type: boolean, default: true }
@@ -6345,7 +6357,7 @@ components:
           nullable: true
           description: >-
             Identifies an existing row on PUT (omitted = a new item). Must be omitted on create.
-        content: { type: string, maxLength: 4000, description: Plain unformatted paragraph. }
+        content: { type: string, minLength: 1, maxLength: 4000, description: Plain unformatted paragraph. }
 
     OneOnOneActionItemInput:
       type: object
@@ -6358,7 +6370,7 @@ components:
           nullable: true
           description: >-
             Identifies an existing row on PUT (omitted = a new item). Must be omitted on create.
-        content: { type: string, maxLength: 4000, description: Plain unformatted paragraph. }
+        content: { type: string, minLength: 1, maxLength: 4000, description: Plain unformatted paragraph. }
         owner:
           type: string
           enum: [MANAGER, SUBORDINATE]
@@ -6659,6 +6671,7 @@ components:
           description: Must be a direct report of the caller (the manager).
         title:
           type: string
+          minLength: 1
           maxLength: 200
           description: Plaintext (unlike description/summary) — lists sort and filter on it.
         description: { type: string, maxLength: 4000, default: '' }
@@ -6691,7 +6704,7 @@ components:
       type: object
       required: [title, type, dueDate]
       properties:
-        title: { type: string, maxLength: 200 }
+        title: { type: string, minLength: 1, maxLength: 200 }
         description: { type: string, maxLength: 4000, default: '' }
         type:
           type: string
@@ -6948,6 +6961,7 @@ components:
           description: Must be a non-deleted team whose current manager the caller is.
         title:
           type: string
+          minLength: 1
           maxLength: 200
           description: Plaintext (unlike description/summary) — lists sort and filter on it.
         description: { type: string, maxLength: 4000, default: '' }
@@ -6964,7 +6978,7 @@ components:
       type: object
       required: [title, type, targetValue]
       properties:
-        title: { type: string, maxLength: 200 }
+        title: { type: string, minLength: 1, maxLength: 200 }
         description: { type: string, maxLength: 4000, default: '' }
         type:
           type: string
@@ -7579,8 +7593,8 @@ components:
           type: number
           format: double
           description: >-
-            carriedOver + allowance − reserved − used; may be negative after a retroactive
-            allowance cut.
+            carriedOver + allowance + corrected − reserved − used; may be negative after a
+            retroactive allowance cut.
 
     DaysOffBudgetList:
       type: object
@@ -7610,6 +7624,7 @@ components:
           description: Positive amount in days, 0.5 steps, at most 365.
         comment:
           type: string
+          minLength: 1
           maxLength: 1000
           description: The mandatory reasoning — non-blank; stored encrypted at rest.
 

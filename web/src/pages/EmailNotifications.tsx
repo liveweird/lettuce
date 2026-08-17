@@ -59,6 +59,7 @@ export default function EmailNotifications() {
     setSubmitting(true);
     try {
       await setEmailNotifications(id, enabled);
+      await queryClient.invalidateQueries({ queryKey: ["users"] });
       await queryClient.invalidateQueries({ queryKey: ["user", id] });
       showSuccessToast(t("emailNotifications.toast.saved"));
       navigate(returnTo, { replace: true });

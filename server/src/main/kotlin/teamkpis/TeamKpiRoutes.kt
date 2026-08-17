@@ -156,11 +156,13 @@ fun Application.configureTeamKpiRoutes() {
         target: TeamKpiStatus,
         receiveSummary: (suspend () -> String?)? = null,
     ) {
-        writeGuardedKpi(call, kpiId) ?: return
+        val existing = writeGuardedKpi(call, kpiId) ?: return
         // The archive body is received (and validated) only after the write guard, so a
         // non-manager's malformed or blank summary is still 403 on a foreign KPI, not 400.
+        // Validated only while the row sits at the edge's source status — an off-edge call
+        // must reach the service so its status check answers the documented 409.
         val summary = receiveSummary?.invoke()
-        if (target == TeamKpiStatus.ARCHIVED) validateTeamKpiSummary(summary)
+        if (existing.status == from && target == TeamKpiStatus.ARCHIVED) validateTeamKpiSummary(summary)
         val toNotify = kpiService.transition(kpiId, from, target, summary)
         if (toNotify == null) {
             call.respondProblem(HttpStatusCode.NotFound, "Team KPI not found")
@@ -261,15 +263,15 @@ fun Application.configureTeamKpiRoutes() {
                     call.respondProblem(HttpStatusCode.NotFound, "Team KPI not found")
                     return@post
                 }
-                kpiEventService.create(
-                    teamKpiValueRecordedEvent(write.date!!, write.value!!)
-                        .toEvent(kpiId, call.caller().userId),
-                )
                 notifyValueChange(
                     existing,
                     kpiId,
                     NotificationType.TEAM_KPI_VALUE_RECORDED_TO_MEMBER,
-                    mapOf("date" to write.date, "value" to write.value.toString()),
+                    mapOf("date" to write.date!!, "value" to write.value!!.toString()),
+                )
+                kpiEventService.create(
+                    teamKpiValueRecordedEvent(write.date, write.value)
+                        .toEvent(kpiId, call.caller().userId),
                 )
                 call.response.header(
                     HttpHeaders.Location,
@@ -291,10 +293,6 @@ fun Application.configureTeamKpiRoutes() {
                 }
                 // An exact no-op corrected nothing — no event, no notification, still 204.
                 if (correction.changed) {
-                    kpiEventService.create(
-                        teamKpiValueCorrectedEvent(correction.old, write.date!!, write.value!!)
-                            .toEvent(kpiId, call.caller().userId),
-                    )
                     notifyValueChange(
                         existing,
                         kpiId,
@@ -302,9 +300,13 @@ fun Application.configureTeamKpiRoutes() {
                         mapOf(
                             "fromDate" to correction.old.date,
                             "fromValue" to correction.old.value.toString(),
-                            "toDate" to write.date,
-                            "toValue" to write.value.toString(),
+                            "toDate" to write.date!!,
+                            "toValue" to write.value!!.toString(),
                         ),
+                    )
+                    kpiEventService.create(
+                        teamKpiValueCorrectedEvent(correction.old, write.date, write.value)
+                            .toEvent(kpiId, call.caller().userId),
                     )
                 }
                 call.respond(HttpStatusCode.NoContent)
@@ -317,13 +319,13 @@ fun Application.configureTeamKpiRoutes() {
                     call.respondProblem(HttpStatusCode.NotFound, "Team KPI data point not found")
                     return@delete
                 }
-                kpiEventService.create(teamKpiValueRemovedEvent(removed).toEvent(kpiId, call.caller().userId))
                 notifyValueChange(
                     existing,
                     kpiId,
                     NotificationType.TEAM_KPI_VALUE_REMOVED_TO_MEMBER,
                     mapOf("date" to removed.date, "value" to removed.value.toString()),
                 )
+                kpiEventService.create(teamKpiValueRemovedEvent(removed).toEvent(kpiId, call.caller().userId))
                 call.respond(HttpStatusCode.NoContent)
             }
             post<TeamKpis.Id.Activate> { route ->

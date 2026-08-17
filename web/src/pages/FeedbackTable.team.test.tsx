@@ -145,39 +145,9 @@ describe("FeedbackTable (team view)", () => {
     });
   });
 
-  test("filters are collapsed by default and the toggle reveals them", async () => {
-    setupMocks(mockFetch);
-    const user = userEvent.setup();
-    renderWithProviders(<FeedbackTable view="team" />);
-
-    await screen.findByText("Sam Subject");
-    const toggle = screen.getByRole("button", { name: /filters/i });
-    // Collapsed by default — the toggle reports it and the space-eating filter row is hidden.
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByLabelText(/provider/i)).not.toBeInTheDocument();
-
-    await user.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByLabelText(/provider/i)).toBeInTheDocument();
-
-    await user.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-  });
-
-  test("the Filters toggle shows a badge counting the active filters", async () => {
-    setupMocks(mockFetch);
-    const user = userEvent.setup();
-    renderWithProviders(<FeedbackTable view="team" />);
-
-    await screen.findByText("Sam Subject");
-    const toggle = screen.getByRole("button", { name: /filters/i });
-    // Nothing set, and the default "Last modified = All" must NOT count → no badge.
-    expect(within(toggle).queryByText("1")).not.toBeInTheDocument();
-
-    await user.click(toggle);
-    await user.type(screen.getByLabelText(/provider/i), "ali");
-    expect(within(toggle).getByText("1")).toBeInTheDocument();
-  });
+  // The generic list behaviors (collapsed filters, badge count, empty/error states) are
+  // covered once in FeedbackTable.test.tsx — the code has no view branch there, so the
+  // team file keeps only the genuinely view-specific cases.
 
   test("selecting visibility, status, and a Last modified window adds their params", async () => {
     setupMocks(mockFetch);
@@ -341,17 +311,5 @@ describe("FeedbackTable (team view)", () => {
     const href = within(row).getByRole("link", { name: /view/i }).getAttribute("href")!;
     expect(href).toContain("/feedback/5/view?as=team&providerName=Alice%20Provider");
     expect(href).not.toContain("requesterName=");
-  });
-
-  test("shows an empty state when there is no team feedback", async () => {
-    setupMocks(mockFetch, feedbacksPage([]));
-    renderWithProviders(<FeedbackTable view="team" />);
-    expect(await screen.findByText(/no feedback/i)).toBeInTheDocument();
-  });
-
-  test("shows an error alert when the request fails", async () => {
-    setupMocks(mockFetch, jsonResponse(500, { error: "internal", message: "boom" }));
-    renderWithProviders(<FeedbackTable view="team" />);
-    expect(await screen.findByText(/failed to load feedbacks/i)).toBeInTheDocument();
   });
 });
