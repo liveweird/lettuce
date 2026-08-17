@@ -244,7 +244,8 @@ export interface paths {
          *     importing anything. A delivery failure after creation yields status `EMAIL_FAILED`
          *     (the account exists; the password is still in the row). `created` counts `CREATED`
          *     plus `EMAIL_FAILED` rows; `errors` counts `PARSE_ERROR` plus `ERROR` rows. Caps:
-         *     200 data rows / 256 KiB of CSV per request (`400` beyond either). Deliberately not
+         *     200 data rows / 262 144 characters of CSV per request (`400` beyond either; the cap
+         *     counts characters, so multi-byte CSV may exceed 256 KiB of bytes). Deliberately not
          *     rate-limited per IP (unlike the password reset): the endpoint is admin-only and the
          *     row/size caps already bound the work per request.
          */
@@ -577,8 +578,9 @@ export interface paths {
          *     slider's date itself, and lists a person only while they actively held a position
          *     at that date (a deactivated subordinate past their stored end date, or with no
          *     positions at all, is dropped client-side; an ACTIVE subordinate with no as-of
-         *     position still shows as "Not set"). `earliestStartDate` (org-wide, any user, even
-         *     deactivated ones) anchors the slider's lower bound. Soft-deleted users are excluded.
+         *     position still shows as "Not set"). `earliestStartDate` (org-wide, spanning every
+         *     non-deleted position — deactivated AND soft-deleted users' positions included)
+         *     anchors the slider's lower bound. Soft-deleted users are excluded from `items`.
          *
          *     **Unpaged** — bounded by the caller's subordinate count, intrinsically small.
          */
@@ -966,7 +968,8 @@ export interface paths {
         /**
          * Send a feedback (DRAFT → SENT)
          * @description Delivers a draft. Provider-only, no request body. Valid only from DRAFT (otherwise 409).
-         *     Notifies the subject, the provider, and the requester (if any) and records an audit
+         *     Notifies the subject, the provider, the requester (if any), and each of the subject's
+         *     direct managers (who gain read access on delivery), and records an audit
          *     event. For a self-reflection (provider == subject) only the requester, if any, is
          *     notified — the other recipients would be the acting user.
          */
@@ -2330,13 +2333,15 @@ export interface paths {
          * Paid-days budgets for a calendar year
          * @description One budget row per user for the given calendar year: the configured **allowance**
          *     (null = not configured = zero budget), the **carriedOver** days from previous years,
-         *     the year's **reserved** (REQUESTED) and **used** (ACCEPTED) paid days, and the
-         *     **remaining** balance (`carriedOver + allowance − reserved − used`, may be negative
-         *     after a retroactive allowance cut).
+         *     the year's **reserved** (REQUESTED) and **used** (ACCEPTED) paid days, the year's
+         *     net manager **corrections**, and the **remaining** balance
+         *     (`carriedOver + allowance + corrected − reserved − used`, may be negative after a
+         *     retroactive allowance cut).
          *
          *     Carry-over is automatic: unused budget in one calendar year transfers to the next.
-         *     The accumulation is anchored at the year of the user's earliest REQUESTED/ACCEPTED
-         *     PAID request (the allowance never phantom-accumulates over empty historical years),
+         *     The accumulation is anchored at the year of the user's earliest counting PAID
+         *     request (REQUESTED/ACCEPTED) **or budget correction**, whichever is earlier (the
+         *     allowance never phantom-accumulates over empty historical years),
          *     and the CURRENT allowance value applies to every year — an admin's allowance change
          *     recomputes history (documented behavior). REJECTED and CANCELLED requests never count.
          *
@@ -3439,7 +3444,7 @@ export interface components {
             paidDaysOffAllowance: number | null;
             /** @description Always false at creation — kept so both user-response shapes stay aligned. */
             deactivated: boolean;
-            /** @description Always empty at creation (default all-enabled) — aligned with UserResponse. */
+            /** @description Always exactly ["MFA"] at creation — every new user starts with the inverted-default MFA flag disabled (email MFA is opt-in); all other features start enabled. */
             disabledFeatures: components["schemas"]["Feature"][];
             /** @description Always true at creation (the V51 default) — aligned with UserResponse. */
             emailNotificationsEnabled: boolean;
@@ -3483,7 +3488,7 @@ export interface components {
              */
             startDate: string;
             /**
-             * Format: int64
+             * Format: int32
              * @description Id of an ACTIVE CAREER_PATH dictionary entry. All three refs are REQUIRED
              *     (v2.15.1 — a position is the full triple; a missing field is 400). On PUT, only
              *     ids that CHANGE the stored value are validated as active — resubmitting a
@@ -3492,12 +3497,12 @@ export interface components {
              */
             careerPathId: number;
             /**
-             * Format: int64
+             * Format: int32
              * @description Id of an ACTIVE CAREER_SPECIALIZATION dictionary entry — see careerPathId.
              */
             careerSpecializationId: number;
             /**
-             * Format: int64
+             * Format: int32
              * @description Id of an ACTIVE SENIORITY_LEVEL dictionary entry — see careerPathId.
              */
             seniorityLevelId: number;
@@ -3852,8 +3857,8 @@ export interface components {
             content: string;
             /**
              * @description Requester's clarification note to the provider (why they asked, what they expect).
-             *     Captured only when a feedback is created; immutable afterward — any value sent on
-             *     update (`PUT`) is ignored.
+             *     Create-only: the `PUT` body has no such field, and sending it there is rejected
+             *     with `400` (unknown keys are not accepted).
              */
             requesterMessage?: string | null;
         };
@@ -4005,10 +4010,7 @@ export interface components {
         };
         AlertRequest: {
             title: string;
-            /**
-             * @description Markdown-formatted message body. Must not be blank.
-             * @default
-             */
+            /** @description Markdown-formatted message body. Must not be blank. */
             content: string;
             /** @default true */
             isActive: boolean;
@@ -5023,7 +5025,7 @@ export interface components {
             used: number;
             /**
              * Format: double
-             * @description carriedOver + allowance − reserved − used; may be negative after a retroactive allowance cut.
+             * @description carriedOver + allowance + corrected − reserved − used; may be negative after a retroactive allowance cut.
              */
             remaining: number;
         };
@@ -6131,7 +6133,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            /** @description Caller is not the target user and not ADMIN, or attempted to change roles */
+            /** @description Caller is not the target user and not ADMIN, or a non-ADMIN attempted to change roles, the paid days-off allowance, or the unique id */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -6208,7 +6210,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description New password shorter than 10 characters */
+            /** @description New password shorter than 10 characters or longer than 71 UTF-8 bytes */
             400: {
                 headers: {
                     [name: string]: unknown;

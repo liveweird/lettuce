@@ -133,11 +133,15 @@ fun Application.configureGoalRoutes() {
         receiveSummary: (suspend () -> String?)? = null,
     ) {
         val existing = writeGuardedGoal(call, goalId) ?: return
+        // Payload/state pre-checks apply only while the row actually sits at the edge's source
+        // status — off-edge calls must reach the service so its status check answers the
+        // documented 409 (an ARCHIVED goal's stale due date must not turn activate into a 400).
+        val atSource = existing.status == from
         // Activation only (not reopen — ARCHIVED->ACTIVE must stay open for overdue goals, whose
         // due date is DRAFT-only editable): a stale draft must pick a fresh due date first, and
         // a PLAN draft needs something to track (milestones are DRAFT-only editable too, but
         // reopen can't hit zero — an archived PLAN was ACTIVE, so it passed this gate).
-        if (from == GoalStatus.DRAFT && target == GoalStatus.ACTIVE) {
+        if (atSource && from == GoalStatus.DRAFT && target == GoalStatus.ACTIVE) {
             validateGoalDueDate(existing.dueDate)
             if (existing.type == GoalType.PLAN && existing.milestones.isEmpty()) {
                 throw BadRequestException("A PLAN goal needs at least one milestone to activate")
@@ -146,7 +150,7 @@ fun Application.configureGoalRoutes() {
         // The archive body is received (and validated) only after the write guard, so a
         // non-manager's malformed or blank summary is still 403 on a foreign goal, not 400.
         val summary = receiveSummary?.invoke()
-        if (target == GoalStatus.ARCHIVED) validateGoalSummary(summary)
+        if (atSource && target == GoalStatus.ARCHIVED) validateGoalSummary(summary)
         val toNotify = goalService.transition(goalId, from, target, summary)
         if (toNotify == null) {
             call.respondProblem(HttpStatusCode.NotFound, "Goal not found")

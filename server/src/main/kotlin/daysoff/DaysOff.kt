@@ -116,7 +116,7 @@ data class DaysOffCalendarResponse(
 
 /**
  * One user's paid-days budget for one calendar year. All day values are in days (0.5 steps);
- * `remaining = carriedOver + allowance - reserved - used` holds by construction ([remainingHalfDays]).
+ * `remaining = carriedOver + allowance + corrected - reserved - used` holds by construction ([remainingHalfDays]).
  */
 @Serializable
 data class DaysOffBudget(

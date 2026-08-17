@@ -303,6 +303,15 @@ class TeamKpiRoutesTest {
             }.status,
         )
 
+        // Off-edge, the blank-summary pre-check must not preempt the wrong-status 409.
+        assertEquals(
+            HttpStatusCode.Conflict,
+            manager.post("/api/v1/team-kpis/${created.id}/archive") {
+                contentType(ContentType.Application.Json)
+                setBody(TeamKpiArchiveRequest(summary = "   "))
+            }.status,
+        )
+
         manager.post("/api/v1/team-kpis/${created.id}/activate")
         // A second activate is 409; a blank summary on archive is 400.
         assertEquals(HttpStatusCode.Conflict, manager.post("/api/v1/team-kpis/${created.id}/activate").status)

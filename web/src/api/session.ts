@@ -25,17 +25,22 @@ const DISABLED_FEATURES_KEY = "lettuce.auth.disabledFeatures";
  * (opt-in email MFA at login); it gates the login flow server-side, never any SPA surface —
  * no nav leaf, page guard, or card gating names it.
  */
-export const FEATURES = [
-  "FEEDBACKS",
-  "ONE_ON_ONES",
-  "GOALS",
-  "TEAM_KPIS",
-  "PERFORMANCE_REVIEWS",
-  "DAYS_OFF",
-  "PULSE_SURVEYS",
-  "MFA",
-] as const;
-export type Feature = (typeof FEATURES)[number];
+// Compile gate (the EMOJI_I18N idiom): keyed by the GENERATED schema union, so adding a
+// server-side Feature and regenerating schema.ts is a type error here until the flag is
+// listed — the flags UIs and the stored-set filter can never silently drop a new feature.
+// Key order is the UI display order.
+const FEATURE_LISTED: Record<components["schemas"]["Feature"], true> = {
+  FEEDBACKS: true,
+  ONE_ON_ONES: true,
+  GOALS: true,
+  TEAM_KPIS: true,
+  PERFORMANCE_REVIEWS: true,
+  DAYS_OFF: true,
+  PULSE_SURVEYS: true,
+  MFA: true,
+};
+export const FEATURES = Object.keys(FEATURE_LISTED) as readonly Feature[];
+export type Feature = components["schemas"]["Feature"];
 
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);

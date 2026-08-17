@@ -96,7 +96,8 @@ fun Application.configureTeamRoutes() {
     val teamService = attributes[TeamServiceKey]
     // For the members-list dashboard stats (feedback stats on all three views, 1:1 stats on
     // managers/managed) and the career-profile triple (every view) — composed here at the
-    // route so TeamService never touches other features' tables.
+    // route so TeamService never reaches into other FEATURE services' tables (its in-transaction
+    // joins against the core Users table are the sanctioned name/soft-delete pattern).
     val oneOnOneService = attributes[OneOnOneServiceKey]
     val feedbackService = attributes[FeedbackServiceKey]
     val goalService = attributes[GoalServiceKey]

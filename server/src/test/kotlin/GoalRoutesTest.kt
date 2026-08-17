@@ -1526,6 +1526,32 @@ class GoalRoutesTest {
     }
 
     @Test
+    fun `off-edge transitions answer the documented 409 even when a pre-check would fail`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val manager = authedClient(pair.managerEmail, "pw")
+        val yesterday = LocalDate.now().minusDays(1).toString()
+
+        // An ARCHIVED goal with a stale due date: activate must be the wrong-status 409, not the
+        // stale-due-date 400 (the pre-check applies only while the row sits at the edge's source).
+        val goal = manager.createGoal(pair.subordinateId, title = "off-edge conflict")
+        manager.post("/api/v1/goals/${goal.id}/activate")
+        manager.post("/api/v1/goals/${goal.id}/archive") {
+            contentType(ContentType.Application.Json)
+            setBody(GoalArchiveRequest(summary = "closed"))
+        }
+        TestGoalMaintenance.setDueDate(goal.id, yesterday)
+        assertEquals(HttpStatusCode.Conflict, manager.post("/api/v1/goals/${goal.id}/activate").status)
+
+        // Re-archiving an ARCHIVED goal with a blank summary: wrong-status 409, not the blank-400.
+        val blank = manager.post("/api/v1/goals/${goal.id}/archive") {
+            contentType(ContentType.Application.Json)
+            setBody(GoalArchiveRequest(summary = ""))
+        }
+        assertEquals(HttpStatusCode.Conflict, blank.status)
+    }
+
+    @Test
     fun `dueDate is sortable and round-trips in list rows`() = testApplication {
         usePostgresTestcontainer()
         val pair = seedPair()

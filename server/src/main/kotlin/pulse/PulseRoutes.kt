@@ -167,6 +167,16 @@ fun Application.configurePulseRoutes() {
         responseCount = counts?.second,
     )
 
+    // The cycle read preamble shared by the eight cycle-scoped handlers that read before
+    // acting: 404 when missing; null = the 404 was already sent (the readGuardedGoal
+    // contract). Guards still run at the call site AFTER the read, per the documented
+    // 404 -> 409-state -> 403-identity ordering.
+    suspend fun readCycle(call: ApplicationCall, id: UInt): PulseCycleRow? {
+        val cycle = cycleService.read(id)
+        if (cycle == null) call.respondProblem(HttpStatusCode.NotFound, "Pulse cycle not found")
+        return cycle
+    }
+
     routing {
         authenticate {
             get<PulseSurveys.Cycles> {
@@ -214,11 +224,7 @@ fun Application.configurePulseRoutes() {
             }
             get<PulseSurveys.Cycles.Id> { route ->
                 val caller = call.pulseCaller()
-                val cycle = cycleService.read(route.id)
-                if (cycle == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Pulse cycle not found")
-                    return@get
-                }
+                val cycle = readCycle(call, route.id) ?: return@get
                 val admin = caller.isAdmin()
                 val counts = if (admin) cycleService.participationCounts(setOf(cycle.id))[cycle.id] else null
                 call.respond(HttpStatusCode.OK, toResponse(cycle, admin, counts))
@@ -226,11 +232,7 @@ fun Application.configurePulseRoutes() {
             put<PulseSurveys.Cycles.Id> { route ->
                 val caller = call.pulseCaller()
                 requireAdmin(caller)
-                val before = cycleService.read(route.id)
-                if (before == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Pulse cycle not found")
-                    return@put
-                }
+                val before = readCycle(call, route.id) ?: return@put
                 val request = call.receive<PulseCycleUpdateRequest>()
                 // Per-status rules (SCHEDULED: both dates; OPEN: close date only; else 409)
                 // and shape validation live in the service, atomically with the update.
@@ -343,11 +345,7 @@ fun Application.configurePulseRoutes() {
             get<PulseSurveys.Cycles.Id.Participation> { route ->
                 val caller = call.pulseCaller()
                 requireAdmin(caller)
-                val cycle = cycleService.read(route.parent.id)
-                if (cycle == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Pulse cycle not found")
-                    return@get
-                }
+                val cycle = readCycle(call, route.parent.id) ?: return@get
                 // Counts only — the narrowed-ADMIN rule: enough to decide close/extend, never
                 // aggregates, comments, or per-user status. A SCHEDULED cycle reads as zeros.
                 val counts = cycleService.participationCounts(setOf(cycle.id))[cycle.id] ?: (0 to 0)
@@ -362,11 +360,7 @@ fun Application.configurePulseRoutes() {
             }
             get<PulseSurveys.Cycles.Id.ParticipationStatus> { route ->
                 val caller = call.pulseCaller()
-                val cycle = cycleService.read(route.parent.id)
-                if (cycle == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Pulse cycle not found")
-                    return@get
-                }
+                val cycle = readCycle(call, route.parent.id) ?: return@get
                 if (cycle.status != PulseCycleStatus.OPEN && cycle.status != PulseCycleStatus.CLOSED) {
                     throw ConflictException("Participation is available only for open and closed cycles")
                 }
@@ -401,11 +395,7 @@ fun Application.configurePulseRoutes() {
             }
             get<PulseSurveys.Cycles.Id.MyResponse> { route ->
                 val caller = call.pulseCaller()
-                val cycle = cycleService.read(route.parent.id)
-                if (cycle == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Pulse cycle not found")
-                    return@get
-                }
+                val cycle = readCycle(call, route.parent.id) ?: return@get
                 // Participant-only, and OPEN-only even for the owner — once the cycle closes,
                 // saved answers are never served again (no copy-paste seed for the next cycle).
                 requirePulseMyResponse(caller, cycle.status) {
@@ -420,11 +410,7 @@ fun Application.configurePulseRoutes() {
             }
             put<PulseSurveys.Cycles.Id.MyResponse> { route ->
                 val caller = call.pulseCaller()
-                val cycle = cycleService.read(route.parent.id)
-                if (cycle == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Pulse cycle not found")
-                    return@put
-                }
+                val cycle = readCycle(call, route.parent.id) ?: return@put
                 requirePulseMyResponse(caller, cycle.status) {
                     responseService.isParticipant(cycle.id, caller.userId)
                 }
@@ -436,11 +422,7 @@ fun Application.configurePulseRoutes() {
             }
             get<PulseSurveys.Cycles.Id.Results> { route ->
                 val caller = call.pulseCaller()
-                val cycle = cycleService.read(route.parent.id)
-                if (cycle == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Pulse cycle not found")
-                    return@get
-                }
+                val cycle = readCycle(call, route.parent.id) ?: return@get
                 // Status before identity (404 → 409 → 403): the answer for a non-closed cycle
                 // is uniform for every caller, HR included — results never leak while OPEN and
                 // never exist for CANCELLED.
@@ -494,11 +476,7 @@ fun Application.configurePulseRoutes() {
             }
             get<PulseSurveys.Cycles.Id.Comments> { route ->
                 val caller = call.pulseCaller()
-                val cycle = cycleService.read(route.parent.id)
-                if (cycle == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Pulse cycle not found")
-                    return@get
-                }
+                val cycle = readCycle(call, route.parent.id) ?: return@get
                 if (cycle.status != PulseCycleStatus.CLOSED) {
                     throw ConflictException("Comments are available only for closed cycles")
                 }
