@@ -1,29 +1,18 @@
 import type { TFunction } from "i18next";
 import type { DictionaryEntry, DictionaryUpdateBody } from "../api/dictionaries";
+import { SUPPORTED_LANGUAGES, type SupportedLanguage } from "../i18n";
 import { saveErrorMessage } from "./saveError";
 
 export const MAX_DICTIONARY_VALUE_LENGTH = 100;
 
-/**
- * The ONE localization seam for bilingual dictionary values (V53): every display site picks
- * the viewer's language through this. `lang` is `i18n.resolvedLanguage` — anything that
- * isn't Polish falls back to English (the app's two-language model).
- */
-export function pickDictionaryValue(
-  entry: { valueEn: string; valuePl: string },
-  lang: string | undefined,
-): string {
-  return lang === "pl" ? entry.valuePl : entry.valueEn;
-}
-
 // Draft rows carry a local `key` for React list identity (stable across reorders, unlike the
 // index); rows loaded from the server also keep their `id`, which the PUT body preserves so the
-// backend can tell renames from add/remove — new rows simply have no id.
+// backend can tell renames from add/remove — new rows simply have no id. Every supported
+// language has a draft slot; "" means "no translation" (legal for every language but English).
 export type DictionaryEntryDraft = {
   key: string;
   id?: number;
-  valueEn: string;
-  valuePl: string;
+  values: Record<SupportedLanguage, string>;
 };
 
 export type DictionaryFormValues = {
@@ -36,45 +25,71 @@ function newDraftKey(): string {
   return `dict-draft-${keyCounter}`;
 }
 
-export function emptyEntryDraft(): DictionaryEntryDraft {
-  return { key: newDraftKey(), valueEn: "", valuePl: "" };
+function blankValues(): Record<SupportedLanguage, string> {
+  return Object.fromEntries(SUPPORTED_LANGUAGES.map((l) => [l, ""])) as Record<
+    SupportedLanguage,
+    string
+  >;
 }
 
-/** The loaded dictionary -> editable form values. */
+export function emptyEntryDraft(): DictionaryEntryDraft {
+  return { key: newDraftKey(), values: blankValues() };
+}
+
+/** The loaded dictionary -> editable form values (missing translations become empty inputs). */
 export function toFormValues(items: DictionaryEntry[]): DictionaryFormValues {
   return {
-    entries: items.map((e) => ({ key: newDraftKey(), id: e.id, valueEn: e.valueEn, valuePl: e.valuePl })),
-  };
-}
-
-/** Form values -> the PUT body (local keys stripped, values trimmed, ids preserved). */
-export function toUpdateBody(values: DictionaryFormValues): DictionaryUpdateBody {
-  return {
-    items: values.entries.map((e) => ({ id: e.id, valueEn: e.valueEn.trim(), valuePl: e.valuePl.trim() })),
+    entries: items.map((e) => ({
+      key: newDraftKey(),
+      id: e.id,
+      values: { ...blankValues(), ...e.values },
+    })),
   };
 }
 
 /**
- * Mirrors the server's payload rules, PER LANGUAGE: non-blank, <=100 chars, and unique after
- * trimming within its own language (case-sensitive, like the two DB partial indexes — the
- * same string may be one row's English and another's Polish). The duplicate flag lands on
- * the LATER row so the first occurrence stays valid.
+ * Form values -> the PUT body (local keys stripped, values trimmed, ids preserved).
+ * Blank non-EN inputs are OMITTED from the wire map — the server's "omit the language to
+ * clear its translation" contract; `en` is always sent.
+ */
+export function toUpdateBody(values: DictionaryFormValues): DictionaryUpdateBody {
+  return {
+    items: values.entries.map((e) => {
+      const out: { en: string } & Record<string, string> = { en: e.values.en.trim() };
+      for (const lang of SUPPORTED_LANGUAGES) {
+        if (lang === "en") continue;
+        const trimmed = e.values[lang].trim();
+        if (trimmed) out[lang] = trimmed;
+      }
+      return { id: e.id, values: out };
+    }),
+  };
+}
+
+/**
+ * Mirrors the server's payload rules, PER LANGUAGE: English required, other languages
+ * optional; every filled value <=100 chars and unique after trimming within its own language
+ * (case-sensitive — the same string may appear under two different languages). The duplicate
+ * flag lands on the LATER row so the first occurrence stays valid.
  */
 export function dictionaryFormValidation(t: TFunction) {
-  const rule = (field: "valueEn" | "valuePl") =>
+  const rule = (lang: SupportedLanguage) =>
     (v: string, values: DictionaryFormValues, path: string) => {
       const trimmed = v.trim();
-      if (!trimmed) return t("dictionary.valueRequired");
+      if (!trimmed) return lang === "en" ? t("dictionary.valueRequired") : null;
       if (trimmed.length > MAX_DICTIONARY_VALUE_LENGTH) return t("dictionary.valueTooLong", { max: MAX_DICTIONARY_VALUE_LENGTH });
+      // path is `entries.<index>.values.<lang>` — [1] is the row index.
       const index = Number(path.split(".")[1]);
       const earlier = values.entries.slice(0, index);
-      if (earlier.some((e) => e[field].trim() === trimmed)) return t("dictionary.valueDuplicate");
+      if (earlier.some((e) => e.values[lang].trim() === trimmed)) return t("dictionary.valueDuplicate");
       return null;
     };
   return {
     entries: {
-      valueEn: rule("valueEn"),
-      valuePl: rule("valuePl"),
+      values: Object.fromEntries(SUPPORTED_LANGUAGES.map((l) => [l, rule(l)])) as Record<
+        SupportedLanguage,
+        ReturnType<typeof rule>
+      >,
     },
   };
 }

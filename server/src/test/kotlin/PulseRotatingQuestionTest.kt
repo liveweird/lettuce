@@ -2,6 +2,8 @@ package ch.nokillswit
 
 import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.dictionaries.Dictionary
+import ch.nokillswit.dictionaries.DictionaryEntryInput
+import ch.nokillswit.dictionaries.DictionaryUpdateRequest
 import ch.nokillswit.pulse.PulseCycleCreateRequest
 import ch.nokillswit.pulse.PulseCycleStatus
 import io.ktor.server.testing.testApplication
@@ -66,17 +68,33 @@ class PulseRotatingQuestionTest {
         TestPulse.sweepNonTerminal()
         bringAllActiveToAtLeastOne()
         val original = "Snapshot statement ${UUID.randomUUID()}".take(100)
+        val originalPl = "PL $original".take(100)
         val entryId = TestDictionaries.append(Dictionary.PULSE_ROTATING_QUESTION, original).single()
+        // Give the appended entry a Polish translation: the WHOLE language map is frozen.
+        TestDictionaries.service.replace(
+            Dictionary.PULSE_ROTATING_QUESTION,
+            DictionaryUpdateRequest(
+                TestDictionaries.service.read(Dictionary.PULSE_ROTATING_QUESTION).map {
+                    if (it.id == entryId) {
+                        DictionaryEntryInput(it.id, mapOf("en" to original, "pl" to originalPl))
+                    } else {
+                        DictionaryEntryInput(it.id, it.values)
+                    }
+                },
+            ),
+        )
         val cycleId = TestPulse.cycles.schedule(request())
         val cycle = checkNotNull(TestPulse.cycles.read(cycleId))
         assertEquals(entryId, cycle.rotatingQuestionEntryId)
-        assertEquals(original, cycle.rotatingQuestionTextEn)
-        // The fixture writes PL = EN, and BOTH languages are frozen at schedule time.
-        assertEquals(original, cycle.rotatingQuestionTextPl)
+        assertEquals(mapOf("en" to original, "pl" to originalPl), cycle.rotatingQuestion)
 
+        // The rename rewrites the entry EN-only (dropping the translation) — the cycle's
+        // snapshotted map must not move in either language.
         TestDictionaries.rename(Dictionary.PULSE_ROTATING_QUESTION, entryId, "Renamed ${UUID.randomUUID()}".take(100))
-        assertEquals(original, checkNotNull(TestPulse.cycles.read(cycleId)).rotatingQuestionTextEn)
-        assertEquals(original, checkNotNull(TestPulse.cycles.read(cycleId)).rotatingQuestionTextPl)
+        assertEquals(
+            mapOf("en" to original, "pl" to originalPl),
+            checkNotNull(TestPulse.cycles.read(cycleId)).rotatingQuestion,
+        )
         checkNotNull(TestPulse.cycles.cancel(cycleId))
     }
 

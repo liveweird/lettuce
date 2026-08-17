@@ -17,7 +17,8 @@
 
 1. The admin signs in and mints the run's cast: a throwaway manager, a throwaway subordinate, and
    a throwaway team where the manager manages the subordinate.
-2. The admin appends a throwaway entry (unique English value + a Polish value) to the
+2. The admin appends a throwaway entry (unique English value + a Polish translation —
+   optional since v2.20.0, filled here) to the
    **career-paths** dictionary and saves — the shared-dictionary append idiom.
 3. The admin opens the subordinate's user edit form.
    - *Expected*: the form has **no** career fields anymore (v2.15.0) — no Career path picker;

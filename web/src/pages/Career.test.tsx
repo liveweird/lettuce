@@ -5,7 +5,7 @@ import { jsonResponse } from "../test/http";
 
 type FetchMock = ReturnType<typeof vi.fn>;
 
-const ENTRY = (id: number, value: string) => ({ id, valueEn: value, valuePl: value });
+const ENTRY = (id: number, value: string) => ({ id, values: { en: value } });
 
 const OWN_POSITIONS = [
   {

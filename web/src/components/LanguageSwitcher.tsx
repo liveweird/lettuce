@@ -1,18 +1,41 @@
-import { SegmentedControl } from "@mantine/core";
+import { Box, Button, Menu } from "@mantine/core";
+import { IconCheck, IconChevronDown, IconLanguage } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
-import { SUPPORTED_LANGUAGES } from "../i18n";
+import { asSupportedLanguage, NATIVE_LANGUAGE_NAMES, SUPPORTED_LANGUAGES } from "../i18n";
 
+/**
+ * The header language menu (a SegmentedControl until v2.20.0 — a Menu scales past two
+ * languages). Entries are the languages' NATIVE names, readable before switching; the
+ * trigger shows the current code.
+ */
 export default function LanguageSwitcher() {
   const { t, i18n } = useTranslation();
-  const current = i18n.resolvedLanguage ?? "en";
+  const current = asSupportedLanguage(i18n.resolvedLanguage);
 
   return (
-    <SegmentedControl
-      size="xs"
-      aria-label={t("common.language.label")}
-      value={current}
-      onChange={(value) => i18n.changeLanguage(value)}
-      data={SUPPORTED_LANGUAGES.map((lng) => ({ value: lng, label: lng.toUpperCase() }))}
-    />
+    <Menu position="bottom-end" withinPortal>
+      <Menu.Target>
+        <Button
+          variant="default"
+          size="xs"
+          aria-label={t("common.language.label")}
+          leftSection={<IconLanguage size={14} />}
+          rightSection={<IconChevronDown size={12} />}
+        >
+          {current.toUpperCase()}
+        </Button>
+      </Menu.Target>
+      <Menu.Dropdown>
+        {SUPPORTED_LANGUAGES.map((lng) => (
+          <Menu.Item
+            key={lng}
+            onClick={() => i18n.changeLanguage(lng)}
+            leftSection={lng === current ? <IconCheck size={14} /> : <Box w={14} />}
+          >
+            {NATIVE_LANGUAGE_NAMES[lng]}
+          </Menu.Item>
+        ))}
+      </Menu.Dropdown>
+    </Menu>
   );
 }

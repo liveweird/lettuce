@@ -1,8 +1,11 @@
 package ch.nokillswit.pulse
 
 import ch.nokillswit.authz.ConflictException
+import ch.nokillswit.dictionaries.DEFAULT_LANGUAGE
 import ch.nokillswit.dictionaries.Dictionary
 import ch.nokillswit.dictionaries.DictionaryService
+import ch.nokillswit.infra.db.decodeParams
+import ch.nokillswit.infra.db.encodeParams
 import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserService
 import io.ktor.server.plugins.BadRequestException
@@ -47,7 +50,10 @@ class PulseCycleService(
         val plannedCloseDate = varchar("planned_close_date", 10)
         val rotatingQuestionEntryId = reference("rotating_question_entry_id", DictionaryService.Entries)
         val rotatingQuestionTextEn = varchar("rotating_question_text_en", 100)
-        val rotatingQuestionTextPl = varchar("rotating_question_text_pl", 100)
+
+        // JSON {lang -> value} map of the snapshotted NON-EN texts (V60, the dictionary
+        // `translations` shape); '{}' when none. Frozen at schedule time like the EN column.
+        val rotatingQuestionTranslations = text("rotating_question_translations")
         val createdAt = long("created_at")
         val openedAt = long("opened_at").nullable()
         val closedAt = long("closed_at").nullable()
@@ -80,8 +86,8 @@ class PulseCycleService(
             it[plannedOpenDate] = request.plannedOpenDate
             it[plannedCloseDate] = request.plannedCloseDate
             it[rotatingQuestionEntryId] = question.entryId
-            it[rotatingQuestionTextEn] = question.textEn
-            it[rotatingQuestionTextPl] = question.textPl
+            it[rotatingQuestionTextEn] = question.values.getValue(DEFAULT_LANGUAGE)
+            it[rotatingQuestionTranslations] = encodeParams(question.values - DEFAULT_LANGUAGE)
             it[createdAt] = now
             it[lastModified] = now
         }[PulseCycles.id].value
@@ -287,16 +293,17 @@ class PulseCycleService(
      * with the LOWEST usage count over non-cancelled cycles (a cancelled cycle returns its
      * question to the pool), picked uniformly at random. Nothing reaches usage n+1 until every
      * active entry reached n — the reset is implicit when counts equalize — and a newly added
-     * entry (usage 0) is automatically next in line. Returns the entry id + both trimmed texts.
+     * entry (usage 0) is automatically next in line. Returns the entry id + the trimmed
+     * language->text map (EN always present).
      */
-    private data class RotatingPick(val entryId: UInt, val textEn: String, val textPl: String)
+    private data class RotatingPick(val entryId: UInt, val values: Map<String, String>)
 
     private suspend fun pickRotatingQuestion(): RotatingPick {
         val entries = DictionaryService.Entries
             .select(
                 DictionaryService.Entries.id,
                 DictionaryService.Entries.valueEn,
-                DictionaryService.Entries.valuePl,
+                DictionaryService.Entries.translations,
             )
             .where {
                 (DictionaryService.Entries.dictionary eq Dictionary.PULSE_ROTATING_QUESTION.name) and
@@ -305,8 +312,10 @@ class PulseCycleService(
             .map {
                 RotatingPick(
                     entryId = it[DictionaryService.Entries.id].value,
-                    textEn = it[DictionaryService.Entries.valueEn].trim(),
-                    textPl = it[DictionaryService.Entries.valuePl].trim(),
+                    values = (
+                        mapOf(DEFAULT_LANGUAGE to it[DictionaryService.Entries.valueEn]) +
+                            decodeParams(it[DictionaryService.Entries.translations])
+                        ).mapValues { (_, value) -> value.trim() },
                 )
             }
             .toList()
@@ -332,8 +341,8 @@ class PulseCycleService(
         plannedOpenDate = this[PulseCycles.plannedOpenDate],
         plannedCloseDate = this[PulseCycles.plannedCloseDate],
         rotatingQuestionEntryId = this[PulseCycles.rotatingQuestionEntryId].value,
-        rotatingQuestionTextEn = this[PulseCycles.rotatingQuestionTextEn],
-        rotatingQuestionTextPl = this[PulseCycles.rotatingQuestionTextPl],
+        rotatingQuestion = mapOf(DEFAULT_LANGUAGE to this[PulseCycles.rotatingQuestionTextEn]) +
+            decodeParams(this[PulseCycles.rotatingQuestionTranslations]),
         createdAt = this[PulseCycles.createdAt],
         openedAt = this[PulseCycles.openedAt],
         closedAt = this[PulseCycles.closedAt],

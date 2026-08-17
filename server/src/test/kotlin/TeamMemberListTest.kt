@@ -64,12 +64,12 @@ class TeamMemberListTest {
 
         val managers = client.get("/api/v1/teams/members?view=managers").body<TeamMemberPageResponse>()
         val mgrRow = managers.items.single { it.userId == managerId }
-        assertEquals(DictionaryEntry(pathId, "Members $marker", "Members $marker"), mgrRow.careerPath)
+        assertEquals(DictionaryEntry(pathId, mapOf("en" to "Members $marker")), mgrRow.careerPath)
         assertEquals(null, mgrRow.careerSpecialization)
 
         val member = client.get("/api/v1/teams/members?view=member").body<TeamMemberPageResponse>()
         val peerRow = member.items.single { it.userId == peerId }
-        assertEquals(DictionaryEntry(levelId, "MembersLvl $marker", "MembersLvl $marker"), peerRow.seniorityLevel)
+        assertEquals(DictionaryEntry(levelId, mapOf("en" to "MembersLvl $marker")), peerRow.seniorityLevel)
         assertEquals(null, peerRow.careerPath)
 
         val managed = client.get("/api/v1/teams/members?view=managed").body<TeamMemberPageResponse>()
@@ -81,7 +81,7 @@ class TeamMemberListTest {
         // A dictionary rename shows up on the next list read — the rows resolve by id.
         TestDictionaries.rename(Dictionary.CAREER_PATH, pathId, "Members2 $marker")
         val renamed = client.get("/api/v1/teams/members?view=managers").body<TeamMemberPageResponse>()
-        assertEquals("Members2 $marker", renamed.items.single { it.userId == managerId }.careerPath?.valueEn)
+        assertEquals("Members2 $marker", renamed.items.single { it.userId == managerId }.careerPath?.values?.get("en"))
     }
 
     @Test

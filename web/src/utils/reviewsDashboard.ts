@@ -3,7 +3,7 @@
 // and the filter predicates are unit-testable without rendering.
 
 import type { PerformanceReviewListItem } from "../api/reviews";
-import { pickDictionaryValue } from "./dictionaryForm";
+import { pickLocalized } from "./localized";
 import { RATING_VALUES, type ReviewCategory } from "./reviewRatings";
 import type { PersonCard, TeamRow } from "./teamRows";
 import { groupTeamRows } from "./teamRows";
@@ -123,13 +123,13 @@ export function sortReviewsDashboardRows(
       case "team":
         return r.person.teamNames[0] ?? null;
       case "careerPath":
-        return r.person.careerPath ? pickDictionaryValue(r.person.careerPath, lang) : null;
+        return r.person.careerPath ? pickLocalized(r.person.careerPath.values, lang) : null;
       case "careerSpecialization":
         return r.person.careerSpecialization
-          ? pickDictionaryValue(r.person.careerSpecialization, lang)
+          ? pickLocalized(r.person.careerSpecialization.values, lang)
           : null;
       case "seniorityLevel":
-        return r.person.seniorityLevel ? pickDictionaryValue(r.person.seniorityLevel, lang) : null;
+        return r.person.seniorityLevel ? pickLocalized(r.person.seniorityLevel.values, lang) : null;
       default:
         return null;
     }

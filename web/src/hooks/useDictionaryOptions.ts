@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { getDictionary, type DictionaryEntry, type DictionarySlug } from "../api/dictionaries";
-import { pickDictionaryValue } from "../utils/dictionaryForm";
+import { pickLocalized } from "../utils/localized";
 
 // One cached query per dictionary (the ["dictionary", slug] key is shared with
 // pages/Dictionary.tsx) mapped to Mantine Select options — the useManagerOptions shape.
@@ -22,9 +22,9 @@ export function useDictionaryOptions(
   });
 
   const options = useMemo(() => {
-    const active = (data ?? []).map((e) => ({ value: String(e.id), label: pickDictionaryValue(e, lang) }));
+    const active = (data ?? []).map((e) => ({ value: String(e.id), label: pickLocalized(e.values, lang) }));
     return current && !active.some((o) => o.value === String(current.id))
-      ? [...active, { value: String(current.id), label: pickDictionaryValue(current, lang) }]
+      ? [...active, { value: String(current.id), label: pickLocalized(current.values, lang) }]
       : active;
   }, [data, current, lang]);
 

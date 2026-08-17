@@ -7,7 +7,7 @@ import { jsonResponse } from "../test/http";
 
 type FetchMock = ReturnType<typeof vi.fn>;
 
-const ENTRY = (id: number, value: string) => ({ id, valueEn: value, valuePl: value });
+const ENTRY = (id: number, value: string) => ({ id, values: { en: value } });
 
 // Full-history payload (v2.17.0). Alice's TODAY view matches the old flat fixture (Senior
 // since 2023-01-10, in the org since 2019-06-01); her first position carries the "Regular"

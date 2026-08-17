@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.20.0",
+    date: "2026-08-17",
+    en: `The application is ready for many languages. The header language control is now a menu listing each language by its native name, and the whole language machinery — interface translations, dictionaries, and the pulse survey's rotating question — works for any number of languages, with English as the default. Dictionaries changed the most: only the English value of an entry is required now, every other language is optional, and wherever a translation is missing the English value is shown instead — so administrators can translate at their own pace without blocking a save. English and Polish remain the two available languages today; adding another is now a small, well-defined step instead of a rebuild.`,
+    pl: `Aplikacja jest gotowa na wiele języków. Kontrolka języka w nagłówku to teraz menu z nazwami języków w ich własnym brzmieniu, a cała maszyneria językowa — tłumaczenia interfejsu, słowniki i rotacyjne pytanie ankiety pulse — działa dla dowolnej liczby języków, z angielskim jako domyślnym. Najbardziej zmieniły się słowniki: wymagana jest teraz tylko angielska wartość wpisu, każdy inny język jest opcjonalny, a tam, gdzie brakuje tłumaczenia, pokazywana jest wartość angielska — więc administratorzy/ki mogą tłumaczyć we własnym tempie, bez blokowania zapisu. Angielski i polski pozostają dziś dwoma dostępnymi językami; dodanie kolejnego to teraz mały, dobrze zdefiniowany krok, a nie przebudowa.`,
+  },
+  {
     version: "2.19.0",
     date: "2026-08-16",
     en: `Every person can now carry a unique ID — an employee-number-like reference, visible wherever users are listed. Administrators assign it when creating an account or later from the edit form; it must be unique among active users (a clear message points at the field if the value is taken), and once set it can be changed but not cleared. The users list shows the ID in its own sortable column, an orange "Not set" badge flags people still missing one, and new filters find someone by ID or list exactly those without one — so working down the backlog is one filter away.`,

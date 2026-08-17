@@ -1,4 +1,5 @@
 import { dynamicKey } from "../utils/i18nKey";
+import { pickLocalized } from "../utils/localized";
 import {
   Alert,
   Badge,
@@ -132,7 +133,7 @@ export default function PulseTeamResultCard({
   const trendSeries = trend.data ? buildTrendSeries(trend.data.points) : [];
   const questionLabel = (driver: PulseDriverResult) =>
     driver.question === "ROTATING"
-      ? ((i18n.resolvedLanguage === "pl" ? driver.rotatingTextPl : driver.rotatingTextEn) ?? "")
+      ? (driver.rotatingText ? pickLocalized(driver.rotatingText, i18n.resolvedLanguage) : "")
       : t(dynamicKey(`pulse.${driver.question.toLowerCase()}`));
 
   return (

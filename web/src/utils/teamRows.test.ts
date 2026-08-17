@@ -64,12 +64,12 @@ describe("groupTeamRows", () => {
     expect(bare.seniorityLevel).toBeNull();
 
     const [card] = groupTeamRows([
-      row({ careerPath: { id: 11, valueEn: "Software Engineer", valuePl: "Software Engineer" }, seniorityLevel: { id: 31, valueEn: "Senior", valuePl: "Senior" } }),
+      row({ careerPath: { id: 11, values: { en: "Software Engineer" } }, seniorityLevel: { id: 31, values: { en: "Senior" } } }),
       row({ teamName: "Second" }),
     ]);
-    expect(card.careerPath).toEqual({ id: 11, valueEn: "Software Engineer", valuePl: "Software Engineer" });
+    expect(card.careerPath).toEqual({ id: 11, values: { en: "Software Engineer" } });
     expect(card.careerSpecialization).toBeNull();
-    expect(card.seniorityLevel).toEqual({ id: 31, valueEn: "Senior", valuePl: "Senior" });
+    expect(card.seniorityLevel).toEqual({ id: 31, values: { en: "Senior" } });
   });
 
   test("carries stats through from the first row of a user (rows repeat identical stats)", () => {

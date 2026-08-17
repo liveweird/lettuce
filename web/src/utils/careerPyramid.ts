@@ -1,7 +1,7 @@
 import type { TFunction } from "i18next";
 import type { CareerPyramidItem, CareerPyramidPosition } from "../api/career";
 import type { DictionaryEntry } from "../api/dictionaries";
-import { pickDictionaryValue } from "./dictionaryForm";
+import { pickLocalized } from "./localized";
 import { foldDiacritics } from "./text";
 
 // Pure helpers behind the Career → Team pyramid tab (v2.16.0): the endpoint returns the
@@ -72,12 +72,12 @@ export function buildCareerPyramidRows(
       careerPath: asOfPos?.careerPath ?? null,
       careerSpecialization: asOfPos?.careerSpecialization ?? null,
       seniorityLevel: asOfPos?.seniorityLevel ?? null,
-      pathText: asOfPos?.careerPath ? pickDictionaryValue(asOfPos.careerPath, locale) : null,
+      pathText: asOfPos?.careerPath ? pickLocalized(asOfPos.careerPath.values, locale) : null,
       specializationText: asOfPos?.careerSpecialization
-        ? pickDictionaryValue(asOfPos.careerSpecialization, locale)
+        ? pickLocalized(asOfPos.careerSpecialization.values, locale)
         : null,
       seniorityText: asOfPos?.seniorityLevel
-        ? pickDictionaryValue(asOfPos.seniorityLevel, locale)
+        ? pickLocalized(asOfPos.seniorityLevel.values, locale)
         : null,
       currentPositionStart: asOfPos?.startDate ?? null,
       organizationSince,

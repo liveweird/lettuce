@@ -275,21 +275,22 @@ class AuditTest {
                 setBody(
                     DictionaryUpdateRequest(
                         items = listOf(
-                            DictionaryEntryInput(valueEn = a, valuePl = a),
-                            DictionaryEntryInput(valueEn = b, valuePl = b),
+                            DictionaryEntryInput(values = mapOf("en" to a)),
+                            DictionaryEntryInput(values = mapOf("en" to b)),
                         ),
                     ),
                 )
             }
             val entries = adminClient.get("/api/v1/dictionaries/career-paths").body<DictionaryEntryList>().items
-            val aId = entries.first { it.valueEn == a }.id
+            val aId = entries.first { it.values.getValue("en") == a }.id
             adminClient.put("/api/v1/dictionaries/career-paths") {
                 contentType(ContentType.Application.Json)
                 setBody(
                     DictionaryUpdateRequest(
                         items = listOf(
-                            DictionaryEntryInput(id = aId, valueEn = "$a-renamed", valuePl = "$a-renamed"),
-                            DictionaryEntryInput(valueEn = "audit-c-${UUID.randomUUID()}", valuePl = "audit-c-${UUID.randomUUID()}"),
+                            // Translation-only change: adding a Polish value counts as a rename.
+                            DictionaryEntryInput(id = aId, values = mapOf("en" to a, "pl" to "$a-pl")),
+                            DictionaryEntryInput(values = mapOf("en" to "audit-c-${UUID.randomUUID()}")),
                         ),
                     ),
                 )
@@ -306,11 +307,11 @@ class AuditTest {
             // A rejected save (403 non-admin, 400 blank value) mints no phantom event.
             userClient.put("/api/v1/dictionaries/career-paths") {
                 contentType(ContentType.Application.Json)
-                setBody(DictionaryUpdateRequest(items = listOf(DictionaryEntryInput(valueEn = "x", valuePl = "x"))))
+                setBody(DictionaryUpdateRequest(items = listOf(DictionaryEntryInput(values = mapOf("en" to "x")))))
             }
             adminClient.put("/api/v1/dictionaries/career-paths") {
                 contentType(ContentType.Application.Json)
-                setBody(DictionaryUpdateRequest(items = listOf(DictionaryEntryInput(valueEn = "   ", valuePl = "   "))))
+                setBody(DictionaryUpdateRequest(items = listOf(DictionaryEntryInput(values = mapOf("en" to "   ")))))
             }
             assertEquals(successCount, appender.events.count { it.message == "dictionary.updated" })
         } finally {

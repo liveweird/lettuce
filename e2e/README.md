@@ -69,7 +69,7 @@ scenario file is the design.
 - [`changelog.spec.ts`](scenarios/changelog.md) — the bundled release history renders versioned entries in EN and PL.
 - [`dashboard-my-teams.spec.ts`](scenarios/dashboard-my-teams.md) — the My teams tab, team-details drill-down round-trip, non-manager empty state.
 - [`days-off.spec.ts`](scenarios/days-off.md) — requests (paid/unpaid, half-days), manager accept/reject, calendar, budgets + corrections, cancel.
-- [`dictionaries.spec.ts`](scenarios/dictionaries.md) — the whole-list dictionary editor (add/reorder/rename, bilingual) + the read-only view.
+- [`dictionaries.spec.ts`](scenarios/dictionaries.md) — the whole-list dictionary editor (add/reorder/rename, multilingual — EN required, translations optional) + the read-only view with EN fallback.
 - [`email-notifications.spec.ts`](scenarios/email-notifications.md) — the per-user email-mirror opt-out toggle.
 - [`feature-flags.spec.ts`](scenarios/feature-flags.md) — per-user feature flags end to end + the per-feature screen's team bulk toggle.
 - [`feedback-delivery.spec.ts`](scenarios/feedback-delivery.md) — the receiving side: draft invisibility, Received list, bell deep link.
@@ -79,7 +79,7 @@ scenario file is the design.
 - [`feedback-request-triage.spec.ts`](scenarios/feedback-request-triage.md) — ask → accept → send; and reject.
 - [`goals.spec.ts`](scenarios/goals.md) — the goal lifecycle, PLAN milestones, chain-manager visibility, notifications.
 - [`hr.spec.ts`](scenarios/hr.md) — the HR auditor reads a private draft via the Audit section; admin gets no audit surface.
-- [`i18n.spec.ts`](scenarios/i18n.md) — PL/EN switch, persisted across reload.
+- [`i18n.spec.ts`](scenarios/i18n.md) — language menu switch (native names), persisted across reload.
 - [`kudos.spec.ts`](scenarios/kudos.md) — a PUBLIC feedback lands on the Kudos wall for a non-party.
 - [`lists.spec.ts`](scenarios/lists.md) — shared list plumbing: filters, sort toggle, page size.
 - [`manager-oversight.spec.ts`](scenarios/manager-oversight.md) — the My team feedback tab and the per-user two-way screen.

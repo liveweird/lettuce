@@ -14,9 +14,9 @@ function PathProbe() {
   return <div data-testid="probe">{location.pathname}</div>;
 }
 
-const ENTRIES = [
-  { id: 1, valueEn: "Engineering", valuePl: "Inżynieria" },
-  { id: 2, valueEn: "Management", valuePl: "Zarządzanie" },
+const ENTRIES: { id: number; values: { en: string; pl?: string } }[] = [
+  { id: 1, values: { en: "Engineering", pl: "Inżynieria" } },
+  { id: 2, values: { en: "Management", pl: "Zarządzanie" } },
 ];
 
 function renderPage(route = "/dictionaries/career-paths") {
@@ -64,7 +64,7 @@ describe("Dictionary page", () => {
     });
   }
 
-  function putBodies(): { items: { id?: number; valueEn: string; valuePl: string }[] }[] {
+  function putBodies(): { items: { id?: number; values: Record<string, string> }[] }[] {
     return mockFetch.mock.calls
       .filter(([, init]) => (init as RequestInit | undefined)?.method === "PUT")
       .map(([, init]) => JSON.parse(String((init as RequestInit).body)));
@@ -99,6 +99,25 @@ describe("Dictionary page", () => {
     expect(screen.queryByText("Polish")).not.toBeInTheDocument();
   });
 
+  test("the read-only view leads with the viewer's language and falls back to English per entry", async () => {
+    localStorage.setItem("lettuce.auth.roles", "[]");
+    // One translated entry, one EN-only entry (no Polish translation).
+    stubApi([ENTRIES[0], { id: 7, values: { en: "Consulting" } }]);
+    const { default: i18n } = await import("../i18n");
+    await i18n.changeLanguage("pl");
+    try {
+      renderPage();
+
+      // The translated entry shows Polish first, English dimmed beneath.
+      expect(await screen.findByText("Inżynieria")).toBeInTheDocument();
+      expect(screen.getByText("Engineering")).toBeInTheDocument();
+      // The EN-only entry falls back to English — rendered exactly once, no dimmed twin.
+      expect(screen.getAllByText("Consulting")).toHaveLength(1);
+    } finally {
+      await i18n.changeLanguage("en");
+    }
+  });
+
   test("a non-admin with no entries sees the empty state", async () => {
     localStorage.setItem("lettuce.auth.roles", "[]");
     stubApi([]);
@@ -113,10 +132,12 @@ describe("Dictionary page", () => {
 
     expect(await screen.findByDisplayValue("Engineering")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Management")).toBeInTheDocument();
-    // The two input columns carry visible language headers (v2.6.1 — the placeholders
-    // vanish once filled, so the headers are the only always-visible markers).
+    // The input columns carry visible language headers (v2.6.1 — the placeholders
+    // vanish once filled, so the headers are the only always-visible markers); non-EN
+    // columns are marked optional (v2.20.0 — only English is required).
     expect(screen.getByText("English")).toBeInTheDocument();
     expect(screen.getByText("Polish")).toBeInTheDocument();
+    expect(screen.getByText("(optional)")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
   });
@@ -135,16 +156,30 @@ describe("Dictionary page", () => {
     await waitFor(() => expect(putBodies()).toHaveLength(1));
     expect(putBodies()[0]).toEqual({
       items: [
-        { id: 1, valueEn: "Engineering", valuePl: "Inżynieria" },
-        { id: 2, valueEn: "Management", valuePl: "Zarządzanie" },
-        { valueEn: "Consulting", valuePl: "Konsulting" },
+        { id: 1, values: { en: "Engineering", pl: "Inżynieria" } },
+        { id: 2, values: { en: "Management", pl: "Zarządzanie" } },
+        { values: { en: "Consulting", pl: "Konsulting" } },
       ],
     });
   });
 
+  test("a new entry with a blank Polish input saves EN-only — the omit-to-clear wire contract", async () => {
+    const user = userEvent.setup();
+    stubApi();
+    renderPage();
+
+    await screen.findByDisplayValue("Engineering");
+    await user.click(screen.getByRole("button", { name: "Add entry" }));
+    await user.type(screen.getByLabelText("Entry 3 (English)"), "Consulting");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(putBodies()).toHaveLength(1));
+    expect(putBodies()[0].items[2]).toEqual({ values: { en: "Consulting" } });
+  });
+
   test("reordering and removing rows shape the payload from the visible order", async () => {
     const user = userEvent.setup();
-    stubApi([...ENTRIES, { id: 3, valueEn: "Sales", valuePl: "Sprzedaż" }]);
+    stubApi([...ENTRIES, { id: 3, values: { en: "Sales", pl: "Sprzedaż" } }]);
     renderPage();
 
     await screen.findByDisplayValue("Sales");
@@ -155,8 +190,8 @@ describe("Dictionary page", () => {
     await waitFor(() => expect(putBodies()).toHaveLength(1));
     expect(putBodies()[0]).toEqual({
       items: [
-        { id: 3, valueEn: "Sales", valuePl: "Sprzedaż" },
-        { id: 2, valueEn: "Management", valuePl: "Zarządzanie" },
+        { id: 3, values: { en: "Sales", pl: "Sprzedaż" } },
+        { id: 2, values: { en: "Management", pl: "Zarządzanie" } },
       ],
     });
   });

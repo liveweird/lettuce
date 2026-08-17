@@ -178,6 +178,17 @@ export async function collapseAlertsBanner(page: Page): Promise<void> {
   }
 }
 
+/**
+ * Switch the UI language through the header language menu (v2.20.0 — a Menu of native
+ * names). `nativeName` is the language's own name as listed ("Polski", "English"); the
+ * trigger's aria-label flips with the language, hence the bilingual regex.
+ */
+export async function switchLanguage(page: Page, nativeName: string): Promise<void> {
+  await collapseAlertsBanner(page);
+  await page.getByRole("button", { name: /^(Language|Język)$/ }).click();
+  await page.getByRole("menuitem", { name: nativeName }).click();
+}
+
 /** The feedback content editor (MDXEditor) is a Lexical contenteditable. */
 export function contentEditor(page: Page) {
   return page.locator('[contenteditable="true"]').first();

@@ -96,6 +96,10 @@
   "language": {
     "label": "Język"
   },
+  "languageName": {
+    "en": "Angielski",
+    "pl": "Polski"
+  },
   "buildInfo": "Wersja aplikacji",
   "charCount": "{{current}} / {{max}}"
 }

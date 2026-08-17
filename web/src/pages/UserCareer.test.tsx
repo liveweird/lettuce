@@ -9,7 +9,7 @@ import UserCareer from "./UserCareer";
 
 type FetchMock = ReturnType<typeof vi.fn>;
 
-const ENTRY = (id: number, value: string) => ({ id, valueEn: value, valuePl: value });
+const ENTRY = (id: number, value: string) => ({ id, values: { en: value } });
 
 // Chronological, the server order; the page renders newest first.
 const POSITIONS = [

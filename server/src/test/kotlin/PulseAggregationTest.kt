@@ -126,8 +126,7 @@ class PulseAggregationTest {
             mode = PulseAggregationMode.DIRECT,
             participantCount = 4,
             answers = listOf(answers(10), answers(0)),
-            rotatingTextEn = "Q",
-            rotatingTextPl = "Q",
+            rotatingText = mapOf("en" to "Q"),
             previous = null,
         )
         assertTrue(result.insufficientResponses)
@@ -147,8 +146,7 @@ class PulseAggregationTest {
             mode = PulseAggregationMode.SUBTREE,
             participantCount = 3,
             answers = listOf(answers(10), answers(9), answers(2)),
-            rotatingTextEn = "The rotating question",
-            rotatingTextPl = "The rotating question",
+            rotatingText = mapOf("en" to "The rotating question"),
             previous = null,
         )
         assertFalse(result.insufficientResponses)
@@ -163,8 +161,8 @@ class PulseAggregationTest {
             drivers.map { it.question },
         )
         // The snapshotted text rides the ROTATING row only.
-        assertEquals("The rotating question", drivers.last().rotatingTextEn)
-        assertTrue(drivers.dropLast(1).all { it.rotatingTextEn == null })
+        assertEquals(mapOf("en" to "The rotating question"), drivers.last().rotatingText)
+        assertTrue(drivers.dropLast(1).all { it.rotatingText == null })
         // No previous cycle: no deltas anywhere.
         assertTrue(drivers.all { it.meanDelta == null && it.favorableDeltaPp == null })
         assertNull(result.previous)
@@ -189,8 +187,7 @@ class PulseAggregationTest {
             mode = PulseAggregationMode.DIRECT,
             participantCount = 3,
             answers = current,
-            rotatingTextEn = "Q",
-            rotatingTextPl = "Q",
+            rotatingText = mapOf("en" to "Q"),
             previous = PulsePreviousCycleData(cycleId = 4u, answers = previousAnswers, sameRotatingEntry = sameRotating),
         )
 
@@ -221,8 +218,7 @@ class PulseAggregationTest {
             mode = PulseAggregationMode.DIRECT,
             participantCount = 3,
             answers = listOf(answers(10), answers(9), answers(8)),
-            rotatingTextEn = "Q",
-            rotatingTextPl = "Q",
+            rotatingText = mapOf("en" to "Q"),
             previous = PulsePreviousCycleData(
                 cycleId = 4u,
                 answers = listOf(answers(0), answers(1)),
@@ -299,8 +295,7 @@ class PulseAggregationTest {
             mode = PulseAggregationMode.DIRECT,
             participantCount = 3,
             answers = current,
-            rotatingTextEn = "Q",
-            rotatingTextPl = "Q",
+            rotatingText = mapOf("en" to "Q"),
             previous = PulsePreviousCycleData(cycleId = 4u, answers = previousAnswers, sameRotatingEntry = true),
         )
         assertEquals(-67, result.enps!!.score)
@@ -335,8 +330,7 @@ class PulseAggregationTest {
             mode = PulseAggregationMode.DIRECT,
             participantCount = 3,
             answers = current,
-            rotatingTextEn = "Q",
-            rotatingTextPl = "Q",
+            rotatingText = mapOf("en" to "Q"),
             previous = PulsePreviousCycleData(cycleId = 4u, answers = previous, sameRotatingEntry = true),
         )
 
@@ -368,8 +362,7 @@ class PulseAggregationTest {
             mode = PulseAggregationMode.DIRECT,
             participantCount = 4,
             answers = emptyList(),
-            rotatingTextEn = "Q",
-            rotatingTextPl = "Q",
+            rotatingText = mapOf("en" to "Q"),
             previous = null,
         )
         assertTrue(empty.insufficientResponses)
@@ -387,8 +380,7 @@ class PulseAggregationTest {
             mode = PulseAggregationMode.DIRECT,
             participantCount = 0,
             answers = listOf(answers(10), answers(9), answers(8)),
-            rotatingTextEn = "Q",
-            rotatingTextPl = "Q",
+            rotatingText = mapOf("en" to "Q"),
             previous = null,
         )
         assertFalse(orphan.insufficientResponses)

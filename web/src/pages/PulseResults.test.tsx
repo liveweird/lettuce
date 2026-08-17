@@ -23,8 +23,7 @@ const CYCLES = [
     closedAt: 500,
     createdAt: 0,
     lastModified: 0,
-    rotatingQuestionEn: "Good work is recognized here.",
-    rotatingQuestionPl: "Dobra praca jest tu doceniana.",
+    rotatingQuestion: { en: "Good work is recognized here.", pl: "Dobra praca jest tu doceniana." },
   },
   {
     id: 4,
@@ -63,8 +62,7 @@ const RESULTS = {
     { question: "Q5", validCount: 0 },
     {
       question: "ROTATING",
-      rotatingTextEn: "Good work is recognized here.",
-      rotatingTextPl: "Dobra praca jest tu doceniana.",
+      rotatingText: { en: "Good work is recognized here.", pl: "Dobra praca jest tu doceniana." },
       validCount: 3,
       mean: 3.7,
       favorablePct: 33.3,

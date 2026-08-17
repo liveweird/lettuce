@@ -15,12 +15,12 @@ import java.time.format.DateTimeParseException
 enum class PulseCycleStatus { SCHEDULED, OPEN, CLOSED, CANCELLED }
 
 /**
- * A cycle as served by the API. The [rotatingQuestionEn]/[rotatingQuestionPl] pair (both
- * languages of the snapshotted Q6 text, V53) is visibility-controlled by the route — always
- * both-or-neither: ADMIN sees it at every status; everyone else only once the cycle is OPEN
- * or CLOSED (an unopened cycle's question stays unspoiled, and a cancelled cycle reveals
- * nothing). [participantCount]/[responseCount] are ADMIN-only enrichment (null for everyone
- * else) — the cycle-management table's counts; per-team numbers live in the
+ * A cycle as served by the API. [rotatingQuestion] (the snapshotted Q6 text as a
+ * language->value map, EN always present — V60) is visibility-controlled by the route —
+ * whole-map-or-null: ADMIN sees it at every status; everyone else only once the cycle is
+ * OPEN or CLOSED (an unopened cycle's question stays unspoiled, and a cancelled cycle
+ * reveals nothing). [participantCount]/[responseCount] are ADMIN-only enrichment (null for
+ * everyone else) — the cycle-management table's counts; per-team numbers live in the
  * results/participation endpoints under their own rules.
  */
 @Serializable
@@ -29,8 +29,7 @@ data class PulseCycleResponse(
     val status: PulseCycleStatus,
     val plannedOpenDate: String,
     val plannedCloseDate: String,
-    val rotatingQuestionEn: String? = null,
-    val rotatingQuestionPl: String? = null,
+    val rotatingQuestion: Map<String, String>? = null,
     val createdAt: Long,
     val openedAt: Long? = null,
     val closedAt: Long? = null,
@@ -68,8 +67,7 @@ data class PulseCycleRow(
     val plannedOpenDate: String,
     val plannedCloseDate: String,
     val rotatingQuestionEntryId: UInt,
-    val rotatingQuestionTextEn: String,
-    val rotatingQuestionTextPl: String,
+    val rotatingQuestion: Map<String, String>,
     val createdAt: Long,
     val openedAt: Long?,
     val closedAt: Long?,

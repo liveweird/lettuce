@@ -46,9 +46,8 @@ data class PulseEnpsAggregate(
 @Serializable
 data class PulseDriverResult(
     val question: PulseDriverQuestion,
-    /** The cycle's snapshotted question text (both languages) — set on the ROTATING row only. */
-    val rotatingTextEn: String? = null,
-    val rotatingTextPl: String? = null,
+    /** The cycle's snapshotted question text (language->value map, EN always present) — set on the ROTATING row only. */
+    val rotatingText: Map<String, String>? = null,
     /** 1dp mean over valid (non-NA) answers; null when no valid answers exist. */
     val mean: Double? = null,
     val favorablePct: Double? = null,
@@ -163,8 +162,7 @@ fun buildTeamResults(
     mode: PulseAggregationMode,
     participantCount: Int,
     answers: List<PulseAnswers>,
-    rotatingTextEn: String,
-    rotatingTextPl: String,
+    rotatingText: Map<String, String>,
     previous: PulsePreviousCycleData?,
 ): PulseTeamResults {
     val responseCount = answers.size
@@ -185,8 +183,7 @@ fun buildTeamResults(
     val drivers = PulseDriverQuestion.entries.map { question ->
         val current = aggregateDriver(driverAnswers(answers, question)).copy(
             question = question,
-            rotatingTextEn = if (question == PulseDriverQuestion.ROTATING) rotatingTextEn else null,
-            rotatingTextPl = if (question == PulseDriverQuestion.ROTATING) rotatingTextPl else null,
+            rotatingText = if (question == PulseDriverQuestion.ROTATING) rotatingText else null,
         )
         val comparableForQuestion = comparable &&
             (question != PulseDriverQuestion.ROTATING || previous!!.sameRotatingEntry)

@@ -1,9 +1,11 @@
 package ch.nokillswit.users
 
+import ch.nokillswit.dictionaries.DEFAULT_LANGUAGE
 import ch.nokillswit.dictionaries.Dictionary
 import ch.nokillswit.dictionaries.DictionaryEntry
 import ch.nokillswit.dictionaries.DictionaryService
 import ch.nokillswit.infra.db.containsNormalized
+import ch.nokillswit.infra.db.decodeParams
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.teams.TeamRef
@@ -566,8 +568,8 @@ class UserService(val database: R2dbcDatabase) {
             .associate {
                 it[DictionaryService.Entries.id].value to DictionaryEntry(
                     id = it[DictionaryService.Entries.id].value,
-                    valueEn = it[DictionaryService.Entries.valueEn],
-                    valuePl = it[DictionaryService.Entries.valuePl],
+                    values = mapOf(DEFAULT_LANGUAGE to it[DictionaryService.Entries.valueEn]) +
+                        decodeParams(it[DictionaryService.Entries.translations]),
                 )
             }
 }

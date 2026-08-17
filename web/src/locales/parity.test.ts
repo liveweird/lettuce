@@ -1,28 +1,34 @@
 import { describe, expect, it } from "vitest";
+import { SUPPORTED_LANGUAGES } from "../i18n";
 
-// Guards EN↔PL translation parity so the two languages can't silently drift. Loads every locale
-// JSON via Vite's import.meta.glob (build-time expanded — no fs/node types, auto-discovers new
-// area files), so a new en/foo.json with no pl/foo.json fails here rather than shipping
-// half-translated. Mirrors the manual review checks: key parity, placeholders, empties.
+// Guards translation parity for EVERY shipped language against the canonical EN tree, so
+// languages can't silently drift. A shipped locale bundle is all-or-nothing — partialness
+// lives only in dictionary CONTENT, never in the UI chrome. Loads every locale JSON via
+// Vite's import.meta.glob (build-time expanded — no fs/node types, auto-discovers new
+// language folders and area files), so an en/foo.json with no <lang>/foo.json fails here
+// rather than shipping half-translated. Mirrors the manual review checks: key parity,
+// placeholders, empties.
 
 type Json = Record<string, unknown>;
 type JsonModule = { default: Json };
 
-const EN_MODULES = import.meta.glob<JsonModule>("./en/*.json", { eager: true });
-const PL_MODULES = import.meta.glob<JsonModule>("./pl/*.json", { eager: true });
+const ALL_MODULES = import.meta.glob<JsonModule>("./*/*.json", { eager: true });
 
-// CLDR plural categories: i18next appends `_<category>` (English uses one/other; Polish adds
-// few/many). Stripping the suffix compares the base concept, so PL-only `unread_few`/`_many`
-// are not mistaken for missing keys — but a genuinely absent key still is.
+// CLDR plural categories: i18next appends `_<category>` (English uses one/other; other
+// languages may add few/many). Stripping the suffix compares the base concept, so a
+// language-only `unread_few`/`_many` is not mistaken for a missing key — but a genuinely
+// absent key still is.
 const PLURAL_SUFFIX = /_(zero|one|two|few|many|other)$/;
 
-function areaMap(modules: Record<string, JsonModule>): Map<string, Json> {
-  const m = new Map<string, Json>();
-  for (const [path, mod] of Object.entries(modules)) {
-    const area = path.split("/").pop()!.replace(/\.json$/, "");
-    m.set(area, mod.default);
-  }
-  return m;
+// language -> (area -> json)
+const BY_LANGUAGE = new Map<string, Map<string, Json>>();
+for (const [path, mod] of Object.entries(ALL_MODULES)) {
+  const match = /^\.\/([^/]+)\/([^/]+)\.json$/.exec(path);
+  if (!match) continue;
+  const [, lang, area] = match;
+  const areas = BY_LANGUAGE.get(lang) ?? new Map<string, Json>();
+  areas.set(area, mod.default);
+  BY_LANGUAGE.set(lang, areas);
 }
 
 // Flatten nested objects to dot-paths → leaf string values.
@@ -42,33 +48,38 @@ const base = (key: string): string => key.replace(PLURAL_SUFFIX, "");
 const placeholders = (s: string): Set<string> =>
   new Set([...s.matchAll(/{{\s*([\w.]+)/g)].map((m) => m[1]));
 
-const EN = areaMap(EN_MODULES);
-const PL = areaMap(PL_MODULES);
+const EN = BY_LANGUAGE.get("en") ?? new Map<string, Json>();
 const EN_AREAS = [...EN.keys()].sort();
-const PL_AREAS = [...PL.keys()].sort();
-const SHARED = EN_AREAS.filter((a) => PL.has(a));
+const OTHER_LANGUAGES = SUPPORTED_LANGUAGES.filter((l) => l !== "en");
+const LANG_AREA: [string, string][] = OTHER_LANGUAGES.flatMap((lang) =>
+  EN_AREAS.map((area): [string, string] => [lang, area]),
+);
 
-describe("EN/PL locale parity", () => {
-  it("has the same set of area files in both languages", () => {
-    expect(PL_AREAS).toEqual(EN_AREAS);
+describe("locale parity vs EN", () => {
+  it("the discovered locale folders are exactly the supported languages", () => {
+    expect([...BY_LANGUAGE.keys()].sort()).toEqual([...SUPPORTED_LANGUAGES].sort());
   });
 
-  it.each(SHARED)("%s.json — every key exists in both languages (plural-aware)", (area) => {
+  it.each(OTHER_LANGUAGES)("%s has the same set of area files as en", (lang) => {
+    expect([...(BY_LANGUAGE.get(lang)?.keys() ?? [])].sort()).toEqual(EN_AREAS);
+  });
+
+  it.each(LANG_AREA)("%s/%s.json — every key exists in both languages (plural-aware)", (lang, area) => {
     const en = flatten(EN.get(area));
-    const pl = flatten(PL.get(area));
+    const other = flatten(BY_LANGUAGE.get(lang)?.get(area));
     const enBases = new Set(Object.keys(en).map(base));
-    const plBases = new Set(Object.keys(pl).map(base));
+    const otherBases = new Set(Object.keys(other).map(base));
 
-    const missingInPl = [...enBases].filter((k) => !plBases.has(k)).sort();
-    const missingInEn = [...plBases].filter((k) => !enBases.has(k)).sort();
+    const missing = [...enBases].filter((k) => !otherBases.has(k)).sort();
+    const extra = [...otherBases].filter((k) => !enBases.has(k)).sort();
 
-    expect(missingInPl, `keys present in en/${area} but missing in pl/${area}`).toEqual([]);
-    expect(missingInEn, `keys present in pl/${area} but missing in en/${area}`).toEqual([]);
+    expect(missing, `keys present in en/${area} but missing in ${lang}/${area}`).toEqual([]);
+    expect(extra, `keys present in ${lang}/${area} but missing in en/${area}`).toEqual([]);
   });
 
-  it.each(SHARED)("%s.json — placeholders match across languages", (area) => {
+  it.each(LANG_AREA)("%s/%s.json — placeholders match EN", (lang, area) => {
     const en = flatten(EN.get(area));
-    const pl = flatten(PL.get(area));
+    const other = flatten(BY_LANGUAGE.get(lang)?.get(area));
 
     // Compare the {{token}} set per base-key family (covers plural forms too).
     const family = (flat: Record<string, string>): Map<string, Set<string>> => {
@@ -81,25 +92,24 @@ describe("EN/PL locale parity", () => {
       return m;
     };
     const enFam = family(en);
-    const plFam = family(pl);
+    const otherFam = family(other);
 
     const mismatches: string[] = [];
     for (const [key, enSet] of enFam) {
-      const plSet = plFam.get(key) ?? new Set<string>();
+      const otherSet = otherFam.get(key) ?? new Set<string>();
       const enSorted = [...enSet].sort();
-      const plSorted = [...plSet].sort();
-      if (JSON.stringify(enSorted) !== JSON.stringify(plSorted)) {
-        mismatches.push(`${area}:${key} — en{${enSorted}} vs pl{${plSorted}}`);
+      const otherSorted = [...otherSet].sort();
+      if (JSON.stringify(enSorted) !== JSON.stringify(otherSorted)) {
+        mismatches.push(`${area}:${key} — en{${enSorted}} vs ${lang}{${otherSorted}}`);
       }
     }
     expect(mismatches, "placeholder token mismatches").toEqual([]);
   });
 
-  it.each(SHARED)("%s.json — no empty string values in either language", (area) => {
+  it.each([...SUPPORTED_LANGUAGES])("%s — no empty string values in any area", (lang) => {
     const empties: string[] = [];
-    for (const [lang, map] of [["en", EN], ["pl", PL]] as const) {
-      const flat = flatten(map.get(area));
-      for (const [k, v] of Object.entries(flat)) {
+    for (const [area, json] of BY_LANGUAGE.get(lang) ?? []) {
+      for (const [k, v] of Object.entries(flatten(json))) {
         if (v === "") empties.push(`${lang}/${area}:${k}`);
       }
     }

@@ -1,4 +1,5 @@
 import type { ParseKeys } from "i18next";
+import { pickLocalized } from "../utils/localized";
 import { Alert, Button, Group, Paper, Progress, Skeleton, Stack, Text } from "@mantine/core";
 import EmojiTextarea from "../components/EmojiTextarea";
 import { useForm } from "@mantine/form";
@@ -194,7 +195,7 @@ export default function PulseSurvey() {
               // language since V53 (both texts frozen at schedule time).
               label={
                 scaleField === "rotating"
-                  ? ((locale === "pl" ? openCycle.rotatingQuestionPl : openCycle.rotatingQuestionEn) ?? "")
+                  ? (openCycle.rotatingQuestion ? pickLocalized(openCycle.rotatingQuestion, locale) : "")
                   : t(FIXED_LABEL_KEY[scaleField])
               }
               value={form.values[scaleField]}
