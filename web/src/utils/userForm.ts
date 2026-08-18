@@ -60,8 +60,7 @@ export function userFormValidation(t: TFunction) {
  */
 export function isUniqueIdConflict(err: unknown): boolean {
   if (!(err instanceof ApiError) || err.status !== 409) return false;
-  const detail = (err.body as { detail?: unknown } | null)?.detail;
-  return typeof detail === "string" && detail.toLowerCase().includes("unique id");
+  return err.detail?.toLowerCase().includes("unique id") ?? false;
 }
 
 // bcrypt hashes at most 72 bytes incl. a null terminator, so a password is capped at 71

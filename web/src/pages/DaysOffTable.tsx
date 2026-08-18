@@ -22,7 +22,7 @@ import { isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState
 import { formatDate, formatIsoDate, formatTimestamp, todayIsoDate } from "../utils/datetime";
 import { formatDays, isCancellable } from "../utils/daysOffCost";
 import { invalidateDaysOff } from "../utils/daysOffQueries";
-import { saveErrorMessage } from "../utils/saveError";
+import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
 import { showSuccessToast } from "../utils/toast";
 
 const BASE_SORT_FIELDS = ["startDate", "endDate", "days", "type", "status", "createdAt"] as const;
@@ -217,7 +217,7 @@ export default function DaysOffTable({
 
       {isError && (
         <Alert color="red" variant="light" title={t("daysOff.loadListError")}>
-          {error instanceof Error ? error.message : t("daysOff.unknownError")}
+          {loadErrorMessage(error, t)}
         </Alert>
       )}
       {actionError && (

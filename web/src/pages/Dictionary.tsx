@@ -37,6 +37,7 @@ import {
   type DictionaryFormValues,
 } from "../utils/dictionaryForm";
 import { charCountDescription } from "../utils/charCount";
+import { loadErrorMessage } from "../utils/saveError";
 
 // The four global dictionaries — the slug is both the route param and the API path segment.
 const DICTIONARIES: Record<DictionarySlug, { titleKey: ParseKeys }> = {
@@ -75,7 +76,7 @@ export default function Dictionary() {
           <Title order={2}>{t(DICTIONARIES[slug].titleKey)}</Title>
           {isError ? (
             <Alert color="red" variant="light" title={t("dictionary.loadFailed")}>
-              {error instanceof Error ? error.message : t("dictionary.unknownError")}
+              {loadErrorMessage(error, t)}
             </Alert>
           ) : isLoading || !data ? (
             <Center py="xl">

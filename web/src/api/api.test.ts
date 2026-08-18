@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { ApiError, authedFetch } from "./http";
+import { ApiError, authedFetch, shouldRetryQuery } from "./http";
 import { canAudit, getDisabledFeatures, getRoles, getToken, hasFeature, isHr, getUserId, isAdmin, setToken } from "./session";
 import { login, logout } from "./auth";
 import { setUserLanguage, updateUserFeatures } from "./users";
@@ -229,6 +229,18 @@ describe("logout", () => {
     await logout();
     expect(mockFetch).not.toHaveBeenCalled();
   });
+
+  test("clears the session even when the revoke request fails (offline logout)", async () => {
+    // Pre-v2.22.0 a rejected fetch skipped clearSession, leaving live tokens behind.
+    localStorage.setItem(TOKEN_KEY, "jwt-123");
+    localStorage.setItem(REFRESH_TOKEN_KEY, "refresh-123");
+    mockFetch.mockRejectedValue(new TypeError("Failed to fetch"));
+
+    await logout();
+
+    expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
+    expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBeNull();
+  });
 });
 
 describe("authedFetch", () => {
@@ -292,6 +304,52 @@ describe("authedFetch", () => {
     expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
     expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBeNull();
     expect(consumeSignedOut()).toBe(true);
+  });
+
+  test("on 401, a network-failed refresh KEEPS the session — a blip is not a sign-out", async () => {
+    consumeSignedOut();
+    localStorage.setItem(TOKEN_KEY, "old-access");
+    localStorage.setItem(REFRESH_TOKEN_KEY, "refresh-123");
+    mockFetch
+      .mockResolvedValueOnce(jsonResponse(401, { status: 401 })) // original
+      .mockRejectedValueOnce(new TypeError("Failed to fetch")); // /refresh unreachable
+
+    const res = await authedFetch("/api/v1/users");
+
+    // The caller sees the 401 (their query errors), but the still-valid tokens survive.
+    expect(res.status).toBe(401);
+    expect(localStorage.getItem(TOKEN_KEY)).toBe("old-access");
+    expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBe("refresh-123");
+    expect(consumeSignedOut()).toBe(false);
+  });
+
+  test("on 401, a rate-limited (429) or erroring (500) refresh keeps the session too", async () => {
+    for (const status of [429, 500]) {
+      localStorage.setItem(TOKEN_KEY, "old-access");
+      localStorage.setItem(REFRESH_TOKEN_KEY, "refresh-123");
+      mockFetch.mockReset();
+      mockFetch
+        .mockResolvedValueOnce(jsonResponse(401, { status: 401 }))
+        .mockResolvedValueOnce(jsonResponse(status, { status }));
+
+      const res = await authedFetch("/api/v1/users");
+
+      expect(res.status).toBe(401);
+      expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBe("refresh-123");
+    }
+  });
+
+  test("a malformed 200 refresh body neither crashes nor signs out", async () => {
+    localStorage.setItem(TOKEN_KEY, "old-access");
+    localStorage.setItem(REFRESH_TOKEN_KEY, "refresh-123");
+    mockFetch
+      .mockResolvedValueOnce(jsonResponse(401, { status: 401 }))
+      .mockResolvedValueOnce(new Response("<html>proxy error page</html>", { status: 200 }));
+
+    const res = await authedFetch("/api/v1/users");
+
+    expect(res.status).toBe(401);
+    expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBe("refresh-123");
   });
 
   test("concurrent 401s trigger exactly one refresh (single-flight)", async () => {
@@ -360,5 +418,26 @@ describe("ApiError", () => {
     expect(err).toBeInstanceOf(Error);
     expect(err.status).toBe(404);
     expect(err.body).toEqual({ message: "missing" });
+  });
+
+  test("exposes the ProblemDetail detail and instance when the body carries them", () => {
+    const err = new ApiError(409, { detail: "Unique id already in use", instance: "/api/v1/x/3" });
+    expect(err.detail).toBe("Unique id already in use");
+    expect(err.instance).toBe("/api/v1/x/3");
+    expect(new ApiError(500, null).detail).toBeUndefined();
+    expect(new ApiError(502, "<html>").instance).toBeUndefined();
+    expect(new ApiError(400, { detail: 42 }).detail).toBeUndefined();
+  });
+});
+
+describe("shouldRetryQuery", () => {
+  test("never retries a 4xx; transient failures retry at most twice", () => {
+    expect(shouldRetryQuery(0, new ApiError(403, null))).toBe(false);
+    expect(shouldRetryQuery(0, new ApiError(404, null))).toBe(false);
+    expect(shouldRetryQuery(0, new ApiError(400, null))).toBe(false);
+    expect(shouldRetryQuery(0, new ApiError(500, null))).toBe(true);
+    expect(shouldRetryQuery(0, new TypeError("Failed to fetch"))).toBe(true);
+    expect(shouldRetryQuery(1, new ApiError(503, null))).toBe(true);
+    expect(shouldRetryQuery(2, new ApiError(503, null))).toBe(false);
   });
 });

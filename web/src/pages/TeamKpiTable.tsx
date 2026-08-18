@@ -24,6 +24,7 @@ import {
 } from "../utils/datetime";
 import { formatGoalValue } from "../utils/goalValues";
 import { teamKpiEditLink, teamKpiViewLink } from "../utils/teamKpiLinks";
+import { loadErrorMessage } from "../utils/saveError";
 
 const BASE_SORT_FIELDS = ["title", "createdAt", "status", "targetValue", "currentValue"] as const;
 type SortField = (typeof BASE_SORT_FIELDS)[number] | "teamName";
@@ -158,7 +159,7 @@ export default function TeamKpiTable({
 
       {isError && (
         <Alert color="red" variant="light" title={t("teamKpi.loadListError")}>
-          {error instanceof Error ? error.message : t("teamKpi.unknownError")}
+          {loadErrorMessage(error, t)}
         </Alert>
       )}
 

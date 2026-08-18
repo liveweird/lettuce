@@ -47,6 +47,7 @@ import { deleteNotification, listNotifications, markAllNotificationsSeen, markNo
 import { formatIsoDate, formatIsoMonth, formatTimestamp } from "../utils/datetime";
 import { formatGoalValue } from "../utils/goalValues";
 import { toRelativePath } from "../utils/url";
+import { loadErrorMessage } from "../utils/saveError";
 
 // The i18n key per notification type. The message is rendered in the viewer's language from
 // notifications.event.* with the party names (proper nouns) interpolated from `params`.
@@ -337,7 +338,7 @@ export default function NotificationsButton() {
               </Center>
             ) : listQuery.isError ? (
               <Alert color="red" variant="light" title={t("notifications.loadError")}>
-                {listQuery.error instanceof Error ? listQuery.error.message : t("notifications.unknownError")}
+                {loadErrorMessage(listQuery.error, t)}
               </Alert>
             ) : (listQuery.data?.items.length ?? 0) === 0 ? (
               <Text c="dimmed" ta="center" py="xl">

@@ -14,6 +14,7 @@ import { hasVisibleActions } from "../components/personCardSupport";
 import PersonCardBody from "../components/PersonCardStats";
 import { groupTeamRows, type PersonCard as PersonCardData } from "../utils/teamRows";
 import { userDetailsLink } from "../utils/userLinks";
+import { loadErrorMessage } from "../utils/saveError";
 
 // Matches the dashboard card grids' v1.34.0 cap (2 per row) so the single details card
 // renders at the same width as its dashboard counterparts.
@@ -226,7 +227,7 @@ export default function UserDetails() {
 
       {isError ? (
         <Alert color="red" variant="light" title={t("users.loadUserFailed", { suffix: "" })}>
-          {error instanceof Error ? error.message : t("users.unknownError")}
+          {loadErrorMessage(error, t)}
         </Alert>
       ) : isLoading ? (
         <SimpleGrid cols={GRID_COLS} spacing="md">

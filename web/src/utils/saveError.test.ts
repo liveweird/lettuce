@@ -1,7 +1,7 @@
 import type { TFunction } from "i18next";
 import { describe, expect, test } from "vitest";
 import { ApiError } from "../api/http";
-import { saveErrorMessage, type SaveErrorKeys } from "./saveError";
+import { loadErrorMessage, saveErrorMessage, type SaveErrorKeys } from "./saveError";
 
 // A `t` stub that makes the chosen key (and any {{status}} interpolation) observable.
 const t = ((key: string, opts?: Record<string, unknown>) =>
@@ -93,5 +93,27 @@ describe("saveErrorMessage", () => {
   test("a non-ApiError (network) failure always lands on failed", () => {
     expect(saveErrorMessage(new Error("network down"), t, ALL_KEYS)).toBe("k.failed");
     expect(saveErrorMessage(undefined, t, ALL_KEYS)).toBe("k.failed");
+  });
+
+  test("a transport timeout gets the shared timeout message, not the generic failed", () => {
+    const timeout = new DOMException("signal timed out", "TimeoutError");
+    expect(saveErrorMessage(timeout, t, ALL_KEYS)).toBe("common.error.timeout");
+  });
+});
+
+describe("loadErrorMessage", () => {
+  test("an ApiError names the status — never the internal error.message", () => {
+    expect(loadErrorMessage(new ApiError(500, null), t)).toBe("common.error.loadFailedStatus(500)");
+    expect(loadErrorMessage(new ApiError(403, null), t)).toBe("common.error.loadFailedStatus(403)");
+  });
+
+  test("a transport timeout gets the timeout message", () => {
+    const timeout = new DOMException("signal timed out", "TimeoutError");
+    expect(loadErrorMessage(timeout, t)).toBe("common.error.timeout");
+  });
+
+  test("anything else (a rejected fetch) gets the network message", () => {
+    expect(loadErrorMessage(new TypeError("Failed to fetch"), t)).toBe("common.error.network");
+    expect(loadErrorMessage(undefined, t)).toBe("common.error.network");
   });
 });

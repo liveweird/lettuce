@@ -35,6 +35,7 @@ import {
 } from "../utils/datetime";
 import { ALL_VISIBILITIES } from "../utils/feedbackVisibility";
 import { feedbackEditLink, feedbackViewLink } from "../utils/feedbackLinks";
+import { loadErrorMessage } from "../utils/saveError";
 
 const SORT_FIELDS = [
   "requesterName",
@@ -407,7 +408,7 @@ export default function FeedbackTable({
 
       {isError && (
         <Alert color="red" variant="light" title={t("feedback.loadListError")}>
-          {error instanceof Error ? error.message : t("feedback.unknownError")}
+          {loadErrorMessage(error, t)}
         </Alert>
       )}
 

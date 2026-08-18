@@ -97,8 +97,7 @@ export default function CreateDaysOff() {
       if (err instanceof ApiError && err.status === 409) {
         // The overlap 409 carries the conflicting request in ProblemDetail.instance; the
         // budget 409 does not — distinct messages, no detail page to link to.
-        const instance = (err.body as { instance?: string } | null)?.instance;
-        setError(t(instance ? "daysOff.error.overlap" : "daysOff.error.overBudget"));
+        setError(t(err.instance ? "daysOff.error.overlap" : "daysOff.error.overBudget"));
       } else {
         setError(
           saveErrorMessage(err, t, {

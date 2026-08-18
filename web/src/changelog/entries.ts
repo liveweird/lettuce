@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.22.0",
+    date: "2026-08-19",
+    en: `The application now fails gracefully. When something breaks — the server is briefly unreachable, a request times out, or a page crashes — you get a clear message and a way forward instead of a frozen spinner or a blank screen: a crashed page shows a "Something went wrong" panel with a Reload button while the navigation keeps working, a mistyped address lands on a proper "Page not found" page, and loading errors say what actually happened ("Can't reach the server…") instead of showing internal codes. A brief network hiccup no longer signs you out of a working session, signing out works even while offline, and after an update the application refreshes itself instead of going blank.`,
+    pl: `Aplikacja radzi sobie teraz z awariami z klasą. Gdy coś się zepsuje — serwer jest chwilowo nieosiągalny, żądanie przekroczy limit czasu albo strona ulegnie awarii — dostajesz czytelny komunikat i drogę wyjścia zamiast zamrożonego wskaźnika ładowania czy pustego ekranu: uszkodzona strona pokazuje panel „Coś poszło nie tak" z przyciskiem Odśwież, a nawigacja dalej działa, błędny adres trafia na porządną stronę „Nie znaleziono strony", a błędy wczytywania mówią, co naprawdę się stało („Brak połączenia z serwerem…"), zamiast pokazywać wewnętrzne kody. Krótka czkawka sieci nie wylogowuje Cię już z działającej sesji, wylogowanie działa nawet offline, a po aktualizacji aplikacja odświeża się sama, zamiast pokazywać pusty ekran.`,
+  },
+  {
     version: "2.21.0",
     date: "2026-08-17",
     en: `Every email now speaks your language. Each person has a language of their own — administrators pick it when creating an account (English by default), and switching the language in the header saves it to your profile, so signing in on any device brings your language back. All emails the application sends — welcome messages, password resets, sign-in codes, and notification copies — arrive in the recipient's language instead of the previous two-language combo, falling back to English where no translation exists. Administrators can also correct someone's language from the user edit form.`,

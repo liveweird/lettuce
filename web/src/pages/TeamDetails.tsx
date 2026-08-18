@@ -36,7 +36,7 @@ import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { feedbackAskLink, feedbackProvideLink, userFeedbacksLink } from "../utils/feedbackLinks";
 import { userDetailsLink } from "../utils/userLinks";
 import { teamDetailsLink } from "../utils/teamLinks";
-import { saveErrorMessage } from "../utils/saveError";
+import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
 import { useAllUsers } from "../hooks/useAllUsers";
 
 type MemberRow = { id: number; name: string };
@@ -275,7 +275,7 @@ export default function TeamDetails() {
 
       {membersIsError && (
         <Alert color="red" variant="light" title={t("teams.loadMembersFailed")}>
-          {membersError instanceof Error ? membersError.message : t("teams.unknownError")}
+          {loadErrorMessage(membersError, t)}
         </Alert>
       )}
 

@@ -7,6 +7,7 @@ import EmptyState from "../components/EmptyState";
 import PersonCard from "../components/PersonCard";
 import PersonCardBody from "../components/PersonCardStats";
 import { groupTeamRows } from "../utils/teamRows";
+import { loadErrorMessage } from "../utils/saveError";
 
 // The dashboard "My managers" view: a person-card grid (not a table) — typically 1–3 people,
 // so narrow cards use the width far better than full-width spreadsheet rows.
@@ -39,7 +40,7 @@ export default function ManagersTable() {
     <>
       {isError && (
         <Alert color="red" variant="light" title={t("users.loadManagersFailed")}>
-          {error instanceof Error ? error.message : t("users.unknownError")}
+          {loadErrorMessage(error, t)}
         </Alert>
       )}
 

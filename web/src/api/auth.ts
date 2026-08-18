@@ -1,7 +1,7 @@
 // Auth flows — login (incl. the MFA second step), logout, and self-service password reset
 // (transport in ./http, session state in ./session).
 
-import { API_BASE, ApiError, safeJson } from "./http";
+import { API_BASE, ApiError, safeJson, timeoutSignal } from "./http";
 import type { components, paths } from "./schema";
 import { clearSession, getRefreshToken, getToken, persistSession } from "./session";
 
@@ -20,6 +20,7 @@ export async function login(credentials: LoginBody): Promise<LoginOk> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(credentials),
+    signal: timeoutSignal(),
   });
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   const data = (await res.json()) as LoginOk;
@@ -42,6 +43,7 @@ export async function verifyMfa(challengeId: string, code: string): Promise<Logi
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    signal: timeoutSignal(),
   });
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   const data = (await res.json()) as LoginSuccess;
@@ -62,6 +64,7 @@ export async function requestPasswordReset(email: string): Promise<void> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    signal: timeoutSignal(),
   });
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
@@ -69,11 +72,17 @@ export async function requestPasswordReset(email: string): Promise<void> {
 export async function logout(): Promise<void> {
   const token = getToken();
   if (!token) return;
-  await fetch(`${API_BASE}/api/v1/logout`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    // Include the refresh token so an explicit logout revokes it too, not just the access token.
-    body: JSON.stringify({ refreshToken: getRefreshToken() }),
-  });
+  try {
+    await fetch(`${API_BASE}/api/v1/logout`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      // Include the refresh token so an explicit logout revokes it too, not just the access token.
+      body: JSON.stringify({ refreshToken: getRefreshToken() }),
+      signal: timeoutSignal(),
+    });
+  } catch {
+    // Best-effort revoke: offline/timeout must not block the LOCAL sign-out — before v2.22.0
+    // a rejected fetch skipped clearSession, leaving the user apparently signed in.
+  }
   clearSession();
 }

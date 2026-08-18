@@ -30,8 +30,7 @@ const BACK_TO = "/performance?tab=managed";
 // surface it as a link so the manager lands on the record instead of hunting for it.
 function conflictReviewId(err: unknown): number | null {
   if (!(err instanceof ApiError) || err.status !== 409) return null;
-  const instance = (err.body as { instance?: string } | null)?.instance;
-  const match = instance?.match(/\/performance-reviews\/(\d+)$/);
+  const match = err.instance?.match(/\/performance-reviews\/(\d+)$/);
   return match ? Number(match[1]) : null;
 }
 

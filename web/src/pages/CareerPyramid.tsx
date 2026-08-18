@@ -42,6 +42,7 @@ import {
 } from "../utils/careerPyramid";
 import { addIsoDays, formatIsoDate, isoDayDiff, todayIsoDate } from "../utils/datetime";
 import { userDetailsLink } from "../utils/userLinks";
+import { loadErrorMessage } from "../utils/saveError";
 
 const SETTINGS_KEY = "career.pyramid";
 const REPORTS_SCOPES = ["direct", "all"] as const;
@@ -114,7 +115,7 @@ export default function CareerPyramid() {
       { key: SETTINGS_KEY, sortFields: CAREER_PYRAMID_SORT_FIELDS },
     );
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ["careerPyramid", includeIndirect],
     queryFn: () => listCareerPyramid(includeIndirect),
   });
@@ -270,7 +271,7 @@ export default function CareerPyramid() {
 
       {isError && (
         <Alert color="red" variant="light" title={t("career.pyramid.loadError")}>
-          {t("career.pyramid.unknownError")}
+          {loadErrorMessage(error, t)}
         </Alert>
       )}
 
