@@ -50,6 +50,7 @@ import SortHeader from "../components/SortHeader";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
+import { invalidateUser } from "../utils/userQueries";
 
 const SORT_FIELDS = ["name", "email", "uniqueId"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
@@ -160,7 +161,7 @@ export default function Users() {
         notifyAuthChange();
         return;
       }
-      await queryClient.invalidateQueries({ queryKey: ["users"] });
+      await invalidateUser(queryClient);
       showSuccessToast(t("users.toast.deleted"));
     },
   });
@@ -176,7 +177,7 @@ export default function Users() {
     setTransitionError(null);
     try {
       await action();
-      await queryClient.invalidateQueries({ queryKey: ["users"] });
+      await invalidateUser(queryClient);
       showSuccessToast(t(successKey));
       setDeactivateTarget(null);
     } catch (err) {

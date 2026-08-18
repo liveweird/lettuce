@@ -20,6 +20,7 @@ import { FEATURES, isAdmin, type Feature } from "../api/session";
 import { getUser, updateUserFeatures } from "../api/users";
 import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
+import { invalidateUser } from "../utils/userQueries";
 
 // The per-user feature-flags editor (v1.53.0): six switches (checked = enabled), saved as a
 // wholesale replace via PUT /users/{id}/features. ADMIN-only — the ChangeUserPassword page
@@ -61,8 +62,7 @@ export default function UserFeatures() {
     setSubmitting(true);
     try {
       await updateUserFeatures(id, FEATURES.filter((f) => !enabled[f]));
-      await queryClient.invalidateQueries({ queryKey: ["users"] });
-      await queryClient.invalidateQueries({ queryKey: ["user", id] });
+      await invalidateUser(queryClient, id);
       showSuccessToast(t("users.toast.featuresSaved"));
       navigate("/users", { replace: true });
     } catch (err) {

@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { getUserId, hasFeature } from "../api/session";
 import { createFeedback, type FeedbackStatus, type FeedbackVisibility } from "../api/feedbacks";
+import { invalidateFeedback } from "../utils/feedbackQueries";
 import DuplicateFeedbackAlert from "../components/DuplicateFeedbackAlert";
 import FeedbackForm from "../components/FeedbackForm";
 import { useFeedbackDuplicate } from "../hooks/useFeedbackDuplicate";
@@ -49,9 +50,7 @@ export default function CreateFeedback() {
         status,
         content: values.content,
       });
-      await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
-      // A create may mint notifications (e.g. SENT → subject/requester) — refresh the bell badge.
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      await invalidateFeedback(queryClient);
       showSuccessToast(t(status === "SENT" ? "feedback.toast.sent" : "feedback.toast.draftSaved"));
       navigate(backTo, { replace: true });
     } catch (err) {

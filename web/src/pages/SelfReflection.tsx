@@ -10,6 +10,7 @@ import { useFeedbackDuplicate } from "../hooks/useFeedbackDuplicate";
 import { feedbackEditLink } from "../utils/feedbackLinks";
 import { saveErrorMessage } from "../utils/saveError";
 import { showSuccessToast } from "../utils/toast";
+import { invalidateFeedback } from "../utils/feedbackQueries";
 
 // Where the new row shows up right after saving — and where Cancel returns to.
 const BACK_TO = "/feedback?tab=provided";
@@ -49,8 +50,7 @@ export default function SelfReflection() {
         status,
         content: values.content,
       });
-      await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
-      await queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      await invalidateFeedback(queryClient);
       showSuccessToast(t(status === "SENT" ? "feedback.toast.sent" : "feedback.toast.draftSaved"));
       navigate(BACK_TO, { replace: true });
     } catch (err) {

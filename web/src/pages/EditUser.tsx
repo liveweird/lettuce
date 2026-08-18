@@ -1,9 +1,7 @@
-import { charCountDescription } from "../utils/charCount";
 import {
   isUniqueIdConflict,
-  MAX_EMAIL_LENGTH,
-  MAX_UNIQUE_ID_LENGTH,
-  MAX_USER_NAME_LENGTH,
+  userFormValidation,
+  type UserFormValues,
 } from "../utils/userForm";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -17,46 +15,24 @@ import {
   Alert,
   Button,
   Center,
-  CloseButton,
   Container,
   Group,
   Loader,
   NumberInput,
   Paper,
-  Select,
   Stack,
-  TextInput,
   Title,
 } from "@mantine/core";
-import { hasLength, useForm } from "@mantine/form";
+import { useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "../api/http";
-import { getUserId, isAdmin, type UserRole } from "../api/session";
+import { getUserId, isAdmin } from "../api/session";
 import { getUser, setUserLanguage, updateUser } from "../api/users";
-import i18n, { NATIVE_LANGUAGE_NAMES, SUPPORTED_LANGUAGES, asSupportedLanguage, type SupportedLanguage } from "../i18n";
+import i18n, { asSupportedLanguage } from "../i18n";
 import { showSuccessToast } from "../utils/toast";
-import RolesMultiSelect from "../components/RolesMultiSelect";
+import UserFormFields from "../components/UserFormFields";
 import { saveErrorMessage } from "../utils/saveError";
-
-type FormValues = {
-  name: string;
-  email: string;
-  roles: UserRole[];
-  // The career triple left this form in v2.15.0 — it lives on /users/:id/career now,
-  // managed by the person's management chain, not by admins.
-  // Whole days ("" = unset). Sent only when set — omitting encodes "leave unchanged",
-  // so clearing a set allowance is inexpressible client-side too.
-  paidDaysOffAllowance: number | "";
-  // Sent only when non-blank (trimmed) — the allowance semantics: emptying the field
-  // leaves the server value unchanged, clearing a set id is inexpressible.
-  uniqueId: string;
-  // Saved via the dedicated PUT /users/{id}/language (self or ADMIN) — never part of the
-  // whole-user PUT (v2.21.0).
-  language: SupportedLanguage;
-};
-
-// Linear-time (no ambiguous backtracking): dot-separated domain labels may not contain dots.
-const EMAIL_RE = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
+import { invalidateUser } from "../utils/userQueries";
 
 export default function EditUser() {
   const { t } = useTranslation();
@@ -67,7 +43,9 @@ export default function EditUser() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const form = useForm<FormValues>({
+  // The shared form vocabulary (utils/userForm.ts) — the language rides its own endpoint
+  // (v2.21.0), never the whole-user PUT (see onSubmit).
+  const form = useForm<UserFormValues>({
     initialValues: {
       name: "",
       email: "",
@@ -76,15 +54,7 @@ export default function EditUser() {
       uniqueId: "",
       language: "en",
     },
-    validate: {
-      name: hasLength({ min: 1, max: 50 }, t("users.validation.nameLength")),
-      email: (value) => {
-        if (!value) return t("users.validation.emailRequired");
-        if (!EMAIL_RE.test(value)) return t("users.validation.emailInvalid");
-        if (value.length > 254) return t("users.validation.emailTooLong");
-        return null;
-      },
-    },
+    validate: userFormValidation(t),
   });
 
   const idIsValid = Number.isFinite(id) && id > 0;
@@ -113,7 +83,7 @@ export default function EditUser() {
   if (!isAdmin()) return <Navigate to="/users" replace />;
   if (!idIsValid) return <Navigate to="/users" replace />;
 
-  async function onSubmit(values: FormValues) {
+  async function onSubmit(values: UserFormValues) {
     setError(null);
     setSubmitting(true);
     try {
@@ -134,8 +104,7 @@ export default function EditUser() {
         // precedent); others pick it up at their next sign-in or token refresh.
         if (getUserId() === id) void i18n.changeLanguage(values.language);
       }
-      await queryClient.invalidateQueries({ queryKey: ["users"] });
-      await queryClient.invalidateQueries({ queryKey: ["user", id] });
+      await invalidateUser(queryClient, id);
       showSuccessToast(t("users.toast.updated"));
       navigate("/users", { replace: true });
     } catch (err) {
@@ -198,70 +167,7 @@ export default function EditUser() {
           ) : (
             <form onSubmit={form.onSubmit(onSubmit)} noValidate>
               <Stack>
-                <TextInput
-                  label={t("common.field.name")}
-                  autoFocus
-                  maxLength={MAX_USER_NAME_LENGTH}
-                  description={charCountDescription(form.values.name.length, MAX_USER_NAME_LENGTH)}
-                  inputWrapperOrder={["label", "input", "description", "error"]}
-                  rightSection={
-                    form.values.name ? (
-                      <CloseButton
-                        size="sm"
-                        aria-label={t("users.clearName")}
-                        tabIndex={-1}
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => form.setFieldValue("name", "")}
-                      />
-                    ) : null
-                  }
-                  rightSectionPointerEvents="auto"
-                  {...form.getInputProps("name")}
-                />
-                <TextInput
-                  label={t("common.field.email")}
-                  type="email"
-                  autoComplete="email"
-                  maxLength={MAX_EMAIL_LENGTH}
-                  description={charCountDescription(form.values.email.length, MAX_EMAIL_LENGTH)}
-                  inputWrapperOrder={["label", "input", "description", "error"]}
-                  rightSection={
-                    form.values.email ? (
-                      <CloseButton
-                        size="sm"
-                        aria-label={t("users.clearEmail")}
-                        tabIndex={-1}
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => form.setFieldValue("email", "")}
-                      />
-                    ) : null
-                  }
-                  rightSectionPointerEvents="auto"
-                  {...form.getInputProps("email")}
-                />
-                <TextInput
-                  label={t("users.uniqueId")}
-                  maxLength={MAX_UNIQUE_ID_LENGTH}
-                  // The counter takes over the description slot near the cap (the name idiom);
-                  // otherwise the slot explains the set-once semantics.
-                  description={
-                    charCountDescription(form.values.uniqueId.length, MAX_UNIQUE_ID_LENGTH) ??
-                    t("users.uniqueIdHint")
-                  }
-                  inputWrapperOrder={["label", "input", "description", "error"]}
-                  {...form.getInputProps("uniqueId")}
-                />
-                <RolesMultiSelect {...form.getInputProps("roles")} />
-                <Select
-                  label={t("common.language.label")}
-                  description={t("users.languageHint")}
-                  data={SUPPORTED_LANGUAGES.map((lng) => ({
-                    value: lng,
-                    label: NATIVE_LANGUAGE_NAMES[lng],
-                  }))}
-                  allowDeselect={false}
-                  {...form.getInputProps("language")}
-                />
+                <UserFormFields form={form} />
                 <NumberInput
                   label={t("users.paidDaysOffAllowance")}
                   description={t("users.paidDaysOffAllowanceHint")}

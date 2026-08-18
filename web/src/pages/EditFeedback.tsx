@@ -31,6 +31,7 @@ import RequesterMessage from "../components/RequesterMessage";
 import { clampVisibility, visibilityValuesFor } from "../utils/feedbackVisibility";
 import { saveErrorMessage } from "../utils/saveError";
 import { showSuccessToast } from "../utils/toast";
+import { invalidateFeedback } from "../utils/feedbackQueries";
 
 const PROVIDED = "/feedback?tab=provided";
 
@@ -96,10 +97,7 @@ export default function EditFeedback() {
         // Save draft: content/visibility edit only.
         await updateFeedback(id, { content: values.content, visibility: values.visibility });
       }
-      await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
-      await queryClient.invalidateQueries({ queryKey: ["feedback", id] });
-      // A status transition (e.g. send/reject) mints notifications — refresh the bell badge.
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      await invalidateFeedback(queryClient, id);
       showSuccessToast(
         t(
           accepted
@@ -134,10 +132,7 @@ export default function EditFeedback() {
     setDeleting(true);
     try {
       await deleteFeedback(id);
-      await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
-      await queryClient.invalidateQueries({ queryKey: ["feedback", id] });
-      // Deleting a draft notifies its requester — refresh the bell badge.
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      await invalidateFeedback(queryClient, id);
       showSuccessToast(t("feedback.toast.deleted"));
       navigate(backTo, { replace: true });
     } catch (err) {

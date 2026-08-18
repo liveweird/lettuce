@@ -35,6 +35,7 @@ import RequesterMessage from "../components/RequesterMessage";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
+import { invalidateFeedback } from "../utils/feedbackQueries";
 
 const RECEIVED = "/feedback?tab=received";
 
@@ -108,10 +109,7 @@ export default function ViewFeedback() {
     setSubmitting(true);
     try {
       await run(id);
-      await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
-      await queryClient.invalidateQueries({ queryKey: ["feedback", id] });
-      // A transition mints notifications — refresh the bell badge.
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      await invalidateFeedback(queryClient, id);
       showSuccessToast(t(successKey));
       navigate(backTo, { replace: true });
     } catch (err) {

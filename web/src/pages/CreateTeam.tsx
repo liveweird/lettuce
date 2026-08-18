@@ -1,32 +1,23 @@
-import { charCountDescription } from "../utils/charCount";
-import { MAX_TEAM_NAME_LENGTH } from "../utils/teamForm";
+import { teamFormValidation, type TeamFormValues } from "../utils/teamForm";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useManagerOptions } from "../hooks/useManagerOptions";
 import { Link as RouterLink, Navigate, useNavigate } from "react-router-dom";
 import {
   Alert,
   Button,
-  CloseButton,
   Container,
   Group,
   Paper,
-  Select,
   Stack,
-  TextInput,
   Title,
 } from "@mantine/core";
-import { hasLength, useForm } from "@mantine/form";
+import { useForm } from "@mantine/form";
 import { useQueryClient } from "@tanstack/react-query";
 import { isAdmin } from "../api/session";
 import { createTeam } from "../api/teams";
 import { showSuccessToast } from "../utils/toast";
+import TeamFormFields from "../components/TeamFormFields";
 import { saveErrorMessage } from "../utils/saveError";
-
-type FormValues = {
-  name: string;
-  managerId: string;
-};
 
 export default function CreateTeam() {
   const { t } = useTranslation();
@@ -35,19 +26,15 @@ export default function CreateTeam() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const form = useForm<FormValues>({
+  // The shared form vocabulary (utils/teamForm.ts); TeamFormFields owns the manager picker.
+  const form = useForm<TeamFormValues>({
     initialValues: { name: "", managerId: "" },
-    validate: {
-      name: hasLength({ min: 1, max: MAX_TEAM_NAME_LENGTH }, t("teams.nameLength")),
-      managerId: (value) => (value ? null : t("teams.managerRequired")),
-    },
+    validate: teamFormValidation(t),
   });
-
-  const { managerOptions, managersLoading } = useManagerOptions(isAdmin());
 
   if (!isAdmin()) return <Navigate to="/teams" replace />;
 
-  async function onSubmit(values: FormValues) {
+  async function onSubmit(values: TeamFormValues) {
     setError(null);
     setSubmitting(true);
     try {
@@ -79,36 +66,7 @@ export default function CreateTeam() {
         <form onSubmit={form.onSubmit(onSubmit)} noValidate>
           <Stack>
             <Title order={2}>{t("teams.createTeam")}</Title>
-            <TextInput
-              label={t("common.field.name")}
-              autoFocus
-              maxLength={MAX_TEAM_NAME_LENGTH}
-              description={charCountDescription(form.values.name.length, MAX_TEAM_NAME_LENGTH)}
-              inputWrapperOrder={["label", "input", "description", "error"]}
-              rightSection={
-                form.values.name ? (
-                  <CloseButton
-                    size="sm"
-                    aria-label={t("teams.clearName")}
-                    tabIndex={-1}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => form.setFieldValue("name", "")}
-                  />
-                ) : null
-              }
-              rightSectionPointerEvents="auto"
-              {...form.getInputProps("name")}
-            />
-            <Select
-              label={t("common.field.manager")}
-              placeholder={managersLoading ? t("common.state.loading") : t("teams.pickManager")}
-              data={managerOptions}
-              searchable
-              clearable={false}
-              disabled={managersLoading}
-              nothingFoundMessage={t("teams.noMatchingUsers")}
-              {...form.getInputProps("managerId")}
-            />
+            <TeamFormFields form={form} />
             {error && (
               <Alert color="red" variant="light">
                 {error}

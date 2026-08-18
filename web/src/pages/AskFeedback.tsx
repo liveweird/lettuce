@@ -25,6 +25,7 @@ import { useFeedbackDuplicate } from "../hooks/useFeedbackDuplicate";
 import { REQUESTER_VISIBILITIES } from "../utils/feedbackVisibility";
 import { saveErrorMessage } from "../utils/saveError";
 import { showSuccessToast } from "../utils/toast";
+import { invalidateFeedback } from "../utils/feedbackQueries";
 
 // The asker is the requester, so "Ask for feedback" offers the requester-inclusive
 // visibilities — the ones under which the requester (themselves) can read the result.
@@ -76,9 +77,7 @@ export default function AskFeedback() {
         content: "",
         requesterMessage: message.trim() || undefined,
       });
-      await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
-      // Asking for feedback mints a requester confirmation — refresh the bell badge immediately.
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      await invalidateFeedback(queryClient);
       showSuccessToast(t("feedback.toast.requested"));
       navigate(backTo, { replace: true });
     } catch (err) {
