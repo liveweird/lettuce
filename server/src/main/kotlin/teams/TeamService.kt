@@ -116,24 +116,32 @@ class TeamService(val database: R2dbcDatabase) {
             .sortedBy { it.name }
     }
 
-    /** (userId, name) of [teamId]'s current members with non-deleted accounts, name-ascending. */
-    suspend fun membersWithNames(teamId: UInt): List<Pair<UInt, String>> = suspendTransaction(database) {
-        TeamMembers
-            .join(
-                UserService.Users,
-                JoinType.INNER,
-                onColumn = TeamMembers.userId,
-                otherColumn = UserService.Users.id,
-            )
-            .select(TeamMembers.userId, UserService.Users.name)
-            .where {
-                (TeamMembers.teamId eq teamId) and
-                    (UserService.Users.markedAsDeleted eq false)
-            }
-            .map { it[TeamMembers.userId].value to it[UserService.Users.name] }
-            .toList()
-            .sortedBy { it.second }
-    }
+    /**
+     * (userId, name) of each team's current members with non-deleted accounts, keyed by team
+     * id, per-team name-ascending — ONE grouped join query however many teams are asked for
+     * (the careerProfilesByUserIds batching shape). A team without members is simply absent
+     * from the map.
+     */
+    suspend fun membersWithNamesByTeamIds(teamIds: Set<UInt>): Map<UInt, List<Pair<UInt, String>>> =
+        suspendTransaction(database) {
+            if (teamIds.isEmpty()) return@suspendTransaction emptyMap()
+            TeamMembers
+                .join(
+                    UserService.Users,
+                    JoinType.INNER,
+                    onColumn = TeamMembers.userId,
+                    otherColumn = UserService.Users.id,
+                )
+                .select(TeamMembers.teamId, TeamMembers.userId, UserService.Users.name)
+                .where {
+                    (TeamMembers.teamId inList teamIds) and
+                        (UserService.Users.markedAsDeleted eq false)
+                }
+                .map { Triple(it[TeamMembers.teamId].value, it[TeamMembers.userId].value, it[UserService.Users.name]) }
+                .toList()
+                .groupBy({ it.first }, { it.second to it.third })
+                .mapValues { (_, members) -> members.sortedBy { it.second } }
+        }
 
     suspend fun create(team: Team): UInt = suspendTransaction(database) {
         validateMembership(team)

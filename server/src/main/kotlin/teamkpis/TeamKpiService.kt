@@ -3,6 +3,7 @@ package ch.nokillswit.teamkpis
 import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.infra.crypto.EncryptedAtRest
 import ch.nokillswit.infra.crypto.FieldCipher
+import ch.nokillswit.infra.crypto.reencryptRows
 import ch.nokillswit.infra.db.containsNormalized
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
@@ -447,20 +448,7 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
      * returns the rewritten count.
      */
     override suspend fun encryptLegacyRows(reencryptAll: Boolean): Int = suspendTransaction(database) {
-        val enveloped = "${FieldCipher.PREFIX}%"
-        val legacyOnly = (TeamKpis.description notLike enveloped) or
-            (TeamKpis.summary.isNotNull() and (TeamKpis.summary notLike enveloped))
-        val rows = TeamKpis
-            .select(TeamKpis.id, TeamKpis.description, TeamKpis.summary)
-            .where { if (reencryptAll) Op.TRUE else legacyOnly }
-            .toList()
-        rows.forEach { row ->
-            TeamKpis.update({ TeamKpis.id eq row[TeamKpis.id] }) {
-                it[description] = cipher.encrypt(cipher.decrypt(row[TeamKpis.description]))
-                it[summary] = row[TeamKpis.summary]?.let { s -> cipher.encrypt(cipher.decrypt(s)) }
-            }
-        }
-        rows.size
+        cipher.reencryptRows(TeamKpis, listOf(TeamKpis.description, TeamKpis.summary), reencryptAll)
     }
 
     // KPI ⋈ its team (INNER — the team row always exists, soft-deleted or not; the manager is

@@ -2,6 +2,7 @@ package ch.nokillswit.oneonones
 
 import ch.nokillswit.authz.requireDirectReport
 import ch.nokillswit.authz.ForbiddenException
+import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAuditListAccess
 import ch.nokillswit.authz.requireFeatureEnabled
@@ -17,7 +18,6 @@ import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserServiceKey
-import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
@@ -134,36 +134,28 @@ fun Application.configureOneOnOneRoutes() {
     val notificationService = attributes[NotificationServiceKey]
     val userService = attributes[UserServiceKey]
 
-    // The uniform read preamble (the 404-before-403 idiom): resolves the meeting and enforces
-    // the document read rule (parties / audited HR / chain managers). A null return means the
-    // 404 response was already sent; the guard itself throws ForbiddenException. Shared by the
-    // document and events GETs (the action-item history keys its 404s on the ITEM, so it stays
-    // inline).
-    suspend fun readGuardedMeeting(call: ApplicationCall, meetingId: UInt): OneOnOneResponse? {
+    // The uniform read preamble (the 404-before-403 idiom): resolves the meeting (missing →
+    // NotFoundException) and enforces the document read rule (parties / audited HR / chain
+    // managers — the guard itself throws ForbiddenException). Shared by the document and
+    // events GETs (the action-item history keys its 404s on the ITEM, so it stays inline).
+    suspend fun readGuardedMeeting(call: ApplicationCall, meetingId: UInt): OneOnOneResponse {
         val caller = call.oneOnOneCaller()
         val meeting = oneOnOneService.read(meetingId)
-        if (meeting == null) {
-            call.respondProblem(HttpStatusCode.NotFound, "1:1 meeting not found")
-            return null
-        }
+            ?: throw NotFoundException("1:1 meeting not found")
         requireOneOnOneReadAllowingManager(caller, meeting) {
             oneOnOneService.managesSubordinate(caller.userId, meeting.subordinateId)
         }
         return meeting
     }
 
-    // The write sibling: manager-only (nobody else — ADMIN included). Same null = the 404 was
-    // already sent contract; guards run BEFORE any body is received, so an outsider's
-    // malformed payload is still 403.
-    suspend fun writeGuardedMeeting(call: ApplicationCall, meetingId: UInt): OneOnOneResponse? {
+    // The write sibling: manager-only (nobody else — ADMIN included). Guards run BEFORE any
+    // body is received, so an outsider's malformed payload is still 403.
+    suspend fun writeGuardedMeeting(call: ApplicationCall, meetingId: UInt): OneOnOneResponse {
         // The gated caller resolves FIRST: a ONE_ON_ONES-disabled caller gets a uniform 403
         // before the read (the feature 403 must precede the 404).
         val caller = call.oneOnOneCaller()
         val meeting = oneOnOneService.read(meetingId)
-        if (meeting == null) {
-            call.respondProblem(HttpStatusCode.NotFound, "1:1 meeting not found")
-            return null
-        }
+            ?: throw NotFoundException("1:1 meeting not found")
         requireOneOnOneWrite(caller, meeting)
         return meeting
     }
@@ -261,11 +253,11 @@ fun Application.configureOneOnOneRoutes() {
                 call.respond(HttpStatusCode.Created, created)
             }
             get<OneOnOnes.Id> { route ->
-                val meeting = readGuardedMeeting(call, route.id) ?: return@get
+                val meeting = readGuardedMeeting(call, route.id)
                 call.respond(HttpStatusCode.OK, meeting)
             }
             put<OneOnOnes.Id> { route ->
-                val existing = writeGuardedMeeting(call, route.id) ?: return@put
+                val existing = writeGuardedMeeting(call, route.id)
                 val request = call.receive<OneOnOneUpdateRequest>()
                 validateOneOnOnePayload(
                     request.meetingDate, request.points, request.decisions, request.actionItems,
@@ -274,8 +266,7 @@ fun Application.configureOneOnOneRoutes() {
                 // atomically with the mutation (409 via ConflictException, mapped by StatusPages).
                 val updated = oneOnOneService.replace(route.id, request)
                 if (updated == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "1:1 meeting not found")
-                    return@put
+                    throw NotFoundException("1:1 meeting not found")
                 }
                 // Audit: one structured event per changed aspect, diffed against the pre-replace
                 // document (added items need no ids in params, so the request suffices).
@@ -285,12 +276,11 @@ fun Application.configureOneOnOneRoutes() {
                 call.respond(HttpStatusCode.NoContent)
             }
             delete<OneOnOnes.Id> { route ->
-                writeGuardedMeeting(call, route.id) ?: return@delete
+                writeGuardedMeeting(call, route.id)
                 // Latest-only rule (deleting an old meeting would rewrite history) is enforced in the
                 // service, atomically with the soft-delete — 409 via ConflictException.
                 if (oneOnOneService.delete(route.id) == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "1:1 meeting not found")
-                    return@delete
+                    throw NotFoundException("1:1 meeting not found")
                 }
                 // Audit the deletion against the acting manager (events outlive the soft-deleted
                 // row). No notification — creation is the only notifying event for 1:1s.
@@ -300,7 +290,7 @@ fun Application.configureOneOnOneRoutes() {
             get<OneOnOnes.Id.Events> { route ->
                 val meetingId = route.parent.id
                 // Whoever may read the meeting may read its history.
-                readGuardedMeeting(call, meetingId) ?: return@get
+                readGuardedMeeting(call, meetingId)
                 call.respond(
                     HttpStatusCode.OK,
                     OneOnOneEventListResponse(oneOnOneEventService.listForMeeting(meetingId)),
@@ -309,17 +299,13 @@ fun Application.configureOneOnOneRoutes() {
             get<OneOnOnes.ActionItems.Id.History> { route ->
                 val caller = call.oneOnOneCaller()
                 val result = oneOnOneService.actionItemHistory(route.parent.id)
-                if (result == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Action item not found")
-                    return@get
-                }
+                    ?: throw NotFoundException("Action item not found")
                 // One check covers the whole chain: every copy belongs to a meeting of the same
                 // manager+subordinate pair, so the queried item's meeting is the authz anchor.
+                // A missing meeting deliberately answers as the ITEM (the anchor is invisible
+                // to the caller).
                 val meeting = oneOnOneService.read(result.meetingId)
-                if (meeting == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Action item not found")
-                    return@get
-                }
+                    ?: throw NotFoundException("Action item not found")
                 requireOneOnOneReadAllowingManager(caller, meeting) {
                     oneOnOneService.managesSubordinate(caller.userId, meeting.subordinateId)
                 }

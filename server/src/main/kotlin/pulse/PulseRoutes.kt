@@ -2,6 +2,7 @@ package ch.nokillswit.pulse
 
 import ch.nokillswit.audit.audit
 import ch.nokillswit.authz.ConflictException
+import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.auditHrRead
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.isAdmin
@@ -13,7 +14,6 @@ import ch.nokillswit.authz.requirePulseMyResponse
 import ch.nokillswit.authz.requirePulseResultsAccess
 import ch.nokillswit.authz.requirePulseTrendAccess
 import ch.nokillswit.notifications.NotificationServiceKey
-import ch.nokillswit.plugins.respondProblem
 import ch.nokillswit.settings.AppSettingsServiceKey
 import ch.nokillswit.teams.TeamServiceKey
 import ch.nokillswit.users.Feature
@@ -168,14 +168,11 @@ fun Application.configurePulseRoutes() {
     )
 
     // The cycle read preamble shared by the eight cycle-scoped handlers that read before
-    // acting: 404 when missing; null = the 404 was already sent (the readGuardedGoal
-    // contract). Guards still run at the call site AFTER the read, per the documented
-    // 404 -> 409-state -> 403-identity ordering.
-    suspend fun readCycle(call: ApplicationCall, id: UInt): PulseCycleRow? {
-        val cycle = cycleService.read(id)
-        if (cycle == null) call.respondProblem(HttpStatusCode.NotFound, "Pulse cycle not found")
-        return cycle
-    }
+    // acting: missing → NotFoundException (the readGuardedGoal contract). Guards still run at
+    // the call site AFTER the read, per the documented 404 -> 409-state -> 403-identity
+    // ordering.
+    suspend fun readCycle(id: UInt): PulseCycleRow =
+        cycleService.read(id) ?: throw NotFoundException("Pulse cycle not found")
 
     routing {
         authenticate {
@@ -224,7 +221,7 @@ fun Application.configurePulseRoutes() {
             }
             get<PulseSurveys.Cycles.Id> { route ->
                 val caller = call.pulseCaller()
-                val cycle = readCycle(call, route.id) ?: return@get
+                val cycle = readCycle(route.id)
                 val admin = caller.isAdmin()
                 val counts = if (admin) cycleService.participationCounts(setOf(cycle.id))[cycle.id] else null
                 call.respond(HttpStatusCode.OK, toResponse(cycle, admin, counts))
@@ -232,13 +229,12 @@ fun Application.configurePulseRoutes() {
             put<PulseSurveys.Cycles.Id> { route ->
                 val caller = call.pulseCaller()
                 requireAdmin(caller)
-                val before = readCycle(call, route.id) ?: return@put
+                val before = readCycle(route.id)
                 val request = call.receive<PulseCycleUpdateRequest>()
                 // Per-status rules (SCHEDULED: both dates; OPEN: close date only; else 409)
                 // and shape validation live in the service, atomically with the update.
                 if (cycleService.updateDates(route.id, request) == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Pulse cycle not found")
-                    return@put
+                    throw NotFoundException("Pulse cycle not found")
                 }
                 audit(
                     "pulse_cycle.updated",
@@ -262,10 +258,7 @@ fun Application.configurePulseRoutes() {
                 requireAdmin(caller)
                 val cycleId = route.parent.id
                 val result = cycleService.open(cycleId)
-                if (result == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Pulse cycle not found")
-                    return@post
-                }
+                    ?: throw NotFoundException("Pulse cycle not found")
                 val cycle = cycleService.read(cycleId)
                     ?: error("Pulse cycle $cycleId vanished after opening")
                 audit(
@@ -288,10 +281,7 @@ fun Application.configurePulseRoutes() {
                 requireAdmin(caller)
                 val cycleId = route.parent.id
                 val result = cycleService.close(cycleId)
-                if (result == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Pulse cycle not found")
-                    return@post
-                }
+                    ?: throw NotFoundException("Pulse cycle not found")
                 val cycle = cycleService.read(cycleId)
                     ?: error("Pulse cycle $cycleId vanished after closing")
                 audit(
@@ -317,10 +307,7 @@ fun Application.configurePulseRoutes() {
                 requireAdmin(caller)
                 val cycleId = route.parent.id
                 val result = cycleService.cancel(cycleId)
-                if (result == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Pulse cycle not found")
-                    return@post
-                }
+                    ?: throw NotFoundException("Pulse cycle not found")
                 val cycle = cycleService.read(cycleId)
                     ?: error("Pulse cycle $cycleId vanished after cancelling")
                 audit(
@@ -345,7 +332,7 @@ fun Application.configurePulseRoutes() {
             get<PulseSurveys.Cycles.Id.Participation> { route ->
                 val caller = call.pulseCaller()
                 requireAdmin(caller)
-                val cycle = readCycle(call, route.parent.id) ?: return@get
+                val cycle = readCycle(route.parent.id)
                 // Counts only — the narrowed-ADMIN rule: enough to decide close/extend, never
                 // aggregates, comments, or per-user status. A SCHEDULED cycle reads as zeros.
                 val counts = cycleService.participationCounts(setOf(cycle.id))[cycle.id] ?: (0 to 0)
@@ -360,7 +347,7 @@ fun Application.configurePulseRoutes() {
             }
             get<PulseSurveys.Cycles.Id.ParticipationStatus> { route ->
                 val caller = call.pulseCaller()
-                val cycle = readCycle(call, route.parent.id) ?: return@get
+                val cycle = readCycle(route.parent.id)
                 if (cycle.status != PulseCycleStatus.OPEN && cycle.status != PulseCycleStatus.CLOSED) {
                     throw ConflictException("Participation is available only for open and closed cycles")
                 }
@@ -373,14 +360,20 @@ fun Application.configurePulseRoutes() {
                 } else {
                     teamService.teamRefs(teamService.managedTeamTreeIds(caller.userId))
                 }
+                // Batched, set-at-a-time (the dashboard/teams-members composition idiom): one
+                // grouped members query over every team, then ONE participants + ONE responded
+                // lookup over the union — constant query count however many teams the caller
+                // monitors. Per-team intersection happens in memory, so the per-team result is
+                // identical to querying each team alone.
+                val membersByTeam = teamService.membersWithNamesByTeamIds(teams.map { it.id }.toSet())
+                val allMemberIds = membersByTeam.values.flatten().map { it.first }.toSet()
+                val participantIds = responseService.participantUserIds(cycle.id, allMemberIds)
+                val respondedIds = responseService.respondedUserIds(cycle.id, participantIds)
                 val teamBlocks = teams.map { ref ->
-                    val members = teamService.membersWithNames(ref.id)
-                    val participantIds = responseService.participantUserIds(cycle.id, members.map { it.first }.toSet())
-                    val respondedIds = responseService.respondedUserIds(cycle.id, participantIds)
                     PulseParticipationTeam(
                         teamId = ref.id,
                         teamName = ref.name,
-                        members = members
+                        members = membersByTeam[ref.id].orEmpty()
                             .filter { it.first in participantIds }
                             .map { (userId, name) ->
                                 PulseParticipationMember(
@@ -395,22 +388,19 @@ fun Application.configurePulseRoutes() {
             }
             get<PulseSurveys.Cycles.Id.MyResponse> { route ->
                 val caller = call.pulseCaller()
-                val cycle = readCycle(call, route.parent.id) ?: return@get
+                val cycle = readCycle(route.parent.id)
                 // Participant-only, and OPEN-only even for the owner — once the cycle closes,
                 // saved answers are never served again (no copy-paste seed for the next cycle).
                 requirePulseMyResponse(caller, cycle.status) {
                     responseService.isParticipant(cycle.id, caller.userId)
                 }
                 val response = responseService.myResponse(cycle.id, caller.userId)
-                if (response == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "No response submitted yet")
-                    return@get
-                }
+                    ?: throw NotFoundException("No response submitted yet")
                 call.respond(HttpStatusCode.OK, response)
             }
             put<PulseSurveys.Cycles.Id.MyResponse> { route ->
                 val caller = call.pulseCaller()
-                val cycle = readCycle(call, route.parent.id) ?: return@put
+                val cycle = readCycle(route.parent.id)
                 requirePulseMyResponse(caller, cycle.status) {
                     responseService.isParticipant(cycle.id, caller.userId)
                 }
@@ -422,7 +412,7 @@ fun Application.configurePulseRoutes() {
             }
             get<PulseSurveys.Cycles.Id.Results> { route ->
                 val caller = call.pulseCaller()
-                val cycle = readCycle(call, route.parent.id) ?: return@get
+                val cycle = readCycle(route.parent.id)
                 // Status before identity (404 → 409 → 403): the answer for a non-closed cycle
                 // is uniform for every caller, HR included — results never leak while OPEN and
                 // never exist for CANCELLED.
@@ -433,10 +423,7 @@ fun Application.configurePulseRoutes() {
                 val teamId = params.requiredTeamId()
                 val mode = params.aggregationMode()
                 val team = teamService.read(teamId)
-                if (team == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Team not found")
-                    return@get
-                }
+                    ?: throw NotFoundException("Team not found")
                 // The identity step: HR exempt from the fill gate (audited); everyone else —
                 // ADMIN included — must have responded in THIS cycle and stay in-tree.
                 requirePulseResultsAccess(
@@ -476,7 +463,7 @@ fun Application.configurePulseRoutes() {
             }
             get<PulseSurveys.Cycles.Id.Comments> { route ->
                 val caller = call.pulseCaller()
-                val cycle = readCycle(call, route.parent.id) ?: return@get
+                val cycle = readCycle(route.parent.id)
                 if (cycle.status != PulseCycleStatus.CLOSED) {
                     throw ConflictException("Comments are available only for closed cycles")
                 }
@@ -484,10 +471,7 @@ fun Application.configurePulseRoutes() {
                 val teamId = params.requiredTeamId()
                 val mode = params.aggregationMode()
                 val team = teamService.read(teamId)
-                if (team == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Team not found")
-                    return@get
-                }
+                    ?: throw NotFoundException("Team not found")
                 // Managers-and-above only (their monitored tree; HR org-wide, audited) — a
                 // plain member never reads comments, and no fill gate applies (a monitoring
                 // right, not a results view).
@@ -525,10 +509,7 @@ fun Application.configurePulseRoutes() {
                 val teamId = params.requiredTeamId()
                 val mode = params.aggregationMode()
                 val team = teamService.read(teamId)
-                if (team == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Team not found")
-                    return@get
-                }
+                    ?: throw NotFoundException("Team not found")
                 // Team scope as results (HR org-wide, audited); the fill gate instead applies
                 // point-wise below.
                 requirePulseTrendAccess(

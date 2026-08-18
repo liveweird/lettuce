@@ -7,7 +7,7 @@ PostgreSQL is the only database. Connection settings come from the `postgres:` b
 
 The `org.postgresql:postgresql` JDBC driver is on the classpath solely for Flyway; runtime queries go through R2DBC.
 
-**Cross-feature table reads (the service-layer rule).** A feature service MAY query another feature's Exposed table objects directly when the read must run **inside its own transaction** (SQL joins, atomic snapshots — e.g. every service's `Users` name/soft-delete joins, pulse's eligibility snapshot over `UserDisabledFeatures`, reviews ↔ review-periods): calling the other feature's *service* would open a second transaction and break atomicity. Route handlers never touch tables (services only), and the two sanctioned **route-side** compositions stay dashboard/summary and the `/teams/members` enrichment — both batched, set-at-a-time, never per-row loops.
+**Cross-feature table reads (the service-layer rule).** A feature service MAY query another feature's Exposed table objects directly when the read must run **inside its own transaction** (SQL joins, atomic snapshots — e.g. every service's `Users` name/soft-delete joins, pulse's eligibility snapshot over `UserDisabledFeatures`, reviews ↔ review-periods): calling the other feature's *service* would open a second transaction and break atomicity. Route handlers never touch tables (services only), and the three sanctioned **route-side** compositions stay dashboard/summary, the `/teams/members` enrichment, and the pulse `…/participation-status` assembly — all batched, set-at-a-time, never per-row loops.
 
 Current migrations are `V1`–`V61`. **The per-migration catalog lives in `.claude/docs/features/migrations.md`** — read it before adding a migration or reasoning about schema history.
 

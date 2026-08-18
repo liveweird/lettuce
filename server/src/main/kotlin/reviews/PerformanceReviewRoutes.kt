@@ -2,6 +2,7 @@ package ch.nokillswit.reviews
 
 import ch.nokillswit.authz.requireDirectReport
 import ch.nokillswit.authz.ForbiddenException
+import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAuditListAccess
 import ch.nokillswit.authz.requireFeatureEnabled
@@ -19,7 +20,6 @@ import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserServiceKey
-import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
@@ -81,36 +81,28 @@ fun Application.configurePerformanceReviewRoutes() {
     val notificationService = attributes[NotificationServiceKey]
     val userService = attributes[UserServiceKey]
 
-    // The uniform read preamble (the 404-before-403 idiom): resolves the review and enforces
-    // the document read rule (manager / audited HR at any status; the subordinate once
-    // PUBLISHED; chain managers once out of DRAFT). A null return means the 404 response was
-    // already sent; the guard itself throws ForbiddenException. Shared by the document and
-    // events GETs.
-    suspend fun readGuardedReview(call: ApplicationCall, reviewId: UInt): PerformanceReviewResponse? {
+    // The uniform read preamble (the 404-before-403 idiom): resolves the review (missing →
+    // NotFoundException) and enforces the document read rule (manager / audited HR at any
+    // status; the subordinate once PUBLISHED; chain managers once out of DRAFT — the guard
+    // itself throws ForbiddenException). Shared by the document and events GETs.
+    suspend fun readGuardedReview(call: ApplicationCall, reviewId: UInt): PerformanceReviewResponse {
         val caller = call.reviewCaller()
         val review = reviewService.read(reviewId)
-        if (review == null) {
-            call.respondProblem(HttpStatusCode.NotFound, "Performance review not found")
-            return null
-        }
+            ?: throw NotFoundException("Performance review not found")
         requirePerformanceReviewReadAllowingManager(caller, review) {
             reviewService.managesSubordinate(caller.userId, review.subordinateId)
         }
         return review
     }
 
-    // The write sibling: manager-only (nobody else — ADMIN included). Same null = the 404 was
-    // already sent contract; guards run BEFORE any body is received, so an outsider's
-    // malformed payload is still 403.
-    suspend fun writeGuardedReview(call: ApplicationCall, reviewId: UInt): PerformanceReviewResponse? {
+    // The write sibling: manager-only (nobody else — ADMIN included). Guards run BEFORE any
+    // body is received, so an outsider's malformed payload is still 403.
+    suspend fun writeGuardedReview(call: ApplicationCall, reviewId: UInt): PerformanceReviewResponse {
         // The gated caller resolves FIRST: a PERFORMANCE_REVIEWS-disabled caller gets a uniform
         // 403 before the read (the feature 403 must precede the 404).
         val caller = call.reviewCaller()
         val review = reviewService.read(reviewId)
-        if (review == null) {
-            call.respondProblem(HttpStatusCode.NotFound, "Performance review not found")
-            return null
-        }
+            ?: throw NotFoundException("Performance review not found")
         requirePerformanceReviewWrite(caller, review)
         return review
     }
@@ -127,7 +119,7 @@ fun Application.configurePerformanceReviewRoutes() {
         from: PerformanceReviewStatus,
         target: PerformanceReviewStatus,
     ) {
-        val existing = writeGuardedReview(call, reviewId) ?: return
+        val existing = writeGuardedReview(call, reviewId)
         // Submission only: an incomplete review may not enter calibration — all four ratings
         // and summaries must be filled (the goals stale-due-date activate idiom: a route-side
         // 400 against the pre-read).
@@ -135,10 +127,7 @@ fun Application.configurePerformanceReviewRoutes() {
             requireCompleteAssessments(assessmentsOf(existing))
         }
         val toNotify = reviewService.transition(reviewId, from, target)
-        if (toNotify == null) {
-            call.respondProblem(HttpStatusCode.NotFound, "Performance review not found")
-            return
-        }
+            ?: throw NotFoundException("Performance review not found")
         toNotify.forEach { notificationService.create(it) }
         reviewEventService.create(reviewTransitionEvent(from, target).toEvent(reviewId, call.caller().userId))
         call.respond(HttpStatusCode.NoContent)
@@ -228,18 +217,17 @@ fun Application.configurePerformanceReviewRoutes() {
                 call.respond(HttpStatusCode.Created, created)
             }
             get<PerformanceReviews.Id> { route ->
-                val review = readGuardedReview(call, route.id) ?: return@get
+                val review = readGuardedReview(call, route.id)
                 call.respond(HttpStatusCode.OK, review)
             }
             put<PerformanceReviews.Id> { route ->
-                val existing = writeGuardedReview(call, route.id) ?: return@put
+                val existing = writeGuardedReview(call, route.id)
                 val edit = call.receive<PerformanceReviewUpdateRequest>()
                 // Field validation, the PUBLISHED read-only rule (409), and the CALIBRATION
                 // completeness rule all happen in the service, atomically with the update.
                 val updated = reviewService.update(route.id, edit)
                 if (updated == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Performance review not found")
-                    return@put
+                    throw NotFoundException("Performance review not found")
                 }
                 // Audit: one event per changed aspect; a no-op PUT records nothing.
                 reviewUpdateEvents(existing, edit).forEach { descriptor ->
@@ -274,22 +262,21 @@ fun Application.configurePerformanceReviewRoutes() {
             get<PerformanceReviews.Id.Events> { route ->
                 val reviewId = route.parent.id
                 // Whoever may read the review may read its history.
-                readGuardedReview(call, reviewId) ?: return@get
+                readGuardedReview(call, reviewId)
                 call.respond(
                     HttpStatusCode.OK,
                     PerformanceReviewEventListResponse(reviewEventService.listForReview(reviewId)),
                 )
             }
             delete<PerformanceReviews.Id> { route ->
-                val existing = writeGuardedReview(call, route.id) ?: return@delete
+                val existing = writeGuardedReview(call, route.id)
                 // Delete is a draft-only action (it also frees the (subordinate, period) slot);
                 // reviews past DRAFT move through the transitions instead, keeping the record.
                 if (existing.status != PerformanceReviewStatus.DRAFT) {
                     throw BadRequestException("Only a draft performance review may be deleted")
                 }
                 if (reviewService.delete(route.id) == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Performance review not found")
-                    return@delete
+                    throw NotFoundException("Performance review not found")
                 }
                 // Audit the deletion against the acting manager (events outlive the soft-deleted
                 // row). No notification — deleting a private draft is invisible activity.

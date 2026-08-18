@@ -3,6 +3,7 @@ package ch.nokillswit.goals
 import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.infra.crypto.EncryptedAtRest
 import ch.nokillswit.infra.crypto.FieldCipher
+import ch.nokillswit.infra.crypto.reencryptRows
 import ch.nokillswit.infra.db.containsNormalized
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
@@ -463,31 +464,10 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
      * returns the rewritten count.
      */
     override suspend fun encryptLegacyRows(reencryptAll: Boolean): Int = suspendTransaction(database) {
-        val enveloped = "${FieldCipher.PREFIX}%"
-        val legacyOnly = (Goals.description notLike enveloped) or
-            (Goals.summary.isNotNull() and (Goals.summary notLike enveloped))
-        val rows = Goals
-            .select(Goals.id, Goals.description, Goals.summary)
-            .where { if (reencryptAll) Op.TRUE else legacyOnly }
-            .toList()
-        rows.forEach { row ->
-            Goals.update({ Goals.id eq row[Goals.id] }) {
-                it[description] = cipher.encrypt(cipher.decrypt(row[Goals.description]))
-                it[summary] = row[Goals.summary]?.let { s -> cipher.encrypt(cipher.decrypt(s)) }
-            }
-        }
-        // Milestone descriptions ride the same envelope — this pass also encrypts the V56
-        // conversion's plaintext 'Done' rows at first boot.
-        val milestoneRows = Milestones
-            .select(Milestones.id, Milestones.description)
-            .where { if (reencryptAll) Op.TRUE else Milestones.description notLike enveloped }
-            .toList()
-        milestoneRows.forEach { row ->
-            Milestones.update({ Milestones.id eq row[Milestones.id] }) {
-                it[description] = cipher.encrypt(cipher.decrypt(row[Milestones.description]))
-            }
-        }
-        rows.size + milestoneRows.size
+        // Milestone descriptions ride the same envelope in the SAME transaction — the pass
+        // also encrypts the V56 conversion's plaintext 'Done' rows at first boot.
+        cipher.reencryptRows(Goals, listOf(Goals.description, Goals.summary), reencryptAll) +
+            cipher.reencryptRows(Milestones, listOf(Milestones.description), reencryptAll)
     }
 
     private fun joined() = Goals

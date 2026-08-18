@@ -1,12 +1,12 @@
 package ch.nokillswit.templates
 
 import ch.nokillswit.audit.audit
+import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAdmin
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.optionalString
 import ch.nokillswit.infra.paging.toPage
-import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
@@ -60,10 +60,7 @@ fun Application.configureTemplateRoutes() {
             get<Templates.Id> { route ->
                 call.caller()
                 val template = templateService.read(route.id)
-                if (template == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Template not found")
-                    return@get
-                }
+                    ?: throw NotFoundException("Template not found")
                 call.respond(HttpStatusCode.OK, template.toResponse(route.id))
             }
             put<Templates.Id> { route ->
@@ -73,21 +70,19 @@ fun Application.configureTemplateRoutes() {
                 validateTemplateName(template.name)
                 validateTemplateContent(template.content)
                 if (templateService.update(route.id, template) == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Template not found")
-                } else {
-                    audit("template.updated", "byUserId" to caller.userId.toLong(), "templateId" to route.id.toLong())
-                    call.respond(HttpStatusCode.NoContent)
+                    throw NotFoundException("Template not found")
                 }
+                audit("template.updated", "byUserId" to caller.userId.toLong(), "templateId" to route.id.toLong())
+                call.respond(HttpStatusCode.NoContent)
             }
             delete<Templates.Id> { route ->
                 val caller = call.caller()
                 requireAdmin(caller)
                 if (templateService.delete(route.id) == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Template not found")
-                } else {
-                    audit("template.deleted", "byUserId" to caller.userId.toLong(), "templateId" to route.id.toLong())
-                    call.respond(HttpStatusCode.NoContent)
+                    throw NotFoundException("Template not found")
                 }
+                audit("template.deleted", "byUserId" to caller.userId.toLong(), "templateId" to route.id.toLong())
+                call.respond(HttpStatusCode.NoContent)
             }
         }
     }

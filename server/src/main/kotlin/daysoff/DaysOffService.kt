@@ -1,6 +1,7 @@
 package ch.nokillswit.daysoff
 
 import ch.nokillswit.infra.crypto.EncryptedAtRest
+import ch.nokillswit.infra.crypto.reencryptRows
 import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.infra.db.containsNormalized
 import ch.nokillswit.infra.paging.PageRequest
@@ -595,18 +596,7 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
      * row is rewritten under the current key. Idempotent; returns the rewritten count.
      */
     override suspend fun encryptLegacyRows(reencryptAll: Boolean): Int = suspendTransaction(database) {
-        val enveloped = "${ch.nokillswit.infra.crypto.FieldCipher.PREFIX}%"
-        val rows = Corrections
-            .select(Corrections.id, Corrections.comment)
-            .where { if (reencryptAll) Op.TRUE else Corrections.comment notLike enveloped }
-            .map { it[Corrections.id] to it[Corrections.comment] }
-            .toList()
-        rows.forEach { (id, comment) ->
-            Corrections.update({ Corrections.id eq id }) {
-                it[this.comment] = cipher.encrypt(cipher.decrypt(comment))
-            }
-        }
-        rows.size
+        cipher.reencryptRows(Corrections, listOf(Corrections.comment), reencryptAll)
     }
 
     // ── Card-stat batch helpers (v1.44.0 — the activeGoalCountsBy* shape, page-scoped) ─────

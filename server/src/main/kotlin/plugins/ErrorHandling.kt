@@ -3,6 +3,7 @@ package ch.nokillswit.plugins
 import ch.nokillswit.audit.audit
 import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.authz.ForbiddenException
+import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.TooManyRequestsException
 import ch.nokillswit.authz.UnauthorizedException
 import io.ktor.server.auth.jwt.JWTPrincipal
@@ -125,6 +126,9 @@ fun Application.configureErrorHandling() {
                 "detail" to cause.message,
             )
             call.respondProblem(HttpStatusCode.Forbidden, cause.message ?: "Forbidden")
+        }
+        exception<NotFoundException> { call, cause ->
+            call.respondProblem(HttpStatusCode.NotFound, cause.message ?: "Resource not found")
         }
         exception<ConflictException> { call, cause ->
             call.respondProblem(HttpStatusCode.Conflict, cause.message ?: "Conflict", instance = cause.instance)

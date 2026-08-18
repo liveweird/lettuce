@@ -2,6 +2,7 @@ package ch.nokillswit.teamkpis
 
 import ch.nokillswit.authz.requireDirectReport
 import ch.nokillswit.authz.ForbiddenException
+import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.authz.requireTeamKpiReadAllowingChain
@@ -16,7 +17,6 @@ import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.notifications.NotificationType
-import ch.nokillswit.plugins.respondProblem
 import ch.nokillswit.users.Feature
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -107,17 +107,14 @@ fun Application.configureTeamKpiRoutes() {
         ).forEach { notificationService.create(it) }
     }
 
-    // The uniform read preamble (the 404-before-403 idiom): resolves the KPI and enforces the
-    // document read rule (manager / audited HR at any status; member / chain once out of
-    // DRAFT). A null return means the 404 response was already sent; the guard itself throws
-    // ForbiddenException. Shared by the document, values, and events GETs.
-    suspend fun readGuardedKpi(call: ApplicationCall, kpiId: UInt): TeamKpiResponse? {
+    // The uniform read preamble (the 404-before-403 idiom): resolves the KPI (missing →
+    // NotFoundException) and enforces the document read rule (manager / audited HR at any
+    // status; member / chain once out of DRAFT — the guard itself throws ForbiddenException).
+    // Shared by the document, values, and events GETs.
+    suspend fun readGuardedKpi(call: ApplicationCall, kpiId: UInt): TeamKpiResponse {
         val caller = call.teamKpiCaller()
         val kpi = kpiService.read(kpiId)
-        if (kpi == null) {
-            call.respondProblem(HttpStatusCode.NotFound, "Team KPI not found")
-            return null
-        }
+            ?: throw NotFoundException("Team KPI not found")
         requireTeamKpiReadAllowingChain(
             caller,
             kpi,
@@ -127,18 +124,14 @@ fun Application.configureTeamKpiRoutes() {
         return kpi
     }
 
-    // The write sibling: current-manager-only (nobody else — ADMIN included). Same null = the
-    // 404 was already sent contract; guards run BEFORE any body is received, so an outsider's
-    // malformed payload is still 403.
-    suspend fun writeGuardedKpi(call: ApplicationCall, kpiId: UInt): TeamKpiResponse? {
+    // The write sibling: current-manager-only (nobody else — ADMIN included). Guards run
+    // BEFORE any body is received, so an outsider's malformed payload is still 403.
+    suspend fun writeGuardedKpi(call: ApplicationCall, kpiId: UInt): TeamKpiResponse {
         // The gated caller resolves FIRST: a TEAM_KPIS-disabled caller gets a uniform 403
         // before the read (the feature 403 must precede the 404).
         val caller = call.teamKpiCaller()
         val kpi = kpiService.read(kpiId)
-        if (kpi == null) {
-            call.respondProblem(HttpStatusCode.NotFound, "Team KPI not found")
-            return null
-        }
+            ?: throw NotFoundException("Team KPI not found")
         requireTeamKpiWrite(caller, kpi)
         return kpi
     }
@@ -156,7 +149,7 @@ fun Application.configureTeamKpiRoutes() {
         target: TeamKpiStatus,
         receiveSummary: (suspend () -> String?)? = null,
     ) {
-        val existing = writeGuardedKpi(call, kpiId) ?: return
+        val existing = writeGuardedKpi(call, kpiId)
         // The archive body is received (and validated) only after the write guard, so a
         // non-manager's malformed or blank summary is still 403 on a foreign KPI, not 400.
         // Validated only while the row sits at the edge's source status — an off-edge call
@@ -164,10 +157,7 @@ fun Application.configureTeamKpiRoutes() {
         val summary = receiveSummary?.invoke()
         if (existing.status == from && target == TeamKpiStatus.ARCHIVED) validateTeamKpiSummary(summary)
         val toNotify = kpiService.transition(kpiId, from, target, summary)
-        if (toNotify == null) {
-            call.respondProblem(HttpStatusCode.NotFound, "Team KPI not found")
-            return
-        }
+            ?: throw NotFoundException("Team KPI not found")
         toNotify.forEach { notificationService.create(it) }
         kpiEventService.create(teamKpiTransitionEvent(from, target).toEvent(kpiId, call.caller().userId))
         call.respond(HttpStatusCode.NoContent)
@@ -226,18 +216,17 @@ fun Application.configureTeamKpiRoutes() {
                 call.respond(HttpStatusCode.Created, created)
             }
             get<TeamKpis.Id> { route ->
-                val kpi = readGuardedKpi(call, route.id) ?: return@get
+                val kpi = readGuardedKpi(call, route.id)
                 call.respond(HttpStatusCode.OK, kpi)
             }
             put<TeamKpis.Id> { route ->
-                val existing = writeGuardedKpi(call, route.id) ?: return@put
+                val existing = writeGuardedKpi(call, route.id)
                 val edit = call.receive<TeamKpiDefinitionUpdate>()
                 // DRAFT-only (else 409) and per-type validation both happen in the service,
                 // atomically with the update.
                 val updated = kpiService.updateDefinition(route.id, edit)
                 if (updated == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Team KPI not found")
-                    return@put
+                    throw NotFoundException("Team KPI not found")
                 }
                 // Audit: one event per changed aspect; a no-op PUT records nothing.
                 teamKpiDefinitionUpdateEvents(existing, edit).forEach { descriptor ->
@@ -249,20 +238,17 @@ fun Application.configureTeamKpiRoutes() {
                 // Whoever may read the KPI may read its data points (the KPI data tab and the
                 // Graph tab both feed on them).
                 val kpiId = route.parent.id
-                readGuardedKpi(call, kpiId) ?: return@get
+                readGuardedKpi(call, kpiId)
                 call.respond(HttpStatusCode.OK, TeamKpiValueListResponse(kpiService.listValues(kpiId)))
             }
             post<TeamKpis.Id.Values> { route ->
                 val kpiId = route.parent.id
-                val existing = writeGuardedKpi(call, kpiId) ?: return@post
+                val existing = writeGuardedKpi(call, kpiId)
                 val write = call.receive<TeamKpiValueWrite>()
                 // ACTIVE-only (else 409) and the value/date checks both happen in the service;
                 // a duplicate date raises 23505 → 409 via the central mapping.
                 val newId = kpiService.addValue(kpiId, write)
-                if (newId == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Team KPI not found")
-                    return@post
-                }
+                    ?: throw NotFoundException("Team KPI not found")
                 notifyValueChange(
                     existing,
                     kpiId,
@@ -284,13 +270,10 @@ fun Application.configureTeamKpiRoutes() {
             }
             put<TeamKpis.Id.Values.ValueId> { route ->
                 val kpiId = route.parent.parent.id
-                val existing = writeGuardedKpi(call, kpiId) ?: return@put
+                val existing = writeGuardedKpi(call, kpiId)
                 val write = call.receive<TeamKpiValueWrite>()
                 val correction = kpiService.correctValue(kpiId, route.valueId, write)
-                if (correction == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Team KPI data point not found")
-                    return@put
-                }
+                    ?: throw NotFoundException("Team KPI data point not found")
                 // An exact no-op corrected nothing — no event, no notification, still 204.
                 if (correction.changed) {
                     notifyValueChange(
@@ -313,12 +296,9 @@ fun Application.configureTeamKpiRoutes() {
             }
             delete<TeamKpis.Id.Values.ValueId> { route ->
                 val kpiId = route.parent.parent.id
-                val existing = writeGuardedKpi(call, kpiId) ?: return@delete
+                val existing = writeGuardedKpi(call, kpiId)
                 val removed = kpiService.removeValue(kpiId, route.valueId)
-                if (removed == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Team KPI data point not found")
-                    return@delete
-                }
+                    ?: throw NotFoundException("Team KPI data point not found")
                 notifyValueChange(
                     existing,
                     kpiId,
@@ -345,19 +325,18 @@ fun Application.configureTeamKpiRoutes() {
             get<TeamKpis.Id.Events> { route ->
                 // Whoever may read the KPI may read its history (the Graph tab feeds on it).
                 val kpiId = route.parent.id
-                readGuardedKpi(call, kpiId) ?: return@get
+                readGuardedKpi(call, kpiId)
                 call.respond(HttpStatusCode.OK, TeamKpiEventListResponse(kpiEventService.listForKpi(kpiId)))
             }
             delete<TeamKpis.Id> { route ->
-                val existing = writeGuardedKpi(call, route.id) ?: return@delete
+                val existing = writeGuardedKpi(call, route.id)
                 // Delete is a draft-only action; ACTIVE/ARCHIVED KPIs are archived (or reopened)
                 // through the transitions instead, keeping the record.
                 if (existing.status != TeamKpiStatus.DRAFT) {
                     throw BadRequestException("Only a draft team KPI may be deleted")
                 }
                 if (kpiService.delete(route.id) == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Team KPI not found")
-                    return@delete
+                    throw NotFoundException("Team KPI not found")
                 }
                 // Audit the deletion against the acting manager (events outlive the soft-deleted
                 // row). No notification — deleting a private draft is invisible activity.

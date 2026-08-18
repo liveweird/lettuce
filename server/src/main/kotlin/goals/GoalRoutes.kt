@@ -2,6 +2,7 @@ package ch.nokillswit.goals
 
 import ch.nokillswit.authz.requireDirectReport
 import ch.nokillswit.authz.ForbiddenException
+import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAuditListAccess
 import ch.nokillswit.authz.requireFeatureEnabled
@@ -20,7 +21,6 @@ import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserServiceKey
-import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
@@ -87,35 +87,28 @@ fun Application.configureGoalRoutes() {
     val notificationService = attributes[NotificationServiceKey]
     val userService = attributes[UserServiceKey]
 
-    // The uniform read preamble (the 404-before-403 idiom): resolves the goal and enforces the
-    // document read rule (parties / audited HR at any status; chain managers once out of
-    // DRAFT). A null return means the 404 response was already sent; the guard itself throws
-    // ForbiddenException. Shared by the document and events GETs.
-    suspend fun readGuardedGoal(call: ApplicationCall, goalId: UInt): GoalResponse? {
+    // The uniform read preamble (the 404-before-403 idiom): resolves the goal (missing →
+    // NotFoundException) and enforces the document read rule (parties / audited HR at any
+    // status; chain managers once out of DRAFT — the guard itself throws ForbiddenException).
+    // Shared by the document and events GETs.
+    suspend fun readGuardedGoal(call: ApplicationCall, goalId: UInt): GoalResponse {
         val caller = call.goalCaller()
         val goal = goalService.read(goalId)
-        if (goal == null) {
-            call.respondProblem(HttpStatusCode.NotFound, "Goal not found")
-            return null
-        }
+            ?: throw NotFoundException("Goal not found")
         requireGoalReadAllowingManager(caller, goal) {
             goalService.managesSubordinate(caller.userId, goal.subordinateId)
         }
         return goal
     }
 
-    // The write sibling: manager-only (nobody else — ADMIN included). Same null = the 404 was
-    // already sent contract; guards run BEFORE any body is received, so an outsider's
-    // malformed payload is still 403.
-    suspend fun writeGuardedGoal(call: ApplicationCall, goalId: UInt): GoalResponse? {
+    // The write sibling: manager-only (nobody else — ADMIN included). Guards run BEFORE any
+    // body is received, so an outsider's malformed payload is still 403.
+    suspend fun writeGuardedGoal(call: ApplicationCall, goalId: UInt): GoalResponse {
         // The gated caller resolves FIRST: a GOALS-disabled caller gets a uniform 403
         // before the read (the feature 403 must precede the 404).
         val caller = call.goalCaller()
         val goal = goalService.read(goalId)
-        if (goal == null) {
-            call.respondProblem(HttpStatusCode.NotFound, "Goal not found")
-            return null
-        }
+            ?: throw NotFoundException("Goal not found")
         requireGoalWrite(caller, goal)
         return goal
     }
@@ -132,7 +125,7 @@ fun Application.configureGoalRoutes() {
         target: GoalStatus,
         receiveSummary: (suspend () -> String?)? = null,
     ) {
-        val existing = writeGuardedGoal(call, goalId) ?: return
+        val existing = writeGuardedGoal(call, goalId)
         // Payload/state pre-checks apply only while the row actually sits at the edge's source
         // status — off-edge calls must reach the service so its status check answers the
         // documented 409 (an ARCHIVED goal's stale due date must not turn activate into a 400).
@@ -152,10 +145,7 @@ fun Application.configureGoalRoutes() {
         val summary = receiveSummary?.invoke()
         if (atSource && target == GoalStatus.ARCHIVED) validateGoalSummary(summary)
         val toNotify = goalService.transition(goalId, from, target, summary)
-        if (toNotify == null) {
-            call.respondProblem(HttpStatusCode.NotFound, "Goal not found")
-            return
-        }
+            ?: throw NotFoundException("Goal not found")
         toNotify.forEach { notificationService.create(it) }
         goalEventService.create(goalTransitionEvent(from, target).toEvent(goalId, call.caller().userId))
         call.respond(HttpStatusCode.NoContent)
@@ -243,18 +233,17 @@ fun Application.configureGoalRoutes() {
                 call.respond(HttpStatusCode.Created, created)
             }
             get<Goals.Id> { route ->
-                val goal = readGuardedGoal(call, route.id) ?: return@get
+                val goal = readGuardedGoal(call, route.id)
                 call.respond(HttpStatusCode.OK, goal)
             }
             put<Goals.Id> { route ->
-                val existing = writeGuardedGoal(call, route.id) ?: return@put
+                val existing = writeGuardedGoal(call, route.id)
                 val edit = call.receive<GoalDefinitionUpdate>()
                 // DRAFT-only (else 409) and per-type validation both happen in the service,
                 // atomically with the update.
                 val updated = goalService.updateDefinition(route.id, edit)
                 if (updated == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Goal not found")
-                    return@put
+                    throw NotFoundException("Goal not found")
                 }
                 // Audit: one event per changed aspect; a no-op PUT records nothing.
                 goalDefinitionUpdateEvents(existing, edit).forEach { descriptor ->
@@ -268,18 +257,12 @@ fun Application.configureGoalRoutes() {
                 // definition/lifecycle routes keep the manager-only writeGuardedGoal.
                 val caller = call.goalCaller()
                 val existing = goalService.read(goalId)
-                if (existing == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Goal not found")
-                    return@put
-                }
+                    ?: throw NotFoundException("Goal not found")
                 requireGoalProgressWrite(caller, existing)
                 val edit = call.receive<GoalProgressUpdate>()
                 // ACTIVE-only (else 409) and the per-type field check both happen in the service.
                 val toNotify = goalService.updateProgress(goalId, caller.userId, edit)
-                if (toNotify == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Goal not found")
-                    return@put
-                }
+                    ?: throw NotFoundException("Goal not found")
                 toNotify.forEach { notificationService.create(it) }
                 // State change → MILESTONE_COMPLETED/REOPENED per toggle (PLAN) or one
                 // PROGRESS_UPDATED (numeric); comment-only → PROGRESS_COMMENTED; true no-op →
@@ -315,19 +298,18 @@ fun Application.configureGoalRoutes() {
             get<Goals.Id.Events> { route ->
                 val goalId = route.parent.id
                 // Whoever may read the goal may read its history.
-                readGuardedGoal(call, goalId) ?: return@get
+                readGuardedGoal(call, goalId)
                 call.respond(HttpStatusCode.OK, GoalEventListResponse(goalEventService.listForGoal(goalId)))
             }
             delete<Goals.Id> { route ->
-                val existing = writeGuardedGoal(call, route.id) ?: return@delete
+                val existing = writeGuardedGoal(call, route.id)
                 // Delete is a draft-only action; ACTIVE/ARCHIVED goals are closed (or reopened)
                 // through the transitions instead, keeping the record.
                 if (existing.status != GoalStatus.DRAFT) {
                     throw BadRequestException("Only a draft goal may be deleted")
                 }
                 if (goalService.delete(route.id) == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Goal not found")
-                    return@delete
+                    throw NotFoundException("Goal not found")
                 }
                 // Audit the deletion against the acting manager (events outlive the soft-deleted
                 // row). No notification — deleting a private draft is invisible activity.

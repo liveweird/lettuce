@@ -2,6 +2,7 @@ package ch.nokillswit.pulse
 
 import ch.nokillswit.infra.crypto.EncryptedAtRest
 import ch.nokillswit.infra.crypto.FieldCipher
+import ch.nokillswit.infra.crypto.reencryptRows
 import ch.nokillswit.users.UserService
 import io.ktor.util.AttributeKey
 import kotlinx.coroutines.flow.map
@@ -192,29 +193,17 @@ class PulseResponseService(val database: R2dbcDatabase, private val cipher: Fiel
      * key. Idempotent; returns the rewritten count.
      */
     override suspend fun encryptLegacyRows(reencryptAll: Boolean): Int = suspendTransaction(database) {
-        val enveloped = "${FieldCipher.PREFIX}%"
-        val legacyOnly = (PulseResponses.enps notLike enveloped) or
-            (PulseResponses.driver1 notLike enveloped) or
-            (PulseResponses.driver2 notLike enveloped) or
-            (PulseResponses.driver3 notLike enveloped) or
-            (PulseResponses.driver4 notLike enveloped) or
-            (PulseResponses.rotating notLike enveloped) or
-            (PulseResponses.comment.isNotNull() and (PulseResponses.comment notLike enveloped))
-        val rows = PulseResponses.selectAll()
-            .where { if (reencryptAll) Op.TRUE else legacyOnly }
-            .toList()
-        rows.forEach { row ->
-            PulseResponses.update({ PulseResponses.id eq row[PulseResponses.id] }) {
-                it[enps] = cipher.encrypt(cipher.decrypt(row[PulseResponses.enps]))
-                it[driver1] = cipher.encrypt(cipher.decrypt(row[PulseResponses.driver1]))
-                it[driver2] = cipher.encrypt(cipher.decrypt(row[PulseResponses.driver2]))
-                it[driver3] = cipher.encrypt(cipher.decrypt(row[PulseResponses.driver3]))
-                it[driver4] = cipher.encrypt(cipher.decrypt(row[PulseResponses.driver4]))
-                it[rotating] = cipher.encrypt(cipher.decrypt(row[PulseResponses.rotating]))
-                it[comment] = row[PulseResponses.comment]?.let { c -> cipher.encrypt(cipher.decrypt(c)) }
-            }
-        }
-        rows.size
+        cipher.reencryptRows(
+            PulseResponses,
+            listOf(
+                PulseResponses.enps,
+                PulseResponses.driver1, PulseResponses.driver2,
+                PulseResponses.driver3, PulseResponses.driver4,
+                PulseResponses.rotating,
+                PulseResponses.comment,
+            ),
+            reencryptAll,
+        )
     }
 
     private fun ResultRow.toAnswers() = PulseAnswers(

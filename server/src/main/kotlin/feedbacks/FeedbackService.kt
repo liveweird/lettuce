@@ -3,6 +3,7 @@ package ch.nokillswit.feedbacks
 import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.infra.crypto.EncryptedAtRest
 import ch.nokillswit.infra.crypto.FieldCipher
+import ch.nokillswit.infra.crypto.reencryptRows
 import ch.nokillswit.infra.db.containsNormalized
 import ch.nokillswit.infra.db.decodeParams
 import ch.nokillswit.infra.paging.PageRequest
@@ -311,21 +312,7 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
      * previous key) and rewritten under the current key. Idempotent; returns the rewritten count.
      */
     override suspend fun encryptLegacyRows(reencryptAll: Boolean): Int = suspendTransaction(database) {
-        val enveloped = "${FieldCipher.PREFIX}%"
-        val legacyOnly = (Feedbacks.content notLike enveloped) or
-            (Feedbacks.requesterMessage.isNotNull() and (Feedbacks.requesterMessage notLike enveloped))
-        val rows = Feedbacks
-            .select(Feedbacks.id, Feedbacks.content, Feedbacks.requesterMessage)
-            .where { if (reencryptAll) Op.TRUE else legacyOnly }
-            .toList()
-        rows.forEach { row ->
-            Feedbacks.update({ Feedbacks.id eq row[Feedbacks.id] }) {
-                it[content] = cipher.encrypt(cipher.decrypt(row[Feedbacks.content]))
-                it[requesterMessage] =
-                    row[Feedbacks.requesterMessage]?.let { m -> cipher.encrypt(cipher.decrypt(m)) }
-            }
-        }
-        rows.size
+        cipher.reencryptRows(Feedbacks, listOf(Feedbacks.content, Feedbacks.requesterMessage), reencryptAll)
     }
 
     /**

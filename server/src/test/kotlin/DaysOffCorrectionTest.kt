@@ -7,6 +7,7 @@ import ch.nokillswit.daysoff.DaysOffCorrectionResponse
 import ch.nokillswit.daysoff.DaysOffCorrectionWrite
 import ch.nokillswit.daysoff.DaysOffCreateRequest
 import ch.nokillswit.daysoff.DaysOffType
+import ch.nokillswit.infra.crypto.DEV_DATA_ENCRYPTION_KEY
 import ch.nokillswit.infra.crypto.FieldCipher
 import ch.nokillswit.notifications.NotificationPageResponse
 import ch.nokillswit.notifications.NotificationType
@@ -27,6 +28,7 @@ import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.r2dbc.insert
 import org.jetbrains.exposed.v1.r2dbc.selectAll
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 import java.time.DayOfWeek
@@ -290,5 +292,69 @@ class DaysOffCorrectionTest {
         }
         assertTrue(raw.startsWith(FieldCipher.PREFIX), "expected an encrypted envelope, got: ${raw.take(20)}")
         assertTrue(!raw.contains(secret))
+    }
+
+    private suspend fun rawComment(id: UInt): String = suspendTransaction(TestDaysOff.service.database) {
+        ch.nokillswit.daysoff.DaysOffService.Corrections
+            .selectAll()
+            .where { ch.nokillswit.daysoff.DaysOffService.Corrections.id eq id }
+            .map { it[ch.nokillswit.daysoff.DaysOffService.Corrections.comment] }
+            .toList()
+            .single()
+    }
+
+    @Test
+    fun `the startup backfill encrypts legacy plaintext correction comments`() = testApplication {
+        usePostgresTestcontainer()
+        val mgrId = TestUsers.seed(uniqueEmail("corrbf-m"), "pw", roles = emptySet())
+        val subId = TestUsers.seed(uniqueEmail("corrbf-s"), "pw", roles = emptySet())
+
+        // A row written before the cipher existed: raw plaintext, inserted below the service.
+        val legacyId = suspendTransaction(TestDaysOff.service.database) {
+            ch.nokillswit.daysoff.DaysOffService.Corrections.insert {
+                it[ch.nokillswit.daysoff.DaysOffService.Corrections.userId] = subId
+                it[ch.nokillswit.daysoff.DaysOffService.Corrections.authorId] = mgrId
+                it[ch.nokillswit.daysoff.DaysOffService.Corrections.year] = 2078
+                it[ch.nokillswit.daysoff.DaysOffService.Corrections.amountHalfDays] = 4
+                it[ch.nokillswit.daysoff.DaysOffService.Corrections.comment] = "legacy plaintext comment"
+                it[ch.nokillswit.daysoff.DaysOffService.Corrections.createdAt] = System.currentTimeMillis()
+                it[ch.nokillswit.daysoff.DaysOffService.Corrections.lastModified] = System.currentTimeMillis()
+            }[ch.nokillswit.daysoff.DaysOffService.Corrections.id].value
+        }
+
+        assertTrue(TestDaysOff.service.encryptLegacyRows() >= 1)
+        val raw = rawComment(legacyId)
+        assertTrue(raw.startsWith(FieldCipher.PREFIX))
+        // The service reads it back decrypted, and a second pass leaves the row untouched.
+        assertEquals("legacy plaintext comment", TestDaysOff.service.readCorrection(legacyId)?.comment)
+        TestDaysOff.service.encryptLegacyRows()
+        assertEquals(raw, rawComment(legacyId))
+    }
+
+    @Test
+    fun `rotation - reencryptAll rewrites correction comments under the current key`() = testApplication {
+        usePostgresTestcontainer()
+        val mgrEmail = uniqueEmail("corrrot-m")
+        val mgrId = TestUsers.seed(mgrEmail, "pw", roles = emptySet())
+        val subId = TestUsers.seed(uniqueEmail("corrrot-s"), "pw", roles = emptySet())
+        val teamId = TestServices.teams.create(Team(name = "corrrot-${java.util.UUID.randomUUID()}", managerId = mgrId))
+        TestServices.teams.addMember(teamId, subId)
+        val manager = authedClient(mgrEmail, "pw")
+        val oldKey = DEV_DATA_ENCRYPTION_KEY
+        val newKey = "0000000000000000000000000000000000000000000000000000000000000007"
+
+        // A row encrypted under the old key (as the whole DB is before a rotation).
+        val created = manager.createCorrection(subId, year = 2079, comment = "rotate me")
+            .body<DaysOffCorrectionResponse>()
+
+        // Boot-time state during rotation: current = new key, previous = old key.
+        val rotatingService = ch.nokillswit.daysoff.DaysOffService(
+            TestDaysOff.service.database,
+            FieldCipher(newKey, previousKeyHex = oldKey),
+        )
+        assertTrue(rotatingService.encryptLegacyRows(reencryptAll = true) >= 1)
+
+        // After the backfill the new key ALONE decrypts the row — the old key can be retired.
+        assertEquals("rotate me", FieldCipher(newKey).decrypt(rawComment(created.id)))
     }
 }

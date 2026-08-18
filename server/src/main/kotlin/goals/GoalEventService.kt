@@ -2,6 +2,7 @@ package ch.nokillswit.goals
 
 import ch.nokillswit.infra.crypto.EncryptedAtRest
 import ch.nokillswit.infra.crypto.FieldCipher
+import ch.nokillswit.infra.crypto.reencryptRows
 import ch.nokillswit.infra.db.EventLog
 import ch.nokillswit.infra.db.EventLogTable
 import io.ktor.util.AttributeKey
@@ -65,18 +66,7 @@ class GoalEventService(val database: R2dbcDatabase, private val cipher: FieldCip
      * current key. Idempotent; returns the rewritten count. Params stay plaintext by design.
      */
     override suspend fun encryptLegacyRows(reencryptAll: Boolean): Int = suspendTransaction(database) {
-        val enveloped = "${FieldCipher.PREFIX}%"
-        val hasComment: Op<Boolean> = GoalEvents.comment.isNotNull()
-        val legacyOnly = hasComment and (GoalEvents.comment notLike enveloped)
-        val rows = GoalEvents
-            .select(GoalEvents.id, GoalEvents.comment)
-            .where { if (reencryptAll) hasComment else legacyOnly }
-            .toList()
-        rows.forEach { row ->
-            GoalEvents.update({ GoalEvents.id eq row[GoalEvents.id] }) {
-                it[comment] = cipher.encrypt(cipher.decrypt(row[GoalEvents.comment]!!))
-            }
-        }
-        rows.size
+        // All-nullable column list → the rotation pass touches commented rows only.
+        cipher.reencryptRows(GoalEvents, listOf(GoalEvents.comment), reencryptAll)
     }
 }
