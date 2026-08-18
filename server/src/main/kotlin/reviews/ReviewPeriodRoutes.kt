@@ -1,6 +1,7 @@
 package ch.nokillswit.reviews
 
 import ch.nokillswit.audit.audit
+import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAdmin
@@ -63,7 +64,7 @@ fun Application.configureReviewPeriodRoutes() {
                     "endMonth" to request.endMonth,
                 )
                 val created = periodService.read(id)
-                    ?: error("Review period $id vanished between create and re-read")
+                    .orVanished("Review period", id)
                 call.respond(HttpStatusCode.Created, created)
             }
             delete<ReviewPeriodsResource.Id> { route ->

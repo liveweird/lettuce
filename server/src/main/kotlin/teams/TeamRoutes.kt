@@ -12,6 +12,7 @@ import ch.nokillswit.goals.GoalServiceKey
 import ch.nokillswit.infra.db.requireValidReferences
 import ch.nokillswit.oneonones.OneOnOneLatestStats
 import ch.nokillswit.oneonones.OneOnOneServiceKey
+import ch.nokillswit.infra.paging.optionalIncludeIndirect
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.optionalBoolean
 import ch.nokillswit.infra.paging.optionalString
@@ -56,10 +57,18 @@ class Teams {
 // Column limit (teams.name varchar(100)) enforced up-front: 400 instead of a DB-level 500.
 private const val MAX_TEAM_NAME_LENGTH = 100
 
-private fun validateTeamName(name: String) {
-    if (name.isBlank()) throw BadRequestException("Team name must not be blank")
-    if (name.length > MAX_TEAM_NAME_LENGTH) {
+// Roster cap (the dictionary/import scale): the memberIds array was the last unbounded array
+// payload — uncapped it dies deep in the driver (Postgres's 65535 bind-parameter ceiling on
+// the deactivated-users IN check) instead of as a clean 400. Runs BEFORE that IN query.
+private const val MAX_TEAM_MEMBERS = 200
+
+private fun validateTeam(team: Team) {
+    if (team.name.isBlank()) throw BadRequestException("Team name must not be blank")
+    if (team.name.length > MAX_TEAM_NAME_LENGTH) {
         throw BadRequestException("Team name must be at most $MAX_TEAM_NAME_LENGTH characters")
+    }
+    if (team.memberIds.size > MAX_TEAM_MEMBERS) {
+        throw BadRequestException("A team may have at most $MAX_TEAM_MEMBERS members")
     }
 }
 
@@ -128,10 +137,7 @@ fun Application.configureTeamRoutes() {
                     "managers" -> TeamMemberListView.MANAGERS
                     else -> throw BadRequestException("Unknown view: $raw (allowed: member, managed, managers)")
                 }
-                val includeIndirect = params.optionalBoolean("includeIndirect")
-                if (includeIndirect != null && view != TeamMemberListView.MANAGED) {
-                    throw BadRequestException("includeIndirect is only supported for view=managed")
-                }
+                val includeIndirect = params.optionalIncludeIndirect(view, listOf(TeamMemberListView.MANAGED))
                 val paging = call.parsePaging(sortable = setOf("id", "name", "email", "teamName"))
                 val filter = TeamMemberListFilter(
                     name = params.optionalString("name"),
@@ -143,7 +149,7 @@ fun Application.configureTeamRoutes() {
                     caller.userId,
                     filter,
                     paging,
-                    includeIndirect = includeIndirect == true,
+                    includeIndirect = includeIndirect,
                 )
                 // Every view carries per-person dashboard stats, direction switched per view:
                 // managers — the row user ran the 1:1 / provided the caller feedback
@@ -216,7 +222,7 @@ fun Application.configureTeamRoutes() {
                 val caller = call.caller()
                 val team = call.receive<Team>()
                 requireSelfOrAdmin(caller, team.managerId)
-                validateTeamName(team.name)
+                validateTeam(team)
                 // Every reference is new at create — a deactivated member or manager is a 400.
                 userService.requireNoDeactivatedUsers(team.memberIds.toSet() + team.managerId)
                 val id = requireValidReferences("Referenced user does not exist") {
@@ -245,7 +251,7 @@ fun Application.configureTeamRoutes() {
                 val team = call.receive<Team>()
                 // Authz before validation: an unauthorized reassignment is 403, not 400.
                 requireCanReassignManager(caller, existing.managerId, team.managerId)
-                validateTeamName(team.name)
+                validateTeam(team)
                 // Delta only: newly added members and a CHANGED manager. Resubmitting a member
                 // already on the roster (or the unchanged manager) is not a new assignment —
                 // a team containing a since-deactivated user must stay editable.

@@ -8,11 +8,14 @@ import ch.nokillswit.authz.requireAuditListAccess
 import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.authz.requireOneOnOneReadAllowingManager
 import ch.nokillswit.authz.requireOneOnOneWrite
+import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.infra.db.requireValidReferences
 import ch.nokillswit.infra.paging.SortField
 import ch.nokillswit.infra.paging.optionalBoolean
 import ch.nokillswit.infra.paging.optionalString
 import ch.nokillswit.infra.paging.optionalUInt
+import ch.nokillswit.infra.paging.optionalIncludeIndirect
+import ch.nokillswit.infra.paging.uintOnlyForView
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.notifications.NotificationServiceKey
@@ -179,26 +182,11 @@ fun Application.configureOneOnOneRoutes() {
                 )
                 val meetingDateGte = params.optionalString("meetingDate[gte]")?.also { requireIsoDate(it, "meetingDate[gte]") }
                 val meetingDateLte = params.optionalString("meetingDate[lte]")?.also { requireIsoDate(it, "meetingDate[lte]") }
-                val includeIndirect = params.optionalBoolean("includeIndirect")
-                if (includeIndirect != null && view != OneOnOneListView.TEAM) {
-                    throw BadRequestException("includeIndirect is only supported for view=team")
-                }
-                val counterpartId = params.optionalUInt("counterpartId")
-                if (view == OneOnOneListView.WITH && counterpartId == null) {
-                    throw BadRequestException("counterpartId is required for view=with")
-                }
-                if (view != OneOnOneListView.WITH && counterpartId != null) {
-                    throw BadRequestException("counterpartId is only supported for view=with")
-                }
+                val includeIndirect = params.optionalIncludeIndirect(view, listOf(OneOnOneListView.TEAM))
+                val counterpartId = params.uintOnlyForView("counterpartId", view, OneOnOneListView.WITH)
                 // The auditor view (HR-only): view-shape validation like counterpartId above,
                 // then the role gate (every use is audit-logged).
-                val userId = params.optionalUInt("userId")
-                if (view == OneOnOneListView.USER && userId == null) {
-                    throw BadRequestException("userId is required for view=user")
-                }
-                if (view != OneOnOneListView.USER && userId != null) {
-                    throw BadRequestException("userId is only supported for view=user")
-                }
+                val userId = params.uintOnlyForView("userId", view, OneOnOneListView.USER)
                 if (view == OneOnOneListView.USER) {
                     requireAuditListAccess(caller, "oneOnOne", userId!!)
                 }
@@ -213,7 +201,7 @@ fun Application.configureOneOnOneRoutes() {
                     caller.userId,
                     filter,
                     paging,
-                    includeIndirect = includeIndirect == true,
+                    includeIndirect = includeIndirect,
                     counterpartId = counterpartId,
                     targetUserId = userId,
                 )
@@ -246,10 +234,8 @@ fun Application.configureOneOnOneRoutes() {
                 oneOnOneEventService.create(
                     oneOnOneCreationEvent(request.meetingDate, result.carriedOver).toEvent(result.id, caller.userId),
                 )
-                // The create committed (Location header, notification and CREATED event are already
-                // persisted), so a missing re-read is a server-side anomaly, not a client 404.
                 val created = oneOnOneService.read(result.id)
-                    ?: error("1:1 meeting ${result.id} vanished between create and re-read")
+                    .orVanished("1:1 meeting", result.id)
                 call.respond(HttpStatusCode.Created, created)
             }
             get<OneOnOnes.Id> { route ->

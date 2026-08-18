@@ -9,6 +9,7 @@ import ch.nokillswit.authz.requireDaysOffCorrectionsRead
 import ch.nokillswit.authz.requireDaysOffOwner
 import ch.nokillswit.authz.requireDaysOffRead
 import ch.nokillswit.authz.requireDaysOffResolve
+import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.infra.paging.SortField
 import ch.nokillswit.infra.paging.optionalEnum
 import ch.nokillswit.infra.paging.optionalString
@@ -130,6 +131,8 @@ fun Application.configureDaysOffRoutes() {
                 // The auditor view (HR-only): view-shape validation like the goals list, then
                 // the role gate (every use is audit-logged). userId doubles as an ordinary
                 // pin-filter on view=managed (the drill-down precedent); own is caller-implied.
+                // Deliberately NOT uintOnlyForView (the shared helper): here userId doubles as
+                // an ordinary pin-filter on view=managed, so only view=own rejects it.
                 val userId = params.optionalUInt("userId")
                 if (view == DaysOffListView.USER && userId == null) {
                     throw BadRequestException("userId is required for view=user")
@@ -167,7 +170,7 @@ fun Application.configureDaysOffRoutes() {
                 call.response.header(HttpHeaders.Location, call.application.href(DaysOff.Id(id = id)))
                 toNotify.forEach { notificationService.create(it) }
                 val created = daysOffService.read(id)
-                    ?: error("Days-off request $id vanished between create and re-read")
+                    .orVanished("Days-off request", id)
                 call.respond(HttpStatusCode.Created, created)
             }
             get<DaysOff.Id> { route ->
@@ -229,7 +232,7 @@ fun Application.configureDaysOffRoutes() {
                 )
                 notificationService.create(notification)
                 val created = daysOffService.readCorrection(id)
-                    ?: error("Days-off correction $id vanished between create and re-read")
+                    .orVanished("Days-off correction", id)
                 // A manager mutates a subordinate's paid-leave entitlement — audited like every
                 // other admin-ish mutation (v2.4.1; never the encrypted comment).
                 audit(

@@ -92,69 +92,79 @@ const EVENT_KEY: Record<NotificationItem["type"], string> = {
   PASSWORD_CHANGED: "passwordChanged",
 };
 
-// The team-KPI data-point kinds carry raw ISO dates + Double values (plus the KPI's type) — the
-// only params that need client-side formatting before interpolation.
-const KPI_VALUE_KEYS = new Set(["teamKpiValueRecorded", "teamKpiValueCorrected", "teamKpiValueRemoved"]);
+// The per-key param formatting spec — the third table beside EVENT_KEY/TYPE_META: which raw
+// wire params get localized before interpolation, and which param drives the i18next context
+// variant (default `self`, the "about yourself" wording). Keys absent here interpolate
+// verbatim (party names are proper nouns; days-off `days` is a plain "1.5"-style number).
+type ParamFormatSpec = {
+  /** Raw ISO YYYY-MM-DD params → the viewer's locale (formatIsoDate). */
+  dateParams?: string[];
+  /** Raw ISO YYYY-MM period bounds → the viewer's locale (formatIsoMonth). */
+  monthParams?: string[];
+  /** Raw Double params formatted per the KPI's type — the "%" suffix for PERCENTAGE. */
+  kpiValueParams?: string[];
+  /** Wire enum params translated via the given key prefix (param → prefix). */
+  enumParams?: Record<string, string>;
+  /** The param whose value picks the i18next context variant (default "self"). */
+  contextParam?: string;
+};
 
-// The performance-review kinds carry the period's raw ISO YYYY-MM bounds — format per locale.
-const REVIEW_PERIOD_KEYS = new Set(["performanceReviewPublished", "performanceReviewUnpublished"]);
+// The team-KPI data-point kinds are the only ones carrying numeric values; the rest localize
+// dates/months and the days-off type enum.
+const KPI_VALUE_SPEC: ParamFormatSpec = {
+  kpiValueParams: ["value", "fromValue", "toValue"],
+  dateParams: ["date", "fromDate", "toDate"],
+};
+const REVIEW_PERIOD_SPEC: ParamFormatSpec = { monthParams: ["startMonth", "endMonth"] };
+const DAYS_OFF_SPEC: ParamFormatSpec = {
+  dateParams: ["startDate", "endDate"],
+  enumParams: { type: "daysOff.type" },
+};
+const PULSE_SPEC: ParamFormatSpec = { dateParams: ["openDate", "closeDate"] };
 
-// The days-off kinds carry the period's raw ISO dates (and `type` as the enum name; the
-// creation kind also `days` as a plain "1.5"-style number that interpolates as-is).
-const DAYS_OFF_KEYS = new Set(["daysOffRequested", "daysOffAccepted", "daysOffRejected", "daysOffCancelled"]);
-
-// The pulse kinds carry raw ISO cycle dates (openDate/closeDate) — format per locale.
-const PULSE_KEYS = new Set([
-  "pulseCycleScheduled",
-  "pulseCycleOpened",
-  "pulseResultsAvailable",
-  "pulseCycleCancelled",
-]);
+const PARAM_FORMAT: Partial<Record<string, ParamFormatSpec>> = {
+  teamKpiValueRecorded: KPI_VALUE_SPEC,
+  teamKpiValueCorrected: KPI_VALUE_SPEC,
+  teamKpiValueRemoved: KPI_VALUE_SPEC,
+  performanceReviewPublished: REVIEW_PERIOD_SPEC,
+  performanceReviewUnpublished: REVIEW_PERIOD_SPEC,
+  daysOffRequested: DAYS_OFF_SPEC,
+  daysOffAccepted: DAYS_OFF_SPEC,
+  daysOffRejected: DAYS_OFF_SPEC,
+  daysOffCancelled: DAYS_OFF_SPEC,
+  // The correction kind words ADD/SUBTRACT via i18next context.
+  daysOffCorrected: { contextParam: "operation" },
+  pulseCycleScheduled: PULSE_SPEC,
+  pulseCycleOpened: PULSE_SPEC,
+  pulseResultsAvailable: PULSE_SPEC,
+  pulseCycleCancelled: PULSE_SPEC,
+  careerPositionStarted: { dateParams: ["startDate"] },
+};
 
 function describeNotification(n: NotificationItem, t: TFunction, locale: string): string {
   const key = EVENT_KEY[n.type];
   if (!key) return n.type; // forward-compat: an unknown kind → show the raw type
   const params: Record<string, string | undefined> = { ...(n.params ?? {}) };
-  if (KPI_VALUE_KEYS.has(key)) {
-    // Format the values per the KPI's type (the "%" suffix for PERCENTAGE) and the dates per
-    // the viewer's locale; anything unparseable passes through raw.
-    const kpiType = params.kpiType === "PERCENTAGE" ? "PERCENTAGE" : "NUMBER";
-    for (const k of ["value", "fromValue", "toValue"]) {
-      const parsed = Number(params[k]);
-      if (params[k] != null && Number.isFinite(parsed)) {
-        params[k] = formatGoalValue(kpiType, parsed, locale);
-      }
-    }
-    for (const k of ["date", "fromDate", "toDate"]) {
-      if (params[k] != null) params[k] = formatIsoDate(params[k]!, locale);
+  const spec = PARAM_FORMAT[key] ?? {};
+  // Anything unparseable passes through raw (the wire value beats "Invalid Date"/NaN).
+  const kpiType = params.kpiType === "PERCENTAGE" ? "PERCENTAGE" : "NUMBER";
+  for (const k of spec.kpiValueParams ?? []) {
+    const parsed = Number(params[k]);
+    if (params[k] != null && Number.isFinite(parsed)) {
+      params[k] = formatGoalValue(kpiType, parsed, locale);
     }
   }
-  if (REVIEW_PERIOD_KEYS.has(key)) {
-    for (const k of ["startMonth", "endMonth"]) {
-      if (params[k] != null) params[k] = formatIsoMonth(params[k]!, locale);
-    }
+  for (const k of spec.dateParams ?? []) {
+    if (params[k] != null) params[k] = formatIsoDate(params[k]!, locale);
   }
-  if (DAYS_OFF_KEYS.has(key)) {
-    for (const k of ["startDate", "endDate"]) {
-      if (params[k] != null) params[k] = formatIsoDate(params[k]!, locale);
-    }
-    if (params.type != null) params.type = t(dynamicKey(`daysOff.type.${params.type}`));
+  for (const k of spec.monthParams ?? []) {
+    if (params[k] != null) params[k] = formatIsoMonth(params[k]!, locale);
   }
-  if (PULSE_KEYS.has(key)) {
-    for (const k of ["openDate", "closeDate"]) {
-      if (params[k] != null) params[k] = formatIsoDate(params[k]!, locale);
-    }
+  for (const [k, prefix] of Object.entries(spec.enumParams ?? {})) {
+    if (params[k] != null) params[k] = t(dynamicKey(`${prefix}.${params[k]}`));
   }
-  // The career kind carries the position's raw ISO start date — format per locale.
-  if (key === "careerPositionStarted" && params.startDate != null) {
-    params.startDate = formatIsoDate(params.startDate, locale);
-  }
-  // The correction kind words ADD/SUBTRACT via i18next context.
-  if (key === "daysOffCorrected") {
-    return t(dynamicKey(`notifications.event.${key}`), { ...params, context: params.operation });
-  }
-  // `self` drives the "about yourself" wording variant via i18next context.
-  return t(dynamicKey(`notifications.event.${key}`), { ...params, context: params.self });
+  const context = params[spec.contextParam ?? "self"];
+  return t(dynamicKey(`notifications.event.${key}`), { ...params, context });
 }
 
 // Per-type row icon + accent color, for scannability. Same forward-compat stance as

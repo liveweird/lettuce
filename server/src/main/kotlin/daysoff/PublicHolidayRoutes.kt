@@ -1,6 +1,7 @@
 package ch.nokillswit.daysoff
 
 import ch.nokillswit.audit.audit
+import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAdmin
@@ -61,7 +62,7 @@ fun Application.configurePublicHolidayRoutes() {
                     "date" to request.date,
                 )
                 val created = holidayService.read(id)
-                    ?: error("Public holiday $id vanished between create and re-read")
+                    .orVanished("Public holiday", id)
                 call.respond(HttpStatusCode.Created, created)
             }
             delete<PublicHolidaysResource.Id> { route ->

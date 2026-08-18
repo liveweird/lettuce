@@ -9,6 +9,8 @@ import ch.nokillswit.authz.requireAuditListAccess
 import ch.nokillswit.authz.requireFeedbackReadAllowingManager
 import ch.nokillswit.authz.requireFeedbackWrite
 import ch.nokillswit.infra.db.requireValidReferences
+import ch.nokillswit.infra.paging.optionalIncludeIndirect
+import ch.nokillswit.infra.paging.uintOnlyForView
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.optionalBoolean
 import ch.nokillswit.infra.paging.optionalEnum
@@ -144,19 +146,10 @@ fun Application.configureFeedbackRoutes() {
                 val providerIdFilter = params.optionalUInt("providerId")
                 val subjectIdFilter = params.optionalUInt("subjectId")
                 val lastModifiedGteFilter = params.optionalLong("lastModified[gte]")
-                val includeIndirect = params.optionalBoolean("includeIndirect")
-                if (includeIndirect != null && view != FeedbackListView.TEAM) {
-                    throw BadRequestException("includeIndirect is only supported for view=team")
-                }
+                val includeIndirect = params.optionalIncludeIndirect(view, listOf(FeedbackListView.TEAM))
                 // The auditor view (HR-only): view-shape validation like counterpartId on the
                 // 1:1 list, then the role gate (every use is audit-logged).
-                val userId = params.optionalUInt("userId")
-                if (view == FeedbackListView.USER && userId == null) {
-                    throw BadRequestException("userId is required for view=user")
-                }
-                if (view != FeedbackListView.USER && userId != null) {
-                    throw BadRequestException("userId is only supported for view=user")
-                }
+                val userId = params.uintOnlyForView("userId", view, FeedbackListView.USER)
                 if (view == FeedbackListView.USER) {
                     requireAuditListAccess(caller, "feedback", userId!!)
                 }
@@ -175,7 +168,7 @@ fun Application.configureFeedbackRoutes() {
                     caller.userId,
                     filter,
                     paging,
-                    includeIndirect = includeIndirect == true,
+                    includeIndirect = includeIndirect,
                     targetUserId = userId,
                 )
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))

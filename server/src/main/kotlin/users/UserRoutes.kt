@@ -3,7 +3,6 @@ package ch.nokillswit.users
 import ch.nokillswit.audit.audit
 import ch.nokillswit.auth.MAX_PASSWORD_BYTES
 import ch.nokillswit.auth.exceedsBcryptLimit
-import ch.nokillswit.auth.generatePassword
 import ch.nokillswit.auth.hashPassword
 import ch.nokillswit.auth.verifyPassword
 import ch.nokillswit.dictionaries.DEFAULT_LANGUAGE
@@ -124,6 +123,55 @@ fun Application.configureUserRoutes() {
     val notificationService = attributes[NotificationServiceKey]
     val mailer = mailer()
     val mailAppUrl = mailAppUrl()
+    val importService = UserImportService(userService, mailer, mailAppUrl, log)
+
+    // Reversible deactivation — the goals-transition shape (POST action, same-state 409).
+    // Deliberately NOT a PUT field: the update route's whole-row write must never be able
+    // to flip account state, and a boolean can't carry "omitted = unchanged".
+    suspend fun setAccountDeactivated(call: ApplicationCall, targetId: UInt, deactivate: Boolean) {
+        val caller = call.caller()
+        requireAdmin(caller)
+        // Reversible ≠ harmless: an admin locking themselves out (possibly of the only
+        // admin account) is a support ticket — self-deactivation is blocked. The check
+        // runs before the read so it 403s uniformly (the deactivate direction only:
+        // self-reactivation is unreachable — a deactivated caller cannot hold a session).
+        if (deactivate && caller.userId == targetId) {
+            throw ForbiddenException("You cannot deactivate your own account")
+        }
+        val existing = userService.read(targetId)
+            ?: throw NotFoundException("User not found")
+        if (existing.deactivated == deactivate) {
+            throw ConflictException(
+                if (deactivate) "The account is already deactivated" else "The account is not deactivated",
+            )
+        }
+        if (userService.setDeactivated(targetId, deactivate) == 0) {
+            throw NotFoundException("User not found")
+        }
+        // Career timeline side effect (v2.17.0): deactivation closes the final active
+        // position on the deactivation date; reactivation reopens it. Own transaction
+        // after the flag commit — the app's documented non-atomic side-effect shape.
+        val auditFields = mutableListOf<Pair<String, Any?>>(
+            "byUserId" to caller.userId.toLong(),
+            "targetUserId" to targetId.toLong(),
+        )
+        if (deactivate) {
+            val endDate = LocalDate.now().toString()
+            careerPositionService.closeFinalPosition(targetId, endDate)?.let {
+                auditFields += "careerPositionId" to it.toLong()
+                auditFields += "careerPositionEndDate" to endDate
+            }
+        } else {
+            careerPositionService.reopenFinalPosition(targetId)?.let {
+                auditFields += "careerPositionId" to it.toLong()
+            }
+        }
+        audit(
+            if (deactivate) "user.deactivated" else "user.reactivated",
+            *auditFields.toTypedArray(),
+        )
+        call.respond(HttpStatusCode.NoContent)
+    }
 
     routing {
         authenticate {
@@ -251,75 +299,13 @@ fun Application.configureUserRoutes() {
                 }
 
                 // The pure half (line splitting, header/blank skipping, field validation)
-                // lives in users/UserImport.kt; this route owns persistence, email, audit.
+                // lives in users/UserImport.kt; the effectful per-row loop (persistence,
+                // email, audit) in users/UserImportService.kt.
                 val parsed = parseImportRows(req.csv)
                 if (parsed.size > MAX_IMPORT_ROWS) {
                     throw BadRequestException("Too many rows (${parsed.size}; max $MAX_IMPORT_ROWS per import)")
                 }
-
-                val rows = mutableListOf<UserImportRow>()
-                for (item in parsed) {
-                    val (line, name, email) = when (item) {
-                        is ImportLine.Invalid -> {
-                            rows += item.row
-                            continue
-                        }
-                        is ImportLine.Parsed -> item
-                    }
-                    val password = generatePassword()
-                    val id = try {
-                        // Each create is its own transaction, so one failing row never
-                        // poisons its siblings.
-                        userService.create(User(name, email, hashPassword(password)))
-                    } catch (e: Exception) {
-                        rows += if (e.isUniqueViolation()) {
-                            UserImportRow(line, name, email, UserImportStatus.DUPLICATE, "Email already in use")
-                        } else {
-                            log.error("User import: row $line failed", e)
-                            UserImportRow(line, name, email, UserImportStatus.ERROR, "Could not create the user")
-                        }
-                        continue
-                    }
-                    audit(
-                        "user.created",
-                        "byUserId" to caller.userId.toLong(),
-                        "newUserId" to id.toLong(),
-                        "email" to email,
-                        "roles" to "",
-                    )
-                    var status = UserImportStatus.CREATED
-                    var message: String? = null
-                    if (req.sendEmails) {
-                        try {
-                            mailer!!.send(
-                                email,
-                                WELCOME_EMAIL_SUBJECT.of(DEFAULT_LANGUAGE),
-                                // Imported users default to English (the CSV stays two-column).
-                                welcomeEmailBody(name, email, password, mailAppUrl, DEFAULT_LANGUAGE),
-                            )
-                        } catch (e: Exception) {
-                            log.error("User import: welcome email to $email failed", e)
-                            status = UserImportStatus.EMAIL_FAILED
-                            message = "The account was created but the email could not be delivered"
-                        }
-                    }
-                    rows += UserImportRow(line, name, email, status, message, password)
-                }
-
-                // EMAIL_FAILED rows are still created accounts — they count as created.
-                val created = rows.count { it.status == UserImportStatus.CREATED || it.status == UserImportStatus.EMAIL_FAILED }
-                val duplicates = rows.count { it.status == UserImportStatus.DUPLICATE }
-                val errors = rows.count { it.status == UserImportStatus.PARSE_ERROR || it.status == UserImportStatus.ERROR }
-                audit(
-                    "users.imported",
-                    "byUserId" to caller.userId.toLong(),
-                    "total" to rows.size,
-                    "created" to created,
-                    "duplicates" to duplicates,
-                    "errors" to errors,
-                    "emailsSent" to if (req.sendEmails) rows.count { it.status == UserImportStatus.CREATED } else 0,
-                )
-                call.respond(HttpStatusCode.OK, UserImportResponse(rows, created, duplicates, errors))
+                call.respond(HttpStatusCode.OK, importService.import(parsed, req.sendEmails, caller.userId))
             }
             get<Users.Id> { route ->
                 requireUserRead(call.caller(), route.id)
@@ -444,53 +430,6 @@ fun Application.configureUserRoutes() {
                         type = NotificationType.PASSWORD_CHANGED,
                         params = if (caller.userId == route.parent.id) emptyMap() else mapOf("self" to "admin"),
                     ),
-                )
-                call.respond(HttpStatusCode.NoContent)
-            }
-            // Reversible deactivation — the goals-transition shape (POST action, same-state 409).
-            // Deliberately NOT a PUT field: the update route's whole-row write must never be able
-            // to flip account state, and a boolean can't carry "omitted = unchanged".
-            suspend fun setAccountDeactivated(call: ApplicationCall, targetId: UInt, deactivate: Boolean) {
-                val caller = call.caller()
-                requireAdmin(caller)
-                // Reversible ≠ harmless: an admin locking themselves out (possibly of the only
-                // admin account) is a support ticket — self-deactivation is blocked. The check
-                // runs before the read so it 403s uniformly (the deactivate direction only:
-                // self-reactivation is unreachable — a deactivated caller cannot hold a session).
-                if (deactivate && caller.userId == targetId) {
-                    throw ForbiddenException("You cannot deactivate your own account")
-                }
-                val existing = userService.read(targetId)
-                    ?: throw NotFoundException("User not found")
-                if (existing.deactivated == deactivate) {
-                    throw ConflictException(
-                        if (deactivate) "The account is already deactivated" else "The account is not deactivated",
-                    )
-                }
-                if (userService.setDeactivated(targetId, deactivate) == 0) {
-                    throw NotFoundException("User not found")
-                }
-                // Career timeline side effect (v2.17.0): deactivation closes the final active
-                // position on the deactivation date; reactivation reopens it. Own transaction
-                // after the flag commit — the app's documented non-atomic side-effect shape.
-                val auditFields = mutableListOf<Pair<String, Any?>>(
-                    "byUserId" to caller.userId.toLong(),
-                    "targetUserId" to targetId.toLong(),
-                )
-                if (deactivate) {
-                    val endDate = LocalDate.now().toString()
-                    careerPositionService.closeFinalPosition(targetId, endDate)?.let {
-                        auditFields += "careerPositionId" to it.toLong()
-                        auditFields += "careerPositionEndDate" to endDate
-                    }
-                } else {
-                    careerPositionService.reopenFinalPosition(targetId)?.let {
-                        auditFields += "careerPositionId" to it.toLong()
-                    }
-                }
-                audit(
-                    if (deactivate) "user.deactivated" else "user.reactivated",
-                    *auditFields.toTypedArray(),
                 )
                 call.respond(HttpStatusCode.NoContent)
             }

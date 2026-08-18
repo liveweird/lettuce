@@ -13,6 +13,7 @@ import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import PersonaChip from "../components/PersonaChip";
 import SortHeader from "../components/SortHeader";
+import { useBulkFeatureUpdate } from "../hooks/useBulkFeatureUpdate";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isNumberOrNull, isOneOf, isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
 import { FEATURES, getUserId, isAdmin, type Feature } from "../api/session";
@@ -71,11 +72,6 @@ export default function FeatureFlags() {
   const [error, setError] = useState<string | null>(null);
   // The row whose toggle PUT is in flight — its switch disables until the refetch lands.
   const [pendingId, setPendingId] = useState<number | null>(null);
-  // Bulk flow: `preparing` marks which button is fetching the full filtered set (true =
-  // enable, false = disable); `bulk` holds the affected rows awaiting the modal's confirm.
-  const [bulkPreparing, setBulkPreparing] = useState<boolean | null>(null);
-  const [bulk, setBulk] = useState<{ target: boolean; rows: UserRow[] } | null>(null);
-  const [bulkRunning, setBulkRunning] = useState(false);
 
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
     usePagedSort<SortField>("name", [feature, stateFilter, teamFilter, debouncedName, debouncedEmail], {
@@ -115,6 +111,48 @@ export default function FeatureFlags() {
     enabled: isAdmin(),
   });
 
+  // The bulk state machine lives in the hook; this page supplies the fetch (every row
+  // matching the CURRENT filters, paged to the server total), the affected predicate
+  // (rows not already in the target state), the per-row PUT, and the terminals.
+  const bulk = useBulkFeatureUpdate<UserRow>({
+    fetchAll: async () => {
+      setError(null);
+      const rows: UserRow[] = [];
+      let p = 1;
+      for (;;) {
+        const result = await listQuery(p, 100);
+        rows.push(...result.items);
+        if (rows.length >= result.total || result.items.length === 0) return rows;
+        p += 1;
+      }
+    },
+    isAffected: (u, targetEnabled) => u.disabledFeatures.includes(feature) === targetEnabled,
+    applyOne: (row, targetEnabled) =>
+      updateUserFeatures(
+        row.id,
+        targetEnabled
+          ? row.disabledFeatures.filter((f) => f !== feature)
+          : [...row.disabledFeatures, feature],
+      ),
+    onNothingToDo: () => showSuccessToast(t("users.featureFlags.bulkNoChange")),
+    onDone: async (failed, total) => {
+      await invalidateUser(queryClient);
+      if (failed > 0) {
+        setError(t("users.featureFlags.bulkFailed", { count: failed, total }));
+      } else {
+        showSuccessToast(t("users.toast.featuresSaved"));
+      }
+    },
+    onPrepareError: (err) => {
+      setError(
+        saveErrorMessage(err, t, {
+          failedStatus: "users.featuresFailedStatus",
+          failed: "users.featuresFailedNetwork",
+        }),
+      );
+    },
+  });
+
   if (!isAdmin()) return <Navigate to="/" replace />;
 
   async function toggle(row: { id: number; name: string; disabledFeatures: Feature[] }) {
@@ -139,66 +177,6 @@ export default function FeatureFlags() {
       );
     } finally {
       setPendingId(null);
-    }
-  }
-
-  /** Every row matching the CURRENT filters — pages until the server total is reached. */
-  async function fetchAllMatching(): Promise<UserRow[]> {
-    const rows: UserRow[] = [];
-    let p = 1;
-    for (;;) {
-      const result = await listQuery(p, 100);
-      rows.push(...result.items);
-      if (rows.length >= result.total || result.items.length === 0) return rows;
-      p += 1;
-    }
-  }
-
-  async function prepareBulk(targetEnabled: boolean) {
-    setError(null);
-    setBulkPreparing(targetEnabled);
-    try {
-      const all = await fetchAllMatching();
-      // Affected = rows not already in the target state (enabling → currently disabled).
-      const affected = all.filter((u) => u.disabledFeatures.includes(feature) === targetEnabled);
-      if (affected.length === 0) {
-        showSuccessToast(t("users.featureFlags.bulkNoChange"));
-        return;
-      }
-      setBulk({ target: targetEnabled, rows: affected });
-    } catch (err) {
-      setError(
-        saveErrorMessage(err, t, {
-          failedStatus: "users.featuresFailedStatus",
-          failed: "users.featuresFailedNetwork",
-        }),
-      );
-    } finally {
-      setBulkPreparing(null);
-    }
-  }
-
-  async function runBulk() {
-    if (!bulk) return;
-    setBulkRunning(true);
-    let failed = 0;
-    for (const row of bulk.rows) {
-      const next = bulk.target
-        ? row.disabledFeatures.filter((f) => f !== feature)
-        : [...row.disabledFeatures, feature];
-      try {
-        await updateUserFeatures(row.id, next);
-      } catch {
-        failed += 1;
-      }
-    }
-    await invalidateUser(queryClient);
-    setBulkRunning(false);
-    setBulk(null);
-    if (failed > 0) {
-      setError(t("users.featureFlags.bulkFailed", { count: failed, total: bulk.rows.length }));
-    } else {
-      showSuccessToast(t("users.toast.featuresSaved"));
     }
   }
 
@@ -270,18 +248,18 @@ export default function FeatureFlags() {
       <Group justify="flex-end" gap="sm">
         <Button
           variant="light"
-          loading={bulkPreparing === true}
-          disabled={bulkPreparing !== null || total === 0}
-          onClick={() => void prepareBulk(true)}
+          loading={bulk.preparing === true}
+          disabled={bulk.preparing !== null || total === 0}
+          onClick={() => void bulk.prepare(true)}
         >
           {t("users.featureFlags.bulkEnable")}
         </Button>
         <Button
           variant="light"
           color="red"
-          loading={bulkPreparing === false}
-          disabled={bulkPreparing !== null || total === 0}
-          onClick={() => void prepareBulk(false)}
+          loading={bulk.preparing === false}
+          disabled={bulk.preparing !== null || total === 0}
+          onClick={() => void bulk.prepare(false)}
         >
           {t("users.featureFlags.bulkDisable")}
         </Button>
@@ -393,20 +371,24 @@ export default function FeatureFlags() {
       />
 
       <ConfirmActionModal
-        opened={bulk != null}
-        onClose={() => setBulk(null)}
+        opened={bulk.pending != null}
+        onClose={bulk.cancel}
         title={t("users.featureFlags.bulkTitle")}
         message={t(
-          bulk?.target ? "users.featureFlags.bulkConfirmEnable" : "users.featureFlags.bulkConfirmDisable",
-          { count: bulk?.rows.length ?? 0, feature: featureLabel },
+          bulk.pending?.target
+            ? "users.featureFlags.bulkConfirmEnable"
+            : "users.featureFlags.bulkConfirmDisable",
+          { count: bulk.pending?.rows.length ?? 0, feature: featureLabel },
         )}
         cancelLabel={t("common.action.cancel")}
         confirmLabel={
-          bulk?.target ? t("users.featureFlags.enableAction") : t("users.featureFlags.disableAction")
+          bulk.pending?.target
+            ? t("users.featureFlags.enableAction")
+            : t("users.featureFlags.disableAction")
         }
-        onConfirm={() => void runBulk()}
-        loading={bulkRunning}
-        confirmColor={bulk?.target ? "lettuce" : "red"}
+        onConfirm={() => void bulk.run()}
+        loading={bulk.running}
+        confirmColor={bulk.pending?.target ? "lettuce" : "red"}
       />
     </Stack>
   );

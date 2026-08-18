@@ -8,6 +8,7 @@ import ch.nokillswit.authz.requireAuditListAccess
 import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.authz.requirePerformanceReviewReadAllowingManager
 import ch.nokillswit.authz.requirePerformanceReviewWrite
+import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.infra.db.requireValidReferences
 import ch.nokillswit.infra.paging.SortField
 import ch.nokillswit.infra.paging.optionalBoolean
@@ -15,6 +16,8 @@ import ch.nokillswit.infra.paging.optionalEnum
 import ch.nokillswit.infra.paging.optionalLong
 import ch.nokillswit.infra.paging.optionalString
 import ch.nokillswit.infra.paging.optionalUInt
+import ch.nokillswit.infra.paging.optionalIncludeIndirect
+import ch.nokillswit.infra.paging.uintOnlyForView
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.notifications.NotificationServiceKey
@@ -152,22 +155,13 @@ fun Application.configurePerformanceReviewRoutes() {
                     ),
                     defaultSort = listOf(SortField("createdAt", descending = true)),
                 )
-                val includeIndirect = params.optionalBoolean("includeIndirect")
-                if (includeIndirect != null &&
-                    view != PerformanceReviewListView.MANAGED &&
-                    view != PerformanceReviewListView.TEAM
-                ) {
-                    throw BadRequestException("includeIndirect is only supported for view=managed and view=team")
-                }
+                val includeIndirect = params.optionalIncludeIndirect(
+                    view,
+                    listOf(PerformanceReviewListView.MANAGED, PerformanceReviewListView.TEAM),
+                )
                 // The auditor view (HR-only): view-shape validation first, then the role gate
                 // (every use is audit-logged) — the goals-list idiom.
-                val userId = params.optionalUInt("userId")
-                if (view == PerformanceReviewListView.USER && userId == null) {
-                    throw BadRequestException("userId is required for view=user")
-                }
-                if (view != PerformanceReviewListView.USER && userId != null) {
-                    throw BadRequestException("userId is only supported for view=user")
-                }
+                val userId = params.uintOnlyForView("userId", view, PerformanceReviewListView.USER)
                 if (view == PerformanceReviewListView.USER) {
                     requireAuditListAccess(caller, "performanceReview", userId!!)
                 }
@@ -186,7 +180,7 @@ fun Application.configurePerformanceReviewRoutes() {
                     caller.userId,
                     filter,
                     paging,
-                    includeIndirect = includeIndirect == true,
+                    includeIndirect = includeIndirect,
                     targetUserId = userId,
                 )
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
@@ -210,10 +204,8 @@ fun Application.configurePerformanceReviewRoutes() {
                 // Audit: record the creation against the acting manager. No notification — the
                 // review is a private draft until published.
                 reviewEventService.create(reviewCreationEvent().toEvent(id, caller.userId))
-                // The create committed (Location set, CREATED event persisted), so a missing
-                // re-read is a server-side anomaly, not a client 404.
                 val created = reviewService.read(id)
-                    ?: error("Performance review $id vanished between create and re-read")
+                    .orVanished("Performance review", id)
                 call.respond(HttpStatusCode.Created, created)
             }
             get<PerformanceReviews.Id> { route ->
