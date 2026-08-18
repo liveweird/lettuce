@@ -3306,7 +3306,7 @@ export interface components {
              * @description Refresh-token expiry as Unix epoch milliseconds.
              */
             refreshExpiresAt: number;
-            /** Format: int64 */
+            /** Format: int32 */
             userId: number;
             /** @description Additional roles of the authenticated user — empty for a regular user. */
             roles: ("ADMIN" | "HR")[];
@@ -3429,7 +3429,7 @@ export interface components {
             language?: components["schemas"]["Language"] | null;
         };
         UserCreateResponse: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
             name: string;
             email: string;
@@ -3508,7 +3508,7 @@ export interface components {
             seniorityLevelId: number;
         };
         CareerPositionResponse: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
             /** Format: date */
             startDate: string;
@@ -3553,7 +3553,7 @@ export interface components {
             seniorityLevel: components["schemas"]["DictionaryEntry"] | null;
         };
         CareerPyramidItem: {
-            /** Format: int64 */
+            /** Format: int32 */
             userId: number;
             name: string;
             /** @description The reversible account-disable flag — the client drops a deactivated person for slider dates with no active position, instead of showing "Not set". */
@@ -3584,7 +3584,7 @@ export interface components {
             currentPassword?: string;
         };
         UserResponse: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
             name: string;
             /** Format: email */
@@ -3663,7 +3663,7 @@ export interface components {
         };
         TeamRequest: {
             name: string;
-            /** Format: int64 */
+            /** Format: int32 */
             managerId: number;
             /**
              * @description Defaults to an empty list when omitted. Zero-member teams are allowed;
@@ -3672,10 +3672,10 @@ export interface components {
             memberIds?: number[];
         };
         TeamResponse: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
             name: string;
-            /** Format: int64 */
+            /** Format: int32 */
             managerId: number;
             memberIds: number[];
             /** @description Display name of the user referenced by `managerId` (resolved even when that user is soft-deleted). Populated by the single-team GET only; the create/update responses omit the key. */
@@ -3684,10 +3684,10 @@ export interface components {
             managerDeleted?: boolean;
         };
         TeamListItem: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
             name: string;
-            /** Format: int64 */
+            /** Format: int32 */
             managerId: number;
             managerName: string;
             /** @description True when the user referenced by `managerId` has been soft-deleted. */
@@ -3704,12 +3704,12 @@ export interface components {
             total: number;
         };
         TeamMemberListItem: {
-            /** Format: int64 */
+            /** Format: int32 */
             userId: number;
             name: string;
             /** Format: email */
             email: string;
-            /** Format: int64 */
+            /** Format: int32 */
             teamId: number;
             teamName: string;
             /**
@@ -3774,7 +3774,7 @@ export interface components {
              */
             activeGoalCount?: number | null;
             /**
-             * Format: int64
+             * Format: int32
              * @description Populated only for `view=managed`; always `null` otherwise. Id of the
              *     caller's latest authored (non-deleted) performance review about this
              *     member — latest by review period (newest `startMonth` wins), at ANY
@@ -3843,11 +3843,11 @@ export interface components {
             visibility: "PROVIDER_SUBJECT" | "PROVIDER_REQUESTER" | "PROVIDER_REQUESTER_SUBJECT" | "PUBLIC";
         };
         FeedbackRequest: {
-            /** Format: int64 */
+            /** Format: int32 */
             requesterId?: number | null;
-            /** Format: int64 */
+            /** Format: int32 */
             subjectId: number;
-            /** Format: int64 */
+            /** Format: int32 */
             providerId: number;
             /** @enum {string} */
             visibility: "PROVIDER_SUBJECT" | "PROVIDER_REQUESTER" | "PROVIDER_REQUESTER_SUBJECT" | "PUBLIC";
@@ -3863,13 +3863,13 @@ export interface components {
             requesterMessage?: string | null;
         };
         FeedbackResponse: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
-            /** Format: int64 */
+            /** Format: int32 */
             requesterId?: number | null;
-            /** Format: int64 */
+            /** Format: int32 */
             subjectId: number;
-            /** Format: int64 */
+            /** Format: int32 */
             providerId: number;
             /** @enum {string} */
             visibility: "PROVIDER_SUBJECT" | "PROVIDER_REQUESTER" | "PROVIDER_REQUESTER_SUBJECT" | "PUBLIC";
@@ -3899,20 +3899,20 @@ export interface components {
             providerName?: string | null;
         };
         FeedbackListItem: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
-            /** Format: int64 */
+            /** Format: int32 */
             requesterId?: number | null;
             /** @description Null when the record has no requester. */
             requesterName?: string | null;
             /** @description True when the user referenced by `requesterId` has been soft-deleted. False when there is no requester. */
             requesterDeleted: boolean;
-            /** Format: int64 */
+            /** Format: int32 */
             subjectId: number;
             subjectName: string;
             /** @description True when the user referenced by `subjectId` has been soft-deleted. */
             subjectDeleted: boolean;
-            /** Format: int64 */
+            /** Format: int32 */
             providerId: number;
             providerName: string;
             /** @description True when the user referenced by `providerId` has been soft-deleted. */
@@ -3944,7 +3944,7 @@ export interface components {
         /** @description The in-progress duplicate for a prospective (subject, provider, requester) triple — both fields null when there is none. */
         DuplicateCheckResponse: {
             /**
-             * Format: int64
+             * Format: int32
              * @description Id of the active DRAFT/REQUESTED feedback matching the triple.
              */
             existingId?: number | null;
@@ -3960,13 +3960,13 @@ export interface components {
             content: string;
         };
         TemplateResponse: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
             name: string;
             content: string;
         };
         TemplateListItem: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
             name: string;
             /** @description First 200 characters of `content`. */
@@ -3990,7 +3990,7 @@ export interface components {
         };
         /** @description Every entry carries a language->value map — clients render the viewer's language, falling back to English. */
         DictionaryEntry: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
             values: components["schemas"]["DictionaryValues"];
         };
@@ -3999,7 +3999,7 @@ export interface components {
         };
         DictionaryEntryInput: {
             /**
-             * Format: int64
+             * Format: int32
              * @description Present = update that active entry in place; absent = insert a new entry.
              */
             id?: number | null;
@@ -4026,7 +4026,7 @@ export interface components {
             endsAt?: number | null;
         };
         AlertResponse: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
             title: string;
             content: string;
@@ -4047,7 +4047,7 @@ export interface components {
             total: number;
         };
         VisibleAlert: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
             title: string;
             /** @description Markdown-formatted message body. */
@@ -4057,11 +4057,11 @@ export interface components {
             items: components["schemas"]["VisibleAlert"][];
         };
         FeedbackEventResponse: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
-            /** Format: int64 */
+            /** Format: int32 */
             feedbackId: number;
-            /** Format: int64 */
+            /** Format: int32 */
             userId: number;
             /** @description Display name of the user who performed the change. Server-resolved, read-only. */
             userName: string;
@@ -4089,7 +4089,7 @@ export interface components {
         };
         OneOnOneItemInput: {
             /**
-             * Format: int64
+             * Format: int32
              * @description Identifies an existing row on PUT (omitted = a new item). Must be omitted on create.
              */
             id?: number | null;
@@ -4098,7 +4098,7 @@ export interface components {
         };
         OneOnOneActionItemInput: {
             /**
-             * Format: int64
+             * Format: int32
              * @description Identifies an existing row on PUT (omitted = a new item). Must be omitted on create.
              */
             id?: number | null;
@@ -4119,7 +4119,7 @@ export interface components {
         };
         OneOnOneCreateRequest: {
             /**
-             * Format: int64
+             * Format: int32
              * @description Must be a direct report of the caller (the manager).
              */
             subordinateId: number;
@@ -4155,12 +4155,12 @@ export interface components {
             actionItems: components["schemas"]["OneOnOneActionItemInput"][];
         };
         OneOnOneItem: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
             content: string;
         };
         OneOnOneActionItem: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
             content: string;
             /** @enum {string} */
@@ -4169,7 +4169,7 @@ export interface components {
             dueDate?: string | null;
             resolved: boolean;
             /**
-             * Format: int64
+             * Format: int32
              * @description The source action item in the pair's previous meeting this one was carried over from; null for items authored in this meeting (or when the source row no longer exists). Server-managed.
              */
             copiedFromId?: number | null;
@@ -4180,12 +4180,12 @@ export interface components {
             firstAppearedOn?: string | null;
         };
         OneOnOneResponse: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
-            /** Format: int64 */
+            /** Format: int32 */
             managerId: number;
             managerName: string;
-            /** Format: int64 */
+            /** Format: int32 */
             subordinateId: number;
             subordinateName: string;
             /** Format: date */
@@ -4213,13 +4213,13 @@ export interface components {
             minMeetingDate?: string | null;
         };
         OneOnOneListItem: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
-            /** Format: int64 */
+            /** Format: int32 */
             managerId: number;
             managerName: string;
             managerDeleted: boolean;
-            /** Format: int64 */
+            /** Format: int32 */
             subordinateId: number;
             subordinateName: string;
             subordinateDeleted: boolean;
@@ -4249,11 +4249,11 @@ export interface components {
             total: number;
         };
         OneOnOneEventResponse: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
-            /** Format: int64 */
+            /** Format: int32 */
             meetingId: number;
-            /** Format: int64 */
+            /** Format: int32 */
             userId: number;
             /** @description Display name of the user who performed the change. Server-resolved, read-only. */
             userName: string;
@@ -4281,9 +4281,9 @@ export interface components {
             items: components["schemas"]["OneOnOneEventResponse"][];
         };
         ActionItemHistoryEntry: {
-            /** Format: int64 */
+            /** Format: int32 */
             actionItemId: number;
-            /** Format: int64 */
+            /** Format: int32 */
             meetingId: number;
             /** Format: date */
             meetingDate: string;
@@ -4299,7 +4299,7 @@ export interface components {
         };
         GoalMilestoneInput: {
             /**
-             * Format: int64
+             * Format: int32
              * @description An existing milestone row of this goal to keep (its done flag is preserved — the definition PUT never ticks); absent = a new milestone, starting not-done. Must be absent on create.
              */
             id?: number | null;
@@ -4307,19 +4307,19 @@ export interface components {
             description: string;
         };
         GoalMilestoneDone: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
             done: boolean;
         };
         GoalMilestoneResponse: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
             description: string;
             done: boolean;
         };
         GoalCreateRequest: {
             /**
-             * Format: int64
+             * Format: int32
              * @description Must be a direct report of the caller (the manager).
              */
             subordinateId: number;
@@ -4389,12 +4389,12 @@ export interface components {
             summary: string;
         };
         GoalResponse: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
-            /** Format: int64 */
+            /** Format: int32 */
             managerId: number;
             managerName: string;
-            /** Format: int64 */
+            /** Format: int32 */
             subordinateId: number;
             subordinateName: string;
             /**
@@ -4434,13 +4434,13 @@ export interface components {
             lastModified: number;
         };
         GoalListItem: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
-            /** Format: int64 */
+            /** Format: int32 */
             managerId: number;
             managerName: string;
             managerDeleted: boolean;
-            /** Format: int64 */
+            /** Format: int32 */
             subordinateId: number;
             subordinateName: string;
             subordinateDeleted: boolean;
@@ -4475,11 +4475,11 @@ export interface components {
             total: number;
         };
         GoalEventResponse: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
-            /** Format: int64 */
+            /** Format: int32 */
             goalId: number;
-            /** Format: int64 */
+            /** Format: int32 */
             userId: number;
             /** @description Display name of the user who performed the change. Server-resolved, read-only. */
             userName: string;
@@ -4513,7 +4513,7 @@ export interface components {
         };
         TeamKpiCreateRequest: {
             /**
-             * Format: int64
+             * Format: int32
              * @description Must be a non-deleted team whose current manager the caller is.
              */
             teamId: number;
@@ -4560,7 +4560,7 @@ export interface components {
             value: number;
         };
         TeamKpiValueResponse: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
             /**
              * Format: date
@@ -4579,15 +4579,15 @@ export interface components {
             summary: string;
         };
         TeamKpiResponse: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
-            /** Format: int64 */
+            /** Format: int32 */
             teamId: number;
             teamName: string;
             /** @description True when the team has been soft-deleted — the KPI stays readable history for the team's last manager. */
             teamDeleted: boolean;
             /**
-             * Format: int64
+             * Format: int32
              * @description The team's CURRENT manager (`teams.manager_id`), resolved at read time — never stored on the KPI, so a reassigned team's new manager takes over.
              */
             managerId: number;
@@ -4624,13 +4624,13 @@ export interface components {
             lastModified: number;
         };
         TeamKpiListItem: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
-            /** Format: int64 */
+            /** Format: int32 */
             teamId: number;
             teamName: string;
             teamDeleted: boolean;
-            /** Format: int64 */
+            /** Format: int32 */
             managerId: number;
             managerName: string;
             managerDeleted: boolean;
@@ -4659,11 +4659,11 @@ export interface components {
             total: number;
         };
         TeamKpiEventResponse: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
-            /** Format: int64 */
+            /** Format: int32 */
             kpiId: number;
-            /** Format: int64 */
+            /** Format: int32 */
             userId: number;
             /** @description Display name of the user who performed the change. Server-resolved, read-only. */
             userName: string;
@@ -4694,7 +4694,7 @@ export interface components {
             items: components["schemas"]["TeamKpiEventResponse"][];
         };
         ReviewPeriod: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
             /** @description First month of the period, inclusive ISO YYYY-MM (zero-padded). */
             startMonth: string;
@@ -4727,12 +4727,12 @@ export interface components {
         };
         PerformanceReviewCreateRequest: {
             /**
-             * Format: int64
+             * Format: int32
              * @description Must be a direct report of the caller at creation time.
              */
             subordinateId: number;
             /**
-             * Format: int64
+             * Format: int32
              * @description The review period assessed; the subordinate may have one review per period.
              */
             periodId: number;
@@ -4752,13 +4752,13 @@ export interface components {
             overall?: components["schemas"]["CategoryAssessment"];
         };
         PerformanceReviewResponse: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
-            /** Format: int64 */
+            /** Format: int32 */
             managerId: number;
-            /** Format: int64 */
+            /** Format: int32 */
             subordinateId: number;
-            /** Format: int64 */
+            /** Format: int32 */
             periodId: number;
             /** @description The period's first month, inclusive ISO YYYY-MM. Server-resolved, read-only. */
             periodStartMonth: string;
@@ -4786,19 +4786,19 @@ export interface components {
             subordinateName: string;
         };
         PerformanceReviewListItem: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
-            /** Format: int64 */
+            /** Format: int32 */
             managerId: number;
             managerName: string;
             /** @description True when the manager's account has been soft-deleted. */
             managerDeleted: boolean;
-            /** Format: int64 */
+            /** Format: int32 */
             subordinateId: number;
             subordinateName: string;
             /** @description True when the subordinate's account has been soft-deleted. */
             subordinateDeleted: boolean;
-            /** Format: int64 */
+            /** Format: int32 */
             periodId: number;
             periodStartMonth: string;
             periodEndMonth: string;
@@ -4824,11 +4824,11 @@ export interface components {
             total: number;
         };
         PerformanceReviewEventResponse: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
-            /** Format: int64 */
+            /** Format: int32 */
             reviewId: number;
-            /** Format: int64 */
+            /** Format: int32 */
             userId: number;
             /** @description Display name of the user who performed the change. Server-resolved, read-only. */
             userName: string;
@@ -4884,9 +4884,9 @@ export interface components {
             endHalf: boolean;
         };
         DaysOffResponse: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
-            /** Format: int64 */
+            /** Format: int32 */
             userId: number;
             userName: string;
             /** @enum {string} */
@@ -4913,7 +4913,7 @@ export interface components {
              */
             createdAt: number;
             /**
-             * Format: int64
+             * Format: int32
              * @description The accepting/rejecting manager — null while REQUESTED.
              */
             resolvedById: number | null;
@@ -4932,9 +4932,9 @@ export interface components {
             lastModified: number;
         };
         DaysOffListItem: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
-            /** Format: int64 */
+            /** Format: int32 */
             userId: number;
             userName: string;
             userDeleted: boolean;
@@ -4966,7 +4966,7 @@ export interface components {
             total: number;
         };
         DaysOffCalendarEntry: {
-            /** Format: int64 */
+            /** Format: int32 */
             requestId: number;
             /** Format: date */
             date: string;
@@ -4981,7 +4981,7 @@ export interface components {
             half: boolean;
         };
         DaysOffCalendarUser: {
-            /** Format: int64 */
+            /** Format: int32 */
             userId: number;
             userName: string;
             userDeleted: boolean;
@@ -4996,7 +4996,7 @@ export interface components {
             users: components["schemas"]["DaysOffCalendarUser"][];
         };
         DaysOffBudget: {
-            /** Format: int64 */
+            /** Format: int32 */
             userId: number;
             userName: string;
             userDeleted: boolean;
@@ -5034,7 +5034,7 @@ export interface components {
         };
         DaysOffCorrectionWrite: {
             /**
-             * Format: int64
+             * Format: int32
              * @description The subordinate whose budget is corrected. Create-only — immutable on PUT (ignored there).
              */
             userId: number;
@@ -5050,12 +5050,12 @@ export interface components {
             comment: string;
         };
         DaysOffCorrection: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
-            /** Format: int64 */
+            /** Format: int32 */
             userId: number;
             /**
-             * Format: int64
+             * Format: int32
              * @description Who created the correction — display-only; edit rights follow the current direct managers.
              */
             authorId: number;
@@ -5076,7 +5076,7 @@ export interface components {
             items: components["schemas"]["DaysOffCorrection"][];
         };
         PublicHoliday: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
             /** Format: date */
             date: string;
@@ -5094,9 +5094,9 @@ export interface components {
             name: string;
         };
         NotificationResponse: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
-            /** Format: int64 */
+            /** Format: int32 */
             recipientId: number;
             /**
              * Format: int64
@@ -5170,7 +5170,7 @@ export interface components {
             /** @description Distinct current direct reports of the caller (members of non-deleted teams they manage). 0 for non-managers — the client hides the manager tiles on it. */
             directReports: number;
             /**
-             * Format: int64
+             * Format: int32
              * @description Id of the review period containing the current month; null while the timeline does not cover today (the reviews tile hides).
              */
             currentPeriodId?: number | null;
@@ -5193,7 +5193,7 @@ export interface components {
          */
         PulseCycleStatus: "SCHEDULED" | "OPEN" | "CLOSED" | "CANCELLED";
         PulseCycle: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
             status: components["schemas"]["PulseCycleStatus"];
             /**
@@ -5265,7 +5265,7 @@ export interface components {
             comment?: string | null;
         };
         PulseMyResponse: {
-            /** Format: int64 */
+            /** Format: int32 */
             cycleId: number;
             enps: number;
             q2: components["schemas"]["PulseScaleAnswer"];
@@ -5292,13 +5292,13 @@ export interface components {
             responseRate: number;
         };
         PulseParticipationMember: {
-            /** Format: int64 */
+            /** Format: int32 */
             userId: number;
             name: string;
             responded: boolean;
         };
         PulseParticipationTeam: {
-            /** Format: int64 */
+            /** Format: int32 */
             teamId: number;
             teamName: string;
             /** @description The team's current members who are cycle participants, name-ascending. */
@@ -5367,15 +5367,15 @@ export interface components {
             favorableDeltaPp?: number | null;
         };
         PulsePreviousComparison: {
-            /** Format: int64 */
+            /** Format: int32 */
             cycleId: number;
             /** @description Whole-point eNPS change vs that cycle over the same scope. */
             enpsDelta: number;
         };
         PulseTeamResults: {
-            /** Format: int64 */
+            /** Format: int32 */
             cycleId: number;
-            /** Format: int64 */
+            /** Format: int32 */
             teamId: number;
             teamName: string;
             mode: components["schemas"]["PulseAggregationMode"];
@@ -5400,7 +5400,7 @@ export interface components {
         /** @enum {string} */
         PulseTrendAvailability: "OK" | "NOT_ENOUGH_RESPONSES" | "NOT_A_RESPONDENT";
         PulseTrendPoint: {
-            /** Format: int64 */
+            /** Format: int32 */
             cycleId: number;
             /** Format: int64 */
             closedAt: number;
@@ -5424,7 +5424,7 @@ export interface components {
             favorableQ5?: number | null;
         };
         PulseTrendResponse: {
-            /** Format: int64 */
+            /** Format: int32 */
             teamId: number;
             teamName: string;
             mode: components["schemas"]["PulseAggregationMode"];
@@ -5432,7 +5432,7 @@ export interface components {
             points: components["schemas"]["PulseTrendPoint"][];
         };
         TeamRef: {
-            /** Format: int64 */
+            /** Format: int32 */
             id: number;
             name: string;
         };

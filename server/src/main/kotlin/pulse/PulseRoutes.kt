@@ -1,6 +1,7 @@
 package ch.nokillswit.pulse
 
 import ch.nokillswit.audit.audit
+import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.auditHrRead
@@ -197,7 +198,7 @@ fun Application.configurePulseRoutes() {
                 // empty — both are state conflicts, checked atomically with the insert.
                 val id = cycleService.schedule(request)
                 val created = cycleService.read(id)
-                    ?: error("Pulse cycle $id vanished between create and re-read")
+                    .orVanished("Pulse cycle", id)
                 audit(
                     "pulse_cycle.scheduled",
                     "byUserId" to caller.userId.toLong(),
@@ -260,7 +261,7 @@ fun Application.configurePulseRoutes() {
                 val result = cycleService.open(cycleId)
                     ?: throw NotFoundException("Pulse cycle not found")
                 val cycle = cycleService.read(cycleId)
-                    ?: error("Pulse cycle $cycleId vanished after opening")
+                    .orVanished("Pulse cycle", cycleId, "after opening")
                 audit(
                     "pulse_cycle.opened",
                     "byUserId" to caller.userId.toLong(),
@@ -283,7 +284,7 @@ fun Application.configurePulseRoutes() {
                 val result = cycleService.close(cycleId)
                     ?: throw NotFoundException("Pulse cycle not found")
                 val cycle = cycleService.read(cycleId)
-                    ?: error("Pulse cycle $cycleId vanished after closing")
+                    .orVanished("Pulse cycle", cycleId, "after closing")
                 audit(
                     "pulse_cycle.closed",
                     "byUserId" to caller.userId.toLong(),
@@ -309,7 +310,7 @@ fun Application.configurePulseRoutes() {
                 val result = cycleService.cancel(cycleId)
                     ?: throw NotFoundException("Pulse cycle not found")
                 val cycle = cycleService.read(cycleId)
-                    ?: error("Pulse cycle $cycleId vanished after cancelling")
+                    .orVanished("Pulse cycle", cycleId, "after cancelling")
                 audit(
                     "pulse_cycle.cancelled",
                     "byUserId" to caller.userId.toLong(),

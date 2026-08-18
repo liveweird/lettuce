@@ -7,6 +7,7 @@ import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.authz.requireTeamKpiReadAllowingChain
 import ch.nokillswit.authz.requireTeamKpiWrite
+import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.infra.db.requireValidReferences
 import ch.nokillswit.infra.paging.SortField
 import ch.nokillswit.infra.paging.optionalEnum
@@ -209,10 +210,8 @@ fun Application.configureTeamKpiRoutes() {
                 // Audit: record the creation against the acting manager. No notification — the
                 // KPI is a private draft until activated.
                 kpiEventService.create(teamKpiCreationEvent(request.type).toEvent(id, caller.userId))
-                // The create committed (Location set, CREATED event persisted), so a missing
-                // re-read is a server-side anomaly, not a client 404.
                 val created = kpiService.read(id)
-                    ?: error("Team KPI $id vanished between create and re-read")
+                    .orVanished("Team KPI", id)
                 call.respond(HttpStatusCode.Created, created)
             }
             get<TeamKpis.Id> { route ->

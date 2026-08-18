@@ -4,6 +4,7 @@ import ch.nokillswit.audit.audit
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.TooManyRequestsException
 import ch.nokillswit.authz.UnauthorizedException
+import ch.nokillswit.infra.mail.Mailer
 import ch.nokillswit.infra.mail.mailAppUrl
 import ch.nokillswit.infra.mail.mailer
 import ch.nokillswit.infra.mail.respondMailUnavailable
@@ -13,6 +14,7 @@ import ch.nokillswit.notifications.NotificationType
 import ch.nokillswit.plugins.JwtConfig
 import ch.nokillswit.plugins.JwtConfigKey
 import ch.nokillswit.users.Feature
+import ch.nokillswit.users.User
 import ch.nokillswit.users.UserRole
 import ch.nokillswit.users.validateEmail
 import ch.nokillswit.users.UserServiceKey
@@ -89,6 +91,17 @@ data class LoginResponse(
     val language: String,
 )
 
+// The refresh rejection detail per audited reason — data beside the handler, not control flow
+// in it. Unlisted reasons fall through to the password-change wording (see the handler).
+private val REFRESH_REJECT_MESSAGES = mapOf(
+    "invalid_or_expired" to "Invalid or expired refresh token",
+    "wrong_token_type" to "Not a refresh token",
+    "revoked" to "Refresh token revoked",
+    "malformed" to "Malformed refresh token",
+    "user_gone" to "User no longer exists",
+    "deactivated" to "Account is deactivated",
+)
+
 private fun JwtConfig.authResponse(
     userId: UInt,
     email: String,
@@ -148,6 +161,87 @@ fun Application.configureAuthRoutes() {
         .withAudience(jwtConfig.audience)
         .withIssuer(jwtConfig.issuer)
         .build()
+
+    // The MFA half of the login handler (v2.4.0): correct credentials answered with a
+    // challenge instead of tokens. Responds itself (503 fail-closed on a mail-less
+    // deployment, else the challenge); the login handler returns right after calling it.
+    suspend fun issueMfaChallenge(call: ApplicationCall, userId: UInt, user: User) {
+        if (mailer == null) {
+            // Fail closed (the password-reset 503 precedent): silently skipping the
+            // second factor would downgrade security on a config change. The
+            // features PUT still works, so an admin can always flip the flag back.
+            audit("login.mfa_unavailable", "email" to user.email, "userId" to userId.toLong())
+            call.respondMailUnavailable("multi-factor login")
+            return
+        }
+        val challenge = mfaChallenges.issue(userId)
+        audit("login.mfa_challenge", "email" to user.email, "userId" to userId.toLong())
+        // Challenge stored BEFORE responding (the user submits the code right away);
+        // only the delivery is fire-and-forget, like the password-reset email.
+        val app = call.application
+        app.launch {
+            try {
+                mailer.send(
+                    to = user.email,
+                    subject = MFA_EMAIL_SUBJECT.of(user.language),
+                    body = mfaEmailBody(user.name, challenge.code, mfaTtlMinutes, user.language),
+                )
+            } catch (e: Exception) {
+                audit("login.mfa_send_failed", "email" to user.email, "error" to e.message)
+                app.log.error("MFA code email delivery failed for ${user.email}", e)
+            }
+        }
+        call.respond(
+            MfaChallengeResponse(
+                challengeId = challenge.challengeId,
+                expiresAt = challenge.expiresAt,
+            ),
+        )
+    }
+
+    // The password-reset work that runs AFTER the uniform 202 (no timing oracle): lookup,
+    // deactivated skip, generate, send-before-store, the owner notification, and the
+    // completion/failure audits. Launched fire-and-forget by the handler.
+    suspend fun processPasswordReset(app: Application, resetMailer: Mailer, email: String) {
+        try {
+            val record = userService.findWithIdByEmail(email)
+            if (record == null) {
+                audit("password_reset.unknown_email", "email" to email)
+                return
+            }
+            // A deactivated account is treated like an unknown address: no new
+            // password, no email. The uniform 202 already went out.
+            if (record.second.deactivated) {
+                audit("password_reset.deactivated", "email" to email)
+                return
+            }
+            val (userId, user) = record
+            val newPassword = generatePassword()
+            // Send FIRST, then store: a delivery failure leaves the old password
+            // working; a storage failure after delivery is recoverable by retrying.
+            resetMailer.send(
+                to = user.email,
+                subject = PASSWORD_RESET_EMAIL_SUBJECT.of(user.language),
+                body = passwordResetEmailBody(user.name, newPassword, mailAppUrl, user.language),
+            )
+            userService.updatePassword(userId, hashPassword(newPassword))
+            // The owner sees the confirmation once they sign in with the new
+            // password; the `self` param drives the "reset via email" wording.
+            // Minted BEFORE the completion audit so the audit event is a reliable
+            // "everything happened" barrier (tests await it).
+            notificationService.create(
+                Notification(
+                    recipientId = userId,
+                    type = NotificationType.PASSWORD_CHANGED,
+                    params = mapOf("self" to "reset"),
+                ),
+            )
+            audit("password_reset.completed", "email" to user.email, "userId" to userId.toLong())
+        } catch (e: Exception) {
+            audit("password_reset.send_failed", "email" to email, "error" to e.message)
+            app.log.error("Password-reset email delivery failed for $email", e)
+        }
+    }
 
     // Blank follows the mode (see application.yaml): production keeps the 10/min login bucket,
     // development lifts it so a single host driving many logins — the e2e suite — is not
@@ -213,37 +307,7 @@ fun Application.configureAuthRoutes() {
                 // Email MFA (opt-in via the MFA feature flag, read straight off the DB record —
                 // no JWT exists yet): correct credentials answer with a challenge, not tokens.
                 if (Feature.MFA !in user.disabledFeatures) {
-                    if (mailer == null) {
-                        // Fail closed (the password-reset 503 precedent): silently skipping the
-                        // second factor would downgrade security on a config change. The
-                        // features PUT still works, so an admin can always flip the flag back.
-                        audit("login.mfa_unavailable", "email" to user.email, "userId" to userId.toLong())
-                        call.respondMailUnavailable("multi-factor login")
-                        return@post
-                    }
-                    val challenge = mfaChallenges.issue(userId)
-                    audit("login.mfa_challenge", "email" to user.email, "userId" to userId.toLong())
-                    // Challenge stored BEFORE responding (the user submits the code right away);
-                    // only the delivery is fire-and-forget, like the password-reset email.
-                    val app = call.application
-                    app.launch {
-                        try {
-                            mailer.send(
-                                to = user.email,
-                                subject = MFA_EMAIL_SUBJECT.of(user.language),
-                                body = mfaEmailBody(user.name, challenge.code, mfaTtlMinutes, user.language),
-                            )
-                        } catch (e: Exception) {
-                            audit("login.mfa_send_failed", "email" to user.email, "error" to e.message)
-                            app.log.error("MFA code email delivery failed for ${user.email}", e)
-                        }
-                    }
-                    call.respond(
-                        MfaChallengeResponse(
-                            challengeId = challenge.challengeId,
-                            expiresAt = challenge.expiresAt,
-                        ),
-                    )
+                    issueMfaChallenge(call, userId, user)
                     return@post
                 }
                 audit("login.success", "email" to user.email, "userId" to userId.toLong())
@@ -290,15 +354,7 @@ fun Application.configureAuthRoutes() {
                 fun reject(reason: String, userId: Long? = null): Nothing {
                     audit("refresh.rejected", "reason" to reason, "userId" to userId)
                     throw UnauthorizedException(
-                        when (reason) {
-                            "invalid_or_expired" -> "Invalid or expired refresh token"
-                            "wrong_token_type" -> "Not a refresh token"
-                            "revoked" -> "Refresh token revoked"
-                            "malformed" -> "Malformed refresh token"
-                            "user_gone" -> "User no longer exists"
-                            "deactivated" -> "Account is deactivated"
-                            else -> "Refresh token predates a password change"
-                        }
+                        REFRESH_REJECT_MESSAGES[reason] ?: "Refresh token predates a password change",
                     )
                 }
 
@@ -359,46 +415,7 @@ fun Application.configureAuthRoutes() {
                 }
                 audit("password_reset.requested", "email" to email)
                 val app = call.application
-                app.launch {
-                    try {
-                        val record = userService.findWithIdByEmail(email)
-                        if (record == null) {
-                            audit("password_reset.unknown_email", "email" to email)
-                            return@launch
-                        }
-                        // A deactivated account is treated like an unknown address: no new
-                        // password, no email. The uniform 202 already went out.
-                        if (record.second.deactivated) {
-                            audit("password_reset.deactivated", "email" to email)
-                            return@launch
-                        }
-                        val (userId, user) = record
-                        val newPassword = generatePassword()
-                        // Send FIRST, then store: a delivery failure leaves the old password
-                        // working; a storage failure after delivery is recoverable by retrying.
-                        mailer.send(
-                            to = user.email,
-                            subject = PASSWORD_RESET_EMAIL_SUBJECT.of(user.language),
-                            body = passwordResetEmailBody(user.name, newPassword, mailAppUrl, user.language),
-                        )
-                        userService.updatePassword(userId, hashPassword(newPassword))
-                        // The owner sees the confirmation once they sign in with the new
-                        // password; the `self` param drives the "reset via email" wording.
-                        // Minted BEFORE the completion audit so the audit event is a reliable
-                        // "everything happened" barrier (tests await it).
-                        notificationService.create(
-                            Notification(
-                                recipientId = userId,
-                                type = NotificationType.PASSWORD_CHANGED,
-                                params = mapOf("self" to "reset"),
-                            ),
-                        )
-                        audit("password_reset.completed", "email" to user.email, "userId" to userId.toLong())
-                    } catch (e: Exception) {
-                        audit("password_reset.send_failed", "email" to email, "error" to e.message)
-                        app.log.error("Password-reset email delivery failed for $email", e)
-                    }
-                }
+                app.launch { processPasswordReset(app, mailer, email) }
                 call.respond(HttpStatusCode.Accepted)
             }
         }

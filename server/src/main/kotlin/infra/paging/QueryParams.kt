@@ -33,3 +33,34 @@ inline fun <reified E : Enum<E>> Parameters.optionalEnum(name: String): E? =
             "Unknown $name: $raw (allowed: ${enumValues<E>().joinToString { it.name }})",
         )
     }
+
+/**
+ * The list endpoints' shared `includeIndirect` shape rule: the strict boolean is accepted only
+ * while [view] is one of [allowed] (400 otherwise, naming the allowed views); absent = false.
+ */
+fun <T : Enum<T>> Parameters.optionalIncludeIndirect(view: T, allowed: List<T>): Boolean {
+    val value = optionalBoolean("includeIndirect")
+    if (value != null && view !in allowed) {
+        val views = allowed.joinToString(" and ") { "view=${it.name.lowercase()}" }
+        throw BadRequestException("includeIndirect is only supported for $views")
+    }
+    return value == true
+}
+
+/**
+ * The list endpoints' shared view-scoped id param (the auditor `userId`, the 1:1 list's
+ * `counterpartId`): required while [view] is [requiredView], rejected on any other view.
+ * The 400s here deliberately run BEFORE any role gate at the call site — shape validation
+ * first, then authorization (see `requireAuditListAccess` in authz/Guards.kt).
+ */
+fun <T : Enum<T>> Parameters.uintOnlyForView(name: String, view: T, requiredView: T): UInt? {
+    val value = optionalUInt(name)
+    val viewName = "view=${requiredView.name.lowercase()}"
+    if (view == requiredView && value == null) {
+        throw BadRequestException("$name is required for $viewName")
+    }
+    if (view != requiredView && value != null) {
+        throw BadRequestException("$name is only supported for $viewName")
+    }
+    return value
+}

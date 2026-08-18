@@ -1334,7 +1334,7 @@ paths:
         - name: userId
           in: query
           required: false
-          schema: { type: integer, format: int64, minimum: 0 }
+          schema: { type: integer, format: int32, minimum: 0 }
           description: |
             Required with `view=user` (`400` when missing there, `400` with any other view):
             the user whose records the auditor view lists.
@@ -1366,12 +1366,12 @@ paths:
         - name: providerId
           in: query
           required: false
-          schema: { type: integer, format: int64, minimum: 0 }
+          schema: { type: integer, format: int32, minimum: 0 }
           description: Exact match against the provider's user id.
         - name: subjectId
           in: query
           required: false
-          schema: { type: integer, format: int64, minimum: 0 }
+          schema: { type: integer, format: int32, minimum: 0 }
           description: Exact match against the subject's user id.
         - name: visibility
           in: query
@@ -1476,15 +1476,15 @@ paths:
         - name: subjectId
           in: query
           required: true
-          schema: { type: integer, format: int64, minimum: 0 }
+          schema: { type: integer, format: int32, minimum: 0 }
         - name: providerId
           in: query
           required: true
-          schema: { type: integer, format: int64, minimum: 0 }
+          schema: { type: integer, format: int32, minimum: 0 }
         - name: requesterId
           in: query
           required: false
-          schema: { type: integer, format: int64, minimum: 0 }
+          schema: { type: integer, format: int32, minimum: 0 }
       responses:
         '200':
           description: The duplicate, or nulls when there is none
@@ -1788,14 +1788,14 @@ paths:
         - name: counterpartId
           in: query
           required: false
-          schema: { type: integer, format: int64, minimum: 0 }
+          schema: { type: integer, format: int32, minimum: 0 }
           description: |
             The other party's user id. Required with `view=with` (else `400`), rejected on any
             other view (`400`).
         - name: userId
           in: query
           required: false
-          schema: { type: integer, format: int64, minimum: 0 }
+          schema: { type: integer, format: int32, minimum: 0 }
           description: |
             Required with `view=user` (`400` when missing there, `400` with any other view):
             the user whose records the auditor view lists.
@@ -2115,7 +2115,7 @@ paths:
         - name: userId
           in: query
           required: false
-          schema: { type: integer, format: int64, minimum: 0 }
+          schema: { type: integer, format: int32, minimum: 0 }
           description: |
             Required with `view=user` (`400` when missing there, `400` with any other view):
             the user whose records the auditor view lists.
@@ -2142,12 +2142,12 @@ paths:
         - name: managerId
           in: query
           required: false
-          schema: { type: integer, format: int64, minimum: 0 }
+          schema: { type: integer, format: int32, minimum: 0 }
           description: Exact manager-id match.
         - name: subordinateId
           in: query
           required: false
-          schema: { type: integer, format: int64, minimum: 0 }
+          schema: { type: integer, format: int32, minimum: 0 }
           description: Exact subordinate-id match.
         - name: title
           in: query
@@ -2841,7 +2841,7 @@ paths:
       - name: valueId
         in: path
         required: true
-        schema: { type: integer, format: int64, minimum: 0 }
+        schema: { type: integer, format: int32, minimum: 0 }
         description: Id of the data point (must belong to the addressed KPI, else 404).
     put:
       tags: [team-kpis]
@@ -3180,7 +3180,7 @@ paths:
         - name: userId
           in: query
           required: false
-          schema: { type: integer, format: int64, minimum: 0 }
+          schema: { type: integer, format: int32, minimum: 0 }
           description: |
             Required with `view=user` (`400` when missing there, `400` with any other view):
             the user whose records the auditor view lists.
@@ -3207,17 +3207,17 @@ paths:
         - name: managerId
           in: query
           required: false
-          schema: { type: integer, format: int64, minimum: 0 }
+          schema: { type: integer, format: int32, minimum: 0 }
           description: Exact manager-id match.
         - name: subordinateId
           in: query
           required: false
-          schema: { type: integer, format: int64, minimum: 0 }
+          schema: { type: integer, format: int32, minimum: 0 }
           description: Exact subordinate-id match.
         - name: periodId
           in: query
           required: false
-          schema: { type: integer, format: int64, minimum: 0 }
+          schema: { type: integer, format: int32, minimum: 0 }
           description: Exact review-period match.
         - name: status
           in: query
@@ -3574,7 +3574,7 @@ paths:
         - name: userId
           in: query
           required: false
-          schema: { type: integer, format: int64, minimum: 0 }
+          schema: { type: integer, format: int32, minimum: 0 }
           description: |
             Exact owner-id match. Required with `view=user` (`400` when missing there); an
             ordinary pin-filter with `view=managed`; rejected with `view=own` (`400`).
@@ -3786,7 +3786,7 @@ paths:
         - name: userId
           in: query
           required: true
-          schema: { type: integer, format: int64, minimum: 0 }
+          schema: { type: integer, format: int32, minimum: 0 }
           description: Whose corrections to list (`400` when missing).
         - name: year
           in: query
@@ -5254,7 +5254,7 @@ components:
           type: integer
           format: int64
           description: Refresh-token expiry as Unix epoch milliseconds.
-        userId: { type: integer, format: int64, minimum: 0 }
+        userId: { type: integer, format: int32, minimum: 0 }
         roles:
           type: array
           items: { type: string, enum: [ADMIN, HR] }
@@ -5444,7 +5444,7 @@ components:
       type: object
       required: [id, name, email, roles, careerPath, careerSpecialization, seniorityLevel, paidDaysOffAllowance, deactivated, disabledFeatures, emailNotificationsEnabled, uniqueId, language]
       properties:
-        id: { type: integer, format: int64 }
+        id: { type: integer, format: int32 }
         name: { type: string }
         email: { type: string }
         roles:
@@ -5558,7 +5558,7 @@ components:
       type: object
       required: [id, startDate, endDate, careerPath, careerSpecialization, seniorityLevel, createdAt, lastModified]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
         startDate:
           type: string
           format: date
@@ -5624,7 +5624,7 @@ components:
       type: object
       required: [userId, name, deactivated, positions]
       properties:
-        userId: { type: integer, format: int64, minimum: 0 }
+        userId: { type: integer, format: int32, minimum: 0 }
         name: { type: string }
         deactivated:
           type: boolean
@@ -5675,7 +5675,7 @@ components:
       type: object
       required: [id, name, email, roles, careerPath, careerSpecialization, seniorityLevel, paidDaysOffAllowance, deactivated, disabledFeatures, emailNotificationsEnabled, uniqueId, language]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
         name: { type: string }
         email: { type: string, format: email }
         roles:
@@ -5772,24 +5772,25 @@ components:
       required: [name, managerId]
       properties:
         name: { type: string, minLength: 1, maxLength: 100 }
-        managerId: { type: integer, format: int64, minimum: 0 }
+        managerId: { type: integer, format: int32, minimum: 0 }
         memberIds:
           type: array
+          maxItems: 200
           description: |
             Defaults to an empty list when omitted. Zero-member teams are allowed;
             members can be added later via the `/api/v1/teams/{id}/members/{userId}` sub-resource.
-          items: { type: integer, format: int64, minimum: 0 }
+          items: { type: integer, format: int32, minimum: 0 }
 
     TeamResponse:
       type: object
       required: [id, name, managerId, memberIds]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
         name: { type: string }
-        managerId: { type: integer, format: int64, minimum: 0 }
+        managerId: { type: integer, format: int32, minimum: 0 }
         memberIds:
           type: array
-          items: { type: integer, format: int64, minimum: 0 }
+          items: { type: integer, format: int32, minimum: 0 }
         managerName:
           type: string
           description: >-
@@ -5806,9 +5807,9 @@ components:
       type: object
       required: [id, name, managerId, managerName, managerDeleted]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
         name: { type: string }
-        managerId: { type: integer, format: int64, minimum: 0 }
+        managerId: { type: integer, format: int32, minimum: 0 }
         managerName: { type: string }
         managerDeleted:
           type: boolean
@@ -5834,10 +5835,10 @@ components:
       type: object
       required: [userId, name, email, teamId, teamName]
       properties:
-        userId: { type: integer, format: int64, minimum: 0 }
+        userId: { type: integer, format: int32, minimum: 0 }
         name: { type: string }
         email: { type: string, format: email }
-        teamId: { type: integer, format: int64, minimum: 0 }
+        teamId: { type: integer, format: int32, minimum: 0 }
         teamName: { type: string }
         lastOneOnOneDate:
           type: string
@@ -5910,7 +5911,7 @@ components:
             goals never count.
         lastReviewId:
           type: integer
-          format: int64
+          format: int32
           minimum: 0
           nullable: true
           description: |
@@ -6004,11 +6005,11 @@ components:
       properties:
         requesterId:
           type: integer
-          format: int64
+          format: int32
           minimum: 0
           nullable: true
-        subjectId: { type: integer, format: int64, minimum: 0 }
-        providerId: { type: integer, format: int64, minimum: 0 }
+        subjectId: { type: integer, format: int32, minimum: 0 }
+        providerId: { type: integer, format: int32, minimum: 0 }
         visibility:
           type: string
           enum: [PROVIDER_SUBJECT, PROVIDER_REQUESTER, PROVIDER_REQUESTER_SUBJECT, PUBLIC]
@@ -6029,14 +6030,14 @@ components:
       type: object
       required: [id, subjectId, providerId, visibility, status, lastModified]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
         requesterId:
           type: integer
-          format: int64
+          format: int32
           minimum: 0
           nullable: true
-        subjectId: { type: integer, format: int64, minimum: 0 }
-        providerId: { type: integer, format: int64, minimum: 0 }
+        subjectId: { type: integer, format: int32, minimum: 0 }
+        providerId: { type: integer, format: int32, minimum: 0 }
         visibility:
           type: string
           enum: [PROVIDER_SUBJECT, PROVIDER_REQUESTER, PROVIDER_REQUESTER_SUBJECT, PUBLIC]
@@ -6076,10 +6077,10 @@ components:
       type: object
       required: [id, requesterDeleted, subjectId, subjectName, subjectDeleted, providerId, providerName, providerDeleted, visibility, status, contentPreview, lastModified]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
         requesterId:
           type: integer
-          format: int64
+          format: int32
           minimum: 0
           nullable: true
         requesterName:
@@ -6089,12 +6090,12 @@ components:
         requesterDeleted:
           type: boolean
           description: True when the user referenced by `requesterId` has been soft-deleted. False when there is no requester.
-        subjectId: { type: integer, format: int64, minimum: 0 }
+        subjectId: { type: integer, format: int32, minimum: 0 }
         subjectName: { type: string }
         subjectDeleted:
           type: boolean
           description: True when the user referenced by `subjectId` has been soft-deleted.
-        providerId: { type: integer, format: int64, minimum: 0 }
+        providerId: { type: integer, format: int32, minimum: 0 }
         providerName: { type: string }
         providerDeleted:
           type: boolean
@@ -6143,7 +6144,7 @@ components:
       properties:
         existingId:
           type: integer
-          format: int64
+          format: int32
           minimum: 0
           nullable: true
           description: Id of the active DRAFT/REQUESTED feedback matching the triple.
@@ -6164,7 +6165,7 @@ components:
       type: object
       required: [id, name, content]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
         name: { type: string }
         content: { type: string }
 
@@ -6172,7 +6173,7 @@ components:
       type: object
       required: [id, name, contentPreview]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
         name: { type: string }
         contentPreview:
           type: string
@@ -6210,7 +6211,7 @@ components:
       required: [id, values]
       description: Every entry carries a language->value map — clients render the viewer's language, falling back to English.
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
         values: { $ref: '#/components/schemas/DictionaryValues' }
 
     DictionaryEntryList:
@@ -6228,7 +6229,7 @@ components:
       properties:
         id:
           type: integer
-          format: int64
+          format: int32
           minimum: 0
           nullable: true
           description: Present = update that active entry in place; absent = insert a new entry.
@@ -6270,7 +6271,7 @@ components:
       type: object
       required: [id, title, content, isActive]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
         title: { type: string }
         content: { type: string }
         isActive: { type: boolean }
@@ -6297,7 +6298,7 @@ components:
       type: object
       required: [id, title, content]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
         title: { type: string }
         content:
           type: string
@@ -6316,9 +6317,9 @@ components:
       type: object
       required: [id, feedbackId, userId, userName, timestamp, type, params]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
-        feedbackId: { type: integer, format: int64, minimum: 0 }
-        userId: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
+        feedbackId: { type: integer, format: int32, minimum: 0 }
+        userId: { type: integer, format: int32, minimum: 0 }
         userName:
           type: string
           description: Display name of the user who performed the change. Server-resolved, read-only.
@@ -6352,7 +6353,7 @@ components:
       properties:
         id:
           type: integer
-          format: int64
+          format: int32
           minimum: 0
           nullable: true
           description: >-
@@ -6365,7 +6366,7 @@ components:
       properties:
         id:
           type: integer
-          format: int64
+          format: int32
           minimum: 0
           nullable: true
           description: >-
@@ -6388,7 +6389,7 @@ components:
       properties:
         subordinateId:
           type: integer
-          format: int64
+          format: int32
           minimum: 0
           description: Must be a direct report of the caller (the manager).
         meetingDate: { type: string, format: date, description: ISO `YYYY-MM-DD`. }
@@ -6435,14 +6436,14 @@ components:
       type: object
       required: [id, content]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
         content: { type: string }
 
     OneOnOneActionItem:
       type: object
       required: [id, content, owner, resolved]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
         content: { type: string }
         owner:
           type: string
@@ -6451,7 +6452,7 @@ components:
         resolved: { type: boolean }
         copiedFromId:
           type: integer
-          format: int64
+          format: int32
           minimum: 0
           nullable: true
           description: >-
@@ -6472,10 +6473,10 @@ components:
       type: object
       required: [id, managerId, managerName, subordinateId, subordinateName, meetingDate, lastModified, points, decisions, actionItems]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
-        managerId: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
+        managerId: { type: integer, format: int32, minimum: 0 }
         managerName: { type: string }
-        subordinateId: { type: integer, format: int64, minimum: 0 }
+        subordinateId: { type: integer, format: int32, minimum: 0 }
         subordinateName: { type: string }
         meetingDate: { type: string, format: date }
         lastModified:
@@ -6514,11 +6515,11 @@ components:
       type: object
       required: [id, managerId, managerName, managerDeleted, subordinateId, subordinateName, subordinateDeleted, meetingDate, lastModified, pointCount, decisionCount, actionItemCount, openActionItemCount]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
-        managerId: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
+        managerId: { type: integer, format: int32, minimum: 0 }
         managerName: { type: string }
         managerDeleted: { type: boolean }
-        subordinateId: { type: integer, format: int64, minimum: 0 }
+        subordinateId: { type: integer, format: int32, minimum: 0 }
         subordinateName: { type: string }
         subordinateDeleted: { type: boolean }
         meetingDate: { type: string, format: date }
@@ -6557,9 +6558,9 @@ components:
       type: object
       required: [id, meetingId, userId, userName, timestamp, type, params]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
-        meetingId: { type: integer, format: int64, minimum: 0 }
-        userId: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
+        meetingId: { type: integer, format: int32, minimum: 0 }
+        userId: { type: integer, format: int32, minimum: 0 }
         userName:
           type: string
           description: Display name of the user who performed the change. Server-resolved, read-only.
@@ -6608,8 +6609,8 @@ components:
       type: object
       required: [actionItemId, meetingId, meetingDate, content, owner, resolved]
       properties:
-        actionItemId: { type: integer, format: int64, minimum: 0 }
-        meetingId: { type: integer, format: int64, minimum: 0 }
+        actionItemId: { type: integer, format: int32, minimum: 0 }
+        meetingId: { type: integer, format: int32, minimum: 0 }
         meetingDate: { type: string, format: date }
         content: { type: string }
         owner:
@@ -6632,7 +6633,7 @@ components:
       properties:
         id:
           type: integer
-          format: int64
+          format: int32
           minimum: 0
           nullable: true
           description: >-
@@ -6649,14 +6650,14 @@ components:
       type: object
       required: [id, done]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
         done: { type: boolean }
 
     GoalMilestoneResponse:
       type: object
       required: [id, description, done]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
         description: { type: string }
         done: { type: boolean }
 
@@ -6666,7 +6667,7 @@ components:
       properties:
         subordinateId:
           type: integer
-          format: int64
+          format: int32
           minimum: 0
           description: Must be a direct report of the caller (the manager).
         title:
@@ -6779,10 +6780,10 @@ components:
       type: object
       required: [id, managerId, managerName, subordinateId, subordinateName, createdAt, dueDate, title, description, type, targetValue, currentValue, milestones, status, summary, lastModified]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
-        managerId: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
+        managerId: { type: integer, format: int32, minimum: 0 }
         managerName: { type: string }
-        subordinateId: { type: integer, format: int64, minimum: 0 }
+        subordinateId: { type: integer, format: int32, minimum: 0 }
         subordinateName: { type: string }
         createdAt:
           type: integer
@@ -6836,11 +6837,11 @@ components:
       type: object
       required: [id, managerId, managerName, managerDeleted, subordinateId, subordinateName, subordinateDeleted, title, type, targetValue, currentValue, milestonesDone, milestonesTotal, status, createdAt, dueDate, lastModified]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
-        managerId: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
+        managerId: { type: integer, format: int32, minimum: 0 }
         managerName: { type: string }
         managerDeleted: { type: boolean }
-        subordinateId: { type: integer, format: int64, minimum: 0 }
+        subordinateId: { type: integer, format: int32, minimum: 0 }
         subordinateName: { type: string }
         subordinateDeleted: { type: boolean }
         title: { type: string }
@@ -6888,9 +6889,9 @@ components:
       type: object
       required: [id, goalId, userId, userName, timestamp, type, params]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
-        goalId: { type: integer, format: int64, minimum: 0 }
-        userId: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
+        goalId: { type: integer, format: int32, minimum: 0 }
+        userId: { type: integer, format: int32, minimum: 0 }
         userName:
           type: string
           description: Display name of the user who performed the change. Server-resolved, read-only.
@@ -6956,7 +6957,7 @@ components:
       properties:
         teamId:
           type: integer
-          format: int64
+          format: int32
           minimum: 0
           description: Must be a non-deleted team whose current manager the caller is.
         title:
@@ -7010,7 +7011,7 @@ components:
       type: object
       required: [id, date, value]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
         date:
           type: string
           format: date
@@ -7040,8 +7041,8 @@ components:
       type: object
       required: [id, teamId, teamName, teamDeleted, managerId, managerName, createdAt, title, description, type, targetValue, currentValue, currentValueDate, status, summary, lastModified]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
-        teamId: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
+        teamId: { type: integer, format: int32, minimum: 0 }
         teamName: { type: string }
         teamDeleted:
           type: boolean
@@ -7050,7 +7051,7 @@ components:
             team's last manager.
         managerId:
           type: integer
-          format: int64
+          format: int32
           minimum: 0
           description: >-
             The team's CURRENT manager (`teams.manager_id`), resolved at read time — never
@@ -7097,11 +7098,11 @@ components:
       type: object
       required: [id, teamId, teamName, teamDeleted, managerId, managerName, managerDeleted, title, type, targetValue, currentValue, status, createdAt, lastModified]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
-        teamId: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
+        teamId: { type: integer, format: int32, minimum: 0 }
         teamName: { type: string }
         teamDeleted: { type: boolean }
-        managerId: { type: integer, format: int64, minimum: 0 }
+        managerId: { type: integer, format: int32, minimum: 0 }
         managerName: { type: string }
         managerDeleted: { type: boolean }
         title: { type: string }
@@ -7136,9 +7137,9 @@ components:
       type: object
       required: [id, kpiId, userId, userName, timestamp, type, params]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
-        kpiId: { type: integer, format: int64, minimum: 0 }
-        userId: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
+        kpiId: { type: integer, format: int32, minimum: 0 }
+        userId: { type: integer, format: int32, minimum: 0 }
         userName:
           type: string
           description: Display name of the user who performed the change. Server-resolved, read-only.
@@ -7184,7 +7185,7 @@ components:
       type: object
       required: [id, startMonth, endMonth]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
         startMonth:
           type: string
           description: First month of the period, inclusive ISO YYYY-MM (zero-padded).
@@ -7239,12 +7240,12 @@ components:
       properties:
         subordinateId:
           type: integer
-          format: int64
+          format: int32
           minimum: 0
           description: Must be a direct report of the caller at creation time.
         periodId:
           type: integer
-          format: int64
+          format: int32
           minimum: 0
           description: The review period assessed; the subordinate may have one review per period.
         attitude: { $ref: '#/components/schemas/CategoryAssessment' }
@@ -7282,10 +7283,10 @@ components:
         - managerName
         - subordinateName
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
-        managerId: { type: integer, format: int64, minimum: 0 }
-        subordinateId: { type: integer, format: int64, minimum: 0 }
-        periodId: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
+        managerId: { type: integer, format: int32, minimum: 0 }
+        subordinateId: { type: integer, format: int32, minimum: 0 }
+        periodId: { type: integer, format: int32, minimum: 0 }
         periodStartMonth:
           type: string
           description: The period's first month, inclusive ISO YYYY-MM. Server-resolved, read-only.
@@ -7335,18 +7336,18 @@ components:
         - createdAt
         - lastModified
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
-        managerId: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
+        managerId: { type: integer, format: int32, minimum: 0 }
         managerName: { type: string }
         managerDeleted:
           type: boolean
           description: True when the manager's account has been soft-deleted.
-        subordinateId: { type: integer, format: int64, minimum: 0 }
+        subordinateId: { type: integer, format: int32, minimum: 0 }
         subordinateName: { type: string }
         subordinateDeleted:
           type: boolean
           description: True when the subordinate's account has been soft-deleted.
-        periodId: { type: integer, format: int64, minimum: 0 }
+        periodId: { type: integer, format: int32, minimum: 0 }
         periodStartMonth: { type: string }
         periodEndMonth: { type: string }
         status:
@@ -7379,9 +7380,9 @@ components:
       type: object
       required: [id, reviewId, userId, userName, timestamp, type, params]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
-        reviewId: { type: integer, format: int64, minimum: 0 }
-        userId: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
+        reviewId: { type: integer, format: int32, minimum: 0 }
+        userId: { type: integer, format: int32, minimum: 0 }
         userName:
           type: string
           description: Display name of the user who performed the change. Server-resolved, read-only.
@@ -7449,8 +7450,8 @@ components:
         [id, userId, userName, type, status, startDate, endDate, startHalf, endHalf, days,
          createdAt, resolvedById, resolvedByName, resolvedAt, cancelledAt, lastModified]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
-        userId: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
+        userId: { type: integer, format: int32, minimum: 0 }
         userName: { type: string }
         type: { type: string, enum: [PAID, UNPAID] }
         status:
@@ -7474,7 +7475,7 @@ components:
         createdAt: { type: integer, format: int64, description: "Epoch milliseconds, immutable." }
         resolvedById:
           type: integer
-          format: int64
+          format: int32
           minimum: 0
           nullable: true
           description: The accepting/rejecting manager — null while REQUESTED.
@@ -7489,8 +7490,8 @@ components:
         [id, userId, userName, userDeleted, type, status, startDate, endDate, startHalf,
          endHalf, days, createdAt, lastModified]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
-        userId: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
+        userId: { type: integer, format: int32, minimum: 0 }
         userName: { type: string }
         userDeleted: { type: boolean }
         type: { type: string, enum: [PAID, UNPAID] }
@@ -7523,7 +7524,7 @@ components:
       type: object
       required: [requestId, date, type, status, half]
       properties:
-        requestId: { type: integer, format: int64, minimum: 0 }
+        requestId: { type: integer, format: int32, minimum: 0 }
         date: { type: string, format: date }
         type: { type: string, enum: [PAID, UNPAID] }
         status:
@@ -7536,7 +7537,7 @@ components:
       type: object
       required: [userId, userName, userDeleted, entries]
       properties:
-        userId: { type: integer, format: int64, minimum: 0 }
+        userId: { type: integer, format: int32, minimum: 0 }
         userName: { type: string }
         userDeleted: { type: boolean }
         entries:
@@ -7565,7 +7566,7 @@ components:
       type: object
       required: [userId, userName, userDeleted, year, allowance, carriedOver, corrected, reserved, used, remaining]
       properties:
-        userId: { type: integer, format: int64, minimum: 0 }
+        userId: { type: integer, format: int32, minimum: 0 }
         userName: { type: string }
         userDeleted: { type: boolean }
         year: { type: integer }
@@ -7611,7 +7612,7 @@ components:
       properties:
         userId:
           type: integer
-          format: int64
+          format: int32
           minimum: 0
           description: The subordinate whose budget is corrected. Create-only — immutable on PUT (ignored there).
         year: { type: integer, minimum: 2000, maximum: 2100 }
@@ -7634,11 +7635,11 @@ components:
         [id, userId, authorId, authorName, authorDeleted, year, operation, days, comment,
          createdAt, lastModified]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
-        userId: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
+        userId: { type: integer, format: int32, minimum: 0 }
         authorId:
           type: integer
-          format: int64
+          format: int32
           minimum: 0
           description: Who created the correction — display-only; edit rights follow the current direct managers.
         authorName: { type: string }
@@ -7663,7 +7664,7 @@ components:
       type: object
       required: [id, date, name]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
         date: { type: string, format: date }
         name: { type: string, maxLength: 100 }
 
@@ -7690,8 +7691,8 @@ components:
       type: object
       required: [id, recipientId, timestamp, type, params, wasSeen]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
-        recipientId: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
+        recipientId: { type: integer, format: int32, minimum: 0 }
         timestamp:
           type: integer
           format: int64
@@ -7823,7 +7824,7 @@ components:
             manage). 0 for non-managers — the client hides the manager tiles on it.
         currentPeriodId:
           type: integer
-          format: int64
+          format: int32
           minimum: 0
           nullable: true
           description: >-
@@ -7862,7 +7863,7 @@ components:
       type: object
       required: [id, status, plannedOpenDate, plannedCloseDate, createdAt, lastModified]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
         status: { $ref: '#/components/schemas/PulseCycleStatus' }
         plannedOpenDate:
           type: string
@@ -7959,7 +7960,7 @@ components:
       type: object
       required: [cycleId, enps, q2, q3, q4, q5, rotating, submittedAt, lastModified]
       properties:
-        cycleId: { type: integer, format: int64, minimum: 0 }
+        cycleId: { type: integer, format: int32, minimum: 0 }
         enps: { type: integer, minimum: 0, maximum: 10 }
         q2: { $ref: '#/components/schemas/PulseScaleAnswer' }
         q3: { $ref: '#/components/schemas/PulseScaleAnswer' }
@@ -7988,7 +7989,7 @@ components:
       type: object
       required: [userId, name, responded]
       properties:
-        userId: { type: integer, format: int64, minimum: 0 }
+        userId: { type: integer, format: int32, minimum: 0 }
         name: { type: string }
         responded: { type: boolean }
 
@@ -7996,7 +7997,7 @@ components:
       type: object
       required: [teamId, teamName, members]
       properties:
-        teamId: { type: integer, format: int64, minimum: 0 }
+        teamId: { type: integer, format: int32, minimum: 0 }
         teamName: { type: string }
         members:
           type: array
@@ -8084,7 +8085,7 @@ components:
       type: object
       required: [cycleId, enpsDelta]
       properties:
-        cycleId: { type: integer, format: int64, minimum: 0 }
+        cycleId: { type: integer, format: int32, minimum: 0 }
         enpsDelta:
           type: integer
           description: Whole-point eNPS change vs that cycle over the same scope.
@@ -8093,8 +8094,8 @@ components:
       type: object
       required: [cycleId, teamId, teamName, mode, participantCount, responseCount, responseRate, insufficientResponses]
       properties:
-        cycleId: { type: integer, format: int64, minimum: 0 }
-        teamId: { type: integer, format: int64, minimum: 0 }
+        cycleId: { type: integer, format: int32, minimum: 0 }
+        teamId: { type: integer, format: int32, minimum: 0 }
         teamName: { type: string }
         mode: { $ref: '#/components/schemas/PulseAggregationMode' }
         participantCount: { type: integer, minimum: 0 }
@@ -8139,7 +8140,7 @@ components:
       type: object
       required: [cycleId, closedAt, availability]
       properties:
-        cycleId: { type: integer, format: int64, minimum: 0 }
+        cycleId: { type: integer, format: int32, minimum: 0 }
         closedAt: { type: integer, format: int64 }
         availability: { $ref: '#/components/schemas/PulseTrendAvailability' }
         enps:
@@ -8168,7 +8169,7 @@ components:
       type: object
       required: [teamId, teamName, mode, points]
       properties:
-        teamId: { type: integer, format: int64, minimum: 0 }
+        teamId: { type: integer, format: int32, minimum: 0 }
         teamName: { type: string }
         mode: { $ref: '#/components/schemas/PulseAggregationMode' }
         points:
@@ -8180,7 +8181,7 @@ components:
       type: object
       required: [id, name]
       properties:
-        id: { type: integer, format: int64, minimum: 0 }
+        id: { type: integer, format: int32, minimum: 0 }
         name: { type: string }
 
     PulseVisibleTeams:

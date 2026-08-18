@@ -6,6 +6,7 @@ import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireCareerPositionWrite
 import ch.nokillswit.dictionaries.Dictionary
 import ch.nokillswit.dictionaries.DictionaryEntry
+import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.infra.paging.optionalBoolean
 import ch.nokillswit.notifications.NotificationServiceKey
 import io.ktor.http.HttpHeaders
@@ -195,7 +196,7 @@ fun Application.configureCareerPositionRoutes() {
                 write.seniorityLevelId?.let { auditFields += "seniorityLevelId" to it.toLong() }
                 audit("career_position.created", *auditFields.toTypedArray())
                 val row = careerPositionService.readRow(id)
-                    ?: error("Career position $id vanished between create and re-read")
+                    .orVanished("Career position", id)
                 val entries = userService.resolveEntryRefs(
                     row.careerPathId,
                     row.careerSpecializationId,

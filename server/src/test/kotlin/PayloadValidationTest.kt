@@ -7,6 +7,7 @@ import ch.nokillswit.feedbacks.FeedbackCreateRequest
 import ch.nokillswit.feedbacks.FeedbackResponse
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
+import ch.nokillswit.plugins.ProblemDetail
 import ch.nokillswit.teams.Team
 import ch.nokillswit.templates.Template
 import ch.nokillswit.users.UserRequest
@@ -152,6 +153,33 @@ class PayloadValidationTest {
             setBody(Team(name = "x".repeat(101), managerId = managerId, memberIds = emptyList()))
         }
         assertEquals(HttpStatusCode.BadRequest, oversized.status)
+    }
+
+    @Test
+    fun `team create and update reject rosters above the member cap with 400`() = testApplication {
+        usePostgresTestcontainer()
+        val client = adminClient()
+        val managerId = TestUsers.seed(email = uniqueEmail("capmgr"), password = "pw-123456789")
+        // 201 distinct ids — over the MAX_TEAM_MEMBERS = 200 cap; the shape check fires before
+        // any per-id existence/deactivation lookups, so fabricated ids never reach the DB.
+        val oversizedRoster = (1_000_000u until 1_000_201u).toList()
+
+        val create = client.post("/api/v1/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "cap-${java.util.UUID.randomUUID()}", managerId = managerId, memberIds = oversizedRoster))
+        }
+        assertEquals(HttpStatusCode.BadRequest, create.status)
+        assertEquals("A team may have at most 200 members", create.body<ProblemDetail>().detail)
+
+        val teamId = TestServices.teams.create(
+            Team(name = "cap-${java.util.UUID.randomUUID()}", managerId = managerId),
+        )
+        val update = client.put("/api/v1/teams/$teamId") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "still-fine", managerId = managerId, memberIds = oversizedRoster))
+        }
+        assertEquals(HttpStatusCode.BadRequest, update.status)
+        assertEquals("A team may have at most 200 members", update.body<ProblemDetail>().detail)
     }
 
     @Test

@@ -9,6 +9,7 @@ import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.authz.requireGoalProgressWrite
 import ch.nokillswit.authz.requireGoalReadAllowingManager
 import ch.nokillswit.authz.requireGoalWrite
+import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.infra.db.requireValidReferences
 import ch.nokillswit.infra.paging.SortField
 import ch.nokillswit.infra.paging.optionalBoolean
@@ -16,6 +17,8 @@ import ch.nokillswit.infra.paging.optionalEnum
 import ch.nokillswit.infra.paging.optionalLong
 import ch.nokillswit.infra.paging.optionalString
 import ch.nokillswit.infra.paging.optionalUInt
+import ch.nokillswit.infra.paging.optionalIncludeIndirect
+import ch.nokillswit.infra.paging.uintOnlyForView
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.notifications.NotificationServiceKey
@@ -170,19 +173,11 @@ fun Application.configureGoalRoutes() {
                     ),
                     defaultSort = listOf(SortField("createdAt", descending = true)),
                 )
-                val includeIndirect = params.optionalBoolean("includeIndirect")
-                if (includeIndirect != null && view != GoalListView.MANAGED && view != GoalListView.TEAM) {
-                    throw BadRequestException("includeIndirect is only supported for view=managed and view=team")
-                }
+                val includeIndirect =
+                    params.optionalIncludeIndirect(view, listOf(GoalListView.MANAGED, GoalListView.TEAM))
                 // The auditor view (HR-only): view-shape validation like counterpartId on the
                 // 1:1 list, then the role gate (every use is audit-logged).
-                val userId = params.optionalUInt("userId")
-                if (view == GoalListView.USER && userId == null) {
-                    throw BadRequestException("userId is required for view=user")
-                }
-                if (view != GoalListView.USER && userId != null) {
-                    throw BadRequestException("userId is only supported for view=user")
-                }
+                val userId = params.uintOnlyForView("userId", view, GoalListView.USER)
                 if (view == GoalListView.USER) {
                     requireAuditListAccess(caller, "goal", userId!!)
                 }
@@ -202,7 +197,7 @@ fun Application.configureGoalRoutes() {
                     caller.userId,
                     filter,
                     paging,
-                    includeIndirect = includeIndirect == true,
+                    includeIndirect = includeIndirect,
                     targetUserId = userId,
                 )
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
@@ -226,10 +221,8 @@ fun Application.configureGoalRoutes() {
                 // Audit: record the creation against the acting manager. No notification — the
                 // goal is a private draft until activated.
                 goalEventService.create(goalCreationEvent(request.type).toEvent(id, caller.userId))
-                // The create committed (Location set, CREATED event persisted), so a missing
-                // re-read is a server-side anomaly, not a client 404.
                 val created = goalService.read(id)
-                    ?: error("Goal $id vanished between create and re-read")
+                    .orVanished("Goal", id)
                 call.respond(HttpStatusCode.Created, created)
             }
             get<Goals.Id> { route ->
