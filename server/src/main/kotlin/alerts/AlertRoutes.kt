@@ -1,13 +1,13 @@
 package ch.nokillswit.alerts
 
 import ch.nokillswit.audit.audit
+import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAdmin
 import ch.nokillswit.infra.paging.optionalBoolean
 import ch.nokillswit.infra.paging.optionalString
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
-import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
@@ -71,10 +71,7 @@ fun Application.configureAlertRoutes() {
             get<Alerts.Id> { route ->
                 requireAdmin(call.caller())
                 val alert = alertService.read(route.id)
-                if (alert == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Alert not found")
-                    return@get
-                }
+                    ?: throw NotFoundException("Alert not found")
                 call.respond(HttpStatusCode.OK, alert.toResponse(route.id))
             }
             put<Alerts.Id> { route ->
@@ -83,21 +80,19 @@ fun Application.configureAlertRoutes() {
                 val alert = call.receive<Alert>()
                 validateAlert(alert)
                 if (alertService.update(route.id, alert) == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Alert not found")
-                } else {
-                    audit("alert.updated", "byUserId" to caller.userId.toLong(), "alertId" to route.id.toLong())
-                    call.respond(HttpStatusCode.NoContent)
+                    throw NotFoundException("Alert not found")
                 }
+                audit("alert.updated", "byUserId" to caller.userId.toLong(), "alertId" to route.id.toLong())
+                call.respond(HttpStatusCode.NoContent)
             }
             delete<Alerts.Id> { route ->
                 val caller = call.caller()
                 requireAdmin(caller)
                 if (alertService.delete(route.id) == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Alert not found")
-                } else {
-                    audit("alert.deleted", "byUserId" to caller.userId.toLong(), "alertId" to route.id.toLong())
-                    call.respond(HttpStatusCode.NoContent)
+                    throw NotFoundException("Alert not found")
                 }
+                audit("alert.deleted", "byUserId" to caller.userId.toLong(), "alertId" to route.id.toLong())
+                call.respond(HttpStatusCode.NoContent)
             }
         }
     }

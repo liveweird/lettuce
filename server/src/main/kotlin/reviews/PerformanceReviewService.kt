@@ -4,6 +4,7 @@ import ch.nokillswit.authz.ConflictException
 import io.ktor.server.plugins.BadRequestException
 import ch.nokillswit.infra.crypto.EncryptedAtRest
 import ch.nokillswit.infra.crypto.FieldCipher
+import ch.nokillswit.infra.crypto.reencryptRows
 import ch.nokillswit.infra.db.containsNormalized
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
@@ -400,28 +401,16 @@ class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: 
      * and rewritten under the current key. Idempotent; returns the rewritten count.
      */
     override suspend fun encryptLegacyRows(reencryptAll: Boolean): Int = suspendTransaction(database) {
-        val enveloped = "${FieldCipher.PREFIX}%"
-        val encryptedColumns = listOf(
-            Reviews.attitudeRating, Reviews.attitudeSummary,
-            Reviews.deliveryRating, Reviews.deliverySummary,
-            Reviews.skillsRating, Reviews.skillsSummary,
-            Reviews.overallRating, Reviews.overallSummary,
+        cipher.reencryptRows(
+            Reviews,
+            listOf(
+                Reviews.attitudeRating, Reviews.attitudeSummary,
+                Reviews.deliveryRating, Reviews.deliverySummary,
+                Reviews.skillsRating, Reviews.skillsSummary,
+                Reviews.overallRating, Reviews.overallSummary,
+            ),
+            reencryptAll,
         )
-        val legacyOnly = encryptedColumns
-            .map { column -> column.isNotNull() and (column notLike enveloped) }
-            .reduce<Op<Boolean>, Op<Boolean>> { acc, op -> acc or op }
-        val rows = Reviews
-            .select(listOf(Reviews.id) + encryptedColumns)
-            .where { if (reencryptAll) Op.TRUE else legacyOnly }
-            .toList()
-        rows.forEach { row ->
-            Reviews.update({ Reviews.id eq row[Reviews.id] }) { statement ->
-                encryptedColumns.forEach { column ->
-                    statement[column] = row[column]?.let { s -> cipher.encrypt(cipher.decrypt(s)) }
-                }
-            }
-        }
-        rows.size
     }
 
     private fun joined() = Reviews

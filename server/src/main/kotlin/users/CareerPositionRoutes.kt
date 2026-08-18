@@ -1,13 +1,13 @@
 package ch.nokillswit.users
 
 import ch.nokillswit.audit.audit
+import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireCareerPositionWrite
 import ch.nokillswit.dictionaries.Dictionary
 import ch.nokillswit.dictionaries.DictionaryEntry
 import ch.nokillswit.infra.paging.optionalBoolean
 import ch.nokillswit.notifications.NotificationServiceKey
-import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
@@ -92,19 +92,18 @@ fun Application.configureCareerPositionRoutes() {
     val notificationService = attributes[NotificationServiceKey]
 
     // The corrections writeGuarded* idiom for the row-addressed mutations: resolve the row
-    // (404 when missing, soft-deleted, or belonging to a different user than the path says),
-    // then enforce the chain right against the ROW's user — the target is immutable, so the
-    // guard never keys on a payload. A null return means the 404 was already sent.
+    // (NotFoundException when missing, soft-deleted, or belonging to a different user than the
+    // path says), then enforce the chain right against the ROW's user — the target is
+    // immutable, so the guard never keys on a payload.
     suspend fun writeGuardedPosition(
         call: ApplicationCall,
         pathUserId: UInt,
         positionId: UInt,
-    ): CareerPositionService.PositionRow? {
+    ): CareerPositionService.PositionRow {
         val caller = call.caller()
         val existing = careerPositionService.readRow(positionId)
         if (existing == null || existing.userId != pathUserId) {
-            call.respondProblem(HttpStatusCode.NotFound, "Career position not found")
-            return null
+            throw NotFoundException("Career position not found")
         }
         requireCareerPositionWrite(caller) { careerPositionService.managesUser(caller.userId, existing.userId) }
         return existing
@@ -153,8 +152,7 @@ fun Application.configureCareerPositionRoutes() {
             get<UserCareerPositions> { route ->
                 call.caller()
                 if (userService.read(route.id) == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "User not found")
-                    return@get
+                    throw NotFoundException("User not found")
                 }
                 val rows = careerPositionService.listRows(route.id)
                 val entries = userService.resolveEntryRefs(
@@ -169,8 +167,7 @@ fun Application.configureCareerPositionRoutes() {
                 // probe learns nothing, not even whether the user id exists.
                 requireCareerPositionWrite(caller) { careerPositionService.managesUser(caller.userId, route.id) }
                 if (userService.read(route.id) == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "User not found")
-                    return@post
+                    throw NotFoundException("User not found")
                 }
                 // Recording a NEW position is a new assignment — blocked for deactivated users
                 // (the requireNoDeactivatedUsers rule; 400 after the guard, so 403 still wins).
@@ -208,15 +205,14 @@ fun Application.configureCareerPositionRoutes() {
                 call.respond(HttpStatusCode.Created, toResponses(listOf(row), entries).single())
             }
             put<UserCareerPositions.Position> { route ->
-                val existing = writeGuardedPosition(call, route.parent.id, route.positionId) ?: return@put
+                val existing = writeGuardedPosition(call, route.parent.id, route.positionId)
                 val write = call.receive<CareerPositionWrite>()
                 validateCareerPositionWrite(write)
                 // Changed refs only — resubmitting the row's current (possibly since-soft-deleted)
                 // id is not a change; a date-only correction must not trip over a stale ref.
                 userService.requireActiveEntries(changedRefs(write, existing))
                 if (careerPositionService.update(route.positionId, write) == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Career position not found")
-                    return@put
+                    throw NotFoundException("Career position not found")
                 }
                 val auditFields = mutableListOf<Pair<String, Any?>>(
                     "byUserId" to call.caller().userId.toLong(),
@@ -242,10 +238,9 @@ fun Application.configureCareerPositionRoutes() {
                 call.respond(HttpStatusCode.NoContent)
             }
             delete<UserCareerPositions.Position> { route ->
-                val existing = writeGuardedPosition(call, route.parent.id, route.positionId) ?: return@delete
+                val existing = writeGuardedPosition(call, route.parent.id, route.positionId)
                 if (careerPositionService.delete(route.positionId) == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Career position not found")
-                    return@delete
+                    throw NotFoundException("Career position not found")
                 }
                 audit(
                     "career_position.deleted",

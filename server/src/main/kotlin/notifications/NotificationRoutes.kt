@@ -1,12 +1,12 @@
 package ch.nokillswit.notifications
 
+import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireNotificationRecipient
 import ch.nokillswit.infra.paging.SortField
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.optionalBoolean
 import ch.nokillswit.infra.paging.toPage
-import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
 import io.ktor.server.application.*
@@ -67,40 +67,29 @@ fun Application.configureNotificationRoutes() {
             get<Notifications.Id> { route ->
                 val caller = call.caller()
                 val notification = notificationService.read(route.id)
-                if (notification == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Notification not found")
-                    return@get
-                }
+                    ?: throw NotFoundException("Notification not found")
                 requireNotificationRecipient(caller, notification.recipientId)
                 call.respond(HttpStatusCode.OK, notification)
             }
             post<Notifications.Id.Seen> { route ->
                 val caller = call.caller()
                 val notification = notificationService.read(route.parent.id)
-                if (notification == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Notification not found")
-                    return@post
-                }
+                    ?: throw NotFoundException("Notification not found")
                 requireNotificationRecipient(caller, notification.recipientId)
                 if (notificationService.markSeen(route.parent.id) == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Notification not found")
-                } else {
-                    call.respond(HttpStatusCode.NoContent)
+                    throw NotFoundException("Notification not found")
                 }
+                call.respond(HttpStatusCode.NoContent)
             }
             post<Notifications.Id.Unseen> { route ->
                 val caller = call.caller()
                 val notification = notificationService.read(route.parent.id)
-                if (notification == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Notification not found")
-                    return@post
-                }
+                    ?: throw NotFoundException("Notification not found")
                 requireNotificationRecipient(caller, notification.recipientId)
                 if (notificationService.markUnseen(route.parent.id) == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Notification not found")
-                } else {
-                    call.respond(HttpStatusCode.NoContent)
+                    throw NotFoundException("Notification not found")
                 }
+                call.respond(HttpStatusCode.NoContent)
             }
             post<Notifications.SeenAll> {
                 // No per-row guard needed: the update is intrinsically scoped to the caller's own rows.
@@ -111,16 +100,12 @@ fun Application.configureNotificationRoutes() {
             delete<Notifications.Id> { route ->
                 val caller = call.caller()
                 val notification = notificationService.read(route.id)
-                if (notification == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Notification not found")
-                    return@delete
-                }
+                    ?: throw NotFoundException("Notification not found")
                 requireNotificationRecipient(caller, notification.recipientId)
                 if (notificationService.delete(route.id) == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Notification not found")
-                } else {
-                    call.respond(HttpStatusCode.NoContent)
+                    throw NotFoundException("Notification not found")
                 }
+                call.respond(HttpStatusCode.NoContent)
             }
         }
     }

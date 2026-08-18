@@ -1,6 +1,7 @@
 package ch.nokillswit.teams
 
 import ch.nokillswit.audit.audit
+import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireCanReassignManager
 import ch.nokillswit.authz.requireSelfOrAdmin
@@ -16,7 +17,6 @@ import ch.nokillswit.infra.paging.optionalBoolean
 import ch.nokillswit.infra.paging.optionalString
 import ch.nokillswit.infra.paging.optionalUInt
 import ch.nokillswit.infra.paging.toPage
-import ch.nokillswit.plugins.respondProblem
 import ch.nokillswit.reviews.LatestReviewStats
 import ch.nokillswit.reviews.PerformanceReviewServiceKey
 import ch.nokillswit.users.UserServiceKey
@@ -234,19 +234,13 @@ fun Application.configureTeamRoutes() {
             get<Teams.Id> { route ->
                 call.caller()
                 val detail = teamService.readDetail(route.id)
-                if (detail != null) {
-                    call.respond(HttpStatusCode.OK, detail.toResponse(route.id))
-                } else {
-                    call.respondProblem(HttpStatusCode.NotFound, "Team not found")
-                }
+                    ?: throw NotFoundException("Team not found")
+                call.respond(HttpStatusCode.OK, detail.toResponse(route.id))
             }
             put<Teams.Id> { route ->
                 val caller = call.caller()
                 val existing = teamService.read(route.id)
-                if (existing == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Team not found")
-                    return@put
-                }
+                    ?: throw NotFoundException("Team not found")
                 requireTeamManagerOrAdmin(caller, existing.managerId)
                 val team = call.receive<Team>()
                 // Authz before validation: an unauthorized reassignment is 403, not 400.
@@ -263,8 +257,7 @@ fun Application.configureTeamRoutes() {
                     teamService.update(route.id, team)
                 }
                 if (updated == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Team not found")
-                    return@put
+                    throw NotFoundException("Team not found")
                 }
                 // Team mutations shape who may read subordinates' feedback (the management
                 // chain), so they are audited like user.role_changed. Delta fields only when
@@ -287,14 +280,10 @@ fun Application.configureTeamRoutes() {
             delete<Teams.Id> { route ->
                 val caller = call.caller()
                 val existing = teamService.read(route.id)
-                if (existing == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Team not found")
-                    return@delete
-                }
+                    ?: throw NotFoundException("Team not found")
                 requireTeamManagerOrAdmin(caller, existing.managerId)
                 if (teamService.delete(route.id) == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Team not found")
-                    return@delete
+                    throw NotFoundException("Team not found")
                 }
                 audit(
                     "team.deleted",
@@ -306,10 +295,7 @@ fun Application.configureTeamRoutes() {
             put<Teams.Id.Member> { route ->
                 val caller = call.caller()
                 val existing = teamService.read(route.parent.id)
-                if (existing == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Team not found")
-                    return@put
-                }
+                    ?: throw NotFoundException("Team not found")
                 requireTeamManagerOrAdmin(caller, existing.managerId)
                 // Only an actually-new member is a new assignment — re-PUT of an existing
                 // (possibly deactivated) member stays the idempotent no-op it is today.
@@ -320,8 +306,7 @@ fun Application.configureTeamRoutes() {
                     teamService.addMember(route.parent.id, route.userId)
                 }
                 if (changed == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Team not found")
-                    return@put
+                    throw NotFoundException("Team not found")
                 }
                 // Membership shapes the management chain — only audit when something actually changed.
                 if (changed) {
@@ -337,15 +322,11 @@ fun Application.configureTeamRoutes() {
             delete<Teams.Id.Member> { route ->
                 val caller = call.caller()
                 val existing = teamService.read(route.parent.id)
-                if (existing == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Team not found")
-                    return@delete
-                }
+                    ?: throw NotFoundException("Team not found")
                 requireTeamManagerOrAdmin(caller, existing.managerId)
                 val changed = teamService.removeMember(route.parent.id, route.userId)
                 if (changed == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Team not found")
-                    return@delete
+                    throw NotFoundException("Team not found")
                 }
                 if (changed) {
                     audit(

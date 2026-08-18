@@ -13,6 +13,7 @@ import ch.nokillswit.infra.mail.respondMailUnavailable
 import ch.nokillswit.plugins.isUniqueViolation
 import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.authz.ForbiddenException
+import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAdmin
 import ch.nokillswit.authz.requireCanAssignPaidDaysOffAllowance
@@ -30,7 +31,6 @@ import ch.nokillswit.infra.paging.optionalEnum
 import ch.nokillswit.infra.paging.optionalString
 import ch.nokillswit.infra.paging.optionalUInt
 import ch.nokillswit.infra.paging.toPage
-import ch.nokillswit.plugins.respondProblem
 import java.time.LocalDate
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -324,23 +324,17 @@ fun Application.configureUserRoutes() {
             get<Users.Id> { route ->
                 requireUserRead(call.caller(), route.id)
                 val user = userService.read(route.id)
-                if (user != null) {
-                    // The triple = the user's current position (absent from the map = none).
-                    val profile = userService.careerProfilesByUserIds(setOf(route.id))[route.id]
-                    call.respond(HttpStatusCode.OK, user.toResponse(route.id, profile))
-                } else {
-                    call.respondProblem(HttpStatusCode.NotFound, "User not found")
-                }
+                    ?: throw NotFoundException("User not found")
+                // The triple = the user's current position (absent from the map = none).
+                val profile = userService.careerProfilesByUserIds(setOf(route.id))[route.id]
+                call.respond(HttpStatusCode.OK, user.toResponse(route.id, profile))
             }
             put<Users.Id> { route ->
                 val caller = call.caller()
                 requireSelfOrAdmin(caller, route.id)
                 val req = call.receive<UserUpdateRequest>()
                 val existing = userService.read(route.id)
-                if (existing == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "User not found")
-                    return@put
-                }
+                    ?: throw NotFoundException("User not found")
                 // Authz before validation: an unauthorized roles/allowance change is 403, not 400.
                 requireCanAssignRoles(caller, existing.roles, req.roles.toSet())
                 requireCanAssignPaidDaysOffAllowance(caller, req.paidDaysOffAllowance, existing.paidDaysOffAllowance)
@@ -365,50 +359,49 @@ fun Application.configureUserRoutes() {
                 )
                 val updated = userService.update(route.id, user)
                 if (updated == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "User not found")
-                } else {
-                    // Name and email are identity/security-relevant (email is the login
-                    // identifier); audit with deltas only for the fields that actually changed.
-                    // (Career changes moved to the career_position.* events in v2.15.0.)
-                    val allowanceChanged = user.paidDaysOffAllowance != existing.paidDaysOffAllowance
-                    val uniqueIdChanged = user.uniqueId != existing.uniqueId
-                    if (req.name != existing.name || req.email != existing.email || allowanceChanged || uniqueIdChanged) {
-                        val auditFields = mutableListOf<Pair<String, Any?>>(
-                            "byUserId" to caller.userId.toLong(),
-                            "targetUserId" to route.id.toLong(),
-                        )
-                        if (req.name != existing.name) {
-                            auditFields += "nameFrom" to existing.name
-                            auditFields += "nameTo" to req.name
-                        }
-                        if (req.email != existing.email) {
-                            auditFields += "emailFrom" to existing.email
-                            auditFields += "emailTo" to req.email
-                        }
-                        // The allowance shapes the paid-days budget — worth its own delta line
-                        // (From omitted when previously unset).
-                        if (allowanceChanged) {
-                            existing.paidDaysOffAllowance?.let { auditFields += "allowanceFrom" to it.toLong() }
-                            auditFields += "allowanceTo" to user.paidDaysOffAllowance!!.toLong()
-                        }
-                        // From omitted when previously unset (the allowance idiom).
-                        if (uniqueIdChanged) {
-                            existing.uniqueId?.let { auditFields += "uniqueIdFrom" to it }
-                            auditFields += "uniqueIdTo" to user.uniqueId!!
-                        }
-                        audit("user.updated", *auditFields.toTypedArray())
-                    }
-                    if (req.roles.toSet() != existing.roles) {
-                        audit(
-                            "user.roles_changed",
-                            "byUserId" to caller.userId.toLong(),
-                            "targetUserId" to route.id.toLong(),
-                            "from" to existing.roles.joinedNames(),
-                            "to" to req.roles.toSet().joinedNames(),
-                        )
-                    }
-                    call.respond(HttpStatusCode.NoContent)
+                    throw NotFoundException("User not found")
                 }
+                // Name and email are identity/security-relevant (email is the login
+                // identifier); audit with deltas only for the fields that actually changed.
+                // (Career changes moved to the career_position.* events in v2.15.0.)
+                val allowanceChanged = user.paidDaysOffAllowance != existing.paidDaysOffAllowance
+                val uniqueIdChanged = user.uniqueId != existing.uniqueId
+                if (req.name != existing.name || req.email != existing.email || allowanceChanged || uniqueIdChanged) {
+                    val auditFields = mutableListOf<Pair<String, Any?>>(
+                        "byUserId" to caller.userId.toLong(),
+                        "targetUserId" to route.id.toLong(),
+                    )
+                    if (req.name != existing.name) {
+                        auditFields += "nameFrom" to existing.name
+                        auditFields += "nameTo" to req.name
+                    }
+                    if (req.email != existing.email) {
+                        auditFields += "emailFrom" to existing.email
+                        auditFields += "emailTo" to req.email
+                    }
+                    // The allowance shapes the paid-days budget — worth its own delta line
+                    // (From omitted when previously unset).
+                    if (allowanceChanged) {
+                        existing.paidDaysOffAllowance?.let { auditFields += "allowanceFrom" to it.toLong() }
+                        auditFields += "allowanceTo" to user.paidDaysOffAllowance!!.toLong()
+                    }
+                    // From omitted when previously unset (the allowance idiom).
+                    if (uniqueIdChanged) {
+                        existing.uniqueId?.let { auditFields += "uniqueIdFrom" to it }
+                        auditFields += "uniqueIdTo" to user.uniqueId!!
+                    }
+                    audit("user.updated", *auditFields.toTypedArray())
+                }
+                if (req.roles.toSet() != existing.roles) {
+                    audit(
+                        "user.roles_changed",
+                        "byUserId" to caller.userId.toLong(),
+                        "targetUserId" to route.id.toLong(),
+                        "from" to existing.roles.joinedNames(),
+                        "to" to req.roles.toSet().joinedNames(),
+                    )
+                }
+                call.respond(HttpStatusCode.NoContent)
             }
             put<Users.Id.Password> { route ->
                 val caller = call.caller()
@@ -420,10 +413,7 @@ fun Application.configureUserRoutes() {
                 // so 403 wins over 400 (the convention everywhere else).
                 if (caller.userId == route.parent.id) {
                     val existing = userService.read(route.parent.id)
-                    if (existing == null) {
-                        call.respondProblem(HttpStatusCode.NotFound, "User not found")
-                        return@put
-                    }
+                        ?: throw NotFoundException("User not found")
                     if (req.currentPassword == null || !verifyPassword(req.currentPassword, existing.passwordHash)) {
                         audit(
                             "password.change_denied",
@@ -437,26 +427,25 @@ fun Application.configureUserRoutes() {
                 validatePassword(req.password)
                 val updated = userService.updatePassword(route.parent.id, hashPassword(req.password))
                 if (updated == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "User not found")
-                } else {
-                    audit(
-                        "password.changed",
-                        "targetUserId" to route.parent.id.toLong(),
-                        "byUserId" to caller.userId.toLong(),
-                        "selfChange" to (caller.userId == route.parent.id),
-                    )
-                    // The affected user always learns their credential changed — a plain
-                    // confirmation on self-change, an "administrator changed it" wording (the
-                    // `self` param drives the i18next context) when someone else did.
-                    notificationService.create(
-                        Notification(
-                            recipientId = route.parent.id,
-                            type = NotificationType.PASSWORD_CHANGED,
-                            params = if (caller.userId == route.parent.id) emptyMap() else mapOf("self" to "admin"),
-                        ),
-                    )
-                    call.respond(HttpStatusCode.NoContent)
+                    throw NotFoundException("User not found")
                 }
+                audit(
+                    "password.changed",
+                    "targetUserId" to route.parent.id.toLong(),
+                    "byUserId" to caller.userId.toLong(),
+                    "selfChange" to (caller.userId == route.parent.id),
+                )
+                // The affected user always learns their credential changed — a plain
+                // confirmation on self-change, an "administrator changed it" wording (the
+                // `self` param drives the i18next context) when someone else did.
+                notificationService.create(
+                    Notification(
+                        recipientId = route.parent.id,
+                        type = NotificationType.PASSWORD_CHANGED,
+                        params = if (caller.userId == route.parent.id) emptyMap() else mapOf("self" to "admin"),
+                    ),
+                )
+                call.respond(HttpStatusCode.NoContent)
             }
             // Reversible deactivation — the goals-transition shape (POST action, same-state 409).
             // Deliberately NOT a PUT field: the update route's whole-row write must never be able
@@ -472,18 +461,14 @@ fun Application.configureUserRoutes() {
                     throw ForbiddenException("You cannot deactivate your own account")
                 }
                 val existing = userService.read(targetId)
-                if (existing == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "User not found")
-                    return
-                }
+                    ?: throw NotFoundException("User not found")
                 if (existing.deactivated == deactivate) {
                     throw ConflictException(
                         if (deactivate) "The account is already deactivated" else "The account is not deactivated",
                     )
                 }
                 if (userService.setDeactivated(targetId, deactivate) == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "User not found")
-                    return
+                    throw NotFoundException("User not found")
                 }
                 // Career timeline side effect (v2.17.0): deactivation closes the final active
                 // position on the deactivation date; reactivation reopens it. Own transaction
@@ -523,16 +508,12 @@ fun Application.configureUserRoutes() {
                 // feature name fails enum decoding → BadRequestException → 400.
                 val req = call.receive<UserFeaturesUpdateRequest>()
                 val existing = userService.read(route.parent.id)
-                if (existing == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "User not found")
-                    return@put
-                }
+                    ?: throw NotFoundException("User not found")
                 val requested = req.disabledFeatures.toSet()
                 // A deactivated target is allowed on purpose: the flags are inert until
                 // reactivation (no session exists to carry them).
                 if (userService.setDisabledFeatures(route.parent.id, requested) == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "User not found")
-                    return@put
+                    throw NotFoundException("User not found")
                 }
                 if (requested != existing.disabledFeatures) {
                     audit(
@@ -555,13 +536,9 @@ fun Application.configureUserRoutes() {
                 requireSelfOrAdmin(caller, route.parent.id)
                 val req = call.receive<UserEmailNotificationsUpdateRequest>()
                 val existing = userService.read(route.parent.id)
-                if (existing == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "User not found")
-                    return@put
-                }
+                    ?: throw NotFoundException("User not found")
                 if (userService.setEmailNotifications(route.parent.id, req.enabled) == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "User not found")
-                    return@put
+                    throw NotFoundException("User not found")
                 }
                 if (req.enabled != existing.emailNotificationsEnabled) {
                     audit(
@@ -583,13 +560,9 @@ fun Application.configureUserRoutes() {
                 val req = call.receive<UserLanguageUpdateRequest>()
                 validateLanguage(req.language)
                 val existing = userService.read(route.parent.id)
-                if (existing == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "User not found")
-                    return@put
-                }
+                    ?: throw NotFoundException("User not found")
                 if (userService.setLanguage(route.parent.id, req.language) == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "User not found")
-                    return@put
+                    throw NotFoundException("User not found")
                 }
                 if (req.language != existing.language) {
                     audit(
@@ -606,15 +579,14 @@ fun Application.configureUserRoutes() {
                 val caller = call.caller()
                 requireAdmin(caller)
                 if (userService.delete(route.id) == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "User not found")
-                } else {
-                    audit(
-                        "user.deleted",
-                        "byUserId" to caller.userId.toLong(),
-                        "targetUserId" to route.id.toLong(),
-                    )
-                    call.respond(HttpStatusCode.NoContent)
+                    throw NotFoundException("User not found")
                 }
+                audit(
+                    "user.deleted",
+                    "byUserId" to caller.userId.toLong(),
+                    "targetUserId" to route.id.toLong(),
+                )
+                call.respond(HttpStatusCode.NoContent)
             }
         }
     }

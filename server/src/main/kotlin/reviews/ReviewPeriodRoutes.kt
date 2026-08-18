@@ -1,10 +1,10 @@
 package ch.nokillswit.reviews
 
 import ch.nokillswit.audit.audit
+import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAdmin
 import ch.nokillswit.authz.requireFeatureEnabled
-import ch.nokillswit.plugins.respondProblem
 import ch.nokillswit.users.Feature
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -72,8 +72,7 @@ fun Application.configureReviewPeriodRoutes() {
                 // Latest-only + unreferenced-only are checked in the service (409); a missing
                 // row is 404 (hard delete — see ReviewPeriodService).
                 if (periodService.delete(route.id) == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Review period not found")
-                    return@delete
+                    throw NotFoundException("Review period not found")
                 }
                 audit(
                     "review_period.deleted",

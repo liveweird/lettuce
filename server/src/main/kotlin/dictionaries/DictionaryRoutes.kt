@@ -1,9 +1,9 @@
 package ch.nokillswit.dictionaries
 
 import ch.nokillswit.audit.audit
+import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAdmin
-import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
 import io.ktor.server.application.*
@@ -27,10 +27,7 @@ fun Application.configureDictionaryRoutes() {
             get<Dictionaries> { route ->
                 call.caller()
                 val dict = Dictionary.fromSlug(route.dictionary)
-                if (dict == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Unknown dictionary")
-                    return@get
-                }
+                    ?: throw NotFoundException("Unknown dictionary")
                 call.respond(HttpStatusCode.OK, DictionaryEntryList(items = dictionaryService.read(dict)))
             }
             put<Dictionaries> { route ->
@@ -39,10 +36,7 @@ fun Application.configureDictionaryRoutes() {
                 // or not the slug exists (the guard-before-read idiom).
                 requireAdmin(caller)
                 val dict = Dictionary.fromSlug(route.dictionary)
-                if (dict == null) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Unknown dictionary")
-                    return@put
-                }
+                    ?: throw NotFoundException("Unknown dictionary")
                 val request = call.receive<DictionaryUpdateRequest>()
                 validateDictionaryUpdate(request)
                 val counts = dictionaryService.replace(dict, request)

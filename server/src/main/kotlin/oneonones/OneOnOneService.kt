@@ -3,6 +3,7 @@ package ch.nokillswit.oneonones
 import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.infra.crypto.EncryptedAtRest
 import ch.nokillswit.infra.crypto.FieldCipher
+import ch.nokillswit.infra.crypto.reencryptRows
 import ch.nokillswit.infra.db.containsNormalized
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
@@ -607,24 +608,9 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
      * rewritten count. New rows are always written encrypted, so the legacy branch is defensive.
      */
     override suspend fun encryptLegacyRows(reencryptAll: Boolean): Int = suspendTransaction(database) {
-        val enveloped = "${FieldCipher.PREFIX}%"
-        val noteRows = Notes.select(Notes.id, Notes.content)
-            .where { if (reencryptAll) Op.TRUE else Notes.content notLike enveloped }
-            .toList()
-        noteRows.forEach { row ->
-            Notes.update({ Notes.id eq row[Notes.id] }) {
-                it[content] = cipher.encrypt(cipher.decrypt(row[Notes.content]))
-            }
-        }
-        val itemRows = ActionItems.select(ActionItems.id, ActionItems.content)
-            .where { if (reencryptAll) Op.TRUE else ActionItems.content notLike enveloped }
-            .toList()
-        itemRows.forEach { row ->
-            ActionItems.update({ ActionItems.id eq row[ActionItems.id] }) {
-                it[content] = cipher.encrypt(cipher.decrypt(row[ActionItems.content]))
-            }
-        }
-        noteRows.size + itemRows.size
+        // Both detail tables in ONE transaction — the whole document backfills atomically.
+        cipher.reencryptRows(Notes, listOf(Notes.content), reencryptAll) +
+            cipher.reencryptRows(ActionItems, listOf(ActionItems.content), reencryptAll)
     }
 
     private fun ResultRow.toItemResponse() = OneOnOneItemResponse(

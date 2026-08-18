@@ -5,6 +5,13 @@ class UnauthorizedException(message: String = "Authentication required") : Runti
 class ForbiddenException(message: String = "Forbidden") : RuntimeException(message)
 
 /**
+ * Addressed resource does not exist (or is soft-deleted / lives under a different parent path)
+ * → 404 with the given detail. Routes throw it from read preambles and zero-row mutation
+ * results instead of hand-rolling a respondProblem + return.
+ */
+class NotFoundException(message: String = "Resource not found") : RuntimeException(message)
+
+/**
  * Requested action conflicts with the resource's current state (e.g. an invalid status
  * transition, or a duplicate of an in-progress resource). [instance] optionally points at the
  * conflicting resource (an API path) and rides the ProblemDetail `instance` field, so clients

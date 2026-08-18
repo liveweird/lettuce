@@ -1,6 +1,7 @@
 package ch.nokillswit.feedbacks
 
 import ch.nokillswit.authz.ForbiddenException
+import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.canReadFeedbackContent
 import ch.nokillswit.authz.requireFeatureEnabled
@@ -18,7 +19,6 @@ import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserServiceKey
-import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
@@ -82,36 +82,29 @@ fun Application.configureFeedbackRoutes() {
     val notificationService = attributes[NotificationServiceKey]
     val userService = attributes[UserServiceKey]
 
-    // The uniform read preamble (the 404-before-403 idiom): resolves the feedback and enforces
-    // the read matrix (parties / audited HR / delivered-only chain managers / PUBLIC+SENT).
-    // A null return means the 404 response was already sent; the guard itself throws
-    // ForbiddenException. Whether the CONTENT may be shown stays a separate gate
-    // (canReadFeedbackContent) at the single-document GET.
-    suspend fun readGuardedFeedback(call: ApplicationCall, feedbackId: UInt): Feedback? {
+    // The uniform read preamble (the 404-before-403 idiom): resolves the feedback (missing →
+    // NotFoundException) and enforces the read matrix (parties / audited HR / delivered-only
+    // chain managers / PUBLIC+SENT — the guard itself throws ForbiddenException). Whether the
+    // CONTENT may be shown stays a separate gate (canReadFeedbackContent) at the
+    // single-document GET.
+    suspend fun readGuardedFeedback(call: ApplicationCall, feedbackId: UInt): Feedback {
         val caller = call.feedbackCaller()
         val feedback = feedbackService.read(feedbackId)
-        if (feedback == null) {
-            call.respondProblem(HttpStatusCode.NotFound, "Feedback not found")
-            return null
-        }
+            ?: throw NotFoundException("Feedback not found")
         requireFeedbackReadAllowingManager(caller, feedback, feedbackId) {
             feedbackService.managesSubject(caller.userId, feedback.subjectId)
         }
         return feedback
     }
 
-    // The write sibling: provider-only (nobody else — ADMIN included). Same null = the 404 was
-    // already sent contract; guards run BEFORE any body is received, so an outsider's
-    // malformed payload is still 403.
-    suspend fun writeGuardedFeedback(call: ApplicationCall, feedbackId: UInt): Feedback? {
+    // The write sibling: provider-only (nobody else — ADMIN included). Guards run BEFORE any
+    // body is received, so an outsider's malformed payload is still 403.
+    suspend fun writeGuardedFeedback(call: ApplicationCall, feedbackId: UInt): Feedback {
         // The gated caller resolves FIRST: a FEEDBACKS-disabled caller gets a uniform 403
         // before the read (the feature 403 must precede the 404).
         val caller = call.feedbackCaller()
         val feedback = feedbackService.read(feedbackId)
-        if (feedback == null) {
-            call.respondProblem(HttpStatusCode.NotFound, "Feedback not found")
-            return null
-        }
+            ?: throw NotFoundException("Feedback not found")
         requireFeedbackWrite(caller, feedback)
         return feedback
     }
@@ -120,12 +113,9 @@ fun Application.configureFeedbackRoutes() {
     // missing, 409 (via ConflictException in the service) when the transition isn't allowed,
     // otherwise it applies the change, delivers notifications, and records the audit event.
     suspend fun transitionTo(call: ApplicationCall, feedbackId: UInt, target: FeedbackStatus) {
-        val existing = writeGuardedFeedback(call, feedbackId) ?: return
+        val existing = writeGuardedFeedback(call, feedbackId)
         val toNotify = feedbackService.transition(feedbackId, target)
-        if (toNotify == null) {
-            call.respondProblem(HttpStatusCode.NotFound, "Feedback not found")
-            return
-        }
+            ?: throw NotFoundException("Feedback not found")
         toNotify.forEach { notificationService.create(it) }
         feedbackUpdateEvent(existing, existing.copy(status = target))?.let { descriptor ->
             feedbackEventService.create(descriptor.toEvent(feedbackId, call.caller().userId))
@@ -241,7 +231,7 @@ fun Application.configureFeedbackRoutes() {
                 call.respond(HttpStatusCode.Created, created.toResponse(id, names))
             }
             get<Feedbacks.Id> { route ->
-                val feedback = readGuardedFeedback(call, route.id) ?: return@get
+                val feedback = readGuardedFeedback(call, route.id)
                 val names = feedbackService.partyNames(feedback)
                 call.respond(
                     HttpStatusCode.OK,
@@ -253,12 +243,11 @@ fun Application.configureFeedbackRoutes() {
                 )
             }
             put<Feedbacks.Id> { route ->
-                val existing = writeGuardedFeedback(call, route.id) ?: return@put
+                val existing = writeGuardedFeedback(call, route.id)
                 val edit = call.receive<FeedbackContentUpdate>()
                 val updated = feedbackService.editContent(route.id, edit.content, edit.visibility)
                 if (updated == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Feedback not found")
-                    return@put
+                    throw NotFoundException("Feedback not found")
                 }
                 // Audit: record a content/visibility edit against the caller (no status change here).
                 feedbackUpdateEvent(
@@ -278,21 +267,20 @@ fun Application.configureFeedbackRoutes() {
             get<Feedbacks.Id.Events> { route ->
                 val feedbackId = route.parent.id
                 // Whoever may read the feedback may read its history.
-                readGuardedFeedback(call, feedbackId) ?: return@get
+                readGuardedFeedback(call, feedbackId)
                 call.respond(
                     HttpStatusCode.OK,
                     FeedbackEventListResponse(feedbackEventService.listForFeedback(feedbackId)),
                 )
             }
             delete<Feedbacks.Id> { route ->
-                val existing = writeGuardedFeedback(call, route.id) ?: return@delete
+                val existing = writeGuardedFeedback(call, route.id)
                 // Delete is a draft-only action; other statuses have terminal transitions instead.
                 if (existing.status != FeedbackStatus.DRAFT) {
                     throw BadRequestException("Only a draft feedback may be deleted")
                 }
                 if (feedbackService.delete(route.id) == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Feedback not found")
-                    return@delete
+                    throw NotFoundException("Feedback not found")
                 }
                 // Best-effort side effect: tell the requester (if any) the provider deleted it (no link).
                 val names = feedbackService.partyNames(existing)

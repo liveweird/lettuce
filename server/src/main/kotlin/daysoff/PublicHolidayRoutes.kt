@@ -1,10 +1,10 @@
 package ch.nokillswit.daysoff
 
 import ch.nokillswit.audit.audit
+import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAdmin
 import ch.nokillswit.authz.requireFeatureEnabled
-import ch.nokillswit.plugins.respondProblem
 import ch.nokillswit.users.Feature
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -69,8 +69,7 @@ fun Application.configurePublicHolidayRoutes() {
                 requireAdmin(caller)
                 // Hard delete (see PublicHolidayService) — existing request costs stay frozen.
                 if (holidayService.delete(route.id) == 0) {
-                    call.respondProblem(HttpStatusCode.NotFound, "Public holiday not found")
-                    return@delete
+                    throw NotFoundException("Public holiday not found")
                 }
                 audit(
                     "public_holiday.deleted",
