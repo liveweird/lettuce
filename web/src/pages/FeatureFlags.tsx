@@ -20,7 +20,7 @@ import { FEATURES, getUserId, isAdmin, type Feature } from "../api/session";
 import { listUsers, updateUserFeatures, type UserPage } from "../api/users";
 import { listAllTeams } from "../api/teams";
 import { showSuccessToast } from "../utils/toast";
-import { saveErrorMessage } from "../utils/saveError";
+import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
 import { teamDetailsLink } from "../utils/teamLinks";
 import { userDetailsLink } from "../utils/userLinks";
 import { invalidateUser } from "../utils/userQueries";
@@ -236,7 +236,7 @@ export default function FeatureFlags() {
 
       {isError && (
         <Alert color="red" variant="light" title={t("users.loadUsersFailed")}>
-          {loadError instanceof Error ? loadError.message : t("users.unknownError")}
+          {loadErrorMessage(loadError, t)}
         </Alert>
       )}
       {error && (

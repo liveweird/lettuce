@@ -81,6 +81,7 @@ import { useChangelogUnseen } from "./hooks/useChangelogSeen";
 import { isBoolean, useStoredState } from "./hooks/useStoredState";
 import { TourProvider } from "./components/Tour";
 import { useTour } from "./components/tourSupport";
+import { RouteErrorBoundary } from "./components/ErrorBoundary";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Feedback = lazy(() => import("./pages/Feedback"));
 const Kudos = lazy(() => import("./pages/Kudos"));
@@ -157,6 +158,7 @@ const Dictionary = lazy(() => import("./pages/Dictionary"));
 const Changelog = lazy(() => import("./pages/Changelog"));
 const CreateAlert = lazy(() => import("./pages/CreateAlert"));
 const EditAlert = lazy(() => import("./pages/EditAlert"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 function RouteFallback() {
   return (
@@ -553,7 +555,11 @@ function Shell() {
       </AppShell.Navbar>
 
       <AppShell.Main id="main-content" tabIndex={-1}>
-        <Outlet />
+        {/* A page crash stays inside the main area — header/nav keep working, and navigating
+            anywhere remounts the boundary (see components/ErrorBoundary.tsx). */}
+        <RouteErrorBoundary>
+          <Outlet />
+        </RouteErrorBoundary>
       </AppShell.Main>
     </AppShell>
     </TourProvider>
@@ -649,6 +655,8 @@ export default function App() {
             <Route path="alerts/new" element={<CreateAlert />} />
             <Route path="alerts/:id/edit" element={<EditAlert />} />
             <Route path="changelog" element={<Changelog />} />
+            {/* The authenticated catch-all — an unmatched URL renders inside the shell. */}
+            <Route path="*" element={<NotFound />} />
           </Route>
         </Route>
       </Routes>

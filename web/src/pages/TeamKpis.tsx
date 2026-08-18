@@ -7,6 +7,7 @@ import { getUserId, hasFeature } from "../api/session";
 import { getTeam } from "../api/teams";
 import { teamKpiCreateLink, teamKpisLink } from "../utils/teamKpiLinks";
 import TeamKpiTable from "./TeamKpiTable";
+import { loadErrorMessage } from "../utils/saveError";
 
 const BACK_TO = "/?tab=myTeams";
 
@@ -22,7 +23,7 @@ export default function TeamKpis() {
   const idIsValid = Number.isFinite(teamId) && teamId > 0;
 
   // Only resolves the heading + the manager gate — the table has its own query and error state.
-  const { data: team, isError } = useQuery({
+  const { data: team, isError, error } = useQuery({
     queryKey: ["team", teamId],
     queryFn: () => getTeam(teamId),
     enabled: idIsValid,
@@ -52,7 +53,7 @@ export default function TeamKpis() {
 
       {isError && (
         <Alert color="red" variant="light" title={t("teams.loadFailed")}>
-          {t("teams.unknownError")}
+          {loadErrorMessage(error, t)}
         </Alert>
       )}
 

@@ -56,6 +56,16 @@ describe("App shell", () => {
       expect(screen.getByText("Lettuce")).toBeInTheDocument();
     });
 
+    test("an unmatched URL renders the not-found page inside the shell", async () => {
+      renderApp("/definitely/not-a-page");
+      expect(
+        await screen.findByRole("heading", { level: 2, name: "Page not found" }),
+      ).toBeInTheDocument();
+      // The Shell mounted around it — before v2.22.0 an unmatched URL rendered nothing at all.
+      expect(screen.getByText("Lettuce")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Back to dashboard" })).toHaveAttribute("href", "/");
+    });
+
     test("navigating via the navbar swaps the main content", async () => {
       const user = userEvent.setup();
       renderApp("/");

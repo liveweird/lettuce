@@ -26,6 +26,7 @@ import { isOneOf, useStoredState } from "../hooks/useStoredState";
 import { addIsoMonths, currentIsoMonth, formatIsoMonth } from "../utils/datetime";
 import { daysOffCreateLink, daysOffListLink } from "../utils/daysOffLinks";
 import DaysOffTable from "./DaysOffTable";
+import { loadErrorMessage } from "../utils/saveError";
 
 const TABS = ["calendar", "requests", "team"] as const;
 type DaysOffTab = (typeof TABS)[number];
@@ -45,7 +46,7 @@ function CalendarTab({ isManager }: { isManager: boolean }) {
   // A stored managed scope degrades gracefully if the caller stops managing.
   const scope: DaysOffCalendarScope = isManager ? storedScope : "member";
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ["daysOffCalendar", scope, month],
     queryFn: () => getDaysOffCalendar(month, scope),
   });
@@ -86,7 +87,7 @@ function CalendarTab({ isManager }: { isManager: boolean }) {
 
       {isError ? (
         <Alert color="red" variant="light" title={t("daysOff.calendar.loadError")}>
-          {t("daysOff.unknownError")}
+          {loadErrorMessage(error, t)}
         </Alert>
       ) : isLoading || !data ? (
         <Center py="xl">

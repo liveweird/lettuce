@@ -16,6 +16,7 @@ import { getUserId, hasFeature } from "../api/session";
 import { listTeams } from "../api/teams";
 import { teamKpisLink } from "../utils/teamKpiLinks";
 import { teamDetailsLink } from "../utils/teamLinks";
+import { loadErrorMessage } from "../utils/saveError";
 
 const SORT_FIELDS = ["name"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
@@ -72,7 +73,7 @@ export default function MyTeamsTable() {
 
       {isError && (
         <Alert color="red" variant="light" title={t("teams.loadFailed")}>
-          {error instanceof Error ? error.message : t("teams.unknownError")}
+          {loadErrorMessage(error, t)}
         </Alert>
       )}
 

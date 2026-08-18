@@ -31,6 +31,7 @@ import {
   type OrgMembership,
 } from "../utils/orgGraph";
 import { userDetailsLink } from "../utils/userLinks";
+import { loadErrorMessage } from "../utils/saveError";
 
 // The whole org, composed client-side from the open lists (the house aggregation pattern):
 // teams + managers from the teams list, memberIds per team, names from the users list.
@@ -249,7 +250,7 @@ export default function OrgChart() {
 
       {isError ? (
         <Alert color="red" variant="light" title={t("org.loadFailed")}>
-          {error instanceof Error ? error.message : t("org.unknownError")}
+          {loadErrorMessage(error, t)}
         </Alert>
       ) : isLoading ? (
         <Center mih={300}>

@@ -19,6 +19,7 @@ import SortHeader from "../components/SortHeader";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOf, isString, useStoredState } from "../hooks/useStoredState";
 import { formatIsoDate, formatRelativeTime, formatTimestamp } from "../utils/datetime";
+import { loadErrorMessage } from "../utils/saveError";
 
 const SORT_FIELDS = ["meetingDate", "managerName", "subordinateName", "lastModified"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
@@ -272,7 +273,7 @@ export default function OneOnOneTable({
 
       {isError && (
         <Alert color="red" variant="light" title={t("oneOnOne.loadListError")}>
-          {error instanceof Error ? error.message : t("oneOnOne.unknownError")}
+          {loadErrorMessage(error, t)}
         </Alert>
       )}
 

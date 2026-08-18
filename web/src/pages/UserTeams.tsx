@@ -28,7 +28,7 @@ import EmptyState from "../components/EmptyState";
 import TableLoadingRow from "../components/TableLoadingRow";
 import PersonaChip from "../components/PersonaChip";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
-import { saveErrorMessage } from "../utils/saveError";
+import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
 
 type TeamRow = { id: number; name: string };
 
@@ -195,7 +195,7 @@ export default function UserTeams() {
 
       {teamsIsError && (
         <Alert color="red" variant="light" title={t("users.loadTeamsFailed")}>
-          {teamsError instanceof Error ? teamsError.message : t("users.unknownError")}
+          {loadErrorMessage(teamsError, t)}
         </Alert>
       )}
 

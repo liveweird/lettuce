@@ -33,7 +33,7 @@ import PersonaChip from "../components/PersonaChip";
 import { getUserId, hasFeature, isAdmin, USER_ROLES, type UserRole } from "../api/session";
 import { logout } from "../api/auth";
 import { deactivateUser, deleteUser, listUsers, reactivateUser } from "../api/users";
-import { saveErrorMessage } from "../utils/saveError";
+import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
 import { showSuccessToast } from "../utils/toast";
 import FeedbackActionsMenu from "../components/FeedbackActionsMenu";
 import { feedbackAskLink, feedbackProvideLink, userFeedbacksLink } from "../utils/feedbackLinks";
@@ -254,7 +254,7 @@ export default function Users() {
 
       {isError && (
         <Alert color="red" variant="light" title={t("users.loadUsersFailed")}>
-          {error instanceof Error ? error.message : t("users.unknownError")}
+          {loadErrorMessage(error, t)}
         </Alert>
       )}
 

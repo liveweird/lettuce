@@ -35,6 +35,7 @@ import { getUserId, isAdmin } from "../api/session";
 import { deleteTeam, listTeams } from "../api/teams";
 import { userDetailsLink } from "../utils/userLinks";
 import { teamDetailsLink } from "../utils/teamLinks";
+import { loadErrorMessage } from "../utils/saveError";
 
 const SORT_FIELDS = ["name"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
@@ -117,7 +118,7 @@ export default function Teams() {
 
       {isError && (
         <Alert color="red" variant="light" title={t("teams.loadFailed")}>
-          {error instanceof Error ? error.message : t("teams.unknownError")}
+          {loadErrorMessage(error, t)}
         </Alert>
       )}
 

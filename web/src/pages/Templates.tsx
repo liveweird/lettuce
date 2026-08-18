@@ -24,6 +24,7 @@ import { usePagedSort } from "../hooks/usePagedSort";
 import { isString, useStoredState } from "../hooks/useStoredState";
 import { isAdmin } from "../api/session";
 import { deleteTemplate, listTemplates } from "../api/templates";
+import { loadErrorMessage } from "../utils/saveError";
 
 const SORT_FIELDS = ["name"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
@@ -84,7 +85,7 @@ export default function Templates() {
 
       {isError && (
         <Alert color="red" variant="light" title={t("templates.loadFailed")}>
-          {error instanceof Error ? error.message : t("templates.unknownError")}
+          {loadErrorMessage(error, t)}
         </Alert>
       )}
 

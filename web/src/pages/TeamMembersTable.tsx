@@ -22,6 +22,7 @@ import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOf, isString, isStringOrNull, useStoredState } from "../hooks/useStoredState";
 import { groupTeamRows } from "../utils/teamRows";
+import { loadErrorMessage } from "../utils/saveError";
 
 const SORT_FIELDS = ["name", "email", "teamName"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
@@ -205,7 +206,7 @@ export default function TeamMembersTable({
 
       {isError && (
         <Alert color="red" variant="light" title={t("teams.loadMembersTableFailed")}>
-          {error instanceof Error ? error.message : t("teams.unknownError")}
+          {loadErrorMessage(error, t)}
         </Alert>
       )}
 

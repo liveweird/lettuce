@@ -27,6 +27,7 @@ import { isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState
 import { isAdmin } from "../api/session";
 import { deleteAlert, listAlerts } from "../api/alerts";
 import { formatTimestamp } from "../utils/datetime";
+import { loadErrorMessage } from "../utils/saveError";
 
 const SORT_FIELDS = ["id", "title", "startsAt", "endsAt"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
@@ -120,7 +121,7 @@ export default function Alerts() {
 
       {isError && (
         <Alert color="red" variant="light" title={t("alerts.loadFailed")}>
-          {error instanceof Error ? error.message : t("alerts.unknownError")}
+          {loadErrorMessage(error, t)}
         </Alert>
       )}
 

@@ -25,6 +25,7 @@ import MarkdownView from "../components/MarkdownView";
 import PersonCell from "../components/PersonCell";
 import ProseBox from "../components/ProseBox";
 import { formatRelativeTime, formatTimestamp } from "../utils/datetime";
+import { loadErrorMessage } from "../utils/saveError";
 
 const PAGE_SIZE = 20;
 const PREVIEW_LINES = 3;
@@ -143,7 +144,7 @@ export default function Kudos() {
 
           {isError && (
             <Alert color="red" variant="light" title={t("kudos.loadError")}>
-              {error instanceof Error ? error.message : t("kudos.unknownError")}
+              {loadErrorMessage(error, t)}
             </Alert>
           )}
           {isLoading && (

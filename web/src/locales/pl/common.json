@@ -89,6 +89,21 @@
     "PULSE_SURVEYS": "Ankiety pulsu",
     "MFA": "MFA (kod logowania e-mailem)"
   },
+  "error": {
+    "timeout": "Serwer nie odpowiada. Sprawdź połączenie i spróbuj ponownie.",
+    "network": "Brak połączenia z serwerem. Sprawdź połączenie i spróbuj ponownie.",
+    "loadFailedStatus": "Wczytywanie nie powiodło się ({{status}})."
+  },
+  "errorBoundary": {
+    "title": "Coś poszło nie tak",
+    "message": "Ta część aplikacji uległa awarii. Odświeżenie strony zwykle rozwiązuje problem.",
+    "reload": "Odśwież"
+  },
+  "notFound": {
+    "title": "Nie znaleziono strony",
+    "message": "Ten adres nie pasuje do żadnej strony. Mogła zostać przeniesiona albo link zawiera literówkę.",
+    "backHome": "Wróć do pulpitu"
+  },
   "sort": {
     "label": "Sortuj według",
     "toggleDirection": "Przełącz kierunek sortowania"

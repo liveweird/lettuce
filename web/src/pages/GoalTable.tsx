@@ -42,6 +42,7 @@ import { goalEditLink, goalViewLink } from "../utils/goalLinks";
 import { invalidateGoal } from "../utils/goalQueries";
 import { formatGoalValue, GoalCurrentValue, isGoalOverdue, OverdueBadge } from "../utils/goalValues";
 import { showSuccessToast } from "../utils/toast";
+import { loadErrorMessage } from "../utils/saveError";
 
 const BASE_SORT_FIELDS = ["title", "createdAt", "dueDate", "status", "targetValue", "currentValue"] as const;
 type SortField = (typeof BASE_SORT_FIELDS)[number] | "managerName" | "subordinateName";
@@ -293,7 +294,7 @@ export default function GoalTable({
 
       {isError && (
         <Alert color="red" variant="light" title={t("goal.loadListError")}>
-          {error instanceof Error ? error.message : t("goal.unknownError")}
+          {loadErrorMessage(error, t)}
         </Alert>
       )}
       {actionError && (

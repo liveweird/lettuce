@@ -24,7 +24,7 @@ import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import EmptyState from "../components/EmptyState";
 import { formatIsoDate, todayIsoDate } from "../utils/datetime";
-import { saveErrorMessage } from "../utils/saveError";
+import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
 import { showSuccessToast } from "../utils/toast";
 
 const MAX_NAME = 100;
@@ -49,7 +49,7 @@ export default function PublicHolidays() {
   });
 
   const admin = isAdmin();
-  const { data: holidays, isLoading, isError } = useQuery({
+  const { data: holidays, isLoading, isError, error: loadError } = useQuery({
     queryKey: ["publicHolidays"],
     queryFn: listPublicHolidays,
   });
@@ -96,7 +96,7 @@ export default function PublicHolidays() {
 
           {isError && (
             <Alert color="red" variant="light" title={t("daysOff.holidays.loadError")}>
-              {t("daysOff.unknownError")}
+              {loadErrorMessage(loadError, t)}
             </Alert>
           )}
           {isLoading && (

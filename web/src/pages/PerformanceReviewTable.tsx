@@ -22,6 +22,7 @@ import { isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState
 import { formatDate, formatMonthRange, formatTimestamp } from "../utils/datetime";
 import { reviewEditLink, reviewViewLink } from "../utils/performanceReviewLinks";
 import { REVIEW_CATEGORIES } from "../utils/reviewRatings";
+import { loadErrorMessage } from "../utils/saveError";
 
 const BASE_SORT_FIELDS = ["periodStart", "status", "createdAt"] as const;
 type SortField = (typeof BASE_SORT_FIELDS)[number] | "managerName" | "subordinateName";
@@ -231,7 +232,7 @@ export default function PerformanceReviewTable({
 
       {isError && (
         <Alert color="red" variant="light" title={t("performanceReview.loadListError")}>
-          {error instanceof Error ? error.message : t("performanceReview.unknownError")}
+          {loadErrorMessage(error, t)}
         </Alert>
       )}
 
