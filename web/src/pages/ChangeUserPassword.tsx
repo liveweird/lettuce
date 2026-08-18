@@ -27,6 +27,7 @@ import { changeUserPassword, getUser } from "../api/users";
 import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
 import { MAX_PASSWORD_BYTES, utf8ByteLength } from "../utils/userForm";
+import { invalidateUser } from "../utils/userQueries";
 
 type FormValues = {
   currentPassword: string;
@@ -83,8 +84,7 @@ export default function ChangeUserPassword() {
     setSubmitting(true);
     try {
       await changeUserPassword(id, isSelf ? { password, currentPassword } : { password });
-      await queryClient.invalidateQueries({ queryKey: ["users"] });
-      await queryClient.invalidateQueries({ queryKey: ["user", id] });
+      await invalidateUser(queryClient, id);
       showSuccessToast(t("users.toast.passwordChanged"));
       navigate(returnTo, { replace: true });
     } catch (err) {

@@ -21,7 +21,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconPlus, IconTrash, IconUserPlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { getUserId, hasFeature } from "../api/session";
-import { listAllUsers } from "../api/users";
 import { checkFeedbackDuplicate, createFeedback, type FeedbackVisibility } from "../api/feedbacks";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import EmptyState from "../components/EmptyState";
@@ -30,9 +29,9 @@ import PersonaField from "../components/PersonaField";
 import { REQUESTER_VISIBILITIES } from "../utils/feedbackVisibility";
 import { saveErrorMessage } from "../utils/saveError";
 import { showSuccessToast } from "../utils/toast";
+import { invalidateFeedback } from "../utils/feedbackQueries";
+import { useAllUsers } from "../hooks/useAllUsers";
 
-// The provider picker realistically chooses from a bounded set; fetch up to the 100-row
-// max (the list endpoint's cap). Fine at this app's scale.
 type Provider = { id: number; name: string };
 
 export default function RequestFeedback() {
@@ -59,13 +58,7 @@ export default function RequestFeedback() {
   const [submitting, setSubmitting] = useState(false);
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
 
-  const { data: userPool } = useQuery({
-    queryKey: ["users", "requestPicker"],
-    // ALL pages (the single-page-picker lesson): this is the org-wide provider pool — a
-    // single name-sorted page of 100 silently hides providers in any larger org.
-    queryFn: () => listAllUsers(),
-    staleTime: 5 * 60 * 1000,
-  });
+  const { userPool } = useAllUsers();
 
   const subjectIdIsValid = Number.isFinite(subjectId) && subjectId > 0;
 
@@ -139,9 +132,7 @@ export default function RequestFeedback() {
           }),
         ),
       );
-      await queryClient.invalidateQueries({ queryKey: ["feedbacks"] });
-      // Requesting feedback mints a requester confirmation — refresh the bell badge immediately.
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      await invalidateFeedback(queryClient);
       showSuccessToast(t("feedback.toast.requested"));
       navigate(backTo, { replace: true });
     } catch (err) {

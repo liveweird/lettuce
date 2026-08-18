@@ -2,7 +2,6 @@ import { describe, expect, test } from "vitest";
 import type { TFunction } from "i18next";
 import {
   PULSE_SMALL_SAMPLE,
-  addIsoDays,
   buildTrendComparisonRows,
   buildTrendSeries,
   closedCycleOptions,
@@ -145,14 +144,5 @@ describe("closedCycleOptions", () => {
     ] as PulseCycle[];
     const options = closedCycleOptions(cycles, "en", ((key: string) => key) as unknown as TFunction);
     expect(options.map((o) => o.value)).toEqual(["3", "1"]);
-  });
-});
-
-describe("addIsoDays", () => {
-  test("pure ISO date arithmetic, month and year rollover included", () => {
-    expect(addIsoDays("2026-08-01", 7)).toBe("2026-08-08");
-    expect(addIsoDays("2026-08-29", 28)).toBe("2026-09-26");
-    expect(addIsoDays("2026-12-25", 14)).toBe("2027-01-08");
-    expect(addIsoDays("garbage", 7)).toBe("garbage");
   });
 });

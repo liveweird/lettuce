@@ -118,11 +118,3 @@ export function closedCycleOptions(
       }),
     }));
 }
-
-/** ISO date arithmetic for the admin form prefill (UTC-safe: pure date strings in, out). */
-export function addIsoDays(iso: string, days: number): string {
-  const date = new Date(`${iso}T00:00:00Z`);
-  if (Number.isNaN(date.getTime())) return iso;
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}

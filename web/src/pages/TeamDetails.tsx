@@ -37,6 +37,7 @@ import { feedbackAskLink, feedbackProvideLink, userFeedbacksLink } from "../util
 import { userDetailsLink } from "../utils/userLinks";
 import { teamDetailsLink } from "../utils/teamLinks";
 import { saveErrorMessage } from "../utils/saveError";
+import { useAllUsers } from "../hooks/useAllUsers";
 
 type MemberRow = { id: number; name: string };
 
@@ -91,15 +92,8 @@ export default function TeamDetails() {
     enabled: idIsValid,
   });
 
-  // EVERY user, all pages (the v1.51.0 useManagerOptions lesson, second site): a single
-  // name-sorted page silently loses candidates once the org outgrows the server's max
-  // pageSize. Client-sorted by name below.
-  const { data: userPool } = useQuery({
-    queryKey: ["users", "picker"],
-    queryFn: () => listAllUsers(),
-    staleTime: 5 * 60 * 1000,
-    enabled: idIsValid && canManage,
-  });
+  // The add-picker candidates come from the shared org-wide pool. Client-sorted by name below.
+  const { userPool } = useAllUsers(idIsValid && canManage);
 
   const addMutation = useMutation({
     mutationFn: (userId: number) => addTeamMember(id, userId),

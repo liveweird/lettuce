@@ -20,6 +20,7 @@ describe("day arithmetic (the pyramid time slider)", () => {
     expect(addIsoDays("2026-08-01", 14)).toBe("2026-08-15");
     expect(addIsoDays("2026-01-02", -3)).toBe("2025-12-30");
     expect(addIsoDays("2024-02-28", 1)).toBe("2024-02-29"); // leap day
+    expect(addIsoDays("garbage", 7)).toBe("garbage"); // malformed passes through
     const from = "2015-01-01";
     const to = "2026-08-15";
     expect(addIsoDays(from, isoDayDiff(from, to))).toBe(to);

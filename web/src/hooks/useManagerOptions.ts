@@ -1,21 +1,16 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { listAllUsers } from "../api/users";
+import { useAllUsers } from "./useAllUsers";
 
-// The shared manager-picker pool: EVERY user (paged via listAllUsers — a single capped page
-// silently dropped anyone past the first 100 by name, v1.51.0 fix), name-sorted client-side
-// and mapped to Mantine Select options. Used by the Teams list filter and the Create/Edit
-// team forms (which pass `enabled: isAdmin()` since only admins see their picker).
+// The shared manager-picker pool: EVERY user (via the shared useAllUsers pool — one cache
+// for every picker; a single capped page silently dropped anyone past the first 100 by
+// name, v1.51.0 fix), name-sorted client-side and mapped to Mantine Select options. Used by
+// the Teams list filter and the Create/Edit team forms (which pass `enabled: isAdmin()`
+// since only admins see their picker).
 export function useManagerOptions(enabled = true): {
   managerOptions: { value: string; label: string }[];
   managersLoading: boolean;
 } {
-  const { data: managerPool, isLoading: managersLoading } = useQuery({
-    queryKey: ["users", "managerPicker"],
-    queryFn: () => listAllUsers(),
-    staleTime: 5 * 60 * 1000,
-    enabled,
-  });
+  const { userPool: managerPool, usersLoading: managersLoading } = useAllUsers(enabled);
 
   const managerOptions = useMemo(
     () =>

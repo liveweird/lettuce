@@ -101,10 +101,19 @@ export function isoDayDiff(fromIso: string, toIso: string): number {
 }
 
 // The ISO date [days] whole days after [iso] (negative = before) — the isoDayDiff inverse.
+// Malformed input passes through (the formatIsoDate convention).
 export function addIsoDays(iso: string, days: number): string {
-  const d = new Date(Date.parse(`${iso}T00:00:00Z`) + days * 86_400_000);
+  const parsed = Date.parse(`${iso}T00:00:00Z`);
+  if (Number.isNaN(parsed)) return iso;
+  const d = new Date(parsed + days * 86_400_000);
   const p = (n: number) => String(n).padStart(2, "0");
   return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}`;
+}
+
+// True for a well-formed, actually-parseable ISO "YYYY-MM-DD" — the <input type="date">
+// validation the pulse admin forms run before date arithmetic or a submit.
+export function isValidIsoDate(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(`${value}T00:00:00Z`).getTime());
 }
 
 // The current month as ISO "YYYY-MM" (local time) — the review-period granularity.

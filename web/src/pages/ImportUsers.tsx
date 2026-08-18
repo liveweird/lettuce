@@ -23,6 +23,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "../api/http";
 import { isAdmin } from "../api/session";
 import { importUsers, type UserImportResult, type UserImportRow } from "../api/users";
+import { invalidateUser } from "../utils/userQueries";
 
 const STATUS_COLOR: Record<UserImportRow["status"], string> = {
   CREATED: "green",
@@ -51,7 +52,7 @@ export default function ImportUsers() {
       const csv = await file.text();
       const res = await importUsers({ csv, sendEmails });
       setResult(res);
-      await queryClient.invalidateQueries({ queryKey: ["users"] });
+      await invalidateUser(queryClient);
     } catch (err) {
       // 503 (deployment without email) is outside saveErrorMessage's vocabulary — special-case
       // it, delegate the rest per convention.

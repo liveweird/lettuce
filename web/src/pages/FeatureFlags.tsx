@@ -22,6 +22,7 @@ import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
 import { teamDetailsLink } from "../utils/teamLinks";
 import { userDetailsLink } from "../utils/userLinks";
+import { invalidateUser } from "../utils/userQueries";
 
 const SORT_FIELDS = ["id", "name", "email"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
@@ -125,8 +126,7 @@ export default function FeatureFlags() {
     setPendingId(row.id);
     try {
       await updateUserFeatures(row.id, next);
-      await queryClient.invalidateQueries({ queryKey: ["users"] });
-      await queryClient.invalidateQueries({ queryKey: ["user", row.id] });
+      await invalidateUser(queryClient, row.id);
       showSuccessToast(t("users.toast.featuresSaved"));
     } catch (err) {
       setError(
@@ -192,7 +192,7 @@ export default function FeatureFlags() {
         failed += 1;
       }
     }
-    await queryClient.invalidateQueries({ queryKey: ["users"] });
+    await invalidateUser(queryClient);
     setBulkRunning(false);
     setBulk(null);
     if (failed > 0) {

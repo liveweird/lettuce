@@ -1,9 +1,8 @@
-import { charCountDescription } from "../utils/charCount";
 import {
+  emptyUserFormValues,
   isUniqueIdConflict,
-  MAX_EMAIL_LENGTH,
-  MAX_UNIQUE_ID_LENGTH,
-  MAX_USER_NAME_LENGTH,
+  userFormValidation,
+  type UserFormValues,
 } from "../utils/userForm";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -12,45 +11,26 @@ import {
   Alert,
   Button,
   Checkbox,
-  CloseButton,
   Container,
   Group,
   Modal,
   Paper,
-  Select,
   Stack,
   Text,
-  TextInput,
   Title,
 } from "@mantine/core";
 import { IconMail } from "@tabler/icons-react";
-import { hasLength, useForm } from "@mantine/form";
+import { useForm } from "@mantine/form";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "../api/http";
-import { isAdmin, type UserRole } from "../api/session";
+import { isAdmin } from "../api/session";
 import { createUser } from "../api/users";
-import { NATIVE_LANGUAGE_NAMES, SUPPORTED_LANGUAGES, type SupportedLanguage } from "../i18n";
+import { type SupportedLanguage } from "../i18n";
 import RevealablePassword from "../components/RevealablePassword";
-import RolesMultiSelect from "../components/RolesMultiSelect";
+import UserFormFields from "../components/UserFormFields";
 import { generatePassword } from "../utils/password";
 import { saveErrorMessage } from "../utils/saveError";
-
-type FormValues = {
-  name: string;
-  email: string;
-  roles: UserRole[];
-  // Sent only when non-blank (trimmed) — optional, but admins should assign one ASAP
-  // (the users list flags the missing state).
-  uniqueId: string;
-  // The new user's language (v2.21.0) — drives their UI at sign-in and every email sent to
-  // them; they can change it themselves later via the header switcher.
-  language: SupportedLanguage;
-  // No career fields (v2.15.0): a new user's career history starts empty — their management
-  // chain records positions on /users/:id/career.
-};
-
-// Linear-time (no ambiguous backtracking): dot-separated domain labels may not contain dots.
-const EMAIL_RE = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
+import { invalidateUser } from "../utils/userQueries";
 
 export default function CreateUser() {
   const { t } = useTranslation();
@@ -69,29 +49,16 @@ export default function CreateUser() {
     language: SupportedLanguage;
   } | null>(null);
 
-  const form = useForm<FormValues>({
-    // Roles hold only ADDITIONAL privileges — a new user starts as a plain user (empty set).
-    initialValues: {
-      name: "",
-      email: "",
-      roles: [],
-      uniqueId: "",
-      language: "en",
-    },
-    validate: {
-      name: hasLength({ min: 1, max: 50 }, t("users.validation.nameLength")),
-      email: (value) => {
-        if (!value) return t("users.validation.emailRequired");
-        if (!EMAIL_RE.test(value)) return t("users.validation.emailInvalid");
-        if (value.length > 254) return t("users.validation.emailTooLong");
-        return null;
-      },
-    },
+  // The shared form vocabulary (utils/userForm.ts); the allowance field stays inert here —
+  // it is edit-only, never rendered or submitted by the create page.
+  const form = useForm<UserFormValues>({
+    initialValues: emptyUserFormValues(),
+    validate: userFormValidation(t),
   });
 
   if (!isAdmin()) return <Navigate to="/users" replace />;
 
-  async function onSubmit(values: FormValues) {
+  async function onSubmit(values: UserFormValues) {
     setError(null);
     setSubmitting(true);
     const password = generatePassword();
@@ -105,7 +72,7 @@ export default function CreateUser() {
         language: values.language,
         ...(values.uniqueId.trim() !== "" ? { uniqueId: values.uniqueId.trim() } : {}),
       });
-      await queryClient.invalidateQueries({ queryKey: ["users"] });
+      await invalidateUser(queryClient);
       setCreated({
         email: values.email,
         name: values.name,
@@ -170,70 +137,7 @@ export default function CreateUser() {
         <form onSubmit={form.onSubmit(onSubmit)} noValidate>
           <Stack>
             <Title order={2}>{t("users.createUser")}</Title>
-            <TextInput
-              label={t("common.field.name")}
-              autoFocus
-              maxLength={MAX_USER_NAME_LENGTH}
-              description={charCountDescription(form.values.name.length, MAX_USER_NAME_LENGTH)}
-              inputWrapperOrder={["label", "input", "description", "error"]}
-              rightSection={
-                form.values.name ? (
-                  <CloseButton
-                    size="sm"
-                    aria-label={t("users.clearName")}
-                    tabIndex={-1}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => form.setFieldValue("name", "")}
-                  />
-                ) : null
-              }
-              rightSectionPointerEvents="auto"
-              {...form.getInputProps("name")}
-            />
-            <TextInput
-              label={t("common.field.email")}
-              type="email"
-              autoComplete="email"
-              maxLength={MAX_EMAIL_LENGTH}
-              description={charCountDescription(form.values.email.length, MAX_EMAIL_LENGTH)}
-              inputWrapperOrder={["label", "input", "description", "error"]}
-              rightSection={
-                form.values.email ? (
-                  <CloseButton
-                    size="sm"
-                    aria-label={t("users.clearEmail")}
-                    tabIndex={-1}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => form.setFieldValue("email", "")}
-                  />
-                ) : null
-              }
-              rightSectionPointerEvents="auto"
-              {...form.getInputProps("email")}
-            />
-            <TextInput
-              label={t("users.uniqueId")}
-              maxLength={MAX_UNIQUE_ID_LENGTH}
-              // The counter takes over the description slot near the cap (the name idiom);
-              // otherwise the slot explains the set-once semantics.
-              description={
-                charCountDescription(form.values.uniqueId.length, MAX_UNIQUE_ID_LENGTH) ??
-                t("users.uniqueIdHint")
-              }
-              inputWrapperOrder={["label", "input", "description", "error"]}
-              {...form.getInputProps("uniqueId")}
-            />
-            <RolesMultiSelect {...form.getInputProps("roles")} />
-            <Select
-              label={t("common.language.label")}
-              description={t("users.languageHint")}
-              data={SUPPORTED_LANGUAGES.map((lng) => ({
-                value: lng,
-                label: NATIVE_LANGUAGE_NAMES[lng],
-              }))}
-              allowDeselect={false}
-              {...form.getInputProps("language")}
-            />
+            <UserFormFields form={form} />
             <Checkbox
               label={t("users.createSendEmail")}
               checked={sendEmail}

@@ -20,6 +20,7 @@ import { getUserId, isAdmin } from "../api/session";
 import { getUser, setEmailNotifications } from "../api/users";
 import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
+import { invalidateUser } from "../utils/userQueries";
 
 /**
  * The self-service email-mirror toggle (v2.3.0): while enabled (the default), every in-app
@@ -59,8 +60,7 @@ export default function EmailNotifications() {
     setSubmitting(true);
     try {
       await setEmailNotifications(id, enabled);
-      await queryClient.invalidateQueries({ queryKey: ["users"] });
-      await queryClient.invalidateQueries({ queryKey: ["user", id] });
+      await invalidateUser(queryClient, id);
       showSuccessToast(t("emailNotifications.toast.saved"));
       navigate(returnTo, { replace: true });
     } catch (err) {

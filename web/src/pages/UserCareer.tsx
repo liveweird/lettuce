@@ -13,6 +13,7 @@ import { useDashboardDrillDown } from "../hooks/useDashboardDrillDown";
 import { todayIsoDate } from "../utils/datetime";
 import { saveErrorMessage } from "../utils/saveError";
 import { showSuccessToast } from "../utils/toast";
+import { invalidateUser } from "../utils/userQueries";
 
 type Draft = {
   startDate: string;
@@ -220,9 +221,8 @@ export default function UserCareer() {
       await action();
       // The current-position triple feeds the person cards and user rows — refresh them too.
       await queryClient.invalidateQueries({ queryKey: ["careerPositions", userId] });
-      await queryClient.invalidateQueries({ queryKey: ["teamMembers"] });
-      await queryClient.invalidateQueries({ queryKey: ["users"] });
-      await queryClient.invalidateQueries({ queryKey: ["user", userId] });
+      queryClient.invalidateQueries({ queryKey: ["careerPyramid"] });
+      await invalidateUser(queryClient, userId);
       showSuccessToast(t(successKey));
       // Back to the ADD form; the refetched data changes the form's key, so it remounts
       // prefilled from the (possibly just-changed) current position.
