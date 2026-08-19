@@ -351,6 +351,73 @@ describe("FeatureFlags page", () => {
     expect(putCalls()).toHaveLength(0);
   });
 
+  test("a bulk partial failure names the failed users and Retry re-runs exactly them", async () => {
+    // Both users start enabled; Bob's PUT fails until the retry.
+    const bothEnabled = USERS.map((u) => ({ ...u, disabledFeatures: [] as string[] }));
+    let failBob = true;
+    mockFetch.mockImplementation((input: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      if (method === "PUT") {
+        return Promise.resolve(
+          failBob && String(input).includes("/users/2/")
+            ? jsonResponse(500, { status: 500 })
+            : new Response(null, { status: 204 }),
+        );
+      }
+      if (String(input).startsWith("/api/v1/teams")) {
+        return Promise.resolve(jsonResponse(200, { items: TEAMS, page: 1, pageSize: 100, total: TEAMS.length }));
+      }
+      return Promise.resolve(jsonResponse(200, { items: bothEnabled, page: 1, pageSize: 20, total: 2 }));
+    });
+    const showSpy = vi.spyOn(notifications, "show");
+    // The spy instance persists across this file's tests (never restored) — drop their calls.
+    showSpy.mockClear();
+    const user = userEvent.setup();
+    renderFeatureFlags();
+    await screen.findByRole("switch", { name: "Toggle Feedbacks for Alice" });
+
+    await user.click(screen.getByRole("button", { name: "Disable for all matching" }));
+    expect(await screen.findByText("This will disable Feedbacks for 2 users.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Disable" }));
+
+    // Alice's PUT landed; Bob failed — named in the alert, no success toast.
+    const alert = await screen.findByRole("alert");
+    expect(within(alert).getByText("The change failed for 1 user — the others were updated:")).toBeInTheDocument();
+    expect(within(alert).getByText("Bob")).toBeInTheDocument();
+    expect(putCalls()).toHaveLength(2);
+    expect(showSpy).not.toHaveBeenCalledWith(expect.objectContaining({ message: "Features saved" }));
+
+    // Retry re-PUTs ONLY Bob; on success the alert clears and the toast fires.
+    failBob = false;
+    await user.click(within(alert).getByRole("button", { name: "Retry the failed users" }));
+    await waitFor(() => expect(putCalls()).toHaveLength(3));
+    expect(putCalls()[2]![0]).toBe("/api/v1/users/2/features");
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    expect(showSpy).toHaveBeenCalledWith(expect.objectContaining({ message: "Features saved" }));
+  });
+
+  test("a failed bulk prepare surfaces an error and never opens the modal", async () => {
+    let failLists = false;
+    mockFetch.mockImplementation((input: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      if (String(input).startsWith("/api/v1/teams")) {
+        return Promise.resolve(jsonResponse(200, { items: TEAMS, page: 1, pageSize: 100, total: TEAMS.length }));
+      }
+      if (method === "GET" && failLists) return Promise.resolve(jsonResponse(500, { status: 500 }));
+      return Promise.resolve(jsonResponse(200, { items: USERS, page: 1, pageSize: 20, total: USERS.length }));
+    });
+    const user = userEvent.setup();
+    renderFeatureFlags();
+    await screen.findByRole("switch", { name: "Toggle Feedbacks for Alice" });
+
+    failLists = true;
+    await user.click(screen.getByRole("button", { name: "Enable for all matching" }));
+
+    expect(await screen.findByText("Saving features failed (500)")).toBeInTheDocument();
+    expect(screen.queryByText("Bulk change")).toBeNull();
+    expect(putCalls()).toHaveLength(0);
+  });
+
   test("a non-admin is redirected home", () => {
     localStorage.setItem(ROLE_KEY, "[]");
     mockApi();

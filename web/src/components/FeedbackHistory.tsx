@@ -1,10 +1,11 @@
 import { dynamicKey } from "../utils/i18nKey";
-import { Text, Timeline } from "@mantine/core";
+import { Alert, Text, Timeline } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { listFeedbackEvents, type FeedbackEvent } from "../api/feedbacks";
 import { formatTimestamp } from "../utils/datetime";
+import { loadErrorMessage } from "../utils/saveError";
 
 // Render a structured audit event in the current language.
 function describeEvent(e: FeedbackEvent, t: TFunction): string {
@@ -34,10 +35,19 @@ function describeEvent(e: FeedbackEvent, t: TFunction): string {
 /** The feedback's audit history as a timeline (newest first, server-ordered), or an empty-state note. */
 export default function FeedbackHistory({ feedbackId }: { feedbackId: number }) {
   const { t } = useTranslation();
-  const { data: events } = useQuery({
+  const { data: events, isError, error } = useQuery({
     queryKey: ["feedbackEvents", feedbackId],
     queryFn: () => listFeedbackEvents(feedbackId),
   });
+
+  if (isError) {
+    // A failed history load must not masquerade as an empty history (v2.24.0).
+    return (
+      <Alert color="red" variant="light">
+        {loadErrorMessage(error, t)}
+      </Alert>
+    );
+  }
 
   if (!events || events.length === 0) {
     return (

@@ -12,10 +12,10 @@ import { pickLocalized } from "../utils/localized";
 export function useDictionaryOptions(
   slug: DictionarySlug,
   current?: DictionaryEntry | null,
-): { options: { value: string; label: string }[]; loading: boolean } {
+): { options: { value: string; label: string }[]; loading: boolean; error: boolean } {
   const { i18n } = useTranslation();
   const lang = i18n.resolvedLanguage;
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["dictionary", slug],
     queryFn: () => getDictionary(slug),
     staleTime: 5 * 60 * 1000,
@@ -28,5 +28,5 @@ export function useDictionaryOptions(
       : active;
   }, [data, current, lang]);
 
-  return { options, loading: isLoading };
+  return { options, loading: isLoading, error: isError };
 }

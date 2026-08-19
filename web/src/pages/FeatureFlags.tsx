@@ -135,13 +135,10 @@ export default function FeatureFlags() {
           : [...row.disabledFeatures, feature],
       ),
     onNothingToDo: () => showSuccessToast(t("users.featureFlags.bulkNoChange")),
-    onDone: async (failed, total) => {
+    onDone: async (failedRows) => {
       await invalidateUser(queryClient);
-      if (failed > 0) {
-        setError(t("users.featureFlags.bulkFailed", { count: failed, total }));
-      } else {
-        showSuccessToast(t("users.toast.featuresSaved"));
-      }
+      // A partial failure renders from bulk.failed (names + Retry) below — no toast then.
+      if (failedRows.length === 0) showSuccessToast(t("users.toast.featuresSaved"));
     },
     onPrepareError: (err) => {
       setError(
@@ -242,6 +239,28 @@ export default function FeatureFlags() {
       {error && (
         <Alert color="red" variant="light">
           {error}
+        </Alert>
+      )}
+      {bulk.failed && (
+        // The bulk run's partial failure: name every row that failed (their switches kept
+        // their old state) and offer a retry over exactly those rows (v2.24.0).
+        <Alert
+          color="red"
+          variant="light"
+          title={t("users.featureFlags.bulkFailed", { count: bulk.failed.rows.length })}
+        >
+          <Stack gap="xs" align="flex-start">
+            <Text size="sm">{bulk.failed.rows.map((row) => row.name).join(", ")}</Text>
+            <Button
+              size="xs"
+              color="red"
+              variant="light"
+              loading={bulk.running}
+              onClick={() => void bulk.retry()}
+            >
+              {t("users.featureFlags.retryFailed")}
+            </Button>
+          </Stack>
         </Alert>
       )}
 

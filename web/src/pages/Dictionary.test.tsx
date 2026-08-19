@@ -258,4 +258,30 @@ describe("Dictionary page", () => {
     expect(screen.queryByDisplayValue("Changed")).not.toBeInTheDocument();
     expect(putBodies()).toHaveLength(0);
   });
+
+  test("a save whose re-read fails freezes the editor behind a reload prompt", async () => {
+    // The PUT commits but the follow-up GET fails: without the minted ids a resubmit would
+    // insert duplicates, so the editor freezes (v2.24.0) instead of showing a save error.
+    let saved = false;
+    mockFetch.mockImplementation((_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "PUT") {
+        saved = true;
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      if (saved) return Promise.resolve(jsonResponse(500, { status: 500 }));
+      return Promise.resolve(jsonResponse(200, { items: ENTRIES }));
+    });
+    renderPage();
+    await userEvent.type(await screen.findByLabelText("Entry 1 (English)"), "X");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(
+      await screen.findByText(
+        "Saved — but reloading the editor failed. Reload the page before making further changes.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Reload" })).toBeInTheDocument();
+  });
 });

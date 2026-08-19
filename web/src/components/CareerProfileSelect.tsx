@@ -16,7 +16,7 @@ type Props = {
 // admin-edit form and is gone).
 export default function CareerProfileSelect({ slug, current, ...selectProps }: Props) {
   const { t } = useTranslation();
-  const { options, loading } = useDictionaryOptions(slug, current);
+  const { options, loading, error: optionsError } = useDictionaryOptions(slug, current);
 
   return (
     <Select
@@ -28,6 +28,8 @@ export default function CareerProfileSelect({ slug, current, ...selectProps }: P
       disabled={loading}
       nothingFoundMessage={t("users.profile.noMatch")}
       {...selectProps}
+      // A failed dictionary load must not look like an empty list (the form error wins).
+      error={selectProps.error ?? (optionsError ? t("common.error.optionsFailed") : undefined)}
     />
   );
 }

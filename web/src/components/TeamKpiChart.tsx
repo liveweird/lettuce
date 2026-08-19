@@ -3,7 +3,7 @@
 // renders unstyled — the color-swatch <svg> falls back to the 300x150 default and the card
 // explodes into scattered fragments.
 import "@mantine/charts/styles.css";
-import { Stack, Text } from "@mantine/core";
+import { Alert, Stack, Text } from "@mantine/core";
 import { ChartTooltip, LineChart } from "@mantine/charts";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -11,6 +11,7 @@ import { listTeamKpiValues, type TeamKpiResponse } from "../api/teamkpis";
 import { formatDate } from "../utils/datetime";
 import { formatGoalValue } from "../utils/goalValues";
 import { buildTeamKpiSeries } from "../utils/teamKpiChart";
+import { loadErrorMessage } from "../utils/saveError";
 
 /**
  * The Graph tab: the KPI's collected data points over time (see buildTeamKpiSeries), with the
@@ -21,10 +22,19 @@ import { buildTeamKpiSeries } from "../utils/teamKpiChart";
  */
 export default function TeamKpiChart({ kpi }: { kpi: TeamKpiResponse }) {
   const { t, i18n } = useTranslation();
-  const { data: values } = useQuery({
+  const { data: values, isError, error } = useQuery({
     queryKey: ["teamKpiValues", kpi.id],
     queryFn: () => listTeamKpiValues(kpi.id),
   });
+
+  if (isError) {
+    // A failed load must not masquerade as “no data yet” (v2.24.0).
+    return (
+      <Alert color="red" variant="light">
+        {loadErrorMessage(error, t)}
+      </Alert>
+    );
+  }
 
   if (!values) return null;
   const locale = i18n.language;

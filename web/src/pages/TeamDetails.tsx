@@ -93,7 +93,7 @@ export default function TeamDetails() {
   });
 
   // The add-picker candidates come from the shared org-wide pool. Client-sorted by name below.
-  const { userPool } = useAllUsers(idIsValid && canManage);
+  const { userPool, usersError } = useAllUsers(idIsValid && canManage);
 
   const addMutation = useMutation({
     mutationFn: (userId: number) => addTeamMember(id, userId),
@@ -254,6 +254,7 @@ export default function TeamDetails() {
             searchable
             clearable
             nothingFoundMessage={t("teams.noUsersAvailable")}
+            error={usersError ? t("common.error.optionsFailed") : undefined}
             w={280}
           />
           <Button

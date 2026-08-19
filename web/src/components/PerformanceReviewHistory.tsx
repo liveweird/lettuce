@@ -1,10 +1,11 @@
 import { dynamicKey } from "../utils/i18nKey";
-import { Loader, Text, Timeline } from "@mantine/core";
+import { Alert, Loader, Text, Timeline } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { listPerformanceReviewEvents, type PerformanceReviewEvent } from "../api/reviews";
 import { formatTimestamp } from "../utils/datetime";
+import { loadErrorMessage } from "../utils/saveError";
 
 // Renders one structured event in the viewer's language. The server stores no strings — just
 // the type + params (category/status enum names only; never summary text, and since v1.49.0
@@ -34,12 +35,21 @@ function describeEvent(e: PerformanceReviewEvent, t: TFunction): string {
 /** The review's audit history as a timeline (newest first, server-ordered), or an empty-state note. */
 export default function PerformanceReviewHistory({ reviewId }: { reviewId: number }) {
   const { t } = useTranslation();
-  const { data: events, isLoading } = useQuery({
+  const { data: events, isLoading, isError, error } = useQuery({
     queryKey: ["performanceReviewEvents", reviewId],
     queryFn: () => listPerformanceReviewEvents(reviewId),
   });
 
   if (isLoading) return <Loader size="sm" />;
+  if (isError) {
+    // A failed history load must not masquerade as an empty history (v2.24.0).
+    return (
+      <Alert color="red" variant="light">
+        {loadErrorMessage(error, t)}
+      </Alert>
+    );
+  }
+
   if (!events || events.length === 0) {
     return (
       <Text c="dimmed" size="sm">

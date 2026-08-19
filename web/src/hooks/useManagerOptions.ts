@@ -9,8 +9,13 @@ import { useAllUsers } from "./useAllUsers";
 export function useManagerOptions(enabled = true): {
   managerOptions: { value: string; label: string }[];
   managersLoading: boolean;
+  managersError: boolean;
 } {
-  const { userPool: managerPool, usersLoading: managersLoading } = useAllUsers(enabled);
+  const {
+    userPool: managerPool,
+    usersLoading: managersLoading,
+    usersError: managersError,
+  } = useAllUsers(enabled);
 
   const managerOptions = useMemo(
     () =>
@@ -20,5 +25,5 @@ export function useManagerOptions(enabled = true): {
     [managerPool],
   );
 
-  return { managerOptions, managersLoading };
+  return { managerOptions, managersLoading, managersError };
 }

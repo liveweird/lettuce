@@ -29,7 +29,7 @@ export default function PulseCycles() {
         <Title order={2} data-tour="config-pulse-cycles">
           {t("pulse.admin.title")}
         </Title>
-        <PulseSettingsCard settings={settings.data} />
+        <PulseSettingsCard settings={settings.data} settingsError={settings.isError} />
         <PulseScheduleCard settings={settings.data} cycles={cycles.data} />
         <PulseCycleTable cycles={cycles.data} isLoading={cycles.isLoading} isError={cycles.isError} />
       </Stack>

@@ -152,6 +152,7 @@
     "title": "Cykle pulsu",
     "settingsTitle": "Ustawienia",
     "settingsHint": "Służą do podpowiadania dat w formularzu planowania — otwieranie i zamykanie pozostaje ręczne.",
+    "settingsLoadFailed": "Nie udało się wczytać bieżących ustawień — poniższe wartości są domyślne, nie zapisane.",
     "cadenceWeeks": "Tygodni między cyklami",
     "openDays": "Dni otwarcia cyklu",
     "saveSettings": "Zapisz ustawienia",

@@ -92,6 +92,7 @@
   "error": {
     "timeout": "Serwer nie odpowiada. Sprawdź połączenie i spróbuj ponownie.",
     "network": "Brak połączenia z serwerem. Sprawdź połączenie i spróbuj ponownie.",
+    "optionsFailed": "Nie udało się wczytać opcji. Sprawdź połączenie i spróbuj ponownie.",
     "loadFailedStatus": "Wczytywanie nie powiodło się ({{status}})."
   },
   "errorBoundary": {
