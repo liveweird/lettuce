@@ -556,9 +556,13 @@ function Shell() {
 
       <AppShell.Main id="main-content" tabIndex={-1}>
         {/* A page crash stays inside the main area — header/nav keep working, and navigating
-            anywhere remounts the boundary (see components/ErrorBoundary.tsx). */}
+            anywhere remounts the boundary (see components/ErrorBoundary.tsx). The inner
+            Suspense (v2.24.0) keeps the shell mounted while a lazy page chunk loads — the
+            App-level fallback used to blank the whole chrome on every route transition. */}
         <RouteErrorBoundary>
-          <Outlet />
+          <Suspense fallback={<RouteFallback />}>
+            <Outlet />
+          </Suspense>
         </RouteErrorBoundary>
       </AppShell.Main>
     </AppShell>

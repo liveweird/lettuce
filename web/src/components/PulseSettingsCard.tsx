@@ -16,7 +16,14 @@ const ERROR_KEYS: SaveErrorKeys = {
 };
 
 /** The advisory cadence/open-window settings editor of the admin PulseCycles page. */
-export default function PulseSettingsCard({ settings }: { settings: PulseSettings | undefined }) {
+export default function PulseSettingsCard({
+  settings,
+  settingsError = false,
+}: {
+  settings: PulseSettings | undefined;
+  /** The settings query failed — the form shows defaults, which must not pass as stored. */
+  settingsError?: boolean;
+}) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
 
@@ -47,6 +54,11 @@ export default function PulseSettingsCard({ settings }: { settings: PulseSetting
           <Text size="sm" c="dimmed">
             {t("pulse.admin.settingsHint")}
           </Text>
+          {settingsError && (
+            <Alert color="red" variant="light">
+              {t("pulse.admin.settingsLoadFailed")}
+            </Alert>
+          )}
           <Group grow>
             <NumberInput
               label={t("pulse.admin.cadenceWeeks")}

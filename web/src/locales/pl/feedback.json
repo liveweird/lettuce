@@ -128,6 +128,7 @@
     "validationProviders": "Błąd walidacji. Sprawdź wybranych wystawiających i spróbuj ponownie.",
     "validationSimple": "Błąd walidacji. Spróbuj ponownie.",
     "requestFailedStatus": "Zamówienie nie powiodło się ({{status}})",
+    "requestPartial": "Wysłano {{sent}} z {{total}} próśb. Dla tych osób prośba się nie powiodła — pozostały na liście:",
     "requestFailed": "Zamówienie nie powiodło się. Sprawdź połączenie i spróbuj ponownie."
   },
   "event": {

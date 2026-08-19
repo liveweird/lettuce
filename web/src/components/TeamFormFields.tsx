@@ -12,7 +12,7 @@ import { MAX_TEAM_NAME_LENGTH, type TeamFormValues } from "../utils/teamForm";
  */
 export default function TeamFormFields({ form }: { form: UseFormReturnType<TeamFormValues> }) {
   const { t } = useTranslation();
-  const { managerOptions, managersLoading } = useManagerOptions(isAdmin());
+  const { managerOptions, managersLoading, managersError } = useManagerOptions(isAdmin());
   return (
     <>
       <TextInput
@@ -44,6 +44,8 @@ export default function TeamFormFields({ form }: { form: UseFormReturnType<TeamF
         disabled={managersLoading}
         nothingFoundMessage={t("teams.noMatchingUsers")}
         {...form.getInputProps("managerId")}
+        // A failed pool load must not look like an empty org (after the form error, which wins).
+        error={form.getInputProps("managerId").error ?? (managersError ? t("common.error.optionsFailed") : undefined)}
       />
     </>
   );

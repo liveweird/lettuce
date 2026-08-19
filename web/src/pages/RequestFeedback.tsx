@@ -54,11 +54,17 @@ export default function RequestFeedback() {
   const [pick, setPick] = useState<string | null>(null);
   const [visibility, setVisibility] = useState<FeedbackVisibility>("PROVIDER_REQUESTER_SUBJECT");
   const [message, setMessage] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  // A failed submit round: how many requests went out, and per failed provider the reason.
+  // The succeeded providers leave the list, so a resubmit retries exactly the failures.
+  const [partial, setPartial] = useState<{
+    sent: number;
+    total: number;
+    failures: { name: string; reason: string }[];
+  } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
 
-  const { userPool } = useAllUsers();
+  const { userPool, usersError } = useAllUsers();
 
   const subjectIdIsValid = Number.isFinite(subjectId) && subjectId > 0;
 
@@ -116,38 +122,51 @@ export default function RequestFeedback() {
 
   async function submit() {
     if (selected.length === 0) return;
-    setError(null);
+    setPartial(null);
     setSubmitting(true);
-    try {
-      await Promise.all(
-        selected.map((p) =>
-          createFeedback({
-            requesterId: requesterId!,
-            subjectId,
-            providerId: p.id,
-            visibility,
-            status: "REQUESTED",
-            content: "",
-            requesterMessage: message.trim() || undefined,
-          }),
-        ),
-      );
-      await invalidateFeedback(queryClient);
+    // One create per provider, SEQUENTIALLY with per-provider outcomes (v2.24.0 — the old
+    // Promise.all short-circuited on the first rejection, hiding which requests were already
+    // created and 409-ing the survivors on resubmit). Successes leave the list immediately.
+    const failures: { provider: Provider; err: unknown }[] = [];
+    for (const p of selected) {
+      try {
+        await createFeedback({
+          requesterId: requesterId!,
+          subjectId,
+          providerId: p.id,
+          visibility,
+          status: "REQUESTED",
+          content: "",
+          requesterMessage: message.trim() || undefined,
+        });
+      } catch (err) {
+        failures.push({ provider: p, err });
+      }
+    }
+    await invalidateFeedback(queryClient);
+    setSubmitting(false);
+    if (failures.length === 0) {
       showSuccessToast(t("feedback.toast.requested"));
       navigate(backTo, { replace: true });
-    } catch (err) {
-      setError(
-        saveErrorMessage(err, t, {
+      return;
+    }
+    // Keep only the failed providers selected (the duplicate probe re-checks them too), and
+    // name each failure with its reason.
+    setSelected(failures.map((f) => f.provider));
+    setPartial({
+      sent: selected.length - failures.length,
+      total: selected.length,
+      failures: failures.map((f) => ({
+        name: f.provider.name,
+        reason: saveErrorMessage(f.err, t, {
           forbidden: "feedback.error.requestPermission",
           conflict: "feedback.error.duplicate",
           invalid: "feedback.error.validationProviders",
           failedStatus: "feedback.error.requestFailedStatus",
           failed: "feedback.error.requestFailed",
         }),
-      );
-    } finally {
-      setSubmitting(false);
-    }
+      })),
+    });
   }
 
   return (
@@ -195,6 +214,7 @@ export default function RequestFeedback() {
               searchable
               clearable
               nothingFoundMessage={t("feedback.noUsersAvailable")}
+              error={usersError ? t("common.error.optionsFailed") : undefined}
               w={280}
             />
             <Button leftSection={<IconPlus size={16} />} onClick={add} disabled={!pick}>
@@ -262,9 +282,19 @@ export default function RequestFeedback() {
             </Table.Tbody>
           </Table>
 
-          {error && (
-            <Alert color="red" variant="light">
-              {error}
+          {partial && (
+            <Alert
+              color="red"
+              variant="light"
+              title={t("feedback.error.requestPartial", { sent: partial.sent, total: partial.total })}
+            >
+              <Stack gap={2}>
+                {partial.failures.map((f) => (
+                  <Text key={f.name} size="sm">
+                    {`${f.name} — ${f.reason}`}
+                  </Text>
+                ))}
+              </Stack>
             </Alert>
           )}
 

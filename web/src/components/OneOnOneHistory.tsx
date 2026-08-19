@@ -1,9 +1,10 @@
-import { Text, Timeline } from "@mantine/core";
+import { Alert, Text, Timeline } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { listOneOnOneEvents, type OneOnOneEvent } from "../api/oneonones";
 import { formatIsoDate, formatTimestamp } from "../utils/datetime";
+import { loadErrorMessage } from "../utils/saveError";
 
 // Render a structured 1:1 audit event in the current language. Params carry positions/dates/
 // owner enum names only (never item text), so the wording is position-anchored.
@@ -81,13 +82,22 @@ export default function OneOnOneHistory({
   subordinateName: string;
 }) {
   const { t, i18n } = useTranslation();
-  const { data: events } = useQuery({
+  const { data: events, isError, error } = useQuery({
     queryKey: ["oneOnOneEvents", meetingId],
     queryFn: () => listOneOnOneEvents(meetingId),
   });
 
   const ownerName = (owner: string) =>
     owner === "MANAGER" ? managerName : owner === "SUBORDINATE" ? subordinateName : owner;
+
+  if (isError) {
+    // A failed history load must not masquerade as an empty history (v2.24.0).
+    return (
+      <Alert color="red" variant="light">
+        {loadErrorMessage(error, t)}
+      </Alert>
+    );
+  }
 
   if (!events || events.length === 0) {
     return (

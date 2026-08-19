@@ -21,6 +21,7 @@
   "valueRequired": "Wartość jest wymagana",
   "valueTooLong": "Wartość może mieć najwyżej {{max}} znaków",
   "valueDuplicate": "Ta wartość już istnieje w słowniku",
+  "savedButStale": "Zapisano — ale nie udało się odświeżyć edytora. Odśwież stronę, zanim wprowadzisz kolejne zmiany.",
   "discardTitle": "Odrzucić zmiany?",
   "discardMessage": "Niezapisane zmiany w słowniku zostaną utracone.",
   "loadFailed": "Nie udało się wczytać słownika",

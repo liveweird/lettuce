@@ -1,10 +1,11 @@
 import { dynamicKey } from "../utils/i18nKey";
-import { Text, Timeline } from "@mantine/core";
+import { Alert, Text, Timeline } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { listGoalEvents, type GoalEvent } from "../api/goals";
 import { formatIsoDate, formatTimestamp } from "../utils/datetime";
+import { loadErrorMessage } from "../utils/saveError";
 
 // Render a structured goal audit event in the current language. Params carry enum names and
 // numeric values only (never title/description/summary text), so the wording names the aspect,
@@ -74,10 +75,19 @@ function describeEvent(e: GoalEvent, t: TFunction, locale: string): string {
 /** The goal's audit history as a timeline (newest first, server-ordered), or an empty-state note. */
 export default function GoalHistory({ goalId }: { goalId: number }) {
   const { t, i18n } = useTranslation();
-  const { data: events } = useQuery({
+  const { data: events, isError, error } = useQuery({
     queryKey: ["goalEvents", goalId],
     queryFn: () => listGoalEvents(goalId),
   });
+
+  if (isError) {
+    // A failed history load must not masquerade as an empty history (v2.24.0).
+    return (
+      <Alert color="red" variant="light">
+        {loadErrorMessage(error, t)}
+      </Alert>
+    );
+  }
 
   if (!events || events.length === 0) {
     return (

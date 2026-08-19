@@ -48,7 +48,11 @@
     "bulkConfirmDisable_many": "Ta operacja wyłączy {{feature}} dla {{count}} użytkowników.",
     "bulkConfirmDisable_other": "Ta operacja wyłączy {{feature}} dla {{count}} użytkowników.",
     "bulkNoChange": "Nie ma czego zmieniać — wszyscy pasujący użytkownicy są już w tym stanie.",
-    "bulkFailed": "Zmiana nie powiodła się dla {{count}} z {{total}} użytkowników. Odśwież i spróbuj ponownie.",
+    "bulkFailed_one": "Zmiana nie powiodła się dla {{count}} osoby — pozostałe zostały zaktualizowane:",
+    "bulkFailed_few": "Zmiana nie powiodła się dla {{count}} osób — pozostałe zostały zaktualizowane:",
+    "bulkFailed_many": "Zmiana nie powiodła się dla {{count}} osób — pozostałe zostały zaktualizowane:",
+    "bulkFailed_other": "Zmiana nie powiodła się dla {{count}} osoby — pozostałe zostały zaktualizowane:",
+    "retryFailed": "Ponów dla nieudanych",
     "enableAction": "Włącz",
     "disableAction": "Wyłącz"
   },

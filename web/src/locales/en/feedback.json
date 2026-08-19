@@ -128,6 +128,7 @@
     "validationProviders": "Validation error. Please review the selected providers and try again.",
     "validationSimple": "Validation error. Please try again.",
     "requestFailedStatus": "Request failed ({{status}})",
+    "requestPartial": "{{sent}} of {{total}} requests were sent. These providers failed and stayed in the list:",
     "requestFailed": "Request failed. Check your connection and try again."
   },
   "event": {

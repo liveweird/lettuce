@@ -49,4 +49,12 @@ describe("FeedbackHistory", () => {
 
     expect(await screen.findByText("No history yet.")).toBeInTheDocument();
   });
+
+  test("a failed history load shows an error instead of the empty-history note", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(500, { status: 500 }));
+    renderWithProviders(<FeedbackHistory feedbackId={5} />);
+
+    expect(await screen.findByText("Loading failed (500).")).toBeInTheDocument();
+    expect(screen.queryByText("No history yet.")).toBeNull();
+  });
 });

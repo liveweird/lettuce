@@ -188,4 +188,20 @@ describe("PulseCycles (admin)", () => {
       expect(put).toBeTruthy();
     });
   });
+
+  test("a failed settings load is flagged instead of silently showing defaults", async () => {
+    mockFetch.mockImplementation((url: string) => {
+      const u = String(url);
+      if (u.includes("/pulse-surveys/settings")) return Promise.resolve(jsonResponse(500, { status: 500 }));
+      if (u.includes("/pulse-surveys/cycles")) return Promise.resolve(jsonResponse(200, { items: [] }));
+      return Promise.resolve(jsonResponse(200, { items: [] }));
+    });
+    renderPage();
+
+    expect(
+      await screen.findByText(
+        "The current settings could not be loaded — the values below are the defaults, not what is stored.",
+      ),
+    ).toBeInTheDocument();
+  });
 });

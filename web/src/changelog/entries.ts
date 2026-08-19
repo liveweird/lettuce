@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.24.0",
+    date: "2026-08-19",
+    en: `When only part of an action succeeds, you now see exactly what happened. The bulk feature switch names the people whose change failed — everyone else is updated — and offers a one-click retry for just them. Requesting feedback from several people at once reports the outcome per person: successful requests leave the list, failed ones stay with the reason next to their name, so retrying never re-asks anyone twice. Places that used to go quietly blank when a load failed — history timelines, the KPI graph, people and dictionary pickers, the pulse settings — now say so instead of pretending to be empty. And moving between pages no longer blanks the whole window while a page loads: the navigation stays put.`,
+    pl: `Gdy tylko część działania się powiedzie, widzisz teraz dokładnie, co się stało. Zbiorczy przełącznik funkcji wymienia osoby, dla których zmiana się nie powiodła — pozostałe są zaktualizowane — i oferuje ponowienie jednym kliknięciem tylko dla nich. Prośba o feedback do kilku osób naraz raportuje wynik dla każdej osoby: udane prośby znikają z listy, nieudane zostają z powodem obok nazwiska, więc ponowienie nigdy nie pyta nikogo dwa razy. Miejsca, które przy nieudanym wczytywaniu po cichu świeciły pustką — osie historii, wykres KPI, wybieranie osób i słowników, ustawienia pulsu — teraz o tym mówią, zamiast udawać puste. A przechodzenie między stronami nie wygasza już całego okna podczas ładowania: nawigacja zostaje na miejscu.`,
+  },
+  {
     version: "2.23.0",
     date: "2026-08-19",
     en: `Dictionary screens are ready for more languages. The editor now shows English beside a single translation column — a "Translation language" picker above the list chooses which language you are translating into, so the screen stays the same comfortable width no matter how many languages the application ever supports; values you typed into other languages are kept and saved along. If a hidden language has a problem (say, a duplicate value), saving switches the view straight to it and marks it in the picker. The read-only dictionary view got tidier too: each entry is one line, and entries with translations carry a small language-count badge — click it to see every translation.`,

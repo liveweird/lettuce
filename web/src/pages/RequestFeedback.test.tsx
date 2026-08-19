@@ -373,4 +373,28 @@ describe("RequestFeedback page", () => {
     await user.click(screen.getByRole("button", { name: /^request$/i }));
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/?tab=peers"));
   });
+
+  test("a mid-batch failure keeps only the failed provider listed, with its reason", async () => {
+    const user = userEvent.setup();
+    // Alice's (id 10) create lands; Bob's (id 11) 500s.
+    setupMocks(mockFetch, (init) => {
+      const body = JSON.parse(String(init?.body)) as { providerId: number };
+      return body.providerId === 11 ? jsonResponse(500, { status: 500 }) : jsonResponse(201, { id: 99 });
+    });
+    renderRequestFeedback();
+    await addProvider(user, "Alice Provider");
+    await addProvider(user, "Bob Provider");
+    await user.click(screen.getByRole("button", { name: "Request" }));
+
+    // The partial outcome is itemized; the succeeded request is NOT retried on resubmit.
+    expect(
+      await screen.findByText("1 of 2 requests were sent. These providers failed and stayed in the list:"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Bob Provider — Request failed (500)")).toBeInTheDocument();
+    const table = screen.getByRole("table");
+    expect(within(table).queryByText("Alice Provider")).toBeNull();
+    expect(within(table).getByText("Bob Provider")).toBeInTheDocument();
+    // Still on the page — no navigation happened.
+    expect(screen.queryByTestId("probe")).toBeNull();
+  });
 });

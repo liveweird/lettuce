@@ -215,4 +215,20 @@ describe("CreateTeam page", () => {
     await fillAndSubmit(user);
     expect(await screen.findByText(/validation error\. please check the form/i)).toBeInTheDocument();
   });
+
+  test("a failed user-pool load surfaces on the manager picker", async () => {
+    mockFetch.mockImplementation((url: string) =>
+      Promise.resolve(
+        String(url).startsWith("/api/v1/users?")
+          ? jsonResponse(500, { status: 500 })
+          : jsonResponse(200, {}),
+      ),
+    );
+    renderCreateTeam();
+
+    // The picker must not sit silently empty when the pool failed (v2.24.0).
+    expect(
+      await screen.findByText("Couldn't load the options. Check your connection and try again."),
+    ).toBeInTheDocument();
+  });
 });

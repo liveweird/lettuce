@@ -44,7 +44,9 @@
     "bulkConfirmDisable_one": "This will disable {{feature}} for {{count}} user.",
     "bulkConfirmDisable_other": "This will disable {{feature}} for {{count}} users.",
     "bulkNoChange": "Nothing to change — every matching user is already in that state.",
-    "bulkFailed": "The change failed for {{count}} of {{total}} users. Refresh and retry.",
+    "bulkFailed_one": "The change failed for {{count}} user — the others were updated:",
+    "bulkFailed_other": "The change failed for {{count}} users — the others were updated:",
+    "retryFailed": "Retry the failed users",
     "enableAction": "Enable",
     "disableAction": "Disable"
   },

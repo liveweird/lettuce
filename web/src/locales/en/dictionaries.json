@@ -19,6 +19,7 @@
   "valueRequired": "Value is required",
   "valueTooLong": "Value must be at most {{max}} characters",
   "valueDuplicate": "This value already exists in the dictionary",
+  "savedButStale": "Saved — but reloading the editor failed. Reload the page before making further changes.",
   "discardTitle": "Discard changes?",
   "discardMessage": "Your unsaved dictionary changes will be lost.",
   "loadFailed": "Failed to load the dictionary",

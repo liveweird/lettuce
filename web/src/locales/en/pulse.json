@@ -152,6 +152,7 @@
     "title": "Pulse cycles",
     "settingsTitle": "Settings",
     "settingsHint": "Used to prefill the scheduling form — opening and closing stay manual.",
+    "settingsLoadFailed": "The current settings could not be loaded — the values below are the defaults, not what is stored.",
     "cadenceWeeks": "Weeks between cycles",
     "openDays": "Days a cycle stays open",
     "saveSettings": "Save settings",

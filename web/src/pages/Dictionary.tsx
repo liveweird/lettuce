@@ -195,6 +195,9 @@ function DictionaryEditor({
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // The save PUT committed but the re-seed GET failed (v2.24.0): the editor's rows lack their
+  // minted ids, so a resubmit would INSERT DUPLICATES — freeze the editor and ask for a reload.
+  const [staleAfterSave, setStaleAfterSave] = useState(false);
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
 
   // The editor always shows exactly two columns: English (required, canonical) beside ONE
@@ -234,6 +237,12 @@ function DictionaryEditor({
     setSubmitting(true);
     try {
       await updateDictionary(slug, toUpdateBody(values));
+    } catch (err) {
+      setError(dictionarySaveErrorMessage(err, t));
+      setSubmitting(false);
+      return;
+    }
+    try {
       // Re-seed from the server so new rows carry their minted ids (a resubmit must rename,
       // not insert twice) and the saved state becomes the new dirty/reset baseline.
       const fresh = await getDictionary(slug);
@@ -243,8 +252,10 @@ function DictionaryEditor({
       form.setValues(freshValues);
       form.resetDirty();
       showSuccessToast(t("dictionary.toast.saved"));
-    } catch (err) {
-      setError(dictionarySaveErrorMessage(err, t));
+    } catch {
+      // The PUT committed — this is NOT a save failure. Without the re-read the editor can't
+      // be trusted for further edits, so it freezes behind the reload prompt below.
+      setStaleAfterSave(true);
     } finally {
       setSubmitting(false);
     }
@@ -370,17 +381,27 @@ function DictionaryEditor({
             {error}
           </Alert>
         )}
+        {staleAfterSave && (
+          <Alert color="orange" variant="light">
+            <Group gap="sm" justify="space-between">
+              <Text size="sm">{t("dictionary.savedButStale")}</Text>
+              <Button size="xs" color="orange" variant="light" onClick={() => window.location.reload()}>
+                {t("common.errorBoundary.reload")}
+              </Button>
+            </Group>
+          </Alert>
+        )}
 
         <Group justify="flex-end" gap="sm">
           <Button
             type="button"
             variant="default"
             onClick={openCancel}
-            disabled={submitting || !form.isDirty()}
+            disabled={submitting || staleAfterSave || !form.isDirty()}
           >
             {t("common.action.cancel")}
           </Button>
-          <Button type="submit" loading={submitting} disabled={!form.isDirty()}>
+          <Button type="submit" loading={submitting} disabled={staleAfterSave || !form.isDirty()}>
             {t("common.action.save")}
           </Button>
         </Group>

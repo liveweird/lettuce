@@ -13,12 +13,14 @@ type UserPoolRow = Awaited<ReturnType<typeof listAllUsers>>[number];
 export function useAllUsers(enabled = true): {
   userPool: UserPoolRow[] | undefined;
   usersLoading: boolean;
+  /** True when the pool failed to load — pickers surface it instead of sitting empty. */
+  usersError: boolean;
 } {
-  const { data: userPool, isLoading: usersLoading } = useQuery({
+  const { data: userPool, isLoading: usersLoading, isError: usersError } = useQuery({
     queryKey: ["users", "all"],
     queryFn: () => listAllUsers(),
     staleTime: 5 * 60 * 1000,
     enabled,
   });
-  return { userPool, usersLoading };
+  return { userPool, usersLoading, usersError };
 }
