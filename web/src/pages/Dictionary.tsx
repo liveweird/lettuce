@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import {
   Alert,
+  Badge,
   Box,
   Button,
   Center,
@@ -10,18 +11,20 @@ import {
   Group,
   Loader,
   Paper,
+  Popover,
+  Select,
   Stack,
   Text,
   TextInput,
   Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { useForm } from "@mantine/form";
+import { useForm, type FormErrors } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { IconPlus, IconListDetails } from "@tabler/icons-react";
 import { isAdmin } from "../api/session";
-import { SUPPORTED_LANGUAGES } from "../i18n";
+import { SUPPORTED_LANGUAGES, type SupportedLanguage } from "../i18n";
 import { getDictionary, updateDictionary, type DictionaryEntry, type DictionarySlug } from "../api/dictionaries";
 import { showSuccessToast } from "../utils/toast";
 import ConfirmActionModal from "../components/ConfirmActionModal";
@@ -96,9 +99,10 @@ export default function Dictionary() {
 }
 
 /**
- * The non-admin view: the ordered values as numbered rows, nothing clickable. The viewer's
- * language leads (with the English fallback); every OTHER language that actually has a value
- * sits beneath, dimmed — the dictionary IS the one place all languages are the content.
+ * The non-admin view: the ordered values as numbered rows. The viewer's language leads (with
+ * the English fallback); an entry holding more languages carries a count badge that opens a
+ * popover listing the other filled translations — inline stacking stopped scaling past two
+ * languages (v2.23.0), and the count keeps the list one line per entry at any N.
  */
 function ReadOnlyEntries({ items }: { items: DictionaryEntry[] }) {
   const { t, i18n } = useTranslation();
@@ -124,19 +128,59 @@ function ReadOnlyEntries({ items }: { items: DictionaryEntry[] }) {
               <Text size="sm" c="dimmed" w={24} ta="right" style={{ flexShrink: 0 }}>
                 {index + 1}.
               </Text>
-              <div>
+              <Group gap="xs" wrap="nowrap" align="flex-start" justify="space-between" style={{ flex: 1 }}>
                 <Text size="sm">{entry.values[shownLang]}</Text>
-                {others.map((l) => (
-                  <Text key={l} size="xs" c="dimmed">
-                    {entry.values[l]}
-                  </Text>
-                ))}
-              </div>
+                {others.length > 0 && (
+                  <EntryLanguagesBadge entry={entry} others={others} position={index + 1} />
+                )}
+              </Group>
             </Group>
           </Paper>
         );
       })}
     </Stack>
+  );
+}
+
+/** The per-entry language-count badge + the popover listing the other filled translations. */
+function EntryLanguagesBadge({
+  entry,
+  others,
+  position,
+}: {
+  entry: DictionaryEntry;
+  others: SupportedLanguage[];
+  position: number;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Popover position="bottom-end" withArrow shadow="md">
+      <Popover.Target>
+        <Badge
+          component="button"
+          type="button"
+          variant="light"
+          color="gray"
+          size="sm"
+          style={{ cursor: "pointer", flexShrink: 0 }}
+          aria-label={t("dictionary.translationsAria", { position })}
+        >
+          {t("dictionary.translationCount", { count: others.length + 1 })}
+        </Badge>
+      </Popover.Target>
+      <Popover.Dropdown>
+        <Stack gap={4}>
+          {others.map((l) => (
+            <Group key={l} gap="sm" wrap="nowrap" align="baseline">
+              <Text size="xs" c="dimmed" w={90} style={{ flexShrink: 0 }}>
+                {t(`common.languageName.${l}`)}
+              </Text>
+              <Text size="sm">{entry.values[l]}</Text>
+            </Group>
+          ))}
+        </Stack>
+      </Popover.Dropdown>
+    </Popover>
   );
 }
 
@@ -153,10 +197,37 @@ function DictionaryEditor({
   const [submitting, setSubmitting] = useState(false);
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
 
+  // The editor always shows exactly two columns: English (required, canonical) beside ONE
+  // translation language chosen by the picker below — constant width at any number of
+  // supported languages (v2.23.0). Values typed into a currently hidden language live on in
+  // the form state and ride the save regardless of what is visible.
+  const translationLanguages = SUPPORTED_LANGUAGES.filter((l) => l !== "en");
+  const [translationLang, setTranslationLang] = useState<SupportedLanguage>(
+    translationLanguages[0] ?? "en",
+  );
+  const visibleLangs: SupportedLanguage[] =
+    translationLanguages.length > 0 ? ["en", translationLang] : ["en"];
+
   const form = useForm<DictionaryFormValues>({
     initialValues: toFormValues(initialItems),
     validate: dictionaryFormValidation(t),
   });
+
+  // Languages currently holding a validation error (paths are `entries.<i>.values.<lang>`) —
+  // they get a "•" marker in the picker, and a failed Save switches the visible column to the
+  // first offending hidden language so its errors can actually be seen.
+  const errorLangs = new Set(
+    Object.keys(form.errors)
+      .map((key) => /^entries\.\d+\.values\.(\w+)$/.exec(key)?.[1])
+      .filter((lang): lang is string => lang != null),
+  );
+
+  function revealErrorLanguage(errors: FormErrors) {
+    const hidden = Object.keys(errors)
+      .map((key) => /^entries\.\d+\.values\.(\w+)$/.exec(key)?.[1])
+      .find((lang) => lang != null && lang !== "en" && lang !== translationLang);
+    if (hidden) setTranslationLang(hidden as SupportedLanguage);
+  }
 
   async function save(values: DictionaryFormValues) {
     setError(null);
@@ -188,23 +259,35 @@ function DictionaryEditor({
   const rows = form.values.entries;
 
   return (
-    <form onSubmit={form.onSubmit(save)} noValidate>
+    <form onSubmit={form.onSubmit(save, revealErrorLanguage)} noValidate>
       <Stack>
+        {translationLanguages.length > 0 && (
+          <Select
+            label={t("dictionary.translationLanguage")}
+            value={translationLang}
+            onChange={(value) => value && setTranslationLang(value as SupportedLanguage)}
+            data={translationLanguages.map((lang) => ({
+              value: lang,
+              label: t(`common.languageName.${lang}`) + (errorLangs.has(lang) ? " •" : ""),
+            }))}
+            allowDeselect={false}
+            w={220}
+          />
+        )}
         {rows.length === 0 && (
           <Text c="dimmed" size="sm">
             {t("dictionary.empty")}
           </Text>
         )}
         {rows.length > 0 && (
-          // Column headers for the per-language inputs (the placeholders vanish once
-          // filled). The row structure is mirrored — number gutter, one grown column per
-          // supported language, and an invisible RowControls clone reserving exactly the
+          // Column headers for the two visible inputs (the placeholders vanish once
+          // filled). The row structure is mirrored — number gutter, English + the picked
+          // translation column, and an invisible RowControls clone reserving exactly the
           // controls' width — so the labels stay aligned with the columns at any viewport.
-          // Works up to ~3 languages; at more, switch the row body to stacked inputs.
           <Group align="flex-start" gap="xs" wrap="nowrap" px="sm" mb={-8}>
             <Box w={24} style={{ flexShrink: 0 }} />
             <Group style={{ flex: 1 }} gap="xs" grow>
-              {SUPPORTED_LANGUAGES.map((lang) => (
+              {visibleLangs.map((lang) => (
                 <Text key={lang} size="sm" fw={500}>
                   {t(`common.languageName.${lang}`)}
                   {lang !== "en" && (
@@ -236,11 +319,11 @@ function DictionaryEditor({
               <Text size="sm" c="dimmed" w={24} ta="right" pt={8} style={{ flexShrink: 0 }}>
                 {index + 1}.
               </Text>
-              {/* One input per supported language, side by side (stacking on narrow
-                  screens): English is required, every other language optional — a blank
-                  input means "no translation" and is omitted from the save. */}
+              {/* English beside the picked translation language: English is required, every
+                  other language optional — a blank input means "no translation" and is
+                  omitted from the save. Hidden languages keep their form values. */}
               <Group style={{ flex: 1 }} gap="xs" align="flex-start" grow>
-                {SUPPORTED_LANGUAGES.map((lang) => (
+                {visibleLangs.map((lang) => (
                   <TextInput
                     key={lang}
                     aria-label={t("dictionary.entryAria", {

@@ -86,9 +86,13 @@ describe("Dictionary page", () => {
 
     expect(await screen.findByText("Engineering")).toBeInTheDocument();
     expect(screen.getByText("Management")).toBeInTheDocument();
-    // The other language rides along, dimmed (the EN test locale leads with English).
+    // The other language no longer stacks inline (v2.23.0) — it sits behind the per-entry
+    // language-count badge, which opens a popover naming each translation.
+    expect(screen.queryByText("Inżynieria")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Languages of entry 1" }));
+    expect(screen.getByText("Polish")).toBeInTheDocument();
     expect(screen.getByText("Inżynieria")).toBeInTheDocument();
-    // Ordered numbering, but nothing editable and no actions.
+    // Ordered numbering, but nothing editable and no dictionary actions.
     expect(screen.getByText("1.")).toBeInTheDocument();
     expect(screen.getByText("2.")).toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
@@ -96,7 +100,6 @@ describe("Dictionary page", () => {
     expect(screen.queryByRole("button", { name: "Add entry" })).not.toBeInTheDocument();
     // The editor's column headers don't render in the read-only view.
     expect(screen.queryByText("English")).not.toBeInTheDocument();
-    expect(screen.queryByText("Polish")).not.toBeInTheDocument();
   });
 
   test("the read-only view leads with the viewer's language and falls back to English per entry", async () => {
@@ -108,11 +111,15 @@ describe("Dictionary page", () => {
     try {
       renderPage();
 
-      // The translated entry shows Polish first, English dimmed beneath.
+      // The translated entry shows Polish first; English sits behind the languages badge.
       expect(await screen.findByText("Inżynieria")).toBeInTheDocument();
+      expect(screen.queryByText("Engineering")).not.toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Języki wpisu 1" }));
       expect(screen.getByText("Engineering")).toBeInTheDocument();
-      // The EN-only entry falls back to English — rendered exactly once, no dimmed twin.
+      // The EN-only entry falls back to English — rendered once, and with no other filled
+      // language it carries no badge at all.
       expect(screen.getAllByText("Consulting")).toHaveLength(1);
+      expect(screen.queryByRole("button", { name: "Języki wpisu 2" })).not.toBeInTheDocument();
     } finally {
       await i18n.changeLanguage("en");
     }
@@ -134,9 +141,12 @@ describe("Dictionary page", () => {
     expect(screen.getByDisplayValue("Management")).toBeInTheDocument();
     // The input columns carry visible language headers (v2.6.1 — the placeholders
     // vanish once filled, so the headers are the only always-visible markers); non-EN
-    // columns are marked optional (v2.20.0 — only English is required).
+    // columns are marked optional (v2.20.0 — only English is required). Since v2.23.0 the
+    // non-EN column is the one picked in the translation-language Select — "Polish" also
+    // lives in the picker's mounted listbox, hence getAllByText (the evergreen gotcha).
+    expect(screen.getByRole("combobox", { name: "Translation language" })).toHaveValue("Polish");
     expect(screen.getByText("English")).toBeInTheDocument();
-    expect(screen.getByText("Polish")).toBeInTheDocument();
+    expect(screen.getAllByText("Polish").length).toBeGreaterThan(0);
     expect(screen.getByText("(optional)")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();

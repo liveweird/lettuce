@@ -7,7 +7,7 @@
   (`career-paths` belongs to `user-career.spec`). The spec only ever APPENDS its own unique
   throwaway entries after whatever the shared volume already holds — pre-existing entries ride
   along untouched in every save — and removes them at the end, leaving the document as found.
-- **Since**: v2.6.0 (bilingual entries); v2.20.0 (language->value maps — English required, other languages optional with English fallback)
+- **Since**: v2.6.0 (bilingual entries); v2.20.0 (language->value maps — English required, other languages optional with English fallback); v2.23.0 (N-language layout — the editor shows English beside ONE picked translation column, the read-only view a per-entry language-count badge with a popover)
 
 ## Scenario: admin curates a dictionary; a regular user sees the read-only list
 
@@ -24,8 +24,9 @@
    - *Expected*: after saving, the entries appear swapped — B first, then the renamed A.
 4. AAA One (a regular user) opens the same dictionary.
    - *Expected*: the read-only numbered view leads with the viewer's language (English under
-     the EN locale); a stored Polish translation rides along dimmed, and the untranslated
-     entry shows its English exactly once (the fallback); there are no inputs
+     the EN locale), one line per entry; the translated entry carries a language-count badge
+     whose popover reveals the stored Polish translation, the untranslated entry shows its
+     English exactly once with no badge (the fallback); there are no inputs
      and no editor buttons ("Add entry" included).
 5. Cleanup: the admin removes the two throwaway entries (removing the first shifts the
    positions up, so the same slot is removed twice) and Saves.
