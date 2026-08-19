@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.23.0",
+    date: "2026-08-19",
+    en: `Dictionary screens are ready for more languages. The editor now shows English beside a single translation column — a "Translation language" picker above the list chooses which language you are translating into, so the screen stays the same comfortable width no matter how many languages the application ever supports; values you typed into other languages are kept and saved along. If a hidden language has a problem (say, a duplicate value), saving switches the view straight to it and marks it in the picker. The read-only dictionary view got tidier too: each entry is one line, and entries with translations carry a small language-count badge — click it to see every translation.`,
+    pl: `Ekrany słowników są gotowe na więcej języków. Edytor pokazuje teraz angielski obok jednej kolumny tłumaczenia — selektor „Język tłumaczenia" nad listą wybiera, na który język właśnie tłumaczysz, więc ekran zachowuje tę samą wygodną szerokość niezależnie od tego, ile języków aplikacja kiedykolwiek będzie wspierać; wartości wpisane w innych językach są zachowywane i zapisywane razem. Jeśli ukryty język ma problem (np. powtórzoną wartość), zapis przełącza widok wprost na niego i oznacza go w selektorze. Widok słownika tylko do odczytu też jest schludniejszy: każdy wpis to jedna linia, a wpisy z tłumaczeniami mają małą plakietkę z liczbą języków — kliknij ją, aby zobaczyć wszystkie tłumaczenia.`,
+  },
+  {
     version: "2.22.0",
     date: "2026-08-19",
     en: `The application now fails gracefully. When something breaks — the server is briefly unreachable, a request times out, or a page crashes — you get a clear message and a way forward instead of a frozen spinner or a blank screen: a crashed page shows a "Something went wrong" panel with a Reload button while the navigation keeps working, a mistyped address lands on a proper "Page not found" page, and loading errors say what actually happened ("Can't reach the server…") instead of showing internal codes. A brief network hiccup no longer signs you out of a working session, signing out works even while offline, and after an update the application refreshes itself instead of going blank.`,

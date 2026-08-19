@@ -76,8 +76,9 @@ test("admin curates a dictionary; a regular user sees the read-only list", async
   await expect(page.getByLabel(`Entry ${base + 2} (Polish)`, { exact: true })).toHaveValue(`${valueA}-pl`);
 
   // A regular user sees the same values read-only: no inputs, no editor buttons. The viewer's
-  // language leads (English under the EN test locale); a stored translation rides along
-  // dimmed, while the untranslated entry renders its English exactly once (the fallback).
+  // language leads (English under the EN test locale); other languages sit behind the entry's
+  // language-count badge (a popover — v2.23.0), and the untranslated entry renders its
+  // English exactly once with no badge at all (the fallback).
   // Sign out through the UI first — the login helper drives the real /login form, which an
   // authenticated session gets redirected away from.
   await logout(page);
@@ -85,7 +86,12 @@ test("admin curates a dictionary; a regular user sees the read-only list", async
   await page.goto(`/dictionaries/${SLUG}`);
   await expect(page.getByText(valueB, { exact: true })).toHaveCount(1);
   await expect(page.getByText(renamed, { exact: true })).toBeVisible();
+  await expect(page.getByText(`${valueA}-pl`, { exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: `Languages of entry ${base + 2}`, exact: true }).click();
   await expect(page.getByText(`${valueA}-pl`, { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: `Languages of entry ${base + 1}`, exact: true }),
+  ).toHaveCount(0);
   await expect(page.getByRole("textbox")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Add entry", exact: true })).toHaveCount(0);
 
