@@ -196,6 +196,13 @@ test("career progression: chain manager records positions, the person sees the t
   await expect(page.getByRole("tab", { name: "My career" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Team pyramid" })).toHaveCount(0);
   await expect(page.getByText("Current", { exact: true })).toBeVisible();
+  // 9b. Seniority privacy (v2.25.0): the manager's card offers the subordinate no career
+  //     link, and a direct URL at the manager's timeline is refused by the server.
+  await page.goto("/?tab=managers");
+  await expect(page.getByText(manager.name).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: `Career progression of ${manager.name}` })).toHaveCount(0);
+  await page.goto(`/users/${manager.id}/career`);
+  await expect(page.getByText("Could not load the career progression.")).toBeVisible();
   await logout(page);
 
   // 10. A dictionary rename propagates through the position's entry ref; retiring the entry
@@ -214,6 +221,10 @@ test("career progression: chain manager records positions, the person sees the t
   const count = await page.getByLabel(/^Entry \d+ \(English\)$/).count();
   await page.getByRole("button", { name: `Remove entry ${count}`, exact: true }).click();
   await saveDictionary(page, "career-paths");
+  await logout(page);
+  // The timeline is self/chain/HR-only since v2.25.0 (the ADMIN can no longer open it) —
+  // the retired-entry-keeps-resolving check runs as the owner.
+  await login(page, sub.email, sub.password);
   await page.goto(`/users/${sub.id}/career`);
   await expect(page.getByText(value2, { exact: true })).toBeVisible();
 });

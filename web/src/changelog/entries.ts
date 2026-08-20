@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.25.0",
+    date: "2026-08-20",
+    en: `Seniority levels are private now. A person's seniority level is visible only to themselves, to the managers above them (their manager, that manager's manager, and so on), and to people with the HR role — administrators get no special access. Career paths and specializations stay visible to everyone, so person cards still show what people do — just not their level. The career history page follows the same rule: you can open your own, your reports', and — with the HR role — anyone's; other people's timelines are no longer reachable, and the cards of your teammates and managers no longer offer the link. Where a card would have shown a seniority you are not entitled to see, the row is simply absent rather than pretending the level is not set.`,
+    pl: `Poziomy zaszeregowania są teraz prywatne. Poziom danej osoby widzą tylko ona sama, przełożeni/one nad nią (jej menedżer/ka, menedżer/ka tego menedżera/ki i tak dalej) oraz osoby z rolą HR — administratorzy/ki nie mają specjalnego dostępu. Ścieżki kariery i specjalizacje pozostają widoczne dla wszystkich, więc karty osób nadal pokazują, czym kto się zajmuje — tylko bez poziomu. Strona historii kariery działa według tej samej zasady: otworzysz własną, swoich podwładnych, a z rolą HR — każdą; historie innych osób nie są już dostępne, a karty Twoich koleżanek/kolegów i przełożonych nie oferują już tego odnośnika. Tam, gdzie karta pokazałaby poziom, którego nie masz prawa widzieć, wiersz jest po prostu nieobecny, zamiast udawać, że poziom nie został ustawiony.`,
+  },
+  {
     version: "2.24.0",
     date: "2026-08-19",
     en: `When only part of an action succeeds, you now see exactly what happened. The bulk feature switch names the people whose change failed — everyone else is updated — and offers a one-click retry for just them. Requesting feedback from several people at once reports the outcome per person: successful requests leave the list, failed ones stay with the reason next to their name, so retrying never re-asks anyone twice. Places that used to go quietly blank when a load failed — history timelines, the KPI graph, people and dictionary pickers, the pulse settings — now say so instead of pretending to be empty. And moving between pages no longer blanks the whole window while a page loads: the navigation stays put.`,

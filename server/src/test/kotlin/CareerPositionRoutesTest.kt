@@ -8,6 +8,7 @@ import ch.nokillswit.teams.Team
 import ch.nokillswit.users.CareerPositionList
 import ch.nokillswit.users.CareerPositionResponse
 import ch.nokillswit.users.CareerPositionWrite
+import ch.nokillswit.users.UserPageResponse
 import ch.nokillswit.users.UserResponse
 import ch.nokillswit.users.UserRole
 import io.ktor.client.HttpClient
@@ -99,13 +100,20 @@ class CareerPositionRoutesTest {
             assertEquals("2021-06-14", listed[0].endDate)
             assertNull(listed[1].endDate)
 
-            // The CURRENT (latest) position backs the user's resolved triple.
+            // The CURRENT (latest) position backs the user's resolved triple — read as the
+            // user themselves (self always sees their own seniority, v2.25.0).
+            val userRead = sub.get("/api/v1/users/$subId").body<UserResponse>()
+            assertEquals(DictionaryEntry(pathId2, mapOf("en" to "CpB $marker")), userRead.careerPath)
+            assertEquals(DictionaryEntry(levelId, mapOf("en" to "CpLevel $marker")), userRead.seniorityLevel)
+
+            // An ADMIN outside the chain reads the same user with seniority BLANKED
+            // (v2.25.0 — the private field; career path stays public).
             val adminEmail = uniqueEmail("cp-a")
             TestUsers.seed(adminEmail, "pw")
             val admin = authedClient(adminEmail, "pw")
-            val userRead = admin.get("/api/v1/users/$subId").body<UserResponse>()
-            assertEquals(DictionaryEntry(pathId2, mapOf("en" to "CpB $marker")), userRead.careerPath)
-            assertEquals(DictionaryEntry(levelId, mapOf("en" to "CpLevel $marker")), userRead.seniorityLevel)
+            val adminRead = admin.get("/api/v1/users/$subId").body<UserResponse>()
+            assertEquals(DictionaryEntry(pathId2, mapOf("en" to "CpB $marker")), adminRead.careerPath)
+            assertNull(adminRead.seniorityLevel)
 
             // Correct the FIRST position in place: date + a different path (the spec differs
             // too — a correction may not make the row identical to its neighbor, v2.15.2).
@@ -316,7 +324,7 @@ class CareerPositionRoutesTest {
     }
 
     @Test
-    fun `the guard matrix - transitive-chain writes, open reads, rights follow the current chain`() =
+    fun `the guard matrix - transitive-chain writes, self-chain-HR reads, rights follow the current chain`() =
         testApplication {
             usePostgresTestcontainer()
             // G manages Y {M}; M manages X {S, T}.
@@ -370,10 +378,18 @@ class CareerPositionRoutesTest {
                 u.createPosition(999_999_999u, "2018-01-01", pathId, specId, levelId).status,
             )
 
-            // Reads: ANY authenticated caller — teammates, unrelated, ADMIN, HR alike.
-            for (client in listOf(s, t, u, a, h, g, m)) {
+            // Reads (v2.25.0): the user themselves, the chain (direct AND transitive), and
+            // HR — teammates, unrelated users, and ADMIN get 403 (the seniority-privacy
+            // round; ADMIN deliberately included, the narrowed-ADMIN rule).
+            for (client in listOf(s, m, g, h)) {
                 assertEquals(HttpStatusCode.OK, client.get("/api/v1/users/$sId/career-positions").status)
             }
+            for (client in listOf(t, u, a)) {
+                assertEquals(HttpStatusCode.Forbidden, client.get("/api/v1/users/$sId/career-positions").status)
+            }
+            // Unknown target stays 404 BEFORE the guard (existence is no secret) — even for
+            // a caller who'd be forbidden on an existing one.
+            assertEquals(HttpStatusCode.NotFound, u.get("/api/v1/users/999999999/career-positions").status)
 
             // Rights follow the CURRENT chain: after team X moves under G directly, M is out.
             val positionId = m.listPositions(sId).first().id
@@ -389,7 +405,54 @@ class CareerPositionRoutesTest {
                 }.status,
             )
             assertEquals(HttpStatusCode.Forbidden, create(m, "2019-01-01").status)
+            // The read right leaves with the chain too (v2.25.0).
+            assertEquals(HttpStatusCode.Forbidden, m.get("/api/v1/users/$sId/career-positions").status)
             assertEquals(HttpStatusCode.NoContent, g.delete("/api/v1/users/$sId/career-positions/$positionId").status)
+        }
+
+    @Test
+    fun `users list - seniority is blanked outside the caller's chain, career path stays public`() =
+        testApplication {
+            usePostgresTestcontainer()
+            // G manages Y {M}; M manages X {S}. U unrelated, A admin, H hr.
+            val gEmail = uniqueEmail("cpl-g")
+            val mEmail = uniqueEmail("cpl-m")
+            val sEmail = uniqueEmail("cpl-s")
+            val uEmail = uniqueEmail("cpl-u")
+            val aEmail = uniqueEmail("cpl-a")
+            val hEmail = uniqueEmail("cpl-h")
+            val gId = TestUsers.seed(gEmail, "pw", roles = emptySet())
+            val mId = TestUsers.seed(mEmail, "pw", roles = emptySet())
+            val sId = TestUsers.seed(sEmail, "pw", roles = emptySet())
+            TestUsers.seed(uEmail, "pw", roles = emptySet())
+            TestUsers.seed(aEmail, "pw", roles = setOf(UserRole.ADMIN))
+            TestUsers.seed(hEmail, "pw", roles = setOf(UserRole.HR))
+            val teamY = TestServices.teams.create(Team(name = "cplY-${UUID.randomUUID()}", managerId = gId))
+            TestServices.teams.addMember(teamY, mId)
+            val teamX = TestServices.teams.create(Team(name = "cplX-${UUID.randomUUID()}", managerId = mId))
+            TestServices.teams.addMember(teamX, sId)
+
+            val marker = UUID.randomUUID().toString().take(8)
+            val (pathId) = TestDictionaries.append(Dictionary.CAREER_PATH, "CpL $marker")
+            val (specId, levelId) = specAndLevel(marker)
+            TestServices.careerPositions.create(mId, sId, CareerPositionWrite("2020-01-01", pathId, specId, levelId))
+
+            suspend fun rowFor(email: String, password: String = "pw"): UserResponse =
+                authedClient(email, password).get("/api/v1/users?email=$sEmail")
+                    .body<UserPageResponse>().items.single()
+
+            // Self, the direct manager, the transitive chain, and HR see the value.
+            for (email in listOf(sEmail, mEmail, gEmail, hEmail)) {
+                val row = rowFor(email)
+                assertEquals(DictionaryEntry(levelId, mapOf("en" to "CpLevel $marker")), row.seniorityLevel)
+            }
+            // An unrelated user and an ADMIN outside the chain get seniority BLANKED —
+            // the career path stays public on the very same rows (v2.25.0).
+            for (email in listOf(uEmail, aEmail)) {
+                val row = rowFor(email)
+                assertNull(row.seniorityLevel)
+                assertEquals(DictionaryEntry(pathId, mapOf("en" to "CpL $marker")), row.careerPath)
+            }
         }
 
     @Test

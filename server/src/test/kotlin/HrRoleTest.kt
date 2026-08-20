@@ -168,6 +168,36 @@ class HrRoleTest {
         assertEquals(HttpStatusCode.Forbidden, hr.get("/api/v1/alerts").status)
     }
 
+    @Test
+    fun `hr reads a career timeline (audited) - the list seniority ride-along mints nothing`() = testApplication {
+        usePostgresTestcontainer()
+        val (pair, hrEmail, hrId) = seedPairAndHr()
+        val appender = LogCapture("ch.nokillswit.audit")
+        try {
+            val hr = authedClient(hrEmail, "pw")
+            // The timeline is self/chain/HR-only (v2.25.0); the HR grant is the per-record
+            // hr.read idiom, resource `careerPositions`.
+            assertEquals(HttpStatusCode.OK, hr.get("/api/v1/users/${pair.subordinateId}/career-positions").status)
+            val read = appender.events.find { it.message == "hr.read" }
+            assertNotNull(read, "expected an hr.read audit event")
+            assertEquals("careerPositions", read.keyValuePairs.first { it.key == "resource" }.value)
+            assertEquals(pair.subordinateId.toLong(), read.keyValuePairs.first { it.key == "resourceId" }.value)
+            assertEquals(hrId.toLong(), read.keyValuePairs.first { it.key == "byUserId" }.value)
+
+            // The seniority values HR sees on the open users/members lists are the REGISTERED
+            // not-audited exception (a per-page-load event for one metadata field would be
+            // noise, not signal — see the observability doc): no hr.* event mints. The list
+            // call filters to this test's own seed (the shared-container etiquette — and an
+            // unfiltered page would trip the conformance email check on other tests' residue).
+            val before = appender.events.size
+            assertEquals(HttpStatusCode.OK, hr.get("/api/v1/users?email=${pair.subordinateEmail}").status)
+            assertEquals(HttpStatusCode.OK, hr.get("/api/v1/teams/members?view=member").status)
+            assertEquals(0, appender.events.drop(before).count { it.message.startsWith("hr.") })
+        } finally {
+            appender.detach()
+        }
+    }
+
     // ── The auditor list view (view=user) ──────────────────────────────────────
 
     @Test

@@ -14,6 +14,7 @@ import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
+import ch.nokillswit.authz.isHr
 import ch.nokillswit.authz.requireAdmin
 import ch.nokillswit.authz.requireCanAssignPaidDaysOffAllowance
 import ch.nokillswit.authz.requireCanAssignRoles
@@ -176,7 +177,7 @@ fun Application.configureUserRoutes() {
     routing {
         authenticate {
             get<Users> {
-                call.caller()
+                val caller = call.caller()
                 val paging = call.parsePaging(sortable = setOf("id", "name", "email", "uniqueId"))
                 val params = call.request.queryParameters
                 // Feature-flag state filter: the pair must come together — a feature without a
@@ -197,7 +198,8 @@ fun Application.configureUserRoutes() {
                     uniqueId = params.optionalString("uniqueId"),
                     uniqueIdMissing = params.optionalBoolean("uniqueIdMissing"),
                 )
-                val result = userService.list(filter, paging)
+                // Seniority is private (v2.25.0): blanked outside the caller's chain unless HR.
+                val result = userService.list(filter, paging, caller.userId, caller.isHr())
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
             }
             post<Users> {
@@ -308,12 +310,18 @@ fun Application.configureUserRoutes() {
                 call.respond(HttpStatusCode.OK, importService.import(parsed, req.sendEmails, caller.userId))
             }
             get<Users.Id> { route ->
-                requireUserRead(call.caller(), route.id)
+                val caller = call.caller()
+                requireUserRead(caller, route.id)
                 val user = userService.read(route.id)
                     ?: throw NotFoundException("User not found")
                 // The triple = the user's current position (absent from the map = none).
                 val profile = userService.careerProfilesByUserIds(setOf(route.id))[route.id]
-                call.respond(HttpStatusCode.OK, user.toResponse(route.id, profile))
+                // Seniority is private (v2.25.0): here the guard already admitted self/ADMIN/HR,
+                // so the blanking only ever bites an ADMIN outside the target's chain.
+                val canSeeSeniority = caller.userId == route.id || caller.isHr() ||
+                    careerPositionService.managesUser(caller.userId, route.id)
+                val visible = if (canSeeSeniority) profile else profile?.copy(seniorityLevel = null)
+                call.respond(HttpStatusCode.OK, user.toResponse(route.id, visible))
             }
             put<Users.Id> { route ->
                 val caller = call.caller()

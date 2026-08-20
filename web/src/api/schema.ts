@@ -489,9 +489,11 @@ export interface paths {
          *     position's start — and the last position's is null (the current, open-ended one)
          *     UNLESS account deactivation stamped a stored end on it (V58, v2.17.0; cleared on
          *     reactivation).
-         *     Any authenticated caller may read any user's timeline (position titles are org-visible
-         *     on person cards already); a missing or soft-deleted user is 404 (the read-before-guard
-         *     idiom — for this resource existence is no secret).
+         *     Readable since v2.25.0 only by the user themselves, a manager in their TRANSITIVE
+         *     management chain, or HR (audited) — the read mirror of the write rule; ADMIN gets
+         *     nothing special. A missing or soft-deleted user is still 404 BEFORE the guard (user
+         *     existence is no secret given the open users list), so unknown → 404,
+         *     known-but-forbidden → 403.
          */
         get: operations["listUserCareerPositions"];
         put?: never;
@@ -670,9 +672,10 @@ export interface paths {
          *     `null` for `view=member`; the given/received pair is always `null` for
          *     `view=managers` and `view=managed`.
          *
-         *     Every view's items additionally carry the row user's resolved career profile
-         *     (`careerPath` / `careerSpecialization` / `seniorityLevel`) — see
-         *     `TeamMemberListItem`.
+         *     Every view's items additionally carry the row user's resolved `careerPath` /
+         *     `careerSpecialization`; `seniorityLevel` is PRIVATE (v2.25.0) — populated only on
+         *     `view=managed` (the rows are the caller's chain), for an HR caller, or on the
+         *     caller's own row, and null elsewhere — see `TeamMemberListItem`.
          *
          *     Each item is one (user, team) pair — a user who shares several teams with the
          *     caller appears once per team. Soft-deleted users and soft-deleted teams are
@@ -3601,7 +3604,12 @@ export interface components {
             careerPath: components["schemas"]["DictionaryEntry"] | null;
             /** @description Resolved from the CAREER_SPECIALIZATION dictionary — see careerPath. */
             careerSpecialization: components["schemas"]["DictionaryEntry"] | null;
-            /** @description Resolved from the SENIORITY_LEVEL dictionary — see careerPath. */
+            /**
+             * @description Resolved from the SENIORITY_LEVEL dictionary — see careerPath. PRIVATE since
+             *     v2.25.0: populated only when the caller is this user, a manager in their
+             *     transitive management chain, or HR — null otherwise (hidden), as well as when
+             *     genuinely unset.
+             */
             seniorityLevel: components["schemas"]["DictionaryEntry"] | null;
             /**
              * @description Annual paid days-off allowance in whole days; null = not configured = zero paid
@@ -3807,7 +3815,12 @@ export interface components {
             careerPath?: components["schemas"]["DictionaryEntry"] | null;
             /** @description Resolved from the CAREER_SPECIALIZATION dictionary — see careerPath. */
             careerSpecialization?: components["schemas"]["DictionaryEntry"] | null;
-            /** @description Resolved from the SENIORITY_LEVEL dictionary — see careerPath. */
+            /**
+             * @description Resolved from the SENIORITY_LEVEL dictionary — see careerPath. PRIVATE since
+             *     v2.25.0: populated only on view=managed, for an HR caller, or on the caller's
+             *     own row; null on the other views' rows (hidden), as well as when genuinely
+             *     unset.
+             */
             seniorityLevel?: components["schemas"]["DictionaryEntry"] | null;
             /**
              * Format: date
@@ -6450,6 +6463,15 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            /** @description Caller is not the user, not in their management chain, and not HR */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             404: components["responses"]["NotFound"];
             500: components["responses"]["InternalServerError"];
         };

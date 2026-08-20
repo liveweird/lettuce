@@ -379,4 +379,22 @@ class GuardsTest {
             }
         }
     }
+
+    @Test
+    fun `career position reads admit self, the chain, and hr - admin and strangers are shut out`() {
+        runBlocking {
+            // v2.25.0 (the seniority-privacy round): the read mirror of the write guard,
+            // widened by self and HR. HR passes BEFORE the chain lambda (no DB hit); ADMIN
+            // deliberately gets nothing (the narrowed-ADMIN rule).
+            ch.nokillswit.authz.requireCareerPositionRead(stranger, stranger.userId) { false } // self
+            ch.nokillswit.authz.requireCareerPositionRead(stranger, 1u) { true } // chain
+            ch.nokillswit.authz.requireCareerPositionRead(hr, 1u) { error("HR must not walk the chain") }
+            assertFailsWith<ForbiddenException> {
+                ch.nokillswit.authz.requireCareerPositionRead(stranger, 1u) { false }
+            }
+            assertFailsWith<ForbiddenException> {
+                ch.nokillswit.authz.requireCareerPositionRead(admin, 1u) { false }
+            }
+        }
+    }
 }

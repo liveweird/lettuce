@@ -27,6 +27,8 @@ class UserServiceTest {
         val page = TestServices.users.list(
             UserListFilter(name = " ", email = " "),
             PageRequest(page = 1, pageSize = 100, sort = listOf(SortField("id", descending = true))),
+            callerId = 1u,
+            callerSeesAllSeniority = true,
         )
         assertTrue(page.items.any { it.email == email })
 
@@ -34,6 +36,8 @@ class UserServiceTest {
         val excluded = TestServices.users.list(
             UserListFilter(name = "no-such-user-name", email = " "),
             PageRequest(page = 1, pageSize = 100, sort = listOf(SortField("id", descending = true))),
+            callerId = 1u,
+            callerSeesAllSeniority = true,
         )
         assertTrue(excluded.items.none { it.email == email })
     }

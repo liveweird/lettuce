@@ -11,6 +11,7 @@ import {
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconArrowDown, IconArrowUp, IconUsersGroup } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { canAudit } from "../api/session";
 import { listAllTeams, listTeamMembers, type TeamMemberListView } from "../api/teams";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
@@ -242,6 +243,7 @@ export default function TeamMembersTable({
                         ? "subordinate"
                         : "none"
                   }
+                  showSeniorityWhenUnset={view === "managed"}
                   showLastReview={view === "managed" && scopeIsDirect}
                   showDaysOff={view === "managed" && scopeIsDirect}
                   actions={{
@@ -255,7 +257,9 @@ export default function TeamMembersTable({
                     // included) — the v1.39.0 back= override; the label stays the origin's.
                     drillBack: backToProp,
                     show: {
-                      career: true,
+                      // Career timeline reads are self/chain/HR-only since v2.25.0: managed
+                      // rows are the caller's chain; peers only for auditors.
+                      career: view === "managed" || canAudit(),
                       provide: true,
                       ask: true,
                       request: view === "managed",
