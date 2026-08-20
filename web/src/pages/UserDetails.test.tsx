@@ -447,7 +447,9 @@ describe("UserDetails page", () => {
     expect(mockFetch.mock.calls.some(([u]) => String(u).startsWith("/api/v1/users?"))).toBe(false);
   });
 
-  test("an entirely unset career profile shows three missing badges", async () => {
+  test("an entirely unset career profile shows two missing badges - seniority stays hidden", async () => {
+    // An unrelated user's null seniority is ambiguous (the server blanks it outside the
+    // chain, v2.25.0), so only path/specialization wear the "Not set" cue here.
     mockApi(mockFetch, {
       users: [{ id: 5, name: "Bob", email: "bob@example.com", roles: [] }],
     });
@@ -455,8 +457,8 @@ describe("UserDetails page", () => {
 
     expect(await screen.findByText("Path")).toBeInTheDocument();
     expect(screen.getByText("Specialization")).toBeInTheDocument();
-    expect(screen.getByText("Seniority")).toBeInTheDocument();
-    expect(screen.getAllByText("Not set")).toHaveLength(3);
+    expect(screen.queryByText("Seniority")).toBeNull();
+    expect(screen.getAllByText("Not set")).toHaveLength(2);
   });
 
   test("the heading uses the name param before the data lands, then the resolved name", async () => {

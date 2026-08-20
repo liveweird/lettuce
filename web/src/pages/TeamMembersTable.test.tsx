@@ -276,7 +276,9 @@ describe("TeamMembersTable", () => {
     expect(screen.queryByRole("link", { name: /performance reviews of/i })).toBeNull();
   });
 
-  test("peer cards carry the career column with set values and Not set badges", async () => {
+  test("peer cards carry the career column - a null seniority stays hidden (v2.25.0)", async () => {
+    // The server blanks a peer's seniority (private outside the chain), so null is
+    // ambiguous — the row is omitted rather than showing a misleading "Not set".
     setupMocks(
       mockFetch,
       membersPage([
@@ -293,9 +295,30 @@ describe("TeamMembersTable", () => {
     expect(await screen.findByText("Path")).toBeInTheDocument();
     expect(screen.getByText("System Analyst")).toBeInTheDocument();
     expect(screen.getByText("Java")).toBeInTheDocument();
-    expect(screen.getAllByText("Not set")).toHaveLength(1);
+    expect(screen.queryByText("Seniority")).toBeNull();
+    expect(screen.queryByText("Not set")).toBeNull();
     // The peer stats column still renders beside it.
     expect(screen.getByText("Feedback from me")).toBeInTheDocument();
+  });
+
+  test("subordinate cards keep the Not set cue for an unset seniority (v2.25.0)", async () => {
+    // On view=managed the caller IS the chain — a null seniority genuinely means unset,
+    // so the orange cue stays truthful and renders.
+    setupMocks(
+      mockFetch,
+      membersPage([
+        {
+          ...SEED_MEMBERS[1],
+          careerPath: { id: 11, values: { en: "System Analyst" } },
+          careerSpecialization: { id: 21, values: { en: "Java" } },
+          seniorityLevel: null,
+        },
+      ]),
+    );
+    renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No reports" />);
+
+    expect(await screen.findByText("Seniority")).toBeInTheDocument();
+    expect(screen.getAllByText("Not set")).toHaveLength(1);
   });
 
   test("peer cards show the next vacation but never a budget or Days off button", async () => {

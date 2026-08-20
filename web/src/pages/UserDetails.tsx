@@ -160,7 +160,15 @@ export default function UserDetails() {
             back: backHere,
             drillFrom: "details",
             drillBack: backHere,
-            show: { career: true, provide: true, ask: true, feedbacks: true, oneOnOnes: true, goals: true },
+            // The career timeline is self/chain/HR-only since v2.25.0 — auditors only here.
+            show: {
+              career: canAudit(),
+              provide: true,
+              ask: true,
+              feedbacks: true,
+              oneOnOnes: true,
+              goals: true,
+            },
           }
         : relationship === "subordinate"
           ? {
@@ -197,7 +205,8 @@ export default function UserDetails() {
               back: backHere,
               drillFrom: "details",
               drillBack: backHere,
-              show: { career: true, provide: true, ask: true, feedbacks: true },
+              // Career timeline: peers/unrelated lost the read in v2.25.0 — auditors only.
+              show: { career: canAudit(), provide: true, ask: true, feedbacks: true },
             };
 
   // Whether any audit drill-down survives the viewer's feature flags (v1.53.0) — with all
@@ -248,6 +257,7 @@ export default function UserDetails() {
               <PersonCardBody
                 person={person}
                 stats={relationship ?? "none"}
+                showSeniorityWhenUnset={relationship === "subordinate" || selfView}
                 showLastReview={relationship === "subordinate"}
                 showDaysOff={relationship === "subordinate"}
                 actions={actions}

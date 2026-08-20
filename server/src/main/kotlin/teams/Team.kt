@@ -113,8 +113,11 @@ data class TeamMemberListItem(
     val lastReviewPeriodEndMonth: String? = null,
     /** That review's status; null exactly when [lastReviewId] is null. */
     val lastReviewStatus: PerformanceReviewStatus? = null,
-    // The row user's career profile (v1.32.1), resolved from the dictionaries at read time —
-    // populated for EVERY view (unlike the directional stats above); null = the field is unset.
+    // The row user's career profile (v1.32.1), resolved from the dictionaries at read time.
+    // Path/specialization populate for EVERY view (unlike the directional stats above);
+    // seniority is PRIVATE since v2.25.0 — populated only on view=managed (chain rows by
+    // construction), for an HR caller, or on the caller's own row; null elsewhere means
+    // "hidden", while on those rows null = the field is unset.
     val careerPath: DictionaryEntry? = null,
     val careerSpecialization: DictionaryEntry? = null,
     val seniorityLevel: DictionaryEntry? = null,

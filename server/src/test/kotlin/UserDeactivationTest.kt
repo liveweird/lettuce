@@ -72,7 +72,8 @@ class UserDeactivationTest {
         val adminEmail = uniqueEmail("admin")
         TestUsers.seed(email = adminEmail, password = "pw-123456789")
         val admin = authedClient(adminEmail, "pw-123456789")
-        val mgrId = TestUsers.seed(uniqueEmail("cdx-m"), "pw", roles = emptySet())
+        val mgrEmail = uniqueEmail("cdx-m")
+        val mgrId = TestUsers.seed(mgrEmail, "pw", roles = emptySet())
         val subId = TestUsers.seed(uniqueEmail("cdx-s"), "pw", roles = emptySet())
         val bareId = TestUsers.seed(uniqueEmail("cdx-b"), "pw", roles = emptySet())
         val teamId = TestServices.teams.create(Team(name = "cdx-${UUID.randomUUID()}", managerId = mgrId))
@@ -84,7 +85,10 @@ class UserDeactivationTest {
         TestServices.careerPositions.create(mgrId, subId, CareerPositionWrite("2020-01-01", pathA, specId, levelId))
         TestServices.careerPositions.create(mgrId, subId, CareerPositionWrite("2023-06-01", pathB, specId, levelId))
 
-        suspend fun endDates() = admin
+        // The timeline is self/chain/HR-only since v2.25.0 — the ADMIN driving the
+        // deactivation can flip the flag but not read the positions; the manager verifies.
+        val mgr = authedClient(mgrEmail, "pw")
+        suspend fun endDates() = mgr
             .get("/api/v1/users/$subId/career-positions")
             .body<CareerPositionList>()
             .items.map { it.endDate }

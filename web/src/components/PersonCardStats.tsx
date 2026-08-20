@@ -1,6 +1,6 @@
 import { Badge, Divider, Group, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
-import { hasFeature } from "../api/session";
+import { canAudit, hasFeature } from "../api/session";
 import { formatIsoDate, formatMonthRange, formatRelativeTime, formatTimestamp } from "../utils/datetime";
 import { formatDays } from "../utils/daysOffCost";
 import { pickLocalized, type LocalizedEntry } from "../utils/localized";
@@ -73,11 +73,21 @@ function CareerValue({ entry }: { entry: LocalizedEntry | null }) {
   );
 }
 
-// The career-profile rows (v1.32.1): the three dictionary-backed values, with deliberately
+// The career-profile rows (v1.32.1): the dictionary-backed values, with deliberately
 // SHORT card-only labels (users.profile.* — v1.32.2); the Edit/Create pickers keep the full
-// common.field.* wordings.
-function CareerRows({ person }: { person: PersonCardData }) {
+// common.field.* wordings. Seniority is private (v2.25.0): the server nulls it outside the
+// viewer's chain (unless HR/self), so null is ambiguous — the row renders only when a value
+// arrived, or where null genuinely means "unset" (the manages flavors + HR viewers), where
+// the orange "Not set" cue stays truthful.
+function CareerRows({
+  person,
+  showSeniorityWhenUnset,
+}: {
+  person: PersonCardData;
+  showSeniorityWhenUnset: boolean;
+}) {
   const { t } = useTranslation();
+  const showSeniority = person.seniorityLevel != null || showSeniorityWhenUnset || canAudit();
   return (
     <>
       <StatRow label={t("users.profile.path")}>
@@ -86,9 +96,11 @@ function CareerRows({ person }: { person: PersonCardData }) {
       <StatRow label={t("users.profile.specialization")}>
         <CareerValue entry={person.careerSpecialization} />
       </StatRow>
-      <StatRow label={t("users.profile.seniority")}>
-        <CareerValue entry={person.seniorityLevel} />
-      </StatRow>
+      {showSeniority && (
+        <StatRow label={t("users.profile.seniority")}>
+          <CareerValue entry={person.seniorityLevel} />
+        </StatRow>
+      )}
     </>
   );
 }
@@ -145,12 +157,15 @@ export type PersonCardStatsVariant = "manager" | "subordinate" | "peer" | "none"
 export default function PersonCardBody({
   person,
   stats,
+  showSeniorityWhenUnset = false,
   showLastReview = false,
   showDaysOff = false,
   actions,
 }: {
   person: PersonCardData;
   stats: PersonCardStatsVariant;
+  /** The viewer manages (or is) this person: a null seniority renders as "Not set" (v2.25.0). */
+  showSeniorityWhenUnset?: boolean;
   showLastReview?: boolean;
   /** Gate for the budget row (v1.44.0) — subordinate flavors only; peers get vacation-only. */
   showDaysOff?: boolean;
@@ -190,7 +205,7 @@ export default function PersonCardBody({
   return (
     <div className={classes.body}>
       <Section label={t("users.section.profile")}>
-        <CareerRows person={person} />
+        <CareerRows person={person} showSeniorityWhenUnset={showSeniorityWhenUnset} />
         {/* The career-progression drill-down (v2.15.0) — the profile's own button row. */}
         {actionsRow(PROFILE_ACTIONS)}
       </Section>

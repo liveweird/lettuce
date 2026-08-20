@@ -3,6 +3,7 @@ package ch.nokillswit.users
 import ch.nokillswit.audit.audit
 import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
+import ch.nokillswit.authz.requireCareerPositionRead
 import ch.nokillswit.authz.requireCareerPositionWrite
 import ch.nokillswit.dictionaries.Dictionary
 import ch.nokillswit.dictionaries.DictionaryEntry
@@ -78,14 +79,16 @@ private fun toResponses(
 }
 
 /**
- * The career position timeline sub-resource (v2.15.0). Reads are open to any authenticated
- * caller — the resolved triple already shows on person cards to managers, peers, and
- * teammates, so position titles are org-visible by design; the GET 404s a missing/soft-deleted
- * user (read-before-guard, the conscious API-ERR-006 pick for this resource). Writes belong to
- * the target's TRANSITIVE management chain ONLY — deliberately wider than the days-off
- * corrections' direct-manager writes (career progression is the chain's shared record), and
- * deliberately excluding ADMIN (the management role lost the career write in v2.15.0), HR
- * (read-only auditor), and the user themselves.
+ * The career position timeline sub-resource (v2.15.0). Reads are restricted since v2.25.0
+ * (the seniority-privacy round) to the user themselves, their TRANSITIVE management chain,
+ * and HR (audited `hr.read`) — the read mirror of the write rule below; the GET still 404s a
+ * missing/soft-deleted user BEFORE the guard (the corrections idiom — user existence is no
+ * secret given the open users list), so unknown → 404, known-but-forbidden → 403. Writes
+ * belong to the target's TRANSITIVE management chain ONLY — deliberately wider than the
+ * days-off corrections' direct-manager writes (career progression is the chain's shared
+ * record), and deliberately excluding ADMIN (the management role lost the career write in
+ * v2.15.0; reads followed in v2.25.0), HR (read-only auditor), and — writes only — the user
+ * themselves.
  */
 fun Application.configureCareerPositionRoutes() {
     val userService = attributes[UserServiceKey]
@@ -114,8 +117,8 @@ fun Application.configureCareerPositionRoutes() {
         authenticate {
             // Caller-relative (v2.16.0): any authenticated caller; a non-manager simply gets
             // an empty list (the days-off budgets idiom — no 403). No role widening: HR and
-            // ADMIN see exactly their own subordinates, so the endpoint discloses nothing the
-            // members list and the open career-positions GET don't already.
+            // ADMIN see exactly their own subordinates — every row is the caller's chain, so
+            // the v2.25.0 seniority rule (self/chain/HR) is satisfied by construction.
             get<CareerPyramid> {
                 val caller = call.caller()
                 val includeIndirect = call.request.queryParameters.optionalBoolean("includeIndirect")
@@ -151,9 +154,12 @@ fun Application.configureCareerPositionRoutes() {
                 )
             }
             get<UserCareerPositions> { route ->
-                call.caller()
+                val caller = call.caller()
                 if (userService.read(route.id) == null) {
                     throw NotFoundException("User not found")
+                }
+                requireCareerPositionRead(caller, route.id) {
+                    careerPositionService.managesUser(caller.userId, route.id)
                 }
                 val rows = careerPositionService.listRows(route.id)
                 val entries = userService.resolveEntryRefs(

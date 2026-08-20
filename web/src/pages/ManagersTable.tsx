@@ -2,6 +2,7 @@ import { Alert, SimpleGrid, Skeleton } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { IconUsersGroup } from "@tabler/icons-react";
+import { canAudit } from "../api/session";
 import { listAllTeamMembers } from "../api/teams";
 import EmptyState from "../components/EmptyState";
 import PersonCard from "../components/PersonCard";
@@ -63,7 +64,16 @@ export default function ManagersTable() {
                     back: "/?tab=managers",
                     // No drillFrom on purpose: the feedbacks drill-down historically omits
                     // `from` here (its resolver defaults to managers); 1:1s/goals default in.
-                    show: { career: true, provide: true, ask: true, feedbacks: true, oneOnOnes: true, goals: true },
+                    // The career timeline is self/chain/HR-only since v2.25.0 — a manager's
+                    // history is not their report's to browse, so only auditors keep the link.
+                    show: {
+                      career: canAudit(),
+                      provide: true,
+                      ask: true,
+                      feedbacks: true,
+                      oneOnOnes: true,
+                      goals: true,
+                    },
                   }}
                 />
               }

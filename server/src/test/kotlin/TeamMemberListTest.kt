@@ -31,7 +31,7 @@ class TeamMemberListTest {
         }.body<TeamResponse>()
 
     @Test
-    fun `every view's rows carry the resolved career profile and renames propagate`() = testApplication {
+    fun `every view's rows carry the career profile - seniority only on managed - renames propagate`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")
         TestUsers.seed(email = adminEmail, password = "pw")
@@ -45,7 +45,7 @@ class TeamMemberListTest {
         val (pathId) = TestDictionaries.append(Dictionary.CAREER_PATH, "Members $marker")
         val (levelId) = TestDictionaries.append(Dictionary.SENIORITY_LEVEL, "MembersLvl $marker")
 
-        // Manager gets a career path, the peer a seniority level; the report stays unset.
+        // Manager gets a career path, the peer path + seniority, the report a seniority.
         // Since v2.15.0 the triple derives from the person's CURRENT career position.
         TestServices.careerPositions.create(
             managerId, managerId,
@@ -53,6 +53,10 @@ class TeamMemberListTest {
         )
         TestServices.careerPositions.create(
             peerId, peerId,
+            ch.nokillswit.users.CareerPositionWrite("2020-01-01", careerPathId = pathId, seniorityLevelId = levelId),
+        )
+        TestServices.careerPositions.create(
+            reportId, reportId,
             ch.nokillswit.users.CareerPositionWrite("2020-01-01", seniorityLevelId = levelId),
         )
 
@@ -67,16 +71,18 @@ class TeamMemberListTest {
         assertEquals(DictionaryEntry(pathId, mapOf("en" to "Members $marker")), mgrRow.careerPath)
         assertEquals(null, mgrRow.careerSpecialization)
 
+        // A peer's seniority is PRIVATE (v2.25.0): the path rides the member view, the
+        // seniority is blanked — while the managed view (chain rows) keeps it.
         val member = client.get("/api/v1/teams/members?view=member").body<TeamMemberPageResponse>()
         val peerRow = member.items.single { it.userId == peerId }
-        assertEquals(DictionaryEntry(levelId, mapOf("en" to "MembersLvl $marker")), peerRow.seniorityLevel)
-        assertEquals(null, peerRow.careerPath)
+        assertEquals(DictionaryEntry(pathId, mapOf("en" to "Members $marker")), peerRow.careerPath)
+        assertEquals(null, peerRow.seniorityLevel)
 
         val managed = client.get("/api/v1/teams/members?view=managed").body<TeamMemberPageResponse>()
         val repRow = managed.items.single { it.userId == reportId }
         assertEquals(null, repRow.careerPath)
         assertEquals(null, repRow.careerSpecialization)
-        assertEquals(null, repRow.seniorityLevel)
+        assertEquals(DictionaryEntry(levelId, mapOf("en" to "MembersLvl $marker")), repRow.seniorityLevel)
 
         // A dictionary rename shows up on the next list read — the rows resolve by id.
         TestDictionaries.rename(Dictionary.CAREER_PATH, pathId, "Members2 $marker")

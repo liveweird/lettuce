@@ -129,7 +129,26 @@ describe("ManagersTable", () => {
     expect(link).toHaveAttribute("href", "/users/1/goals?name=Manager%20One&from=managers");
   });
 
-  test("renders a Career progression link in the card's Profile section (v2.15.0)", async () => {
+  test("the Career progression link is auditor-only on manager cards (v2.25.0)", async () => {
+    // The timeline read is self/chain/HR-only since v2.25.0 — a report browsing their
+    // MANAGER'S card gets no career link; an HR viewer keeps it.
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        items: [
+          { userId: 1, name: "Manager One", email: "m1@example.com", teamId: 5, teamName: "alpha" },
+        ],
+        page: 1,
+        pageSize: 100,
+        total: 1,
+      }),
+    );
+    renderWithProviders(<ManagersTable />);
+    await screen.findByText("Manager One");
+    expect(screen.queryByRole("link", { name: "Career progression of Manager One" })).toBeNull();
+  });
+
+  test("an HR viewer keeps the Career progression link on manager cards", async () => {
+    localStorage.setItem("lettuce.auth.roles", JSON.stringify(["HR"]));
     mockFetch.mockResolvedValue(
       jsonResponse(200, {
         items: [

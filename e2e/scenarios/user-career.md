@@ -11,7 +11,8 @@
 - **Since**: v2.15.0 (manager-managed position timeline; the admin form lost its career fields),
   v2.15.1 (all three fields required; the form prefills from the current position),
   v2.15.2 (a date-only repeat of the current position stays disabled), v2.16.0 (the nav Career
-  page: My career + Team pyramid), v2.17.0 (the pyramid's time slider)
+  page: My career + Team pyramid), v2.17.0 (the pyramid's time slider), v2.25.0 (timeline reads
+  are self/chain/HR-only — the seniority-privacy round)
 
 ## Scenario: career progression: chain manager records positions, the person sees the timeline
 
@@ -63,15 +64,21 @@
     - *Expected*: read-only — the Current position shows, but there is no "Start a new position"
       editor. On the nav Career page they get **My career only** — no Team pyramid tab, even when
       the pyramid tab is requested directly by URL.
-17. The subordinate signs out; the admin signs back in and **renames** the throwaway
+17. Still as the subordinate, they open the dashboard's managers tab and then try the manager's
+    timeline URL directly (v2.25.0 — seniority privacy).
+    - *Expected*: the manager's card offers **no** "Career progression of …" link, and the direct
+      URL shows "Could not load the career progression." — the server refuses a read outside
+      self/chain/HR.
+18. The subordinate signs out; the admin signs back in and **renames** the throwaway
     career-paths entry in the dictionary editor.
     - *Expected*: the rename propagates through the position's entry reference — the subordinate's
       details Profile now shows the renamed value.
-18. The admin **removes** the throwaway entry from the dictionary and saves (the cleanup half of
-    the append idiom).
+19. The admin **removes** the throwaway entry from the dictionary and saves (the cleanup half of
+    the append idiom), then signs out; the subordinate signs back in and opens their own timeline.
     - *Expected*: the retired entry keeps resolving on the subordinate's timeline — positions
       store the entry by id, so history survives dictionary retirement (the old user-edit
-      acceptance scenario, re-homed here).
+      acceptance scenario, re-homed here; the owner verifies because the timeline is no longer
+      the admin's to read, v2.25.0).
 
 ## Not covered here (and why)
 

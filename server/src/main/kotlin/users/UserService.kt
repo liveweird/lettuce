@@ -10,6 +10,7 @@ import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.teams.TeamRef
 import ch.nokillswit.teams.TeamService
+import ch.nokillswit.teams.transitiveSubordinateIds
 import io.ktor.server.plugins.BadRequestException
 import io.ktor.util.AttributeKey
 import kotlinx.coroutines.flow.map
@@ -302,8 +303,22 @@ class UserService(val database: R2dbcDatabase) {
             Users.select(Users.id).where { predicate }.toList().isNotEmpty()
         }
 
-    suspend fun list(filter: UserListFilter, paging: PageRequest): UserListResult =
+    /**
+     * [callerId]/[callerSeesAllSeniority] drive the v2.25.0 seniority-visibility rule: the
+     * resolved `seniorityLevel` is blanked on every row outside the caller's transitive
+     * management chain (plus the caller's own row), unless the caller is HR (the route passes
+     * `isHr()`). Career path/specialization stay public — only the third field is private.
+     */
+    suspend fun list(
+        filter: UserListFilter,
+        paging: PageRequest,
+        callerId: UInt,
+        callerSeesAllSeniority: Boolean,
+    ): UserListResult =
         suspendTransaction(database) {
+            // One chain walk per page, same transaction as the row select (the pyramidRows idiom).
+            val seniorityVisible: Set<UInt>? =
+                if (callerSeesAllSeniority) null else transitiveSubordinateIds(callerId) + callerId
             val predicate: Op<Boolean> = buildPredicate(filter) and active()
             val total = Users.selectAll().where { predicate }.count()
             val rows = Users.selectAll()
@@ -335,7 +350,8 @@ class UserService(val database: R2dbcDatabase) {
                     roles = rolesByUser[row.id].orEmpty().sortedBy { r -> r.name },
                     careerPath = profiles[row.id]?.careerPath,
                     careerSpecialization = profiles[row.id]?.careerSpecialization,
-                    seniorityLevel = profiles[row.id]?.seniorityLevel,
+                    seniorityLevel = profiles[row.id]?.seniorityLevel
+                        ?.takeIf { seniorityVisible == null || row.id in seniorityVisible },
                     paidDaysOffAllowance = row.paidDaysOffAllowance,
                     deactivated = row.deactivated,
                     disabledFeatures = featuresByUser[row.id].orEmpty().sortedBy { f -> f.name },

@@ -143,6 +143,28 @@ suspend fun requireCareerPositionWrite(caller: CallerPrincipal, managesTarget: s
 }
 
 /**
+ * Reading a user's career position timeline (v2.25.0 — the seniority-privacy round): the user
+ * themselves, the HR auditor (audited `hr.read`, placed before the chain walk so HR needs no
+ * DB hit), or any manager in the target's TRANSITIVE management chain — the read mirror of
+ * [requireCareerPositionWrite]. ADMIN deliberately gets nothing (the narrowed-ADMIN rule);
+ * everyone else sees only the CURRENT position titles that ride person cards (path +
+ * specialization — seniority is blanked there too, see the field rule in the users/teams
+ * routes). Runs AFTER the existence read (404-before-403 — the corrections idiom; user
+ * existence is no secret given the open users list).
+ */
+suspend fun requireCareerPositionRead(
+    caller: CallerPrincipal,
+    targetUserId: UInt,
+    managesTarget: suspend () -> Boolean,
+) {
+    if (caller.userId == targetUserId) return
+    if (grantHrRead(caller, "careerPositions", targetUserId)) return
+    if (!managesTarget()) {
+        throw ForbiddenException("Only the user, their management chain, or HR may read career positions")
+    }
+}
+
+/**
  * The [requireCanAssignRoles] sibling for the paid days-off allowance (an Int, not a
  * dictionary ref): newly assigning or changing it is ADMIN-only. A null request (= leave
  * unchanged) or resubmitting the current value is not a change; clearing is inexpressible.

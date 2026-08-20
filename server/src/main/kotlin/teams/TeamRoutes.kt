@@ -3,6 +3,7 @@ package ch.nokillswit.teams
 import ch.nokillswit.audit.audit
 import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
+import ch.nokillswit.authz.isHr
 import ch.nokillswit.authz.requireCanReassignManager
 import ch.nokillswit.authz.requireSelfOrAdmin
 import ch.nokillswit.authz.requireTeamManagerOrAdmin
@@ -204,15 +205,20 @@ fun Application.configureTeamRoutes() {
                             }
                         }
                     }
-                    // Career profile (v1.32.1): view-independent — the person cards show it on
-                    // every grid, so every view's rows carry the resolved triple.
+                    // Career profile (v1.32.1): path/specialization are view-independent — the
+                    // person cards show position titles on every grid. Seniority is private
+                    // (v2.25.0): attached only on the managed view (every row is the caller's
+                    // chain by construction, direct or includeIndirect), for HR, or on the
+                    // caller's own row — peers and managers-of get null. No extra queries.
                     val profiles = userService.careerProfilesByUserIds(ids)
-                    withStats.map {
-                        val profile = profiles[it.userId]
-                        it.copy(
+                    val seniorityVisible = view == TeamMemberListView.MANAGED || caller.isHr()
+                    withStats.map { row ->
+                        val profile = profiles[row.userId]
+                        row.copy(
                             careerPath = profile?.careerPath,
                             careerSpecialization = profile?.careerSpecialization,
-                            seniorityLevel = profile?.seniorityLevel,
+                            seniorityLevel = profile?.seniorityLevel
+                                ?.takeIf { seniorityVisible || row.userId == caller.userId },
                         )
                     }
                 }

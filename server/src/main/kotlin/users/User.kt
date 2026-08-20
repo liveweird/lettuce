@@ -218,12 +218,14 @@ data class UserResponse(
     // Career profile — since v2.15.0 the user's CURRENT position (their latest career
     // position row), resolved from dictionary_entries at read time (renames propagate;
     // soft-deleted entries keep resolving). No defaults — see UserCreateResponse.
+    // seniorityLevel is PRIVATE since v2.25.0: the routes blank it unless the caller is the
+    // user, in their transitive management chain, or HR — null therefore means hidden OR
+    // unset; path/specialization stay public.
     val careerPath: DictionaryEntry?,
     val careerSpecialization: DictionaryEntry?,
     val seniorityLevel: DictionaryEntry?,
-    // Rides the response like the career fields (visible wherever a user row is readable —
-    // the same posture as seniority level); managers consume the derived numbers via
-    // GET /days-off/budgets.
+    // Rides the response wherever a user row is readable; managers consume the derived
+    // numbers via GET /days-off/budgets.
     val paidDaysOffAllowance: Int?,
     // Reversible admin disable — the ONLY place the state surfaces is the admin users list
     // (Inactive badge + filter); no other feature DTO carries it by design.
