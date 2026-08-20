@@ -246,8 +246,9 @@ class GoalRoutesTest {
         assertEquals(HttpStatusCode.BadRequest, tryCreate(type = GoalType.PERCENTAGE, targetValue = -1.0))
         assertEquals(HttpStatusCode.BadRequest, tryCreate(title = "   "))
         assertEquals(HttpStatusCode.BadRequest, tryCreate(title = "x".repeat(201)))
-        // Due date: required well-formed ISO, never in the past ("today" is fine — see createGoal).
-        assertEquals(HttpStatusCode.BadRequest, tryCreate(dueDate = LocalDate.now().minusDays(1).toString()))
+        // Due date: required well-formed ISO, never in the past ("today" is fine — see createGoal;
+        // yesterday sits inside the v2.26.1 timezone tolerance, so probe one day further back).
+        assertEquals(HttpStatusCode.BadRequest, tryCreate(dueDate = LocalDate.now().minusDays(2).toString()))
         assertEquals(HttpStatusCode.BadRequest, tryCreate(dueDate = "2026-1-1"))
         assertEquals(HttpStatusCode.BadRequest, tryCreate(dueDate = "garbage"))
         // A missing dueDate can only be probed with raw JSON (the DTO field is non-optional).
@@ -1487,7 +1488,8 @@ class GoalRoutesTest {
             )
         }.status
 
-        assertEquals(HttpStatusCode.BadRequest, edit(LocalDate.now().minusDays(1).toString()))
+        // minusDays(2): yesterday is tolerated since v2.26.1 (the timezone slack).
+        assertEquals(HttpStatusCode.BadRequest, edit(LocalDate.now().minusDays(2).toString()))
         assertEquals(HttpStatusCode.BadRequest, edit("2026-1-1"))
 
         val tomorrow = LocalDate.now().plusDays(1).toString()
@@ -1504,7 +1506,8 @@ class GoalRoutesTest {
         usePostgresTestcontainer()
         val pair = seedPair()
         val manager = authedClient(pair.managerEmail, "pw")
-        val yesterday = LocalDate.now().minusDays(1).toString()
+        // Two days back: "yesterday" sits inside the v2.26.1 timezone tolerance.
+        val yesterday = LocalDate.now().minusDays(2).toString()
 
         // A draft goes stale: activation is refused until the manager picks a fresh due date.
         val draft = manager.createGoal(pair.subordinateId, title = "stale draft")
@@ -1530,7 +1533,8 @@ class GoalRoutesTest {
         usePostgresTestcontainer()
         val pair = seedPair()
         val manager = authedClient(pair.managerEmail, "pw")
-        val yesterday = LocalDate.now().minusDays(1).toString()
+        // Two days back: "yesterday" sits inside the v2.26.1 timezone tolerance.
+        val yesterday = LocalDate.now().minusDays(2).toString()
 
         // An ARCHIVED goal with a stale due date: activate must be the wrong-status 409, not the
         // stale-due-date 400 (the pre-check applies only while the row sits at the edge's source).

@@ -17,7 +17,9 @@ class CareerPositionValidationTest {
     fun `start date must be strict zero-padded ISO and not in the future`() {
         validateCareerPositionStartDate("2026-08-14", today) // == today is allowed
         validateCareerPositionStartDate("1999-01-31", today)
-        assertFailsWith<BadRequestException> { validateCareerPositionStartDate("2026-08-15", today) }
+        // v2.26.1: one day of timezone tolerance — clients submit their browser-local date.
+        validateCareerPositionStartDate("2026-08-15", today)
+        assertFailsWith<BadRequestException> { validateCareerPositionStartDate("2026-08-16", today) }
         assertFailsWith<BadRequestException> { validateCareerPositionStartDate("2026-8-14", today) }
         assertFailsWith<BadRequestException> { validateCareerPositionStartDate("2026-08-4", today) }
         assertFailsWith<BadRequestException> { validateCareerPositionStartDate("14.08.2026", today) }

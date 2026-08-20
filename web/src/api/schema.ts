@@ -502,7 +502,7 @@ export interface paths {
          * @description Appends a position to the user's timeline, implicitly concluding the current one the
          *     day before the new `startDate`. Caller must be a manager in the user's TRANSITIVE
          *     management chain — nobody else (not the user, not ADMIN, not HR). The start date must
-         *     be strictly after the current position's start and not in the future; all three refs
+         *     be strictly after the current position's start and not in the future (with one day of timezone tolerance — clients submit their local date); all three refs
          *     are required (v2.15.1), each an ACTIVE entry of its dictionary; the triple must
          *     differ from the current position's (v2.15.2 — a repeat of the same career path,
          *     specialization, and seniority is not a step, 409). A DEACTIVATED user is `400`
@@ -534,7 +534,7 @@ export interface paths {
          * @description Corrects a position's start date and/or triple in place. Same write right as the
          *     create; a position belonging to a different user than the path names is 404. The
          *     corrected start date must stay strictly between the neighboring positions' starts
-         *     (409 otherwise — a correction never reorders the timeline) and not in the future;
+         *     (409 otherwise — a correction never reorders the timeline) and not in the future (with one day of timezone tolerance — clients submit their local date);
          *     all three refs are required (v2.15.1 — correcting a pre-v2.15.1 partial row means
          *     completing its triple), and only CHANGED refs are validated as active (a date-only
          *     correction never trips over a since-soft-deleted ref). The corrected triple must
@@ -1322,7 +1322,8 @@ export interface paths {
          *     most 100 of them, all starting not-done; the numeric types must send none. The current
          *     value starts **unset** (`currentValue` null — no recorded value) and is only set (via
          *     `PUT /goals/{id}/progress`) once the goal is ACTIVE. The **due date** is required and
-         *     must not be earlier than the current date.
+         *     must not be earlier than the current date (with one day of timezone tolerance —
+         *     clients submit their local date).
          *
          *     Nobody is notified — a draft is private to the pair until activated. The creation is
          *     recorded in the goal's audit history.
@@ -1441,7 +1442,7 @@ export interface paths {
         /**
          * Activate a draft goal
          * @description Moves the goal `DRAFT → ACTIVE` (any other current status is `409`). **Manager-only.**
-         *     The goal's **due date must not be in the past** (`400`) — a stale draft must be given a
+         *     The goal's **due date must not be in the past** (with one day of timezone tolerance — clients submit their local date; `400`) — a stale draft must be given a
          *     fresh due date (via `PUT /goals/{id}`) before it can be activated — and a **PLAN goal
          *     needs at least one milestone** (`400`; milestones are defined via `PUT /goals/{id}`).
          *     Once active, the goal becomes visible to the subordinate's wider management chain and
@@ -1710,7 +1711,7 @@ export interface paths {
          * @description Adds a data point — data points are only mutable while the KPI is **ACTIVE** (any other
          *     status is `409`). **Manager, chain, or team member** (v2.26.0 — recording data is the team's shared work). `value` is always required (finite; 0–100
          *     for PERCENTAGE), and `date` — the ISO `YYYY-MM-DD` date the value was measured — is
-         *     required and must not be in the future (today is allowed). At most **one value per
+         *     required and must not be in the future (today is allowed, plus one day of timezone tolerance — clients submit their local date). At most **one value per
          *     date**: a date that already has a data point is `409` — correct the existing point
          *     instead. The KPI's denormalized `currentValue`/`currentValueDate` are recomputed from
          *     the max-dated point in the same transaction, the addition mints a `VALUE_RECORDED`
@@ -3495,7 +3496,7 @@ export interface components {
         CareerPositionWrite: {
             /**
              * Format: date
-             * @description Strict zero-padded ISO YYYY-MM-DD, not in the future. Create: strictly after the
+             * @description Strict zero-padded ISO YYYY-MM-DD, not in the future (one day of timezone tolerance). Create: strictly after the
              *     current position's start (409 otherwise). Correct: strictly between the
              *     neighboring positions' starts (409 otherwise).
              */
@@ -4573,7 +4574,7 @@ export interface components {
         TeamKpiValueWrite: {
             /**
              * Format: date
-             * @description The ISO YYYY-MM-DD date the value was measured — required, strict zero-padded, and never in the future (today is allowed). At most one value per date per KPI.
+             * @description The ISO YYYY-MM-DD date the value was measured — required, strict zero-padded, and never in the future (today is allowed, plus one day of timezone tolerance). At most one value per date per KPI.
              */
             date: string;
             /**

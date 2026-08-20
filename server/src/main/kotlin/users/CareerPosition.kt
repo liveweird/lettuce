@@ -88,8 +88,12 @@ data class CareerPyramidList(
 /**
  * Validates the start date: strict zero-padded ISO `YYYY-MM-DD` (anything else would break
  * the VARCHAR column's lexicographic == chronological ordering) and not in the future —
- * `== today` is allowed. No future starts means the user's latest position is always the
- * CURRENT one, which is what the whole read model (and the SPA's emphasis) keys on.
+ * `== today` is allowed, **plus one day of timezone tolerance** (v2.26.1: the SPA submits the
+ * BROWSER-local date while the server runs UTC, so a user ahead of UTC legitimately sends
+ * "tomorrow" between local and UTC midnight). No future starts means the user's latest
+ * position is always the CURRENT one, which is what the whole read model (and the SPA's
+ * emphasis) keys on — the one-day slack narrows that only briefly (the pyramid's as-of view
+ * may show the person positionless for at most that day, self-healing at UTC midnight).
  */
 internal fun validateCareerPositionStartDate(startDate: String, today: LocalDate = LocalDate.now()) {
     val parsed = try {
@@ -98,7 +102,7 @@ internal fun validateCareerPositionStartDate(startDate: String, today: LocalDate
     } catch (_: DateTimeParseException) {
         throw BadRequestException("Position start date must be an ISO date (YYYY-MM-DD)")
     }
-    if (parsed > today) throw BadRequestException("Position start date must not be in the future")
+    if (parsed > today.plusDays(1)) throw BadRequestException("Position start date must not be in the future")
 }
 
 /** A position IS the full triple (v2.15.1) — every field is required on create and correct. */

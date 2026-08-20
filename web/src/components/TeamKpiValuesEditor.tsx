@@ -80,6 +80,10 @@ export default function TeamKpiValuesEditor({ kpi }: { kpi: TeamKpiResponse }) {
     return saveErrorMessage(err, t, {
       conflict: "teamKpi.error.valueConflict",
       forbidden: "teamKpi.error.savePermission",
+      // An unmapped 4xx/5xx names its status (v2.26.1) instead of masquerading as a network
+      // failure — the UTC-midnight 400 hid behind the generic wording for a whole debugging
+      // session once.
+      failedStatus: "teamKpi.error.updateFailedStatus",
       failed: "teamKpi.error.updateFailed",
     });
   }

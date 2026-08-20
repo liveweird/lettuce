@@ -197,9 +197,11 @@ internal fun validateTeamKpiDefinition(
  * Validates a data point (add and correct): [TeamKpiValueWrite.value] is always required (there is
  * no PLAN flavor), finite, and 0–100 for a PERCENTAGE KPI; [TeamKpiValueWrite.date] is
  * required, strict zero-padded ISO `YYYY-MM-DD` (anything else would break the VARCHAR column's
- * lexicographic == chronological ordering), and not after [today] (`== today` is allowed — the
- * value was measured then, so it can never be in the future). [today] is injectable for tests,
- * the validateGoalDueDate idiom.
+ * lexicographic == chronological ordering), and not after [today] **plus one day of timezone
+ * tolerance** (v2.26.1): the SPA submits the BROWSER-local date while the server clock runs
+ * UTC, so a user ahead of UTC (up to +14h) legitimately sends "tomorrow" between local and
+ * UTC midnight — one day of forward slack covers every such zone, and a behind-UTC user's
+ * local today is never ahead. [today] is injectable for tests, the validateGoalDueDate idiom.
  */
 internal fun validateTeamKpiValue(
     type: TeamKpiType,
@@ -220,7 +222,7 @@ internal fun validateTeamKpiValue(
     } catch (_: DateTimeParseException) {
         throw BadRequestException("Data point date must be an ISO date (YYYY-MM-DD)")
     }
-    if (parsed > today) throw BadRequestException("Data point date must not be in the future")
+    if (parsed > today.plusDays(1)) throw BadRequestException("Data point date must not be in the future")
 }
 
 /**

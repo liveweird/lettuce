@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.26.1",
+    date: "2026-08-21",
+    en: `Fixed a midnight timezone glitch: shortly after midnight, recording a KPI data point or a career position dated "today" could be rejected as "in the future", and for users far west of the server picking today as a goal's due date could be rejected as "in the past" — because the server compared your local date against its own clock. Date checks now allow one day of timezone slack in the right direction. And when the server does reject a KPI data point for an unexpected reason, the message now includes the error code instead of a generic "could not update".`,
+    pl: `Naprawiono nocną usterkę stref czasowych: tuż po północy zapis punktu danych KPI albo pozycji w karierze z dzisiejszą datą mógł zostać odrzucony jako „z przyszłości", a dla osób daleko na zachód od serwera wybranie dzisiejszej daty jako terminu celu mogło zostać odrzucone jako „z przeszłości" — bo serwer porównywał Twoją lokalną datę z własnym zegarem. Kontrole dat dopuszczają teraz jeden dzień luzu strefowego we właściwą stronę. A gdy serwer odrzuci punkt danych KPI z niespodziewanego powodu, komunikat zawiera teraz kod błędu zamiast ogólnego „nie udało się zaktualizować".`,
+  },
+  {
     version: "2.26.0",
     date: "2026-08-20",
     en: `Team KPIs now work across your whole reporting line. The former "KPIs I've set" tab is now "Managed KPIs": besides the KPIs of teams you manage directly, the Reports filter can widen it to every team below you — whoever set their KPIs — and a new sortable Creator column shows exactly that. Creating a KPI works the same way: pick any team you manage directly or indirectly. Recording the measurements is now the team's shared work — team members can add, correct, and remove data points of an active KPI, and the manager is notified of every change. Changing a KPI's state (activating, archiving, reopening) stays with the team's manager and the managers above them — never team members.`,

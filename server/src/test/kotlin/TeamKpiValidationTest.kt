@@ -112,10 +112,13 @@ class TeamKpiValidationTest {
     }
 
     @Test
-    fun `a data-point date accepts today and the past, never the future`() {
+    fun `a data-point date accepts today, the past, and one day of timezone tolerance`() {
         dataPoint(date = "2026-08-01")
         dataPoint(date = "2020-01-15")
-        assertFailsWith<BadRequestException> { dataPoint(date = "2026-08-02") }
+        // v2.26.1: clients submit their BROWSER-local date while the server runs UTC — a
+        // user ahead of UTC legitimately sends "tomorrow" between local and UTC midnight.
+        dataPoint(date = "2026-08-02")
+        assertFailsWith<BadRequestException> { dataPoint(date = "2026-08-03") }
     }
 
     // ---- summary ----
