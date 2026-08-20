@@ -212,6 +212,27 @@ describe("TeamKpiValuesEditor", () => {
     expect(await screen.findByText(/The data point could not be saved/)).toBeInTheDocument();
   });
 
+  test("an unmapped server error on add names its status (v2.26.1)", async () => {
+    // The UTC-midnight future-date 400 once hid behind the generic "Could not update" — an
+    // unmapped 4xx/5xx must at least surface the status code.
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u === "/api/v1/team-kpis/5/values" && !init?.method)
+        return Promise.resolve(jsonResponse(200, { items: VALUES }));
+      if (init?.method === "POST")
+        return Promise.resolve(jsonResponse(400, { title: "Bad Request" }));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<TeamKpiValuesEditor kpi={KPI} />);
+    await screen.findByText("12");
+
+    fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-07-15" } });
+    await user.type(screen.getByLabelText("Value"), "30");
+    await user.click(screen.getByRole("button", { name: "Add value" }));
+    expect(await screen.findByText("Could not update the team KPI (error 400).")).toBeInTheDocument();
+  });
+
   test("the empty state shows when the KPI has no data points", async () => {
     mockApi(mockFetch, []);
     renderWithProviders(<TeamKpiValuesEditor kpi={KPI} />);

@@ -245,8 +245,11 @@ internal fun validateGoalDefinition(
 /**
  * Validates the due date: strict zero-padded ISO `YYYY-MM-DD` (anything else would break the
  * VARCHAR column's lexicographic == chronological ordering) and not earlier than [today]
- * (`== today` is allowed). Runs on every definition save and again on the DRAFT→ACTIVE
- * transition (the route calls it directly — a stale draft must pick a fresh date to activate).
+ * (`== today` is allowed, **minus one day of timezone tolerance** — v2.26.1: the SPA submits
+ * the BROWSER-local date while the server runs UTC, so a user behind UTC in their evening
+ * legitimately sends the server's "yesterday"; the mirror of the KPI/career forward slack).
+ * Runs on every definition save and again on the DRAFT→ACTIVE transition (the route calls it
+ * directly — a stale draft must pick a fresh date to activate).
  */
 internal fun validateGoalDueDate(dueDate: String, today: LocalDate = LocalDate.now()) {
     val parsed = try {
@@ -255,7 +258,7 @@ internal fun validateGoalDueDate(dueDate: String, today: LocalDate = LocalDate.n
     } catch (_: DateTimeParseException) {
         throw BadRequestException("Goal due date must be an ISO date (YYYY-MM-DD)")
     }
-    if (parsed < today) throw BadRequestException("Goal due date must not be in the past")
+    if (parsed < today.minusDays(1)) throw BadRequestException("Goal due date must not be in the past")
 }
 
 /**

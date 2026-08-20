@@ -163,9 +163,11 @@ class GoalValidationTest {
     // ---- due date ----
 
     @Test
-    fun `due date accepts today and future ISO dates`() {
+    fun `due date accepts today, the future, and one day of timezone tolerance backwards`() {
         validateGoalDueDate("2026-08-01", today) // == today is allowed
         validateGoalDueDate("2027-01-01", today)
+        // v2.26.1: a behind-UTC user's local today is the server's yesterday in their evening.
+        validateGoalDueDate("2026-07-31", today)
     }
 
     @Test
@@ -174,7 +176,8 @@ class GoalValidationTest {
         assertFailsWith<BadRequestException> { validateGoalDueDate("31-12-2026", today) }
         assertFailsWith<BadRequestException> { validateGoalDueDate("2026-13-01", today) }
         assertFailsWith<BadRequestException> { validateGoalDueDate("not-a-date!", today) }
-        assertFailsWith<BadRequestException> { validateGoalDueDate("2026-07-31", today) } // yesterday
+        // Yesterday sits inside the timezone tolerance (v2.26.1) — the day before it does not.
+        assertFailsWith<BadRequestException> { validateGoalDueDate("2026-07-30", today) }
     }
 
     // ---- progress ----
