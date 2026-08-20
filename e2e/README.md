@@ -91,7 +91,7 @@ scenario file is the design.
 - [`performance-reviews.spec.ts`](scenarios/performance-reviews.md) — review periods, the full review lifecycle, Distribution + Quadrants views.
 - [`pulse.spec.ts`](scenarios/pulse.md) — the pulse cycle end to end: schedule/open/fill/monitor/close/results/trend/cancel (own serial phase).
 - [`self-reflection.spec.ts`](scenarios/self-reflection.md) — feedback about oneself, delivered to the Provided tab.
-- [`team-kpis.spec.ts`](scenarios/team-kpis.md) — the team-KPI lifecycle, data points + graph, member notifications.
+- [`team-kpis.spec.ts`](scenarios/team-kpis.md) — the team-KPI lifecycle, data points + graph, member notifications, the v2.26.0 member data entry (add row live, lifecycle withheld).
 - [`teams.spec.ts`](scenarios/teams.md) — team CRUD, roster edits, admin-only manager reassignment.
 - [`templates.spec.ts`](scenarios/templates.md) — template CRUD + Insert into the feedback editor.
 - [`tour.spec.ts`](scenarios/tour.md) — the guided tour's landmark order as manager and admin.

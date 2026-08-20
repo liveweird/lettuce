@@ -16,6 +16,10 @@ const BASE = {
   managerId: 7, // the caller manages this one
   managerName: "Me",
   managerDeleted: false,
+  creatorId: 7,
+  creatorName: "Me",
+  creatorDeleted: false,
+  canManage: true,
   title: "Deploy weekly",
   type: "NUMBER",
   targetValue: 52,
@@ -29,6 +33,10 @@ const FOREIGN_ARCHIVED = {
   id: 2,
   managerId: 40,
   managerName: "Mona",
+  creatorId: 40,
+  creatorName: "Mona",
+  creatorDeleted: false,
+  canManage: false,
   title: "Bug backlog",
   type: "PERCENTAGE",
   targetValue: 100,
@@ -95,6 +103,39 @@ describe("TeamKpiTable", () => {
     expect(screen.getByRole("link", { name: "View team KPI Deploy weekly" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View team KPI Bug backlog" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Edit team KPI Deploy weekly" })).not.toBeInTheDocument();
+  });
+
+  test("the managed view carries a sortable Creator column - You for own rows (v2.26.0)", async () => {
+    mockApi(mockFetch, [BASE, FOREIGN_ARCHIVED]);
+    renderWithProviders(<TeamKpiTable view="managed" settingsKey="teamKpis.test5" />);
+
+    expect(await screen.findByText("Deploy weekly")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Creator" })).toBeInTheDocument();
+    // The caller's own creation renders "You"; a foreign creator by name (PersonCell).
+    expect(screen.getByText("You")).toBeInTheDocument();
+    expect(screen.getByText("Mona")).toBeInTheDocument();
+  });
+
+  test("the own view shows no Creator column", async () => {
+    mockApi(mockFetch, [BASE]);
+    renderWithProviders(<TeamKpiTable view="own" settingsKey="teamKpis.test6" />);
+    expect(await screen.findByText("Deploy weekly")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Creator" })).not.toBeInTheDocument();
+  });
+
+  test("the Reports scope filter widens the query to includeIndirect (v2.26.0)", async () => {
+    mockApi(mockFetch);
+    renderWithProviders(<TeamKpiTable view="managed" withReportsScope settingsKey="teamKpis.test7" />);
+    await screen.findByText("Deploy weekly");
+    // The default direct scope sends NO includeIndirect param.
+    expect(kpiUrls(mockFetch)[0]).not.toContain("includeIndirect");
+
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+    fireEvent.click(screen.getByLabelText("Reports", { selector: "input" }));
+    fireEvent.click(await screen.findByRole("option", { name: "All reports (including indirect)" }));
+    await waitFor(() =>
+      expect(kpiUrls(mockFetch).some((u) => u.includes("includeIndirect=true"))).toBe(true),
+    );
   });
 
   test("a soft-deleted team's row says so in the Team cell", async () => {

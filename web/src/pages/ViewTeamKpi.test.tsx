@@ -49,6 +49,11 @@ const KPI = {
   teamDeleted: false,
   managerId: 7,
   managerName: "Me",
+  creatorId: 7,
+  creatorName: "Me",
+  creatorDeleted: false,
+  canManage: true,
+  canRecordValues: true,
   createdAt: new Date(2026, 4, 1).getTime(),
   title: "Deploy weekly",
   description: "One production release per week",
@@ -109,7 +114,8 @@ describe("ViewTeamKpi", () => {
 
     expect(await screen.findByText("Deploy weekly")).toBeInTheDocument();
     expect(screen.getByText("Team AAA")).toBeInTheDocument();
-    expect(screen.getByText("You")).toBeInTheDocument();
+    // Manager AND Creator both render "You" here — the caller set the KPI for their own team.
+    expect(screen.getAllByText("You")).toHaveLength(2);
     expect(screen.getByText("One production release per week")).toBeInTheDocument();
     expect(screen.getByText("Number")).toBeInTheDocument();
     expect(screen.getByText("52")).toBeInTheDocument();
@@ -150,8 +156,38 @@ describe("ViewTeamKpi", () => {
     expect(screen.getAllByRole("button", { name: /Remove the value of/ })).toHaveLength(2);
   });
 
-  test("a member sees the KPI data read-only — no add or per-row controls", async () => {
-    mockApi(mockFetch, { ...KPI, managerId: 99, managerName: "Mona" });
+  test("a member edits the KPI data but gets no lifecycle actions (v2.26.0)", async () => {
+    // The server grants a team member canRecordValues but never canManage.
+    mockApi(mockFetch, {
+      ...KPI,
+      managerId: 99,
+      managerName: "Mona",
+      canManage: false,
+      canRecordValues: true,
+    });
+    const user = userEvent.setup();
+    renderView();
+    await screen.findByText("Deploy weekly");
+
+    await user.click(screen.getByRole("tab", { name: "KPI data" }));
+    expect(await screen.findByText("12")).toBeInTheDocument();
+    // Recording data is the team's shared work now — the add row and per-row controls show.
+    expect(screen.getByRole("button", { name: "Add value" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Edit the value of/ })).toHaveLength(2);
+    // But the lifecycle stays the manager's (and chain's): no actions, no Edit link.
+    expect(screen.queryByRole("button", { name: "Archive" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
+  });
+
+  test("a chain viewer without team membership sees the KPI data read-only", async () => {
+    // HR (or any read-granted caller outside the value writers): both capabilities false.
+    mockApi(mockFetch, {
+      ...KPI,
+      managerId: 99,
+      managerName: "Mona",
+      canManage: false,
+      canRecordValues: false,
+    });
     const user = userEvent.setup();
     renderView();
     await screen.findByText("Deploy weekly");
@@ -160,7 +196,6 @@ describe("ViewTeamKpi", () => {
     expect(await screen.findByText("12")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Add value" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Edit the value of/ })).not.toBeInTheDocument();
-    // A member also gets no lifecycle buttons and no Edit link.
     expect(screen.queryByRole("button", { name: "Archive" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
   });

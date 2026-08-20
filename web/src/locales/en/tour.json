@@ -31,7 +31,7 @@
     "goalsManaged": "Goals I've set — the goals you've set for your reports; the Reports filter can widen the list to goals set further down your chain.",
     "teamKpis": "Team KPIs — the measurable indicators your teams track. Open a KPI to see its data points, a graph of its value over time, and its history.",
     "teamKpisOwn": "My teams' KPIs — the active and archived KPIs of the teams you belong to.",
-    "teamKpisManaged": "KPIs I've set — the KPIs of the teams you manage, drafts included; new KPIs start here.",
+    "teamKpisManaged": "Managed KPIs — the KPIs of the teams you manage, directly or indirectly, drafts included; new KPIs start here.",
     "performance": "Performance — the performance reviews your manager published about you; managers get a second tab with their team's reviews.",
     "performanceOwn": "My performance — every review published about you, period by period, with the ratings and summaries your manager wrote.",
     "performanceManaged": "Team's performance — every subordinate's review for a picked period, with completion at a glance.",

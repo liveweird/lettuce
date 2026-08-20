@@ -593,6 +593,31 @@ class TeamRoutesTest {
     }
 
     @Test
+    fun `includeIndirect widens the managerId filter to the subtree and requires it`() = testApplication {
+        usePostgresTestcontainer()
+        // G manages "upper" {M}; M manages "lower". G's subtree = both teams (v2.26.0 —
+        // backs the KPI create picker).
+        val tag = UUID.randomUUID().toString().substring(0, 8)
+        val grandEmail = uniqueEmail("g-$tag")
+        val grandId = TestUsers.seed(grandEmail, "pw", name = "Grand-$tag", roles = emptySet())
+        val midId = TestUsers.seed(uniqueEmail("m-$tag"), "pw", name = "Mid-$tag", roles = emptySet())
+        TestServices.teams.create(Team(name = "upper-$tag", managerId = grandId, memberIds = listOf(midId)))
+        TestServices.teams.create(Team(name = "lower-$tag", managerId = midId))
+
+        val grand = authedClient(grandEmail, "pw")
+        val direct = grand.get("/api/v1/teams?name=$tag&managerId=$grandId").body<TeamPageResponse>()
+        assertEquals(listOf("upper-$tag"), direct.items.map { it.name })
+        val wide = grand.get("/api/v1/teams?name=$tag&managerId=$grandId&includeIndirect=true&sort=name")
+            .body<TeamPageResponse>()
+        assertEquals(listOf("lower-$tag", "upper-$tag"), wide.items.map { it.name })
+        // A lone flag without managerId is a clean 400 (nothing to widen).
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            grand.get("/api/v1/teams?includeIndirect=true").status,
+        )
+    }
+
+    @Test
     fun `GET teams supports filter by memberId`() = testApplication {
         usePostgresTestcontainer()
         val tag = UUID.randomUUID().toString().substring(0, 8)

@@ -156,7 +156,7 @@ test("a manager walks a team KPI around the whole lifecycle, managing its data p
   await expect(rowByTitle(page, title)).toHaveCount(0);
 });
 
-test("activating at creation notifies the members, who see the KPI read-only in My teams' KPIs", async ({ page }) => {
+test("activating at creation notifies the members, who record data but drive no lifecycle", async ({ page }) => {
   const title = uniqueText("E2E-kpi-active");
 
   await login(page, MANAGER_AAA);
@@ -183,11 +183,13 @@ test("activating at creation notifies the members, who see the KPI read-only in 
   await expect(page).toHaveURL(new RegExp(`/team-kpis/${id}/view`));
   // exact: the notification wordings also contain the title as a substring.
   await expect(page.getByText(title, { exact: true })).toBeVisible();
-  // Read-only from the member's side: no lifecycle actions, no Edit, no data-point editing.
+  // The member's side (v2.26.0): recording data is the team's shared work — the add row is
+  // live and the member records a point — but the lifecycle stays the manager's: no
+  // Archive/Return-to-draft actions, no Edit link.
   await expect(page.getByRole("button", { name: "Archive" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Edit", exact: true })).toHaveCount(0);
   await page.getByRole("tab", { name: "KPI data" }).click();
-  await expect(page.getByRole("button", { name: "Add value" })).toHaveCount(0);
+  await addValue(page, id, "2026-07-28", "44");
 
   // The nav page lists it under "My teams' KPIs" — the row action is View here too.
   await page.goto("/team-kpis");

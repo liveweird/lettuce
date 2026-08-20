@@ -26,6 +26,11 @@ const DRAFT_KPI = {
   teamDeleted: false,
   managerId: 7,
   managerName: "Me",
+  creatorId: 7,
+  creatorName: "Me",
+  creatorDeleted: false,
+  canManage: true,
+  canRecordValues: true,
   createdAt: Date.now(),
   title: "Deploy weekly",
   description: "One release per week",
@@ -155,7 +160,7 @@ describe("EditTeamKpi", () => {
 
   test("a non-manager, an ACTIVE, and an ARCHIVED KPI all redirect to the view screen", async () => {
     // The route edits DRAFT definitions only (v1.29.0) — data points live on the view screen.
-    mockApi(mockFetch, { ...DRAFT_KPI, managerId: 99 });
+    mockApi(mockFetch, { ...DRAFT_KPI, managerId: 99, canManage: false, canRecordValues: false });
     renderEdit();
     expect(await screen.findByTestId("view-screen")).toBeInTheDocument();
 

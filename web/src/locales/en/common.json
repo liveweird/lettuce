@@ -38,7 +38,8 @@
     "preview": "Preview",
     "careerPath": "Career path",
     "careerSpecialization": "Career specialization",
-    "seniorityLevel": "Seniority level"
+    "seniorityLevel": "Seniority level",
+    "creator": "Creator"
   },
   "emoji": {
     "insert": "Insert emoji"

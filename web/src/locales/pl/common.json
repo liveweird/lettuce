@@ -38,7 +38,8 @@
     "preview": "Podgląd",
     "careerPath": "Ścieżka kariery",
     "careerSpecialization": "Specjalizacja",
-    "seniorityLevel": "Poziom zaszeregowania"
+    "seniorityLevel": "Poziom zaszeregowania",
+    "creator": "Utworzył/a"
   },
   "emoji": {
     "insert": "Wstaw emoji"

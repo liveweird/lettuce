@@ -15,9 +15,12 @@ function isTeamKpisTab(value: string | null): value is TeamKpisTab {
 }
 
 // The nav "Team KPIs" page. Tab "My teams' KPIs" is the unpinned own view — every active or
-// archived KPI of the teams the caller belongs to (drafts stay private to the manager). Tab
-// "KPIs I've set" (managers only, the MyGoals gate) is the unpinned managed view across all
-// the caller's teams, every status, with the "New team KPI" entry point.
+// archived KPI of the teams the caller belongs to (drafts stay private to the manager+chain).
+// Tab "Managed KPIs" (renamed in v2.26.0 — with the Reports scope it also lists KPIs OTHER
+// managers set for subtree teams; managers only, the MyGoals gate) is the unpinned managed
+// view, every status, with the Creator column, the direct-vs-indirect scope filter, and the
+// "New team KPI" entry point. The useIsManager probe stays correct for the subtree scope:
+// every manager in anyone's subtree directly manages at least one team.
 export default function MyTeamKpis() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -69,7 +72,7 @@ export default function MyTeamKpis() {
               <Text size="sm" c="dimmed">
                 {t("teamKpi.managedKpisHint")}
               </Text>
-              <TeamKpiTable view="managed" backTo="/team-kpis?tab=managed" />
+              <TeamKpiTable view="managed" withReportsScope backTo="/team-kpis?tab=managed" />
               {/* The create entry point sits below the list — the house footer convention
                   (the UserGoals pattern). */}
               <Group justify="flex-end">

@@ -13,7 +13,6 @@ import {
 import { IconCheck, IconPencil, IconTrash, IconX } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { getUserId } from "../api/session";
 import { addTeamKpiValue, deleteTeamKpiValue, listTeamKpiValues, updateTeamKpiValue, type TeamKpiResponse, type TeamKpiValue } from "../api/teamkpis";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import ConfirmDeleteModal from "./ConfirmDeleteModal";
@@ -27,19 +26,20 @@ import { saveErrorMessage } from "../utils/saveError";
 type RowDraft = { id: number; date: string; value: number | string };
 
 /**
- * The KPI data tab: the collected data points (date + value), newest first. The current manager
- * may add, correct, and remove points while the KPI is ACTIVE — every operation persists
- * immediately (there is no Save button on the screen); everyone else (and every other status)
- * gets the read-only list. One value per date: a duplicate date is caught client-side against
- * the loaded list, and a racing 409 from the server maps to the same wording.
+ * The KPI data tab: the collected data points (date + value), newest first. Whoever the server
+ * granted `canRecordValues` (v2.26.0 — the team's manager, the chain above them, and the
+ * team's current members) may add, correct, and remove points while the KPI is ACTIVE — every
+ * operation persists immediately (there is no Save button on the screen); everyone else (and
+ * every other status) gets the read-only list. One value per date: a duplicate date is caught
+ * client-side against the loaded list, and a racing 409 from the server maps to the same
+ * wording.
  */
 export default function TeamKpiValuesEditor({ kpi }: { kpi: TeamKpiResponse }) {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const locale = i18n.language;
 
-  const isManager = getUserId() === kpi.managerId;
-  const canEdit = isManager && kpi.status === "ACTIVE";
+  const canEdit = kpi.canRecordValues && kpi.status === "ACTIVE";
 
   const { data: values, isLoading, isError } = useQuery({
     queryKey: ["teamKpiValues", kpi.id],
@@ -140,7 +140,7 @@ export default function TeamKpiValuesEditor({ kpi }: { kpi: TeamKpiResponse }) {
 
   return (
     <>
-      {isManager && !canEdit && (
+      {kpi.canRecordValues && !canEdit && (
         <Text size="sm" c="dimmed" mb="sm">
           {t("teamKpi.valuesInactiveHint")}
         </Text>

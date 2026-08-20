@@ -1,4 +1,4 @@
-# Team KPIs — lifecycle, inline data points, member read-only view
+# Team KPIs — lifecycle, inline data points, the members' shared data entry
 
 - **Spec**: [tests/team-kpis.spec.ts](../tests/team-kpis.spec.ts)
 - **Actors**: Manager AAA (KPI author — manages team AAA), AAA One (a team AAA member)
@@ -6,7 +6,9 @@
   every scenario deletes its KPI before ending (delete is DRAFT-only, so cleanup returns the KPI
   to draft first when needed); seeded accounts are never mutated
 - **Since**: v1.29.0 (the tabbed view screen as THE KPI screen), v1.29.1 (a manager's DRAFT row
-  opens the editor directly), v1.30.0 (members notified about recorded data points)
+  opens the editor directly), v1.30.0 (members notified about recorded data points), v2.26.0
+  (recording data is the team's shared work — members add/correct/remove points; lifecycle stays
+  manager-or-chain)
 
 ## Scenario: a manager walks a team KPI around the whole lifecycle, managing its data points inline
 
@@ -40,7 +42,7 @@
 12. Cleanup: return to draft, delete from the draft editor (confirming "Delete this draft KPI?").
     - *Expected*: the KPI is gone from the drill-down list.
 
-## Scenario: activating at creation notifies the members, who see the KPI read-only in My teams' KPIs
+## Scenario: activating at creation notifies the members, who record data but drive no lifecycle
 
 1. Manager AAA signs in, opens team AAA's KPI drill-down, and creates a KPI, answering the
    activate prompt with **Yes**.
@@ -51,8 +53,9 @@
    - *Expected*: two notifications naming the KPI and the team — one for the recorded value
      ("recorded 42 for Jul 27, 2026 …") and one for the activation.
 4. AAA One follows the activation notification's **Go to** link.
-   - *Expected*: the KPI document opens, and it is read-only from the member's side — no Archive,
-     no Edit, and no "Add value" on the KPI data tab.
+   - *Expected*: the KPI document opens with **no lifecycle affordances** — no Archive, no Edit —
+     but the KPI data tab offers the add row (v2.26.0: data entry is the team's shared work), and
+     AAA One records a point (Jul 28, 2026 → 44).
 5. AAA One opens the Team KPIs nav page.
    - *Expected*: the KPI is listed under "My teams' KPIs" as Active, and the row action here is
      **View** too.

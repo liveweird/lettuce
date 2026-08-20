@@ -12,6 +12,8 @@ type TeamListQuery = {
   sort?: string;
   name?: string;
   managerId?: number;
+  /** Only with managerId (v2.26.0): widen to that manager's transitive subtree of teams. */
+  includeIndirect?: boolean;
   memberId?: number;
 };
 
@@ -60,6 +62,7 @@ export async function listTeams(q: TeamListQuery): Promise<TeamPage> {
   if (q.sort) params.set("sort", q.sort);
   if (q.name) params.set("name", q.name);
   if (q.managerId != null) params.set("managerId", String(q.managerId));
+  if (q.includeIndirect) params.set("includeIndirect", "true");
   if (q.memberId != null) params.set("memberId", String(q.memberId));
   const res = await authedFetch(`/api/v1/teams?${params.toString()}`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
@@ -109,7 +112,9 @@ export async function listTeamMembers(q: TeamMemberListQuery): Promise<TeamMembe
 }
 
 /** Every team (optionally: of one member), paging until the server total is reached. */
-export async function listAllTeams(filter: { memberId?: number } = {}): Promise<TeamPage["items"]> {
+export async function listAllTeams(
+  filter: { memberId?: number; managerId?: number; includeIndirect?: boolean } = {},
+): Promise<TeamPage["items"]> {
   const items: TeamPage["items"] = [];
   let page = 1;
   for (;;) {

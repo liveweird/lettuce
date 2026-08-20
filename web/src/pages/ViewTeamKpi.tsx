@@ -91,7 +91,8 @@ export default function ViewTeamKpi() {
   if (!idIsValid) return <Navigate to={backTo} replace />;
 
   const currentUserId = getUserId();
-  const isManager = data != null && currentUserId != null && currentUserId === data.managerId;
+  // The server-computed manager-or-chain capability (v2.26.0) — the SPA never walks chains.
+  const canManage = data?.canManage === true;
   const errorStatus = error instanceof ApiError ? error.status : null;
   const errorMessage =
     errorStatus === 404
@@ -151,6 +152,11 @@ export default function ViewTeamKpi() {
                 <ReadOnlyField label={t("teamKpi.manager")}>
                   <Text size="sm">
                     {currentUserId === data.managerId ? t("common.state.you") : data.managerName}
+                  </Text>
+                </ReadOnlyField>
+                <ReadOnlyField label={t("common.field.creator")}>
+                  <Text size="sm">
+                    {currentUserId === data.creatorId ? t("common.state.you") : data.creatorName}
                   </Text>
                 </ReadOnlyField>
                 <ReadOnlyField label={t("teamKpi.createdAt")}>
@@ -225,7 +231,7 @@ export default function ViewTeamKpi() {
             <Button component={RouterLink} to={backTo} variant="default" disabled={submitting != null}>
               {t("common.action.close")}
             </Button>
-            {isManager && data && data.status === "DRAFT" && (
+            {canManage && data && data.status === "DRAFT" && (
               <Button
                 component={RouterLink}
                 to={editLink}
@@ -236,7 +242,7 @@ export default function ViewTeamKpi() {
                 {t("common.action.edit")}
               </Button>
             )}
-            {isManager &&
+            {canManage &&
               data &&
               ACTIONS[data.status].map((action) => (
                 <Button

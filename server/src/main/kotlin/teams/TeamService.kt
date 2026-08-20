@@ -250,9 +250,24 @@ class TeamService(val database: R2dbcDatabase) {
             } > 0
         }
 
-    suspend fun list(filter: TeamListFilter, paging: PageRequest): TeamListResult =
+    /**
+     * [includeIndirect] (v2.26.0, only with a `managerId` filter — the route 400s otherwise)
+     * widens the manager-equality filter to the manager's transitive subtree: teams managed by
+     * them or by anyone below them (the listMembers MANAGED idiom). Backs the KPI create
+     * picker's "any team I manage directly or indirectly".
+     */
+    suspend fun list(
+        filter: TeamListFilter,
+        paging: PageRequest,
+        includeIndirect: Boolean = false,
+    ): TeamListResult =
         suspendTransaction(database) {
-            val predicate: Op<Boolean> = buildPredicate(filter) and active()
+            var predicate: Op<Boolean> =
+                buildPredicate(if (includeIndirect) filter.copy(managerId = null) else filter) and active()
+            if (includeIndirect && filter.managerId != null) {
+                predicate = predicate and
+                    (Teams.managerId inList (transitiveSubordinateIds(filter.managerId) + filter.managerId))
+            }
             val join = Teams innerJoin UserService.Users
             val total = join.selectAll().where { predicate }.count()
             val rows = join
