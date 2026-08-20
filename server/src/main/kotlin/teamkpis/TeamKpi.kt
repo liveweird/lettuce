@@ -89,9 +89,20 @@ data class TeamKpiResponse(
     val teamName: String,
     val teamDeleted: Boolean,
     // The team's CURRENT manager, resolved from teams.manager_id at read time — never stored on
-    // the row. Write access and the SPA's edit affordances key on it.
+    // the row. Every write right keys on it (plus the chain above — v2.26.0).
     val managerId: UInt,
     val managerName: String,
+    // Who created the KPI (V62) — informational only, no right ever keys on it.
+    val creatorId: UInt,
+    val creatorName: String,
+    val creatorDeleted: Boolean,
+    // Server-computed capability flags (v2.26.0 — the SPA cannot walk management chains):
+    // canManage = definition edits, delete, and lifecycle transitions (the team's current
+    // manager + the chain above); canRecordValues = canManage OR current team member (the
+    // data-point rights, exercised while ACTIVE). Stamped by the routes per caller; the
+    // service-internal toResponse defaults them false.
+    val canManage: Boolean = false,
+    val canRecordValues: Boolean = false,
     val createdAt: Long,
     val title: String,
     val description: String,
@@ -117,6 +128,11 @@ data class TeamKpiListItem(
     val managerId: UInt,
     val managerName: String,
     val managerDeleted: Boolean,
+    // The stored creator (V62, informational) + the caller's manage right (see TeamKpiResponse).
+    val creatorId: UInt,
+    val creatorName: String,
+    val creatorDeleted: Boolean,
+    val canManage: Boolean,
     val title: String,
     val type: TeamKpiType,
     val targetValue: Double,

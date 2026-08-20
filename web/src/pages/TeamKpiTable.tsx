@@ -9,6 +9,8 @@ import { listTeamKpis, type TeamKpiListView, type TeamKpiStatus } from "../api/t
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
 import FilterPanel from "../components/FilterPanel";
+import PersonCell from "../components/PersonCell";
+import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import TeamKpiStatusBadge from "../components/TeamKpiStatusBadge";
 import PaginationBar from "../components/PaginationBar";
 import SortHeader from "../components/SortHeader";
@@ -27,10 +29,11 @@ import { teamKpiEditLink, teamKpiViewLink } from "../utils/teamKpiLinks";
 import { loadErrorMessage } from "../utils/saveError";
 
 const BASE_SORT_FIELDS = ["title", "createdAt", "status", "targetValue", "currentValue"] as const;
-type SortField = (typeof BASE_SORT_FIELDS)[number] | "teamName";
+type SortField = (typeof BASE_SORT_FIELDS)[number] | "teamName" | "creatorName";
 
 const CREATED_WINDOWS = ["all", "month", "sixMonths"] as const;
 const STATUS_VALUES = ["DRAFT", "ACTIVE", "ARCHIVED"] as const;
+const REPORTS_SCOPES = ["direct", "all"] as const;
 
 /**
  * The team-KPI list — filters (title substring, team substring, creation window, status),
@@ -46,6 +49,7 @@ export default function TeamKpiTable({
   teamId,
   settingsKey,
   backTo,
+  withReportsScope = false,
 }: {
   view: TeamKpiListView;
   /** Scope to one team's KPIs (the per-team drill-down); hides the Team column. */
@@ -54,13 +58,20 @@ export default function TeamKpiTable({
   settingsKey?: string;
   /** When set, action links carry a back=… override so detail pages return here. */
   backTo?: string;
+  /** Managed tab only (v2.26.0): the direct-vs-indirect Reports scope filter. */
+  withReportsScope?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const currentUserId = getUserId();
   const teamColumnVisible = teamId == null;
-  const sortFields: readonly SortField[] = teamColumnVisible
-    ? [...BASE_SORT_FIELDS, "teamName"]
-    : BASE_SORT_FIELDS;
+  // The Creator column (v2.26.0): managed surfaces only — the subtree view lists KPIs set by
+  // other managers, so who set each one becomes information; the member view stays lean.
+  const creatorColumnVisible = view === "managed";
+  const sortFields: readonly SortField[] = [
+    ...BASE_SORT_FIELDS,
+    ...(teamColumnVisible ? (["teamName"] as const) : []),
+    ...(creatorColumnVisible ? (["creatorName"] as const) : []),
+  ];
   const columnCount = sortFields.length + 1; // sortable columns + the actions column
 
   const storeKey = settingsKey ?? `teamKpis.${view}`;
@@ -72,11 +83,17 @@ export default function TeamKpiTable({
   const [statusFilter, setStatusFilter] = useStoredState<TeamKpiStatus | null>(
     `${storeKey}.filter.status`, null, isOneOfOrNull(STATUS_VALUES),
   );
+  // The direct-vs-subtree scope (v2.26.0, the GoalTable withReportsScope idiom).
+  const [reportsScope, setReportsScope] = useStoredState<(typeof REPORTS_SCOPES)[number]>(
+    `${storeKey}.filter.reportsScope`, "direct", isOneOf(REPORTS_SCOPES),
+  );
+  const includeIndirect = withReportsScope && reportsScope === "all";
   const activeFilterCount =
     (titleFilter.trim() ? 1 : 0) +
     (teamColumnVisible && teamFilter.trim() ? 1 : 0) +
     (createdWindow !== "all" ? 1 : 0) +
-    (statusFilter ? 1 : 0);
+    (statusFilter ? 1 : 0) +
+    (includeIndirect ? 1 : 0);
 
   const [debouncedTitle] = useDebouncedValue(titleFilter, 300);
   const [debouncedTeam] = useDebouncedValue(teamFilter, 300);
@@ -84,7 +101,7 @@ export default function TeamKpiTable({
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
     usePagedSort<SortField>(
       "createdAt",
-      [debouncedTitle, debouncedTeam, createdWindow, statusFilter],
+      [debouncedTitle, debouncedTeam, createdWindow, statusFilter, includeIndirect],
       { key: storeKey, sortFields },
       "desc", // newest KPIs first (the server's default order)
     );
@@ -101,6 +118,7 @@ export default function TeamKpiTable({
       debouncedTeam,
       createdWindow,
       statusFilter,
+      includeIndirect,
     ],
     queryFn: () =>
       listTeamKpis({
@@ -113,6 +131,7 @@ export default function TeamKpiTable({
         status: statusFilter ?? undefined,
         teamId,
         createdAtGte: createdWindowCutoff(createdWindow),
+        includeIndirect: includeIndirect || undefined,
       }),
     placeholderData: keepPreviousData,
   });
@@ -122,6 +141,12 @@ export default function TeamKpiTable({
   return (
     <Stack gap="md">
       <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey}>
+        {withReportsScope && (
+          <ReportsScopeSelect
+            value={reportsScope}
+            onChange={(v) => setReportsScope(v)}
+          />
+        )}
         <ClearableTextInput
           label={t("teamKpi.title")}
           value={titleFilter}
@@ -186,6 +211,17 @@ export default function TeamKpiTable({
                 onToggle={toggleSort}
               />
             </Table.Th>
+            {creatorColumnVisible && (
+              <Table.Th>
+                <SortHeader
+                  field="creatorName"
+                  label={t("common.field.creator")}
+                  activeField={sortField}
+                  activeDir={sortDir}
+                  onToggle={toggleSort}
+                />
+              </Table.Th>
+            )}
             <Table.Th>
               <SortHeader
                 field="createdAt"
@@ -232,8 +268,8 @@ export default function TeamKpiTable({
             data.items.map((k) => {
               const backParam = backTo || undefined;
               // DRAFT-only (the GoalTable idiom, narrowed): everything else opens the view.
-              const canEdit =
-                currentUserId != null && k.managerId === currentUserId && k.status === "DRAFT";
+              // canManage is the server-computed manager-or-chain capability (v2.26.0).
+              const canEdit = k.canManage && k.status === "DRAFT";
               return (
                 <Table.Tr key={k.id}>
                   {teamColumnVisible && (
@@ -251,6 +287,16 @@ export default function TeamKpiTable({
                       {k.title}
                     </Text>
                   </Table.Td>
+                  {creatorColumnVisible && (
+                    <Table.Td>
+                      <PersonCell
+                        userId={k.creatorId}
+                        name={k.creatorName}
+                        deleted={k.creatorDeleted}
+                        currentUserId={currentUserId}
+                      />
+                    </Table.Td>
+                  )}
                   <Table.Td style={{ whiteSpace: "nowrap" }} title={formatTimestamp(k.createdAt)}>
                     {formatDate(k.createdAt, i18n.language)}
                   </Table.Td>

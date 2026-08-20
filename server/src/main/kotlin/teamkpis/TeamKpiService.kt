@@ -10,6 +10,7 @@ import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.notifications.Notification
 import ch.nokillswit.teams.TeamService
 import ch.nokillswit.teams.isInManagementChain
+import ch.nokillswit.teams.transitiveSubordinateIds
 import ch.nokillswit.users.UserService
 import io.ktor.util.AttributeKey
 import kotlinx.coroutines.flow.map
@@ -47,11 +48,13 @@ data class TeamKpiValueCorrection(
 )
 
 private val managerUsers = UserService.Users.alias("manager_users")
+private val creatorUsers = UserService.Users.alias("creator_users")
 
 private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
     "id" to TeamKpiService.TeamKpis.id,
     "teamName" to TeamService.Teams.name,
     "managerName" to managerUsers[UserService.Users.name],
+    "creatorName" to creatorUsers[UserService.Users.name],
     "title" to TeamKpiService.TeamKpis.title,
     "type" to TeamKpiService.TeamKpis.type,
     "status" to TeamKpiService.TeamKpis.status,
@@ -68,11 +71,14 @@ private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
 //
 // There is no manager_id column: the KPI belongs to the TEAM, and the manager is resolved from
 // teams.manager_id at read time — so a reassigned team's new manager takes over its KPIs.
+// created_by (V62) is purely INFORMATIONAL — the Creator column; no right ever keys on it
+// (a creator who leaves the team's chain loses access, by decision — v2.26.0).
 class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCipher) : EncryptedAtRest {
     override val encryptedRowLabel = "team KPI"
 
     object TeamKpis : UIntIdTable("team_kpis") {
         val teamId = reference("team_id", TeamService.Teams)
+        val createdBy = reference("created_by", UserService.Users)
         val createdAt = long("created_at")
         val title = varchar("title", MAX_TEAM_KPI_TITLE_LENGTH)
         val description = text("description")
@@ -98,15 +104,17 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
     private fun active(): Op<Boolean> = TeamKpis.markedAsDeleted eq false
 
     /**
-     * Inserts a new KPI, always in DRAFT status, with its current value initialized to 0.0. The
-     * route has already verified the caller manages the team; the definition invariants are
+     * Inserts a new KPI, always in DRAFT status, with its current value initialized to 0.0 and
+     * [creatorId] stamped as created_by (informational — the Creator column). The route has
+     * already verified the caller manages the team or its chain; the definition invariants are
      * validated here. Returns the new id.
      */
-    suspend fun create(request: TeamKpiCreateRequest): UInt = suspendTransaction(database) {
+    suspend fun create(request: TeamKpiCreateRequest, creatorId: UInt): UInt = suspendTransaction(database) {
         validateTeamKpiDefinition(request.title, request.description, request.type, request.targetValue)
         val now = System.currentTimeMillis()
         TeamKpis.insert {
             it[teamId] = request.teamId
+            it[createdBy] = creatorId
             it[createdAt] = now
             it[title] = request.title
             it[description] = cipher.encrypt(request.description)
@@ -284,6 +292,7 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
         id: UInt,
         from: TeamKpiStatus,
         target: TeamKpiStatus,
+        actorId: UInt,
         summary: String? = null,
     ): List<Notification>? {
         return suspendTransaction(database) {
@@ -309,13 +318,26 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
                 from = current.status,
                 to = target,
                 memberIds = memberIdsOf(current.teamId),
-                actingManagerId = current.managerId,
-                managerName = current.managerName,
+                teamManagerId = current.managerId,
+                actorId = actorId,
+                actorName = userNameOf(actorId) ?: current.managerName,
                 title = current.title,
                 teamName = current.teamName,
             )
         }
     }
+
+    /** The actor's display name, resolved inside the caller's transaction (v2.26.0 — the actor
+     *  may be a chain manager or a member, not necessarily the team's manager). */
+    private suspend fun userNameOf(userId: UInt): String? =
+        UserService.Users
+            .select(UserService.Users.name)
+            .where { UserService.Users.id eq userId }
+            .map { it[UserService.Users.name] }
+            .singleOrNull()
+
+    /** Public wrapper for the values routes' notification fan-out (own transaction). */
+    suspend fun actorName(userId: UInt): String? = suspendTransaction(database) { userNameOf(userId) }
 
     suspend fun delete(id: UInt): Int = suspendTransaction(database) {
         TeamKpis.update({ (TeamKpis.id eq id) and (TeamKpis.markedAsDeleted eq false) }) {
@@ -328,11 +350,15 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
         callerUserId: UInt,
         filter: TeamKpiListFilter,
         paging: PageRequest,
+        includeIndirect: Boolean = false,
     ): TeamKpiListResult = suspendTransaction(database) {
+        // One chain walk per request (the pyramidRows idiom): the manager ids whose teams the
+        // caller may manage — feeds both the includeIndirect scope and the per-row canManage.
+        val manageableManagerIds = transitiveSubordinateIds(callerUserId) + callerUserId
         val scope: Op<Boolean> = when (view) {
             // The member view: KPIs of the (non-deleted) teams the caller belongs to, once out
-            // of DRAFT — a draft stays private to the manager, mirroring the single-GET rule so
-            // every listed row is openable.
+            // of DRAFT — a draft stays private to the manager+chain, mirroring the single-GET
+            // rule so every listed row is openable.
             TeamKpiListView.OWN -> {
                 val memberTeams = TeamService.TeamMembers
                     .join(
@@ -348,13 +374,18 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
                     }
                 (TeamKpis.teamId inSubQuery memberTeams) and (TeamKpis.status neq TeamKpiStatus.DRAFT)
             }
-            // The manager view: KPIs of the teams whose CURRENT manager the caller is, at every
-            // status — soft-deleted teams included, so the manager keeps the history (flagged
-            // via teamDeleted).
+            // The manager view: KPIs of the teams whose CURRENT manager the caller is — or,
+            // with includeIndirect (v2.26.0), any manager in the caller's transitive subtree
+            // (the TeamService managed-view idiom) — at every status, DRAFTs included (the
+            // chain reads drafts since v2.26.0, so every row stays openable); soft-deleted
+            // teams included, so managers keep the history (flagged via teamDeleted).
             TeamKpiListView.MANAGED -> {
+                val managerScope: Op<Boolean> =
+                    if (includeIndirect) TeamService.Teams.managerId inList manageableManagerIds
+                    else TeamService.Teams.managerId eq callerUserId
                 val managedTeams = TeamService.Teams
                     .select(TeamService.Teams.id)
-                    .where { TeamService.Teams.managerId eq callerUserId }
+                    .where { managerScope }
                 TeamKpis.teamId inSubQuery managedTeams
             }
         }
@@ -377,6 +408,9 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
                 TeamService.Teams.managerId,
                 managerUsers[UserService.Users.name],
                 managerUsers[UserService.Users.markedAsDeleted],
+                TeamKpis.createdBy,
+                creatorUsers[UserService.Users.name],
+                creatorUsers[UserService.Users.markedAsDeleted],
             )
             .where { predicate }
             .applyPaging(paging, SORTABLE_COLUMNS)
@@ -389,6 +423,12 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
                     managerId = row[TeamService.Teams.managerId].value,
                     managerName = row[managerUsers[UserService.Users.name]],
                     managerDeleted = row[managerUsers[UserService.Users.markedAsDeleted]],
+                    creatorId = row[TeamKpis.createdBy].value,
+                    creatorName = row[creatorUsers[UserService.Users.name]],
+                    creatorDeleted = row[creatorUsers[UserService.Users.markedAsDeleted]],
+                    // The definition/lifecycle right (manager + chain) — computed off the one
+                    // per-request walk above, so the SPA never reasons about chains.
+                    canManage = row[TeamService.Teams.managerId].value in manageableManagerIds,
                     title = row[TeamKpis.title],
                     type = row[TeamKpis.type],
                     targetValue = row[TeamKpis.targetValue],
@@ -420,7 +460,7 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
             .count() > 0
     }
 
-    /** True iff [userId] is the CURRENT manager of the non-deleted team [teamId] — the POST gate. */
+    /** True iff [userId] is the CURRENT manager of the non-deleted team [teamId]. */
     suspend fun managesTeam(userId: UInt, teamId: UInt): Boolean = suspendTransaction(database) {
         TeamService.Teams
             .select(TeamService.Teams.id)
@@ -430,6 +470,22 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
                     (TeamService.Teams.markedAsDeleted eq false)
             }
             .count() > 0
+    }
+
+    /**
+     * The POST gate (v2.26.0): true iff [userId] manages the non-deleted team [teamId] directly
+     * OR sits in the chain above its current manager — a KPI may be set anywhere in the
+     * caller's subtree. False for a missing/soft-deleted team, so the route's 403 stays
+     * uniform (no existence disclosure through the create probe).
+     */
+    suspend fun managesTeamOrChain(userId: UInt, teamId: UInt): Boolean = suspendTransaction(database) {
+        val teamManagerId = TeamService.Teams
+            .select(TeamService.Teams.managerId)
+            .where { (TeamService.Teams.id eq teamId) and (TeamService.Teams.markedAsDeleted eq false) }
+            .map { it[TeamService.Teams.managerId].value }
+            .singleOrNull()
+            ?: return@suspendTransaction false
+        teamManagerId == userId || isInManagementChain(userId, teamManagerId)
     }
 
     /**
@@ -452,7 +508,7 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
     }
 
     // KPI ⋈ its team (INNER — the team row always exists, soft-deleted or not; the manager is
-    // resolved through it) ⋈ the team's current manager.
+    // resolved through it) ⋈ the team's current manager ⋈ the stored creator (V62).
     private fun joined() = TeamKpis
         .join(
             TeamService.Teams,
@@ -466,6 +522,12 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
             onColumn = TeamService.Teams.managerId,
             otherColumn = managerUsers[UserService.Users.id],
         )
+        .join(
+            creatorUsers,
+            JoinType.INNER,
+            onColumn = TeamKpis.createdBy,
+            otherColumn = creatorUsers[UserService.Users.id],
+        )
 
     // Row → full document, from the joined() select (team + manager fields come from the join).
     private fun ResultRow.toResponse(): TeamKpiResponse = TeamKpiResponse(
@@ -475,6 +537,9 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
         teamDeleted = this[TeamService.Teams.markedAsDeleted],
         managerId = this[TeamService.Teams.managerId].value,
         managerName = this[managerUsers[UserService.Users.name]],
+        creatorId = this[TeamKpis.createdBy].value,
+        creatorName = this[creatorUsers[UserService.Users.name]],
+        creatorDeleted = this[creatorUsers[UserService.Users.markedAsDeleted]],
         createdAt = this[TeamKpis.createdAt],
         title = this[TeamKpis.title],
         description = cipher.decrypt(this[TeamKpis.description]),

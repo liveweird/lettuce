@@ -2,15 +2,15 @@
   "sectionTitle": "Team KPIs",
   "tab": {
     "own": "My teams' KPIs",
-    "managed": "KPIs I've set"
+    "managed": "Managed KPIs"
   },
   "myKpisHint": "The active and archived KPIs of the teams you belong to.",
-  "managedKpisHint": "The KPIs of the teams you manage, at every status — drafts included.",
+  "managedKpisHint": "The KPIs of the teams you manage — at every status, drafts included. Widen the Reports filter to also see the KPIs of teams managed below you, whoever set them.",
   "kpisOf": "Team KPIs of {{team}}",
   "kpisOfHint": "The KPIs of this team, at every status you may see.",
   "newKpi": "New team KPI",
   "createTitle": "New team KPI",
-  "createHint": "Pick the team and define the KPI. It starts as a draft — activate it when it should go live.",
+  "createHint": "Pick any team you manage directly or indirectly and define the KPI. It starts as a draft — activate it when it should go live.",
   "pickTeam": "Pick a team",
   "noManagedTeams": "No managed teams available",
   "team": "Team",

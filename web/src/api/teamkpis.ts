@@ -25,6 +25,8 @@ type TeamKpiListQuery = {
   /** Exact team match — the per-team drill-down. */
   teamId?: number;
   createdAtGte?: number;
+  /** view=managed only (v2.26.0): widen to the caller's transitive management subtree. */
+  includeIndirect?: boolean;
 };
 
 export async function listTeamKpis(q: TeamKpiListQuery): Promise<TeamKpiPage> {
@@ -39,6 +41,7 @@ export async function listTeamKpis(q: TeamKpiListQuery): Promise<TeamKpiPage> {
   if (q.type) params.set("type", q.type);
   if (q.teamId != null) params.set("teamId", String(q.teamId));
   if (q.createdAtGte != null) params.set("createdAt[gte]", String(q.createdAtGte));
+  if (q.includeIndirect) params.set("includeIndirect", "true");
   const res = await authedFetch(`/api/v1/team-kpis?${params.toString()}`);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   return (await res.json()) as TeamKpiPage;
@@ -47,7 +50,8 @@ export async function listTeamKpis(q: TeamKpiListQuery): Promise<TeamKpiPage> {
 export type TeamKpiCreateBody =
   paths["/api/v1/team-kpis"]["post"]["requestBody"]["content"]["application/json"];
 
-// Always creates a DRAFT; the caller must be the team's current manager.
+// Always creates a DRAFT; the caller must manage the team directly or from the chain above
+// (v2.26.0) and is stamped as the KPI's creator (informational).
 export async function createTeamKpi(body: TeamKpiCreateBody): Promise<TeamKpiResponse> {
   const res = await authedFetch("/api/v1/team-kpis", {
     method: "POST",
@@ -92,8 +96,9 @@ export async function listTeamKpiValues(id: number): Promise<TeamKpiValue[]> {
   return ((await res.json()) as TeamKpiValueList).items;
 }
 
-// Data points are only mutable while the KPI is ACTIVE (409 otherwise); a duplicate date is
-// also 409 — at most one value per date.
+// Data points are only mutable while the KPI is ACTIVE (409 otherwise) and by whoever the
+// server granted canRecordValues — the team's manager, their chain, or a team member
+// (v2.26.0); a duplicate date is also 409 — at most one value per date.
 export async function addTeamKpiValue(id: number, body: TeamKpiValueWriteBody): Promise<TeamKpiValue> {
   const res = await authedFetch(`/api/v1/team-kpis/${id}/values`, {
     method: "POST",

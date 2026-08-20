@@ -128,6 +128,7 @@ class TeamKpiEncryptionTest {
         val legacyId = suspendTransaction(TestServices.teamKpis.database) {
             TeamKpiService.TeamKpis.insert {
                 it[TeamKpiService.TeamKpis.teamId] = teamId
+                it[TeamKpiService.TeamKpis.createdBy] = 1u // the seed admin — any user works
                 it[TeamKpiService.TeamKpis.createdAt] = now
                 it[TeamKpiService.TeamKpis.title] = "Legacy KPI"
                 it[TeamKpiService.TeamKpis.description] = "legacy plain description"
@@ -168,9 +169,12 @@ class TeamKpiEncryptionTest {
                 type = TeamKpiType.NUMBER,
                 targetValue = 3.0,
             ),
+            creatorId = 1u,
         )
-        TestServices.teamKpis.transition(id, TeamKpiStatus.DRAFT, TeamKpiStatus.ACTIVE)
-        TestServices.teamKpis.transition(id, TeamKpiStatus.ACTIVE, TeamKpiStatus.ARCHIVED, summary = "rotate this summary")
+        TestServices.teamKpis.transition(id, TeamKpiStatus.DRAFT, TeamKpiStatus.ACTIVE, actorId = 1u)
+        TestServices.teamKpis.transition(
+            id, TeamKpiStatus.ACTIVE, TeamKpiStatus.ARCHIVED, actorId = 1u, summary = "rotate this summary",
+        )
 
         // Boot-time state during rotation: current = new key, previous = old key.
         val rotatingService = TeamKpiService(

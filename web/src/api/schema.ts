@@ -610,7 +610,10 @@ export interface paths {
          *       is always appended as a deterministic tiebreaker.
          *     - Filters (all optional):
          *       - `name` — case- and accent-insensitive substring match against the team's name.
-         *       - `managerId` — exact match against the team's manager id.
+         *       - `managerId` — exact match against the team's manager id; `includeIndirect=true`
+         *         (v2.26.0, valid only together with `managerId` — a lone flag is 400) widens it to
+         *         every team managed by that manager or anyone in their transitive management
+         *         subtree (backs the KPI create picker).
          *       - `memberId` — restrict to teams the given user is a member of.
          *
          *     Each returned item includes the manager's `name` resolved via join so the UI
@@ -1575,23 +1578,26 @@ export interface paths {
          *     reassigned team's new manager takes over its KPIs.
          *
          *     - `view=own` (the default): KPIs of the non-deleted teams the caller is currently a
-         *       **member** of — excluding DRAFTs (a draft stays private to the manager until
-         *       activated, matching the single-GET rule, so every listed row is openable).
+         *       **member** of — excluding DRAFTs (a draft stays private to the manager and their
+         *       chain until activated, matching the single-GET rule, so every listed row is
+         *       openable).
          *     - `view=managed`: KPIs of the teams whose **current manager** the caller is, at every
-         *       status — soft-deleted teams included (their `teamDeleted` flag is set), so a manager
-         *       keeps the history of a disbanded team.
+         *       status — or, with `includeIndirect=true` (v2.26.0), of every team managed by anyone
+         *       in the caller's transitive management subtree. Soft-deleted teams included (their
+         *       `teamDeleted` flag is set), so a manager keeps the history of a disbanded team.
          *
          *     There is deliberately no HR auditor list view (`view=user` on the goal/feedback/1:1
          *     lists is per-user; a team KPI is per-team) — the HR auditor instead has audit-logged
          *     access to every single GET. The `teamId` filter powers the per-team drill-down.
          *
-         *     Rows carry the team and manager names, title, type, status, and the value fields —
-         *     never the description or summary.
+         *     Rows carry the team, manager, and creator names (`createdBy` is informational — no
+         *     right keys on it), the caller's `canManage` capability, title, type, status, and the
+         *     value fields — never the description or summary.
          *
          *     Supports offset pagination, sorting and filtering.
          *
-         *     - Sortable fields: `id`, `teamName`, `managerName`, `title`, `type`, `status`,
-         *       `targetValue`, `currentValue`, `createdAt`, `lastModified`. Default sort is
+         *     - Sortable fields: `id`, `teamName`, `managerName`, `creatorName`, `title`, `type`,
+         *       `status`, `targetValue`, `currentValue`, `createdAt`, `lastModified`. Default sort is
          *       `createdAt` **descending** (newest KPIs first). `id` ascending is always appended as
          *       a deterministic tiebreaker.
          *     - Filters (all optional, all whitelisted):
@@ -1608,9 +1614,12 @@ export interface paths {
         put?: never;
         /**
          * Set a new KPI for a managed team
-         * @description Creates a team KPI, always in **DRAFT** status. The author is always the team's
-         *     **current manager**: the caller must be `teams.manager_id` of the (non-deleted)
-         *     `teamId` at creation time — there is no ADMIN create-on-behalf.
+         * @description Creates a team KPI, always in **DRAFT** status. The caller must manage the
+         *     (non-deleted) `teamId` **directly or from the chain above** — `teams.manager_id`
+         *     itself, or any manager in that manager's transitive management chain (v2.26.0) — at
+         *     creation time; there is no ADMIN create-on-behalf. The caller is stamped as
+         *     `createdBy` (informational — rights always track the team's current manager + chain,
+         *     never the creator).
          *
          *     Unlike goals there is no PLAN type: `targetValue` is **always required** (finite;
          *     0–100 for PERCENTAGE). The KPI starts with no data points (`currentValue` `0.0`,
@@ -1638,13 +1647,14 @@ export interface paths {
         };
         /**
          * Fetch a team KPI
-         * @description Returns the full team-KPI document — team, its current manager, definition, value
-         *     fields, status, and (once archived at least once) the summary. Readable by the team's
-         *     **current manager** and the **HR auditor** (audit-logged) at every status; a current
-         *     **team member**, or any **manager in the chain above the team's manager** (their
-         *     manager, that manager's manager, and so on — over non-deleted teams), may read it only
-         *     once it has left DRAFT (ACTIVE/ARCHIVED) — a draft stays private to the manager.
-         *     Anything else — ADMIN included — is `403`.
+         * @description Returns the full team-KPI document — team, its current manager, the stored creator
+         *     (informational), the caller's `canManage`/`canRecordValues` capabilities, definition,
+         *     value fields, status, and (once archived at least once) the summary. Readable by the
+         *     team's **current manager**, any **manager in the chain above them** (their manager,
+         *     that manager's manager, and so on — over non-deleted teams; since v2.26.0 the chain
+         *     reads DRAFTs too), and the **HR auditor** (audit-logged) at every status; a current
+         *     **team member** may read it only once it has left DRAFT (ACTIVE/ARCHIVED) — a draft
+         *     stays private to the manager and the chain. Anything else — ADMIN included — is `403`.
          */
         get: operations["getTeamKpi"];
         /**
@@ -1666,7 +1676,7 @@ export interface paths {
         /**
          * Delete a draft team KPI
          * @description Soft-deletes a team KPI (the row is flagged, not physically removed, and disappears
-         *     from reads/lists; its audit history is retained). **Current-manager-only** and
+         *     from reads/lists; its audit history is retained). **Manager-or-chain only** (v2.26.0) and
          *     **DRAFT-only** — ACTIVE and ARCHIVED KPIs are records and answer `400`; archive (or
          *     reopen) them through the transitions instead. Nobody is notified.
          */
@@ -1698,7 +1708,7 @@ export interface paths {
         /**
          * Record a data point for an active team KPI
          * @description Adds a data point — data points are only mutable while the KPI is **ACTIVE** (any other
-         *     status is `409`). **Current-manager-only.** `value` is always required (finite; 0–100
+         *     status is `409`). **Manager, chain, or team member** (v2.26.0 — recording data is the team's shared work). `value` is always required (finite; 0–100
          *     for PERCENTAGE), and `date` — the ISO `YYYY-MM-DD` date the value was measured — is
          *     required and must not be in the future (today is allowed). At most **one value per
          *     date**: a date that already has a data point is `409` — correct the existing point
@@ -1729,7 +1739,7 @@ export interface paths {
         /**
          * Correct a data point of an active team KPI
          * @description Corrects a data point's date and/or value — only while the KPI is **ACTIVE** (any
-         *     other status is `409`). **Current-manager-only.** The same value/date rules as adding
+         *     other status is `409`). **Manager, chain, or team member** (v2.26.0 — recording data is the team's shared work). The same value/date rules as adding
          *     apply; moving the point onto a date that already has another data point is `409`. The
          *     denormalized `currentValue`/`currentValueDate` are recomputed in the same transaction.
          *     A real change mints a `VALUE_CORRECTED` audit event (params
@@ -1743,7 +1753,7 @@ export interface paths {
          * Remove a data point of an active team KPI
          * @description Removes a data point (hard delete — the `VALUE_REMOVED` audit event, params
          *     `{date, value}`, keeps the record) — only while the KPI is **ACTIVE** (any other
-         *     status is `409`). **Current-manager-only.** The denormalized
+         *     status is `409`). **Manager, chain, or team member** (v2.26.0 — recording data is the team's shared work). The denormalized
          *     `currentValue`/`currentValueDate` are recomputed in the same transaction: removing the
          *     latest-dated point rolls the current value back to the next-latest (or `0.0`/null when
          *     none remain). Every current team member (except the acting manager) is notified with a
@@ -1769,7 +1779,7 @@ export interface paths {
         /**
          * Activate a draft team KPI
          * @description Moves the KPI `DRAFT → ACTIVE` (any other current status is `409`).
-         *     **Current-manager-only.** Once active, the KPI becomes visible to the team's members
+         *     **Manager-or-chain only** (the team's current manager or the chain above them). Once active, the KPI becomes visible to the team's members
          *     and the chain above its manager, and its data points become editable via the
          *     `/team-kpis/{id}/values` sub-resource. Every current team member (except the acting
          *     manager) is notified; the transition is recorded in the audit history.
@@ -1796,7 +1806,7 @@ export interface paths {
          * Return an active team KPI to draft
          * @description Moves the KPI `ACTIVE → DRAFT` (any other current status is `409`), making its
          *     definition editable again — and hiding it from members and the chain until
-         *     re-activated. **Current-manager-only.** Collected data points are kept (unless the
+         *     re-activated. **Manager-or-chain only** (the team's current manager or the chain above them). Collected data points are kept (unless the
          *     type is later changed in the draft, which wipes them). Every current team member
          *     (except the acting manager) is notified — without a link, since a draft is not
          *     readable by them; the transition is recorded in the audit history.
@@ -1822,7 +1832,7 @@ export interface paths {
         /**
          * Archive an active team KPI
          * @description Moves the KPI `ACTIVE → ARCHIVED` (any other current status is `409`).
-         *     **Current-manager-only.** Archiving always records the body's **summary** (required,
+         *     **Manager-or-chain only** (the team's current manager or the chain above them). Archiving always records the body's **summary** (required,
          *     non-blank — the only moment the summary is settable). The data points are frozen
          *     as-is — correct them via the `/team-kpis/{id}/values` sub-resource *before* archiving.
          *     Every current team member (except the acting manager) is notified; the transition is
@@ -1849,7 +1859,7 @@ export interface paths {
         /**
          * Reopen an archived team KPI
          * @description Moves the KPI `ARCHIVED → ACTIVE` (any other current status is `409`).
-         *     **Current-manager-only.** The stored summary is kept as a record of the previous
+         *     **Manager-or-chain only** (the team's current manager or the chain above them). The stored summary is kept as a record of the previous
          *     archiving and will be overwritten at the next archive. Every current team member
          *     (except the acting manager) is notified; the transition is recorded in the audit
          *     history.
@@ -4606,6 +4616,18 @@ export interface components {
             managerId: number;
             managerName: string;
             /**
+             * Format: int32
+             * @description Who created the KPI (v2.26.0) — informational only; every right tracks the team's current manager + their chain, never the creator.
+             */
+            creatorId: number;
+            creatorName: string;
+            /** @description True when the creator's account has been soft-deleted. */
+            creatorDeleted: boolean;
+            /** @description Server-computed capability of the CALLER (v2.26.0): may edit the definition, delete the draft, and drive the lifecycle — true for the team's current manager and the managers in the chain above them. */
+            canManage: boolean;
+            /** @description Server-computed capability of the CALLER (v2.26.0): may add/correct/remove data points (exercised while ACTIVE) — `canManage` or a current team member. */
+            canRecordValues: boolean;
+            /**
              * Format: int64
              * @description Epoch milliseconds; server-managed, immutable.
              */
@@ -4647,6 +4669,15 @@ export interface components {
             managerId: number;
             managerName: string;
             managerDeleted: boolean;
+            /**
+             * Format: int32
+             * @description Who created the KPI (v2.26.0) — informational only, see TeamKpiResponse.
+             */
+            creatorId: number;
+            creatorName: string;
+            creatorDeleted: boolean;
+            /** @description The CALLER's definition/lifecycle capability — see TeamKpiResponse. */
+            canManage: boolean;
             title: string;
             /** @enum {string} */
             type: "NUMBER" | "PERCENTAGE";
@@ -5634,7 +5665,7 @@ export interface components {
                 "application/problem+json": components["schemas"]["ProblemDetail"];
             };
         };
-        /** @description Caller is neither the team's current manager, nor the HR auditor, nor a current team member, nor a manager in the chain above the team's manager — or the KPI is still a DRAFT, which only the manager (and HR) may see */
+        /** @description Caller is neither the team's current manager, nor a manager in the chain above them, nor the HR auditor, nor a current team member — or the KPI is still a DRAFT, which only the manager, their chain, and HR may see (v2.26.0) */
         TeamKpiNotReadable: {
             headers: {
                 [name: string]: unknown;
@@ -5643,7 +5674,7 @@ export interface components {
                 "application/problem+json": components["schemas"]["ProblemDetail"];
             };
         };
-        /** @description Caller is not the team's current manager (members have read rights only) */
+        /** @description Caller may not perform this write (v2.26.0): definition edits, deletion, and lifecycle transitions belong to the team's current manager and the managers in the chain above them; the data-point mutations additionally admit the team's current members. Nobody else — ADMIN included. */
         TeamKpiNotManager: {
             headers: {
                 [name: string]: unknown;
@@ -6651,6 +6682,8 @@ export interface operations {
                 name?: string;
                 /** @description Exact match against the team's manager id. */
                 managerId?: number;
+                /** @description Only valid together with `managerId` (else 400; strict `true`/`false`): widens the manager filter to that manager's transitive subtree (v2.26.0). */
+                includeIndirect?: boolean;
                 /** @description Filter to teams the given user is a member of. */
                 memberId?: number;
             };
@@ -8133,6 +8166,8 @@ export interface operations {
                 sort?: components["parameters"]["Sort"];
                 /** @description Which slice of team KPIs to list — always caller-relative. */
                 view?: "own" | "managed";
+                /** @description Only valid with `view=managed` (any other view → 400; strict `true`/`false`). When true, widens the scope from teams the caller manages directly to every team managed by anyone in their transitive management subtree (v2.26.0). */
+                includeIndirect?: boolean;
                 /** @description Case- and accent-insensitive substring match against the team's name. */
                 teamName?: string;
                 /** @description Exact team-id match (the per-team drill-down). */

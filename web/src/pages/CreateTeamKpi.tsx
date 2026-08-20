@@ -6,7 +6,7 @@ import { useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { getUserId, hasFeature } from "../api/session";
-import { listTeams } from "../api/teams";
+import { listAllTeams } from "../api/teams";
 import { activateTeamKpi, createTeamKpi } from "../api/teamkpis";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import ReadOnlyField from "../components/ReadOnlyField";
@@ -22,13 +22,13 @@ import { saveErrorMessage } from "../utils/saveError";
 
 // Default cancel target when no `back` param is present: the managed tab, the main entry point.
 const BACK_TO = "/team-kpis?tab=managed";
-const PICKER_PAGE_SIZE = 100;
 
 /**
- * The manager's KPI-create screen: pick (or arrive with) one of the teams they manage, define
- * the KPI — the same definition fields the DRAFT editor offers — and Create. The KPI always
- * lands as DRAFT; on success a prompt asks whether to activate it immediately (Yes runs the
- * DRAFT→ACTIVE transition), and either answer returns to the originating screen (`backTo`).
+ * The manager's KPI-create screen: pick (or arrive with) any team in their management subtree
+ * — directly managed or managed by anyone below them (v2.26.0) — define the KPI (the same
+ * definition fields the DRAFT editor offers) and Create. The KPI always lands as DRAFT; on
+ * success a prompt asks whether to activate it immediately (Yes runs the DRAFT→ACTIVE
+ * transition), and either answer returns to the originating screen (`backTo`).
  */
 export default function CreateTeamKpi() {
   const { t } = useTranslation();
@@ -59,15 +59,16 @@ export default function CreateTeamKpi() {
   });
 
   // The picker is skipped entirely when the team arrives prefilled (the drill-down flow).
+  // Subtree-wide since v2.26.0 (includeIndirect widens the managerId filter server-side),
+  // paged to completion — the listAllTeams loop, not one capped page.
   const { data: managedTeams } = useQuery({
     queryKey: ["teams", "kpiPicker", userId],
-    queryFn: () =>
-      listTeams({ page: 1, pageSize: PICKER_PAGE_SIZE, sort: "name", managerId: userId! }),
+    queryFn: () => listAllTeams({ managerId: userId!, includeIndirect: true }),
     staleTime: 5 * 60 * 1000,
     enabled: !preselected && userId != null,
   });
   const options = useMemo(
-    () => (managedTeams?.items ?? []).map((row) => ({ value: String(row.id), label: row.name })),
+    () => (managedTeams ?? []).map((row) => ({ value: String(row.id), label: row.name })),
     [managedTeams],
   );
 

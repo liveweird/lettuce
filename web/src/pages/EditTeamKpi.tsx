@@ -18,7 +18,7 @@ import { useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "../api/http";
-import { getUserId, hasFeature } from "../api/session";
+import { hasFeature } from "../api/session";
 import { activateTeamKpi, deleteTeamKpi, getTeamKpi, updateTeamKpiDefinition } from "../api/teamkpis";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import ReadOnlyField from "../components/ReadOnlyField";
@@ -84,12 +84,13 @@ export default function EditTeamKpi() {
   // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
   if (!hasFeature("TEAM_KPIS")) return <Navigate to="/" replace />;
   if (!idIsValid) return <Navigate to={backTo} replace />;
-  // Only the team's current manager edits, and only a DRAFT has an editable definition —
-  // everyone and everything else lands on the view screen (which keeps the `back` override).
-  // Suppressed while a submit is in flight: Save & activate refetches the KPI as ACTIVE
-  // (invalidateTeamKpi awaits the document) before saveDefinition navigates to backTo, and
-  // this redirect must not win that race.
-  if (data && (getUserId() !== data.managerId || data.status !== "DRAFT") && submitting === null) {
+  // Only a caller with the manage capability (the team's manager or their chain — v2.26.0)
+  // edits, and only a DRAFT has an editable definition — everyone and everything else lands
+  // on the view screen (which keeps the `back` override). Suppressed while a submit is in
+  // flight: Save & activate refetches the KPI as ACTIVE (invalidateTeamKpi awaits the
+  // document) before saveDefinition navigates to backTo, and this redirect must not win that
+  // race.
+  if (data && (!data.canManage || data.status !== "DRAFT") && submitting === null) {
     return <Navigate to={teamKpiViewLink(id, backOverride ?? undefined)} replace />;
   }
 

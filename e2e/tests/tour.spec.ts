@@ -21,7 +21,7 @@ const LANDMARKS = [
   "Goals I've set — the goals you've set",
   "Team KPIs — the measurable indicators",
   "My teams' KPIs — the active and archived KPIs",
-  "KPIs I've set — the KPIs of the teams you manage",
+  "Managed KPIs — the KPIs of the teams you manage",
   "Performance — the performance reviews your manager published",
   "My performance — every review published about you",
   "Team's performance — every subordinate's review",

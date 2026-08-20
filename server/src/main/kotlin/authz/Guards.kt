@@ -431,15 +431,16 @@ fun requirePerformanceReviewWrite(caller: CallerPrincipal, review: PerformanceRe
 // existing-but-forbidden → 403), so an id probe can learn a KPI exists — never its content.
 // The manager in these guards is the team's CURRENT manager (resolved from teams.manager_id
 // into the response at read time — never stored on the KPI row), so a reassigned team's new
-// manager takes over.
+// manager takes over. Since v2.26.0 every management right extends to the chain ABOVE the
+// team's manager; the stored creator (created_by, V62) is informational only and grants
+// NOTHING — a creator who left the team's chain lost their access, by decision.
 
 /**
- * Read guard for the single GET / events: the team's current manager reads at every status; the
- * HR auditor reads everything, DRAFTs included (audit-logged); otherwise a current team member,
- * or any manager in the chain ABOVE the team's manager (their manager, transitively), may read
- * only once the KPI has left DRAFT (ACTIVE/ARCHIVED) — a draft stays private to the manager,
- * matching the member list scope (whose status != DRAFT filter is the same rule, not a separate
- * authorization) and mirroring the goal chain rule.
+ * Read guard for the single GET / events: the team's current manager and any manager in the
+ * chain ABOVE them read at every status (since v2.26.0 the chain sees DRAFTs too — they may
+ * create and edit them); the HR auditor reads everything (audit-logged); a current team member
+ * reads only once the KPI has left DRAFT (ACTIVE/ARCHIVED) — matching the member list scope
+ * (whose status != DRAFT filter is the same rule, not a separate authorization).
  */
 suspend fun requireTeamKpiReadAllowingChain(
     caller: CallerPrincipal,
@@ -448,23 +449,45 @@ suspend fun requireTeamKpiReadAllowingChain(
     managesTeamManager: suspend () -> Boolean,
 ) {
     if (caller.userId == kpi.managerId) return // the current manager — cheap rule first
-    // HR auditor: reads everything — deliberately BEFORE the member/chain rules, so HR (unlike
-    // them) also sees DRAFT KPIs. Audit-logged; no DB hit for HR.
+    // HR auditor: reads everything — deliberately BEFORE the member/chain rules. Audit-logged;
+    // no DB hit for HR.
     if (grantHrRead(caller, "teamKpi", kpi.id)) return
-    if (kpi.status != TeamKpiStatus.DRAFT && (isTeamMember() || managesTeamManager())) return
+    if (kpi.status != TeamKpiStatus.DRAFT && isTeamMember()) return
+    if (managesTeamManager()) return // the chain, any status — DB hit only if needed
     throw ForbiddenException("Caller may not read this team KPI")
 }
 
 /**
- * The team's CURRENT manager is the only writer: only they may edit, transition, or delete the
- * KPI — members have read rights only, and nobody else (ADMIN included, mirroring
- * [requireGoalWrite]) has any; an admin who is themselves the manager qualifies via the userId
- * check like anyone.
+ * The definition/lifecycle right (v2.26.0): the team's CURRENT manager or any manager in the
+ * chain above them may edit, transition, or delete the KPI — members never, and nobody else
+ * (ADMIN included, mirroring [requireGoalWrite]); an admin who is themselves the manager
+ * qualifies via the userId check like anyone.
  */
-fun requireTeamKpiWrite(caller: CallerPrincipal, kpi: TeamKpiResponse) {
-    if (caller.userId != kpi.managerId) {
-        throw ForbiddenException("Only the team's manager may modify this team KPI")
-    }
+suspend fun requireTeamKpiManage(
+    caller: CallerPrincipal,
+    kpi: TeamKpiResponse,
+    managesTeamManager: suspend () -> Boolean,
+) {
+    if (caller.userId == kpi.managerId) return
+    if (managesTeamManager()) return
+    throw ForbiddenException("Only the team's manager or their management chain may modify this team KPI")
+}
+
+/**
+ * The data-point right (v2.26.0): whoever may manage the KPI ([requireTeamKpiManage]) plus the
+ * team's CURRENT members — recording measurements is the team's shared work; the ACTIVE-only
+ * rule stays enforced in the service (409).
+ */
+suspend fun requireTeamKpiValueWrite(
+    caller: CallerPrincipal,
+    kpi: TeamKpiResponse,
+    isTeamMember: suspend () -> Boolean,
+    managesTeamManager: suspend () -> Boolean,
+) {
+    if (caller.userId == kpi.managerId) return
+    if (isTeamMember()) return
+    if (managesTeamManager()) return
+    throw ForbiddenException("Only the team, its manager, or their management chain may record this team KPI's data")
 }
 
 // ── Days off ────────────────────────────────────────────────────────────────────────────────

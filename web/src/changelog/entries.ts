@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.26.0",
+    date: "2026-08-20",
+    en: `Team KPIs now work across your whole reporting line. The former "KPIs I've set" tab is now "Managed KPIs": besides the KPIs of teams you manage directly, the Reports filter can widen it to every team below you — whoever set their KPIs — and a new sortable Creator column shows exactly that. Creating a KPI works the same way: pick any team you manage directly or indirectly. Recording the measurements is now the team's shared work — team members can add, correct, and remove data points of an active KPI, and the manager is notified of every change. Changing a KPI's state (activating, archiving, reopening) stays with the team's manager and the managers above them — never team members.`,
+    pl: `KPI zespołów działają teraz w całej Twojej linii raportowania. Dawna zakładka „KPI wyznaczone przeze mnie" nazywa się teraz „Zarządzane KPI": oprócz KPI zespołów, którymi zarządzasz bezpośrednio, filtr Podwładni może rozszerzyć ją na każdy zespół poniżej Ciebie — niezależnie od tego, kto wyznaczył ich KPI — a nowa sortowalna kolumna „Utworzył/a" pokazuje właśnie to. Tworzenie KPI działa tak samo: wybierz dowolny zespół, którym zarządzasz bezpośrednio lub pośrednio. Zapisywanie pomiarów to teraz wspólna praca zespołu — członkowie/kinie zespołu mogą dodawać, poprawiać i usuwać punkty danych aktywnego KPI, a menedżer/ka dostaje powiadomienie o każdej zmianie. Zmiana stanu KPI (aktywacja, archiwizacja, ponowne otwarcie) pozostaje w rękach menedżera/ki zespołu i przełożonych powyżej — nigdy członków/kiń zespołu.`,
+  },
+  {
     version: "2.25.0",
     date: "2026-08-20",
     en: `Seniority levels are private now. A person's seniority level is visible only to themselves, to the managers above them (their manager, that manager's manager, and so on), and to people with the HR role — administrators get no special access. Career paths and specializations stay visible to everyone, so person cards still show what people do — just not their level. The career history page follows the same rule: you can open your own, your reports', and — with the HR role — anyone's; other people's timelines are no longer reachable, and the cards of your teammates and managers no longer offer the link. Where a card would have shown a seniority you are not entitled to see, the row is simply absent rather than pretending the level is not set.`,

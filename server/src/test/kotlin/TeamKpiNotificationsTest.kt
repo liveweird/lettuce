@@ -14,18 +14,23 @@ import kotlin.test.assertTrue
 /** Pure unit tests of the team-KPI transition → notification fan-out (no DB, no HTTP). */
 class TeamKpiNotificationsTest {
 
+    // Defaults model the classic case: the team's manager (2u) acts on their own KPI, so the
+    // audience stays exactly the members (manager + members − actor, v2.26.0).
     private fun notify(
         from: TeamKpiStatus,
         to: TeamKpiStatus,
         memberIds: Set<UInt> = setOf(10u, 11u, 12u),
-        actingManagerId: UInt = 2u,
+        teamManagerId: UInt = 2u,
+        actorId: UInt = 2u,
+        actorName: String = "Mona Manager",
     ) = teamKpiTransitionNotifications(
         kpiId = 5u,
         from = from,
         to = to,
         memberIds = memberIds,
-        actingManagerId = actingManagerId,
-        managerName = "Mona Manager",
+        teamManagerId = teamManagerId,
+        actorId = actorId,
+        actorName = actorName,
         title = "Deploy frequency",
         teamName = "Team AAA",
     )
@@ -58,6 +63,18 @@ class TeamKpiNotificationsTest {
     }
 
     @Test
+    fun `a chain-manager actor notifies the team manager too, under the actor's name`() {
+        // v2.26.0: the actor may sit above the team's manager — the manager becomes an
+        // audience, and the `manager` wire param carries the ACTOR's name.
+        val notes = notify(
+            TeamKpiStatus.DRAFT, TeamKpiStatus.ACTIVE,
+            memberIds = setOf(10u, 11u), actorId = 99u, actorName = "Greta Grand",
+        )
+        assertEquals(setOf(2u, 10u, 11u), notes.map { it.recipientId }.toSet())
+        notes.forEach { assertEquals("Greta Grand", it.params["manager"]) }
+    }
+
+    @Test
     fun `deactivation carries no link - a draft is not readable by members`() {
         notify(TeamKpiStatus.ACTIVE, TeamKpiStatus.DRAFT).forEach { assertNull(it.link) }
         // Every other edge lands readable and links to the view.
@@ -77,14 +94,17 @@ class TeamKpiNotificationsTest {
     private fun notifyValue(
         type: NotificationType = NotificationType.TEAM_KPI_VALUE_RECORDED_TO_MEMBER,
         memberIds: Set<UInt> = setOf(10u, 11u),
-        actingManagerId: UInt = 2u,
+        teamManagerId: UInt = 2u,
+        actorId: UInt = 2u,
+        actorName: String = "Mona Manager",
         valueParams: Map<String, String> = mapOf("date" to "2026-07-27", "value" to "72.0"),
     ) = teamKpiValueNotifications(
         kpiId = 5u,
         type = type,
         memberIds = memberIds,
-        actingManagerId = actingManagerId,
-        managerName = "Mona Manager",
+        teamManagerId = teamManagerId,
+        actorId = actorId,
+        actorName = actorName,
         title = "Deploy frequency",
         teamName = "Team AAA",
         kpiType = TeamKpiType.PERCENTAGE,
@@ -133,5 +153,13 @@ class TeamKpiNotificationsTest {
     fun `the acting manager is excluded from data-point notifications too`() {
         val notes = notifyValue(memberIds = setOf(2u, 10u))
         assertEquals(listOf(10u), notes.map { it.recipientId })
+    }
+
+    @Test
+    fun `a member recording data notifies the manager and the other members - not themselves`() {
+        // v2.26.0: recording is the team's shared work; the manager hears about it.
+        val notes = notifyValue(memberIds = setOf(10u, 11u), actorId = 10u, actorName = "Mia Member")
+        assertEquals(setOf(2u, 11u), notes.map { it.recipientId }.toSet())
+        notes.forEach { assertEquals("Mia Member", it.params["manager"]) }
     }
 }

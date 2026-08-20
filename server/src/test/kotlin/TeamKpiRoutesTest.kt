@@ -133,6 +133,12 @@ class TeamKpiRoutesTest {
         assertEquals(team.teamId, created.teamId)
         assertEquals(team.managerId, created.managerId)
         assertEquals("Mona Manager", created.managerName)
+        // The stored creator (V62, informational) + the caller's capabilities (v2.26.0).
+        assertEquals(team.managerId, created.creatorId)
+        assertEquals("Mona Manager", created.creatorName)
+        assertFalse(created.creatorDeleted)
+        assertTrue(created.canManage)
+        assertTrue(created.canRecordValues)
         assertFalse(created.teamDeleted)
         assertEquals(52.0, created.targetValue)
         assertEquals(0.0, created.currentValue)
@@ -144,13 +150,22 @@ class TeamKpiRoutesTest {
     }
 
     @Test
-    fun `create is current-manager-only - member, unrelated, and ADMIN are 403`() = testApplication {
+    fun `create is manager-or-chain - a grand-manager succeeds, member, unrelated, and ADMIN are 403`() = testApplication {
         usePostgresTestcontainer()
         val team = seedTeam()
+        val (grandEmail, grandId) = seedGrandManager(team)
         val unrelatedEmail = uniqueEmail("kpi-unrelated")
         TestUsers.seed(unrelatedEmail, "pw", roles = emptySet())
         val adminEmail = uniqueEmail("kpi-admin")
         TestUsers.seed(adminEmail, "pw", roles = setOf(UserRole.ADMIN))
+
+        // The chain above the team's manager may set KPIs for the team (v2.26.0); the KPI
+        // stamps THEM as the creator while the manager stays the team's manager.
+        val grand = authedClient(grandEmail, "pw")
+        val fromChain = grand.createKpi(team.teamId, title = "From above")
+        assertEquals(grandId, fromChain.creatorId)
+        assertEquals(team.managerId, fromChain.managerId)
+        assertTrue(fromChain.canManage)
 
         for (email in listOf(team.memberEmail, unrelatedEmail, adminEmail)) {
             val client = authedClient(email, "pw")
@@ -192,7 +207,7 @@ class TeamKpiRoutesTest {
     // ---- the read matrix ----
 
     @Test
-    fun `a DRAFT is manager-and-HR-only, once ACTIVE members and the chain read it, outsiders never`() = testApplication {
+    fun `a DRAFT is manager-chain-and-HR-only, once ACTIVE members read it too, outsiders never`() = testApplication {
         usePostgresTestcontainer()
         val team = seedTeam()
         val (grandEmail, _) = seedGrandManager(team)
@@ -212,10 +227,11 @@ class TeamKpiRoutesTest {
         val admin = authedClient(adminEmail, "pw")
         val hr = authedClient(hrEmail, "pw")
 
-        // DRAFT: only the manager and HR.
+        // DRAFT: the manager, the chain above them (v2.26.0 — they create and edit drafts
+        // too), and HR; members and outsiders wait for activation.
         assertEquals(HttpStatusCode.OK, manager.get("/api/v1/team-kpis/${created.id}").status)
+        assertEquals(HttpStatusCode.OK, grand.get("/api/v1/team-kpis/${created.id}").status)
         assertEquals(HttpStatusCode.Forbidden, member.get("/api/v1/team-kpis/${created.id}").status)
-        assertEquals(HttpStatusCode.Forbidden, grand.get("/api/v1/team-kpis/${created.id}").status)
         assertEquals(HttpStatusCode.Forbidden, unrelated.get("/api/v1/team-kpis/${created.id}").status)
         assertEquals(HttpStatusCode.Forbidden, admin.get("/api/v1/team-kpis/${created.id}").status)
         val appender = LogCapture("ch.nokillswit.audit")
@@ -325,27 +341,32 @@ class TeamKpiRoutesTest {
     }
 
     @Test
-    fun `transitions are manager-only - a member may not activate`() = testApplication {
+    fun `transitions are manager-or-chain - a chain manager drives them, a member never`() = testApplication {
         usePostgresTestcontainer()
         val team = seedTeam()
+        val (grandEmail, _) = seedGrandManager(team)
         val manager = authedClient(team.managerEmail, "pw")
         val created = manager.createKpi(team.teamId)
         val member = authedClient(team.memberEmail, "pw")
         assertEquals(HttpStatusCode.Forbidden, member.post("/api/v1/team-kpis/${created.id}/activate").status)
-        manager.post("/api/v1/team-kpis/${created.id}/activate")
-        assertEquals(
-            HttpStatusCode.Forbidden,
-            member.post("/api/v1/team-kpis/${created.id}/values") {
-                contentType(ContentType.Application.Json)
-                setBody(TeamKpiValueWrite(date = "2026-07-01", value = 1.0))
-            }.status,
-        )
-        // The bodied transition too — the guard runs before the body is even received.
+        // The chain above the team's manager drives the lifecycle too (v2.26.0).
+        val grand = authedClient(grandEmail, "pw")
+        assertEquals(HttpStatusCode.NoContent, grand.post("/api/v1/team-kpis/${created.id}/activate").status)
+        // The bodied transition stays shut for a member — the guard runs before the body is
+        // even received (members may record VALUES since v2.26.0, but never transition).
         assertEquals(
             HttpStatusCode.Forbidden,
             member.post("/api/v1/team-kpis/${created.id}/archive") {
                 contentType(ContentType.Application.Json)
                 setBody(TeamKpiArchiveRequest(summary = "not yours"))
+            }.status,
+        )
+        // The chain may archive with a summary as well.
+        assertEquals(
+            HttpStatusCode.NoContent,
+            grand.post("/api/v1/team-kpis/${created.id}/archive") {
+                contentType(ContentType.Application.Json)
+                setBody(TeamKpiArchiveRequest(summary = "closed from above"))
             }.status,
         )
         // And an unknown id on a transition is 404, for the manager.
@@ -746,7 +767,38 @@ class TeamKpiRoutesTest {
     }
 
     @Test
-    fun `values are read by whoever reads the KPI and written by nobody else`() = testApplication {
+    fun `a member's data-point change notifies the manager and the other members, under the member's name`() =
+        testApplication {
+            usePostgresTestcontainer()
+            val team = seedTeam()
+            val manager = authedClient(team.managerEmail, "pw")
+            val created = manager.createKpi(team.teamId, title = "Member records")
+            manager.post("/api/v1/team-kpis/${created.id}/activate")
+
+            // Mel Member (v2.26.0) records a point — the manager and Mia hear about it,
+            // attributed to the ACTOR (the wire param key stays `manager`); Mel stays silent.
+            val member = authedClient(team.memberEmail, "pw")
+            member.addValue(created.id, "2026-08-01", 5.0)
+
+            for ((email, expected) in listOf(team.managerEmail to true, team.member2Email to true)) {
+                val notes = authedClient(email, "pw")
+                    .get("/api/v1/notifications?pageSize=50").body<NotificationPageResponse>()
+                    .items.filter {
+                        it.params["title"] == "Member records" && it.type.name.contains("VALUE")
+                    }
+                assertEquals(expected, notes.isNotEmpty(), "for $email")
+                notes.forEach { assertEquals("Mel Member", it.params["manager"]) }
+            }
+            val actorNotes = member.get("/api/v1/notifications?pageSize=50").body<NotificationPageResponse>()
+            assertTrue(
+                actorNotes.items.none {
+                    it.params["title"] == "Member records" && it.type.name.contains("VALUE")
+                },
+            )
+        }
+
+    @Test
+    fun `values are read by whoever reads the KPI and written by the team, its manager, and the chain`() = testApplication {
         usePostgresTestcontainer()
         val team = seedTeam()
         val (grandEmail, _) = seedGrandManager(team)
@@ -765,17 +817,37 @@ class TeamKpiRoutesTest {
         assertEquals(HttpStatusCode.OK, grand.get("/api/v1/team-kpis/${created.id}/values").status)
         assertEquals(HttpStatusCode.Forbidden, unrelated.get("/api/v1/team-kpis/${created.id}/values").status)
 
-        // Mutations are current-manager-only, even for readers.
+        // Mutations (v2.26.0): recording data is the team's shared work — a MEMBER corrects
+        // a point and adds one; the CHAIN adds one too. HR (a reader) and outsiders never
+        // write — the read grant does not carry a pen.
         assertEquals(
-            HttpStatusCode.Forbidden,
+            HttpStatusCode.NoContent,
             member.put("/api/v1/team-kpis/${created.id}/values/${point.id}") {
                 contentType(ContentType.Application.Json)
                 setBody(TeamKpiValueWrite(date = "2026-07-01", value = 9.0))
             }.status,
         )
+        member.addValue(created.id, "2026-06-01", 2.0)
+        grand.addValue(created.id, "2026-06-15", 2.5)
+        val hrEmail = uniqueEmail("kpi-hr-w")
+        TestUsers.seed(hrEmail, "pw", roles = setOf(UserRole.HR))
+        val hr = authedClient(hrEmail, "pw")
         assertEquals(
             HttpStatusCode.Forbidden,
-            member.delete("/api/v1/team-kpis/${created.id}/values/${point.id}").status,
+            hr.post("/api/v1/team-kpis/${created.id}/values") {
+                contentType(ContentType.Application.Json)
+                setBody(TeamKpiValueWrite(date = "2026-06-20", value = 1.0))
+            }.status,
+        )
+        assertEquals(
+            HttpStatusCode.Forbidden,
+            unrelated.delete("/api/v1/team-kpis/${created.id}/values/${point.id}").status,
+        )
+        // The member's removal right is real too — clean up the chain's point with it.
+        val chainPoint = member.listValues(created.id).single { it.date == "2026-06-15" }
+        assertEquals(
+            HttpStatusCode.NoContent,
+            member.delete("/api/v1/team-kpis/${created.id}/values/${chainPoint.id}").status,
         )
 
         // A malformed valueId is 400 (the resources plugin rejects it before any handler).
@@ -812,7 +884,8 @@ class TeamKpiRoutesTest {
             HttpStatusCode.Conflict,
             manager.delete("/api/v1/team-kpis/${created.id}/values/${point.id}").status,
         )
-        assertEquals(1, member.listValues(created.id).size)
+        // The corrected original + the member's point survive (the chain's was removed).
+        assertEquals(2, member.listValues(created.id).size)
     }
 
     // ---- deletion ----
@@ -865,6 +938,48 @@ class TeamKpiRoutesTest {
         // (they are not a member of this team).
         assertEquals(0, member.get("/api/v1/team-kpis?view=managed&title=$marker").body<TeamKpiPageResponse>().total)
         assertEquals(0, manager.get("/api/v1/team-kpis?title=$marker").body<TeamKpiPageResponse>().total)
+    }
+
+    @Test
+    fun `managed view widens to the subtree with includeIndirect, and the creator column sorts`() = testApplication {
+        usePostgresTestcontainer()
+        // G manages Y {M}; M manages X. One KPI by M, one set from above by G — both on X.
+        val team = seedTeam()
+        val (grandEmail, grandId) = seedGrandManager(team)
+        val manager = authedClient(team.managerEmail, "pw")
+        val grand = authedClient(grandEmail, "pw")
+        val marker = "kpi-sub-${UUID.randomUUID()}"
+        val byManager = manager.createKpi(team.teamId, title = "$marker by-manager")
+        val byGrand = grand.createKpi(team.teamId, title = "$marker by-grand")
+        manager.post("/api/v1/team-kpis/${byManager.id}/activate")
+
+        // Direct scope (the default): G manages only team Y, which has no KPIs — nothing.
+        assertEquals(
+            0,
+            grand.get("/api/v1/team-kpis?view=managed&title=$marker").body<TeamKpiPageResponse>().total,
+        )
+        // includeIndirect widens to the subtree: both rows, creator-attributed, manageable.
+        val wide = grand.get(
+            "/api/v1/team-kpis?view=managed&includeIndirect=true&title=$marker&sort=creatorName",
+        ).body<TeamKpiPageResponse>()
+        assertEquals(listOf(byGrand.id, byManager.id), wide.items.map { it.id }) // Grand < Mona
+        assertEquals(listOf("Grand Manager", "Mona Manager"), wide.items.map { it.creatorName })
+        assertEquals(listOf(grandId, team.managerId), wide.items.map { it.creatorId })
+        assertTrue(wide.items.all { it.canManage })
+        // The manager's direct view lists both too (their team), also manageable.
+        val direct = manager.get("/api/v1/team-kpis?view=managed&title=$marker").body<TeamKpiPageResponse>()
+        assertEquals(setOf(byManager.id, byGrand.id), direct.items.map { it.id }.toSet())
+        assertTrue(direct.items.all { it.canManage })
+        // A member's own view carries canManage=false rows (View-only in the SPA).
+        val member = authedClient(team.memberEmail, "pw")
+        val own = member.get("/api/v1/team-kpis?title=$marker").body<TeamKpiPageResponse>()
+        assertEquals(listOf(byManager.id), own.items.map { it.id }) // only the ACTIVE one
+        assertFalse(own.items.single().canManage)
+        // includeIndirect is managed-only — 400 elsewhere (the strict-boolean helper).
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            member.get("/api/v1/team-kpis?view=own&includeIndirect=true").status,
+        )
     }
 
     @Test
@@ -932,9 +1047,19 @@ class TeamKpiRoutesTest {
                 .body<TeamKpiPageResponse>().items.map { it.id }.toSet(),
         )
 
-        // ...and the old manager — no longer a member, not in the chain — has nothing.
+        // ...and the old manager — no longer a member, not in the chain — has nothing, EVEN
+        // as the KPI's stored creator (v2.26.0, the user decision: created_by is
+        // informational; rights track the current manager + chain only).
+        assertEquals(team.managerId, fetched.creatorId)
         assertEquals(HttpStatusCode.Forbidden, manager.get("/api/v1/team-kpis/${created.id}").status)
         assertEquals(HttpStatusCode.Forbidden, manager.post("/api/v1/team-kpis/${created.id}/deactivate").status)
+        assertEquals(
+            HttpStatusCode.Forbidden,
+            manager.post("/api/v1/team-kpis/${created.id}/values") {
+                contentType(ContentType.Application.Json)
+                setBody(TeamKpiValueWrite(date = "2026-07-02", value = 4.0))
+            }.status,
+        )
         assertEquals(
             0,
             manager.get("/api/v1/team-kpis?view=managed&title=Handover").body<TeamKpiPageResponse>().total,

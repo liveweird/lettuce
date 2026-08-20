@@ -23,6 +23,10 @@ const AAA_KPI = {
   teamDeleted: false,
   managerId: 40,
   managerName: "Mona",
+  creatorId: 40,
+  creatorName: "Mona",
+  creatorDeleted: false,
+  canManage: false,
   managerDeleted: false,
   title: "Deploy weekly",
   type: "NUMBER",
@@ -50,6 +54,10 @@ const MANAGED_KPI = {
   teamName: "Team CCC",
   managerId: 7,
   managerName: "Me",
+  creatorId: 7,
+  creatorName: "Me",
+  creatorDeleted: false,
+  canManage: true,
   title: "Cut lead time",
   status: "DRAFT",
 };
@@ -111,7 +119,7 @@ describe("MyTeamKpis page", () => {
     await waitFor(() =>
       expect(mockFetch.mock.calls.some(([u]) => String(u).startsWith("/api/v1/teams?"))).toBe(true),
     );
-    expect(screen.queryByRole("tab", { name: "KPIs I've set" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Managed KPIs" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "New team KPI" })).not.toBeInTheDocument();
 
     const url = kpiUrls(mockFetch)[0];
@@ -131,7 +139,7 @@ describe("MyTeamKpis page", () => {
     const user = userEvent.setup();
     renderWithProviders(<MyTeamKpis />);
 
-    const managedTab = await screen.findByRole("tab", { name: "KPIs I've set" });
+    const managedTab = await screen.findByRole("tab", { name: "Managed KPIs" });
     // The manager-only tab carries the guided tour's anchor.
     expect(managedTab).toHaveAttribute("data-tour", "team-kpis-managed");
     await user.click(managedTab);
@@ -161,7 +169,7 @@ describe("MyTeamKpis page", () => {
 
     expect(await screen.findByText("Team AAA")).toBeInTheDocument();
     expect(kpiUrls(mockFetch).at(-1)).toContain("view=own");
-    expect(screen.queryByRole("tab", { name: "KPIs I've set" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Managed KPIs" })).not.toBeInTheDocument();
   });
 
   test("a disabled TEAM_KPIS feature redirects the page to / (v1.53.0)", async () => {

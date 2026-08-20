@@ -126,7 +126,14 @@ fun Application.configureTeamRoutes() {
                     managerId = params.optionalUInt("managerId"),
                     memberId = params.optionalUInt("memberId"),
                 )
-                val result = teamService.list(filter, paging)
+                // includeIndirect (v2.26.0) widens the managerId equality filter to that
+                // manager's transitive subtree — meaningless without managerId, so a lone
+                // flag is a clean 400 (the feature/featureEnabled pairing idiom).
+                val includeIndirect = params.optionalBoolean("includeIndirect")
+                if (includeIndirect != null && filter.managerId == null) {
+                    throw BadRequestException("includeIndirect requires the managerId filter")
+                }
+                val result = teamService.list(filter, paging, includeIndirect == true)
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
             }
             get<Teams.Members> {
