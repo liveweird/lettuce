@@ -8,9 +8,14 @@ export function daysOffListLink(tab: DaysOffTab): string {
   return `/days-off?tab=${tab}`;
 }
 
-/** The create-request screen, optionally with a return target. */
-export function daysOffCreateLink(back?: string): string {
-  return back ? `/days-off/new?back=${encodeURIComponent(back)}` : "/days-off/new";
+/** The create-request screen, optionally with a return target. `onBehalf` opens the
+ * manager-side recording mode (v2.29.0): a direct-report picker + auto-accepted submit. */
+export function daysOffCreateLink(back?: string, onBehalf?: boolean): string {
+  const params = new URLSearchParams();
+  if (onBehalf) params.set("onBehalf", "1");
+  if (back) params.set("back", back);
+  const search = params.toString();
+  return search ? `/days-off/new?${search}` : "/days-off/new";
 }
 
 /**

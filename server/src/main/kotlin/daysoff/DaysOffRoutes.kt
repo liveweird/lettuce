@@ -9,6 +9,7 @@ import ch.nokillswit.authz.requireDaysOffCorrectionsRead
 import ch.nokillswit.authz.requireDaysOffOwner
 import ch.nokillswit.authz.requireDaysOffRead
 import ch.nokillswit.authz.requireDaysOffResolve
+import ch.nokillswit.authz.requireDirectReport
 import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.infra.paging.SortField
 import ch.nokillswit.infra.paging.optionalEnum
@@ -18,6 +19,7 @@ import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.users.Feature
+import ch.nokillswit.users.UserServiceKey
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.resources.Resource
@@ -79,6 +81,7 @@ private fun ApplicationCall.daysOffCaller() =
 fun Application.configureDaysOffRoutes() {
     val daysOffService = attributes[DaysOffServiceKey]
     val notificationService = attributes[NotificationServiceKey]
+    val userService = attributes[UserServiceKey]
 
     // Shared handler for the three lifecycle actions: read (404 when missing), the
     // action-specific guard, the service transition (409 on an invalid from-status or the
@@ -160,17 +163,50 @@ fun Application.configureDaysOffRoutes() {
             }
             post<DaysOff> {
                 val caller = call.daysOffCaller()
-                // The owner is always the caller — there is no create-on-behalf (not even for
-                // ADMIN): a days-off request is a personal ask.
+                // Without a userId the owner is the caller — a personal ask entering REQUESTED.
+                // With one (v2.29.0) a current DIRECT MANAGER of that user records the entry on
+                // their behalf, born ACCEPTED with the caller as resolver (the accept right
+                // makes a separate approval step redundant); ADMIN/HR get nothing special.
                 val request = call.receive<DaysOffCreateRequest>()
+                val targetId = request.userId
+                if (targetId != null) {
+                    // Guard before validation — 403 wins over 400, the goals-create shape. The
+                    // self check rides the same membership test (nobody is their own direct
+                    // manager), so a self-targeting userId is also a 403, not a special case.
+                    requireDirectReport(
+                        { targetId != caller.userId && daysOffService.isDirectManagerOf(caller.userId, targetId) },
+                        "Only a current direct manager may record days off on behalf of a report",
+                    )
+                    // After the authz guard: no NEW entries for deactivated users (house rule).
+                    userService.requireNoDeactivatedUsers(listOf(targetId))
+                }
+                val onBehalf = targetId != null
                 validateDaysOffCreate(request)
                 // Overlap (409 + instance), zero-cost (400), and the paid-budget sweep (409)
                 // are checked in the service, atomically with the insert.
-                val (id, toNotify) = daysOffService.create(caller.userId, request)
+                val (id, toNotify) = daysOffService.create(
+                    userId = targetId ?: caller.userId,
+                    request = request,
+                    recordedBy = caller.userId.takeIf { onBehalf },
+                )
                 call.response.header(HttpHeaders.Location, call.application.href(DaysOff.Id(id = id)))
                 toNotify.forEach { notificationService.create(it) }
                 val created = daysOffService.read(id)
                     .orVanished("Days-off request", id)
+                if (targetId != null) {
+                    // A manager writes to a subordinate's leave record — audited like the
+                    // budget corrections (never any free text; there is none here anyway).
+                    audit(
+                        "days_off.recorded",
+                        "byUserId" to caller.userId.toLong(),
+                        "targetUserId" to targetId.toLong(),
+                        "requestId" to id.toLong(),
+                        "type" to request.type.name,
+                        "startDate" to request.startDate,
+                        "endDate" to request.endDate,
+                        "days" to created.days,
+                    )
+                }
                 call.respond(HttpStatusCode.Created, created)
             }
             get<DaysOff.Id> { route ->

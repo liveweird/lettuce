@@ -54,6 +54,8 @@
     "daysOffAccepted": "{{manager}} accepted your days-off request ({{startDate}} – {{endDate}}).",
     "daysOffRejected": "{{manager}} rejected your days-off request ({{startDate}} – {{endDate}}).",
     "daysOffCancelled": "{{requester}} cancelled their days-off request ({{startDate}} – {{endDate}}).",
+    "daysOffRecordedToOwner": "{{manager}} recorded days off on your behalf, already accepted: {{startDate}} – {{endDate}} ({{type}}, {{days}} day(s)).",
+    "daysOffRecordedToManager": "You recorded days off on behalf of {{requester}}, already accepted: {{startDate}} – {{endDate}} ({{type}}, {{days}} day(s)).",
     "daysOffCorrected_ADD": "{{manager}} added {{days}} day(s) to your paid days-off budget for {{year}}.",
     "daysOffCorrected_SUBTRACT": "{{manager}} subtracted {{days}} day(s) from your paid days-off budget for {{year}}.",
     "passwordChanged": "Your password was changed.",

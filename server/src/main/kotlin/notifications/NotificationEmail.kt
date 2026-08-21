@@ -250,6 +250,18 @@ private fun sentences(type: NotificationType, p: Map<String, String>): Localized
         en = "${p.v("requester")} cancelled their days-off request (${p.v("startDate")} – ${p.v("endDate")}).",
         pl = "${p.v("requester")} anulował/anulowała swój wniosek o dni wolne (${p.v("startDate")} – ${p.v("endDate")}).",
     )
+    NotificationType.DAYS_OFF_RECORDED_TO_OWNER -> LocalizedText(
+        en = "${p.v("manager")} recorded days off on your behalf, already accepted: " +
+            "${p.v("startDate")} – ${p.v("endDate")} (${daysOffType(p.v("type")).en}, ${p.v("days")} day(s)).",
+        pl = "${p.v("manager")} zapisał/zapisała w Twoim imieniu dni wolne, od razu zaakceptowane: " +
+            "${p.v("startDate")} – ${p.v("endDate")} (${daysOffType(p.v("type")).pl}, dni: ${p.v("days")}).",
+    )
+    NotificationType.DAYS_OFF_RECORDED_TO_MANAGER -> LocalizedText(
+        en = "You recorded days off on behalf of ${p.v("requester")}, already accepted: " +
+            "${p.v("startDate")} – ${p.v("endDate")} (${daysOffType(p.v("type")).en}, ${p.v("days")} day(s)).",
+        pl = "Zapisałeś/aś w imieniu ${p.v("requester")} dni wolne, od razu zaakceptowane: " +
+            "${p.v("startDate")} – ${p.v("endDate")} (${daysOffType(p.v("type")).pl}, dni: ${p.v("days")}).",
+    )
     NotificationType.DAYS_OFF_CORRECTED_TO_OWNER ->
         if (p["operation"] == "SUBTRACT") LocalizedText(
             en = "${p.v("manager")} subtracted ${p.v("days")} day(s) from your paid days-off budget for ${p.v("year")}.",

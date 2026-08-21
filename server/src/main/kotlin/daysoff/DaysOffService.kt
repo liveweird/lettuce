@@ -116,8 +116,17 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
      * the last year holding a counting PAID request (a retroactive create must not push a later,
      * carry-over-funded year negative) — else 409. Returns the new id plus the direct-manager
      * notifications to persist.
+     *
+     * With [recordedBy] (v2.29.0, the on-behalf flow — the route has already verified the actor
+     * is a current direct manager of [userId]) the row is born ACCEPTED with the actor stamped
+     * as the resolver, and the notifications are the recorded pair (owner + acting manager)
+     * instead of the review fan-out. Every state rule above applies unchanged.
      */
-    suspend fun create(userId: UInt, request: DaysOffCreateRequest): Pair<UInt, List<Notification>> =
+    suspend fun create(
+        userId: UInt,
+        request: DaysOffCreateRequest,
+        recordedBy: UInt? = null,
+    ): Pair<UInt, List<Notification>> =
         suspendTransaction(database) {
             val overlapping = Requests
                 .select(Requests.id)
@@ -158,23 +167,40 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
             val id = Requests.insert {
                 it[this.userId] = userId
                 it[type] = request.type
-                it[status] = DaysOffStatus.REQUESTED
+                it[status] = if (recordedBy != null) DaysOffStatus.ACCEPTED else DaysOffStatus.REQUESTED
                 it[startDate] = request.startDate
                 it[endDate] = request.endDate
                 it[startHalf] = request.startHalf
                 it[endHalf] = request.endHalf
                 it[costHalfDays] = cost
                 it[createdAt] = now
+                if (recordedBy != null) {
+                    it[resolvedBy] = recordedBy
+                    it[resolvedAt] = now
+                }
                 it[lastModified] = now
             }[Requests.id].value
-            val notifications = daysOffRequestedNotifications(
-                managerIds = directManagerIds(userId),
-                requesterName = userName(userId),
-                type = request.type,
-                days = formatHalfDaysParam(cost),
-                startDate = request.startDate,
-                endDate = request.endDate,
-            )
+            val notifications = if (recordedBy != null) {
+                daysOffRecordedNotifications(
+                    ownerId = userId,
+                    ownerName = userName(userId),
+                    managerId = recordedBy,
+                    managerName = userName(recordedBy),
+                    type = request.type,
+                    days = formatHalfDaysParam(cost),
+                    startDate = request.startDate,
+                    endDate = request.endDate,
+                )
+            } else {
+                daysOffRequestedNotifications(
+                    managerIds = directManagerIds(userId),
+                    requesterName = userName(userId),
+                    type = request.type,
+                    days = formatHalfDaysParam(cost),
+                    startDate = request.startDate,
+                    endDate = request.endDate,
+                )
+            }
             id to notifications
         }
 

@@ -176,6 +176,17 @@ export default function DaysOff() {
                 {t("daysOff.teamHint")}
               </Text>
               <DaysOffTable view="managed" />
+              {/* The on-behalf recording entry (v2.29.0) sits below the request list — the
+                  house footer convention; the entry is born ACCEPTED, so it lands right here. */}
+              <Group justify="flex-end">
+                <Button
+                  component={RouterLink}
+                  to={daysOffCreateLink(daysOffListLink("team"), true)}
+                  leftSection={<IconPlus size={16} />}
+                >
+                  {t("daysOff.newForReport")}
+                </Button>
+              </Group>
               <DaysOffBudgetsTable />
             </Stack>
           </Tabs.Panel>

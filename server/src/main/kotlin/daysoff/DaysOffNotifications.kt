@@ -35,6 +35,47 @@ internal fun daysOffRequestedNotifications(
     )
 }
 
+/** On-behalf recording (v2.29.0): a direct manager entered days off for a report, born
+ * ACCEPTED. Both parties are told — the owner learns an entry now sits on their record, and
+ * the acting manager keeps a durable receipt (the 1:1-creation precedent: an on-behalf write
+ * to someone else's record deserves more than a 2.5-second toast). Other direct managers
+ * deliberately hear nothing — the row is visible in their managed list. */
+internal fun daysOffRecordedNotifications(
+    ownerId: UInt,
+    ownerName: String,
+    managerId: UInt,
+    managerName: String,
+    type: DaysOffType,
+    days: String,
+    startDate: String,
+    endDate: String,
+): List<Notification> = listOf(
+    Notification(
+        recipientId = ownerId,
+        type = NotificationType.DAYS_OFF_RECORDED_TO_OWNER,
+        params = mapOf(
+            "manager" to managerName,
+            "type" to type.name,
+            "days" to days,
+            "startDate" to startDate,
+            "endDate" to endDate,
+        ),
+        link = "/days-off?tab=requests",
+    ),
+    Notification(
+        recipientId = managerId,
+        type = NotificationType.DAYS_OFF_RECORDED_TO_MANAGER,
+        params = mapOf(
+            "requester" to ownerName,
+            "type" to type.name,
+            "days" to days,
+            "startDate" to startDate,
+            "endDate" to endDate,
+        ),
+        link = "/days-off?tab=team",
+    ),
+)
+
 /** Resolution (accept/reject): the owner is told what their manager decided. */
 internal fun daysOffResolvedNotification(
     ownerId: UInt,

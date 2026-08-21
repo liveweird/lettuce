@@ -6,7 +6,8 @@
 - **Owns** (exclusive server-side state): the public-holidays registry, plus AAA Two's days-off
   requests, paid-leave allowance, and budget corrections — this file is their single writer
   under parallel workers.
-- **Since**: v1.43.0 (budget corrections), v1.44.0 (subordinate-card vacation stats)
+- **Since**: v1.43.0 (budget corrections), v1.44.0 (subordinate-card vacation stats),
+  v2.29.0 (the manager's on-behalf recording)
 
 **Preconditions.** The booked window is a run-varying future Monday (4–43 weeks out); the whole
 two-week window stays inside one calendar year and clear of the seeded Polish statutory holidays
@@ -66,12 +67,22 @@ comment). The suite thus self-heals on the next run no matter where a run died.
 14. AAA Two cancels the unpaid request too (why: seed accounts must keep no counting rows —
     rejected/cancelled records are inert).
     - *Expected*: "Request cancelled".
-15. Manager AAA opens "Budget corrections of AAA Two" from the team tab and adds a +2-day
+15. Manager AAA opens Days off → Team and clicks the **New days off** button under the request
+    list (the on-behalf entry, v2.29.0), picks AAA Two in the "On behalf of" picker, books the
+    booked week's Thursday (a PAID single day), and clicks **Submit auto-accepted**.
+    - *Expected*: the cost preview reads "1 working day(s)"; back on the team tab with the
+      "Days off recorded and accepted" toast; the manager's own bell holds the durable receipt
+      "You recorded days off on behalf of AAA Two".
+16. Still on the team tab, Manager AAA opens "Budget corrections of AAA Two" and adds a +2-day
     correction with the comment "E2E correction \<Monday\>".
     - *Expected*: "Correction added", and the correction is listed in the modal.
-16. AAA Two signs in, checks the bell, then opens their own Corrections modal from My requests.
-    - *Expected*: an "added 2 day(s) to your paid days-off budget" notification; the correction
-      shows read-only — no "Add correction" form and no per-row actions.
+17. AAA Two signs in, checks the bell, then opens their own Corrections modal from My requests.
+    - *Expected*: an "added 2 day(s) to your paid days-off budget" notification AND a
+      "Manager AAA recorded days off on your behalf" one; the correction shows read-only — no
+      "Add correction" form and no per-row actions.
+18. AAA Two filters My requests to Accepted and cancels the recorded (still future) Thursday
+    entry, confirming with "Cancel the request" (why: seed accounts must keep no counting rows).
+    - *Expected*: "Request cancelled".
 
 **Cleanup** (in-test, through the UI): Manager AAA deletes the correction ("Correction
 deleted"); the admin deletes the holiday ("Public holiday deleted") — nothing this run created

@@ -22,12 +22,12 @@ function budget(remaining: number, allowance: number | null = 20) {
   };
 }
 
-function renderPage() {
+function renderPage(entry = "/days-off/new") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <MantineProvider env="test">
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={["/days-off/new"]}>
+        <MemoryRouter initialEntries={[entry]}>
           <Routes>
             <Route path="/days-off/new" element={<CreateDaysOff />} />
             <Route path="/days-off" element={<div>LIST</div>} />
@@ -61,7 +61,29 @@ describe("CreateDaysOff", () => {
         return Promise.resolve(jsonResponse(200, { items: holidays }));
       }
       if (u.includes("/api/v1/days-off/budgets")) {
+        // The managed view backs the on-behalf picker's preview: the caller's two reports.
+        if (u.includes("view=managed")) {
+          return Promise.resolve(
+            jsonResponse(200, {
+              items: [
+                { ...budget(remaining, allowance), userId: 9, userName: "Rita Report" },
+                { ...budget(3, allowance), userId: 11, userName: "Zed Report" },
+              ],
+            }),
+          );
+        }
         return Promise.resolve(jsonResponse(200, { items: [budget(remaining, allowance)] }));
+      }
+      if (u.includes("/api/v1/teams/members")) {
+        const row = (userId: number, name: string) => ({
+          userId, name, email: `${name.replaceAll(" ", ".")}@x.test`, teamId: 1, teamName: "Team",
+        });
+        return Promise.resolve(
+          jsonResponse(200, {
+            items: [row(5, "Me"), row(9, "Rita Report"), row(11, "Zed Report")],
+            page: 1, pageSize: 100, total: 3,
+          }),
+        );
       }
       return Promise.resolve(jsonResponse(200, { items: [] }));
     });
@@ -151,6 +173,56 @@ describe("CreateDaysOff", () => {
     });
     expect(showSpy).toHaveBeenCalledWith(
       expect.objectContaining({ message: "Days-off request submitted" }),
+    );
+  });
+
+  test("on-behalf mode offers the report picker (caller excluded) and gates the submit on a pick", async () => {
+    setupMocks();
+    renderPage("/days-off/new?onBehalf=1");
+
+    expect(await screen.findByText("New days off")).toBeInTheDocument();
+    // Valid dates alone don't unlock the auto-accepted submit — a report must be picked.
+    await pickRange(MONDAY, TUESDAY);
+    const submit = screen.getByRole("button", { name: "Submit auto-accepted" });
+    expect(submit).toBeDisabled();
+
+    await userEvent.click(screen.getByRole("combobox", { name: "On behalf of" }));
+    const options = (await screen.findAllByRole("option")).map((o) => o.textContent);
+    expect(options).toContain("Rita Report");
+    expect(options).toContain("Zed Report");
+    expect(options).not.toContain("Me");
+    await userEvent.click(screen.getByRole("option", { name: "Rita Report" }));
+
+    expect(submit).toBeEnabled();
+    // The budget preview reads the PICKED report's managed-budget row.
+    expect(
+      await screen.findByText(`Remaining paid-days budget for ${YEAR}: 10.`),
+    ).toBeInTheDocument();
+  });
+
+  test("on-behalf submit posts the picked userId, toasts, and returns to the team tab", async () => {
+    const showSpy = vi.spyOn(notifications, "show");
+    showSpy.mockClear();
+    setupMocks();
+    renderPage("/days-off/new?onBehalf=1");
+
+    await pickRange(MONDAY, TUESDAY);
+    await userEvent.click(screen.getByRole("combobox", { name: "On behalf of" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Zed Report" }));
+    await userEvent.click(screen.getByRole("button", { name: "Submit auto-accepted" }));
+
+    await waitFor(() => expect(screen.getByText("LIST")).toBeInTheDocument());
+    const post = mockFetch.mock.calls.find(([, init]) => (init as RequestInit)?.method === "POST");
+    expect(JSON.parse(String((post?.[1] as RequestInit).body))).toEqual({
+      type: "PAID",
+      startDate: MONDAY,
+      endDate: TUESDAY,
+      startHalf: false,
+      endHalf: false,
+      userId: 11,
+    });
+    expect(showSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "Days off recorded and accepted" }),
     );
   });
 

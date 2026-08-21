@@ -1,6 +1,7 @@
 {
   "sectionTitle": "Days off",
   "newRequest": "New request",
+  "newForReport": "New days off",
   "teamHint": "Your direct reports' days-off requests — accept or reject the pending ones — and their yearly budgets.",
   "tab": {
     "calendar": "Calendar",
@@ -36,7 +37,8 @@
     "reject": "Reject",
     "cancel": "Cancel request",
     "cancelConfirm": "Cancel the request",
-    "submitRequest": "Submit request"
+    "submitRequest": "Submit request",
+    "submitAutoAccepted": "Submit auto-accepted"
   },
   "acceptAria": "Accept the days-off request of {{name}} starting {{date}}",
   "rejectAria": "Reject the days-off request of {{name}} starting {{date}}",
@@ -47,6 +49,7 @@
   "cancelMessage": "Your managers will be notified and the reserved days return to your budget. Cancelling is final.",
   "toast": {
     "requested": "Days-off request submitted",
+    "recorded": "Days off recorded and accepted",
     "accepted": "Request accepted",
     "rejected": "Request rejected",
     "cancelled": "Request cancelled"
@@ -59,12 +62,18 @@
     "actionFailed": "The action failed. Please try again.",
     "overlap": "The period overlaps one of your pending or accepted requests.",
     "overBudget": "The request does not fit your remaining paid-days budget.",
+    "overlapOnBehalf": "The period overlaps one of this person's pending or accepted requests.",
+    "overBudgetOnBehalf": "The entry does not fit this person's remaining paid-days budget.",
     "invalid": "The request is invalid — check the dates.",
     "saveFailedStatus": "Saving failed (HTTP {{status}}).",
     "saveFailed": "Saving failed. Please try again."
   },
   "createTitle": "New days-off request",
   "createHint": "One request covers one consecutive period within a single calendar year. Weekends and public holidays don't count against your budget; the first and last day can be half days.",
+  "recordTitle": "New days off",
+  "recordHint": "Record a days-off entry on behalf of one of your direct reports — for example to backfill vacation history. The entry is created already accepted, with you as the approver; both of you are notified.",
+  "onBehalfLabel": "On behalf of",
+  "pickReport": "Pick a direct report",
   "startHalfLabel": "First day is a half day",
   "endHalfLabel": "Last day is a half day",
   "costPreview": "This request costs {{days}} working day(s).",
@@ -101,6 +110,7 @@
     "used": "Used",
     "remaining": "Remaining",
     "noAllowance": "No paid-days allowance is configured for you yet — ask an administrator; paid requests are blocked until then.",
+    "noAllowanceOnBehalf": "No paid-days allowance is configured for this person yet — ask an administrator; paid entries are blocked until then.",
     "loadError": "Could not load the budget",
     "noReports": "No direct reports.",
     "corrected": "Corrections",

@@ -3,6 +3,7 @@ package ch.nokillswit
 import ch.nokillswit.daysoff.DaysOffStatus
 import ch.nokillswit.daysoff.DaysOffType
 import ch.nokillswit.daysoff.daysOffCancelledNotifications
+import ch.nokillswit.daysoff.daysOffRecordedNotifications
 import ch.nokillswit.daysoff.daysOffRequestedNotifications
 import ch.nokillswit.daysoff.daysOffResolvedNotification
 import ch.nokillswit.notifications.NotificationType
@@ -55,6 +56,47 @@ class DaysOffNotificationsTest {
         assertFailsWith<IllegalStateException> {
             daysOffResolvedNotification(3u, DaysOffStatus.CANCELLED, "Morgan", "a", "b")
         }
+    }
+
+    @Test
+    fun `an on-behalf recording notifies both the owner and the acting manager`() {
+        val notifications = daysOffRecordedNotifications(
+            ownerId = 3u,
+            ownerName = "Riley",
+            managerId = 7u,
+            managerName = "Morgan",
+            type = DaysOffType.PAID,
+            days = "2",
+            startDate = "2030-03-04",
+            endDate = "2030-03-05",
+        )
+        assertEquals(2, notifications.size)
+        val toOwner = notifications.single { it.type == NotificationType.DAYS_OFF_RECORDED_TO_OWNER }
+        assertEquals(3u, toOwner.recipientId)
+        assertEquals(
+            mapOf(
+                "manager" to "Morgan",
+                "type" to "PAID",
+                "days" to "2",
+                "startDate" to "2030-03-04",
+                "endDate" to "2030-03-05",
+            ),
+            toOwner.params,
+        )
+        assertEquals("/days-off?tab=requests", toOwner.link)
+        val toManager = notifications.single { it.type == NotificationType.DAYS_OFF_RECORDED_TO_MANAGER }
+        assertEquals(7u, toManager.recipientId)
+        assertEquals(
+            mapOf(
+                "requester" to "Riley",
+                "type" to "PAID",
+                "days" to "2",
+                "startDate" to "2030-03-04",
+                "endDate" to "2030-03-05",
+            ),
+            toManager.params,
+        )
+        assertEquals("/days-off?tab=team", toManager.link)
     }
 
     @Test

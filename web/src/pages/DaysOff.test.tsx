@@ -104,6 +104,18 @@ describe("DaysOff page", () => {
     expect(await screen.findByText("Paid-days budgets")).toBeInTheDocument();
   });
 
+  test("the team tab shows the New days off on-behalf button under the request list", async () => {
+    setupMocks({ managed: 1 });
+    renderWithProviders(<DaysOff />, { route: "/days-off?tab=team" });
+
+    // The on-behalf entry (v2.29.0) sits below the managed list, right-aligned — the house
+    // footer convention — and opens the create screen in onBehalf mode, returning here.
+    expect(await screen.findByRole("link", { name: "New days off" })).toHaveAttribute(
+      "href",
+      `/days-off/new?onBehalf=1&back=${encodeURIComponent("/days-off?tab=team")}`,
+    );
+  });
+
   test("the requests tab shows the budget card and the New request button", async () => {
     setupMocks();
     renderWithProviders(<DaysOff />, { route: "/days-off?tab=requests" });
