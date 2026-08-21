@@ -27,7 +27,9 @@ export default function FeedbackMeta({
   status?: FeedbackStatus;
   visibility?: FeedbackVisibility;
   providerDisplay: string;
-  subjectDisplay: string;
+  // Omitted while the subject is not resolved yet (the kudo create flow before a recipient
+  // is picked) — the arrow and subject slot are skipped.
+  subjectDisplay?: string;
   requesterDisplay?: string;
   lastModified?: number;
 }) {
@@ -52,10 +54,14 @@ export default function FeedbackMeta({
       </Group>
       <Group gap={8} wrap="wrap">
         {party(providerDisplay)}
-        <Text size="sm" c="dimmed">
-          →
-        </Text>
-        {party(subjectDisplay)}
+        {subjectDisplay != null && (
+          <>
+            <Text size="sm" c="dimmed">
+              →
+            </Text>
+            {party(subjectDisplay)}
+          </>
+        )}
         {requesterDisplay != null && (
           <>
             <Text size="sm" c="dimmed">

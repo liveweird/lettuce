@@ -80,7 +80,7 @@ scenario file is the design.
 - [`goals.spec.ts`](scenarios/goals.md) — the goal lifecycle, PLAN milestones, chain-manager visibility, notifications.
 - [`hr.spec.ts`](scenarios/hr.md) — the HR auditor reads a private draft via the Audit section; admin gets no audit surface.
 - [`i18n.spec.ts`](scenarios/i18n.md) — language menu switch (native names) on a throwaway user, persisted across reload AND re-login (the v2.21.0 server-side sync).
-- [`kudos.spec.ts`](scenarios/kudos.md) — a PUBLIC feedback lands on the Kudos wall for a non-party.
+- [`kudos.spec.ts`](scenarios/kudos.md) — a kudo created from the wall's New kudo screen (recipient picker, visibility pinned Public) lands there for a non-party.
 - [`lists.spec.ts`](scenarios/lists.md) — shared list plumbing: filters, sort toggle, page size.
 - [`manager-oversight.spec.ts`](scenarios/manager-oversight.md) — the My team feedback tab and the per-user two-way screen.
 - [`mfa.spec.ts`](scenarios/mfa.md) — opt-in email MFA at login (Mailpit-gated).

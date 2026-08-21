@@ -1,0 +1,9 @@
+/* The page-level sticky header of the Kudos wall (v2.27.0): the document is the scroll
+ * container (AppShell.Main has no overflow constraint), so plain sticky pins the header
+ * right under the app header. The offset var is Mantine's — it tracks the dynamic header
+ * height (56px + the alerts bar when banners are active). */
+.stickyHeader {
+  position: sticky;
+  top: var(--app-shell-header-offset, 56px);
+  z-index: 10;
+}

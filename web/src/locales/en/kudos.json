@@ -5,5 +5,8 @@
   "loadError": "Failed to load kudos",
   "unknownError": "Unknown error",
   "showMore": "Show more",
-  "showLess": "Show less"
+  "showLess": "Show less",
+  "newButton": "New kudo",
+  "createTitle": "New kudo",
+  "recipientLabel": "Recipient"
 }
