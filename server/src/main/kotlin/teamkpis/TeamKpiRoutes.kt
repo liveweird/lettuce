@@ -1,9 +1,8 @@
 package ch.nokillswit.teamkpis
 
-import ch.nokillswit.authz.requireDirectReport
-import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
+import ch.nokillswit.authz.requireDirectReport
 import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.authz.requireTeamKpiManage
 import ch.nokillswit.authz.requireTeamKpiReadAllowingChain
@@ -227,6 +226,7 @@ fun Application.configureTeamKpiRoutes() {
                 // validation so an outsider's malformed request is still a uniform 403, not 400
                 // — including for an unknown teamId.
                 requireDirectReport(
+                    caller,
                     { kpiService.managesTeamOrChain(caller.userId, request.teamId) },
                     "You may only set KPIs for teams you manage directly or indirectly",
                 )

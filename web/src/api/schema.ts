@@ -4935,7 +4935,10 @@ export interface components {
              * @default false
              */
             endHalf: boolean;
-            /** @description Omitted/null: the caller requests for themselves (REQUESTED). Set: the caller — a current direct manager of this user — records the entry on their behalf, born ACCEPTED with the caller as resolver (v2.29.0). 403 for anyone else, including the target themselves. */
+            /**
+             * Format: int32
+             * @description Omitted/null: the caller requests for themselves (REQUESTED). Set: the caller — a current direct manager of this user — records the entry on their behalf, born ACCEPTED with the caller as resolver (v2.29.0). 403 for anyone else, including the target themselves.
+             */
             userId?: number | null;
         };
         DaysOffResponse: {

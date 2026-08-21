@@ -7532,6 +7532,8 @@ components:
           description: The period's last day is a half day; must stay false on a single-day request (400).
         userId:
           type: integer
+          format: int32
+          minimum: 0
           nullable: true
           description: >-
             Omitted/null: the caller requests for themselves (REQUESTED). Set: the caller — a

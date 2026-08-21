@@ -31,7 +31,6 @@
   "rowsPerPage": "Goals per page",
   "noGoals": "No goals yet.",
   "loadListError": "Could not load goals",
-  "unknownError": "Unknown error",
   "viewAria": "View goal {{title}}",
   "editAria": "Edit goal {{title}}",
   "status": {

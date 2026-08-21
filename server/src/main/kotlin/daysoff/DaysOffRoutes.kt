@@ -4,12 +4,12 @@ import ch.nokillswit.audit.audit
 import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAuditListAccess
-import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.authz.requireDaysOffCorrectionsRead
 import ch.nokillswit.authz.requireDaysOffOwner
 import ch.nokillswit.authz.requireDaysOffRead
 import ch.nokillswit.authz.requireDaysOffResolve
 import ch.nokillswit.authz.requireDirectReport
+import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.infra.paging.SortField
 import ch.nokillswit.infra.paging.optionalEnum
@@ -35,8 +35,8 @@ import io.ktor.server.resources.put
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.routing.routing
-import kotlinx.serialization.Serializable
 import java.time.LocalDate
+import kotlinx.serialization.Serializable
 
 @Serializable
 @Resource("/api/v1/days-off")
@@ -77,6 +77,11 @@ class DaysOffCorrections {
 // other guard or read.
 private fun ApplicationCall.daysOffCaller() =
     caller().also { requireFeatureEnabled(it, Feature.DAYS_OFF) }
+
+/** The shared budget-year bound (corrections list + budgets): 400 outside 2000..2100. */
+private fun parseYearParam(raw: String): Int =
+    raw.toIntOrNull()?.takeIf { it in 2000..2100 }
+        ?: throw BadRequestException("year must be a four-digit year between 2000 and 2100")
 
 fun Application.configureDaysOffRoutes() {
     val daysOffService = attributes[DaysOffServiceKey]
@@ -174,6 +179,7 @@ fun Application.configureDaysOffRoutes() {
                     // self check rides the same membership test (nobody is their own direct
                     // manager), so a self-targeting userId is also a 403, not a special case.
                     requireDirectReport(
+                        caller,
                         { targetId != caller.userId && daysOffService.isDirectManagerOf(caller.userId, targetId) },
                         "Only a current direct manager may record days off on behalf of a report",
                     )
@@ -245,10 +251,7 @@ fun Application.configureDaysOffRoutes() {
                 val params = call.request.queryParameters
                 val userId = params.optionalUInt("userId")
                     ?: throw BadRequestException("userId is required")
-                val year = params.optionalString("year")?.let {
-                    it.toIntOrNull()?.takeIf { y -> y in 2000..2100 }
-                        ?: throw BadRequestException("year must be a four-digit year between 2000 and 2100")
-                }
+                val year = params.optionalString("year")?.let(::parseYearParam)
                 requireDaysOffCorrectionsRead(caller, userId) {
                     daysOffService.managesOwner(caller.userId, userId)
                 }
@@ -322,11 +325,7 @@ fun Application.configureDaysOffRoutes() {
             get<DaysOffBudgets> {
                 val caller = call.daysOffCaller()
                 val params = call.request.queryParameters
-                val year = when (val raw = params.optionalString("year")) {
-                    null -> LocalDate.now().year
-                    else -> raw.toIntOrNull()?.takeIf { it in 2000..2100 }
-                        ?: throw BadRequestException("year must be a four-digit year between 2000 and 2100")
-                }
+                val year = params.optionalString("year")?.let(::parseYearParam) ?: LocalDate.now().year
                 val userIds: Set<UInt> = when (val raw = params.optionalString("view") ?: "own") {
                     "own" -> setOf(caller.userId)
                     // The manager's budget overview: direct reports only (the resolve scope).

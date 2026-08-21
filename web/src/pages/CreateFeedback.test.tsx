@@ -76,6 +76,7 @@ describe("CreateFeedback page", () => {
 
   test("shows the immutable subject and provider with default visibility", () => {
     renderCreateFeedback();
+    expect(screen.getByRole("heading", { name: "Provide feedback" })).toBeInTheDocument();
     expect(screen.getByText("You")).toBeInTheDocument();
     expect(screen.getByText("Mona")).toBeInTheDocument();
     expect((screen.getByPlaceholderText("Select visibility") as HTMLInputElement).value).toBe(
@@ -230,8 +231,10 @@ describe("CreateFeedback page", () => {
     const user = userEvent.setup();
     renderCreateFeedback("");
 
-    // No redirect — the picker-mode create screen renders instead (v2.28.0).
+    // No redirect — the picker-mode create screen renders instead (v2.28.0), titled after
+    // its entry button (the creation-verb convention; deep links keep "Provide feedback").
     expect(screen.queryByTestId("probe")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "New feedback" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^save draft$/i })).toBeDisabled();
     expect(screen.getByRole("button", { name: /save & send/i })).toBeDisabled();
 

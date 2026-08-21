@@ -33,7 +33,6 @@
     "saveAndSend": "Save & send"
   },
   "noFeedback": "No feedback",
-  "unknownError": "Unknown error",
   "unknown": "Unknown",
   "rowsPerPage": "Rows per page",
   "deletedSuffix": "{{name}} (deleted)",

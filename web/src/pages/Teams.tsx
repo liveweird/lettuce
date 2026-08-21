@@ -252,7 +252,6 @@ export default function Teams() {
         confirm={deleteConfirm}
         title={t("teams.deleteModalTitle")}
         errorTitle={t("teams.deleteFailed")}
-        unknownError={t("teams.unknownError")}
         body={(target) => (
           <>
             {t("teams.deleteTitle", { name: target.name, manager: target.managerName })}{" "}

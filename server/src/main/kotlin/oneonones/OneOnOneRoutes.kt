@@ -1,10 +1,9 @@
 package ch.nokillswit.oneonones
 
-import ch.nokillswit.authz.requireDirectReport
-import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAuditListAccess
+import ch.nokillswit.authz.requireDirectReport
 import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.authz.requireOneOnOneReadAllowingManager
 import ch.nokillswit.authz.requireOneOnOneWrite
@@ -12,12 +11,13 @@ import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.infra.db.requireValidReferences
 import ch.nokillswit.infra.paging.SortField
 import ch.nokillswit.infra.paging.optionalBoolean
+import ch.nokillswit.infra.paging.optionalIncludeIndirect
 import ch.nokillswit.infra.paging.optionalString
 import ch.nokillswit.infra.paging.optionalUInt
-import ch.nokillswit.infra.paging.optionalIncludeIndirect
-import ch.nokillswit.infra.paging.uintOnlyForView
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
+import ch.nokillswit.infra.paging.uintOnlyForView
+import ch.nokillswit.infra.parseIsoDateStrict
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserServiceKey
@@ -77,13 +77,7 @@ private fun OneOnOneEventDescriptor.toEvent(meetingId: UInt, userId: UInt) = One
 
 /** 400 unless [value] is a zero-padded ISO date — anything else would sort wrong as VARCHAR. */
 private fun requireIsoDate(value: String, field: String) {
-    val valid = value.length == 10 && try {
-        LocalDate.parse(value)
-        true
-    } catch (_: DateTimeParseException) {
-        false
-    }
-    if (!valid) throw BadRequestException("$field must be an ISO date (YYYY-MM-DD)")
+    parseIsoDateStrict(value, field)
 }
 
 /**
@@ -215,6 +209,7 @@ fun Application.configureOneOnOneRoutes() {
                 // (a member of a team the caller manages) — this is the relationship the feature
                 // models; the read right for higher chain managers comes later, not at creation.
                 requireDirectReport(
+                    caller,
                     { oneOnOneService.isDirectReport(caller.userId, request.subordinateId) },
                     "You may only document 1:1 meetings with your direct reports",
                 )

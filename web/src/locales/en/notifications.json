@@ -3,7 +3,6 @@
   "unread_one": "{{count}} unread",
   "unread_other": "{{count}} unread",
   "loadError": "Failed to load notifications",
-  "unknownError": "Unknown error",
   "empty": "No notifications.",
   "markSeen": "Mark as seen",
   "markAllSeen": "Mark all as seen",

@@ -6,6 +6,5 @@
   "deletedTag": "(deleted)",
   "unattachedLabel": "Not in any team",
   "empty": "No teams yet — the chart appears once the first team exists.",
-  "loadFailed": "Failed to load the organization",
-  "unknownError": "Unknown error"
+  "loadFailed": "Failed to load the organization"
 }

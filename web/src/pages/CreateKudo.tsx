@@ -12,6 +12,7 @@ import { useAllUsers } from "../hooks/useAllUsers";
 import { useFeedbackDuplicate } from "../hooks/useFeedbackDuplicate";
 import { feedbackEditLink } from "../utils/feedbackLinks";
 import { saveErrorMessage } from "../utils/saveError";
+import { PROVIDE_ERROR_KEYS } from "../utils/feedbackForm";
 import { showSuccessToast } from "../utils/toast";
 
 /**
@@ -76,13 +77,7 @@ export default function CreateKudo() {
       navigate("/kudos", { replace: true });
     } catch (err) {
       setError(
-        saveErrorMessage(err, t, {
-          forbidden: "feedback.error.providePermission",
-          conflict: "feedback.error.duplicate",
-          invalid: "feedback.error.validation",
-          failedStatus: "feedback.error.createFailedStatus",
-          failed: "feedback.error.createFailed",
-        }),
+        saveErrorMessage(err, t, PROVIDE_ERROR_KEYS),
       );
     } finally {
       setSubmitting(null);

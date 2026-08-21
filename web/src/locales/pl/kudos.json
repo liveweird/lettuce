@@ -3,7 +3,6 @@
   "hint": "Publiczny feedback z całej organizacji — od najnowszych.",
   "empty": "Nie ma jeszcze kudosów — publiczny feedback pojawi się tutaj po wysłaniu.",
   "loadError": "Nie udało się wczytać kudosów",
-  "unknownError": "Nieznany błąd",
   "showMore": "Pokaż więcej",
   "showLess": "Pokaż mniej",
   "newButton": "Nowe kudo",

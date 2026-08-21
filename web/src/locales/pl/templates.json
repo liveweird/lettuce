@@ -11,7 +11,6 @@
   "rowsPerPage": "Wierszy na stronę",
   "clearNameFilter": "Wyczyść filtr nazwy",
   "clearName": "Wyczyść nazwę",
-  "unknownError": "Nieznany błąd",
   "loadFailed": "Nie udało się wczytać szablonów",
   "loadOneFailed": "Nie udało się wczytać szablonu{{suffix}}.",
   "deleteFailed": "Nie udało się usunąć szablonu",

@@ -1,9 +1,10 @@
 package ch.nokillswit.pulse
 
+import ch.nokillswit.infra.parseIsoDateStrict
 import io.ktor.server.plugins.BadRequestException
-import kotlinx.serialization.Serializable
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
+import kotlinx.serialization.Serializable
 
 /**
  * The pulse-cycle status machine: SCHEDULED -> OPEN -> CLOSED, with terminal CANCELLED
@@ -75,12 +76,7 @@ data class PulseCycleRow(
     val lastModified: Long,
 )
 
-private fun parseIsoDate(value: String, field: String): LocalDate =
-    try {
-        LocalDate.parse(value)
-    } catch (e: DateTimeParseException) {
-        throw BadRequestException("$field must be an ISO date (YYYY-MM-DD)")
-    }
+private fun parseIsoDate(value: String, field: String): LocalDate = parseIsoDateStrict(value, field)
 
 /** Shape rules only (strict zero-padded ISO, close strictly after open); state rules live in the service. */
 fun validatePulseCycleDates(plannedOpenDate: String, plannedCloseDate: String) {

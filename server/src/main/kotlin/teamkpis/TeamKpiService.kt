@@ -460,18 +460,6 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
             .count() > 0
     }
 
-    /** True iff [userId] is the CURRENT manager of the non-deleted team [teamId]. */
-    suspend fun managesTeam(userId: UInt, teamId: UInt): Boolean = suspendTransaction(database) {
-        TeamService.Teams
-            .select(TeamService.Teams.id)
-            .where {
-                (TeamService.Teams.id eq teamId) and
-                    (TeamService.Teams.managerId eq userId) and
-                    (TeamService.Teams.markedAsDeleted eq false)
-            }
-            .count() > 0
-    }
-
     /**
      * The POST gate (v2.26.0): true iff [userId] manages the non-deleted team [teamId] directly
      * OR sits in the chain above its current manager — a KPI may be set anywhere in the

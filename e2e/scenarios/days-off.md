@@ -31,10 +31,10 @@ comment). The suite thus self-heals on the next run no matter where a run died.
 3. AAA Two opens Days off → My requests and files a PAID request for the holiday week's
    Monday–Tuesday via "New request".
    - *Expected*: the budget strip "Your paid days off in \<year\>" is visible; the live cost
-     preview reads "This request costs 1 working day(s)." (the Monday holiday is free —
+     preview reads "This request costs 1 working day." (the Monday holiday is free —
      the half-day-cost edge); "Days-off request submitted" confirms.
 4. AAA Two files a second PAID request for the following Monday–Tuesday.
-   - *Expected*: the cost preview reads 2 working day(s); both rows sit in My requests as
+   - *Expected*: the cost preview reads 2 working days; both rows sit in My requests as
      Requested.
 5. Manager AAA signs in and opens the bell.
    - *Expected*: an "AAA Two requested time off" notification.
@@ -62,7 +62,7 @@ comment). The suite thus self-heals on the next run no matter where a run died.
     - *Expected*: "Request cancelled" — the reserved days return to the budget.
 13. AAA Two notes the paid-budget strip, then files an UNPAID single-day request for the
     Wednesday of the booked week.
-    - *Expected*: the same live cost preview ("1 working day(s)"); under the Requested filter
+    - *Expected*: the same live cost preview ("1 working day"); under the Requested filter
       the fresh row shows Unpaid; the paid-budget strip is byte-for-byte unchanged.
 14. AAA Two cancels the unpaid request too (why: seed accounts must keep no counting rows —
     rejected/cancelled records are inert).
@@ -70,7 +70,7 @@ comment). The suite thus self-heals on the next run no matter where a run died.
 15. Manager AAA opens Days off → Team and clicks the **New days off** button under the request
     list (the on-behalf entry, v2.29.0), picks AAA Two in the "On behalf of" picker, books the
     booked week's Thursday (a PAID single day), and clicks **Submit auto-accepted**.
-    - *Expected*: the cost preview reads "1 working day(s)"; back on the team tab with the
+    - *Expected*: the cost preview reads "1 working day"; back on the team tab with the
       "Days off recorded and accepted" toast; the manager's own bell holds the durable receipt
       "You recorded days off on behalf of AAA Two".
 16. Still on the team tab, Manager AAA opens "Budget corrections of AAA Two" and adds a +2-day

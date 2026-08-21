@@ -245,7 +245,6 @@ export default function Alerts() {
         confirm={deleteConfirm}
         title={t("alerts.deleteTitle")}
         errorTitle={t("alerts.deleteFailed")}
-        unknownError={t("alerts.unknownError")}
         body={(target) => (
           <>
             {t("alerts.deleteConfirmPrefix")}

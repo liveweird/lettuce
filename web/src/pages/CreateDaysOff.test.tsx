@@ -113,7 +113,7 @@ describe("CreateDaysOff", () => {
     renderPage();
 
     await pickRange(MONDAY, "2099-06-05"); // Mon..Fri with a Tuesday holiday
-    expect(await screen.findByText("This request costs 4 working day(s).")).toBeInTheDocument();
+    expect(await screen.findByText("This request costs 4 working days.")).toBeInTheDocument();
     expect(
       screen.getByText(`Remaining paid-days budget for ${YEAR}: 10.`),
     ).toBeInTheDocument();
@@ -126,7 +126,7 @@ describe("CreateDaysOff", () => {
     await pickRange(MONDAY, MONDAY);
     expect(screen.getByLabelText("Last day is a half day")).toBeDisabled();
     await userEvent.click(screen.getByLabelText("First day is a half day"));
-    expect(await screen.findByText("This request costs 0.5 working day(s).")).toBeInTheDocument();
+    expect(await screen.findByText("This request costs 0.5 working days.")).toBeInTheDocument();
 
     await pickRange(MONDAY, TUESDAY);
     expect(screen.getByLabelText("Last day is a half day")).toBeEnabled();

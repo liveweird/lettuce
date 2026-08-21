@@ -3,7 +3,6 @@
   "hint": "Public feedback from across the organization — newest first.",
   "empty": "No kudos yet — public feedback will appear here once it is sent.",
   "loadError": "Failed to load kudos",
-  "unknownError": "Unknown error",
   "showMore": "Show more",
   "showLess": "Show less",
   "newButton": "New kudo",

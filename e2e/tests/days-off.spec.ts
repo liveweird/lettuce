@@ -148,7 +148,7 @@ async function newRequest(page: Page, from: string, to: string, expectedCost: st
   }
   await page.getByLabel("From", { exact: true }).fill(from);
   await page.getByLabel("To", { exact: true }).fill(to);
-  await expect(page.getByText(`This request costs ${expectedCost} working day(s).`)).toBeVisible();
+  await expect(page.getByText(`This request costs ${expectedCost} working day${expectedCost === "1" ? "" : "s"}.`)).toBeVisible();
   await Promise.all([
     page.waitForResponse(
       (r) => r.url().endsWith("/api/v1/days-off") && r.request().method() === "POST" && r.ok(),
@@ -321,7 +321,7 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   await pickSelectOption(page, "On behalf of", "AAA Two");
   await page.getByLabel("From", { exact: true }).fill(THURSDAY_ISO);
   await page.getByLabel("To", { exact: true }).fill(THURSDAY_ISO);
-  await expect(page.getByText("This request costs 1 working day(s).")).toBeVisible();
+  await expect(page.getByText("This request costs 1 working day.")).toBeVisible();
   await Promise.all([
     page.waitForResponse(
       (r) => r.url().endsWith("/api/v1/days-off") && r.request().method() === "POST" && r.ok(),

@@ -63,14 +63,14 @@ owned state, numbered steps, expected outcomes). **A new or behaviorally changed
 its scenario file and its line below in the same commit** — this list is the coverage map, the
 scenario file is the design.
 
-- [`accessibility.spec.ts`](scenarios/accessibility.md) — axe WCAG A/AA smoke: login + 17 authed read-only pages; `color-contrast` consciously waived.
+- [`accessibility.spec.ts`](scenarios/accessibility.md) — axe WCAG A/AA smoke: login + 21 authed pages (incl. the kudos/feedback/days-off create forms and `/feature-flags`, 2026-08); `color-contrast` consciously waived.
 - [`alerts.spec.ts`](scenarios/alerts.md) — admin broadcast alert: banner, hide/re-show, deactivate, delete (own serial phase).
 - [`auth.spec.ts`](scenarios/auth.md) — login / logout / invalid credentials.
 - [`changelog.spec.ts`](scenarios/changelog.md) — the bundled release history renders versioned entries in EN and PL (PL leg on a throwaway user — the switch persists server-side).
 - [`dashboard-my-teams.spec.ts`](scenarios/dashboard-my-teams.md) — the My teams tab, team-details drill-down round-trip, non-manager empty state.
 - [`days-off.spec.ts`](scenarios/days-off.md) — requests (paid/unpaid, half-days), manager accept/reject, calendar, budgets + corrections, cancel, the manager's on-behalf auto-accepted recording (v2.29.0).
 - [`dictionaries.spec.ts`](scenarios/dictionaries.md) — the whole-list dictionary editor (add/reorder/rename, multilingual — EN required, translations optional) + the read-only view with EN fallback.
-- [`email-notifications.spec.ts`](scenarios/email-notifications.md) — the per-user email-mirror opt-out toggle.
+- [`email-notifications.spec.ts`](scenarios/email-notifications.md) — the per-user email-mirror opt-out toggle (self + the admin-for-another-user branch, 2026-08).
 - [`feature-flags.spec.ts`](scenarios/feature-flags.md) — per-user feature flags end to end + the per-feature screen's team bulk toggle.
 - [`feedback-delivery.spec.ts`](scenarios/feedback-delivery.md) — the receiving side: draft invisibility, Received list, bell deep link.
 - [`feedback-lifecycle-rest.spec.ts`](scenarios/feedback-lifecycle-rest.md) — create-as-SENT, provider draft delete, History/Lifecycle tabs.
@@ -78,12 +78,13 @@ scenario file is the design.
 - [`feedback-request-third-party.spec.ts`](scenarios/feedback-request-third-party.md) — manager requests feedback about a subordinate from a third party; requester message rides along.
 - [`feedback-request-triage.spec.ts`](scenarios/feedback-request-triage.md) — ask → accept → send; and reject.
 - [`goals.spec.ts`](scenarios/goals.md) — the goal lifecycle, PLAN milestones, chain-manager visibility, notifications.
-- [`hr.spec.ts`](scenarios/hr.md) — the HR auditor reads a private draft via the Audit section; admin gets no audit surface.
+- [`hr.spec.ts`](scenarios/hr.md) — the HR auditor reads a private draft via the Audit section + the guarded career timeline (2026-08); admin gets no audit surface.
 - [`i18n.spec.ts`](scenarios/i18n.md) — language menu switch (native names) on a throwaway user, persisted across reload AND re-login (the v2.21.0 server-side sync).
 - [`kudos.spec.ts`](scenarios/kudos.md) — a kudo created from the wall's New kudo screen (recipient picker, visibility pinned Public) lands there for a non-party.
 - [`lists.spec.ts`](scenarios/lists.md) — shared list plumbing: filters, sort toggle, page size.
 - [`manager-oversight.spec.ts`](scenarios/manager-oversight.md) — the My team feedback tab and the per-user two-way screen.
-- [`mfa.spec.ts`](scenarios/mfa.md) — opt-in email MFA at login (Mailpit-gated).
+- [`mfa.spec.ts`](scenarios/mfa.md) — opt-in email MFA at login incl. the five-failure attempt cap + fresh-challenge recovery (Mailpit-gated).
+- [`navigation.spec.ts`](scenarios/navigation.md) — shell navigation: the in-shell 404 catch-all, the legacy performance redirects, the dashboard Peers tab (2026-08 audit round).
 - [`notifications.spec.ts`](scenarios/notifications.md) — bell mechanics: badge, seen/unseen, mark all, delete.
 - [`one-on-ones.spec.ts`](scenarios/one-on-ones.md) — documenting 1:1s, action-item carry-over, subordinate notification.
 - [`org-chart.spec.ts`](scenarios/org-chart.md) — the org-chart canvas and its drill-downs.

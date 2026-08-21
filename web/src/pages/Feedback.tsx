@@ -4,6 +4,7 @@ import { IconPlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { hasFeature } from "../api/session";
 import { useIsManager } from "../hooks/useIsManager";
+import { feedbackCreateLink } from "../utils/feedbackLinks";
 import FeedbackTable from "./FeedbackTable";
 
 const TABS = ["received", "provided", "team"] as const;
@@ -66,7 +67,7 @@ export default function Feedback() {
             <Group justify="flex-end">
               <Button
                 component={RouterLink}
-                to={`/feedback/new?back=${encodeURIComponent("/feedback?tab=provided")}`}
+                to={feedbackCreateLink("/feedback?tab=provided")}
                 leftSection={<IconPlus size={16} />}
               >
                 {t("feedback.newFeedback")}

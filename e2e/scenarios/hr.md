@@ -39,7 +39,11 @@ pair is freed for later runs.
    - *Expected*: "All 1:1 meetings of AAA Three" and "All goals of AAA Three" load in audit
      mode (their content may be empty on a fresh volume — reaching each list is the
      assertion).
-8. The auditor checks for an admin surface.
+8. Back on the details card, the auditor opens "Career progression of AAA Three" (2026-08
+   audit round — the positive twin of user-career.spec's refused direct URL).
+   - *Expected*: the "Career progression — AAA Three" page loads — the career timeline is a
+     guarded HR read since v2.25.0 (self/chain/HR only).
+9. The auditor checks for an admin surface.
    - *Expected*: none — the Config group never offers Alerts to HR.
 
 ## Not covered here (and why)

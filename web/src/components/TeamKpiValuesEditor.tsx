@@ -292,7 +292,6 @@ export default function TeamKpiValuesEditor({ kpi }: { kpi: TeamKpiResponse }) {
         confirm={deleteConfirm}
         title={t("teamKpi.deleteValueTitle")}
         errorTitle={t("teamKpi.error.updateFailed")}
-        unknownError={t("teamKpi.unknownError")}
         body={(row) => t("teamKpi.deleteValueMessage", { date: formatIsoDate(row.date, locale) })}
       />
     </>

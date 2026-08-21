@@ -1,5 +1,5 @@
 import { teamFormValidation, type TeamFormValues } from "../utils/teamForm";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Link as RouterLink,
@@ -51,12 +51,12 @@ export default function EditTeam() {
     retry: false,
   });
 
-  useEffect(() => {
-    if (data) {
+  // Derived, not effect-set (the PulseSettingsCard precedent): initialize applies once.
+
+  if (data && !form.initialized) {
       form.initialize({ name: data.name, managerId: String(data.managerId) });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data]);
+
+  }
 
   if (!isAdmin()) return <Navigate to="/teams" replace />;
   if (!idIsValid) return <Navigate to="/teams" replace />;

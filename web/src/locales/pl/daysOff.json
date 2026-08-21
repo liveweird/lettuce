@@ -31,7 +31,6 @@
   "noRequests": "Nie ma tu jeszcze żadnych wniosków o dni wolne.",
   "rowsPerPage": "Wniosków na stronę",
   "loadListError": "Nie udało się wczytać wniosków o dni wolne",
-  "unknownError": "Coś poszło nie tak. Spróbuj ponownie.",
   "action": {
     "accept": "Zaakceptuj",
     "reject": "Odrzuć",
@@ -76,7 +75,10 @@
   "pickReport": "Wybierz osobę ze swojego zespołu",
   "startHalfLabel": "Pierwszy dzień to pół dnia",
   "endHalfLabel": "Ostatni dzień to pół dnia",
-  "costPreview": "Ten wniosek kosztuje {{days}} dni roboczych.",
+  "costPreview_one": "Ten wniosek kosztuje {{days}} dzień roboczy.",
+  "costPreview_few": "Ten wniosek kosztuje {{days}} dni robocze.",
+  "costPreview_many": "Ten wniosek kosztuje {{days}} dni roboczych.",
+  "costPreview_other": "Ten wniosek kosztuje {{days}} dnia roboczego.",
   "remainingPreview": "Pozostały budżet płatnych dni na {{year}}: {{days}}.",
   "validation": {
     "order": "Data początkowa nie może być późniejsza niż końcowa.",

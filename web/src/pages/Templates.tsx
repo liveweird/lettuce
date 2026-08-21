@@ -202,7 +202,6 @@ export default function Templates() {
         confirm={deleteConfirm}
         title={t("templates.deleteTitle")}
         errorTitle={t("templates.deleteFailed")}
-        unknownError={t("templates.unknownError")}
         body={(target) => (
           <>
             {t("templates.deleteConfirmPrefix")}

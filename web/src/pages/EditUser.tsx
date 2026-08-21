@@ -3,7 +3,7 @@ import {
   userFormValidation,
   type UserFormValues,
 } from "../utils/userForm";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Link as RouterLink,
@@ -66,8 +66,9 @@ export default function EditUser() {
     retry: false,
   });
 
-  useEffect(() => {
-    if (data) {
+  // Derived, not effect-set (the PulseSettingsCard precedent): initialize applies once.
+
+  if (data && !form.initialized) {
       form.initialize({
         name: data.name,
         email: data.email,
@@ -76,9 +77,8 @@ export default function EditUser() {
         uniqueId: data.uniqueId ?? "",
         language: asSupportedLanguage(data.language),
       });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data]);
+
+  }
 
   if (!isAdmin()) return <Navigate to="/users" replace />;
   if (!idIsValid) return <Navigate to="/users" replace />;

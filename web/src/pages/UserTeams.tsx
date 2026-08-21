@@ -283,7 +283,6 @@ export default function UserTeams() {
         confirm={removeConfirm}
         title={t("users.removeTitle")}
         errorTitle={t("users.removeFromTeamFailed")}
-        unknownError={t("users.unknownError")}
         confirmLabel={t("users.remove")}
         body={(row) => (
           <>

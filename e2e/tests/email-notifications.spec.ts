@@ -1,4 +1,4 @@
-import { ADMIN, expect, login, openUserMenu, PASSWORD, test, uniqueText } from "./helpers";
+import { ADMIN, expect, login, logout, openUserMenu, PASSWORD, test, uniqueText } from "./helpers";
 
 // The email-mirror opt-out (v2.3.0): the header account menu opens the self-service screen,
 // the switch persists through save + reload, and turning it back on persists too. Runs on a
@@ -62,4 +62,24 @@ test("a user opts out of email notifications from the account menu and opts back
   await openUserMenu(page);
   await page.getByRole("menuitem", { name: "Email notifications" }).click();
   await expect(mirror).toBeChecked();
+
+  // The admin-for-another-user branch (2026-08 audit round): the same screen opened by an
+  // ADMIN on someone else's id saves the target's flag and returns to /users, not home.
+  const { id: userId } = (await created.json()) as { id: number };
+  await logout(page);
+  await login(page, ADMIN);
+  await page.goto(`/users/${userId}/email-notifications`);
+  await expect(page.getByText(user.email)).toBeVisible();
+  await expect(mirror).toBeChecked();
+  await mirror.click();
+  await Promise.all([
+    page.waitForResponse(
+      (r) => /\/email-notifications$/.test(r.url()) && r.request().method() === "PUT" && r.ok(),
+    ),
+    page.getByRole("button", { name: "Save", exact: true }).click(),
+  ]);
+  await expect(page.getByText("Email notification settings saved")).toBeVisible();
+  await expect(page).toHaveURL(/\/users$/);
+  await page.goto(`/users/${userId}/email-notifications`);
+  await expect(mirror).not.toBeChecked();
 });
