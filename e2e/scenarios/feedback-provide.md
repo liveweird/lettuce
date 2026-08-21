@@ -9,8 +9,9 @@
 ## Scenario: provider drafts, sends, and withdraws a feedback
 
 1. AAA One signs in.
-2. AAA One opens the **Feedback** page and clicks the header's **New feedback** button (the
-   v2.28.0 entry), then picks AAA Two in the **Subject** picker on the create screen (with no
+2. AAA One opens the **Feedback** page's Provided tab and clicks the **New feedback** button
+   under the list (the v2.28.0 entry, moved below the list in v2.28.1 — the house footer
+   convention), then picks AAA Two in the **Subject** picker on the create screen (with no
    subject in the URL the screen offers the picker; the users-row "Provide feedback" entry
    stays covered by the manager-oversight and templates journeys).
    - *Expected*: the feedback create editor opens with AAA Two as the subject.
