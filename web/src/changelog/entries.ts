@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.29.0",
+    date: "2026-08-21",
+    en: `Managers can now record days off on behalf of their direct reports — made for backfilling vacation history without asking everyone to file retroactive requests. The Days off page's My team tab got a "New days off" button under the request list: pick the person, pick the period (past dates are fine), and hit "Submit auto-accepted" — since you are the one who would approve it anyway, the entry is created already accepted, with you on record as the approver. Both of you get a notification, the usual rules still apply (no overlaps, paid entries must fit the person's budget), and the entry behaves like any accepted request afterwards — the owner can still cancel a future one.`,
+    pl: `Menedżerowie i menedżerki mogą teraz zapisywać dni wolne w imieniu swoich bezpośrednich podwładnych — z myślą o uzupełnianiu historii urlopów bez proszenia wszystkich o wsteczne wnioski. Zakładka Mój zespół na stronie Dni wolne dostała przycisk „Nowe dni wolne" pod listą wniosków: wybierz osobę, wybierz okres (daty z przeszłości są w porządku) i kliknij „Wyślij jako zaakceptowany" — skoro to i tak Ty byś ten wniosek zatwierdzał/a, wpis powstaje od razu jako zaakceptowany, z Tobą odnotowanym/ą jako osoba zatwierdzająca. Oboje dostaniecie powiadomienie, zwykłe zasady nadal obowiązują (bez nakładania się okresów, płatne wpisy muszą mieścić się w budżecie danej osoby), a wpis zachowuje się potem jak każdy zaakceptowany wniosek — właściciel/ka wciąż może anulować przyszły.`,
+  },
+  {
     version: "2.28.1",
     date: "2026-08-21",
     en: `The "New feedback" button found its proper home: it now sits under the Provided list, on the right — where the application's "New …" buttons usually live — instead of in the page header. Nothing else about it changed.`,

@@ -9,6 +9,7 @@ import {
   MANAGER_AAA,
   notificationCard,
   openBell,
+  pickSelectOption,
   test,
 } from "./helpers";
 import { apiToken, authHeader } from "./api";
@@ -19,7 +20,8 @@ import type { APIRequestContext, Page } from "@playwright/test";
 // team calendar, and the accepted (future) request is cancelled again — so seeded accounts are
 // never left with counting requests (REJECTED/CANCELLED rows are inert records). An UNPAID
 // single-day request then shows the same cost preview while leaving the paid budget untouched,
-// and is cancelled too.
+// and is cancelled too. The manager also records a day ON BEHALF of AAA Two (v2.29.0, born
+// Accepted, both bells notified), which the owner cancels at the end.
 //
 // The request window is a run-specific future Monday (weeks vary per run), so residue from a
 // failed earlier run rarely collides via the overlap rule — but the sweep below is what
@@ -61,8 +63,9 @@ function pickMonday(): Date {
   monday = addDays(monday, weeks * 7);
   const windowBlocked = (m: Date) =>
     m.getFullYear() !== addDays(m, 8).getFullYear() ||
-    // Offsets 0/1 + 7/8 are the two Mon–Tue requests; 2 is the UNPAID leg's Wednesday.
-    [0, 1, 2, 7, 8].some((offset) => SEEDED_HOLIDAYS.has(isoDate(addDays(m, offset))));
+    // Offsets 0/1 + 7/8 are the two Mon–Tue requests; 2 is the UNPAID leg's Wednesday;
+    // 3 is the manager's on-behalf Thursday (v2.29.0).
+    [0, 1, 2, 3, 7, 8].some((offset) => SEEDED_HOLIDAYS.has(isoDate(addDays(m, offset))));
   while (windowBlocked(monday)) {
     monday = addDays(monday, 7);
   }
@@ -75,6 +78,9 @@ const TUESDAY_ISO = isoDate(addDays(MONDAY, 1));
 // The UNPAID leg's single day — inside the same booked week (no overlap: the Mon–Tue request
 // is cancelled by then, and cancelled rows are inert for the overlap rule anyway).
 const WEDNESDAY_ISO = isoDate(addDays(MONDAY, 2));
+// The manager's on-behalf leg (v2.29.0) books this day for AAA Two — same booked week, no
+// overlap (the earlier requests are cancelled/rejected by then, and those rows are inert).
+const THURSDAY_ISO = isoDate(addDays(MONDAY, 3));
 const MONDAY2_ISO = isoDate(addDays(MONDAY, 7));
 const TUESDAY2_ISO = isoDate(addDays(MONDAY, 8));
 
@@ -306,9 +312,32 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   await expect(page.getByText("Request cancelled")).toBeVisible();
   await logout(page);
 
-  // ── Manager: a +2 budget correction for AAA Two (v1.43.0). ──
+  // ── Manager: records days off ON BEHALF of AAA Two (v2.29.0) — born Accepted. ──
   await login(page, MANAGER_AAA);
   await collapseAlertsBanner(page);
+  await page.goto("/days-off?tab=team");
+  await page.getByRole("link", { name: "New days off" }).click();
+  await expect(page).toHaveURL(/\/days-off\/new\?onBehalf=1/);
+  await pickSelectOption(page, "On behalf of", "AAA Two");
+  await page.getByLabel("From", { exact: true }).fill(THURSDAY_ISO);
+  await page.getByLabel("To", { exact: true }).fill(THURSDAY_ISO);
+  await expect(page.getByText("This request costs 1 working day(s).")).toBeVisible();
+  await Promise.all([
+    page.waitForResponse(
+      (r) => r.url().endsWith("/api/v1/days-off") && r.request().method() === "POST" && r.ok(),
+    ),
+    page.getByRole("button", { name: "Submit auto-accepted" }).click(),
+  ]);
+  await expect(page).toHaveURL(/\/days-off\?tab=team/);
+  await expect(page.getByText("Days off recorded and accepted")).toBeVisible();
+  // The acting manager keeps a durable receipt in their own bell.
+  const recordBell = await openBell(page);
+  await expect(
+    notificationCard(recordBell, "You recorded days off on behalf of AAA Two"),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  // ── Manager: a +2 budget correction for AAA Two (v1.43.0). ──
   await page.goto("/days-off?tab=team");
   await page.getByLabel("Budget corrections of AAA Two").click();
   const correctionsModal = page.getByRole("dialog");
@@ -328,6 +357,10 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   await expect(
     notificationCard(corrBell, "added 2 day(s) to your paid days-off budget"),
   ).toBeVisible();
+  // The on-behalf recording (v2.29.0) also reached the owner's bell.
+  await expect(
+    notificationCard(corrBell, "Manager AAA recorded days off on your behalf"),
+  ).toBeVisible();
   await page.keyboard.press("Escape");
   await page.goto("/days-off?tab=requests");
   await page.getByRole("button", { name: "Corrections" }).click();
@@ -336,6 +369,20 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   // Read-only: no add form, no per-row actions.
   await expect(ownModal.getByRole("button", { name: "Add correction" })).toHaveCount(0);
   await page.keyboard.press("Escape");
+
+  // The recorded entry sits in My requests as Accepted; cancel it (still future) so the
+  // seed account keeps no counting rows. The stored Status filter says Requested from the
+  // UNPAID leg — flip it to Accepted first.
+  const recordedFilters = page.getByRole("button", { name: "Filters" });
+  if ((await recordedFilters.getAttribute("aria-expanded")) !== "true") await recordedFilters.click();
+  await page.getByRole("combobox", { name: "Status" }).click();
+  await page.getByRole("option", { name: "Accepted" }).click();
+  await page.getByLabel(`Cancel your days-off request starting ${THURSDAY_ISO}`).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Cancel the request", exact: true })
+    .click();
+  await expect(page.getByText("Request cancelled")).toBeVisible();
   await logout(page);
 
   // ── Cleanup: the manager deletes the correction; the admin removes the holiday. ──

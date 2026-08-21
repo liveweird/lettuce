@@ -3657,8 +3657,13 @@ paths:
       operationId: createDaysOff
       summary: Request days off
       description: |
-        Creates a days-off request, always in **REQUESTED** status. The **owner is always the
-        caller** — there is no create-on-behalf, not even for ADMIN.
+        Creates a days-off request. Without `userId` the **owner is the caller** and the
+        request enters **REQUESTED**. With `userId` (v2.29.0) a **current direct manager** of
+        that user records the entry **on their behalf**: it is born **ACCEPTED** with the
+        caller stamped as the resolver — the vacation-history population flow (the caller
+        already holds the accept right). Anyone else — the target themselves, chain managers
+        higher up, ADMIN, HR — is `403`; a deactivated target is `400` (the house
+        no-new-assignments rule). Past periods are as valid here as on self-requests.
 
         One request covers one **consecutive period** `[startDate, endDate]` (a single day is
         allowed; both bounds inclusive, strict zero-padded ISO `YYYY-MM-DD`). The period must
@@ -3678,8 +3683,11 @@ paths:
         REQUESTED request already reserves budget, and unused budget carries over between
         calendar years (see `GET /days-off/budgets`). UNPAID requests are unlimited.
 
-        Each of the owner's **current direct managers** is notified; a user with no manager
-        notifies nobody (and nobody can accept — a documented top-of-chain limitation).
+        A self-request notifies each of the owner's **current direct managers**; a user with
+        no manager notifies nobody (and nobody can accept — a documented top-of-chain
+        limitation). An on-behalf recording instead notifies **both parties** — the owner and
+        the acting manager (a durable receipt); other direct managers see the row in their
+        managed list.
       requestBody:
         required: true
         content:
@@ -3700,7 +3708,8 @@ paths:
         '400':
           description: >-
             Validation error (malformed or misordered dates, a year-spanning period, endHalf
-            on a single-day request, or a period containing no working days)
+            on a single-day request, a period containing no working days, or an on-behalf
+            userId pointing at a deactivated user)
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
@@ -7521,6 +7530,14 @@ components:
           type: boolean
           default: false
           description: The period's last day is a half day; must stay false on a single-day request (400).
+        userId:
+          type: integer
+          nullable: true
+          description: >-
+            Omitted/null: the caller requests for themselves (REQUESTED). Set: the caller — a
+            current direct manager of this user — records the entry on their behalf, born
+            ACCEPTED with the caller as resolver (v2.29.0). 403 for anyone else, including the
+            target themselves.
 
     DaysOffResponse:
       type: object
@@ -7811,6 +7828,8 @@ components:
             - DAYS_OFF_REJECTED_TO_OWNER
             - DAYS_OFF_CANCELLED_TO_MANAGER
             - DAYS_OFF_CORRECTED_TO_OWNER
+            - DAYS_OFF_RECORDED_TO_OWNER
+            - DAYS_OFF_RECORDED_TO_MANAGER
             - PULSE_CYCLE_SCHEDULED
             - PULSE_CYCLE_OPENED
             - PULSE_RESULTS_AVAILABLE
@@ -7838,8 +7857,9 @@ components:
             name (`requester` toward managers, `manager` toward the owner) plus raw ISO
             `{startDate,endDate}`; DAYS_OFF_REQUESTED_TO_MANAGER additionally `{type,days}`
             (the enum name and a "1.5"-style days string) — the client formats all of them.
-            DAYS_OFF_CORRECTED_TO_OWNER carries `{manager,year,operation,days}` — the client
-            words ADD/SUBTRACT from `operation`.
+            The DAYS_OFF_RECORDED_* pair (an on-behalf recording, v2.29.0) also carries
+            `{type,days}` next to its party name. DAYS_OFF_CORRECTED_TO_OWNER carries
+            `{manager,year,operation,days}` — the client words ADD/SUBTRACT from `operation`.
         link:
           type: string
           nullable: true

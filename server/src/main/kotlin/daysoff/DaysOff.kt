@@ -25,8 +25,11 @@ internal val COUNTING_STATUSES = listOf(DaysOffStatus.REQUESTED, DaysOffStatus.A
 const val MAX_PAID_DAYS_OFF_ALLOWANCE = 365
 
 /**
- * Body of `POST /days-off` — the owner is always the caller (no create-on-behalf), the status
- * always enters REQUESTED, and the cost is computed server-side, so none of those are settable.
+ * Body of `POST /days-off` — the cost is computed server-side and the status is never settable.
+ * Without [userId] the owner is the caller and the request enters REQUESTED; with [userId]
+ * (v2.29.0) a current DIRECT MANAGER of that user records the entry on their behalf and it is
+ * born ACCEPTED with the caller stamped as the resolver (the vacation-history population flow —
+ * the caller holds the accept right, so a separate approval step would be theater).
  * Edge half-days: [startHalf]/[endHalf] mark the first/last day of the period as half days; a
  * single-day request uses [startHalf] alone ([endHalf] must stay false — see
  * [validateDaysOffCreate]).
@@ -38,6 +41,7 @@ data class DaysOffCreateRequest(
     val endDate: String,
     val startHalf: Boolean = false,
     val endHalf: Boolean = false,
+    val userId: UInt? = null,
 )
 
 @Serializable

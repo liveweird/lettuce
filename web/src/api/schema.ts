@@ -2273,8 +2273,13 @@ export interface paths {
         put?: never;
         /**
          * Request days off
-         * @description Creates a days-off request, always in **REQUESTED** status. The **owner is always the
-         *     caller** — there is no create-on-behalf, not even for ADMIN.
+         * @description Creates a days-off request. Without `userId` the **owner is the caller** and the
+         *     request enters **REQUESTED**. With `userId` (v2.29.0) a **current direct manager** of
+         *     that user records the entry **on their behalf**: it is born **ACCEPTED** with the
+         *     caller stamped as the resolver — the vacation-history population flow (the caller
+         *     already holds the accept right). Anyone else — the target themselves, chain managers
+         *     higher up, ADMIN, HR — is `403`; a deactivated target is `400` (the house
+         *     no-new-assignments rule). Past periods are as valid here as on self-requests.
          *
          *     One request covers one **consecutive period** `[startDate, endDate]` (a single day is
          *     allowed; both bounds inclusive, strict zero-padded ISO `YYYY-MM-DD`). The period must
@@ -2294,8 +2299,11 @@ export interface paths {
          *     REQUESTED request already reserves budget, and unused budget carries over between
          *     calendar years (see `GET /days-off/budgets`). UNPAID requests are unlimited.
          *
-         *     Each of the owner's **current direct managers** is notified; a user with no manager
-         *     notifies nobody (and nobody can accept — a documented top-of-chain limitation).
+         *     A self-request notifies each of the owner's **current direct managers**; a user with
+         *     no manager notifies nobody (and nobody can accept — a documented top-of-chain
+         *     limitation). An on-behalf recording instead notifies **both parties** — the owner and
+         *     the acting manager (a durable receipt); other direct managers see the row in their
+         *     managed list.
          */
         post: operations["createDaysOff"];
         delete?: never;
@@ -4927,6 +4935,8 @@ export interface components {
              * @default false
              */
             endHalf: boolean;
+            /** @description Omitted/null: the caller requests for themselves (REQUESTED). Set: the caller — a current direct manager of this user — records the entry on their behalf, born ACCEPTED with the caller as resolver (v2.29.0). 403 for anyone else, including the target themselves. */
+            userId?: number | null;
         };
         DaysOffResponse: {
             /** Format: int32 */
@@ -5152,7 +5162,7 @@ export interface components {
              * @description Notification kind; the client renders it in the viewer's language.
              * @enum {string}
              */
-            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_MANAGER" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_REQUESTED_TO_MANAGER" | "DAYS_OFF_ACCEPTED_TO_OWNER" | "DAYS_OFF_REJECTED_TO_OWNER" | "DAYS_OFF_CANCELLED_TO_MANAGER" | "DAYS_OFF_CORRECTED_TO_OWNER" | "PULSE_CYCLE_SCHEDULED" | "PULSE_CYCLE_OPENED" | "PULSE_RESULTS_AVAILABLE" | "PULSE_CYCLE_CANCELLED" | "CAREER_POSITION_STARTED_TO_USER" | "PASSWORD_CHANGED";
+            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_MANAGER" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_REQUESTED_TO_MANAGER" | "DAYS_OFF_ACCEPTED_TO_OWNER" | "DAYS_OFF_REJECTED_TO_OWNER" | "DAYS_OFF_CANCELLED_TO_MANAGER" | "DAYS_OFF_CORRECTED_TO_OWNER" | "DAYS_OFF_RECORDED_TO_OWNER" | "DAYS_OFF_RECORDED_TO_MANAGER" | "PULSE_CYCLE_SCHEDULED" | "PULSE_CYCLE_OPENED" | "PULSE_RESULTS_AVAILABLE" | "PULSE_CYCLE_CANCELLED" | "CAREER_POSITION_STARTED_TO_USER" | "PASSWORD_CHANGED";
             /**
              * @description Interpolation values for the localized message — party names (proper nouns), e.g.
              *     `{provider,subject,requester}`; plus `self` — the SPA's i18next context carrier:
@@ -5170,8 +5180,9 @@ export interface components {
              *     name (`requester` toward managers, `manager` toward the owner) plus raw ISO
              *     `{startDate,endDate}`; DAYS_OFF_REQUESTED_TO_MANAGER additionally `{type,days}`
              *     (the enum name and a "1.5"-style days string) — the client formats all of them.
-             *     DAYS_OFF_CORRECTED_TO_OWNER carries `{manager,year,operation,days}` — the client
-             *     words ADD/SUBTRACT from `operation`.
+             *     The DAYS_OFF_RECORDED_* pair (an on-behalf recording, v2.29.0) also carries
+             *     `{type,days}` next to its party name. DAYS_OFF_CORRECTED_TO_OWNER carries
+             *     `{manager,year,operation,days}` — the client words ADD/SUBTRACT from `operation`.
              */
             params: {
                 [key: string]: string;
@@ -9201,7 +9212,7 @@ export interface operations {
                     "application/json": components["schemas"]["DaysOffResponse"];
                 };
             };
-            /** @description Validation error (malformed or misordered dates, a year-spanning period, endHalf on a single-day request, or a period containing no working days) */
+            /** @description Validation error (malformed or misordered dates, a year-spanning period, endHalf on a single-day request, a period containing no working days, or an on-behalf userId pointing at a deactivated user) */
             400: {
                 headers: {
                     [name: string]: unknown;

@@ -51,9 +51,10 @@ class DaysOffRoutesTest {
         type: DaysOffType = DaysOffType.PAID,
         startHalf: Boolean = false,
         endHalf: Boolean = false,
+        forUserId: UInt? = null,
     ): HttpResponse = post("/api/v1/days-off") {
         contentType(ContentType.Application.Json)
-        setBody(DaysOffCreateRequest(type, start, end, startHalf, endHalf))
+        setBody(DaysOffCreateRequest(type, start, end, startHalf, endHalf, forUserId))
     }
 
     @Test
@@ -556,5 +557,110 @@ class DaysOffRoutesTest {
         val third = s.createDaysOff(mon.plusDays(14).toString()).body<DaysOffResponse>()
         assertEquals(HttpStatusCode.NoContent, m2.post("/api/v1/days-off/${third.id}/reject").status)
         assertEquals("Notif Mgr Two", s.notificationsOf(NotificationType.DAYS_OFF_REJECTED_TO_OWNER).single().params["manager"])
+    }
+
+    @Test
+    fun `a direct manager records days off on behalf of a report, born ACCEPTED`() = testApplication {
+        usePostgresTestcontainer()
+        // G manages Y {M}; M manages X {S, T}. U unrelated, A admin, H HR.
+        val gEmail = uniqueEmail("do-ob-g")
+        val mEmail = uniqueEmail("do-ob-m")
+        val sEmail = uniqueEmail("do-ob-s")
+        val tEmail = uniqueEmail("do-ob-t")
+        val uEmail = uniqueEmail("do-ob-u")
+        val aEmail = uniqueEmail("do-ob-a")
+        val hEmail = uniqueEmail("do-ob-h")
+        val gId = TestUsers.seed(gEmail, "pw", roles = emptySet())
+        val mId = TestUsers.seed(mEmail, "pw", name = "OnBehalf Mgr", roles = emptySet())
+        val sId = TestUsers.seed(sEmail, "pw", name = "OnBehalf Sub", roles = emptySet())
+        val tId = TestUsers.seed(tEmail, "pw", roles = emptySet())
+        TestUsers.seed(uEmail, "pw", roles = emptySet())
+        TestUsers.seed(aEmail, "pw", roles = setOf(UserRole.ADMIN))
+        TestUsers.seed(hEmail, "pw", roles = setOf(UserRole.HR))
+        val teamY = TestServices.teams.create(Team(name = "obY-${java.util.UUID.randomUUID()}", managerId = gId))
+        TestServices.teams.addMember(teamY, mId)
+        val teamX = TestServices.teams.create(Team(name = "obX-${java.util.UUID.randomUUID()}", managerId = mId))
+        TestServices.teams.addMember(teamX, sId)
+        TestServices.teams.addMember(teamX, tId)
+        TestDaysOff.setAllowance(sId, 30)
+
+        val g = authedClient(gEmail, "pw")
+        val m = authedClient(mEmail, "pw")
+        val s = authedClient(sEmail, "pw")
+        val t = authedClient(tEmail, "pw")
+        val u = authedClient(uEmail, "pw")
+        val a = authedClient(aEmail, "pw")
+        val h = authedClient(hEmail, "pw")
+
+        suspend fun HttpClient.notificationsOf(type: NotificationType) =
+            get("/api/v1/notifications?pageSize=100").body<NotificationPageResponse>()
+                .items.filter { it.type == type }
+
+        // Retroactive on purpose (a past-decade year, unused by other tests) — the
+        // history-population use case.
+        val mon = monday(2002, 3)
+
+        // Only a CURRENT DIRECT manager: not the target themselves, the grand-manager,
+        // a teammate, an unrelated user, ADMIN, or HR — uniform 403 before validation.
+        for (denied in listOf(s, g, t, u, a, h)) {
+            assertEquals(HttpStatusCode.Forbidden, denied.createDaysOff(mon.toString(), forUserId = sId).status)
+        }
+
+        // The recorded entry: born ACCEPTED with the acting manager stamped as resolver,
+        // and audited as days_off.recorded.
+        val capture = LogCapture("ch.nokillswit.audit")
+        val created = try {
+            val response = m.createDaysOff(mon.toString(), mon.plusDays(1).toString(), forUserId = sId)
+            assertEquals(HttpStatusCode.Created, response.status)
+            val created = response.body<DaysOffResponse>()
+            assertNotNull(
+                capture.awaitEvent { event ->
+                    event.message == "days_off.recorded" &&
+                        event.keyValuePairs?.any { it.key == "byUserId" && it.value == mId.toLong() } == true &&
+                        event.keyValuePairs?.any { it.key == "targetUserId" && it.value == sId.toLong() } == true &&
+                        event.keyValuePairs?.any { it.key == "requestId" && it.value == created.id.toLong() } == true
+                },
+            )
+            created
+        } finally {
+            capture.detach()
+        }
+        assertEquals(sId, created.userId)
+        assertEquals(DaysOffStatus.ACCEPTED, created.status)
+        assertEquals(2.0, created.days)
+        assertEquals(mId, created.resolvedById)
+        assertEquals("OnBehalf Mgr", created.resolvedByName)
+        assertNotNull(created.resolvedAt)
+
+        // Notifications: exactly the recorded pair — owner + acting manager; no REQUESTED
+        // fan-out happened.
+        val ownerNote = s.notificationsOf(NotificationType.DAYS_OFF_RECORDED_TO_OWNER).single()
+        assertEquals("OnBehalf Mgr", ownerNote.params["manager"])
+        assertEquals("PAID", ownerNote.params["type"])
+        assertEquals("2", ownerNote.params["days"])
+        assertEquals(mon.toString(), ownerNote.params["startDate"])
+        assertEquals("/days-off?tab=requests", ownerNote.link)
+        val managerNote = m.notificationsOf(NotificationType.DAYS_OFF_RECORDED_TO_MANAGER).single()
+        assertEquals("OnBehalf Sub", managerNote.params["requester"])
+        assertEquals("/days-off?tab=team", managerNote.link)
+        assertEquals(0, m.notificationsOf(NotificationType.DAYS_OFF_REQUESTED_TO_MANAGER).size)
+
+        // The state rules bite unchanged, keyed on the TARGET: overlap 409 (instance points
+        // at the recorded entry) and the paid-budget gate (T has no allowance; UNPAID passes).
+        val overlap = m.createDaysOff(mon.plusDays(1).toString(), mon.plusDays(2).toString(), forUserId = sId)
+        assertEquals(HttpStatusCode.Conflict, overlap.status)
+        assertEquals("/api/v1/days-off/${created.id}", overlap.body<ProblemDetail>().instance)
+        assertEquals(HttpStatusCode.Conflict, m.createDaysOff(mon.toString(), forUserId = tId).status)
+        assertEquals(
+            HttpStatusCode.Created,
+            m.createDaysOff(mon.toString(), type = DaysOffType.UNPAID, forUserId = tId).status,
+        )
+
+        // A deactivated report cannot receive NEW entries (the house rule) — 400 after the guard.
+        assertEquals(HttpStatusCode.NoContent, a.post("/api/v1/users/$tId/deactivate").status)
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            m.createDaysOff(mon.plusDays(7).toString(), forUserId = tId).status,
+        )
     }
 }

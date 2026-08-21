@@ -48,8 +48,10 @@ export async function listDaysOff(q: DaysOffListQuery): Promise<DaysOffPage> {
 export type DaysOffCreateBody =
   paths["/api/v1/days-off"]["post"]["requestBody"]["content"]["application/json"];
 
-// Always enters REQUESTED; the owner is the caller. Overlap and paid-budget violations are 409
-// (the overlap's ProblemDetail.instance points at the conflicting request).
+// Without userId: the caller's own request, entering REQUESTED. With userId (v2.29.0): a
+// direct manager records the entry on that report's behalf, born ACCEPTED with the caller as
+// resolver. Overlap and paid-budget violations are 409 either way (the overlap's
+// ProblemDetail.instance points at the conflicting request).
 export async function createDaysOff(body: DaysOffCreateBody): Promise<DaysOffResponse> {
   const res = await authedFetch("/api/v1/days-off", {
     method: "POST",

@@ -1,6 +1,7 @@
 {
   "sectionTitle": "Dni wolne",
   "newRequest": "Nowy wniosek",
+  "newForReport": "Nowe dni wolne",
   "teamHint": "Wnioski o dni wolne Twoich bezpośrednich podwładnych — zaakceptuj lub odrzuć oczekujące — oraz ich roczne budżety.",
   "tab": {
     "calendar": "Kalendarz",
@@ -36,7 +37,8 @@
     "reject": "Odrzuć",
     "cancel": "Anuluj wniosek",
     "cancelConfirm": "Anuluj wniosek",
-    "submitRequest": "Złóż wniosek"
+    "submitRequest": "Złóż wniosek",
+    "submitAutoAccepted": "Wyślij jako zaakceptowany"
   },
   "acceptAria": "Zaakceptuj wniosek o dni wolne — {{name}}, od {{date}}",
   "rejectAria": "Odrzuć wniosek o dni wolne — {{name}}, od {{date}}",
@@ -47,6 +49,7 @@
   "cancelMessage": "Twoi menedżerowie otrzymają powiadomienie, a zarezerwowane dni wrócą do Twojego budżetu. Anulowanie jest ostateczne.",
   "toast": {
     "requested": "Wniosek o dni wolne złożony",
+    "recorded": "Dni wolne zapisane i zaakceptowane",
     "accepted": "Wniosek zaakceptowany",
     "rejected": "Wniosek odrzucony",
     "cancelled": "Wniosek anulowany"
@@ -59,12 +62,18 @@
     "actionFailed": "Operacja nie powiodła się. Spróbuj ponownie.",
     "overlap": "Okres nakłada się na jeden z Twoich oczekujących lub zaakceptowanych wniosków.",
     "overBudget": "Wniosek nie mieści się w Twoim pozostałym budżecie płatnych dni.",
+    "overlapOnBehalf": "Okres nakłada się na oczekujący lub zaakceptowany wniosek tej osoby.",
+    "overBudgetOnBehalf": "Wpis nie mieści się w pozostałym budżecie płatnych dni tej osoby.",
     "invalid": "Wniosek jest nieprawidłowy — sprawdź daty.",
     "saveFailedStatus": "Zapis nie powiódł się (HTTP {{status}}).",
     "saveFailed": "Zapis nie powiódł się. Spróbuj ponownie."
   },
   "createTitle": "Nowy wniosek o dni wolne",
   "createHint": "Jeden wniosek obejmuje jeden ciągły okres w obrębie jednego roku kalendarzowego. Weekendy i święta nie liczą się do budżetu; pierwszy i ostatni dzień mogą być połówkami.",
+  "recordTitle": "Nowe dni wolne",
+  "recordHint": "Zapisz dni wolne w imieniu osoby ze swojego zespołu — na przykład aby uzupełnić historię urlopów. Wpis powstaje od razu jako zaakceptowany, z Tobą jako osobą zatwierdzającą; oboje otrzymacie powiadomienie.",
+  "onBehalfLabel": "W imieniu",
+  "pickReport": "Wybierz osobę ze swojego zespołu",
   "startHalfLabel": "Pierwszy dzień to pół dnia",
   "endHalfLabel": "Ostatni dzień to pół dnia",
   "costPreview": "Ten wniosek kosztuje {{days}} dni roboczych.",
@@ -101,6 +110,7 @@
     "used": "Wykorzystane",
     "remaining": "Pozostałe",
     "noAllowance": "Nie masz jeszcze skonfigurowanej puli płatnych dni — zapytaj administratora/administratorkę; do tego czasu płatne wnioski są zablokowane.",
+    "noAllowanceOnBehalf": "Ta osoba nie ma jeszcze skonfigurowanej puli płatnych dni — zapytaj administratora/administratorkę; do tego czasu płatne wpisy są zablokowane.",
     "loadError": "Nie udało się wczytać budżetu",
     "noReports": "Brak bezpośrednich podwładnych.",
     "corrected": "Korekty",

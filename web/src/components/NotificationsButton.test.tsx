@@ -315,8 +315,28 @@ describe("NotificationsButton", () => {
         link: "/days-off?tab=requests",
         params: { manager: "Mona Manager", year: "2027", operation: "SUBTRACT", days: "1" },
       },
+      {
+        ...base,
+        id: 57,
+        type: "DAYS_OFF_RECORDED_TO_OWNER",
+        link: "/days-off?tab=requests",
+        params: {
+          manager: "Mona Manager", type: "UNPAID", days: "2",
+          startDate: "2026-08-10", endDate: "2026-08-11",
+        },
+      },
+      {
+        ...base,
+        id: 58,
+        type: "DAYS_OFF_RECORDED_TO_MANAGER",
+        link: "/days-off?tab=team",
+        params: {
+          requester: "Riley Report", type: "UNPAID", days: "2",
+          startDate: "2026-08-10", endDate: "2026-08-11",
+        },
+      },
     ];
-    setupMocks(mockFetch, rows, 6);
+    setupMocks(mockFetch, rows, 8);
     renderWithProviders(<Harness />);
     await userEvent.setup().click(await screen.findByRole("button", { name: /notifications/i }));
 
@@ -340,6 +360,17 @@ describe("NotificationsButton", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText("Mona Manager subtracted 1 day(s) from your paid days-off budget for 2027."),
+    ).toBeInTheDocument();
+    // The on-behalf recorded pair (v2.29.0): the owner and the acting manager.
+    expect(
+      screen.getByText(
+        "Mona Manager recorded days off on your behalf, already accepted: Aug 10, 2026 – Aug 11, 2026 (Unpaid, 2 day(s)).",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "You recorded days off on behalf of Riley Report, already accepted: Aug 10, 2026 – Aug 11, 2026 (Unpaid, 2 day(s)).",
+      ),
     ).toBeInTheDocument();
   });
 
