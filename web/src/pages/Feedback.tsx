@@ -1,5 +1,6 @@
-import { Stack, Tabs, Title } from "@mantine/core";
-import { Navigate, useSearchParams } from "react-router-dom";
+import { Button, Group, Stack, Tabs, Title } from "@mantine/core";
+import { Link as RouterLink, Navigate, useSearchParams } from "react-router-dom";
+import { IconPlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { hasFeature } from "../api/session";
 import { useIsManager } from "../hooks/useIsManager";
@@ -37,7 +38,18 @@ export default function Feedback() {
 
   return (
     <Stack gap="md">
-      <Title order={2}>{t("feedback.sectionTitle")}</Title>
+      <Group justify="space-between" align="center" wrap="wrap">
+        <Title order={2}>{t("feedback.sectionTitle")}</Title>
+        {/* The create entry point (v2.28.0): /feedback/new with NO subjectId renders the
+            subject picker; the created (or drafted) feedback lands on the Provided tab. */}
+        <Button
+          component={RouterLink}
+          to={`/feedback/new?back=${encodeURIComponent("/feedback?tab=provided")}`}
+          leftSection={<IconPlus size={16} />}
+        >
+          {t("feedback.newFeedback")}
+        </Button>
+      </Group>
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
           <Tabs.Tab value="received" data-tour="feedback-received">

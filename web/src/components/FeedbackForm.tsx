@@ -202,7 +202,9 @@ export default function FeedbackForm({
         />
       )}
       {showTemplateInsert && (
-        <>
+        // One nowrap unit, so a crowded controls row (picker mode adds a third Select) wraps
+        // the template picker and its Insert button together, never the button alone.
+        <Group gap="sm" align="flex-end" wrap="nowrap">
           <Select
             label={t("feedback.template")}
             placeholder={
@@ -225,7 +227,7 @@ export default function FeedbackForm({
           >
             {t("feedback.insert")}
           </Button>
-        </>
+        </Group>
       )}
     </Group>
   );

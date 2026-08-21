@@ -2,9 +2,8 @@ import {
   test,
   expect,
   login,
-  clickProvideFeedback,
+  pickSelectOption,
   typeContent,
-  gotoUserRow,
   uniqueText,
   AAA_ONE,
 } from "./helpers";
@@ -18,11 +17,13 @@ test("provider drafts, sends, and withdraws a feedback", async ({ page }) => {
   // parallel workers this file must own its (subject, provider) pair exclusively (see README).
   await login(page, AAA_ONE);
 
-  // Provide feedback about AAA Two → create editor → type content → Save draft.
-  // (Filter by name first so the row is on page 1 even after runs accumulate E2E users.)
-  await gotoUserRow(page, "AAA Two");
-  await clickProvideFeedback(page, "AAA Two");
+  // Enter via the Feedback page's "New feedback" button (v2.28.0) and pick AAA Two in the
+  // subject picker — the picker-mode create screen (the users-row "Provide feedback" entry
+  // stays covered by manager-oversight.spec / templates.spec).
+  await page.goto("/feedback");
+  await page.getByRole("link", { name: "New feedback" }).click();
   await expect(page).toHaveURL(/\/feedback\/new/);
+  await pickSelectOption(page, "Subject", "AAA Two");
   await typeContent(page, body);
   const [created] = await Promise.all([
     page.waitForResponse(
