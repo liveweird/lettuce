@@ -5,5 +5,8 @@
   "loadError": "Nie udało się wczytać kudosów",
   "unknownError": "Nieznany błąd",
   "showMore": "Pokaż więcej",
-  "showLess": "Pokaż mniej"
+  "showLess": "Pokaż mniej",
+  "newButton": "Nowe kudo",
+  "createTitle": "Nowe kudo",
+  "recipientLabel": "Odbiorca"
 }

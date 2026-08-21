@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Link as RouterLink, Navigate } from "react-router-dom";
 import {
   Alert,
   Anchor,
   Box,
+  Button,
   Center,
   Container,
   Group,
@@ -15,7 +16,7 @@ import {
   Title,
 } from "@mantine/core";
 import { useIntersection } from "@mantine/hooks";
-import { IconConfetti } from "@tabler/icons-react";
+import { IconConfetti, IconPlus } from "@tabler/icons-react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { getUserId, hasFeature } from "../api/session";
@@ -26,6 +27,7 @@ import PersonCell from "../components/PersonCell";
 import ProseBox from "../components/ProseBox";
 import { formatRelativeTime, formatTimestamp } from "../utils/datetime";
 import { loadErrorMessage } from "../utils/saveError";
+import classes from "./Kudos.module.css";
 
 const PAGE_SIZE = 20;
 const PREVIEW_LINES = 3;
@@ -135,13 +137,23 @@ export default function Kudos() {
 
   return (
     <Container size="md" px={0}>
+      {/* The sticky page header (v2.27.0): title, hint, and the create entry point stay
+          pinned under the app header while the wall scrolls (Kudos.module.css). */}
+      <Paper withBorder shadow="sm" p="md" radius="md" mb="md" className={classes.stickyHeader}>
+        <Group justify="space-between" align="flex-start" wrap="wrap">
+          <Stack gap={4}>
+            <Title order={2}>{t("kudos.title")}</Title>
+            <Text size="sm" c="dimmed">
+              {t("kudos.hint")}
+            </Text>
+          </Stack>
+          <Button component={RouterLink} to="/kudos/new" leftSection={<IconPlus size={16} />}>
+            {t("kudos.newButton")}
+          </Button>
+        </Group>
+      </Paper>
       <Paper withBorder shadow="sm" p="xl" radius="md">
         <Stack gap="md">
-          <Title order={2}>{t("kudos.title")}</Title>
-          <Text size="sm" c="dimmed">
-            {t("kudos.hint")}
-          </Text>
-
           {isError && (
             <Alert color="red" variant="light" title={t("kudos.loadError")}>
               {loadErrorMessage(error, t)}

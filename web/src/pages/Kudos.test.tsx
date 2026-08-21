@@ -136,6 +136,14 @@ describe("Kudos wall", () => {
     expect(screen.queryByTestId("kudos-sentinel")).toBeNull();
   });
 
+  test("the header carries the New kudo entry point linking to the create screen", async () => {
+    setupMocks({ 1: { items: [row(1)], total: 1 } });
+    renderPage();
+
+    await screen.findByText("Paula Provider");
+    expect(screen.getByRole("link", { name: /new kudo/i })).toHaveAttribute("href", "/kudos/new");
+  });
+
   test("the current user renders as plain You instead of a chip", async () => {
     setupMocks({ 1: { items: [row(1, { subjectId: 7, subjectName: "Myself" })], total: 1 } });
     renderPage();

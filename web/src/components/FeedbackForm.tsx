@@ -18,7 +18,9 @@ import { useTranslation } from "react-i18next";
 import { type FeedbackStatus, type FeedbackVisibility } from "../api/feedbacks";
 import { getTemplate, listTemplates } from "../api/templates";
 import ConfirmActionModal from "./ConfirmActionModal";
+import { VisibilityBadge } from "./FeedbackBadges";
 import FeedbackHistory from "./FeedbackHistory";
+import ReadOnlyField from "./ReadOnlyField";
 import { MAX_FEEDBACK_CONTENT_LENGTH } from "../utils/feedbackForm";
 import { NO_REQUESTER_VISIBILITIES } from "../utils/feedbackVisibility";
 import FeedbackLifecycle from "./FeedbackLifecycle";
@@ -37,7 +39,9 @@ type FormValues = {
 
 type FeedbackFormProps = {
   title: string;
-  subjectDisplay: string;
+  // Omitted while the subject is still being picked (the kudo create flow) — the meta line
+  // then shows only the provider until `subjectControl`'s pick resolves a name.
+  subjectDisplay?: string;
   initialVisibility: FeedbackVisibility;
   initialContent: string;
   submitting: FeedbackStatus | null;
@@ -68,6 +72,15 @@ type FeedbackFormProps = {
   // The no-duplicate early warning (create flows only — edit never passes it): rendered above
   // the editor, and while present both save actions are disabled (the server would 409 anyway).
   duplicate?: ReactNode;
+  // An interactive subject control (the kudo create flow's recipient picker, v2.27.0) —
+  // rendered as the first element of the editor-controls row.
+  subjectControl?: ReactNode;
+  // When set, the Visibility Select is replaced by a read-only field showing the (fixed)
+  // initial visibility — the kudo create flow pins PUBLIC.
+  visibilityReadOnly?: boolean;
+  // Extra save-blocking condition from the parent (e.g. no recipient picked yet), ANDed
+  // into the duplicate/submitting disables on both save buttons.
+  submitDisabled?: boolean;
 };
 
 export default function FeedbackForm({
@@ -91,6 +104,9 @@ export default function FeedbackForm({
   onDelete,
   deleting = false,
   duplicate,
+  subjectControl,
+  visibilityReadOnly = false,
+  submitDisabled = false,
 }: FeedbackFormProps) {
   const { t } = useTranslation();
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
@@ -170,14 +186,21 @@ export default function FeedbackForm({
   // metadata grid up top) so the editor keeps the bulk of the viewport.
   const editorControls = (
     <Group gap="sm" align="flex-end" wrap="wrap">
-      <Select
-        label={t("common.field.visibility")}
-        placeholder={t("feedback.selectVisibility")}
-        data={resolvedVisibilityOptions}
-        allowDeselect={false}
-        w={280}
-        {...form.getInputProps("visibility")}
-      />
+      {subjectControl}
+      {visibilityReadOnly ? (
+        <ReadOnlyField label={t("common.field.visibility")}>
+          <VisibilityBadge visibility={form.values.visibility} />
+        </ReadOnlyField>
+      ) : (
+        <Select
+          label={t("common.field.visibility")}
+          placeholder={t("feedback.selectVisibility")}
+          data={resolvedVisibilityOptions}
+          allowDeselect={false}
+          w={280}
+          {...form.getInputProps("visibility")}
+        />
+      )}
       {showTemplateInsert && (
         <>
           <Select
@@ -312,7 +335,7 @@ export default function FeedbackForm({
                 type="submit"
                 variant="light"
                 loading={submitting === "DRAFT"}
-                disabled={submitting !== null || deleting || duplicate != null}
+                disabled={submitting !== null || deleting || duplicate != null || submitDisabled}
               >
                 {t("feedback.action.saveDraft")}
               </Button>
@@ -322,7 +345,7 @@ export default function FeedbackForm({
                   if (!form.validate().hasErrors) onSubmit("SENT", form.values);
                 }}
                 loading={submitting === "SENT"}
-                disabled={submitting !== null || deleting || duplicate != null}
+                disabled={submitting !== null || deleting || duplicate != null || submitDisabled}
               >
                 {t("feedback.action.saveAndSend")}
               </Button>

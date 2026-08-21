@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.27.0",
+    date: "2026-08-21",
+    en: `The Kudos wall got its own way in. The page header — title, description, and a new "New kudo" button — now stays pinned while you scroll the wall. The button opens a dedicated create screen: pick the person you want to praise, write your kudo, and send it — visibility is fixed to Public, so it lands on the wall for everyone the moment it is sent. Under the hood it is an ordinary feedback: you can also save it as a draft and finish it later from your Provided list.`,
+    pl: `Ściana kudosów dostała własne wejście. Nagłówek strony — tytuł, opis i nowy przycisk „Nowe kudo" — pozostaje teraz przypięty podczas przewijania ściany. Przycisk otwiera dedykowany ekran tworzenia: wybierz osobę, którą chcesz pochwalić, napisz kudo i wyślij — widoczność jest na stałe ustawiona na „Publiczny", więc kudo trafia na ścianę dla wszystkich w momencie wysłania. Od kuchni to zwykły feedback: możesz też zapisać go jako szkic i dokończyć później z listy wystawionych.`,
+  },
+  {
     version: "2.26.1",
     date: "2026-08-21",
     en: `Fixed a midnight timezone glitch: shortly after midnight, recording a KPI data point or a career position dated "today" could be rejected as "in the future", and for users far west of the server picking today as a goal's due date could be rejected as "in the past" — because the server compared your local date against its own clock. Date checks now allow one day of timezone slack in the right direction. And when the server does reject a KPI data point for an unexpected reason, the message now includes the error code instead of a generic "could not update".`,
