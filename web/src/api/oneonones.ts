@@ -1,7 +1,7 @@
 // 1:1 meetings API — CRUD, events, and the action-item history.
 // Thin endpoint wrappers: transport (authedFetch/ApiError) in ./http, session state in ./session.
 
-import { ApiError, authedFetch, safeJson } from "./http";
+import { jsonRequest, voidRequest } from "./http";
 import type { paths } from "./schema";
 
 export type OneOnOnePage =
@@ -41,9 +41,7 @@ export async function listOneOnOnes(q: OneOnOneListQuery): Promise<OneOnOnePage>
   if (q.includeIndirect) params.set("includeIndirect", "true");
   if (q.counterpartId != null) params.set("counterpartId", String(q.counterpartId));
   if (q.userId != null) params.set("userId", String(q.userId));
-  const res = await authedFetch(`/api/v1/one-on-ones?${params.toString()}`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as OneOnOnePage;
+  return jsonRequest<OneOnOnePage>(`/api/v1/one-on-ones?${params.toString()}`);
 }
 
 export type CreateOneOnOneBody =
@@ -54,31 +52,25 @@ export type UpdateOneOnOneBody =
   paths["/api/v1/one-on-ones/{id}"]["put"]["requestBody"]["content"]["application/json"];
 
 export async function createOneOnOne(req: CreateOneOnOneBody): Promise<OneOnOneResponse> {
-  const res = await authedFetch("/api/v1/one-on-ones", {
+  return jsonRequest<OneOnOneResponse>("/api/v1/one-on-ones", {
     method: "POST",
     body: JSON.stringify(req),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as OneOnOneResponse;
 }
 
 export async function getOneOnOne(id: number): Promise<OneOnOneResponse> {
-  const res = await authedFetch(`/api/v1/one-on-ones/${id}`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as OneOnOneResponse;
+  return jsonRequest<OneOnOneResponse>(`/api/v1/one-on-ones/${id}`);
 }
 
 export async function updateOneOnOne(id: number, body: UpdateOneOnOneBody): Promise<void> {
-  const res = await authedFetch(`/api/v1/one-on-ones/${id}`, {
+  await voidRequest(`/api/v1/one-on-ones/${id}`, {
     method: "PUT",
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
 export async function deleteOneOnOne(id: number): Promise<void> {
-  const res = await authedFetch(`/api/v1/one-on-ones/${id}`, { method: "DELETE" });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  await voidRequest(`/api/v1/one-on-ones/${id}`, { method: "DELETE" });
 }
 
 type OneOnOneEventList =
@@ -86,9 +78,7 @@ type OneOnOneEventList =
 export type OneOnOneEvent = OneOnOneEventList["items"][number];
 
 export async function listOneOnOneEvents(id: number): Promise<OneOnOneEvent[]> {
-  const res = await authedFetch(`/api/v1/one-on-ones/${id}/events`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return ((await res.json()) as OneOnOneEventList).items;
+  return (await jsonRequest<OneOnOneEventList>(`/api/v1/one-on-ones/${id}/events`)).items;
 }
 
 type ActionItemHistoryList =
@@ -96,7 +86,5 @@ type ActionItemHistoryList =
 export type ActionItemHistoryEntry = ActionItemHistoryList["items"][number];
 
 export async function getActionItemHistory(id: number): Promise<ActionItemHistoryEntry[]> {
-  const res = await authedFetch(`/api/v1/one-on-ones/action-items/${id}/history`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return ((await res.json()) as ActionItemHistoryList).items;
+  return (await jsonRequest<ActionItemHistoryList>(`/api/v1/one-on-ones/action-items/${id}/history`)).items;
 }

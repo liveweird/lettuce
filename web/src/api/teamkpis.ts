@@ -1,7 +1,7 @@
 // Team KPIs API — CRUD, the data-point series, transitions, and the event history.
 // Thin endpoint wrappers: transport (authedFetch/ApiError) in ./http, session state in ./session.
 
-import { ApiError, authedFetch, safeJson } from "./http";
+import { jsonRequest, voidRequest } from "./http";
 import type { paths } from "./schema";
 
 export type TeamKpiPage =
@@ -42,9 +42,7 @@ export async function listTeamKpis(q: TeamKpiListQuery): Promise<TeamKpiPage> {
   if (q.teamId != null) params.set("teamId", String(q.teamId));
   if (q.createdAtGte != null) params.set("createdAt[gte]", String(q.createdAtGte));
   if (q.includeIndirect) params.set("includeIndirect", "true");
-  const res = await authedFetch(`/api/v1/team-kpis?${params.toString()}`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as TeamKpiPage;
+  return jsonRequest<TeamKpiPage>(`/api/v1/team-kpis?${params.toString()}`);
 }
 
 export type TeamKpiCreateBody =
@@ -53,12 +51,10 @@ export type TeamKpiCreateBody =
 // Always creates a DRAFT; the caller must manage the team directly or from the chain above
 // (v2.26.0) and is stamped as the KPI's creator (informational).
 export async function createTeamKpi(body: TeamKpiCreateBody): Promise<TeamKpiResponse> {
-  const res = await authedFetch("/api/v1/team-kpis", {
+  return jsonRequest<TeamKpiResponse>("/api/v1/team-kpis", {
     method: "POST",
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as TeamKpiResponse;
 }
 
 export type TeamKpiDefinitionUpdateBody =
@@ -72,40 +68,33 @@ type TeamKpiArchiveBody =
   paths["/api/v1/team-kpis/{id}/archive"]["post"]["requestBody"]["content"]["application/json"];
 
 export async function getTeamKpi(id: number): Promise<TeamKpiResponse> {
-  const res = await authedFetch(`/api/v1/team-kpis/${id}`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as TeamKpiResponse;
+  return jsonRequest<TeamKpiResponse>(`/api/v1/team-kpis/${id}`);
 }
 
 export async function updateTeamKpiDefinition(
   id: number,
   body: TeamKpiDefinitionUpdateBody,
 ): Promise<void> {
-  const res = await authedFetch(`/api/v1/team-kpis/${id}`, {
+  await voidRequest(`/api/v1/team-kpis/${id}`, {
     method: "PUT",
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
 // The KPI's collected data points, sorted by date newest first (the KPI-data tab and the
 // graph both feed on this list).
 export async function listTeamKpiValues(id: number): Promise<TeamKpiValue[]> {
-  const res = await authedFetch(`/api/v1/team-kpis/${id}/values`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return ((await res.json()) as TeamKpiValueList).items;
+  return (await jsonRequest<TeamKpiValueList>(`/api/v1/team-kpis/${id}/values`)).items;
 }
 
 // Data points are only mutable while the KPI is ACTIVE (409 otherwise) and by whoever the
 // server granted canRecordValues — the team's manager, their chain, or a team member
 // (v2.26.0); a duplicate date is also 409 — at most one value per date.
 export async function addTeamKpiValue(id: number, body: TeamKpiValueWriteBody): Promise<TeamKpiValue> {
-  const res = await authedFetch(`/api/v1/team-kpis/${id}/values`, {
+  return jsonRequest<TeamKpiValue>(`/api/v1/team-kpis/${id}/values`, {
     method: "POST",
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as TeamKpiValue;
 }
 
 export async function updateTeamKpiValue(
@@ -113,28 +102,24 @@ export async function updateTeamKpiValue(
   valueId: number,
   body: TeamKpiValueWriteBody,
 ): Promise<void> {
-  const res = await authedFetch(`/api/v1/team-kpis/${id}/values/${valueId}`, {
+  await voidRequest(`/api/v1/team-kpis/${id}/values/${valueId}`, {
     method: "PUT",
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
 export async function deleteTeamKpiValue(id: number, valueId: number): Promise<void> {
-  const res = await authedFetch(`/api/v1/team-kpis/${id}/values/${valueId}`, { method: "DELETE" });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  await voidRequest(`/api/v1/team-kpis/${id}/values/${valueId}`, { method: "DELETE" });
 }
 
 export async function deleteTeamKpi(id: number): Promise<void> {
-  const res = await authedFetch(`/api/v1/team-kpis/${id}`, { method: "DELETE" });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  await voidRequest(`/api/v1/team-kpis/${id}`, { method: "DELETE" });
 }
 
 // Lifecycle transitions are POST action sub-resources; each names one edge of the
 // DRAFT <-> ACTIVE <-> ARCHIVED machine, so a KPI not at the edge's source status returns 409.
 async function teamKpiTransition(id: number, action: string): Promise<void> {
-  const res = await authedFetch(`/api/v1/team-kpis/${id}/${action}`, { method: "POST" });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  await voidRequest(`/api/v1/team-kpis/${id}/${action}`, { method: "POST" });
 }
 
 export const activateTeamKpi = (id: number) => teamKpiTransition(id, "activate");
@@ -143,11 +128,10 @@ export const reopenTeamKpi = (id: number) => teamKpiTransition(id, "reopen");
 
 // Archive is the one bodied transition — it always records the summary.
 export async function archiveTeamKpi(id: number, body: TeamKpiArchiveBody): Promise<void> {
-  const res = await authedFetch(`/api/v1/team-kpis/${id}/archive`, {
+  await voidRequest(`/api/v1/team-kpis/${id}/archive`, {
     method: "POST",
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
 type TeamKpiEventList =
@@ -155,7 +139,5 @@ type TeamKpiEventList =
 export type TeamKpiEvent = TeamKpiEventList["items"][number];
 
 export async function listTeamKpiEvents(id: number): Promise<TeamKpiEvent[]> {
-  const res = await authedFetch(`/api/v1/team-kpis/${id}/events`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return ((await res.json()) as TeamKpiEventList).items;
+  return (await jsonRequest<TeamKpiEventList>(`/api/v1/team-kpis/${id}/events`)).items;
 }

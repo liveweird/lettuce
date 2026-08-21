@@ -1,7 +1,7 @@
 // Feedbacks API — CRUD, lifecycle transitions, and the event history.
 // Thin endpoint wrappers: transport (authedFetch/ApiError) in ./http, session state in ./session.
 
-import { ApiError, authedFetch, safeJson } from "./http";
+import { jsonRequest, voidRequest } from "./http";
 import type { paths } from "./schema";
 
 export type FeedbackPage =
@@ -51,9 +51,7 @@ export async function listFeedbacks(q: FeedbackListQuery): Promise<FeedbackPage>
   if (q.lastModifiedGte != null) params.set("lastModified[gte]", String(q.lastModifiedGte));
   if (q.includeIndirect) params.set("includeIndirect", "true");
   if (q.userId != null) params.set("userId", String(q.userId));
-  const res = await authedFetch(`/api/v1/feedbacks?${params.toString()}`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as FeedbackPage;
+  return jsonRequest<FeedbackPage>(`/api/v1/feedbacks?${params.toString()}`);
 }
 
 type CreateFeedbackBody =
@@ -62,12 +60,10 @@ type CreateFeedbackResponse =
   paths["/api/v1/feedbacks"]["post"]["responses"]["201"]["content"]["application/json"];
 
 export async function createFeedback(req: CreateFeedbackBody): Promise<CreateFeedbackResponse> {
-  const res = await authedFetch("/api/v1/feedbacks", {
+  return jsonRequest<CreateFeedbackResponse>("/api/v1/feedbacks", {
     method: "POST",
     body: JSON.stringify(req),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as CreateFeedbackResponse;
 }
 
 export type DuplicateCheckResponse =
@@ -84,9 +80,7 @@ export async function checkFeedbackDuplicate(params: {
     providerId: String(params.providerId),
   });
   if (params.requesterId != null) query.set("requesterId", String(params.requesterId));
-  const res = await authedFetch(`/api/v1/feedbacks/duplicate-check?${query}`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as DuplicateCheckResponse;
+  return jsonRequest<DuplicateCheckResponse>(`/api/v1/feedbacks/duplicate-check?${query}`);
 }
 
 export type FeedbackResponse =
@@ -95,29 +89,24 @@ type UpdateFeedbackBody =
   paths["/api/v1/feedbacks/{id}"]["put"]["requestBody"]["content"]["application/json"];
 
 export async function getFeedback(id: number): Promise<FeedbackResponse> {
-  const res = await authedFetch(`/api/v1/feedbacks/${id}`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as FeedbackResponse;
+  return jsonRequest<FeedbackResponse>(`/api/v1/feedbacks/${id}`);
 }
 
 export async function updateFeedback(id: number, body: UpdateFeedbackBody): Promise<void> {
-  const res = await authedFetch(`/api/v1/feedbacks/${id}`, {
+  await voidRequest(`/api/v1/feedbacks/${id}`, {
     method: "PUT",
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
 export async function deleteFeedback(id: number): Promise<void> {
-  const res = await authedFetch(`/api/v1/feedbacks/${id}`, { method: "DELETE" });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  await voidRequest(`/api/v1/feedbacks/${id}`, { method: "DELETE" });
 }
 
 // Lifecycle transitions are POST action sub-resources (bodyless). An invalid transition from the
 // current status returns 409, surfaced as an ApiError like any other failure.
 async function feedbackTransition(id: number, action: string): Promise<void> {
-  const res = await authedFetch(`/api/v1/feedbacks/${id}/${action}`, { method: "POST" });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  await voidRequest(`/api/v1/feedbacks/${id}/${action}`, { method: "POST" });
 }
 
 export const sendFeedback = (id: number) => feedbackTransition(id, "send");
@@ -130,7 +119,5 @@ type FeedbackEventList =
 export type FeedbackEvent = FeedbackEventList["items"][number];
 
 export async function listFeedbackEvents(id: number): Promise<FeedbackEvent[]> {
-  const res = await authedFetch(`/api/v1/feedbacks/${id}/events`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json() as FeedbackEventList).items;
+  return (await jsonRequest<FeedbackEventList>(`/api/v1/feedbacks/${id}/events`)).items;
 }

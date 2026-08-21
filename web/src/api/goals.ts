@@ -1,7 +1,7 @@
 // Goals API — CRUD, progress, lifecycle transitions, and the event history.
 // Thin endpoint wrappers: transport (authedFetch/ApiError) in ./http, session state in ./session.
 
-import { ApiError, authedFetch, safeJson } from "./http";
+import { jsonRequest, voidRequest } from "./http";
 import type { paths } from "./schema";
 
 export type GoalPage =
@@ -49,9 +49,7 @@ export async function listGoals(q: GoalListQuery): Promise<GoalPage> {
   if (q.createdAtGte != null) params.set("createdAt[gte]", String(q.createdAtGte));
   if (q.includeIndirect) params.set("includeIndirect", "true");
   if (q.userId != null) params.set("userId", String(q.userId));
-  const res = await authedFetch(`/api/v1/goals?${params.toString()}`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as GoalPage;
+  return jsonRequest<GoalPage>(`/api/v1/goals?${params.toString()}`);
 }
 
 export type GoalCreateBody =
@@ -59,12 +57,10 @@ export type GoalCreateBody =
 
 // Always creates a DRAFT; the caller is the manager and the subordinate must be a direct report.
 export async function createGoal(body: GoalCreateBody): Promise<GoalResponse> {
-  const res = await authedFetch("/api/v1/goals", {
+  return jsonRequest<GoalResponse>("/api/v1/goals", {
     method: "POST",
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as GoalResponse;
 }
 
 export type GoalDefinitionUpdateBody =
@@ -75,37 +71,31 @@ type GoalArchiveBody =
   paths["/api/v1/goals/{id}/archive"]["post"]["requestBody"]["content"]["application/json"];
 
 export async function getGoal(id: number): Promise<GoalResponse> {
-  const res = await authedFetch(`/api/v1/goals/${id}`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as GoalResponse;
+  return jsonRequest<GoalResponse>(`/api/v1/goals/${id}`);
 }
 
 export async function updateGoalDefinition(id: number, body: GoalDefinitionUpdateBody): Promise<void> {
-  const res = await authedFetch(`/api/v1/goals/${id}`, {
+  await voidRequest(`/api/v1/goals/${id}`, {
     method: "PUT",
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
 export async function updateGoalProgress(id: number, body: GoalProgressUpdateBody): Promise<void> {
-  const res = await authedFetch(`/api/v1/goals/${id}/progress`, {
+  await voidRequest(`/api/v1/goals/${id}/progress`, {
     method: "PUT",
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
 export async function deleteGoal(id: number): Promise<void> {
-  const res = await authedFetch(`/api/v1/goals/${id}`, { method: "DELETE" });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  await voidRequest(`/api/v1/goals/${id}`, { method: "DELETE" });
 }
 
 // Lifecycle transitions are POST action sub-resources; each names one edge of the
 // DRAFT <-> ACTIVE <-> ARCHIVED machine, so a goal not at the edge's source status returns 409.
 async function goalTransition(id: number, action: string): Promise<void> {
-  const res = await authedFetch(`/api/v1/goals/${id}/${action}`, { method: "POST" });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  await voidRequest(`/api/v1/goals/${id}/${action}`, { method: "POST" });
 }
 
 export const activateGoal = (id: number) => goalTransition(id, "activate");
@@ -114,11 +104,10 @@ export const reopenGoal = (id: number) => goalTransition(id, "reopen");
 
 // Close is the one bodied transition — it always records the summary.
 export async function archiveGoal(id: number, body: GoalArchiveBody): Promise<void> {
-  const res = await authedFetch(`/api/v1/goals/${id}/archive`, {
+  await voidRequest(`/api/v1/goals/${id}/archive`, {
     method: "POST",
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
 type GoalEventList =
@@ -126,7 +115,5 @@ type GoalEventList =
 export type GoalEvent = GoalEventList["items"][number];
 
 export async function listGoalEvents(id: number): Promise<GoalEvent[]> {
-  const res = await authedFetch(`/api/v1/goals/${id}/events`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return ((await res.json()) as GoalEventList).items;
+  return (await jsonRequest<GoalEventList>(`/api/v1/goals/${id}/events`)).items;
 }

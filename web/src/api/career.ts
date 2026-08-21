@@ -1,7 +1,7 @@
 // Career positions & the caller-relative team pyramid.
 // Thin endpoint wrappers: transport (authedFetch/ApiError) in ./http, session state in ./session.
 
-import { ApiError, authedFetch, safeJson } from "./http";
+import { jsonRequest, voidRequest } from "./http";
 import type { components, paths } from "./schema";
 
 export type CareerPosition = components["schemas"]["CareerPositionResponse"];
@@ -11,9 +11,7 @@ type CareerPositionListResponse =
 
 /** The user's career timeline, chronological (unpaged) — the last item is the current position. */
 export async function listCareerPositions(userId: number): Promise<CareerPosition[]> {
-  const res = await authedFetch(`/api/v1/users/${userId}/career-positions`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return ((await res.json()) as CareerPositionListResponse).items;
+  return (await jsonRequest<CareerPositionListResponse>(`/api/v1/users/${userId}/career-positions`)).items;
 }
 
 export type CareerPyramidItem = components["schemas"]["CareerPyramidItem"];
@@ -31,9 +29,7 @@ export async function listCareerPyramid(includeIndirect: boolean): Promise<Caree
   const params = new URLSearchParams();
   if (includeIndirect) params.set("includeIndirect", "true");
   const query = params.toString();
-  const res = await authedFetch(`/api/v1/career/pyramid${query ? `?${query}` : ""}`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as CareerPyramidList;
+  return jsonRequest<CareerPyramidList>(`/api/v1/career/pyramid${query ? `?${query}` : ""}`);
 }
 
 /** Start a new position (chain managers only) — implicitly concludes the current one. */
@@ -41,12 +37,10 @@ export async function createCareerPosition(
   userId: number,
   body: CareerPositionWriteBody,
 ): Promise<CareerPosition> {
-  const res = await authedFetch(`/api/v1/users/${userId}/career-positions`, {
+  return jsonRequest<CareerPosition>(`/api/v1/users/${userId}/career-positions`, {
     method: "POST",
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as CareerPosition;
 }
 
 /** Correct a position in place (chain managers only). */
@@ -55,17 +49,15 @@ export async function updateCareerPosition(
   positionId: number,
   body: CareerPositionWriteBody,
 ): Promise<void> {
-  const res = await authedFetch(`/api/v1/users/${userId}/career-positions/${positionId}`, {
+  await voidRequest(`/api/v1/users/${userId}/career-positions/${positionId}`, {
     method: "PUT",
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
 /** Remove a position (chain managers only) — the previous one absorbs the span. */
 export async function deleteCareerPosition(userId: number, positionId: number): Promise<void> {
-  const res = await authedFetch(`/api/v1/users/${userId}/career-positions/${positionId}`, {
+  await voidRequest(`/api/v1/users/${userId}/career-positions/${positionId}`, {
     method: "DELETE",
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }

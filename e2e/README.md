@@ -20,6 +20,18 @@ npm test                      # brings the stack up (docker compose), runs specs
   only runs `docker compose down -v` if setup started the stack.
 - Requires Docker. Override the target with `E2E_BASE_URL`.
 
+Two Docker-free static gates ride every spec change (2026-08 — run both before merging, like
+the web package's lint/knip):
+
+```bash
+npm run typecheck             # tsc --noEmit — Playwright only TRANSPILES TS, it never checks it
+npm run check:scenarios       # spec ↔ scenario parity: files exist, test() titles == headings
+```
+
+`check:scenarios` enforces the same-commit rule below mechanically (both directions, orphan
+files included); `accessibility.spec.ts` is its one registered skip — the parameterized-title
+carve-out in [`scenarios/README.md`](scenarios/README.md).
+
 ## Parallel execution
 
 The suite runs on **4 workers by default** (`E2E_WORKERS` overrides; `E2E_WORKERS=1` restores the

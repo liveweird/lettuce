@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { APP_VERSION } from "../changelog/entries";
+import { APP_VERSION } from "../changelog/version";
 
 // Device-level "what's new" state for the changelog (like lettuce.alertsBanner, it survives
 // logout). A module-level listener set + useSyncExternalStore lets the navbar dot clear the

@@ -1,7 +1,7 @@
 // Notifications API — the recipient-scoped list and read-state actions.
 // Thin endpoint wrappers: transport (authedFetch/ApiError) in ./http, session state in ./session.
 
-import { ApiError, authedFetch, safeJson } from "./http";
+import { jsonRequest, voidRequest } from "./http";
 import type { paths } from "./schema";
 
 export type NotificationPage =
@@ -21,27 +21,21 @@ export async function listNotifications(q: NotificationListQuery): Promise<Notif
   params.set("pageSize", String(q.pageSize));
   if (q.sort) params.set("sort", q.sort);
   if (q.wasSeen != null) params.set("wasSeen", String(q.wasSeen));
-  const res = await authedFetch(`/api/v1/notifications?${params.toString()}`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as NotificationPage;
+  return jsonRequest<NotificationPage>(`/api/v1/notifications?${params.toString()}`);
 }
 
 export async function markNotificationSeen(id: number): Promise<void> {
-  const res = await authedFetch(`/api/v1/notifications/${id}/seen`, { method: "POST" });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  await voidRequest(`/api/v1/notifications/${id}/seen`, { method: "POST" });
 }
 
 export async function markNotificationUnseen(id: number): Promise<void> {
-  const res = await authedFetch(`/api/v1/notifications/${id}/unseen`, { method: "POST" });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  await voidRequest(`/api/v1/notifications/${id}/unseen`, { method: "POST" });
 }
 
 export async function markAllNotificationsSeen(): Promise<void> {
-  const res = await authedFetch(`/api/v1/notifications/seen-all`, { method: "POST" });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  await voidRequest(`/api/v1/notifications/seen-all`, { method: "POST" });
 }
 
 export async function deleteNotification(id: number): Promise<void> {
-  const res = await authedFetch(`/api/v1/notifications/${id}`, { method: "DELETE" });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  await voidRequest(`/api/v1/notifications/${id}`, { method: "DELETE" });
 }

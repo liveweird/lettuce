@@ -1,7 +1,7 @@
 // Days off API — requests, corrections, budgets, the calendar, and public holidays.
 // Thin endpoint wrappers: transport (authedFetch/ApiError) in ./http, session state in ./session.
 
-import { ApiError, authedFetch, safeJson } from "./http";
+import { jsonRequest, voidRequest } from "./http";
 import type { paths } from "./schema";
 
 export type DaysOffPage =
@@ -40,9 +40,7 @@ export async function listDaysOff(q: DaysOffListQuery): Promise<DaysOffPage> {
   if (q.startDateGte) params.set("startDate[gte]", q.startDateGte);
   if (q.startDateLte) params.set("startDate[lte]", q.startDateLte);
   if (q.userId != null) params.set("userId", String(q.userId));
-  const res = await authedFetch(`/api/v1/days-off?${params.toString()}`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as DaysOffPage;
+  return jsonRequest<DaysOffPage>(`/api/v1/days-off?${params.toString()}`);
 }
 
 export type DaysOffCreateBody =
@@ -53,20 +51,17 @@ export type DaysOffCreateBody =
 // resolver. Overlap and paid-budget violations are 409 either way (the overlap's
 // ProblemDetail.instance points at the conflicting request).
 export async function createDaysOff(body: DaysOffCreateBody): Promise<DaysOffResponse> {
-  const res = await authedFetch("/api/v1/days-off", {
+  return jsonRequest<DaysOffResponse>("/api/v1/days-off", {
     method: "POST",
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as DaysOffResponse;
 }
 
 // Lifecycle actions: accept/reject are the direct manager's resolution of a REQUESTED request;
 // cancel is the owner's withdrawal (REQUESTED anytime, ACCEPTED only before the start date).
 // A request not in the action's source status returns 409.
 async function daysOffTransition(id: number, action: string): Promise<void> {
-  const res = await authedFetch(`/api/v1/days-off/${id}/${action}`, { method: "POST" });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  await voidRequest(`/api/v1/days-off/${id}/${action}`, { method: "POST" });
 }
 
 export const acceptDaysOff = (id: number) => daysOffTransition(id, "accept");
@@ -85,9 +80,7 @@ export async function getDaysOffCalendar(
   month: string,
   scope: DaysOffCalendarScope,
 ): Promise<DaysOffCalendarResponse> {
-  const res = await authedFetch(`/api/v1/days-off/calendar?month=${month}&scope=${scope}`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as DaysOffCalendarResponse;
+  return jsonRequest<DaysOffCalendarResponse>(`/api/v1/days-off/calendar?month=${month}&scope=${scope}`);
 }
 
 export type DaysOffBudget =
@@ -99,9 +92,7 @@ export async function listDaysOffBudgets(
   view: DaysOffBudgetView,
   year: number,
 ): Promise<DaysOffBudget[]> {
-  const res = await authedFetch(`/api/v1/days-off/budgets?view=${view}&year=${year}`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return ((await res.json()) as { items: DaysOffBudget[] }).items;
+  return (await jsonRequest<{ items: DaysOffBudget[] }>(`/api/v1/days-off/budgets?view=${view}&year=${year}`)).items;
 }
 
 export type DaysOffCorrection =
@@ -114,34 +105,28 @@ export type DaysOffCorrectionOperation = DaysOffCorrection["operation"];
 export async function listDaysOffCorrections(userId: number, year?: number): Promise<DaysOffCorrection[]> {
   const params = new URLSearchParams({ userId: String(userId) });
   if (year != null) params.set("year", String(year));
-  const res = await authedFetch(`/api/v1/days-off/corrections?${params.toString()}`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return ((await res.json()) as { items: DaysOffCorrection[] }).items;
+  return (await jsonRequest<{ items: DaysOffCorrection[] }>(`/api/v1/days-off/corrections?${params.toString()}`)).items;
 }
 
 // Current-direct-manager only; the subordinate is notified.
 export async function createDaysOffCorrection(body: DaysOffCorrectionWrite): Promise<DaysOffCorrection> {
-  const res = await authedFetch("/api/v1/days-off/corrections", {
+  return jsonRequest<DaysOffCorrection>("/api/v1/days-off/corrections", {
     method: "POST",
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as DaysOffCorrection;
 }
 
 // The target user is immutable (the payload's userId is ignored server-side).
 export async function updateDaysOffCorrection(id: number, body: DaysOffCorrectionWrite): Promise<void> {
-  const res = await authedFetch(`/api/v1/days-off/corrections/${id}`, {
+  await voidRequest(`/api/v1/days-off/corrections/${id}`, {
     method: "PUT",
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
 // Soft delete — the correction drops out of the list and the budget math.
 export async function deleteDaysOffCorrection(id: number): Promise<void> {
-  const res = await authedFetch(`/api/v1/days-off/corrections/${id}`, { method: "DELETE" });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  await voidRequest(`/api/v1/days-off/corrections/${id}`, { method: "DELETE" });
 }
 
 export type PublicHoliday =
@@ -151,23 +136,18 @@ export type PublicHolidayCreateBody =
 
 /** The whole global registry, oldest date first — unpaged (the review-periods shape). */
 export async function listPublicHolidays(): Promise<PublicHoliday[]> {
-  const res = await authedFetch("/api/v1/public-holidays");
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return ((await res.json()) as { items: PublicHoliday[] }).items;
+  return (await jsonRequest<{ items: PublicHoliday[] }>("/api/v1/public-holidays")).items;
 }
 
 // ADMIN-only; a duplicate date is 409.
 export async function createPublicHoliday(body: PublicHolidayCreateBody): Promise<PublicHoliday> {
-  const res = await authedFetch("/api/v1/public-holidays", {
+  return jsonRequest<PublicHoliday>("/api/v1/public-holidays", {
     method: "POST",
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as PublicHoliday;
 }
 
 // ADMIN-only; hard delete (existing request costs stay frozen).
 export async function deletePublicHoliday(id: number): Promise<void> {
-  const res = await authedFetch(`/api/v1/public-holidays/${id}`, { method: "DELETE" });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  await voidRequest(`/api/v1/public-holidays/${id}`, { method: "DELETE" });
 }

@@ -5,7 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App";
-import { APP_VERSION } from "./changelog/entries";
+import { APP_VERSION } from "./changelog/version";
 
 // The guided tour mounts react-joyride (which measures DOM rects) in the authenticated shell;
 // stub it out here so these shell tests don't exercise its layout engine under happy-dom.

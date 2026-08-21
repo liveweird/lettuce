@@ -1,7 +1,7 @@
 // Teams API — CRUD, the member sub-resource, and the caller-relative members views.
 // Thin endpoint wrappers: transport (authedFetch/ApiError) in ./http, session state in ./session.
 
-import { ApiError, authedFetch, safeJson } from "./http";
+import { jsonRequest, voidRequest } from "./http";
 import type { components, paths } from "./schema";
 
 export type TeamPage = paths["/api/v1/teams"]["get"]["responses"]["200"]["content"]["application/json"];
@@ -23,17 +23,14 @@ type CreateTeamResponse =
   paths["/api/v1/teams"]["post"]["responses"]["201"]["content"]["application/json"];
 
 export async function createTeam(req: CreateTeamBody): Promise<CreateTeamResponse> {
-  const res = await authedFetch("/api/v1/teams", {
+  return jsonRequest<CreateTeamResponse>("/api/v1/teams", {
     method: "POST",
     body: JSON.stringify(req),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as CreateTeamResponse;
 }
 
 export async function deleteTeam(id: number): Promise<void> {
-  const res = await authedFetch(`/api/v1/teams/${id}`, { method: "DELETE" });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  await voidRequest(`/api/v1/teams/${id}`, { method: "DELETE" });
 }
 
 export type TeamResponse =
@@ -42,17 +39,14 @@ type UpdateTeamBody =
   paths["/api/v1/teams/{id}"]["put"]["requestBody"]["content"]["application/json"];
 
 export async function getTeam(id: number): Promise<TeamResponse> {
-  const res = await authedFetch(`/api/v1/teams/${id}`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as TeamResponse;
+  return jsonRequest<TeamResponse>(`/api/v1/teams/${id}`);
 }
 
 export async function updateTeam(id: number, body: UpdateTeamBody): Promise<void> {
-  const res = await authedFetch(`/api/v1/teams/${id}`, {
+  await voidRequest(`/api/v1/teams/${id}`, {
     method: "PUT",
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
 export async function listTeams(q: TeamListQuery): Promise<TeamPage> {
@@ -64,19 +58,15 @@ export async function listTeams(q: TeamListQuery): Promise<TeamPage> {
   if (q.managerId != null) params.set("managerId", String(q.managerId));
   if (q.includeIndirect) params.set("includeIndirect", "true");
   if (q.memberId != null) params.set("memberId", String(q.memberId));
-  const res = await authedFetch(`/api/v1/teams?${params.toString()}`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as TeamPage;
+  return jsonRequest<TeamPage>(`/api/v1/teams?${params.toString()}`);
 }
 
 export async function addTeamMember(teamId: number, userId: number): Promise<void> {
-  const res = await authedFetch(`/api/v1/teams/${teamId}/members/${userId}`, { method: "PUT" });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  await voidRequest(`/api/v1/teams/${teamId}/members/${userId}`, { method: "PUT" });
 }
 
 export async function removeTeamMember(teamId: number, userId: number): Promise<void> {
-  const res = await authedFetch(`/api/v1/teams/${teamId}/members/${userId}`, { method: "DELETE" });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  await voidRequest(`/api/v1/teams/${teamId}/members/${userId}`, { method: "DELETE" });
 }
 
 export type TeamMemberPage =
@@ -106,9 +96,7 @@ export async function listTeamMembers(q: TeamMemberListQuery): Promise<TeamMembe
   if (q.email) params.set("email", q.email);
   if (q.teamId != null) params.set("teamId", String(q.teamId));
   if (q.includeIndirect) params.set("includeIndirect", "true");
-  const res = await authedFetch(`/api/v1/teams/members?${params.toString()}`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as TeamMemberPage;
+  return jsonRequest<TeamMemberPage>(`/api/v1/teams/members?${params.toString()}`);
 }
 
 /** Every team (optionally: of one member), paging until the server total is reached. */

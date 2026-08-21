@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { APP_VERSION, CHANGELOG } from "./entries";
+import { CHANGELOG } from "./entries";
+import { APP_VERSION } from "./version";
 
 describe("changelog entries", () => {
   test("the app version is the newest entry's version", () => {

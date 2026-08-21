@@ -1,7 +1,7 @@
 // Users API — accounts, roles, flags, import, and the account lifecycle actions.
 // Thin endpoint wrappers: transport (authedFetch/ApiError) in ./http, session state in ./session.
 
-import { ApiError, authedFetch, safeJson } from "./http";
+import { ApiError, jsonRequest, voidRequest } from "./http";
 import type { paths } from "./schema";
 import { type Feature, getUserId, setStoredDisabledFeatures, type UserRole } from "./session";
 
@@ -30,21 +30,17 @@ type CurrentUser = paths["/api/v1/users/{id}"]["get"]["responses"]["200"]["conte
 export async function getCurrentUser(): Promise<CurrentUser> {
   const id = getUserId();
   if (id === null) throw new ApiError(401, null);
-  const res = await authedFetch(`/api/v1/users/${id}`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as CurrentUser;
+  return jsonRequest<CurrentUser>(`/api/v1/users/${id}`);
 }
 
 type CreateUserBody = paths["/api/v1/users"]["post"]["requestBody"]["content"]["application/json"];
 type CreateUserResponse = paths["/api/v1/users"]["post"]["responses"]["201"]["content"]["application/json"];
 
 export async function createUser(req: CreateUserBody): Promise<CreateUserResponse> {
-  const res = await authedFetch("/api/v1/users", {
+  return jsonRequest<CreateUserResponse>("/api/v1/users", {
     method: "POST",
     body: JSON.stringify(req),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as CreateUserResponse;
 }
 
 type UserImportBody =
@@ -55,51 +51,43 @@ export type UserImportRow = UserImportResult["rows"][number];
 
 /** Mass CSV import (ADMIN). 503 when sendEmails is requested on a mail-less deployment. */
 export async function importUsers(req: UserImportBody): Promise<UserImportResult> {
-  const res = await authedFetch("/api/v1/users/import", {
+  return jsonRequest<UserImportResult>("/api/v1/users/import", {
     method: "POST",
     body: JSON.stringify(req),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as UserImportResult;
 }
 
 type UpdateUserBody =
   paths["/api/v1/users/{id}"]["put"]["requestBody"]["content"]["application/json"];
 
 export async function getUser(id: number): Promise<CurrentUser> {
-  const res = await authedFetch(`/api/v1/users/${id}`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as CurrentUser;
+  return jsonRequest<CurrentUser>(`/api/v1/users/${id}`);
 }
 
 export async function updateUser(id: number, body: UpdateUserBody): Promise<void> {
-  const res = await authedFetch(`/api/v1/users/${id}`, {
+  await voidRequest(`/api/v1/users/${id}`, {
     method: "PUT",
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
 type ChangePasswordBody =
   paths["/api/v1/users/{id}/password"]["put"]["requestBody"]["content"]["application/json"];
 
 export async function changeUserPassword(id: number, body: ChangePasswordBody): Promise<void> {
-  const res = await authedFetch(`/api/v1/users/${id}/password`, {
+  await voidRequest(`/api/v1/users/${id}/password`, {
     method: "PUT",
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
 export async function deleteUser(id: number): Promise<void> {
-  const res = await authedFetch(`/api/v1/users/${id}`, { method: "DELETE" });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  await voidRequest(`/api/v1/users/${id}`, { method: "DELETE" });
 }
 
 // Reversible account disable — the goalTransition shape (POST action endpoints, ADMIN-only).
 async function userAccountTransition(id: number, action: "deactivate" | "activate"): Promise<void> {
-  const res = await authedFetch(`/api/v1/users/${id}/${action}`, { method: "POST" });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  await voidRequest(`/api/v1/users/${id}/${action}`, { method: "POST" });
 }
 
 export const deactivateUser = (id: number) => userAccountTransition(id, "deactivate");
@@ -111,11 +99,10 @@ export const reactivateUser = (id: number) => userAccountTransition(id, "activat
  * react without waiting for the next token refresh.
  */
 export async function updateUserFeatures(id: number, disabledFeatures: Feature[]): Promise<void> {
-  const res = await authedFetch(`/api/v1/users/${id}/features`, {
+  await voidRequest(`/api/v1/users/${id}/features`, {
     method: "PUT",
     body: JSON.stringify({ disabledFeatures }),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
   if (id === getUserId()) {
     setStoredDisabledFeatures(disabledFeatures);
   }
@@ -126,11 +113,10 @@ export async function updateUserFeatures(id: number, disabledFeatures: Feature[]
  * Takes effect at the next minted notification (read at send time, no token staleness).
  */
 export async function setEmailNotifications(id: number, enabled: boolean): Promise<void> {
-  const res = await authedFetch(`/api/v1/users/${id}/email-notifications`, {
+  await voidRequest(`/api/v1/users/${id}/email-notifications`, {
     method: "PUT",
     body: JSON.stringify({ enabled }),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
 /**
@@ -138,11 +124,10 @@ export async function setEmailNotifications(id: number, enabled: boolean): Promi
  * and used for every email sent to the user (read at send time, no token staleness).
  */
 export async function setUserLanguage(id: number, language: string): Promise<void> {
-  const res = await authedFetch(`/api/v1/users/${id}/language`, {
+  await voidRequest(`/api/v1/users/${id}/language`, {
     method: "PUT",
     body: JSON.stringify({ language }),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
 export async function listUsers(q: UserListQuery): Promise<UserPage> {
@@ -162,9 +147,7 @@ export async function listUsers(q: UserListQuery): Promise<UserPage> {
   }
   if (q.uniqueId) params.set("uniqueId", q.uniqueId);
   if (q.uniqueIdMissing != null) params.set("uniqueIdMissing", String(q.uniqueIdMissing));
-  const res = await authedFetch(`/api/v1/users?${params.toString()}`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as UserPage;
+  return jsonRequest<UserPage>(`/api/v1/users?${params.toString()}`);
 }
 
 /** Every user (optionally: of one team), paging until the server total is reached — the

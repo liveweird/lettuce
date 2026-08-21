@@ -148,3 +148,21 @@ export async function safeJson(res: Response): Promise<unknown> {
     return null;
   }
 }
+
+/**
+ * The two standard wrapper shapes (2026-08 review round, CR-008) — previously the ok-check +
+ * ProblemDetail-body + parse trio was hand-copied ~119 times across the feature modules. New
+ * endpoint wrappers use these; `authedFetch`/`ApiError`/`safeJson` stay exported for the
+ * special cases (extra response logic, non-authed auth flows).
+ */
+export async function jsonRequest<T>(input: string, init?: RequestInit): Promise<T> {
+  const res = await authedFetch(input, init);
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  return (await res.json()) as T;
+}
+
+/** [jsonRequest]'s sibling for 201/204-style responses whose body is ignored. */
+export async function voidRequest(input: string, init?: RequestInit): Promise<void> {
+  const res = await authedFetch(input, init);
+  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+}
