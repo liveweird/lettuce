@@ -89,14 +89,23 @@ describe("Feedback page", () => {
     expect(screen.queryByRole("tab", { name: "My team" })).not.toBeInTheDocument();
   });
 
-  test("the header carries the New feedback entry point linking to the picker create screen", () => {
+  test("the New feedback entry point sits under the Provided list only", () => {
     mockApi(mockFetch, 0);
-    renderFeedback();
+    renderFeedback("/feedback?tab=provided");
 
+    // The house footer convention: the create button lives below the list, right-aligned —
+    // only on the Provided tab (that's where the created feedback lands).
     expect(screen.getByRole("link", { name: /new feedback/i })).toHaveAttribute(
       "href",
       `/feedback/new?back=${encodeURIComponent("/feedback?tab=provided")}`,
     );
+  });
+
+  test("the Received tab shows no New feedback button", () => {
+    mockApi(mockFetch, 0);
+    renderFeedback();
+
+    expect(screen.queryByRole("link", { name: /new feedback/i })).not.toBeInTheDocument();
   });
 
   test("manager sees the My team tab", async () => {

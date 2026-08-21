@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.28.1",
+    date: "2026-08-21",
+    en: `The "New feedback" button found its proper home: it now sits under the Provided list, on the right — where the application's "New …" buttons usually live — instead of in the page header. Nothing else about it changed.`,
+    pl: `Przycisk „Nowy feedback" trafił na swoje właściwe miejsce: znajduje się teraz pod listą wystawionych feedbacków, po prawej stronie — tam, gdzie zwykle mieszkają przyciski „Nowy …" w aplikacji — zamiast w nagłówku strony. Poza tym nic się nie zmieniło.`,
+  },
+  {
     version: "2.28.0",
     date: "2026-08-21",
     en: `Writing feedback no longer starts at the person. The Feedback page got a "New feedback" button next to its title: it opens the familiar create screen with one addition — a subject picker, so you choose who the feedback is about right there. Everything else works exactly as before: pick the visibility, write, and save as a draft or send. Links that already point at a specific person (the users list, person cards) keep working unchanged.`,

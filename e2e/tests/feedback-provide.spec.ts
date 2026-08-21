@@ -17,10 +17,10 @@ test("provider drafts, sends, and withdraws a feedback", async ({ page }) => {
   // parallel workers this file must own its (subject, provider) pair exclusively (see README).
   await login(page, AAA_ONE);
 
-  // Enter via the Feedback page's "New feedback" button (v2.28.0) and pick AAA Two in the
-  // subject picker — the picker-mode create screen (the users-row "Provide feedback" entry
-  // stays covered by manager-oversight.spec / templates.spec).
-  await page.goto("/feedback");
+  // Enter via the "New feedback" button under the Provided list (v2.28.1 placement) and pick
+  // AAA Two in the subject picker — the picker-mode create screen (the users-row "Provide
+  // feedback" entry stays covered by manager-oversight.spec / templates.spec).
+  await page.goto("/feedback?tab=provided");
   await page.getByRole("link", { name: "New feedback" }).click();
   await expect(page).toHaveURL(/\/feedback\/new/);
   await pickSelectOption(page, "Subject", "AAA Two");

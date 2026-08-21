@@ -38,18 +38,7 @@ export default function Feedback() {
 
   return (
     <Stack gap="md">
-      <Group justify="space-between" align="center" wrap="wrap">
-        <Title order={2}>{t("feedback.sectionTitle")}</Title>
-        {/* The create entry point (v2.28.0): /feedback/new with NO subjectId renders the
-            subject picker; the created (or drafted) feedback lands on the Provided tab. */}
-        <Button
-          component={RouterLink}
-          to={`/feedback/new?back=${encodeURIComponent("/feedback?tab=provided")}`}
-          leftSection={<IconPlus size={16} />}
-        >
-          {t("feedback.newFeedback")}
-        </Button>
-      </Group>
+      <Title order={2}>{t("feedback.sectionTitle")}</Title>
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
           <Tabs.Tab value="received" data-tour="feedback-received">
@@ -69,7 +58,21 @@ export default function Feedback() {
           <FeedbackTable view="received" />
         </Tabs.Panel>
         <Tabs.Panel value="provided" pt="md">
-          <FeedbackTable view="provided" />
+          <Stack gap="md">
+            <FeedbackTable view="provided" />
+            {/* The create entry point sits below the list — the house footer convention
+                (the MyTeamKpis/UserGoals pattern). /feedback/new with NO subjectId renders
+                the subject picker; the created (or drafted) feedback lands on this tab. */}
+            <Group justify="flex-end">
+              <Button
+                component={RouterLink}
+                to={`/feedback/new?back=${encodeURIComponent("/feedback?tab=provided")}`}
+                leftSection={<IconPlus size={16} />}
+              >
+                {t("feedback.newFeedback")}
+              </Button>
+            </Group>
+          </Stack>
         </Tabs.Panel>
         {isManager && (
           <Tabs.Panel value="team" pt="md">
