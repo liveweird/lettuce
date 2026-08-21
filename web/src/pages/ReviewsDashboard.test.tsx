@@ -157,6 +157,29 @@ describe("ReviewsDashboard tab", () => {
     expect(reviewsCall).toContain("periodId=4");
   });
 
+  test("without a stored choice the default is the CURRENT period, not a pre-appended future one", async () => {
+    // An admin may append next periods ahead of time (the registry is append-only); the
+    // dashboard must still open on the period containing today (2026-08 audit round).
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-03-15T12:00:00"));
+    try {
+      setupMocks({ periods: [...PERIODS, { id: 6, startMonth: "2026-07", endMonth: "2026-12" }] });
+      renderTab();
+
+      await waitFor(() =>
+        expect(screen.getByLabelText("Period", { selector: "input" })).toHaveValue(
+          "January 2026 – June 2026",
+        ),
+      );
+      const reviewsCall = mockFetch.mock.calls
+        .map((c) => String(c[0]))
+        .find((u) => u.includes("/api/v1/performance-reviews?"));
+      expect(reviewsCall).toContain("periodId=5");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   test("the period containing today carries the Current marker in the picker", async () => {
     // Fake only Date (the TeamMembersTable idiom) so waitFor keeps real timers; today falls
     // inside period 5 and outside period 4.

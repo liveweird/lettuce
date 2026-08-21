@@ -106,6 +106,16 @@ test("an HR auditor browses another pair's private draft read-only", async ({ pa
   await page.getByRole("link", { name: "Audit goals of AAA Three" }).click();
   await expect(page.getByRole("heading", { name: "All goals of AAA Three" })).toBeVisible();
 
+  // 6b. The career timeline joined the guarded HR reads in v2.25.0 (self/chain/HR only):
+  //     the details card offers auditors the Career progression drill-down, and the page
+  //     loads for HR — the positive twin of user-career.spec's refused direct URL.
+  await page.getByRole("link", { name: /back to user details/i }).click();
+  await page.getByRole("link", { name: "Career progression of AAA Three" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Career progression — AAA Three" }),
+  ).toBeVisible();
+  await page.goBack();
+
   // 7. No admin surface: the Config group never offers Alerts to HR.
   await expect(page.locator('a[href="/alerts"]')).toHaveCount(0);
 });

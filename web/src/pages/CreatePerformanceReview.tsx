@@ -12,18 +12,17 @@ import {
   Text,
   Title,
 } from "@mantine/core";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "../api/http";
 import { hasFeature } from "../api/session";
-import { listAllTeamMembers } from "../api/teams";
+import { toReportOptions, useManagedReports } from "../hooks/useManagedReports";
 import { createPerformanceReview } from "../api/reviews";
 import PersonaField from "../components/PersonaField";
 import { renderPeriodOption, useReviewPeriodOptions } from "../hooks/useReviewPeriodOptions";
 import { reviewEditLink, reviewViewLink } from "../utils/performanceReviewLinks";
 import { showSuccessToast } from "../utils/toast";
 import { reviewSaveErrorMessage } from "../utils/reviewRatings";
-import { groupTeamRows } from "../utils/teamRows";
 
 const BACK_TO = "/performance?tab=managed";
 // The occupied-slot 409 carries the existing review's API path in ProblemDetail.instance —
@@ -60,23 +59,8 @@ export default function CreatePerformanceReview() {
   const [conflictId, setConflictId] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const { data: reports } = useQuery({
-    queryKey: ["teamMembers", "reviewPicker"],
-    // ALL pages (the single-page-picker lesson): rows are per-(user, team), so a single
-    // page of 100 truncates around ~50 reports across two teams. Deduped/sorted below.
-    queryFn: () => listAllTeamMembers("managed"),
-    staleTime: 5 * 60 * 1000,
-    enabled: !preselected,
-  });
-  const options = useMemo(
-    () =>
-      groupTeamRows(reports ?? [])
-        .sort((a, b) => a.name.localeCompare(b.name)).map((p) => ({
-        value: String(p.userId),
-        label: p.name,
-      })),
-    [reports],
-  );
+  const { reports, reportsError } = useManagedReports(!preselected);
+  const options = toReportOptions(reports);
 
   // Newest first. A not-yet-started period is not assessable (the server 400s it), so its
   // option renders disabled and the default is the newest STARTED period — usually the
@@ -144,6 +128,7 @@ export default function CreatePerformanceReview() {
                 searchable
                 clearable
                 nothingFoundMessage={t("performanceReview.noReports")}
+                error={reportsError ? t("common.error.optionsFailed") : undefined}
               />
             )}
             <Select

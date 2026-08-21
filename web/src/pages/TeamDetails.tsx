@@ -358,7 +358,6 @@ export default function TeamDetails() {
         confirm={removeConfirm}
         title={t("teams.removeModalTitle")}
         errorTitle={t("teams.removeMemberFailed")}
-        unknownError={t("teams.unknownError")}
         confirmLabel={t("teams.remove")}
         body={(row) => (
           <>

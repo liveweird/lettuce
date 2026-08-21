@@ -1,11 +1,12 @@
 package ch.nokillswit.daysoff
 
 import ch.nokillswit.infra.paging.PageResponse
+import ch.nokillswit.infra.parseIsoDateStrict
 import io.ktor.server.plugins.BadRequestException
-import kotlinx.serialization.Serializable
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
+import kotlinx.serialization.Serializable
 
 @Serializable
 enum class DaysOffType { PAID, UNPAID }
@@ -150,12 +151,7 @@ data class DaysOffBudgetList(
  * column's lexicographic == chronological ordering — and the overlap/range SQL that relies on
  * it) or throws [BadRequestException] (→ 400).
  */
-internal fun parseDaysOffDate(date: String, field: String): LocalDate = try {
-    if (date.length != 10) throw DateTimeParseException("wrong length", date, 0)
-    LocalDate.parse(date)
-} catch (_: DateTimeParseException) {
-    throw BadRequestException("$field must be an ISO date (YYYY-MM-DD)")
-}
+internal fun parseDaysOffDate(date: String, field: String): LocalDate = parseIsoDateStrict(date, field)
 
 /**
  * Validates a create payload's shape (400s): strict ISO dates, start not after end, both dates

@@ -1,12 +1,13 @@
 package ch.nokillswit.users
 
 import ch.nokillswit.dictionaries.DictionaryEntry
+import ch.nokillswit.infra.parseIsoDateStrict
 import ch.nokillswit.notifications.Notification
 import ch.nokillswit.notifications.NotificationType
 import io.ktor.server.plugins.BadRequestException
-import kotlinx.serialization.Serializable
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
+import kotlinx.serialization.Serializable
 
 /**
  * Body of POST/PUT on the career-position sub-resource. ALL THREE refs are required
@@ -96,12 +97,7 @@ data class CareerPyramidList(
  * may show the person positionless for at most that day, self-healing at UTC midnight).
  */
 internal fun validateCareerPositionStartDate(startDate: String, today: LocalDate = LocalDate.now()) {
-    val parsed = try {
-        if (startDate.length != 10) throw DateTimeParseException("wrong length", startDate, 0)
-        LocalDate.parse(startDate)
-    } catch (_: DateTimeParseException) {
-        throw BadRequestException("Position start date must be an ISO date (YYYY-MM-DD)")
-    }
+    val parsed = parseIsoDateStrict(startDate, "Position start date")
     if (parsed > today.plusDays(1)) throw BadRequestException("Position start date must not be in the future")
 }
 

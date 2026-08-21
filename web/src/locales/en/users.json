@@ -108,7 +108,6 @@
   "deleteUserFailed": "Failed to delete user",
   "removeFromTeamFailed": "Failed to remove from team",
   "addToTeamFailed": "Failed to add to team",
-  "unknownError": "Unknown error",
   "userNotFound": "User not found.",
   "userNoLongerExists": "User no longer exists.",
   "teamNoLongerExists": "Team no longer exists.",

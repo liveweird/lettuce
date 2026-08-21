@@ -32,6 +32,7 @@ import EmptyState from "../components/EmptyState";
 import { RowControls } from "../components/ParagraphListEditor";
 import {
   dictionaryFormValidation,
+  errorLanguages,
   dictionarySaveErrorMessage,
   emptyEntryDraft,
   MAX_DICTIONARY_VALUE_LENGTH,
@@ -219,16 +220,12 @@ function DictionaryEditor({
   // Languages currently holding a validation error (paths are `entries.<i>.values.<lang>`) —
   // they get a "•" marker in the picker, and a failed Save switches the visible column to the
   // first offending hidden language so its errors can actually be seen.
-  const errorLangs = new Set(
-    Object.keys(form.errors)
-      .map((key) => /^entries\.\d+\.values\.(\w+)$/.exec(key)?.[1])
-      .filter((lang): lang is string => lang != null),
-  );
+  const errorLangs = new Set(errorLanguages(Object.keys(form.errors)));
 
   function revealErrorLanguage(errors: FormErrors) {
-    const hidden = Object.keys(errors)
-      .map((key) => /^entries\.\d+\.values\.(\w+)$/.exec(key)?.[1])
-      .find((lang) => lang != null && lang !== "en" && lang !== translationLang);
+    const hidden = errorLanguages(Object.keys(errors)).find(
+      (lang) => lang !== "en" && lang !== translationLang,
+    );
     if (hidden) setTranslationLang(hidden as SupportedLanguage);
   }
 

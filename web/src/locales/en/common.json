@@ -94,7 +94,9 @@
     "timeout": "The server is not responding. Check your connection and try again.",
     "network": "Can't reach the server. Check your connection and try again.",
     "optionsFailed": "Couldn't load the options. Check your connection and try again.",
-    "loadFailedStatus": "Loading failed ({{status}})."
+    "loadFailedStatus": "Loading failed ({{status}}).",
+    "actionFailed": "The action failed. Please try again.",
+    "actionFailedStatus": "The action failed (HTTP {{status}})."
   },
   "errorBoundary": {
     "title": "Something went wrong",

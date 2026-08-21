@@ -38,7 +38,6 @@
   "editFailedNetwork": "Nie udało się zapisać alertu — błąd sieci",
   "discardTitle": "Odrzucić zmiany?",
   "discardMessage": "Niezapisane zmiany w tym alercie zostaną utracone.",
-  "unknownError": "Nieznany błąd",
   "banner": {
     "hide": "Ukryj alerty",
     "show": "Pokaż alerty",

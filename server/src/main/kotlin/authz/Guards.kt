@@ -275,6 +275,22 @@ fun requireFeedbackWrite(caller: CallerPrincipal, feedback: Feedback) {
     }
 }
 
+/**
+ * The lifecycle features' shared relationship gate (goals / 1:1s / reviews creates, and the
+ * days-off on-behalf recording — the ONE create-on-behalf in the app, v2.29.0): the target
+ * must be in the required CURRENT relationship with the caller (their direct report) at call
+ * time. The denial message stays per-feature (tests pin the wording); call this BEFORE
+ * payload validation so an outsider's malformed request is still 403, not 400.
+ */
+@Suppress("UnusedParameter") // caller kept for the uniform caller-first guard signature
+suspend fun requireDirectReport(
+    caller: CallerPrincipal,
+    isDirectReport: suspend () -> Boolean,
+    denied: String,
+) {
+    if (!isDirectReport()) throw ForbiddenException(denied)
+}
+
 // ── 1:1 meetings ────────────────────────────────────────────────────────────────────────────
 // Existence disclosure: like feedbacks, 1:1 routes read BEFORE guarding (missing → 404,
 // existing-but-forbidden → 403), so an id probe can learn a meeting exists — never its content
@@ -524,17 +540,6 @@ suspend fun requireDaysOffRead(
  * manager higher up, and nobody else (ADMIN included, mirroring [requireGoalWrite]); an admin
  * who is themselves a direct manager qualifies via the membership check like anyone.
  */
-/**
- * The lifecycle features' create rule (goals / 1:1s / reviews / team KPIs): the author is
- * always the caller — no create-on-behalf, ADMIN included — and the counterpart must be in
- * the required CURRENT relationship (direct report, or managed team) at creation time. The
- * denial message stays per-feature (tests pin the wording); call this BEFORE payload
- * validation so an outsider's malformed request is still 403, not 400.
- */
-suspend fun requireDirectReport(isDirectReport: suspend () -> Boolean, denied: String) {
-    if (!isDirectReport()) throw ForbiddenException(denied)
-}
-
 @Suppress("UnusedParameter") // caller kept for the uniform caller-first guard signature
 suspend fun requireDaysOffResolve(caller: CallerPrincipal, isDirectManager: suspend () -> Boolean) {
     if (!isDirectManager()) {

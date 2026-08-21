@@ -25,7 +25,6 @@
   "rowsPerPage": "KPIs per page",
   "noKpis": "No team KPIs yet.",
   "loadListError": "Could not load team KPIs",
-  "unknownError": "Unknown error",
   "viewAria": "View team KPI {{title}}",
   "editAria": "Edit team KPI {{title}}",
   "type": {

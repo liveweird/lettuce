@@ -605,6 +605,9 @@ class DaysOffRoutesTest {
         for (denied in listOf(s, g, t, u, a, h)) {
             assertEquals(HttpStatusCode.Forbidden, denied.createDaysOff(mon.toString(), forUserId = sId).status)
         }
+        // Pin the ordering itself: the guard runs BEFORE payload validation, so an outsider's
+        // MALFORMED on-behalf request is still the uniform 403, never a 400.
+        assertEquals(HttpStatusCode.Forbidden, u.createDaysOff("not-a-date", forUserId = sId).status)
 
         // The recorded entry: born ACCEPTED with the acting manager stamped as resolver,
         // and audited as days_off.recorded.

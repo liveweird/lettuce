@@ -38,7 +38,6 @@
   "editFailedNetwork": "Failed to save the alert — network error",
   "discardTitle": "Discard changes?",
   "discardMessage": "Any unsaved changes to this alert will be lost.",
-  "unknownError": "Unknown error",
   "banner": {
     "hide": "Hide alerts",
     "show": "Show alerts",

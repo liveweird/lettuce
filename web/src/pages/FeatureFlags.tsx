@@ -116,7 +116,6 @@ export default function FeatureFlags() {
   // (rows not already in the target state), the per-row PUT, and the terminals.
   const bulk = useBulkFeatureUpdate<UserRow>({
     fetchAll: async () => {
-      setError(null);
       const rows: UserRow[] = [];
       let p = 1;
       for (;;) {
@@ -269,7 +268,12 @@ export default function FeatureFlags() {
           variant="light"
           loading={bulk.preparing === true}
           disabled={bulk.preparing !== null || total === 0}
-          onClick={() => void bulk.prepare(true)}
+          onClick={() => {
+            // Clear the page-level error at the interaction, not inside fetchAll — the
+            // hook's data-fetch callback is not a place for view-state writes.
+            setError(null);
+            void bulk.prepare(true);
+          }}
         >
           {t("users.featureFlags.bulkEnable")}
         </Button>
@@ -278,7 +282,10 @@ export default function FeatureFlags() {
           color="red"
           loading={bulk.preparing === false}
           disabled={bulk.preparing !== null || total === 0}
-          onClick={() => void bulk.prepare(false)}
+          onClick={() => {
+            setError(null);
+            void bulk.prepare(false);
+          }}
         >
           {t("users.featureFlags.bulkDisable")}
         </Button>

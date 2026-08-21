@@ -21,7 +21,6 @@
   "noMeetings": "Brak spotkań 1:1.",
   "rowsPerPage": "Wierszy na stronę",
   "loadListError": "Nie udało się wczytać spotkań 1:1",
-  "unknownError": "Nieznany błąd",
   "viewWith": "Wyświetl 1:1 z {{name}}",
   "editWith": "Edytuj 1:1 z {{name}}",
   "createTitle": "Nowe spotkanie 1:1",

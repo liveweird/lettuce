@@ -12,6 +12,7 @@ import { useAllUsers } from "../hooks/useAllUsers";
 import { useFeedbackDuplicate } from "../hooks/useFeedbackDuplicate";
 import { feedbackEditLink } from "../utils/feedbackLinks";
 import { saveErrorMessage } from "../utils/saveError";
+import { PROVIDE_ERROR_KEYS } from "../utils/feedbackForm";
 import { showSuccessToast } from "../utils/toast";
 
 export default function CreateFeedback() {
@@ -93,13 +94,7 @@ export default function CreateFeedback() {
       navigate(backTo, { replace: true });
     } catch (err) {
       setError(
-        saveErrorMessage(err, t, {
-          forbidden: "feedback.error.providePermission",
-          conflict: "feedback.error.duplicate",
-          invalid: "feedback.error.validation",
-          failedStatus: "feedback.error.createFailedStatus",
-          failed: "feedback.error.createFailed",
-        }),
+        saveErrorMessage(err, t, PROVIDE_ERROR_KEYS),
       );
     } finally {
       setSubmitting(null);
@@ -108,7 +103,9 @@ export default function CreateFeedback() {
 
   return (
     <FeedbackForm
-      title={t("feedback.provideTitle")}
+      // The creation-verb convention: the picker-mode screen reuses its entry button's
+      // wording ("New feedback"); a deep link with a fixed subject keeps "Provide feedback".
+      title={pickerMode ? t("feedback.newFeedback") : t("feedback.provideTitle")}
       subjectDisplay={subjectDisplay}
       initialVisibility="PROVIDER_SUBJECT"
       initialContent=""

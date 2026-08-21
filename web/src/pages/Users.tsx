@@ -544,7 +544,6 @@ export default function Users() {
         confirm={deleteConfirm}
         title={t("users.deleteTitle")}
         errorTitle={t("users.deleteUserFailed")}
-        unknownError={t("users.unknownError")}
         body={(target) => (
           <>
             {t("users.deleteConfirmLead")} <strong>{target.name}</strong>{" "}

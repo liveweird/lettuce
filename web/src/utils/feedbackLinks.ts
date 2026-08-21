@@ -27,6 +27,12 @@ export function feedbackProvideLink(subjectId: number, subjectName: string, back
   return withBack(`/feedback/new?subjectId=${subjectId}&subjectName=${encodeURIComponent(subjectName)}`, back);
 }
 
+/** "New feedback" with NO subject → the create editor in picker mode (v2.28.0). Not
+ *  `withBack` — this is the one builder whose base carries no query string of its own. */
+export function feedbackCreateLink(back?: string): string {
+  return back ? `/feedback/new?back=${encodeURIComponent(back)}` : "/feedback/new";
+}
+
 /** "Ask for feedback" from a provider → the ask flow (`/feedback/ask`). */
 export function feedbackAskLink(providerId: number, providerName: string, back?: string): string {
   return withBack(`/feedback/ask?providerId=${providerId}&providerName=${encodeURIComponent(providerName)}`, back);

@@ -1,6 +1,7 @@
 package ch.nokillswit.teamkpis
 
 import ch.nokillswit.infra.paging.PageResponse
+import ch.nokillswit.infra.parseIsoDateStrict
 import io.ktor.server.plugins.BadRequestException
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
@@ -216,12 +217,7 @@ internal fun validateTeamKpiValue(
     }
     val date = write.date
         ?: throw BadRequestException("A team KPI data point requires 'date'")
-    val parsed = try {
-        if (date.length != 10) throw DateTimeParseException("wrong length", date, 0)
-        LocalDate.parse(date)
-    } catch (_: DateTimeParseException) {
-        throw BadRequestException("Data point date must be an ISO date (YYYY-MM-DD)")
-    }
+    val parsed = parseIsoDateStrict(date, "Data point date")
     if (parsed > today.plusDays(1)) throw BadRequestException("Data point date must not be in the future")
 }
 

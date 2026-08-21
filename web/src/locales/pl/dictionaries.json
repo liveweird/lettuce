@@ -25,7 +25,6 @@
   "discardTitle": "Odrzucić zmiany?",
   "discardMessage": "Niezapisane zmiany w słowniku zostaną utracone.",
   "loadFailed": "Nie udało się wczytać słownika",
-  "unknownError": "Nieznany błąd",
   "error": {
     "permission": "Tylko administrator może edytować słowniki.",
     "conflict": "Wartość koliduje z istniejącym wpisem — wartości w słowniku muszą być unikalne.",

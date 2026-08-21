@@ -23,7 +23,6 @@
   "discardTitle": "Discard changes?",
   "discardMessage": "Your unsaved dictionary changes will be lost.",
   "loadFailed": "Failed to load the dictionary",
-  "unknownError": "Unknown error",
   "error": {
     "permission": "Only an administrator may edit dictionaries.",
     "conflict": "A value clashes with an existing entry — values must be unique within the dictionary.",

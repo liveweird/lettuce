@@ -27,6 +27,16 @@
 6. The user types a *wrong* 6-digit code and clicks **Verify**.
    - *Expected*: an inline "invalid or expired code" error; still on the code step (the server
      answers a uniform 401 for every failure mode).
-7. The user enters the correct code from the email and clicks **Verify**.
-   - *Expected*: the sign-in completes — the header account menu is visible.
-8. The user logs out.
+7. The user submits four more wrong codes (five failures total — the attempt cap).
+   - *Expected*: the same uniform "invalid or expired code" wording every time — whether a
+     code was wrong or the cap is hit lives only in the server's audit log (2026-08 audit
+     round).
+8. The user enters the CORRECT code from the email and clicks **Verify**.
+   - *Expected*: still rejected with the same wording — the cap killed the challenge;
+     a spent challenge never accepts a code.
+9. The user returns to the login form and signs in again with the same credentials.
+   - *Expected*: a fresh code step; a NEW sign-in-code email (a different code) arrives in
+     Mailpit.
+10. The user enters the fresh code and clicks **Verify**.
+    - *Expected*: the sign-in completes — the header account menu is visible.
+11. The user logs out.

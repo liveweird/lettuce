@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   Alert,
   Button,
@@ -18,11 +18,10 @@ import { useTranslation } from "react-i18next";
 import { ApiError } from "../api/http";
 import { getUserId, hasFeature } from "../api/session";
 import { createDaysOff, listDaysOffBudgets, listPublicHolidays, type DaysOffType } from "../api/daysoff";
-import { listAllTeamMembers } from "../api/teams";
 import { todayIsoDate } from "../utils/datetime";
 import { costHalfDays, formatDays } from "../utils/daysOffCost";
 import { daysOffListLink } from "../utils/daysOffLinks";
-import { groupTeamRows } from "../utils/teamRows";
+import { toReportOptions, useManagedReports } from "../hooks/useManagedReports";
 import { invalidateDaysOff } from "../utils/daysOffQueries";
 import { saveErrorMessage } from "../utils/saveError";
 import { showSuccessToast } from "../utils/toast";
@@ -60,22 +59,10 @@ export default function CreateDaysOff() {
   const [submitting, setSubmitting] = useState(false);
   const subjectId = onBehalf && subjectPick != null ? Number(subjectPick) : null;
 
-  // On-behalf mode's picker pool: the caller's direct reports (ALL pages — the
-  // single-page-picker lesson; one row per (user, team), deduped below).
-  const reportsQuery = useQuery({
-    queryKey: ["teamMembers", "daysOffPicker"],
-    queryFn: () => listAllTeamMembers("managed"),
-    staleTime: 5 * 60 * 1000,
-    enabled: onBehalf,
-  });
-  const reportOptions = useMemo(
-    () =>
-      groupTeamRows(reportsQuery.data ?? [])
-        .filter((p) => p.userId !== getUserId())
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map((p) => ({ value: String(p.userId), label: p.name })),
-    [reportsQuery.data],
-  );
+  // On-behalf mode's picker pool: the caller's direct reports, minus the caller — a manager
+  // on their own roster is 403'd server-side (nobody records on their own behalf).
+  const { reports, reportsError } = useManagedReports(onBehalf);
+  const reportOptions = toReportOptions(reports.filter((p) => p.userId !== getUserId()));
 
   const holidaysQuery = useQuery({
     queryKey: ["publicHolidays"],
@@ -173,7 +160,7 @@ export default function CreateDaysOff() {
               searchable
               clearable
               nothingFoundMessage={t("daysOff.budget.noReports")}
-              error={reportsQuery.isError ? t("common.error.optionsFailed") : undefined}
+              error={reportsError ? t("common.error.optionsFailed") : undefined}
               w={320}
             />
           )}
@@ -244,7 +231,13 @@ export default function CreateDaysOff() {
             <Paper withBorder p="sm" radius="md">
               <Stack gap={2}>
                 <Text size="sm" fw={600}>
-                  {t("daysOff.costPreview", { days: formatDays(costDays, i18n.language) })}
+                  {/* count drives the plural form (PL: dzień/dni robocze/dni roboczych, with
+                      fractional halves on the genitive "dnia roboczego"); days is the
+                      locale-formatted display value. */}
+                  {t("daysOff.costPreview", {
+                    count: costDays,
+                    days: formatDays(costDays, i18n.language),
+                  })}
                 </Text>
                 {type === "PAID" && budget != null && (
                   <Text size="sm" c={overBudget ? "red" : "dimmed"}>

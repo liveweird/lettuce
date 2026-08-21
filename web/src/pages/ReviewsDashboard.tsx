@@ -118,11 +118,14 @@ export default function ReviewsDashboard() {
     isLoading: periodsLoading,
     isError: periodsError,
   } = useReviewPeriodOptions();
-  // The picker is newest-first; a stale stored id (deleted period) falls back to the latest.
+  // The picker is newest-first. Without a stored pick (or with a stale one — a deleted
+  // period) default to the CURRENT period, not the newest: an admin may pre-append future
+  // periods, and defaulting to one would open every manager's view on an empty timeline
+  // (2026-08 audit round). Falls back to the newest only when no period contains today.
   const periodId =
     storedPeriod && periodOptions.some((o) => o.value === storedPeriod)
       ? storedPeriod
-      : (periodOptions[0]?.value ?? null);
+      : (periodOptions.find((o) => o.current)?.value ?? periodOptions[0]?.value ?? null);
 
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, toggleSort } =
     usePagedSort<ReviewsDashboardSortField>(
@@ -288,6 +291,10 @@ export default function ReviewsDashboard() {
         <ReviewQuadrants rows={filteredRows} />
       ) : (
       <>
+      {/* The widest table in the app (10 columns + the per-row New-review button) — it can
+          exceed the viewport (PL labels especially), so it scrolls inside its own container
+          instead of widening the page body (2026-08 audit round). */}
+      <Table.ScrollContainer minWidth={1100}>
       <Table highlightOnHover withTableBorder verticalSpacing="sm">
         <Table.Thead>
           <Table.Tr>
@@ -471,6 +478,7 @@ export default function ReviewsDashboard() {
           ) : null}
         </Table.Tbody>
       </Table>
+      </Table.ScrollContainer>
 
       <PaginationBar
         total={total}

@@ -114,7 +114,6 @@
   "deleteUserFailed": "Nie udało się usunąć użytkownika",
   "removeFromTeamFailed": "Nie udało się usunąć z zespołu",
   "addToTeamFailed": "Nie udało się dodać do zespołu",
-  "unknownError": "Nieznany błąd",
   "userNotFound": "Nie znaleziono użytkownika.",
   "userNoLongerExists": "Użytkownik już nie istnieje.",
   "teamNoLongerExists": "Zespół już nie istnieje.",

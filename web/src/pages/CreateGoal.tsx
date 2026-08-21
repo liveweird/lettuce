@@ -1,16 +1,16 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { Alert, Button, Container, Group, Paper, Select, Stack, Text, Title } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { hasFeature } from "../api/session";
-import { listAllTeamMembers } from "../api/teams";
 import { activateGoal, createGoal } from "../api/goals";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import GoalDefinitionFields from "../components/GoalDefinitionFields";
 import PersonaField from "../components/PersonaField";
+import { toReportOptions, useManagedReports } from "../hooks/useManagedReports";
 import {
   goalDefinitionValidation,
   toDefinitionBody,
@@ -19,7 +19,6 @@ import {
 import { invalidateGoal } from "../utils/goalQueries";
 import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
-import { groupTeamRows } from "../utils/teamRows";
 
 // Default cancel target when no `back` param is present: the subordinates grid, the only
 // entry point that links here today.
@@ -61,21 +60,8 @@ export default function CreateGoal() {
   });
 
   // The picker is skipped entirely when the subordinate arrives prefilled (card/list flows).
-  const { data: reports } = useQuery({
-    queryKey: ["teamMembers", "goalPicker"],
-    // ALL pages (the single-page-picker lesson): rows are per-(user, team), so a single
-    // page of 100 truncates around ~50 reports across two teams. Deduped/sorted below.
-    queryFn: () => listAllTeamMembers("managed"),
-    staleTime: 5 * 60 * 1000,
-    enabled: !preselected,
-  });
-  const options = useMemo(
-    // The members list has one row per (user, team) — groupTeamRows dedupes to one per person.
-    () =>
-      groupTeamRows(reports ?? [])
-        .sort((a, b) => a.name.localeCompare(b.name)).map((p) => ({ value: String(p.userId), label: p.name })),
-    [reports],
-  );
+  const { reports, reportsError } = useManagedReports(!preselected);
+  const options = toReportOptions(reports);
 
   // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
   if (!hasFeature("GOALS")) return <Navigate to="/" replace />;
@@ -164,6 +150,7 @@ export default function CreateGoal() {
                   searchable
                   clearable
                   nothingFoundMessage={t("goal.noReports")}
+                  error={reportsError ? t("common.error.optionsFailed") : undefined}
                 />
               )}
             </Group>

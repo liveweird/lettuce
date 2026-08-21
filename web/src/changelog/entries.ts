@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.29.1",
+    date: "2026-08-21",
+    en: `A round of polish from a quality audit. The Team's performance tab now opens on the period containing today instead of the newest one in the registry (which could be a future period prepared ahead of time), and its wide table scrolls inside its own frame instead of stretching the whole page sideways. Delete confirmations now explain failures in plain words instead of showing a technical error code. The "New feedback" screen reached from the Feedback page is titled "New feedback" like its button. The Polish days-off cost preview finally declines properly — "1 dzień roboczy", "2 dni robocze", "2,5 dnia roboczego". A few form pickers also gained a clear message when their options fail to load.`,
+    pl: `Runda szlifów po audycie jakości. Zakładka Oceny zespołu otwiera się teraz na okresie obejmującym dzisiejszy dzień zamiast na najnowszym w rejestrze (który mógł być okresem przyszłym, dodanym z wyprzedzeniem), a jej szeroka tabela przewija się we własnej ramce zamiast rozciągać całą stronę na boki. Potwierdzenia usuwania wyjaśniają teraz niepowodzenia po ludzku zamiast pokazywać techniczny kod błędu. Ekran „Nowy feedback" otwierany ze strony Feedback nosi tytuł „Nowy feedback" — tak jak jego przycisk. Polski podgląd kosztu dni wolnych wreszcie poprawnie się odmienia — „1 dzień roboczy", „2 dni robocze", „2,5 dnia roboczego". Kilka pól wyboru w formularzach dostało też czytelny komunikat, gdy nie uda się wczytać opcji.`,
+  },
+  {
     version: "2.29.0",
     date: "2026-08-21",
     en: `Managers can now record days off on behalf of their direct reports — made for backfilling vacation history without asking everyone to file retroactive requests. The Days off page's My team tab got a "New days off" button under the request list: pick the person, pick the period (past dates are fine), and hit "Submit auto-accepted" — since you are the one who would approve it anyway, the entry is created already accepted, with you on record as the approver. Both of you get a notification, the usual rules still apply (no overlaps, paid entries must fit the person's budget), and the entry behaves like any accepted request afterwards — the owner can still cancel a future one.`,

@@ -183,7 +183,6 @@ export default function PublicHolidays() {
         confirm={deleteConfirm}
         title={t("daysOff.holidays.deleteTitle")}
         errorTitle={t("daysOff.holidays.deleteFailed")}
-        unknownError={t("daysOff.error.saveFailed")}
         body={() => t("daysOff.holidays.deleteMessage")}
         errorMessage={(err) =>
           saveErrorMessage(err, t, {

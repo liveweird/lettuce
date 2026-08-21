@@ -68,8 +68,50 @@ test("an MFA-enabled user must enter the emailed code; a wrong code is rejected 
   await page.getByRole("button", { name: "Verify" }).click();
   await expect(page.getByText(/invalid or expired code/i)).toBeVisible();
 
-  // The correct code finishes the sign-in.
+  // Burn the rest of the attempt cap (5): four more wrong submissions, same uniform wording
+  // every time — the reason (wrong vs capped) lives only in the server's audit log.
+  for (let attempt = 0; attempt < 4; attempt++) {
+    for (let i = 0; i < 6; i++) await codeBoxes.nth(i).fill(wrong[i]);
+    await page.getByRole("button", { name: "Verify" }).click();
+    await expect(page.getByText(/invalid or expired code/i)).toBeVisible();
+  }
+
+  // The cap killed the challenge: even the CORRECT code now gets the same rejection
+  // (2026-08 audit round — the too-many-attempts path).
   for (let i = 0; i < 6; i++) await codeBoxes.nth(i).fill(code![i]);
+  await page.getByRole("button", { name: "Verify" }).click();
+  await expect(page.getByText(/invalid or expired code/i)).toBeVisible();
+
+  // A fresh sign-in mints a fresh challenge and code; that roundtrip completes.
+  await page.goto("/login");
+  await page.getByRole("textbox", { name: "Email" }).fill(user.email);
+  await page.getByRole("textbox", { name: "Password" }).fill(user.password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("heading", { name: "Enter your sign-in code" })).toBeVisible();
+  const firstCode = code;
+  await expect
+    .poll(
+      async () => {
+        const list = await fetch(`${MAILPIT}/api/v1/messages`).then((r) => r.json());
+        const msg = list.messages?.find(
+          (m: { To?: { Address: string }[]; Subject?: string }) =>
+            m.To?.some((t) => t.Address === user.email) &&
+            m.Subject?.includes("sign-in code"),
+        );
+        if (!msg) return undefined;
+        const text: string = (
+          await fetch(`${MAILPIT}/api/v1/message/${msg.ID}`).then((r) => r.json())
+        ).Text;
+        const fresh = text.match(/^\d{6}$/m)?.[0];
+        // Mailpit lists newest first — wait until the NEW challenge's mail is on top.
+        if (fresh && fresh !== firstCode) code = fresh;
+        return fresh !== firstCode ? fresh : undefined;
+      },
+      { timeout: 15_000 },
+    )
+    .toBeTruthy();
+  const freshBoxes = page.getByLabel("Sign-in code").getByRole("textbox");
+  for (let i = 0; i < 6; i++) await freshBoxes.nth(i).fill(code![i]);
   await page.getByRole("button", { name: "Verify" }).click();
   await expect(userMenu(page)).toBeVisible({ timeout: 15_000 });
   await logout(page);

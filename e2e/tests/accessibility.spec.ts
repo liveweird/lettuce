@@ -54,6 +54,12 @@ const AUTHED_PAGES: { path: string; heading: string }[] = [
   { path: "/dictionaries/career-paths", heading: "Career paths" },
   { path: "/alerts", heading: "Alerts" },
   { path: "/changelog", heading: "Changelog" },
+  // The newer form screens (2026-08 audit round): the kudos + picker-mode feedback creates,
+  // the days-off request form, and the admin feature-flags screen.
+  { path: "/kudos/new", heading: "New kudo" },
+  { path: "/feedback/new", heading: "New feedback" },
+  { path: "/days-off/new", heading: "New days-off request" },
+  { path: "/feature-flags", heading: "Feature flags" },
 ];
 
 for (const { path, heading } of AUTHED_PAGES) {

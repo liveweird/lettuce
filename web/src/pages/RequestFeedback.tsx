@@ -34,6 +34,11 @@ import { useAllUsers } from "../hooks/useAllUsers";
 
 type Provider = { id: number; name: string };
 
+// The stable empty fallback for the duplicate probe — a fresh Map per render would defeat
+// memo/equality checks downstream.
+const NO_DUPLICATES: ReadonlyMap<number, { existingId?: number | null; existingStatus?: string | null }> =
+  new Map();
+
 export default function RequestFeedback() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -89,7 +94,7 @@ export default function RequestFeedback() {
     },
     enabled: subjectIdIsValid && requesterId != null && selectedIds.length > 0,
   });
-  const duplicates = duplicateData ?? new Map<number, { existingId?: number | null; existingStatus?: string | null }>();
+  const duplicates = duplicateData ?? NO_DUPLICATES;
   const hasDuplicates = selected.some((p) => duplicates.has(p.id));
 
   // A provider cannot be the requester (requester ≠ provider) and cannot be already chosen.

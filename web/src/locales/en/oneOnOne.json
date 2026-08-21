@@ -21,7 +21,6 @@
   "noMeetings": "No 1:1 meetings.",
   "rowsPerPage": "Rows per page",
   "loadListError": "Failed to load 1:1 meetings",
-  "unknownError": "Unknown error",
   "viewWith": "View the 1:1 with {{name}}",
   "editWith": "Edit the 1:1 with {{name}}",
   "createTitle": "New 1:1 meeting",

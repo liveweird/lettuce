@@ -24,6 +24,7 @@ import PersonaField from "../components/PersonaField";
 import { useFeedbackDuplicate } from "../hooks/useFeedbackDuplicate";
 import { REQUESTER_VISIBILITIES } from "../utils/feedbackVisibility";
 import { saveErrorMessage } from "../utils/saveError";
+import { REQUEST_ERROR_KEYS } from "../utils/feedbackForm";
 import { showSuccessToast } from "../utils/toast";
 import { invalidateFeedback } from "../utils/feedbackQueries";
 
@@ -82,13 +83,7 @@ export default function AskFeedback() {
       navigate(backTo, { replace: true });
     } catch (err) {
       setError(
-        saveErrorMessage(err, t, {
-          forbidden: "feedback.error.requestPermission",
-          conflict: "feedback.error.duplicate",
-          invalid: "feedback.error.validationSimple",
-          failedStatus: "feedback.error.requestFailedStatus",
-          failed: "feedback.error.requestFailed",
-        }),
+        saveErrorMessage(err, t, REQUEST_ERROR_KEYS),
       );
     } finally {
       setSubmitting(false);

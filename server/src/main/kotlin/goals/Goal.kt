@@ -1,10 +1,11 @@
 package ch.nokillswit.goals
 
 import ch.nokillswit.infra.paging.PageResponse
+import ch.nokillswit.infra.parseIsoDateStrict
 import io.ktor.server.plugins.BadRequestException
-import kotlinx.serialization.Serializable
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
+import kotlinx.serialization.Serializable
 
 @Serializable
 enum class GoalType { PLAN, NUMBER, PERCENTAGE }
@@ -252,12 +253,7 @@ internal fun validateGoalDefinition(
  * directly — a stale draft must pick a fresh date to activate).
  */
 internal fun validateGoalDueDate(dueDate: String, today: LocalDate = LocalDate.now()) {
-    val parsed = try {
-        if (dueDate.length != 10) throw DateTimeParseException("wrong length", dueDate, 0)
-        LocalDate.parse(dueDate)
-    } catch (_: DateTimeParseException) {
-        throw BadRequestException("Goal due date must be an ISO date (YYYY-MM-DD)")
-    }
+    val parsed = parseIsoDateStrict(dueDate, "Goal due date")
     if (parsed < today.minusDays(1)) throw BadRequestException("Goal due date must not be in the past")
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link as RouterLink, Navigate, useNavigate, useParams } from "react-router-dom";
 import {
   Alert,
@@ -54,8 +54,9 @@ export default function EditAlert() {
     retry: false,
   });
 
-  useEffect(() => {
-    if (data) {
+  // Derived, not effect-set (the PulseSettingsCard precedent): initialize applies once.
+
+  if (data && !form.initialized) {
       form.initialize({
         title: data.title,
         content: data.content,
@@ -65,9 +66,8 @@ export default function EditAlert() {
         endsAtSet: data.endsAt != null,
         endsAt: epochToDatetimeLocal(data.endsAt),
       });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data]);
+
+  }
 
   if (!isAdmin()) return <Navigate to="/" replace />;
   if (!idIsValid) return <Navigate to="/alerts" replace />;

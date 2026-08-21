@@ -2,17 +2,17 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Button, Group, Modal, Stack, Text } from "@mantine/core";
 import type { DeleteConfirm } from "../hooks/useDeleteConfirm";
+import { saveErrorMessage } from "../utils/saveError";
 
-// The confirmation modal half of useDeleteConfirm. `title`/`errorTitle`/`unknownError`
-// arrive already translated (their keys are page-local); `body` renders the lead text
-// for the row being deleted. Cancel is the shared common.action.cancel; the confirm
-// button defaults to common.action.delete but pages whose action reads differently
-// (e.g. "Remove" on membership rows) pass their own translated `confirmLabel`.
+// The confirmation modal half of useDeleteConfirm. `title`/`errorTitle` arrive already
+// translated (their keys are page-local); `body` renders the lead text for the row being
+// deleted. Cancel is the shared common.action.cancel; the confirm button defaults to
+// common.action.delete but pages whose action reads differently (e.g. "Remove" on
+// membership rows) pass their own translated `confirmLabel`.
 export default function ConfirmDeleteModal<T>({
   confirm,
   title,
   errorTitle,
-  unknownError,
   body,
   confirmLabel,
   errorMessage,
@@ -20,11 +20,10 @@ export default function ConfirmDeleteModal<T>({
   confirm: DeleteConfirm<T>;
   title: string;
   errorTitle: string;
-  unknownError: string;
   body: (target: T) => ReactNode;
   confirmLabel?: string;
   /** Optional status→message mapper (pair with utils/saveError.ts) — pages whose delete can
-   *  fail meaningfully (e.g. a registry 409) map it here instead of showing the raw error. */
+   *  fail meaningfully (e.g. a registry 409) map it here instead of the generic wording. */
   errorMessage?: (error: unknown) => string;
 }) {
   const { t } = useTranslation();
@@ -35,11 +34,14 @@ export default function ConfirmDeleteModal<T>({
         {target && <Text>{body(target)}</Text>}
         {mutation.isError && (
           <Alert color="red" variant="light" title={errorTitle}>
+            {/* Never error.message (the v2.22.0 rule) — the shared mapper handles
+                timeout/status/network with the generic action wording as the floor. */}
             {errorMessage
               ? errorMessage(mutation.error)
-              : mutation.error instanceof Error
-                ? mutation.error.message
-                : unknownError}
+              : saveErrorMessage(mutation.error, t, {
+                  failedStatus: "common.error.actionFailedStatus",
+                  failed: "common.error.actionFailed",
+                })}
           </Alert>
         )}
         <Group justify="flex-end" gap="sm">

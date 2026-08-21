@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Link as RouterLink,
   Navigate,
@@ -54,12 +54,12 @@ export default function EditTemplate() {
     retry: false,
   });
 
-  useEffect(() => {
-    if (data) {
+  // Derived, not effect-set (the PulseSettingsCard precedent): initialize applies once.
+
+  if (data && !form.initialized) {
       form.initialize({ name: data.name, content: data.content });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data]);
+
+  }
 
   if (!isAdmin()) return <Navigate to="/templates" replace />;
   if (!idIsValid) return <Navigate to="/templates" replace />;

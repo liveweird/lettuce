@@ -31,7 +31,6 @@
   "noRequests": "No days-off requests here yet.",
   "rowsPerPage": "Requests per page",
   "loadListError": "Could not load the days-off requests",
-  "unknownError": "Something went wrong. Please try again.",
   "action": {
     "accept": "Accept",
     "reject": "Reject",
@@ -76,7 +75,8 @@
   "pickReport": "Pick a direct report",
   "startHalfLabel": "First day is a half day",
   "endHalfLabel": "Last day is a half day",
-  "costPreview": "This request costs {{days}} working day(s).",
+  "costPreview_one": "This request costs {{days}} working day.",
+  "costPreview_other": "This request costs {{days}} working days.",
   "remainingPreview": "Remaining paid-days budget for {{year}}: {{days}}.",
   "validation": {
     "order": "The start date must not be after the end date.",

@@ -25,3 +25,10 @@
    - *Expected*: the same toast and redirect home.
 6. The user reopens the screen once more.
    - *Expected*: the switch is on again — opting back in persisted too.
+7. The user signs out; the administrator signs in and opens the SAME user's
+   email-notifications screen by its URL (2026-08 audit round — the admin-for-another-user
+   branch of the self-or-admin rule).
+   - *Expected*: the screen shows the target's email with the switch on.
+8. The admin turns the switch off and clicks **Save**.
+   - *Expected*: the toast appears and the app returns to the **Users list** (not home — the
+     admin-editing-someone-else return target); reopening the URL shows the switch off.

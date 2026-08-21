@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Link as RouterLink, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Alert,
@@ -12,10 +12,10 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { hasFeature } from "../api/session";
-import { listAllTeamMembers } from "../api/teams";
+import { toReportOptions, useManagedReports } from "../hooks/useManagedReports";
 import { createOneOnOne } from "../api/oneonones";
 import PersonaField from "../components/PersonaField";
 import { todayIsoDate } from "../utils/datetime";
@@ -25,8 +25,6 @@ import { showSuccessToast } from "../utils/toast";
 
 const BACK_TO = "/one-on-ones?tab=managed";
 
-// The subordinate picker chooses from the caller's direct reports; fetch up to the 100-row
-// max (the list endpoint's cap). Fine at this app's scale.
 /**
  * Creating a 1:1 is deliberately minimal — subordinate + date — and immediately lands on the
  * edit screen: the server copies the previous meeting's unresolved action items on create, so
@@ -57,25 +55,8 @@ export default function CreateOneOnOne() {
 
   // view=managed lists the caller's direct reports — exactly who a 1:1 can be held with.
   // A prefilled subordinate needs no picker (and no fetch).
-  const { data: reports } = useQuery({
-    queryKey: ["teamMembers", "oneOnOnePicker"],
-    // ALL pages (the single-page-picker lesson): rows are per-(user, team), so a single
-    // page of 100 truncates around ~50 reports across two teams. Deduped/sorted below.
-    queryFn: () => listAllTeamMembers("managed"),
-    staleTime: 5 * 60 * 1000,
-    enabled: !preselected,
-  });
-
-  // One row per (user, team) arrives; the picker wants one option per person.
-  const options = useMemo(() => {
-    const seen = new Map<number, string>();
-    for (const row of reports ?? []) {
-      if (!seen.has(row.userId)) seen.set(row.userId, row.name);
-    }
-    return [...seen.entries()]
-      .map(([id, name]) => ({ value: String(id), label: name }))
-      .sort((a, b) => a.label.localeCompare(b.label));
-  }, [reports]);
+  const { reports, reportsError } = useManagedReports(!preselected);
+  const options = toReportOptions(reports);
 
   // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
   if (!hasFeature("ONE_ON_ONES")) return <Navigate to="/" replace />;
@@ -134,6 +115,7 @@ export default function CreateOneOnOne() {
               searchable
               clearable
               nothingFoundMessage={t("oneOnOne.noReports")}
+              error={reportsError ? t("common.error.optionsFailed") : undefined}
             />
           )}
 

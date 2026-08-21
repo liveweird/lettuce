@@ -13,8 +13,14 @@ test("the changelog lists versioned entries and renders them in the picked langu
   await logout(page);
   await loginWithPassword(page, user.email, user.password);
 
+  // A fresh profile has never seen the current version: the navbar version stamp carries
+  // the red "what's new" dot (its accessible title renders only while unseen).
+  await expect(page.getByTitle("What's new")).toBeVisible();
+
   await page.goto("/changelog");
   await expect(page.getByRole("heading", { name: "Changelog" })).toBeVisible();
+  // Visiting marks the version seen — the dot (and its title) is gone.
+  await expect(page.getByTitle("What's new")).toHaveCount(0);
 
   // The newest entry: a semver title, its release date, and a non-empty markdown body.
   const newest = page.getByText(/^v\d+\.\d+\.\d+$/).first();

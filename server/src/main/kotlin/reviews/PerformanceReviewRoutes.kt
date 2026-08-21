@@ -1,10 +1,9 @@
 package ch.nokillswit.reviews
 
-import ch.nokillswit.authz.requireDirectReport
-import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAuditListAccess
+import ch.nokillswit.authz.requireDirectReport
 import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.authz.requirePerformanceReviewReadAllowingManager
 import ch.nokillswit.authz.requirePerformanceReviewWrite
@@ -13,13 +12,13 @@ import ch.nokillswit.infra.db.requireValidReferences
 import ch.nokillswit.infra.paging.SortField
 import ch.nokillswit.infra.paging.optionalBoolean
 import ch.nokillswit.infra.paging.optionalEnum
+import ch.nokillswit.infra.paging.optionalIncludeIndirect
 import ch.nokillswit.infra.paging.optionalLong
 import ch.nokillswit.infra.paging.optionalString
 import ch.nokillswit.infra.paging.optionalUInt
-import ch.nokillswit.infra.paging.optionalIncludeIndirect
-import ch.nokillswit.infra.paging.uintOnlyForView
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
+import ch.nokillswit.infra.paging.uintOnlyForView
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserServiceKey
@@ -192,6 +191,7 @@ fun Application.configurePerformanceReviewRoutes() {
                 // the subordinate must be a direct report right now. Checked before payload
                 // validation so an outsider's malformed request is still 403, not 400.
                 requireDirectReport(
+                    caller,
                     { reviewService.isDirectReport(caller.userId, request.subordinateId) },
                     "You may only review your direct reports",
                 )

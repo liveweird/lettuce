@@ -5,7 +5,6 @@
   "unread_many": "{{count}} nieprzeczytanych",
   "unread_other": "{{count}} nieprzeczytanych",
   "loadError": "Nie udało się wczytać powiadomień",
-  "unknownError": "Nieznany błąd",
   "empty": "Brak powiadomień.",
   "markSeen": "Oznacz jako przeczytane",
   "markAllSeen": "Oznacz wszystkie jako przeczytane",

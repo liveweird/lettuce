@@ -286,7 +286,6 @@ export default function ReviewPeriods() {
         confirm={deleteConfirm}
         title={t("performanceReview.periods.deleteTitle")}
         errorTitle={t("performanceReview.periods.deleteFailed")}
-        unknownError={t("performanceReview.error.updateFailed")}
         body={() => t("performanceReview.periods.deleteMessage")}
         errorMessage={(err) =>
           err instanceof ApiError && err.status === 409

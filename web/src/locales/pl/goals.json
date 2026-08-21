@@ -31,7 +31,6 @@
   "rowsPerPage": "Celów na stronę",
   "noGoals": "Nie ma jeszcze żadnych celów.",
   "loadListError": "Nie udało się wczytać celów",
-  "unknownError": "Nieznany błąd",
   "viewAria": "Zobacz cel {{title}}",
   "editAria": "Edytuj cel {{title}}",
   "status": {

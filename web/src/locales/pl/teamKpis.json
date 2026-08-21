@@ -25,7 +25,6 @@
   "rowsPerPage": "KPI na stronę",
   "noKpis": "Nie ma jeszcze żadnych KPI zespołów.",
   "loadListError": "Nie udało się wczytać KPI zespołów",
-  "unknownError": "Nieznany błąd",
   "viewAria": "Zobacz KPI zespołu {{title}}",
   "editAria": "Edytuj KPI zespołu {{title}}",
   "type": {

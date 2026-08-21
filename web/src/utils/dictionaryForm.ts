@@ -95,6 +95,15 @@ export function dictionaryFormValidation(t: TFunction) {
 }
 
 /** The shared mutation-error -> message mapping for dictionary saves. */
+/** The languages named by per-entry value errors (`entries.<i>.values.<lang>` form paths) —
+ *  the editor uses this both for the picker's "•" has-errors markers and for switching the
+ *  visible translation column to a hidden offender on a failed save. */
+export function errorLanguages(errorKeys: string[]): string[] {
+  return errorKeys
+    .map((key) => /^entries\.\d+\.values\.(\w+)$/.exec(key)?.[1])
+    .filter((lang): lang is string => lang != null);
+}
+
 export function dictionarySaveErrorMessage(err: unknown, t: TFunction): string {
   return saveErrorMessage(err, t, {
     forbidden: "dictionary.error.permission",
