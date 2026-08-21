@@ -89,6 +89,16 @@ describe("Feedback page", () => {
     expect(screen.queryByRole("tab", { name: "My team" })).not.toBeInTheDocument();
   });
 
+  test("the header carries the New feedback entry point linking to the picker create screen", () => {
+    mockApi(mockFetch, 0);
+    renderFeedback();
+
+    expect(screen.getByRole("link", { name: /new feedback/i })).toHaveAttribute(
+      "href",
+      `/feedback/new?back=${encodeURIComponent("/feedback?tab=provided")}`,
+    );
+  });
+
   test("manager sees the My team tab", async () => {
     mockApi(mockFetch, 1);
     renderFeedback();

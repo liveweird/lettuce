@@ -9,9 +9,11 @@
 ## Scenario: provider drafts, sends, and withdraws a feedback
 
 1. AAA One signs in.
-2. On the users list, AAA One filters by name to find AAA Two (filter first so the row is on
-   page 1 even after runs accumulate E2E users) and chooses "Provide feedback" for them.
-   - *Expected*: the feedback create editor opens.
+2. AAA One opens the **Feedback** page and clicks the header's **New feedback** button (the
+   v2.28.0 entry), then picks AAA Two in the **Subject** picker on the create screen (with no
+   subject in the URL the screen offers the picker; the users-row "Provide feedback" entry
+   stays covered by the manager-oversight and templates journeys).
+   - *Expected*: the feedback create editor opens with AAA Two as the subject.
 3. AAA One types a unique feedback text and clicks "Save draft".
    - *Expected*: the draft is created (its id is captured so every later step acts on exactly
      this row, regardless of any other data in the shared database).

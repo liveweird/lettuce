@@ -16,6 +16,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.28.0",
+    date: "2026-08-21",
+    en: `Writing feedback no longer starts at the person. The Feedback page got a "New feedback" button next to its title: it opens the familiar create screen with one addition — a subject picker, so you choose who the feedback is about right there. Everything else works exactly as before: pick the visibility, write, and save as a draft or send. Links that already point at a specific person (the users list, person cards) keep working unchanged.`,
+    pl: `Pisanie feedbacku nie musi już zaczynać się od osoby. Strona Feedback dostała przycisk „Nowy feedback" obok tytułu: otwiera znajomy ekran tworzenia z jednym dodatkiem — wyborem osoby, której feedback dotyczy, bezpośrednio na miejscu. Cała reszta działa dokładnie jak dotąd: wybierz widoczność, napisz i zapisz jako szkic albo wyślij. Odnośniki wskazujące już konkretną osobę (lista użytkowników, karty osób) działają bez zmian.`,
+  },
+  {
     version: "2.27.0",
     date: "2026-08-21",
     en: `The Kudos wall got its own way in. The page header — title, description, and a new "New kudo" button — now stays pinned while you scroll the wall. The button opens a dedicated create screen: pick the person you want to praise, write your kudo, and send it — visibility is fixed to Public, so it lands on the wall for everyone the moment it is sent. Under the hood it is an ordinary feedback: you can also save it as a draft and finish it later from your Provided list.`,
