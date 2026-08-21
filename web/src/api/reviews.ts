@@ -1,7 +1,7 @@
 // Review periods & performance reviews API.
 // Thin endpoint wrappers: transport (authedFetch/ApiError) in ./http, session state in ./session.
 
-import { ApiError, authedFetch, safeJson } from "./http";
+import { jsonRequest, voidRequest } from "./http";
 import type { paths } from "./schema";
 
 export type ReviewPeriod =
@@ -11,25 +11,20 @@ export type ReviewPeriodCreateBody =
 
 /** The whole global timeline, oldest first — unpaged (the registry is intrinsically small). */
 export async function listReviewPeriods(): Promise<ReviewPeriod[]> {
-  const res = await authedFetch("/api/v1/review-periods");
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return ((await res.json()) as { items: ReviewPeriod[] }).items;
+  return (await jsonRequest<{ items: ReviewPeriod[] }>("/api/v1/review-periods")).items;
 }
 
 // ADMIN-only; the timeline is append-only — a start not adjacent to the latest end is 409.
 export async function createReviewPeriod(body: ReviewPeriodCreateBody): Promise<ReviewPeriod> {
-  const res = await authedFetch("/api/v1/review-periods", {
+  return jsonRequest<ReviewPeriod>("/api/v1/review-periods", {
     method: "POST",
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as ReviewPeriod;
 }
 
 // ADMIN-only; only the latest, review-free period deletes (else 409).
 export async function deleteReviewPeriod(id: number): Promise<void> {
-  const res = await authedFetch(`/api/v1/review-periods/${id}`, { method: "DELETE" });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  await voidRequest(`/api/v1/review-periods/${id}`, { method: "DELETE" });
 }
 
 export type PerformanceReviewPage =
@@ -78,9 +73,7 @@ export async function listPerformanceReviews(
   if (q.createdAtGte != null) params.set("createdAt[gte]", String(q.createdAtGte));
   if (q.includeIndirect) params.set("includeIndirect", "true");
   if (q.userId != null) params.set("userId", String(q.userId));
-  const res = await authedFetch(`/api/v1/performance-reviews?${params.toString()}`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as PerformanceReviewPage;
+  return jsonRequest<PerformanceReviewPage>(`/api/v1/performance-reviews?${params.toString()}`);
 }
 
 /** Every review of one scope, paging until the server total is reached — the reviews-dashboard
@@ -109,18 +102,14 @@ export type PerformanceReviewUpdateBody =
 export async function createPerformanceReview(
   body: PerformanceReviewCreateBody,
 ): Promise<PerformanceReviewResponse> {
-  const res = await authedFetch("/api/v1/performance-reviews", {
+  return jsonRequest<PerformanceReviewResponse>("/api/v1/performance-reviews", {
     method: "POST",
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as PerformanceReviewResponse;
 }
 
 export async function getPerformanceReview(id: number): Promise<PerformanceReviewResponse> {
-  const res = await authedFetch(`/api/v1/performance-reviews/${id}`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as PerformanceReviewResponse;
+  return jsonRequest<PerformanceReviewResponse>(`/api/v1/performance-reviews/${id}`);
 }
 
 // Full replace of the eight assessment values; DRAFT/CALIBRATION only (PUBLISHED is 409), and
@@ -129,24 +118,21 @@ export async function updatePerformanceReview(
   id: number,
   body: PerformanceReviewUpdateBody,
 ): Promise<void> {
-  const res = await authedFetch(`/api/v1/performance-reviews/${id}`, {
+  await voidRequest(`/api/v1/performance-reviews/${id}`, {
     method: "PUT",
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
 
 export async function deletePerformanceReview(id: number): Promise<void> {
-  const res = await authedFetch(`/api/v1/performance-reviews/${id}`, { method: "DELETE" });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  await voidRequest(`/api/v1/performance-reviews/${id}`, { method: "DELETE" });
 }
 
 // Lifecycle transitions are POST action sub-resources; each names one edge of the
 // DRAFT <-> CALIBRATION <-> PUBLISHED machine, so a review not at the edge's source status
 // returns 409 (and an incomplete draft's submit is 400).
 async function reviewTransition(id: number, action: string): Promise<void> {
-  const res = await authedFetch(`/api/v1/performance-reviews/${id}/${action}`, { method: "POST" });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  await voidRequest(`/api/v1/performance-reviews/${id}/${action}`, { method: "POST" });
 }
 
 export const submitPerformanceReview = (id: number) => reviewTransition(id, "submit");
@@ -159,7 +145,5 @@ type PerformanceReviewEventList =
 export type PerformanceReviewEvent = PerformanceReviewEventList["items"][number];
 
 export async function listPerformanceReviewEvents(id: number): Promise<PerformanceReviewEvent[]> {
-  const res = await authedFetch(`/api/v1/performance-reviews/${id}/events`);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return ((await res.json()) as PerformanceReviewEventList).items;
+  return (await jsonRequest<PerformanceReviewEventList>(`/api/v1/performance-reviews/${id}/events`)).items;
 }

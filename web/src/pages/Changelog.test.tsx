@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "vitest";
 import Changelog from "./Changelog";
-import { APP_VERSION, CHANGELOG } from "../changelog/entries";
+import { CHANGELOG } from "../changelog/entries";
+import { APP_VERSION } from "../changelog/version";
 import i18n from "../i18n";
 import { renderWithProviders, screen } from "../test/render";
 

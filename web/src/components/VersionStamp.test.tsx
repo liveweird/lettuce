@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import VersionStamp from "./VersionStamp";
-import { APP_VERSION } from "../changelog/entries";
+import { APP_VERSION } from "../changelog/version";
 import { renderWithProviders, screen } from "../test/render";
 
 describe("VersionStamp", () => {

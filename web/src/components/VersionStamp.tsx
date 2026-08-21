@@ -1,7 +1,7 @@
 import { Text, type TextProps } from "@mantine/core";
 import { Link as RouterLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { APP_VERSION } from "../changelog/entries";
+import { APP_VERSION } from "../changelog/version";
 
 // __APP_COMMIT__ / __APP_COMMIT_TIME__ come from `define` in vite.config.ts.
 // The timestamp is git's %cI (strict ISO, committer-local); slicing to minutes

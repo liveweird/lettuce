@@ -1,7 +1,8 @@
 // The changelog is a build-time artifact: entries are authored here (newest first) and bundled
 // into the SPA, so it can only change with a deploy — never at runtime. The newest entry's
-// version doubles as the app's displayed version (see VersionStamp): adding an entry IS the
-// version bump. Bodies are markdown, one per language (content, not chrome — hence not in
+// version must equal APP_VERSION in ./version.ts (the shell's eager import — this file stays
+// out of the main bundle): a release adds the entry AND bumps that literal; entries.test.ts
+// pins the pair. Bodies are markdown, one per language (content, not chrome — hence not in
 // locales/); keep the phrases tests assert on in plain text runs, and follow the Polish style
 // conventions (declined loanword "feedback", inclusive slash forms, active voice).
 interface ChangelogEntry {
@@ -965,4 +966,3 @@ Poprawione przy okazji: wybór menedżera w formularzach zespołów i filtrze Ze
   },
 ];
 
-export const APP_VERSION = CHANGELOG[0].version;
