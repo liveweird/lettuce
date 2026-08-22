@@ -9,7 +9,6 @@ import ch.nokillswit.feedbacks.FeedbackContentUpdate
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
 import ch.nokillswit.teams.Team
-import ch.nokillswit.teams.TeamResponse
 import ch.nokillswit.users.UserRequest
 import ch.nokillswit.users.UserUpdateRequest
 import ch.nokillswit.users.UserResponse
@@ -154,18 +153,26 @@ class AuthorizationTest {
     }
 
     @Test
-    fun `non-admin cannot create a team naming someone else as manager`() = testApplication {
+    fun `non-admin cannot create a team at all`() = testApplication {
         usePostgresTestcontainer()
+        // Team structure is org design — ADMIN territory (v2.33.0): even naming
+        // oneself as the manager no longer creates a team.
         val aliceEmail = uniqueEmail("alice")
-        TestUsers.seed(email = aliceEmail, password = "pw-123456789", roles = emptySet())
+        val aliceId = TestUsers.seed(email = aliceEmail, password = "pw-123456789", roles = emptySet())
         val otherMgr = TestUsers.seed(email = uniqueEmail("mgr"), password = "pw-123456789", roles = emptySet())
         val member = TestUsers.seed(email = uniqueEmail("m"), password = "pw-123456789", roles = emptySet())
 
-        val response = authedClient(aliceEmail, "pw-123456789").post("/api/v1/teams") {
+        val alice = authedClient(aliceEmail, "pw-123456789")
+        val asOther = alice.post("/api/v1/teams") {
             contentType(ContentType.Application.Json)
             setBody(Team(name = "Sneaky", managerId = otherMgr, memberIds = listOf(member)))
         }
-        assertEquals(HttpStatusCode.Forbidden, response.status)
+        assertEquals(HttpStatusCode.Forbidden, asOther.status)
+        val asSelf = alice.post("/api/v1/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "OwnTeam", managerId = aliceId, memberIds = listOf(member)))
+        }
+        assertEquals(HttpStatusCode.Forbidden, asSelf.status)
     }
 
     @Test
@@ -178,29 +185,25 @@ class AuthorizationTest {
         val member = TestUsers.seed(email = uniqueEmail("m"), password = "pw-123456789", roles = emptySet())
         val newcomer = TestUsers.seed(email = uniqueEmail("n"), password = "pw-123456789", roles = emptySet())
 
-        val mgrClient = authedClient(mgrEmail, "pw-123456789")
-        val team = mgrClient.post("/api/v1/teams") {
-            contentType(ContentType.Application.Json)
-            setBody(Team(name = "T", managerId = mgrId, memberIds = listOf(member)))
-        }.body<TeamResponse>()
+        val teamId = TestServices.teams.create(Team(name = "T", managerId = mgrId, memberIds = listOf(member)))
 
         val otherClient = authedClient(otherEmail, "pw-123456789")
         assertEquals(
             HttpStatusCode.Forbidden,
-            otherClient.put("/api/v1/teams/${team.id}") {
+            otherClient.put("/api/v1/teams/$teamId") {
                 contentType(ContentType.Application.Json)
                 setBody(Team(name = "Hijack", managerId = mgrId, memberIds = listOf(member)))
             }.status,
         )
         assertEquals(
             HttpStatusCode.Forbidden,
-            otherClient.put("/api/v1/teams/${team.id}/members/$newcomer").status,
+            otherClient.put("/api/v1/teams/$teamId/members/$newcomer").status,
         )
         assertEquals(
             HttpStatusCode.Forbidden,
-            otherClient.delete("/api/v1/teams/${team.id}/members/$member").status,
+            otherClient.delete("/api/v1/teams/$teamId/members/$member").status,
         )
-        assertEquals(HttpStatusCode.Forbidden, otherClient.delete("/api/v1/teams/${team.id}").status)
+        assertEquals(HttpStatusCode.Forbidden, otherClient.delete("/api/v1/teams/$teamId").status)
     }
 
     @Test
@@ -212,12 +215,9 @@ class AuthorizationTest {
         TestUsers.seed(email = onlooker, password = "pw-123456789", roles = emptySet())
         val member = TestUsers.seed(email = uniqueEmail("m"), password = "pw-123456789", roles = emptySet())
 
-        val team = authedClient(mgrEmail, "pw-123456789").post("/api/v1/teams") {
-            contentType(ContentType.Application.Json)
-            setBody(Team(name = "Public", managerId = mgrId, memberIds = listOf(member)))
-        }.body<TeamResponse>()
+        val teamId = TestServices.teams.create(Team(name = "Public", managerId = mgrId, memberIds = listOf(member)))
 
-        val response = authedClient(onlooker, "pw-123456789").get("/api/v1/teams/${team.id}")
+        val response = authedClient(onlooker, "pw-123456789").get("/api/v1/teams/$teamId")
         assertEquals(HttpStatusCode.OK, response.status)
     }
 
@@ -332,11 +332,9 @@ class AuthorizationTest {
         val managerClient = authedClient(managerEmail, "pw-123456789")
         val strangerClient = authedClient(strangerEmail, "pw-123456789")
 
-        // The manager manages a team the subject belongs to.
-        managerClient.post("/api/v1/teams") {
-            contentType(ContentType.Application.Json)
-            setBody(Team(name = "Squad", managerId = managerId, memberIds = listOf(subjectId)))
-        }
+        // The manager manages a team the subject belongs to (service-seeded — team
+        // creation is ADMIN-only since v2.33.0).
+        TestServices.teams.create(Team(name = "Squad", managerId = managerId, memberIds = listOf(subjectId)))
 
         // PROVIDER_SUBJECT feedback would normally hide from anyone but provider/subject.
         val feedback = providerClient.post("/api/v1/feedbacks") {
@@ -395,18 +393,11 @@ class AuthorizationTest {
         val grandManagerId = TestUsers.seed(email = grandManagerEmail, password = "pw-123456789", roles = emptySet())
 
         val providerClient = authedClient(providerEmail, "pw-123456789")
-        val midManagerClient = authedClient(midManagerEmail, "pw-123456789")
         val grandManagerClient = authedClient(grandManagerEmail, "pw-123456789")
 
         // Two hops: the subject reports to the mid manager, who reports to the grand manager.
-        midManagerClient.post("/api/v1/teams") {
-            contentType(ContentType.Application.Json)
-            setBody(Team(name = "Squad", managerId = midManagerId, memberIds = listOf(subjectId)))
-        }
-        grandManagerClient.post("/api/v1/teams") {
-            contentType(ContentType.Application.Json)
-            setBody(Team(name = "Leads", managerId = grandManagerId, memberIds = listOf(midManagerId)))
-        }
+        TestServices.teams.create(Team(name = "Squad", managerId = midManagerId, memberIds = listOf(subjectId)))
+        TestServices.teams.create(Team(name = "Leads", managerId = grandManagerId, memberIds = listOf(midManagerId)))
 
         val feedback = providerClient.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
@@ -461,17 +452,10 @@ class AuthorizationTest {
         val providerId = TestUsers.seed(email = providerEmail, password = "pw-123456789", roles = emptySet())
 
         val aClient = authedClient(aEmail, "pw-123456789")
-        val bClient = authedClient(bEmail, "pw-123456789")
         val providerClient = authedClient(providerEmail, "pw-123456789")
 
-        aClient.post("/api/v1/teams") {
-            contentType(ContentType.Application.Json)
-            setBody(Team(name = "Loop-A", managerId = aId, memberIds = listOf(bId)))
-        }
-        bClient.post("/api/v1/teams") {
-            contentType(ContentType.Application.Json)
-            setBody(Team(name = "Loop-B", managerId = bId, memberIds = listOf(aId, cId)))
-        }
+        TestServices.teams.create(Team(name = "Loop-A", managerId = aId, memberIds = listOf(bId)))
+        TestServices.teams.create(Team(name = "Loop-B", managerId = bId, memberIds = listOf(aId, cId)))
 
         val feedback = providerClient.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
@@ -737,53 +721,43 @@ class AuthorizationTest {
     }
 
     @Test
-    fun `a team manager may edit the team but not reassign the manager`() = testApplication {
+    fun `team writes are ADMIN-only - even the team's own manager is denied`() = testApplication {
         usePostgresTestcontainer()
+        // v2.33.0: team structure is org design, so the manager's former edit right is gone —
+        // rename, roster mutations, and delete all answer 403 for the current manager.
         val managerEmail = uniqueEmail("manager")
         val managerId = TestUsers.seed(email = managerEmail, password = "pw-123456789", roles = emptySet())
         val otherId = TestUsers.seed(email = uniqueEmail("other"), password = "pw-123456789", roles = emptySet())
         val mgr = authedClient(managerEmail, "pw-123456789")
 
-        val team = mgr.post("/api/v1/teams") {
-            contentType(ContentType.Application.Json)
-            setBody(Team(name = "Squad", managerId = managerId, memberIds = emptyList()))
-        }.body<TeamResponse>()
+        val teamId = TestServices.teams.create(Team(name = "Squad", managerId = managerId, memberIds = emptyList()))
 
-        // Editing the team (manager unchanged) is allowed.
         assertEquals(
-            HttpStatusCode.NoContent,
-            mgr.put("/api/v1/teams/${team.id}") {
+            HttpStatusCode.Forbidden,
+            mgr.put("/api/v1/teams/$teamId") {
                 contentType(ContentType.Application.Json)
                 setBody(Team(name = "Squad Renamed", managerId = managerId, memberIds = emptyList()))
             }.status,
         )
-        // Reassigning the manager to someone else is admin-only → forbidden for a manager.
-        assertEquals(
-            HttpStatusCode.Forbidden,
-            mgr.put("/api/v1/teams/${team.id}") {
-                contentType(ContentType.Application.Json)
-                setBody(Team(name = "Squad Renamed", managerId = otherId, memberIds = emptyList()))
-            }.status,
-        )
+        assertEquals(HttpStatusCode.Forbidden, mgr.put("/api/v1/teams/$teamId/members/$otherId").status)
+        assertEquals(HttpStatusCode.Forbidden, mgr.delete("/api/v1/teams/$teamId/members/$otherId").status)
+        assertEquals(HttpStatusCode.Forbidden, mgr.delete("/api/v1/teams/$teamId").status)
     }
 
     @Test
-    fun `unauthorized reassignment answers 403 even with an invalid payload`() = testApplication {
+    fun `unauthorized team write answers 403 even with an invalid payload`() = testApplication {
         usePostgresTestcontainer()
         val managerEmail = uniqueEmail("manager")
         val managerId = TestUsers.seed(email = managerEmail, password = "pw-123456789", roles = emptySet())
         val otherId = TestUsers.seed(email = uniqueEmail("other"), password = "pw-123456789", roles = emptySet())
         val mgr = authedClient(managerEmail, "pw-123456789")
 
-        val team = mgr.post("/api/v1/teams") {
-            contentType(ContentType.Application.Json)
-            setBody(Team(name = "Squad", managerId = managerId, memberIds = emptyList()))
-        }.body<TeamResponse>()
+        val teamId = TestServices.teams.create(Team(name = "Squad", managerId = managerId, memberIds = emptyList()))
 
-        // Handoff attempt (admin-only) combined with an over-long name: authz wins → 403, not 400.
+        // Non-admin write with an over-long name: authz wins → 403, not 400.
         assertEquals(
             HttpStatusCode.Forbidden,
-            mgr.put("/api/v1/teams/${team.id}") {
+            mgr.put("/api/v1/teams/$teamId") {
                 contentType(ContentType.Application.Json)
                 setBody(Team(name = "x".repeat(101), managerId = otherId, memberIds = emptyList()))
             }.status,
@@ -816,14 +790,11 @@ class AuthorizationTest {
         val managerId = TestUsers.seed(email = managerEmail, password = "pw-123456789", roles = emptySet())
         val otherId = TestUsers.seed(email = uniqueEmail("other"), password = "pw-123456789", roles = emptySet())
 
-        val team = authedClient(managerEmail, "pw-123456789").post("/api/v1/teams") {
-            contentType(ContentType.Application.Json)
-            setBody(Team(name = "Squad", managerId = managerId, memberIds = emptyList()))
-        }.body<TeamResponse>()
+        val teamId = TestServices.teams.create(Team(name = "Squad", managerId = managerId, memberIds = emptyList()))
 
         assertEquals(
             HttpStatusCode.NoContent,
-            authedClient(adminEmail, "pw-123456789").put("/api/v1/teams/${team.id}") {
+            authedClient(adminEmail, "pw-123456789").put("/api/v1/teams/$teamId") {
                 contentType(ContentType.Application.Json)
                 setBody(Team(name = "Squad", managerId = otherId, memberIds = emptyList()))
             }.status,

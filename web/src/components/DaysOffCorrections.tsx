@@ -45,9 +45,9 @@ function signedDays(c: DaysOffCorrection, locale: string): string {
 
 /**
  * The one corrections UI (rendered inside a Modal by the budget surfaces): the read-only list
- * for every permitted viewer (subordinate, chain, HR), plus — with [canManage] (a current
- * direct manager) — an add form and per-row edit/soft-delete. A correction adjusts the paid
- * budget of its year immediately; there is no approval workflow.
+ * for every permitted viewer (subordinate, chain, HR), plus — with [canManage] (a manager in
+ * the subordinate's chain, v2.33.0) — an add form and per-row edit/soft-delete. A correction
+ * adjusts the paid budget of its year immediately; there is no approval workflow.
  */
 export default function DaysOffCorrections({
   userId,

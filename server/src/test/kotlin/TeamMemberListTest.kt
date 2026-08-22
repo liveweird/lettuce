@@ -173,10 +173,10 @@ class TeamMemberListTest {
         val midId = TestUsers.seed(email = midEmail, password = "pw", name = "Mia Mid", roles = emptySet())
         val subId = TestUsers.seed(email = uniqueEmail("sub"), password = "pw", name = "Sam Sub", roles = emptySet())
 
+        // Service-seeded — team creation is ADMIN-only since v2.33.0.
+        TestServices.teams.create(Team(name = "leads", managerId = grandId, memberIds = listOf(midId)))
+        TestServices.teams.create(Team(name = "squad", managerId = midId, memberIds = listOf(subId)))
         val grandClient = authedClient(grandEmail, "pw")
-        val midClient = authedClient(midEmail, "pw")
-        grandClient.createTeam("leads", grandId, listOf(midId))
-        midClient.createTeam("squad", midId, listOf(subId))
 
         // Default (and explicit false): direct reports only.
         val direct = grandClient.get("/api/v1/teams/members?view=managed")
@@ -204,11 +204,11 @@ class TeamMemberListTest {
         val bId = TestUsers.seed(email = bEmail, password = "pw", roles = emptySet())
         val cId = TestUsers.seed(email = uniqueEmail("cycle-c"), password = "pw", roles = emptySet())
 
-        val aClient = authedClient(aEmail, "pw")
-        val bClient = authedClient(bEmail, "pw")
-        aClient.createTeam("loop-a", aId, listOf(bId))
-        bClient.createTeam("loop-b", bId, listOf(aId, cId))
+        // Service-seeded — team creation is ADMIN-only since v2.33.0.
+        TestServices.teams.create(Team(name = "loop-a", managerId = aId, memberIds = listOf(bId)))
+        TestServices.teams.create(Team(name = "loop-b", managerId = bId, memberIds = listOf(aId, cId)))
 
+        val aClient = authedClient(aEmail, "pw")
         val all = aClient.get("/api/v1/teams/members?view=managed&includeIndirect=true")
             .body<TeamMemberPageResponse>()
         // B directly, C via B; A's own membership row in loop-b is excluded (never the caller).

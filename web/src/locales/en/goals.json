@@ -15,7 +15,7 @@
   "createTitle": "New goal",
   "createHint": "Pick the team member and define the goal. It starts as a draft — activate it when it should go live.",
   "pickSubordinate": "Pick a team member",
-  "noReports": "No direct reports available",
+  "noReports": "No reports available",
   "userFallback": "user #{{id}}",
   "title": "Title",
   "createdAt": "Created",
@@ -119,7 +119,7 @@
     "invalidTransition": "This action is not available in the goal's current status.",
     "updateFailed": "Could not update the goal.",
     "updateFailedStatus": "Could not update the goal (error {{status}}).",
-    "createForbidden": "You may only set goals for your direct reports.",
+    "createForbidden": "You may only set goals for people in your management chain.",
     "createFailed": "Could not create the goal.",
     "activateAfterCreateFailed": "The goal was created as a draft, but activating it failed — you can activate it from its view.",
     "activateOverdue": "The goal's due date has passed — set a new due date before activating."

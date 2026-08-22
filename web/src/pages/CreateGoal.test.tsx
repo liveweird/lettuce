@@ -105,7 +105,7 @@ describe("CreateGoal page", () => {
     fireEvent.change(screen.getByLabelText(/due date/i), { target: { value: "2099-06-15" } });
   }
 
-  test("picks a deduped direct report, creates, answers No, and returns to the origin", async () => {
+  test("picks a deduped report, creates, answers No, and returns to the origin", async () => {
     const user = userEvent.setup();
     renderScreen();
 
@@ -286,7 +286,7 @@ describe("CreateGoal page", () => {
     ).toBe(false);
   });
 
-  test("a 403 shows the direct-report message and stays on the form", async () => {
+  test("a 403 shows the chain message and stays on the form", async () => {
     mockFetch.mockImplementation((_url: string, init?: RequestInit) => {
       if ((init?.method ?? "GET") === "POST") {
         return Promise.resolve(jsonResponse(403, { title: "no" }));
@@ -300,7 +300,7 @@ describe("CreateGoal page", () => {
     await user.click(screen.getByRole("button", { name: /^create$/i }));
 
     expect(
-      await screen.findByText("You may only set goals for your direct reports."),
+      await screen.findByText("You may only set goals for people in your management chain."),
     ).toBeInTheDocument();
     expect(screen.queryByTestId("probe")).toBeNull();
   });

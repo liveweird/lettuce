@@ -167,11 +167,8 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
         }
     }
 
-    /** Whether [subordinateId] is currently a direct report of [managerId] (the create-time rule). */
-    suspend fun isDirectReport(managerId: UInt, subordinateId: UInt): Boolean =
-        suspendTransaction(database) { subordinateId in directSubordinateIds(managerId) }
-
-    /** Whether [managerId] is anywhere in [subordinateId]'s transitive management chain (read rule). */
+    /** Whether [managerId] is anywhere in [subordinateId]'s transitive management chain — the
+     * read rule and, since v2.33.0 (the chain rule), the create-time rule. */
     suspend fun managesSubordinate(managerId: UInt, subordinateId: UInt): Boolean =
         suspendTransaction(database) { isInManagementChain(managerId, subordinateId) }
 

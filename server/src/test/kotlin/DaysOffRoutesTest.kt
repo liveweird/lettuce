@@ -348,9 +348,9 @@ class DaysOffRoutesTest {
             capture.detach()
         }
 
-        // Resolution: only the DIRECT manager — not the owner, chain, teammate, unrelated, or ADMIN.
+        // Resolution: any manager in the owner's chain (v2.33.0) — not the owner, teammate,
+        // unrelated, or ADMIN.
         assertEquals(HttpStatusCode.Forbidden, s.post("$url/accept").status)
-        assertEquals(HttpStatusCode.Forbidden, g.post("$url/accept").status)
         assertEquals(HttpStatusCode.Forbidden, t.post("$url/accept").status)
         assertEquals(HttpStatusCode.Forbidden, u.post("$url/reject").status)
         assertEquals(HttpStatusCode.Forbidden, a.post("$url/accept").status)
@@ -371,6 +371,13 @@ class DaysOffRoutesTest {
         assertEquals("Coverage gap", chainCancelled.cancelReason)
         val forDirect = s.createDaysOff(mon.plusDays(14).toString()).body<DaysOffResponse>()
         assertEquals(HttpStatusCode.NoContent, m.cancelDaysOff(forDirect.id).status)
+
+        // The chain rule (v2.33.0): the grand-manager resolves too — stamped as the resolver.
+        val forChainAccept = s.createDaysOff(mon.plusDays(21).toString()).body<DaysOffResponse>()
+        assertEquals(HttpStatusCode.NoContent, g.post("/api/v1/days-off/${forChainAccept.id}/accept").status)
+        val chainAccepted = s.get("/api/v1/days-off/${forChainAccept.id}").body<DaysOffResponse>()
+        assertEquals("ACCEPTED", chainAccepted.status.name)
+        assertEquals(gId, chainAccepted.resolvedById)
 
         // A REJECTED request drops off the teammate's radar (calendar parity) but stays
         // readable to the owner, the chain, and HR.
@@ -671,9 +678,9 @@ class DaysOffRoutesTest {
         // history-population use case.
         val mon = monday(2002, 3)
 
-        // Only a CURRENT DIRECT manager: not the target themselves, the grand-manager,
+        // Any manager in the target's chain (v2.33.0): not the target themselves,
         // a teammate, an unrelated user, ADMIN, or HR — uniform 403 before validation.
-        for (denied in listOf(s, g, t, u, a, h)) {
+        for (denied in listOf(s, t, u, a, h)) {
             assertEquals(HttpStatusCode.Forbidden, denied.createDaysOff(mon.toString(), forUserId = sId).status)
         }
         // Pin the ordering itself: the guard runs BEFORE payload validation, so an outsider's
@@ -729,6 +736,15 @@ class DaysOffRoutesTest {
             HttpStatusCode.Created,
             m.createDaysOff(mon.toString(), type = DaysOffType.UNPAID, forUserId = tId).status,
         )
+
+        // The chain rule (v2.33.0): the grand-manager records for the skip-level report too,
+        // born ACCEPTED with G as the resolver.
+        val chainRecorded = g.createDaysOff(mon.plusDays(14).toString(), forUserId = sId)
+        assertEquals(HttpStatusCode.Created, chainRecorded.status)
+        val chainCreated = chainRecorded.body<DaysOffResponse>()
+        assertEquals(sId, chainCreated.userId)
+        assertEquals(DaysOffStatus.ACCEPTED, chainCreated.status)
+        assertEquals(gId, chainCreated.resolvedById)
 
         // A deactivated report cannot receive NEW entries (the house rule) — 400 after the guard.
         assertEquals(HttpStatusCode.NoContent, a.post("/api/v1/users/$tId/deactivate").status)

@@ -204,12 +204,13 @@ fun Application.configureGoalRoutes() {
                 val caller = call.goalCaller()
                 val request = call.receive<GoalCreateRequest>()
                 // The manager is always the caller (no create-on-behalf, not even for ADMIN) and
-                // the subordinate must be a direct report right now. Checked before payload
-                // validation so an outsider's malformed request is still 403, not 400.
+                // the subordinate must be in the caller's TRANSITIVE chain right now (the chain
+                // rule, v2.33.0). Checked before payload validation so an outsider's malformed
+                // request is still 403, not 400.
                 requireRelationship(
                     caller,
-                    { goalService.isDirectReport(caller.userId, request.subordinateId) },
-                    "You may only set goals for your direct reports",
+                    { goalService.managesSubordinate(caller.userId, request.subordinateId) },
+                    "You may only set goals for reports in your management chain",
                 )
                 // After the authz guard (403 wins over 400): no NEW goals for deactivated users.
                 userService.requireNoDeactivatedUsers(listOf(request.subordinateId))

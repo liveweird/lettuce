@@ -89,7 +89,7 @@ scenario file is the design.
 - [`feedback-provide.spec.ts`](scenarios/feedback-provide.md) — provide → draft → send → withdraw (entry via the /feedback New-feedback button + subject picker).
 - [`feedback-request-third-party.spec.ts`](scenarios/feedback-request-third-party.md) — manager requests feedback about a subordinate from a third party; requester message rides along.
 - [`feedback-request-triage.spec.ts`](scenarios/feedback-request-triage.md) — ask → accept → send; and reject.
-- [`goals.spec.ts`](scenarios/goals.md) — the goal lifecycle, PLAN milestones, chain-manager visibility, notifications.
+- [`goals.spec.ts`](scenarios/goals.md) — the goal lifecycle, PLAN milestones, chain-manager visibility, the skip-level chain create (v2.33.0), notifications.
 - [`hr.spec.ts`](scenarios/hr.md) — the HR auditor reads a private draft via the Audit section + the guarded career timeline (2026-08); admin gets no audit surface.
 - [`i18n.spec.ts`](scenarios/i18n.md) — language menu switch (native names) on a throwaway user, persisted across reload AND re-login (the v2.21.0 server-side sync).
 - [`kudos.spec.ts`](scenarios/kudos.md) — a kudo created from the wall's New kudo screen (recipient picker, visibility pinned Public) lands there for a non-party.

@@ -135,7 +135,7 @@ class OneOnOneRoutesTest {
     }
 
     @Test
-    fun `only the direct manager may create - no admin on-behalf, no self-service`() = testApplication {
+    fun `only a chain manager may create - no admin on-behalf, no self-service`() = testApplication {
         usePostgresTestcontainer()
         val pair = seedPair()
         val otherPair = seedPair()
@@ -152,12 +152,39 @@ class OneOnOneRoutesTest {
         assertEquals(HttpStatusCode.Forbidden, createAs(otherPair.managerEmail, pair.subordinateId))
         // The manager is always the author: even an ADMIN cannot create on behalf.
         assertEquals(HttpStatusCode.Forbidden, createAs(adminEmail, pair.subordinateId))
-        // The subordinate cannot document a 1:1 with themselves (they are nobody's direct report here).
+        // The subordinate cannot document a 1:1 with themselves (nobody manages themselves).
         assertEquals(HttpStatusCode.Forbidden, createAs(pair.subordinateEmail, pair.subordinateId))
-        // A manager cannot hold a 1:1 with themselves (never their own direct report).
+        // A manager cannot hold a 1:1 with themselves (never in their own chain).
         assertEquals(HttpStatusCode.Forbidden, createAs(pair.managerEmail, pair.managerId))
         // And the real manager may.
         assertEquals(HttpStatusCode.Created, createAs(pair.managerEmail, pair.subordinateId))
+    }
+
+    @Test
+    fun `a chain manager documents a skip-level 1-1 as its own pair, author-locked`() = testApplication {
+        usePostgresTestcontainer()
+        // The chain rule (v2.33.0): the grand-manager creates a 1:1 with the skip-level
+        // report — a separate manager+subordinate pair with its own chronology; the direct
+        // manager may read it (the chain read) but never edit it (authorship stays locked).
+        val pair = seedPair()
+        val grandEmail = uniqueEmail("oo-grand")
+        val grandId = TestUsers.seed(grandEmail, "pw", name = "Greta Grand", roles = emptySet())
+        val leadTeam = TestServices.teams.create(Team(name = "oo-g-${UUID.randomUUID()}", managerId = grandId))
+        TestServices.teams.addMember(leadTeam, pair.managerId)
+        val grand = authedClient(grandEmail, "pw")
+
+        val created = grand.createMeeting(pair.subordinateId, meetingDate = "2026-07-02")
+        assertEquals(grandId, created.managerId)
+        assertEquals(pair.subordinateId, created.subordinateId)
+        val directManager = authedClient(pair.managerEmail, "pw")
+        assertEquals(HttpStatusCode.OK, directManager.get("/api/v1/one-on-ones/${created.id}").status)
+        assertEquals(
+            HttpStatusCode.Forbidden,
+            directManager.put("/api/v1/one-on-ones/${created.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(created.toUpdate())
+            }.status,
+        )
     }
 
     @Test

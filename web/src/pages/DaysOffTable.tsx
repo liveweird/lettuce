@@ -159,9 +159,8 @@ export default function DaysOffTable({
         {t("daysOff.action.cancel")}
       </Button>
     ) : null;
-    // Accept/reject follow the server's canResolve (v2.32.0 — a REQUESTED row whose owner
-    // the caller DIRECTLY manages): on the includeIndirect-widened drill-down a chain row
-    // renders Cancel only, exactly matching the server's rights.
+    // Accept/reject follow the server's canResolve (v2.32.0; chain-wide since v2.33.0 — a
+    // REQUESTED row of anyone in the caller's subtree), exactly matching the server's rights.
     if (r.canResolve) {
       return (
         <Group gap={4} wrap="nowrap">

@@ -210,6 +210,33 @@ class PerformanceReviewRoutesTest {
         }
 
     @Test
+    fun `a chain manager creates a review for a skip-level report and stays its author`() =
+        testApplication {
+            usePostgresTestcontainer()
+            // The chain rule (v2.33.0): the grand-manager writes the skip-level report's
+            // review — they become the stored manager; the DRAFT stays private to its author
+            // (the direct manager, a chain reader, sees post-DRAFT only).
+            val pair = seedPair()
+            val (grandEmail, grandId) = seedGrandManager(pair)
+            val period = TestReviewPeriods.append()
+            val grand = authedClient(grandEmail, "pw")
+
+            val created = grand.createReview(pair.subordinateId, period.id)
+            assertEquals(grandId, created.managerId)
+            assertEquals(HttpStatusCode.OK, grand.get("/api/v1/performance-reviews/${created.id}").status)
+            val directManager = authedClient(pair.managerEmail, "pw")
+            assertEquals(
+                HttpStatusCode.Forbidden,
+                directManager.get("/api/v1/performance-reviews/${created.id}").status,
+            )
+            // Free the shared period slot for later tests (the timeline is append-only).
+            assertEquals(
+                HttpStatusCode.NoContent,
+                grand.delete("/api/v1/performance-reviews/${created.id}").status,
+            )
+        }
+
+    @Test
     fun `one review per subordinate and period - 409 with the existing review's instance`() =
         testApplication {
             usePostgresTestcontainer()
@@ -240,6 +267,16 @@ class PerformanceReviewRoutesTest {
             assertEquals(
                 HttpStatusCode.Conflict,
                 secondManager.post("/api/v1/performance-reviews") {
+                    contentType(ContentType.Application.Json)
+                    setBody(PerformanceReviewCreateRequest(pair.subordinateId, period.id))
+                }.status,
+            )
+            // A CHAIN manager (create right since v2.33.0) hits it too — first writer wins
+            // across the whole chain.
+            val (grandEmail, _) = seedGrandManager(pair)
+            assertEquals(
+                HttpStatusCode.Conflict,
+                authedClient(grandEmail, "pw").post("/api/v1/performance-reviews") {
                     contentType(ContentType.Application.Json)
                     setBody(PerformanceReviewCreateRequest(pair.subordinateId, period.id))
                 }.status,

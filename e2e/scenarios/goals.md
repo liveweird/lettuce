@@ -2,12 +2,14 @@
 
 - **Spec**: [tests/goals.spec.ts](../tests/goals.spec.ts)
 - **Actors**: Manager AAA (goal author), AAA Three (the subordinate — the least-used seeded pair),
-  Manager CCC (a chain manager above Manager AAA, for the Reports-widening scenario)
+  Manager CCC (a chain manager above Manager AAA — the Reports-widening and skip-level-create
+  scenarios)
 - **Owns** (exclusive server-side state): the goal rows it creates for the (Manager AAA, AAA Three)
-  pair — unique-titled, and every scenario deletes its goal before ending (delete is DRAFT-only, so
-  cleanup returns the goal to draft first when needed); seeded accounts are never mutated
+  and (Manager CCC, AAA Three) pairs — unique-titled, and every scenario deletes its goal before
+  ending (delete is DRAFT-only, so cleanup returns the goal to draft first when needed); seeded
+  accounts are never mutated
 - **Since**: v2.8.0 (the Update screen, progress comments, the return-to-draft confirmation),
-  v2.9.0 (PLAN goals with milestones)
+  v2.9.0 (PLAN goals with milestones), v2.33.0 (the chain rule — skip-level creation)
 
 ## Scenario: a manager walks a goal around the whole lifecycle: draft, activate, progress, archive, reopen
 
@@ -69,6 +71,20 @@
      Lifecycle menu.
 4. Cleanup: Manager CCC signs out; Manager AAA (the goal's own manager) signs back in, returns the
    goal to draft, and deletes it.
+
+## Scenario: a chain manager creates a goal for a skip-level report via the widened picker
+
+1. Manager CCC signs in and opens the goal create screen without a preselected person, so the
+   **Team member** picker renders.
+2. They pick **AAA Three** — an INDIRECT report (AAA Three is on team AAA, whose manager sits on
+   team CCC); since v2.33.0 (the chain rule) the picker pool spans the caller's whole transitive
+   subtree, not just direct reports.
+3. They fill the definition (unique title, target, today's due date) and **Create**, answering
+   **No** at the activate prompt — the goal stays a DRAFT.
+4. They open the Goals page's **Goals I've set** tab and filter by the unique title.
+   - *Expected*: the draft appears at the DIRECT scope — the creator IS the goal's stored
+     manager, so no Reports widening is needed to see one's own authored goal.
+5. Cleanup: still as Manager CCC (the author), they delete the draft from its editor.
 
 ## Scenario: activating at creation notifies the subordinate, who updates progress with a comment that notifies the manager
 

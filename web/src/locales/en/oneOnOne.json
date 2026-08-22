@@ -26,7 +26,7 @@
   "createTitle": "New 1:1 meeting",
   "createHint": "Pick the team member and the meeting date. Unresolved action items from your previous 1:1 with them are carried over automatically — you'll document the meeting on the next screen.",
   "pickSubordinate": "Pick a team member",
-  "noReports": "No direct reports available",
+  "noReports": "No reports available",
   "editTitle": "Edit 1:1 meeting",
   "viewTitle": "1:1 meeting",
   "history": "History",

@@ -13,7 +13,8 @@ import TableLoadingRow from "./TableLoadingRow";
 
 /**
  * The manager's budget overview: one row per direct report for the picked calendar year
- * (current ±1 — carry-over makes the neighbors the only interesting ones).
+ * (current ±1 — carry-over makes the neighbors the only interesting ones). Corrections are
+ * chain-editable (v2.33.0), so every row here — direct by construction — is manage-capable.
  */
 export default function DaysOffBudgetsTable() {
   const { t, i18n } = useTranslation();

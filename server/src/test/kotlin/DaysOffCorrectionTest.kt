@@ -183,28 +183,32 @@ class DaysOffCorrectionTest {
         assertEquals(HttpStatusCode.Forbidden, u.get(listUrl).status)
         assertEquals(HttpStatusCode.Forbidden, a.get(listUrl).status)
 
-        // Writes: the CURRENT direct manager only — not the chain, self, HR, or ADMIN.
-        assertEquals(HttpStatusCode.Forbidden, g.createCorrection(sId).status)
+        // Writes: any manager in the subordinate's chain (v2.33.0) — not self, HR, ADMIN,
+        // or a teammate.
         assertEquals(HttpStatusCode.Forbidden, s.createCorrection(sId).status)
         assertEquals(HttpStatusCode.Forbidden, h.createCorrection(sId).status)
         assertEquals(HttpStatusCode.Forbidden, a.createCorrection(sId).status)
         assertEquals(HttpStatusCode.Forbidden, t.createCorrection(sId).status)
         val editUrl = "/api/v1/days-off/corrections/${correction.id}"
+        // The chain rule: the grand-manager edits the direct manager's correction (rights
+        // follow the current chain, not the author) — and creates their own.
         assertEquals(
-            HttpStatusCode.Forbidden,
+            HttpStatusCode.NoContent,
             g.put(editUrl) {
                 contentType(ContentType.Application.Json)
-                setBody(DaysOffCorrectionWrite(sId, 2070, DaysOffCorrectionOperation.ADD, 1.0, "nope"))
+                setBody(DaysOffCorrectionWrite(sId, 2070, DaysOffCorrectionOperation.ADD, 1.0, "chain edit"))
             }.status,
         )
+        val chainCorrection = g.createCorrection(sId).body<DaysOffCorrectionResponse>()
         assertEquals(HttpStatusCode.Forbidden, s.delete(editUrl).status)
-        // A DIFFERENT current direct manager may edit (rights follow the role, not the author):
-        // reassigning team X to G makes G the current manager and drops M.
+        // Rights follow the CURRENT chain: reassigning team X to G keeps G (now direct)
+        // and drops M — who is no longer anywhere in S's chain.
         TestServices.teams.update(
             teamX,
             Team(name = "corrzX2-${java.util.UUID.randomUUID()}", managerId = gId, memberIds = listOf(sId, tId)),
         )
         assertEquals(HttpStatusCode.NoContent, g.delete(editUrl).status)
+        assertEquals(HttpStatusCode.NoContent, g.delete("/api/v1/days-off/corrections/${chainCorrection.id}").status)
         assertEquals(HttpStatusCode.Forbidden, m.createCorrection(sId).status)
     }
 

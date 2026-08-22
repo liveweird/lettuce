@@ -18,7 +18,7 @@
   "createHint": "Pick the team member and the period; the review starts as a draft you fill in next.",
   "pickSubordinate": "Pick a team member",
   "pickRating": "Pick a rating",
-  "noReports": "No direct reports",
+  "noReports": "No reports",
   "noPeriods": "There are no review periods yet — an administrator has to create one first.",
   "noStartedPeriods": "All review periods are still in the future — a review can be created once its period starts.",
   "openExisting": "Open the existing review",

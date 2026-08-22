@@ -123,7 +123,7 @@ async function sweepResidue(request: APIRequestContext) {
   // REPEATS every 40 minutes (`Date.now()/60_000 % 40`) — so a later run can pick the very same
   // Monday and add a second correction with an identical comment, which the modal then matches
   // twice (strict-mode violation on `E2E correction <MONDAY_ISO>`). Reading/deleting a
-  // correction is the direct manager's right, so this leg runs as MANAGER_AAA; the owner's id
+  // correction is a chain-manager right (v2.33.0; MANAGER_AAA is the direct one), so this leg runs as MANAGER_AAA; the owner's id
   // comes from the admin users list (GET /users/{id} is self-or-admin only).
   const mgrAuth = authHeader(await apiToken(request, MANAGER_AAA));
   const owners = (await (

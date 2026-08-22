@@ -445,14 +445,11 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
             .toMap()
     }
 
-    /** True iff [subordinateId] is currently a member of a non-deleted team [managerId] manages. */
-    suspend fun isDirectReport(managerId: UInt, subordinateId: UInt): Boolean =
-        suspendTransaction(database) { subordinateId in directSubordinateIds(managerId) }
-
     /**
      * True iff [managerId] is in [subordinateId]'s management chain — the manager of a non-deleted
      * team the subordinate belongs to, or, transitively, the manager of such a manager, and so on.
-     * Backs [ch.nokillswit.authz.requireGoalReadAllowingManager]'s lazy chain check; the walk
+     * Backs [ch.nokillswit.authz.requireGoalReadAllowingManager]'s lazy chain check and, since
+     * v2.33.0 (the chain rule), the create-time relationship guard; the walk
      * itself lives in teams/ManagementChain.kt and is shared with feedbacks and 1:1 meetings.
      */
     suspend fun managesSubordinate(managerId: UInt, subordinateId: UInt): Boolean =

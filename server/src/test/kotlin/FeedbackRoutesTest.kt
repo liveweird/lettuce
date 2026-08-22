@@ -1267,15 +1267,12 @@ class FeedbackRoutesTest {
             val requestingManagerClient = authedClient(requestingManager.email, "pw")
             val otherManagerClient = authedClient(otherManager.email, "pw")
 
-            // Both managers manage a team the subject belongs to.
-            for ((managerClient, manager) in listOf(
-                requestingManagerClient to requestingManager,
-                otherManagerClient to otherManager,
-            )) {
-                managerClient.post("/api/v1/teams") {
-                    contentType(ContentType.Application.Json)
-                    setBody(Team(name = "Squad-${manager.id}", managerId = manager.id, memberIds = listOf(subject.id)))
-                }
+            // Both managers manage a team the subject belongs to (service-seeded — team
+            // creation is ADMIN-only since v2.33.0).
+            for (manager in listOf(requestingManager, otherManager)) {
+                TestServices.teams.create(
+                    Team(name = "Squad-${manager.id}", managerId = manager.id, memberIds = listOf(subject.id)),
+                )
             }
 
             // Mary requested this feedback about Sam; it is still a draft.
@@ -1313,10 +1310,7 @@ class FeedbackRoutesTest {
         val managerClient = authedClient(manager.email, "pw")
         val providerClient = authedClient(provider.email, "pw")
 
-        managerClient.post("/api/v1/teams") {
-            contentType(ContentType.Application.Json)
-            setBody(Team(name = "Squad", managerId = manager.id, memberIds = listOf(subordinate.id)))
-        }
+        TestServices.teams.create(Team(name = "Squad", managerId = manager.id, memberIds = listOf(subordinate.id)))
 
         // (a) a draft by another provider — the manager is not a party → hidden.
         createFeedback(
@@ -1353,15 +1347,10 @@ class FeedbackRoutesTest {
         val grandManagerClient = authedClient(grandManager.email, "pw")
         val midManagerClient = authedClient(midManager.email, "pw")
 
-        // The subordinate reports to the mid manager, who reports to the grand manager.
-        midManagerClient.post("/api/v1/teams") {
-            contentType(ContentType.Application.Json)
-            setBody(Team(name = "Squad", managerId = midManager.id, memberIds = listOf(subordinate.id)))
-        }
-        grandManagerClient.post("/api/v1/teams") {
-            contentType(ContentType.Application.Json)
-            setBody(Team(name = "Leads", managerId = grandManager.id, memberIds = listOf(midManager.id)))
-        }
+        // The subordinate reports to the mid manager, who reports to the grand manager
+        // (service-seeded — team creation is ADMIN-only since v2.33.0).
+        TestServices.teams.create(Team(name = "Squad", managerId = midManager.id, memberIds = listOf(subordinate.id)))
+        TestServices.teams.create(Team(name = "Leads", managerId = grandManager.id, memberIds = listOf(midManager.id)))
 
         // In-progress draft about the indirect subordinate — the grand manager is not a party → hidden.
         createFeedback(

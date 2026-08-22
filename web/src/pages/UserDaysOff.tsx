@@ -119,8 +119,8 @@ function AllowanceModal({
 
 // The manager-mode budget strip for ONE report: the managed budgets fetch (includeIndirect —
 // the row exists exactly when the person is in the caller's transitive subtree, v2.32.0),
-// the chain-editable Allowance figure, and the Corrections modal — manage-capable only for a
-// DIRECT manager (the row's server-computed canCorrect; chain managers get the read-only view).
+// the chain-editable Allowance figure, and the Corrections modal — manage-capable for the
+// whole chain since v2.33.0 (the row's server-computed canCorrect).
 function UserBudgetSection({ userId, name }: { userId: number; name: string }) {
   const { t, i18n } = useTranslation();
   const currentYear = new Date().getFullYear();
@@ -239,7 +239,7 @@ function UserBudgetSection({ userId, name }: { userId: number; name: string }) {
  * `subordinates`/`team`, or `from=details&manages=1`) — that report's requests (v2.32.0:
  * includeIndirect, so the page works for the whole chain; the rows' canResolve/canCancel keep
  * the actions honest), their budget for a picked year with the chain-editable allowance, and
- * the Corrections modal (manage-capable for direct managers only). Anyone else redirects to
+ * the Corrections modal (chain-manage-capable since v2.33.0). Anyone else redirects to
  * /days-off (managers already have the aggregate Team tab there).
  */
 export default function UserDaysOff() {

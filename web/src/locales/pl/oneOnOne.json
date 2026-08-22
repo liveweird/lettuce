@@ -26,7 +26,7 @@
   "createTitle": "Nowe spotkanie 1:1",
   "createHint": "Wybierz członka zespołu i datę spotkania. Nierozwiązane zadania z Waszego poprzedniego 1:1 zostaną przeniesione automatycznie — spotkanie udokumentujesz na następnym ekranie.",
   "pickSubordinate": "Wybierz członka zespołu",
-  "noReports": "Brak bezpośrednich podwładnych",
+  "noReports": "Brak podwładnych",
   "editTitle": "Edytuj spotkanie 1:1",
   "viewTitle": "Spotkanie 1:1",
   "history": "Historia",

@@ -18,7 +18,7 @@
   "createHint": "Wybierz członka zespołu i okres; ocena powstaje jako szkic, który za chwilę wypełnisz.",
   "pickSubordinate": "Wybierz członka zespołu",
   "pickRating": "Wybierz ocenę",
-  "noReports": "Brak bezpośrednich podwładnych",
+  "noReports": "Brak podwładnych",
   "noPeriods": "Nie ma jeszcze okresów ocen — najpierw musi je utworzyć administrator.",
   "noStartedPeriods": "Wszystkie okresy ocen są jeszcze w przyszłości — ocenę można utworzyć, gdy jej okres się rozpocznie.",
   "openExisting": "Otwórz istniejącą ocenę",
