@@ -21,6 +21,12 @@ data class TeamResponse(
     val name: String,
     val managerId: UInt,
     val memberIds: List<UInt>,
+    /**
+     * Server-computed capability of the CALLER (v2.34.0, the TeamKpiResponse.canManage
+     * predicate): may create/manage KPIs for this team — its current manager or any manager
+     * in the chain above them. NOT a team-edit right (team writes are ADMIN-only, v2.33.0).
+     */
+    val canManageKpis: Boolean = false,
     // Manager enrichment, populated by the single-team GET only (the users-list `teams`
     // idiom): create/update responses omit the keys entirely rather than sending null.
     @EncodeDefault(EncodeDefault.Mode.NEVER)
@@ -29,7 +35,8 @@ data class TeamResponse(
     val managerDeleted: Boolean? = null,
 )
 
-fun Team.toResponse(id: UInt) = TeamResponse(id, name, managerId, memberIds)
+fun Team.toResponse(id: UInt, canManageKpis: Boolean = false) =
+    TeamResponse(id, name, managerId, memberIds, canManageKpis)
 
 /** The single-team GET's enriched read: the team plus its manager's display fields. */
 data class TeamDetail(
@@ -37,11 +44,12 @@ data class TeamDetail(
     val managerName: String,
     val managerDeleted: Boolean,
 ) {
-    fun toResponse(id: UInt) = TeamResponse(
+    fun toResponse(id: UInt, canManageKpis: Boolean = false) = TeamResponse(
         id = id,
         name = team.name,
         managerId = team.managerId,
         memberIds = team.memberIds,
+        canManageKpis = canManageKpis,
         managerName = managerName,
         managerDeleted = managerDeleted,
     )

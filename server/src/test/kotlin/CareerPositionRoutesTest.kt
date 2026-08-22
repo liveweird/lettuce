@@ -26,6 +26,7 @@ import io.ktor.server.testing.testApplication
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -386,6 +387,14 @@ class CareerPositionRoutesTest {
             }
             for (client in listOf(t, u, a)) {
                 assertEquals(HttpStatusCode.Forbidden, client.get("/api/v1/users/$sId/career-positions").status)
+            }
+            // The envelope's canEdit capability (v2.34.0) = exactly the write right: the
+            // chain (direct AND transitive) true, self and the HR-only reader false.
+            for (client in listOf(m, g)) {
+                assertTrue(client.get("/api/v1/users/$sId/career-positions").body<CareerPositionList>().canEdit)
+            }
+            for (client in listOf(s, h)) {
+                assertFalse(client.get("/api/v1/users/$sId/career-positions").body<CareerPositionList>().canEdit)
             }
             // Unknown target stays 404 BEFORE the guard (existence is no secret) — even for
             // a caller who'd be forbidden on an existing one.

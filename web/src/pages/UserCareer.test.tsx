@@ -58,7 +58,15 @@ describe("UserCareer", () => {
     positions = POSITIONS,
     mutationStatus = 204,
     postStatus = 201,
-  }: { positions?: typeof POSITIONS; mutationStatus?: number; postStatus?: number } = {}) {
+    // The server-computed editor gate (v2.34.0): editor cases opt in; the read-only cases
+    // hold BECAUSE the server answers false, whatever the URL claims.
+    canEdit = false,
+  }: {
+    positions?: typeof POSITIONS;
+    mutationStatus?: number;
+    postStatus?: number;
+    canEdit?: boolean;
+  } = {}) {
     mockFetch.mockImplementation((input: string, init?: RequestInit) => {
       const url = String(input);
       const method = init?.method ?? "GET";
@@ -73,7 +81,7 @@ describe("UserCareer", () => {
         return Promise.resolve(jsonResponse(200, { items }));
       }
       if (method === "GET" && url.includes("/career-positions")) {
-        return Promise.resolve(jsonResponse(200, { items: positions }));
+        return Promise.resolve(jsonResponse(200, { items: positions, canEdit }));
       }
       if (method === "POST") {
         return Promise.resolve(
@@ -139,7 +147,7 @@ describe("UserCareer", () => {
   });
 
   test("the add form prefills from the current position; a date + one change POSTs the full triple", async () => {
-    setupMocks();
+    setupMocks({ canEdit: true });
     const user = userEvent.setup();
     renderPage("/users/9/career?name=Riley%20Report&from=subordinates");
 
@@ -180,7 +188,7 @@ describe("UserCareer", () => {
   });
 
   test("with no positions yet the form starts blank and needs the date AND all three fields", async () => {
-    setupMocks({ positions: [] });
+    setupMocks({ canEdit: true, positions: [] });
     const user = userEvent.setup();
     renderPage("/users/9/career?name=R&from=subordinates");
     const submit = await screen.findByRole("button", { name: "Start position" });
@@ -195,7 +203,7 @@ describe("UserCareer", () => {
   });
 
   test("editing a row pre-fills the form and PUTs the correction", async () => {
-    setupMocks();
+    setupMocks({ canEdit: true });
     const user = userEvent.setup();
     renderPage("/users/9/career?name=Riley%20Report&from=subordinates");
 
@@ -222,7 +230,7 @@ describe("UserCareer", () => {
   });
 
   test("deleting a row goes through the confirm modal", async () => {
-    setupMocks();
+    setupMocks({ canEdit: true });
     const user = userEvent.setup();
     renderPage("/users/9/career?name=Riley%20Report&from=subordinates");
 
@@ -241,7 +249,7 @@ describe("UserCareer", () => {
   });
 
   test("a 409 on create surfaces the conflict error inline", async () => {
-    setupMocks({ postStatus: 409 });
+    setupMocks({ canEdit: true, postStatus: 409 });
     const user = userEvent.setup();
     renderPage("/users/9/career?name=R&from=subordinates");
 
@@ -268,7 +276,7 @@ describe("UserCareer", () => {
   });
 
   test("an unchanged triple is not a new position: submit stays disabled with the explanatory note", async () => {
-    setupMocks();
+    setupMocks({ canEdit: true });
     const user = userEvent.setup();
     renderPage("/users/9/career?name=R&from=subordinates");
 
@@ -299,7 +307,7 @@ describe("UserCareer", () => {
   });
 
   test("a correction may not make the position identical to its neighbor", async () => {
-    setupMocks();
+    setupMocks({ canEdit: true });
     const user = userEvent.setup();
     renderPage("/users/9/career?name=R&from=subordinates");
 

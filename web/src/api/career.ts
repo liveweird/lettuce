@@ -6,12 +6,16 @@ import type { components, paths } from "./schema";
 
 export type CareerPosition = components["schemas"]["CareerPositionResponse"];
 export type CareerPositionWriteBody = components["schemas"]["CareerPositionWrite"];
-type CareerPositionListResponse =
+export type CareerPositionListResponse =
   paths["/api/v1/users/{id}/career-positions"]["get"]["responses"]["200"]["content"]["application/json"];
 
-/** The user's career timeline, chronological (unpaged) — the last item is the current position. */
-export async function listCareerPositions(userId: number): Promise<CareerPosition[]> {
-  return (await jsonRequest<CareerPositionListResponse>(`/api/v1/users/${userId}/career-positions`)).items;
+/**
+ * The user's career timeline, chronological (unpaged) — the last item is the current
+ * position — plus the envelope's `canEdit` capability (v2.34.0: the caller is a chain
+ * manager, the editor's server-computed gate).
+ */
+export async function listCareerPositions(userId: number): Promise<CareerPositionListResponse> {
+  return jsonRequest<CareerPositionListResponse>(`/api/v1/users/${userId}/career-positions`);
 }
 
 export type CareerPyramidItem = components["schemas"]["CareerPyramidItem"];

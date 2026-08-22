@@ -3,7 +3,7 @@ import { Link as RouterLink, Navigate, useParams } from "react-router-dom";
 import { Alert, Anchor, Button, Group, Stack, Text, Title } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { getUserId, hasFeature } from "../api/session";
+import { hasFeature } from "../api/session";
 import { getTeam } from "../api/teams";
 import { teamKpiCreateLink, teamKpisLink } from "../utils/teamKpiLinks";
 import TeamKpiTable from "./TeamKpiTable";
@@ -13,8 +13,9 @@ const BACK_TO = "/?tab=myTeams";
 
 // The per-team KPI drill-down reached from Dashboard → My teams (the team-pinned drill-down shape):
 // the managed KPI table pinned to one team, with the prefilled "New team KPI" entry point for
-// the team's manager. A team the caller does not manage renders an empty table (the server
-// scopes the managed view to the caller's own teams).
+// anyone who may set KPIs here — the server-computed canManageKpis capability (v2.34.0: the
+// manager AND the chain above; the old managerId === getUserId() inference wrongly hid the
+// button from chain managers). A team the caller does not manage renders an empty table.
 export default function TeamKpis() {
   const { t } = useTranslation();
   const params = useParams<{ teamId: string }>();
@@ -35,7 +36,7 @@ export default function TeamKpis() {
   if (!idIsValid) return <Navigate to={BACK_TO} replace />;
 
   const backTo = teamKpisLink(teamId);
-  const isManager = team != null && team.managerId === getUserId();
+  const canManageKpis = team?.canManageKpis === true;
 
   return (
     <Stack gap="lg">
@@ -59,7 +60,7 @@ export default function TeamKpis() {
 
       <TeamKpiTable view="managed" teamId={teamId} settingsKey="teamKpis.team" backTo={backTo} />
 
-      {isManager && (
+      {canManageKpis && (
         // The prefilled create entry point, below the list — the house footer convention
         // (the UserGoals pattern).
         <Group justify="flex-end">

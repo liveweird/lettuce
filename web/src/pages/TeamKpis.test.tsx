@@ -9,7 +9,8 @@ const USER_ID_KEY = "lettuce.auth.userId";
 
 type FetchMock = ReturnType<typeof vi.fn>;
 
-const TEAM = { id: 10, name: "Team AAA", managerId: 7, memberIds: [8, 9] };
+// canManageKpis is the server-computed gate (v2.34.0) — the old managerId inference is gone.
+const TEAM = { id: 10, name: "Team AAA", managerId: 7, memberIds: [8, 9], canManageKpis: true };
 const KPI = {
   id: 1,
   teamId: 10,
@@ -88,8 +89,8 @@ describe("TeamKpis drill-down", () => {
     );
   });
 
-  test("a non-manager of the team gets no New button", async () => {
-    mockApi(mockFetch, { ...TEAM, managerId: 99 });
+  test("a caller without the KPI capability gets no New button", async () => {
+    mockApi(mockFetch, { ...TEAM, canManageKpis: false });
     renderPage();
 
     expect(await screen.findByRole("heading", { name: "Team KPIs of Team AAA" })).toBeInTheDocument();

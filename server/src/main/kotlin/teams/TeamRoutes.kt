@@ -249,13 +249,22 @@ fun Application.configureTeamRoutes() {
                     "managerId" to team.managerId.toLong(),
                 )
                 call.response.header(HttpHeaders.Location, call.application.href(Teams.Id(id = id)))
-                call.respond(HttpStatusCode.Created, team.toResponse(id))
+                call.respond(
+                    HttpStatusCode.Created,
+                    team.toResponse(id, canManageKpis = teamService.canManageKpisOf(caller.userId, team.managerId)),
+                )
             }
             get<Teams.Id> { route ->
-                call.caller()
+                val caller = call.caller()
                 val detail = teamService.readDetail(route.id)
                     ?: throw NotFoundException("Team not found")
-                call.respond(HttpStatusCode.OK, detail.toResponse(route.id))
+                call.respond(
+                    HttpStatusCode.OK,
+                    detail.toResponse(
+                        route.id,
+                        canManageKpis = teamService.canManageKpisOf(caller.userId, detail.team.managerId),
+                    ),
+                )
             }
             put<Teams.Id> { route ->
                 val caller = call.caller()
