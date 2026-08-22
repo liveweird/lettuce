@@ -3,7 +3,6 @@ package ch.nokillswit.templates
 import ch.nokillswit.infra.db.containsNormalized
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
-import io.ktor.server.plugins.BadRequestException
 import io.ktor.util.AttributeKey
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.singleOrNull

@@ -1,5 +1,5 @@
 // Builders for the days-off URLs (the goalLinks pattern) — never hand-assemble them.
-import { drillDownOptsSearch, type DrillDownOpts } from "./feedbackLinks";
+import { drillDownOptsSearch, type DrillDownOpts } from "./linkSearch";
 
 export type DaysOffTab = "calendar" | "requests" | "team";
 

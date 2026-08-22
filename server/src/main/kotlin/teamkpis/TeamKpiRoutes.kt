@@ -2,7 +2,7 @@ package ch.nokillswit.teamkpis
 
 import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
-import ch.nokillswit.authz.requireDirectReport
+import ch.nokillswit.authz.requireRelationship
 import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.authz.requireTeamKpiManage
 import ch.nokillswit.authz.requireTeamKpiReadAllowingChain
@@ -214,7 +214,7 @@ fun Application.configureTeamKpiRoutes() {
                     createdAtGte = params.optionalLong("createdAt[gte]"),
                     lastModifiedGte = params.optionalLong("lastModified[gte]"),
                 )
-                val result = kpiService.list(view, caller.userId, filter, paging, includeIndirect == true)
+                val result = kpiService.list(view, caller.userId, filter, paging, includeIndirect)
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
             }
             post<TeamKpis> {
@@ -225,7 +225,7 @@ fun Application.configureTeamKpiRoutes() {
                 // create-on-behalf beyond that, not even for ADMIN). Checked before payload
                 // validation so an outsider's malformed request is still a uniform 403, not 400
                 // — including for an unknown teamId.
-                requireDirectReport(
+                requireRelationship(
                     caller,
                     { kpiService.managesTeamOrChain(caller.userId, request.teamId) },
                     "You may only set KPIs for teams you manage directly or indirectly",
@@ -246,8 +246,10 @@ fun Application.configureTeamKpiRoutes() {
             get<TeamKpis.Id> { route ->
                 val kpi = readGuardedKpi(call, route.id)
                 // Capability flags (v2.26.0): the SPA cannot walk management chains, so the
-                // server states the caller's rights on the document itself. Two cheap lazy
-                // predicates — each one query, evaluated at most once via the short-circuits.
+                // server states the caller's rights on the document itself. The short-circuits
+                // keep THIS block to at most two queries; the read guard above may already have
+                // evaluated the same predicates (its results aren't reusable here) — accepted:
+                // 1–2 cheap extra queries on a single-document read (registered, backlog #8).
                 val caller = call.caller()
                 val canManage = caller.userId == kpi.managerId ||
                     kpiService.managesManagerOf(caller.userId, kpi.managerId)

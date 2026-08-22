@@ -538,11 +538,16 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
             .applyPaging(paging, SORTABLE_COLUMNS)
             .map { row ->
                 // Mirror canReadFeedbackContent: a requester watching an unfinished feedback sees
-                // that it exists but not its content. The auditor view is never redacted —
-                // the HR read includes content (canReadFeedbackContent).
+                // that it exists but not its content. The provider short-circuit matches the
+                // guard's — today it is unreachable (validate() rejects requesterId == providerId),
+                // but the redaction must not silently depend on that distant invariant. The auditor
+                // view is never redacted — the HR read includes content (canReadFeedbackContent);
+                // this is deliberately NARROWER than the guard's role-based HR branch: an HR caller
+                // browsing the ordinary views reads content only via the audited view=user.
                 val unfinished = row[Feedbacks.status] == FeedbackStatus.DRAFT ||
                     row[Feedbacks.status] == FeedbackStatus.REQUESTED
                 val redactContent = view != FeedbackListView.USER &&
+                    row[Feedbacks.providerId].value != callerUserId &&
                     unfinished && row[Feedbacks.requesterId]?.value == callerUserId
                 val decrypted = if (redactContent) "" else cipher.decrypt(row[Feedbacks.content])
                 FeedbackListItem(

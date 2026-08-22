@@ -137,7 +137,7 @@ describe("FeedbackTable (received view)", () => {
 
     await screen.findByText("Alice Provider");
     await user.click(screen.getByRole("button", { name: /filters/i }));
-    await user.type(screen.getByLabelText(/requester/i), "caro");
+    await user.type(screen.getByLabelText(/requester/i, { selector: "input" }), "caro");
 
     await waitFor(
       () => {
@@ -158,11 +158,11 @@ describe("FeedbackTable (received view)", () => {
     const toggle = screen.getByRole("button", { name: /filters/i });
     // Collapsed by default — the toggle reports it and the space-eating filter row is hidden.
     expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByLabelText(/requester/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/requester/i, { selector: "input" })).not.toBeInTheDocument();
 
     await user.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByLabelText(/requester/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/requester/i, { selector: "input" })).toBeInTheDocument();
 
     // Toggling again collapses it.
     await user.click(toggle);
@@ -176,7 +176,7 @@ describe("FeedbackTable (received view)", () => {
 
     await screen.findByText("Alice Provider");
     await user.click(screen.getByRole("button", { name: /filters/i }));
-    expect(screen.getByLabelText(/requester/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/requester/i, { selector: "input" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Reports", { selector: "input" })).not.toBeInTheDocument();
   });
 
@@ -191,7 +191,7 @@ describe("FeedbackTable (received view)", () => {
     expect(within(toggle).queryByText("1")).not.toBeInTheDocument();
 
     await user.click(toggle);
-    await user.type(screen.getByLabelText(/requester/i), "caro");
+    await user.type(screen.getByLabelText(/requester/i, { selector: "input" }), "caro");
     expect(within(toggle).getByText("1")).toBeInTheDocument();
   });
 

@@ -120,5 +120,6 @@
     "pl": "Polish"
   },
   "buildInfo": "Build version",
+  "deletedSuffix": "{{name}} (deleted)",
   "charCount": "{{current}} / {{max}}"
 }

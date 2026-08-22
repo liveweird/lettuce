@@ -73,6 +73,7 @@ export default function SelfReflection() {
     <FeedbackForm
       title={t("feedback.selfReflectionTitle")}
       subjectDisplay={t("common.state.you")}
+      subjectIsYou
       initialVisibility="PROVIDER_SUBJECT"
       initialContent=""
       submitting={submitting}

@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.30.0",
+    date: "2026-08-22",
+    en: `People's names are now clickable everywhere. The feedback, goals, 1:1s, team-KPI, reviews and days-off tables — plus the Kudos wall and the pulse participation view — now render each person's name as a link to their profile page, the same way the Users and Teams screens already did. Your own name and deleted accounts stay plain text, as always. Under the hood this release also ships a round of internal clean-ups from an external code review — including a consistent loading spinner on every History tab.`,
+    pl: `Imiona i nazwiska są teraz klikalne wszędzie. Tabele feedbacków, celów, spotkań 1:1, KPI zespołów, ocen i dni wolnych — a także ściana Kudos i widok udziału w ankietach pulse — pokazują teraz nazwisko każdej osoby jako link do jej strony profilowej, tak samo jak robiły to już ekrany Użytkownicy i Zespoły. Twoje własne nazwisko i usunięte konta pozostają zwykłym tekstem, jak zawsze. Pod maską to wydanie zawiera też rundę wewnętrznych porządków po zewnętrznym przeglądzie kodu — w tym spójny wskaźnik ładowania na każdej zakładce Historia.`,
+  },
+  {
     version: "2.29.1",
     date: "2026-08-21",
     en: `A round of polish from a quality audit. The Team's performance tab now opens on the period containing today instead of the newest one in the registry (which could be a future period prepared ahead of time), and its wide table scrolls inside its own frame instead of stretching the whole page sideways. Delete confirmations now explain failures in plain words instead of showing a technical error code. The "New feedback" screen reached from the Feedback page is titled "New feedback" like its button. The Polish days-off cost preview finally declines properly — "1 dzień roboczy", "2 dni robocze", "2,5 dnia roboczego". A few form pickers also gained a clear message when their options fail to load.`,

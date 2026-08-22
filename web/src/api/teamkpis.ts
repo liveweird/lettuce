@@ -1,7 +1,7 @@
 // Team KPIs API — CRUD, the data-point series, transitions, and the event history.
 // Thin endpoint wrappers: transport (authedFetch/ApiError) in ./http, session state in ./session.
 
-import { jsonRequest, voidRequest } from "./http";
+import { buildQuery, jsonRequest, voidRequest } from "./http";
 import type { paths } from "./schema";
 
 export type TeamKpiPage =
@@ -30,19 +30,20 @@ type TeamKpiListQuery = {
 };
 
 export async function listTeamKpis(q: TeamKpiListQuery): Promise<TeamKpiPage> {
-  const params = new URLSearchParams();
-  params.set("view", q.view);
-  params.set("page", String(q.page));
-  params.set("pageSize", String(q.pageSize));
-  if (q.sort) params.set("sort", q.sort);
-  if (q.title) params.set("title", q.title);
-  if (q.teamName) params.set("teamName", q.teamName);
-  if (q.status) params.set("status", q.status);
-  if (q.type) params.set("type", q.type);
-  if (q.teamId != null) params.set("teamId", String(q.teamId));
-  if (q.createdAtGte != null) params.set("createdAt[gte]", String(q.createdAtGte));
-  if (q.includeIndirect) params.set("includeIndirect", "true");
-  return jsonRequest<TeamKpiPage>(`/api/v1/team-kpis?${params.toString()}`);
+  const params = buildQuery({
+    view: q.view,
+    page: q.page,
+    pageSize: q.pageSize,
+    sort: q.sort,
+    title: q.title,
+    teamName: q.teamName,
+    status: q.status,
+    type: q.type,
+    teamId: q.teamId,
+    "createdAt[gte]": q.createdAtGte,
+    includeIndirect: q.includeIndirect || undefined,
+  });
+  return jsonRequest<TeamKpiPage>(`/api/v1/team-kpis?${params}`);
 }
 
 export type TeamKpiCreateBody =

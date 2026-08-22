@@ -302,14 +302,7 @@ class CareerPositionService(val database: R2dbcDatabase) {
             .map { it.toRow() }
             .toList()
 
-    /** Must run inside a transaction. */
-    private suspend fun userName(id: UInt): String =
-        UserService.Users.select(UserService.Users.name)
-            .where { UserService.Users.id eq id }
-            .toList()
-            .singleOrNull()
-            ?.get(UserService.Users.name)
-            ?: "?"
+    private suspend fun userName(id: UInt): String = userNameOf(id) ?: "?"
 
     private fun ResultRow.toRow() = PositionRow(
         id = this[CareerPositions.id].value,

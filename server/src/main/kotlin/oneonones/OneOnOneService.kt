@@ -12,6 +12,7 @@ import ch.nokillswit.teams.directSubordinateIds
 import ch.nokillswit.teams.isInManagementChain
 import ch.nokillswit.teams.transitiveSubordinateIds
 import ch.nokillswit.users.UserService
+import ch.nokillswit.users.userNameOf
 import io.ktor.server.plugins.BadRequestException
 import io.ktor.util.AttributeKey
 import kotlinx.coroutines.flow.map
@@ -297,8 +298,8 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
                 }
             }
 
-            val managerName = userName(managerId) ?: "#$managerId"
-            val subordinateName = userName(request.subordinateId) ?: "#${request.subordinateId}"
+            val managerName = userNameOf(managerId) ?: "#$managerId"
+            val subordinateName = userNameOf(request.subordinateId) ?: "#${request.subordinateId}"
             OneOnOneCreateResult(
                 id = meetingId,
                 carriedOver = carried,
@@ -758,12 +759,6 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
             throw BadRequestException("Unknown item id(s) for this meeting: ${foreign.joinToString()}")
         }
     }
-
-    private suspend fun userName(id: UInt): String? =
-        UserService.Users.select(UserService.Users.name)
-            .where { UserService.Users.id eq id }
-            .map { it[UserService.Users.name] }
-            .singleOrNull()
 
     private fun buildPredicate(filter: OneOnOneListFilter): Op<Boolean> {
         var op: Op<Boolean> = Op.TRUE

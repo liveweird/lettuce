@@ -35,7 +35,6 @@
   "noFeedback": "No feedback",
   "unknown": "Unknown",
   "rowsPerPage": "Rows per page",
-  "deletedSuffix": "{{name}} (deleted)",
   "loadListError": "Failed to load feedbacks",
   "clearRequesterFilter": "Clear requester filter",
   "clearProviderFilter": "Clear provider filter",

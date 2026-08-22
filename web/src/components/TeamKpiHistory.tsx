@@ -1,12 +1,11 @@
 import { dynamicKey } from "../utils/i18nKey";
-import { Alert, Text, Timeline } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { listTeamKpiEvents, type TeamKpiEvent, type TeamKpiType } from "../api/teamkpis";
-import { formatIsoDate, formatTimestamp } from "../utils/datetime";
+import { formatIsoDate } from "../utils/datetime";
 import { formatGoalValue } from "../utils/goalValues";
-import { loadErrorMessage } from "../utils/saveError";
+import EventTimeline from "./EventTimeline";
 
 // Render a structured team-KPI audit event in the current language. Params carry enum names,
 // numeric values, and ISO dates only (never title/description/summary text), so the wording
@@ -67,37 +66,19 @@ function describeEvent(e: TeamKpiEvent, t: TFunction, locale: string, type: Team
 /** The team KPI's audit history as a timeline (newest first, server-ordered), or an empty-state note. */
 export default function TeamKpiHistory({ kpiId, type }: { kpiId: number; type: TeamKpiType }) {
   const { t, i18n } = useTranslation();
-  const { data: events, isError, error } = useQuery({
+  const { data: events, isLoading, isError, error } = useQuery({
     queryKey: ["teamKpiEvents", kpiId],
     queryFn: () => listTeamKpiEvents(kpiId),
   });
 
-  if (isError) {
-    // A failed history load must not masquerade as an empty history (v2.24.0).
-    return (
-      <Alert color="red" variant="light">
-        {loadErrorMessage(error, t)}
-      </Alert>
-    );
-  }
-
-  if (!events || events.length === 0) {
-    return (
-      <Text c="dimmed" size="sm">
-        {t("teamKpi.noHistory")}
-      </Text>
-    );
-  }
-
   return (
-    <Timeline bulletSize={12} lineWidth={2}>
-      {events.map((e) => (
-        <Timeline.Item key={e.id} title={describeEvent(e, t, i18n.language, type)}>
-          <Text size="xs" c="dimmed">
-            {e.userName} · {formatTimestamp(e.timestamp)}
-          </Text>
-        </Timeline.Item>
-      ))}
-    </Timeline>
+    <EventTimeline
+      events={events}
+      isLoading={isLoading}
+      isError={isError}
+      error={error}
+      emptyMessage={t("teamKpi.noHistory")}
+      renderTitle={(e) => describeEvent(e, t, i18n.language, type)}
+    />
   );
 }

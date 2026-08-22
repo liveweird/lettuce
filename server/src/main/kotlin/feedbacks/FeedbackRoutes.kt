@@ -12,7 +12,6 @@ import ch.nokillswit.infra.db.requireValidReferences
 import ch.nokillswit.infra.paging.optionalIncludeIndirect
 import ch.nokillswit.infra.paging.uintOnlyForView
 import ch.nokillswit.infra.paging.parsePaging
-import ch.nokillswit.infra.paging.optionalBoolean
 import ch.nokillswit.infra.paging.optionalEnum
 import ch.nokillswit.infra.paging.optionalString
 import ch.nokillswit.infra.paging.optionalLong

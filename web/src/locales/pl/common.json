@@ -120,5 +120,6 @@
     "pl": "Polski"
   },
   "buildInfo": "Wersja aplikacji",
+  "deletedSuffix": "{{name}} (usunięty)",
   "charCount": "{{current}} / {{max}}"
 }

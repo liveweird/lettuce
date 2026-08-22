@@ -15,7 +15,14 @@ import { saveErrorMessage } from "../utils/saveError";
 import { PROVIDE_ERROR_KEYS } from "../utils/feedbackForm";
 import { showSuccessToast } from "../utils/toast";
 
-export default function CreateFeedback() {
+/**
+ * The feedback create screen, also serving the Kudos wall's create flow (`/kudos/new` renders
+ * it with `kudo` — formerly the separate CreateKudo page, folded in the 2026-08 review round):
+ * kudo mode always shows the recipient picker, pins Visibility to PUBLIC (shown read-only),
+ * and returns to the wall. The result is an ordinary feedback either way: a kudo draft lives
+ * under "Provided" like any other and reaches the wall once sent.
+ */
+export default function CreateFeedback({ kudo = false }: { kudo?: boolean }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -26,14 +33,16 @@ export default function CreateFeedback() {
 
   const urlSubjectId = Number(searchParams.get("subjectId"));
   const subjectName = searchParams.get("subjectName");
-  // An explicit `back` (e.g. the per-manager feedbacks screen) overrides the default return to "/".
-  const backTo = searchParams.get("back") ?? "/";
+  // An explicit `back` (e.g. the per-manager feedbacks screen) overrides the default return
+  // to "/"; kudo mode always returns to the wall (its entry point carries no back param).
+  const backTo = kudo ? "/kudos" : (searchParams.get("back") ?? "/");
   const providerId = getUserId();
 
   // Two modes (v2.28.0): a valid subjectId in the URL fixes the subject (the deep-link path —
   // users-row actions, person cards); without one the page renders the subject picker instead
-  // of redirecting (the /feedback header's "New feedback" entry).
-  const urlSubjectIsValid = Number.isFinite(urlSubjectId) && urlSubjectId > 0;
+  // of redirecting (the /feedback header's "New feedback" entry). Kudo mode is always the
+  // picker — the wall has no per-person entry point.
+  const urlSubjectIsValid = !kudo && Number.isFinite(urlSubjectId) && urlSubjectId > 0;
   const pickerMode = !urlSubjectIsValid;
   const { userPool, usersError } = useAllUsers(pickerMode);
   const subjectId = urlSubjectIsValid
@@ -85,7 +94,9 @@ export default function CreateFeedback() {
       await createFeedback({
         subjectId,
         providerId: providerId!,
-        visibility: values.visibility,
+        // Kudo mode pins PUBLIC — `values.visibility` is PUBLIC too (read-only), but the
+        // contract of that screen is explicit.
+        visibility: kudo ? "PUBLIC" : values.visibility,
         status,
         content: values.content,
       });
@@ -103,11 +114,12 @@ export default function CreateFeedback() {
 
   return (
     <FeedbackForm
-      // The creation-verb convention: the picker-mode screen reuses its entry button's
-      // wording ("New feedback"); a deep link with a fixed subject keeps "Provide feedback".
-      title={pickerMode ? t("feedback.newFeedback") : t("feedback.provideTitle")}
+      // The creation-verb convention: each entry point's screen reuses its entry button's
+      // wording ("New kudo" / "New feedback"); a deep link with a fixed subject keeps
+      // "Provide feedback".
+      title={kudo ? t("kudos.createTitle") : pickerMode ? t("feedback.newFeedback") : t("feedback.provideTitle")}
       subjectDisplay={subjectDisplay}
-      initialVisibility="PROVIDER_SUBJECT"
+      initialVisibility={kudo ? "PUBLIC" : "PROVIDER_SUBJECT"}
       initialContent=""
       submitting={submitting}
       error={error}
@@ -119,7 +131,7 @@ export default function CreateFeedback() {
       subjectControl={
         pickerMode ? (
           <Select
-            label={t("common.field.subject")}
+            label={kudo ? t("kudos.recipientLabel") : t("common.field.subject")}
             placeholder={t("feedback.pickUser")}
             data={subjectOptions}
             value={subjectPick}
@@ -132,6 +144,7 @@ export default function CreateFeedback() {
           />
         ) : undefined
       }
+      visibilityReadOnly={kudo}
       submitDisabled={subjectId == null}
       duplicate={
         duplicate.existingId != null ? (

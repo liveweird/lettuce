@@ -6,7 +6,6 @@ import ch.nokillswit.plugins.ProblemDetail
 import ch.nokillswit.teams.Team
 import ch.nokillswit.teams.TeamMemberPageResponse
 import ch.nokillswit.teams.TeamResponse
-import ch.nokillswit.users.UserRole
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.delete

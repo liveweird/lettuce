@@ -10,7 +10,6 @@ import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
 import ch.nokillswit.feedbacks.feedbackCreationEvent
 import ch.nokillswit.feedbacks.feedbackUpdateEvent
-import ch.nokillswit.users.UserRole
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
 import io.ktor.client.request.get

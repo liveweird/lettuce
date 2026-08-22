@@ -19,30 +19,34 @@ export default function FeedbackMeta({
   status,
   visibility,
   providerDisplay,
+  providerIsYou,
   subjectDisplay,
+  subjectIsYou,
   requesterDisplay,
+  requesterIsYou,
   lastModified,
 }: {
   title: string;
   status?: FeedbackStatus;
   visibility?: FeedbackVisibility;
   providerDisplay: string;
+  providerIsYou?: boolean;
   // Omitted while the subject is not resolved yet (the kudo create flow before a recipient
   // is picked) — the arrow and subject slot are skipped.
   subjectDisplay?: string;
+  subjectIsYou?: boolean;
   requesterDisplay?: string;
+  requesterIsYou?: boolean;
   lastModified?: number;
 }) {
   const { t } = useTranslation();
   // The app-wide person convention: PersonaChip for a named party, plain text for the
-  // current user. Both callers resolve self to t("common.state.you"), so that literal is
-  // the chip-vs-plain discriminator.
-  const party = (display: string) =>
-    display === t("common.state.you") ? (
-      <Text size="sm">{display}</Text>
-    ) : (
-      <PersonaChip name={display} />
-    );
+  // current user — driven by the explicit *IsYou flags, never by comparing the display
+  // string against the translated "You" (a locale collision would mis-render). Deleted
+  // parties still chip here: the single-feedback response carries no *Deleted flags
+  // (unlike the list rows), so the view/edit screens cannot know.
+  const party = (display: string, isYou?: boolean) =>
+    isYou ? <Text size="sm">{display}</Text> : <PersonaChip name={display} />;
   return (
     <Stack gap={4}>
       <Group justify="space-between" align="center" wrap="nowrap">
@@ -53,13 +57,13 @@ export default function FeedbackMeta({
         </Group>
       </Group>
       <Group gap={8} wrap="wrap">
-        {party(providerDisplay)}
+        {party(providerDisplay, providerIsYou)}
         {subjectDisplay != null && (
           <>
             <Text size="sm" c="dimmed">
               →
             </Text>
-            {party(subjectDisplay)}
+            {party(subjectDisplay, subjectIsYou)}
           </>
         )}
         {requesterDisplay != null && (
@@ -70,7 +74,7 @@ export default function FeedbackMeta({
             <Text size="sm" c="dimmed">
               {t("feedback.requestedBy")}
             </Text>
-            {party(requesterDisplay)}
+            {party(requesterDisplay, requesterIsYou)}
           </>
         )}
       </Group>

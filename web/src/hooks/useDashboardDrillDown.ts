@@ -2,6 +2,7 @@ import type { ParseKeys } from "i18next";
 import { useParams, useSearchParams } from "react-router-dom";
 import { canAudit } from "../api/session";
 import { userDetailsLink } from "../utils/userLinks";
+import { parsePositiveInt } from "../utils/parse";
 
 // Which screen a per-user drill-down (/users/:userId/…) was opened from — decides the
 // "Back to …" link and the invalid-id redirect. The managers/subordinates grids and the
@@ -20,11 +21,6 @@ export type DashboardOriginKey = keyof typeof DASHBOARD_ORIGINS | "team" | "deta
 
 function isStaticOriginKey(value: string | null): value is keyof typeof DASHBOARD_ORIGINS {
   return value != null && value in DASHBOARD_ORIGINS;
-}
-
-function parsePositiveInt(value: string | null): number | null {
-  const n = Number(value);
-  return value != null && Number.isInteger(n) && n > 0 ? n : null;
 }
 
 /**

@@ -1,7 +1,7 @@
 // Review periods & performance reviews API.
 // Thin endpoint wrappers: transport (authedFetch/ApiError) in ./http, session state in ./session.
 
-import { jsonRequest, voidRequest } from "./http";
+import { buildQuery, jsonRequest, voidRequest } from "./http";
 import type { paths } from "./schema";
 
 export type ReviewPeriod =
@@ -59,21 +59,22 @@ type PerformanceReviewListQuery = {
 export async function listPerformanceReviews(
   q: PerformanceReviewListQuery,
 ): Promise<PerformanceReviewPage> {
-  const params = new URLSearchParams();
-  params.set("view", q.view);
-  params.set("page", String(q.page));
-  params.set("pageSize", String(q.pageSize));
-  if (q.sort) params.set("sort", q.sort);
-  if (q.managerName) params.set("managerName", q.managerName);
-  if (q.subordinateName) params.set("subordinateName", q.subordinateName);
-  if (q.status) params.set("status", q.status);
-  if (q.managerId != null) params.set("managerId", String(q.managerId));
-  if (q.subordinateId != null) params.set("subordinateId", String(q.subordinateId));
-  if (q.periodId != null) params.set("periodId", String(q.periodId));
-  if (q.createdAtGte != null) params.set("createdAt[gte]", String(q.createdAtGte));
-  if (q.includeIndirect) params.set("includeIndirect", "true");
-  if (q.userId != null) params.set("userId", String(q.userId));
-  return jsonRequest<PerformanceReviewPage>(`/api/v1/performance-reviews?${params.toString()}`);
+  const params = buildQuery({
+    view: q.view,
+    page: q.page,
+    pageSize: q.pageSize,
+    sort: q.sort,
+    managerName: q.managerName,
+    subordinateName: q.subordinateName,
+    status: q.status,
+    managerId: q.managerId,
+    subordinateId: q.subordinateId,
+    periodId: q.periodId,
+    "createdAt[gte]": q.createdAtGte,
+    includeIndirect: q.includeIndirect || undefined,
+    userId: q.userId,
+  });
+  return jsonRequest<PerformanceReviewPage>(`/api/v1/performance-reviews?${params}`);
 }
 
 /** Every review of one scope, paging until the server total is reached — the reviews-dashboard

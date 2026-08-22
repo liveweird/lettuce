@@ -85,7 +85,6 @@ import { RouteErrorBoundary } from "./components/ErrorBoundary";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Feedback = lazy(() => import("./pages/Feedback"));
 const Kudos = lazy(() => import("./pages/Kudos"));
-const CreateKudo = lazy(() => import("./pages/CreateKudo"));
 const CreateFeedback = lazy(() => import("./pages/CreateFeedback"));
 const RequestFeedback = lazy(() => import("./pages/RequestFeedback"));
 const AskFeedback = lazy(() => import("./pages/AskFeedback"));
@@ -613,7 +612,7 @@ export default function App() {
             <Route path="org" element={<OrgChart />} />
             <Route path="feedback" element={<Feedback />} />
             <Route path="kudos" element={<Kudos />} />
-            <Route path="kudos/new" element={<CreateKudo />} />
+            <Route path="kudos/new" element={<CreateFeedback kudo />} />
             <Route path="feedback/new" element={<CreateFeedback />} />
             <Route path="feedback/request" element={<RequestFeedback />} />
             <Route path="feedback/ask" element={<AskFeedback />} />

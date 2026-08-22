@@ -42,6 +42,8 @@ type FeedbackFormProps = {
   // Omitted while the subject is still being picked (the kudo create flow) — the meta line
   // then shows only the provider until `subjectControl`'s pick resolves a name.
   subjectDisplay?: string;
+  // The subject IS the caller (self-reflection flows) — renders plain instead of a chip.
+  subjectIsYou?: boolean;
   initialVisibility: FeedbackVisibility;
   initialContent: string;
   submitting: FeedbackStatus | null;
@@ -86,6 +88,7 @@ type FeedbackFormProps = {
 export default function FeedbackForm({
   title,
   subjectDisplay,
+  subjectIsYou,
   initialVisibility,
   initialContent,
   submitting,
@@ -273,7 +276,9 @@ export default function FeedbackForm({
               title={title}
               status={currentStatus}
               providerDisplay={t("common.state.you")}
+              providerIsYou
               subjectDisplay={subjectDisplay}
+              subjectIsYou={subjectIsYou}
               requesterDisplay={requesterDisplay}
               lastModified={lastModified}
             />

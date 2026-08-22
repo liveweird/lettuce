@@ -33,6 +33,7 @@ import {
   toUpdateBody,
   type OneOnOneFormValues,
 } from "../utils/oneOnOneForm";
+import { oneOnOneViewLink } from "../utils/oneOnOneLinks";
 import { invalidateOneOnOne } from "../utils/oneOnOneQueries";
 import { showSuccessToast } from "../utils/toast";
 
@@ -83,15 +84,15 @@ export default function EditOneOnOne() {
   if (!idIsValid) return <Navigate to={backTo} replace />;
   // Redirects to the read-only view keep the originating context (`from` tab / `back`
   // override), so its Close button returns where the user actually started.
-  const viewSearch = `?from=${from}${backOverride ? `&back=${encodeURIComponent(backOverride)}` : ""}`;
+  const viewUrl = oneOnOneViewLink(id, from, backOverride ?? undefined);
   // Only the manager edits; anyone else who can read lands on the view screen.
   if (data && getUserId() !== data.managerId) {
-    return <Navigate to={`/one-on-ones/${id}/view${viewSearch}`} replace />;
+    return <Navigate to={viewUrl} replace />;
   }
   // Older meetings of the pair are immutable records (the server would 409) — only the
   // latest is editable, so anything else opens read-only.
   if (data && data.isLatest === false) {
-    return <Navigate to={`/one-on-ones/${id}/view${viewSearch}`} replace />;
+    return <Navigate to={viewUrl} replace />;
   }
 
   async function save(values: OneOnOneFormValues) {

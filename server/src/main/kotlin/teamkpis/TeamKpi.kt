@@ -4,7 +4,6 @@ import ch.nokillswit.infra.paging.PageResponse
 import ch.nokillswit.infra.parseIsoDateStrict
 import io.ktor.server.plugins.BadRequestException
 import java.time.LocalDate
-import java.time.format.DateTimeParseException
 import kotlinx.serialization.Serializable
 
 // No PLAN on purpose: a team KPI is always a measured value, so target/current are non-null

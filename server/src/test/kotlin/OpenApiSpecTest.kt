@@ -5,7 +5,6 @@ import io.swagger.v3.parser.core.models.ParseOptions
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
 
 /**
  * Static sanity checks on the OpenAPI spec itself — no server or database boot. The runtime

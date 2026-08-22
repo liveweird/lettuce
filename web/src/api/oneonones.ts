@@ -1,7 +1,7 @@
 // 1:1 meetings API — CRUD, events, and the action-item history.
 // Thin endpoint wrappers: transport (authedFetch/ApiError) in ./http, session state in ./session.
 
-import { jsonRequest, voidRequest } from "./http";
+import { buildQuery, jsonRequest, voidRequest } from "./http";
 import type { paths } from "./schema";
 
 export type OneOnOnePage =
@@ -29,19 +29,20 @@ type OneOnOneListQuery = {
 };
 
 export async function listOneOnOnes(q: OneOnOneListQuery): Promise<OneOnOnePage> {
-  const params = new URLSearchParams();
-  params.set("view", q.view);
-  params.set("page", String(q.page));
-  params.set("pageSize", String(q.pageSize));
-  if (q.sort) params.set("sort", q.sort);
-  if (q.managerName) params.set("managerName", q.managerName);
-  if (q.subordinateName) params.set("subordinateName", q.subordinateName);
-  if (q.meetingDateGte) params.set("meetingDate[gte]", q.meetingDateGte);
-  if (q.meetingDateLte) params.set("meetingDate[lte]", q.meetingDateLte);
-  if (q.includeIndirect) params.set("includeIndirect", "true");
-  if (q.counterpartId != null) params.set("counterpartId", String(q.counterpartId));
-  if (q.userId != null) params.set("userId", String(q.userId));
-  return jsonRequest<OneOnOnePage>(`/api/v1/one-on-ones?${params.toString()}`);
+  const params = buildQuery({
+    view: q.view,
+    page: q.page,
+    pageSize: q.pageSize,
+    sort: q.sort,
+    managerName: q.managerName,
+    subordinateName: q.subordinateName,
+    "meetingDate[gte]": q.meetingDateGte,
+    "meetingDate[lte]": q.meetingDateLte,
+    includeIndirect: q.includeIndirect || undefined,
+    counterpartId: q.counterpartId,
+    userId: q.userId,
+  });
+  return jsonRequest<OneOnOnePage>(`/api/v1/one-on-ones?${params}`);
 }
 
 export type CreateOneOnOneBody =

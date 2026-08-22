@@ -13,6 +13,7 @@ import ch.nokillswit.teams.directSubordinateIds
 import ch.nokillswit.teams.isInManagementChain
 import ch.nokillswit.teams.transitiveSubordinateIds
 import ch.nokillswit.users.UserService
+import ch.nokillswit.users.userNameOf
 import io.ktor.util.AttributeKey
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.singleOrNull
@@ -501,12 +502,7 @@ class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: 
         periodEndMonth = this[ReviewPeriodService.ReviewPeriods.endMonth],
     )
 
-    private suspend fun userName(id: UInt): String =
-        UserService.Users
-            .select(UserService.Users.name)
-            .where { UserService.Users.id eq id }
-            .map { it[UserService.Users.name] }
-            .singleOrNull() ?: "#$id"
+    private suspend fun userName(id: UInt): String = userNameOf(id) ?: "#$id"
 
     private fun buildPredicate(filter: PerformanceReviewListFilter): Op<Boolean> {
         var op: Op<Boolean> = Op.TRUE

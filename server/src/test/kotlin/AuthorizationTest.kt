@@ -2,7 +2,6 @@ package ch.nokillswit
 
 import ch.nokillswit.auth.LoginRequest
 import ch.nokillswit.auth.LoginResponse
-import ch.nokillswit.feedbacks.Feedback
 import ch.nokillswit.feedbacks.FeedbackCreateRequest
 import ch.nokillswit.feedbacks.FeedbackPageResponse
 import ch.nokillswit.feedbacks.FeedbackResponse
@@ -19,7 +18,6 @@ import io.ktor.client.call.body
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.post
-import io.ktor.client.request.patch
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType

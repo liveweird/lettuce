@@ -4,7 +4,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import CreateKudo from "./CreateKudo";
+import CreateFeedback from "./CreateFeedback";
 import { jsonResponse } from "../test/http";
 
 // Swap the Lexical-based editor for a plain textarea (see mockMarkdownEditor). Import inside the
@@ -50,7 +50,7 @@ function renderCreateKudo() {
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={["/kudos/new"]}>
           <Routes>
-            <Route path="/kudos/new" element={<CreateKudo />} />
+            <Route path="/kudos/new" element={<CreateFeedback kudo />} />
             <Route path="/kudos" element={<PathProbe />} />
             <Route path="/" element={<PathProbe />} />
           </Routes>
@@ -65,7 +65,7 @@ async function pickRecipient(user: ReturnType<typeof userEvent.setup>, name: str
   await user.click(await screen.findByRole("option", { name, hidden: true }));
 }
 
-describe("CreateKudo page", () => {
+describe("CreateFeedback in kudo mode (/kudos/new)", () => {
   let mockFetch: FetchMock;
 
   beforeEach(() => {

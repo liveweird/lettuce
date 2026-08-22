@@ -19,6 +19,7 @@ import { toReportOptions, useManagedReports } from "../hooks/useManagedReports";
 import { createOneOnOne } from "../api/oneonones";
 import PersonaField from "../components/PersonaField";
 import { todayIsoDate } from "../utils/datetime";
+import { oneOnOneEditLink } from "../utils/oneOnOneLinks";
 import { oneOnOneSaveErrorMessage } from "../utils/oneOnOneForm";
 import { invalidateOneOnOne } from "../utils/oneOnOneQueries";
 import { showSuccessToast } from "../utils/toast";
@@ -78,10 +79,7 @@ export default function CreateOneOnOne() {
       showSuccessToast(t("oneOnOne.toast.created"));
       // Carry the origin (if any) into the edit screen so its Close returns to the card/drill-down
       // this create was launched from, not the generic managed list.
-      const editUrl = backParam
-        ? `/one-on-ones/${created.id}/edit?from=managed&back=${encodeURIComponent(backParam)}`
-        : `/one-on-ones/${created.id}/edit?from=managed`;
-      navigate(editUrl, { replace: true });
+      navigate(oneOnOneEditLink(created.id, "managed", backParam || undefined), { replace: true });
     } catch (err) {
       // Unlike PUT (where 409 means "not the latest"), a create 409 is unambiguous: the date
       // is earlier than the pair's latest meeting (the chronological rule).

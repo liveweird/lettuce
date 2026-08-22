@@ -1,24 +1,23 @@
 import { useMemo, useState } from "react";
-import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { Alert, Button, Container, Group, Paper, Select, Stack, Text, Title } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { getUserId, hasFeature } from "../api/session";
 import { listAllTeams } from "../api/teams";
 import { activateTeamKpi, createTeamKpi } from "../api/teamkpis";
-import ConfirmActionModal from "../components/ConfirmActionModal";
+import CreateActivateModals from "../components/CreateActivateModals";
 import ReadOnlyField from "../components/ReadOnlyField";
 import TeamKpiDefinitionFields from "../components/TeamKpiDefinitionFields";
+import { useCreateThenActivate } from "../hooks/useCreateThenActivate";
 import {
   teamKpiDefinitionValidation,
   toKpiDefinitionBody,
   type TeamKpiDefinitionFormValues,
 } from "../utils/teamKpiForm";
 import { invalidateTeamKpi } from "../utils/teamKpiQueries";
-import { showSuccessToast } from "../utils/toast";
-import { saveErrorMessage } from "../utils/saveError";
 
 // Default cancel target when no `back` param is present: the managed tab, the main entry point.
 const BACK_TO = "/team-kpis?tab=managed";
@@ -26,14 +25,11 @@ const BACK_TO = "/team-kpis?tab=managed";
 /**
  * The manager's KPI-create screen: pick (or arrive with) any team in their management subtree
  * — directly managed or managed by anyone below them (v2.26.0) — define the KPI (the same
- * definition fields the DRAFT editor offers) and Create. The KPI always lands as DRAFT; on
- * success a prompt asks whether to activate it immediately (Yes runs the DRAFT→ACTIVE
- * transition), and either answer returns to the originating screen (`backTo`).
+ * definition fields the DRAFT editor offers) and Create. The lifecycle (DRAFT lands, activate
+ * prompt, error handling) is the shared `useCreateThenActivate` flow.
  */
 export default function CreateTeamKpi() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const userId = getUserId();
 
@@ -44,14 +40,13 @@ export default function CreateTeamKpi() {
   const backTo = backParam ?? BACK_TO;
 
   const [team, setTeam] = useState<string | null>(preselected ? String(preselectedId) : null);
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  // Set once the KPI exists — opens the activate prompt and retires the Create button.
-  const [createdId, setCreatedId] = useState<number | null>(null);
-  const [activating, setActivating] = useState(false);
-  // Closes the prompt without navigating — only the activate-failure path uses it.
-  const [promptClosed, setPromptClosed] = useState(false);
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
+  const flow = useCreateThenActivate({
+    area: "teamKpi",
+    backTo,
+    activate: activateTeamKpi,
+    invalidate: invalidateTeamKpi,
+  });
 
   const form = useForm<TeamKpiDefinitionFormValues>({
     initialValues: { title: "", description: "", type: "NUMBER", targetValue: "" },
@@ -77,57 +72,12 @@ export default function CreateTeamKpi() {
 
   async function save(values: TeamKpiDefinitionFormValues) {
     if (!team) return;
-    setError(null);
-    setSubmitting(true);
-    try {
-      const created = await createTeamKpi({
+    await flow.submitCreate(() =>
+      createTeamKpi({
         teamId: Number(team),
         ...toKpiDefinitionBody(values),
-      });
-      await invalidateTeamKpi(queryClient);
-      showSuccessToast(t("teamKpi.toast.created"));
-      // The KPI exists as a DRAFT — ask whether to activate it right away; either answer
-      // then returns to the originating screen.
-      setSubmitting(false);
-      setCreatedId(created.id);
-    } catch (err) {
-      setError(
-        saveErrorMessage(err, t, {
-          forbidden: "teamKpi.error.createForbidden",
-          invalid: "teamKpi.error.invalid",
-          failedStatus: "teamKpi.error.updateFailedStatus",
-          failed: "teamKpi.error.createFailed",
-        }),
-      );
-      setSubmitting(false);
-    }
-  }
-
-  // "No" (or dismissing the prompt): keep the draft, return to where the user came from.
-  function finishAsDraft() {
-    navigate(backTo, { replace: true });
-  }
-
-  async function activateNow() {
-    if (createdId == null) return;
-    setActivating(true);
-    try {
-      await activateTeamKpi(createdId);
-      await invalidateTeamKpi(queryClient, createdId);
-      showSuccessToast(t("teamKpi.toast.activated"));
-      navigate(backTo, { replace: true });
-    } catch (err) {
-      // The KPI stays a DRAFT — close the prompt and surface the error on the form
-      // (Create is retired; the KPI is reachable from the origin list).
-      setPromptClosed(true);
-      setActivating(false);
-      setError(
-        saveErrorMessage(err, t, {
-          conflict: "teamKpi.error.conflict",
-          failed: "teamKpi.error.activateAfterCreateFailed",
-        }),
-      );
-    }
+      }),
+    );
   }
 
   return (
@@ -165,17 +115,17 @@ export default function CreateTeamKpi() {
 
             <TeamKpiDefinitionFields form={form} />
 
-            {error && (
+            {flow.error && (
               <Alert color="red" variant="light">
-                {error}
+                {flow.error}
               </Alert>
             )}
 
             <Group justify="flex-end" gap="sm">
-              <Button type="button" variant="default" onClick={openCancel} disabled={submitting}>
+              <Button type="button" variant="default" onClick={openCancel} disabled={flow.submitting}>
                 {t("common.action.cancel")}
               </Button>
-              <Button type="submit" loading={submitting} disabled={!team || createdId != null}>
+              <Button type="submit" loading={flow.submitting} disabled={!team || flow.createdId != null}>
                 {t("common.action.create")}
               </Button>
             </Group>
@@ -183,29 +133,16 @@ export default function CreateTeamKpi() {
         </form>
       </Paper>
 
-      {/* A MarkdownEditor form — Cancel is guarded by the discard confirm (house convention). */}
-      <ConfirmActionModal
-        opened={cancelOpen}
-        onClose={closeCancel}
-        title={t("teamKpi.discardTitle")}
-        message={t("teamKpi.discardMessage")}
-        cancelLabel={t("common.action.keepEditing")}
-        confirmLabel={t("common.action.discard")}
-        confirmTo={backTo}
-      />
-
-      {/* Post-create prompt: Yes activates the fresh draft, No (or dismiss) keeps it —
-          either way the user returns to the screen they came from. */}
-      <ConfirmActionModal
-        opened={createdId != null && !promptClosed}
-        onClose={finishAsDraft}
-        title={t("teamKpi.activatePromptTitle")}
-        message={t("teamKpi.activatePromptQuestion")}
-        cancelLabel={t("common.state.no")}
-        confirmLabel={t("common.state.yes")}
-        confirmColor="teal"
-        onConfirm={activateNow}
-        loading={activating}
+      <CreateActivateModals
+        area="teamKpi"
+        backTo={backTo}
+        cancelOpen={cancelOpen}
+        onCancelClose={closeCancel}
+        createdId={flow.createdId}
+        promptClosed={flow.promptClosed}
+        activating={flow.activating}
+        onFinishAsDraft={flow.finishAsDraft}
+        onActivate={flow.activateNow}
       />
     </Container>
   );
