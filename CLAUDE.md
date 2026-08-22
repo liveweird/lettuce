@@ -45,7 +45,8 @@ ch.nokillswit
 ├── main.kt
 ├── plugins/            cross-cutting Ktor wiring (configureXxx that only `install` plugins)
 ├── infra/db/           Flyway migrations + R2DBC connection bootstrap + the shared EventLog base behind the five `*_events` services (v2.4.1)
-├── infra/paging/       list-endpoint paging/sort/filter helper (parsePaging, applyPaging)
+├── infra/paging/       list-endpoint paging/sort/filter helper (parsePaging, applyPaging + the repeated-key 400 singleValue)
+├── infra/validation/   cross-feature text sanitation: sanitizeSingleLine (v2.35.0 — see "Single-line identity fields" in `.claude/docs/security.md`)
 ├── infra/mail/         outbound email: Mailer (smtp via Jakarta/Angus, log, disabled) + configureMail (see "Outbound email" in `.claude/docs/security.md`)
 ├── infra/crypto/       field-level encryption: FieldCipher (AES-256-GCM) + configureCrypto + the EncryptedAtRest interface the eight encrypted services implement (see "Encryption at rest" in `.claude/docs/security.md`)
 ├── audit/              security audit trail: `audit(event, fields…)` → AUDIT-marked structured logs (see "Audit trail" in `.claude/docs/observability.md`)
@@ -99,7 +100,7 @@ Each feature's authoritative deep-dive lives in `.claude/docs/features/`. **Befo
 - **Dictionaries & career profile** (`dictionaries/`, SPA `Dictionary*`, the career-position timeline) → `.claude/docs/features/dictionaries.md` — the four global ordered lists (three career + the pulse rotating questions), whole-document PUT semantics, and the dictionary-backed career-position timeline (V57) whose latest row derives every user's current triple.
 - **Notifications** (`notifications/`, SPA `NotificationsButton`) → `.claude/docs/features/notifications.md` — **the complete table of every situation that mints a notification** (typed structured rows, localized client-side) + the recipient-scoped routes. Read it before ANY change that creates or renders notifications.
 - **Alerts** (`alerts/`, SPA `Alert*`) → `.claude/docs/features/alerts.md` — admin-managed broadcast banners, server-side visibility windowing, the banner/strip UI contract.
-- **Migration catalog** → `.claude/docs/features/migrations.md` — the per-migration V1–V63 history. Read it before adding a migration or reasoning about schema history.
+- **Migration catalog** → `.claude/docs/features/migrations.md` — the per-migration V1–V64 history. Read it before adding a migration or reasoning about schema history.
 
 Users, teams, templates, auth, and dashboard have no separate feature doc: their rules live in `.claude/docs/authorization.md` (per-resource rules incl. `GET /api/v1/dashboard/summary`) and `.claude/docs/security.md` (login/lockout/refresh/password reset, bootstrap seeds).
 

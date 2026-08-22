@@ -40,6 +40,7 @@ files' tests are order-dependent, e.g. `users-import`); different files run conc
 only sound because **every spec file owns its server-side state exclusively** — the standing rule
 for any new or edited spec:
 
+- **Shared read-mostly actor**: `Manager CCC` signs in from `goals.spec.ts` (the skip-level chain create), `kudos.spec.ts`, and `pulse.spec.ts` — none of them mutates CCC's own account/team state, so no collision exists today; a future spec giving Manager CCC owned mutable state must check these three first.
 - **Feedbacks**: each file owns its `(subject, provider, requester)` triples outright — the server
   409s a create while an *open* (DRAFT/REQUESTED) duplicate exists, and identically-worded bell
   cards collide. Current ownership: delivery = (AAA One ← AAA Two), provide = (AAA Two ← AAA One),
@@ -91,8 +92,8 @@ scenario file is the design.
 - [`days-off.spec.ts`](scenarios/days-off.md) — requests (paid/unpaid, half-days), the manager-set yearly allowance on the drill-down with the owner's bell (v2.32.0 — the admin edit page lost the field), manager accept/reject, calendar, budgets + corrections, the mandatory-reason cancel — owner-side AND the manager-side chain cancel with the reason popover + bell receipt (v2.31.0) — and the manager's on-behalf auto-accepted recording (v2.29.0).
 - [`dictionaries.spec.ts`](scenarios/dictionaries.md) — the whole-list dictionary editor (add/reorder/rename, multilingual — EN required, translations optional) + the read-only view with EN fallback.
 - [`email-notifications.spec.ts`](scenarios/email-notifications.md) — the per-user email-mirror opt-out toggle (self + the admin-for-another-user branch, 2026-08).
-- [`feature-flags.spec.ts`](scenarios/feature-flags.md) — per-user feature flags end to end + the per-feature screen's team bulk toggle.
 - [`error-handling.spec.ts`](scenarios/error-handling.md) — the SPA's failure surfaces under injected network faults (the suite's first `page.route` interception specs, v2.34.0): load-error alerts, save-error inline alerts, and the refresh transient-vs-rejected split.
+- [`feature-flags.spec.ts`](scenarios/feature-flags.md) — per-user feature flags end to end + the per-feature screen's team bulk toggle.
 - [`feedback-delivery.spec.ts`](scenarios/feedback-delivery.md) — the receiving side: draft invisibility, Received list, bell deep link.
 - [`feedback-lifecycle-rest.spec.ts`](scenarios/feedback-lifecycle-rest.md) — create-as-SENT, provider draft delete, History/Lifecycle tabs.
 - [`feedback-provide.spec.ts`](scenarios/feedback-provide.md) — provide → draft → send → withdraw (entry via the /feedback New-feedback button + subject picker).
