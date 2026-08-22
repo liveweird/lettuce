@@ -1,7 +1,7 @@
 import { expect, login, logout, MANAGER_AAA, MANAGER_CCC, AAA_THREE, notificationCard, openBell, rowByTitle, test, uniqueText } from "./helpers";
 import type { Page } from "@playwright/test";
 
-// Goals: a manager defines a goal for a direct report and walks it around the
+// Goals: a manager defines a goal for a report and walks it around the
 // DRAFT <-> ACTIVE <-> ARCHIVED machine. Manager AAA ↔ AAA Three (the least-used seeded pair).
 // Goals are new rows, so seeded accounts are never mutated; every spec deletes what it creates
 // (delete is DRAFT-only, so cleanup deactivates first when needed).
@@ -235,6 +235,45 @@ test("the Goals-I've-set tab: Reports widens from own goals to goals set down th
   // Cleanup by the goal's own manager.
   await logout(page);
   await login(page, MANAGER_AAA);
+  await deleteGoal(page, id);
+});
+
+test("a chain manager creates a goal for a skip-level report via the widened picker", async ({ page }) => {
+  const title = uniqueText("E2E-goal-skip");
+
+  // The chain rule (v2.33.0): Manager CCC picks AAA Three — an INDIRECT report (team AAA's
+  // manager sits on team CCC) — from the create picker, which now spans the whole subtree.
+  await login(page, MANAGER_CCC);
+  await page.goto("/goals/new");
+  // getByLabel would strict-mode-collide with the Select's listbox (it shares the label) —
+  // the combobox role targets the input alone (the house Mantine-Select pattern).
+  await page.getByRole("combobox", { name: "Team member" }).click();
+  await page.getByRole("option", { name: "AAA Three" }).click();
+  await page.getByLabel("Title").fill(title);
+  await page.getByLabel("Target").fill("5");
+  await page.getByLabel("Due date").fill(todayIso());
+  const [created] = await Promise.all([
+    page.waitForResponse(
+      (r) => r.url().endsWith("/api/v1/goals") && r.request().method() === "POST" && r.ok(),
+    ),
+    page.getByRole("button", { name: "Create", exact: true }).click(),
+  ]);
+  const id = (await created.json()).id as number;
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByText("Do you want to activate the goal immediately?")).toBeVisible();
+  await dialog.getByRole("button", { name: "No", exact: true }).click();
+
+  // The creator IS the goal's manager: the draft sits in Manager CCC's own "Goals I've set"
+  // list at the DIRECT scope — no widening needed to see one's own authored goal.
+  await page.goto("/goals?tab=managed");
+  await page.getByRole("button", { name: "Filters" }).click();
+  await Promise.all([
+    page.waitForResponse((r) => r.url().includes("title=") && r.ok()),
+    page.getByLabel("Title").fill(title),
+  ]);
+  await expect(rowByTitle(page, title).getByText("Draft", { exact: true })).toBeVisible();
+
+  // Cleanup: the draft deletes from its editor, by its author.
   await deleteGoal(page, id);
 });
 

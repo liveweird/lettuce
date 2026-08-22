@@ -201,13 +201,14 @@ fun Application.configureOneOnOneRoutes() {
                 val caller = call.oneOnOneCaller()
                 val request = call.receive<OneOnOneCreateRequest>()
                 // The manager is ALWAYS the author: the caller documents their own 1:1, so there
-                // is no ADMIN create-on-behalf. The subordinate must be a current direct report
-                // (a member of a team the caller manages) — this is the relationship the feature
-                // models; the read right for higher chain managers comes later, not at creation.
+                // is no ADMIN create-on-behalf. The subordinate must be in the caller's
+                // TRANSITIVE management chain (the chain rule, v2.33.0 — a skip-level 1:1 is its
+                // own manager↔subordinate pair with its own chronology); authorship stays locked
+                // to the creator like before.
                 requireRelationship(
                     caller,
-                    { oneOnOneService.isDirectReport(caller.userId, request.subordinateId) },
-                    "You may only document 1:1 meetings with your direct reports",
+                    { oneOnOneService.managesSubordinate(caller.userId, request.subordinateId) },
+                    "You may only document 1:1 meetings with reports in your management chain",
                 )
                 // After the authz guard (403 wins over 400): no NEW 1:1s for deactivated users.
                 userService.requireNoDeactivatedUsers(listOf(request.subordinateId))

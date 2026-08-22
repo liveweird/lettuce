@@ -336,18 +336,16 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
         includeIndirect: Boolean = false,
     ): DaysOffListResult = suspendTransaction(database) {
         // One chain walk per request (the TeamKpiService.list idiom) — backs every row's
-        // canCancel capability flag; a caller managing nobody pays a single empty-frontier query.
+        // canCancel AND canResolve capability flags (both rights are chain-wide since v2.33.0);
+        // a caller managing nobody pays a single empty-frontier query.
         val subtree = transitiveSubordinateIds(callerUserId)
-        // The direct set backs canResolve (accept/reject stays a direct-manager right even on
-        // the widened managed scope) — a subset of the walk's first frontier, one cheap query.
-        val direct = directSubordinateIds(callerUserId)
         val scope: Op<Boolean> = when (view) {
             DaysOffListView.OWN -> Requests.userId eq callerUserId
-            // Direct reports by default — matching the resolve right; includeIndirect (v2.32.0,
+            // Direct reports by default — the day-to-day slice; includeIndirect (v2.32.0,
             // the drill-down's chain mode) widens to the whole subtree. Chain managers could
             // always read singles via the guard (a list scope, not an authorization boundary).
             DaysOffListView.MANAGED -> {
-                val reports = if (includeIndirect) subtree else direct
+                val reports = if (includeIndirect) subtree else directSubordinateIds(callerUserId)
                 if (reports.isEmpty()) Op.FALSE else Requests.userId inList reports
             }
             // Auditor view (HR-only, gated route-side via requireAuditListAccess): every request
@@ -398,7 +396,7 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
                     canCancel = row[Requests.status] in COUNTING_STATUSES &&
                         (row[Requests.userId].value == callerUserId || row[Requests.userId].value in subtree),
                     canResolve = row[Requests.status] == DaysOffStatus.REQUESTED &&
-                        row[Requests.userId].value in direct,
+                        row[Requests.userId].value in subtree,
                     lastModified = row[Requests.lastModified],
                 )
             }
@@ -494,13 +492,14 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
      * carry-over over the user's counting PAID requests up to [year] (one fetch, grouped in
      * Kotlin — no SQL arithmetic on R2DBC), split into the year's reserved (REQUESTED) and used
      * (ACCEPTED) days. Users without any requests still get a row. Sorted by name.
-     * [correctableIds] marks the rows whose user the caller may write corrections for (their
-     * direct reports — resolved route-side) via the `canCorrect` capability flag.
+     * [correctable] stamps every row's `canCorrect` capability flag: since v2.33.0 the
+     * corrections write is chain-wide, so every managed-view row (the caller's subtree by
+     * construction) is correctable and view=own rows never are — decided route-side.
      */
     suspend fun budgets(
         userIds: Set<UInt>,
         year: Int,
-        correctableIds: Set<UInt> = emptySet(),
+        correctable: Boolean = false,
     ): List<DaysOffBudget> = suspendTransaction(database) {
         if (userIds.isEmpty()) return@suspendTransaction emptyList()
         data class CountingRow(val year: Int, val status: DaysOffStatus, val costH: Int)
@@ -563,7 +562,7 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
                     reserved = reservedH / 2.0,
                     used = usedH / 2.0,
                     remaining = remainingHalfDays(allowance, year, usedByYear, corrections) / 2.0,
-                    canCorrect = userId in correctableIds,
+                    canCorrect = correctable,
                 )
             }
             .toList()
@@ -717,11 +716,9 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
     suspend fun remainingByUserIds(userIds: Set<UInt>, year: Int): Map<UInt, Double> =
         budgets(userIds, year).associate { it.userId to it.remaining }
 
-    /** True iff [callerId] is currently a direct manager of [ownerId] — the resolve right. */
-    suspend fun isDirectManagerOf(callerId: UInt, ownerId: UInt): Boolean =
-        suspendTransaction(database) { callerId in directManagerIds(ownerId) }
-
-    /** True iff [callerId] is anywhere in [ownerId]'s transitive management chain — the read right. */
+    /** True iff [callerId] is anywhere in [ownerId]'s transitive management chain — the read
+     * right, and since v2.33.0 (the chain rule) also the resolve/record/correction/allowance
+     * write rights. */
     suspend fun managesOwner(callerId: UInt, ownerId: UInt): Boolean =
         suspendTransaction(database) { isInManagementChain(callerId, ownerId) }
 

@@ -383,13 +383,10 @@ class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: 
             stats
         }
 
-    /** True iff [subordinateId] is currently a member of a non-deleted team [managerId] manages. */
-    suspend fun isDirectReport(managerId: UInt, subordinateId: UInt): Boolean =
-        suspendTransaction(database) { subordinateId in directSubordinateIds(managerId) }
-
     /**
      * True iff [managerId] is in [subordinateId]'s management chain — backs
-     * [ch.nokillswit.authz.requirePerformanceReviewReadAllowingManager]'s lazy chain check; the
+     * [ch.nokillswit.authz.requirePerformanceReviewReadAllowingManager]'s lazy chain check and,
+     * since v2.33.0 (the chain rule), the create-time relationship guard; the
      * walk itself lives in teams/ManagementChain.kt and is shared with the sibling features.
      */
     suspend fun managesSubordinate(managerId: UInt, subordinateId: UInt): Boolean =

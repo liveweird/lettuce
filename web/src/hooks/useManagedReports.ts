@@ -4,10 +4,11 @@ import { listAllTeamMembers } from "../api/teams";
 import { groupTeamRows } from "../utils/teamRows";
 
 /**
- * The ONE cached direct-reports pool behind every "pick a report" Select (goal / 1:1 /
+ * The ONE cached reports pool behind every "pick a report" Select (goal / 1:1 /
  * review creates, the days-off on-behalf picker) — the useAllUsers sibling for
- * `view=managed`. Pre-audit each screen ran its own copy of this query under a per-picker
- * cache key with its own dedupe/sort variant (2026-08 audit round).
+ * `view=managed`. Since v2.33.0 (the chain rule) it spans the caller's whole TRANSITIVE
+ * subtree (`includeIndirect`), matching the widened create/record rights. Pre-audit each
+ * screen ran its own copy of this query under a per-picker cache key (2026-08 audit round).
  *
  * ALL pages (the single-page-picker lesson): rows arrive one per (user, team), so a single
  * page of 100 truncates around ~50 reports across two teams; groupTeamRows dedupes to one
@@ -19,8 +20,8 @@ export function useManagedReports(enabled: boolean): {
   reportsError: boolean;
 } {
   const { data, isError } = useQuery({
-    queryKey: ["teamMembers", "managedReports"],
-    queryFn: () => listAllTeamMembers("managed"),
+    queryKey: ["teamMembers", "managedReports", "indirect"],
+    queryFn: () => listAllTeamMembers("managed", true),
     staleTime: 5 * 60 * 1000,
     enabled,
   });

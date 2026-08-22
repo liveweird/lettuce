@@ -35,8 +35,9 @@ const TYPES = ["PAID", "UNPAID"] as const;
  * server enforces the same rule with a 409).
  *
  * With `?onBehalf=1` (v2.29.0, the CreateFeedback picker-mode precedent — no separate route)
- * the same form becomes the manager-side recording screen: a direct-report picker, the budget
- * preview reading the PICKED report's managed-budget row, and a "Submit auto-accepted" submit —
+ * the same form becomes the manager-side recording screen: a report picker over the caller's
+ * whole transitive subtree (the chain rule, v2.33.0), the budget preview reading the PICKED
+ * report's managed-budget row, and a "Submit auto-accepted" submit —
  * the entry is born ACCEPTED with the caller as resolver (the vacation-history population flow).
  */
 export default function CreateDaysOff() {
@@ -59,8 +60,9 @@ export default function CreateDaysOff() {
   const [submitting, setSubmitting] = useState(false);
   const subjectId = onBehalf && subjectPick != null ? Number(subjectPick) : null;
 
-  // On-behalf mode's picker pool: the caller's direct reports, minus the caller — a manager
-  // on their own roster is 403'd server-side (nobody records on their own behalf).
+  // On-behalf mode's picker pool: the caller's whole subtree (chain-wide since v2.33.0),
+  // minus the caller — a manager on their own roster is 403'd server-side (nobody records
+  // on their own behalf).
   const { reports, reportsError } = useManagedReports(onBehalf);
   const reportOptions = toReportOptions(reports.filter((p) => p.userId !== getUserId()));
 
@@ -71,10 +73,13 @@ export default function CreateDaysOff() {
   const year = Number(startDate.slice(0, 4)) || new Date().getFullYear();
   // The budget preview follows the mode: the caller's own row, or — on behalf — the PICKED
   // report's row out of the managed-budgets view (the UserDaysOff client-side-filter idiom).
+  // On behalf the fetch runs in chain mode so a subtree pick still finds its row (v2.33.0).
   const budgetView = onBehalf ? "managed" : "own";
   const budgetQuery = useQuery({
-    queryKey: ["daysOffBudgets", budgetView, year],
-    queryFn: () => listDaysOffBudgets(budgetView, year),
+    queryKey: onBehalf
+      ? ["daysOffBudgets", budgetView, "indirect", year]
+      : ["daysOffBudgets", budgetView, year],
+    queryFn: () => listDaysOffBudgets(budgetView, year, onBehalf ? { includeIndirect: true } : undefined),
     enabled: Number.isFinite(year),
   });
   const budget = onBehalf

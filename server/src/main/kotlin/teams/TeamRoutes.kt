@@ -4,9 +4,7 @@ import ch.nokillswit.audit.audit
 import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.isHr
-import ch.nokillswit.authz.requireCanReassignManager
-import ch.nokillswit.authz.requireSelfOrAdmin
-import ch.nokillswit.authz.requireTeamManagerOrAdmin
+import ch.nokillswit.authz.requireAdmin
 import ch.nokillswit.daysoff.DaysOffServiceKey
 import ch.nokillswit.feedbacks.FeedbackServiceKey
 import ch.nokillswit.goals.GoalServiceKey
@@ -234,7 +232,10 @@ fun Application.configureTeamRoutes() {
             post<Teams> {
                 val caller = call.caller()
                 val team = call.receive<Team>()
-                requireSelfOrAdmin(caller, team.managerId)
+                // Team structure is org design — ADMIN territory (v2.33.0; until then any user
+                // could create a team naming themselves manager). The chain rule deliberately
+                // does not apply here.
+                requireAdmin(caller)
                 validateTeam(team)
                 // Every reference is new at create — a deactivated member or manager is a 400.
                 userService.requireNoDeactivatedUsers(team.memberIds.toSet() + team.managerId)
@@ -260,10 +261,10 @@ fun Application.configureTeamRoutes() {
                 val caller = call.caller()
                 val existing = teamService.read(route.id)
                     ?: throw NotFoundException("Team not found")
-                requireTeamManagerOrAdmin(caller, existing.managerId)
+                // ADMIN-only since v2.33.0 (the manager's own edit right is gone — team
+                // structure is org design; reassignment needs no separate guard anymore).
+                requireAdmin(caller)
                 val team = call.receive<Team>()
-                // Authz before validation: an unauthorized reassignment is 403, not 400.
-                requireCanReassignManager(caller, existing.managerId, team.managerId)
                 validateTeam(team)
                 // Delta only: newly added members and a CHANGED manager. Resubmitting a member
                 // already on the roster (or the unchanged manager) is not a new assignment —
@@ -300,7 +301,7 @@ fun Application.configureTeamRoutes() {
                 val caller = call.caller()
                 val existing = teamService.read(route.id)
                     ?: throw NotFoundException("Team not found")
-                requireTeamManagerOrAdmin(caller, existing.managerId)
+                requireAdmin(caller)
                 if (teamService.delete(route.id) == 0) {
                     throw NotFoundException("Team not found")
                 }
@@ -315,7 +316,7 @@ fun Application.configureTeamRoutes() {
                 val caller = call.caller()
                 val existing = teamService.read(route.parent.id)
                     ?: throw NotFoundException("Team not found")
-                requireTeamManagerOrAdmin(caller, existing.managerId)
+                requireAdmin(caller)
                 // Only an actually-new member is a new assignment — re-PUT of an existing
                 // (possibly deactivated) member stays the idempotent no-op it is today.
                 if (route.userId !in existing.memberIds) {
@@ -342,7 +343,7 @@ fun Application.configureTeamRoutes() {
                 val caller = call.caller()
                 val existing = teamService.read(route.parent.id)
                     ?: throw NotFoundException("Team not found")
-                requireTeamManagerOrAdmin(caller, existing.managerId)
+                requireAdmin(caller)
                 val changed = teamService.removeMember(route.parent.id, route.userId)
                 if (changed == null) {
                     throw NotFoundException("Team not found")

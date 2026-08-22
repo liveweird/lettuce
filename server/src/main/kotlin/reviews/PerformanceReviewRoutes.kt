@@ -187,12 +187,14 @@ fun Application.configurePerformanceReviewRoutes() {
                 val caller = call.reviewCaller()
                 val request = call.receive<PerformanceReviewCreateRequest>()
                 // The manager is always the caller (no create-on-behalf, not even for ADMIN) and
-                // the subordinate must be a direct report right now. Checked before payload
-                // validation so an outsider's malformed request is still 403, not 400.
+                // the subordinate must be in the caller's TRANSITIVE chain right now (the chain
+                // rule, v2.33.0; one review per (subordinate, period) makes it first-writer-wins
+                // — a second chain manager hits the 409). Checked before payload validation so
+                // an outsider's malformed request is still 403, not 400.
                 requireRelationship(
                     caller,
-                    { reviewService.isDirectReport(caller.userId, request.subordinateId) },
-                    "You may only review your direct reports",
+                    { reviewService.managesSubordinate(caller.userId, request.subordinateId) },
+                    "You may only review reports in your management chain",
                 )
                 // After the authz guard (403 wins over 400): no NEW reviews for deactivated users.
                 userService.requireNoDeactivatedUsers(listOf(request.subordinateId))

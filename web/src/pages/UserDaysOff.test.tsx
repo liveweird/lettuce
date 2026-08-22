@@ -147,10 +147,10 @@ describe("UserDaysOff", () => {
     });
   });
 
-  test("a chain-only manager keeps the allowance editor but gets read-only corrections", async () => {
-    // canCorrect=false marks a row whose user the caller manages only transitively — the
-    // corrections write stays a direct-manager right, the allowance is chain-wide.
-    setupMocks({ ...BUDGET, canCorrect: false });
+  test("a chain manager gets the allowance editor AND editable corrections (v2.33.0)", async () => {
+    // The chain rule: every managed-view budget row carries canCorrect, so a transitively
+    // managing caller edits corrections exactly like a direct manager.
+    setupMocks();
     renderPage("/users/9/days-off?name=Riley%20Report&from=subordinates");
 
     expect(
@@ -158,7 +158,7 @@ describe("UserDaysOff", () => {
     ).toBeInTheDocument();
     await userEvent.click(screen.getByLabelText("Budget corrections of Riley Report"));
     expect(await screen.findByText("No corrections yet.")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Add correction" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Add correction" })).toBeInTheDocument();
   });
 
   test("a caller with no manager origin and no audit mode redirects to /days-off", async () => {

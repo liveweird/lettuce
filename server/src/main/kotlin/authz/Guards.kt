@@ -105,18 +105,6 @@ fun requireAuditListAccess(caller: CallerPrincipal, resource: String, targetUser
     )
 }
 
-fun requireTeamManagerOrAdmin(caller: CallerPrincipal, managerId: UInt) {
-    if (caller.isAdmin()) return
-    if (caller.userId != managerId) throw ForbiddenException("Only the team manager may perform this action")
-}
-
-/** Reassigning a team's manager (handing the team to a different user) is admin-only; a current
- *  manager may edit their team but not transfer ownership. No-op when the manager is unchanged. */
-fun requireCanReassignManager(caller: CallerPrincipal, current: UInt, requested: UInt) {
-    if (requested == current) return
-    if (!caller.isAdmin()) throw ForbiddenException("Only an admin may reassign a team's manager")
-}
-
 fun requireNotificationRecipient(caller: CallerPrincipal, recipientId: UInt) {
     // Recipient-only for everyone — notifications are personal alerts; not even ADMIN
     // (a management role) or HR (whose audit read covers the primary records) may touch them.
@@ -130,8 +118,8 @@ fun requireCanAssignRoles(caller: CallerPrincipal, current: Set<UserRole>, reque
 
 /**
  * Writing a user's career position history (v2.15.0): any manager in the target's TRANSITIVE
- * management chain — and nobody else. Deliberately wider than the days-off corrections write
- * (direct managers only): career progression is the chain's shared record, and a skip-level
+ * management chain — and nobody else (the shape the v2.33.0 chain rule later generalized):
+ * career progression is the chain's shared record, and a skip-level
  * manager concluding a position is a feature. ADMIN gets nothing (the management role lost the
  * career write in v2.15.0), HR stays read-only, and the user never writes their own history.
  */
@@ -528,21 +516,22 @@ suspend fun requireDaysOffRead(
 }
 
 /**
- * Accept/reject: a CURRENT direct manager of the owner only — never the owner, never a chain
- * manager higher up, and nobody else (ADMIN included, mirroring [requireGoalWrite]); an admin
- * who is themselves a direct manager qualifies via the membership check like anyone.
+ * Accept/reject (and the corrections writes riding the same right): any manager in the owner's
+ * TRANSITIVE management chain — the chain rule (v2.33.0; direct-only until then) — never the
+ * owner, and nobody else (ADMIN included, mirroring [requireGoalWrite]); an admin who is
+ * themselves in the chain qualifies via the walk like anyone.
  */
 @Suppress("UnusedParameter") // caller kept for the uniform caller-first guard signature
-suspend fun requireDaysOffResolve(caller: CallerPrincipal, isDirectManager: suspend () -> Boolean) {
-    if (!isDirectManager()) {
-        throw ForbiddenException("Only a direct manager of the requester may resolve a days-off request")
+suspend fun requireDaysOffResolve(caller: CallerPrincipal, managesOwner: suspend () -> Boolean) {
+    if (!managesOwner()) {
+        throw ForbiddenException("Only a manager in the requester's management chain may resolve a days-off request")
     }
 }
 
 /**
- * Cancel (reworked v2.31.0): the owner, or any manager in the owner's TRANSITIVE chain — a
- * deliberate widening vs the direct-manager-only resolve right (the career-position-write
- * rationale: withdrawing leave is the chain's shared prerogative). Nobody else — ADMIN and
+ * Cancel (reworked v2.31.0): the owner, or any manager in the owner's TRANSITIVE chain (the
+ * career-position-write rationale: withdrawing leave is the chain's shared prerogative — and
+ * since v2.33.0 the resolve right matches under the chain rule). Nobody else — ADMIN and
  * HR included. Cheap owner check first, the chain walk only when needed (the
  * [requireDaysOffCorrectionsRead] shape).
  */
@@ -559,8 +548,8 @@ suspend fun requireDaysOffCancel(
 /**
  * Setting a user's paid days-off allowance (v2.32.0 — the right moved here from the ADMIN-only
  * users PUT): any manager in the target's TRANSITIVE chain — the cancel-right rationale (the
- * yearly budget is the chain's shared prerogative), deliberately wider than the direct-only
- * corrections write. Nobody else — the user themselves, ADMIN, and HR included; a manager-less
+ * yearly budget is the chain's shared prerogative; since v2.33.0 the corrections write matches
+ * under the chain rule). Nobody else — the user themselves, ADMIN, and HR included; a manager-less
  * user's allowance is unsettable (the corrections gap, accepted). Guard-first (before payload
  * validation and any read), so an unknown, soft-deleted, or self-targeted id is the same
  * uniform 403 as a non-manager (the corrections-POST idiom).

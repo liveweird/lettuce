@@ -171,7 +171,26 @@ class GoalRoutesTest {
     }
 
     @Test
-    fun `create rejects non-direct-reports, nonexistent users, and create-on-behalf`() = testApplication {
+    fun `a chain manager creates a goal for a skip-level report and its DRAFT stays theirs`() = testApplication {
+        usePostgresTestcontainer()
+        // The chain rule (v2.33.0): the grand-manager sets a goal for the skip-level report —
+        // they become the goal's manager-of-record; the DRAFT stays private to that pair
+        // (the direct manager, a mere chain reader, still can't see or write it).
+        val pair = seedPair()
+        val (grandEmail, grandId) = seedGrandManager(pair)
+        val grand = authedClient(grandEmail, "pw")
+
+        val created = grand.createGoal(pair.subordinateId)
+        assertEquals(grandId, created.managerId)
+        assertEquals(GoalStatus.DRAFT, created.status)
+        assertEquals(HttpStatusCode.OK, grand.get("/api/v1/goals/${created.id}").status)
+        val directManager = authedClient(pair.managerEmail, "pw")
+        assertEquals(HttpStatusCode.Forbidden, directManager.get("/api/v1/goals/${created.id}").status)
+        assertEquals(HttpStatusCode.Forbidden, directManager.delete("/api/v1/goals/${created.id}").status)
+    }
+
+    @Test
+    fun `create rejects outsiders, nonexistent users, and create-on-behalf`() = testApplication {
         usePostgresTestcontainer()
         val pair = seedPair()
         val outsiderEmail = uniqueEmail("goal-outsider")

@@ -198,6 +198,13 @@ describe("CreateDaysOff", () => {
     expect(
       await screen.findByText(`Remaining paid-days budget for ${YEAR}: 10.`),
     ).toBeInTheDocument();
+    // Both on-behalf fetches run in chain mode (v2.33.0), so a subtree pick still resolves.
+    const membersCall = mockFetch.mock.calls.find(([u]) => String(u).includes("/api/v1/teams/members"));
+    expect(String(membersCall?.[0])).toContain("includeIndirect=true");
+    const budgetsCall = mockFetch.mock.calls.find(([u]) =>
+      String(u).includes("/api/v1/days-off/budgets") && String(u).includes("view=managed"),
+    );
+    expect(String(budgetsCall?.[0])).toContain("includeIndirect=true");
   });
 
   test("on-behalf submit posts the picked userId, toasts, and returns to the team tab", async () => {

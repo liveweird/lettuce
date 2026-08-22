@@ -15,7 +15,7 @@
   "createTitle": "Nowy cel",
   "createHint": "Wybierz członka zespołu i zdefiniuj cel. Zaczyna jako szkic — aktywuj go, gdy ma zacząć obowiązywać.",
   "pickSubordinate": "Wybierz członka zespołu",
-  "noReports": "Brak bezpośrednich podwładnych",
+  "noReports": "Brak podwładnych",
   "userFallback": "użytkownik nr {{id}}",
   "title": "Tytuł",
   "createdAt": "Utworzono",
@@ -119,7 +119,7 @@
     "invalidTransition": "Ta akcja nie jest dostępna w bieżącym statusie celu.",
     "updateFailed": "Nie udało się zaktualizować celu.",
     "updateFailedStatus": "Nie udało się zaktualizować celu (błąd {{status}}).",
-    "createForbidden": "Możesz wyznaczać cele tylko swoim bezpośrednim podwładnym.",
+    "createForbidden": "Możesz wyznaczać cele tylko osobom, którymi zarządzasz (bezpośrednio lub pośrednio).",
     "createFailed": "Nie udało się utworzyć celu.",
     "activateAfterCreateFailed": "Cel został utworzony jako szkic, ale jego aktywacja się nie powiodła — możesz aktywować go z jego widoku.",
     "activateOverdue": "Termin celu minął — ustaw nowy termin, zanim go aktywujesz."

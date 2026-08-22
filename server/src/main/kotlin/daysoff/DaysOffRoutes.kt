@@ -101,7 +101,7 @@ fun Application.configureDaysOffRoutes() {
         val caller = call.daysOffCaller()
         val existing = daysOffService.read(requestId)
             ?: throw NotFoundException("Days-off request not found")
-        requireDaysOffResolve(caller) { daysOffService.isDirectManagerOf(caller.userId, existing.userId) }
+        requireDaysOffResolve(caller) { daysOffService.managesOwner(caller.userId, existing.userId) }
         val toNotify = daysOffService.transition(requestId, caller.userId, target)
             ?: throw NotFoundException("Days-off request not found")
         toNotify.forEach { notificationService.create(it) }
@@ -149,7 +149,7 @@ fun Application.configureDaysOffRoutes() {
         val caller = call.daysOffCaller()
         val existing = daysOffService.readCorrection(correctionId)
             ?: throw NotFoundException("Days-off correction not found")
-        requireDaysOffResolve(caller) { daysOffService.isDirectManagerOf(caller.userId, existing.userId) }
+        requireDaysOffResolve(caller) { daysOffService.managesOwner(caller.userId, existing.userId) }
         return existing
     }
 
@@ -211,19 +211,20 @@ fun Application.configureDaysOffRoutes() {
             post<DaysOff> {
                 val caller = call.daysOffCaller()
                 // Without a userId the owner is the caller — a personal ask entering REQUESTED.
-                // With one (v2.29.0) a current DIRECT MANAGER of that user records the entry on
-                // their behalf, born ACCEPTED with the caller as resolver (the accept right
-                // makes a separate approval step redundant); ADMIN/HR get nothing special.
+                // With one (v2.29.0; chain-wide since v2.33.0) a manager in that user's
+                // TRANSITIVE chain records the entry on their behalf, born ACCEPTED with the
+                // caller as resolver (the accept right makes a separate approval step
+                // redundant); ADMIN/HR get nothing special.
                 val request = call.receive<DaysOffCreateRequest>()
                 val targetId = request.userId
                 if (targetId != null) {
                     // Guard before validation — 403 wins over 400, the goals-create shape. The
-                    // self check rides the same membership test (nobody is their own direct
-                    // manager), so a self-targeting userId is also a 403, not a special case.
+                    // explicit self exclusion keeps a manager on their own roster from
+                    // qualifying via their own team (the allowance-PUT idiom).
                     requireRelationship(
                         caller,
-                        { targetId != caller.userId && daysOffService.isDirectManagerOf(caller.userId, targetId) },
-                        "Only a current direct manager may record days off on behalf of a report",
+                        { targetId != caller.userId && daysOffService.managesOwner(caller.userId, targetId) },
+                        "Only a manager in the report's management chain may record days off on their behalf",
                     )
                     // After the authz guard: no NEW entries for deactivated users (house rule).
                     userService.requireNoDeactivatedUsers(listOf(targetId))
@@ -302,9 +303,9 @@ fun Application.configureDaysOffRoutes() {
             post<DaysOffCorrections> {
                 val caller = call.daysOffCaller()
                 val write = call.receive<DaysOffCorrectionWrite>()
-                // Writes belong to the subordinate's CURRENT direct managers (the resolve
-                // right). Guard before validation — 403 wins over 400, the house convention.
-                requireDaysOffResolve(caller) { daysOffService.isDirectManagerOf(caller.userId, write.userId) }
+                // Writes belong to the subordinate's management chain (the resolve right,
+                // chain-wide since v2.33.0). Guard before validation — 403 wins over 400.
+                requireDaysOffResolve(caller) { daysOffService.managesOwner(caller.userId, write.userId) }
                 validateDaysOffCorrection(write)
                 val (id, notification) = daysOffService.createCorrection(caller.userId, write)
                 call.response.header(
@@ -376,28 +377,20 @@ fun Application.configureDaysOffRoutes() {
                 if (includeIndirect != null && view != "managed") {
                     throw BadRequestException("includeIndirect is only supported for view=managed")
                 }
-                // The direct set doubles as the rows' canCorrect capability (the corrections
-                // write right stays direct-only even on the widened scope).
-                val userIds: Set<UInt>
-                val correctableIds: Set<UInt>
-                when (view) {
-                    "own" -> {
-                        userIds = setOf(caller.userId)
-                        correctableIds = emptySet()
-                    }
-                    "managed" -> {
-                        correctableIds = daysOffService.directReports(caller.userId)
-                        userIds = if (includeIndirect == true) {
-                            daysOffService.transitiveReports(caller.userId)
-                        } else {
-                            correctableIds
-                        }
+                // canCorrect (chain-wide since v2.33.0): every managed-view row is in the
+                // caller's subtree by construction, so all of them are correctable; own never.
+                val userIds: Set<UInt> = when (view) {
+                    "own" -> setOf(caller.userId)
+                    "managed" -> if (includeIndirect == true) {
+                        daysOffService.transitiveReports(caller.userId)
+                    } else {
+                        daysOffService.directReports(caller.userId)
                     }
                     else -> throw BadRequestException("Unknown view: $view (allowed: own, managed)")
                 }
                 call.respond(
                     HttpStatusCode.OK,
-                    DaysOffBudgetList(daysOffService.budgets(userIds, year, correctableIds)),
+                    DaysOffBudgetList(daysOffService.budgets(userIds, year, correctable = view == "managed")),
                 )
             }
             put<DaysOffAllowance> {

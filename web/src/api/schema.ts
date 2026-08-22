@@ -627,10 +627,10 @@ export interface paths {
         put?: never;
         /**
          * Create a team
-         * @description Any authenticated user may create a team, but the `managerId` in
-         *     the request body must equal the caller's own user id (ADMIN may
-         *     designate any user). Referencing a **deactivated** user as manager
-         *     or member is rejected with `400`.
+         * @description ADMIN only (v2.33.0 — team structure is org design; the former
+         *     create-your-own-team right for regular users is gone). Any user may
+         *     be designated as `managerId`. Referencing a **deactivated** user as
+         *     manager or member is rejected with `400`.
          */
         post: operations["createTeam"];
         delete?: never;
@@ -725,13 +725,13 @@ export interface paths {
         get: operations["getTeam"];
         /**
          * Replace a team
-         * @description Requires the caller to be the team's current manager, or to be ADMIN. Reassigning the manager (changing `managerId` to a different user) is ADMIN-only — a current manager may edit their team but not hand it off (403 otherwise). NEWLY adding a **deactivated** member or changing the manager to a deactivated user is rejected with `400`; resubmitting an unchanged existing reference is not validated, so a team containing a since-deactivated user stays editable.
+         * @description ADMIN only (v2.33.0 — team structure is org design; the manager's own edit right is gone). NEWLY adding a **deactivated** member or changing the manager to a deactivated user is rejected with `400`; resubmitting an unchanged existing reference is not validated, so a team containing a since-deactivated user stays editable.
          */
         put: operations["replaceTeam"];
         post?: never;
         /**
          * Delete a team
-         * @description Requires the caller to be the team's current manager, or to be ADMIN.
+         * @description ADMIN only (v2.33.0 — team structure is org design).
          */
         delete: operations["deleteTeam"];
         options?: never;
@@ -752,13 +752,13 @@ export interface paths {
         get?: never;
         /**
          * Add a member to the team (idempotent)
-         * @description Requires the caller to be the team's current manager, or to be ADMIN. NEWLY adding a **deactivated** user is rejected with `400`; re-adding an already-present member (even a since-deactivated one) stays the idempotent no-op.
+         * @description ADMIN only (v2.33.0 — team structure is org design). NEWLY adding a **deactivated** user is rejected with `400`; re-adding an already-present member (even a since-deactivated one) stays the idempotent no-op.
          */
         put: operations["addTeamMember"];
         post?: never;
         /**
          * Remove a member from the team (idempotent)
-         * @description Requires the caller to be the team's current manager, or to be ADMIN.
+         * @description ADMIN only (v2.33.0 — team structure is org design).
          *     Idempotent: removing a user who is not (or no longer) a member is a no-op `204`.
          *     Zero-member teams are allowed, so removing the last member succeeds. The manager
          *     is never a `team_members` row, so this endpoint cannot affect them.
@@ -1112,8 +1112,10 @@ export interface paths {
         /**
          * Document a new 1:1 meeting
          * @description Creates a 1:1 meeting document. The **manager is always the author**: the caller becomes
-         *     the meeting's manager (never taken from the body), and the subordinate must be one of the
-         *     caller's **direct reports** at creation time — there is no ADMIN create-on-behalf.
+         *     the meeting's manager (never taken from the body), and the subordinate must be in the
+         *     caller's **transitive management chain** at creation time (the chain rule, v2.33.0 —
+         *     direct reports only until then; a skip-level 1:1 is its own manager+subordinate pair
+         *     with its own chronology) — there is no ADMIN create-on-behalf.
          *     A **deactivated** subordinate is rejected with `400`.
          *
          *     **Chronological order**: `meetingDate` may not be strictly earlier than the pair's
@@ -1310,10 +1312,11 @@ export interface paths {
         get: operations["listGoals"];
         put?: never;
         /**
-         * Set a new goal for a direct report
+         * Set a new goal for a report
          * @description Creates a goal, always in **DRAFT** status. The **manager is always the author**: the
          *     caller becomes the goal's manager (never taken from the body), and the subordinate must
-         *     be one of the caller's **direct reports** at creation time — there is no ADMIN
+         *     be in the caller's **transitive management chain** at creation time (the chain rule,
+         *     v2.33.0 — direct reports only until then) — there is no ADMIN
          *     create-on-behalf. A **deactivated** subordinate is rejected with `400`.
          *
          *     The value fields are type-specific: `targetValue` is **required** for NUMBER and
@@ -2017,10 +2020,12 @@ export interface paths {
         get: operations["listPerformanceReviews"];
         put?: never;
         /**
-         * Create a performance review for a direct report
+         * Create a performance review for a report
          * @description Creates a performance review, always in **DRAFT** status. The **manager is always the
          *     author**: the caller becomes the review's manager (never taken from the body), and the
-         *     subordinate must be one of the caller's **direct reports** at creation time — there is
+         *     subordinate must be in the caller's **transitive management chain** at creation time
+         *     (the chain rule, v2.33.0 — direct reports only until then; the one-review-per-period
+         *     rule below makes it first-writer-wins across the chain) — there is
          *     no ADMIN create-on-behalf. The stored manager stays the author even if the subordinate
          *     later moves teams (the goals model). A **deactivated** subordinate is rejected with `400`.
          *
@@ -2245,11 +2250,12 @@ export interface paths {
          *
          *     - `view=own` (the default): the caller's own requests, at every status.
          *     - `view=managed`: requests of the caller's **direct reports** (members of non-deleted
-         *       teams the caller manages), at every status — the same scope as the accept/reject
-         *       right. With `includeIndirect=true` (v2.32.0, strict boolean, 400 on other views)
+         *       teams the caller manages), at every status — the day-to-day slice. With
+         *       `includeIndirect=true` (v2.32.0, strict boolean, 400 on other views)
          *       the scope widens to the caller's whole **transitive management subtree** — the
          *       drill-down's chain mode; the per-row `canResolve` capability marks which rows the
-         *       caller may actually accept/reject (their direct reports' REQUESTED rows only). A
+         *       caller may actually accept/reject (REQUESTED rows of anyone in their subtree —
+         *       the accept/reject right is chain-wide since v2.33.0). A
          *       caller who manages no team gets an empty page.
          *     - `view=user` (HR only, else `403`; requires `userId`): the auditor view — every
          *       request of the given user, at every status. HR usage is recorded in the security
@@ -2276,11 +2282,12 @@ export interface paths {
         /**
          * Request days off
          * @description Creates a days-off request. Without `userId` the **owner is the caller** and the
-         *     request enters **REQUESTED**. With `userId` (v2.29.0) a **current direct manager** of
-         *     that user records the entry **on their behalf**: it is born **ACCEPTED** with the
+         *     request enters **REQUESTED**. With `userId` (v2.29.0) a **manager in that user's
+         *     transitive management chain** (chain-wide since v2.33.0 — direct managers only until
+         *     then) records the entry **on their behalf**: it is born **ACCEPTED** with the
          *     caller stamped as the resolver — the vacation-history population flow (the caller
-         *     already holds the accept right). Anyone else — the target themselves, chain managers
-         *     higher up, ADMIN, HR — is `403`; a deactivated target is `400` (the house
+         *     already holds the accept right). Anyone else — the target themselves, ADMIN, HR —
+         *     is `403`; a deactivated target is `400` (the house
          *     no-new-assignments rule). Past periods are as valid here as on self-requests.
          *
          *     One request covers one **consecutive period** `[startDate, endDate]` (a single day is
@@ -2301,11 +2308,12 @@ export interface paths {
          *     REQUESTED request already reserves budget, and unused budget carries over between
          *     calendar years (see `GET /days-off/budgets`). UNPAID requests are unlimited.
          *
-         *     A self-request notifies each of the owner's **current direct managers**; a user with
-         *     no manager notifies nobody (and nobody can accept — a documented top-of-chain
-         *     limitation). An on-behalf recording instead notifies **both parties** — the owner and
-         *     the acting manager (a durable receipt); other direct managers see the row in their
-         *     managed list.
+         *     A self-request notifies each of the owner's **current direct managers** (deliberately
+         *     NOT the whole chain — the chain right is a substitute mechanism, pull not push); a
+         *     user with no manager notifies nobody (and nobody can accept — a documented
+         *     top-of-chain limitation). An on-behalf recording instead notifies **both parties** —
+         *     the owner and the acting manager (a durable receipt); other managers see the row in
+         *     their managed list.
          */
         post: operations["createDaysOff"];
         delete?: never;
@@ -2376,7 +2384,8 @@ export interface paths {
          *     subtree** with `includeIndirect=true` (v2.32.0 — the drill-down's chain mode; strict
          *     boolean, 400 with any other view). Rows sort by name. Each row carries the
          *     server-computed `canCorrect` capability — whether the CALLER may write budget
-         *     corrections for that user (their direct reports only; always false on view=own).
+         *     corrections for that user (chain-wide since v2.33.0, so true on every managed-view
+         *     row; always false on view=own).
          */
         get: operations["listDaysOffBudgets"];
         put?: never;
@@ -2399,9 +2408,9 @@ export interface paths {
          * Set a user's annual paid days-off allowance
          * @description Sets the target user's annual paid days-off allowance in whole days (v2.32.0 — the
          *     right moved here from the ADMIN-only users PUT). Allowed for any **manager in the
-         *     target's transitive management chain** — deliberately wider than the direct-only
-         *     corrections write (the cancellation-right rationale: the yearly budget is the chain's
-         *     shared prerogative) — and for **nobody else**: not the user themselves, not ADMIN,
+         *     target's transitive management chain** (the cancellation-right rationale: the yearly
+         *     budget is the chain's shared prerogative — since v2.33.0 the corrections write
+         *     matches under the chain rule) — and for **nobody else**: not the user themselves, not ADMIN,
          *     not HR. A manager-less user's allowance is therefore unsettable (the corrections
          *     gap, accepted). The guard runs before validation and before any read, so an unknown,
          *     soft-deleted, or self-targeted id answers the same uniform 403 as a non-manager.
@@ -2443,9 +2452,10 @@ export interface paths {
          * @description Adds a ± adjustment (whole or half days) to a subordinate's paid-days budget for a
          *     chosen calendar year, with a mandatory reasoning comment. **No approval workflow** —
          *     the correction takes effect immediately and enters the carry-over math attributed to
-         *     its year (an earlier year's correction flows forward automatically). Only a **current
-         *     direct manager** of the subordinate may create one; the author is recorded
-         *     (display-only — edit rights follow the current direct managers). A SUBTRACT may push
+         *     its year (an earlier year's correction flows forward automatically). Only a **manager
+         *     in the subordinate's transitive management chain** (chain-wide since v2.33.0) may
+         *     create one; the author is recorded
+         *     (display-only — edit rights follow the current chain). A SUBTRACT may push
          *     a year's balance negative (the deficit carries forward — the allowance-cut
          *     precedent); only *request creation* is budget-gated. The subordinate is notified.
          */
@@ -2469,8 +2479,9 @@ export interface paths {
         /**
          * Edit a paid-days budget correction
          * @description Replaces a correction's year, amount, and comment. The **target user is immutable**
-         *     (the payload's `userId` is ignored). Only a **current direct manager** of the
-         *     correction's subordinate may edit — regardless of who authored it. Edits notify
+         *     (the payload's `userId` is ignored). Only a **manager in the correction's
+         *     subordinate's transitive management chain** (chain-wide since v2.33.0) may edit —
+         *     regardless of who authored it. Edits notify
          *     nobody (the budget numbers are live).
          */
         put: operations["updateDaysOffCorrection"];
@@ -2478,8 +2489,8 @@ export interface paths {
         /**
          * Delete a paid-days budget correction
          * @description Soft-deletes a correction (it drops out of the list and the budget math; the row is
-         *     retained). Only a **current direct manager** of the correction's subordinate may
-         *     delete. Notifies nobody.
+         *     retained). Only a **manager in the correction's subordinate's transitive management
+         *     chain** (chain-wide since v2.33.0) may delete. Notifies nobody.
          */
         delete: operations["deleteDaysOffCorrection"];
         options?: never;
@@ -2527,8 +2538,9 @@ export interface paths {
         put?: never;
         /**
          * Accept a days-off request
-         * @description Accepts a **REQUESTED** request (any other status is `409`). Only a **current direct
-         *     manager** of the owner may accept — never the owner, never a chain manager higher up,
+         * @description Accepts a **REQUESTED** request (any other status is `409`). Only a **manager in the
+         *     owner's transitive management chain** (chain-wide since v2.33.0 — direct managers
+         *     only until then) may accept — never the owner,
          *     and ADMIN gets nothing special. Stamps the resolving manager on the record and
          *     notifies the owner.
          */
@@ -2553,7 +2565,8 @@ export interface paths {
         /**
          * Reject a days-off request
          * @description Rejects a **REQUESTED** request (any other status is `409`; REJECTED is terminal).
-         *     Only a **current direct manager** of the owner may reject — the same rule as accept.
+         *     Only a **manager in the owner's transitive management chain** may reject — the same
+         *     rule as accept (chain-wide since v2.33.0).
          *     Stamps the resolving manager on the record and notifies the owner.
          */
         post: operations["rejectDaysOff"];
@@ -4172,7 +4185,7 @@ export interface components {
         OneOnOneCreateRequest: {
             /**
              * Format: int32
-             * @description Must be a direct report of the caller (the manager).
+             * @description Must be in the caller's (the manager's) transitive management chain.
              */
             subordinateId: number;
             /**
@@ -4372,7 +4385,7 @@ export interface components {
         GoalCreateRequest: {
             /**
              * Format: int32
-             * @description Must be a direct report of the caller (the manager).
+             * @description Must be in the caller's (the manager's) transitive management chain.
              */
             subordinateId: number;
             /** @description Plaintext (unlike description/summary) — lists sort and filter on it. */
@@ -4801,7 +4814,7 @@ export interface components {
         PerformanceReviewCreateRequest: {
             /**
              * Format: int32
-             * @description Must be a direct report of the caller at creation time.
+             * @description Must be in the caller's transitive management chain at creation time.
              */
             subordinateId: number;
             /**
@@ -4957,7 +4970,7 @@ export interface components {
             endHalf: boolean;
             /**
              * Format: int32
-             * @description Omitted/null: the caller requests for themselves (REQUESTED). Set: the caller — a current direct manager of this user — records the entry on their behalf, born ACCEPTED with the caller as resolver (v2.29.0). 403 for anyone else, including the target themselves.
+             * @description Omitted/null: the caller requests for themselves (REQUESTED). Set: the caller — a manager in this user's transitive management chain (chain-wide since v2.33.0) — records the entry on their behalf, born ACCEPTED with the caller as resolver (v2.29.0). 403 for anyone else, including the target themselves.
              */
             userId?: number | null;
         };
@@ -4974,7 +4987,7 @@ export interface components {
             /** @enum {string} */
             type: "PAID" | "UNPAID";
             /**
-             * @description REQUESTED → ACCEPTED | REJECTED (a direct manager resolves), plus terminal CANCELLED (the owner or a chain manager withdraws it, with a mandatory reason — v2.31.0). REQUESTED and ACCEPTED reserve paid budget; REJECTED and CANCELLED free it.
+             * @description REQUESTED → ACCEPTED | REJECTED (a chain manager resolves), plus terminal CANCELLED (the owner or a chain manager withdraws it, with a mandatory reason — v2.31.0). REQUESTED and ACCEPTED reserve paid budget; REJECTED and CANCELLED free it.
              * @enum {string}
              */
             status: "REQUESTED" | "ACCEPTED" | "REJECTED" | "CANCELLED";
@@ -5053,7 +5066,7 @@ export interface components {
             cancelReason: string | null;
             /** @description Server-computed capability (v2.31.0, the team-KPI canManage precedent): the caller may cancel this row — they own it or manage the owner transitively, and it is REQUESTED/ACCEPTED. */
             canCancel: boolean;
-            /** @description Server-computed capability (v2.32.0): the caller may accept/reject this row — it is REQUESTED and they are a CURRENT DIRECT manager of the owner. Distinguishes actionable rows on the includeIndirect-widened managed view. */
+            /** @description Server-computed capability (v2.32.0): the caller may accept/reject this row — it is REQUESTED and they are a manager in the owner's transitive chain (chain-wide since v2.33.0). Marks actionable rows honestly across views. */
             canResolve: boolean;
             /** Format: int64 */
             lastModified: number;
@@ -5131,7 +5144,7 @@ export interface components {
              * @description carriedOver + allowance + corrected − reserved − used; may be negative after a retroactive allowance cut.
              */
             remaining: number;
-            /** @description Server-computed capability (v2.32.0): the caller may write budget corrections for this user — i.e. is one of their CURRENT DIRECT managers. Always false on view=own and on chain-only (includeIndirect) rows; the allowance itself stays editable for every managed-view row (the wider chain right). */
+            /** @description Server-computed capability (v2.32.0): the caller may write budget corrections for this user — chain-wide since v2.33.0, so true on every managed-view row (includeIndirect ones included, matching the allowance right); always false on view=own. */
             canCorrect: boolean;
         };
         DaysOffBudgetList: {
@@ -5170,7 +5183,7 @@ export interface components {
             userId: number;
             /**
              * Format: int32
-             * @description Who created the correction — display-only; edit rights follow the current direct managers.
+             * @description Who created the correction — display-only; edit rights follow the current management chain.
              */
             authorId: number;
             authorName: string;
@@ -5808,8 +5821,8 @@ export interface components {
                 "application/problem+json": components["schemas"]["ProblemDetail"];
             };
         };
-        /** @description Caller is not a current direct manager of the request's owner */
-        DaysOffNotDirectManager: {
+        /** @description Caller is not a manager in the owner's transitive management chain */
+        DaysOffNotChainManager: {
             headers: {
                 [name: string]: unknown;
             };
@@ -6812,7 +6825,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
-            /** @description Caller attempted to set `managerId` to another user without being ADMIN */
+            /** @description Caller is not ADMIN */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -6946,7 +6959,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
-            /** @description Caller is not the team's manager and not ADMIN, or a non-ADMIN manager attempted to reassign `managerId` to a different user */
+            /** @description Caller is not ADMIN */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -6979,7 +6992,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            /** @description Caller is not the team's manager and not ADMIN */
+            /** @description Caller is not ADMIN */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -7021,7 +7034,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
-            /** @description Caller is not the team's manager and not ADMIN */
+            /** @description Caller is not ADMIN */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -7055,7 +7068,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            /** @description Caller is not the team's manager and not ADMIN */
+            /** @description Caller is not ADMIN */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -7605,7 +7618,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
-            /** @description The subordinate is not a direct report of the caller */
+            /** @description The subordinate is not in the caller's management chain */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -7898,7 +7911,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
-            /** @description The subordinate is not a direct report of the caller */
+            /** @description The subordinate is not in the caller's management chain */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -8920,7 +8933,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
-            /** @description The subordinate is not a direct report of the caller */
+            /** @description The subordinate is not in the caller's management chain */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -9462,7 +9475,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
-            403: components["responses"]["DaysOffNotDirectManager"];
+            403: components["responses"]["DaysOffNotChainManager"];
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -9490,7 +9503,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            403: components["responses"]["DaysOffNotDirectManager"];
+            403: components["responses"]["DaysOffNotChainManager"];
             404: components["responses"]["NotFound"];
             500: components["responses"]["InternalServerError"];
         };
@@ -9515,7 +9528,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            403: components["responses"]["DaysOffNotDirectManager"];
+            403: components["responses"]["DaysOffNotChainManager"];
             404: components["responses"]["NotFound"];
             500: components["responses"]["InternalServerError"];
         };
@@ -9567,7 +9580,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            403: components["responses"]["DaysOffNotDirectManager"];
+            403: components["responses"]["DaysOffNotChainManager"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["DaysOffInvalidTransition"];
             500: components["responses"]["InternalServerError"];
@@ -9593,7 +9606,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            403: components["responses"]["DaysOffNotDirectManager"];
+            403: components["responses"]["DaysOffNotChainManager"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["DaysOffInvalidTransition"];
             500: components["responses"]["InternalServerError"];

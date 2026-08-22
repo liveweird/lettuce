@@ -157,9 +157,8 @@ class DaysOffAllowanceTest {
         }
         assertEquals(HttpStatusCode.Created, request.status)
 
-        // Budgets: G's direct view holds only M; includeIndirect adds S. canCorrect is true
-        // only for direct reports — S's row stays false for G (the chain may edit the
-        // allowance, never write corrections).
+        // Budgets: G's direct view holds only M; includeIndirect adds S. canCorrect is
+        // chain-wide since v2.33.0, so every managed-view row carries it — S's included.
         val direct = g.get("/api/v1/days-off/budgets?view=managed&year=2061").body<DaysOffBudgetList>()
         assertEquals(listOf(mId), direct.items.map { it.userId })
         assertTrue(direct.items.single().canCorrect)
@@ -167,20 +166,20 @@ class DaysOffAllowanceTest {
             .body<DaysOffBudgetList>()
         assertEquals(setOf(mId, sId), widened.items.map { it.userId }.toSet())
         assertTrue(widened.items.single { it.userId == mId }.canCorrect)
-        assertFalse(widened.items.single { it.userId == sId }.canCorrect)
+        assertTrue(widened.items.single { it.userId == sId }.canCorrect)
         assertEquals(30, widened.items.single { it.userId == sId }.allowance)
         // Own rows never carry the pen.
         assertFalse(s.get("/api/v1/days-off/budgets?year=2061").body<DaysOffBudgetList>().items.single().canCorrect)
 
         // Requests list: G's direct managed view is empty of S's rows; includeIndirect
-        // surfaces them with canResolve=false (accept/reject stays M's) while canCancel
-        // stays true (the chain-wide cancel right). M sees the same row with canResolve=true.
+        // surfaces them with BOTH capability flags set — resolve is chain-wide since
+        // v2.33.0, like cancel. M sees the same row with the same flags.
         val gDirect = g.get("/api/v1/days-off?view=managed&userId=$sId").body<DaysOffPageResponse>()
         assertEquals(0, gDirect.total)
         val gWide = g.get("/api/v1/days-off?view=managed&userId=$sId&includeIndirect=true")
             .body<DaysOffPageResponse>()
         val chainRow = gWide.items.single()
-        assertFalse(chainRow.canResolve)
+        assertTrue(chainRow.canResolve)
         assertTrue(chainRow.canCancel)
         val directRow = m.get("/api/v1/days-off?view=managed&userId=$sId").body<DaysOffPageResponse>().items.single()
         assertTrue(directRow.canResolve)

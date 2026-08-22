@@ -1,7 +1,7 @@
 import { expect, login, logout, MANAGER_AAA, AAA_THREE, notificationCard, openBell, test, uniqueText } from "./helpers";
 import type { Page } from "@playwright/test";
 
-// 1:1 meetings: a manager documents outcomes of a recurring meeting with a direct report.
+// 1:1 meetings: a manager documents outcomes of a recurring meeting with a report.
 // Manager AAA ↔ AAA Three (the least-used seeded pair). Meetings are new rows, so seeded
 // accounts are never mutated; every spec cleans up the meetings it creates.
 
