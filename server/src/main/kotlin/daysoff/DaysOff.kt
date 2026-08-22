@@ -45,6 +45,12 @@ data class DaysOffCreateRequest(
     val userId: UInt? = null,
 )
 
+/** The mandatory reasoning for a cancellation (v2.31.0) — validated by [validateDaysOffCancel]. */
+@Serializable
+data class DaysOffCancelRequest(
+    val reason: String,
+)
+
 @Serializable
 data class DaysOffResponse(
     val id: UInt,
@@ -67,6 +73,12 @@ data class DaysOffResponse(
     val resolvedByName: String?,
     val resolvedAt: Long?,
     val cancelledAt: Long?,
+    // The cancelling actor (v2.31.0 — owner OR a chain manager) and their mandatory reason
+    // (decrypted; stored encrypted at rest). All null on rows cancelled before the rework,
+    // and while not CANCELLED.
+    val cancelledById: UInt?,
+    val cancelledByName: String?,
+    val cancelReason: String?,
     val lastModified: Long,
 )
 
@@ -84,6 +96,14 @@ data class DaysOffListItem(
     val endHalf: Boolean,
     val days: Double,
     val createdAt: Long,
+    // The cancellation record (v2.31.0) — the reason popover's data; null unless CANCELLED
+    // (and null on pre-rework cancellations, which carried no actor/reason).
+    val cancelledAt: Long?,
+    val cancelledByName: String?,
+    val cancelReason: String?,
+    // Server-computed capability (the team-KPI canManage precedent): the caller may cancel
+    // this row — they own it or manage the owner (transitively) and it is REQUESTED/ACCEPTED.
+    val canCancel: Boolean,
     val lastModified: Long,
 )
 
@@ -268,6 +288,7 @@ internal fun formatHalfDaysParam(halfDays: Int): String =
 enum class DaysOffCorrectionOperation { ADD, SUBTRACT }
 
 const val MAX_CORRECTION_COMMENT_LENGTH = 1000
+const val MAX_CANCEL_REASON_LENGTH = 1000
 
 /**
  * Body of `POST /days-off/corrections` and (minus [userId], which is create-only and immutable)
@@ -315,6 +336,14 @@ internal fun correctionHalfDays(write: DaysOffCorrectionWrite): Int {
  * Validates a correction's shape (400s): a sensible year, a positive half-day-stepped amount
  * of at most a year, and a non-blank bounded comment (the mandatory reasoning).
  */
+/** Validates a cancellation's mandatory reason (400s) — the correction-comment rules. */
+internal fun validateDaysOffCancel(request: DaysOffCancelRequest) {
+    if (request.reason.isBlank()) throw BadRequestException("Cancellation reason must not be blank")
+    if (request.reason.length > MAX_CANCEL_REASON_LENGTH) {
+        throw BadRequestException("Cancellation reason must be at most $MAX_CANCEL_REASON_LENGTH characters")
+    }
+}
+
 internal fun validateDaysOffCorrection(write: DaysOffCorrectionWrite) {
     if (write.year !in 2000..2100) {
         throw BadRequestException("Correction year must be between 2000 and 2100")

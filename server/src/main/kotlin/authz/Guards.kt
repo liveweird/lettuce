@@ -549,11 +549,21 @@ suspend fun requireDaysOffResolve(caller: CallerPrincipal, isDirectManager: susp
     }
 }
 
-/** Cancel: the owner only (the mirror of [requireDaysOffResolve] — managers reject, owners cancel). */
-fun requireDaysOffOwner(caller: CallerPrincipal, request: DaysOffResponse) {
-    if (caller.userId != request.userId) {
-        throw ForbiddenException("Only the requester may cancel their days-off request")
-    }
+/**
+ * Cancel (reworked v2.31.0): the owner, or any manager in the owner's TRANSITIVE chain — a
+ * deliberate widening vs the direct-manager-only resolve right (the career-position-write
+ * rationale: withdrawing leave is the chain's shared prerogative). Nobody else — ADMIN and
+ * HR included. Cheap owner check first, the chain walk only when needed (the
+ * [requireDaysOffCorrectionsRead] shape).
+ */
+suspend fun requireDaysOffCancel(
+    caller: CallerPrincipal,
+    request: DaysOffResponse,
+    managesOwner: suspend () -> Boolean,
+) {
+    if (caller.userId == request.userId) return
+    if (managesOwner()) return
+    throw ForbiddenException("Only the requester or a manager in their chain may cancel a days-off request")
 }
 
 /**

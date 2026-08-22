@@ -246,10 +246,24 @@ private fun sentences(type: NotificationType, p: Map<String, String>): Localized
         en = "${p.v("manager")} rejected your days-off request (${p.v("startDate")} – ${p.v("endDate")}).",
         pl = "${p.v("manager")} odrzucił/odrzuciła Twój wniosek o dni wolne (${p.v("startDate")} – ${p.v("endDate")}).",
     )
-    NotificationType.DAYS_OFF_CANCELLED_TO_MANAGER -> LocalizedText(
-        en = "${p.v("requester")} cancelled their days-off request (${p.v("startDate")} – ${p.v("endDate")}).",
-        pl = "${p.v("requester")} anulował/anulowała swój wniosek o dni wolne (${p.v("startDate")} – ${p.v("endDate")}).",
-    )
+    NotificationType.DAYS_OFF_CANCELLED_TO_MANAGER ->
+        // `by` (v2.31.0): MANAGER = the acting manager's own receipt; OWNER (or absent, the
+        // pre-rework rows' shape) = the owner withdrew it themselves.
+        if (p["by"] == "MANAGER") LocalizedText(
+            en = "You cancelled ${p.v("requester")}'s days-off request (${p.v("startDate")} – ${p.v("endDate")}).",
+            pl = "Anulowałeś/aś wniosek o dni wolne ${p.v("requester")} (${p.v("startDate")} – ${p.v("endDate")}).",
+        ) else LocalizedText(
+            en = "${p.v("requester")} cancelled their days-off request (${p.v("startDate")} – ${p.v("endDate")}).",
+            pl = "${p.v("requester")} anulował/anulowała swój wniosek o dni wolne (${p.v("startDate")} – ${p.v("endDate")}).",
+        )
+    NotificationType.DAYS_OFF_CANCELLED_TO_OWNER ->
+        if (p["by"] == "MANAGER") LocalizedText(
+            en = "${p.v("manager")} cancelled your days-off request (${p.v("startDate")} – ${p.v("endDate")}).",
+            pl = "${p.v("manager")} anulował/anulowała Twój wniosek o dni wolne (${p.v("startDate")} – ${p.v("endDate")}).",
+        ) else LocalizedText(
+            en = "You cancelled your days-off request (${p.v("startDate")} – ${p.v("endDate")}).",
+            pl = "Anulowałeś/aś swój wniosek o dni wolne (${p.v("startDate")} – ${p.v("endDate")}).",
+        )
     NotificationType.DAYS_OFF_RECORDED_TO_OWNER -> LocalizedText(
         en = "${p.v("manager")} recorded days off on your behalf, already accepted: " +
             "${p.v("startDate")} – ${p.v("endDate")} (${daysOffType(p.v("type")).en}, ${p.v("days")} day(s)).",

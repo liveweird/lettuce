@@ -14,8 +14,9 @@ two-week window stays inside one calendar year and clear of the seeded Polish st
 (their zero cost would break the expected cost numbers). Before any UI step, residue from a
 failed earlier run is swept via the API: stranded "E2E Holiday" registry entries are deleted
 (a leftover holiday silently changes a later run's cost preview when its window happens to cover
-that date), AAA Two's still-counting requests (pending ones, and accepted ones strictly in the
-future) are cancelled, and stranded "E2E correction" rows are deleted (the run window repeats
+that date), AAA Two's still-counting requests (pending and accepted alike — cancellation is
+date-free with a mandatory reason since v2.31.0) are cancelled, and stranded "E2E correction"
+rows are deleted (the run window repeats
 every 40 minutes, so a later run could otherwise mint a second correction with an identical
 comment). The suite thus self-heals on the next run no matter where a run died.
 
@@ -57,15 +58,15 @@ comment). The suite thus self-heals on the next run no matter where a run died.
 11. On the Calendar tab, AAA Two pages forward to the request's month.
     - *Expected*: the team days-off calendar marks the accepted Tuesday — "AAA Two — \<date\>:
       Paid, Accepted (1 day)".
-12. AAA Two cancels the accepted (still future) request from My requests, confirming with
-    "Cancel the request".
+12. AAA Two cancels the accepted (still future) request from My requests, filling the
+    mandatory Reason field and confirming with "Cancel the request".
     - *Expected*: "Request cancelled" — the reserved days return to the budget.
 13. AAA Two notes the paid-budget strip, then files an UNPAID single-day request for the
     Wednesday of the booked week.
     - *Expected*: the same live cost preview ("1 working day"); under the Requested filter
       the fresh row shows Unpaid; the paid-budget strip is byte-for-byte unchanged.
-14. AAA Two cancels the unpaid request too (why: seed accounts must keep no counting rows —
-    rejected/cancelled records are inert).
+14. AAA Two cancels the unpaid request too, again with a reason (why: seed accounts must
+    keep no counting rows — rejected/cancelled records are inert).
     - *Expected*: "Request cancelled".
 15. Manager AAA opens Days off → Team and clicks the **New days off** button under the request
     list (the on-behalf entry, v2.29.0), picks AAA Two in the "On behalf of" picker, books the
@@ -80,9 +81,15 @@ comment). The suite thus self-heals on the next run no matter where a run died.
     - *Expected*: an "added 2 day(s) to your paid days-off budget" notification AND a
       "Manager AAA recorded days off on your behalf" one; the correction shows read-only — no
       "Add correction" form and no per-row actions.
-18. AAA Two filters My requests to Accepted and cancels the recorded (still future) Thursday
-    entry, confirming with "Cancel the request" (why: seed accounts must keep no counting rows).
-    - *Expected*: "Request cancelled".
+18. Manager AAA (from the My team tab, filtered to Accepted) cancels the recorded Thursday
+    entry on AAA Two's behalf — the v2.31.0 owner-or-chain right — filling the mandatory
+    Reason field (why: seed accounts must keep no counting rows, and the manager-side cancel
+    is the new surface under test).
+    - *Expected*: "Request cancelled"; filtering to Cancelled and sorting by "Requested on"
+      newest-first (cancelled rows are permanent records — earlier runs' residue outranks this
+      run's row by start date), the row's info affordance opens a popover showing the reason
+      and "Manager AAA · <date>"; the manager's bell holds the receipt "You cancelled AAA
+      Two's days-off request …".
 
 **Cleanup** (in-test, through the UI): Manager AAA deletes the correction ("Correction
 deleted"); the admin deletes the holiday ("Public holiday deleted") — nothing this run created

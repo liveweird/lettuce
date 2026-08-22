@@ -2536,12 +2536,13 @@ export interface paths {
         put?: never;
         /**
          * Cancel a days-off request
-         * @description Cancels the caller's own request (CANCELLED is terminal; only the **owner** may
-         *     cancel). Valid from **REQUESTED** anytime, and from **ACCEPTED** only strictly before
-         *     the request's start date — once the period has started (or on its first day) an
-         *     accepted request is a record and can no longer be withdrawn (`409`). Frees the
-         *     reserved paid budget. Cancelling an accepted request notifies the manager who accepted
-         *     it; cancelling a pending one notifies all current direct managers.
+         * @description Cancels a request (CANCELLED is terminal) — by the **owner or any manager in the
+         *     owner's transitive chain** (v2.31.0; nobody else, ADMIN/HR included), from
+         *     **REQUESTED or ACCEPTED regardless of date** (any other status is `409`), and always
+         *     with a mandatory `reason` (stored encrypted at rest; never carried by notifications).
+         *     Frees the reserved paid budget retroactively. Both sides are notified: the owner
+         *     always, plus every current direct manager on an owner-cancel or the acting manager's
+         *     receipt on a manager-cancel.
          */
         post: operations["cancelDaysOff"];
         delete?: never;
@@ -4941,6 +4942,10 @@ export interface components {
              */
             userId?: number | null;
         };
+        DaysOffCancelRequest: {
+            /** @description The mandatory cancellation reasoning (v2.31.0) — stored encrypted at rest on the request; shown to whoever can see the cancelled row, never carried by notifications. Blank is 400. */
+            reason: string;
+        };
         DaysOffResponse: {
             /** Format: int32 */
             id: number;
@@ -4950,7 +4955,7 @@ export interface components {
             /** @enum {string} */
             type: "PAID" | "UNPAID";
             /**
-             * @description REQUESTED → ACCEPTED | REJECTED (a direct manager resolves), plus terminal CANCELLED (the owner withdraws). REQUESTED and ACCEPTED reserve paid budget; REJECTED and CANCELLED free it.
+             * @description REQUESTED → ACCEPTED | REJECTED (a direct manager resolves), plus terminal CANCELLED (the owner or a chain manager withdraws it, with a mandatory reason — v2.31.0). REQUESTED and ACCEPTED reserve paid budget; REJECTED and CANCELLED free it.
              * @enum {string}
              */
             status: "REQUESTED" | "ACCEPTED" | "REJECTED" | "CANCELLED";
@@ -4986,6 +4991,14 @@ export interface components {
              * @description Epoch milliseconds.
              */
             cancelledAt: number | null;
+            /**
+             * Format: int32
+             * @description The cancelling actor (v2.31.0 — the owner or a chain manager). Null unless CANCELLED, and null on requests cancelled before the rework.
+             */
+            cancelledById: number | null;
+            cancelledByName: string | null;
+            /** @description The mandatory cancellation reasoning (decrypted; stored encrypted at rest). Null unless CANCELLED, and null on requests cancelled before the rework. */
+            cancelReason: string | null;
             /** Format: int64 */
             lastModified: number;
         };
@@ -5010,6 +5023,17 @@ export interface components {
             days: number;
             /** Format: int64 */
             createdAt: number;
+            /**
+             * Format: int64
+             * @description Epoch milliseconds.
+             */
+            cancelledAt: number | null;
+            /** @description Null unless CANCELLED (and on requests cancelled before v2.31.0). */
+            cancelledByName: string | null;
+            /** @description The mandatory cancellation reasoning (decrypted; stored encrypted at rest) — backs the table's reason popover. Null unless CANCELLED (and on pre-rework cancellations). */
+            cancelReason: string | null;
+            /** @description Server-computed capability (v2.31.0, the team-KPI canManage precedent): the caller may cancel this row — they own it or manage the owner transitively, and it is REQUESTED/ACCEPTED. */
+            canCancel: boolean;
             /** Format: int64 */
             lastModified: number;
         };
@@ -5165,7 +5189,7 @@ export interface components {
              * @description Notification kind; the client renders it in the viewer's language.
              * @enum {string}
              */
-            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_MANAGER" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_REQUESTED_TO_MANAGER" | "DAYS_OFF_ACCEPTED_TO_OWNER" | "DAYS_OFF_REJECTED_TO_OWNER" | "DAYS_OFF_CANCELLED_TO_MANAGER" | "DAYS_OFF_CORRECTED_TO_OWNER" | "DAYS_OFF_RECORDED_TO_OWNER" | "DAYS_OFF_RECORDED_TO_MANAGER" | "PULSE_CYCLE_SCHEDULED" | "PULSE_CYCLE_OPENED" | "PULSE_RESULTS_AVAILABLE" | "PULSE_CYCLE_CANCELLED" | "CAREER_POSITION_STARTED_TO_USER" | "PASSWORD_CHANGED";
+            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_MANAGER" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_REQUESTED_TO_MANAGER" | "DAYS_OFF_ACCEPTED_TO_OWNER" | "DAYS_OFF_REJECTED_TO_OWNER" | "DAYS_OFF_CANCELLED_TO_MANAGER" | "DAYS_OFF_CANCELLED_TO_OWNER" | "DAYS_OFF_CORRECTED_TO_OWNER" | "DAYS_OFF_RECORDED_TO_OWNER" | "DAYS_OFF_RECORDED_TO_MANAGER" | "PULSE_CYCLE_SCHEDULED" | "PULSE_CYCLE_OPENED" | "PULSE_RESULTS_AVAILABLE" | "PULSE_CYCLE_CANCELLED" | "CAREER_POSITION_STARTED_TO_USER" | "PASSWORD_CHANGED";
             /**
              * @description Interpolation values for the localized message — party names (proper nouns), e.g.
              *     `{provider,subject,requester}`; plus `self` — the SPA's i18next context carrier:
@@ -5761,7 +5785,7 @@ export interface components {
                 "application/problem+json": components["schemas"]["ProblemDetail"];
             };
         };
-        /** @description The action is not allowed from the request's current status (accept/reject need REQUESTED; cancel needs REQUESTED, or ACCEPTED strictly before the start date) */
+        /** @description The action is not allowed from the request's current status (accept/reject need REQUESTED; cancel needs REQUESTED or ACCEPTED) */
         DaysOffInvalidTransition: {
             headers: {
                 [name: string]: unknown;
@@ -9513,7 +9537,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DaysOffCancelRequest"];
+            };
+        };
         responses: {
             /** @description Cancelled */
             204: {
@@ -9524,7 +9552,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            /** @description The caller is not the request's owner */
+            /** @description The caller is neither the request's owner nor a manager in their chain */
             403: {
                 headers: {
                     [name: string]: unknown;

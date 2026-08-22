@@ -10,6 +10,7 @@ import ch.nokillswit.notifications.Notification
 import ch.nokillswit.teams.directManagerIds
 import ch.nokillswit.teams.directSubordinateIds
 import ch.nokillswit.teams.isInManagementChain
+import ch.nokillswit.teams.transitiveSubordinateIds
 import ch.nokillswit.teams.memberTeamIds
 import ch.nokillswit.teams.membersOf
 import ch.nokillswit.users.UserService
@@ -48,6 +49,7 @@ data class DaysOffListResult(
 )
 
 private val ownerUsers = UserService.Users.alias("owner_users")
+private val cancelUsers = UserService.Users.alias("cancel_users")
 
 private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
     "id" to DaysOffService.Requests.id,
@@ -63,14 +65,14 @@ private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
 )
 
 /**
- * Days-off requests (see V40) and their budget corrections (V42). Request rows carry no free
- * text and stay plaintext; the correction COMMENT is encrypted at rest (the 1:1-notes pattern —
- * the cipher wraps every write and unwraps every read; never filter/sort on it in SQL). Request
- * dates and costs are immutable after create; only the status (and its resolution/cancellation
- * stamps) ever changes.
+ * Days-off requests (see V40) and their budget corrections (V42). Two encrypted-at-rest
+ * columns (the 1:1-notes pattern — the cipher wraps every write and unwraps every read; never
+ * filter/sort on them in SQL): the correction COMMENT and, since V63, the request's
+ * CANCEL_REASON (the mandatory cancellation reasoning). Request dates and costs are immutable
+ * after create; only the status (and its resolution/cancellation stamps) ever changes.
  */
 class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokillswit.infra.crypto.FieldCipher) : EncryptedAtRest {
-    override val encryptedRowLabel = "days-off correction"
+    override val encryptedRowLabel = "days-off"
 
     object Requests : org.jetbrains.exposed.v1.core.dao.id.UIntIdTable("days_off_requests") {
         val userId = reference("user_id", UserService.Users)
@@ -85,6 +87,10 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
         val resolvedBy = reference("resolved_by", UserService.Users).nullable()
         val resolvedAt = long("resolved_at").nullable()
         val cancelledAt = long("cancelled_at").nullable()
+        // V63: the cancelling actor (owner or chain manager) + the encrypted mandatory reason;
+        // both null on pre-rework cancellations.
+        val cancelledBy = reference("cancelled_by", UserService.Users).nullable()
+        val cancelReason = text("cancel_reason").nullable()
         val lastModified = long("last_modified")
         val markedAsDeleted = bool("marked_as_deleted").default(false)
     }
@@ -229,23 +235,24 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
             resolvedByName = resolvedById?.let { userName(it) },
             resolvedAt = row[Requests.resolvedAt],
             cancelledAt = row[Requests.cancelledAt],
+            cancelledById = row[Requests.cancelledBy]?.value,
+            cancelledByName = row.getOrNull(cancelUsers[UserService.Users.name]),
+            cancelReason = row[Requests.cancelReason]?.let { cipher.decrypt(it) },
             lastModified = row[Requests.lastModified],
         )
     }
 
     /**
-     * Moves a request to [target], atomically with its state checks; the route has already
-     * authorized the actor (direct manager for ACCEPTED/REJECTED, the owner for CANCELLED).
-     * Accept/reject require REQUESTED and stamp the resolver; cancel is valid from REQUESTED
-     * anytime and from ACCEPTED only while [today] is strictly before the start date (the goals
-     * injectable-today idiom). Anything else is [ConflictException] (→ 409). Returns the
-     * notifications to persist, or null when the row is missing (→ 404).
+     * Moves a request to [target] (ACCEPTED/REJECTED only — cancellation is [cancel]),
+     * atomically with its state checks; the route has already authorized the actor (a direct
+     * manager). Accept/reject require REQUESTED and stamp the resolver; anything else is
+     * [ConflictException] (→ 409). Returns the notifications to persist, or null when the row
+     * is missing (→ 404).
      */
     suspend fun transition(
         id: UInt,
         actorId: UInt,
         target: DaysOffStatus,
-        today: LocalDate = LocalDate.now(),
     ): List<Notification>? = suspendTransaction(database) {
         val row = Requests.selectAll()
             .where { (Requests.id eq id) and active() }
@@ -270,29 +277,54 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
                 }
                 listOf(daysOffResolvedNotification(ownerId, target, userName(actorId), startDate, endDate))
             }
-            DaysOffStatus.CANCELLED -> {
-                val recipients: Set<UInt> = when (status) {
-                    // Still pending: everyone who was asked to review it hears it's off the table.
-                    DaysOffStatus.REQUESTED -> directManagerIds(ownerId)
-                    DaysOffStatus.ACCEPTED -> {
-                        if (LocalDate.parse(startDate) <= today) {
-                            throw ConflictException(
-                                "An accepted days-off request may only be cancelled before its start date",
-                            )
-                        }
-                        setOfNotNull(row[Requests.resolvedBy]?.value)
-                    }
-                    else -> throw ConflictException("Invalid status transition: $status -> CANCELLED")
-                }
-                Requests.update({ (Requests.id eq id) and (Requests.markedAsDeleted eq false) }) {
-                    it[this.status] = DaysOffStatus.CANCELLED
-                    it[cancelledAt] = now
-                    it[lastModified] = now
-                }
-                daysOffCancelledNotifications(recipients, userName(ownerId), startDate, endDate)
-            }
             else -> error("Not a transition target: $target")
         }
+    }
+
+    /**
+     * Cancels a request (v2.31.0): valid from REQUESTED or ACCEPTED regardless of date —
+     * cancelling frees the frozen cost automatically (the row leaves the counting statuses;
+     * note a retroactive PAID cancel can move the budget anchor forward, reducing a later
+     * year's accumulated allowance — accepted). The route has already authorized [actorId]
+     * (the owner or a manager in their transitive chain) and validated [reason], which lands
+     * encrypted on the row; [actorId] is stamped as cancelled_by. Both sides are notified:
+     * the owner always, plus — owner-cancel — every current direct manager, or — manager-cancel
+     * — the acting manager's durable receipt (the v2.29.0 recorded-pair precedent). Returns
+     * the notifications to persist, or null when the row is missing (→ 404).
+     */
+    suspend fun cancel(
+        id: UInt,
+        actorId: UInt,
+        reason: String,
+    ): List<Notification>? = suspendTransaction(database) {
+        val row = Requests.selectAll()
+            .where { (Requests.id eq id) and active() }
+            .map { it }
+            .singleOrNull()
+            ?: return@suspendTransaction null
+        val ownerId = row[Requests.userId].value
+        val status = row[Requests.status]
+        if (status !in COUNTING_STATUSES) {
+            throw ConflictException("Invalid status transition: $status -> CANCELLED")
+        }
+        val now = System.currentTimeMillis()
+        Requests.update({ (Requests.id eq id) and (Requests.markedAsDeleted eq false) }) {
+            it[this.status] = DaysOffStatus.CANCELLED
+            it[cancelledAt] = now
+            it[cancelledBy] = actorId
+            it[cancelReason] = cipher.encrypt(reason)
+            it[lastModified] = now
+        }
+        val byManager = actorId != ownerId
+        daysOffCancelledNotifications(
+            ownerId = ownerId,
+            ownerName = userName(ownerId),
+            actorName = userName(actorId),
+            managerRecipientIds = if (byManager) setOf(actorId) else directManagerIds(ownerId),
+            byManager = byManager,
+            startDate = row[Requests.startDate],
+            endDate = row[Requests.endDate],
+        )
     }
 
     suspend fun list(
@@ -302,6 +334,9 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
         paging: PageRequest,
         targetUserId: UInt? = null,
     ): DaysOffListResult = suspendTransaction(database) {
+        // One chain walk per request (the TeamKpiService.list idiom) — backs every row's
+        // canCancel capability flag; a caller managing nobody pays a single empty-frontier query.
+        val subtree = transitiveSubordinateIds(callerUserId)
         val scope: Op<Boolean> = when (view) {
             DaysOffListView.OWN -> Requests.userId eq callerUserId
             // Direct reports only — matching the resolve right, so every row's action buttons
@@ -330,9 +365,12 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
                 Requests.endHalf,
                 Requests.costHalfDays,
                 Requests.createdAt,
+                Requests.cancelledAt,
+                Requests.cancelReason,
                 Requests.lastModified,
                 ownerUsers[UserService.Users.name],
                 ownerUsers[UserService.Users.markedAsDeleted],
+                cancelUsers[UserService.Users.name],
             )
             .where { predicate }
             .applyPaging(paging, SORTABLE_COLUMNS)
@@ -350,6 +388,11 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
                     endHalf = row[Requests.endHalf],
                     days = row[Requests.costHalfDays] / 2.0,
                     createdAt = row[Requests.createdAt],
+                    cancelledAt = row[Requests.cancelledAt],
+                    cancelledByName = row.getOrNull(cancelUsers[UserService.Users.name]),
+                    cancelReason = row[Requests.cancelReason]?.let { cipher.decrypt(it) },
+                    canCancel = row[Requests.status] in COUNTING_STATUSES &&
+                        (row[Requests.userId].value == callerUserId || row[Requests.userId].value in subtree),
                     lastModified = row[Requests.lastModified],
                 )
             }
@@ -622,7 +665,10 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
      * row is rewritten under the current key. Idempotent; returns the rewritten count.
      */
     override suspend fun encryptLegacyRows(reencryptAll: Boolean): Int = suspendTransaction(database) {
-        cipher.reencryptRows(Corrections, listOf(Corrections.comment), reencryptAll)
+        // Two encrypted tables, both re-swept in ONE transaction (the documented two-table case
+        // in infra/crypto/Reencrypt.kt).
+        cipher.reencryptRows(Corrections, listOf(Corrections.comment), reencryptAll) +
+            cipher.reencryptRows(Requests, listOf(Requests.cancelReason), reencryptAll)
     }
 
     // ── Card-stat batch helpers (v1.44.0 — the activeGoalCountsBy* shape, page-scoped) ─────
@@ -741,6 +787,12 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
             JoinType.INNER,
             onColumn = Requests.userId,
             otherColumn = ownerUsers[UserService.Users.id],
+        )
+        .join(
+            cancelUsers,
+            JoinType.LEFT,
+            onColumn = Requests.cancelledBy,
+            otherColumn = cancelUsers[UserService.Users.id],
         )
 
     private fun buildPredicate(filter: DaysOffListFilter): Op<Boolean> {

@@ -80,7 +80,7 @@ scenario file is the design.
 - [`auth.spec.ts`](scenarios/auth.md) — login / logout / invalid credentials.
 - [`changelog.spec.ts`](scenarios/changelog.md) — the bundled release history renders versioned entries in EN and PL (PL leg on a throwaway user — the switch persists server-side).
 - [`dashboard-my-teams.spec.ts`](scenarios/dashboard-my-teams.md) — the My teams tab, team-details drill-down round-trip, non-manager empty state.
-- [`days-off.spec.ts`](scenarios/days-off.md) — requests (paid/unpaid, half-days), manager accept/reject, calendar, budgets + corrections, cancel, the manager's on-behalf auto-accepted recording (v2.29.0).
+- [`days-off.spec.ts`](scenarios/days-off.md) — requests (paid/unpaid, half-days), manager accept/reject, calendar, budgets + corrections, the mandatory-reason cancel — owner-side AND the manager-side chain cancel with the reason popover + bell receipt (v2.31.0) — and the manager's on-behalf auto-accepted recording (v2.29.0).
 - [`dictionaries.spec.ts`](scenarios/dictionaries.md) — the whole-list dictionary editor (add/reorder/rename, multilingual — EN required, translations optional) + the read-only view with EN fallback.
 - [`email-notifications.spec.ts`](scenarios/email-notifications.md) — the per-user email-mirror opt-out toggle (self + the admin-for-another-user branch, 2026-08).
 - [`feature-flags.spec.ts`](scenarios/feature-flags.md) — per-user feature flags end to end + the per-feature screen's team bulk toggle.

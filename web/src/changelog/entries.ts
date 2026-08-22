@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.31.0",
+    date: "2026-08-22",
+    en: `Days-off cancellation got simpler and more accountable. A request in Requested or Accepted state can now be cancelled regardless of its dates — including past ones, handy for fixing records — and not just by its owner: any of their managers, all the way up the chain, can cancel too. Every cancellation now requires a short reason, which stays visible afterwards behind a small info icon next to the Cancelled status. Both sides always hear about it: the person the days off belong to and their managers each get a notification saying who cancelled and when.`,
+    pl: `Anulowanie dni wolnych stało się prostsze i bardziej przejrzyste. Wniosek w stanie Złożony lub Zaakceptowany można teraz anulować niezależnie od dat — także z przeszłości, co przydaje się przy porządkowaniu ewidencji — i nie tylko przez właściciela/kę: może to zrobić również każdy z przełożonych, w górę całego łańcucha. Każde anulowanie wymaga teraz krótkiego powodu, który pozostaje widoczny za małą ikoną informacji obok statusu Anulowany. Obie strony zawsze się o tym dowiadują: osoba, której dotyczą dni wolne, i jej przełożeni dostają powiadomienie mówiące, kto anulował i kiedy.`,
+  },
+  {
     version: "2.30.0",
     date: "2026-08-22",
     en: `People's names are now clickable everywhere. The feedback, goals, 1:1s, team-KPI, reviews and days-off tables — plus the Kudos wall and the pulse participation view — now render each person's name as a link to their profile page, the same way the Users and Teams screens already did. Your own name and deleted accounts stay plain text, as always. Under the hood this release also ships a round of internal clean-ups from an external code review — including a consistent loading spinner on every History tab.`,

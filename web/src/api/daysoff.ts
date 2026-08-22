@@ -67,7 +67,14 @@ async function daysOffTransition(id: number, action: string): Promise<void> {
 
 export const acceptDaysOff = (id: number) => daysOffTransition(id, "accept");
 export const rejectDaysOff = (id: number) => daysOffTransition(id, "reject");
-export const cancelDaysOff = (id: number) => daysOffTransition(id, "cancel");
+
+/** Cancellation carries its mandatory reason (v2.31.0) — unlike the body-less accept/reject. */
+export async function cancelDaysOff(id: number, reason: string): Promise<void> {
+  await voidRequest(`/api/v1/days-off/${id}/cancel`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+}
 
 export type DaysOffCalendarResponse =
   paths["/api/v1/days-off/calendar"]["get"]["responses"]["200"]["content"]["application/json"];

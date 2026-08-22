@@ -4007,18 +4007,24 @@ paths:
       operationId: cancelDaysOff
       summary: Cancel a days-off request
       description: |
-        Cancels the caller's own request (CANCELLED is terminal; only the **owner** may
-        cancel). Valid from **REQUESTED** anytime, and from **ACCEPTED** only strictly before
-        the request's start date — once the period has started (or on its first day) an
-        accepted request is a record and can no longer be withdrawn (`409`). Frees the
-        reserved paid budget. Cancelling an accepted request notifies the manager who accepted
-        it; cancelling a pending one notifies all current direct managers.
+        Cancels a request (CANCELLED is terminal) — by the **owner or any manager in the
+        owner's transitive chain** (v2.31.0; nobody else, ADMIN/HR included), from
+        **REQUESTED or ACCEPTED regardless of date** (any other status is `409`), and always
+        with a mandatory `reason` (stored encrypted at rest; never carried by notifications).
+        Frees the reserved paid budget retroactively. Both sides are notified: the owner
+        always, plus every current direct manager on an owner-cancel or the acting manager's
+        receipt on a manager-cancel.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DaysOffCancelRequest' }
       responses:
         '204': { description: Cancelled }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
-          description: The caller is not the request's owner
+          description: The caller is neither the request's owner nor a manager in their chain
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
@@ -5264,7 +5270,7 @@ components:
     DaysOffInvalidTransition:
       description: >-
         The action is not allowed from the request's current status (accept/reject need
-        REQUESTED; cancel needs REQUESTED, or ACCEPTED strictly before the start date)
+        REQUESTED; cancel needs REQUESTED or ACCEPTED)
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/ProblemDetail' }
@@ -7541,11 +7547,24 @@ components:
             ACCEPTED with the caller as resolver (v2.29.0). 403 for anyone else, including the
             target themselves.
 
+    DaysOffCancelRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: >-
+            The mandatory cancellation reasoning (v2.31.0) — stored encrypted at rest on the
+            request; shown to whoever can see the cancelled row, never carried by
+            notifications. Blank is 400.
+
     DaysOffResponse:
       type: object
       required:
         [id, userId, userName, type, status, startDate, endDate, startHalf, endHalf, days,
-         createdAt, resolvedById, resolvedByName, resolvedAt, cancelledAt, lastModified]
+         createdAt, resolvedById, resolvedByName, resolvedAt, cancelledAt, cancelledById, cancelledByName, cancelReason, lastModified]
       properties:
         id: { type: integer, format: int32, minimum: 0 }
         userId: { type: integer, format: int32, minimum: 0 }
@@ -7556,8 +7575,9 @@ components:
           enum: [REQUESTED, ACCEPTED, REJECTED, CANCELLED]
           description: >-
             REQUESTED → ACCEPTED | REJECTED (a direct manager resolves), plus terminal
-            CANCELLED (the owner withdraws). REQUESTED and ACCEPTED reserve paid budget;
-            REJECTED and CANCELLED free it.
+            CANCELLED (the owner or a chain manager withdraws it, with a mandatory reason —
+            v2.31.0). REQUESTED and ACCEPTED reserve paid budget; REJECTED and CANCELLED
+            free it.
         startDate: { type: string, format: date }
         endDate: { type: string, format: date }
         startHalf: { type: boolean }
@@ -7579,13 +7599,29 @@ components:
         resolvedByName: { type: string, nullable: true }
         resolvedAt: { type: integer, format: int64, nullable: true, description: Epoch milliseconds. }
         cancelledAt: { type: integer, format: int64, nullable: true, description: Epoch milliseconds. }
+        cancelledById:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+          description: >-
+            The cancelling actor (v2.31.0 — the owner or a chain manager). Null unless
+            CANCELLED, and null on requests cancelled before the rework.
+        cancelledByName: { type: string, nullable: true }
+        cancelReason:
+          type: string
+          nullable: true
+          description: >-
+            The mandatory cancellation reasoning (decrypted; stored encrypted at rest). Null
+            unless CANCELLED, and null on requests cancelled before the rework.
         lastModified: { type: integer, format: int64 }
 
     DaysOffListItem:
       type: object
       required:
         [id, userId, userName, userDeleted, type, status, startDate, endDate, startHalf,
-         endHalf, days, createdAt, lastModified]
+         endHalf, days, createdAt, cancelledAt, cancelledByName, cancelReason, canCancel,
+         lastModified]
       properties:
         id: { type: integer, format: int32, minimum: 0 }
         userId: { type: integer, format: int32, minimum: 0 }
@@ -7599,6 +7635,24 @@ components:
         endHalf: { type: boolean }
         days: { type: number, format: double }
         createdAt: { type: integer, format: int64 }
+        cancelledAt: { type: integer, format: int64, nullable: true, description: Epoch milliseconds. }
+        cancelledByName:
+          type: string
+          nullable: true
+          description: Null unless CANCELLED (and on requests cancelled before v2.31.0).
+        cancelReason:
+          type: string
+          nullable: true
+          description: >-
+            The mandatory cancellation reasoning (decrypted; stored encrypted at rest) —
+            backs the table's reason popover. Null unless CANCELLED (and on pre-rework
+            cancellations).
+        canCancel:
+          type: boolean
+          description: >-
+            Server-computed capability (v2.31.0, the team-KPI canManage precedent): the
+            caller may cancel this row — they own it or manage the owner transitively, and
+            it is REQUESTED/ACCEPTED.
         lastModified: { type: integer, format: int64 }
 
     DaysOffPage:
@@ -7829,6 +7883,7 @@ components:
             - DAYS_OFF_ACCEPTED_TO_OWNER
             - DAYS_OFF_REJECTED_TO_OWNER
             - DAYS_OFF_CANCELLED_TO_MANAGER
+            - DAYS_OFF_CANCELLED_TO_OWNER
             - DAYS_OFF_CORRECTED_TO_OWNER
             - DAYS_OFF_RECORDED_TO_OWNER
             - DAYS_OFF_RECORDED_TO_MANAGER

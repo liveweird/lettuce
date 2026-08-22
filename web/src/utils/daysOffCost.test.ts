@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { costHalfDays, formatDays, isCancellable, isWorkingDay } from "./daysOffCost";
+import { costHalfDays, formatDays, isWorkingDay } from "./daysOffCost";
 
 // The fixed anchor week: Mon 2026-01-05 … Sun 2026-01-11 (2026-01-01 is a Thursday) — the
 // same fixture the server-side DaysOffCostTest pins, so the two mirrors stay aligned.
@@ -41,11 +41,4 @@ describe("daysOffCost", () => {
     expect(formatDays(1.5, "pl")).toBe("1,5");
   });
 
-  test("isCancellable: pending anytime, accepted only strictly before the start", () => {
-    expect(isCancellable("REQUESTED", "2001-01-01", "2026-01-05")).toBe(true);
-    expect(isCancellable("ACCEPTED", "2026-01-06", "2026-01-05")).toBe(true);
-    expect(isCancellable("ACCEPTED", "2026-01-05", "2026-01-05")).toBe(false);
-    expect(isCancellable("REJECTED", "2099-01-01", "2026-01-05")).toBe(false);
-    expect(isCancellable("CANCELLED", "2099-01-01", "2026-01-05")).toBe(false);
-  });
 });

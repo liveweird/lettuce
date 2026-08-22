@@ -50,8 +50,3 @@ export function formatDays(days: number, locale: string): string {
   return new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(days);
 }
 
-/** True while the owner may still cancel: pending anytime, accepted only strictly before the
- * start date (the server's rule — mirrored for the row-action visibility). */
-export function isCancellable(status: string, startDate: string, todayIso: string): boolean {
-  return status === "REQUESTED" || (status === "ACCEPTED" && todayIso < startDate);
-}
