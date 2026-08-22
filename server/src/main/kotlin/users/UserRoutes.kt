@@ -7,6 +7,7 @@ import ch.nokillswit.auth.hashPassword
 import ch.nokillswit.auth.verifyPassword
 import ch.nokillswit.dictionaries.DEFAULT_LANGUAGE
 import ch.nokillswit.infra.mail.mailAppUrl
+import ch.nokillswit.infra.validation.sanitizeSingleLine
 import ch.nokillswit.infra.mail.mailer
 import ch.nokillswit.infra.mail.respondMailUnavailable
 import ch.nokillswit.authz.ConflictException
@@ -196,9 +197,14 @@ fun Application.configureUserRoutes() {
                 val caller = call.caller()
                 requireAdmin(caller)
                 val req = call.receive<UserRequest>()
-                validateNameAndEmail(req.name, req.email)
+                // Canonical identity fields (v2.35.0): name/unique-id trimmed + control-char
+                // checked, email folded (MT-001/MT-002) — before validation and every use.
+                val name = sanitizeSingleLine(req.name, "Name")
+                val email = canonicalEmail(req.email)
+                val uniqueId = req.uniqueId?.let { sanitizeSingleLine(it, "Unique id") }
+                validateNameAndEmail(name, email)
                 validatePassword(req.password)
-                validateUniqueId(req.uniqueId)
+                validateUniqueId(uniqueId)
                 validateLanguage(req.language)
                 if (req.sendEmail && mailer == null) {
                     call.respondMailUnavailable("creating with the email option")
@@ -206,15 +212,15 @@ fun Application.configureUserRoutes() {
                 }
                 // Pre-check for the specific 409 detail (the SPA attributes it to the right
                 // field); the V59 partial index stays the race backstop (generic 409).
-                if (req.uniqueId != null && userService.uniqueIdInUse(req.uniqueId)) {
+                if (uniqueId != null && userService.uniqueIdInUse(uniqueId)) {
                     throw ConflictException("Unique id already in use")
                 }
                 val user = User(
-                    name = req.name,
-                    email = req.email,
+                    name = name,
+                    email = email,
                     passwordHash = hashPassword(req.password),
                     roles = req.roles?.toSet() ?: emptySet(),
-                    uniqueId = req.uniqueId,
+                    uniqueId = uniqueId,
                     language = req.language ?: DEFAULT_LANGUAGE,
                 )
                 val id = userService.create(user)
@@ -317,21 +323,26 @@ fun Application.configureUserRoutes() {
                 // Authz before validation: an unauthorized roles/unique-id change is 403, not 400.
                 requireCanAssignRoles(caller, existing.roles, req.roles.toSet())
                 requireCanAssignUniqueId(caller, req.uniqueId, existing.uniqueId)
-                validateNameAndEmail(req.name, req.email)
-                validateUniqueId(req.uniqueId)
+                // Canonical identity fields (v2.35.0, MT-001/MT-002) — after the guards
+                // (403 wins over 400), before validation and every use below.
+                val name = sanitizeSingleLine(req.name, "Name")
+                val email = canonicalEmail(req.email)
+                val uniqueId = req.uniqueId?.let { sanitizeSingleLine(it, "Unique id") }
+                validateNameAndEmail(name, email)
+                validateUniqueId(uniqueId)
                 // Pre-check for the specific 409 detail (POST precedent); the partial index
                 // stays the race backstop. Excluding self keeps a same-value resubmit a no-op.
-                if (req.uniqueId != null && req.uniqueId != existing.uniqueId &&
-                    userService.uniqueIdInUse(req.uniqueId, excludeId = route.id)
+                if (uniqueId != null && uniqueId != existing.uniqueId &&
+                    userService.uniqueIdInUse(uniqueId, excludeId = route.id)
                 ) {
                     throw ConflictException("Unique id already in use")
                 }
                 val user = User(
-                    name = req.name,
-                    email = req.email,
+                    name = name,
+                    email = email,
                     passwordHash = existing.passwordHash,
                     roles = req.roles.toSet(),
-                    uniqueId = req.uniqueId ?: existing.uniqueId,
+                    uniqueId = uniqueId ?: existing.uniqueId,
                 )
                 val updated = userService.update(route.id, user)
                 if (updated == 0) {
@@ -342,18 +353,18 @@ fun Application.configureUserRoutes() {
                 // (Career changes moved to the career_position.* events in v2.15.0, the
                 // allowance to days_off.allowance_changed in v2.32.0.)
                 val uniqueIdChanged = user.uniqueId != existing.uniqueId
-                if (req.name != existing.name || req.email != existing.email || uniqueIdChanged) {
+                if (name != existing.name || email != existing.email || uniqueIdChanged) {
                     val auditFields = mutableListOf<Pair<String, Any?>>(
                         "byUserId" to caller.userId.toLong(),
                         "targetUserId" to route.id.toLong(),
                     )
-                    if (req.name != existing.name) {
+                    if (name != existing.name) {
                         auditFields += "nameFrom" to existing.name
-                        auditFields += "nameTo" to req.name
+                        auditFields += "nameTo" to name
                     }
-                    if (req.email != existing.email) {
+                    if (email != existing.email) {
                         auditFields += "emailFrom" to existing.email
-                        auditFields += "emailTo" to req.email
+                        auditFields += "emailTo" to email
                     }
                     // From omitted when previously unset.
                     if (uniqueIdChanged) {

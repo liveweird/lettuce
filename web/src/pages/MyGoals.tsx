@@ -76,7 +76,7 @@ export default function MyGoals() {
               <Group justify="flex-end">
                 <Button
                   component={RouterLink}
-                  to={goalCreateLink(undefined, undefined, "/goals?tab=managed")}
+                  to={goalCreateLink(undefined, "/goals?tab=managed")}
                   leftSection={<IconPlus size={16} />}
                 >
                   {t("goal.newGoal")}

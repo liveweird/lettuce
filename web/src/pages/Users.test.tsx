@@ -209,10 +209,10 @@ describe("Users page", () => {
     await user.click(screen.getByRole("button", { name: /feedback actions for bob/i }));
     expect(
       await screen.findByRole("menuitem", { name: /provide feedback for bob/i }),
-    ).toHaveAttribute("href", `/feedback/new?subjectId=2&subjectName=${encodeURIComponent("Bob")}`);
+    ).toHaveAttribute("href", `/feedback/new?subjectId=2`);
     expect(screen.getByRole("menuitem", { name: /ask bob for feedback/i })).toHaveAttribute(
       "href",
-      `/feedback/ask?providerId=2&providerName=${encodeURIComponent("Bob")}&back=${encodeURIComponent("/users")}`,
+      `/feedback/ask?providerId=2&back=${encodeURIComponent("/users")}`,
     );
     // The drill-down item carries from=users so its "Back to …" link returns here.
     expect(screen.getByRole("menuitem", { name: /feedbacks with bob/i })).toHaveAttribute(

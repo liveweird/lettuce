@@ -5,10 +5,9 @@ import { detailSearch } from "./linkSearch";
 // Optional parts are appended only when given.
 
 /** The KPI create screen, optionally prefilled with the team and a return target. */
-export function teamKpiCreateLink(teamId?: number, teamName?: string | null, back?: string): string {
+export function teamKpiCreateLink(teamId?: number, back?: string): string {
   const parts: string[] = [];
   if (teamId != null) parts.push(`teamId=${teamId}`);
-  if (teamName) parts.push(`teamName=${encodeURIComponent(teamName)}`);
   if (back) parts.push(`back=${encodeURIComponent(back)}`);
   return `/team-kpis/new${parts.length ? `?${parts.join("&")}` : ""}`;
 }

@@ -63,6 +63,7 @@
   "dateBeforePrevious": "Cannot be before the previous meeting ({{date}}).",
   "error": {
     "permission": "You are not allowed to change this 1:1 meeting.",
+    "createForbidden": "You may only document 1:1 meetings with people in your management chain.",
     "gone": "This 1:1 meeting no longer exists.",
     "notLatest": "Only the most recent 1:1 meeting with this person can be changed — a newer one exists.",
     "backdated": "This date is earlier than the last 1:1 with this person — meetings are recorded in chronological order.",

@@ -94,7 +94,7 @@ describe("RequestFeedback page", () => {
     renderRequestFeedback();
 
     // The parties render as labeled persona displays (avatar chip / plain "You"), not inputs.
-    expect(await screen.findByText("Mona")).toBeInTheDocument();
+    expect((await screen.findAllByText("Mona Subject")).length).toBeGreaterThan(0);
     expect(screen.getByText("You")).toBeInTheDocument();
 
     const picker = screen.getByPlaceholderText("Pick a user");
@@ -122,7 +122,7 @@ describe("RequestFeedback page", () => {
     const user = userEvent.setup();
     renderRequestFeedback();
 
-    await screen.findByText("Mona");
+    await screen.findAllByText("Mona Subject");
     await addProvider(user, "Mona Subject");
     await user.click(screen.getByRole("button", { name: /^request$/i }));
 
@@ -155,7 +155,7 @@ describe("RequestFeedback page", () => {
     });
     const user = userEvent.setup();
     renderRequestFeedback();
-    await screen.findByText("Mona");
+    await screen.findAllByText("Mona Subject");
 
     // Alice (10) already has this request in progress: her row is flagged with a view link
     // and Request is blocked.
@@ -187,7 +187,7 @@ describe("RequestFeedback page", () => {
     const user = userEvent.setup();
     renderRequestFeedback();
 
-    await screen.findByText("Mona");
+    await screen.findAllByText("Mona Subject");
     await addProvider(user, "Alice Provider");
     // Scope to the table and query by text — the picker's option node also carries the name,
     // and the PersonaChip avatar initials join the cell's accessible name.
@@ -204,7 +204,7 @@ describe("RequestFeedback page", () => {
     const user = userEvent.setup();
     renderRequestFeedback();
 
-    await screen.findByText("Mona");
+    await screen.findAllByText("Mona Subject");
     expect(screen.getByRole("button", { name: /^request$/i })).toBeDisabled();
 
     await addProvider(user, "Alice Provider");
@@ -216,7 +216,7 @@ describe("RequestFeedback page", () => {
     const user = userEvent.setup();
     renderRequestFeedback();
 
-    await screen.findByText("Mona");
+    await screen.findAllByText("Mona Subject");
     await addProvider(user, "Alice Provider");
     await user.click(screen.getByRole("button", { name: /^request$/i }));
 
@@ -242,7 +242,7 @@ describe("RequestFeedback page", () => {
     const user = userEvent.setup();
     renderRequestFeedback();
 
-    await screen.findByText("Mona");
+    await screen.findAllByText("Mona Subject");
     await user.type(screen.getByLabelText("Message to the provider"), "  Prep for the review  ");
     await addProvider(user, "Alice Provider");
     await addProvider(user, "Bob Provider");
@@ -264,7 +264,7 @@ describe("RequestFeedback page", () => {
     const user = userEvent.setup();
     renderRequestFeedback();
 
-    await screen.findByText("Mona");
+    await screen.findAllByText("Mona Subject");
     // "Public" is unique to the visibility Select, so target the option directly rather
     // than a listbox (two Selects on this page each render a listbox).
     await user.click(screen.getByPlaceholderText("Select visibility"));
@@ -288,7 +288,7 @@ describe("RequestFeedback page", () => {
     const user = userEvent.setup();
     renderRequestFeedback();
 
-    await screen.findByText("Mona");
+    await screen.findAllByText("Mona Subject");
     await addProvider(user, "Alice Provider");
     await user.click(screen.getByRole("button", { name: /^request$/i }));
 
@@ -300,7 +300,7 @@ describe("RequestFeedback page", () => {
     const user = userEvent.setup();
     renderRequestFeedback();
 
-    await screen.findByText("Mona");
+    await screen.findAllByText("Mona Subject");
     await addProvider(user, "Alice Provider");
     await user.click(screen.getByRole("button", { name: /^request$/i }));
 
@@ -322,7 +322,7 @@ describe("RequestFeedback page", () => {
     const user = userEvent.setup();
     renderRequestFeedback();
 
-    await screen.findByText("Mona");
+    await screen.findAllByText("Mona Subject");
     await addProvider(user, "Alice Provider");
     await user.click(screen.getByRole("button", { name: /^request$/i }));
 
@@ -334,7 +334,7 @@ describe("RequestFeedback page", () => {
     const user = userEvent.setup();
     renderRequestFeedback();
 
-    await screen.findByText("Mona");
+    await screen.findAllByText("Mona Subject");
     await user.click(screen.getByRole("button", { name: /^cancel$/i }));
 
     const dialog = await screen.findByRole("dialog");
@@ -356,7 +356,7 @@ describe("RequestFeedback page", () => {
       `?subjectId=7&subjectName=Mona&back=${encodeURIComponent("/?tab=peers")}`,
     );
 
-    await screen.findByText("Mona");
+    await screen.findAllByText("Mona Subject");
 
     // Discard link points back at the originating tab, not the subordinates default.
     await user.click(screen.getByRole("button", { name: /^cancel$/i }));

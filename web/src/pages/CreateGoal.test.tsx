@@ -149,15 +149,15 @@ describe("CreateGoal page", () => {
 
   test("a prefilled subordinate skips the picker; Yes activates and returns to back", async () => {
     const user = userEvent.setup();
+    // A crafted subordinateName rides along — it must be IGNORED: the identity resolves
+    // from the caller's own managed pool (v2.35.0, the monkey-test SPA-1 fix).
     renderScreen(
-      "/goals/new?subordinateId=8&subordinateName=Sam%20Subordinate&back=%2Fusers%2F8%2Fgoals%3Ffrom%3Dsubordinates",
+      "/goals/new?subordinateId=8&subordinateName=Impostor&back=%2Fusers%2F8%2Fgoals%3Ffrom%3Dsubordinates",
     );
 
     expect(await screen.findByText("Sam Subordinate")).toBeInTheDocument();
+    expect(screen.queryByText("Impostor")).toBeNull();
     expect(screen.queryByRole("combobox", { name: "Team member" })).toBeNull();
-    expect(
-      mockFetch.mock.calls.every(([u]) => !String(u).includes("/api/v1/teams/members")),
-    ).toBe(true);
 
     await fillDefinition(user);
     await user.click(screen.getByRole("button", { name: /^create$/i }));

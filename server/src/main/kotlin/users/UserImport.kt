@@ -1,5 +1,6 @@
 package ch.nokillswit.users
 
+import ch.nokillswit.infra.validation.sanitizeSingleLine
 import io.ktor.server.plugins.BadRequestException
 
 /**
@@ -39,8 +40,12 @@ internal fun parseImportRows(csv: String): List<ImportLine> {
         val name = text.substring(0, comma).trim()
         val email = text.substring(comma + 1).trim()
         try {
-            validateNameAndEmail(name, email)
-            ImportLine.Parsed(line, name, email)
+            // Canonical identity (v2.35.0): the same fold/sanitation as the create route, so
+            // an imported `ADMIN@x` row is the same account as `admin@x` (MT-001/MT-002).
+            val cleanName = sanitizeSingleLine(name, "Name")
+            val cleanEmail = canonicalEmail(email)
+            validateNameAndEmail(cleanName, cleanEmail)
+            ImportLine.Parsed(line, cleanName, cleanEmail)
         } catch (e: BadRequestException) {
             ImportLine.Invalid(UserImportRow(line, name, email, UserImportStatus.PARSE_ERROR, e.message))
         }

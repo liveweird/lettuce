@@ -27,6 +27,8 @@ import { saveErrorMessage } from "../utils/saveError";
 import { REQUEST_ERROR_KEYS } from "../utils/feedbackForm";
 import { showSuccessToast } from "../utils/toast";
 import { invalidateFeedback } from "../utils/feedbackQueries";
+import { safeBackParam } from "../utils/url";
+import { useAllUsers } from "../hooks/useAllUsers";
 
 // The asker is the requester, so "Ask for feedback" offers the requester-inclusive
 // visibilities — the ones under which the requester (themselves) can read the result.
@@ -42,9 +44,8 @@ export default function AskFeedback() {
   }));
 
   const providerId = Number(searchParams.get("providerId"));
-  const providerName = searchParams.get("providerName");
   // Return to the Dashboard tab the user came from; default to managers.
-  const backTo = searchParams.get("back") ?? "/?tab=managers";
+  const backTo = safeBackParam(searchParams) ?? "/?tab=managers";
   const requesterId = getUserId();
 
   const [visibility, setVisibility] = useState<FeedbackVisibility>("PROVIDER_REQUESTER_SUBJECT");
@@ -54,6 +55,11 @@ export default function AskFeedback() {
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
 
   const providerIdIsValid = Number.isFinite(providerId) && providerId > 0;
+  // The provider's display name resolves from the org pool — never from a URL param
+  // (v2.35.0: a crafted name param could label the ask as someone else while the id
+  // addresses the real provider); an id matching no user bounces back once the pool settles.
+  const { userPool, usersReady } = useAllUsers();
+  const provider = providerIdIsValid ? (userPool ?? []).find((u) => u.id === providerId) : undefined;
   // Warn up-front when this exact ask already exists (subject == requester == me).
   const duplicate = useFeedbackDuplicate(
     providerIdIsValid && requesterId != null
@@ -63,6 +69,7 @@ export default function AskFeedback() {
   // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
   if (!hasFeature("FEEDBACKS")) return <Navigate to="/" replace />;
   if (!providerIdIsValid || requesterId == null) return <Navigate to={backTo} replace />;
+  if (usersReady && !provider) return <Navigate to={backTo} replace />;
 
   async function submit() {
     setError(null);
@@ -99,7 +106,7 @@ export default function AskFeedback() {
           <Group gap="xl">
             <PersonaField
               label={t("common.field.provider")}
-              name={providerName ?? `#${providerId}`}
+              name={provider?.name ?? `#${providerId}`}
             />
             <PersonaField label={t("common.field.subject")} you />
           </Group>

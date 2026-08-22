@@ -32,6 +32,7 @@ import { clampVisibility, visibilityValuesFor } from "../utils/feedbackVisibilit
 import { saveErrorMessage } from "../utils/saveError";
 import { showSuccessToast } from "../utils/toast";
 import { invalidateFeedback } from "../utils/feedbackQueries";
+import { safeBackParam } from "../utils/url";
 
 const PROVIDED = "/feedback?tab=provided";
 
@@ -41,11 +42,10 @@ export default function EditFeedback() {
   const queryClient = useQueryClient();
   const params = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
-  const subjectName = searchParams.get("subjectName");
   // An explicit `back` (e.g. the per-manager feedbacks screen) overrides the tab default;
   // otherwise return to whichever tab the editor was opened from (team tab for managers).
   const backTo =
-    searchParams.get("back") ??
+    safeBackParam(searchParams) ??
     (searchParams.get("from") === "team" ? "/feedback?tab=team" : PROVIDED);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<FeedbackStatus | null>(null);
@@ -195,7 +195,7 @@ export default function EditFeedback() {
     const selfSubject = data!.subjectId === getUserId();
     const subjectDisplay = selfSubject
       ? t("common.state.you")
-      : (data!.subjectName ?? subjectName ?? `#${data!.subjectId}`);
+      : (data!.subjectName ?? `#${data!.subjectId}`);
     const requesterDisplay =
       data!.requesterName ??
       (data!.requesterId != null ? `#${data!.requesterId}` : t("feedback.unknown"));
@@ -289,7 +289,7 @@ export default function EditFeedback() {
           // as the same plain "You" FeedbackForm uses for the provider side.
           getUserId() === data!.subjectId
             ? t("common.state.you")
-            : (data!.subjectName ?? subjectName ?? `#${data!.subjectId}`)
+            : (data!.subjectName ?? `#${data!.subjectId}`)
         }
         subjectIsYou={getUserId() === data!.subjectId}
         initialVisibility={clampVisibility(data!.visibility, hasRequester)}

@@ -6,8 +6,20 @@ import io.ktor.server.plugins.BadRequestException
 // Small helpers for the repeated list-endpoint query-param parsing idioms, so every route stops
 // hand-writing `params["x"]?.takeIf { it.isNotBlank() }` and the numeric variants.
 
+/**
+ * The single value of [name], or null when absent. A repeated key is a 400: repetition is
+ * reserved for per-endpoint documented `IN` semantics (API-LIST-004) — until an endpoint
+ * implements that, silently using the first value would hide the caller's conflicting input
+ * (2026-08-22 monkey-test round, MT-003).
+ */
+fun Parameters.singleValue(name: String): String? {
+    val all = getAll(name) ?: return null
+    if (all.size > 1) throw BadRequestException("Parameter '$name' must not be repeated")
+    return all.first()
+}
+
 /** The param's value, or null when absent or blank. */
-fun Parameters.optionalString(name: String): String? = this[name]?.takeIf { it.isNotBlank() }
+fun Parameters.optionalString(name: String): String? = singleValue(name)?.takeIf { it.isNotBlank() }
 
 /** Parses a non-blank param as UInt; null when absent/blank, 400 when present but not a UInt. */
 fun Parameters.optionalUInt(name: String): UInt? =

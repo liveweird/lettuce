@@ -74,11 +74,14 @@ describe("CreateFeedback page", () => {
     localStorage.clear();
   });
 
-  test("shows the immutable subject and provider with default visibility", () => {
+  test("shows the immutable subject and provider with default visibility", async () => {
+    mockFetch.mockImplementation((url: string) => Promise.resolve(pickerHandler(String(url))));
     renderCreateFeedback();
     expect(screen.getByRole("heading", { name: "Provide feedback" })).toBeInTheDocument();
     expect(screen.getByText("You")).toBeInTheDocument();
-    expect(screen.getByText("Mona")).toBeInTheDocument();
+    // The canonical name resolves from the pool — the URL's subjectName is ignored (v2.35.0).
+    expect(await screen.findByText("Mona Manager")).toBeInTheDocument();
+    expect(screen.queryByText("Mona")).toBeNull();
     expect((screen.getByPlaceholderText("Select visibility") as HTMLInputElement).value).toBe(
       "Provider + subject",
     );
@@ -99,7 +102,11 @@ describe("CreateFeedback page", () => {
 
   test("warns early and disables saving while a duplicate draft is in progress", async () => {
     mockFetch.mockImplementation((url: string) => {
-      if (String(url).startsWith("/api/v1/feedbacks/duplicate-check")) {
+      const u = String(url);
+      if (u.startsWith("/api/v1/users")) {
+        return Promise.resolve(jsonResponse(200, { items: USERS, page: 1, pageSize: 100, total: USERS.length }));
+      }
+      if (u.startsWith("/api/v1/feedbacks/duplicate-check")) {
         return Promise.resolve(jsonResponse(200, { existingId: 42, existingStatus: "DRAFT" }));
       }
       return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 100, total: 0 }));
@@ -126,9 +133,12 @@ describe("CreateFeedback page", () => {
   test("Save draft submits a DRAFT with no requester and redirects to the dashboard", async () => {
     // A fresh Response per call: the templates GET on mount must not consume the body
     // that the createFeedback POST also needs to read.
-    mockFetch.mockImplementation(() => Promise.resolve(jsonResponse(201, { id: 99 })));
+    mockFetch.mockImplementation((url: string, init?: RequestInit) =>
+      Promise.resolve(init?.method === "POST" ? jsonResponse(201, { id: 99 }) : pickerHandler(String(url))),
+    );
     const user = userEvent.setup();
     renderCreateFeedback();
+    await screen.findByText("Mona Manager");
 
     await user.type(screen.getByLabelText("Content"), "Great leadership this quarter");
     await user.click(screen.getByRole("button", { name: /^save draft$/i }));
@@ -152,9 +162,12 @@ describe("CreateFeedback page", () => {
   });
 
   test("Save & send submits with status SENT and redirects to the dashboard", async () => {
-    mockFetch.mockImplementation(() => Promise.resolve(jsonResponse(201, { id: 101 })));
+    mockFetch.mockImplementation((url: string, init?: RequestInit) =>
+      Promise.resolve(init?.method === "POST" ? jsonResponse(201, { id: 101 }) : pickerHandler(String(url))),
+    );
     const user = userEvent.setup();
     renderCreateFeedback();
+    await screen.findByText("Mona Manager");
 
     await user.type(screen.getByLabelText("Content"), "Shipping this feedback");
     await user.click(screen.getByRole("button", { name: /save & send/i }));
@@ -173,9 +186,12 @@ describe("CreateFeedback page", () => {
   });
 
   test("choosing Public is reflected in the submitted visibility", async () => {
-    mockFetch.mockImplementation(() => Promise.resolve(jsonResponse(201, { id: 100 })));
+    mockFetch.mockImplementation((url: string, init?: RequestInit) =>
+      Promise.resolve(init?.method === "POST" ? jsonResponse(201, { id: 100 }) : pickerHandler(String(url))),
+    );
     const user = userEvent.setup();
     renderCreateFeedback();
+    await screen.findByText("Mona Manager");
 
     await user.click(screen.getByPlaceholderText("Select visibility"));
     await user.click(await screen.findByRole("option", { name: "Public", hidden: true }));
@@ -192,9 +208,16 @@ describe("CreateFeedback page", () => {
   });
 
   test("surfaces an error alert when the API rejects the feedback", async () => {
-    mockFetch.mockResolvedValue(jsonResponse(400, { error: "bad_request", message: "nope" }));
+    mockFetch.mockImplementation((url: string, init?: RequestInit) =>
+      Promise.resolve(
+        init?.method === "POST"
+          ? jsonResponse(400, { error: "bad_request", message: "nope" })
+          : pickerHandler(String(url)),
+      ),
+    );
     const user = userEvent.setup();
     renderCreateFeedback();
+    await screen.findByText("Mona Manager");
 
     await user.type(screen.getByLabelText("Content"), "x");
     await user.click(screen.getByRole("button", { name: /^save draft$/i }));
@@ -310,15 +333,17 @@ describe("CreateFeedback page", () => {
   });
 
   test("an explicit back param redirects there after create", async () => {
-    mockFetch.mockImplementation(() => Promise.resolve(jsonResponse(201, { id: 102 })));
-    const back = "/users/10/feedbacks?name=Alice";
+    mockFetch.mockImplementation((url: string, init?: RequestInit) =>
+      Promise.resolve(init?.method === "POST" ? jsonResponse(201, { id: 102 }) : pickerHandler(String(url))),
+    );
+    const back = "/users/9/feedbacks?name=Alice";
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <MantineProvider env="test">
         <QueryClientProvider client={queryClient}>
           <MemoryRouter
             initialEntries={[
-              `/feedback/new?subjectId=10&subjectName=Alice&back=${encodeURIComponent(back)}`,
+              `/feedback/new?subjectId=9&subjectName=Alice&back=${encodeURIComponent(back)}`,
             ]}
           >
             <Routes>
@@ -331,11 +356,12 @@ describe("CreateFeedback page", () => {
     );
 
     const user = userEvent.setup();
+    await screen.findByText("Alice Able");
     await user.type(screen.getByLabelText("Content"), "Notes for Alice");
     await user.click(screen.getByRole("button", { name: /^save draft$/i }));
 
     await waitFor(() =>
-      expect(screen.getByTestId("probe")).toHaveTextContent("/users/10/feedbacks"),
+      expect(screen.getByTestId("probe")).toHaveTextContent("/users/9/feedbacks"),
     );
   });
 });

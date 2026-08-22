@@ -23,13 +23,13 @@ fun ApplicationCall.parsePaging(
 ): PageRequest {
     val params = request.queryParameters
 
-    val page = params["page"]?.let { raw ->
+    val page = params.singleValue("page")?.let { raw ->
         val parsed = raw.toIntOrNull() ?: throw BadRequestException("page must be a positive integer")
         if (parsed < 1) throw BadRequestException("page must be >= 1")
         parsed
     } ?: 1
 
-    val pageSize = params["pageSize"]?.let { raw ->
+    val pageSize = params.singleValue("pageSize")?.let { raw ->
         val parsed = raw.toIntOrNull() ?: throw BadRequestException("pageSize must be an integer")
         if (parsed < 1 || parsed > MAX_PAGE_SIZE) {
             throw BadRequestException("pageSize must be between 1 and $MAX_PAGE_SIZE")
@@ -37,7 +37,7 @@ fun ApplicationCall.parsePaging(
         parsed
     } ?: DEFAULT_PAGE_SIZE
 
-    val sortParam = params["sort"]
+    val sortParam = params.singleValue("sort")
     val requested = if (sortParam.isNullOrBlank()) {
         defaultSort
     } else {

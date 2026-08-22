@@ -23,10 +23,12 @@ function PathProbe() {
 }
 
 
+// The subject's name comes from the RECORD — the URL name params are gone (v2.35.0).
 const FEEDBACK = {
   id: 5,
   requesterId: null,
   subjectId: 8,
+  subjectName: "Mona",
   providerId: 7,
   visibility: "PROVIDER_SUBJECT",
   status: "DRAFT",

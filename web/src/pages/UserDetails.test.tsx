@@ -149,7 +149,7 @@ describe("UserDetails page", () => {
       await screen.findByRole("menuitem", { name: "Provide feedback to Bob" }),
     ).toHaveAttribute(
       "href",
-      `/feedback/new?subjectId=5&subjectName=Bob&back=${encodeURIComponent("/users/5/details?name=Bob&from=users")}`,
+      `/feedback/new?subjectId=5&back=${encodeURIComponent("/users/5/details?name=Bob&from=users")}`,
     );
     // No subordinate-only affordances on a manager card — and with no New 1:1 the 1:1 group
     // stays a single plain button (asserted a link above), never a dropdown.

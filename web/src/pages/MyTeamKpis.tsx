@@ -78,7 +78,7 @@ export default function MyTeamKpis() {
               <Group justify="flex-end">
                 <Button
                   component={RouterLink}
-                  to={teamKpiCreateLink(undefined, undefined, "/team-kpis?tab=managed")}
+                  to={teamKpiCreateLink(undefined, "/team-kpis?tab=managed")}
                   leftSection={<IconPlus size={16} />}
                 >
                   {t("teamKpi.newKpi")}

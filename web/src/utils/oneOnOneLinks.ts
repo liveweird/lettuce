@@ -3,13 +3,8 @@ import { detailSearch, drillDownOptsSearch, type DrillDownOpts } from "./linkSea
 // Builders for every 1:1-flow URL, so the query-string shape (and encodeURIComponent) lives in
 // one place instead of being hand-assembled at every call site — the goalLinks pattern.
 // Optional parts are appended only when given.
-export function oneOnOneCreateLink(
-  subordinateId: number,
-  subordinateName?: string | null,
-  back?: string,
-): string {
+export function oneOnOneCreateLink(subordinateId: number, back?: string): string {
   let url = `/one-on-ones/new?subordinateId=${subordinateId}`;
-  if (subordinateName) url += `&subordinateName=${encodeURIComponent(subordinateName)}`;
   if (back) url += `&back=${encodeURIComponent(back)}`;
   return url;
 }

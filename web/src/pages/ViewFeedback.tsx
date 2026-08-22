@@ -36,6 +36,7 @@ import ConfirmActionModal from "../components/ConfirmActionModal";
 import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
 import { invalidateFeedback } from "../utils/feedbackQueries";
+import { safeBackParam } from "../utils/url";
 
 const RECEIVED = "/feedback?tab=received";
 
@@ -56,14 +57,11 @@ export default function ViewFeedback() {
   const queryClient = useQueryClient();
   const params = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
-  const providerName = searchParams.get("providerName");
-  const requesterName = searchParams.get("requesterName");
   const as = searchParams.get("as");
   const asProvider = as === "provider";
   const asTeam = as === "team";
-  const subjectName = searchParams.get("subjectName");
   // An explicit `back` (e.g. the per-manager feedbacks screen) overrides the tab default.
-  const backOverride = searchParams.get("back");
+  const backOverride = safeBackParam(searchParams);
   const backTo =
     backOverride ??
     (asTeam ? "/feedback?tab=team" : asProvider ? "/feedback?tab=provided" : RECEIVED);
@@ -187,20 +185,20 @@ export default function ViewFeedback() {
                 providerDisplay={
                   isProvider
                     ? t("common.state.you")
-                    : (data!.providerName ?? providerName ?? `#${data!.providerId}`)
+                    : (data!.providerName ?? `#${data!.providerId}`)
                 }
                 providerIsYou={isProvider}
                 subjectDisplay={
                   isSubject
                     ? t("common.state.you")
-                    : (data!.subjectName ?? subjectName ?? `#${data!.subjectId}`)
+                    : (data!.subjectName ?? `#${data!.subjectId}`)
                 }
                 subjectIsYou={isSubject}
                 requesterDisplay={
                   data!.requesterId != null
                     ? isRequester
                       ? t("common.state.you")
-                      : (data!.requesterName ?? requesterName ?? `#${data!.requesterId}`)
+                      : (data!.requesterName ?? `#${data!.requesterId}`)
                     : undefined
                 }
                 requesterIsYou={isRequester}

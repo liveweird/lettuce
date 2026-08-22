@@ -35,6 +35,7 @@ import { invalidateGoal } from "../utils/goalQueries";
 import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
 import { GoalValues, isGoalOverdue, OverdueBadge } from "../utils/goalValues";
+import { safeBackParam } from "../utils/url";
 
 // The manager's lifecycle actions per status. The view screen is their single home — ARCHIVED
 // goals have no edit form, so Reopen could live nowhere else, and keeping all four here means
@@ -57,7 +58,7 @@ export default function ViewGoal() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const from = searchParams.get("from") ?? "own";
-  const backOverride = searchParams.get("back");
+  const backOverride = safeBackParam(searchParams);
   // Bare visits (e.g. a notification link) fall back to the Goals page's My-goals tab —
   // right for notification landings, which are always subordinate-directed; drill-down flows
   // pass an explicit `back` override, which always wins.

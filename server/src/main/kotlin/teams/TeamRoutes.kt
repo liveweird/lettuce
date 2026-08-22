@@ -9,6 +9,7 @@ import ch.nokillswit.daysoff.DaysOffServiceKey
 import ch.nokillswit.feedbacks.FeedbackServiceKey
 import ch.nokillswit.goals.GoalServiceKey
 import ch.nokillswit.infra.db.requireValidReferences
+import ch.nokillswit.infra.validation.sanitizeSingleLine
 import ch.nokillswit.oneonones.OneOnOneLatestStats
 import ch.nokillswit.oneonones.OneOnOneServiceKey
 import ch.nokillswit.infra.paging.optionalIncludeIndirect
@@ -60,6 +61,10 @@ private const val MAX_TEAM_NAME_LENGTH = 100
 // payload — uncapped it dies deep in the driver (Postgres's 65535 bind-parameter ceiling on
 // the deactivated-users IN check) instead of as a clean 400. Runs BEFORE that IN query.
 private const val MAX_TEAM_MEMBERS = 200
+
+// Canonical single-line name (v2.35.0, MT-002): trimmed, control characters rejected — the
+// canonical payload is what validation and persistence see.
+private fun sanitizedTeam(team: Team): Team = team.copy(name = sanitizeSingleLine(team.name, "Team name"))
 
 private fun validateTeam(team: Team) {
     if (team.name.isBlank()) throw BadRequestException("Team name must not be blank")
@@ -231,11 +236,13 @@ fun Application.configureTeamRoutes() {
             }
             post<Teams> {
                 val caller = call.caller()
-                val team = call.receive<Team>()
                 // Team structure is org design — ADMIN territory (v2.33.0; until then any user
                 // could create a team naming themselves manager). The chain rule deliberately
-                // does not apply here.
+                // does not apply here. Guarded BEFORE the body decodes — the guard needs
+                // nothing from the payload, so a non-admin's malformed body stays 403, not
+                // the converter's 400 (MT-006; the users POST ordering).
                 requireAdmin(caller)
+                val team = sanitizedTeam(call.receive())
                 validateTeam(team)
                 // Every reference is new at create — a deactivated member or manager is a 400.
                 userService.requireNoDeactivatedUsers(team.memberIds.toSet() + team.managerId)
@@ -273,7 +280,7 @@ fun Application.configureTeamRoutes() {
                 // ADMIN-only since v2.33.0 (the manager's own edit right is gone — team
                 // structure is org design; reassignment needs no separate guard anymore).
                 requireAdmin(caller)
-                val team = call.receive<Team>()
+                val team = sanitizedTeam(call.receive())
                 validateTeam(team)
                 // Delta only: newly added members and a CHANGED manager. Resubmitting a member
                 // already on the roster (or the unchanged manager) is not a new assignment —

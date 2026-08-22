@@ -28,6 +28,7 @@ import ActionItemHistoryModal from "../components/ActionItemHistoryModal";
 import OneOnOneHistory from "../components/OneOnOneHistory";
 import PersonaField from "../components/PersonaField";
 import { formatIsoDate } from "../utils/datetime";
+import { safeBackParam } from "../utils/url";
 
 /** Read-only 1:1 meeting document for the subordinate, admins, and chain managers. */
 export default function ViewOneOnOne() {
@@ -35,7 +36,7 @@ export default function ViewOneOnOne() {
   const params = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const from = searchParams.get("from") ?? "own";
-  const backOverride = searchParams.get("back");
+  const backOverride = safeBackParam(searchParams);
   // `from` mirrors the originating tab (own/managed/team); unknown values fall back to own.
   // The drill-down flows pass an explicit `back` override instead, which always wins.
   const backTab = from === "team" || from === "managed" ? from : "own";

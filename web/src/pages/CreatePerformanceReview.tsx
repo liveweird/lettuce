@@ -23,6 +23,7 @@ import { renderPeriodOption, useReviewPeriodOptions } from "../hooks/useReviewPe
 import { reviewEditLink, reviewViewLink } from "../utils/performanceReviewLinks";
 import { showSuccessToast } from "../utils/toast";
 import { reviewSaveErrorMessage } from "../utils/reviewRatings";
+import { safeBackParam } from "../utils/url";
 
 const BACK_TO = "/performance?tab=managed";
 // The occupied-slot 409 carries the existing review's API path in ProblemDetail.instance —
@@ -47,20 +48,25 @@ export default function CreatePerformanceReview() {
 
   const preselectedId = Number(searchParams.get("subordinateId"));
   const preselected = Number.isFinite(preselectedId) && preselectedId > 0;
-  const subordinateName = searchParams.get("subordinateName");
-  const backParam = searchParams.get("back");
-  const backTo = backParam ?? BACK_TO;
+  const backTo = safeBackParam(searchParams) ?? BACK_TO;
 
-  const [subordinate, setSubordinate] = useState<string | null>(
-    preselected ? String(preselectedId) : null,
-  );
+  const [picked, setPicked] = useState<string | null>(null);
   const [periodId, setPeriodId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [conflictId, setConflictId] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const { reports, reportsError } = useManagedReports(!preselected);
+  // The pool ALWAYS loads (v2.35.0): a prefilled subordinate resolves its display name
+  // against the caller's own managed data — never a URL param — and an id outside the
+  // caller's chain falls back to the picker once the pool settles.
+  const { reports, reportsError, reportsReady } = useManagedReports(true);
   const options = toReportOptions(reports);
+  const preselectedReport = preselected
+    ? reports.find((r) => r.userId === preselectedId)
+    : undefined;
+  const showPicker = !preselected || (reportsReady && !preselectedReport);
+  const subordinateId =
+    preselectedReport?.userId ?? (showPicker && picked != null ? Number(picked) : null);
 
   // Newest first. A not-yet-started period is not assessable (the server 400s it), so its
   // option renders disabled and the default is the newest STARTED period — usually the
@@ -78,13 +84,13 @@ export default function CreatePerformanceReview() {
   if (!hasFeature("PERFORMANCE_REVIEWS")) return <Navigate to="/" replace />;
 
   async function save() {
-    if (!subordinate || !effectivePeriod) return;
+    if (!subordinateId || !effectivePeriod) return;
     setSubmitting(true);
     setError(null);
     setConflictId(null);
     try {
       const created = await createPerformanceReview({
-        subordinateId: Number(subordinate),
+        subordinateId,
         periodId: Number(effectivePeriod),
       });
       await queryClient.invalidateQueries({ queryKey: ["performanceReviews"] });
@@ -113,22 +119,23 @@ export default function CreatePerformanceReview() {
 
           <Group gap="xl" align="flex-start">
             <PersonaField label={t("performanceReview.manager")} you />
-            {preselected ? (
-              <PersonaField
-                label={t("performanceReview.subordinate")}
-                name={subordinateName ?? `#${preselectedId}`}
-              />
-            ) : (
+            {showPicker ? (
               <Select
                 label={t("performanceReview.subordinate")}
                 placeholder={t("performanceReview.pickSubordinate")}
                 data={options}
-                value={subordinate}
-                onChange={setSubordinate}
+                value={picked}
+                onChange={setPicked}
                 searchable
                 clearable
                 nothingFoundMessage={t("performanceReview.noReports")}
                 error={reportsError ? t("common.error.optionsFailed") : undefined}
+              />
+            ) : (
+              // The `#id` placeholder shows only until the pool resolves the canonical name.
+              <PersonaField
+                label={t("performanceReview.subordinate")}
+                name={preselectedReport?.name ?? `#${preselectedId}`}
               />
             )}
             <Select
@@ -173,7 +180,7 @@ export default function CreatePerformanceReview() {
             <Button
               onClick={() => void save()}
               loading={submitting}
-              disabled={!subordinate || !effectivePeriod}
+              disabled={!subordinateId || !effectivePeriod}
             >
               {t("common.action.create")}
             </Button>

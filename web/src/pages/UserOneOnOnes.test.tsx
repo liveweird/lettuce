@@ -178,7 +178,7 @@ describe("UserOneOnOnes page", () => {
     const back = encodeURIComponent("/users/10/one-on-ones?name=Alice&from=subordinates");
     expect(await screen.findByRole("link", { name: "New 1:1" })).toHaveAttribute(
       "href",
-      `/one-on-ones/new?subordinateId=10&subordinateName=Alice&back=${back}`,
+      `/one-on-ones/new?subordinateId=10&back=${back}`,
     );
 
     // Reached from the managers card, the counterpart is the caller's own manager — a 1:1
@@ -199,7 +199,7 @@ describe("UserOneOnOnes page", () => {
     const back = encodeURIComponent("/users/10/one-on-ones?name=Alice&from=team&teamId=5");
     expect(screen.getByRole("link", { name: "New 1:1" })).toHaveAttribute(
       "href",
-      `/one-on-ones/new?subordinateId=10&subordinateName=Alice&back=${back}`,
+      `/one-on-ones/new?subordinateId=10&back=${back}`,
     );
   });
 

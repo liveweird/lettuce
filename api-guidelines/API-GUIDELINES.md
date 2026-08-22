@@ -204,8 +204,13 @@ default sort (if the client sends none, `id` ascending unless stated otherwise).
 
 ### API-LIST-004 — Filtering: whitelisted equality + a tiny operator surface `[both]`
 **MUST** filter by whitelisted equality on the field's own name (`?status=DRAFT&providerId=42`);
-unknown fields → `400`. Repeating a key is **reserved** to mean `IN`
-(`?status=DRAFT&status=SENT`) — implement per-endpoint when a UI needs it, and document it.
+an unknown value in a whitelisted field → `400`. An unknown query parameter **name** is
+**ignored** — deliberate leniency (clients may carry extra params; new server params must not
+break old clients); "unknown fields → 400" governs values of recognized filter fields, not
+the parameter namespace (clarified 2026-08-22, MT-003). Repeating a key is **reserved** to
+mean `IN` (`?status=DRAFT&status=SENT`) — implement per-endpoint when a UI needs it, and
+document it; until an endpoint does, a **repeated scalar key MUST be a `400`** (never silent
+first-value-wins — enforced centrally in the shared param helpers since v2.35.0).
 Range/operator filters use bracket suffixes, only where an endpoint needs them:
 `field[gte]`, `field[gt]`, `field[lte]`, `field[lt]` for ordered types. **MUST NOT** add
 `[like]`, `[ne]`, or `[in]` (use repetition for `IN`) — keep the operator surface tiny.
@@ -325,6 +330,7 @@ ad-hoc error JSON.
 | Missing / invalid authentication | `401` |
 | Authenticated but not permitted | `403` |
 | Resource does not exist (or is soft-deleted — API-RES-007) | `404` |
+| Known path, unsupported method (problem body via the central status handler; no `Allow` header — Ktor does not surface the allowed-method set, accepted) | `405` |
 | Unacceptable / conflicting media type | `406` / `415` |
 | State-machine conflict, uniqueness violation (DB unique-constraint errors **MUST** be caught and mapped, never surface as `500`) | `409` |
 | Failed precondition (`If-Match`) | `412` |

@@ -25,6 +25,7 @@ import { toReportOptions, useManagedReports } from "../hooks/useManagedReports";
 import { invalidateDaysOff } from "../utils/daysOffQueries";
 import { saveErrorMessage } from "../utils/saveError";
 import { showSuccessToast } from "../utils/toast";
+import { safeBackParam } from "../utils/url";
 
 const TYPES = ["PAID", "UNPAID"] as const;
 
@@ -46,9 +47,9 @@ export default function CreateDaysOff() {
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const onBehalf = searchParams.get("onBehalf") === "1";
-  const rawBack = searchParams.get("back");
-  const backTo =
-    rawBack && rawBack.startsWith("/") ? rawBack : daysOffListLink(onBehalf ? "team" : "requests");
+  // The shared sanitizer (v2.35.0) — the local startsWith("/") check it replaces still
+  // admitted protocol-relative "//evil.example" values.
+  const backTo = safeBackParam(searchParams) ?? daysOffListLink(onBehalf ? "team" : "requests");
 
   const [type, setType] = useState<DaysOffType>("PAID");
   const [startDate, setStartDate] = useState(todayIsoDate());

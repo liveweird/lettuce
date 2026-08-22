@@ -286,13 +286,13 @@ describe("FeedbackTable (team view)", () => {
     const draftRow = (await screen.findByText("Tina Subject")).closest("tr")!;
     expect(within(draftRow).getByRole("link", { name: /edit/i })).toHaveAttribute(
       "href",
-      "/feedback/2/edit?subjectName=Tina%20Subject&from=team",
+      "/feedback/2/edit?from=team",
     );
 
     const sentRow = screen.getByText("Sam Subject").closest("tr")!;
     expect(within(sentRow).getByRole("link", { name: /view/i })).toHaveAttribute(
       "href",
-      "/feedback/1/view?as=team&providerName=Alice%20Provider&subjectName=Sam%20Subject&requesterName=Carol%20Requester",
+      "/feedback/1/view?as=team",
     );
   });
 
@@ -309,7 +309,7 @@ describe("FeedbackTable (team view)", () => {
 
     const row = (await screen.findByText("Sam Subject")).closest("tr")!;
     const href = within(row).getByRole("link", { name: /view/i }).getAttribute("href")!;
-    expect(href).toContain("/feedback/5/view?as=team&providerName=Alice%20Provider");
-    expect(href).not.toContain("requesterName=");
+    expect(href).toContain("/feedback/5/view?as=team");
+    expect(href).not.toContain("Name=");
   });
 });

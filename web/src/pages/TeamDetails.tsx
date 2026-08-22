@@ -313,8 +313,8 @@ export default function TeamDetails() {
                   <Group gap="xs" wrap="nowrap" justify="flex-end">
                     {m.id !== currentUserId && hasFeature("FEEDBACKS") && (
                       <FeedbackActionsMenu
-                        provideTo={feedbackProvideLink(m.id, m.name)}
-                        askTo={feedbackAskLink(m.id, m.name, `/teams/${id}/details`)}
+                        provideTo={feedbackProvideLink(m.id)}
+                        askTo={feedbackAskLink(m.id, `/teams/${id}/details`)}
                         listTo={userFeedbacksLink(m.id, m.name, "members", id)}
                         name={m.name}
                       />

@@ -11,6 +11,7 @@ import ch.nokillswit.plugins.ProblemDetail
 import ch.nokillswit.teams.Team
 import ch.nokillswit.templates.Template
 import ch.nokillswit.users.UserRequest
+import ch.nokillswit.users.UserResponse
 import ch.nokillswit.users.UserRole
 import ch.nokillswit.users.UserUpdateRequest
 import io.ktor.client.HttpClient
@@ -18,9 +19,11 @@ import io.ktor.client.call.body
 import io.ktor.client.plugins.DefaultRequest
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -29,6 +32,7 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /**
  * Up-front payload validation (400 + ProblemDetail) instead of DB-level failures (500):
@@ -137,6 +141,95 @@ class PayloadValidationTest {
         // (the OpenApiConformance plugin checks that declaration on these very requests).
         assertEquals(HttpStatusCode.BadRequest, client.get("/api/v1/users/not-a-number").status)
         assertEquals(HttpStatusCode.BadRequest, client.get("/api/v1/users/4161833451198").status)
+        // A negative id used to WRAP (kotlinx decodes UInt via toInt().toUInt(), so -1 became
+        // 4294967295 and flowed into the normal 403/404 lookup) — the central pre-routing
+        // intercept makes it the 400 the spec's `minimum: 0` always promised (v2.35.0, MT-005).
+        val negative = client.get("/api/v1/users/-1")
+        assertEquals(HttpStatusCode.BadRequest, negative.status)
+        assertEquals("Path id must be a non-negative integer", negative.body<ProblemDetail>().detail)
+    }
+
+    @Test
+    fun `single-line identity fields reject control characters and trim to canonical`() = testApplication {
+        usePostgresTestcontainer()
+        val client = adminClient()
+
+        suspend fun createStatus(name: String, email: String): HttpStatusCode =
+            client.post("/api/v1/users") {
+                contentType(ContentType.Application.Json)
+                setBody(UserRequest(name = name, email = email, password = "pw-123456789"))
+            }.status
+
+        // Control characters (MT-002): newlines/tabs in a name or email are a 400, not stored.
+        assertEquals(HttpStatusCode.BadRequest, createStatus("Line\nBreak", uniqueEmail("u")))
+        assertEquals(HttpStatusCode.BadRequest, createStatus("Tab\tName", uniqueEmail("u")))
+        assertEquals(HttpStatusCode.BadRequest, createStatus("Ok", "evil\n${uniqueEmail("u")}"))
+        val managerId = TestUsers.seed(email = uniqueEmail("mgr"), password = "pw-123456789")
+        val teamControl = client.post("/api/v1/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "AA\u0007BB", managerId = managerId, memberIds = emptyList()))
+        }
+        assertEquals(HttpStatusCode.BadRequest, teamControl.status)
+        val templateControl = client.post("/api/v1/templates") {
+            contentType(ContentType.Application.Json)
+            setBody(Template(name = "Bad\u000BName", content = "fine"))
+        }
+        assertEquals(HttpStatusCode.BadRequest, templateControl.status)
+
+        // Surrounding whitespace is trimmed before validation and persistence.
+        val padded = client.post("/api/v1/users") {
+            contentType(ContentType.Application.Json)
+            setBody(UserRequest(name = "  Padded Name  ", email = "  ${uniqueEmail("pad")}  ", password = "pw-123456789"))
+        }
+        assertEquals(HttpStatusCode.Created, padded.status)
+        val created = padded.body<UserResponse>()
+        assertEquals("Padded Name", created.name)
+        assertEquals(created.email.trim(), created.email)
+    }
+
+    @Test
+    fun `a repeated scalar query parameter is a 400 problem`() = testApplication {
+        usePostgresTestcontainer()
+        val client = adminClient()
+        // Repetition is reserved for per-endpoint documented IN semantics (API-LIST-004) —
+        // silently first-winning would hide the caller's conflicting input (MT-003).
+        val paging = client.get("/api/v1/users?page=1&page=2")
+        assertEquals(HttpStatusCode.BadRequest, paging.status)
+        assertEquals("Parameter 'page' must not be repeated", paging.body<ProblemDetail>().detail)
+        assertEquals(HttpStatusCode.BadRequest, client.get("/api/v1/users?role=ADMIN&role=HR").status)
+        assertEquals(HttpStatusCode.BadRequest, client.get("/api/v1/users?sort=id&sort=name").status)
+    }
+
+    @Test
+    fun `malformed request bodies answer with fixed vocabulary - never internal class names`() = testApplication {
+        usePostgresTestcontainer()
+        val client = adminClient()
+        // ContentNegotiation's wrap used to surface "Failed to convert request body to class
+        // ch.nokillswit.teams.Team" — internal package structure in a client-facing body
+        // (MT-007). The cause-chain discriminator replaces exactly that class of message …
+        val missingFields = client.post("/api/v1/templates") {
+            contentType(ContentType.Application.Json)
+            setBody("{}")
+        }
+        assertEquals(HttpStatusCode.BadRequest, missingFields.status)
+        assertEquals(
+            "Request body is invalid or does not match the expected schema",
+            missingFields.body<ProblemDetail>().detail,
+        )
+        val notJson = client.post("/api/v1/templates") {
+            contentType(ContentType.Application.Json)
+            setBody("not json at all")
+        }
+        assertEquals(
+            "Request body is invalid or does not match the expected schema",
+            notJson.body<ProblemDetail>().detail,
+        )
+        // … while our validators' intentional messages pass through untouched.
+        val blankName = client.post("/api/v1/templates") {
+            contentType(ContentType.Application.Json)
+            setBody(Template(name = " ", content = "fine"))
+        }
+        assertEquals("Template name must not be blank", blankName.body<ProblemDetail>().detail)
     }
 
     @Test
@@ -284,5 +377,18 @@ class PayloadValidationTest {
             )
         }
         assertEquals(HttpStatusCode.BadRequest, requestOver.status)
+    }
+
+    @Test
+    fun `a wrong-method call answers 405 with a problem body`() = testApplication {
+        usePostgresTestcontainer()
+        // Routing's method-mismatch rejection used to be a bodiless 405 (MT-004; API-ERR-001).
+        // Deliberately the DEFAULT client: a wrong-method operation is outside the spec by
+        // definition, and the conformance plugin would (correctly) flag it on jsonClient().
+        val response = client.patch("/api/v1/users")
+        assertEquals(HttpStatusCode.MethodNotAllowed, response.status)
+        assertEquals("application", response.contentType()?.contentType)
+        assertEquals("problem+json", response.contentType()?.contentSubtype)
+        assertTrue(response.bodyAsText().contains("Method not allowed for this resource"))
     }
 }

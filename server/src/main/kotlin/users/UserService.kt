@@ -143,8 +143,10 @@ class UserService(val database: R2dbcDatabase) {
 
     suspend fun findWithIdByEmail(email: String): Pair<UInt, User>? {
         return suspendTransaction(database) {
+            // Stored emails are canonical (v2.35.0, V64 backfill); folding the argument too is
+            // defense-in-depth so a caller that skipped canonicalEmail still matches.
             Users.selectAll()
-                .where { (Users.email eq email) and active() }
+                .where { (Users.email eq canonicalEmail(email)) and active() }
                 .toList()
                 .singleOrNull()
                 ?.let {

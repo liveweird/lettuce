@@ -18,6 +18,7 @@ import {
 } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { ApiError } from "../api/http";
 import { getUserId, hasFeature } from "../api/session";
 import { getPerformanceReview, publishPerformanceReview, revertPerformanceReview, submitPerformanceReview, unpublishPerformanceReview, type CategoryAssessment, type PerformanceReviewStatus } from "../api/reviews";
 import PerformanceReviewHistory from "../components/PerformanceReviewHistory";
@@ -32,6 +33,7 @@ import { invalidatePerformanceReview } from "../utils/performanceReviewQueries";
 import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
 import { ratingLabel, REVIEW_CATEGORIES } from "../utils/reviewRatings";
+import { safeBackParam } from "../utils/url";
 
 // The manager's lifecycle actions per status (the ViewGoal ACTIONS idiom). Every edge is
 // bodyless — no close-modal analogue; publish is the "deliver" primary, unpublish the
@@ -97,14 +99,14 @@ export default function ViewPerformanceReview() {
 
   // Bare visits (notification links) return to the Performance page; drill-downs' explicit back wins.
   const from = searchParams.get("from") ?? undefined;
-  const backOverride = searchParams.get("back");
+  const backOverride = safeBackParam(searchParams);
   const backTo = backOverride ?? "/performance";
 
   const [error, setError] = useState<string | null>(null);
   // The in-flight action's labelKey, so only its button spins.
   const [submitting, setSubmitting] = useState<string | null>(null);
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, error: loadError } = useQuery({
     queryKey: ["performanceReview", id],
     queryFn: () => getPerformanceReview(id),
     enabled: idIsValid,
@@ -112,6 +114,19 @@ export default function ViewPerformanceReview() {
 
   // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
   if (!hasFeature("PERFORMANCE_REVIEWS")) return <Navigate to="/" replace />;
+  // Malformed id → back to the list (the ViewGoal idiom, v2.35.0 — this page used to render
+  // a silent blank panel instead).
+  if (!idIsValid) return <Navigate to={backTo} replace />;
+
+  // Status-specific load failures (the ViewGoal shape, v2.35.0 — 404/403/other used to
+  // collapse into one generic message here, alone among the detail pages).
+  const errorStatus = loadError instanceof ApiError ? loadError.status : null;
+  const loadErrorText =
+    errorStatus === 404
+      ? t("performanceReview.error.notFound")
+      : errorStatus === 403
+        ? t("performanceReview.error.viewPermission")
+        : t("performanceReview.loadError");
 
   async function runAction(labelKey: string, run: (id: number) => Promise<void>, successKey: ParseKeys) {
     setSubmitting(labelKey);
@@ -153,7 +168,7 @@ export default function ViewPerformanceReview() {
           )}
           {isError && (
             <Alert color="red" variant="light">
-              {t("performanceReview.loadError")}
+              {loadErrorText}
             </Alert>
           )}
 

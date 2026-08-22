@@ -35,6 +35,7 @@ import { teamKpiEditLink } from "../utils/teamKpiLinks";
 import { invalidateTeamKpi } from "../utils/teamKpiQueries";
 import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
+import { safeBackParam } from "../utils/url";
 
 // The chart is one of the four lazy consumers of @mantine/charts/recharts (the org-chart
 // precedent) so the libraries never touch the main bundle; keepMounted={false} on the Tabs
@@ -65,7 +66,7 @@ export default function ViewTeamKpi() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const backOverride = searchParams.get("back");
+  const backOverride = safeBackParam(searchParams);
   // Bare visits (e.g. a notification link) fall back to the Team KPIs page — right for
   // notification landings, which are always member-directed; drill-down flows pass an explicit
   // `back` override, which always wins.
